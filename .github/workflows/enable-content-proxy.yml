@@ -9,9 +9,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: gravitas-content-proxy
+  cancel-in-progress: true
+
 jobs:
   proxy:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -28,11 +32,15 @@ jobs:
           printf '%s\n' "$KEY" > ~/.ssh/key
           chmod 600 ~/.ssh/key
           ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/key -p "$PORT" deploy@$HOST "sudo /usr/local/sbin/gravitas-enable-content-proxy"
+          ssh -i ~/.ssh/key -p "$PORT" -o BatchMode=yes deploy@$HOST \
+            "sudo bash /var/www/gravitas/ops/enable-content-proxy.txt"
 
       - name: Verify content routing
         shell: bash
         run: |
           set -euo pipefail
+          sleep 2
           code="$(curl -4 -sS -o /tmp/content-check -w '%{http_code}' https://gravitasplus.com/content/definitely-not-published/)"
           test "$code" = "404"
+          ! grep -q '<title>Gravitas+ — Science' /tmp/content-check
+          echo gravitas-content-proxy-ready
