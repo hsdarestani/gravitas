@@ -1,0 +1,32 @@
+name: Gravitas Launch Hardening Check
+
+on:
+  push:
+    branches: [launch-hardening]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DJANGO_SECRET_KEY: ci-only-secret
+      DJANGO_DEBUG: '0'
+      DJANGO_SETTINGS_MODULE: gravitas_backend.settings
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend dependencies
+        run: python -m pip install -q -r backend/requirements.txt
+      - name: Compile Python
+        run: python -m compileall -q backend
+      - name: Check Django configuration and migration drift
+        run: |
+          django-admin check
+          django-admin makemigrations core --check --dry-run --noinput
