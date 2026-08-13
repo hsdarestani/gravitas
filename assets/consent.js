@@ -5,6 +5,7 @@
 
   var KEY = 'gravitas:consent:v1';
   var VERSION = 1;
+  var OPTIONAL_ANALYTICS_AVAILABLE = window.GRAVITAS_OPTIONAL_ANALYTICS === true;
 
   function read() {
     try {
@@ -16,7 +17,7 @@
   }
 
   function ensureManageButton() {
-    if (document.getElementById('gravitas-privacy-manage')) return;
+    if (!OPTIONAL_ANALYTICS_AVAILABLE || document.getElementById('gravitas-privacy-manage')) return;
     var button = document.createElement('button');
     button.id = 'gravitas-privacy-manage';
     button.type = 'button';
@@ -31,7 +32,7 @@
     var value = {
       version: VERSION,
       necessary: true,
-      analytics: !!analytics,
+      analytics: OPTIONAL_ANALYTICS_AVAILABLE && !!analytics,
       decidedAt: new Date().toISOString()
     };
     try { localStorage.setItem(KEY, JSON.stringify(value)); } catch (e) {}
@@ -46,6 +47,7 @@
   }
 
   function show() {
+    if (!OPTIONAL_ANALYTICS_AVAILABLE) return;
     removeBanner();
     var panel = document.createElement('section');
     panel.id = 'gravitas-consent';
@@ -71,20 +73,23 @@
 
   window.GravitasConsent = {
     get: read,
+    analyticsAvailable: function () { return OPTIONAL_ANALYTICS_AVAILABLE; },
     analyticsAllowed: function () {
+      if (!OPTIONAL_ANALYTICS_AVAILABLE) return false;
       var value = read();
       return !!(value && value.analytics);
     },
     necessaryOnly: function () { write(false); removeBanner(); },
-    allowAnalytics: function () { write(true); removeBanner(); },
+    allowAnalytics: function () { if (OPTIONAL_ANALYTICS_AVAILABLE) write(true); removeBanner(); },
     open: show,
     reset: function () {
       try { localStorage.removeItem(KEY); } catch (e) {}
-      show();
+      if (OPTIONAL_ANALYTICS_AVAILABLE) show();
     }
   };
 
   function boot() {
+    if (!OPTIONAL_ANALYTICS_AVAILABLE) return;
     if (!read()) show();
     else ensureManageButton();
   }
