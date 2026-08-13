@@ -132,7 +132,7 @@
     });
   });
 
-  /* ---- newsletter / forms ---------------------------------------------- */
+  /* ---- newsletter ------------------------------------------------------- */
   [].forEach.call(document.querySelectorAll('.g-inline-form[data-demo-form]'), function (f) {
     f.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -171,4 +171,128 @@
       });
     });
   });
+
+  /* ---- account authentication ------------------------------------------ */
+  function cookie(name) {
+    var prefix = name + '=';
+    var parts = document.cookie ? document.cookie.split(';') : [];
+    for (var i = 0; i < parts.length; i++) {
+      var value = parts[i].trim();
+      if (value.indexOf(prefix) === 0) return decodeURIComponent(value.slice(prefix.length));
+    }
+    return '';
+  }
+
+  function csrfToken() {
+    return fetch('/api/auth/csrf/', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    }).then(function (res) {
+      if (!res.ok) throw new Error('csrf');
+      return cookie('csrftoken') || cookie('gravitas_staging_csrftoken');
+    });
+  }
+
+  function authPost(url, payload) {
+    return csrfToken().then(function (token) {
+      return fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRFToken': token
+        },
+        body: JSON.stringify(payload || {})
+      });
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) throw data;
+        return data;
+      });
+    });
+  }
+
+  function authMessage(error) {
+    if (!error) return 'Something went wrong. Please try again.';
+    if (error.error === 'invalid_email') return 'Please enter a valid email address.';
+    if (error.error === 'password_too_short') return 'Use a password with at least eight characters.';
+    if (error.error === 'account_exists') return 'An account with this email already exists.';
+    if (error.error === 'invalid_credentials') return 'Email or password is incorrect.';
+    return 'Something went wrong. Please try again.';
+  }
+
+  var signupForm = document.getElementById('p-up');
+  var loginForm = document.getElementById('p-in');
+  var resetForm = document.getElementById('p-reset');
+  var authNote = document.querySelector('.auth__note[data-form-note]');
+
+  if (signupForm) {
+    signupForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var button = signupForm.querySelector('button[type="submit"]');
+      if (button) button.disabled = true;
+      if (authNote) authNote.textContent = 'Creating your account…';
+      authPost('/api/auth/signup/', {
+        name: signupForm.elements.name.value.trim(),
+        email: signupForm.elements.email.value.trim(),
+        password: signupForm.elements.password.value,
+        newsletter: !!(signupForm.elements.news && signupForm.elements.news.checked)
+      }).then(function (data) {
+        if (authNote) authNote.textContent = 'Account created. You’re signed in as ' + data.user.email + '.';
+        var signIn = document.querySelector('.gh-signin');
+        if (signIn) signIn.textContent = 'Account';
+      }).catch(function (err) {
+        if (authNote) authNote.textContent = authMessage(err);
+      }).finally(function () {
+        if (button) button.disabled = false;
+      });
+    });
+  }
+
+  if (loginForm) {
+    loginForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var button = loginForm.querySelector('button[type="submit"]');
+      if (button) button.disabled = true;
+      if (authNote) authNote.textContent = 'Signing in…';
+      authPost('/api/auth/login/', {
+        email: loginForm.elements.email.value.trim(),
+        password: loginForm.elements.password.value,
+        keep: !!(loginForm.elements.keep && loginForm.elements.keep.checked)
+      }).then(function (data) {
+        if (authNote) authNote.textContent = 'Signed in as ' + data.user.email + '.';
+        var signIn = document.querySelector('.gh-signin');
+        if (signIn) signIn.textContent = 'Account';
+      }).catch(function (err) {
+        if (authNote) authNote.textContent = authMessage(err);
+      }).finally(function () {
+        if (button) button.disabled = false;
+      });
+    });
+  }
+
+  if (resetForm) {
+    resetForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (authNote) authNote.textContent = 'Password-reset email is being enabled in the system-email step.';
+    });
+  }
+
+  fetch('/api/auth/me/', {
+    credentials: 'same-origin',
+    headers: { 'Accept': 'application/json' }
+  }).then(function (res) {
+    if (!res.ok) return null;
+    return res.json();
+  }).then(function (data) {
+    if (!data || !data.authenticated) return;
+    var signIn = document.querySelector('.gh-signin');
+    if (signIn) {
+      signIn.textContent = 'Account';
+      signIn.href = 'account.html';
+    }
+    if (authNote) authNote.textContent = 'Signed in as ' + data.user.email + '.';
+  }).catch(function () {});
 })();
