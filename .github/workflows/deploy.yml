@@ -240,9 +240,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rsync -az --delete \
+          rsync -az --delete --delete-excluded \
             --exclude '.git/' \
             --exclude '.github/' \
+            --exclude 'backend/' \
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
             ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
 
@@ -287,6 +288,7 @@ jobs:
           sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
           sudo /usr/local/sbin/gravitas-backup
           test -n "$(sudo find /var/backups/gravitas -maxdepth 1 -type f -name 'db-*.dump' -print -quit)"
+          test ! -e /var/www/gravitas/backend
           echo infrastructure-checks-passed
           REMOTE
 
