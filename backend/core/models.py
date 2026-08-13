@@ -81,3 +81,27 @@ class Comment(models.Model):
 
     def __str__(self):
         return f'{self.author} · {self.content_key} · {self.status}'
+
+
+class LabProgress(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_lab_progress',
+    )
+    lab_key = models.SlugField(max_length=190)
+    state = models.JSONField(default=dict, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    score = models.FloatField(blank=True, null=True)
+    completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'lab_key'], name='unique_user_lab_progress'),
+        ]
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f'{self.user} · {self.lab_key}'
