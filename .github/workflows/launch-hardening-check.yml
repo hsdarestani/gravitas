@@ -11,12 +11,32 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gravitas_ci
+          POSTGRES_USER: gravitas_ci
+          POSTGRES_PASSWORD: gravitas_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gravitas_ci -d gravitas_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DJANGO_SECRET_KEY: ci-only-secret
       DJANGO_DEBUG: '0'
       DJANGO_SETTINGS_MODULE: gravitas_backend.settings
       PYTHONPATH: backend
+      DJANGO_DB_NAME: gravitas_ci
+      DJANGO_DB_USER: gravitas_ci
+      DJANGO_DB_PASSWORD: gravitas_ci
+      DJANGO_DB_HOST: 127.0.0.1
+      DJANGO_DB_PORT: '5432'
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,7 +46,63 @@ jobs:
         run: python -m pip install -q -r backend/requirements.txt
       - name: Compile Python
         run: python -m compileall -q backend
-      - name: Check Django configuration and migration drift
+      - name: Check migration drift
+        run: django-admin makemigrations core --check --dry-run --noinput
+      - name: Apply migrations to PostgreSQL
+        run: django-admin migrate --noinput
+      - name: Check Django configuration
+        run: django-admin check
+      - name: Verify CMS translations Community and Lab schema
         run: |
-          django-admin check
-          django-admin makemigrations core --check --dry-run --noinput
+          python - <<'PY'
+          import os
+          import django
+          django.setup()
+
+          from django.contrib.auth import get_user_model
+          from django.test import Client
+          from django.utils import timezone
+          from core.models import Comment, ContentItem, ContentTranslation, LabProgress
+
+          item = ContentItem.objects.create(
+              kind=ContentItem.Kind.DOSSIER,
+              status=ContentItem.Status.PUBLISHED,
+              slug='ci-language-check',
+              title='English base',
+              summary='English summary',
+              body='English body',
+              published_at=timezone.now(),
+          )
+          ContentTranslation.objects.create(
+              content=item,
+              locale=ContentTranslation.Locale.GERMAN,
+              status=ContentTranslation.Status.PUBLISHED,
+              title='Deutscher Titel',
+              summary='Deutsche Zusammenfassung',
+              body='Deutscher Inhalt',
+              published_at=timezone.now(),
+          )
+
+          client = Client(HTTP_HOST='localhost')
+          response = client.get('/api/content/ci-language-check/?lang=de')
+          assert response.status_code == 200, response.content
+          payload = response.json()['item']
+          assert payload['locale'] == 'de'
+          assert payload['title'] == 'Deutscher Titel'
+          assert payload['fallback_to_english'] is False
+
+          response = client.get('/api/content/ci-language-check/?lang=fa')
+          assert response.status_code == 200, response.content
+          payload = response.json()['item']
+          assert payload['locale'] == 'en'
+          assert payload['title'] == 'English base'
+          assert payload['fallback_to_english'] is True
+
+          User = get_user_model()
+          user = User.objects.create_user(username='ci@example.com', email='ci@example.com', password='CI-Password-2026-Strong!')
+          comment = Comment.objects.create(author=user, content_key='ci-language-check', body='CI moderation test')
+          assert comment.status == Comment.Status.PENDING
+          progress = LabProgress.objects.create(user=user, lab_key='ci-lab', state={'step': 1}, completed=False)
+          assert progress.state['step'] == 1
+          print('launch-hardening-postgresql-check-passed')
+          PY
