@@ -22,6 +22,16 @@
     }
   }
 
+  function loadHomepageCms() {
+    if (location.pathname !== '/' && location.pathname !== '/index.html') return;
+    if (document.querySelector('script[data-gravitas-home-cms]')) return;
+    var script = document.createElement('script');
+    script.src = '/assets/cms-home.js';
+    script.async = true;
+    script.dataset.gravitasHomeCms = '1';
+    document.head.appendChild(script);
+  }
+
   function run() {
     var heroCredit = document.querySelector('.lp-hero__credit');
     cleanText(heroCredit, [
@@ -64,6 +74,8 @@
         else list.remove();
       }
     });
+
+    loadHomepageCms();
   }
 
   if (document.readyState === 'loading') {
