@@ -1,0 +1,94 @@
+name: Gravitas CMS production E2E
+
+on:
+  workflow_run:
+    workflows: ["Enable Content Proxy"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-cms-production-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DOMAIN: gravitasplus.com
+    steps:
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Create temporary published and draft content
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUB="e2e-published-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          DRAFT="e2e-draft-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "PUB_SLUG=$PUB" >> "$GITHUB_ENV"
+          echo "DRAFT_SLUG=$DRAFT" >> "$GITHUB_ENV"
+
+          ssh -i ~/.ssh/key -p "$DEPLOY_PORT" deploy@${{ secrets.DEPLOY_HOST }} bash -s -- "$PUB" "$DRAFT" <<'REMOTE'
+          set -euo pipefail
+          PUB="$1"; DRAFT="$2"; BACKEND=/opt/gravitas-backend
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{print $2}' /etc/gravitas/backend.env)"
+          sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$BACKEND" \
+            "$BACKEND/.venv/bin/python" - "$PUB" "$DRAFT" <<'PY'
+          import os, sys, django
+          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+          django.setup()
+          from django.utils import timezone
+          from core.models import ContentItem
+          pub, draft = sys.argv[1], sys.argv[2]
+          ContentItem.objects.filter(slug__in=[pub, draft]).delete()
+          ContentItem.objects.create(kind='article', status='published', slug=pub, title='Gravitas E2E published', summary='Temporary production test.', body='E2E published body marker.', published_at=timezone.now())
+          ContentItem.objects.create(kind='article', status='draft', slug=draft, title='Gravitas E2E draft', summary='Temporary draft test.', body='E2E draft body marker.')
+          PY
+          REMOTE
+
+      - name: Verify published SSR and draft privacy
+        shell: bash
+        run: |
+          set -euo pipefail
+          PAGE="$(curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/content/$PUB_SLUG/")"
+          printf '%s' "$PAGE" | grep -Fq 'Gravitas E2E published'
+          printf '%s' "$PAGE" | grep -Fq 'E2E published body marker.'
+          printf '%s' "$PAGE" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+
+          CODE="$(curl -4 -sS -o /tmp/draft-page -w '%{http_code}' "https://$DOMAIN/content/$DRAFT_SLUG/")"
+          test "$CODE" = "404"
+          echo gravitas-cms-production-e2e-passed
+
+      - name: Remove temporary CMS records
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "${PUB_SLUG:-}" ] || exit 0
+          [ -n "${DRAFT_SLUG:-}" ] || exit 0
+          ssh -i ~/.ssh/key -p "$DEPLOY_PORT" deploy@${{ secrets.DEPLOY_HOST }} bash -s -- "$PUB_SLUG" "$DRAFT_SLUG" <<'REMOTE'
+          set -euo pipefail
+          PUB="$1"; DRAFT="$2"; BACKEND=/opt/gravitas-backend
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{print $2}' /etc/gravitas/backend.env)"
+          sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$BACKEND" \
+            "$BACKEND/.venv/bin/python" - "$PUB" "$DRAFT" <<'PY'
+          import os, sys, django
+          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+          django.setup()
+          from core.models import ContentItem
+          ContentItem.objects.filter(slug__in=sys.argv[1:3]).delete()
+          PY
+          REMOTE
