@@ -1,15 +1,25 @@
 import json
+from urllib.parse import quote
 
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core import signing
 from django.core.exceptions import ValidationError
+from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
 from django.db import connection
-from django.http import JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
 from .models import Comment, LabProgress, NewsletterSubscriber
 
 User = get_user_model()
+NEWSLETTER_SIGNING_SALT = 'gravitas-newsletter-confirm-v1'
+NEWSLETTER_CONFIRM_MAX_AGE = 60 * 60 * 48
 
 
 def _payload(request):
@@ -50,6 +60,36 @@ def _lab_progress_json(progress):
     }
 
 
+def _send_system_email(subject, recipient, text_body, html_body=None):
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[recipient],
+    )
+    if html_body:
+        message.attach_alternative(html_body, 'text/html')
+    message.send(fail_silently=False)
+
+
+def _send_newsletter_confirmation(email):
+    token = signing.dumps({'email': email}, salt=NEWSLETTER_SIGNING_SALT, compress=True)
+    link = f"{settings.PUBLIC_BASE_URL}/api/newsletter/confirm/?token={quote(token)}"
+    text = (
+        'Confirm your Gravitas+ newsletter subscription\n\n'
+        'Click the link below within 48 hours to confirm your email address:\n'
+        f'{link}\n\n'
+        'If you did not request this, you can ignore this email.'
+    )
+    html = (
+        '<h2>Confirm your Gravitas+ subscription</h2>'
+        '<p>One last step: confirm your email address within 48 hours.</p>'
+        f'<p><a href="{link}">Confirm subscription</a></p>'
+        '<p>If you did not request this, you can ignore this email.</p>'
+    )
+    _send_system_email('Confirm your Gravitas+ subscription', email, text, html)
+
+
 def health(request):
     with connection.cursor() as cursor:
         cursor.execute('SELECT 1')
@@ -64,6 +104,7 @@ def newsletter_subscribe(request):
 
     payload = _payload(request)
     email = str(payload.get('email', '')).strip().lower()
+    source = str(payload.get('source', 'website')).strip()[:80] or 'website'
     try:
         validate_email(email)
     except ValidationError:
@@ -71,13 +112,43 @@ def newsletter_subscribe(request):
 
     subscriber, created = NewsletterSubscriber.objects.get_or_create(
         email=email,
-        defaults={'source': 'website', 'is_active': True},
+        defaults={'source': source, 'is_active': False},
     )
+    if subscriber.is_active:
+        return JsonResponse({'ok': True, 'created': False, 'already_confirmed': True})
+
+    if subscriber.source != source:
+        subscriber.source = source
+        subscriber.save(update_fields=['source', 'updated_at'])
+
+    try:
+        _send_newsletter_confirmation(email)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'email_delivery_failed'}, status=502)
+
+    return JsonResponse(
+        {'ok': True, 'created': created, 'pending_confirmation': True},
+        status=201 if created else 200,
+    )
+
+
+def newsletter_confirm(request):
+    token = request.GET.get('token', '')
+    try:
+        data = signing.loads(
+            token,
+            salt=NEWSLETTER_SIGNING_SALT,
+            max_age=NEWSLETTER_CONFIRM_MAX_AGE,
+        )
+        email = str(data.get('email', '')).strip().lower()
+        subscriber = NewsletterSubscriber.objects.get(email=email)
+    except (signing.BadSignature, signing.SignatureExpired, NewsletterSubscriber.DoesNotExist):
+        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/newsletter.html?confirmed=0')
+
     if not subscriber.is_active:
         subscriber.is_active = True
         subscriber.save(update_fields=['is_active', 'updated_at'])
-
-    return JsonResponse({'ok': True, 'created': created}, status=201 if created else 200)
+    return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/newsletter.html?confirmed=1')
 
 
 @ensure_csrf_cookie
@@ -102,10 +173,17 @@ def auth_signup(request):
     except ValidationError:
         return JsonResponse({'ok': False, 'error': 'invalid_email'}, status=400)
 
-    if len(password) < 8:
-        return JsonResponse({'ok': False, 'error': 'password_too_short'}, status=400)
     if User.objects.filter(username__iexact=email).exists() or User.objects.filter(email__iexact=email).exists():
         return JsonResponse({'ok': False, 'error': 'account_exists'}, status=409)
+
+    provisional_user = User(username=email, email=email, first_name=name)
+    try:
+        validate_password(password, user=provisional_user)
+    except ValidationError as exc:
+        return JsonResponse(
+            {'ok': False, 'error': 'password_invalid', 'messages': list(exc.messages)},
+            status=400,
+        )
 
     user = User.objects.create_user(
         username=email,
@@ -115,13 +193,26 @@ def auth_signup(request):
     )
     login(request, user)
 
+    newsletter_pending = False
     if wants_newsletter:
-        NewsletterSubscriber.objects.update_or_create(
+        subscriber, _ = NewsletterSubscriber.objects.update_or_create(
             email=email,
-            defaults={'source': 'account-signup', 'is_active': True},
+            defaults={'source': 'account-signup', 'is_active': False},
         )
+        try:
+            _send_newsletter_confirmation(email)
+            newsletter_pending = not subscriber.is_active
+        except Exception:
+            newsletter_pending = False
 
-    return JsonResponse({'ok': True, 'user': _user_json(user)}, status=201)
+    return JsonResponse(
+        {
+            'ok': True,
+            'user': _user_json(user),
+            'newsletter_pending': newsletter_pending,
+        },
+        status=201,
+    )
 
 
 def auth_login(request):
@@ -155,6 +246,72 @@ def auth_me(request):
     if not request.user.is_authenticated:
         return JsonResponse({'authenticated': False})
     return JsonResponse({'authenticated': True, 'user': _user_json(request.user)})
+
+
+def password_reset_request(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+
+    payload = _payload(request)
+    email = str(payload.get('email', '')).strip().lower()
+    try:
+        validate_email(email)
+    except ValidationError:
+        return JsonResponse({'ok': True})
+
+    user = User.objects.filter(email__iexact=email, is_active=True).first()
+    if user is not None:
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        link = f'{settings.PUBLIC_BASE_URL}/account.html?reset_uid={quote(uid)}&reset_token={quote(token)}#reset'
+        text = (
+            'Reset your Gravitas+ password\n\n'
+            'Use the link below within one hour to choose a new password:\n'
+            f'{link}\n\n'
+            'If you did not request this, you can ignore this email.'
+        )
+        html = (
+            '<h2>Reset your Gravitas+ password</h2>'
+            '<p>Use the link below within one hour to choose a new password.</p>'
+            f'<p><a href="{link}">Choose a new password</a></p>'
+            '<p>If you did not request this, you can ignore this email.</p>'
+        )
+        try:
+            _send_system_email('Reset your Gravitas+ password', email, text, html)
+        except Exception:
+            return JsonResponse({'ok': False, 'error': 'email_delivery_failed'}, status=502)
+
+    return JsonResponse({'ok': True})
+
+
+def password_reset_confirm(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+
+    payload = _payload(request)
+    uid = str(payload.get('uid', ''))
+    token = str(payload.get('token', ''))
+    password = str(payload.get('password', ''))
+    try:
+        user_id = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=user_id, is_active=True)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return JsonResponse({'ok': False, 'error': 'invalid_or_expired_link'}, status=400)
+
+    if not default_token_generator.check_token(user, token):
+        return JsonResponse({'ok': False, 'error': 'invalid_or_expired_link'}, status=400)
+
+    try:
+        validate_password(password, user=user)
+    except ValidationError as exc:
+        return JsonResponse(
+            {'ok': False, 'error': 'password_invalid', 'messages': list(exc.messages)},
+            status=400,
+        )
+
+    user.set_password(password)
+    user.save(update_fields=['password'])
+    return JsonResponse({'ok': True})
 
 
 def comments(request, content_key):
