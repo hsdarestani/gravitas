@@ -1,6 +1,10 @@
 name: Gravitas Backend Error Monitor
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backend-error-monitor.yml'
   schedule:
     - cron: '31 * * * *'
   workflow_dispatch:
