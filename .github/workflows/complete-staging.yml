@@ -1,0 +1,89 @@
+name: Complete Gravitas Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-staging-complete
+  cancel-in-progress: true
+
+env:
+  DOMAIN: staging.gravitasplus.com
+  WEB: /var/www/gravitas-staging
+  APP: /opt/gravitas-backend-staging
+  PORT: '8001'
+
+jobs:
+  complete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy and finish staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          SSH_PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$SSH_PORT" ] || SSH_PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$SSH_PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          rsync -az --delete --delete-excluded --exclude '.git/' --exclude '.github/' --exclude 'backend/' -e "ssh -i ~/.ssh/key -p $SSH_PORT" ./ "$USER@$HOST:$WEB/"
+          rsync -az --delete --exclude '.venv/' --exclude 'staticfiles/' --rsync-path='sudo rsync' -e "ssh -i ~/.ssh/key -p $SSH_PORT" ./backend/ "$USER@$HOST:$APP/"
+
+          ssh -i ~/.ssh/key -p "$SSH_PORT" "$USER@$HOST" bash -s -- "$DOMAIN" "$WEB" "$APP" "$PORT" "$HOST" <<'REMOTE'
+          set -euo pipefail
+          DOMAIN="$1"; WEB="$2"; APP="$3"; PORT="$4"; SERVER_IP="$5"
+          sudo chown -R gravitas:gravitas "$APP"
+          [ -x "$APP/.venv/bin/python" ] || sudo -u gravitas python3 -m venv "$APP/.venv"
+          sudo -u gravitas "$APP/.venv/bin/pip" install -q --disable-pip-version-check -r "$APP/requirements.txt"
+
+          set -a
+          . /etc/gravitas/staging.env
+          set +a
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$APP"
+          KEEP_ENV=DJANGO_SECRET_KEY,DJANGO_DEBUG,DJANGO_DB_NAME,DJANGO_DB_USER,DJANGO_ALLOWED_HOSTS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_SESSION_COOKIE_NAME,DJANGO_CSRF_COOKIE_NAME,DJANGO_SETTINGS_MODULE,PYTHONPATH
+          cd "$APP"
+          sudo -u gravitas --preserve-env="$KEEP_ENV" "$APP/.venv/bin/django-admin" migrate --noinput
+          sudo -u gravitas --preserve-env="$KEEP_ENV" "$APP/.venv/bin/django-admin" collectstatic --noinput
+          sudo systemctl enable --now gravitas-backend-staging
+          sudo systemctl restart gravitas-backend-staging
+
+          sudo tee /etc/nginx/sites-available/gravitas-staging >/dev/null <<NGINX
+          server {
+            listen 80;
+            server_name $DOMAIN;
+            root $WEB;
+            index index.html;
+            add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+            location ^~ /.well-known/acme-challenge/ { auth_basic off; try_files \$uri =404; }
+            location ^~ /api/ { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; proxy_pass http://127.0.0.1:$PORT; proxy_set_header Host \$host; proxy_set_header X-Forwarded-Proto \$scheme; }
+            location ^~ /admin/ { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; proxy_pass http://127.0.0.1:$PORT; proxy_set_header Host \$host; proxy_set_header X-Forwarded-Proto \$scheme; }
+            location ^~ /django-static/ { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; proxy_pass http://127.0.0.1:$PORT; }
+            location / { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; try_files \$uri \$uri/ /index.html; }
+          }
+          NGINX
+          sudo ln -sfn /etc/nginx/sites-available/gravitas-staging /etc/nginx/sites-enabled/gravitas-staging
+          sudo nginx -t
+          sudo systemctl reload nginx
+
+          RESOLVED="$(getent ahostsv4 "$DOMAIN" | awk 'NR==1{print $1}')"
+          if [ "$RESOLVED" = "$SERVER_IP" ] && [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+            sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || true
+          fi
+
+          sudo systemctl is-active gravitas-backend-staging
+          curl -fsS "http://127.0.0.1:$PORT/api/health/" -H "Host: $DOMAIN" | grep -q '"status": "ok"'
+          U="$(sudo awk -F= '/^username=/{print $2}' /etc/gravitas/staging-access-credentials)"
+          P="$(sudo awk -F= '/^password=/{print $2}' /etc/gravitas/staging-access-credentials)"
+          curl -fsS -u "$U:$P" -H "Host: $DOMAIN" http://127.0.0.1/ >/dev/null
+          echo staging-ready
+          REMOTE
