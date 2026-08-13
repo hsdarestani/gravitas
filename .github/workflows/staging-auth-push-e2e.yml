@@ -70,7 +70,9 @@ jobs:
           User.objects.filter(username=email).delete()
           NewsletterSubscriber.objects.filter(email=email).delete()
 
-          anonymous = Client(enforce_csrf_checks=True, HTTP_HOST='staging.gravitasplus.com')
+          # Authorization is tested separately from CSRF here. Authenticated
+          # writes below still use enforce_csrf_checks=True with a valid token.
+          anonymous = Client(HTTP_HOST='staging.gravitasplus.com')
           response = anonymous.post(
               f'/api/community/comments/{content_key}/',
               data=json.dumps({'body': 'anonymous'}),
