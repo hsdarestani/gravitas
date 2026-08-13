@@ -1,0 +1,54 @@
+name: Enable Gravitas Consent
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/enable-consent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  consent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install persistent Nginx consent injection
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cat > /tmp/gravitas-consent.conf <<'EOF'
+          map $host $gravitas_body_close {
+              default "</body>";
+              gravitasplus.com '<script src="/assets/consent.js"></script></body>';
+          }
+
+          sub_filter_once on;
+          sub_filter '</body>' $gravitas_body_close;
+          EOF
+          sudo mv /tmp/gravitas-consent.conf /etc/nginx/conf.d/gravitas-consent.conf
+          sudo chmod 644 /etc/nginx/conf.d/gravitas-consent.conf
+          sudo nginx -t
+          sudo systemctl reload nginx
+          REMOTE
+
+      - name: Verify consent manager from public production
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 2
+          curl -4 -fsSL https://gravitasplus.com/assets/consent.js | grep -q 'gravitas:consent:v1'
+          curl -4 -fsSL https://gravitasplus.com/ | grep -q '/assets/consent.js'
+          echo gravitas-consent-enabled
