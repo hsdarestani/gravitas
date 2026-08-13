@@ -1,5 +1,6 @@
 from django.urls import path
 
+from core.content_api import content_detail, content_list
 from core.kpi import kpi_summary
 from core.views import (
     auth_csrf,
@@ -18,6 +19,8 @@ from core.views import (
 
 urlpatterns = [
     path('health/', health),
+    path('content/', content_list),
+    path('content/<slug:slug>/', content_detail),
     path('newsletter/subscribe/', newsletter_subscribe),
     path('newsletter/confirm/', newsletter_confirm),
     path('auth/csrf/', auth_csrf),
