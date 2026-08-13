@@ -1,0 +1,51 @@
+name: Configure Gravitas Staging Email
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/configure-staging-email.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install SMTP secret in staging environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          test -n "${{ secrets.SMTP_PASSWORD }}" || { echo 'SMTP_PASSWORD missing'; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          printf '%s' "${{ secrets.SMTP_PASSWORD }}" | \
+            ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          IFS= read -r SMTP_PASSWORD
+          FILE=/etc/gravitas/staging.env
+          sudo touch "$FILE"
+          sudo sed -i '/^EMAIL_HOST=/d;/^EMAIL_PORT=/d;/^EMAIL_USE_SSL=/d;/^EMAIL_HOST_USER=/d;/^EMAIL_HOST_PASSWORD=/d;/^DEFAULT_FROM_EMAIL=/d;/^PUBLIC_BASE_URL=/d' "$FILE"
+          {
+            printf 'EMAIL_HOST=smtp.strato.de\n'
+            printf 'EMAIL_PORT=465\n'
+            printf 'EMAIL_USE_SSL=1\n'
+            printf 'EMAIL_HOST_USER=webmaster@gravitasplus.com\n'
+            printf 'EMAIL_HOST_PASSWORD=%s\n' "$SMTP_PASSWORD"
+            printf 'DEFAULT_FROM_EMAIL=Gravitas+ <webmaster@gravitasplus.com>\n'
+            printf 'PUBLIC_BASE_URL=https://staging.gravitasplus.com\n'
+          } | sudo tee -a "$FILE" >/dev/null
+          sudo chown root:gravitas "$FILE"
+          sudo chmod 640 "$FILE"
+          sudo systemctl restart gravitas-backend-staging
+          echo staging-email-configured
+          REMOTE
