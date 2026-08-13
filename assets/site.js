@@ -133,7 +133,7 @@
   });
 
   /* ---- newsletter / forms ---------------------------------------------- */
-  [].forEach.call(document.querySelectorAll('[data-demo-form]'), function (f) {
+  [].forEach.call(document.querySelectorAll('.g-inline-form[data-demo-form]'), function (f) {
     f.addEventListener('submit', function (e) {
       e.preventDefault();
       var note = f.parentElement && f.parentElement.querySelector('[data-form-note]');
