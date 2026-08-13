@@ -39,15 +39,17 @@ jobs:
           set -euo pipefail
           RUN_ID="$1"
           APP=/opt/gravitas-backend-staging
-          set -a
-          . /etc/gravitas/staging.env
-          set +a
-          export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$APP"
-          KEEP_ENV=DJANGO_SECRET_KEY,DJANGO_DEBUG,DJANGO_DB_NAME,DJANGO_DB_USER,DJANGO_ALLOWED_HOSTS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_SESSION_COOKIE_NAME,DJANGO_CSRF_COOKIE_NAME,EMAIL_HOST,EMAIL_PORT,EMAIL_USE_SSL,EMAIL_HOST_USER,EMAIL_HOST_PASSWORD,DEFAULT_FROM_EMAIL,PUBLIC_BASE_URL,DJANGO_SETTINGS_MODULE,PYTHONPATH
-          export RUN_ID
           cd "$APP"
 
-          sudo -u gravitas --preserve-env="$KEEP_ENV,RUN_ID" "$APP/.venv/bin/python" - <<'PY'
+          sudo -u gravitas env RUN_ID="$RUN_ID" APP="$APP" bash -c '
+            set -euo pipefail
+            set -a
+            . /etc/gravitas/staging.env
+            set +a
+            export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+            export PYTHONPATH="$APP"
+            exec "$APP/.venv/bin/python" -
+          ' <<'PY'
           import json
           import os
           import django
