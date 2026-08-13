@@ -1,0 +1,52 @@
+name: Gravitas production E2E
+
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DOMAIN: gravitasplus.com
+    steps:
+      - name: Verify homepage, API and admin
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/" >/dev/null
+          curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
+          curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/admin/login/" | grep -qi 'django\|log in'
+          curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/sitemap.xml" | grep -q '<urlset'
+
+      - name: Verify newsletter signup end to end
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="deploy-check-${{ github.run_id }}@example.com"
+          RESPONSE="$(curl -4 -fsS --retry 5 --retry-delay 2 \
+            -X POST "https://$DOMAIN/api/newsletter/subscribe/" \
+            -H 'Content-Type: application/json' \
+            --data "{\"email\":\"$TEST_EMAIL\"}")"
+          printf '%s' "$RESPONSE" | grep -q '"ok": true'
+          echo "TEST_EMAIL=$TEST_EMAIL" >> "$GITHUB_ENV"
+
+      - name: Remove newsletter test record
+        if: always() && env.TEST_EMAIL != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$PORT" ] || PORT=22
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/key -p "$PORT" -o BatchMode=yes "deploy@${{ secrets.DEPLOY_HOST }}" \
+            "sudo -u postgres psql -d gravitas -v ON_ERROR_STOP=1 -v email='$TEST_EMAIL' -c \"DELETE FROM core_newslettersubscriber WHERE email = :'email';\"" >/dev/null
