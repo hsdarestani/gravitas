@@ -1,0 +1,47 @@
+name: Gravitas Backup Integrity
+
+on:
+  schedule:
+    - cron: '25 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify latest site and database backups
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/key -p "$PORT" -o BatchMode=yes "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          BACKUP_DIR=/var/backups/gravitas
+          DB_FILE="$(sudo find "$BACKUP_DIR" -maxdepth 1 -type f -name 'db-*.dump' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          SITE_FILE="$(sudo find "$BACKUP_DIR" -maxdepth 1 -type f -name 'site-*.tar.gz' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+          test -n "$DB_FILE"
+          test -n "$SITE_FILE"
+
+          NOW="$(date +%s)"
+          DB_AGE=$(( NOW - $(sudo stat -c %Y "$DB_FILE") ))
+          SITE_AGE=$(( NOW - $(sudo stat -c %Y "$SITE_FILE") ))
+          test "$DB_AGE" -lt 129600
+          test "$SITE_AGE" -lt 129600
+
+          sudo pg_restore --list "$DB_FILE" >/dev/null
+          sudo tar -tzf "$SITE_FILE" >/dev/null
+          sudo test -s "$DB_FILE"
+          sudo test -s "$SITE_FILE"
+          echo backup-integrity-passed
+          REMOTE
