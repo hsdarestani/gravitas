@@ -93,13 +93,16 @@
       var input = f.querySelector('input[type="email"]');
       var button = f.querySelector('button[type="submit"]');
       var email = input && input.value.trim();
-      if (!email) { if (note) note.textContent = 'Add an email address and we will send the next issue.'; if (input) input.focus(); return; }
+      if (!email) { if (note) note.textContent = 'Add an email address and we will send a confirmation link.'; if (input) input.focus(); return; }
       if (button) button.disabled = true;
-      if (note) note.textContent = 'Subscribing…';
-      fetch('/api/newsletter/subscribe/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ email: email }) })
+      if (note) note.textContent = 'Sending confirmation email…';
+      fetch('/api/newsletter/subscribe/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ email: email, source: 'homepage' }) })
         .then(function (res) { return res.json().catch(function () { return {}; }).then(function (data) { if (!res.ok) throw data; return data; }); })
-        .then(function () { if (note) note.textContent = 'You’re subscribed. The next Gravitas+ issue will arrive by email.'; f.reset(); })
-        .catch(function (err) { if (note) note.textContent = err && err.error === 'invalid_email' ? 'Please enter a valid email address.' : 'Subscription failed for now. Please try again in a moment.'; })
+        .then(function (data) {
+          if (note) note.textContent = data.already_confirmed ? 'This email is already confirmed and subscribed.' : 'Check your inbox and click the confirmation link to finish subscribing.';
+          if (!data.already_confirmed) f.reset();
+        })
+        .catch(function (err) { if (note) note.textContent = err && err.error === 'invalid_email' ? 'Please enter a valid email address.' : 'We could not send the confirmation email right now. Please try again shortly.'; })
         .finally(function () { if (button) button.disabled = false; });
     });
   });
