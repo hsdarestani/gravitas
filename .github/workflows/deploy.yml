@@ -15,11 +15,12 @@ concurrency:
 env:
   DOMAIN: gravitasplus.com
   DEPLOY_PATH: /var/www/gravitas
+  BACKEND_PATH: /opt/gravitas-backend
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -60,7 +61,7 @@ jobs:
             EFFECTIVE_USER="root"
             echo "Configured DEPLOY_USER could not authenticate; using root for bootstrap."
           else
-            echo "SSH authentication failed. DEPLOY_SSH_KEY must match the public key installed on the Strato VM."
+            echo "SSH authentication failed."
             exit 1
           fi
 
@@ -71,12 +72,13 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
-            bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" <<'REMOTE'
+            bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" "$BACKEND_PATH" <<'REMOTE'
           set -euo pipefail
 
           DOMAIN="$1"
           DEPLOY_PATH="$2"
           SSH_PORT="$3"
+          BACKEND_PATH="$4"
 
           if [ "$(id -u)" -eq 0 ]; then
             SUDO=""
@@ -90,13 +92,22 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           $SUDO apt-get update -y
           $SUDO apt-get install -y \
-            nginx rsync ufw certbot python3-certbot-nginx ca-certificates curl \
-            postgresql postgresql-contrib fail2ban unattended-upgrades
+            nginx rsync ufw certbot python3-certbot-nginx ca-certificates curl openssl \
+            postgresql postgresql-contrib fail2ban unattended-upgrades python3-venv
 
           $SUDO systemctl enable --now postgresql
 
+          if ! id gravitas >/dev/null 2>&1; then
+            $SUDO useradd --system --create-home --home-dir /opt/gravitas --shell /usr/sbin/nologin gravitas
+          fi
+
+          if ! $SUDO -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='gravitas'" | grep -q 1; then
+            $SUDO -u postgres createuser gravitas
+          fi
           if ! $SUDO -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='gravitas'" | grep -q 1; then
-            $SUDO -u postgres createdb gravitas
+            $SUDO -u postgres createdb -O gravitas gravitas
+          else
+            $SUDO -u postgres psql -c 'ALTER DATABASE gravitas OWNER TO gravitas;' >/dev/null
           fi
 
           cat > /tmp/20auto-upgrades <<'EOF'
@@ -118,8 +129,38 @@ jobs:
           $SUDO systemctl enable --now fail2ban
           $SUDO fail2ban-client reload
 
-          $SUDO mkdir -p "$DEPLOY_PATH"
+          $SUDO mkdir -p "$DEPLOY_PATH" "$BACKEND_PATH" /etc/gravitas
           $SUDO chown -R "$(id -un):$(id -gn)" "$DEPLOY_PATH"
+          $SUDO chown -R gravitas:gravitas "$BACKEND_PATH"
+
+          if ! $SUDO test -f /etc/gravitas/backend.env; then
+            SECRET="$($SUDO openssl rand -hex 32)"
+            printf 'DJANGO_SECRET_KEY=%s\nDJANGO_DEBUG=0\n' "$SECRET" | $SUDO tee /etc/gravitas/backend.env >/dev/null
+          fi
+          $SUDO chown root:gravitas /etc/gravitas/backend.env
+          $SUDO chmod 640 /etc/gravitas/backend.env
+
+          cat > /tmp/gravitas-backend.service <<EOF
+          [Unit]
+          Description=Gravitas Django backend
+          After=network.target postgresql.service
+          Requires=postgresql.service
+
+          [Service]
+          Type=simple
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          ExecStart=$BACKEND_PATH/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 django.core.wsgi:get_wsgi_application()
+          Restart=on-failure
+          RestartSec=3
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          $SUDO mv /tmp/gravitas-backend.service /etc/systemd/system/gravitas-backend.service
 
           cat > /tmp/gravitas-backup.sh <<'EOF'
           #!/usr/bin/env bash
@@ -184,6 +225,28 @@ jobs:
               include /etc/letsencrypt/options-ssl-nginx.conf;
               ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
+              location ^~ /api/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location ^~ /admin/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location ^~ /django-static/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
               location / {
                   try_files \$uri \$uri/ /index.html;
               }
@@ -206,6 +269,24 @@ jobs:
 
               root $DEPLOY_PATH;
               index index.html;
+
+              location ^~ /api/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location ^~ /admin/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location ^~ /django-static/ {
+                  proxy_pass http://127.0.0.1:8000;
+              }
 
               location / {
                   try_files \$uri \$uri/ /index.html;
@@ -236,7 +317,7 @@ jobs:
           $SUDO ufw --force enable
           REMOTE
 
-      - name: Deploy repository
+      - name: Deploy frontend
         shell: bash
         run: |
           set -euo pipefail
@@ -247,6 +328,54 @@ jobs:
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
             ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
 
+      - name: Deploy and start backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          rsync -az --delete \
+            --exclude '.venv/' \
+            --exclude 'staticfiles/' \
+            --rsync-path='sudo rsync' \
+            -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
+            ./backend/ "$DEPLOY_USER@$HOST:$BACKEND_PATH/"
+
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            bash -s -- "$BACKEND_PATH" <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH="$1"
+
+          sudo chown -R gravitas:gravitas "$BACKEND_PATH"
+          if [ ! -x "$BACKEND_PATH/.venv/bin/python" ]; then
+            sudo -u gravitas python3 -m venv "$BACKEND_PATH/.venv"
+          fi
+          sudo -u gravitas "$BACKEND_PATH/.venv/bin/pip" install --disable-pip-version-check -q --upgrade pip
+          sudo -u gravitas "$BACKEND_PATH/.venv/bin/pip" install --disable-pip-version-check -q -r "$BACKEND_PATH/requirements.txt"
+
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{print $2}' /etc/gravitas/backend.env)"
+          DJANGO_ENV=(DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$BACKEND_PATH")
+
+          cd "$BACKEND_PATH"
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" makemigrations core --noinput
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" migrate --noinput
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" collectstatic --noinput
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" check --deploy
+
+          if [ ! -f /etc/gravitas/admin-credentials ]; then
+            ADMIN_PASS="$(openssl rand -base64 24 | tr -d '\n')"
+            sudo -u gravitas env "${DJANGO_ENV[@]}" \
+              DJANGO_SUPERUSER_PASSWORD="$ADMIN_PASS" \
+              DJANGO_SUPERUSER_EMAIL="admin@gravitasplus.com" \
+              "$BACKEND_PATH/.venv/bin/django-admin" createsuperuser --noinput --username gravitasadmin
+            printf 'username=gravitasadmin\npassword=%s\n' "$ADMIN_PASS" | sudo tee /etc/gravitas/admin-credentials >/dev/null
+            sudo chmod 600 /etc/gravitas/admin-credentials
+          fi
+
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now gravitas-backend
+          sudo systemctl restart gravitas-backend
+          REMOTE
+
       - name: Ensure SSL and reload Nginx
         shell: bash
         run: |
@@ -255,27 +384,15 @@ jobs:
             bash -s -- "$DOMAIN" <<'REMOTE'
           set -euo pipefail
           DOMAIN="$1"
-
-          if [ "$(id -u)" -eq 0 ]; then
-            SUDO=""
-          else
-            SUDO="sudo"
-          fi
-
+          if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
           if ! $SUDO test -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"; then
-            $SUDO certbot --nginx \
-              -d "$DOMAIN" \
-              --non-interactive \
-              --agree-tos \
-              --register-unsafely-without-email \
-              --redirect
+            $SUDO certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect
           fi
-
           $SUDO nginx -t
           $SUDO systemctl reload nginx
           REMOTE
 
-      - name: Verify infrastructure
+      - name: Verify infrastructure and backend
         shell: bash
         run: |
           set -euo pipefail
@@ -285,22 +402,20 @@ jobs:
           sudo systemctl is-active postgresql
           sudo systemctl is-active fail2ban
           sudo systemctl is-active gravitas-backup.timer
+          sudo systemctl is-active gravitas-backend
           sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
+          curl -fsS http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'
           sudo /usr/local/sbin/gravitas-backup
           test -n "$(sudo find /var/backups/gravitas -maxdepth 1 -type f -name 'db-*.dump' -print -quit)"
           test ! -e /var/www/gravitas/backend
-          echo infrastructure-checks-passed
+          echo infrastructure-and-backend-checks-passed
           REMOTE
 
       - name: Verify production
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsS --retry 6 --retry-delay 3 \
-            -H "Host: $DOMAIN" \
-            "http://${{ secrets.DEPLOY_HOST }}/" >/dev/null
-          echo "HTTP server check passed."
-
-          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 \
-            "https://$DOMAIN/" >/dev/null
-          echo "HTTPS production check passed: https://$DOMAIN/"
+          curl -fsS --retry 6 --retry-delay 3 -H "Host: $DOMAIN" "http://${{ secrets.DEPLOY_HOST }}/" >/dev/null
+          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 "https://$DOMAIN/" >/dev/null
+          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
+          echo "Production and API checks passed: https://$DOMAIN/"
