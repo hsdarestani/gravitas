@@ -75,9 +75,11 @@ jobs:
           sudo nginx -t
           sudo systemctl reload nginx
 
-          RESOLVED="$(getent ahostsv4 "$DOMAIN" | awk 'NR==1{print $1}')"
-          if [ "$RESOLVED" = "$SERVER_IP" ] && [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+          RESOLVED="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk 'NR==1{print $1}' || true)"
+          if [ -n "$RESOLVED" ] && [ "$RESOLVED" = "$SERVER_IP" ] && [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
             sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || true
+          else
+            echo "Staging DNS is not pointed at this server yet; local staging stack will still be verified."
           fi
 
           sudo systemctl is-active gravitas-backend-staging
