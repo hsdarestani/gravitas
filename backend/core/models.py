@@ -44,6 +44,42 @@ class ContentItem(models.Model):
         return self.title
 
 
+class ContentTranslation(models.Model):
+    class Locale(models.TextChoices):
+        GERMAN = 'de', 'Deutsch'
+        PERSIAN = 'fa', 'فارسی'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PUBLISHED = 'published', 'Published'
+
+    content = models.ForeignKey(
+        ContentItem,
+        on_delete=models.CASCADE,
+        related_name='translations',
+    )
+    locale = models.CharField(max_length=8, choices=Locale.choices)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    title = models.CharField(max_length=220)
+    summary = models.TextField(blank=True)
+    body = models.TextField(blank=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['content_id', 'locale']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['content', 'locale'],
+                name='unique_content_translation_locale',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.content.title} · {self.locale}'
+
+
 class Comment(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending review'
@@ -76,7 +112,10 @@ class Comment(models.Model):
     class Meta:
         ordering = ['created_at']
         indexes = [
-            models.Index(fields=['content_key', 'status', 'created_at']),
+            models.Index(
+                fields=['content_key', 'status', 'created_at'],
+                name='grav_comment_state_created',
+            ),
         ]
 
     def __str__(self):
