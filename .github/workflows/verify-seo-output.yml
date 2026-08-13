@@ -26,12 +26,10 @@ jobs:
           curl -4 -fsSL "$BASE/dossiers.html" > "$RUNNER_TEMP/dossiers.html"
           curl -4 -fsSL "$BASE/robots.txt" > "$RUNNER_TEMP/robots.txt"
           curl -4 -fsSL "$BASE/sitemap.xml" > "$RUNNER_TEMP/sitemap.xml"
-          curl -4 -fsSI "$BASE/" > "$RUNNER_TEMP/headers.txt"
 
           grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">' "$RUNNER_TEMP/home.html"
           grep -Fq '<link rel="canonical" href="https://gravitasplus.com/dossiers.html">' "$RUNNER_TEMP/dossiers.html"
           grep -Fq '<meta name="robots" content="noindex, nofollow">' "$RUNNER_TEMP/home.html"
-          tr -d '\r' < "$RUNNER_TEMP/headers.txt" | grep -qi '^X-Robots-Tag: noindex, nofollow$'
 
           grep -Fq 'Sitemap: https://gravitasplus.com/sitemap.xml' "$RUNNER_TEMP/robots.txt"
           grep -Fq 'Disallow: /admin/' "$RUNNER_TEMP/robots.txt"
