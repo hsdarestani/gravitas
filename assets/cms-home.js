@@ -12,6 +12,10 @@
       .replace(/'/g, '&#039;');
   }
 
+  function contentUrl(item) {
+    return '/content/' + encodeURIComponent(item.slug) + '/';
+  }
+
   function findSection(title) {
     var found = null;
     document.querySelectorAll('main section').forEach(function (section) {
@@ -58,11 +62,11 @@
   }
 
   function renderHero(dossier) {
-    var button = document.querySelector('.lp-hero a[href="dossier-computable-universe.html"]');
+    var button = document.querySelector('.lp-hero a[href="dossier-computable-universe.html"], .lp-hero a[href^="/content/"]');
     if (!button) return;
 
     if (dossier) {
-      button.href = '#current-dossier';
+      button.href = contentUrl(dossier);
       button.lastChild.textContent = ' Open the current dossier';
     } else {
       button.href = 'dossiers.html';
@@ -86,11 +90,12 @@
     if (!split) return;
 
     split.innerHTML =
-      '<article class="g-cms-card" style="grid-column:1/-1">' +
+      '<article class="g-cms-card" data-cms-slug="' + esc(item.slug) + '" style="grid-column:1/-1">' +
       '<p class="g-eyebrow g-eyebrow--bare">Dossier</p>' +
       '<h3 style="font-size:var(--g-fs-h2);margin:.25rem 0 .75rem">' + esc(item.title) + '</h3>' +
       (item.summary ? '<p class="g-muted">' + esc(item.summary) + '</p>' : '') +
-      '<details class="g-cms-details"><summary>Open the dossier</summary><div class="g-cms-body"></div></details>' +
+      '<p><a class="g-btn g-btn--primary" href="' + contentUrl(item) + '">Open the dossier</a></p>' +
+      '<details class="g-cms-details"><summary>Quick read</summary><div class="g-cms-body"></div></details>' +
       '</article>';
 
     var details = split.querySelector('details');
@@ -117,11 +122,13 @@
     items.slice(0, 8).forEach(function (item) {
       var article = document.createElement('article');
       article.className = 'entry';
+      article.setAttribute('data-cms-slug', item.slug);
       article.innerHTML =
         '<span class="entry__type">' + esc(item.kind) + '</span>' +
         '<div><h3>' + esc(item.title) + '</h3>' +
         (item.summary ? '<p>' + esc(item.summary) + '</p>' : '') +
-        '<details class="g-cms-details"><summary>Read</summary><div class="g-cms-body"></div></details></div>';
+        '<p><a class="g-btn g-btn--ghost g-btn--sm" href="' + contentUrl(item) + '">Open</a></p>' +
+        '<details class="g-cms-details"><summary>Quick read</summary><div class="g-cms-body"></div></details></div>';
 
       var details = article.querySelector('details');
       details.addEventListener('toggle', function () {
