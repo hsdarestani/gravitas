@@ -1,0 +1,120 @@
+name: Gravitas Staging System Email E2E
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/staging-system-email-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-staging-system-email
+  cancel-in-progress: true
+
+jobs:
+  email-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait for staging deployment
+        run: sleep 45
+
+      - name: Verify double opt-in and password reset with real SMTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" bash -s -- "${{ github.run_id }}" <<'REMOTE'
+          set -euo pipefail
+          RUN_ID="$1"
+          APP=/opt/gravitas-backend-staging
+          set -a
+          . /etc/gravitas/staging.env
+          set +a
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$APP"
+          KEEP_ENV=DJANGO_SECRET_KEY,DJANGO_DEBUG,DJANGO_DB_NAME,DJANGO_DB_USER,DJANGO_ALLOWED_HOSTS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_SESSION_COOKIE_NAME,DJANGO_CSRF_COOKIE_NAME,EMAIL_HOST,EMAIL_PORT,EMAIL_USE_SSL,EMAIL_HOST_USER,EMAIL_HOST_PASSWORD,DEFAULT_FROM_EMAIL,PUBLIC_BASE_URL,DJANGO_SETTINGS_MODULE,PYTHONPATH
+          export RUN_ID
+          cd "$APP"
+
+          sudo -u gravitas --preserve-env="$KEEP_ENV,RUN_ID" "$APP/.venv/bin/python" - <<'PY'
+          import json
+          import os
+          import django
+          django.setup()
+
+          from django.conf import settings
+          from django.contrib.auth import authenticate, get_user_model
+          from django.contrib.auth.tokens import default_token_generator
+          from django.core import signing
+          from django.test import Client
+          from django.utils.encoding import force_bytes
+          from django.utils.http import urlsafe_base64_encode
+          from core.models import NewsletterSubscriber
+          from core.views import NEWSLETTER_SIGNING_SALT
+
+          assert settings.EMAIL_HOST == 'smtp.strato.de'
+          assert settings.EMAIL_PORT == 465
+          assert settings.EMAIL_USE_SSL is True
+          assert settings.EMAIL_HOST_PASSWORD
+
+          run_id = os.environ['RUN_ID']
+          newsletter_email = f'newsletter-e2e-{run_id}@gravitasplus.com'
+          reset_email = f'reset-e2e-{run_id}@gravitasplus.com'
+          User = get_user_model()
+          NewsletterSubscriber.objects.filter(email=newsletter_email).delete()
+          User.objects.filter(username=reset_email).delete()
+
+          client = Client(HTTP_HOST='staging.gravitasplus.com')
+
+          response = client.post(
+              '/api/newsletter/subscribe/',
+              data=json.dumps({'email': newsletter_email, 'source': 'staging-e2e'}),
+              content_type='application/json', secure=True,
+          )
+          assert response.status_code in (200, 201), response.content
+          subscriber = NewsletterSubscriber.objects.get(email=newsletter_email)
+          assert subscriber.is_active is False
+
+          signed = signing.dumps({'email': newsletter_email}, salt=NEWSLETTER_SIGNING_SALT, compress=True)
+          response = client.get('/api/newsletter/confirm/', {'token': signed}, secure=True)
+          assert response.status_code == 302, response.content
+          subscriber.refresh_from_db()
+          assert subscriber.is_active is True
+
+          old_password = 'Gravitas-Staging-E2E-Old-2026!'
+          new_password = 'Gravitas-Staging-E2E-New-2026!'
+          user = User.objects.create_user(username=reset_email, email=reset_email, password=old_password)
+          response = client.post(
+              '/api/auth/password-reset/',
+              data=json.dumps({'email': reset_email}),
+              content_type='application/json', secure=True,
+          )
+          assert response.status_code == 200, response.content
+
+          uid = urlsafe_base64_encode(force_bytes(user.pk))
+          token = default_token_generator.make_token(user)
+          response = client.post(
+              '/api/auth/password-reset/confirm/',
+              data=json.dumps({'uid': uid, 'token': token, 'password': new_password}),
+              content_type='application/json', secure=True,
+          )
+          assert response.status_code == 200, response.content
+          assert authenticate(username=reset_email, password=old_password) is None
+          assert authenticate(username=reset_email, password=new_password) is not None
+
+          NewsletterSubscriber.objects.filter(email=newsletter_email).delete()
+          User.objects.filter(username=reset_email).delete()
+          print('staging-system-email-e2e-passed')
+          PY
+          REMOTE
