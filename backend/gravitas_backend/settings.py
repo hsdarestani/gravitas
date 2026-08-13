@@ -62,6 +62,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('DJANGO_DB_NAME', 'gravitas'),
         'USER': os.environ.get('DJANGO_DB_USER', 'gravitas'),
+        'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', ''),
         'HOST': os.environ.get('DJANGO_DB_HOST', ''),
         'PORT': os.environ.get('DJANGO_DB_PORT', ''),
     }
