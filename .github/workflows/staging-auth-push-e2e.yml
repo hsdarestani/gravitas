@@ -57,6 +57,7 @@ jobs:
           User = get_user_model()
           email = os.environ['TEST_EMAIL']
           password = 'Staging-E2E-Password-2026!'
+          referer = 'https://staging.gravitasplus.com/account.html'
           User.objects.filter(username=email).delete()
           NewsletterSubscriber.objects.filter(email=email).delete()
 
@@ -67,13 +68,17 @@ jobs:
           response = client.post(
               '/api/auth/signup/',
               data=json.dumps({'name': 'Staging E2E', 'email': email, 'password': password, 'newsletter': True}),
-              content_type='application/json', secure=True, HTTP_X_CSRFTOKEN=token,
+              content_type='application/json', secure=True,
+              HTTP_X_CSRFTOKEN=token, HTTP_REFERER=referer,
           )
           assert response.status_code == 201, response.content
           assert client.get('/api/auth/me/', secure=True).json().get('authenticated') is True
 
           token = client.cookies['gravitas_staging_csrftoken'].value
-          response = client.post('/api/auth/logout/', data='{}', content_type='application/json', secure=True, HTTP_X_CSRFTOKEN=token)
+          response = client.post(
+              '/api/auth/logout/', data='{}', content_type='application/json', secure=True,
+              HTTP_X_CSRFTOKEN=token, HTTP_REFERER=referer,
+          )
           assert response.status_code == 200, response.content
           assert client.get('/api/auth/me/', secure=True).json().get('authenticated') is False
 
@@ -83,7 +88,8 @@ jobs:
           response = login_client.post(
               '/api/auth/login/',
               data=json.dumps({'email': email, 'password': password, 'keep': True}),
-              content_type='application/json', secure=True, HTTP_X_CSRFTOKEN=token,
+              content_type='application/json', secure=True,
+              HTTP_X_CSRFTOKEN=token, HTTP_REFERER=referer,
           )
           assert response.status_code == 200, response.content
           assert login_client.get('/api/auth/me/', secure=True).json().get('authenticated') is True
