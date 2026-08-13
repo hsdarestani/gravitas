@@ -19,7 +19,7 @@ jobs:
     env:
       DOMAIN: gravitasplus.com
     steps:
-      - name: Verify homepage, API and admin
+      - name: Verify homepage API admin and sitemap
         shell: bash
         run: |
           set -euo pipefail
@@ -28,28 +28,16 @@ jobs:
           curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/admin/login/" | grep -qi 'django\|log in'
           curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/sitemap.xml" | grep -q '<urlset'
 
-      - name: Verify newsletter signup end to end
+      - name: Verify newsletter endpoint validation without sending mail
         shell: bash
         run: |
           set -euo pipefail
-          TEST_EMAIL="webmaster@gravitasplus.com"
-          RESPONSE="$(curl -4 -fsS --retry 5 --retry-delay 2 \
+          BODY_FILE="$(mktemp)"
+          STATUS="$(curl -4 -sS -o "$BODY_FILE" -w '%{http_code}' \
             -X POST "https://$DOMAIN/api/newsletter/subscribe/" \
             -H 'Content-Type: application/json' \
-            --data "{\"email\":\"$TEST_EMAIL\",\"source\":\"production-e2e\"}")"
-          printf '%s' "$RESPONSE" | grep -q '"ok": true'
-          echo "TEST_EMAIL=$TEST_EMAIL" >> "$GITHUB_ENV"
-
-      - name: Remove newsletter test record
-        if: always() && env.TEST_EMAIL != ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          PORT="${{ secrets.DEPLOY_PORT }}"
-          [ -n "$PORT" ] || PORT=22
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
-          chmod 600 ~/.ssh/key
-          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/key -p "$PORT" -o BatchMode=yes "deploy@${{ secrets.DEPLOY_HOST }}" \
-            "sudo -u postgres psql -d gravitas -v ON_ERROR_STOP=1 -c \"DELETE FROM core_newslettersubscriber WHERE email = '$TEST_EMAIL' AND source = 'production-e2e';\"" >/dev/null
+            --data '{"email":"not-an-email","source":"production-e2e"}')"
+          test "$STATUS" = "400"
+          grep -q '"error": "invalid_email"' "$BODY_FILE"
+          rm -f "$BODY_FILE"
+          echo production-newsletter-validation-passed
