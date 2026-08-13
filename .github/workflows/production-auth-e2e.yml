@@ -39,6 +39,9 @@ jobs:
           printf '%s' "$SIGNUP" | grep -q '"ok": true'
           curl -4 -fsS -b "$COOKIE_JAR" "https://$DOMAIN/api/auth/me/" | grep -q '"authenticated": true'
 
+          EXPORT="$(curl -4 -fsS -b "$COOKIE_JAR" "https://$DOMAIN/api/auth/export/")"
+          printf '%s' "$EXPORT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["account"]["email"] == sys.argv[1]; assert isinstance(d["comments"], list); assert isinstance(d["lab_progress"], list)' "$EMAIL"
+
           CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
           curl -4 -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
             -X POST "https://$DOMAIN/api/auth/logout/" \
