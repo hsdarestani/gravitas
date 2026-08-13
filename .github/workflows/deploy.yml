@@ -34,7 +34,7 @@ jobs:
 
           CONFIGURED_USER="${{ secrets.DEPLOY_USER }}"
           DEPLOY_PORT="${{ secrets.DEPLOY_PORT }}"
-          [ -n "$CONFIGURED_USER" ] || CONFIGURED_USER="root"
+          [ -n "$CONFIGURED_USER" ] || CONFIGURED_USER="deploy"
           [ -n "$DEPLOY_PORT" ] || DEPLOY_PORT="22"
 
           echo "CONFIGURED_USER=$CONFIGURED_USER" >> "$GITHUB_ENV"
@@ -89,10 +89,77 @@ jobs:
 
           export DEBIAN_FRONTEND=noninteractive
           $SUDO apt-get update -y
-          $SUDO apt-get install -y nginx rsync ufw certbot python3-certbot-nginx ca-certificates curl
+          $SUDO apt-get install -y \
+            nginx rsync ufw certbot python3-certbot-nginx ca-certificates curl \
+            postgresql postgresql-contrib fail2ban unattended-upgrades
+
+          $SUDO systemctl enable --now postgresql
+
+          if ! $SUDO -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='gravitas'" | grep -q 1; then
+            $SUDO -u postgres createdb gravitas
+          fi
+
+          cat > /tmp/20auto-upgrades <<'EOF'
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+          EOF
+          $SUDO mv /tmp/20auto-upgrades /etc/apt/apt.conf.d/20auto-upgrades
+          $SUDO chmod 644 /etc/apt/apt.conf.d/20auto-upgrades
+
+          cat > /tmp/gravitas-fail2ban.local <<'EOF'
+          [sshd]
+          enabled = true
+          maxretry = 5
+          findtime = 10m
+          bantime = 1h
+          backend = systemd
+          EOF
+          $SUDO mv /tmp/gravitas-fail2ban.local /etc/fail2ban/jail.d/gravitas.local
+          $SUDO systemctl enable --now fail2ban
+          $SUDO fail2ban-client reload
 
           $SUDO mkdir -p "$DEPLOY_PATH"
           $SUDO chown -R "$(id -un):$(id -gn)" "$DEPLOY_PATH"
+
+          cat > /tmp/gravitas-backup.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          BACKUP_DIR=/var/backups/gravitas
+          STAMP=$(date +%Y%m%d-%H%M%S)
+          mkdir -p "$BACKUP_DIR"
+          tar -czf "$BACKUP_DIR/site-$STAMP.tar.gz" -C /var/www gravitas
+          sudo -u postgres pg_dump -Fc gravitas > "$BACKUP_DIR/db-$STAMP.dump"
+          find "$BACKUP_DIR" -type f -mtime +14 -delete
+          EOF
+          $SUDO mv /tmp/gravitas-backup.sh /usr/local/sbin/gravitas-backup
+          $SUDO chmod 750 /usr/local/sbin/gravitas-backup
+
+          cat > /tmp/gravitas-backup.service <<'EOF'
+          [Unit]
+          Description=Gravitas daily backup
+          After=postgresql.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/gravitas-backup
+          EOF
+          $SUDO mv /tmp/gravitas-backup.service /etc/systemd/system/gravitas-backup.service
+
+          cat > /tmp/gravitas-backup.timer <<'EOF'
+          [Unit]
+          Description=Run Gravitas backup daily
+
+          [Timer]
+          OnCalendar=*-*-* 03:30:00
+          Persistent=true
+          RandomizedDelaySec=15m
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-backup.timer /etc/systemd/system/gravitas-backup.timer
+          $SUDO systemctl daemon-reload
+          $SUDO systemctl enable --now gravitas-backup.timer
 
           CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
           if $SUDO test -f "$CERT_DIR/fullchain.pem" && $SUDO test -f "$CERT_DIR/privkey.pem"; then
@@ -205,6 +272,22 @@ jobs:
 
           $SUDO nginx -t
           $SUDO systemctl reload nginx
+          REMOTE
+
+      - name: Verify infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          sudo systemctl is-active postgresql
+          sudo systemctl is-active fail2ban
+          sudo systemctl is-active gravitas-backup.timer
+          sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
+          sudo /usr/local/sbin/gravitas-backup
+          test -n "$(sudo find /var/backups/gravitas -maxdepth 1 -type f -name 'db-*.dump' -print -quit)"
+          echo infrastructure-checks-passed
           REMOTE
 
       - name: Verify production
