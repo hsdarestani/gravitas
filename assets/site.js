@@ -4,11 +4,7 @@
   'use strict';
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ---- depth switch ----------------------------------------------------
-     One control, two readings of the same page. The alternative — a separate
-     "for researchers" section — splits the audience at the door and halves the
-     value of every piece. This keeps one canonical page and lets the reader
-     decide how much of it they want. */
+  /* ---- depth switch ---------------------------------------------------- */
   var DEPTH_KEY = 'gravitas:depth';
   function readDepth() {
     try { return localStorage.getItem(DEPTH_KEY) || 'overview'; }
@@ -65,9 +61,7 @@
     }
   }
 
-  /* ---- archive filtering ------------------------------------------------
-     Type chips plus free text, combined. The count is announced so the result
-     of a filter is never ambiguous. */
+  /* ---- archive filtering ------------------------------------------------ */
   var grid = document.querySelector('[data-filterable]');
   if (grid) {
     var chips = document.querySelectorAll('.chip[data-filter]');
@@ -120,14 +114,12 @@
     Object.keys(map).forEach(function (k) { spy.observe(map[k]); });
   }
 
-  /* ---- polls ------------------------------------------------------------
-     Illustrative only: no backend here, so the result is generated locally and
-     clearly marked as a sample rather than pretending to be live data. */
+  /* ---- polls ------------------------------------------------------------ */
   [].forEach.call(document.querySelectorAll('.poll'), function (poll) {
     var opts = [].slice.call(poll.querySelectorAll('.poll__opt'));
     var seeds = opts.map(function (o) { return parseFloat(o.dataset.share || '0'); });
     var total = seeds.reduce(function (a, b) { return a + b; }, 0) || 1;
-    opts.forEach(function (o, i) {
+    opts.forEach(function (o) {
       o.addEventListener('click', function () {
         poll.classList.add('is-voted');
         opts.forEach(function (x) { x.setAttribute('aria-pressed', String(x === o)); });
@@ -144,15 +136,39 @@
   [].forEach.call(document.querySelectorAll('[data-demo-form]'), function (f) {
     f.addEventListener('submit', function (e) {
       e.preventDefault();
-      var note = f.querySelector('[data-form-note]');
+      var note = f.parentElement && f.parentElement.querySelector('[data-form-note]');
       var input = f.querySelector('input[type="email"]');
-      if (input && !input.value.trim()) {
+      var button = f.querySelector('button[type="submit"]');
+      var email = input && input.value.trim();
+
+      if (!email) {
         if (note) note.textContent = 'Add an email address and we will send the next issue.';
-        input.focus();
+        if (input) input.focus();
         return;
       }
-      if (note) note.textContent = 'This is a front-end demo — connect it to your mail provider to go live.';
-      f.reset();
+
+      if (button) button.disabled = true;
+      if (note) note.textContent = 'Subscribing…';
+
+      fetch('/api/newsletter/subscribe/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email: email })
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok) throw data;
+          return data;
+        });
+      }).then(function () {
+        if (note) note.textContent = 'You’re subscribed. The next Gravitas+ issue will arrive by email.';
+        f.reset();
+      }).catch(function (err) {
+        if (note) note.textContent = err && err.error === 'invalid_email'
+          ? 'Please enter a valid email address.'
+          : 'Subscription failed for now. Please try again in a moment.';
+      }).finally(function () {
+        if (button) button.disabled = false;
+      });
     });
   });
 })();
