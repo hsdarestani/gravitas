@@ -1,0 +1,47 @@
+name: Gravitas Production Monitor
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check public production surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          DOMAIN=gravitasplus.com
+
+          curl -4 -fsS --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
+            "https://$DOMAIN/" | grep -qi 'Gravitas'
+
+          curl -4 -fsS --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
+            "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
+
+          curl -4 -fsS --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
+            "https://$DOMAIN/sitemap.xml" | grep -q '<urlset'
+
+          curl -4 -fsSI --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
+            "https://$DOMAIN/robots.txt" | grep -qi '^HTTP/.* 200'
+
+          echo production-public-monitor-passed
+
+      - name: Check TLS certificate lifetime
+        shell: bash
+        run: |
+          set -euo pipefail
+          DOMAIN=gravitasplus.com
+          EXPIRY="$(echo | openssl s_client -servername "$DOMAIN" -connect "$DOMAIN:443" 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2-)"
+          test -n "$EXPIRY"
+          EXPIRY_EPOCH="$(date -d "$EXPIRY" +%s)"
+          NOW_EPOCH="$(date +%s)"
+          DAYS_LEFT=$(( (EXPIRY_EPOCH - NOW_EPOCH) / 86400 ))
+          echo "TLS days remaining: $DAYS_LEFT"
+          test "$DAYS_LEFT" -ge 14
