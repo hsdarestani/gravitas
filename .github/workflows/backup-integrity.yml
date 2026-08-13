@@ -1,6 +1,10 @@
 name: Gravitas Backup Integrity
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backup-integrity.yml'
   schedule:
     - cron: '25 5 * * *'
   workflow_dispatch:
