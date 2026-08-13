@@ -37,7 +37,13 @@ jobs:
           ssh-keyscan -p "$SSH_PORT" -H "$HOST" >> ~/.ssh/known_hosts
 
           rsync -az --delete --delete-excluded --exclude '.git/' --exclude '.github/' --exclude 'backend/' -e "ssh -i ~/.ssh/key -p $SSH_PORT" ./ "$USER@$HOST:$WEB/"
-          rsync -az --delete --exclude '.venv/' --exclude 'staticfiles/' --rsync-path='sudo rsync' -e "ssh -i ~/.ssh/key -p $SSH_PORT" ./backend/ "$USER@$HOST:$APP/"
+          rsync -az --delete \
+            --exclude '.venv/' \
+            --exclude 'staticfiles/' \
+            --exclude 'core/migrations/0*.py' \
+            --rsync-path='sudo rsync' \
+            -e "ssh -i ~/.ssh/key -p $SSH_PORT" \
+            ./backend/ "$USER@$HOST:$APP/"
 
           ssh -i ~/.ssh/key -p "$SSH_PORT" "$USER@$HOST" bash -s -- "$DOMAIN" "$WEB" "$APP" "$PORT" "$HOST" <<'REMOTE'
           set -euo pipefail
