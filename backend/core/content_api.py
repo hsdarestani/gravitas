@@ -1,4 +1,5 @@
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
 
 from .models import ContentItem
 
@@ -56,3 +57,12 @@ def content_detail(request, slug):
         return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
 
     return JsonResponse({'ok': True, 'item': _content_json(item, include_body=True)})
+
+
+def content_page(request, slug):
+    item = get_object_or_404(
+        ContentItem,
+        slug=slug,
+        status=ContentItem.Status.PUBLISHED,
+    )
+    return render(request, 'core/content_page.html', {'item': item})
