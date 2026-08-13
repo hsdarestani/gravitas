@@ -291,6 +291,44 @@
       : 'That confirmation link is invalid or expired. Subscribe again to receive a new link.';
   }
 
+  function disablePrototypePollPercentages() {
+    document.querySelectorAll('.poll').forEach(function (poll) {
+      if (poll.dataset.livePollTransparent === '1') return;
+      poll.dataset.livePollTransparent = '1';
+      var options = [].slice.call(poll.querySelectorAll('.poll__opt'));
+      options.forEach(function (option) {
+        option.removeAttribute('data-share');
+        var bar = option.querySelector('.poll__bar');
+        var pct = option.querySelector('.poll__pct');
+        if (bar) bar.style.width = '0';
+        if (pct) pct.textContent = '';
+      });
+      poll.addEventListener('click', function (e) {
+        var option = e.target.closest && e.target.closest('.poll__opt');
+        if (!option || !poll.contains(option)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        poll.classList.add('is-voted');
+        options.forEach(function (item) {
+          item.setAttribute('aria-pressed', String(item === option));
+          var bar = item.querySelector('.poll__bar');
+          var pct = item.querySelector('.poll__pct');
+          if (bar) bar.style.width = '0';
+          if (pct) pct.textContent = item === option ? 'Your vote' : '';
+        });
+        var hint = poll.parentElement && poll.parentElement.querySelector('[data-poll-live-note]');
+        if (!hint) {
+          hint = document.createElement('p');
+          hint.className = 'g-muted g-mt-sm';
+          hint.dataset.pollLiveNote = '1';
+          hint.textContent = 'Vote noted on this device. Aggregate voting is not enabled yet.';
+          poll.insertAdjacentElement('afterend', hint);
+        }
+      }, true);
+    });
+  }
+
   function run() {
     var heroCredit = document.querySelector('.lp-hero__credit');
     cleanText(heroCredit, [
@@ -339,6 +377,7 @@
     enableCommunity();
     enableLabCompletion();
     showNewsletterConfirmation();
+    disablePrototypePollPercentages();
   }
 
   if (document.readyState === 'loading') {
