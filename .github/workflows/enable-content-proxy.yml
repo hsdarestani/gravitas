@@ -40,7 +40,18 @@ jobs:
         run: |
           set -euo pipefail
           sleep 2
+
           code="$(curl -4 -sS -o /tmp/content-check -w '%{http_code}' https://gravitasplus.com/content/definitely-not-published/)"
           test "$code" = "404"
           ! grep -q '<title>Gravitas+ — Science' /tmp/content-check
+
+          CMS_JSON="$(curl -4 -fsSL 'https://gravitasplus.com/api/content/?limit=1')"
+          SLUG="$(printf '%s' "$CMS_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); items=d.get("items") or []; print(items[0].get("slug", "") if items else "")')"
+          if [ -n "$SLUG" ]; then
+            curl -4 -fsSL "https://gravitasplus.com/content/$SLUG/" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+            echo "Verified published SSR page: $SLUG"
+          else
+            echo 'No published CMS content yet; 404 route behavior verified.'
+          fi
+
           echo gravitas-content-proxy-ready
