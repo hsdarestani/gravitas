@@ -72,6 +72,45 @@
     });
   }
 
+  function enableAccountControls() {
+    var accountCard = document.querySelector('.auth-live__card');
+    if (!accountCard) return;
+
+    document.querySelectorAll('#p-up input[name="password"], #p-reset input[type="password"]').forEach(function (input) {
+      input.minLength = 10;
+    });
+
+    fetch('/api/auth/me/', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    }).then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (!data || !data.authenticated || !data.user || accountCard.querySelector('[data-live-account]')) return;
+        var panel = document.createElement('div');
+        panel.className = 'callout g-mt-md';
+        panel.dataset.liveAccount = '1';
+
+        var copy = document.createElement('p');
+        copy.className = 'g-muted';
+        copy.textContent = 'Signed in as ' + data.user.email + '.';
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'g-btn g-btn--ghost g-btn--sm';
+        button.textContent = 'Sign out';
+        button.addEventListener('click', function () {
+          button.disabled = true;
+          apiPost('/api/auth/logout/', {})
+            .then(function () { location.href = 'account.html#in'; location.reload(); })
+            .catch(function () { button.disabled = false; });
+        });
+
+        panel.appendChild(copy);
+        panel.appendChild(button);
+        accountCard.appendChild(panel);
+      }).catch(function () {});
+  }
+
   function enableCommunity() {
     var reasoning = document.getElementById('arg');
     var form = reasoning && reasoning.closest('form');
@@ -96,6 +135,8 @@
       items.forEach(function (item) {
         var article = document.createElement('article');
         article.className = 'callout';
+        if (item.parent_id) article.style.marginLeft = 'clamp(.75rem,3vw,2rem)';
+
         var author = document.createElement('strong');
         author.textContent = item.author || 'Member';
         var body = document.createElement('p');
@@ -103,9 +144,54 @@
         var meta = document.createElement('small');
         meta.className = 'g-muted';
         try { meta.textContent = new Date(item.created_at).toLocaleDateString(); } catch (e) { meta.textContent = ''; }
+
+        var reply = document.createElement('button');
+        reply.type = 'button';
+        reply.className = 'g-btn g-btn--ghost g-btn--sm g-mt-sm';
+        reply.textContent = 'Reply';
+        reply.addEventListener('click', function () {
+          if (article.querySelector('[data-reply-box]')) return;
+          var box = document.createElement('div');
+          box.className = 'g-stack g-stack--xs g-mt-sm';
+          box.dataset.replyBox = '1';
+          var textarea = document.createElement('textarea');
+          textarea.className = 'g-textarea';
+          textarea.maxLength = 5000;
+          textarea.placeholder = 'Write a reply…';
+          var submit = document.createElement('button');
+          submit.type = 'button';
+          submit.className = 'g-btn g-btn--primary g-btn--sm';
+          submit.textContent = 'Submit reply';
+          var replyNote = document.createElement('small');
+          replyNote.className = 'g-muted';
+          submit.addEventListener('click', function () {
+            var value = textarea.value.trim();
+            if (!value) { replyNote.textContent = 'Write a reply first.'; textarea.focus(); return; }
+            submit.disabled = true;
+            replyNote.textContent = 'Submitting for moderation…';
+            apiPost('/api/community/comments/' + contentKey + '/', { body: value, parent_id: item.id })
+              .then(function () {
+                textarea.value = '';
+                replyNote.textContent = 'Reply submitted. It will appear after moderation.';
+              })
+              .catch(function (err) {
+                replyNote.textContent = err && err.error === 'authentication_required'
+                  ? 'Sign in to reply.'
+                  : 'Could not submit this reply right now.';
+              })
+              .finally(function () { submit.disabled = false; });
+          });
+          box.appendChild(textarea);
+          box.appendChild(submit);
+          box.appendChild(replyNote);
+          article.appendChild(box);
+          textarea.focus();
+        });
+
         article.appendChild(author);
         article.appendChild(body);
         article.appendChild(meta);
+        article.appendChild(reply);
         commentsBox.appendChild(article);
       });
     }
@@ -249,6 +335,7 @@
     });
 
     loadHomepageCms();
+    enableAccountControls();
     enableCommunity();
     enableLabCompletion();
     showNewsletterConfirmation();
