@@ -52,6 +52,9 @@ jobs:
           }
 
           sub_filter_once on;
+          sub_filter '<link rel="preconnect" href="https://fonts.googleapis.com">' '';
+          sub_filter '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' '';
+          sub_filter '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">' '';
           sub_filter '</body>' $gravitas_body_close;
           sub_filter '</head>' $gravitas_head_close;
           EOF
@@ -79,4 +82,6 @@ jobs:
           printf '%s' "$HOME_HTML" | grep -q '/assets/cms-links.js'
           printf '%s' "$HOME_HTML" | grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">'
           printf '%s' "$HOME_HTML" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+          ! printf '%s' "$HOME_HTML" | grep -q 'fonts.googleapis.com'
+          ! printf '%s' "$HOME_HTML" | grep -q 'fonts.gstatic.com'
           echo gravitas-live-cms-enabled
