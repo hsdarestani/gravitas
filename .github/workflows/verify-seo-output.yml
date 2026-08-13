@@ -1,10 +1,11 @@
 name: Verify Gravitas SEO Output
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/verify-seo-output.yml'
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+  schedule:
+    - cron: '41 4 * * *'
   workflow_dispatch:
 
 permissions:
@@ -12,21 +13,37 @@ permissions:
 
 jobs:
   verify:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
-      - name: Verify public HTML output
+      - name: Verify public prelaunch SEO and privacy output
         shell: bash
         run: |
           set -euo pipefail
-          curl -4 -fsSL https://gravitasplus.com/ > "$RUNNER_TEMP/home.html"
-          curl -4 -fsSL https://gravitasplus.com/dossiers.html > "$RUNNER_TEMP/dossiers.html"
-          echo 'Homepage canonical:'
-          grep -oE '<link rel="canonical"[^>]*>' "$RUNNER_TEMP/home.html" || true
-          echo 'Dossiers canonical:'
-          grep -oE '<link rel="canonical"[^>]*>' "$RUNNER_TEMP/dossiers.html" || true
-          echo 'Consent reference count:'
-          grep -o '/assets/consent.js' "$RUNNER_TEMP/home.html" | wc -l
-          grep -q '/assets/consent.js' "$RUNNER_TEMP/home.html"
-          grep -q 'rel="canonical"' "$RUNNER_TEMP/home.html"
-          grep -q 'rel="canonical"' "$RUNNER_TEMP/dossiers.html"
+          BASE=https://gravitasplus.com
+          curl -4 -fsSL "$BASE/" > "$RUNNER_TEMP/home.html"
+          curl -4 -fsSL "$BASE/dossiers.html" > "$RUNNER_TEMP/dossiers.html"
+          curl -4 -fsSL "$BASE/robots.txt" > "$RUNNER_TEMP/robots.txt"
+          curl -4 -fsSL "$BASE/sitemap.xml" > "$RUNNER_TEMP/sitemap.xml"
+          curl -4 -fsSI "$BASE/" > "$RUNNER_TEMP/headers.txt"
+
+          grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">' "$RUNNER_TEMP/home.html"
+          grep -Fq '<link rel="canonical" href="https://gravitasplus.com/dossiers.html">' "$RUNNER_TEMP/dossiers.html"
+          grep -Fq '<meta name="robots" content="noindex, nofollow">' "$RUNNER_TEMP/home.html"
+          tr -d '\r' < "$RUNNER_TEMP/headers.txt" | grep -qi '^X-Robots-Tag: noindex, nofollow$'
+
+          grep -Fq 'Sitemap: https://gravitasplus.com/sitemap.xml' "$RUNNER_TEMP/robots.txt"
+          grep -Fq 'Disallow: /admin/' "$RUNNER_TEMP/robots.txt"
+          grep -Fq 'Disallow: /api/' "$RUNNER_TEMP/robots.txt"
+          grep -Fq '<loc>https://gravitasplus.com/</loc>' "$RUNNER_TEMP/sitemap.xml"
+          ! grep -q '/admin/' "$RUNNER_TEMP/sitemap.xml"
+          ! grep -q '/api/' "$RUNNER_TEMP/sitemap.xml"
+          ! grep -q '/account' "$RUNNER_TEMP/sitemap.xml"
+
+          ! grep -q '312K' "$RUNNER_TEMP/home.html"
+          ! grep -q '418K views' "$RUNNER_TEMP/home.html"
+          ! grep -q 'fonts.googleapis.com' "$RUNNER_TEMP/home.html"
+          ! grep -q 'fonts.gstatic.com' "$RUNNER_TEMP/home.html"
+
+          echo gravitas-prelaunch-seo-gate-passed
