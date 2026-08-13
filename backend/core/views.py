@@ -7,7 +7,7 @@ from django.db import connection
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
-from .models import NewsletterSubscriber
+from .models import Comment, NewsletterSubscriber
 
 User = get_user_model()
 
@@ -25,6 +25,17 @@ def _user_json(user):
         'email': user.email,
         'name': user.first_name or user.username,
         'is_staff': user.is_staff,
+    }
+
+
+def _comment_json(comment):
+    return {
+        'id': comment.pk,
+        'content_key': comment.content_key,
+        'parent_id': comment.parent_id,
+        'body': comment.body,
+        'author': comment.author.first_name or 'Member',
+        'created_at': comment.created_at.isoformat(),
     }
 
 
@@ -133,3 +144,51 @@ def auth_me(request):
     if not request.user.is_authenticated:
         return JsonResponse({'authenticated': False})
     return JsonResponse({'authenticated': True, 'user': _user_json(request.user)})
+
+
+def comments(request, content_key):
+    if request.method == 'GET':
+        queryset = (
+            Comment.objects
+            .filter(content_key=content_key, status=Comment.Status.PUBLISHED)
+            .select_related('author')
+            .order_by('created_at')[:200]
+        )
+        return JsonResponse({'ok': True, 'comments': [_comment_json(item) for item in queryset]})
+
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+
+    payload = _payload(request)
+    body = str(payload.get('body', '')).strip()
+    if not body or len(body) > 5000:
+        return JsonResponse({'ok': False, 'error': 'invalid_body'}, status=400)
+
+    parent = None
+    parent_id = payload.get('parent_id')
+    if parent_id:
+        parent = Comment.objects.filter(
+            pk=parent_id,
+            content_key=content_key,
+            status=Comment.Status.PUBLISHED,
+        ).first()
+        if parent is None:
+            return JsonResponse({'ok': False, 'error': 'invalid_parent'}, status=400)
+
+    comment = Comment.objects.create(
+        author=request.user,
+        content_key=content_key,
+        parent=parent,
+        body=body,
+        status=Comment.Status.PENDING,
+    )
+    return JsonResponse(
+        {
+            'ok': True,
+            'moderation': 'pending',
+            'comment': _comment_json(comment),
+        },
+        status=201,
+    )
