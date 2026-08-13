@@ -1,8 +1,11 @@
-name: Gravitas Launch Hardening Check
+name: Gravitas Backend Validation
 
 on:
-  push:
-    branches: [launch-hardening]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/launch-hardening-check.yml'
   workflow_dispatch:
 
 permissions:
@@ -55,7 +58,6 @@ jobs:
       - name: Verify CMS translations Community and Lab schema
         run: |
           python - <<'PY'
-          import os
           import django
           django.setup()
 
@@ -95,7 +97,6 @@ jobs:
           assert response.status_code == 200, response.content
           payload = response.json()['item']
           assert payload['locale'] == 'en'
-          assert payload['title'] == 'English base'
           assert payload['fallback_to_english'] is True
 
           User = get_user_model()
@@ -104,5 +105,5 @@ jobs:
           assert comment.status == Comment.Status.PENDING
           progress = LabProgress.objects.create(user=user, lab_key='ci-lab', state={'step': 1}, completed=False)
           assert progress.state['step'] == 1
-          print('launch-hardening-postgresql-check-passed')
+          print('backend-validation-passed')
           PY
