@@ -58,10 +58,9 @@ jobs:
             EFFECTIVE_USER="$CONFIGURED_USER"
           elif [ "$CONFIGURED_USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@$HOST" true 2>/dev/null; then
             EFFECTIVE_USER="root"
-            echo "Configured DEPLOY_USER could not authenticate; using root for initial bootstrap."
+            echo "Configured DEPLOY_USER could not authenticate; using root for bootstrap."
           else
             echo "SSH authentication failed. DEPLOY_SSH_KEY must match the public key installed on the Strato VM."
-            echo "The initial Strato installation normally installs that key for root."
             exit 1
           fi
 
@@ -84,7 +83,7 @@ jobs:
           elif sudo -n true 2>/dev/null; then
             SUDO="sudo"
           else
-            echo "Deployment user must be root or have passwordless sudo for the initial bootstrap."
+            echo "Deployment user must be root or have passwordless sudo."
             exit 1
           fi
 
@@ -95,7 +94,44 @@ jobs:
           $SUDO mkdir -p "$DEPLOY_PATH"
           $SUDO chown -R "$(id -un):$(id -gn)" "$DEPLOY_PATH"
 
-          cat > /tmp/gravitas-nginx.conf <<NGINX
+          CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
+          if $SUDO test -f "$CERT_DIR/fullchain.pem" && $SUDO test -f "$CERT_DIR/privkey.pem"; then
+            cat > /tmp/gravitas-nginx.conf <<NGINX
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name $DOMAIN;
+              return 301 https://\$host\$request_uri;
+          }
+
+          server {
+              listen 443 ssl;
+              listen [::]:443 ssl;
+              server_name $DOMAIN;
+
+              root $DEPLOY_PATH;
+              index index.html;
+
+              ssl_certificate $CERT_DIR/fullchain.pem;
+              ssl_certificate_key $CERT_DIR/privkey.pem;
+              include /etc/letsencrypt/options-ssl-nginx.conf;
+              ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+              location / {
+                  try_files \$uri \$uri/ /index.html;
+              }
+
+              location ~ /\\. {
+                  deny all;
+              }
+
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+              add_header X-Frame-Options "SAMEORIGIN" always;
+          }
+          NGINX
+          else
+            cat > /tmp/gravitas-nginx.conf <<NGINX
           server {
               listen 80;
               listen [::]:80;
@@ -117,6 +153,7 @@ jobs:
               add_header X-Frame-Options "SAMEORIGIN" always;
           }
           NGINX
+          fi
 
           $SUDO mv /tmp/gravitas-nginx.conf /etc/nginx/sites-available/gravitas
           $SUDO ln -sfn /etc/nginx/sites-available/gravitas /etc/nginx/sites-enabled/gravitas
@@ -142,7 +179,7 @@ jobs:
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
             ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
 
-      - name: Reload Nginx and request SSL
+      - name: Ensure SSL and reload Nginx
         shell: bash
         run: |
           set -euo pipefail
@@ -157,17 +194,17 @@ jobs:
             SUDO="sudo"
           fi
 
-          $SUDO nginx -t
-          $SUDO systemctl reload nginx
-
-          if ! $SUDO certbot certificates 2>/dev/null | grep -q "Domains: $DOMAIN"; then
+          if ! $SUDO test -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"; then
             $SUDO certbot --nginx \
               -d "$DOMAIN" \
               --non-interactive \
               --agree-tos \
               --register-unsafely-without-email \
-              --redirect || echo "SSL issuance skipped/failed for now; HTTP deployment is still active."
+              --redirect
           fi
+
+          $SUDO nginx -t
+          $SUDO systemctl reload nginx
           REMOTE
 
       - name: Verify production
@@ -177,10 +214,8 @@ jobs:
           curl -fsS --retry 6 --retry-delay 3 \
             -H "Host: $DOMAIN" \
             "http://${{ secrets.DEPLOY_HOST }}/" >/dev/null
-          echo "Server deployment check passed."
+          echo "HTTP server check passed."
 
-          if curl -fsSL --connect-timeout 8 --max-time 20 "https://$DOMAIN/" >/dev/null 2>&1; then
-            echo "HTTPS check passed: https://$DOMAIN/"
-          else
-            echo "HTTPS is not available yet; DNS propagation or certificate issuance may still be pending."
-          fi
+          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 \
+            "https://$DOMAIN/" >/dev/null
+          echo "HTTPS production check passed: https://$DOMAIN/"
