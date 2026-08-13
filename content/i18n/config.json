@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "base_language": "en",
+  "fallback_language": "en",
+  "enabled_languages": ["en"],
+  "prepared_languages": ["de", "fa"],
+  "canonical_rule": "English is the canonical source. Localized editions are translations of the same content identity, never independent duplicate canonicals.",
+  "content_key_rule": "Use the English canonical slug/content key for all language editions.",
+  "publication_rule": "A translation may be draft or published independently, but cannot replace or redefine the English canonical source.",
+  "seo_rule": "When localized public routes are enabled, emit self-canonical plus hreflang links for available published languages and x-default to English.",
+  "direction": {
+    "en": "ltr",
+    "de": "ltr",
+    "fa": "rtl"
+  }
+}
