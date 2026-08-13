@@ -49,4 +49,4 @@ jobs:
           chmod 600 ~/.ssh/key
           ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
           ssh -i ~/.ssh/key -p "$PORT" -o BatchMode=yes "deploy@${{ secrets.DEPLOY_HOST }}" \
-            "sudo -u postgres psql -d gravitas -v ON_ERROR_STOP=1 -v email='$TEST_EMAIL' -c \"DELETE FROM core_newslettersubscriber WHERE email = :'email';\"" >/dev/null
+            "sudo -u postgres psql -d gravitas -v ON_ERROR_STOP=1 -c \"DELETE FROM core_newslettersubscriber WHERE email = '$TEST_EMAIL';\"" >/dev/null
