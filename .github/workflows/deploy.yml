@@ -32,15 +32,15 @@ jobs:
           test -n "${{ secrets.DEPLOY_HOST }}" || { echo "Missing DEPLOY_HOST"; exit 1; }
           test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo "Missing DEPLOY_SSH_KEY"; exit 1; }
 
-          DEPLOY_USER="${{ secrets.DEPLOY_USER }}"
+          CONFIGURED_USER="${{ secrets.DEPLOY_USER }}"
           DEPLOY_PORT="${{ secrets.DEPLOY_PORT }}"
-          [ -n "$DEPLOY_USER" ] || DEPLOY_USER="root"
+          [ -n "$CONFIGURED_USER" ] || CONFIGURED_USER="root"
           [ -n "$DEPLOY_PORT" ] || DEPLOY_PORT="22"
 
-          echo "DEPLOY_USER=$DEPLOY_USER" >> "$GITHUB_ENV"
+          echo "CONFIGURED_USER=$CONFIGURED_USER" >> "$GITHUB_ENV"
           echo "DEPLOY_PORT=$DEPLOY_PORT" >> "$GITHUB_ENV"
 
-      - name: Prepare SSH
+      - name: Prepare SSH and resolve login user
         shell: bash
         run: |
           set -euo pipefail
@@ -50,6 +50,22 @@ jobs:
           ssh-keygen -y -f ~/.ssh/gravitas_deploy >/dev/null
           ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+
+          SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          HOST="${{ secrets.DEPLOY_HOST }}"
+
+          if ssh "${SSH_OPTS[@]}" "$CONFIGURED_USER@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="$CONFIGURED_USER"
+          elif [ "$CONFIGURED_USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="root"
+            echo "Configured DEPLOY_USER could not authenticate; using root for initial bootstrap."
+          else
+            echo "SSH authentication failed. DEPLOY_SSH_KEY must match the public key installed on the Strato VM."
+            echo "The initial Strato installation normally installs that key for root."
+            exit 1
+          fi
+
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
 
       - name: Bootstrap production server
         shell: bash
