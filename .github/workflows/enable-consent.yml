@@ -38,6 +38,7 @@ jobs:
           map $uri $gravitas_head_close {
               default "</head>";
               / '<link rel="canonical" href="https://gravitasplus.com/"></head>';
+              /index.html '<link rel="canonical" href="https://gravitasplus.com/"></head>';
               /about.html '<link rel="canonical" href="https://gravitasplus.com/about.html"></head>';
               /dossiers.html '<link rel="canonical" href="https://gravitasplus.com/dossiers.html"></head>';
               /magazine.html '<link rel="canonical" href="https://gravitasplus.com/magazine.html"></head>';
