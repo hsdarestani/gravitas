@@ -1,5 +1,6 @@
 from django.urls import path
 
+from core.kpi import kpi_summary
 from core.views import (
     auth_csrf,
     auth_login,
@@ -22,4 +23,5 @@ urlpatterns = [
     path('auth/me/', auth_me),
     path('community/comments/<slug:content_key>/', comments),
     path('lab/progress/<slug:lab_key>/', lab_progress),
+    path('analytics/kpi/', kpi_summary),
 ]
