@@ -1,0 +1,32 @@
+name: Verify Gravitas SEO Output
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-seo-output.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public HTML output
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -4 -fsSL https://gravitasplus.com/ > "$RUNNER_TEMP/home.html"
+          curl -4 -fsSL https://gravitasplus.com/dossiers.html > "$RUNNER_TEMP/dossiers.html"
+          echo 'Homepage canonical:'
+          grep -oE '<link rel="canonical"[^>]*>' "$RUNNER_TEMP/home.html" || true
+          echo 'Dossiers canonical:'
+          grep -oE '<link rel="canonical"[^>]*>' "$RUNNER_TEMP/dossiers.html" || true
+          echo 'Consent reference count:'
+          grep -o '/assets/consent.js' "$RUNNER_TEMP/home.html" | wc -l
+          grep -q '/assets/consent.js' "$RUNNER_TEMP/home.html"
+          grep -q 'rel="canonical"' "$RUNNER_TEMP/home.html"
+          grep -q 'rel="canonical"' "$RUNNER_TEMP/dossiers.html"
