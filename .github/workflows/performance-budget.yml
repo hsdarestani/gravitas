@@ -1,0 +1,59 @@
+name: Gravitas Performance Budget
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '33 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for production deploy on push
+        if: ${{ github.event_name == 'push' }}
+        run: sleep 35
+
+      - name: Check response time and asset budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://gravitasplus.com
+
+          TTFB="$(curl -4 -fsS -o /dev/null -w '%{time_starttransfer}' "$BASE/")"
+          echo "Homepage TTFB: ${TTFB}s"
+          awk -v t="$TTFB" 'BEGIN { exit !(t < 1.5) }'
+
+          TOTAL=0
+          for path in \
+            /assets/gravitas.css \
+            /assets/site.css \
+            /assets/hero.css \
+            /assets/site.js \
+            /assets/hero.js; do
+            SIZE="$(curl -4 -fsS "$BASE$path" | wc -c)"
+            echo "$path: $SIZE bytes"
+            TOTAL=$((TOTAL + SIZE))
+          done
+          echo "Core CSS/JS total: $TOTAL bytes"
+          test "$TOTAL" -lt 220000
+
+          HTML_SIZE="$(curl -4 -fsS "$BASE/" | wc -c)"
+          echo "Homepage HTML: $HTML_SIZE bytes"
+          test "$HTML_SIZE" -lt 100000
+
+      - name: Verify HTTP compression
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEADER_FILE="$RUNNER_TEMP/headers.txt"
+          curl -4 -fsS -D "$HEADER_FILE" -o /dev/null \
+            -H 'Accept-Encoding: gzip' \
+            https://gravitasplus.com/assets/site.css
+          tr -d '\r' < "$HEADER_FILE" | grep -qi '^content-encoding: gzip'
+          echo gzip-enabled
