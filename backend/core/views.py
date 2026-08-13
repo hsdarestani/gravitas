@@ -252,6 +252,81 @@ def auth_me(request):
     return JsonResponse({'authenticated': True, 'user': _user_json(request.user)})
 
 
+def auth_export(request):
+    if request.method != 'GET':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+
+    user = request.user
+    comments_data = [
+        {
+            'id': item.pk,
+            'content_key': item.content_key,
+            'parent_id': item.parent_id,
+            'body': item.body,
+            'status': item.status,
+            'created_at': item.created_at.isoformat(),
+            'updated_at': item.updated_at.isoformat(),
+        }
+        for item in Comment.objects.filter(author=user).order_by('created_at')
+    ]
+    labs_data = [
+        {
+            'lab_key': item.lab_key,
+            'state': item.state,
+            'result': item.result,
+            'score': item.score,
+            'completed': item.completed,
+            'created_at': item.created_at.isoformat(),
+            'updated_at': item.updated_at.isoformat(),
+        }
+        for item in LabProgress.objects.filter(user=user).order_by('created_at')
+    ]
+    newsletter = NewsletterSubscriber.objects.filter(email__iexact=user.email).first()
+    response = JsonResponse({
+        'account': {
+            'id': user.pk,
+            'email': user.email,
+            'name': user.first_name,
+            'date_joined': user.date_joined.isoformat(),
+            'last_login': user.last_login.isoformat() if user.last_login else None,
+        },
+        'newsletter': None if newsletter is None else {
+            'is_active': newsletter.is_active,
+            'source': newsletter.source,
+            'created_at': newsletter.created_at.isoformat(),
+            'updated_at': newsletter.updated_at.isoformat(),
+        },
+        'comments': comments_data,
+        'lab_progress': labs_data,
+    }, json_dumps_params={'indent': 2})
+    response['Content-Disposition'] = 'attachment; filename="gravitas-account-data.json"'
+    return response
+
+
+def auth_delete(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+
+    payload = _payload(request)
+    password = str(payload.get('password', ''))
+    confirmation = str(payload.get('confirmation', '')).strip().lower()
+    user = request.user
+    if confirmation != 'delete':
+        return JsonResponse({'ok': False, 'error': 'confirmation_required'}, status=400)
+    if not user.check_password(password):
+        return JsonResponse({'ok': False, 'error': 'invalid_credentials'}, status=401)
+
+    email = user.email
+    logout(request)
+    NewsletterSubscriber.objects.filter(email__iexact=email).delete()
+    user.delete()
+    return JsonResponse({'ok': True, 'deleted': True})
+
+
 def password_reset_request(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
