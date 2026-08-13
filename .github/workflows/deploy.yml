@@ -1,0 +1,170 @@
+name: Deploy Gravitas to Strato
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-production
+  cancel-in-progress: true
+
+env:
+  DOMAIN: gravitasplus.com
+  DEPLOY_PATH: /var/www/gravitas
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}" || { echo "Missing DEPLOY_HOST"; exit 1; }
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo "Missing DEPLOY_SSH_KEY"; exit 1; }
+
+          DEPLOY_USER="${{ secrets.DEPLOY_USER }}"
+          DEPLOY_PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$DEPLOY_USER" ] || DEPLOY_USER="root"
+          [ -n "$DEPLOY_PORT" ] || DEPLOY_PORT="22"
+
+          echo "DEPLOY_USER=$DEPLOY_USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$DEPLOY_PORT" >> "$GITHUB_ENV"
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keygen -y -f ~/.ssh/gravitas_deploy >/dev/null
+          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Bootstrap production server
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" <<'REMOTE'
+          set -euo pipefail
+
+          DOMAIN="$1"
+          DEPLOY_PATH="$2"
+          SSH_PORT="$3"
+
+          if [ "$(id -u)" -eq 0 ]; then
+            SUDO=""
+          elif sudo -n true 2>/dev/null; then
+            SUDO="sudo"
+          else
+            echo "Deployment user must be root or have passwordless sudo for the initial bootstrap."
+            exit 1
+          fi
+
+          export DEBIAN_FRONTEND=noninteractive
+          $SUDO apt-get update -y
+          $SUDO apt-get install -y nginx rsync ufw certbot python3-certbot-nginx ca-certificates curl
+
+          $SUDO mkdir -p "$DEPLOY_PATH"
+          $SUDO chown -R "$(id -un):$(id -gn)" "$DEPLOY_PATH"
+
+          cat > /tmp/gravitas-nginx.conf <<NGINX
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name $DOMAIN;
+
+              root $DEPLOY_PATH;
+              index index.html;
+
+              location / {
+                  try_files \$uri \$uri/ /index.html;
+              }
+
+              location ~ /\\. {
+                  deny all;
+              }
+
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+              add_header X-Frame-Options "SAMEORIGIN" always;
+          }
+          NGINX
+
+          $SUDO mv /tmp/gravitas-nginx.conf /etc/nginx/sites-available/gravitas
+          $SUDO ln -sfn /etc/nginx/sites-available/gravitas /etc/nginx/sites-enabled/gravitas
+          $SUDO rm -f /etc/nginx/sites-enabled/default
+
+          $SUDO nginx -t
+          $SUDO systemctl enable --now nginx
+          $SUDO systemctl reload nginx
+
+          $SUDO ufw allow "$SSH_PORT/tcp"
+          $SUDO ufw allow 80/tcp
+          $SUDO ufw allow 443/tcp
+          $SUDO ufw --force enable
+          REMOTE
+
+      - name: Deploy repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
+            ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
+
+      - name: Reload Nginx and request SSL
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$DOMAIN" <<'REMOTE'
+          set -euo pipefail
+          DOMAIN="$1"
+
+          if [ "$(id -u)" -eq 0 ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          $SUDO nginx -t
+          $SUDO systemctl reload nginx
+
+          if ! $SUDO certbot certificates 2>/dev/null | grep -q "Domains: $DOMAIN"; then
+            $SUDO certbot --nginx \
+              -d "$DOMAIN" \
+              --non-interactive \
+              --agree-tos \
+              --register-unsafely-without-email \
+              --redirect || echo "SSL issuance skipped/failed for now; HTTP deployment is still active."
+          fi
+          REMOTE
+
+      - name: Verify production
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 6 --retry-delay 3 \
+            -H "Host: $DOMAIN" \
+            "http://${{ secrets.DEPLOY_HOST }}/" >/dev/null
+          echo "Server deployment check passed."
+
+          if curl -fsSL --connect-timeout 8 --max-time 20 "https://$DOMAIN/" >/dev/null 2>&1; then
+            echo "HTTPS check passed: https://$DOMAIN/"
+          else
+            echo "HTTPS is not available yet; DNS propagation or certificate issuance may still be pending."
+          fi
