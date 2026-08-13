@@ -1,0 +1,42 @@
+name: Gravitas Staging SMTP Smoke
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/staging-smtp-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smtp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify STRATO SMTP authentication and delivery handoff
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_USER: webmaster@gravitasplus.com
+        run: |
+          set -euo pipefail
+          test -n "$SMTP_PASSWORD" || { echo 'SMTP_PASSWORD is missing'; exit 1; }
+          python3 - <<'PY'
+          import os, smtplib, ssl
+          from email.message import EmailMessage
+
+          user = os.environ['SMTP_USER']
+          password = os.environ['SMTP_PASSWORD']
+          msg = EmailMessage()
+          msg['Subject'] = 'Gravitas+ SMTP verification'
+          msg['From'] = user
+          msg['To'] = user
+          msg.set_content('Gravitas+ successfully authenticated with STRATO SMTP. This is an automated infrastructure test.')
+
+          context = ssl.create_default_context()
+          with smtplib.SMTP_SSL('smtp.strato.de', 465, context=context, timeout=20) as smtp:
+              smtp.login(user, password)
+              smtp.send_message(msg)
+          print('smtp-auth-and-send-ok')
+          PY
