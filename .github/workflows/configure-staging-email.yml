@@ -17,21 +17,23 @@ jobs:
     steps:
       - name: Install SMTP secret in staging environment
         shell: bash
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         run: |
           set -euo pipefail
           USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
           PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
           HOST="${{ secrets.DEPLOY_HOST }}"
-          test -n "${{ secrets.SMTP_PASSWORD }}" || { echo 'SMTP_PASSWORD missing'; exit 1; }
+          test -n "$SMTP_PASSWORD" || { echo 'SMTP_PASSWORD missing'; exit 1; }
           install -d -m 700 ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
           chmod 600 ~/.ssh/key
           ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
 
-          printf '%s' "${{ secrets.SMTP_PASSWORD }}" | \
-            ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          SMTP_B64="$(printf '%s' "$SMTP_PASSWORD" | base64 -w0)"
+          ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" bash -s -- "$SMTP_B64" <<'REMOTE'
           set -euo pipefail
-          IFS= read -r SMTP_PASSWORD
+          SMTP_PASSWORD="$(printf '%s' "$1" | base64 -d)"
           FILE=/etc/gravitas/staging.env
           sudo touch "$FILE"
           sudo sed -i '/^EMAIL_HOST=/d;/^EMAIL_PORT=/d;/^EMAIL_USE_SSL=/d;/^EMAIL_HOST_USER=/d;/^EMAIL_HOST_PASSWORD=/d;/^DEFAULT_FROM_EMAIL=/d;/^PUBLIC_BASE_URL=/d' "$FILE"
