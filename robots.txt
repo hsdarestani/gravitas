@@ -1,2 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /django-static/
+
+Sitemap: https://gravitasplus.com/sitemap.xml
