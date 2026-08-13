@@ -32,7 +32,7 @@ jobs:
           cat > /tmp/gravitas-consent.conf <<'EOF'
           map $host $gravitas_body_close {
               default "</body>";
-              gravitasplus.com '<script src="/assets/production-cleanup.js"></script><script src="/assets/cms-public.js"></script><script src="/assets/consent.js"></script></body>';
+              gravitasplus.com '<script src="/assets/production-cleanup.js"></script><script src="/assets/cms-live.js"></script><script src="/assets/consent.js"></script></body>';
           }
 
           map $uri $gravitas_head_close {
@@ -61,19 +61,20 @@ jobs:
           sudo systemctl reload nginx
           REMOTE
 
-      - name: Verify privacy, canonical, CMS loader, cleanup and temporary noindex output
+      - name: Verify privacy, canonical, live CMS, cleanup and temporary noindex output
         shell: bash
         run: |
           set -euo pipefail
           sleep 2
           curl -4 -fsSL https://gravitasplus.com/assets/consent.js | grep -q 'gravitas:consent:v1'
           curl -4 -fsSL https://gravitasplus.com/assets/production-cleanup.js | grep -q '312K'
-          curl -4 -fsSL https://gravitasplus.com/assets/cms-public.js | grep -q 'cms-data/content.json'
+          curl -4 -fsSL https://gravitasplus.com/assets/cms-live.js | grep -q '/api/content/'
           curl -4 -fsSL https://gravitasplus.com/assets/cms-public.css | grep -q 'g-cms-grid'
+          curl -4 -fsSL 'https://gravitasplus.com/api/content/?kind=dossier&limit=1' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True and isinstance(d.get("items"), list)'
           HOME_HTML="$(curl -4 -fsSL https://gravitasplus.com/)"
           printf '%s' "$HOME_HTML" | grep -q '/assets/consent.js'
           printf '%s' "$HOME_HTML" | grep -q '/assets/production-cleanup.js'
-          printf '%s' "$HOME_HTML" | grep -q '/assets/cms-public.js'
+          printf '%s' "$HOME_HTML" | grep -q '/assets/cms-live.js'
           printf '%s' "$HOME_HTML" | grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">'
           printf '%s' "$HOME_HTML" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
-          echo gravitas-prelaunch-cms-loader-enabled
+          echo gravitas-live-cms-enabled
