@@ -195,15 +195,19 @@ def auth_signup(request):
 
     newsletter_pending = False
     if wants_newsletter:
-        subscriber, _ = NewsletterSubscriber.objects.update_or_create(
+        subscriber, _ = NewsletterSubscriber.objects.get_or_create(
             email=email,
             defaults={'source': 'account-signup', 'is_active': False},
         )
-        try:
-            _send_newsletter_confirmation(email)
-            newsletter_pending = not subscriber.is_active
-        except Exception:
-            newsletter_pending = False
+        if not subscriber.is_active:
+            if subscriber.source != 'account-signup':
+                subscriber.source = 'account-signup'
+                subscriber.save(update_fields=['source', 'updated_at'])
+            try:
+                _send_newsletter_confirmation(email)
+                newsletter_pending = True
+            except Exception:
+                newsletter_pending = False
 
     return JsonResponse(
         {
