@@ -7,7 +7,19 @@
     patterns.forEach(function (pair) {
       text = text.replace(pair[0], pair[1]);
     });
-    node.textContent = text.replace(/\s+·\s*$/g, '').replace(/\s{2,}/g, ' ').trim();
+    node.textContent = text
+      .replace(/^\s*·\s*/g, '')
+      .replace(/\s*·\s*$/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
+  function removeIfPrototypeMetric(node) {
+    if (!node) return;
+    var text = (node.textContent || '').trim();
+    if (/^(?:\d+\s*(?:min|minutes?|steps?)|~?\d+\s*hours?|\d+\s*(?:days?|weeks?)\s+ago|updated\s+monthly|dossier\s+\d+)$/i.test(text)) {
+      node.remove();
+    }
   }
 
   function run() {
@@ -18,8 +30,25 @@
 
     document.querySelectorAll('.video__meta').forEach(function (node) {
       cleanText(node, [
+        [/^\s*\d{1,2}:\d{2}\s*·\s*/g, ''],
         [/\s*·\s*418K\s+views\b/gi, '']
       ]);
+    });
+
+    document.querySelectorAll('.entry__meta span').forEach(removeIfPrototypeMetric);
+
+    document.querySelectorAll('.g-eyebrow, .g-eyebrow--bare').forEach(function (node) {
+      cleanText(node, [
+        [/\bDossier\s+04\s*·\s*/gi, '']
+      ]);
+    });
+
+    document.querySelectorAll('dt').forEach(function (dt) {
+      if ((dt.textContent || '').trim().toLowerCase() === 'reading time') {
+        var dd = dt.nextElementSibling;
+        dt.remove();
+        if (dd && dd.tagName === 'DD') dd.remove();
+      }
     });
 
     document.querySelectorAll('.lp-social__link[href="#"]').forEach(function (link) {
