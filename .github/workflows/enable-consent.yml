@@ -55,6 +55,8 @@ jobs:
           sub_filter '<link rel="preconnect" href="https://fonts.googleapis.com">' '';
           sub_filter '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' '';
           sub_filter '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">' '';
+          sub_filter 'New dossier monthly &middot; <span class="g-nums">312K</span> subscribers' 'New dossier monthly';
+          sub_filter '28:41 &middot; One idea, one world &middot; 418K views' 'One idea, one world';
           sub_filter '</body>' $gravitas_body_close;
           sub_filter '</head>' $gravitas_head_close;
           EOF
@@ -84,4 +86,6 @@ jobs:
           printf '%s' "$HOME_HTML" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
           ! printf '%s' "$HOME_HTML" | grep -q 'fonts.googleapis.com'
           ! printf '%s' "$HOME_HTML" | grep -q 'fonts.gstatic.com'
+          ! printf '%s' "$HOME_HTML" | grep -q '312K'
+          ! printf '%s' "$HOME_HTML" | grep -q '418K views'
           echo gravitas-live-cms-enabled
