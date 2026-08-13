@@ -7,7 +7,7 @@ from django.db import connection
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
-from .models import Comment, NewsletterSubscriber
+from .models import Comment, LabProgress, NewsletterSubscriber
 
 User = get_user_model()
 
@@ -36,6 +36,17 @@ def _comment_json(comment):
         'body': comment.body,
         'author': comment.author.first_name or 'Member',
         'created_at': comment.created_at.isoformat(),
+    }
+
+
+def _lab_progress_json(progress):
+    return {
+        'lab_key': progress.lab_key,
+        'state': progress.state,
+        'result': progress.result,
+        'score': progress.score,
+        'completed': progress.completed,
+        'updated_at': progress.updated_at.isoformat(),
     }
 
 
@@ -191,4 +202,60 @@ def comments(request, content_key):
             'comment': _comment_json(comment),
         },
         status=201,
+    )
+
+
+def lab_progress(request, lab_key):
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+
+    if request.method == 'GET':
+        progress = LabProgress.objects.filter(user=request.user, lab_key=lab_key).first()
+        if progress is None:
+            return JsonResponse({'ok': True, 'exists': False, 'progress': None})
+        return JsonResponse({'ok': True, 'exists': True, 'progress': _lab_progress_json(progress)})
+
+    if request.method == 'DELETE':
+        LabProgress.objects.filter(user=request.user, lab_key=lab_key).delete()
+        return JsonResponse({'ok': True, 'deleted': True})
+
+    if request.method not in {'POST', 'PUT'}:
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+
+    payload = _payload(request)
+    state = payload.get('state', {})
+    result = payload.get('result', {})
+    if not isinstance(state, dict) or not isinstance(result, dict):
+        return JsonResponse({'ok': False, 'error': 'invalid_payload'}, status=400)
+
+    serialized_size = len(json.dumps(state)) + len(json.dumps(result))
+    if serialized_size > 100000:
+        return JsonResponse({'ok': False, 'error': 'payload_too_large'}, status=413)
+
+    score = payload.get('score')
+    if score is not None:
+        try:
+            score = float(score)
+        except (TypeError, ValueError):
+            return JsonResponse({'ok': False, 'error': 'invalid_score'}, status=400)
+        if abs(score) > 1_000_000_000:
+            return JsonResponse({'ok': False, 'error': 'invalid_score'}, status=400)
+
+    progress, created = LabProgress.objects.update_or_create(
+        user=request.user,
+        lab_key=lab_key,
+        defaults={
+            'state': state,
+            'result': result,
+            'score': score,
+            'completed': bool(payload.get('completed', False)),
+        },
+    )
+    return JsonResponse(
+        {
+            'ok': True,
+            'created': created,
+            'progress': _lab_progress_json(progress),
+        },
+        status=201 if created else 200,
     )
