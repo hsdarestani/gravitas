@@ -1,4 +1,4 @@
-name: Gravitas Staging Auth and Community E2E
+name: Gravitas Staging Core E2E
 
 on:
   push:
@@ -12,14 +12,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  auth-community-e2e:
+  core-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Wait for staging deployment and schema sync
         run: sleep 50
 
-      - name: Verify account and moderated comments lifecycle
+      - name: Verify account community and lab lifecycles
         shell: bash
         run: |
           set -euo pipefail
@@ -42,10 +42,11 @@ jobs:
           KEEP_ENV=DJANGO_SECRET_KEY,DJANGO_DEBUG,DJANGO_DB_NAME,DJANGO_DB_USER,DJANGO_ALLOWED_HOSTS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_SESSION_COOKIE_NAME,DJANGO_CSRF_COOKIE_NAME,DJANGO_SETTINGS_MODULE,PYTHONPATH
           TEST_EMAIL="auth-check-${RUN_ID}@example.com"
           CONTENT_KEY="community-check-${RUN_ID}"
-          export TEST_EMAIL CONTENT_KEY
+          LAB_KEY="lab-check-${RUN_ID}"
+          export TEST_EMAIL CONTENT_KEY LAB_KEY
           cd "$APP"
 
-          sudo -u gravitas --preserve-env="$KEEP_ENV,TEST_EMAIL,CONTENT_KEY" "$APP/.venv/bin/python" - <<'PY'
+          sudo -u gravitas --preserve-env="$KEEP_ENV,TEST_EMAIL,CONTENT_KEY,LAB_KEY" "$APP/.venv/bin/python" - <<'PY'
           import json
           import os
           import django
@@ -53,16 +54,19 @@ jobs:
 
           from django.contrib.auth import get_user_model
           from django.test import Client
-          from core.models import Comment, NewsletterSubscriber
+          from core.models import Comment, LabProgress, NewsletterSubscriber
 
           User = get_user_model()
           email = os.environ['TEST_EMAIL']
           content_key = os.environ['CONTENT_KEY']
+          lab_key = os.environ['LAB_KEY']
           password = 'Staging-E2E-Password-2026!'
           account_referer = 'https://staging.gravitasplus.com/account.html'
           community_referer = 'https://staging.gravitasplus.com/community.html'
+          lab_referer = 'https://staging.gravitasplus.com/game-hypothesis-machine.html'
 
           Comment.objects.filter(content_key=content_key).delete()
+          LabProgress.objects.filter(lab_key=lab_key).delete()
           User.objects.filter(username=email).delete()
           NewsletterSubscriber.objects.filter(email=email).delete()
 
@@ -72,6 +76,8 @@ jobs:
               data=json.dumps({'body': 'anonymous'}),
               content_type='application/json', secure=True,
           )
+          assert response.status_code == 401, response.content
+          response = anonymous.get(f'/api/lab/progress/{lab_key}/', secure=True)
           assert response.status_code == 401, response.content
 
           client = Client(enforce_csrf_checks=True, HTTP_HOST='staging.gravitasplus.com')
@@ -119,6 +125,39 @@ jobs:
 
           token = client.cookies['gravitas_staging_csrftoken'].value
           response = client.post(
+              f'/api/lab/progress/{lab_key}/',
+              data=json.dumps({'state': {'step': 1, 'choice': 'test'}, 'result': {'accepted': 2}, 'score': 3.5, 'completed': False}),
+              content_type='application/json', secure=True,
+              HTTP_X_CSRFTOKEN=token, HTTP_REFERER=lab_referer,
+          )
+          assert response.status_code == 201, response.content
+          assert response.json()['progress']['state']['step'] == 1
+
+          response = client.get(f'/api/lab/progress/{lab_key}/', secure=True)
+          assert response.status_code == 200 and response.json()['exists'] is True, response.content
+          assert response.json()['progress']['score'] == 3.5
+
+          token = client.cookies['gravitas_staging_csrftoken'].value
+          response = client.post(
+              f'/api/lab/progress/{lab_key}/',
+              data=json.dumps({'state': {'step': 2}, 'result': {'accepted': 4}, 'score': 7, 'completed': True}),
+              content_type='application/json', secure=True,
+              HTTP_X_CSRFTOKEN=token, HTTP_REFERER=lab_referer,
+          )
+          assert response.status_code == 200, response.content
+          assert response.json()['progress']['completed'] is True
+
+          token = client.cookies['gravitas_staging_csrftoken'].value
+          response = client.delete(
+              f'/api/lab/progress/{lab_key}/',
+              secure=True, HTTP_X_CSRFTOKEN=token, HTTP_REFERER=lab_referer,
+          )
+          assert response.status_code == 200, response.content
+          response = client.get(f'/api/lab/progress/{lab_key}/', secure=True)
+          assert response.status_code == 200 and response.json()['exists'] is False, response.content
+
+          token = client.cookies['gravitas_staging_csrftoken'].value
+          response = client.post(
               '/api/auth/logout/', data='{}', content_type='application/json', secure=True,
               HTTP_X_CSRFTOKEN=token, HTTP_REFERER=account_referer,
           )
@@ -138,8 +177,9 @@ jobs:
           assert login_client.get('/api/auth/me/', secure=True).json().get('authenticated') is True
 
           Comment.objects.filter(content_key=content_key).delete()
+          LabProgress.objects.filter(lab_key=lab_key).delete()
           User.objects.filter(username=email).delete()
           NewsletterSubscriber.objects.filter(email=email).delete()
-          print('staging-auth-community-e2e-passed')
+          print('staging-core-e2e-passed')
           PY
           REMOTE
