@@ -1,0 +1,911 @@
+/* =========================================================================
+   GRAVITAS+ — SITE COMPONENTS
+   Built on top of gravitas.css (the design system). Everything here is a
+   component the new architecture needs and the old single-page site didn't.
+   ========================================================================= */
+
+/* ---- the signature texture, available to every page ---------------------
+   .g-well lives in the design system, but the image it draws was declared only
+   in hero.css. Any page that didn't load the home page's stylesheet — About,
+   Community, Account — rendered the well as an empty box, which is why their
+   CTA panels came out flat while the identical panel on the home page carried
+   the curved grid. The file is already in assets/; point at it here, where
+   every page can see it. */
+:root { --g-well-image: url("spacetime-well.svg"); }
+
+/* ---------- shared chrome ------------------------------------------------ */
+/* Moved out of hero.css: the header, mobile menu and button centring belong to
+   every page. Left in the hero stylesheet, the dropdown simply did not exist
+   anywhere except the home page. */
+/* ---- Header additions ---- */
+.lp-header__cta { display: inline-flex; }
+.lp-menu-btn { display: none; }
+.g-header__inner { position: relative; }
+.lp-header__actions { display: flex; align-items: center; gap: var(--g-space-2xs); flex: none; flex-wrap: nowrap; }
+@media (max-width: 720px) {
+  /* Collapse the CTA to a circular icon button that sits beside the hamburger.
+     (The old rule targeted `.lp-header__cta .g-btn span`, but the class is on the
+     button itself — so it never matched, the full label stayed, and the burger
+     wrapped onto a second line.) */
+  .lp-header__cta span { display: none; }
+  .lp-header__cta {
+    width: 2.75rem; height: 2.75rem; padding: 0;
+    border-radius: var(--g-radius-pill); flex: none;
+  }
+  .lp-header__cta .g-btn__icon { width: 1.05rem; height: 1.05rem; }
+  .lp-menu-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.75rem; height: 2.75rem; flex: none;
+    border-radius: var(--g-radius-pill);
+    border: 1px solid var(--g-border); background: transparent; color: var(--g-text);
+    cursor: pointer;
+  }
+  .lp-menu-btn[aria-expanded="true"] { background: rgb(212 201 190 / 0.12); border-color: var(--g-border-strong); }
+
+  /* The dropdown panel lives entirely in CSS so nothing leaks back to desktop.
+     Only the .is-open class is toggled — no inline styles. */
+  .g-nav {
+    display: none;
+    position: absolute; top: calc(100% + 0.5rem); right: 0;
+    flex-direction: column; align-items: stretch; gap: 0;
+    min-width: 12rem;
+    background: var(--g-surface-raised);
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--g-radius);
+    box-shadow: var(--g-shadow);
+    padding: var(--g-space-2xs);
+    z-index: var(--g-z-overlay);
+  }
+  .g-nav.is-open { display: flex; }
+  .g-nav .g-nav__link {
+    padding: var(--g-space-2xs) var(--g-space-sm);
+    border-bottom: 0; border-radius: var(--g-radius-sm);
+  }
+  .g-nav .g-nav__link:hover,
+  .g-nav .g-nav__link[aria-current="page"] {
+    background: rgb(212 201 190 / 0.1); color: var(--g-text);
+  }
+}
+
+/* ---- Optical centring for buttons with a leading icon --------------------
+   A leading icon pushes the label right of the button's centre. Correcting for
+   it *fully* centres the label but leaves the ink block visibly left of centre
+   with a lopsided 1:2 whitespace split — which reads worse than the original
+   problem. So compensate partially: shift by ~45% of the icon+gap width. The
+   label lands a few px right of centre, the ink a few px left, and the two
+   errors cancel to the eye.
+
+   Driven by an explicit class rather than :has(), so every browser resolves it
+   the same way — with :has() the correction silently vanished wherever it
+   wasn't supported, giving two different buttons. */
+/* Without correction the label sits (icon + gap)/2 right of centre. Shifting by
+   exactly half of that splits the error evenly between label and ink — the
+   minimax compromise. Expressed in em so it tracks each button size on its own:
+   6px on --lg, 5.5px default, 5.25px on --sm. */
+.g-btn--lead { --_shift: calc((1em + 0.5rem) / 4); }
+.g-btn--lead    { padding-left: calc(1.5rem - var(--_shift)); padding-right: calc(1.5rem + var(--_shift)); }
+.g-btn--lead.g-btn--lg { padding-left: calc(2rem   - var(--_shift)); padding-right: calc(2rem   + var(--_shift)); }
+.g-btn--lead.g-btn--sm { padding-left: calc(1rem   - var(--_shift)); padding-right: calc(1rem   + var(--_shift)); }
+/* the header CTA collapses to an icon-only circle on mobile — no label to centre */
+@media (max-width: 720px) { .lp-header__cta.g-btn--lead { padding: 0; } }
+
+/* ---- Topic filter row (PBS season selector) ---- */
+.lp-filters { display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); margin-bottom: var(--g-space-lg); }
+.lp-filter {
+  font: inherit; font-size: var(--g-fs-small); font-weight: var(--g-w-medium);
+  color: var(--g-text-muted); background: transparent;
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
+  padding: 0.4rem 0.9rem; cursor: pointer;
+  transition: color var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit);
+}
+
+.g-header__inner { position: relative; }
+.gh-actions { display: flex; align-items: center; gap: var(--g-space-2xs); flex: none; flex-wrap: nowrap; }
+
+/* depth switch — the answer to serving two audiences without splitting the
+   site in two. It re-renders the page in place instead of sending people
+   somewhere else, so nobody has to choose an identity at the door. */
+.depth {
+  display: inline-flex; align-items: center; padding: 2px;
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
+  background: rgb(212 201 190 / 0.05);
+}
+.depth button {
+  font: inherit; font-size: var(--g-fs-caption); font-weight: var(--g-w-medium);
+  letter-spacing: .02em; color: var(--g-text-muted); background: transparent;
+  border: 0; border-radius: var(--g-radius-pill); padding: .3rem .7rem;
+  cursor: pointer; white-space: nowrap;
+  transition: color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit);
+}
+.depth button[aria-pressed="true"] { background: var(--g-white-tint); color: var(--g-cosmos-600); }
+.depth button:hover[aria-pressed="false"] { color: var(--g-text); }
+@media (max-width: 900px) { .depth { display: none; } }
+
+/* content that only belongs to one reading level */
+/* Depth visibility.
+   This used to force `display: block` when revealing, which stamped on whatever
+   the element's own layout was — a flex list row became a block, its badge lost
+   `flex: none` and stretched, and the text next to it shifted. Hiding is the
+   only thing this rule should decide; the element keeps its own display value
+   via `revert`, so a row stays a row. */
+/* Only ever hide. `revert` on the revealed element brought back the UA default
+   (an li became list-item) rather than the author's own rule, so revealed rows
+   laid out differently from the ones already showing. Hiding the other side
+   leaves every visible element with exactly the display its own CSS gives it —
+   and with no JS at all, everything simply shows. */
+body.is-overview [data-level="deep"],
+body.is-deep     [data-level="overview"] { display: none; }
+
+.depth-note {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle); border-left: 2px solid var(--g-border);
+  padding-left: var(--g-space-sm); margin-bottom: var(--g-space-lg);
+}
+
+/* ---------- page head ---------------------------------------------------- */
+.page-head { padding-block: clamp(2.5rem, 5vw, 4.5rem) clamp(1.5rem, 3vw, 2.5rem); position: relative; }
+.page-head h1 {
+  font-size: clamp(2rem, 1.3rem + 2.6vw, 3.4rem); font-weight: var(--g-w-bold);
+  letter-spacing: -.03em; line-height: 1.05; margin: 0 0 var(--g-space-sm);
+}
+.page-head .g-lead { max-width: 60ch; }
+.crumb {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--g-text-subtle);
+  margin-bottom: var(--g-space-sm);
+}
+.crumb a { color: var(--g-text-muted); text-decoration: none; }
+.crumb a:hover { color: var(--g-text); }
+
+/* ---------- the six spaces (home) ---------------------------------------- */
+.spaces { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--g-space-sm); }
+/* six items, three to a row: two full rows, no orphan */
+@media (min-width: 861px) { .space { grid-column: span 2 !important; } }
+@media (max-width: 860px) { .spaces { grid-template-columns: repeat(2, 1fr); }
+                            .space { grid-column: span 1 !important; } }
+@media (max-width: 520px) { .spaces { grid-template-columns: 1fr; } }
+.space {
+  grid-column: span 2; position: relative; overflow: hidden;
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: linear-gradient(180deg, var(--g-cosmos-500), var(--g-cosmos-600));
+  padding: var(--g-space-md); text-decoration: none; display: flex; flex-direction: column;
+  min-height: 168px;
+  transition: transform var(--g-dur) var(--g-ease-orbit),
+              border-color var(--g-dur) var(--g-ease-orbit),
+              background-color var(--g-dur) var(--g-ease-orbit);
+}
+.space:hover { transform: translateY(-3px); border-color: var(--g-border); }
+.space--wide { grid-column: span 3; }
+.space__n {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow); letter-spacing: .16em;
+  color: var(--g-sisal); margin-bottom: var(--g-space-2xs);
+}
+.space h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
+.space p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
+.space__go {
+  margin-top: auto; padding-top: var(--g-space-sm);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: var(--g-sisal); display: inline-flex; align-items: center; gap: .35rem;
+}
+.space:hover .space__go { color: var(--g-text); }
+@media (max-width: 900px) { .space, .space--wide { grid-column: span 3; } }
+@media (max-width: 560px) { .space, .space--wide { grid-column: span 6; } }
+
+/* ---------- filter bar --------------------------------------------------- */
+.filters { display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); align-items: center; margin-bottom: var(--g-space-lg); }
+.filters__label {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--g-text-subtle); margin-right: var(--g-space-2xs);
+}
+.chip {
+  font: inherit; font-size: var(--g-fs-small); font-weight: var(--g-w-medium);
+  color: var(--g-text-muted); background: transparent;
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
+  padding: .34rem .8rem; cursor: pointer;
+  transition: color var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit),
+              background-color var(--g-dur) var(--g-ease-orbit);
+}
+.chip:hover { color: var(--g-text); border-color: var(--g-border-strong); }
+.chip[aria-pressed="true"] { background: var(--g-white-tint); color: var(--g-cosmos-600); border-color: var(--g-white-tint); }
+.search {
+  flex: 1 1 12rem; min-width: 9rem; background: var(--g-surface-sunken);
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
+  color: var(--g-text); font: inherit; font-size: var(--g-fs-small); padding: .42rem .9rem;
+}
+.search::placeholder { color: var(--g-text-subtle); }
+.search:focus-visible { outline: none; border-color: var(--g-sisal); box-shadow: 0 0 0 3px rgb(212 201 190 / .2); }
+.result-count { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.is-hidden { display: none !important; }
+.empty {
+  border: 1px dashed var(--g-border); border-radius: var(--g-radius);
+  padding: var(--g-space-xl); text-align: center; color: var(--g-text-muted);
+}
+
+/* ---------- entry cards -------------------------------------------------- */
+.entry {
+  display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: var(--g-space-md);
+  padding-block: var(--g-space-md); border-bottom: 1px solid var(--g-hairline);
+  text-decoration: none; align-items: start;
+  transition: background-color var(--g-dur) var(--g-ease-orbit);
+}
+.entry:hover { background: rgb(212 201 190 / .04); }
+.entry__type {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--g-sisal); padding-top: .2rem;
+}
+.entry h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); line-height: 1.3; }
+.entry:hover h3 { color: var(--g-sisal); }
+.entry p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-2xs); }
+.entry__meta { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); display: flex; gap: var(--g-space-2xs); flex-wrap: wrap; }
+.entry__meta span + span::before { content: "·"; margin-right: var(--g-space-2xs); }
+@media (max-width: 620px) { .entry { grid-template-columns: 1fr; gap: var(--g-space-2xs); } }
+
+/* ---------- dossier ------------------------------------------------------ */
+.dossier-nav {
+  position: sticky; top: 4.5rem; z-index: 40; background: rgb(0 38 58 / .82);
+  backdrop-filter: blur(14px); border-block: 1px solid var(--g-hairline);
+}
+.dossier-nav__row { display: flex; gap: clamp(.9rem, 2.4vw, 2rem); overflow-x: auto; scrollbar-width: none; }
+.dossier-nav__row::-webkit-scrollbar { display: none; }
+.dossier-nav a {
+  flex: none; padding: var(--g-space-sm) 0; font-size: var(--g-fs-small);
+  font-weight: var(--g-w-medium); color: var(--g-text); opacity: .68; text-decoration: none;
+  border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: opacity var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
+}
+.dossier-nav a:hover, .dossier-nav a.is-active { opacity: 1; border-bottom-color: var(--g-sisal); }
+
+.layer { padding-block: clamp(2.5rem, 5vw, 4rem); border-top: 1px solid var(--g-hairline); }
+.layer:first-of-type { border-top: 0; }
+.layer__head { display: flex; align-items: baseline; gap: var(--g-space-sm); margin-bottom: var(--g-space-md); flex-wrap: wrap; }
+.layer__n {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal);
+  letter-spacing: .1em;
+}
+.layer__head h2 { font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem); margin: 0; letter-spacing: -.02em; }
+
+/* video frame */
+.video {
+  position: relative; aspect-ratio: 16/9; border-radius: var(--g-radius);
+  overflow: hidden; background: var(--g-grad-deep-space); border: 1px solid var(--g-hairline);
+  display: grid; place-items: center; text-decoration: none;
+}
+.video__play {
+  width: 4.5rem; height: 4.5rem; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid rgb(241 239 236 / .7); background: rgb(3 3 3 / .35);
+  backdrop-filter: blur(4px); color: var(--g-white-tint);
+  transition: transform var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit);
+}
+.video:hover .video__play { transform: scale(1.08); background: rgb(0 48 73 / .6); }
+.video__meta {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: var(--g-space-md);
+  background: linear-gradient(180deg, transparent, rgb(3 3 3 / .8));
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-muted);
+}
+
+/* sources at three levels */
+.levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-md); }
+@media (max-width: 860px) { .levels { grid-template-columns: 1fr; } }
+.level { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); }
+.level__tag {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--g-sisal); margin: 0 0 var(--g-space-2xs);
+}
+.level h4 { font-size: var(--g-fs-body); margin: 0 0 var(--g-space-2xs); }
+.level ul { margin: 0; padding-left: 1.05rem; }
+.level li { font-size: var(--g-fs-small); color: var(--g-text-muted); margin-bottom: var(--g-space-2xs); }
+.level li::marker { color: var(--g-sisal); }
+.level a { color: var(--g-text-muted); text-decoration-color: var(--g-border); }
+.level a:hover { color: var(--g-text); }
+
+/* timeline */
+.tl { position: relative; padding-left: 1.6rem; }
+.tl::before { content: ""; position: absolute; left: .32rem; top: .4rem; bottom: .4rem; width: 1px; background: var(--g-border); }
+.tl__item { position: relative; padding-bottom: var(--g-space-md); }
+.tl__item::before {
+  content: ""; position: absolute; left: -1.53rem; top: .45rem; width: .52rem; height: .52rem;
+  border-radius: 50%; background: var(--g-sisal); box-shadow: 0 0 0 3px var(--g-cosmos-700);
+}
+.tl__yr { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal); }
+.tl__item h4 { font-size: var(--g-fs-body); margin: .1rem 0 .2rem; }
+.tl__item p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
+
+/* viewpoints */
+.views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-space-md); }
+@media (max-width: 760px) { .views { grid-template-columns: 1fr; } }
+.view { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); }
+.view--for { border-left: 2px solid var(--g-signal-positive); }
+.view--against { border-left: 2px solid var(--g-signal-caution); }
+.view__tag {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em;
+  text-transform: uppercase; margin: 0 0 var(--g-space-2xs);
+}
+.view--for .view__tag { color: var(--g-signal-positive); }
+.view--against .view__tag { color: var(--g-signal-caution); }
+.view p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-2xs); }
+.view cite { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); font-style: normal; color: var(--g-text-subtle); }
+
+/* comments */
+.comment { display: grid; grid-template-columns: 2.4rem minmax(0,1fr); gap: var(--g-space-sm); padding-block: var(--g-space-sm); border-bottom: 1px solid var(--g-hairline); }
+.avatar {
+  width: 2.4rem; height: 2.4rem; border-radius: 50%; display: grid; place-items: center;
+  background: var(--g-cosmos-400); color: var(--g-text); font-size: var(--g-fs-caption);
+  font-weight: var(--g-w-semibold); border: 1px solid var(--g-hairline);
+}
+.comment__who { font-size: var(--g-fs-small); font-weight: var(--g-w-semibold); }
+.comment__role {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal);
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-pill); padding: 0 .4rem; margin-left: .4rem;
+}
+.comment p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: .25rem 0 0; }
+
+/* ---------- lab / games -------------------------------------------------- */
+.games { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: var(--g-space-md); }
+.game-card {
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius); overflow: hidden;
+  background: var(--g-surface-raised); text-decoration: none; display: flex; flex-direction: column;
+  transition: transform var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
+}
+.game-card:hover { transform: translateY(-3px); border-color: var(--g-border); }
+.game-card__art { aspect-ratio: 16/10; position: relative; overflow: hidden; background: var(--g-grad-deep-space); }
+.game-card__art canvas { width: 100%; height: 100%; display: block; }
+.game-card__b { padding: var(--g-space-md); display: flex; flex-direction: column; flex: 1; }
+.game-card h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
+.game-card p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-sm); }
+.game-card__meta { margin-top: auto; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal); }
+.badge-soon {
+  position: absolute; top: var(--g-space-2xs); right: var(--g-space-2xs);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  background: rgb(3 3 3 / .7); color: var(--g-text-muted); padding: .1rem .45rem; border-radius: var(--g-radius-sm);
+}
+
+/* game shell */
+.play {
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius-lg);
+  background: var(--g-surface); overflow: hidden;
+}
+.play__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-sm);
+  padding: var(--g-space-sm) var(--g-space-md); border-bottom: 1px solid var(--g-hairline);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-muted);
+  flex-wrap: wrap;
+}
+.play__body { padding: var(--g-space-md) var(--g-space-md) var(--g-space-lg); }
+/* a canvas panel centres its figure instead of pinning it to the top edge */
+.play__body--fig { padding: 0; display: grid; place-items: center; min-height: 380px; }
+.play__body--fig canvas { display: block; }
+.triple { display: flex; gap: var(--g-space-2xs); flex-wrap: wrap; align-items: center; }
+/* The default number spinners are tiny grey browser chrome and they were the
+   ugliest thing on the page. Suppressed, and the field made a proper display
+   for a value you are about to test. */
+.triple input {
+  width: 5.6rem; background: var(--g-surface-sunken); border: 1px solid var(--g-border);
+  border-radius: var(--g-radius-sm); color: var(--g-text); font-family: var(--g-font-mono);
+  font-size: 1.25rem; font-weight: var(--g-w-medium); letter-spacing: .02em;
+  padding: .7rem .6rem; text-align: center;
+  transition: border-color var(--g-dur) var(--g-ease-orbit),
+              box-shadow var(--g-dur) var(--g-ease-orbit),
+              background-color var(--g-dur) var(--g-ease-orbit);
+  -moz-appearance: textfield; appearance: textfield;
+}
+.triple input::-webkit-outer-spin-button,
+.triple input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.triple input:hover { border-color: var(--g-border-strong); background: var(--g-cosmos-700); }
+.triple { gap: .45rem; }
+.triple__sep { font-family: var(--g-font-mono); color: var(--g-text-subtle);
+  font-size: 1.1rem; padding: 0 .1rem; }
+.triple input:focus-visible { outline: none; border-color: var(--g-sisal); box-shadow: 0 0 0 3px rgb(212 201 190 / .2); }
+.trials { margin-top: var(--g-space-md); border-top: 1px solid var(--g-hairline); }
+.trial {
+  display: flex; align-items: center; gap: var(--g-space-sm); padding: .5rem 0;
+  border-bottom: 1px solid var(--g-hairline); font-family: var(--g-font-mono); font-size: var(--g-fs-small);
+}
+.verdict { font-weight: var(--g-w-bold); }
+.verdict--yes { color: var(--g-signal-positive); }
+.verdict--no  { color: var(--g-signal-critical); }
+.trial__note { margin-left: auto; color: var(--g-text-subtle); font-size: var(--g-fs-caption); }
+
+/* ---------- learning paths ---------------------------------------------- */
+.path-card {
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md);
+  text-decoration: none; display: flex; flex-direction: column; background: var(--g-surface-raised);
+  transition: transform var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
+}
+.path-card:hover { transform: translateY(-3px); border-color: var(--g-border); }
+.path-card h3 { font-size: var(--g-fs-h4); margin: var(--g-space-2xs) 0 var(--g-space-3xs); }
+.path-card p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-sm); }
+.progress { height: 4px; border-radius: 99px; background: rgb(212 201 190 / .18); overflow: hidden; margin-top: auto; }
+.progress i { display: block; height: 100%; background: var(--g-sisal); border-radius: 99px; }
+
+.step { display: grid; grid-template-columns: 2.6rem minmax(0,1fr); gap: var(--g-space-md); padding-block: var(--g-space-md); border-bottom: 1px solid var(--g-hairline); }
+.step__n {
+  width: 2.2rem; height: 2.2rem; border-radius: 50%; border: 1px solid var(--g-border);
+  display: grid; place-items: center; font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: var(--g-sisal);
+}
+.step h4 { font-size: var(--g-fs-body); margin: .15rem 0 var(--g-space-3xs); }
+.step p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-2xs); }
+.step__links { display: flex; gap: var(--g-space-2xs); flex-wrap: wrap; }
+
+/* ---------- community ---------------------------------------------------- */
+/* six roles, three to a row */
+.roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g-space-sm); }
+@media (max-width: 860px) { .roles { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .roles { grid-template-columns: 1fr; } }
+.role { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); }
+.role h4 { font-size: var(--g-fs-body); margin: 0 0 var(--g-space-3xs); }
+.role p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
+.role__icon { width: 1.4rem; height: 1.4rem; color: var(--g-sisal); margin-bottom: var(--g-space-2xs); }
+
+.event { display: grid; grid-template-columns: 5rem minmax(0,1fr) auto; gap: var(--g-space-md); align-items: center;
+  padding-block: var(--g-space-sm); border-bottom: 1px solid var(--g-hairline); }
+.event__date { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal); text-align: center; }
+.event__date b { display: block; font-size: var(--g-fs-h4); color: var(--g-text); font-weight: var(--g-w-bold); }
+.event h4 { font-size: var(--g-fs-body); margin: 0 0 var(--g-space-3xs); }
+.event p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
+@media (max-width: 620px) { .event { grid-template-columns: 4rem minmax(0,1fr); } .event > .g-btn { grid-column: 2; justify-self: start; } }
+
+/* poll */
+.poll__opt { display: block; width: 100%; text-align: left; background: transparent; border: 1px solid var(--g-border);
+  border-radius: var(--g-radius-sm); padding: .7rem .9rem; margin-bottom: var(--g-space-2xs);
+  color: var(--g-text); font: inherit; font-size: var(--g-fs-small); cursor: pointer; position: relative; overflow: hidden;
+  transition: border-color var(--g-dur) var(--g-ease-orbit); }
+.poll__opt:hover { border-color: var(--g-border-strong); }
+.poll__opt[aria-pressed="true"] { border-color: var(--g-sisal); }
+.poll__bar { position: absolute; inset: 0 auto 0 0; background: rgb(212 201 190 / .14); width: 0; transition: width .6s var(--g-ease-orbit); }
+.poll__txt { position: relative; display: flex; justify-content: space-between; gap: var(--g-space-sm); }
+.poll__pct { font-family: var(--g-font-mono); color: var(--g-sisal); opacity: 0; transition: opacity .3s; }
+.poll.is-voted .poll__pct { opacity: 1; }
+
+/* ---------- programmes strip -------------------------------------------- */
+/* five items: three then two, both rows full, rather than four then a widow */
+.programs { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--g-space-sm); }
+.program { grid-column: span 2; }
+.program:nth-child(4), .program:nth-child(5) { grid-column: span 3; }
+/* two columns: the fifth is the odd one, so let it take the full width */
+@media (max-width: 900px) { .programs { grid-template-columns: repeat(2, 1fr); }
+  .program { grid-column: span 1 !important; }
+  .program:nth-child(5) { grid-column: span 2 !important; } }
+@media (max-width: 560px) { .programs { grid-template-columns: 1fr; }
+  .program, .program:nth-child(5) { grid-column: span 1 !important; } }
+.program { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); background: var(--g-surface-raised); }
+.program__n { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal); letter-spacing: .1em; }
+.program h3 { font-size: var(--g-fs-body); margin: var(--g-space-3xs) 0; }
+.program p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-2xs); }
+.program__cad { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+
+/* ---------- misc --------------------------------------------------------- */
+.kv { display: grid; grid-template-columns: auto 1fr; gap: .35rem var(--g-space-md); font-size: var(--g-fs-small); }
+.kv dt { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); letter-spacing: .06em; text-transform: uppercase; }
+.kv dd { margin: 0; color: var(--g-text-muted); }
+.pill-row { display: flex; gap: var(--g-space-2xs); flex-wrap: wrap; }
+.split { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 3.5rem); align-items: start; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+.aside { position: sticky; top: 6rem; }
+@media (max-width: 900px) { .aside { position: static; } }
+.callout {
+  border: 1px solid var(--g-hairline); border-left: 2px solid var(--g-sisal);
+  border-radius: 0 var(--g-radius) var(--g-radius) 0; padding: var(--g-space-md);
+  background: var(--g-surface-sunken);
+}
+.callout h4 { font-size: var(--g-fs-body); margin: 0 0 var(--g-space-3xs); }
+.callout p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
+
+.rv { opacity: 0; transform: translateY(14px); transition: opacity .6s var(--g-ease-orbit), transform .6s var(--g-ease-orbit); }
+.rv.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; } }
+
+/* ---- Footer social icons — uniform circular buttons, one visual weight ---- */
+/* The Elsewhere column needs a little more room than the others so all five
+   sit on a single row rather than wrapping 4+1. */
+.g-footer__grid { grid-template-columns: 1.5fr 1fr 1fr 1.35fr; }
+/* These must sit beside the rule above: it is unlayered, so it outranks the
+   design system's own breakpoints and would otherwise hold four columns all
+   the way down to 360px. */
+@media (max-width: 800px) { .g-footer__grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .g-footer__grid { grid-template-columns: 1fr; gap: var(--g-space-md); } }
+.lp-social { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.lp-social__link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.25rem; height: 2.25rem; border-radius: var(--g-radius-pill);
+  border: 1px solid var(--g-hairline); color: var(--g-text-muted);
+  text-decoration: none;
+  transition: color var(--g-dur) var(--g-ease-orbit),
+              border-color var(--g-dur) var(--g-ease-orbit),
+              background-color var(--g-dur) var(--g-ease-orbit),
+              transform var(--g-dur) var(--g-ease-orbit);
+}
+.lp-social__link:hover {
+  color: var(--g-text); border-color: var(--g-border-strong);
+  background: rgb(212 201 190 / 0.08); transform: translateY(-2px);
+}
+.lp-social__link svg { width: 1.05rem; height: 1.05rem; display: block; }
+
+
+/* ---- reading level on magazine entries --------------------------------
+   In Overview the technical pieces stay in the list but step back, and say
+   why. Hard-hiding them makes the page look broken when the count drops. */
+.entry__lvl {
+  font-family: var(--g-font-mono); font-size: .62rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--g-text-subtle);
+  border: 1px solid var(--g-hairline); border-radius: 99px; padding: .08rem .45rem;
+}
+body.is-overview .entry[data-reading="deep"] { opacity: .55; }
+body.is-overview .entry[data-reading="deep"]:hover { opacity: 1; }
+body.is-deep .entry[data-reading="overview"] { opacity: .62; }
+body.is-deep .entry[data-reading="overview"]:hover { opacity: 1; }
+body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border); }
+.entry[data-reading] { transition: opacity var(--g-dur) var(--g-ease-orbit); }
+
+/* ---- article ---------------------------------------------------------- */
+.crumb { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--g-text-subtle);
+  margin: 0 0 var(--g-space-md); }
+.crumb a { color: inherit; }
+.art__title { font-size: clamp(1.9rem,1.2rem+2.4vw,3rem); line-height:1.08;
+  letter-spacing:-.025em; margin:0 0 var(--g-space-sm); text-wrap:balance; }
+.art__standfirst { font-size: var(--g-fs-lead); color: var(--g-text-muted);
+  line-height:1.5; margin:0 0 var(--g-space-md); }
+.art__meta { display:flex; flex-wrap:wrap; gap:1rem; font-family:var(--g-font-mono);
+  font-size:var(--g-fs-caption); color:var(--g-text-subtle);
+  border-top:1px solid var(--g-hairline); padding-top:var(--g-space-sm); }
+.art { font-size:var(--g-fs-lead); line-height:1.68; padding-block: var(--g-space-lg); }
+.art > * + * { margin-top: var(--g-space-md); }
+.art h2 { font-size: clamp(1.25rem,1.05rem+.8vw,1.6rem); margin-top: var(--g-space-xl); }
+.art__lede { font-size: 1.18em; color: var(--g-text); }
+/* ---- two-line drop cap --------------------------------------------------
+   The letter has to sit on two lines exactly: its cap top level with the cap
+   top of line one, its baseline sitting on the baseline of line two. The old
+   values did neither — sizing the float against the *line box* rather than the
+   cap height left the A floating high, meeting neither line.
+
+   Worked from DM Sans's real metrics (1000 upem, cap height 700, ascender 992,
+   descender -310) against the lede's line-height of 1.68:
+
+     line 1 cap top  = 0.481em      baseline 2 = 2.861em   (from the line-1 top)
+     cap height wanted = 2.861 - 0.481   = 2.38em
+     font-size = 2.38 / 0.7 (cap ratio)  = 3.4em
+     margin-top so the baselines meet    = 0.15em of that
+
+   Browsers that support initial-letter do this arithmetic themselves, from
+   whichever font actually loaded, so let them — the float is the fallback. */
+.art__lede::first-letter {
+  float: left;
+  font-size: 3.4em;
+  line-height: .7;
+  margin: .15em .1em 0 0;
+  font-weight: var(--g-w-bold);
+  color: var(--g-sisal);
+}
+@supports (initial-letter: 2) or (-webkit-initial-letter: 2) {
+  .art__lede::first-letter {
+    -webkit-initial-letter: 2;
+    initial-letter: 2;
+    float: none;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0 .1em 0 0;
+  }
+}
+.art__aside { border-left:2px solid var(--g-border-strong); background:var(--g-surface-sunken);
+  border-radius:0 var(--g-radius) var(--g-radius) 0; padding:var(--g-space-md);
+  font-size:.94rem; color:var(--g-text-muted); }
+.art__aside-h { font-family:var(--g-font-mono); font-size:.68rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--g-sisal); margin:0 0 .5rem; }
+.art__sources { border-top:1px solid var(--g-hairline); padding-top:var(--g-space-lg);
+  margin-top: var(--g-space-lg); }
+.src { list-style:none; margin:0 0 var(--g-space-sm); padding:0; }
+.src li { display:flex; gap:.8rem; align-items:baseline; padding:.45rem 0;
+  border-bottom:1px solid var(--g-hairline); }
+.src__lvl { flex:none; font-family:var(--g-font-mono); font-size:.6rem; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--g-text-subtle); border:1px solid var(--g-hairline);
+  border-radius:99px; padding:.08rem .45rem; }
+.art__next { padding-block: var(--g-space-xl) var(--g-space-2xl); }
+.art__next h3 { font-size:1.1rem; margin-bottom:var(--g-space-md); }
+.nextcard { display:flex; flex-direction:column; gap:.4rem; text-decoration:none;
+  border:1px solid var(--g-hairline); border-radius:var(--g-radius);
+  padding:var(--g-space-md); background:var(--g-surface-raised);
+  transition:.3s var(--g-ease-orbit); }
+.nextcard:hover { transform:translateY(-3px); border-color:var(--g-border-strong);
+  background:var(--g-surface-hover); }
+.nextcard__k { font-family:var(--g-font-mono); font-size:.62rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--g-sisal); }
+.nextcard strong { font-size:1.02rem; }
+.nextcard span:last-child { font-size:.86rem; color:var(--g-text-muted); }
+
+
+/* ---- planned, not yet built -------------------------------------------
+   These keep their place so the shape of the plan is visible, but they are
+   not links and must not behave like them. */
+.is-soon { cursor: default; position: relative; }
+.is-soon > *:not(.soon-chip) { opacity: .62; }
+.is-soon:hover { transform: none !important; border-color: var(--g-hairline) !important;
+                 background: inherit; box-shadow: none !important; }
+.soon-chip {
+  position: absolute; top: .7rem; right: .7rem; z-index: 2;
+  font-family: var(--g-font-mono); font-size: .6rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--g-text-subtle);
+  border: 1px solid var(--g-hairline); border-radius: 99px;
+  padding: .1rem .5rem; background: rgb(1 18 28 / .72);
+}
+.game-card.is-soon .soon-chip { top: auto; bottom: .7rem; }
+
+
+/* a reference or control whose destination does not exist yet: still readable,
+   no longer pretending to be a link */
+.is-flat { cursor: default; text-decoration: none; color: var(--g-text-muted); }
+.is-flat:hover { color: var(--g-text-muted); }
+
+/* verdict line under a simulation — states the reading, so the control has a
+   consequence in words as well as pixels */
+.play__note { margin: 0; padding: .7rem var(--g-space-md);
+  border-top: 1px solid var(--g-hairline); font-size: var(--g-fs-small); }
+.play__note.is-good { color: var(--g-signal-positive); }
+.play__note.is-meh  { color: var(--g-text-muted); }
+.play__note.is-bad  { color: var(--g-signal-caution); }
+
+/* ---- join ---------------------------------------------------------------
+   The old version was a form dropped on a flat band. This one borrows the
+   hero's treatment — the well and the starfield behind it, real vertical
+   room, and the roles shown as things you become rather than a sentence
+   describing them. */
+.join { position: relative; overflow: hidden; isolation: isolate;
+  background: var(--g-grad-deep-space);
+  border-radius: var(--g-radius-lg);
+  padding: clamp(2.6rem, 5vw, 5rem) clamp(1.25rem, 4vw, 3.5rem);
+  text-align: center; }
+.join__in { position: relative; z-index: 2; max-width: 46rem; margin-inline: auto; }
+/* One line that dominates, one that answers it quietly. The old version had
+   three competing blocks of text at similar weight and no clear entry point. */
+.join__h { font-size: clamp(2.2rem, 1.4rem + 3.2vw, 4rem); line-height: 1.0;
+  letter-spacing: -.035em; margin: 0 0 var(--g-space-2xs); text-wrap: balance;
+  font-weight: var(--g-w-bold); }
+.join__lede { color: var(--g-sisal); font-size: clamp(1.1rem, 1rem + .7vw, 1.6rem);
+  font-weight: var(--g-w-light); letter-spacing: -.02em;
+  margin: 0 auto var(--g-space-xl); }
+.join__roles { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: center;
+  margin-bottom: var(--g-space-lg); }
+.join__role { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--g-text-muted);
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
+  padding: .34rem .85rem; transition: color var(--g-dur) var(--g-ease-orbit),
+  border-color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit); }
+.join__role:hover { color: var(--g-text); border-color: var(--g-border-strong);
+  background: rgb(212 201 190 / .08); }
+.join__act { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; }
+.join__fine { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle); margin: var(--g-space-md) 0 0; }
+
+/* ---- account ------------------------------------------------------------ */
+.auth { position: relative; overflow: hidden; isolation: isolate;
+  background: var(--g-grad-deep-space); padding-block: clamp(2.5rem,5vw,4.5rem); }
+.auth__in { position: relative; z-index: 2; width: 100%; max-width: var(--g-max-width);
+  margin-inline: auto; padding-inline: var(--g-gutter);
+  display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,.85fr);
+  gap: clamp(1.5rem,4vw,3.5rem); align-items: start; }
+@media (max-width: 900px) { .auth__in { grid-template-columns: 1fr; } }
+.auth__panel { background: var(--g-surface); border: 1px solid var(--g-hairline);
+  border-radius: var(--g-radius-lg); padding: clamp(1.25rem,3vw,2.2rem); }
+.auth__tabs { display: flex; gap: .3rem; background: var(--g-surface-sunken);
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius-pill);
+  padding: .25rem; margin-bottom: var(--g-space-lg); }
+.auth__tabs button { flex: 1; font: inherit; font-size: var(--g-fs-small);
+  font-weight: var(--g-w-medium); color: var(--g-text-muted); background: none;
+  border: 0; border-radius: var(--g-radius-pill); padding: .5rem .8rem; cursor: pointer;
+  transition: .22s var(--g-ease-orbit); }
+.auth__tabs button[aria-selected="true"] { background: var(--g-white-tint);
+  color: var(--g-cosmos-600); font-weight: var(--g-w-semibold); }
+.auth__h { font-size: clamp(1.5rem,1.2rem+1.4vw,2.1rem); letter-spacing: -.025em;
+  line-height: 1.1; margin: 0 0 var(--g-space-2xs); }
+.auth__lede { color: var(--g-text-muted); font-size: var(--g-fs-small);
+  margin: 0 0 var(--g-space-lg); max-width: 46ch; }
+.auth__form > .g-field { margin-bottom: var(--g-space-lg); }
+.auth__form > .g-btn { margin-top: var(--g-space-2xs); }
+.auth__roles { border: 0; padding: 0; margin: 0 0 var(--g-space-md); }
+.auth__rolegrid { display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem; }
+@media (max-width: 720px) { .auth__rolegrid { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 460px) { .auth__rolegrid { grid-template-columns: 1fr; } }
+.rolepick { position: relative; display: block; cursor: pointer; }
+.rolepick input { position: absolute; opacity: 0; inset: 0; }
+.rolepick span { display: block; border: 1px solid var(--g-hairline);
+  border-radius: var(--g-radius); padding: .6rem .7rem; font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle); line-height: 1.45; transition: .22s var(--g-ease-orbit); }
+.rolepick b { display: block; font-size: var(--g-fs-small); color: var(--g-text);
+  font-weight: var(--g-w-semibold); margin-bottom: .1rem; }
+.rolepick:hover span { border-color: var(--g-border); }
+.rolepick input:checked + span { border-color: var(--g-sisal);
+  background: rgb(212 201 190 / .09); color: var(--g-text-muted); }
+.rolepick input:focus-visible + span { outline: 2px solid var(--g-sisal); outline-offset: 2px; }
+.auth__check { display: flex; gap: .55rem; align-items: flex-start;
+  font-size: var(--g-fs-small); color: var(--g-text-muted); margin-bottom: var(--g-space-md); }
+.auth__row { display: flex; justify-content: space-between; align-items: center;
+  gap: 1rem; flex-wrap: wrap; }
+.auth__alt { font-size: var(--g-fs-small); color: var(--g-text-muted);
+  margin: var(--g-space-md) 0 0; text-align: center; }
+.linkish { background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--g-text); text-decoration: underline;
+  text-decoration-color: var(--g-border-strong); text-underline-offset: .2em; }
+.linkish:hover { text-decoration-color: var(--g-text); }
+.auth__note { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle); margin: var(--g-space-lg) 0 0;
+  border-top: 1px solid var(--g-hairline); padding-top: var(--g-space-sm); }
+.auth__side { padding-top: var(--g-space-sm); }
+.auth__side h2 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-sm); }
+.auth__list { list-style: none; margin: 0 0 var(--g-space-md); padding: 0; }
+.auth__list li { font-size: var(--g-fs-small); color: var(--g-text-muted);
+  padding: .6rem 0; border-bottom: 1px solid var(--g-hairline); }
+.auth__list b { color: var(--g-text); font-weight: var(--g-w-medium); }
+.auth__side-note { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0; }
+
+/* ---- dossier viewpoints + poll, on the design system -------------------- */
+.view { border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: var(--g-surface-raised); padding: var(--g-space-md); }
+.view__k { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  letter-spacing: .14em; text-transform: uppercase; color: var(--g-sisal); margin: 0 0 .4rem; }
+.view h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-2xs); }
+.view p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
+.poll { margin-top: var(--g-space-lg); border: 1px solid var(--g-hairline);
+  border-radius: var(--g-radius); background: var(--g-surface-sunken); padding: var(--g-space-md); }
+.poll__q { font-size: var(--g-fs-small); font-weight: var(--g-w-medium); margin: 0 0 var(--g-space-sm); }
+.poll__opts { display: flex; flex-wrap: wrap; gap: .5rem; }
+.poll__note { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle); margin: var(--g-space-sm) 0 0; }
+
+/* ---- reading-depth bar --------------------------------------------------
+   Moved out of the header, where it was permanent chrome competing with
+   navigation on every page. Sat at the top of the section it governs, it reads
+   as a property of that content. */
+.depthbar { display: flex; align-items: center; justify-content: space-between;
+  gap: var(--g-space-md); flex-wrap: wrap;
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: var(--g-surface-sunken);
+  padding: .6rem .6rem .6rem var(--g-space-md);
+  margin-bottom: var(--g-space-lg); }
+.depthbar__note { margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); }
+@media (max-width: 520px) { .depthbar { justify-content: stretch; }
+  .depthbar .depth { width: 100%; } .depthbar .depth button { flex: 1; } }
+
+/* ---- sign-in row: the two controls sit on one baseline ------------------
+   "Keep me signed in" is a label wrapping a checkbox and "Forgotten password"
+   is a bare link; without a shared baseline they sat at different heights. */
+.auth__row { align-items: center; min-height: 2rem;
+  /* it was sitting hard against the submit button */
+  margin-bottom: var(--g-space-lg); padding-bottom: var(--g-space-sm);
+  border-bottom: 1px solid var(--g-hairline); }
+.auth__row .auth__check { margin-bottom: 0; align-items: center; }
+.auth__row > a, .auth__row > .is-flat { font-size: var(--g-fs-small); line-height: 1.4; }
+
+/* ---- role picker: every card the same height ---------------------------- */
+.auth__rolegrid { align-items: stretch; }
+.rolepick { display: flex; }
+.rolepick span { display: flex; flex-direction: column; width: 100%; height: 100%; }
+
+/* ---- team ---------------------------------------------------------------
+   A list, not a one-off block, because more people are coming. The open slot
+   is a real card so the section does not look thin at one person. */
+/* One card per row, and generous — these are the people, not a sidebar. */
+.team { list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: 1fr; gap: var(--g-space-md); max-width: 54rem; }
+.person { display: flex; gap: var(--g-space-lg); align-items: flex-start;
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: var(--g-surface-raised); padding: var(--g-space-md); }
+.person__pic { width: 168px; height: 168px; flex: none; border-radius: var(--g-radius);
+  object-fit: cover; object-position: 50% 22%;
+  background: var(--g-grad-deep-space); }
+.person__pic--open { display: grid; place-items: center; color: var(--g-text-subtle);
+  border: 1px dashed var(--g-border); background: transparent; }
+.person__pic--open svg { width: 1.6rem; height: 1.6rem; }
+.person__body h3 { font-size: var(--g-fs-h3); margin: 0 0 .2rem; letter-spacing: -.015em; }
+.person__role { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--g-sisal); margin: 0 0 .5rem; }
+.person__body > p:not(.person__role) { font-size: var(--g-fs-body);
+  color: var(--g-text-muted); margin: 0; max-width: 52ch; }
+.person__links { display: flex; gap: .5rem; margin-top: var(--g-space-md); flex-wrap: wrap; }
+.person__links a { display: inline-flex; align-items: center; gap: .4rem;
+  font-size: var(--g-fs-caption); font-family: var(--g-font-mono); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--g-text-muted); text-decoration: none;
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
+  padding: .34rem .8rem; transition: .22s var(--g-ease-orbit); }
+.person__links a:hover { color: var(--g-text); border-color: var(--g-sisal);
+  background: rgb(212 201 190 / .08); }
+.person__links svg { width: .95rem; height: .95rem; }
+.person.is-open { border-style: dashed; background: transparent; }
+@media (max-width: 560px) { .person { flex-direction: column; gap: var(--g-space-md); }
+  .person__pic { width: 100%; height: 200px; object-position: 50% 18%; } }
+
+/* ---- history list -------------------------------------------------------
+   A dated list rather than a decorated timeline: the year is the anchor, a
+   single rule carries the eye down, and nothing competes with the entries. */
+.hist { list-style: none; margin: 0; padding: 0; max-width: 52rem; }
+.hist li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: var(--g-space-md); padding: var(--g-space-md) 0;
+  border-top: 1px solid var(--g-hairline); }
+.hist li:last-child { border-bottom: 1px solid var(--g-hairline); }
+.hist__y { font-family: var(--g-font-mono); font-size: var(--g-fs-small);
+  color: var(--g-sisal); letter-spacing: .06em; padding-top: .12rem; }
+.hist h3 { font-size: var(--g-fs-body); margin: 0 0 .25rem; }
+.hist p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; max-width: 60ch; }
+@media (max-width: 560px) { .hist li { grid-template-columns: 1fr; gap: .3rem; } }
+
+/* ---- an aside that starts level with the body of the column beside it ----
+   The previous version pushed the aside down with `padding-top: 13rem` — a
+   guess at the height of the heading and lead above the poll. Two things were
+   wrong with it. The guess only held at one viewport and one font, so the box
+   was never quite level; and because sticky positioning measures the border
+   box, those 13rem of padding sat *above* the callout, so the box began
+   sticking 13rem before the navbar ever reached it.
+
+   Both problems come from faking the alignment. So don't fake it: put the
+   intro on its own grid row and let the aside share the second row with the
+   thing it is supposed to line up with. Now it is level by construction, at
+   any width, and sticky measures the callout itself. */
+.split--rows { grid-template-rows: auto auto; }
+.split--rows > .split__intro { grid-column: 1; grid-row: 1; }
+.split--rows > .split__body  { grid-column: 1; grid-row: 2; }
+.split--rows > .aside        { grid-column: 2; grid-row: 2; }
+/* The poll carries its own top margin for the case where it follows text.
+   Here the grid row gap is already the separation, so drop it — otherwise the
+   aside sits a margin higher than the box it is levelling with. */
+.split--rows > .split__body > .poll:first-child { margin-top: 0; }
+@media (max-width: 900px) {
+  .split--rows > .split__intro,
+  .split--rows > .split__body { grid-column: 1; }
+  .split--rows > .aside { grid-column: 1; grid-row: 3; }
+}
+
+/* ---- sticky chrome, measured rather than guessed -------------------------
+   Every sticky offset on the site was a hand-picked round number, which is why
+   the dossier sub-nav sat on top of the callouts instead of above them. These
+   describe the actual chrome, so anything that has to clear it can say so. */
+:root {
+  --g-header-h: calc(4.5rem + 1px);        /* min-height + bottom hairline */
+  --g-dossier-nav-h: 3.5rem;               /* pinned below, so this stays true */
+  --g-chrome-h: calc(var(--g-header-h) + var(--g-dossier-nav-h) + 2px);
+  --g-sticky-gap: 1.5rem;
+}
+
+.dossier-nav { top: var(--g-header-h); }
+/* Pin the row's height so --g-dossier-nav-h is a fact and not a hope. */
+.dossier-nav__row { height: var(--g-dossier-nav-h); align-items: center; }
+.dossier-nav a { padding-block: 0; display: inline-flex; align-items: center; height: 100%; }
+
+.aside { top: calc(var(--g-header-h) + var(--g-sticky-gap)); }
+/* On a dossier there are two bars overhead, not one. Without this the callout
+   parked underneath the section nav and was covered by it. */
+.layer .aside { top: calc(var(--g-chrome-h) + var(--g-sticky-gap)); }
+
+/* Anchors have to clear the same chrome, or a jump from the section nav lands
+   with the heading hidden behind the bar that sent you there. */
+.layer, .page-head { scroll-margin-top: calc(var(--g-chrome-h) + .75rem); }
+:where(main) :target { scroll-margin-top: calc(var(--g-chrome-h) + .75rem); }
+
+/* ---- a section that continues the page head -----------------------------
+   The first block on About is not a new subject, it is the rest of the
+   sentence the page head started. Given a full section's top padding on top of
+   the head's own bottom padding, ~10rem of nothing opened up between two
+   paragraphs that look identical, which reads as a fault rather than a break. */
+.g-section--continues { padding-top: clamp(1.25rem, 2.5vw, 2rem); }
+
+/* ---- the invisible radio was eating the cursor --------------------------
+   .rolepick sets cursor:pointer, but its input is positioned over the whole
+   card at opacity 0, so the pointer it reported was the input's, not the
+   label's. */
+.rolepick input { cursor: inherit; }
+
+/* ---- forgotten password is a link, so it looks and behaves like one ------ */
+.auth__forgot {
+  font-size: var(--g-fs-small); color: var(--g-text-muted);
+  text-decoration: underline; text-decoration-color: var(--g-border-strong);
+  text-underline-offset: .2em; cursor: pointer;
+  transition: color var(--g-dur) var(--g-ease-orbit);
+}
+.auth__forgot:hover { color: var(--g-text); text-decoration-color: var(--g-text); }
+
+/* ---- back out of a sub-flow --------------------------------------------- */
+.auth__back {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  font-size: var(--g-fs-small); color: var(--g-text-muted);
+  display: inline-flex; align-items: center; gap: .4rem; margin-bottom: var(--g-space-md);
+}
+.auth__back:hover { color: var(--g-text); }
+.auth__back svg { width: .9rem; height: .9rem; }

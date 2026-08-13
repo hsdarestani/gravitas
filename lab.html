@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gravitas+ — Science, and the gravity of questions underneath it</title>
-<meta name="description" content="Gravitas+ is a media project, interactive lab and community at the intersection of science, philosophy and society.">
+<title>Interactive lab — Gravitas+</title>
+<meta name="description" content="Games and simulations that put you inside the scientific process: hypothesis testing, media literacy, science policy and physics sandboxes.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/gravitas.css">
 <link rel="stylesheet" href="assets/site.css">
-<link rel="stylesheet" href="assets/hero.css">
+
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -32,7 +32,7 @@
     </g>
   </g>
 </svg></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="dossiers.html">Dossiers</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="dossiers.html">Dossiers</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" aria-current="page" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
     <div class="gh-actions">
       <a class="g-btn g-btn--ghost g-btn--sm gh-signin" href="account.html#in">Sign in</a>
       <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="newsletter.html" aria-label="Subscribe to the newsletter">
@@ -46,134 +46,37 @@
   </div>
 </header>
 <main id="main">
-
-<section class="g-hero lp-hero" id="top">
-  <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
-  <div class="g-starfield" aria-hidden="true"></div>
-  <div class="lp-stars" id="lp-stars" aria-hidden="true"></div>
-  <canvas class="lp-meteors" id="lp-meteors" aria-hidden="true"></canvas>
-  <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
-  <div class="g-container g-hero__inner" style="width:100%">
-    <div class="lp-hero__grid">
-      <div>
-        <p class="g-eyebrow">Science &middot; Philosophy &middot; Society</p>
-        <h1 class="g-display lp-hero__title">Science, and the <em>gravity</em> of questions underneath it.</h1>
-        <p class="g-lead">Gravitas+ is for people who still have questions — about how science
-          actually works, how it changes the world, and how politics, money and philosophy
-          change it back. Watch the film, then take it apart.</p>
-        <div class="g-cluster g-mt-lg">
-          <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="dossier-computable-universe.html">
-            <svg class="g-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-            Open the current dossier</a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="lab.html">Try the lab</a>
+<section class="page-head"><div class="g-container">
+      <p class="crumb"><a href="index.html">Home</a> / Lab</p><h1>Interactive lab</h1><p class="g-lead">A few minutes inside the process rather than the summary. You choose, you test, you get it wrong, and the result is yours rather than ours.</p>
+    </div></section><section class="g-section"><div class="g-container">
+    <div class="games rv"><a class="game-card" href="game-hypothesis-machine.html">
+      <div class="game-card__art"><canvas class="art" data-art="0"></canvas>
         </div>
-        <p class="lp-hero__credit">New dossier monthly &middot; <span class="g-nums">312K</span> subscribers</p>
-      </div>
-      <div class="lp-orbit">
-        <canvas id="lp-3body" role="img"
-          aria-label="Animated two-body gravitational orbit; moving the pointer near it adds a third mass and disrupts the orbit"></canvas>
-        <p class="lp-orbit__cap"><span id="lp-orbit-name">Two-body orbit</span> &mdash; <span id="lp-orbit-sub">closed, periodic, exactly solvable</span></p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="g-section"><div class="g-container">
-  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-    <p class="g-eyebrow">Start here</p><h2>The current dossier</h2></div>
-    <a class="lp-head__link" href="dossiers.html">All dossiers <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-  <div class="split rv">
-    <a class="video" href="dossier-computable-universe.html" aria-label="Watch: Is the universe computable?">
-      <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
-      <span class="video__meta">28:41 &middot; One idea, one world &middot; 418K views</span>
-    </a>
-    <div>
-      <p class="g-eyebrow g-eyebrow--bare">Dossier 04 &middot; Computation</p>
-      <h3 style="font-size:var(--g-fs-h2);margin:0 0 var(--g-space-sm)">Is the universe computable?</h3>
-      <p class="g-muted" style="font-size:var(--g-fs-small)">If physics is a set of rules, something ought to be able to run them.
-        That innocent thought runs into Gödel, into chaos, into the cost of simulating a single atom — and into
-        the question of whether "computable" is a fact about the universe or about us.</p>
-      <dl class="kv g-mt-md">
-        <dt>In this dossier</dt><dd>Film, essay, sources at three levels, timeline, a simulation you can break, and the arguments against</dd>
-        <dt>Reading time</dt><dd>18 minutes for the essay, or 4 for the summary</dd>
-      </dl>
-      <div class="g-cluster g-mt-md">
-        <a class="g-btn g-btn--primary" href="dossier-computable-universe.html">Open the dossier</a>
-        <a class="g-btn g-btn--ghost" href="game-hypothesis-machine.html">Play the companion game</a>
-      </div>
-    </div>
-  </div></div></section>
-
-<section class="g-section g-section--deep"><div class="g-container">
-  <div class="g-section-head rv" style="max-width:52rem">
-    <p class="g-eyebrow">How the site works</p>
-    <h2>One path through the site</h2>
-    <p class="g-lead">Every video opens a question. The site is where that question gets its
-      evidence, its argument, its counter-argument and the people who disagree about it.</p></div>
-  <div class="spaces rv"><a class="space space--wide" href="dossiers.html">
-      <p class="space__n">01</p><h3>Dossiers</h3><p>A single question, worked from every angle: video, essay, sources, timeline, simulation, argument.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="magazine.html">
-      <p class="space__n">02</p><h3>Magazine</h3><p>Narrative and analytical writing on science, philosophy and society.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space space--wide" href="lab.html">
-      <p class="space__n">03</p><h3>Interactive lab</h3><p>Games, simulations and tests. Do science rather than watch it.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="learn.html">
-      <p class="space__n">04</p><h3>Learning paths</h3><p>Ordered routes through AI in research, computational physics, philosophy of science and reading papers.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="community.html">
-      <p class="space__n">05</p><h3>Community</h3><p>Roles, study groups, events, the weekly thought experiment.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="newsletter.html">
-      <p class="space__n">06</p><h3>Newsletter</h3><p>One edited email a week. Ideas, not a list of links.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a></div></div></section>
-
-<section class="g-section"><div class="g-container">
-  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-      <p class="g-eyebrow">On the channel</p><h2>What we make</h2></div></div>
-  <div class="programs rv"><article class="program"><p class="program__n">01</p>
-      <h3>One idea, one world</h3><p>An 8–20 minute narrative on a single concept: how it was built, who fought over it, what it changed.</p><p class="program__cad">Long form</p></article><article class="program"><p class="program__n">02</p>
-      <h3>Science in the making</h3><p>Two or three stories a week, with context and an honest read on how much is signal.</p><p class="program__cad">Weekly</p></article><article class="program"><p class="program__n">03</p>
-      <h3>Up close</h3><p>Interviews that skip the CV and go at the real texture of research: doubt, tedium, failure.</p><p class="program__cad">Monthly</p></article><article class="program"><p class="program__n">04</p>
-      <h3>Gravitas Lab</h3><p>Practical work on AI, ML, data and simulation, each episode around one real problem.</p><p class="program__cad">Fortnightly</p></article><article class="program"><p class="program__n">05</p>
-      <h3>The Gravitas Table</h3><p>Several people on a question with no one-line answer.</p><p class="program__cad">Monthly</p></article></div>
-  <p class="g-subtle g-mt-md" style="font-size:var(--g-fs-caption);font-family:var(--g-font-mono)">
-    Shorts run alongside all five — each one a complete idea, not an offcut.</p></div></section>
-
-<section class="g-section g-section--deep"><div class="g-container">
-  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-      <p class="g-eyebrow">Latest</p><h2>Across everything</h2></div><a class="lp-head__link" href="magazine.html">Browse the archive <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-  <div class="rv">
-    <a class="entry" href="magazine.html"><span class="entry__type">Essay</span><div>
-      <h3>Can a model produce a hypothesis, or only a sentence that looks like one?</h3>
-      <p>Generative systems are fluent in the grammar of science. Fluency is not the same as a claim about the world.</p>
-      <div class="entry__meta"><span>14 min read</span><span>AI in research</span><span>4 days ago</span></div></div></a>
-    <a class="entry" href="lab.html"><span class="entry__type">Game</span><div>
-      <h3>Signal or hype?</h3>
-      <p>Ten headlines and ten abstracts. Decide which findings survive the trip through the press office.</p>
-      <div class="entry__meta"><span>6 min</span><span>Media literacy</span><span>1 week ago</span></div></div></a>
-    <a class="entry" href="dossier-computable-universe.html"><span class="entry__type">Dossier</span><div>
-      <h3>Is the universe computable?</h3>
-      <p>The film, the essay, the sources, and the strongest case against the whole framing.</p>
-      <div class="entry__meta"><span>Dossier 04</span><span>Computation</span><span>2 weeks ago</span></div></div></a>
-    <a class="entry" href="learn.html"><span class="entry__type">Path</span><div>
-      <h3>AI in research, from scratch</h3>
-      <p>Eight steps from what these models actually do to using one on your own data without fooling yourself.</p>
-      <div class="entry__meta"><span>8 steps</span><span>~6 hours</span><span>Updated monthly</span></div></div></a>
-  </div></div></section>
-
-<section class="g-section"><div class="g-container">
-  <div class="lp-cta-band rv">
-    <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
-    <div class="lp-cta-band__inner">
-      <p class="g-eyebrow" style="justify-content:center">One email a week</p>
-      <h2 style="font-size:var(--g-fs-h1)">The thinking, not the links</h2>
-      <p class="g-lead" style="margin-inline:auto">An edited pick of what mattered this week, why it mattered,
-        and what to be sceptical about. Plus whatever we are building next.</p>
-      <form class="g-inline-form g-mt-lg" data-demo-form>
-        <input class="g-input" type="email" placeholder="you@university.edu" aria-label="Email address">
-        <button class="g-btn g-btn--primary" type="submit">Subscribe</button>
-      </form>
-      <p class="g-subtle g-mt-sm" style="font-size:var(--g-fs-caption)" data-form-note>Free. Unsubscribe anytime.</p>
-    </div>
-  </div></div></section>
-
+      <div class="game-card__b"><h3>Hypothesis Machine</h3><p>A hidden rule governs the data. Propose tests, read the answers, and work out what the rule is — the catch being that confirming your guess teaches you almost nothing.</p>
+        <p class="game-card__meta">Scientific method &middot; 5–10 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <div class="game-card__art"><canvas class="art" data-art="1"></canvas>
+        <span class="badge-soon">In build</span></div>
+      <div class="game-card__b"><h3>Signal or hype?</h3><p>Ten headlines beside the abstracts they came from. Decide which claims survived the trip through the press office and which grew on the way.</p>
+        <p class="game-card__meta">Media literacy &middot; 6 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <div class="game-card__art"><canvas class="art" data-art="2"></canvas>
+        <span class="badge-soon">In build</span></div>
+      <div class="game-card__b"><h3>The science budget</h3><p>Split a finite budget across basic research, medicine, space, climate, education and infrastructure. Watch the consequences arrive over thirty years.</p>
+        <p class="game-card__meta">Science policy &middot; 10 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <div class="game-card__art"><canvas class="art" data-art="3"></canvas>
+        <span class="badge-soon">In build</span></div>
+      <div class="game-card__b"><h3>Tune the universe</h3><p>Change a constant and see whether stars still form, chemistry still works, and anything can still be alive.</p>
+        <p class="game-card__meta">Physics simulation &middot; 8 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <div class="game-card__art"><canvas class="art" data-art="4"></canvas>
+        <span class="badge-soon">In build</span></div>
+      <div class="game-card__b"><h3>You are the reviewer</h3><p>A plausible-looking paper with real problems in its sampling, analysis and conclusions. Find them before you sign off.</p>
+        <p class="game-card__meta">Research skills &middot; 12 min</p></div></a><a class="game-card" href="community.html">
+      <div class="game-card__art"><canvas class="art" data-art="5"></canvas>
+        <span class="badge-soon">In build</span></div>
+      <div class="game-card__b"><h3>Thought experiment of the week</h3><p>One situation, your answer and your reasoning. Results and the best arguments get taken apart in a video afterwards.</p>
+        <p class="game-card__meta">Community ritual &middot; Weekly</p></div></a></div>
+    <div class="callout g-mt-xl rv"><h4>Build one with us</h4>
+      <p>The lab is open. If you can prototype an idea, the community has a builder role and a
+        monthly session for it. <a href="community.html">How to join in</a>.</p></div></div></section>
 </main>
 <footer class="g-footer">
   <div class="g-container">
@@ -213,6 +116,40 @@
   </div>
 </footer>
 <script src="assets/site.js"></script>
-<script src="assets/hero.js"></script>
+<script>
+(function(){
+  // Each card gets a small generative sketch rather than a stock image: cheap,
+  // on-brand, and it never ships a 400 KB photograph.
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  [].forEach.call(document.querySelectorAll('canvas.art'),function(cv,idx){
+    var ctx=cv.getContext('2d'),dpr=Math.min(devicePixelRatio||1,2);
+    function size(){var r=cv.getBoundingClientRect();
+      cv.width=r.width*dpr;cv.height=r.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+      return [r.width,r.height];}
+    var d=size(); addEventListener('resize',function(){d=size();paint();});
+    var seed=+cv.dataset.art;
+    function paint(){
+      var W=d[0],H=d[1]; ctx.clearRect(0,0,W,H);
+      ctx.strokeStyle='rgba(241,239,236,.28)'; ctx.fillStyle='rgba(212,201,190,.5)';
+      ctx.lineWidth=1;
+      var rnd=(function(s){return function(){s=(s*16807)%2147483647;return s/2147483647;};})(seed*7919+13);
+      if(seed===0){ for(var i=0;i<26;i++){var x=rnd()*W,y=rnd()*H;ctx.beginPath();ctx.arc(x,y,2.2,0,6.3);ctx.fill();}
+        ctx.beginPath();for(var j=0;j<W;j+=6){ctx.lineTo(j,H/2+Math.sin(j/34)*H*0.2);}ctx.stroke(); }
+      else if(seed===1){ for(var k=0;k<7;k++){var yy=H*(k+1)/8;ctx.beginPath();ctx.moveTo(W*0.1,yy);
+        ctx.lineTo(W*(0.35+rnd()*0.5),yy);ctx.stroke();} }
+      else if(seed===2){ var acc=0;for(var b=0;b<6;b++){var h=rnd()*H*0.6+10;
+        ctx.fillRect(W*0.1+acc, H-h-10, W*0.1, h); acc+=W*0.13;} }
+      else if(seed===3){ for(var a=0;a<5;a++){ctx.beginPath();
+        ctx.arc(W/2,H/2,(a+1)*Math.min(W,H)/13,0,6.3);ctx.stroke();} }
+      else if(seed===4){ for(var l=0;l<9;l++){var yv=H*(l+1)/10;ctx.beginPath();
+        ctx.moveTo(W*0.12,yv);ctx.lineTo(W*0.88,yv);ctx.stroke();}
+        ctx.fillStyle='rgba(201,112,95,.65)';ctx.fillRect(W*0.12,H*0.4-3,W*0.4,6); }
+      else { ctx.beginPath(); for(var m=0;m<W;m+=5){ctx.lineTo(m,H/2+Math.sin(m/22+seed)*H*0.26);} ctx.stroke();
+        ctx.beginPath();ctx.arc(W*0.7,H*0.4,3.4,0,6.3);ctx.fill(); }
+    }
+    paint();
+  });
+})();
+</script>
 </body>
 </html>

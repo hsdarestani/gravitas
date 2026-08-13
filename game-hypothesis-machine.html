@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gravitas+ — Science, and the gravity of questions underneath it</title>
-<meta name="description" content="Gravitas+ is a media project, interactive lab and community at the intersection of science, philosophy and society.">
+<title>Hypothesis Machine — Gravitas+ Lab</title>
+<meta name="description" content="A playable version of the 2-4-6 task: find the hidden rule, and find out how much of your testing was confirmation rather than falsification.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/gravitas.css">
 <link rel="stylesheet" href="assets/site.css">
-<link rel="stylesheet" href="assets/hero.css">
+
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -32,7 +32,7 @@
     </g>
   </g>
 </svg></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="dossiers.html">Dossiers</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="dossiers.html">Dossiers</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" aria-current="page" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
     <div class="gh-actions">
       <a class="g-btn g-btn--ghost g-btn--sm gh-signin" href="account.html#in">Sign in</a>
       <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="newsletter.html" aria-label="Subscribe to the newsletter">
@@ -47,131 +47,54 @@
 </header>
 <main id="main">
 
-<section class="g-hero lp-hero" id="top">
-  <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
-  <div class="g-starfield" aria-hidden="true"></div>
-  <div class="lp-stars" id="lp-stars" aria-hidden="true"></div>
-  <canvas class="lp-meteors" id="lp-meteors" aria-hidden="true"></canvas>
-  <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
-  <div class="g-container g-hero__inner" style="width:100%">
-    <div class="lp-hero__grid">
-      <div>
-        <p class="g-eyebrow">Science &middot; Philosophy &middot; Society</p>
-        <h1 class="g-display lp-hero__title">Science, and the <em>gravity</em> of questions underneath it.</h1>
-        <p class="g-lead">Gravitas+ is for people who still have questions — about how science
-          actually works, how it changes the world, and how politics, money and philosophy
-          change it back. Watch the film, then take it apart.</p>
-        <div class="g-cluster g-mt-lg">
-          <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="dossier-computable-universe.html">
-            <svg class="g-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-            Open the current dossier</a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="lab.html">Try the lab</a>
-        </div>
-        <p class="lp-hero__credit">New dossier monthly &middot; <span class="g-nums">312K</span> subscribers</p>
-      </div>
-      <div class="lp-orbit">
-        <canvas id="lp-3body" role="img"
-          aria-label="Animated two-body gravitational orbit; moving the pointer near it adds a third mass and disrupts the orbit"></canvas>
-        <p class="lp-orbit__cap"><span id="lp-orbit-name">Two-body orbit</span> &mdash; <span id="lp-orbit-sub">closed, periodic, exactly solvable</span></p>
-      </div>
-    </div>
-  </div>
-</section>
+<section class="page-head"><div class="g-container">
+      <p class="crumb"><a href="index.html">Home</a> / <a href="lab.html">Lab</a> / Hypothesis Machine</p><h1>Hypothesis Machine</h1><p class="g-lead">A hidden rule decides whether a set of three numbers is admitted. Find the rule. You may run as many tests as you like — the interesting question is which ones you choose.</p>
+    </div></section>
 
 <section class="g-section"><div class="g-container">
-  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-    <p class="g-eyebrow">Start here</p><h2>The current dossier</h2></div>
-    <a class="lp-head__link" href="dossiers.html">All dossiers <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-  <div class="split rv">
-    <a class="video" href="dossier-computable-universe.html" aria-label="Watch: Is the universe computable?">
-      <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
-      <span class="video__meta">28:41 &middot; One idea, one world &middot; 418K views</span>
-    </a>
+  <div class="split">
     <div>
-      <p class="g-eyebrow g-eyebrow--bare">Dossier 04 &middot; Computation</p>
-      <h3 style="font-size:var(--g-fs-h2);margin:0 0 var(--g-space-sm)">Is the universe computable?</h3>
-      <p class="g-muted" style="font-size:var(--g-fs-small)">If physics is a set of rules, something ought to be able to run them.
-        That innocent thought runs into Gödel, into chaos, into the cost of simulating a single atom — and into
-        the question of whether "computable" is a fact about the universe or about us.</p>
-      <dl class="kv g-mt-md">
-        <dt>In this dossier</dt><dd>Film, essay, sources at three levels, timeline, a simulation you can break, and the arguments against</dd>
-        <dt>Reading time</dt><dd>18 minutes for the essay, or 4 for the summary</dd>
-      </dl>
-      <div class="g-cluster g-mt-md">
-        <a class="g-btn g-btn--primary" href="dossier-computable-universe.html">Open the dossier</a>
-        <a class="g-btn g-btn--ghost" href="game-hypothesis-machine.html">Play the companion game</a>
+      <div class="play">
+        <div class="play__bar">
+          <span>Rule status: <b id="status" class="g-mono">unknown</b></span>
+          <span>Tests run: <b id="ntests" class="g-mono">0</b></span>
+          <span>Confirming: <b id="nconf" class="g-mono">0</b> &middot; Falsifying: <b id="nfals" class="g-mono">0</b></span>
+        </div>
+        <div class="play__body">
+          <p class="g-muted" style="font-size:var(--g-fs-small);margin-bottom:var(--g-space-sm)">
+            The machine has admitted <b class="g-mono">2, 4, 6</b>. Propose another triple and it will
+            tell you whether that one is admitted too.</p>
+          <form class="triple" id="tform">
+            <input id="a" type="number" value="2" aria-label="First number" required>
+            <span class="triple__sep" aria-hidden="true">,</span>
+            <input id="b" type="number" value="4" aria-label="Second number" required>
+            <span class="triple__sep" aria-hidden="true">,</span>
+            <input id="c" type="number" value="6" aria-label="Third number" required>
+            <button class="g-btn g-btn--primary" type="submit">Test it</button>
+            <button class="g-btn g-btn--ghost" id="guess" type="button">I know the rule</button>
+          </form>
+          <div class="trials" id="trials"></div>
+        </div>
+      </div>
+
+      <div id="reveal" class="callout g-mt-lg" style="display:none">
+        <h4 id="rev-title">The rule</h4>
+        <p id="rev-body"></p>
+        <div class="g-cluster g-mt-md">
+          <button class="g-btn g-btn--secondary g-btn--sm" id="again" type="button">Play again</button>
+          <a class="g-btn g-btn--ghost g-btn--sm" href="dossier-computable-universe.html">Back to the dossier</a>
+        </div>
       </div>
     </div>
-  </div></div></section>
 
-<section class="g-section g-section--deep"><div class="g-container">
-  <div class="g-section-head rv" style="max-width:52rem">
-    <p class="g-eyebrow">How the site works</p>
-    <h2>One path through the site</h2>
-    <p class="g-lead">Every video opens a question. The site is where that question gets its
-      evidence, its argument, its counter-argument and the people who disagree about it.</p></div>
-  <div class="spaces rv"><a class="space space--wide" href="dossiers.html">
-      <p class="space__n">01</p><h3>Dossiers</h3><p>A single question, worked from every angle: video, essay, sources, timeline, simulation, argument.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="magazine.html">
-      <p class="space__n">02</p><h3>Magazine</h3><p>Narrative and analytical writing on science, philosophy and society.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space space--wide" href="lab.html">
-      <p class="space__n">03</p><h3>Interactive lab</h3><p>Games, simulations and tests. Do science rather than watch it.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="learn.html">
-      <p class="space__n">04</p><h3>Learning paths</h3><p>Ordered routes through AI in research, computational physics, philosophy of science and reading papers.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="community.html">
-      <p class="space__n">05</p><h3>Community</h3><p>Roles, study groups, events, the weekly thought experiment.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="newsletter.html">
-      <p class="space__n">06</p><h3>Newsletter</h3><p>One edited email a week. Ideas, not a list of links.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a></div></div></section>
-
-<section class="g-section"><div class="g-container">
-  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-      <p class="g-eyebrow">On the channel</p><h2>What we make</h2></div></div>
-  <div class="programs rv"><article class="program"><p class="program__n">01</p>
-      <h3>One idea, one world</h3><p>An 8–20 minute narrative on a single concept: how it was built, who fought over it, what it changed.</p><p class="program__cad">Long form</p></article><article class="program"><p class="program__n">02</p>
-      <h3>Science in the making</h3><p>Two or three stories a week, with context and an honest read on how much is signal.</p><p class="program__cad">Weekly</p></article><article class="program"><p class="program__n">03</p>
-      <h3>Up close</h3><p>Interviews that skip the CV and go at the real texture of research: doubt, tedium, failure.</p><p class="program__cad">Monthly</p></article><article class="program"><p class="program__n">04</p>
-      <h3>Gravitas Lab</h3><p>Practical work on AI, ML, data and simulation, each episode around one real problem.</p><p class="program__cad">Fortnightly</p></article><article class="program"><p class="program__n">05</p>
-      <h3>The Gravitas Table</h3><p>Several people on a question with no one-line answer.</p><p class="program__cad">Monthly</p></article></div>
-  <p class="g-subtle g-mt-md" style="font-size:var(--g-fs-caption);font-family:var(--g-font-mono)">
-    Shorts run alongside all five — each one a complete idea, not an offcut.</p></div></section>
-
-<section class="g-section g-section--deep"><div class="g-container">
-  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-      <p class="g-eyebrow">Latest</p><h2>Across everything</h2></div><a class="lp-head__link" href="magazine.html">Browse the archive <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-  <div class="rv">
-    <a class="entry" href="magazine.html"><span class="entry__type">Essay</span><div>
-      <h3>Can a model produce a hypothesis, or only a sentence that looks like one?</h3>
-      <p>Generative systems are fluent in the grammar of science. Fluency is not the same as a claim about the world.</p>
-      <div class="entry__meta"><span>14 min read</span><span>AI in research</span><span>4 days ago</span></div></div></a>
-    <a class="entry" href="lab.html"><span class="entry__type">Game</span><div>
-      <h3>Signal or hype?</h3>
-      <p>Ten headlines and ten abstracts. Decide which findings survive the trip through the press office.</p>
-      <div class="entry__meta"><span>6 min</span><span>Media literacy</span><span>1 week ago</span></div></div></a>
-    <a class="entry" href="dossier-computable-universe.html"><span class="entry__type">Dossier</span><div>
-      <h3>Is the universe computable?</h3>
-      <p>The film, the essay, the sources, and the strongest case against the whole framing.</p>
-      <div class="entry__meta"><span>Dossier 04</span><span>Computation</span><span>2 weeks ago</span></div></div></a>
-    <a class="entry" href="learn.html"><span class="entry__type">Path</span><div>
-      <h3>AI in research, from scratch</h3>
-      <p>Eight steps from what these models actually do to using one on your own data without fooling yourself.</p>
-      <div class="entry__meta"><span>8 steps</span><span>~6 hours</span><span>Updated monthly</span></div></div></a>
-  </div></div></section>
-
-<section class="g-section"><div class="g-container">
-  <div class="lp-cta-band rv">
-    <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
-    <div class="lp-cta-band__inner">
-      <p class="g-eyebrow" style="justify-content:center">One email a week</p>
-      <h2 style="font-size:var(--g-fs-h1)">The thinking, not the links</h2>
-      <p class="g-lead" style="margin-inline:auto">An edited pick of what mattered this week, why it mattered,
-        and what to be sceptical about. Plus whatever we are building next.</p>
-      <form class="g-inline-form g-mt-lg" data-demo-form>
-        <input class="g-input" type="email" placeholder="you@university.edu" aria-label="Email address">
-        <button class="g-btn g-btn--primary" type="submit">Subscribe</button>
-      </form>
-      <p class="g-subtle g-mt-sm" style="font-size:var(--g-fs-caption)" data-form-note>Free. Unsubscribe anytime.</p>
-    </div>
+    <aside class="aside">
+      <div class="callout"><h4>Why this game exists</h4>
+        <p>Most people test triples they expect to be admitted. That feels like progress and produces
+          almost no information. The rule only becomes visible when you try to break your own guess.</p></div>
+      <div class="callout g-mt-md"><h4>What is being counted</h4>
+        <p>A test is <em>confirming</em> if you expected a yes, and <em>falsifying</em> if you expected a no.
+          The ratio is shown after you commit — it is usually a surprise.</p></div>
+    </aside>
   </div></div></section>
 
 </main>
@@ -213,6 +136,69 @@
   </div>
 </footer>
 <script src="assets/site.js"></script>
-<script src="assets/hero.js"></script>
+<script>
+(function(){
+  // The 2-4-6 task, dressed for a physics channel. The hidden rule is far more
+  // permissive than almost anyone's first guess, so a player who only tests
+  // cases they expect to pass will "confirm" their way to the wrong answer.
+  var RULES=[
+    {test:function(a,b,c){return a<b&&b<c;}, name:'any three numbers in increasing order',
+     trap:'Most players guess "even numbers ascending" or "adds two each time" — both are narrower than the truth.'},
+    {test:function(a,b,c){return c>a;}, name:'the third number is larger than the first',
+     trap:'The middle number never mattered at all.'},
+    {test:function(a,b,c){return (a+b+c)%2===0;}, name:'the three numbers sum to an even total',
+     trap:'Order was never part of it.'}
+  ];
+  var rule, tests, conf, fals, done;
+  var $=function(id){return document.getElementById(id);};
+
+  function expectYes(a,b,c){
+    // a crude read of the player's intent: did this look like a case they
+    // expected to pass, given the seed 2,4,6?
+    return a<b && b<c;
+  }
+  function start(){
+    rule=RULES[Math.floor(Math.random()*RULES.length)];
+    tests=0; conf=0; fals=0; done=false;
+    $('trials').innerHTML=''; $('reveal').style.display='none';
+    $('status').textContent='unknown'; $('ntests').textContent='0';
+    $('nconf').textContent='0'; $('nfals').textContent='0';
+    add(2,4,6,true,'the machine\u2019s own example');
+  }
+  function add(a,b,c,ok,note){
+    var row=document.createElement('div'); row.className='trial';
+    row.innerHTML='<span class="g-mono">'+a+', '+b+', '+c+'</span>'+
+      '<span class="verdict '+(ok?'verdict--yes':'verdict--no')+'">'+(ok?'admitted':'rejected')+'</span>'+
+      (note?'<span class="trial__note">'+note+'</span>':'');
+    $('trials').insertBefore(row, $('trials').firstChild);
+  }
+  $('tform').addEventListener('submit',function(e){
+    e.preventDefault(); if(done) return;
+    var a=+$('a').value,b=+$('b').value,c=+$('c').value;
+    if([a,b,c].some(function(v){return isNaN(v);})) return;
+    var ok=rule.test(a,b,c);
+    var pred=expectYes(a,b,c);
+    tests++; if(pred){conf++;}else{fals++;}
+    $('ntests').textContent=tests; $('nconf').textContent=conf; $('nfals').textContent=fals;
+    add(a,b,c,ok, pred? 'you likely expected yes' : 'you likely expected no');
+  });
+  $('guess').addEventListener('click',function(){
+    if(done) return; done=true;
+    $('status').textContent='revealed';
+    var ratio = tests? Math.round(fals/tests*100) : 0;
+    var verdict;
+    if(tests<3) verdict='You committed after '+tests+' test'+(tests===1?'':'s')+'. Fast, but on this little evidence almost any rule would fit.';
+    else if(ratio<25) verdict='Only '+ratio+'% of your tests were attempts to fail. That is the classic pattern: it feels like gathering evidence, but a rule that never gets attacked never gets tested.';
+    else if(ratio<55) verdict='You spent '+ratio+'% of your tests trying to break your own guess — better than most people manage.';
+    else verdict='You spent '+ratio+'% of your tests trying to break your own guess. That is how the rule actually becomes visible.';
+    $('rev-title').textContent='The rule was: '+rule.name;
+    $('rev-body').innerHTML=verdict+' <br><br>'+rule.trap;
+    $('reveal').style.display='block';
+    $('reveal').scrollIntoView({block:'nearest',behavior:'smooth'});
+  });
+  $('again').addEventListener('click',start);
+  start();
+})();
+</script>
 </body>
 </html>

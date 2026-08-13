@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can a machine form a hypothesis? — Gravitas+ Dossier 03</title>
+<meta name="description" content="Systems propose candidate explanations. Whether that is discovery or very good autocomplete depends on what a hypothesis is for.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/gravitas.css">
+<link rel="stylesheet" href="assets/site.css">
+
+</head>
+<body class="is-overview">
+<a class="g-skip-link" href="#main">Skip to content</a>
+<header class="g-header">
+  <div class="g-container g-header__inner">
+    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="#f1efec">
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
+      <path d="M160.51,49.21c-2.41,2.06-4.52,4.52-6.3,7.38l-1.74-12.34h-17.84v67.6h20.12v-30.18c0-3.4.4-6.24,1.21-8.52.8-2.28,2.01-4.09,3.62-5.43,1.61-1.34,3.49-2.3,5.63-2.89,2.15-.58,4.56-.87,7.24-.87h6.84v-21.33c-3.85,0-7.33.58-10.46,1.74-3.13,1.17-5.9,2.78-8.32,4.83Z"/>
+      <path d="M239.25,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2c1.74,3.04,4.47,5.48,8.18,7.31,3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.91-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM231.54,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28s-1.14-2.23-1.14-3.76c0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <polygon points="299.2 92.93 283.38 44.25 262.32 44.25 286.73 111.85 311.41 111.85 335.82 44.25 314.9 44.25 299.2 92.93"/>
+      <path d="M365.8,17.69c-2.28-2.05-5.26-3.08-8.92-3.08s-6.48,1.03-8.72,3.08c-2.24,2.06-3.35,4.7-3.35,7.92s1.11,5.72,3.35,7.78c2.24,2.05,5.14,3.08,8.72,3.08s6.64-1.03,8.92-3.08c2.28-2.06,3.42-4.65,3.42-7.78s-1.14-5.86-3.42-7.92Z"/>
+      <rect x="346.82" y="44.25" width="20.12" height="67.6"/>
+      <path d="M413.55,93.14c-1.21-1.12-1.81-3.02-1.81-5.7v-26.42h17.03v-16.77h-17.03v-19.05h-17.98l-2.15,19.05h-11.67v16.77h11.67v26.16c0,6.17,1.03,11.05,3.09,14.62,2.06,3.57,4.96,6.15,8.72,7.71,3.76,1.56,8.05,2.35,12.88,2.35h12.61v-17.03h-9.12c-2.95,0-5.03-.56-6.24-1.68Z"/>
+      <path d="M492.75,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2,4.47,5.48,8.18,7.31c3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.9-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM485.04,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28-.76-.98-1.14-2.23-1.14-3.76,0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <path d="M569.27,73.96c-3.98-1.39-8.7-2.61-14.15-3.69-2.78-.54-5.15-1.14-7.11-1.81-1.97-.67-3.47-1.45-4.49-2.35-1.03-.89-1.54-1.88-1.54-2.95,0-1.52.76-2.79,2.28-3.82,1.52-1.03,3.71-1.54,6.57-1.54s4.98.49,6.64,1.47c1.65.99,2.75,2.37,3.29,4.16h18.78c-.9-6.35-3.78-11.4-8.65-15.15-4.87-3.76-11.51-5.63-19.92-5.63-5.99,0-11.11.96-15.36,2.88-4.25,1.93-7.46,4.49-9.66,7.71-2.19,3.22-3.28,6.84-3.28,10.87,0,3.49.71,6.33,2.15,8.52,1.43,2.19,3.4,4.02,5.9,5.5,2.5,1.48,5.34,2.66,8.52,3.55,3.17.89,6.37,1.74,9.59,2.55,2.77.54,5.14,1.12,7.11,1.74,1.96.63,3.46,1.37,4.49,2.22,1.03.85,1.54,2.12,1.54,3.82,0,1.07-.33,2.1-1,3.08-.67.98-1.72,1.77-3.15,2.35-1.43.58-3.22.87-5.37.87s-4.16-.36-5.77-1.07c-1.61-.71-2.88-1.68-3.82-2.88-.94-1.21-1.59-2.53-1.94-3.96h-19.98c.35,4.38,1.85,8.29,4.49,11.74,2.64,3.44,6.26,6.19,10.87,8.25,4.6,2.05,10.13,3.09,16.57,3.09,5.9,0,11.06-.98,15.49-2.95,4.42-1.96,7.82-4.63,10.19-7.98,2.37-3.35,3.56-7.22,3.56-11.6,0-4.74-1.14-8.4-3.42-11-2.28-2.59-5.41-4.58-9.39-5.97Z"/>
+      <polygon points="630.63 39.65 616.16 39.65 616.16 26.52 606.31 26.52 606.31 39.65 591.77 39.65 591.77 49.43 606.31 49.43 606.31 62.65 616.16 62.65 616.16 49.43 630.63 49.43 630.63 39.65"/>
+    </g>
+  </g>
+</svg></a>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" aria-current="page" href="dossiers.html">Dossiers</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
+    <div class="gh-actions">
+      <a class="g-btn g-btn--ghost g-btn--sm gh-signin" href="account.html#in">Sign in</a>
+      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="newsletter.html" aria-label="Subscribe to the newsletter">
+        <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7l9 6 9-6M3 7v10h18V7H3z"/></svg>
+        <span>Subscribe</span>
+      </a>
+      <button class="lp-menu-btn" aria-label="Menu" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<main id="main">
+
+<section class="page-head"><div class="g-container">
+      <p class="crumb"><a href="index.html">Home</a> / <a href="dossiers.html">Dossiers</a> / 03</p><h1>Can a machine form a hypothesis?</h1><p class="g-lead">Systems propose candidate explanations, and the good ones read exactly like the real thing. Whether that is discovery or very good autocomplete depends on what a hypothesis is actually for.</p><div class="pill-row g-mt-md">
+       <span class="g-tag">AI</span><span class="g-tag">Philosophy of science</span>
+       <span class="g-tag">Research practice</span></div>
+    </div></section>
+
+<div class="dossier-nav"><div class="g-container"><nav class="dossier-nav__row" aria-label="In this dossier">
+  <a href="#film">Film</a><a href="#essay">Essay</a><a href="#sources">Sources</a>
+  <a href="#timeline">Timeline</a><a href="#sim">Simulation</a>
+  <a href="#views">Viewpoints</a><a href="#talk">Discussion</a>
+</nav></div></div>
+
+<div class="g-container">
+
+<section class="layer" id="film">
+  <div class="layer__head"><span class="layer__n">01</span><h2>The film</h2></div>
+  <div class="split">
+    <a class="is-flat video"  aria-label="Play the film" aria-disabled="true">
+      <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+      <span class="video__meta">24:10 &middot; One idea, one world</span>
+    </a>
+    <div>
+      <p class="g-muted" style="font-size:var(--g-fs-small)">The film follows three attempts to
+        automate the front of the scientific process — and what each of them turned out to be
+        automating instead.</p>
+      <dl class="kv g-mt-md">
+        <dt>Runtime</dt><dd>24 minutes</dd>
+        <dt>Companion</dt><dd><a href="game-hypothesis-machine.html">Hypothesis Machine</a> — the argument as a game</dd>
+        <dt>Essay</dt><dd><a href="article-hypothesis-or-sentence.html">Hypothesis, or a sentence that looks like one?</a></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="layer" id="essay">
+  <div class="layer__head"><span class="layer__n">02</span><h2>The essay</h2></div>
+  <div class="depthbar">
+      <p class="depthbar__note">This essay reads two ways — pick one.</p>
+      <div class="depth" role="group" aria-label="Reading depth">
+        <button type="button" data-depth="overview" aria-pressed="true">Overview</button>
+        <button type="button" data-depth="deep" aria-pressed="false">In depth</button>
+      </div>
+    </div>
+
+  <div class="split">
+    <article class="g-prose">
+      <div data-level="overview">
+        <p>A hypothesis is a commitment, not a sentence. It says in advance what would prove it
+          wrong. That is a strange thing to ask of a system trained to continue text.</p>
+        <p>Machines have been proposing candidate explanations since the 1970s, and the useful ones
+          have almost always come from search over a constrained space rather than from anything
+          resembling intuition. What changed recently is not the reasoning — it is the fluency. A
+          generated hypothesis now reads exactly like a real one.</p>
+        <p>That matters because the format carries authority. A claim shaped like a paper, cited like
+          a paper, entering a literature review like a paper, acquires the standing of a paper without
+          anyone ever having committed to it. Fields can accumulate confident statements nobody has
+          tested and nobody remembers proposing.</p>
+        <p>The honest version of the tool is narrower and more useful: a generator of candidates that a
+          person then has to stake something on. The staking is the part that cannot be delegated,
+          because the staking is what science is.</p>
+      </div>
+
+      <div data-level="deep">
+        <p>The interesting failure is not factual error. It is that nothing in next-token prediction
+          enforces global consistency across a generated structure.</p>
+
+        <h3>Fluent, and jointly unsatisfiable</h3>
+        <p>Models can recite the criteria for a good hypothesis and still emit sets whose members are
+          jointly unsatisfiable — a mechanism in one sentence, a scope condition in the next that the
+          mechanism cannot meet. Retrieval grounding narrows the space of individually wrong
+          statements; it does nothing to enforce coherence between them.</p>
+
+        <h3>A cheap filter that works</h3>
+        <p>There is a usable filter here, and it is cheap. Score a generated hypothesis by whether its
+          stated falsification conditions are <em>reachable with the instruments you actually have</em>.
+          Most of what looks impressive fails immediately; most of what survives is worth an afternoon.</p>
+
+        <h3>Can commitment be engineered?</h3>
+        <p>The deeper question is whether commitment can be engineered rather than simulated. It
+          plausibly can — but it needs an architecture in which being wrong costs the system
+          something, and we do not train for that. Until then, fluency in the grammar is not evidence
+          of a claim, and we have no instrument that separates the two at a glance.</p>
+        <p>This is the roadmap's question — <em>if a model reaches a result humans cannot explain, is
+          that still science?</em> — arriving from the other direction. Explanation has never been a
+          formal requirement of a scientific claim. It has been a practical one. Machine learning is
+          the first thing to test whether the distinction survives contact with a working lab.</p>
+      </div>
+    </article>
+
+    <aside class="aside">
+      <div class="callout">
+        <h4>The short answer</h4>
+        <p>It can produce them by the thousand. What it cannot do is stake anything on one — and
+          that turns out to be the part that was doing the work.</p>
+      </div>
+      <div class="callout g-mt-md">
+        <h4>Try it yourself</h4>
+        <p><a href="#sim">The simulation below</a> lets you raise a model's flexibility and watch
+          the fit improve while the prediction gets worse.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="layer" id="sources">
+  <div class="layer__head"><span class="layer__n">03</span><h2>Sources, at three levels</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:60ch;margin-bottom:var(--g-space-md)">
+    Reading lists usually assume one reader. These do not: pick the level you want to enter at, and
+    move up when you feel like it.</p>
+  <div class="levels">
+    <div class="level"><p class="level__tag">Start here</p><h4>No background needed</h4><ul>
+      <li><a  class="is-flat" aria-disabled="true">What makes a hypothesis testable — a primer</a></li>
+      <li><a  class="is-flat" aria-disabled="true">A short history of machine discovery, from DENDRAL onward</a></li>
+      <li><a href="game-hypothesis-machine.html">Hypothesis Machine — the argument as a game</a></li>
+    </ul></div>
+    <div class="level"><p class="level__tag">Go further</p><h4>Some maths expected</h4><ul>
+      <li><a href="https://doi.org/10.1126/science.1165893" target="_blank" rel="noopener">Schmidt &amp; Lipson, “Distilling Free-Form Natural Laws from Experimental Data”, Science (2009)</a></li>
+      <li><a href="https://arxiv.org/abs/2304.05332" target="_blank" rel="noopener">Emergent autonomous scientific research capabilities of language models (arXiv, 2023)</a></li>
+      <li><a href="article-hypothesis-or-sentence.html">Our essay on the same question, at two depths</a></li>
+    </ul></div>
+    <div class="level"><p class="level__tag">Primary</p><h4>The papers themselves</h4><ul>
+      <li><a href="https://doi.org/10.1038/s41586-021-03819-2" target="_blank" rel="noopener">Jumper et al., “Highly accurate protein structure prediction with AlphaFold”, Nature (2021)</a></li>
+      <li><a href="https://doi.org/10.1038/s41586-023-06792-0" target="_blank" rel="noopener">Merchant et al., “Scaling deep learning for materials discovery”, Nature (2023)</a></li>
+      <li><a  class="is-flat" aria-disabled="true">Popper on falsifiability, and the standard objections to it</a></li>
+    </ul></div>
+  </div>
+</section>
+
+<section class="layer" id="timeline">
+  <div class="layer__head"><span class="layer__n">04</span><h2>How the question developed</h2></div>
+  <div class="tl">
+    <div class="tl__item"><span class="tl__yr">1965</span><h4>DENDRAL</h4><p>The first program to generate candidate chemical structures from mass spectrometry. Machine proposal is older than most of the current argument.</p></div>
+    <div class="tl__item"><span class="tl__yr">1983</span><h4>BACON rediscovers Kepler</h4><p>A search program recovers known physical laws from data — and the debate immediately becomes whether rediscovery counts as discovery.</p></div>
+    <div class="tl__item"><span class="tl__yr">2009</span><h4>Free-form natural laws</h4><p>Symbolic regression extracts conservation laws from a swinging pendulum. The output is an equation a physicist can read.</p></div>
+    <div class="tl__item"><span class="tl__yr">2021</span><h4>AlphaFold</h4><p>A prediction good enough to use, and an explanation nobody can give. The practical question arrives before the philosophical one is settled.</p></div>
+    <div class="tl__item"><span class="tl__yr">2023—</span><h4>Generated candidates at scale</h4><p>Fluency arrives. The bottleneck moves from producing plausible claims to telling them apart from real ones.</p></div>
+  </div>
+</section>
+
+<section class="layer" id="sim">
+  <div class="layer__head"><span class="layer__n">05</span><h2>The simulation</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:62ch;margin-bottom:var(--g-space-md)">
+    A hidden relationship, some noisy measurements, and a generator that will happily fit any of
+    them. Raise the flexibility: the fit keeps improving while the prediction gets worse. That gap
+    is the whole argument.</p>
+  <div class="play">
+    <div class="play__bar">
+      <label for="deg" style="display:flex;align-items:center;gap:.6rem">Model flexibility
+        <input id="deg" type="range" min="1" max="14" value="3" step="1" style="width:10rem">
+        <b id="degv" class="g-mono">3</b></label>
+      <label for="held" style="display:flex;align-items:center;gap:.45rem">
+        <input id="held" type="checkbox" checked> Show unseen data</label>
+      <span>Fit <b id="ein" class="g-mono">—</b></span>
+      <span>Predict <b id="eout" class="g-mono">—</b></span>
+      <button class="g-btn g-btn--ghost g-btn--sm" id="resample" type="button">New measurements</button>
+    </div>
+    <div class="play__body play__body--fig">
+      <canvas id="sim-c" style="width:100%;height:340px;display:block" role="img"
+              aria-label="A curve fitted to sample points, with held-out points shown separately"></canvas>
+    </div>
+    <p class="play__note" id="verdict">—</p>
+  </div>
+</section>
+
+<section class="layer" id="views">
+  <div class="layer__head"><span class="layer__n">06</span><h2>Viewpoints</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:60ch;margin-bottom:var(--g-space-md)">
+    We publish the strongest case against our own reading. If the counter-argument is weak here,
+    that is our failure, not the argument's.</p>
+  <div class="views">
+    <div class="view view--against"><p class="view__tag">Against</p>
+      <p>Requiring that a claim be “staked” describes how scientists behave, not what makes a
+        statement scientific. A hypothesis that survives testing is not improved by having had
+        someone's reputation attached to it. If the filtering works, the origin is irrelevant.</p>
+      <cite>— the strongest objection we could find</cite></div>
+    <div class="view view--for"><p class="view__tag">For</p>
+      <p>Origin is irrelevant only while the supply of candidates is small. When generation is
+        free and testing is not, something has to decide what gets tested — and a system with
+        nothing at stake produces candidates at a rate no lab can absorb.</p>
+      <cite>— the position the film leans toward</cite></div>
+  </div>
+  <div class="poll g-mt-lg" style="max-width:34rem">
+    <p class="g-eyebrow">Where do you land?</p>
+    <button class="poll__opt" data-share="29" aria-pressed="false"><span class="poll__bar"></span>
+      <span class="poll__txt"><span>Origin is irrelevant if the test is sound</span><span class="poll__pct"></span></span></button>
+    <button class="poll__opt" data-share="46" aria-pressed="false"><span class="poll__bar"></span>
+      <span class="poll__txt"><span>Someone has to be accountable for the claim</span><span class="poll__pct"></span></span></button>
+    <button class="poll__opt" data-share="25" aria-pressed="false"><span class="poll__bar"></span>
+      <span class="poll__txt"><span>It depends entirely on the cost of testing</span><span class="poll__pct"></span></span></button>
+    <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">
+      Sample distribution shown for illustration — wire this to your backend to collect real votes.</p>
+  </div>
+</section>
+
+<section class="layer" id="talk">
+  <div class="layer__head"><span class="layer__n">07</span><h2>Discussion</h2></div>
+  <div class="split">
+    <div>
+      <div class="comment"><span class="avatar">EK</span><div>
+        <p class="comment__who">Elif K.<span class="comment__role">researcher</span></p>
+        <p>The falsifiability filter is doing a lot of work in this piece. Plenty of good
+          hypotheses were untestable when proposed — continental drift sat there for fifty years.
+          The filter is useful triage, not a definition.</p></div></div>
+      <div class="comment"><span class="avatar">DM</span><div>
+        <p class="comment__who">D. Mbeki<span class="comment__role">reader</span></p>
+        <p>The simulation is the bit that landed. Watching the fit get better while the prediction
+          gets worse is the whole essay in one slider.</p></div></div>
+      <div class="comment"><span class="avatar">SA</span><div>
+        <p class="comment__who">Sajad A.<span class="comment__role">host</span></p>
+        <p>Elif is right, and the film overstates it — noted for the correction log. The honest
+          version is that reachable falsification conditions tell you what to test <em>next</em>,
+          not what counts as science.</p></div></div>
+      <form class="g-field g-mt-md" data-demo-form>
+        <label class="g-label" for="c">Add to the discussion</label>
+        <textarea class="g-textarea" id="c" placeholder="Disagreement is more useful than agreement here."></textarea>
+        <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Post</button>
+          <span class="g-hint" data-form-note>Members can post. Everyone can read.</span></div>
+      </form>
+    </div>
+    <aside class="aside">
+      <div class="callout"><h4>This week's question</h4>
+        <p>If a model reaches a result nobody can explain, and it holds up under testing, what
+          exactly do we have? <a href="community.html">Answer in the community</a>.</p></div>
+      <div class="callout g-mt-md"><h4>Correction log</h4>
+        <p>One correction since publication. <a  class="is-flat" aria-disabled="true">See what changed</a>.</p></div>
+    </aside>
+  </div>
+
+  <div class="art__next">
+    <h3>Where this goes next</h3>
+    <div class="g-grid g-grid--3">
+      <a class="nextcard" href="game-hypothesis-machine.html">
+        <span class="nextcard__k">Try it</span><strong>Hypothesis Machine</strong>
+        <span>Find out how little confirming your own guess actually teaches you.</span></a>
+      <a class="nextcard" href="article-hypothesis-or-sentence.html">
+        <span class="nextcard__k">Read</span><strong>Hypothesis, or a sentence?</strong>
+        <span>The essay this dossier grew out of, at two depths.</span></a>
+      <a class="nextcard" href="path-ai-in-research.html">
+        <span class="nextcard__k">Learn</span><strong>AI in research</strong>
+        <span>The structured path, from tooling to evaluation.</span></a>
+    </div>
+  </div>
+</section>
+
+</div>
+
+</main>
+<footer class="g-footer">
+  <div class="g-container">
+    <div class="g-footer__grid">
+      <div>
+        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="#f1efec">
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
+      <path d="M160.51,49.21c-2.41,2.06-4.52,4.52-6.3,7.38l-1.74-12.34h-17.84v67.6h20.12v-30.18c0-3.4.4-6.24,1.21-8.52.8-2.28,2.01-4.09,3.62-5.43,1.61-1.34,3.49-2.3,5.63-2.89,2.15-.58,4.56-.87,7.24-.87h6.84v-21.33c-3.85,0-7.33.58-10.46,1.74-3.13,1.17-5.9,2.78-8.32,4.83Z"/>
+      <path d="M239.25,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2c1.74,3.04,4.47,5.48,8.18,7.31,3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.91-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM231.54,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28s-1.14-2.23-1.14-3.76c0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <polygon points="299.2 92.93 283.38 44.25 262.32 44.25 286.73 111.85 311.41 111.85 335.82 44.25 314.9 44.25 299.2 92.93"/>
+      <path d="M365.8,17.69c-2.28-2.05-5.26-3.08-8.92-3.08s-6.48,1.03-8.72,3.08c-2.24,2.06-3.35,4.7-3.35,7.92s1.11,5.72,3.35,7.78c2.24,2.05,5.14,3.08,8.72,3.08s6.64-1.03,8.92-3.08c2.28-2.06,3.42-4.65,3.42-7.78s-1.14-5.86-3.42-7.92Z"/>
+      <rect x="346.82" y="44.25" width="20.12" height="67.6"/>
+      <path d="M413.55,93.14c-1.21-1.12-1.81-3.02-1.81-5.7v-26.42h17.03v-16.77h-17.03v-19.05h-17.98l-2.15,19.05h-11.67v16.77h11.67v26.16c0,6.17,1.03,11.05,3.09,14.62,2.06,3.57,4.96,6.15,8.72,7.71,3.76,1.56,8.05,2.35,12.88,2.35h12.61v-17.03h-9.12c-2.95,0-5.03-.56-6.24-1.68Z"/>
+      <path d="M492.75,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2,4.47,5.48,8.18,7.31c3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.9-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM485.04,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28-.76-.98-1.14-2.23-1.14-3.76,0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <path d="M569.27,73.96c-3.98-1.39-8.7-2.61-14.15-3.69-2.78-.54-5.15-1.14-7.11-1.81-1.97-.67-3.47-1.45-4.49-2.35-1.03-.89-1.54-1.88-1.54-2.95,0-1.52.76-2.79,2.28-3.82,1.52-1.03,3.71-1.54,6.57-1.54s4.98.49,6.64,1.47c1.65.99,2.75,2.37,3.29,4.16h18.78c-.9-6.35-3.78-11.4-8.65-15.15-4.87-3.76-11.51-5.63-19.92-5.63-5.99,0-11.11.96-15.36,2.88-4.25,1.93-7.46,4.49-9.66,7.71-2.19,3.22-3.28,6.84-3.28,10.87,0,3.49.71,6.33,2.15,8.52,1.43,2.19,3.4,4.02,5.9,5.5,2.5,1.48,5.34,2.66,8.52,3.55,3.17.89,6.37,1.74,9.59,2.55,2.77.54,5.14,1.12,7.11,1.74,1.96.63,3.46,1.37,4.49,2.22,1.03.85,1.54,2.12,1.54,3.82,0,1.07-.33,2.1-1,3.08-.67.98-1.72,1.77-3.15,2.35-1.43.58-3.22.87-5.37.87s-4.16-.36-5.77-1.07c-1.61-.71-2.88-1.68-3.82-2.88-.94-1.21-1.59-2.53-1.94-3.96h-19.98c.35,4.38,1.85,8.29,4.49,11.74,2.64,3.44,6.26,6.19,10.87,8.25,4.6,2.05,10.13,3.09,16.57,3.09,5.9,0,11.06-.98,15.49-2.95,4.42-1.96,7.82-4.63,10.19-7.98,2.37-3.35,3.56-7.22,3.56-11.6,0-4.74-1.14-8.4-3.42-11-2.28-2.59-5.41-4.58-9.39-5.97Z"/>
+      <polygon points="630.63 39.65 616.16 39.65 616.16 26.52 606.31 26.52 606.31 39.65 591.77 39.65 591.77 49.43 606.31 49.43 606.31 62.65 616.16 62.65 616.16 49.43 630.63 49.43 630.63 39.65"/>
+    </g>
+  </g>
+</svg></div>
+        <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
+          A media project, a lab and a community at the intersection of science,
+          philosophy and society.</p>
+      </div>
+      <div><h5 class="g-footer__heading">Read</h5>
+        <div class="g-stack g-stack--xs"><a href="dossiers.html">Dossiers</a><a href="magazine.html">Magazine</a><a href="newsletter.html">Newsletter</a></div></div>
+      <div><h5 class="g-footer__heading">Do</h5>
+        <div class="g-stack g-stack--xs"><a href="lab.html">Interactive lab</a><a href="learn.html">Learning paths</a><a href="community.html">Community</a></div></div>
+      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"><li><a class="lp-social__link" href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></svg></a></li><li><a class="lp-social__link" href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 3.3v9.9a3.6 3.6 0 1 1-3.6-3.6c.3 0 .6 0 .9.1"/><path d="M15.6 3.3c.3 2.3 2 4 4.3 4.2"/></svg></a></li><li><a class="lp-social__link" href="#" aria-label="X"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 3h3l-6.6 7.6L21.8 21h-5.9l-4.6-6-5.3 6H3l7.1-8.1L2.6 3h6l4.2 5.5L17.6 3zm-1 16.2h1.6L7.5 4.7H5.8l10.8 14.5z"/></svg></a></li><li><a class="lp-social__link" href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Telegram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M21.3 4.4 2.9 11.3c-.8.3-.8 1.4.1 1.6l4.6 1.2 1.7 5.1c.2.6 1 .8 1.4.3l2.4-2.5 4.5 3.3c.5.4 1.3.1 1.4-.6l2.9-13.9c.1-.7-.5-1.2-1.2-1z"/><path d="M7.6 14.1 18.4 7.6l-7.5 8"/></svg></a></li></ul>
+        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a></div></div>
+    </div>
+    <div class="g-footer__legal">
+      <span>&copy; 2026 Gravitas+</span>
+      <span>Curiosity brings people in. Capability keeps them here.</span>
+    </div>
+  </div>
+</footer>
+<script src="assets/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var cv = document.getElementById('sim-c'); if (!cv) return;
+  var ctx = cv.getContext('2d');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // A generator proposes candidate rules for a hidden relationship. The point
+  // of the toy is the gap between fitting the data you have and predicting the
+  // data you do not: raise the flexibility and the fit improves while the
+  // held-out error gets worse. That is the essay's argument, made touchable.
+  var W = 0, H = 0, dpr = 1;
+  function size() {
+    var r = cv.getBoundingClientRect();
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  size(); addEventListener('resize', function () { size(); draw(); });
+
+  // the hidden truth, plus noise
+  var N = 26, pts = [], held = [];
+  function seed() {
+    pts = []; held = [];
+    for (var i = 0; i < N; i++) {
+      var x = i / (N - 1);
+      var y = 0.34 * Math.sin(x * 5.0) + 0.42 * x + 0.12;
+      var n = (Math.random() - 0.5) * 0.13;
+      (i % 4 === 3 ? held : pts).push([x, y + n]);
+    }
+  }
+  seed();
+
+  function fit(deg) {
+    // least squares on a polynomial basis, solved by gaussian elimination
+    var m = deg + 1, A = [], b = [];
+    for (var r = 0; r < m; r++) {
+      A.push(new Float64Array(m)); b.push(0);
+      for (var c = 0; c < m; c++) {
+        var s = 0;
+        for (var i = 0; i < pts.length; i++) s += Math.pow(pts[i][0], r + c);
+        A[r][c] = s;
+      }
+      var t = 0;
+      for (var j = 0; j < pts.length; j++) t += pts[j][1] * Math.pow(pts[j][0], r);
+      b[r] = t;
+    }
+    for (var k = 0; k < m; k++) {
+      var p = k;
+      for (var q = k + 1; q < m; q++) if (Math.abs(A[q][k]) > Math.abs(A[p][k])) p = q;
+      var tmp = A[k]; A[k] = A[p]; A[p] = tmp;
+      var tb = b[k]; b[k] = b[p]; b[p] = tb;
+      if (Math.abs(A[k][k]) < 1e-12) continue;
+      for (var q2 = k + 1; q2 < m; q2++) {
+        var f = A[q2][k] / A[k][k];
+        for (var c2 = k; c2 < m; c2++) A[q2][c2] -= f * A[k][c2];
+        b[q2] -= f * b[k];
+      }
+    }
+    var co = new Float64Array(m);
+    for (var k2 = m - 1; k2 >= 0; k2--) {
+      var s2 = b[k2];
+      for (var c3 = k2 + 1; c3 < m; c3++) s2 -= A[k2][c3] * co[c3];
+      co[k2] = Math.abs(A[k2][k2]) < 1e-12 ? 0 : s2 / A[k2][k2];
+    }
+    return co;
+  }
+  function evalp(co, x) { var s = 0; for (var i = co.length - 1; i >= 0; i--) s = s * x + co[i]; return s; }
+  function rms(co, set) {
+    var s = 0; for (var i = 0; i < set.length; i++) { var d = evalp(co, set[i][0]) - set[i][1]; s += d * d; }
+    return Math.sqrt(s / Math.max(set.length, 1));
+  }
+
+  var X = function (x) { return 34 + x * (W - 52); };
+  var Y = function (y) { return H - 30 - y * (H - 58); };
+
+  function draw() {
+    var deg = +document.getElementById('deg').value;
+    var showHeld = document.getElementById('held').checked;
+    var co = fit(deg);
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(241,239,236,0.10)'; ctx.lineWidth = 1;
+    for (var g = 0; g <= 4; g++) {
+      var yy = 22 + g * (H - 52) / 4;
+      ctx.beginPath(); ctx.moveTo(28, yy); ctx.lineTo(W - 16, yy); ctx.stroke();
+    }
+
+    // the candidate rule
+    ctx.strokeStyle = '#d4c9be'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var i = 0; i <= 260; i++) {
+      var x = i / 260, y = evalp(co, x);
+      if (i === 0) ctx.moveTo(X(x), Y(y)); else ctx.lineTo(X(x), Y(y));
+    }
+    ctx.stroke();
+
+    // the data it was fitted to
+    ctx.fillStyle = '#f1efec';
+    pts.forEach(function (p) { ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), 3.1, 0, 6.3); ctx.fill(); });
+
+    // the data it never saw
+    if (showHeld) {
+      ctx.fillStyle = '#6fa9ce';
+      held.forEach(function (p) { ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), 3.1, 0, 6.3); ctx.fill(); });
+    }
+
+    var eIn = rms(co, pts), eOut = rms(co, held);
+    document.getElementById('degv').textContent = deg;
+    document.getElementById('ein').textContent = eIn.toFixed(3);
+    document.getElementById('eout').textContent = eOut.toFixed(3);
+    var v = document.getElementById('verdict');
+    v.textContent = eOut > eIn * 2.1
+      ? 'Fits what it was shown. Does not predict what it was not.'
+      : (deg <= 2 ? 'Too rigid to capture the pattern.' : 'Explains and predicts — this is the honest range.');
+    v.className = 'sim__verdict ' + (eOut > eIn * 2.1 ? 'is-bad' : (deg <= 2 ? 'is-meh' : 'is-good'));
+  }
+
+  document.getElementById('deg').addEventListener('input', draw);
+  document.getElementById('held').addEventListener('change', draw);
+  document.getElementById('resample').addEventListener('click', function () { seed(); draw(); });
+  draw();
+})();
+</script>
+</body>
+</html>
