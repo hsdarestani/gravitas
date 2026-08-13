@@ -1,0 +1,26 @@
+name: Fix Staging Env Permission
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH and fix permission
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/key -p "$PORT" "$USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo chown root:$USER /etc/gravitas/staging.env && sudo chmod 640 /etc/gravitas/staging.env"
