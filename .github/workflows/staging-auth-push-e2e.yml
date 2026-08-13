@@ -1,0 +1,95 @@
+name: Gravitas Staging Auth Push E2E
+
+on:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-staging-auth-push
+  cancel-in-progress: true
+
+jobs:
+  auth-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait for staging deployment
+        run: sleep 40
+
+      - name: Verify Django account lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" bash -s -- "${{ github.run_id }}" <<'REMOTE'
+          set -euo pipefail
+          RUN_ID="$1"
+          APP=/opt/gravitas-backend-staging
+          set -a
+          . /etc/gravitas/staging.env
+          set +a
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$APP"
+          KEEP_ENV=DJANGO_SECRET_KEY,DJANGO_DEBUG,DJANGO_DB_NAME,DJANGO_DB_USER,DJANGO_ALLOWED_HOSTS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_SESSION_COOKIE_NAME,DJANGO_CSRF_COOKIE_NAME,DJANGO_SETTINGS_MODULE,PYTHONPATH
+          TEST_EMAIL="auth-check-${RUN_ID}@example.com"
+          export TEST_EMAIL
+          cd "$APP"
+
+          sudo -u gravitas --preserve-env="$KEEP_ENV,TEST_EMAIL" "$APP/.venv/bin/python" - <<'PY'
+          import json
+          import os
+          import django
+          django.setup()
+
+          from django.contrib.auth import get_user_model
+          from django.test import Client
+          from core.models import NewsletterSubscriber
+
+          User = get_user_model()
+          email = os.environ['TEST_EMAIL']
+          password = 'Staging-E2E-Password-2026!'
+          User.objects.filter(username=email).delete()
+          NewsletterSubscriber.objects.filter(email=email).delete()
+
+          client = Client(enforce_csrf_checks=True, HTTP_HOST='staging.gravitasplus.com')
+          response = client.get('/api/auth/csrf/', secure=True)
+          assert response.status_code == 200, response.content
+          token = client.cookies['gravitas_staging_csrftoken'].value
+          response = client.post(
+              '/api/auth/signup/',
+              data=json.dumps({'name': 'Staging E2E', 'email': email, 'password': password, 'newsletter': True}),
+              content_type='application/json', secure=True, HTTP_X_CSRFTOKEN=token,
+          )
+          assert response.status_code == 201, response.content
+          assert client.get('/api/auth/me/', secure=True).json().get('authenticated') is True
+
+          token = client.cookies['gravitas_staging_csrftoken'].value
+          response = client.post('/api/auth/logout/', data='{}', content_type='application/json', secure=True, HTTP_X_CSRFTOKEN=token)
+          assert response.status_code == 200, response.content
+          assert client.get('/api/auth/me/', secure=True).json().get('authenticated') is False
+
+          login_client = Client(enforce_csrf_checks=True, HTTP_HOST='staging.gravitasplus.com')
+          response = login_client.get('/api/auth/csrf/', secure=True)
+          token = login_client.cookies['gravitas_staging_csrftoken'].value
+          response = login_client.post(
+              '/api/auth/login/',
+              data=json.dumps({'email': email, 'password': password, 'keep': True}),
+              content_type='application/json', secure=True, HTTP_X_CSRFTOKEN=token,
+          )
+          assert response.status_code == 200, response.content
+          assert login_client.get('/api/auth/me/', secure=True).json().get('authenticated') is True
+
+          User.objects.filter(username=email).delete()
+          NewsletterSubscriber.objects.filter(email=email).delete()
+          print('staging-auth-e2e-passed')
+          PY
+          REMOTE
