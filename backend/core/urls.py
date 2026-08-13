@@ -6,6 +6,7 @@ from core.views import (
     auth_logout,
     auth_me,
     auth_signup,
+    comments,
     health,
     newsletter_subscribe,
 )
@@ -18,4 +19,5 @@ urlpatterns = [
     path('auth/login/', auth_login),
     path('auth/logout/', auth_logout),
     path('auth/me/', auth_me),
+    path('community/comments/<slug:content_key>/', comments),
 ]
