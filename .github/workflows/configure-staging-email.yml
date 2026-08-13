@@ -43,7 +43,7 @@ jobs:
             printf 'EMAIL_USE_SSL=1\n'
             printf 'EMAIL_HOST_USER=webmaster@gravitasplus.com\n'
             printf 'EMAIL_HOST_PASSWORD=%s\n' "$SMTP_PASSWORD"
-            printf 'DEFAULT_FROM_EMAIL=Gravitas+ <webmaster@gravitasplus.com>\n'
+            printf "DEFAULT_FROM_EMAIL='Gravitas+ <webmaster@gravitasplus.com>'\n"
             printf 'PUBLIC_BASE_URL=https://staging.gravitasplus.com\n'
           } | sudo tee -a "$FILE" >/dev/null
           sudo chown root:gravitas "$FILE"
