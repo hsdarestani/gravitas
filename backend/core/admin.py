@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Comment, ContentItem, NewsletterSubscriber
+from .models import Comment, ContentItem, LabProgress, NewsletterSubscriber
 
 
 @admin.register(ContentItem)
@@ -42,3 +42,12 @@ class CommentAdmin(admin.ModelAdmin):
     @admin.action(description='Hide selected comments')
     def hide_comments(self, request, queryset):
         queryset.update(status=Comment.Status.HIDDEN)
+
+
+@admin.register(LabProgress)
+class LabProgressAdmin(admin.ModelAdmin):
+    list_display = ('user', 'lab_key', 'completed', 'score', 'updated_at')
+    list_filter = ('completed', 'lab_key')
+    search_fields = ('user__username', 'user__email', 'lab_key')
+    ordering = ('-updated_at',)
+    readonly_fields = ('created_at', 'updated_at')
