@@ -1,0 +1,38 @@
+name: Enable Content Proxy
+
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proxy:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Add content proxy
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          [ -n "$PORT" ] || PORT=22
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/key -p "$PORT" deploy@$HOST "sudo /usr/local/sbin/gravitas-enable-content-proxy"
+
+      - name: Verify content routing
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -4 -sS -o /tmp/content-check -w '%{http_code}' https://gravitasplus.com/content/definitely-not-published/)"
+          test "$code" = "404"
