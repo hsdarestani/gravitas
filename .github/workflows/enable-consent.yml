@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Install persistent Nginx consent injection
+      - name: Install persistent privacy and SEO injection
         shell: bash
         run: |
           set -euo pipefail
@@ -35,8 +35,24 @@ jobs:
               gravitasplus.com '<script src="/assets/consent.js"></script></body>';
           }
 
+          map $uri $gravitas_head_close {
+              default "</head>";
+              / '<link rel="canonical" href="https://gravitasplus.com/"></head>';
+              /about.html '<link rel="canonical" href="https://gravitasplus.com/about.html"></head>';
+              /dossiers.html '<link rel="canonical" href="https://gravitasplus.com/dossiers.html"></head>';
+              /magazine.html '<link rel="canonical" href="https://gravitasplus.com/magazine.html"></head>';
+              /lab.html '<link rel="canonical" href="https://gravitasplus.com/lab.html"></head>';
+              /learn.html '<link rel="canonical" href="https://gravitasplus.com/learn.html"></head>';
+              /community.html '<link rel="canonical" href="https://gravitasplus.com/community.html"></head>';
+              /dossier-machine-hypothesis.html '<link rel="canonical" href="https://gravitasplus.com/dossier-machine-hypothesis.html"></head>';
+              /dossier-computable-universe.html '<link rel="canonical" href="https://gravitasplus.com/dossier-computable-universe.html"></head>';
+              /article-hypothesis-or-sentence.html '<link rel="canonical" href="https://gravitasplus.com/article-hypothesis-or-sentence.html"></head>';
+              /game-hypothesis-machine.html '<link rel="canonical" href="https://gravitasplus.com/game-hypothesis-machine.html"></head>';
+          }
+
           sub_filter_once on;
           sub_filter '</body>' $gravitas_body_close;
+          sub_filter '</head>' $gravitas_head_close;
           EOF
           sudo mv /tmp/gravitas-consent.conf /etc/nginx/conf.d/gravitas-consent.conf
           sudo chmod 644 /etc/nginx/conf.d/gravitas-consent.conf
@@ -44,11 +60,14 @@ jobs:
           sudo systemctl reload nginx
           REMOTE
 
-      - name: Verify consent manager from public production
+      - name: Verify privacy and canonical output
         shell: bash
         run: |
           set -euo pipefail
           sleep 2
           curl -4 -fsSL https://gravitasplus.com/assets/consent.js | grep -q 'gravitas:consent:v1'
-          curl -4 -fsSL https://gravitasplus.com/ | grep -q '/assets/consent.js'
-          echo gravitas-consent-enabled
+          HOME_HTML="$(curl -4 -fsSL https://gravitasplus.com/)"
+          printf '%s' "$HOME_HTML" | grep -q '/assets/consent.js'
+          printf '%s' "$HOME_HTML" | grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">'
+          curl -4 -fsSL https://gravitasplus.com/dossiers.html | grep -Fq '<link rel="canonical" href="https://gravitasplus.com/dossiers.html">'
+          echo gravitas-privacy-and-canonical-enabled
