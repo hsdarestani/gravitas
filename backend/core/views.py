@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import connection
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import NewsletterSubscriber
 
@@ -15,6 +16,7 @@ def health(request):
     return JsonResponse({'status': 'ok', 'database': 'ok'})
 
 
+@csrf_exempt
 def newsletter_subscribe(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
