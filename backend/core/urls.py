@@ -10,17 +10,23 @@ from core.views import (
     comments,
     health,
     lab_progress,
+    newsletter_confirm,
     newsletter_subscribe,
+    password_reset_confirm,
+    password_reset_request,
 )
 
 urlpatterns = [
     path('health/', health),
     path('newsletter/subscribe/', newsletter_subscribe),
+    path('newsletter/confirm/', newsletter_confirm),
     path('auth/csrf/', auth_csrf),
     path('auth/signup/', auth_signup),
     path('auth/login/', auth_login),
     path('auth/logout/', auth_logout),
     path('auth/me/', auth_me),
+    path('auth/password-reset/', password_reset_request),
+    path('auth/password-reset/confirm/', password_reset_confirm),
     path('community/comments/<slug:content_key>/', comments),
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
