@@ -1,0 +1,44 @@
+name: Promote Gravitas Mail Environment
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - '.github/workflows/promote-email-env.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Copy tested mail settings to production environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          SRC=/etc/gravitas/staging.env
+          DST=/etc/gravitas/backend.env
+          sudo test -r "$SRC"
+          sudo touch "$DST"
+          sudo sed -i '/^EMAIL_HOST=/d;/^EMAIL_PORT=/d;/^EMAIL_USE_SSL=/d;/^EMAIL_HOST_USER=/d;/^EMAIL_HOST_PASSWORD=/d;/^DEFAULT_FROM_EMAIL=/d;/^PUBLIC_BASE_URL=/d' "$DST"
+          sudo awk '/^(EMAIL_HOST|EMAIL_PORT|EMAIL_USE_SSL|EMAIL_HOST_USER|EMAIL_HOST_PASSWORD|DEFAULT_FROM_EMAIL)=/' "$SRC" | sudo tee -a "$DST" >/dev/null
+          printf 'PUBLIC_BASE_URL=https://gravitasplus.com\n' | sudo tee -a "$DST" >/dev/null
+          sudo chown root:gravitas "$DST"
+          sudo chmod 640 "$DST"
+          sudo systemctl restart gravitas-backend
+          sudo grep -q '^EMAIL_HOST_PASSWORD=' "$DST"
+          echo production-mail-environment-ready
+          REMOTE
