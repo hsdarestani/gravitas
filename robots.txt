@@ -3,5 +3,10 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 Disallow: /django-static/
+Disallow: /dossier-machine-hypothesis.html
+Disallow: /dossier-computable-universe.html
+Disallow: /article-hypothesis-or-sentence.html
+Disallow: /game-hypothesis-machine.html
+Disallow: /path-ai-in-research.html
 
 Sitemap: https://gravitasplus.com/sitemap.xml
