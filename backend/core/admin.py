@@ -1,18 +1,32 @@
 from django.contrib import admin
 from django.utils import timezone
 
-from .models import Comment, ContentItem, LabProgress, NewsletterSubscriber
+from .models import (
+    Comment,
+    ContentItem,
+    ContentTranslation,
+    LabProgress,
+    NewsletterSubscriber,
+)
+
+
+class ContentTranslationInline(admin.StackedInline):
+    model = ContentTranslation
+    extra = 0
+    fields = ('locale', 'status', 'title', 'summary', 'body', 'published_at')
+    show_change_link = True
 
 
 @admin.register(ContentItem)
 class ContentItemAdmin(admin.ModelAdmin):
     list_display = ('title', 'kind', 'status', 'published_at', 'updated_at')
     list_filter = ('kind', 'status')
-    search_fields = ('title', 'slug', 'summary', 'body')
+    search_fields = ('title', 'slug', 'summary', 'body', 'translations__title')
     prepopulated_fields = {'slug': ('title',)}
     ordering = ('-published_at', '-created_at')
     readonly_fields = ('created_at', 'updated_at')
     actions = ('publish_now', 'move_to_draft')
+    inlines = (ContentTranslationInline,)
 
     @admin.action(description='Publish selected content now')
     def publish_now(self, request, queryset):
@@ -24,6 +38,21 @@ class ContentItemAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         if obj.status == ContentItem.Status.PUBLISHED and obj.published_at is None:
+            obj.published_at = timezone.now()
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(ContentTranslation)
+class ContentTranslationAdmin(admin.ModelAdmin):
+    list_display = ('title', 'content', 'locale', 'status', 'published_at', 'updated_at')
+    list_filter = ('locale', 'status')
+    search_fields = ('title', 'summary', 'body', 'content__title', 'content__slug')
+    autocomplete_fields = ('content',)
+    ordering = ('content__title', 'locale')
+    readonly_fields = ('created_at', 'updated_at')
+
+    def save_model(self, request, obj, form, change):
+        if obj.status == ContentTranslation.Status.PUBLISHED and obj.published_at is None:
             obj.published_at = timezone.now()
         super().save_model(request, obj, form, change)
 
