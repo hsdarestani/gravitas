@@ -36,19 +36,19 @@ jobs:
           }
 
           map $uri $gravitas_head_close {
-              default "</head>";
-              / '<link rel="canonical" href="https://gravitasplus.com/"></head>';
-              /index.html '<link rel="canonical" href="https://gravitasplus.com/"></head>';
-              /about.html '<link rel="canonical" href="https://gravitasplus.com/about.html"></head>';
-              /dossiers.html '<link rel="canonical" href="https://gravitasplus.com/dossiers.html"></head>';
-              /magazine.html '<link rel="canonical" href="https://gravitasplus.com/magazine.html"></head>';
-              /lab.html '<link rel="canonical" href="https://gravitasplus.com/lab.html"></head>';
-              /learn.html '<link rel="canonical" href="https://gravitasplus.com/learn.html"></head>';
-              /community.html '<link rel="canonical" href="https://gravitasplus.com/community.html"></head>';
-              /dossier-machine-hypothesis.html '<link rel="canonical" href="https://gravitasplus.com/dossier-machine-hypothesis.html"></head>';
-              /dossier-computable-universe.html '<link rel="canonical" href="https://gravitasplus.com/dossier-computable-universe.html"></head>';
-              /article-hypothesis-or-sentence.html '<link rel="canonical" href="https://gravitasplus.com/article-hypothesis-or-sentence.html"></head>';
-              /game-hypothesis-machine.html '<link rel="canonical" href="https://gravitasplus.com/game-hypothesis-machine.html"></head>';
+              default '<meta name="robots" content="noindex, nofollow"></head>';
+              / '<link rel="canonical" href="https://gravitasplus.com/"><meta name="robots" content="noindex, nofollow"></head>';
+              /index.html '<link rel="canonical" href="https://gravitasplus.com/"><meta name="robots" content="noindex, nofollow"></head>';
+              /about.html '<link rel="canonical" href="https://gravitasplus.com/about.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossiers.html '<link rel="canonical" href="https://gravitasplus.com/dossiers.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /magazine.html '<link rel="canonical" href="https://gravitasplus.com/magazine.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /lab.html '<link rel="canonical" href="https://gravitasplus.com/lab.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /learn.html '<link rel="canonical" href="https://gravitasplus.com/learn.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /community.html '<link rel="canonical" href="https://gravitasplus.com/community.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossier-machine-hypothesis.html '<link rel="canonical" href="https://gravitasplus.com/dossier-machine-hypothesis.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossier-computable-universe.html '<link rel="canonical" href="https://gravitasplus.com/dossier-computable-universe.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /article-hypothesis-or-sentence.html '<link rel="canonical" href="https://gravitasplus.com/article-hypothesis-or-sentence.html"><meta name="robots" content="noindex, nofollow"></head>';
+              /game-hypothesis-machine.html '<link rel="canonical" href="https://gravitasplus.com/game-hypothesis-machine.html"><meta name="robots" content="noindex, nofollow"></head>';
           }
 
           sub_filter_once on;
@@ -61,7 +61,7 @@ jobs:
           sudo systemctl reload nginx
           REMOTE
 
-      - name: Verify privacy and canonical output
+      - name: Verify privacy, canonical and temporary noindex output
         shell: bash
         run: |
           set -euo pipefail
@@ -70,5 +70,7 @@ jobs:
           HOME_HTML="$(curl -4 -fsSL https://gravitasplus.com/)"
           printf '%s' "$HOME_HTML" | grep -q '/assets/consent.js'
           printf '%s' "$HOME_HTML" | grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">'
-          curl -4 -fsSL https://gravitasplus.com/dossiers.html | grep -Fq '<link rel="canonical" href="https://gravitasplus.com/dossiers.html">'
-          echo gravitas-privacy-and-canonical-enabled
+          printf '%s' "$HOME_HTML" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+          curl -4 -fsSL https://gravitasplus.com/dossiers.html | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+          curl -4 -fsSL https://gravitasplus.com/account.html | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+          echo gravitas-prelaunch-noindex-enabled
