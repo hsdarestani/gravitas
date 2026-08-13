@@ -8,6 +8,7 @@ from core.views import (
     auth_signup,
     comments,
     health,
+    lab_progress,
     newsletter_subscribe,
 )
 
@@ -20,4 +21,5 @@ urlpatterns = [
     path('auth/logout/', auth_logout),
     path('auth/me/', auth_me),
     path('community/comments/<slug:content_key>/', comments),
+    path('lab/progress/<slug:lab_key>/', lab_progress),
 ]
