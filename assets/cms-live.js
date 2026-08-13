@@ -64,6 +64,7 @@
     var target = document.querySelector(config.target);
     if (!target) return null;
     target.innerHTML = '';
+    target.classList.add('g-cms-grid');
 
     var parent = target.parentElement;
     if (parent) {
