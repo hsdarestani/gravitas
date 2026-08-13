@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils import timezone
 
 from .models import Comment, ContentItem, LabProgress, NewsletterSubscriber
 
@@ -11,6 +12,11 @@ class ContentItemAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('title',)}
     ordering = ('-published_at', '-created_at')
     readonly_fields = ('created_at', 'updated_at')
+
+    def save_model(self, request, obj, form, change):
+        if obj.status == ContentItem.Status.PUBLISHED and obj.published_at is None:
+            obj.published_at = timezone.now()
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(NewsletterSubscriber)
