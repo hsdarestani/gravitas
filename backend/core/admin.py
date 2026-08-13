@@ -12,6 +12,15 @@ class ContentItemAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('title',)}
     ordering = ('-published_at', '-created_at')
     readonly_fields = ('created_at', 'updated_at')
+    actions = ('publish_now', 'move_to_draft')
+
+    @admin.action(description='Publish selected content now')
+    def publish_now(self, request, queryset):
+        queryset.update(status=ContentItem.Status.PUBLISHED, published_at=timezone.now())
+
+    @admin.action(description='Move selected content to draft')
+    def move_to_draft(self, request, queryset):
+        queryset.update(status=ContentItem.Status.DRAFT)
 
     def save_model(self, request, obj, form, change):
         if obj.status == ContentItem.Status.PUBLISHED and obj.published_at is None:
