@@ -4,6 +4,7 @@ from core.content_api import content_detail, content_list
 from core.kpi import kpi_summary
 from core.views import (
     auth_csrf,
+    auth_export,
     auth_login,
     auth_logout,
     auth_me,
@@ -28,6 +29,7 @@ urlpatterns = [
     path('auth/login/', auth_login),
     path('auth/logout/', auth_logout),
     path('auth/me/', auth_me),
+    path('auth/export/', auth_export),
     path('auth/password-reset/', password_reset_request),
     path('auth/password-reset/confirm/', password_reset_confirm),
     path('community/comments/<slug:content_key>/', comments),
