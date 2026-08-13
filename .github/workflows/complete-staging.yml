@@ -48,6 +48,17 @@ jobs:
           ssh -i ~/.ssh/key -p "$SSH_PORT" "$USER@$HOST" bash -s -- "$DOMAIN" "$WEB" "$APP" "$PORT" "$HOST" <<'REMOTE'
           set -euo pipefail
           DOMAIN="$1"; WEB="$2"; APP="$3"; PORT="$4"; SERVER_IP="$5"
+          STAGING_DB=gravitas_staging_v2
+
+          if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$STAGING_DB'" | grep -q 1; then
+            sudo -u postgres createdb -O gravitas "$STAGING_DB"
+          fi
+          if grep -q '^DJANGO_DB_NAME=' /etc/gravitas/staging.env; then
+            sudo sed -i "s/^DJANGO_DB_NAME=.*/DJANGO_DB_NAME=$STAGING_DB/" /etc/gravitas/staging.env
+          else
+            printf 'DJANGO_DB_NAME=%s\n' "$STAGING_DB" | sudo tee -a /etc/gravitas/staging.env >/dev/null
+          fi
+
           sudo chown -R gravitas:gravitas "$APP"
           [ -x "$APP/.venv/bin/python" ] || sudo -u gravitas python3 -m venv "$APP/.venv"
           sudo -u gravitas "$APP/.venv/bin/pip" install -q --disable-pip-version-check -r "$APP/requirements.txt"
