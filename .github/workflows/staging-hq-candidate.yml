@@ -1,0 +1,126 @@
+name: Validate HQ on Staging Baseline
+
+on:
+  push:
+    branches: [staging-hq-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: staging-hq-candidate
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gravitas_staging_ci
+          POSTGRES_USER: gravitas_staging_ci
+          POSTGRES_PASSWORD: gravitas_staging_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gravitas_staging_ci -d gravitas_staging_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_SECRET_KEY: staging-hq-ci
+      DJANGO_DEBUG: '0'
+      DJANGO_SETTINGS_MODULE: gravitas_backend.settings
+      PYTHONPATH: backend
+      DJANGO_DB_NAME: gravitas_staging_ci
+      DJANGO_DB_USER: gravitas_staging_ci
+      DJANGO_DB_HOST: 127.0.0.1
+      DJANGO_DB_PORT: '5432'
+      DJANGO_ALLOWED_HOSTS: testserver,localhost,127.0.0.1
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://testserver
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -q -r backend/requirements.txt
+      - name: Generate staging-compatible HQ migration
+        run: django-admin makemigrations hq --noinput
+      - name: Version HQ migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain -- backend/hq/migrations)" ]; then
+            git config user.name 'Gravitas HQ CI'
+            git config user.email 'actions@users.noreply.github.com'
+            git add 'backend/hq/migrations/*.py'
+            git commit -m 'Version staging-compatible HQ schema'
+            git pull --rebase origin staging-hq-v1
+            git push origin HEAD:staging-hq-v1
+          fi
+      - name: Apply migrations from zero
+        run: django-admin migrate --noinput
+      - name: Verify no schema drift
+        run: django-admin makemigrations --check --dry-run --noinput
+      - name: Collect HQ static files
+        run: django-admin collectstatic --noinput
+      - name: Create test founder and bootstrap HQ
+        run: |
+          python - <<'PY'
+          import django
+          django.setup()
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          User.objects.create_superuser('staging-hq-ci', 'staging-hq-ci@example.com', 'temporary-ci-password')
+          PY
+          django-admin bootstrap_hq
+      - name: Test HQ routes RBAC and storage policy
+        run: |
+          python - <<'PY'
+          import django
+          django.setup()
+          from django.contrib.auth import get_user_model
+          from django.test import Client
+          from hq.models import AssetReference, ContentProduction, Project, SectionAccess, StrategyDocument, TeamMember
+
+          User = get_user_model()
+          admin = User.objects.get(username='staging-hq-ci')
+          founder = admin.hq_member
+          assert founder.section_access.filter(level=SectionAccess.Level.MANAGE).count() == len(SectionAccess.Section.choices)
+          assert StrategyDocument.objects.filter(slug='gravitas-strategy-roadmap', status='active').exists()
+          episode = Project.objects.get(slug='episode-01-ai-scientific-hypothesis')
+          production = ContentProduction.objects.get(project=episode)
+
+          anonymous = Client(HTTP_HOST='testserver')
+          r = anonymous.get('/hq/')
+          assert r.status_code == 302 and '/hq/login/' in r.url
+          assert anonymous.get('/hq/login/').status_code == 200
+
+          client = Client(HTTP_HOST='testserver')
+          client.force_login(admin)
+          paths = ['/hq/', '/hq/strategy/', '/hq/projects/', f'/hq/projects/{episode.slug}/', '/hq/content/', f'/hq/content/{production.pk}/', '/hq/research/', '/hq/assets/', '/hq/team/']
+          for path in paths:
+              r = client.get(path)
+              assert r.status_code == 200, (path, r.status_code)
+
+          AssetReference.objects.create(title='External master', asset_type='video', provider='youtube', url='https://www.youtube.com/watch?v=test', project=episode, created_by=founder)
+          field_names = {field.name for field in AssetReference._meta.fields}
+          assert 'file' not in field_names and 'upload' not in field_names
+
+          limited_user = User.objects.create_user(username='video-editor', password='temporary-ci-password')
+          limited_member = TeamMember.objects.create(user=limited_user, role_label='Video Editor')
+          SectionAccess.objects.create(member=limited_member, section=SectionAccess.Section.DASHBOARD, level=SectionAccess.Level.VIEW)
+          SectionAccess.objects.create(member=limited_member, section=SectionAccess.Section.PROJECTS, level=SectionAccess.Level.VIEW)
+          limited = Client(HTTP_HOST='testserver')
+          limited.force_login(limited_user)
+          assert limited.get('/hq/strategy/').status_code == 403
+          assert limited.get('/hq/projects/').status_code == 200
+
+          print('staging-hq-candidate-passed')
+          PY
