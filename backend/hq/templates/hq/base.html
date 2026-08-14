@@ -8,6 +8,7 @@
   <meta name="color-scheme" content="dark">
   <title>{% block title %}Gravitas HQ{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'hq/hq.css' %}">
+  <link rel="stylesheet" href="{% static 'hq/hq-v3.css' %}">
 </head>
 <body>
 <a class="hq-skip" href="#hq-content">Skip to main content</a>
@@ -25,12 +26,17 @@
   <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
   <symbol id="i-external" viewBox="0 0 24 24"><path d="M13 5h6v6M11 13l8-8M19 14v5H5V5h5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 2.2 2.2L16.5 8"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3z"/><path d="M12 9v5M12 17h.01"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol>
+  <symbol id="i-roadmap" viewBox="0 0 24 24"><path d="M5 5.5 9 4l6 2 4-1.5v14L15 20l-6-2-4 1.5z"/><path d="M9 4v14M15 6v14"/></symbol>
 </svg>
 
 <div class="hq-shell">
   <aside class="hq-sidebar" id="hq-sidebar" aria-label="Primary navigation">
     <div class="hq-sidebar-top">
-      <a class="hq-brand" href="{% url 'hq:dashboard' %}" aria-label="Gravitas HQ overview">
+      <a class="hq-brand" href="{% url 'hq:dashboard' %}" aria-label="Gravitas HQ overview" title="Gravitas HQ">
         <span class="hq-brand-mark">G+</span>
         <span class="hq-brand-copy"><strong>Gravitas HQ</strong><small>Internal operating system</small></span>
       </a>
@@ -44,7 +50,7 @@
         <div class="hq-nav-group">
           <div class="hq-nav-label">{{ group.label }}</div>
           {% for item in group.items %}
-            <a href="{% url item.url %}" class="hq-nav-item {% if hq_active == item.key %}is-active{% endif %}" {% if hq_active == item.key %}aria-current="page"{% endif %}>
+            <a href="{% url item.url %}" title="{{ item.label }}" class="hq-nav-item {% if hq_active == item.key %}is-active{% endif %}" {% if hq_active == item.key %}aria-current="page"{% endif %}>
               <svg class="hq-nav-icon" aria-hidden="true"><use href="#i-{{ item.icon }}"></use></svg>
               <span>{{ item.label }}</span>
             </a>
@@ -54,12 +60,9 @@
     </nav>
 
     <div class="hq-sidebar-foot">
-      <div class="hq-context-card">
-        <span class="hq-context-dot"></span>
-        <div><strong>Staging workspace</strong><small>Safe place to test HQ changes before production.</small></div>
-      </div>
-      <a class="hq-sidebar-link" href="/" target="_blank" rel="noopener"><span>Public site</span><svg><use href="#i-external"></use></svg></a>
-      <a class="hq-sidebar-link" href="/admin/" target="_blank" rel="noopener"><span>Django admin</span><svg><use href="#i-external"></use></svg></a>
+      <div class="hq-context-card"><span class="hq-context-dot"></span><div><strong>Staging</strong><small>Test workspace</small></div></div>
+      <a class="hq-sidebar-link" href="/" target="_blank" rel="noopener" title="Public site"><span>Public site</span><svg><use href="#i-external"></use></svg></a>
+      <a class="hq-sidebar-link" href="/admin/" target="_blank" rel="noopener" title="Django admin"><span>Django admin</span><svg><use href="#i-external"></use></svg></a>
     </div>
   </aside>
 
@@ -68,27 +71,21 @@
   <main class="hq-main">
     <header class="hq-topbar">
       <div class="hq-topbar-left">
-        <button class="hq-icon-btn hq-mobile-menu" type="button" data-nav-open aria-label="Open navigation">
-          <svg><use href="#i-menu"></use></svg>
-        </button>
-        <div class="hq-location"><span>Gravitas HQ</span><strong>{{ hq_active_label }}</strong></div>
+        <button class="hq-icon-btn hq-mobile-menu" type="button" data-nav-open aria-label="Open navigation"><svg><use href="#i-menu"></use></svg></button>
+        <div class="hq-location"><span>HQ</span><strong>{{ hq_active_label }}</strong></div>
       </div>
 
       <form class="hq-global-search" method="get" action="{% url 'hq:search' %}" role="search">
         <svg aria-hidden="true"><use href="#i-search"></use></svg>
         <label class="hq-visually-hidden" for="hq-global-search">Search HQ</label>
-        <input id="hq-global-search" name="q" type="search" value="{{ request.GET.q|default:'' }}" placeholder="Search projects, tasks, content, research…" autocomplete="off">
+        <input id="hq-global-search" name="q" type="search" value="{{ request.GET.q|default:'' }}" placeholder="Search HQ…" autocomplete="off">
         <kbd>/</kbd>
       </form>
 
       <div class="hq-topbar-actions">
-        <button class="hq-icon-btn" type="button" data-help-open aria-label="Open help for this page" title="Page guide">
-          <svg><use href="#i-help"></use></svg>
-        </button>
+        <button class="hq-icon-btn" type="button" data-help-open aria-label="Open help for this page" title="Page guide"><svg><use href="#i-help"></use></svg></button>
         <details class="hq-account-menu">
-          <summary aria-label="Account menu">
-            <span class="hq-avatar hq-avatar-sm">{% if hq_member %}{{ hq_member.user.first_name|first|default:hq_member.user.email|first|upper }}{% else %}{{ request.user.username|first|upper }}{% endif %}</span>
-          </summary>
+          <summary aria-label="Account menu"><span class="hq-avatar hq-avatar-sm">{% if hq_member %}{{ hq_member.user.first_name|first|default:hq_member.user.email|first|upper }}{% else %}{{ request.user.username|first|upper }}{% endif %}</span></summary>
           <div class="hq-account-popover">
             {% if hq_member %}<strong>{{ hq_member }}</strong><span>{{ hq_member.role_label|default:hq_member.title|default:'Team member' }}</span>{% else %}<strong>{{ request.user }}</strong><span>Superuser</span>{% endif %}
             <form method="post" action="{% url 'hq:logout' %}">{% csrf_token %}<button type="submit">Sign out</button></form>
@@ -97,22 +94,14 @@
       </div>
     </header>
 
-    {% if messages %}
-      <div class="hq-messages" aria-live="polite">
-        {% for message in messages %}<div class="hq-message">{{ message }}</div>{% endfor %}
-      </div>
-    {% endif %}
-
+    {% if messages %}<div class="hq-messages" aria-live="polite">{% for message in messages %}<div class="hq-message">{{ message }}</div>{% endfor %}</div>{% endif %}
     <div class="hq-page" id="hq-content">{% block content %}{% endblock %}</div>
   </main>
 </div>
 
 <div class="hq-help-overlay" data-help-close></div>
 <aside class="hq-help-drawer" id="hq-help-drawer" aria-hidden="true" aria-label="Page guide">
-  <div class="hq-help-head">
-    <div><span class="hq-eyebrow">Guide</span><h2>{% block help_title %}How to use this page{% endblock %}</h2></div>
-    <button class="hq-icon-btn" type="button" data-help-close aria-label="Close help"><svg><use href="#i-close"></use></svg></button>
-  </div>
+  <div class="hq-help-head"><div><span class="hq-eyebrow">Guide</span><h2>{% block help_title %}How to use this page{% endblock %}</h2></div><button class="hq-icon-btn" type="button" data-help-close aria-label="Close help"><svg><use href="#i-close"></use></svg></button></div>
   <div class="hq-help-body">{% block help %}<p>This area is part of the Gravitas internal operating system. Use it to keep work, ownership and decisions visible to the team.</p>{% endblock %}</div>
 </aside>
 
