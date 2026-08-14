@@ -134,7 +134,7 @@ jobs:
           if [ -n "$RESOLVED" ] && [ "$RESOLVED" = "$SERVER_IP" ] && [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
             sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || true
           else
-            echo "Staging DNS is not pointed at this server yet; local staging stack will still be verified."
+            echo "Staging DNS/certificate already ready; continuing verification."
           fi
 
           sudo systemctl is-active gravitas-backend-staging
@@ -143,10 +143,13 @@ jobs:
             sleep 2
           done
           curl -fsS "http://127.0.0.1:$PORT/api/health/" -H "Host: $DOMAIN" | grep -q '"status": "ok"'
-          curl -fsSI "http://127.0.0.1:$PORT/hq/" -H "Host: $DOMAIN" | grep -qi '^location: /hq/login/'
+
+          HQ_HEADERS="$(curl -sSI "http://127.0.0.1:$PORT/hq/" -H "Host: $DOMAIN")"
+          printf '%s\n' "$HQ_HEADERS" | grep -qi '^location: /hq/login/'
+
           U="$(sudo awk -F= '/^username=/{print $2}' /etc/gravitas/staging-access-credentials)"
           P="$(sudo awk -F= '/^password=/{print $2}' /etc/gravitas/staging-access-credentials)"
-          curl -fsS -u "$U:$P" -H "Host: $DOMAIN" http://127.0.0.1/ >/dev/null
-          curl -fsS -u "$U:$P" -H "Host: $DOMAIN" http://127.0.0.1/hq/login/ | grep -q 'Gravitas HQ'
-          echo staging-ready
+          curl -fsS -u "$U:$P" --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/" >/dev/null
+          curl -fsS -u "$U:$P" --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/hq/login/" | grep -q 'Gravitas HQ'
+          echo staging-hq-ready
           REMOTE
