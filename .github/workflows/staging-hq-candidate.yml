@@ -37,6 +37,7 @@ jobs:
       PYTHONPATH: backend
       DJANGO_DB_NAME: gravitas_staging_ci
       DJANGO_DB_USER: gravitas_staging_ci
+      DJANGO_DB_PASSWORD: gravitas_staging_ci
       DJANGO_DB_HOST: 127.0.0.1
       DJANGO_DB_PORT: '5432'
       DJANGO_ALLOWED_HOSTS: testserver,localhost,127.0.0.1
