@@ -18,7 +18,7 @@
 </div>
 
 <form method="post" class="hq-card hq-form">{% csrf_token %}
-  <div class="hq-cardhead"><div><span class="hq-eyebrow">Production workspace</span><h2>Editorial record</h2><p>Keep the durable editorial context here. Heavy media stays in external storage and is linked under Assets.</p></div></div>
+  <div class="hq-cardhead"><div><span class="hq-eyebrow">Production workspace</span><h2>Editorial record</h2><p>Keep the durable editorial context here. Heavy media stays in external storage and is linked under Assets.</p></div>{% if not can_edit %}<span class="hq-pill">View only</span>{% endif %}</div>
   <div class="hq-formgrid">
     {% for field in form %}
       <div class="hq-field {% if field.name == 'brief' or field.name == 'script' or field.name == 'scientific_notes' or field.name == 'distribution_notes' or field.name == 'postmortem' or field.name == 'central_question' %}hq-field-wide{% endif %}">
@@ -32,10 +32,10 @@
   {% if can_edit %}<div class="hq-form-actions"><button class="hq-btn" type="submit">Save production</button></div>{% endif %}
 </form>
 
-<div class="hq-grid hq-grid-2 hq-space-top">
-  <a class="hq-card hq-linkcard" href="{% url 'hq:research' %}"><span class="hq-eyebrow">Evidence</span><h2>Open Research library</h2><p>Add papers, datasets and reports. Evidence stays reusable across more than one content project.</p></a>
-  <a class="hq-card hq-linkcard" href="{% url 'hq:assets' %}"><span class="hq-eyebrow">Production files</span><h2>Open Asset library</h2><p>Attach YouTube, Drive, Frame.io, Vimeo, R2/S3 and other external references without filling the application server.</p></a>
-</div>
+{% if can_access_research or can_access_assets %}<div class="hq-grid hq-grid-2 hq-space-top">
+  {% if can_access_research %}<a class="hq-card hq-linkcard" href="{% url 'hq:research' %}"><span class="hq-eyebrow">Evidence</span><h2>Open Research library</h2><p>Add papers, datasets and reports. Evidence stays reusable across more than one content project.</p></a>{% endif %}
+  {% if can_access_assets %}<a class="hq-card hq-linkcard" href="{% url 'hq:assets' %}"><span class="hq-eyebrow">Production files</span><h2>Open Asset library</h2><p>Attach YouTube, Drive, Frame.io, Vimeo, R2/S3 and other external references without filling the application server.</p></a>{% endif %}
+</div>{% endif %}
 {% endblock %}
 
 {% block help_title %}How to work on this content piece{% endblock %}
