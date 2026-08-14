@@ -3,7 +3,7 @@
 {% block content %}
 <div class="hq-pagehead">
   <div class="hq-pagehead-main"><span class="hq-eyebrow">Plan → Execute</span><h1>Projects turn strategy into work.</h1><p>Each project should have a clear owner, outcome, status and set of tasks. Use projects for deliverables that need coordination, not for every small idea.</p></div>
-  <div class="hq-pagehead-actions"><a class="hq-btn" href="{% url 'hq:project_new' %}"><svg aria-hidden="true"><use href="#i-plus"></use></svg>Create project</a></div>
+  {% if can_edit_projects %}<div class="hq-pagehead-actions"><a class="hq-btn" href="{% url 'hq:project_new' %}"><svg aria-hidden="true"><use href="#i-plus"></use></svg>Create project</a></div>{% endif %}
 </div>
 
 <div class="hq-guide-strip"><div><strong>Confused about Projects vs Tasks?</strong><p>A project is a meaningful outcome or deliverable. A task is one action needed to move that project forward.</p></div><button class="hq-btn hq-btn-text" type="button" data-help-open>See examples</button></div>
@@ -12,7 +12,7 @@
   <div class="hq-metric hq-metric-accent"><span>Active</span><strong>{{ active_count }}</strong><small>Currently moving</small></div>
   <div class="hq-metric {% if blocked_count %}hq-metric-danger{% endif %}"><span>Blocked</span><strong>{{ blocked_count }}</strong><small>Needs escalation or a decision</small></div>
   <div class="hq-metric"><span>Visible</span><strong>{{ projects|length }}</strong><small>After current filters</small></div>
-  <div class="hq-metric"><span>Rule of thumb</span><strong style="font-size:22px">Owner + outcome</strong><small>If either is unclear, the project is not ready.</small></div>
+  <div class="hq-metric"><span>Your access</span><strong style="font-size:22px">{% if can_edit_projects %}Edit{% else %}View only{% endif %}</strong><small>{% if can_edit_projects %}You can create and update project work.{% else %}Project editing actions are hidden for this account.{% endif %}</small></div>
 </div>
 
 <form class="hq-filterbar" method="get">
@@ -38,7 +38,7 @@
   <td>{{ project.open_tasks }}</td>
   <td>{{ project.due_date|date:'M j, Y'|default:'No deadline' }}</td>
 </tr>
-{% empty %}<tr><td colspan="6"><div class="hq-empty"><strong>No matching projects.</strong><p>Try clearing the filters or create a project for the next meaningful deliverable.</p></div></td></tr>{% endfor %}
+{% empty %}<tr><td colspan="6"><div class="hq-empty"><strong>No matching projects.</strong><p>Try clearing the filters{% if can_edit_projects %} or create a project for the next meaningful deliverable{% endif %}.</p></div></td></tr>{% endfor %}
 </tbody>
 </table>
 </div>
