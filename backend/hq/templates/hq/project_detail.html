@@ -2,32 +2,59 @@
 {% block title %}{{ project.name }} · Gravitas HQ{% endblock %}
 {% block content %}
 <div class="hq-pagehead">
-  <div><span class="hq-eyebrow">{{ project.get_kind_display }} project · {{ project.get_status_display }}</span><h1>{{ project.name }}</h1><p>{{ project.description|default:'No project description yet.' }}</p></div>
-  <div class="hq-actions">{% if project.kind == 'content' %}{% if production %}<a class="hq-btn hq-btn-soft" href="{% url 'hq:content_edit' production.pk %}">Open Content Studio</a>{% else %}<a class="hq-btn hq-btn-soft" href="{% url 'hq:content_create' project.slug %}">Start Content Studio</a>{% endif %}{% endif %}</div>
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">{{ project.get_kind_display }} project · {{ project.get_status_display }}</span><h1>{{ project.name }}</h1><p>{{ project.description|default:'No project description yet. Add one so the team understands the outcome and what done means.' }}</p></div>
+  <div class="hq-pagehead-actions">{% if project.kind == 'content' %}{% if production %}<a class="hq-btn" href="{% url 'hq:content_edit' production.pk %}">Open Content Studio</a>{% else %}<a class="hq-btn" href="{% url 'hq:content_create' project.slug %}">Start Content Studio</a>{% endif %}{% endif %}<button class="hq-btn hq-btn-soft" type="button" data-help-open>Project guide</button></div>
 </div>
+
 <div class="hq-projectmeta">
   <div><span>Owner</span><strong>{{ project.owner|default:'Unassigned' }}</strong></div>
-  <div><span>Priority</span><strong>{{ project.get_priority_display }}</strong></div>
+  <div><span>Priority</span><strong class="hq-priority hq-priority-{{ project.priority }}">{{ project.get_priority_display }}</strong></div>
   <div><span>Due</span><strong>{{ project.due_date|date:'M j, Y'|default:'No deadline' }}</strong></div>
   <div><span>Objective</span><strong>{{ project.objective|default:'Not linked' }}</strong></div>
+  <div><span>Progress</span><div class="hq-project-progress"><div class="hq-progress"><span style="width:{{ progress_percent }}%"></span></div><strong>{{ progress_percent }}%</strong></div></div>
 </div>
+
+<div class="hq-metrics hq-space-top">
+  <div class="hq-metric"><span>Open tasks</span><strong>{{ open_tasks }}</strong><small>{{ done_tasks }} of {{ total_tasks }} done</small></div>
+  <div class="hq-metric {% if blocked_tasks %}hq-metric-danger{% endif %}"><span>Blocked tasks</span><strong>{{ blocked_tasks }}</strong><small>{% if blocked_tasks %}Resolve these first{% else %}No blocked work{% endif %}</small></div>
+  <div class="hq-metric"><span>Milestones</span><strong>{{ milestone_count }}</strong><small>Meaningful checkpoints</small></div>
+  <div class="hq-metric"><span>Assets</span><strong>{{ asset_count }}</strong><small>External references linked</small></div>
+</div>
+
 <section class="hq-space-top">
-  <div class="hq-sectionhead"><div><span class="hq-eyebrow">Workflow</span><h2>Task board</h2></div></div>
-  <div class="hq-board">
-    {% for status, label, tasks in board %}
-      <div class="hq-column">
-        <div class="hq-columnhead"><strong>{{ label }}</strong><span>{{ tasks|length }}</span></div>
-        {% for task in tasks %}
-          <article class="hq-task">
-            <div class="hq-task-top"><span class="hq-priority hq-priority-{{ task.priority }}">{{ task.get_priority_display }}</span>{% if task.due_at %}<small>{{ task.due_at|date:'M j' }}</small>{% endif %}</div>
-            <h3>{{ task.title }}</h3>
-            {% if task.description %}<p>{{ task.description|truncatechars:120 }}</p>{% endif %}
-            <div class="hq-task-foot"><span>{{ task.assignee|default:'Unassigned' }}</span>{% if can_manage %}<form method="post" action="{% url 'hq:task_status' task.pk %}">{% csrf_token %}<select name="status" onchange="this.form.submit()">{% for value, text in task.Status.choices %}<option value="{{ value }}" {% if task.status == value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></form>{% endif %}</div>
-          </article>
-        {% empty %}<div class="hq-columnempty">No tasks</div>{% endfor %}
-      </div>
-    {% endfor %}
+  <div class="hq-sectionhead"><div><span class="hq-eyebrow">Execution</span><h2>Task board</h2><p>Move work left to right. Use Blocked only when the task genuinely cannot continue.</p></div>{% if can_manage %}<details><summary class="hq-btn hq-btn-soft" style="list-style:none;cursor:pointer">Add task</summary><div class="hq-card" style="position:absolute;right:34px;z-index:12;width:min(520px,calc(100vw - 28px));margin-top:8px;box-shadow:var(--hq-shadow)"><form method="post" class="hq-form">{% csrf_token %}<div class="hq-formgrid">{% for field in task_form %}<div class="hq-field {% if field.name == 'description' %}hq-field-wide{% endif %}">{{ field.label_tag }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endfor %}</div><div class="hq-form-actions"><button class="hq-btn" type="submit">Add task</button></div></form></div></details>{% endif %}</div>
+  <div class="hq-board-wrap">
+    <div class="hq-board">
+      {% for status, label, tasks in board %}
+        <div class="hq-column">
+          <div class="hq-columnhead"><strong>{{ label }}</strong><span>{{ tasks|length }}</span></div>
+          {% for task in tasks %}
+            <article class="hq-task">
+              <div class="hq-task-top"><span class="hq-priority hq-priority-{{ task.priority }}">{{ task.get_priority_display }}</span>{% if task.due_at %}<small>{{ task.due_at|date:'M j' }}</small>{% endif %}</div>
+              <h3>{{ task.title }}</h3>
+              {% if task.description %}<p>{{ task.description|truncatechars:145 }}</p>{% endif %}
+              <div class="hq-task-foot"><span>{{ task.assignee|default:'Unassigned' }}</span>{% if can_manage %}<form method="post" action="{% url 'hq:task_status' task.pk %}">{% csrf_token %}<label class="hq-visually-hidden" for="task-status-{{ task.pk }}">Change status for {{ task.title }}</label><select id="task-status-{{ task.pk }}" name="status" data-auto-submit>{% for value, text in task.Status.choices %}<option value="{{ value }}" {% if task.status == value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></form>{% endif %}</div>
+            </article>
+          {% empty %}<div class="hq-columnempty">No tasks</div>{% endfor %}
+        </div>
+      {% endfor %}
+    </div>
   </div>
 </section>
-{% if can_manage %}<section class="hq-card hq-space-top"><div class="hq-cardhead"><div><span class="hq-eyebrow">Quick add</span><h2>New task</h2></div></div><form method="post" class="hq-form">{% csrf_token %}<div class="hq-formgrid">{% for field in task_form %}<div class="hq-field"><label>{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}</div><button class="hq-btn" type="submit">Add task</button></form></section>{% endif %}
+
+<div class="hq-grid hq-grid-2 hq-space-top">
+  {% if project.kind == 'content' %}
+    <a class="hq-card hq-linkcard" href="{% if production %}{% url 'hq:content_edit' production.pk %}{% else %}{% url 'hq:content_create' project.slug %}{% endif %}"><span class="hq-eyebrow">Editorial workflow</span><h2>{% if production %}Continue Content Studio{% else %}Start Content Studio{% endif %}</h2><p>Brief, evidence, script, scientific review, production, distribution and post-mortem stay connected to this project.</p></a>
+  {% endif %}
+  <a class="hq-card hq-linkcard" href="{% url 'hq:assets' %}?q={{ project.name|urlencode }}"><span class="hq-eyebrow">Files & media</span><h2>Find project assets</h2><p>Open externally stored Drive, Frame.io, YouTube, Vimeo or object-storage references without putting heavy files on this server.</p></a>
+</div>
+{% endblock %}
+
+{% block help_title %}How to run this project{% endblock %}
+{% block help %}
+<p>A healthy project page answers four questions: what are we delivering, who owns it, what is blocked, and what happens next?</p>
+<h3>Task board</h3><p>Tasks move from Backlog → To do → In progress → Review → Done. Use Blocked when the task cannot progress because of an external dependency or unresolved decision.</p>
+<h3>Content projects</h3><p>For editorial work, the Project page manages execution while Content Studio manages the actual editorial lifecycle. Do not put the script into a random task description.</p>
+<h3>Assets</h3><p>Large files stay outside the application server. Attach their external link in Asset Library and associate them with this project or its content production.</p>
+<div class="hq-help-tip">If the board grows so large that nobody can see what matters, split the project or archive work that is no longer relevant.</div>
 {% endblock %}
