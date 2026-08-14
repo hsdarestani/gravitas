@@ -3,7 +3,7 @@
 {% block content %}
 <div class="hq-pagehead">
   <div class="hq-pagehead-main"><span class="hq-eyebrow">{{ project.get_kind_display }} project · {{ project.get_status_display }}</span><h1>{{ project.name }}</h1><p>{{ project.description|default:'No project description yet. Add one so the team understands the outcome and what done means.' }}</p></div>
-  <div class="hq-pagehead-actions">{% if project.kind == 'content' %}{% if production %}<a class="hq-btn" href="{% url 'hq:content_edit' production.pk %}">Open Content Studio</a>{% else %}<a class="hq-btn" href="{% url 'hq:content_create' project.slug %}">Start Content Studio</a>{% endif %}{% endif %}<button class="hq-btn hq-btn-soft" type="button" data-help-open>Project guide</button></div>
+  <div class="hq-pagehead-actions">{% if project.kind == 'content' and can_access_content %}{% if production %}<a class="hq-btn" href="{% url 'hq:content_edit' production.pk %}">Open Content Studio</a>{% else %}<a class="hq-btn" href="{% url 'hq:content_create' project.slug %}">Start Content Studio</a>{% endif %}{% endif %}<button class="hq-btn hq-btn-soft" type="button" data-help-open>Project guide</button></div>
 </div>
 
 <div class="hq-projectmeta">
@@ -42,12 +42,10 @@
   </div>
 </section>
 
-<div class="hq-grid hq-grid-2 hq-space-top">
-  {% if project.kind == 'content' %}
-    <a class="hq-card hq-linkcard" href="{% if production %}{% url 'hq:content_edit' production.pk %}{% else %}{% url 'hq:content_create' project.slug %}{% endif %}"><span class="hq-eyebrow">Editorial workflow</span><h2>{% if production %}Continue Content Studio{% else %}Start Content Studio{% endif %}</h2><p>Brief, evidence, script, scientific review, production, distribution and post-mortem stay connected to this project.</p></a>
-  {% endif %}
-  <a class="hq-card hq-linkcard" href="{% url 'hq:assets' %}?q={{ project.name|urlencode }}"><span class="hq-eyebrow">Files & media</span><h2>Find project assets</h2><p>Open externally stored Drive, Frame.io, YouTube, Vimeo or object-storage references without putting heavy files on this server.</p></a>
-</div>
+{% if can_access_content or can_access_assets %}<div class="hq-grid hq-grid-2 hq-space-top">
+  {% if project.kind == 'content' and can_access_content %}<a class="hq-card hq-linkcard" href="{% if production %}{% url 'hq:content_edit' production.pk %}{% else %}{% url 'hq:content_create' project.slug %}{% endif %}"><span class="hq-eyebrow">Editorial workflow</span><h2>{% if production %}Continue Content Studio{% else %}Start Content Studio{% endif %}</h2><p>Brief, evidence, script, scientific review, production, distribution and post-mortem stay connected to this project.</p></a>{% endif %}
+  {% if can_access_assets %}<a class="hq-card hq-linkcard" href="{% url 'hq:assets' %}?q={{ project.name|urlencode }}"><span class="hq-eyebrow">Files & media</span><h2>Find project assets</h2><p>Open externally stored Drive, Frame.io, YouTube, Vimeo or object-storage references without putting heavy files on this server.</p></a>{% endif %}
+</div>{% endif %}
 {% endblock %}
 
 {% block help_title %}How to run this project{% endblock %}
