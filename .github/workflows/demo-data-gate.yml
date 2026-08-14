@@ -1,0 +1,51 @@
+name: Gravitas Demo Data Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.html'
+      - 'assets/site.js'
+      - '.github/workflows/demo-data-gate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '*.html'
+      - 'assets/site.js'
+      - '.github/workflows/demo-data-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject prototype and stale public data
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILES=( *.html assets/site.js )
+          forbidden=(
+            '312K subscribers'
+            '418K views'
+            'data-share='
+            'data-demo-form'
+            'Password-reset email is being enabled in the system-email step.'
+            'Delete it in one click.'
+            '>12</b>MAR'
+            '>19</b>MAR'
+            '>26</b>MAR'
+            'fonts.googleapis.com'
+            'fonts.gstatic.com'
+          )
+          for marker in "${forbidden[@]}"; do
+            if grep -F -n -- "$marker" "${FILES[@]}"; then
+              echo "Forbidden prototype marker found: $marker"
+              exit 1
+            fi
+          done
+          echo gravitas-demo-data-gate-passed
