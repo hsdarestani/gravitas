@@ -1,21 +1,19 @@
 {% extends 'hq/base.html' %}
-{% block title %}Team & Access · Gravitas HQ{% endblock %}
+{% block title %}Team · Gravitas HQ{% endblock %}
 {% block content %}
 <div class="hq-pagehead">
-  <div class="hq-pagehead-main"><span class="hq-eyebrow">Manage</span><h1>People should see only what they need.</h1><p>HQ separates a person’s human-readable role from their actual permissions. That keeps roles flexible while access stays explicit and auditable.</p></div>
-  <div class="hq-pagehead-actions"><button class="hq-btn hq-btn-soft" type="button" data-help-open>Permissions guide</button></div>
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">Manage</span><h1>Team</h1></div>
+  <div class="hq-pagehead-actions"><button class="hq-icon-btn" type="button" data-help-open aria-label="Open permissions guide" title="Permissions guide"><svg><use href="#i-help"></use></svg></button></div>
 </div>
 
-<div class="hq-guide-strip"><div><strong>Role and access are different.</strong><p>“Video Editor” describes what someone does. Section permissions decide what they can actually view or change. Project membership can narrow access further.</p></div><button class="hq-btn hq-btn-text" type="button" data-help-open>How access works</button></div>
-
 <section class="hq-card" style="margin-bottom:14px">
-  <div class="hq-cardhead"><div><span class="hq-eyebrow">Permission levels</span><h2>What each level means</h2></div>{% if not can_manage_team %}<span class="hq-pill">View only</span>{% endif %}</div>
+  <div class="hq-cardhead"><div><span class="hq-eyebrow">Access</span><h2>Permission levels</h2></div>{% if not can_manage_team %}<span class="hq-pill">View only</span>{% endif %}</div>
   <div class="hq-permission-key">
-    <div><strong>No access</strong><span>Section is hidden.</span></div>
-    <div><strong>View</strong><span>Read only.</span></div>
-    <div><strong>Comment</strong><span>Can participate without changing core records.</span></div>
-    <div><strong>Edit</strong><span>Can create and update work.</span></div>
-    <div><strong>Manage</strong><span>Administrative control for that section.</span></div>
+    <div><strong>None</strong></div>
+    <div><strong>View</strong></div>
+    <div><strong>Comment</strong></div>
+    <div><strong>Edit</strong></div>
+    <div><strong>Manage</strong></div>
   </div>
 </section>
 
@@ -32,18 +30,16 @@
           {% for value, label in levels %}<option value="{{ value }}" {% for row in member.section_access.all %}{% if row.section == section and row.level == value %}selected{% endif %}{% endfor %}>{{ label }}</option>{% endfor %}
         </select></label>
       {% endfor %}
-      {% if can_manage_team %}<div class="hq-form-actions"><button class="hq-btn hq-btn-soft" type="submit">Save permissions</button></div>{% endif %}
+      {% if can_manage_team %}<div class="hq-form-actions"><button class="hq-btn hq-btn-soft" type="submit">Save</button></div>{% endif %}
     </form>
   </section>
-{% empty %}<div class="hq-empty"><strong>No team members yet.</strong><p>Create the first TeamMember in Django Admin, then manage day-to-day section access here.</p></div>{% endfor %}
+{% empty %}<div class="hq-empty"><strong>No team members.</strong></div>{% endfor %}
 </div>
 {% endblock %}
 
-{% block help_title %}Roles, permissions and project access{% endblock %}
+{% block help_title %}Roles & permissions{% endblock %}
 {% block help %}
-<p>HQ uses two layers of access so you do not have to create a different hard-coded role for every person.</p>
-<h3>1. Section permissions</h3><p>Controls whether someone can access Strategy, Projects, Content Studio, Research, Assets, Team and future operational areas.</p>
-<h3>2. Project membership</h3><p>A person can have access to Projects as a section but still see only projects they own or belong to. This is useful for editors, contributors and external specialists.</p>
-<h3>Recommended pattern</h3><ul><li><strong>Founder/Admin:</strong> Manage across HQ.</li><li><strong>Managing editor:</strong> Manage Projects + Content, Edit Strategy/Research/Assets.</li><li><strong>Researcher:</strong> Edit Research, View Content and assigned Projects.</li><li><strong>Video editor:</strong> Edit assigned Projects/Assets, View relevant Content.</li><li><strong>Scientific reviewer:</strong> View assigned Projects and Comment/Edit review-related content only.</li></ul>
-<div class="hq-help-tip">Use the least access that still lets someone do their job. Expand permissions when there is a real workflow need.</div>
+<p>Role describes what someone does. Permission controls what they can access.</p>
+<h3>Levels</h3><ul><li><strong>None:</strong> hidden.</li><li><strong>View:</strong> read only.</li><li><strong>Comment:</strong> participate without changing core records.</li><li><strong>Edit:</strong> create and update.</li><li><strong>Manage:</strong> administrative control.</li></ul>
+<p>Project membership can narrow access further for contributors and specialists.</p>
 {% endblock %}
