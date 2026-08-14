@@ -1,0 +1,23 @@
+{% extends 'hq/base.html' %}
+{% block title %}Command Center · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead">
+  <div><span class="hq-eyebrow">Command Center</span><h1>What needs attention now?</h1><p>Projects, editorial production and execution in one place.</p></div>
+</div>
+<div class="hq-metrics">
+  <div class="hq-metric"><span>Active projects</span><strong>{{ active_project_count }}</strong><small>{{ project_count }} visible projects</small></div>
+  <div class="hq-metric"><span>Open tasks</span><strong>{{ open_task_count }}</strong><small>Across your accessible projects</small></div>
+  <div class="hq-metric"><span>Blocked projects</span><strong>{{ blocked_project_count }}</strong><small>Needs escalation</small></div>
+</div>
+<div class="hq-grid hq-grid-2">
+  <section class="hq-card">
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Execution</span><h2>My next tasks</h2></div><a href="{% url 'hq:projects' %}">All projects →</a></div>
+    {% if my_tasks %}<div class="hq-list">{% for task in my_tasks %}<a class="hq-listrow" href="{% url 'hq:project' task.project.slug %}"><div><strong>{{ task.title }}</strong><span>{{ task.project.name }}{% if task.assignee %} · {{ task.assignee }}{% endif %}</span></div><span class="hq-pill hq-pill-{{ task.status }}">{{ task.get_status_display }}</span></a>{% endfor %}</div>{% else %}<div class="hq-empty">No assigned open tasks.</div>{% endif %}
+  </section>
+  <section class="hq-card">
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Editorial</span><h2>Content pipeline</h2></div><a href="{% url 'hq:content' %}">Content Studio →</a></div>
+    {% if recent_content %}<div class="hq-list">{% for item in recent_content %}<a class="hq-listrow" href="{% url 'hq:content_edit' item.pk %}"><div><strong>{{ item.working_title }}</strong><span>{{ item.project.name }}</span></div><span class="hq-pill">{{ item.get_stage_display }}</span></a>{% endfor %}</div>{% else %}<div class="hq-empty">No content productions yet.</div>{% endif %}
+  </section>
+</div>
+{% if strategy_docs %}<section class="hq-card hq-space-top"><div class="hq-cardhead"><div><span class="hq-eyebrow">Strategy</span><h2>Active documents</h2></div><a href="{% url 'hq:strategy' %}">Strategy →</a></div><div class="hq-docgrid">{% for doc in strategy_docs %}<a href="{% url 'hq:strategy_edit' doc.pk %}" class="hq-doc"><span>{{ doc.get_kind_display }}</span><strong>{{ doc.title }}</strong><small>v{{ doc.version }} · updated {{ doc.updated_at|date:'M j' }}</small></a>{% endfor %}</div></section>{% endif %}
+{% endblock %}
