@@ -15,178 +15,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Make public legal pages and footer English-only
+      - name: Normalize visible legal labels
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          for path in Path('.').glob('*.html'):
-              text = path.read_text(encoding='utf-8')
-              text = text.replace('>Impressum</a>', '>Legal Notice</a>')
-              text = text.replace('>Datenschutz</a>', '>Privacy</a>')
-              path.write_text(text, encoding='utf-8')
-
-          Path('impressum.html').write_text(r'''<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Legal Notice — Gravitas+</title>
-  <meta name="description" content="Legal notice and provider information for Gravitas+.">
-  <meta name="robots" content="noindex, follow">
-  <link rel="canonical" href="https://gravitasplus.com/impressum.html">
-  <link rel="stylesheet" href="assets/gravitas.css">
-  <link rel="stylesheet" href="assets/site.css">
-</head>
-<body class="is-overview">
-<a class="g-skip-link" href="#main">Skip to content</a>
-<header class="g-header">
-  <div class="g-container g-header__inner">
-    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><img src="assets/logotype-white.svg" alt="Gravitas+" style="width:10rem;height:auto"></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="index.html">Home</a><a class="g-nav__link" href="about.html">About</a></nav>
-  </div>
-</header>
-<main id="main">
-  <section class="g-section">
-    <div class="g-container" style="max-width:900px">
-      <p class="g-eyebrow">Legal information</p>
-      <h1>Legal Notice</h1>
-      <div class="g-prose g-mt-lg">
-        <h2>Provider information</h2>
-        <p><strong>Sajad Aghapour</strong><br>
-        Schtorchenhof 5<br>
-        14476 Potsdam<br>
-        Germany</p>
-
-        <h2>Contact</h2>
-        <p>Email: <a href="mailto:webmaster@gravitasplus.com">webmaster@gravitasplus.com</a><br>
-        Phone: <a href="tel:+491742553003">+49 174 2553003</a></p>
-
-        <h2>Responsible for journalistic and editorial content</h2>
-        <p>Responsible within the meaning of Section 18(2) of the German Interstate Media Treaty (MStV):</p>
-        <p><strong>Sajad Aghapour</strong><br>
-        Schtorchenhof 5<br>
-        14476 Potsdam<br>
-        Germany</p>
-
-        <h2>About Gravitas+</h2>
-        <p>Gravitas+ is an independent media, learning, and community project focused on science, technology, philosophy, and society.</p>
-      </div>
-    </div>
-  </section>
-</main>
-<footer class="g-footer">
-  <div class="g-container">
-    <div class="g-footer__legal">
-      <span>&copy; 2026 Gravitas+</span>
-      <span><a href="impressum.html" aria-current="page">Legal Notice</a> · <a href="privacy.html">Privacy</a></span>
-    </div>
-  </div>
-</footer>
-<script src="assets/site.js"></script>
-</body>
-</html>
-''', encoding='utf-8')
-
-          Path('privacy.html').write_text(r'''<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Privacy — Gravitas+</title>
-  <meta name="description" content="Privacy policy for Gravitas+.">
-  <meta name="robots" content="noindex, follow">
-  <link rel="canonical" href="https://gravitasplus.com/privacy.html">
-  <link rel="stylesheet" href="assets/gravitas.css">
-  <link rel="stylesheet" href="assets/site.css">
-</head>
-<body class="is-overview">
-<a class="g-skip-link" href="#main">Skip to content</a>
-<header class="g-header">
-  <div class="g-container g-header__inner">
-    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><img src="assets/logotype-white.svg" alt="Gravitas+" style="width:10rem;height:auto"></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="index.html">Home</a><a class="g-nav__link" href="about.html">About</a></nav>
-  </div>
-</header>
-<main id="main">
-  <section class="g-section">
-    <div class="g-container" style="max-width:900px">
-      <p class="g-eyebrow">Privacy</p>
-      <h1>Privacy Policy</h1>
-      <div class="g-prose g-mt-lg">
-        <p>Last updated: August 14, 2026</p>
-
-        <h2>1. Controller</h2>
-        <p><strong>Sajad Aghapour</strong><br>
-        Schtorchenhof 5<br>
-        14476 Potsdam<br>
-        Germany</p>
-        <p>Email: <a href="mailto:webmaster@gravitasplus.com">webmaster@gravitasplus.com</a><br>
-        Phone: <a href="tel:+491742553003">+49 174 2553003</a></p>
-
-        <h2>2. General information about data processing</h2>
-        <p>We process personal data only where necessary to operate Gravitas+, provide requested features, communicate with users, protect the security of the service, or where you have given consent. The legal bases include, in particular, Article 6(1)(a), (b), (c), and (f) GDPR.</p>
-
-        <h2>3. Hosting and server log data</h2>
-        <p>Gravitas+ is operated on server infrastructure provided by STRATO. When you access the website, technically necessary connection data may be processed, including your IP address, time of access, requested URL, referrer, browser or user-agent information, and technical error and security data.</p>
-        <p>This processing is carried out to provide the service securely and reliably and to detect or prevent misuse on the basis of Article 6(1)(f) GDPR. Log data is retained only for as long as necessary for operations, troubleshooting, and security, unless legal obligations require a longer retention period.</p>
-
-        <h2>4. User account and login</h2>
-        <p>If you create an account, we process data including your name, email address, a securely stored password hash, account and session data, and timestamps relating to relevant account activity. This processing is necessary to provide your account and authenticated features and is generally based on Article 6(1)(b) GDPR.</p>
-        <p>Passwords are not stored in plain text. Account data is generally retained until the account is deleted, unless legal retention obligations or legitimate security interests require otherwise.</p>
-
-        <h2>5. Newsletter and system emails</h2>
-        <p>For the newsletter, we process your email address, confirmation status, and technical records required for the double opt-in procedure. The newsletter is sent only after the corresponding consent has been provided. The legal basis is Article 6(1)(a) GDPR. You may withdraw your consent at any time with effect for the future.</p>
-        <p>Transactional emails, such as messages relating to account security, confirmation, or password recovery, are sent where necessary to provide the requested functions. Gravitas+ uses the mail infrastructure configured with STRATO for email delivery.</p>
-
-        <h2>6. Community, comments, and moderation</h2>
-        <p>When you submit posts or replies in the community, we process the submitted content, its association with your user account, timestamps, and moderation status. Published contributions may be publicly visible together with the display name you use. This processing supports the provision and moderation of community features on the basis of Article 6(1)(b) and (f) GDPR.</p>
-
-        <h2>7. Interactive Lab and learning progress</h2>
-        <p>For signed-in users, progress, results, status values, and related timestamps from interactive Lab features may be stored so that results remain available within the user account. The legal basis is Article 6(1)(b) GDPR.</p>
-
-        <h2>8. Technically necessary cookies and local storage</h2>
-        <p>Technically necessary cookies are used for login, session protection, and CSRF protection. A local browser setting may also be stored to preserve a display preference selected by you. This storage is not used for advertising or profiling.</p>
-        <p>At present, we do not use external advertising or visitor-analytics services, and we do not load Google Fonts from external servers. Non-essential tracking cookies are currently not used.</p>
-
-        <h2>9. Recipients and service providers</h2>
-        <p>Where necessary, personal data may be shared with technical service providers that supply hosting, server, or email infrastructure for Gravitas+. Personal data is not shared for advertising purposes and is not sold.</p>
-
-        <h2>10. Backups</h2>
-        <p>Regular backups of website and database content are created to support recovery after technical failures or security incidents. Backups are used only for recovery, security, and operational purposes and are deleted or overwritten in accordance with the applicable retention rules.</p>
-
-        <h2>11. Your rights</h2>
-        <p>Subject to the requirements of the GDPR, you have rights including access, rectification, erasure, restriction of processing, data portability, and objection. Where processing is based on your consent, you may withdraw that consent at any time with effect for the future.</p>
-        <p>To exercise your rights, contact <a href="mailto:webmaster@gravitasplus.com">webmaster@gravitasplus.com</a>. You also have the right to lodge a complaint with a competent data protection supervisory authority.</p>
-
-        <h2>12. Automated decision-making</h2>
-        <p>We currently do not use solely automated decision-making that produces legal effects or similarly significant effects.</p>
-
-        <h2>13. Changes to this Privacy Policy</h2>
-        <p>We update this Privacy Policy when features, service providers, or legal requirements change. The current version is always available on this page.</p>
-      </div>
-    </div>
-  </section>
-</main>
-<footer class="g-footer">
-  <div class="g-container">
-    <div class="g-footer__legal">
-      <span>&copy; 2026 Gravitas+</span>
-      <span><a href="impressum.html">Legal Notice</a> · <a href="privacy.html" aria-current="page">Privacy</a></span>
-    </div>
-  </div>
-</footer>
-<script src="assets/site.js"></script>
-</body>
-</html>
-''', encoding='utf-8')
-
           forbidden = [
               'Datenschutz', 'Datenschutzerklärung', 'Zum Inhalt springen',
               'Startseite', 'aria-label="Primär"', 'Rechtliche Angaben',
               'Angaben zum Anbieter', 'Verantwortlich für', 'Deutschland'
           ]
+          for path in Path('.').glob('*.html'):
+              text = path.read_text(encoding='utf-8')
+              text = text.replace('>Impressum</a>', '>Legal Notice</a>')
+              text = text.replace('>Datenschutz</a>', '>Privacy</a>')
+              path.write_text(text, encoding='utf-8')
           bad = []
           for path in Path('.').glob('*.html'):
               text = path.read_text(encoding='utf-8')
@@ -196,7 +39,6 @@ jobs:
           if bad:
               raise SystemExit('German public UI remains:\n' + '\n'.join(bad))
           PY
-
       - name: Commit normalization
         shell: bash
         run: |
