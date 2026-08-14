@@ -18,9 +18,9 @@
   {% if query or selected_provider or selected_status %}<a class="hq-btn hq-btn-text" href="{% url 'hq:assets' %}">Clear</a>{% endif %}
 </form>
 
-<div class="hq-grid hq-grid-sidebar">
+<div class="hq-grid {% if can_edit_assets %}hq-grid-sidebar{% endif %}">
   <section class="hq-card">
-    <div class="hq-cardhead"><div><span class="hq-eyebrow">Library</span><h2>External asset references</h2><p>Open the real file at its provider. HQ never proxies or duplicates the binary.</p></div></div>
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Library</span><h2>External asset references</h2><p>Open the real file at its provider. HQ never proxies or duplicates the binary.</p></div>{% if not can_edit_assets %}<span class="hq-pill">View only</span>{% endif %}</div>
     <div class="hq-assetgrid">
       {% for asset in assets %}
         <a class="hq-asset" href="{{ asset.url }}" target="_blank" rel="noopener">
@@ -29,15 +29,17 @@
           <p>{% if asset.project %}{{ asset.project.name }}{% else %}Global asset{% endif %}{% if asset.version %} · {{ asset.version }}{% endif %}</p>
           <small>Updated {{ asset.updated_at|date:'M j, Y' }}{% if asset.created_by %} · {{ asset.created_by }}{% endif %}</small>
         </a>
-      {% empty %}<div class="hq-empty"><strong>No matching asset references.</strong><p>Add the first external link instead of uploading a large file to this server.</p></div>{% endfor %}
+      {% empty %}<div class="hq-empty"><strong>No matching asset references.</strong><p>{% if can_edit_assets %}Add the first external link instead of uploading a large file to this server.{% else %}No assets match the current filters.{% endif %}</p></div>{% endfor %}
     </div>
   </section>
 
+  {% if can_edit_assets %}
   <aside class="hq-card hq-card-raised">
     <div class="hq-cardhead"><div><span class="hq-eyebrow">Attach</span><h2>External asset</h2><p>Paste the provider URL and connect it to a project or content production.</p></div></div>
     <form method="post" class="hq-form">{% csrf_token %}{% for field in form %}<div class="hq-field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endfor %}<div class="hq-form-actions"><button class="hq-btn" type="submit">Attach reference</button></div></form>
     <div class="hq-note"><strong>Storage policy</strong><p>Raw footage, project files and long videos must not be stored on the application server. HQ records metadata and links only.</p></div>
   </aside>
+  {% endif %}
 </div>
 {% endblock %}
 
