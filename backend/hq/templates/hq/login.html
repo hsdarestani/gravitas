@@ -5,25 +5,40 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
+  <meta name="color-scheme" content="dark">
   <title>Sign in · Gravitas HQ</title>
   <link rel="stylesheet" href="{% static 'hq/hq.css' %}">
   <link rel="stylesheet" href="{% static 'hq/login.css' %}">
 </head>
 <body class="hq-loginbody">
-  <main class="hq-loginwrap">
-    <section class="hq-logincard">
+  <main class="hq-loginlayout">
+    <section class="hq-loginintro">
       <div class="hq-loginbrand"><span class="hq-brand-mark">G+</span><div><strong>Gravitas HQ</strong><small>Internal operating system</small></div></div>
+      <div class="hq-loginintro-copy">
+        <span class="hq-eyebrow">Internal workspace</span>
+        <h1>Plan, create and ship without losing the reasoning behind the work.</h1>
+        <p>Strategy, projects, editorial production, evidence, assets and team access stay connected in one workspace.</p>
+      </div>
+      <div class="hq-loginprinciples">
+        <div><strong>One source of truth</strong><span>Roadmap and execution stay linked without duplicating the strategy.</span></div>
+        <div><strong>Role-aware access</strong><span>Team members only see the sections and projects they need.</span></div>
+        <div><strong>External media storage</strong><span>HQ references video and large files without turning the app server into storage.</span></div>
+      </div>
+    </section>
+
+    <section class="hq-logincard" aria-labelledby="hq-login-title">
       <span class="hq-eyebrow">Team access only</span>
-      <h1>Sign in to HQ</h1>
-      <p>Public Gravitas accounts do not automatically have HQ access. Your team membership and permissions are checked after sign-in.</p>
-      {% if form.errors %}<div class="hq-form-errors">Email/username or password is incorrect.</div>{% endif %}
+      <h2 id="hq-login-title">Sign in</h2>
+      <p>Your public Gravitas account does not automatically grant HQ access. Team membership and permissions are checked after authentication.</p>
+      {% if form.errors %}<div class="hq-form-errors" role="alert">The username/email or password is incorrect. Check both fields and try again.</div>{% endif %}
       <form method="post" class="hq-form">{% csrf_token %}
         <input type="hidden" name="next" value="{{ next|default:'/hq/' }}">
-        <div class="hq-field"><label for="id_username">Username or email</label><input class="hq-input" type="text" name="username" autofocus autocomplete="username" required id="id_username"></div>
-        <div class="hq-field"><label for="id_password">Password</label><input class="hq-input" type="password" name="password" autocomplete="current-password" required id="id_password"></div>
-        <button class="hq-btn" type="submit">Sign in</button>
+        <div class="hq-field"><label for="id_username">Username or email</label><input class="hq-input" type="text" name="username" autofocus autocomplete="username" required aria-required="true" id="id_username" placeholder="Team account"></div>
+        <div class="hq-field"><label for="id_password">Password</label><input class="hq-input" type="password" name="password" autocomplete="current-password" required aria-required="true" id="id_password" placeholder="Password"></div>
+        <button class="hq-btn" type="submit">Sign in to HQ</button>
       </form>
-      <a class="hq-loginback" href="/">← Back to public site</a>
+      <div class="hq-loginsecurity"><span class="hq-context-dot"></span><p>This workspace is private, protected and excluded from search indexing.</p></div>
+      <a class="hq-loginback" href="/">← Back to public Gravitas</a>
     </section>
   </main>
 </body>
