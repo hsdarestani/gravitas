@@ -143,9 +143,9 @@ class HQV2Tests(TestCase):
 
         dashboard = self.client.get(reverse('hq:dashboard'))
         self.assertEqual(dashboard.status_code, 200)
-        self.assertContains(dashboard, 'Projects & tasks')
-        self.assertNotContains(dashboard, 'Content Studio</span>')
-        self.assertNotContains(dashboard, 'Team & access')
+        self.assertContains(dashboard, 'href="/hq/projects/"')
+        self.assertNotContains(dashboard, 'href="/hq/content/"')
+        self.assertNotContains(dashboard, 'href="/hq/team/"')
 
         projects = self.client.get(reverse('hq:projects'))
         self.assertEqual(projects.status_code, 200)
