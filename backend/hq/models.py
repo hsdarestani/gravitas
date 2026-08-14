@@ -209,7 +209,7 @@ class Task(TimeStampedModel):
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subtasks')
     title = models.CharField(max_length=240)
     description = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.TODO, db_index=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Task.Status.TODO if False else 'todo', db_index=True)
     priority = models.CharField(max_length=16, choices=Priority.choices, default=Priority.MEDIUM, db_index=True)
     assignee = models.ForeignKey(TeamMember, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
     due_at = models.DateTimeField(null=True, blank=True)
@@ -336,6 +336,7 @@ class AssetReference(TimeStampedModel):
         OTHER = 'other', 'Other'
 
     class Provider(models.TextChoices):
+        NEXTCLOUD = 'nextcloud', 'Nextcloud'
         YOUTUBE = 'youtube', 'YouTube'
         GOOGLE_DRIVE = 'google_drive', 'Google Drive'
         FRAME_IO = 'frame_io', 'Frame.io'
@@ -353,7 +354,7 @@ class AssetReference(TimeStampedModel):
 
     title = models.CharField(max_length=240)
     asset_type = models.CharField(max_length=20, choices=AssetType.choices, default=AssetType.OTHER, db_index=True)
-    provider = models.CharField(max_length=24, choices=Provider.choices, default=Provider.EXTERNAL, db_index=True)
+    provider = models.CharField(max_length=24, choices=Provider.choices, default=Provider.NEXTCLOUD, db_index=True)
     url = models.URLField(max_length=1200)
     external_id = models.CharField(max_length=240, blank=True)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, blank=True, related_name='assets')
