@@ -74,19 +74,27 @@ def hq_render(request, template, context=None, active='dashboard'):
 
 @hq_access(SectionAccess.Section.DASHBOARD)
 def dashboard(request):
-    projects = visible_projects(request.user).exclude(status=Project.Status.ARCHIVED)
+    can_see_projects = has_access(request.user, SectionAccess.Section.PROJECTS)
+    can_see_content = has_access(request.user, SectionAccess.Section.CONTENT)
+    can_see_strategy = has_access(request.user, SectionAccess.Section.STRATEGY)
+
+    projects = visible_projects(request.user).exclude(status=Project.Status.ARCHIVED) if can_see_projects else Project.objects.none()
     member = member_for(request.user)
     task_query = Task.objects.filter(project__in=projects).exclude(status=Task.Status.DONE)
     if member and not request.user.is_superuser:
         task_query = task_query.filter(Q(assignee=member) | Q(project__owner=member)).distinct()
 
     now = timezone.now()
-    content_qs = ContentProduction.objects.filter(project__in=projects).select_related('project', 'public_content')
+    content_projects = visible_projects(request.user)
+    content_qs = ContentProduction.objects.filter(project__in=content_projects).select_related('project', 'public_content') if can_see_content else ContentProduction.objects.none()
     attention_projects = projects.filter(
         Q(status=Project.Status.BLOCKED) | Q(priority__in=[Project.Priority.URGENT, Project.Priority.HIGH])
     ).select_related('owner').order_by('due_date', 'name')[:6]
 
     context = {
+        'can_see_projects': can_see_projects,
+        'can_see_content': can_see_content,
+        'can_see_strategy': can_see_strategy,
         'project_count': projects.count(),
         'active_project_count': projects.filter(status=Project.Status.ACTIVE).count(),
         'blocked_project_count': projects.filter(status=Project.Status.BLOCKED).count(),
@@ -96,7 +104,7 @@ def dashboard(request):
         'my_tasks': task_query.select_related('project', 'assignee').order_by('due_at', '-priority')[:8],
         'recent_content': content_qs.order_by('-updated_at')[:5],
         'attention_projects': attention_projects,
-        'strategy_docs': StrategyDocument.objects.filter(status=StrategyDocument.Status.ACTIVE).exclude(slug='gravitas-strategy-roadmap').order_by('-updated_at')[:4] if has_access(request.user, SectionAccess.Section.STRATEGY) else [],
+        'strategy_docs': StrategyDocument.objects.filter(status=StrategyDocument.Status.ACTIVE).exclude(slug='gravitas-strategy-roadmap').order_by('-updated_at')[:4] if can_see_strategy else [],
     }
     return hq_render(request, 'hq/dashboard.html', context)
 
@@ -104,7 +112,8 @@ def dashboard(request):
 @hq_access(SectionAccess.Section.DASHBOARD)
 def search(request):
     query = request.GET.get('q', '').strip()
-    projects = visible_projects(request.user)
+    project_scope = visible_projects(request.user)
+    can_search_projects = has_access(request.user, SectionAccess.Section.PROJECTS)
     context = {
         'query': query,
         'project_results': [],
@@ -114,14 +123,15 @@ def search(request):
         'asset_results': [],
     }
     if query:
-        context['project_results'] = projects.filter(
-            Q(name__icontains=query) | Q(description__icontains=query)
-        ).select_related('owner')[:10]
-        context['task_results'] = Task.objects.filter(project__in=projects).filter(
-            Q(title__icontains=query) | Q(description__icontains=query)
-        ).select_related('project', 'assignee')[:10]
+        if can_search_projects:
+            context['project_results'] = project_scope.filter(
+                Q(name__icontains=query) | Q(description__icontains=query)
+            ).select_related('owner')[:10]
+            context['task_results'] = Task.objects.filter(project__in=project_scope).filter(
+                Q(title__icontains=query) | Q(description__icontains=query)
+            ).select_related('project', 'assignee')[:10]
         if has_access(request.user, SectionAccess.Section.CONTENT):
-            context['content_results'] = ContentProduction.objects.filter(project__in=projects).filter(
+            context['content_results'] = ContentProduction.objects.filter(project__in=project_scope).filter(
                 Q(working_title__icontains=query) | Q(central_question__icontains=query) | Q(brief__icontains=query)
             ).select_related('project')[:10]
         if has_access(request.user, SectionAccess.Section.RESEARCH):
@@ -130,7 +140,7 @@ def search(request):
             )[:10]
         if has_access(request.user, SectionAccess.Section.ASSETS):
             context['asset_results'] = AssetReference.objects.filter(
-                Q(project__in=projects) | Q(project__isnull=True)
+                Q(project__in=project_scope) | Q(project__isnull=True)
             ).filter(Q(title__icontains=query) | Q(notes__icontains=query)).select_related('project')[:10]
     return hq_render(request, 'hq/search.html', context, active='search')
 
@@ -139,7 +149,11 @@ def search(request):
 def strategy(request):
     docs = StrategyDocument.objects.select_related('owner').exclude(slug='gravitas-strategy-roadmap')
     objectives = Objective.objects.select_related('owner').all()
-    return hq_render(request, 'hq/strategy.html', {'documents': docs, 'objectives': objectives}, active='strategy')
+    return hq_render(request, 'hq/strategy.html', {
+        'documents': docs,
+        'objectives': objectives,
+        'can_edit_strategy': has_access(request.user, SectionAccess.Section.STRATEGY, SectionAccess.Level.EDIT),
+    }, active='strategy')
 
 
 @hq_access(SectionAccess.Section.STRATEGY, SectionAccess.Level.EDIT)
@@ -207,6 +221,7 @@ def projects(request):
         'project_kinds': Project.Kind.choices,
         'active_count': visible_projects(request.user).filter(status=Project.Status.ACTIVE).count(),
         'blocked_count': visible_projects(request.user).filter(status=Project.Status.BLOCKED).count(),
+        'can_edit_projects': has_access(request.user, SectionAccess.Section.PROJECTS, SectionAccess.Level.EDIT),
     }
     return hq_render(request, 'hq/projects.html', context, active='projects')
 
@@ -255,6 +270,8 @@ def project_detail(request, slug):
         'board': board,
         'task_form': task_form,
         'can_manage': can_manage,
+        'can_access_content': has_access(request.user, SectionAccess.Section.CONTENT),
+        'can_access_assets': has_access(request.user, SectionAccess.Section.ASSETS),
         'production': production,
         'total_tasks': total_tasks,
         'done_tasks': done_tasks,
@@ -334,6 +351,8 @@ def content_edit(request, pk):
         'form': form,
         'production': production,
         'can_edit': can_edit,
+        'can_access_research': has_access(request.user, SectionAccess.Section.RESEARCH),
+        'can_access_assets': has_access(request.user, SectionAccess.Section.ASSETS),
         'claim_count': production.claims.count(),
         'asset_count': production.assets.count(),
     }, active='content')
@@ -349,9 +368,10 @@ def research(request):
     if kind in {value for value, _ in EvidenceSource.Kind.choices}:
         sources = sources.filter(kind=kind)
     sources = sources[:100]
+    can_edit = has_access(request.user, SectionAccess.Section.RESEARCH, SectionAccess.Level.EDIT)
     form = EvidenceSourceForm(request.POST or None)
     if request.method == 'POST':
-        if not has_access(request.user, SectionAccess.Section.RESEARCH, SectionAccess.Level.EDIT):
+        if not can_edit:
             raise PermissionDenied
         if form.is_valid():
             obj = form.save(commit=False)
@@ -362,6 +382,7 @@ def research(request):
     return hq_render(request, 'hq/research.html', {
         'sources': sources,
         'form': form,
+        'can_edit_research': can_edit,
         'query': query,
         'selected_kind': kind,
         'source_kinds': EvidenceSource.Kind.choices,
@@ -382,11 +403,12 @@ def assets(request):
     if status in {value for value, _ in AssetReference.Status.choices}:
         assets_qs = assets_qs.filter(status=status)
     assets_qs = assets_qs[:120]
+    can_edit = has_access(request.user, SectionAccess.Section.ASSETS, SectionAccess.Level.EDIT)
     form = AssetReferenceForm(request.POST or None)
     form.fields['project'].queryset = projects_qs
     form.fields['production'].queryset = ContentProduction.objects.filter(project__in=projects_qs)
     if request.method == 'POST':
-        if not has_access(request.user, SectionAccess.Section.ASSETS, SectionAccess.Level.EDIT):
+        if not can_edit:
             raise PermissionDenied
         if form.is_valid():
             obj = form.save(commit=False)
@@ -397,6 +419,7 @@ def assets(request):
     return hq_render(request, 'hq/assets.html', {
         'assets': assets_qs,
         'form': form,
+        'can_edit_assets': can_edit,
         'query': query,
         'selected_provider': provider,
         'selected_status': status,
@@ -412,6 +435,7 @@ def team(request):
         'members': members,
         'sections': SectionAccess.Section.choices,
         'levels': SectionAccess.Level.choices,
+        'can_manage_team': has_access(request.user, SectionAccess.Section.TEAM, SectionAccess.Level.MANAGE),
     }, active='team')
 
 
