@@ -1,0 +1,25 @@
+{% extends 'hq/base.html' %}
+{% block title %}Projects · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead">
+  <div><span class="hq-eyebrow">Projects & Tasks</span><h1>Execution lives here.</h1><p>Projects connect strategy, people, tasks and content production.</p></div>
+  <a class="hq-btn" href="{% url 'hq:project_new' %}">New project</a>
+</div>
+<div class="hq-tablewrap">
+<table class="hq-table">
+<thead><tr><th>Project</th><th>Status</th><th>Priority</th><th>Owner</th><th>Open tasks</th><th>Due</th></tr></thead>
+<tbody>
+{% for project in projects %}
+<tr onclick="location.href='{% url 'hq:project' project.slug %}'">
+  <td><strong>{{ project.name }}</strong><span>{{ project.get_kind_display }}</span></td>
+  <td><span class="hq-pill hq-pill-{{ project.status }}">{{ project.get_status_display }}</span></td>
+  <td>{{ project.get_priority_display }}</td>
+  <td>{{ project.owner|default:'—' }}</td>
+  <td>{{ project.open_tasks }}</td>
+  <td>{{ project.due_date|date:'M j, Y'|default:'—' }}</td>
+</tr>
+{% empty %}<tr><td colspan="6" class="hq-empty">No projects yet.</td></tr>{% endfor %}
+</tbody>
+</table>
+</div>
+{% endblock %}
