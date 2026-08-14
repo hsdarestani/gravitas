@@ -5,37 +5,117 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
+  <meta name="color-scheme" content="dark">
   <title>{% block title %}Gravitas HQ{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'hq/hq.css' %}">
 </head>
 <body>
+<a class="hq-skip" href="#hq-content">Skip to main content</a>
+<svg class="hq-svg-sprite" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 10.7 12 3.8l8.5 6.9v9.5H14v-6H10v6H3.5z"/></symbol>
+  <symbol id="i-strategy" viewBox="0 0 24 24"><path d="M4 19.5h16M6 16V8.5M12 16V4.5M18 16v-5"/></symbol>
+  <symbol id="i-projects" viewBox="0 0 24 24"><path d="M4 6.5h7l1.5 2H20v10H4z"/></symbol>
+  <symbol id="i-content" viewBox="0 0 24 24"><path d="M5 4.5h14v15H5zM8 8h8M8 11.5h8M8 15h5"/></symbol>
+  <symbol id="i-research" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m14.7 14.7 4.8 4.8"/></symbol>
+  <symbol id="i-assets" viewBox="0 0 24 24"><path d="M4 6.5h6l1.4 1.8H20v9.2H4zM8 12h8M8 15h5"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><circle cx="16.5" cy="10" r="2.2"/><path d="M4.5 19c.4-3.1 2-4.8 4.5-4.8s4.1 1.7 4.5 4.8M14 18.5c.3-2.2 1.4-3.4 3.2-3.4 1.4 0 2.4.8 2.8 2.4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m14.7 14.7 4.8 4.8"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.7 9.2a2.5 2.5 0 1 1 3.4 2.3c-.8.4-1.1.8-1.1 1.6v.3M12 17h.01"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M13 5h6v6M11 13l8-8M19 14v5H5V5h5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+</svg>
+
 <div class="hq-shell">
-  <aside class="hq-sidebar">
-    <a class="hq-brand" href="{% url 'hq:dashboard' %}">
-      <span class="hq-brand-mark">G+</span>
-      <span><strong>Gravitas HQ</strong><small>Internal operating system</small></span>
-    </a>
+  <aside class="hq-sidebar" id="hq-sidebar" aria-label="Primary navigation">
+    <div class="hq-sidebar-top">
+      <a class="hq-brand" href="{% url 'hq:dashboard' %}" aria-label="Gravitas HQ overview">
+        <span class="hq-brand-mark">G+</span>
+        <span class="hq-brand-copy"><strong>Gravitas HQ</strong><small>Internal operating system</small></span>
+      </a>
+      <button class="hq-icon-btn hq-sidebar-close" type="button" data-nav-close aria-label="Close navigation">
+        <svg><use href="#i-close"></use></svg>
+      </button>
+    </div>
+
     <nav class="hq-nav">
-      {% for item in hq_nav %}
-        {% if item.allowed %}<a href="{% url item.url %}" class="{% if hq_active == item.key %}is-active{% endif %}">{{ item.label }}</a>{% endif %}
+      {% for group in hq_nav_groups %}
+        <div class="hq-nav-group">
+          <div class="hq-nav-label">{{ group.label }}</div>
+          {% for item in group.items %}
+            <a href="{% url item.url %}" class="hq-nav-item {% if hq_active == item.key %}is-active{% endif %}" {% if hq_active == item.key %}aria-current="page"{% endif %}>
+              <svg class="hq-nav-icon" aria-hidden="true"><use href="#i-{{ item.icon }}"></use></svg>
+              <span>{{ item.label }}</span>
+            </a>
+          {% endfor %}
+        </div>
       {% endfor %}
     </nav>
+
     <div class="hq-sidebar-foot">
-      {% if hq_member %}<div class="hq-user"><strong>{{ hq_member }}</strong><span>{{ hq_member.role_label|default:hq_member.title|default:'Team member' }}</span></div>{% else %}<div class="hq-user"><strong>{{ request.user }}</strong><span>Superuser</span></div>{% endif %}
-      <a href="/">Public site ↗</a>
-      <a href="/admin/">Django admin ↗</a>
-      <form method="post" action="{% url 'hq:logout' %}">{% csrf_token %}<button type="submit" style="background:none;border:0;padding:0;color:#909aa4;cursor:pointer">Sign out</button></form>
+      <div class="hq-context-card">
+        <span class="hq-context-dot"></span>
+        <div><strong>Staging workspace</strong><small>Safe place to test HQ changes before production.</small></div>
+      </div>
+      <a class="hq-sidebar-link" href="/" target="_blank" rel="noopener"><span>Public site</span><svg><use href="#i-external"></use></svg></a>
+      <a class="hq-sidebar-link" href="/admin/" target="_blank" rel="noopener"><span>Django admin</span><svg><use href="#i-external"></use></svg></a>
     </div>
   </aside>
+
+  <div class="hq-nav-overlay" data-nav-close></div>
+
   <main class="hq-main">
     <header class="hq-topbar">
-      <button class="hq-mobile-menu" type="button" onclick="document.body.classList.toggle('hq-nav-open')">☰</button>
-      <div><span class="hq-kicker">INTERNAL · CONFIDENTIAL</span></div>
-      <div class="hq-date">{% now "M j, Y" %}</div>
+      <div class="hq-topbar-left">
+        <button class="hq-icon-btn hq-mobile-menu" type="button" data-nav-open aria-label="Open navigation">
+          <svg><use href="#i-menu"></use></svg>
+        </button>
+        <div class="hq-location"><span>Gravitas HQ</span><strong>{{ hq_active_label }}</strong></div>
+      </div>
+
+      <form class="hq-global-search" method="get" action="{% url 'hq:search' %}" role="search">
+        <svg aria-hidden="true"><use href="#i-search"></use></svg>
+        <label class="hq-visually-hidden" for="hq-global-search">Search HQ</label>
+        <input id="hq-global-search" name="q" type="search" value="{{ request.GET.q|default:'' }}" placeholder="Search projects, tasks, content, research…" autocomplete="off">
+        <kbd>/</kbd>
+      </form>
+
+      <div class="hq-topbar-actions">
+        <button class="hq-icon-btn" type="button" data-help-open aria-label="Open help for this page" title="Page guide">
+          <svg><use href="#i-help"></use></svg>
+        </button>
+        <details class="hq-account-menu">
+          <summary aria-label="Account menu">
+            <span class="hq-avatar hq-avatar-sm">{% if hq_member %}{{ hq_member.user.first_name|first|default:hq_member.user.email|first|upper }}{% else %}{{ request.user.username|first|upper }}{% endif %}</span>
+          </summary>
+          <div class="hq-account-popover">
+            {% if hq_member %}<strong>{{ hq_member }}</strong><span>{{ hq_member.role_label|default:hq_member.title|default:'Team member' }}</span>{% else %}<strong>{{ request.user }}</strong><span>Superuser</span>{% endif %}
+            <form method="post" action="{% url 'hq:logout' %}">{% csrf_token %}<button type="submit">Sign out</button></form>
+          </div>
+        </details>
+      </div>
     </header>
-    {% if messages %}<div class="hq-messages">{% for message in messages %}<div class="hq-message">{{ message }}</div>{% endfor %}</div>{% endif %}
-    <div class="hq-page">{% block content %}{% endblock %}</div>
+
+    {% if messages %}
+      <div class="hq-messages" aria-live="polite">
+        {% for message in messages %}<div class="hq-message">{{ message }}</div>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="hq-page" id="hq-content">{% block content %}{% endblock %}</div>
   </main>
 </div>
+
+<div class="hq-help-overlay" data-help-close></div>
+<aside class="hq-help-drawer" id="hq-help-drawer" aria-hidden="true" aria-label="Page guide">
+  <div class="hq-help-head">
+    <div><span class="hq-eyebrow">Guide</span><h2>{% block help_title %}How to use this page{% endblock %}</h2></div>
+    <button class="hq-icon-btn" type="button" data-help-close aria-label="Close help"><svg><use href="#i-close"></use></svg></button>
+  </div>
+  <div class="hq-help-body">{% block help %}<p>This area is part of the Gravitas internal operating system. Use it to keep work, ownership and decisions visible to the team.</p>{% endblock %}</div>
+</aside>
+
+<script src="{% static 'hq/hq.js' %}"></script>
 </body>
 </html>
