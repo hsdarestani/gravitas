@@ -62,7 +62,7 @@ jobs:
           else
             git config user.name 'Gravitas HQ CI'
             git config user.email 'actions@users.noreply.github.com'
-            git add backend/hq/migrations
+            git add 'backend/hq/migrations/*.py'
             git commit -m 'Version Gravitas HQ schema'
             git pull --rebase origin hq-v1
             git push origin HEAD:hq-v1
@@ -75,24 +75,53 @@ jobs:
         run: django-admin check
       - name: Collect static assets
         run: django-admin collectstatic --noinput
-      - name: Smoke-test HQ access and pages
+      - name: Bootstrap HQ living strategy
+        run: django-admin bootstrap_hq
+      - name: Smoke-test HQ, RBAC and workflow pages
         run: |
           python - <<'PY'
           import django
           django.setup()
+
           from django.contrib.auth import get_user_model
           from django.test import Client
-          from hq.models import Project, StrategyDocument
+          from hq.models import ContentProduction, Project, SectionAccess, StrategyDocument, Task, TeamMember
 
           User = get_user_model()
-          admin = User.objects.create_superuser('hq-ci-admin', 'hq-ci@example.com', 'temporary-ci-password')
+          admin = User.objects.filter(is_superuser=True).first()
+          assert admin is not None
+          founder = admin.hq_member
+          assert founder.section_access.filter(level=SectionAccess.Level.MANAGE).count() == len(SectionAccess.Section.choices)
+          assert StrategyDocument.objects.filter(slug='gravitas-strategy-roadmap', status='active').exists()
+          assert Project.objects.filter(slug='gravitas-hq-v1').exists()
+          episode = Project.objects.get(slug='episode-01-ai-scientific-hypothesis')
+          production = ContentProduction.objects.get(project=episode)
+
+          anonymous = Client(HTTP_HOST='testserver')
+          response = anonymous.get('/hq/')
+          assert response.status_code == 302 and '/hq/login/' in response.url
+          assert anonymous.get('/hq/login/').status_code == 200
+
           client = Client(HTTP_HOST='testserver')
           client.force_login(admin)
           for path in ['/hq/', '/hq/strategy/', '/hq/projects/', '/hq/content/', '/hq/research/', '/hq/assets/', '/hq/team/']:
               response = client.get(path)
               assert response.status_code == 200, (path, response.status_code)
-          StrategyDocument.objects.create(title='HQ Roadmap test', slug='hq-roadmap-test', kind='roadmap', status='active')
-          Project.objects.create(name='HQ Project test', slug='hq-project-test', kind='product', status='active')
-          assert client.get('/hq/').status_code == 200
-          print('hq-v1-smoke-passed')
+
+          task = Task.objects.create(project=episode, title='HQ CI editorial task', status=Task.Status.TODO, priority=Task.Priority.HIGH, assignee=founder)
+          assert client.get(f'/hq/projects/{episode.slug}/').status_code == 200
+          assert client.get(f'/hq/content/{production.pk}/').status_code == 200
+
+          limited_user = User.objects.create_user(username='hq-limited', email='hq-limited@example.com', password='temporary-ci-password')
+          limited_member = TeamMember.objects.create(user=limited_user, role_label='Video Editor')
+          SectionAccess.objects.create(member=limited_member, section=SectionAccess.Section.DASHBOARD, level=SectionAccess.Level.VIEW)
+          SectionAccess.objects.create(member=limited_member, section=SectionAccess.Section.PROJECTS, level=SectionAccess.Level.VIEW)
+          limited = Client(HTTP_HOST='testserver')
+          limited.force_login(limited_user)
+          assert limited.get('/hq/').status_code == 200
+          assert limited.get('/hq/projects/').status_code == 200
+          assert limited.get('/hq/strategy/').status_code == 403
+          assert not limited.get('/hq/projects/').context['projects'].exists()
+
+          print('hq-v1-rbac-workflow-smoke-passed')
           PY
