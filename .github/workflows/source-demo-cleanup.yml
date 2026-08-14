@@ -43,6 +43,17 @@ jobs:
               r'<li[^>]*>\s*<a[^>]*class="[^"]*lp-social__link[^"]*"[^>]*href="#"[^>]*>.*?</a>\s*</li>',
               re.I | re.S,
           )
+          stale_events = re.compile(
+              r'<section class="g-section g-section--deep"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">\s*'
+              r'<p class="g-eyebrow">Coming up</p><h2>Events</h2>.*?</section>\s*'
+              r'(?=<section class="g-section"><div class="g-container"><div class="join rv">)',
+              re.I | re.S,
+          )
+          events_replacement = '''<section class="g-section g-section--deep"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
+      <p class="g-eyebrow">Community calendar</p><h2>Events</h2></div></div>
+  <div class="rv"><div class="callout"><p>No public event is scheduled right now. New study groups, live discussions and build sessions will be announced here and in the newsletter.</p></div></div></div></section>
+
+'''
 
           for path in html_files:
               text = path.read_text(encoding='utf-8')
@@ -57,14 +68,15 @@ jobs:
               text = prototype_span.sub('', text)
               text = dead_social.sub('', text)
 
-              # Newsletter forms are live; remove the old prototype marker everywhere.
               text = re.sub(r'(<form\b[^>]*class="[^"]*g-inline-form[^"]*"[^>]*)\sdata-demo-form', r'\1 data-newsletter-form', text, flags=re.I)
               text = text.replace(' data-demo-form', '')
+              text = re.sub(r'\sdata-share="\d+(?:\.\d+)?"', '', text)
 
-              # Prototype poll seed percentages must never ship in source.
-              text = re.sub(r'\sdata-share="(?:38|44|18)"', '', text)
+              if path.name == 'community.html':
+                  text = stale_events.sub(events_replacement, text)
+                  text = text.replace('Free, and it stays free', 'A free account')
+                  text = text.replace('No payment. No tiers. Delete it in one click.', 'Public content stays readable without an account.')
 
-              # Current password policy is 10 characters.
               if path.name == 'account.html':
                   text = text.replace('minlength="8"', 'minlength="10"')
 
@@ -85,16 +97,37 @@ jobs:
           text = text.replace(old_reset, '')
           site.write_text(text, encoding='utf-8')
 
-          # Gate: known prototype/demo markers must be absent from public source.
+          # Remove known dead temporary files only when nothing else references them.
+          dead_files = [Path('assets/community-lab-live.js'), Path('backend/core/urls_public_tmp.py')]
+          searchable = [p for p in root.rglob('*') if p.is_file() and '.git' not in p.parts]
+          for dead in dead_files:
+              if not dead.exists():
+                  continue
+              name = dead.name
+              referenced = False
+              for candidate in searchable:
+                  if candidate == dead or candidate.suffix not in {'.py', '.js', '.html', '.yml', '.yaml', '.md', '.txt'}:
+                      continue
+                  try:
+                      if name in candidate.read_text(encoding='utf-8'):
+                          referenced = True
+                          break
+                  except UnicodeDecodeError:
+                      pass
+              if not referenced:
+                  dead.unlink()
+
           public_text = '\n'.join(p.read_text(encoding='utf-8') for p in html_files) + '\n' + site.read_text(encoding='utf-8')
           forbidden = [
               '312K subscribers',
               '418K views',
-              'data-share="38"',
-              'data-share="44"',
-              'data-share="18"',
+              'data-share=',
               'data-demo-form',
               'Password-reset email is being enabled in the system-email step.',
+              'Delete it in one click.',
+              '>12</b>MAR',
+              '>19</b>MAR',
+              '>26</b>MAR',
           ]
           remaining = [item for item in forbidden if item in public_text]
           if remaining:
@@ -112,6 +145,6 @@ jobs:
           fi
           git config user.name 'Gravitas CI'
           git config user.email 'actions@users.noreply.github.com'
-          git add '*.html' assets/site.js
-          git commit -m 'Remove remaining prototype data from source'
+          git add -A -- '*.html' assets/site.js assets/community-lab-live.js backend/core/urls_public_tmp.py
+          git commit -m 'Finish production source cleanup'
           git push origin HEAD:main
