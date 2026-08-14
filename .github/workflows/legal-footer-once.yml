@@ -1,0 +1,58 @@
+name: Add Gravitas legal footer links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/legal-footer-once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add static legal links to public footers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          pattern = re.compile(r'(<div class="g-footer__legal">)(.*?)(</div>)', re.S)
+          legal = '<span><a href="impressum.html">Impressum</a> · <a href="privacy.html">Datenschutz</a></span>'
+
+          changed = 0
+          for path in Path('.').glob('*.html'):
+              text = path.read_text(encoding='utf-8')
+              if 'class="g-footer__legal"' not in text or 'href="impressum.html"' in text:
+                  continue
+              def repl(match):
+                  body = match.group(2)
+                  return match.group(1) + body + '\n      ' + legal + match.group(3)
+              new, count = pattern.subn(repl, text, count=1)
+              if count:
+                  path.write_text(new, encoding='utf-8')
+                  changed += 1
+          print('updated footers:', changed)
+          PY
+      - name: Commit legal footer links
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'Legal footer links already present.'
+            exit 0
+          fi
+          git config user.name 'Gravitas CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add '*.html'
+          git commit -m 'Link Impressum and privacy from all footers'
+          git push origin HEAD:main
