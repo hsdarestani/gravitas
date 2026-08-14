@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.core.files import File
 from django.db import models
 from django.test import TestCase
 from django.urls import reverse
@@ -71,7 +70,7 @@ class HQV2Tests(TestCase):
             reverse('hq:research'),
             reverse('hq:assets'),
             reverse('hq:team'),
-            reverse('hq:search') + '?q=hypothesis',
+            reverse('hq:search') + '?q=AI',
         ]
         for url in urls:
             with self.subTest(url=url):
@@ -103,7 +102,7 @@ class HQV2Tests(TestCase):
             reverse('hq:research'): 'Research & evidence',
             reverse('hq:assets'): 'Asset storage policy',
             reverse('hq:team'): 'Roles, permissions and project access',
-            reverse('hq:search') + '?q=hypothesis': 'Using global search',
+            reverse('hq:search') + '?q=AI': 'Using global search',
         }
         for url, copy in expected.items():
             with self.subTest(url=url):
@@ -112,7 +111,7 @@ class HQV2Tests(TestCase):
                 self.assertContains(response, 'data-help-open')
 
     def test_global_search_finds_authorized_work(self):
-        response = self.client.get(reverse('hq:search'), {'q': 'hypothesis'})
+        response = self.client.get(reverse('hq:search'), {'q': 'AI'})
         self.assertContains(response, self.project.name)
         self.assertContains(response, self.production.working_title)
 
@@ -173,7 +172,7 @@ class HQV2Tests(TestCase):
         ProjectMember.objects.create(project=self.project, member=limited, role='Contributor')
         self.client.force_login(limited_user)
 
-        response = self.client.get(reverse('hq:search'), {'q': 'hypothesis'})
+        response = self.client.get(reverse('hq:search'), {'q': 'AI'})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.project.name)
         self.assertNotContains(response, self.production.working_title)
