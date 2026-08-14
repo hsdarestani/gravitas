@@ -67,10 +67,49 @@ jobs:
           . /etc/gravitas/staging.env
           set +a
           export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$APP"
-          KEEP_ENV=DJANGO_SECRET_KEY,DJANGO_DEBUG,DJANGO_DB_NAME,DJANGO_DB_USER,DJANGO_ALLOWED_HOSTS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_SESSION_COOKIE_NAME,DJANGO_CSRF_COOKIE_NAME,DJANGO_SETTINGS_MODULE,PYTHONPATH
+          KEEP_ENV=DJANGO_SECRET_KEY,DJANGO_DEBUG,DJANGO_DB_NAME,DJANGO_DB_USER,DJANGO_DB_PASSWORD,DJANGO_ALLOWED_HOSTS,DJANGO_CSRF_TRUSTED_ORIGINS,DJANGO_SESSION_COOKIE_NAME,DJANGO_CSRF_COOKIE_NAME,DJANGO_SETTINGS_MODULE,PYTHONPATH
           cd "$APP"
           sudo -u gravitas --preserve-env="$KEEP_ENV" "$APP/.venv/bin/django-admin" migrate --noinput
           sudo -u gravitas --preserve-env="$KEEP_ENV" "$APP/.venv/bin/django-admin" collectstatic --noinput
+
+          HAS_SUPERUSER="$(sudo -u gravitas --preserve-env="$KEEP_ENV" "$APP/.venv/bin/python" - <<'PY'
+          import os
+          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+          import django
+          django.setup()
+          from django.contrib.auth import get_user_model
+          print('1' if get_user_model().objects.filter(is_superuser=True, is_active=True).exists() else '0')
+          PY
+          )"
+          if [ "$HAS_SUPERUSER" != "1" ]; then
+            HQ_PASS="$(openssl rand -base64 24 | tr -d '\n')"
+            sudo -u gravitas --preserve-env="$KEEP_ENV" HQ_BOOTSTRAP_PASSWORD="$HQ_PASS" "$APP/.venv/bin/python" - <<'PY'
+          import os
+          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+          import django
+          django.setup()
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          if not User.objects.filter(username='gravitas-hq-admin').exists():
+              User.objects.create_superuser('gravitas-hq-admin', 'admin@gravitasplus.com', os.environ['HQ_BOOTSTRAP_PASSWORD'])
+          PY
+            printf 'username=gravitas-hq-admin\npassword=%s\n' "$HQ_PASS" | sudo tee /etc/gravitas/hq-staging-credentials >/dev/null
+            sudo chmod 600 /etc/gravitas/hq-staging-credentials
+          fi
+
+          HAS_ROADMAP="$(sudo -u gravitas --preserve-env="$KEEP_ENV" "$APP/.venv/bin/python" - <<'PY'
+          import os
+          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+          import django
+          django.setup()
+          from hq.models import StrategyDocument
+          print('1' if StrategyDocument.objects.filter(slug='gravitas-strategy-roadmap').exists() else '0')
+          PY
+          )"
+          if [ "$HAS_ROADMAP" != "1" ]; then
+            sudo -u gravitas --preserve-env="$KEEP_ENV" "$APP/.venv/bin/django-admin" bootstrap_hq
+          fi
+
           sudo systemctl enable --now gravitas-backend-staging
           sudo systemctl restart gravitas-backend-staging
 
@@ -84,6 +123,7 @@ jobs:
             location ^~ /.well-known/acme-challenge/ { auth_basic off; try_files \$uri =404; }
             location ^~ /api/ { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; proxy_pass http://127.0.0.1:$PORT; proxy_set_header Host \$host; proxy_set_header X-Forwarded-Proto \$scheme; }
             location ^~ /admin/ { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; proxy_pass http://127.0.0.1:$PORT; proxy_set_header Host \$host; proxy_set_header X-Forwarded-Proto \$scheme; }
+            location ^~ /hq/ { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; proxy_pass http://127.0.0.1:$PORT; proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme; }
             location ^~ /django-static/ { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; proxy_pass http://127.0.0.1:$PORT; }
             location / { auth_basic "Gravitas Staging"; auth_basic_user_file /etc/nginx/.htpasswd-gravitas-staging; try_files \$uri \$uri/ /index.html; }
           }
@@ -101,8 +141,10 @@ jobs:
 
           sudo systemctl is-active gravitas-backend-staging
           curl -fsS "http://127.0.0.1:$PORT/api/health/" -H "Host: $DOMAIN" | grep -q '"status": "ok"'
+          curl -fsSI "http://127.0.0.1:$PORT/hq/" -H "Host: $DOMAIN" | grep -qi '^location: /hq/login/'
           U="$(sudo awk -F= '/^username=/{print $2}' /etc/gravitas/staging-access-credentials)"
           P="$(sudo awk -F= '/^password=/{print $2}' /etc/gravitas/staging-access-credentials)"
           curl -fsS -u "$U:$P" -H "Host: $DOMAIN" http://127.0.0.1/ >/dev/null
+          curl -fsS -u "$U:$P" -H "Host: $DOMAIN" http://127.0.0.1/hq/login/ | grep -q 'Gravitas HQ'
           echo staging-ready
           REMOTE
