@@ -6,5 +6,6 @@ from core.content_api import content_page
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
+    path('hq/', include('hq.urls')),
     path('content/<slug:slug>/', content_page),
 ]
