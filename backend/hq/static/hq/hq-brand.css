@@ -1,0 +1,184 @@
+:root{
+  --hq-bg:#001f30;
+  --hq-surface:#002639;
+  --hq-surface-2:#00293f;
+  --hq-surface-3:#0a2f42;
+  --hq-surface-4:#12384a;
+  --hq-outline:#244b5c;
+  --hq-outline-soft:#163c4d;
+  --hq-text:#f1efed;
+  --hq-text-2:#d7d0ca;
+  --hq-muted:#9aa8ad;
+  --hq-primary:#f1efed;
+  --hq-primary-soft:rgba(241,239,237,.10);
+  --hq-primary-ink:#002639;
+  --hq-info:#b9dce7;
+  --hq-info-bg:#0a3549;
+}
+
+html,body{background:var(--hq-bg)}
+body{
+  background:
+    radial-gradient(circle at 78% 6%,rgba(185,220,231,.045),transparent 28%),
+    linear-gradient(180deg,#00283d 0,#001f30 28%,#001b2a 100%);
+}
+::selection{background:rgba(241,239,237,.18)}
+
+.hq-sidebar{
+  background:#002436;
+  border-right-color:rgba(215,208,202,.11);
+}
+.hq-topbar{
+  background:rgba(0,31,48,.88);
+  border-bottom-color:rgba(215,208,202,.11);
+}
+.hq-brand-mark{
+  background:linear-gradient(145deg,#0a3245,#00293f);
+  border-color:rgba(241,239,237,.25);
+  color:#f1efed;
+  box-shadow:0 10px 28px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.06);
+}
+
+.hq-nav-item{color:#aab6ba}
+.hq-nav-item:hover{background:rgba(241,239,237,.055);color:#f1efed}
+.hq-nav-item.is-active{
+  background:linear-gradient(145deg,rgba(241,239,237,.13),rgba(185,220,231,.07));
+  color:#f1efed;
+  box-shadow:inset 0 0 0 1px rgba(241,239,237,.16),0 10px 24px rgba(0,0,0,.14);
+}
+.hq-context-card,.hq-global-search,.hq-card,.hq-metric,.hq-filterbar,.hq-tablewrap{
+  border-color:rgba(215,208,202,.10);
+}
+.hq-context-card{background:#00283c}
+.hq-global-search{background:#002a3f}
+.hq-global-search:focus-within{background:#003047;border-color:#507285}
+.hq-global-search kbd{background:#001d2c;border-color:#315366;color:#aab6ba}
+
+.hq-eyebrow{color:#b9dce7}
+.hq-btn{
+  background:#f1efed;
+  color:#002639;
+}
+.hq-btn-soft{
+  background:#0a3245;
+  border-color:#315366;
+  color:#f1efed;
+}
+.hq-btn-soft:hover{background:#123b4e}
+.hq-btn-text,.hq-card-link{color:#c6e2e9}
+
+.hq-launcher{
+  border-color:rgba(215,208,202,.11);
+  background:linear-gradient(155deg,#002b41,#002235);
+}
+.hq-launcher:before{
+  background:radial-gradient(circle,rgba(241,239,237,.10),rgba(241,239,237,0) 70%);
+}
+.hq-launcher:hover{
+  border-color:#507285;
+  background:linear-gradient(155deg,#07354a,#00283d);
+  box-shadow:0 16px 32px rgba(0,0,0,.16);
+}
+.hq-launcher-icon,.hq-metric-icon{
+  background:#0a3245;
+  border-color:#244b5c;
+  color:#f1efed;
+}
+.hq-launcher-arrow{color:#9fb0b6}
+
+.hq-metric-accent{
+  border-color:#31586a;
+  background:linear-gradient(145deg,#073248,#002438);
+}
+.hq-metric-accent .hq-metric-icon{
+  color:#f1efed;
+  background:#0c3a50;
+  border-color:#3f6676;
+}
+
+.hq-card{background:#002638}
+.hq-card-raised{background:#002a3f}
+.hq-listrow{border-top-color:rgba(215,208,202,.09)}
+.hq-listrow:hover{background:rgba(241,239,237,.025)}
+.hq-empty{border-color:#315366;background:rgba(241,239,237,.018)}
+
+.hq-pill,.hq-badge{
+  border-color:#315366;
+  background:#0a3144;
+  color:#d8e0e2;
+}
+.hq-pill-active,.hq-pill-done,.hq-pill-approved,.hq-pill-final{
+  background:#123a36;
+  color:#bde2d0;
+  border-color:#2e6558;
+}
+.hq-pill-review,.hq-pill-in_progress{
+  background:#26383d;
+  color:#d7d0ca;
+  border-color:#526267;
+}
+.hq-pill-planned,.hq-pill-todo,.hq-pill-backlog{
+  background:#0b3448;
+  color:#c6e2e9;
+  border-color:#31586a;
+}
+
+.hq-master-roadmap{
+  border-color:#3c6475;
+  background:
+    radial-gradient(circle at 82% 20%,rgba(241,239,237,.10),transparent 30%),
+    linear-gradient(145deg,#073248,#001f30 58%);
+}
+.hq-master-roadmap:before{color:rgba(241,239,237,.055)}
+
+.hq-objective,.hq-doc,.hq-production,.hq-asset,.hq-source{
+  border-color:rgba(215,208,202,.10);
+}
+.hq-objective:hover,.hq-doc:hover,.hq-production:hover,.hq-asset:hover{
+  border-color:#507285;
+}
+.hq-progress{background:#12384a}
+.hq-progress span{background:#d7d0ca}
+
+.hq-avatar{
+  background:#0b364b;
+  color:#f1efed;
+  border:1px solid #31586a;
+}
+.hq-account-popover{
+  background:#073248;
+  border-color:#31586a;
+}
+.hq-help-drawer{
+  background:#002638;
+  border-left-color:#31586a;
+}
+.hq-help-tip,.hq-note{
+  background:#073248;
+  border-color:#31586a;
+}
+
+/* Remove the previous gold/brown treatment from any remaining V2/V3 selectors. */
+.hq-guide-strip{
+  border-color:#31586a;
+  background:linear-gradient(135deg,#073248,#002438 70%);
+}
+.hq-guide-strip p{color:#aab6ba}
+.hq-priority-high,.hq-priority-urgent{color:#ffb4ab}
+
+.hq-loginbody{
+  background:
+    radial-gradient(circle at 20% 18%,rgba(185,220,231,.055),transparent 32%),
+    linear-gradient(145deg,#00293f,#001f30 55%,#001824);
+}
+.hq-loginintro{background:transparent}
+.hq-logincard{
+  background:#00283c;
+  border-color:#315366;
+  box-shadow:0 28px 70px rgba(0,0,0,.24);
+}
+.hq-loginprinciples>div{
+  background:rgba(241,239,237,.025);
+  border-color:rgba(215,208,202,.10);
+}
+.hq-loginback{color:#c6e2e9}
