@@ -35,7 +35,7 @@ def hq_access(section=SectionAccess.Section.DASHBOARD, minimum=SectionAccess.Lev
         @wraps(view)
         def wrapped(request, *args, **kwargs):
             if not request.user.is_authenticated:
-                return redirect_to_login(request.get_full_path(), login_url='/admin/login/')
+                return redirect_to_login(request.get_full_path(), login_url='/hq/login/')
             if not has_access(request.user, section, minimum):
                 raise PermissionDenied('You do not have access to this HQ section.')
             request.hq_member = member_for(request.user)
