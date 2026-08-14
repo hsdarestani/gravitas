@@ -1,0 +1,16 @@
+{% extends 'hq/base.html' %}
+{% block title %}{{ production.working_title }} · Content Studio{% endblock %}
+{% block content %}
+<div class="hq-pagehead"><div><span class="hq-eyebrow">Content Studio · {{ production.get_stage_display }}</span><h1>{{ production.working_title }}</h1><p>{{ production.central_question|default:'Define the central question before production begins.' }}</p></div><a class="hq-btn hq-btn-soft" href="{% url 'hq:project' production.project.slug %}">Project board</a></div>
+<div class="hq-stagebar">
+  {% for value, label in production.Stage.choices %}<span class="{% if production.stage == value %}is-current{% endif %}">{{ label }}</span>{% endfor %}
+</div>
+<form method="post" class="hq-card hq-form">{% csrf_token %}
+  <div class="hq-formgrid">{% for field in form %}<div class="hq-field {% if field.name == 'brief' or field.name == 'script' or field.name == 'scientific_notes' or field.name == 'distribution_notes' or field.name == 'postmortem' %}hq-field-wide{% endif %}"><label>{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endfor %}</div>
+  {% if can_edit %}<div class="hq-form-actions"><button class="hq-btn" type="submit">Save production</button></div>{% endif %}
+</form>
+<div class="hq-grid hq-grid-2 hq-space-top">
+  <a class="hq-card hq-linkcard" href="{% url 'hq:research' %}"><span class="hq-eyebrow">Evidence</span><h2>Research library</h2><p>Sources and evidence mapping for claims.</p></a>
+  <a class="hq-card hq-linkcard" href="{% url 'hq:assets' %}"><span class="hq-eyebrow">Production assets</span><h2>External assets</h2><p>YouTube, Drive, Frame.io, Vimeo, R2/S3 and other references without filling this server.</p></a>
+</div>
+{% endblock %}
