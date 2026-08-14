@@ -1,0 +1,15 @@
+{% extends 'hq/base.html' %}
+{% block title %}Research · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead"><div><span class="hq-eyebrow">Research & Evidence</span><h1>Claims should point to evidence.</h1><p>Build a reusable source library instead of losing papers, datasets and notes across chats and folders.</p></div></div>
+<div class="hq-grid hq-grid-sidebar">
+  <section class="hq-card">
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Library</span><h2>Evidence sources</h2></div></div>
+    <div class="hq-list">{% for source in sources %}<div class="hq-listrow"><div><strong>{{ source.title }}</strong><span>{{ source.get_kind_display }}{% if source.publisher %} · {{ source.publisher }}{% endif %}{% if source.published_date %} · {{ source.published_date|date:'Y' }}{% endif %}</span></div>{% if source.url %}<a href="{{ source.url }}" target="_blank" rel="noopener">Open ↗</a>{% endif %}</div>{% empty %}<div class="hq-empty">No sources yet.</div>{% endfor %}</div>
+  </section>
+  <aside class="hq-card">
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Add source</span><h2>New evidence</h2></div></div>
+    <form method="post" class="hq-form">{% csrf_token %}{% for field in form %}<div class="hq-field"><label>{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endfor %}<button class="hq-btn" type="submit">Add source</button></form>
+  </aside>
+</div>
+{% endblock %}
