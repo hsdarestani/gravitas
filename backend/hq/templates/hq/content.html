@@ -1,0 +1,16 @@
+{% extends 'hq/base.html' %}
+{% block title %}Content Studio · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead"><div><span class="hq-eyebrow">Content Studio</span><h1>From question to publication.</h1><p>Topic scoring, brief, evidence, script, scientific review, production, companion page, distribution and post-mortem.</p></div></div>
+<div class="hq-pipeline">
+{% for item in productions %}
+  <a class="hq-production" href="{% url 'hq:content_edit' item.pk %}">
+    <div class="hq-production-stage">{{ item.get_stage_display }}</div>
+    <h2>{{ item.working_title }}</h2>
+    <p>{{ item.central_question|default:'Central question not defined yet.'|truncatechars:160 }}</p>
+    <div class="hq-production-meta"><span>{{ item.project.name }}</span><span>{% if item.planned_publish_at %}{{ item.planned_publish_at|date:'M j, Y' }}{% else %}No publish date{% endif %}</span></div>
+    {% if item.public_content %}<span class="hq-badge">CMS linked</span>{% endif %}
+  </a>
+{% empty %}<div class="hq-empty">No content production records yet. Create a Content project first, then open it and start Content Studio.</div>{% endfor %}
+</div>
+{% endblock %}
