@@ -1,0 +1,16 @@
+{% extends 'hq/base.html' %}
+{% block title %}Assets · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead"><div><span class="hq-eyebrow">Asset Library</span><h1>References, not a video server.</h1><p>Large binaries stay on YouTube, Drive, Frame.io, Vimeo or object storage. HQ stores the link, ownership, version and production context.</p></div></div>
+<div class="hq-grid hq-grid-sidebar">
+  <section class="hq-card">
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">References</span><h2>External assets</h2></div></div>
+    <div class="hq-assetgrid">{% for asset in assets %}<a class="hq-asset" href="{{ asset.url }}" target="_blank" rel="noopener"><div><span class="hq-pill">{{ asset.get_provider_display }}</span><span class="hq-pill">{{ asset.get_asset_type_display }}</span></div><strong>{{ asset.title }}</strong><p>{% if asset.project %}{{ asset.project.name }}{% else %}Global asset{% endif %}{% if asset.version %} · {{ asset.version }}{% endif %}</p><small>{{ asset.get_status_display }} · updated {{ asset.updated_at|date:'M j' }}</small></a>{% empty %}<div class="hq-empty">No external asset references yet.</div>{% endfor %}</div>
+  </section>
+  <aside class="hq-card">
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Add reference</span><h2>Attach external asset</h2></div></div>
+    <form method="post" class="hq-form">{% csrf_token %}{% for field in form %}<div class="hq-field"><label>{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endfor %}<button class="hq-btn" type="submit">Attach reference</button></form>
+    <div class="hq-note"><strong>Storage policy</strong><p>Do not upload raw video or project files to the Gravitas application server. Use an external provider and attach its URL here.</p></div>
+  </aside>
+</div>
+{% endblock %}
