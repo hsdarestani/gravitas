@@ -2,43 +2,41 @@
 {% block title %}Projects · Gravitas HQ{% endblock %}
 {% block content %}
 <div class="hq-pagehead">
-  <div class="hq-pagehead-main"><span class="hq-eyebrow">Plan → Execute</span><h1>Projects turn strategy into work.</h1><p>Each project should have a clear owner, outcome, status and set of tasks. Use projects for deliverables that need coordination, not for every small idea.</p></div>
-  {% if can_edit_projects %}<div class="hq-pagehead-actions"><a class="hq-btn" href="{% url 'hq:project_new' %}"><svg aria-hidden="true"><use href="#i-plus"></use></svg>Create project</a></div>{% endif %}
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">Execute</span><h1>Projects</h1></div>
+  {% if can_edit_projects %}<div class="hq-pagehead-actions"><a class="hq-btn" href="{% url 'hq:project_new' %}"><svg aria-hidden="true"><use href="#i-plus"></use></svg>New</a></div>{% endif %}
 </div>
 
-<div class="hq-guide-strip"><div><strong>Confused about Projects vs Tasks?</strong><p>A project is a meaningful outcome or deliverable. A task is one action needed to move that project forward.</p></div><button class="hq-btn hq-btn-text" type="button" data-help-open>See examples</button></div>
-
 <div class="hq-metrics">
-  <div class="hq-metric hq-metric-accent"><span>Active</span><strong>{{ active_count }}</strong><small>Currently moving</small></div>
-  <div class="hq-metric {% if blocked_count %}hq-metric-danger{% endif %}"><span>Blocked</span><strong>{{ blocked_count }}</strong><small>Needs escalation or a decision</small></div>
-  <div class="hq-metric"><span>Visible</span><strong>{{ projects|length }}</strong><small>After current filters</small></div>
-  <div class="hq-metric"><span>Your access</span><strong style="font-size:22px">{% if can_edit_projects %}Edit{% else %}View only{% endif %}</strong><small>{% if can_edit_projects %}You can create and update project work.{% else %}Project editing actions are hidden for this account.{% endif %}</small></div>
+  <div class="hq-metric hq-metric-accent"><span class="hq-metric-icon"><svg><use href="#i-projects"></use></svg></span><div class="hq-metric-top"><span>Active</span></div><strong>{{ active_count }}</strong></div>
+  <div class="hq-metric {% if blocked_count %}hq-metric-danger{% endif %}"><span class="hq-metric-icon"><svg><use href="#i-alert"></use></svg></span><div class="hq-metric-top"><span>Blocked</span></div><strong>{{ blocked_count }}</strong></div>
+  <div class="hq-metric"><span class="hq-metric-icon"><svg><use href="#i-search"></use></svg></span><div class="hq-metric-top"><span>Visible</span></div><strong>{{ projects|length }}</strong></div>
+  <div class="hq-metric"><span class="hq-metric-icon"><svg><use href="#i-team"></use></svg></span><div class="hq-metric-top"><span>Access</span></div><strong style="font-size:21px">{% if can_edit_projects %}Edit{% else %}View{% endif %}</strong></div>
 </div>
 
 <form class="hq-filterbar" method="get">
-  <div class="hq-filter-search"><svg aria-hidden="true"><use href="#i-search"></use></svg><label class="hq-visually-hidden" for="project-q">Search projects</label><input class="hq-input" id="project-q" type="search" name="q" value="{{ query }}" placeholder="Search projects…"></div>
+  <div class="hq-filter-search"><svg aria-hidden="true"><use href="#i-search"></use></svg><label class="hq-visually-hidden" for="project-q">Search projects</label><input class="hq-input" id="project-q" type="search" name="q" value="{{ query }}" placeholder="Search…"></div>
   <label class="hq-visually-hidden" for="project-status">Filter by status</label>
-  <select class="hq-input" id="project-status" name="status" data-auto-submit><option value="">All statuses</option>{% for value,label in project_statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <select class="hq-input" id="project-status" name="status" data-auto-submit><option value="">Status</option>{% for value,label in project_statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   <label class="hq-visually-hidden" for="project-kind">Filter by type</label>
-  <select class="hq-input" id="project-kind" name="kind" data-auto-submit><option value="">All types</option>{% for value,label in project_kinds %}<option value="{{ value }}" {% if selected_kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-  <button class="hq-btn hq-btn-soft" type="submit">Filter</button>
+  <select class="hq-input" id="project-kind" name="kind" data-auto-submit><option value="">Type</option>{% for value,label in project_kinds %}<option value="{{ value }}" {% if selected_kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <button class="hq-btn hq-btn-soft" type="submit">Apply</button>
   {% if query or selected_status or selected_kind %}<a class="hq-btn hq-btn-text" href="{% url 'hq:projects' %}">Clear</a>{% endif %}
 </form>
 
 <div class="hq-tablewrap">
 <table class="hq-table">
-<thead><tr><th scope="col">Project</th><th scope="col">Status</th><th scope="col">Priority</th><th scope="col">Owner</th><th scope="col">Open tasks</th><th scope="col">Due</th></tr></thead>
+<thead><tr><th scope="col">Project</th><th scope="col">Status</th><th scope="col">Priority</th><th scope="col">Owner</th><th scope="col">Tasks</th><th scope="col">Due</th></tr></thead>
 <tbody>
 {% for project in projects %}
 <tr tabindex="0" data-row-link="{% url 'hq:project' project.slug %}">
-  <td><strong>{{ project.name }}</strong><span>{{ project.get_kind_display }}{% if project.objective %} · {{ project.objective.title|truncatechars:55 }}{% endif %}</span></td>
+  <td><strong>{{ project.name }}</strong><span>{{ project.get_kind_display }}</span></td>
   <td><span class="hq-pill hq-pill-{{ project.status }}">{{ project.get_status_display }}</span></td>
   <td><span class="hq-priority hq-priority-{{ project.priority }}">{{ project.get_priority_display }}</span></td>
-  <td>{{ project.owner|default:'Unassigned' }}</td>
+  <td>{{ project.owner|default:'—' }}</td>
   <td>{{ project.open_tasks }}</td>
-  <td>{{ project.due_date|date:'M j, Y'|default:'No deadline' }}</td>
+  <td>{{ project.due_date|date:'M j, Y'|default:'—' }}</td>
 </tr>
-{% empty %}<tr><td colspan="6"><div class="hq-empty"><strong>No matching projects.</strong><p>Try clearing the filters{% if can_edit_projects %} or create a project for the next meaningful deliverable{% endif %}.</p></div></td></tr>{% endfor %}
+{% empty %}<tr><td colspan="6"><div class="hq-empty"><strong>No projects.</strong></div></td></tr>{% endfor %}
 </tbody>
 </table>
 </div>
@@ -46,10 +44,7 @@
 
 {% block help_title %}Projects & tasks{% endblock %}
 {% block help %}
-<p>Use Projects for work that has a meaningful outcome, multiple steps, or more than one person involved.</p>
-<h3>Example project</h3><p><strong>Episode 01 — Can AI generate a scientific hypothesis?</strong></p>
-<p>That project can contain tasks such as “Build evidence map”, “Review scientific claims”, “Edit rough cut” and “Publish companion page”.</p>
-<h3>Status meaning</h3>
-<ul><li><strong>Planned:</strong> accepted, but not actively being worked on.</li><li><strong>Active:</strong> someone is responsible and work is moving.</li><li><strong>Blocked:</strong> progress cannot continue without a decision, dependency or input.</li><li><strong>Done:</strong> the intended outcome has been delivered.</li></ul>
-<h3>Keep the board useful</h3><p>Tasks should be specific actions. If a task is vague enough that two people would interpret it differently, rewrite it.</p>
+<p>A project is a meaningful outcome or deliverable. A task is one action needed to move that project.</p>
+<h3>Status</h3>
+<ul><li><strong>Planned:</strong> accepted, not started.</li><li><strong>Active:</strong> moving now.</li><li><strong>Blocked:</strong> waiting on a decision or dependency.</li><li><strong>Done:</strong> delivered.</li></ul>
 {% endblock %}
