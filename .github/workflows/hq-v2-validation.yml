@@ -42,7 +42,6 @@ jobs:
       DJANGO_DB_PORT: '5432'
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
       DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost
-      PYTHONPATH: backend
 
     steps:
       - name: Checkout
@@ -62,26 +61,20 @@ jobs:
         run: python -m compileall -q backend
 
       - name: Check migration drift
-        working-directory: backend
-        run: django-admin makemigrations --check --dry-run
+        run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin makemigrations --check --dry-run
 
       - name: Apply migrations
-        working-directory: backend
-        run: django-admin migrate --noinput
+        run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin migrate --noinput
 
       - name: Run Django checks
-        working-directory: backend
-        run: django-admin check
+        run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin check
 
       - name: Run HQ V2 tests
-        working-directory: backend
-        run: django-admin test hq --verbosity 2
+        run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin test hq --verbosity 2
 
       - name: Verify static collection
-        working-directory: backend
-        run: django-admin collectstatic --noinput
+        run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin collectstatic --noinput
 
       - name: Verify roadmap and no heavy upload field
-        working-directory: backend
         run: |
-          django-admin shell -c "from hq.views import ROADMAP_URL; from hq.models import AssetReference; from django.db import models; assert ROADMAP_URL == 'https://gravitas-roadmap.pages.dev/'; assert not any(isinstance(f,(models.FileField,models.ImageField)) for f in AssetReference._meta.get_fields()); print('HQ V2 policy checks passed')"
+          PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin shell -c "from hq.views import ROADMAP_URL; from hq.models import AssetReference; from django.db import models; assert ROADMAP_URL == 'https://gravitas-roadmap.pages.dev/'; assert not any(isinstance(f,(models.FileField,models.ImageField)) for f in AssetReference._meta.get_fields()); print('HQ V2 policy checks passed')"
