@@ -75,6 +75,16 @@ jobs:
         run: django-admin check
       - name: Collect static assets
         run: django-admin collectstatic --noinput
+      - name: Create CI founder account
+        run: |
+          python - <<'PY'
+          import django
+          django.setup()
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          User.objects.create_superuser('hq-ci-admin', 'hq-ci@example.com', 'temporary-ci-password')
+          print('hq-ci-founder-created')
+          PY
       - name: Bootstrap HQ living strategy
         run: django-admin bootstrap_hq
       - name: Smoke-test HQ, RBAC and workflow pages
@@ -88,8 +98,7 @@ jobs:
           from hq.models import ContentProduction, Project, SectionAccess, StrategyDocument, Task, TeamMember
 
           User = get_user_model()
-          admin = User.objects.filter(is_superuser=True).first()
-          assert admin is not None
+          admin = User.objects.get(username='hq-ci-admin')
           founder = admin.hq_member
           assert founder.section_access.filter(level=SectionAccess.Level.MANAGE).count() == len(SectionAccess.Section.choices)
           assert StrategyDocument.objects.filter(slug='gravitas-strategy-roadmap', status='active').exists()
@@ -108,9 +117,11 @@ jobs:
               response = client.get(path)
               assert response.status_code == 200, (path, response.status_code)
 
-          task = Task.objects.create(project=episode, title='HQ CI editorial task', status=Task.Status.TODO, priority=Task.Priority.HIGH, assignee=founder)
-          assert client.get(f'/hq/projects/{episode.slug}/').status_code == 200
-          assert client.get(f'/hq/content/{production.pk}/').status_code == 200
+          Task.objects.create(project=episode, title='HQ CI editorial task', status=Task.Status.TODO, priority=Task.Priority.HIGH, assignee=founder)
+          response = client.get(f'/hq/projects/{episode.slug}/')
+          assert response.status_code == 200, response.status_code
+          response = client.get(f'/hq/content/{production.pk}/')
+          assert response.status_code == 200, response.status_code
 
           limited_user = User.objects.create_user(username='hq-limited', email='hq-limited@example.com', password='temporary-ci-password')
           limited_member = TeamMember.objects.create(user=limited_user, role_label='Video Editor')
@@ -119,9 +130,10 @@ jobs:
           limited = Client(HTTP_HOST='testserver')
           limited.force_login(limited_user)
           assert limited.get('/hq/').status_code == 200
-          assert limited.get('/hq/projects/').status_code == 200
+          project_response = limited.get('/hq/projects/')
+          assert project_response.status_code == 200
           assert limited.get('/hq/strategy/').status_code == 403
-          assert not limited.get('/hq/projects/').context['projects'].exists()
+          assert not project_response.context['projects'].exists()
 
           print('hq-v1-rbac-workflow-smoke-passed')
           PY
