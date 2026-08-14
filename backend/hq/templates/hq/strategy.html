@@ -2,19 +2,65 @@
 {% block title %}Strategy · Gravitas HQ{% endblock %}
 {% block content %}
 <div class="hq-pagehead">
-  <div><span class="hq-eyebrow">Strategy</span><h1>Documents that guide execution.</h1><p>Roadmap, principles, audience, content thesis, goals and the decisions behind them.</p></div>
-  <a class="hq-btn" href="{% url 'hq:strategy_new' %}">New document</a>
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">Plan</span><h1>Strategy should guide execution.</h1><p>The master roadmap is the canonical strategic document. HQ keeps objectives and working notes close to the projects that execute them.</p></div>
+  <div class="hq-pagehead-actions"><a class="hq-btn hq-btn-soft" href="{% url 'hq:strategy_new' %}"><svg aria-hidden="true"><use href="#i-plus"></use></svg>New working note</a></div>
 </div>
-<div class="hq-docgrid hq-docgrid-wide">
-  {% for doc in documents %}
-    <a class="hq-doc" href="{% url 'hq:strategy_edit' doc.pk %}">
-      <div class="hq-doc-top"><span>{{ doc.get_kind_display }}</span><span class="hq-pill">{{ doc.get_status_display }}</span></div>
-      <strong>{{ doc.title }}</strong>
-      <p>{{ doc.summary|default:'No summary yet.'|truncatechars:150 }}</p>
-      <small>v{{ doc.version }} · {{ doc.updated_at|date:'M j, Y' }}{% if doc.owner %} · {{ doc.owner }}{% endif %}</small>
-    </a>
-  {% empty %}
-    <div class="hq-empty">No strategy documents yet.</div>
-  {% endfor %}
+
+<div class="hq-guide-strip">
+  <div><strong>One source of truth.</strong><p>Do not duplicate the master roadmap inside HQ. Use the external roadmap for strategy and HQ for objectives, decisions and execution-linked notes.</p></div>
+  <button class="hq-btn hq-btn-text" type="button" data-help-open>What goes here?</button>
 </div>
+
+<section class="hq-master-roadmap">
+  <span class="hq-eyebrow">Master strategy · source of truth</span>
+  <h2>Gravitas Roadmap</h2>
+  <p>The canonical document for vision, audience, AI × Research wedge, six-month targets, content system, revenue engines and the strategic direction of Gravitas.</p>
+  <div class="hq-actions"><a class="hq-btn" href="{{ roadmap_url }}" target="_blank" rel="noopener">Open master roadmap <svg aria-hidden="true"><use href="#i-external"></use></svg></a></div>
+</section>
+
+{% if objectives %}
+<section class="hq-space-top">
+  <div class="hq-sectionhead"><div><span class="hq-eyebrow">Objectives</span><h2>Outcomes we are executing</h2><p>Projects should connect to one of these outcomes whenever possible.</p></div></div>
+  <div class="hq-objectives">
+    {% for objective in objectives %}
+      <article class="hq-objective">
+        <div class="hq-objective-head"><span class="hq-pill hq-pill-{{ objective.status }}">{{ objective.get_status_display }}</span>{% if objective.target_date %}<span class="hq-pill">{{ objective.target_date|date:'M Y' }}</span>{% endif %}</div>
+        <h3>{{ objective.title }}</h3>
+        <p>{{ objective.description|default:'No description yet.'|truncatechars:150 }}</p>
+        {% if objective.target_value != None and objective.current_value != None %}
+          <div class="hq-progress"><span style="width:{% widthratio objective.current_value objective.target_value 100 %}%"></span></div>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="hq-space-top">
+  <div class="hq-sectionhead"><div><span class="hq-eyebrow">Working documents</span><h2>Supporting notes & decisions</h2><p>Use these for things that need to live near execution but are not the master strategy itself.</p></div></div>
+  <div class="hq-docgrid">
+    {% for doc in documents %}
+      <a class="hq-doc" href="{% url 'hq:strategy_edit' doc.pk %}">
+        <div class="hq-doc-top"><span>{{ doc.get_kind_display }}</span><span class="hq-pill hq-pill-{{ doc.status }}">{{ doc.get_status_display }}</span></div>
+        <strong>{{ doc.title }}</strong>
+        <p>{{ doc.summary|default:'No summary yet.'|truncatechars:150 }}</p>
+        <small>v{{ doc.version }} · updated {{ doc.updated_at|date:'M j, Y' }}{% if doc.owner %} · {{ doc.owner }}{% endif %}</small>
+      </a>
+    {% empty %}
+      <div class="hq-empty"><strong>No supporting strategy notes.</strong><p>That is okay. Create one only when the team needs a durable decision or working document beyond the master roadmap.</p></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+
+{% block help_title %}How Strategy works{% endblock %}
+{% block help %}
+<p>Strategy in HQ has two layers so the team does not accidentally maintain conflicting documents.</p>
+<h3>1. Master roadmap</h3>
+<p>The external Gravitas Roadmap is the canonical strategic document. If strategy changes, update it there first.</p>
+<h3>2. HQ objectives and working notes</h3>
+<p>Objectives translate strategy into outcomes that projects can support. Working notes are for decisions, principles or context that the team needs during execution.</p>
+<h3>Do not create a document when…</h3>
+<ul><li>It is just a task — put it in Projects.</li><li>It is content research — put it in Research.</li><li>It is a script or editorial workflow — put it in Content Studio.</li></ul>
+<div class="hq-help-tip">A good strategy section stays small. If it becomes a document dump, the team stops trusting it.</div>
 {% endblock %}
