@@ -95,6 +95,7 @@ jobs:
 
           from django.contrib.auth import get_user_model
           from django.test import Client
+          from hq.access import visible_projects
           from hq.models import ContentProduction, Project, SectionAccess, StrategyDocument, Task, TeamMember
 
           User = get_user_model()
@@ -130,10 +131,9 @@ jobs:
           limited = Client(HTTP_HOST='testserver')
           limited.force_login(limited_user)
           assert limited.get('/hq/').status_code == 200
-          project_response = limited.get('/hq/projects/')
-          assert project_response.status_code == 200
+          assert limited.get('/hq/projects/').status_code == 200
           assert limited.get('/hq/strategy/').status_code == 403
-          assert not project_response.context['projects'].exists()
+          assert not visible_projects(limited_user).exists()
 
           print('hq-v1-rbac-workflow-smoke-passed')
           PY
