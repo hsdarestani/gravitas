@@ -7,12 +7,17 @@
 </div>
 
 <div class="hq-launcher-grid" aria-label="HQ sections">
-  {% if can_see_strategy %}<a class="hq-launcher" href="{% url 'hq:strategy' %}"><span class="hq-launcher-icon"><svg><use href="#i-strategy"></use></svg></span><strong>Strategy</strong><span class="hq-launcher-arrow"><svg><use href="#i-arrow"></use></svg></span></a>{% endif %}
-  {% if can_see_projects %}<a class="hq-launcher" href="{% url 'hq:projects' %}"><span class="hq-launcher-icon"><svg><use href="#i-projects"></use></svg></span><div><strong>Projects</strong><small>{{ active_project_count }} active</small></div><span class="hq-launcher-arrow"><svg><use href="#i-arrow"></use></svg></span></a>{% endif %}
-  {% if can_see_content %}<a class="hq-launcher" href="{% url 'hq:content' %}"><span class="hq-launcher-icon"><svg><use href="#i-content"></use></svg></span><div><strong>Content</strong><small>{{ review_content_count }} in review</small></div><span class="hq-launcher-arrow"><svg><use href="#i-arrow"></use></svg></span></a>{% endif %}
-  {% if can_see_research %}<a class="hq-launcher" href="{% url 'hq:research' %}"><span class="hq-launcher-icon"><svg><use href="#i-research"></use></svg></span><strong>Research</strong><span class="hq-launcher-arrow"><svg><use href="#i-arrow"></use></svg></span></a>{% endif %}
-  {% if can_see_assets %}<a class="hq-launcher" href="{% url 'hq:assets' %}"><span class="hq-launcher-icon"><svg><use href="#i-assets"></use></svg></span><strong>Assets</strong><span class="hq-launcher-arrow"><svg><use href="#i-arrow"></use></svg></span></a>{% endif %}
-  {% if can_see_team %}<a class="hq-launcher" href="{% url 'hq:team' %}"><span class="hq-launcher-icon"><svg><use href="#i-team"></use></svg></span><strong>Team</strong><span class="hq-launcher-arrow"><svg><use href="#i-arrow"></use></svg></span></a>{% endif %}
+  {% for group in hq_nav_groups %}
+    {% for item in group.items %}
+      {% if item.key != 'dashboard' %}
+        <a class="hq-launcher" href="{% url item.url %}">
+          <span class="hq-launcher-icon"><svg><use href="#i-{{ item.icon }}"></use></svg></span>
+          <strong>{% if item.key == 'projects' %}Projects{% elif item.key == 'content' %}Content{% elif item.key == 'research' %}Research{% elif item.key == 'assets' %}Assets{% elif item.key == 'team' %}Team{% else %}{{ item.label }}{% endif %}</strong>
+          <span class="hq-launcher-arrow"><svg><use href="#i-arrow"></use></svg></span>
+        </a>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
 </div>
 
 <div class="hq-metrics">
