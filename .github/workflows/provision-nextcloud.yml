@@ -1,0 +1,221 @@
+name: Provision Gravitas Nextcloud
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NEXTCLOUD_DOMAIN: cloud.gravitasplus.com
+  NEXTCLOUD_VERSION: 34.0.2
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Provision Nextcloud on Gravitas server
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          SSH_PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$SSH_PORT" ] || SSH_PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          DOMAIN="$NEXTCLOUD_DOMAIN"
+          VERSION="$NEXTCLOUD_VERSION"
+
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$SSH_PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          TARGET_IP="$(getent ahostsv4 "$HOST" | awk 'NR==1{print $1}')"
+          CLOUD_IP="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk 'NR==1{print $1}' || true)"
+          if [ -z "$CLOUD_IP" ] || [ "$CLOUD_IP" != "$TARGET_IP" ]; then
+            echo "DNS is not ready: $DOMAIN must resolve to $TARGET_IP before provisioning."
+            exit 1
+          fi
+
+          ssh -i ~/.ssh/key -p "$SSH_PORT" "$USER@$HOST" bash -s -- "$DOMAIN" "$VERSION" <<'REMOTE'
+          set -euo pipefail
+          DOMAIN="$1"
+          VERSION="$2"
+          APP=/var/www/nextcloud
+          DATA=/srv/nextcloud-data
+          ENV_FILE=/etc/gravitas/nextcloud.env
+          CREDS_FILE=/etc/gravitas/nextcloud-admin-credentials
+
+          # Guard the shared VPS: Nextcloud is for normal team files, not a raw-video archive.
+          FREE_GB="$(df -BG --output=avail / | tail -1 | tr -dc '0-9')"
+          MEM_MB="$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)"
+          if [ "${FREE_GB:-0}" -lt 15 ]; then
+            echo "Refusing installation: at least 15 GB free disk is required. Found ${FREE_GB:-0} GB."
+            exit 1
+          fi
+          if [ "${MEM_MB:-0}" -lt 1800 ]; then
+            echo "Refusing installation: at least 1.8 GB RAM is required for this shared-server deployment. Found ${MEM_MB:-0} MB."
+            exit 1
+          fi
+
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            redis-server php-fpm php-cli php-pgsql php-gd php-curl php-mbstring php-intl \
+            php-bcmath php-gmp php-xml php-zip php-imagick php-apcu php-redis bzip2 curl \
+            certbot python3-certbot-nginx
+          sudo systemctl enable --now redis-server
+
+          sudo install -d -m 755 /etc/gravitas
+          if [ ! -f "$ENV_FILE" ]; then
+            DB_PASS="$(openssl rand -base64 36 | tr -d '\n' | tr '/+' 'Aa')"
+            ADMIN_PASS="$(openssl rand -base64 30 | tr -d '\n' | tr '/+' 'Bb')"
+            {
+              printf 'NEXTCLOUD_DB_PASSWORD=%s\n' "$DB_PASS"
+              printf 'NEXTCLOUD_ADMIN_PASSWORD=%s\n' "$ADMIN_PASS"
+            } | sudo tee "$ENV_FILE" >/dev/null
+            sudo chmod 600 "$ENV_FILE"
+          fi
+          set -a
+          # shellcheck disable=SC1090
+          source <(sudo cat "$ENV_FILE")
+          set +a
+
+          if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='nextcloud'" | grep -q 1; then
+            sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE ROLE nextcloud LOGIN PASSWORD '$NEXTCLOUD_DB_PASSWORD';"
+          else
+            sudo -u postgres psql -v ON_ERROR_STOP=1 -c "ALTER ROLE nextcloud PASSWORD '$NEXTCLOUD_DB_PASSWORD';"
+          fi
+          if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='nextcloud'" | grep -q 1; then
+            sudo -u postgres createdb -O nextcloud nextcloud
+          fi
+
+          if [ ! -f "$APP/occ" ]; then
+            TMP="$(mktemp -d)"
+            cd "$TMP"
+            curl -fsSLO "https://download.nextcloud.com/server/releases/nextcloud-${VERSION}.tar.bz2"
+            curl -fsSLO "https://download.nextcloud.com/server/releases/nextcloud-${VERSION}.tar.bz2.sha256"
+            sha256sum -c "nextcloud-${VERSION}.tar.bz2.sha256"
+            tar -xjf "nextcloud-${VERSION}.tar.bz2"
+            sudo rm -rf "$APP"
+            sudo mv nextcloud "$APP"
+            rm -rf "$TMP"
+          fi
+
+          sudo install -d -o www-data -g www-data -m 750 "$DATA"
+          sudo chown -R www-data:www-data "$APP" "$DATA"
+
+          PHP_BIN="$(command -v php)"
+          PHP_SOCK="$(find /run/php -maxdepth 1 -type s -name 'php*-fpm.sock' | sort | tail -1)"
+          if [ -z "$PHP_SOCK" ]; then
+            echo "PHP-FPM socket not found."
+            exit 1
+          fi
+
+          if ! sudo -u www-data "$PHP_BIN" "$APP/occ" status --output=json 2>/dev/null | grep -q '"installed":true'; then
+            sudo -u www-data "$PHP_BIN" "$APP/occ" maintenance:install \
+              --database=pgsql \
+              --database-name=nextcloud \
+              --database-user=nextcloud \
+              --database-pass="$NEXTCLOUD_DB_PASSWORD" \
+              --admin-user=gravitas-admin \
+              --admin-pass="$NEXTCLOUD_ADMIN_PASSWORD" \
+              --data-dir="$DATA"
+          fi
+
+          sudo -u www-data "$PHP_BIN" "$APP/occ" config:system:set trusted_domains 0 --value="$DOMAIN"
+          sudo -u www-data "$PHP_BIN" "$APP/occ" config:system:set overwrite.cli.url --value="https://$DOMAIN"
+          sudo -u www-data "$PHP_BIN" "$APP/occ" config:system:set default_phone_region --value=DE
+          sudo -u www-data "$PHP_BIN" "$APP/occ" config:system:set memcache.local --value='\\OC\\Memcache\\APCu'
+          sudo -u www-data "$PHP_BIN" "$APP/occ" config:system:set memcache.locking --value='\\OC\\Memcache\\Redis'
+          sudo -u www-data "$PHP_BIN" "$APP/occ" config:system:set redis host --value=127.0.0.1
+          sudo -u www-data "$PHP_BIN" "$APP/occ" config:system:set redis port --type=integer --value=6379
+          sudo -u www-data "$PHP_BIN" "$APP/occ" background:cron
+
+          printf 'username=gravitas-admin\npassword=%s\nurl=https://%s/\n' "$NEXTCLOUD_ADMIN_PASSWORD" "$DOMAIN" | sudo tee "$CREDS_FILE" >/dev/null
+          sudo chmod 600 "$CREDS_FILE"
+
+          sudo tee /etc/systemd/system/gravitas-nextcloud-cron.service >/dev/null <<UNIT
+          [Unit]
+          Description=Gravitas Nextcloud background jobs
+          [Service]
+          Type=oneshot
+          User=www-data
+          ExecStart=$PHP_BIN -f $APP/cron.php
+          UNIT
+          sudo tee /etc/systemd/system/gravitas-nextcloud-cron.timer >/dev/null <<'TIMER'
+          [Unit]
+          Description=Run Gravitas Nextcloud background jobs every 5 minutes
+          [Timer]
+          OnBootSec=5min
+          OnUnitActiveSec=5min
+          AccuracySec=30s
+          Persistent=true
+          [Install]
+          WantedBy=timers.target
+          TIMER
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now gravitas-nextcloud-cron.timer
+
+          sudo tee /etc/nginx/sites-available/gravitas-nextcloud >/dev/null <<NGINX
+          server {
+            listen 80;
+            server_name $DOMAIN;
+            root $APP;
+            index index.php index.html /index.php\$request_uri;
+            client_max_body_size 512M;
+            client_body_timeout 300s;
+            fastcgi_buffers 64 4K;
+            add_header Referrer-Policy "no-referrer" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Permitted-Cross-Domain-Policies "none" always;
+            add_header X-Robots-Tag "noindex, nofollow" always;
+
+            location = /robots.txt { allow all; log_not_found off; access_log off; }
+            location ^~ /.well-known {
+              location = /.well-known/carddav { return 301 /remote.php/dav/; }
+              location = /.well-known/caldav { return 301 /remote.php/dav/; }
+              try_files \$uri \$uri/ =404;
+            }
+            location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)(?:\$|/) { return 404; }
+            location ~ ^/(?:\.|autotest|occ|issue|indie|db_|console) { return 404; }
+            location / { try_files \$uri \$uri/ /index.php\$request_uri; }
+            location ~ \.php(?:\$|/) {
+              rewrite ^/(?!index|remote|public|cron|core/ajax/update|status|ocs/v[12]|updater/.+|ocs-provider/.+) /index.php\$request_uri;
+              fastcgi_split_path_info ^(.+?\.php)(/.*)\$;
+              set \$path_info \$fastcgi_path_info;
+              try_files \$fastcgi_script_name =404;
+              include fastcgi_params;
+              fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+              fastcgi_param PATH_INFO \$path_info;
+              fastcgi_param HTTPS on;
+              fastcgi_pass unix:$PHP_SOCK;
+              fastcgi_intercept_errors on;
+              fastcgi_request_buffering off;
+            }
+            location ~ \.(?:css|js|mjs|svg|gif|png|jpg|jpeg|ico|wasm|tflite|map|ogg|flac)\$ {
+              try_files \$uri /index.php\$request_uri;
+              expires 6M;
+              access_log off;
+            }
+            location ~ \.(?:woff2?|eot|otf)\$ {
+              try_files \$uri /index.php\$request_uri;
+              expires 7d;
+              access_log off;
+            }
+          }
+          NGINX
+          sudo ln -sfn /etc/nginx/sites-available/gravitas-nextcloud /etc/nginx/sites-enabled/gravitas-nextcloud
+          sudo nginx -t
+          sudo systemctl reload nginx
+
+          if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+            sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect
+          fi
+
+          sudo -u www-data "$PHP_BIN" "$APP/occ" status
+          curl -fsS "https://$DOMAIN/status.php" | grep -q '"installed":true'
+          echo nextcloud-ready
+          REMOTE
