@@ -1,0 +1,20 @@
+{% extends 'hq/base.html' %}
+{% block title %}Team · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead"><div><span class="hq-eyebrow">Team & Permissions</span><h1>Access is explicit.</h1><p>Section-level permissions are independent from project membership. Roles can stay human-readable while access remains granular.</p></div></div>
+<div class="hq-teamgrid">
+{% for member in members %}
+  <section class="hq-card hq-member">
+    <div class="hq-memberhead"><div><span class="hq-avatar">{{ member.user.first_name|first|default:member.user.email|first|upper }}</span><div><h2>{{ member }}</h2><p>{{ member.role_label|default:member.title|default:'Team member' }} · {{ member.get_status_display }}</p></div></div></div>
+    <form method="post" action="{% url 'hq:team_access' member.pk %}" class="hq-accessform">{% csrf_token %}
+      {% for section, section_label in sections %}
+        <label><span>{{ section_label }}</span><select name="{{ section }}">
+          {% for value, label in levels %}<option value="{{ value }}" {% for row in member.section_access.all %}{% if row.section == section and row.level == value %}selected{% endif %}{% endfor %}>{{ label }}</option>{% endfor %}
+        </select></label>
+      {% endfor %}
+      <button class="hq-btn hq-btn-soft" type="submit">Save access</button>
+    </form>
+  </section>
+{% empty %}<div class="hq-empty">No team members yet. Add a TeamMember in Django Admin to bootstrap the first team account.</div>{% endfor %}
+</div>
+{% endblock %}

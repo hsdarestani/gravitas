@@ -1,0 +1,30 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Sign in · Gravitas HQ</title>
+  <link rel="stylesheet" href="{% static 'hq/hq.css' %}">
+  <link rel="stylesheet" href="{% static 'hq/login.css' %}">
+</head>
+<body class="hq-loginbody">
+  <main class="hq-loginwrap">
+    <section class="hq-logincard">
+      <div class="hq-loginbrand"><span class="hq-brand-mark">G+</span><div><strong>Gravitas HQ</strong><small>Internal operating system</small></div></div>
+      <span class="hq-eyebrow">Team access only</span>
+      <h1>Sign in to HQ</h1>
+      <p>Public Gravitas accounts do not automatically have HQ access. Your team membership and permissions are checked after sign-in.</p>
+      {% if form.errors %}<div class="hq-form-errors">Email/username or password is incorrect.</div>{% endif %}
+      <form method="post" class="hq-form">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ next|default:'/hq/' }}">
+        <div class="hq-field"><label for="id_username">Username or email</label><input class="hq-input" type="text" name="username" autofocus autocomplete="username" required id="id_username"></div>
+        <div class="hq-field"><label for="id_password">Password</label><input class="hq-input" type="password" name="password" autocomplete="current-password" required id="id_password"></div>
+        <button class="hq-btn" type="submit">Sign in</button>
+      </form>
+      <a class="hq-loginback" href="/">← Back to public site</a>
+    </section>
+  </main>
+</body>
+</html>

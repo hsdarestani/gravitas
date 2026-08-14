@@ -1,0 +1,20 @@
+{% extends 'hq/base.html' %}
+{% block title %}Strategy · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead">
+  <div><span class="hq-eyebrow">Strategy</span><h1>Documents that guide execution.</h1><p>Roadmap, principles, audience, content thesis, goals and the decisions behind them.</p></div>
+  <a class="hq-btn" href="{% url 'hq:strategy_new' %}">New document</a>
+</div>
+<div class="hq-docgrid hq-docgrid-wide">
+  {% for doc in documents %}
+    <a class="hq-doc" href="{% url 'hq:strategy_edit' doc.pk %}">
+      <div class="hq-doc-top"><span>{{ doc.get_kind_display }}</span><span class="hq-pill">{{ doc.get_status_display }}</span></div>
+      <strong>{{ doc.title }}</strong>
+      <p>{{ doc.summary|default:'No summary yet.'|truncatechars:150 }}</p>
+      <small>v{{ doc.version }} · {{ doc.updated_at|date:'M j, Y' }}{% if doc.owner %} · {{ doc.owner }}{% endif %}</small>
+    </a>
+  {% empty %}
+    <div class="hq-empty">No strategy documents yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

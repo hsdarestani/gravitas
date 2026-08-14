@@ -1,0 +1,41 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{% block title %}Gravitas HQ{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'hq/hq.css' %}">
+</head>
+<body>
+<div class="hq-shell">
+  <aside class="hq-sidebar">
+    <a class="hq-brand" href="{% url 'hq:dashboard' %}">
+      <span class="hq-brand-mark">G+</span>
+      <span><strong>Gravitas HQ</strong><small>Internal operating system</small></span>
+    </a>
+    <nav class="hq-nav">
+      {% for item in hq_nav %}
+        {% if item.allowed %}<a href="{% url item.url %}" class="{% if hq_active == item.key %}is-active{% endif %}">{{ item.label }}</a>{% endif %}
+      {% endfor %}
+    </nav>
+    <div class="hq-sidebar-foot">
+      {% if hq_member %}<div class="hq-user"><strong>{{ hq_member }}</strong><span>{{ hq_member.role_label|default:hq_member.title|default:'Team member' }}</span></div>{% else %}<div class="hq-user"><strong>{{ request.user }}</strong><span>Superuser</span></div>{% endif %}
+      <a href="/">Public site ↗</a>
+      <a href="/admin/">Django admin ↗</a>
+      <form method="post" action="{% url 'hq:logout' %}">{% csrf_token %}<button type="submit" style="background:none;border:0;padding:0;color:#909aa4;cursor:pointer">Sign out</button></form>
+    </div>
+  </aside>
+  <main class="hq-main">
+    <header class="hq-topbar">
+      <button class="hq-mobile-menu" type="button" onclick="document.body.classList.toggle('hq-nav-open')">☰</button>
+      <div><span class="hq-kicker">INTERNAL · CONFIDENTIAL</span></div>
+      <div class="hq-date">{% now "M j, Y" %}</div>
+    </header>
+    {% if messages %}<div class="hq-messages">{% for message in messages %}<div class="hq-message">{{ message }}</div>{% endfor %}</div>{% endif %}
+    <div class="hq-page">{% block content %}{% endblock %}</div>
+  </main>
+</div>
+</body>
+</html>
