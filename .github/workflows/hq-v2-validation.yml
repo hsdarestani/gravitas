@@ -69,6 +69,9 @@ jobs:
       - name: Run Django checks
         run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin check
 
+      - name: Build static manifest
+        run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin collectstatic --noinput
+
       - name: Run HQ V2 tests
         shell: bash
         run: |
@@ -77,9 +80,6 @@ jobs:
           code=$?
           tail -n 100 /tmp/hq-v2-tests.log
           exit "$code"
-
-      - name: Verify static collection
-        run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin collectstatic --noinput
 
       - name: Verify roadmap and no heavy upload field
         run: |
