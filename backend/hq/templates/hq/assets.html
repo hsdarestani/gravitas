@@ -2,42 +2,38 @@
 {% block title %}Assets · Gravitas HQ{% endblock %}
 {% block content %}
 <div class="hq-pagehead">
-  <div class="hq-pagehead-main"><span class="hq-eyebrow">Create</span><h1>Assets are references, not server uploads.</h1><p>HQ stores where a file lives, what it is, which project it belongs to and whether it is working, in review or final. Large media stays off the Gravitas application server.</p></div>
-  <div class="hq-pagehead-actions"><button class="hq-btn hq-btn-soft" type="button" data-help-open>Storage guide</button></div>
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">Create</span><h1>Assets</h1></div>
+  <div class="hq-pagehead-actions"><button class="hq-icon-btn" type="button" data-help-open aria-label="Open storage guide" title="Storage guide"><svg><use href="#i-help"></use></svg></button></div>
 </div>
 
-<div class="hq-guide-strip"><div><strong>Recommended default for video</strong><p>Use Frame.io or Google Drive for working files and review. Use YouTube/Vimeo for published video. Use R2/S3 only when we actually need object storage. HQ keeps the reference.</p></div><button class="hq-btn hq-btn-text" type="button" data-help-open>Which provider should I use?</button></div>
-
 <form class="hq-filterbar" method="get">
-  <div class="hq-filter-search"><svg aria-hidden="true"><use href="#i-search"></use></svg><label class="hq-visually-hidden" for="asset-q">Search assets</label><input class="hq-input" id="asset-q" type="search" name="q" value="{{ query }}" placeholder="Search asset title, version or notes…"></div>
+  <div class="hq-filter-search"><svg aria-hidden="true"><use href="#i-search"></use></svg><label class="hq-visually-hidden" for="asset-q">Search assets</label><input class="hq-input" id="asset-q" type="search" name="q" value="{{ query }}" placeholder="Search…"></div>
   <label class="hq-visually-hidden" for="asset-provider">Filter by provider</label>
-  <select class="hq-input" id="asset-provider" name="provider" data-auto-submit><option value="">All providers</option>{% for value,label in providers %}<option value="{{ value }}" {% if selected_provider == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <select class="hq-input" id="asset-provider" name="provider" data-auto-submit><option value="">Provider</option>{% for value,label in providers %}<option value="{{ value }}" {% if selected_provider == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   <label class="hq-visually-hidden" for="asset-status">Filter by status</label>
-  <select class="hq-input" id="asset-status" name="status" data-auto-submit><option value="">All statuses</option>{% for value,label in asset_statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-  <button class="hq-btn hq-btn-soft" type="submit">Filter</button>
+  <select class="hq-input" id="asset-status" name="status" data-auto-submit><option value="">Status</option>{% for value,label in asset_statuses %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <button class="hq-btn hq-btn-soft" type="submit">Apply</button>
   {% if query or selected_provider or selected_status %}<a class="hq-btn hq-btn-text" href="{% url 'hq:assets' %}">Clear</a>{% endif %}
 </form>
 
 <div class="hq-grid {% if can_edit_assets %}hq-grid-sidebar{% endif %}">
   <section class="hq-card">
-    <div class="hq-cardhead"><div><span class="hq-eyebrow">Library</span><h2>External asset references</h2><p>Open the real file at its provider. HQ never proxies or duplicates the binary.</p></div>{% if not can_edit_assets %}<span class="hq-pill">View only</span>{% endif %}</div>
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Library</span><h2>References</h2></div>{% if not can_edit_assets %}<span class="hq-pill">View only</span>{% endif %}</div>
     <div class="hq-assetgrid">
       {% for asset in assets %}
         <a class="hq-asset" href="{{ asset.url }}" target="_blank" rel="noopener">
           <div class="hq-asset-tags"><span class="hq-pill">{{ asset.get_provider_display }}</span><span class="hq-pill">{{ asset.get_asset_type_display }}</span><span class="hq-pill hq-pill-{{ asset.status }}">{{ asset.get_status_display }}</span></div>
           <strong>{{ asset.title }}</strong>
-          <p>{% if asset.project %}{{ asset.project.name }}{% else %}Global asset{% endif %}{% if asset.version %} · {{ asset.version }}{% endif %}</p>
-          <small>Updated {{ asset.updated_at|date:'M j, Y' }}{% if asset.created_by %} · {{ asset.created_by }}{% endif %}</small>
+          <small>{{ asset.updated_at|date:'M j, Y' }}{% if asset.version %} · {{ asset.version }}{% endif %}</small>
         </a>
-      {% empty %}<div class="hq-empty"><strong>No matching asset references.</strong><p>{% if can_edit_assets %}Add the first external link instead of uploading a large file to this server.{% else %}No assets match the current filters.{% endif %}</p></div>{% endfor %}
+      {% empty %}<div class="hq-empty"><strong>No assets.</strong></div>{% endfor %}
     </div>
   </section>
 
   {% if can_edit_assets %}
   <aside class="hq-card hq-card-raised">
-    <div class="hq-cardhead"><div><span class="hq-eyebrow">Attach</span><h2>External asset</h2><p>Paste the provider URL and connect it to a project or content production.</p></div></div>
-    <form method="post" class="hq-form">{% csrf_token %}{% for field in form %}<div class="hq-field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endfor %}<div class="hq-form-actions"><button class="hq-btn" type="submit">Attach reference</button></div></form>
-    <div class="hq-note"><strong>Storage policy</strong><p>Raw footage, project files and long videos must not be stored on the application server. HQ records metadata and links only.</p></div>
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Attach</span><h2>Reference</h2></div></div>
+    <form method="post" class="hq-form">{% csrf_token %}{% for field in form %}<div class="hq-field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endfor %}<div class="hq-form-actions"><button class="hq-btn" type="submit"><svg><use href="#i-plus"></use></svg>Attach</button></div></form>
   </aside>
   {% endif %}
 </div>
@@ -45,14 +41,7 @@
 
 {% block help_title %}Asset storage policy{% endblock %}
 {% block help %}
-<p>The Strato application server should run the website, database and HQ — not become a video archive.</p>
-<h3>Recommended providers</h3>
-<div class="hq-storage-policy">
-  <div class="hq-storage-provider"><strong>Frame.io</strong><span>Best for video review, version feedback and editorial approval.</span></div>
-  <div class="hq-storage-provider"><strong>Google Drive</strong><span>Good default for shared working files, documents and exports.</span></div>
-  <div class="hq-storage-provider"><strong>YouTube / Vimeo</strong><span>Published or review video when streaming is the main use case.</span></div>
-  <div class="hq-storage-provider"><strong>Cloudflare R2 / S3</strong><span>Use when we need scalable object storage or programmatic file delivery.</span></div>
-</div>
-<h3>Status</h3><p><strong>Working</strong> is still being edited. <strong>Review</strong> needs feedback. <strong>Approved</strong> passed review. <strong>Final</strong> is the canonical deliverable.</p>
-<div class="hq-help-tip">HQ should help the team find the correct file and version. It should not copy the file just to make it “feel centralized”.</div>
+<p>HQ stores links and metadata, not large media files.</p>
+<h3>Use</h3>
+<div class="hq-storage-policy"><div class="hq-storage-provider"><strong>Frame.io</strong><span>Video review.</span></div><div class="hq-storage-provider"><strong>Google Drive</strong><span>Shared working files.</span></div><div class="hq-storage-provider"><strong>YouTube / Vimeo</strong><span>Published or review video.</span></div><div class="hq-storage-provider"><strong>R2 / S3</strong><span>Object storage when needed.</span></div></div>
 {% endblock %}
