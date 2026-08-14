@@ -81,12 +81,22 @@
 
   [].forEach.call(document.querySelectorAll('.poll'), function (poll) {
     var opts = [].slice.call(poll.querySelectorAll('.poll__opt'));
-    var seeds = opts.map(function (o) { return parseFloat(o.dataset.share || '0'); });
-    var total = seeds.reduce(function (a, b) { return a + b; }, 0) || 1;
-    opts.forEach(function (o) { o.addEventListener('click', function () { poll.classList.add('is-voted'); opts.forEach(function (x) { x.setAttribute('aria-pressed', String(x === o)); }); opts.forEach(function (x, k) { var pct = Math.round(seeds[k] / total * 100); x.querySelector('.poll__bar').style.width = pct + '%'; x.querySelector('.poll__pct').textContent = pct + '%'; }); }); });
+    opts.forEach(function (o) {
+      o.removeAttribute('data-share');
+      o.addEventListener('click', function () {
+        poll.classList.add('is-voted');
+        opts.forEach(function (x) {
+          x.setAttribute('aria-pressed', String(x === o));
+          var bar = x.querySelector('.poll__bar');
+          var pct = x.querySelector('.poll__pct');
+          if (bar) bar.style.width = '0';
+          if (pct) pct.textContent = x === o ? 'Your vote' : '';
+        });
+      });
+    });
   });
 
-  [].forEach.call(document.querySelectorAll('.g-inline-form[data-demo-form]'), function (f) {
+  [].forEach.call(document.querySelectorAll('.g-inline-form[data-newsletter-form]'), function (f) {
     f.addEventListener('submit', function (e) {
       e.preventDefault();
       var note = f.parentElement && f.parentElement.querySelector('[data-form-note]');
@@ -130,7 +140,7 @@
   function authMessage(error) {
     if (!error) return 'Something went wrong. Please try again.';
     if (error.error === 'invalid_email') return 'Please enter a valid email address.';
-    if (error.error === 'password_too_short') return 'Use a password with at least eight characters.';
+    if (error.error === 'password_too_short') return 'Use a password with at least ten characters.';
     if (error.error === 'account_exists') return 'An account with this email already exists.';
     if (error.error === 'invalid_credentials') return 'Email or password is incorrect.';
     return 'Something went wrong. Please try again.';
@@ -163,9 +173,6 @@
         .catch(function (err) { if (authNote) authNote.textContent = authMessage(err); })
         .finally(function () { if (button) button.disabled = false; });
     });
-  }
-  if (resetForm) {
-    resetForm.addEventListener('submit', function (e) { e.preventDefault(); if (authNote) authNote.textContent = 'Password-reset email is being enabled in the system-email step.'; });
   }
 
   fetch('/api/auth/me/', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
