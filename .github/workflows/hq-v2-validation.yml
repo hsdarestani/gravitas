@@ -70,7 +70,13 @@ jobs:
         run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin check
 
       - name: Run HQ V2 tests
-        run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin test hq --verbosity 2
+        shell: bash
+        run: |
+          set +e
+          PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin test hq --verbosity 1 > /tmp/hq-v2-tests.log 2>&1
+          code=$?
+          tail -n 100 /tmp/hq-v2-tests.log
+          exit "$code"
 
       - name: Verify static collection
         run: PYTHONPATH="$GITHUB_WORKSPACE/backend" django-admin collectstatic --noinput
