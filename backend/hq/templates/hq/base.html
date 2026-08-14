@@ -24,6 +24,7 @@
       {% if hq_member %}<div class="hq-user"><strong>{{ hq_member }}</strong><span>{{ hq_member.role_label|default:hq_member.title|default:'Team member' }}</span></div>{% else %}<div class="hq-user"><strong>{{ request.user }}</strong><span>Superuser</span></div>{% endif %}
       <a href="/">Public site ↗</a>
       <a href="/admin/">Django admin ↗</a>
+      <form method="post" action="{% url 'hq:logout' %}">{% csrf_token %}<button type="submit" style="background:none;border:0;padding:0;color:#909aa4;cursor:pointer">Sign out</button></form>
     </div>
   </aside>
   <main class="hq-main">
