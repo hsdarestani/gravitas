@@ -1,0 +1,86 @@
+name: Gravitas HQ V2 Validation
+
+on:
+  push:
+    branches: [hq-v2-material]
+    paths:
+      - 'backend/hq/**'
+      - 'backend/gravitas_backend/**'
+      - '.github/workflows/hq-v2-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gravitas_hq_v2_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d gravitas_hq_v2_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DJANGO_SETTINGS_MODULE: gravitas_backend.settings
+      DJANGO_SECRET_KEY: hq-v2-ci-secret-not-for-production
+      DJANGO_DEBUG: '0'
+      DJANGO_DB_NAME: gravitas_hq_v2_ci
+      DJANGO_DB_USER: postgres
+      DJANGO_DB_PASSWORD: postgres
+      DJANGO_DB_HOST: 127.0.0.1
+      DJANGO_DB_PORT: '5432'
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: python -m pip install --disable-pip-version-check -r backend/requirements.txt
+
+      - name: Compile backend
+        run: python -m compileall -q backend
+
+      - name: Check migration drift
+        working-directory: backend
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Apply migrations
+        working-directory: backend
+        run: python manage.py migrate --noinput
+
+      - name: Run Django checks
+        working-directory: backend
+        run: python manage.py check
+
+      - name: Run HQ V2 tests
+        working-directory: backend
+        run: python manage.py test hq --verbosity 2
+
+      - name: Verify static collection
+        working-directory: backend
+        run: python manage.py collectstatic --noinput
+
+      - name: Verify roadmap and no heavy upload field
+        working-directory: backend
+        run: |
+          python manage.py shell -c "from hq.views import ROADMAP_URL; from hq.models import AssetReference; from django.db import models; assert ROADMAP_URL == 'https://gravitas-roadmap.pages.dev/'; assert not any(isinstance(f,(models.FileField,models.ImageField)) for f in AssetReference._meta.get_fields()); print('HQ V2 policy checks passed')"
