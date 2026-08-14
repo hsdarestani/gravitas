@@ -1,20 +1,35 @@
 {% extends 'hq/base.html' %}
 {% block title %}{{ title }} · Gravitas HQ{% endblock %}
 {% block content %}
-<div class="hq-pagehead"><div><span class="hq-eyebrow">{{ eyebrow }}</span><h1>{{ title }}</h1></div></div>
-<form method="post" class="hq-card hq-form">
+<div class="hq-pagehead">
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">{{ eyebrow }}</span><h1>{{ title }}</h1>{% if description %}<p>{{ description }}</p>{% endif %}</div>
+  <div class="hq-pagehead-actions"><button class="hq-btn hq-btn-soft" type="button" data-help-open>Form guide</button></div>
+</div>
+
+<div class="hq-guide-strip"><div><strong>Keep records understandable to someone else.</strong><p>Use specific titles, clear ownership and enough context that a teammate can understand the record without asking what it means.</p></div><button class="hq-btn hq-btn-text" type="button" data-help-open>Writing tips</button></div>
+
+<form method="post" class="hq-card hq-form" novalidate>
   {% csrf_token %}
   {{ form.non_field_errors }}
   <div class="hq-formgrid">
     {% for field in form %}
-      <div class="hq-field">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      <div class="hq-field {% if field.name == 'description' or field.name == 'summary' or field.name == 'body' %}hq-field-wide{% endif %}">
+        {{ field.label_tag }}
         {{ field }}
-        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        {% if field.help_text %}<small id="{{ field.id_for_label }}-help">{{ field.help_text }}</small>{% endif %}
         {{ field.errors }}
       </div>
     {% endfor %}
   </div>
   <div class="hq-form-actions"><button class="hq-btn" type="submit">Save</button></div>
 </form>
+{% endblock %}
+
+{% block help_title %}How to fill this record{% endblock %}
+{% block help %}
+<p>The goal is not to fill every field. The goal is to leave enough durable context that the team can act without relying on private memory or chat history.</p>
+<h3>Good titles</h3><p>Use concrete names that still make sense in a list six months from now. Avoid titles like “New thing”, “Research”, or “Fix this”.</p>
+<h3>Ownership</h3><p>An owner is accountable for moving the record forward. It does not mean they must do every task themselves.</p>
+<h3>Descriptions</h3><p>Explain the outcome, important constraints and what “done” means. Keep execution details in tasks rather than turning the description into a checklist.</p>
+<div class="hq-help-tip">If a field does not help a teammate make a decision or perform work, leaving it blank is better than adding filler.</div>
 {% endblock %}
