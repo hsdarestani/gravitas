@@ -1,16 +1,49 @@
 {% extends 'hq/base.html' %}
 {% block title %}{{ production.working_title }} · Content Studio{% endblock %}
 {% block content %}
-<div class="hq-pagehead"><div><span class="hq-eyebrow">Content Studio · {{ production.get_stage_display }}</span><h1>{{ production.working_title }}</h1><p>{{ production.central_question|default:'Define the central question before production begins.' }}</p></div><a class="hq-btn hq-btn-soft" href="{% url 'hq:project' production.project.slug %}">Project board</a></div>
-<div class="hq-stagebar">
+<div class="hq-pagehead">
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">Content Studio · {{ production.get_stage_display }}</span><h1>{{ production.working_title }}</h1><p>{{ production.central_question|default:'Define the central question before the team invests heavily in production.' }}</p></div>
+  <div class="hq-pagehead-actions"><a class="hq-btn hq-btn-soft" href="{% url 'hq:project' production.project.slug %}">Project board</a><button class="hq-btn hq-btn-soft" type="button" data-help-open>Stage guide</button></div>
+</div>
+
+<div class="hq-stagebar" aria-label="Content production stages">
   {% for value, label in production.Stage.choices %}<span class="{% if production.stage == value %}is-current{% endif %}">{{ label }}</span>{% endfor %}
 </div>
+
+<div class="hq-metrics">
+  <div class="hq-metric hq-metric-accent"><span>Current stage</span><strong style="font-size:21px">{{ production.get_stage_display }}</strong><small>Move forward only when this stage is complete</small></div>
+  <div class="hq-metric"><span>Claims</span><strong>{{ claim_count }}</strong><small>Evidence-map claims linked to this production</small></div>
+  <div class="hq-metric"><span>Assets</span><strong>{{ asset_count }}</strong><small>External media/file references</small></div>
+  <div class="hq-metric"><span>Public CMS</span><strong style="font-size:21px">{% if production.public_content %}Linked{% else %}Not linked{% endif %}</strong><small>{% if production.public_content %}{{ production.public_content.title|truncatechars:40 }}{% else %}Connect it when the companion page exists{% endif %}</small></div>
+</div>
+
 <form method="post" class="hq-card hq-form">{% csrf_token %}
-  <div class="hq-formgrid">{% for field in form %}<div class="hq-field {% if field.name == 'brief' or field.name == 'script' or field.name == 'scientific_notes' or field.name == 'distribution_notes' or field.name == 'postmortem' %}hq-field-wide{% endif %}"><label>{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endfor %}</div>
+  <div class="hq-cardhead"><div><span class="hq-eyebrow">Production workspace</span><h2>Editorial record</h2><p>Keep the durable editorial context here. Heavy media stays in external storage and is linked under Assets.</p></div></div>
+  <div class="hq-formgrid">
+    {% for field in form %}
+      <div class="hq-field {% if field.name == 'brief' or field.name == 'script' or field.name == 'scientific_notes' or field.name == 'distribution_notes' or field.name == 'postmortem' or field.name == 'central_question' %}hq-field-wide{% endif %}">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+  </div>
   {% if can_edit %}<div class="hq-form-actions"><button class="hq-btn" type="submit">Save production</button></div>{% endif %}
 </form>
+
 <div class="hq-grid hq-grid-2 hq-space-top">
-  <a class="hq-card hq-linkcard" href="{% url 'hq:research' %}"><span class="hq-eyebrow">Evidence</span><h2>Research library</h2><p>Sources and evidence mapping for claims.</p></a>
-  <a class="hq-card hq-linkcard" href="{% url 'hq:assets' %}"><span class="hq-eyebrow">Production assets</span><h2>External assets</h2><p>YouTube, Drive, Frame.io, Vimeo, R2/S3 and other references without filling this server.</p></a>
+  <a class="hq-card hq-linkcard" href="{% url 'hq:research' %}"><span class="hq-eyebrow">Evidence</span><h2>Open Research library</h2><p>Add papers, datasets and reports. Evidence stays reusable across more than one content project.</p></a>
+  <a class="hq-card hq-linkcard" href="{% url 'hq:assets' %}"><span class="hq-eyebrow">Production files</span><h2>Open Asset library</h2><p>Attach YouTube, Drive, Frame.io, Vimeo, R2/S3 and other external references without filling the application server.</p></a>
 </div>
+{% endblock %}
+
+{% block help_title %}How to work on this content piece{% endblock %}
+{% block help %}
+<p>The current stage is <strong>{{ production.get_stage_display }}</strong>. Focus on completing that stage rather than filling every field at once.</p>
+<h3>Before production starts</h3><p>The central question, brief and evidence should be strong enough that the team agrees what the piece is trying to explain and what it will not claim.</p>
+<h3>Scientific review</h3><p>Use scientific notes to record caveats, disputed claims and required revisions. “Approved” should mean the argument is defensible, not simply that someone read it.</p>
+<h3>Files and video</h3><p>Do not upload raw video to the Gravitas application server. Keep large media on Frame.io, Drive, YouTube, Vimeo or object storage and create an Asset reference.</p>
+<h3>After publishing</h3><p>Use Distribution for channel-specific execution and Post-mortem to record what the team learned from audience behaviour and production friction.</p>
+<div class="hq-help-tip">The CMS item is the public output. Content Studio is the internal record of how that output was researched, produced and reviewed.</div>
 {% endblock %}
