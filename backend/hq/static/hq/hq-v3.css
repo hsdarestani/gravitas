@@ -11,7 +11,13 @@
 .hq-metric small,
 .hq-doc p,
 .hq-objective p,
-.hq-master-roadmap > p{
+.hq-master-roadmap > p,
+.hq-production p,
+.hq-asset p,
+.hq-note p,
+.hq-permission-key span,
+.hq-memberidentity p,
+.hq-field > small{
   display:none!important;
 }
 
@@ -194,6 +200,17 @@
 .hq-doc strong{font-size:14px}
 .hq-doc small{font-size:10px}
 
+.hq-production{border-radius:20px}
+.hq-production h2{font-size:16px;line-height:1.25;margin-bottom:10px}
+.hq-production-meta{font-size:10px}
+.hq-source{border-radius:17px}
+.hq-source-kind{width:42px;height:42px;border-radius:13px;display:grid;place-items:center}
+.hq-asset{border-radius:18px}
+.hq-asset small{font-size:10px}
+.hq-permission-key{gap:8px}
+.hq-permission-key>div{min-height:72px;border-radius:16px;display:flex;align-items:center;justify-content:center;text-align:center}
+.hq-permission-key strong{font-size:12px}
+
 .hq-tablewrap{border-radius:22px}
 .hq-table th{font-size:9px;letter-spacing:.09em;text-transform:uppercase}
 .hq-table td{padding-top:14px;padding-bottom:14px}
@@ -202,7 +219,7 @@
 .hq-input{min-height:40px}
 
 /* Keep long-form teaching where it belongs: the help drawer. */
-.hq-help-body p,.hq-help-body li,.hq-help-tip{display:block!important}
+.hq-help-body p,.hq-help-body li,.hq-help-tip,.hq-help-body .hq-storage-provider span{display:block!important}
 .hq-help-body{font-size:13px}
 
 @media (max-width:1180px){
