@@ -1,16 +1,56 @@
 {% extends 'hq/base.html' %}
 {% block title %}Content Studio · Gravitas HQ{% endblock %}
 {% block content %}
-<div class="hq-pagehead"><div><span class="hq-eyebrow">Content Studio</span><h1>From question to publication.</h1><p>Topic scoring, brief, evidence, script, scientific review, production, companion page, distribution and post-mortem.</p></div></div>
+<div class="hq-pagehead">
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">Create</span><h1>Content Studio is the editorial workflow.</h1><p>Every serious Gravitas piece should move through the same visible sequence: question, evidence, script, review, production, publication and learning.</p></div>
+  <div class="hq-pagehead-actions"><button class="hq-btn hq-btn-soft" type="button" data-help-open>Pipeline guide</button></div>
+</div>
+
+<div class="hq-guide-strip"><div><strong>Where do I create new content?</strong><p>Create a <strong>Content project</strong> first. Open that project and choose “Start Content Studio”. This keeps editorial work connected to ownership and tasks.</p></div><a class="hq-btn hq-btn-text" href="{% url 'hq:projects' %}">Go to Projects</a></div>
+
+{% if stage_summary %}
+  <div class="hq-stage-summary">
+    <a href="{% url 'hq:content' %}"><span>All</span></a>
+    {% for row in stage_summary %}<a href="?stage={{ row.value }}"><span>{{ row.label }}</span><strong>{{ row.count }}</strong></a>{% endfor %}
+  </div>
+{% endif %}
+
+<form class="hq-filterbar" method="get">
+  <div class="hq-filter-search"><svg aria-hidden="true"><use href="#i-search"></use></svg><label class="hq-visually-hidden" for="content-q">Search content</label><input class="hq-input" id="content-q" type="search" name="q" value="{{ query }}" placeholder="Search title or central question…"></div>
+  <label class="hq-visually-hidden" for="content-stage">Filter by stage</label>
+  <select class="hq-input" id="content-stage" name="stage" data-auto-submit><option value="">All stages</option>{% for value,label in stages %}<option value="{{ value }}" {% if selected_stage == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <button class="hq-btn hq-btn-soft" type="submit">Filter</button>
+  {% if query or selected_stage %}<a class="hq-btn hq-btn-text" href="{% url 'hq:content' %}">Clear</a>{% endif %}
+</form>
+
 <div class="hq-pipeline">
 {% for item in productions %}
   <a class="hq-production" href="{% url 'hq:content_edit' item.pk %}">
     <div class="hq-production-stage">{{ item.get_stage_display }}</div>
     <h2>{{ item.working_title }}</h2>
-    <p>{{ item.central_question|default:'Central question not defined yet.'|truncatechars:160 }}</p>
+    <p>{{ item.central_question|default:'Central question not defined yet. Define it before committing production.'|truncatechars:170 }}</p>
     <div class="hq-production-meta"><span>{{ item.project.name }}</span><span>{% if item.planned_publish_at %}{{ item.planned_publish_at|date:'M j, Y' }}{% else %}No publish date{% endif %}</span></div>
-    {% if item.public_content %}<span class="hq-badge">CMS linked</span>{% endif %}
+    {% if item.public_content %}<span class="hq-badge hq-pill-active">CMS linked</span>{% endif %}
   </a>
-{% empty %}<div class="hq-empty">No content production records yet. Create a Content project first, then open it and start Content Studio.</div>{% endfor %}
+{% empty %}<div class="hq-empty"><strong>No content matches this view.</strong><p>Create a Content project first, then start its Content Studio workflow from the project page.</p><a class="hq-btn hq-btn-soft" href="{% url 'hq:projects' %}">Open Projects</a></div>{% endfor %}
 </div>
+{% endblock %}
+
+{% block help_title %}The Gravitas content pipeline{% endblock %}
+{% block help %}
+<p>Content Studio is not a generic CMS. It manages the internal work required before something deserves to be published.</p>
+<h3>The stages</h3>
+<ol>
+  <li><strong>Idea:</strong> interesting question, not yet committed.</li>
+  <li><strong>Topic score:</strong> decide whether it is worth the team’s time.</li>
+  <li><strong>Brief:</strong> audience, angle, promise, scope and structure.</li>
+  <li><strong>Evidence map:</strong> claims are connected to credible sources.</li>
+  <li><strong>Script:</strong> narrative draft.</li>
+  <li><strong>Scientific review:</strong> challenge claims, caveats and framing.</li>
+  <li><strong>Production:</strong> recording, edit, graphics and media.</li>
+  <li><strong>Companion page:</strong> website material, sources and interactive elements.</li>
+  <li><strong>Distribution:</strong> YouTube, Shorts, newsletter and community.</li>
+  <li><strong>Post-mortem:</strong> record what the team learned.</li>
+</ol>
+<div class="hq-help-tip">Do not move a piece forward just because time passed. The stage should communicate what is actually complete.</div>
 {% endblock %}
