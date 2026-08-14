@@ -1,23 +1,105 @@
 {% extends 'hq/base.html' %}
-{% block title %}Command Center · Gravitas HQ{% endblock %}
+{% block title %}Overview · Gravitas HQ{% endblock %}
 {% block content %}
 <div class="hq-pagehead">
-  <div><span class="hq-eyebrow">Command Center</span><h1>What needs attention now?</h1><p>Projects, editorial production and execution in one place.</p></div>
+  <div class="hq-pagehead-main">
+    <span class="hq-eyebrow">Command center</span>
+    <h1>Know what matters next.</h1>
+    <p>Start here to see your work, blocked execution and the content moving through production. HQ should answer “what needs attention?” before it shows you everything else.</p>
+  </div>
+  <div class="hq-pagehead-actions">
+    <a class="hq-btn hq-btn-soft" href="{% url 'hq:projects' %}">Open projects</a>
+  </div>
 </div>
+
+<div class="hq-guide-strip">
+  <div><strong>New to HQ?</strong><p>Use Overview to orient yourself, Projects to execute work, and Content Studio for the editorial pipeline. Every section has its own guide.</p></div>
+  <button class="hq-btn hq-btn-text" type="button" data-help-open>How HQ works</button>
+</div>
+
 <div class="hq-metrics">
-  <div class="hq-metric"><span>Active projects</span><strong>{{ active_project_count }}</strong><small>{{ project_count }} visible projects</small></div>
-  <div class="hq-metric"><span>Open tasks</span><strong>{{ open_task_count }}</strong><small>Across your accessible projects</small></div>
-  <div class="hq-metric"><span>Blocked projects</span><strong>{{ blocked_project_count }}</strong><small>Needs escalation</small></div>
+  <div class="hq-metric hq-metric-accent"><div class="hq-metric-top"><span>Active projects</span><span class="hq-pill hq-pill-active">Live</span></div><strong>{{ active_project_count }}</strong><small>{{ project_count }} projects visible to you</small></div>
+  <div class="hq-metric"><div class="hq-metric-top"><span>Open tasks</span></div><strong>{{ open_task_count }}</strong><small>Across projects you can access</small></div>
+  <div class="hq-metric {% if overdue_task_count %}hq-metric-danger{% endif %}"><div class="hq-metric-top"><span>Overdue tasks</span></div><strong>{{ overdue_task_count }}</strong><small>{% if overdue_task_count %}Needs attention{% else %}Nothing overdue{% endif %}</small></div>
+  <div class="hq-metric"><div class="hq-metric-top"><span>Scientific review</span></div><strong>{{ review_content_count }}</strong><small>Content items waiting at review</small></div>
 </div>
-<div class="hq-grid hq-grid-2">
-  <section class="hq-card">
-    <div class="hq-cardhead"><div><span class="hq-eyebrow">Execution</span><h2>My next tasks</h2></div><a href="{% url 'hq:projects' %}">All projects →</a></div>
-    {% if my_tasks %}<div class="hq-list">{% for task in my_tasks %}<a class="hq-listrow" href="{% url 'hq:project' task.project.slug %}"><div><strong>{{ task.title }}</strong><span>{{ task.project.name }}{% if task.assignee %} · {{ task.assignee }}{% endif %}</span></div><span class="hq-pill hq-pill-{{ task.status }}">{{ task.get_status_display }}</span></a>{% endfor %}</div>{% else %}<div class="hq-empty">No assigned open tasks.</div>{% endif %}
+
+<div class="hq-grid hq-grid-main">
+  <section class="hq-card hq-card-raised">
+    <div class="hq-cardhead">
+      <div><span class="hq-eyebrow">My work</span><h2>Next tasks</h2><p>Assigned to you or owned by a project you lead.</p></div>
+      <a class="hq-card-link" href="{% url 'hq:projects' %}">All projects →</a>
+    </div>
+    {% if my_tasks %}
+      <div class="hq-list">
+        {% for task in my_tasks %}
+          <a class="hq-listrow" href="{% url 'hq:project' task.project.slug %}">
+            <div class="hq-listrow-main"><strong>{{ task.title }}</strong><span>{{ task.project.name }}{% if task.due_at %} · due {{ task.due_at|date:'M j, H:i' }}{% endif %}</span></div>
+            <div class="hq-listrow-end"><span class="hq-pill hq-pill-{{ task.status }}">{{ task.get_status_display }}</span></div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="hq-empty"><strong>No open work assigned.</strong><p>When a task is assigned to you, it will show up here automatically.</p></div>
+    {% endif %}
   </section>
+
+  <aside class="hq-card">
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Attention</span><h2>Projects to watch</h2><p>Blocked, urgent or high-priority work.</p></div></div>
+    {% if attention_projects %}
+      <div class="hq-list">
+        {% for project in attention_projects %}
+          <a class="hq-listrow" href="{% url 'hq:project' project.slug %}">
+            <div class="hq-listrow-main"><strong>{{ project.name }}</strong><span>{{ project.owner|default:'No owner' }}{% if project.due_date %} · {{ project.due_date|date:'M j' }}{% endif %}</span></div>
+            <div class="hq-listrow-end"><span class="hq-pill hq-pill-{{ project.status }}">{{ project.get_status_display }}</span></div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="hq-empty"><strong>No escalations right now.</strong><p>High-priority and blocked projects will appear here.</p></div>
+    {% endif %}
+  </aside>
+</div>
+
+<div class="hq-grid hq-grid-2 hq-space-top">
   <section class="hq-card">
-    <div class="hq-cardhead"><div><span class="hq-eyebrow">Editorial</span><h2>Content pipeline</h2></div><a href="{% url 'hq:content' %}">Content Studio →</a></div>
-    {% if recent_content %}<div class="hq-list">{% for item in recent_content %}<a class="hq-listrow" href="{% url 'hq:content_edit' item.pk %}"><div><strong>{{ item.working_title }}</strong><span>{{ item.project.name }}</span></div><span class="hq-pill">{{ item.get_stage_display }}</span></a>{% endfor %}</div>{% else %}<div class="hq-empty">No content productions yet.</div>{% endif %}
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Editorial</span><h2>Content in motion</h2><p>Most recently updated productions.</p></div><a class="hq-card-link" href="{% url 'hq:content' %}">Content Studio →</a></div>
+    {% if recent_content %}
+      <div class="hq-list">
+        {% for item in recent_content %}
+          <a class="hq-listrow" href="{% url 'hq:content_edit' item.pk %}">
+            <div class="hq-listrow-main"><strong>{{ item.working_title }}</strong><span>{{ item.project.name }}</span></div>
+            <div class="hq-listrow-end"><span class="hq-pill">{{ item.get_stage_display }}</span></div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="hq-empty"><strong>No content production yet.</strong><p>Create a Content project, then start its Content Studio workflow.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="hq-card">
+    <div class="hq-cardhead"><div><span class="hq-eyebrow">Strategy</span><h2>Master roadmap</h2><p>The canonical Gravitas strategy lives outside HQ so the team always has one source of truth.</p></div></div>
+    <a class="hq-linkcard hq-card" href="{{ roadmap_url }}" target="_blank" rel="noopener">
+      <span class="hq-eyebrow">External source of truth</span>
+      <h2>Gravitas Roadmap</h2>
+      <p>Vision, wedge, six-month targets, production system, revenue engines and the strategic operating model.</p>
+    </a>
   </section>
 </div>
-{% if strategy_docs %}<section class="hq-card hq-space-top"><div class="hq-cardhead"><div><span class="hq-eyebrow">Strategy</span><h2>Active documents</h2></div><a href="{% url 'hq:strategy' %}">Strategy →</a></div><div class="hq-docgrid">{% for doc in strategy_docs %}<a href="{% url 'hq:strategy_edit' doc.pk %}" class="hq-doc"><span>{{ doc.get_kind_display }}</span><strong>{{ doc.title }}</strong><small>v{{ doc.version }} · updated {{ doc.updated_at|date:'M j' }}</small></a>{% endfor %}</div></section>{% endif %}
+{% endblock %}
+
+{% block help_title %}How to use Overview{% endblock %}
+{% block help %}
+<p>Overview is not a reporting dashboard. It is the place to decide what you should do next.</p>
+<h3>Use it in this order</h3>
+<ol>
+  <li>Check overdue work and projects that need attention.</li>
+  <li>Open your next assigned task.</li>
+  <li>Look at content waiting for review or production.</li>
+  <li>Use Search when you already know what you are looking for.</li>
+</ol>
+<h3>What belongs elsewhere?</h3>
+<p>Strategy decisions belong under Strategy, execution under Projects, editorial work under Content Studio, evidence under Research, and files as external references under Assets.</p>
+<div class="hq-help-tip">HQ is designed around one rule: every important piece of work should have an owner, a status and a place where the team can find its context.</div>
 {% endblock %}
