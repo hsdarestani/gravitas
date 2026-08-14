@@ -1,0 +1,117 @@
+name: Gravitas source demo cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/source-demo-cleanup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove prototype data from source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+          html_files = [p for p in root.glob('*.html') if p.is_file()]
+
+          google_patterns = [
+              re.compile(r'\s*<link rel="preconnect" href="https://fonts\.googleapis\.com">\s*'),
+              re.compile(r'\s*<link rel="preconnect" href="https://fonts\.gstatic\.com" crossorigin>\s*'),
+              re.compile(r'\s*<link href="https://fonts\.googleapis\.com/css2\?family=DM\+Sans:[^"]+" rel="stylesheet">\s*'),
+          ]
+
+          prototype_span = re.compile(
+              r'<span>\s*(?:\d+\s*(?:min|minutes?|steps?)|~?\d+\s*hours?|\d+\s*(?:days?|weeks?)\s+ago|updated\s+monthly|dossier\s+\d+)\s*</span>',
+              re.I,
+          )
+          dead_social = re.compile(
+              r'<li[^>]*>\s*<a[^>]*class="[^"]*lp-social__link[^"]*"[^>]*href="#"[^>]*>.*?</a>\s*</li>',
+              re.I | re.S,
+          )
+
+          for path in html_files:
+              text = path.read_text(encoding='utf-8')
+              original = text
+              for pattern in google_patterns:
+                  text = pattern.sub('\n', text)
+
+              text = text.replace('New dossier monthly &middot; <span class="g-nums">312K</span> subscribers', 'New dossier monthly')
+              text = text.replace('28:41 &middot; One idea, one world &middot; 418K views', 'One idea, one world')
+              text = re.sub(r'\bDossier\s+04\s*&middot;\s*', '', text, flags=re.I)
+              text = re.sub(r'<dt>\s*Reading time\s*</dt>\s*<dd>.*?</dd>', '', text, flags=re.I | re.S)
+              text = prototype_span.sub('', text)
+              text = dead_social.sub('', text)
+
+              # Newsletter forms are live; remove the old prototype marker everywhere.
+              text = re.sub(r'(<form\b[^>]*class="[^"]*g-inline-form[^"]*"[^>]*)\sdata-demo-form', r'\1 data-newsletter-form', text, flags=re.I)
+              text = text.replace(' data-demo-form', '')
+
+              # Prototype poll seed percentages must never ship in source.
+              text = re.sub(r'\sdata-share="(?:38|44|18)"', '', text)
+
+              # Current password policy is 10 characters.
+              if path.name == 'account.html':
+                  text = text.replace('minlength="8"', 'minlength="10"')
+
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+
+          site = Path('assets/site.js')
+          text = site.read_text(encoding='utf-8')
+          text = text.replace('.g-inline-form[data-demo-form]', '.g-inline-form[data-newsletter-form]')
+          text = text.replace("Use a password with at least eight characters.", "Use a password with at least ten characters.")
+
+          old_poll = '''  [].forEach.call(document.querySelectorAll('.poll'), function (poll) {\n    var opts = [].slice.call(poll.querySelectorAll('.poll__opt'));\n    var seeds = opts.map(function (o) { return parseFloat(o.dataset.share || '0'); });\n    var total = seeds.reduce(function (a, b) { return a + b; }, 0) || 1;\n    opts.forEach(function (o) { o.addEventListener('click', function () { poll.classList.add('is-voted'); opts.forEach(function (x) { x.setAttribute('aria-pressed', String(x === o)); }); opts.forEach(function (x, k) { var pct = Math.round(seeds[k] / total * 100); x.querySelector('.poll__bar').style.width = pct + '%'; x.querySelector('.poll__pct').textContent = pct + '%'; }); }); });\n  });'''
+          new_poll = '''  [].forEach.call(document.querySelectorAll('.poll'), function (poll) {\n    var opts = [].slice.call(poll.querySelectorAll('.poll__opt'));\n    opts.forEach(function (o) {\n      o.removeAttribute('data-share');\n      o.addEventListener('click', function () {\n        poll.classList.add('is-voted');\n        opts.forEach(function (x) {\n          x.setAttribute('aria-pressed', String(x === o));\n          var bar = x.querySelector('.poll__bar');\n          var pct = x.querySelector('.poll__pct');\n          if (bar) bar.style.width = '0';\n          if (pct) pct.textContent = x === o ? 'Your vote' : '';\n        });\n      });\n    });\n  });'''
+          if old_poll in text:
+              text = text.replace(old_poll, new_poll)
+
+          old_reset = '''  if (resetForm) {\n    resetForm.addEventListener('submit', function (e) { e.preventDefault(); if (authNote) authNote.textContent = 'Password-reset email is being enabled in the system-email step.'; });\n  }\n'''
+          text = text.replace(old_reset, '')
+          site.write_text(text, encoding='utf-8')
+
+          # Gate: known prototype/demo markers must be absent from public source.
+          public_text = '\n'.join(p.read_text(encoding='utf-8') for p in html_files) + '\n' + site.read_text(encoding='utf-8')
+          forbidden = [
+              '312K subscribers',
+              '418K views',
+              'data-share="38"',
+              'data-share="44"',
+              'data-share="18"',
+              'data-demo-form',
+              'Password-reset email is being enabled in the system-email step.',
+          ]
+          remaining = [item for item in forbidden if item in public_text]
+          if remaining:
+              raise SystemExit('Prototype markers still present: ' + ', '.join(remaining))
+          print('source-demo-cleanup-passed')
+          PY
+
+      - name: Commit source cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No source demo data remained.'
+            exit 0
+          fi
+          git config user.name 'Gravitas CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add '*.html' assets/site.js
+          git commit -m 'Remove remaining prototype data from source'
+          git push origin HEAD:main
