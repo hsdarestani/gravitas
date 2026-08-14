@@ -76,7 +76,7 @@ class Comment(models.Model):
     class Meta:
         ordering = ['created_at']
         indexes = [
-            models.Index(fields=['content_key', 'status', 'created_at']),
+            models.Index(fields=['content_key', 'status', 'created_at'], name='grav_comment_state_created'),
         ]
 
     def __str__(self):
