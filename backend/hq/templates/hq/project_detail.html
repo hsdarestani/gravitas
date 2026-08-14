@@ -1,0 +1,33 @@
+{% extends 'hq/base.html' %}
+{% block title %}{{ project.name }} · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead">
+  <div><span class="hq-eyebrow">{{ project.get_kind_display }} project · {{ project.get_status_display }}</span><h1>{{ project.name }}</h1><p>{{ project.description|default:'No project description yet.' }}</p></div>
+  <div class="hq-actions">{% if project.kind == 'content' %}{% if production %}<a class="hq-btn hq-btn-soft" href="{% url 'hq:content_edit' production.pk %}">Open Content Studio</a>{% else %}<a class="hq-btn hq-btn-soft" href="{% url 'hq:content_create' project.slug %}">Start Content Studio</a>{% endif %}{% endif %}</div>
+</div>
+<div class="hq-projectmeta">
+  <div><span>Owner</span><strong>{{ project.owner|default:'Unassigned' }}</strong></div>
+  <div><span>Priority</span><strong>{{ project.get_priority_display }}</strong></div>
+  <div><span>Due</span><strong>{{ project.due_date|date:'M j, Y'|default:'No deadline' }}</strong></div>
+  <div><span>Objective</span><strong>{{ project.objective|default:'Not linked' }}</strong></div>
+</div>
+<section class="hq-space-top">
+  <div class="hq-sectionhead"><div><span class="hq-eyebrow">Workflow</span><h2>Task board</h2></div></div>
+  <div class="hq-board">
+    {% for status, label, tasks in board %}
+      <div class="hq-column">
+        <div class="hq-columnhead"><strong>{{ label }}</strong><span>{{ tasks|length }}</span></div>
+        {% for task in tasks %}
+          <article class="hq-task">
+            <div class="hq-task-top"><span class="hq-priority hq-priority-{{ task.priority }}">{{ task.get_priority_display }}</span>{% if task.due_at %}<small>{{ task.due_at|date:'M j' }}</small>{% endif %}</div>
+            <h3>{{ task.title }}</h3>
+            {% if task.description %}<p>{{ task.description|truncatechars:120 }}</p>{% endif %}
+            <div class="hq-task-foot"><span>{{ task.assignee|default:'Unassigned' }}</span>{% if can_manage %}<form method="post" action="{% url 'hq:task_status' task.pk %}">{% csrf_token %}<select name="status" onchange="this.form.submit()">{% for value, text in task.Status.choices %}<option value="{{ value }}" {% if task.status == value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></form>{% endif %}</div>
+          </article>
+        {% empty %}<div class="hq-columnempty">No tasks</div>{% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% if can_manage %}<section class="hq-card hq-space-top"><div class="hq-cardhead"><div><span class="hq-eyebrow">Quick add</span><h2>New task</h2></div></div><form method="post" class="hq-form">{% csrf_token %}<div class="hq-formgrid">{% for field in task_form %}<div class="hq-field"><label>{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}</div><button class="hq-btn" type="submit">Add task</button></form></section>{% endif %}
+{% endblock %}
