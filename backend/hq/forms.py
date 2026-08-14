@@ -122,14 +122,15 @@ class AssetReferenceForm(StyledModelForm):
         model = AssetReference
         fields = ['title', 'asset_type', 'provider', 'url', 'external_id', 'project', 'production', 'version', 'status', 'size_bytes', 'notes']
         widgets = {
-            'title': forms.TextInput(attrs={'placeholder': 'Example: Episode 01 rough cut'}),
-            'url': forms.URLInput(attrs={'placeholder': 'https://drive.google.com/... or https://frame.io/...'}),
-            'external_id': forms.TextInput(attrs={'placeholder': 'Optional provider/file ID'}),
+            'title': forms.TextInput(attrs={'placeholder': 'Example: Episode 01 research pack'}),
+            'url': forms.URLInput(attrs={'placeholder': 'Nextcloud share/file URL (preferred) or another external provider URL'}),
+            'external_id': forms.TextInput(attrs={'placeholder': 'Nextcloud file/share ID or provider ID'}),
             'version': forms.TextInput(attrs={'placeholder': 'v1, v2, final-3, etc.'}),
-            'notes': forms.Textarea(attrs={'rows': 5, 'placeholder': 'What is this asset, who needs it, and what should reviewers know?'}),
+            'notes': forms.Textarea(attrs={'rows': 5, 'placeholder': 'What is this asset and what should the team know?'}),
         }
         help_texts = {
-            'url': 'External location only. Large files are not uploaded to the Gravitas server.',
-            'size_bytes': 'Optional metadata only; the binary remains on the external provider.',
+            'provider': 'Use Nextcloud for internal working files by default. Published video and specialist review tools remain external.',
+            'url': 'Store the file in Nextcloud or another approved provider and paste its link here. HQ stores metadata only.',
+            'size_bytes': 'Optional metadata only; the binary remains outside the Gravitas application server.',
             'status': 'Use Review when feedback is needed and Final only for the approved deliverable.',
         }
