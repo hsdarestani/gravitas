@@ -1,0 +1,37 @@
+{% extends 'hq/base.html' %}
+{% block title %}Search · Gravitas HQ{% endblock %}
+{% block content %}
+<div class="hq-pagehead">
+  <div class="hq-pagehead-main"><span class="hq-eyebrow">Global search</span><h1>{% if query %}Results for “{{ query }}”{% else %}Find anything in HQ.{% endif %}</h1><p>Search across projects, tasks, content, research and assets you are allowed to access.</p></div>
+</div>
+
+<form class="hq-filterbar" method="get" role="search">
+  <div class="hq-filter-search"><svg aria-hidden="true"><use href="#i-search"></use></svg><label class="hq-visually-hidden" for="search-page-q">Search HQ</label><input class="hq-input" id="search-page-q" type="search" name="q" value="{{ query }}" placeholder="Try a project name, task, source or content title…" autofocus></div>
+  <button class="hq-btn" type="submit">Search</button>
+</form>
+
+{% if query %}
+<div class="hq-search-results">
+  {% if project_results %}<section class="hq-card hq-search-section"><h2>Projects <span class="hq-search-section-count">{{ project_results|length }}</span></h2>{% for item in project_results %}<a class="hq-search-card" href="{% url 'hq:project' item.slug %}"><div><strong>{{ item.name }}</strong><span>{{ item.get_kind_display }} · {{ item.get_status_display }}{% if item.owner %} · {{ item.owner }}{% endif %}</span></div><span class="hq-pill hq-pill-{{ item.status }}">{{ item.get_status_display }}</span></a>{% endfor %}</section>{% endif %}
+
+  {% if task_results %}<section class="hq-card hq-search-section"><h2>Tasks <span class="hq-search-section-count">{{ task_results|length }}</span></h2>{% for item in task_results %}<a class="hq-search-card" href="{% url 'hq:project' item.project.slug %}"><div><strong>{{ item.title }}</strong><span>{{ item.project.name }}{% if item.assignee %} · {{ item.assignee }}{% endif %}</span></div><span class="hq-pill hq-pill-{{ item.status }}">{{ item.get_status_display }}</span></a>{% endfor %}</section>{% endif %}
+
+  {% if content_results %}<section class="hq-card hq-search-section"><h2>Content <span class="hq-search-section-count">{{ content_results|length }}</span></h2>{% for item in content_results %}<a class="hq-search-card" href="{% url 'hq:content_edit' item.pk %}"><div><strong>{{ item.working_title }}</strong><span>{{ item.project.name }} · {{ item.get_stage_display }}</span></div><span class="hq-pill">{{ item.get_stage_display }}</span></a>{% endfor %}</section>{% endif %}
+
+  {% if source_results %}<section class="hq-card hq-search-section"><h2>Research <span class="hq-search-section-count">{{ source_results|length }}</span></h2>{% for item in source_results %}{% if item.url %}<a class="hq-search-card" href="{{ item.url }}" target="_blank" rel="noopener">{% else %}<div class="hq-search-card">{% endif %}<div><strong>{{ item.title }}</strong><span>{{ item.get_kind_display }}{% if item.publisher %} · {{ item.publisher }}{% endif %}</span></div><span class="hq-pill">{{ item.get_kind_display }}</span>{% if item.url %}</a>{% else %}</div>{% endif %}{% endfor %}</section>{% endif %}
+
+  {% if asset_results %}<section class="hq-card hq-search-section"><h2>Assets <span class="hq-search-section-count">{{ asset_results|length }}</span></h2>{% for item in asset_results %}<a class="hq-search-card" href="{{ item.url }}" target="_blank" rel="noopener"><div><strong>{{ item.title }}</strong><span>{{ item.get_provider_display }}{% if item.project %} · {{ item.project.name }}{% endif %}</span></div><span class="hq-pill hq-pill-{{ item.status }}">{{ item.get_status_display }}</span></a>{% endfor %}</section>{% endif %}
+
+  {% if not project_results and not task_results and not content_results and not source_results and not asset_results %}<div class="hq-empty"><strong>Nothing matched “{{ query }}”.</strong><p>Try a shorter phrase, a person’s name, a project title or a keyword from the work itself.</p></div>{% endif %}
+</div>
+{% else %}
+<div class="hq-empty"><strong>Search across the operating system.</strong><p>Use the search bar for projects, tasks, content, research and external asset references. You can also press <kbd>/</kbd> anywhere in HQ to focus global search.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block help_title %}Using global search{% endblock %}
+{% block help %}
+<p>Search respects your HQ permissions and project visibility. It should help you jump directly to work without browsing every section.</p>
+<h3>Good search terms</h3><ul><li>A project or episode title</li><li>A task phrase</li><li>An author or paper title</li><li>A content central question</li><li>An asset or version name</li></ul>
+<div class="hq-help-tip">Press <strong>/</strong> anywhere in HQ when you are not typing in a field to jump straight to the search box.</div>
+{% endblock %}
