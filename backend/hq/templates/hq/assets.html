@@ -3,7 +3,27 @@
 {% block content %}
 <div class="hq-pagehead">
   <div class="hq-pagehead-main"><span class="hq-eyebrow">Create</span><h1>Assets</h1></div>
-  <div class="hq-pagehead-actions"><button class="hq-icon-btn" type="button" data-help-open aria-label="Open storage guide" title="Storage guide"><svg><use href="#i-help"></use></svg></button></div>
+  <div class="hq-pagehead-actions">
+    <a class="hq-btn" href="https://cloud.gravitasplus.com/" target="_blank" rel="noopener"><svg><use href="#i-cloud"></use></svg>Open Nextcloud</a>
+    <button class="hq-icon-btn" type="button" data-help-open aria-label="Open storage guide" title="Storage guide"><svg><use href="#i-help"></use></svg></button>
+  </div>
+</div>
+
+<div class="hq-launcher-grid hq-assets-launchers" aria-label="File services">
+  <a class="hq-launcher" href="https://cloud.gravitasplus.com/" target="_blank" rel="noopener">
+    <span class="hq-launcher-icon"><svg><use href="#i-cloud"></use></svg></span>
+    <div><strong>Nextcloud</strong><small>Team files · default</small></div>
+    <span class="hq-launcher-arrow"><svg><use href="#i-external"></use></svg></span>
+  </a>
+  <a class="hq-launcher" href="https://www.youtube.com/" target="_blank" rel="noopener">
+    <span class="hq-launcher-icon"><svg><use href="#i-content"></use></svg></span>
+    <div><strong>YouTube</strong><small>Published video</small></div>
+    <span class="hq-launcher-arrow"><svg><use href="#i-external"></use></svg></span>
+  </a>
+  <div class="hq-launcher" role="note">
+    <span class="hq-launcher-icon"><svg><use href="#i-alert"></use></svg></span>
+    <div><strong>No raw video</strong><small>Separate video storage later</small></div>
+  </div>
 </div>
 
 <form class="hq-filterbar" method="get">
@@ -41,7 +61,14 @@
 
 {% block help_title %}Asset storage policy{% endblock %}
 {% block help %}
-<p>HQ stores links and metadata, not large media files.</p>
-<h3>Use</h3>
-<div class="hq-storage-policy"><div class="hq-storage-provider"><strong>Frame.io</strong><span>Video review.</span></div><div class="hq-storage-provider"><strong>Google Drive</strong><span>Shared working files.</span></div><div class="hq-storage-provider"><strong>YouTube / Vimeo</strong><span>Published or review video.</span></div><div class="hq-storage-provider"><strong>R2 / S3</strong><span>Object storage when needed.</span></div></div>
+<p><strong>Nextcloud is the default internal file workspace.</strong> Put documents, PDFs, research packs, images and other normal team files there, then attach the Nextcloud link to the relevant HQ project or content item.</p>
+<h3>What goes where?</h3>
+<div class="hq-storage-policy">
+  <div class="hq-storage-provider"><strong>Nextcloud</strong><span>Default for team files, shared documents, research material and normal project assets.</span></div>
+  <div class="hq-storage-provider"><strong>Frame.io</strong><span>Optional specialist review/versioning for video.</span></div>
+  <div class="hq-storage-provider"><strong>YouTube / Vimeo</strong><span>Published or streamed video.</span></div>
+  <div class="hq-storage-provider"><strong>R2 / S3 / video server</strong><span>Large-scale object storage or course/raw video when needed.</span></div>
+</div>
+<h3>Server rule</h3>
+<p>Do not turn the Gravitas application disk into a video archive. HQ stores references; Nextcloud handles normal files; heavy video gets dedicated storage.</p>
 {% endblock %}
