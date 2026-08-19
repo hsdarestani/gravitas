@@ -195,6 +195,81 @@
     .then(function (data) { if (data && data.authenticated) markAccount(data.user && data.user.email); })
     .catch(function () {});
 
+  /* ----------------------------------------------------------------------
+     Upstream frontend parity: desdevrad/gravitasplus @ 8f1a95984140
+
+     Kiarash's latest pass adds real poster thumbnails to .video frames,
+     removes the repeated metadata strip, keeps the play ring readable in the
+     light theme, and gives the still a subtle zoom on hover. The canonical
+     upstream site.js/site.css are synchronized by the post-deploy workflow;
+     this bridge is also a safe production fallback so the visual change is
+     visible even before those static assets finish syncing. It deliberately
+     leaves all auth/newsletter/backend behaviour above untouched.
+     ---------------------------------------------------------------------- */
+  (function upstreamThumbnailParity() {
+    if (!document.querySelector('.video')) return;
+
+    if (!document.getElementById('upstream-thumbnail-parity')) {
+      var style = document.createElement('style');
+      style.id = 'upstream-thumbnail-parity';
+      style.textContent =
+        '.video__meta{display:none!important}' +
+        '.video__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;' +
+          'transition:opacity var(--g-dur-slow) var(--g-ease-orbit),transform var(--g-dur-slow) var(--g-ease-orbit)}' +
+        '.video.has-thumb .video__img{opacity:1}' +
+        '.video.has-thumb::after{content:"";position:absolute;inset:0;pointer-events:none;background:rgb(3 3 3/.14)}' +
+        '.video__play{position:relative;z-index:1}' +
+        '.video:hover .video__img{transform:scale(1.03)}' +
+        '.video.is-flat:hover .video__img{transform:none}' +
+        ':root[data-theme="light"] .video.has-thumb .video__play{' +
+          'border-color:rgb(241 239 236/.7);background:rgb(3 3 3/.35);color:var(--g-white-tint)}' +
+        ':root[data-theme="light"] .video.has-thumb:hover .video__play{' +
+          'background:rgb(0 48 73/.6);color:var(--g-white-tint)}' +
+        '@media (prefers-reduced-motion:reduce){.video__img{transition:opacity var(--g-dur-fast) linear}' +
+          '.video:hover .video__img{transform:none}}';
+      document.head.appendChild(style);
+    }
+
+    var DIR = 'https://desdevrad.github.io/gravitasplus/assets/thumbnails/';
+    var EXT = ['webp', 'jpg', 'png'];
+
+    function nameFor(card) {
+      var explicit = card.getAttribute('data-thumb');
+      if (explicit) return explicit;
+      var href = card.getAttribute('href') || location.pathname;
+      var file = href.split(/[?#]/)[0].split('/').pop();
+      return file.replace(/\.html?$/i, '') || 'index';
+    }
+
+    function firstLoaded(urls, done) {
+      if (!urls.length) { done(null); return; }
+      var url = urls.shift();
+      var probe = new Image();
+      probe.onload = function () { done(url); };
+      probe.onerror = function () { firstLoaded(urls, done); };
+      probe.src = url;
+    }
+
+    window.setTimeout(function () {
+      [].forEach.call(document.querySelectorAll('.video'), function (card) {
+        if (card.querySelector('.video__img') || card.classList.contains('has-thumb')) return;
+        var stem = nameFor(card);
+        var urls = EXT.map(function (ext) { return DIR + stem + '.' + ext; });
+        firstLoaded(urls, function (url) {
+          if (!url || card.querySelector('.video__img')) return;
+          var img = new Image();
+          img.className = 'video__img';
+          img.alt = '';
+          img.decoding = 'async';
+          img.loading = 'lazy';
+          img.src = url;
+          card.insertBefore(img, card.firstChild);
+          requestAnimationFrame(function () { card.classList.add('has-thumb'); });
+        });
+      });
+    }, 500);
+  })();
+
   if (params.get('confirmed') === '1') {
     var n1 = document.querySelector('[data-form-note]');
     if (n1) n1.textContent = 'Subscription confirmed. Welcome to the newsletter.';
