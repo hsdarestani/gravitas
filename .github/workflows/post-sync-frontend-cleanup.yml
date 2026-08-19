@@ -1,0 +1,69 @@
+name: One-time post-sync frontend cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/post-sync-frontend-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clean source-only placeholders and stale terminology
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          for path in Path('.').glob('*.html'):
+              if path.name in {'impressum.html', 'privacy.html', 'dossiers.html', 'dossier-computable-universe.html', 'dossier-machine-hypothesis.html'}:
+                  continue
+              text = path.read_text(encoding='utf-8')
+
+              # Source repo ships social icons with href="#". A dead clickable
+              # link violates the brand page's own quality bar, so hide them
+              # until real profile URLs are supplied.
+              text = re.sub(r'<ul class="lp-social">.*?</ul>', '<ul class="lp-social"></ul>', text, flags=re.S)
+
+              if path.name == 'brand.html':
+                  text = text.replace('mailto:hello@gravitasplus.example', 'mailto:webmaster@gravitasplus.com')
+                  text = text.replace('hello@gravitasplus.example', 'webmaster@gravitasplus.com')
+
+              if path.name == 'account.html':
+                  text = text.replace(
+                      "You can change this whenever. It only\n            decides what the site puts in front of you first.",
+                      "Role-based personalization is planned. This choice is not yet saved to your account."
+                  )
+
+              path.write_text(text, encoding='utf-8')
+
+          # Keep dormant production CMS helpers aligned with the new public URL
+          # and wording, even though Kiarash's static pages remain authoritative.
+          cms = Path('assets/cms-live.js')
+          if cms.exists():
+              text = cms.read_text(encoding='utf-8')
+              text = text.replace("'/dossiers.html': { kind: 'dossier', target: '[data-filterable]', label: 'dossier' }", "'/topics.html': { kind: 'dossier', target: '[data-filterable]', label: 'topic' }")
+              cms.write_text(text, encoding='utf-8')
+
+          rm = Path('.github/workflows/post-sync-frontend-cleanup.yml')
+          if rm.exists():
+              rm.unlink()
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Clean post-sync placeholders and production compatibility'
+          git push origin HEAD:main
