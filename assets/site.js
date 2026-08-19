@@ -12,6 +12,66 @@
   }
   applyDepth(readDepth());
 
+  // The public-facing term is Topic everywhere. Keep legacy dossier URLs/classes
+  // intact so existing links and internal behaviour do not break.
+  function topicizeCopy(value) {
+    return String(value || '')
+      .replace(/\bDossiers\b/g, 'Topics')
+      .replace(/\bdossiers\b/g, 'topics')
+      .replace(/\bDossier\b/g, 'Topic')
+      .replace(/\bdossier\b/g, 'topic');
+  }
+  function topicizeNode(root) {
+    if (!root) return;
+    if (root.nodeType === 3) {
+      var direct = topicizeCopy(root.nodeValue);
+      if (direct !== root.nodeValue) root.nodeValue = direct;
+      return;
+    }
+    if (root.nodeType !== 1 && root.nodeType !== 9 && root.nodeType !== 11) return;
+    var base = root.nodeType === 9 ? root.documentElement : root;
+    if (!base) return;
+    if (base.nodeType === 1 && /^(SCRIPT|STYLE|NOSCRIPT)$/i.test(base.tagName)) return;
+
+    var walker = document.createTreeWalker(base, NodeFilter.SHOW_TEXT, null);
+    var textNodes = [];
+    var node;
+    while ((node = walker.nextNode())) {
+      var parent = node.parentElement;
+      if (parent && /^(SCRIPT|STYLE|NOSCRIPT)$/i.test(parent.tagName)) continue;
+      textNodes.push(node);
+    }
+    textNodes.forEach(function (textNode) {
+      var next = topicizeCopy(textNode.nodeValue);
+      if (next !== textNode.nodeValue) textNode.nodeValue = next;
+    });
+
+    var elements = [];
+    if (base.nodeType === 1) elements.push(base);
+    if (base.querySelectorAll) elements = elements.concat([].slice.call(base.querySelectorAll('[aria-label],[title],[placeholder]')));
+    elements.forEach(function (el) {
+      ['aria-label', 'title', 'placeholder'].forEach(function (attr) {
+        if (!el.hasAttribute || !el.hasAttribute(attr)) return;
+        var current = el.getAttribute(attr);
+        var next = topicizeCopy(current);
+        if (next !== current) el.setAttribute(attr, next);
+      });
+    });
+  }
+  function topicizeDocument() {
+    document.title = topicizeCopy(document.title);
+    topicizeNode(document.body);
+  }
+  topicizeDocument();
+  if ('MutationObserver' in window && document.body) {
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        if (mutation.type === 'characterData') topicizeNode(mutation.target);
+        [].forEach.call(mutation.addedNodes || [], topicizeNode);
+      });
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
   // Copy updates from the annotated homepage review.
   [].forEach.call(document.querySelectorAll('.g-nav a[href="dossiers.html"]'), function (a) {
     a.textContent = 'Topics';
