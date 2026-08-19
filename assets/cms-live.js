@@ -2,7 +2,7 @@
   'use strict';
 
   var configs = {
-    '/dossiers.html': { kind: 'dossier', target: '[data-filterable]', label: 'dossier' },
+    '/topics.html': { kind: 'dossier', target: '[data-filterable]', label: 'topic' },
     '/magazine.html': { kind: 'article', target: '[data-filterable]', label: 'article' },
     '/learn.html': { kind: 'learning', target: '.g-grid.g-grid--2', label: 'learning path' },
     '/lab.html': { kind: 'lab', target: '.games', label: 'lab item' }
