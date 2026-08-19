@@ -19,21 +19,68 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Permanently bust synced frontend asset cache in repository
+      - name: Permanently align frontend assets and hero stats in repository
         shell: bash
         run: |
           set -euo pipefail
-          TOKEN='20260819-parity1'
+          TOKEN='20260819-parity2'
           find . -maxdepth 1 -type f -name '*.html' -print0 | while IFS= read -r -d '' f; do
             sed -E -i "s#assets/(gravitas|site|hero|chat)\\.(css|js)(\\?v=[^\"']*)?#assets/\\1.\\2?v=${TOKEN}#g" "$f"
           done
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+
+          old = '''        <p class="lp-hero__credit">
+          <span>New topic monthly</span>
+          <span><span class="g-nums">312K</span> subscribers</span>
+          <span><a href="community.html#join">4,100 members</a></span>
+        </p>'''
+          new = '''        <p class="lp-hero__credit">
+          <span>New topic monthly</span>
+          <span class="lp-hero__literal-sep" aria-hidden="true">•</span>
+          <span><span class="g-nums">312K</span> subscribers</span>
+          <span class="lp-hero__literal-sep" aria-hidden="true">•</span>
+          <span><a href="community.html#join">4,100 members</a></span>
+        </p>'''
+          if old in s:
+              s = s.replace(old, new, 1)
+
+          marker = 'id="hero-stat-parity"'
+          if marker not in s:
+              css = '''<style id="hero-stat-parity">
+.lp-hero__credit > span + span::before { content: none !important; }
+.lp-hero__credit .lp-hero__literal-sep {
+  display: inline-flex !important;
+  align-items: center;
+  width: auto !important;
+  height: auto !important;
+  color: var(--g-border-strong);
+  line-height: 1;
+  font-size: .9em;
+  flex: none;
+}
+.lp-hero__credit a {
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--g-border-strong) !important;
+  text-underline-offset: .14em;
+}
+</style>
+'''
+              s = s.replace('</head>', css + '</head>', 1)
+
+          p.write_text(s)
+          PY
+
           if git diff --quiet; then
-            echo 'Repository asset references already cache-busted.'
+            echo 'Repository frontend already matches parity rules.'
           else
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git add -- '*.html'
-            git commit -m 'Use fresh frontend asset version across pages'
+            git commit -m 'Match hero stats and refresh frontend assets'
             git push origin HEAD:main
           fi
 
@@ -61,13 +108,61 @@ jobs:
             echo 'SSH authentication failed.'
             exit 1
           fi
-          TOKEN='20260819-parity1'
+          TOKEN='20260819-parity2'
           ssh "${SSH_OPTS[@]}" "$EFFECTIVE_USER@$DEPLOY_HOST" "TOKEN='$TOKEN' bash -s" <<'REMOTE'
           set -euo pipefail
           cd /var/www/gravitas
           find . -maxdepth 1 -type f -name '*.html' -print0 | while IFS= read -r -d '' f; do
             sed -E -i "s#assets/(gravitas|site|hero|chat)\\.(css|js)(\\?v=[^\"']*)?#assets/\\1.\\2?v=${TOKEN}#g" "$f"
           done
-          grep -q 'assets/hero.css?v=20260819-parity1' index.html
-          echo 'Production HTML now points to fresh synced CSS/JS assets.'
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+
+          old = '''        <p class="lp-hero__credit">
+          <span>New topic monthly</span>
+          <span><span class="g-nums">312K</span> subscribers</span>
+          <span><a href="community.html#join">4,100 members</a></span>
+        </p>'''
+          new = '''        <p class="lp-hero__credit">
+          <span>New topic monthly</span>
+          <span class="lp-hero__literal-sep" aria-hidden="true">•</span>
+          <span><span class="g-nums">312K</span> subscribers</span>
+          <span class="lp-hero__literal-sep" aria-hidden="true">•</span>
+          <span><a href="community.html#join">4,100 members</a></span>
+        </p>'''
+          if old in s:
+              s = s.replace(old, new, 1)
+
+          if 'id="hero-stat-parity"' not in s:
+              css = '''<style id="hero-stat-parity">
+.lp-hero__credit > span + span::before { content: none !important; }
+.lp-hero__credit .lp-hero__literal-sep {
+  display: inline-flex !important;
+  align-items: center;
+  width: auto !important;
+  height: auto !important;
+  color: var(--g-border-strong);
+  line-height: 1;
+  font-size: .9em;
+  flex: none;
+}
+.lp-hero__credit a {
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--g-border-strong) !important;
+  text-underline-offset: .14em;
+}
+</style>
+'''
+              s = s.replace('</head>', css + '</head>', 1)
+
+          p.write_text(s)
+          PY
+
+          grep -q 'assets/hero.css?v=20260819-parity2' index.html
+          grep -q 'lp-hero__literal-sep' index.html
+          grep -q 'hero-stat-parity' index.html
+          echo 'Production hero stats now match reference markup and styling.'
           REMOTE
