@@ -1,0 +1,148 @@
+name: Sync frontend from desdevrad
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sync-desdevrad-frontend.yml'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: gravitas-upstream-frontend-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout production repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest desdevrad frontend changes safely
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          UPSTREAM_REPO='desdevrad/gravitasplus'
+          UPSTREAM_SHA="$(git ls-remote "https://github.com/${UPSTREAM_REPO}.git" refs/heads/main | awk '{print $1}')"
+          test -n "$UPSTREAM_SHA"
+          RAW="https://raw.githubusercontent.com/${UPSTREAM_REPO}/${UPSTREAM_SHA}"
+
+          echo "Syncing frontend from ${UPSTREAM_REPO}@${UPSTREAM_SHA}"
+
+          # The production copies of these files were identical to the upstream
+          # parent before this sync. Replace them only while they are either that
+          # known base or already the freshly downloaded version; otherwise stop
+          # instead of overwriting an unrelated local frontend edit.
+          curl -fsSL "${RAW}/assets/site.css" -o /tmp/upstream-site.css
+          curl -fsSL "${RAW}/assets/site.js"  -o /tmp/upstream-site.js
+
+          OLD_CSS='a8aa3a561447d927e584fe7197d84b121bc53df6'
+          OLD_JS='e79d56c2546a3e7b6760940c9aad80286caa4303'
+          CUR_CSS="$(git hash-object assets/site.css)"
+          CUR_JS="$(git hash-object assets/site.js)"
+          NEW_CSS="$(git hash-object /tmp/upstream-site.css)"
+          NEW_JS="$(git hash-object /tmp/upstream-site.js)"
+
+          if [ "$CUR_CSS" != "$OLD_CSS" ] && [ "$CUR_CSS" != "$NEW_CSS" ]; then
+            echo "assets/site.css has local divergence (${CUR_CSS}); refusing blind overwrite."
+            exit 1
+          fi
+          if [ "$CUR_JS" != "$OLD_JS" ] && [ "$CUR_JS" != "$NEW_JS" ]; then
+            echo "assets/site.js has local divergence (${CUR_JS}); refusing blind overwrite."
+            exit 1
+          fi
+
+          cp /tmp/upstream-site.css assets/site.css
+          cp /tmp/upstream-site.js assets/site.js
+
+          # Pull every current thumbnail from the upstream folder. Missing
+          # artwork is intentionally allowed by upstream's thumbnail loader.
+          mkdir -p assets/thumbnails
+          python3 - "$UPSTREAM_REPO" "$UPSTREAM_SHA" <<'PY'
+          import json, pathlib, sys, urllib.request
+          repo, sha = sys.argv[1:]
+          api = f'https://api.github.com/repos/{repo}/contents/assets/thumbnails?ref={sha}'
+          req = urllib.request.Request(api, headers={'Accept':'application/vnd.github+json','User-Agent':'gravitas-sync'})
+          try:
+              with urllib.request.urlopen(req) as r:
+                  items = json.load(r)
+          except Exception as exc:
+              print(f'No upstream thumbnails folder or listing failed: {exc}')
+              items = []
+          out = pathlib.Path('assets/thumbnails')
+          for item in items:
+              if item.get('type') != 'file':
+                  continue
+              name = item.get('name','')
+              if pathlib.Path(name).suffix.lower() not in {'.webp','.jpg','.jpeg','.png'}:
+                  continue
+              url = item.get('download_url')
+              if not url:
+                  continue
+              print('thumbnail:', name)
+              urllib.request.urlretrieve(url, out / name)
+          PY
+
+          # Upstream's latest pass removes the repeated metadata bar from the
+          # film poster frames. Apply that delta to our production HTML rather
+          # than replacing whole pages, so auth/backend bridges and legal links
+          # remain ours.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          for name in ('index.html', 'topic-computable-universe.html', 'topic-machine-hypothesis.html'):
+              p = Path(name)
+              if not p.exists():
+                  continue
+              s = p.read_text()
+              s2 = re.sub(r'\s*<span class="video__meta">.*?</span>', '', s, flags=re.S)
+              if s2 != s:
+                  p.write_text(s2)
+
+          # Make the post-deploy cache token follow the actual deploy commit.
+          # This prevents a future CSS/JS update from being hidden behind the
+          # old fixed ?v=parity2 URL.
+          p = Path('.github/workflows/fix-frontend-parity-after-deploy.yml')
+          if p.exists():
+              s = p.read_text()
+              token_expr = 'TOKEN="${' + '{ github.event.workflow_run.head_sha }}"'
+              s = s.replace("TOKEN='20260819-parity2'", token_expr)
+              s = s.replace("grep -q 'assets/hero.css?v=20260819-parity2' index.html",
+                            'grep -q "assets/hero.css?v=${TOKEN}" index.html')
+              p.write_text(s)
+          PY
+
+          printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
+
+          if git diff --quiet && git status --porcelain --untracked-files=all | grep -qv .; then
+            echo 'Already synchronized.'
+            exit 0
+          fi
+
+          git config user.name 'Hossein Darestani'
+          git config user.email '45485005+hsdarestani@users.noreply.github.com'
+          git add assets/site.css assets/site.js assets/thumbnails \
+                  index.html topic-computable-universe.html topic-machine-hypothesis.html \
+                  .github/workflows/fix-frontend-parity-after-deploy.yml .upstream-gravitasplus
+          git commit -m "Sync frontend from desdevrad/gravitasplus ${UPSTREAM_SHA:0:12}"
+          git push origin HEAD:main
+
+      - name: Deploy synchronized production revision
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run deploy.yml --ref main
+          echo 'Production deployment dispatched.'
