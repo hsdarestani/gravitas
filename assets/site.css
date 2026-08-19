@@ -1,13 +1,13 @@
 /* =========================================================================
-   GRAVITAS+ — SITE COMPONENTS
+   GRAVITAS+, SITE COMPONENTS
    Built on top of gravitas.css (the design system). Everything here is a
    component the new architecture needs and the old single-page site didn't.
    ========================================================================= */
 
 /* ---- the signature texture, available to every page ---------------------
    .g-well lives in the design system, but the image it draws was declared only
-   in hero.css. Any page that didn't load the home page's stylesheet — About,
-   Community, Account — rendered the well as an empty box, which is why their
+   in hero.css. Any page that didn't load the home page's stylesheet, About,
+   Community, Account, rendered the well as an empty box, which is why their
    CTA panels came out flat while the identical panel on the home page carried
    the curved grid. The file is already in assets/; point at it here, where
    every page can see it. */
@@ -25,7 +25,7 @@
 @media (max-width: 720px) {
   /* Collapse the CTA to a circular icon button that sits beside the hamburger.
      (The old rule targeted `.lp-header__cta .g-btn span`, but the class is on the
-     button itself — so it never matched, the full label stayed, and the burger
+     button itself, so it never matched, the full label stayed, and the burger
      wrapped onto a second line.) */
   .lp-header__cta span { display: none; }
   .lp-header__cta {
@@ -40,10 +40,10 @@
     border: 1px solid var(--g-border); background: transparent; color: var(--g-text);
     cursor: pointer;
   }
-  .lp-menu-btn[aria-expanded="true"] { background: rgb(212 201 190 / 0.12); border-color: var(--g-border-strong); }
+  .lp-menu-btn[aria-expanded="true"] { background: rgb(var(--g-tint) / 0.12); border-color: var(--g-border-strong); }
 
   /* The dropdown panel lives entirely in CSS so nothing leaks back to desktop.
-     Only the .is-open class is toggled — no inline styles. */
+     Only the .is-open class is toggled, no inline styles. */
   .g-nav {
     display: none;
     position: absolute; top: calc(100% + 0.5rem); right: 0;
@@ -63,30 +63,30 @@
   }
   .g-nav .g-nav__link:hover,
   .g-nav .g-nav__link[aria-current="page"] {
-    background: rgb(212 201 190 / 0.1); color: var(--g-text);
+    background: rgb(var(--g-tint) / 0.1); color: var(--g-text);
   }
 }
 
 /* ---- Optical centring for buttons with a leading icon --------------------
    A leading icon pushes the label right of the button's centre. Correcting for
    it *fully* centres the label but leaves the ink block visibly left of centre
-   with a lopsided 1:2 whitespace split — which reads worse than the original
+   with a lopsided 1:2 whitespace split, which reads worse than the original
    problem. So compensate partially: shift by ~45% of the icon+gap width. The
    label lands a few px right of centre, the ink a few px left, and the two
    errors cancel to the eye.
 
    Driven by an explicit class rather than :has(), so every browser resolves it
-   the same way — with :has() the correction silently vanished wherever it
+   the same way, with :has() the correction silently vanished wherever it
    wasn't supported, giving two different buttons. */
 /* Without correction the label sits (icon + gap)/2 right of centre. Shifting by
-   exactly half of that splits the error evenly between label and ink — the
+   exactly half of that splits the error evenly between label and ink, the
    minimax compromise. Expressed in em so it tracks each button size on its own:
    6px on --lg, 5.5px default, 5.25px on --sm. */
 .g-btn--lead { --_shift: calc((1em + 0.5rem) / 4); }
 .g-btn--lead    { padding-left: calc(1.5rem - var(--_shift)); padding-right: calc(1.5rem + var(--_shift)); }
 .g-btn--lead.g-btn--lg { padding-left: calc(2rem   - var(--_shift)); padding-right: calc(2rem   + var(--_shift)); }
 .g-btn--lead.g-btn--sm { padding-left: calc(1rem   - var(--_shift)); padding-right: calc(1rem   + var(--_shift)); }
-/* the header CTA collapses to an icon-only circle on mobile — no label to centre */
+/* the header CTA collapses to an icon-only circle on mobile, no label to centre */
 @media (max-width: 720px) { .lp-header__cta.g-btn--lead { padding: 0; } }
 
 /* ---- Topic filter row (PBS season selector) ---- */
@@ -102,13 +102,13 @@
 .g-header__inner { position: relative; }
 .gh-actions { display: flex; align-items: center; gap: var(--g-space-2xs); flex: none; flex-wrap: nowrap; }
 
-/* depth switch — the answer to serving two audiences without splitting the
+/* depth switch, the answer to serving two audiences without splitting the
    site in two. It re-renders the page in place instead of sending people
    somewhere else, so nobody has to choose an identity at the door. */
 .depth {
   display: inline-flex; align-items: center; padding: 2px;
   border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
-  background: rgb(212 201 190 / 0.05);
+  background: rgb(var(--g-tint) / 0.05);
 }
 .depth button {
   font: inherit; font-size: var(--g-fs-caption); font-weight: var(--g-w-medium);
@@ -117,21 +117,26 @@
   cursor: pointer; white-space: nowrap;
   transition: color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit);
 }
-.depth button[aria-pressed="true"] { background: var(--g-white-tint); color: var(--g-cosmos-600); }
+.depth button[aria-pressed="true"] { background: var(--g-solid-bg); color: var(--g-solid-fg); }
 .depth button:hover[aria-pressed="false"] { color: var(--g-text); }
-@media (max-width: 900px) { .depth { display: none; } }
+/* The switch is hidden below 900px because it used to live in the header,
+   where there is no room for it on a phone. It does not live there any more -
+   it sits in the .depthbar above the text it governs, so hiding it left the
+   bar announcing "this essay reads two ways" with no way to pick either.
+   Hide it only where it is still chrome. */
+@media (max-width: 900px) { .g-header .depth { display: none; } }
 
 /* content that only belongs to one reading level */
 /* Depth visibility.
    This used to force `display: block` when revealing, which stamped on whatever
-   the element's own layout was — a flex list row became a block, its badge lost
+   the element's own layout was, a flex list row became a block, its badge lost
    `flex: none` and stretched, and the text next to it shifted. Hiding is the
    only thing this rule should decide; the element keeps its own display value
    via `revert`, so a row stays a row. */
 /* Only ever hide. `revert` on the revealed element brought back the UA default
    (an li became list-item) rather than the author's own rule, so revealed rows
    laid out differently from the ones already showing. Hiding the other side
-   leaves every visible element with exactly the display its own CSS gives it —
+   leaves every visible element with exactly the display its own CSS gives it -
    and with no JS at all, everything simply shows. */
 body.is-overview [data-level="deep"],
 body.is-deep     [data-level="overview"] { display: none; }
@@ -167,7 +172,7 @@ body.is-deep     [data-level="overview"] { display: none; }
 .space {
   grid-column: span 2; position: relative; overflow: hidden;
   border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
-  background: linear-gradient(180deg, var(--g-cosmos-500), var(--g-cosmos-600));
+  background: linear-gradient(180deg, var(--g-surface-raised), var(--g-surface));
   padding: var(--g-space-md); text-decoration: none; display: flex; flex-direction: column;
   min-height: 168px;
   transition: transform var(--g-dur) var(--g-ease-orbit),
@@ -178,14 +183,14 @@ body.is-deep     [data-level="overview"] { display: none; }
 .space--wide { grid-column: span 3; }
 .space__n {
   font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow); letter-spacing: .16em;
-  color: var(--g-sisal); margin-bottom: var(--g-space-2xs);
+  color: var(--g-accent); margin-bottom: var(--g-space-2xs);
 }
 .space h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
 .space p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
 .space__go {
   margin-top: auto; padding-top: var(--g-space-sm);
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
-  color: var(--g-sisal); display: inline-flex; align-items: center; gap: .35rem;
+  color: var(--g-accent); display: inline-flex; align-items: center; gap: .35rem;
 }
 .space:hover .space__go { color: var(--g-text); }
 @media (max-width: 900px) { .space, .space--wide { grid-column: span 3; } }
@@ -206,14 +211,14 @@ body.is-deep     [data-level="overview"] { display: none; }
               background-color var(--g-dur) var(--g-ease-orbit);
 }
 .chip:hover { color: var(--g-text); border-color: var(--g-border-strong); }
-.chip[aria-pressed="true"] { background: var(--g-white-tint); color: var(--g-cosmos-600); border-color: var(--g-white-tint); }
+.chip[aria-pressed="true"] { background: var(--g-solid-bg); color: var(--g-solid-fg); border-color: var(--g-solid-bg); }
 .search {
   flex: 1 1 12rem; min-width: 9rem; background: var(--g-surface-sunken);
   border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
   color: var(--g-text); font: inherit; font-size: var(--g-fs-small); padding: .42rem .9rem;
 }
 .search::placeholder { color: var(--g-text-subtle); }
-.search:focus-visible { outline: none; border-color: var(--g-sisal); box-shadow: 0 0 0 3px rgb(212 201 190 / .2); }
+.search:focus-visible { outline: none; border-color: var(--g-accent); box-shadow: 0 0 0 3px rgb(var(--g-tint) / .2); }
 .result-count { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 .is-hidden { display: none !important; }
 .empty {
@@ -228,38 +233,38 @@ body.is-deep     [data-level="overview"] { display: none; }
   text-decoration: none; align-items: start;
   transition: background-color var(--g-dur) var(--g-ease-orbit);
 }
-.entry:hover { background: rgb(212 201 190 / .04); }
+.entry:hover { background: rgb(var(--g-tint) / .04); }
 .entry__type {
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em;
-  text-transform: uppercase; color: var(--g-sisal); padding-top: .2rem;
+  text-transform: uppercase; color: var(--g-accent); padding-top: .2rem;
 }
 .entry h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); line-height: 1.3; }
-.entry:hover h3 { color: var(--g-sisal); }
+.entry:hover h3 { color: var(--g-accent); }
 .entry p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-2xs); }
 .entry__meta { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); display: flex; gap: var(--g-space-2xs); flex-wrap: wrap; }
 .entry__meta span + span::before { content: "·"; margin-right: var(--g-space-2xs); }
 @media (max-width: 620px) { .entry { grid-template-columns: 1fr; gap: var(--g-space-2xs); } }
 
-/* ---------- dossier ------------------------------------------------------ */
-.dossier-nav {
-  position: sticky; top: 4.5rem; z-index: 40; background: rgb(0 38 58 / .82);
+/* ---------- topic ------------------------------------------------------ */
+.topic-nav {
+  position: sticky; top: 4.5rem; z-index: 40; background: rgb(var(--g-chrome) / var(--g-chrome-a));
   backdrop-filter: blur(14px); border-block: 1px solid var(--g-hairline);
 }
-.dossier-nav__row { display: flex; gap: clamp(.9rem, 2.4vw, 2rem); overflow-x: auto; scrollbar-width: none; }
-.dossier-nav__row::-webkit-scrollbar { display: none; }
-.dossier-nav a {
+.topic-nav__row { display: flex; gap: clamp(.9rem, 2.4vw, 2rem); overflow-x: auto; scrollbar-width: none; }
+.topic-nav__row::-webkit-scrollbar { display: none; }
+.topic-nav a {
   flex: none; padding: var(--g-space-sm) 0; font-size: var(--g-fs-small);
   font-weight: var(--g-w-medium); color: var(--g-text); opacity: .68; text-decoration: none;
   border-bottom: 2px solid transparent; white-space: nowrap;
   transition: opacity var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
 }
-.dossier-nav a:hover, .dossier-nav a.is-active { opacity: 1; border-bottom-color: var(--g-sisal); }
+.topic-nav a:hover, .topic-nav a.is-active { opacity: 1; border-bottom-color: var(--g-accent); }
 
 .layer { padding-block: clamp(2.5rem, 5vw, 4rem); border-top: 1px solid var(--g-hairline); }
 .layer:first-of-type { border-top: 0; }
 .layer__head { display: flex; align-items: baseline; gap: var(--g-space-sm); margin-bottom: var(--g-space-md); flex-wrap: wrap; }
 .layer__n {
-  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent);
   letter-spacing: .1em;
 }
 .layer__head h2 { font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem); margin: 0; letter-spacing: -.02em; }
@@ -289,12 +294,12 @@ body.is-deep     [data-level="overview"] { display: none; }
 .level { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); }
 .level__tag {
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em;
-  text-transform: uppercase; color: var(--g-sisal); margin: 0 0 var(--g-space-2xs);
+  text-transform: uppercase; color: var(--g-accent); margin: 0 0 var(--g-space-2xs);
 }
 .level h4 { font-size: var(--g-fs-body); margin: 0 0 var(--g-space-2xs); }
 .level ul { margin: 0; padding-left: 1.05rem; }
 .level li { font-size: var(--g-fs-small); color: var(--g-text-muted); margin-bottom: var(--g-space-2xs); }
-.level li::marker { color: var(--g-sisal); }
+.level li::marker { color: var(--g-accent); }
 .level a { color: var(--g-text-muted); text-decoration-color: var(--g-border); }
 .level a:hover { color: var(--g-text); }
 
@@ -304,9 +309,9 @@ body.is-deep     [data-level="overview"] { display: none; }
 .tl__item { position: relative; padding-bottom: var(--g-space-md); }
 .tl__item::before {
   content: ""; position: absolute; left: -1.53rem; top: .45rem; width: .52rem; height: .52rem;
-  border-radius: 50%; background: var(--g-sisal); box-shadow: 0 0 0 3px var(--g-cosmos-700);
+  border-radius: 50%; background: var(--g-accent); box-shadow: 0 0 0 3px var(--g-bg);
 }
-.tl__yr { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal); }
+.tl__yr { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent); }
 .tl__item h4 { font-size: var(--g-fs-body); margin: .1rem 0 .2rem; }
 .tl__item p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
 
@@ -329,12 +334,12 @@ body.is-deep     [data-level="overview"] { display: none; }
 .comment { display: grid; grid-template-columns: 2.4rem minmax(0,1fr); gap: var(--g-space-sm); padding-block: var(--g-space-sm); border-bottom: 1px solid var(--g-hairline); }
 .avatar {
   width: 2.4rem; height: 2.4rem; border-radius: 50%; display: grid; place-items: center;
-  background: var(--g-cosmos-400); color: var(--g-text); font-size: var(--g-fs-caption);
+  background: var(--g-surface-hover); color: var(--g-text); font-size: var(--g-fs-caption);
   font-weight: var(--g-w-semibold); border: 1px solid var(--g-hairline);
 }
 .comment__who { font-size: var(--g-fs-small); font-weight: var(--g-w-semibold); }
 .comment__role {
-  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent);
   border: 1px solid var(--g-border); border-radius: var(--g-radius-pill); padding: 0 .4rem; margin-left: .4rem;
 }
 .comment p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: .25rem 0 0; }
@@ -352,7 +357,7 @@ body.is-deep     [data-level="overview"] { display: none; }
 .game-card__b { padding: var(--g-space-md); display: flex; flex-direction: column; flex: 1; }
 .game-card h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
 .game-card p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-sm); }
-.game-card__meta { margin-top: auto; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal); }
+.game-card__meta { margin-top: auto; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent); }
 .badge-soon {
   position: absolute; top: var(--g-space-2xs); right: var(--g-space-2xs);
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
@@ -390,11 +395,11 @@ body.is-deep     [data-level="overview"] { display: none; }
 }
 .triple input::-webkit-outer-spin-button,
 .triple input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.triple input:hover { border-color: var(--g-border-strong); background: var(--g-cosmos-700); }
+.triple input:hover { border-color: var(--g-border-strong); background: var(--g-surface-hover); }
 .triple { gap: .45rem; }
 .triple__sep { font-family: var(--g-font-mono); color: var(--g-text-subtle);
   font-size: 1.1rem; padding: 0 .1rem; }
-.triple input:focus-visible { outline: none; border-color: var(--g-sisal); box-shadow: 0 0 0 3px rgb(212 201 190 / .2); }
+.triple input:focus-visible { outline: none; border-color: var(--g-accent); box-shadow: 0 0 0 3px rgb(var(--g-tint) / .2); }
 .trials { margin-top: var(--g-space-md); border-top: 1px solid var(--g-hairline); }
 .trial {
   display: flex; align-items: center; gap: var(--g-space-sm); padding: .5rem 0;
@@ -414,14 +419,14 @@ body.is-deep     [data-level="overview"] { display: none; }
 .path-card:hover { transform: translateY(-3px); border-color: var(--g-border); }
 .path-card h3 { font-size: var(--g-fs-h4); margin: var(--g-space-2xs) 0 var(--g-space-3xs); }
 .path-card p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-sm); }
-.progress { height: 4px; border-radius: 99px; background: rgb(212 201 190 / .18); overflow: hidden; margin-top: auto; }
-.progress i { display: block; height: 100%; background: var(--g-sisal); border-radius: 99px; }
+.progress { height: 4px; border-radius: 99px; background: rgb(var(--g-tint) / .18); overflow: hidden; margin-top: auto; }
+.progress i { display: block; height: 100%; background: var(--g-accent); border-radius: 99px; }
 
 .step { display: grid; grid-template-columns: 2.6rem minmax(0,1fr); gap: var(--g-space-md); padding-block: var(--g-space-md); border-bottom: 1px solid var(--g-hairline); }
 .step__n {
   width: 2.2rem; height: 2.2rem; border-radius: 50%; border: 1px solid var(--g-border);
   display: grid; place-items: center; font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
-  color: var(--g-sisal);
+  color: var(--g-accent);
 }
 .step h4 { font-size: var(--g-fs-body); margin: .15rem 0 var(--g-space-3xs); }
 .step p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-2xs); }
@@ -435,11 +440,11 @@ body.is-deep     [data-level="overview"] { display: none; }
 .role { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); }
 .role h4 { font-size: var(--g-fs-body); margin: 0 0 var(--g-space-3xs); }
 .role p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
-.role__icon { width: 1.4rem; height: 1.4rem; color: var(--g-sisal); margin-bottom: var(--g-space-2xs); }
+.role__icon { width: 1.4rem; height: 1.4rem; color: var(--g-accent); margin-bottom: var(--g-space-2xs); }
 
 .event { display: grid; grid-template-columns: 5rem minmax(0,1fr) auto; gap: var(--g-space-md); align-items: center;
   padding-block: var(--g-space-sm); border-bottom: 1px solid var(--g-hairline); }
-.event__date { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal); text-align: center; }
+.event__date { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent); text-align: center; }
 .event__date b { display: block; font-size: var(--g-fs-h4); color: var(--g-text); font-weight: var(--g-w-bold); }
 .event h4 { font-size: var(--g-fs-body); margin: 0 0 var(--g-space-3xs); }
 .event p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
@@ -451,10 +456,10 @@ body.is-deep     [data-level="overview"] { display: none; }
   color: var(--g-text); font: inherit; font-size: var(--g-fs-small); cursor: pointer; position: relative; overflow: hidden;
   transition: border-color var(--g-dur) var(--g-ease-orbit); }
 .poll__opt:hover { border-color: var(--g-border-strong); }
-.poll__opt[aria-pressed="true"] { border-color: var(--g-sisal); }
-.poll__bar { position: absolute; inset: 0 auto 0 0; background: rgb(212 201 190 / .14); width: 0; transition: width .6s var(--g-ease-orbit); }
+.poll__opt[aria-pressed="true"] { border-color: var(--g-accent); }
+.poll__bar { position: absolute; inset: 0 auto 0 0; background: rgb(var(--g-tint) / .14); width: 0; transition: width .6s var(--g-ease-orbit); }
 .poll__txt { position: relative; display: flex; justify-content: space-between; gap: var(--g-space-sm); }
-.poll__pct { font-family: var(--g-font-mono); color: var(--g-sisal); opacity: 0; transition: opacity .3s; }
+.poll__pct { font-family: var(--g-font-mono); color: var(--g-accent); opacity: 0; transition: opacity .3s; }
 .poll.is-voted .poll__pct { opacity: 1; }
 
 /* ---------- programmes strip -------------------------------------------- */
@@ -469,7 +474,7 @@ body.is-deep     [data-level="overview"] { display: none; }
 @media (max-width: 560px) { .programs { grid-template-columns: 1fr; }
   .program, .program:nth-child(5) { grid-column: span 1 !important; } }
 .program { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); background: var(--g-surface-raised); }
-.program__n { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-sisal); letter-spacing: .1em; }
+.program__n { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent); letter-spacing: .1em; }
 .program h3 { font-size: var(--g-fs-body); margin: var(--g-space-3xs) 0; }
 .program p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-2xs); }
 .program__cad { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
@@ -484,7 +489,7 @@ body.is-deep     [data-level="overview"] { display: none; }
 .aside { position: sticky; top: 6rem; }
 @media (max-width: 900px) { .aside { position: static; } }
 .callout {
-  border: 1px solid var(--g-hairline); border-left: 2px solid var(--g-sisal);
+  border: 1px solid var(--g-hairline); border-left: 2px solid var(--g-accent);
   border-radius: 0 var(--g-radius) var(--g-radius) 0; padding: var(--g-space-md);
   background: var(--g-surface-sunken);
 }
@@ -495,7 +500,7 @@ body.is-deep     [data-level="overview"] { display: none; }
 .rv.in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; } }
 
-/* ---- Footer social icons — uniform circular buttons, one visual weight ---- */
+/* ---- Footer social icons, uniform circular buttons, one visual weight ---- */
 /* The Elsewhere column needs a little more room than the others so all five
    sit on a single row rather than wrapping 4+1. */
 .g-footer__grid { grid-template-columns: 1.5fr 1fr 1fr 1.35fr; }
@@ -517,9 +522,13 @@ body.is-deep     [data-level="overview"] { display: none; }
 }
 .lp-social__link:hover {
   color: var(--g-text); border-color: var(--g-border-strong);
-  background: rgb(212 201 190 / 0.08); transform: translateY(-2px);
+  background: rgb(var(--g-tint) / 0.08); transform: translateY(-2px);
 }
-.lp-social__link svg { width: 1.05rem; height: 1.05rem; display: block; }
+/* 1.25rem in a 2.25rem button leaves exactly 8px of air on each side at
+   100% zoom (36 - 20, halved) instead of 8.4px. The browser has to round
+   the leftover space to the device grid either way, but a whole number is
+   the one case where it rounds to nothing at all. */
+.lp-social__link svg { width: 1.25rem; height: 1.25rem; display: block; }
 
 
 /* ---- reading level on magazine entries --------------------------------
@@ -534,7 +543,7 @@ body.is-overview .entry[data-reading="deep"] { opacity: .55; }
 body.is-overview .entry[data-reading="deep"]:hover { opacity: 1; }
 body.is-deep .entry[data-reading="overview"] { opacity: .62; }
 body.is-deep .entry[data-reading="overview"]:hover { opacity: 1; }
-body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border); }
+body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border); }
 .entry[data-reading] { transition: opacity var(--g-dur) var(--g-ease-orbit); }
 
 /* ---- article ---------------------------------------------------------- */
@@ -556,7 +565,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 /* ---- two-line drop cap --------------------------------------------------
    The letter has to sit on two lines exactly: its cap top level with the cap
    top of line one, its baseline sitting on the baseline of line two. The old
-   values did neither — sizing the float against the *line box* rather than the
+   values did neither, sizing the float against the *line box* rather than the
    cap height left the A floating high, meeting neither line.
 
    Worked from DM Sans's real metrics (1000 upem, cap height 700, ascender 992,
@@ -568,14 +577,19 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
      margin-top so the baselines meet    = 0.15em of that
 
    Browsers that support initial-letter do this arithmetic themselves, from
-   whichever font actually loaded, so let them — the float is the fallback. */
+   whichever font actually loaded, so let them, the float is the fallback. */
 .art__lede::first-letter {
   float: left;
   font-size: 3.4em;
   line-height: .7;
   margin: .15em .1em 0 0;
   font-weight: var(--g-w-bold);
-  color: var(--g-sisal);
+  /* Not the accent. On dark, Sisal against White Tint body copy is a hairline
+     of difference and reads as emphasis; on light the same token is bronze,
+     and two lines tall it stops being an initial and becomes a brown blob at
+     the top of the article. Weight and scale already do all the work an
+     initial needs. */
+  color: var(--g-text);
 }
 @supports (initial-letter: 2) or (-webkit-initial-letter: 2) {
   .art__lede::first-letter {
@@ -591,7 +605,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
   border-radius:0 var(--g-radius) var(--g-radius) 0; padding:var(--g-space-md);
   font-size:.94rem; color:var(--g-text-muted); }
 .art__aside-h { font-family:var(--g-font-mono); font-size:.68rem; letter-spacing:.14em;
-  text-transform:uppercase; color:var(--g-sisal); margin:0 0 .5rem; }
+  text-transform:uppercase; color:var(--g-accent); margin:0 0 .5rem; }
 .art__sources { border-top:1px solid var(--g-hairline); padding-top:var(--g-space-lg);
   margin-top: var(--g-space-lg); }
 .src { list-style:none; margin:0 0 var(--g-space-sm); padding:0; }
@@ -609,7 +623,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 .nextcard:hover { transform:translateY(-3px); border-color:var(--g-border-strong);
   background:var(--g-surface-hover); }
 .nextcard__k { font-family:var(--g-font-mono); font-size:.62rem; letter-spacing:.14em;
-  text-transform:uppercase; color:var(--g-sisal); }
+  text-transform:uppercase; color:var(--g-accent); }
 .nextcard strong { font-size:1.02rem; }
 .nextcard span:last-child { font-size:.86rem; color:var(--g-text-muted); }
 
@@ -626,7 +640,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
   font-family: var(--g-font-mono); font-size: .6rem; letter-spacing: .14em;
   text-transform: uppercase; color: var(--g-text-subtle);
   border: 1px solid var(--g-hairline); border-radius: 99px;
-  padding: .1rem .5rem; background: rgb(1 18 28 / .72);
+  padding: .1rem .5rem; background: rgb(var(--g-chrome) / 0.85);
 }
 .game-card.is-soon .soon-chip { top: auto; bottom: .7rem; }
 
@@ -636,7 +650,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 .is-flat { cursor: default; text-decoration: none; color: var(--g-text-muted); }
 .is-flat:hover { color: var(--g-text-muted); }
 
-/* verdict line under a simulation — states the reading, so the control has a
+/* verdict line under a simulation, states the reading, so the control has a
    consequence in words as well as pixels */
 .play__note { margin: 0; padding: .7rem var(--g-space-md);
   border-top: 1px solid var(--g-hairline); font-size: var(--g-fs-small); }
@@ -646,7 +660,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 
 /* ---- join ---------------------------------------------------------------
    The old version was a form dropped on a flat band. This one borrows the
-   hero's treatment — the well and the starfield behind it, real vertical
+   hero's treatment, the well and the starfield behind it, real vertical
    room, and the roles shown as things you become rather than a sentence
    describing them. */
 .join { position: relative; overflow: hidden; isolation: isolate;
@@ -660,7 +674,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 .join__h { font-size: clamp(2.2rem, 1.4rem + 3.2vw, 4rem); line-height: 1.0;
   letter-spacing: -.035em; margin: 0 0 var(--g-space-2xs); text-wrap: balance;
   font-weight: var(--g-w-bold); }
-.join__lede { color: var(--g-sisal); font-size: clamp(1.1rem, 1rem + .7vw, 1.6rem);
+.join__lede { color: var(--g-accent); font-size: clamp(1.1rem, 1rem + .7vw, 1.6rem);
   font-weight: var(--g-w-light); letter-spacing: -.02em;
   margin: 0 auto var(--g-space-xl); }
 .join__roles { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: center;
@@ -671,7 +685,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
   padding: .34rem .85rem; transition: color var(--g-dur) var(--g-ease-orbit),
   border-color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit); }
 .join__role:hover { color: var(--g-text); border-color: var(--g-border-strong);
-  background: rgb(212 201 190 / .08); }
+  background: rgb(var(--g-tint) / .08); }
 .join__act { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; }
 .join__fine { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
   color: var(--g-text-subtle); margin: var(--g-space-md) 0 0; }
@@ -693,8 +707,8 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
   font-weight: var(--g-w-medium); color: var(--g-text-muted); background: none;
   border: 0; border-radius: var(--g-radius-pill); padding: .5rem .8rem; cursor: pointer;
   transition: .22s var(--g-ease-orbit); }
-.auth__tabs button[aria-selected="true"] { background: var(--g-white-tint);
-  color: var(--g-cosmos-600); font-weight: var(--g-w-semibold); }
+.auth__tabs button[aria-selected="true"] { background: var(--g-solid-bg);
+  color: var(--g-solid-fg); font-weight: var(--g-w-semibold); }
 .auth__h { font-size: clamp(1.5rem,1.2rem+1.4vw,2.1rem); letter-spacing: -.025em;
   line-height: 1.1; margin: 0 0 var(--g-space-2xs); }
 .auth__lede { color: var(--g-text-muted); font-size: var(--g-fs-small);
@@ -713,9 +727,9 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 .rolepick b { display: block; font-size: var(--g-fs-small); color: var(--g-text);
   font-weight: var(--g-w-semibold); margin-bottom: .1rem; }
 .rolepick:hover span { border-color: var(--g-border); }
-.rolepick input:checked + span { border-color: var(--g-sisal);
-  background: rgb(212 201 190 / .09); color: var(--g-text-muted); }
-.rolepick input:focus-visible + span { outline: 2px solid var(--g-sisal); outline-offset: 2px; }
+.rolepick input:checked + span { border-color: var(--g-accent);
+  background: rgb(var(--g-tint) / .09); color: var(--g-text-muted); }
+.rolepick input:focus-visible + span { outline: 2px solid var(--g-accent); outline-offset: 2px; }
 .auth__check { display: flex; gap: .55rem; align-items: flex-start;
   font-size: var(--g-fs-small); color: var(--g-text-muted); margin-bottom: var(--g-space-md); }
 .auth__row { display: flex; justify-content: space-between; align-items: center;
@@ -737,11 +751,11 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 .auth__list b { color: var(--g-text); font-weight: var(--g-w-medium); }
 .auth__side-note { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0; }
 
-/* ---- dossier viewpoints + poll, on the design system -------------------- */
+/* ---- topic viewpoints + poll, on the design system -------------------- */
 .view { border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
   background: var(--g-surface-raised); padding: var(--g-space-md); }
 .view__k { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
-  letter-spacing: .14em; text-transform: uppercase; color: var(--g-sisal); margin: 0 0 .4rem; }
+  letter-spacing: .14em; text-transform: uppercase; color: var(--g-accent); margin: 0 0 .4rem; }
 .view h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-2xs); }
 .view p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
 .poll { margin-top: var(--g-space-lg); border: 1px solid var(--g-hairline);
@@ -762,8 +776,12 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
   padding: .6rem .6rem .6rem var(--g-space-md);
   margin-bottom: var(--g-space-lg); }
 .depthbar__note { margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); }
-@media (max-width: 520px) { .depthbar { justify-content: stretch; }
-  .depthbar .depth { width: 100%; } .depthbar .depth button { flex: 1; } }
+@media (max-width: 620px) {
+  .depthbar { flex-direction: column; align-items: stretch; gap: var(--g-space-2xs);
+              padding: var(--g-space-sm); }
+  .depthbar .depth { width: 100%; }
+  .depthbar .depth button { flex: 1; padding-block: .5rem; }
+}
 
 /* ---- sign-in row: the two controls sit on one baseline ------------------
    "Keep me signed in" is a label wrapping a checkbox and "Forgotten password"
@@ -783,7 +801,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 /* ---- team ---------------------------------------------------------------
    A list, not a one-off block, because more people are coming. The open slot
    is a real card so the section does not look thin at one person. */
-/* One card per row, and generous — these are the people, not a sidebar. */
+/* One card per row, and generous, these are the people, not a sidebar. */
 .team { list-style: none; margin: 0; padding: 0; display: grid;
   grid-template-columns: 1fr; gap: var(--g-space-md); max-width: 54rem; }
 .person { display: flex; gap: var(--g-space-lg); align-items: flex-start;
@@ -797,7 +815,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 .person__pic--open svg { width: 1.6rem; height: 1.6rem; }
 .person__body h3 { font-size: var(--g-fs-h3); margin: 0 0 .2rem; letter-spacing: -.015em; }
 .person__role { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
-  letter-spacing: .1em; text-transform: uppercase; color: var(--g-sisal); margin: 0 0 .5rem; }
+  letter-spacing: .1em; text-transform: uppercase; color: var(--g-accent); margin: 0 0 .5rem; }
 .person__body > p:not(.person__role) { font-size: var(--g-fs-body);
   color: var(--g-text-muted); margin: 0; max-width: 52ch; }
 .person__links { display: flex; gap: .5rem; margin-top: var(--g-space-md); flex-wrap: wrap; }
@@ -806,8 +824,8 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
   text-transform: uppercase; color: var(--g-text-muted); text-decoration: none;
   border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
   padding: .34rem .8rem; transition: .22s var(--g-ease-orbit); }
-.person__links a:hover { color: var(--g-text); border-color: var(--g-sisal);
-  background: rgb(212 201 190 / .08); }
+.person__links a:hover { color: var(--g-text); border-color: var(--g-accent);
+  background: rgb(var(--g-tint) / .08); }
 .person__links svg { width: .95rem; height: .95rem; }
 .person.is-open { border-style: dashed; background: transparent; }
 @media (max-width: 560px) { .person { flex-direction: column; gap: var(--g-space-md); }
@@ -822,13 +840,13 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
   border-top: 1px solid var(--g-hairline); }
 .hist li:last-child { border-bottom: 1px solid var(--g-hairline); }
 .hist__y { font-family: var(--g-font-mono); font-size: var(--g-fs-small);
-  color: var(--g-sisal); letter-spacing: .06em; padding-top: .12rem; }
+  color: var(--g-accent); letter-spacing: .06em; padding-top: .12rem; }
 .hist h3 { font-size: var(--g-fs-body); margin: 0 0 .25rem; }
 .hist p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; max-width: 60ch; }
 @media (max-width: 560px) { .hist li { grid-template-columns: 1fr; gap: .3rem; } }
 
 /* ---- an aside that starts level with the body of the column beside it ----
-   The previous version pushed the aside down with `padding-top: 13rem` — a
+   The previous version pushed the aside down with `padding-top: 13rem`, a
    guess at the height of the heading and lead above the poll. Two things were
    wrong with it. The guess only held at one viewport and one font, so the box
    was never quite level; and because sticky positioning measures the border
@@ -844,7 +862,7 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 .split--rows > .split__body  { grid-column: 1; grid-row: 2; }
 .split--rows > .aside        { grid-column: 2; grid-row: 2; }
 /* The poll carries its own top margin for the case where it follows text.
-   Here the grid row gap is already the separation, so drop it — otherwise the
+   Here the grid row gap is already the separation, so drop it, otherwise the
    aside sits a margin higher than the box it is levelling with. */
 .split--rows > .split__body > .poll:first-child { margin-top: 0; }
 @media (max-width: 900px) {
@@ -855,22 +873,22 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 
 /* ---- sticky chrome, measured rather than guessed -------------------------
    Every sticky offset on the site was a hand-picked round number, which is why
-   the dossier sub-nav sat on top of the callouts instead of above them. These
+   the topic sub-nav sat on top of the callouts instead of above them. These
    describe the actual chrome, so anything that has to clear it can say so. */
 :root {
   --g-header-h: calc(4.5rem + 1px);        /* min-height + bottom hairline */
-  --g-dossier-nav-h: 3.5rem;               /* pinned below, so this stays true */
-  --g-chrome-h: calc(var(--g-header-h) + var(--g-dossier-nav-h) + 2px);
+  --g-topic-nav-h: 3.5rem;               /* pinned below, so this stays true */
+  --g-chrome-h: calc(var(--g-header-h) + var(--g-topic-nav-h) + 2px);
   --g-sticky-gap: 1.5rem;
 }
 
-.dossier-nav { top: var(--g-header-h); }
-/* Pin the row's height so --g-dossier-nav-h is a fact and not a hope. */
-.dossier-nav__row { height: var(--g-dossier-nav-h); align-items: center; }
-.dossier-nav a { padding-block: 0; display: inline-flex; align-items: center; height: 100%; }
+.topic-nav { top: var(--g-header-h); }
+/* Pin the row's height so --g-topic-nav-h is a fact and not a hope. */
+.topic-nav__row { height: var(--g-topic-nav-h); align-items: center; }
+.topic-nav a { padding-block: 0; display: inline-flex; align-items: center; height: 100%; }
 
 .aside { top: calc(var(--g-header-h) + var(--g-sticky-gap)); }
-/* On a dossier there are two bars overhead, not one. Without this the callout
+/* On a topic there are two bars overhead, not one. Without this the callout
    parked underneath the section nav and was covered by it. */
 .layer .aside { top: calc(var(--g-chrome-h) + var(--g-sticky-gap)); }
 
@@ -909,3 +927,175 @@ body.is-deep .entry__lvl { color: var(--g-sisal); border-color: var(--g-border);
 }
 .auth__back:hover { color: var(--g-text); }
 .auth__back svg { width: .9rem; height: .9rem; }
+
+
+/* =========================================================================
+   LIGHT THEME, the parts a token swap can't reach
+   -------------------------------------------------------------------------
+   Most of the site flips automatically now that surfaces, ink and overlays
+   all come from tokens. What is left here are the places where the dark
+   design isn't a colour but a *device*: a night sky, a scrim over a dark
+   still, an inline SVG with white strokes baked in. Those don't translate -
+   they have to be switched off or redrawn.
+   ========================================================================= */
+
+/* The night sky is a dark-mode idea. Rendered on paper it is grey dust on a
+   cream field: noise with no meaning. Off. */
+:root[data-theme="light"] .g-starfield,
+:root[data-theme="light"] .lp-stars,
+:root[data-theme="light"] .lp-meteors { display: none; }
+/* The comet stays. It is the cursor, the hero sets `cursor: none` and lets the
+   canvas draw the pointer instead, so hiding it in light mode did not remove a
+   decoration, it removed the mouse pointer. It takes its colour from the tokens
+   and composites normally, so on paper it is simply a dark comet. */
+
+/* The well is a single SVG with White Tint strokes, used as a background
+   image in three places. Inverting the render is cheaper and more reliable
+   than shipping a second file, alpha is preserved, so only the strokes
+   flip. */
+:root[data-theme="light"] .g-well { filter: invert(1); opacity: 0.16; }
+
+/* Scrims and play buttons assume something dark underneath. On light
+   thumbnails they invert. */
+:root[data-theme="light"] .video__play {
+  border-color: rgb(0 48 73 / 0.35);
+  background: rgb(255 255 255 / 0.7);
+  color: var(--g-cosmos-600);
+}
+:root[data-theme="light"] .video:hover .video__play {
+  background: var(--g-cosmos-600); color: var(--g-white-tint);
+}
+:root[data-theme="light"] .video__meta {
+  background: linear-gradient(180deg, transparent, rgb(255 255 255 / 0.92));
+  color: var(--g-text-muted);
+}
+:root[data-theme="light"] .g-video-card__duration {
+  background: rgb(0 34 54 / 0.8);
+}
+:root[data-theme="light"] .lp-play span {
+  border-color: rgb(0 48 73 / 0.35); background: rgb(255 255 255 / 0.72);
+  color: var(--g-cosmos-600);
+}
+
+/* The orbit sits in a soft well that exists to stop the blue field tinting
+   the bodies. On light the same job needs the opposite value. */
+:root[data-theme="light"] .lp-orbit::before {
+  background: radial-gradient(closest-side,
+    rgb(255 255 255 / .9), rgb(255 255 255 / .55) 55%, rgb(255 255 255 / 0) 100%);
+}
+
+/* Cards on a white page need an edge, not a glow, or they dissolve into the
+   background. The dark theme gets that edge from a lighter surface; here it
+   has to come from the border and a shadow on hover. */
+:root[data-theme="light"] .space,
+:root[data-theme="light"] .program,
+:root[data-theme="light"] .game-card,
+:root[data-theme="light"] .path-card,
+:root[data-theme="light"] .role,
+:root[data-theme="light"] .level,
+:root[data-theme="light"] .view,
+:root[data-theme="light"] .person,
+:root[data-theme="light"] .nextcard { border-color: var(--g-border); }
+:root[data-theme="light"] .space:hover,
+:root[data-theme="light"] .game-card:hover,
+:root[data-theme="light"] .path-card:hover,
+:root[data-theme="light"] .nextcard:hover { box-shadow: var(--g-glow-md); }
+
+/* ---- Theme toggle -------------------------------------------------------
+   Sits in the header actions, same footprint as the menu button so the row
+   keeps its rhythm. Both icons are in the DOM; CSS decides which shows,
+   which means no repaint flicker and no icon swap in JS. */
+.theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.5rem; height: 2.5rem; flex: none;
+  border-radius: var(--g-radius-pill);
+  border: 1px solid var(--g-border); background: transparent;
+  color: var(--g-text-muted); cursor: pointer;
+  transition: color var(--g-dur) var(--g-ease-orbit),
+              border-color var(--g-dur) var(--g-ease-orbit),
+              background-color var(--g-dur) var(--g-ease-orbit);
+}
+.theme-toggle:hover {
+  color: var(--g-text); border-color: var(--g-border-strong);
+  background: rgb(var(--g-tint) / 0.08);
+}
+/* 1.125rem in a 2.5rem button: 40 - 18, so 11px a side. Also brings the
+   toggle into the same optical weight as the footer marks. */
+.theme-toggle svg { width: 1.125rem; height: 1.125rem; display: block; }
+.theme-toggle .ic-sun { display: none; }
+:root[data-theme="light"] .theme-toggle .ic-sun { display: block; }
+:root[data-theme="light"] .theme-toggle .ic-moon { display: none; }
+
+
+
+/* The join band appears on the home page too now, where it sits inside a
+   normal section rather than at the foot of the community page. */
+.join .g-starfield { opacity: .35; }
+
+
+/* =========================================================================
+   LONG-FORM READING COMFORT
+   -------------------------------------------------------------------------
+   Topics and Magazine pieces are supposed to be dense, that is the product,
+   and cutting them would be cutting the thing people came for. So the fix on
+   these pages is not fewer words but a page that is easier to hold: a shorter
+   measure, more air between ideas than inside them, headings that announce
+   themselves by position rather than by size alone, and a visible sense of
+   how much is left.
+   ========================================================================= */
+
+/* A 68ch line at lead size is roughly 100 characters on a wide screen, which
+   is past the point where the eye starts losing its place on the return
+   sweep. 62ch is the comfortable end of the classic range. */
+div.art, .g-prose { max-width: 62ch; }
+div.art { line-height: 1.72; }
+
+/* Space between paragraphs should exceed space between lines, or the block
+   reads as one undifferentiated mass. It did not. */
+div.art > * + * { margin-top: 1.15em; }
+
+/* Section heads inside an article get a short rule in the accent rather than
+   a bigger type size. It marks the break at a glance while scanning, and it
+   costs no vertical space that the text could have had. */
+.art h2 {
+  margin-top: 2.4em; position: relative; padding-top: var(--g-space-sm);
+  line-height: 1.25;
+}
+.art h2::before {
+  content: ""; position: absolute; top: 0; left: 0;
+  width: 2.5rem; height: 2px; background: var(--g-accent);
+}
+.art h3 { margin-top: 1.9em; color: var(--g-text); }
+
+/* Lists inside long-form were running at the same rhythm as prose, so a
+   four-item list looked like a paragraph with bullets. */
+.art ul, .art ol { padding-left: 1.2rem; }
+.art li + li { margin-top: .45em; }
+.art li::marker { color: var(--g-accent); }
+
+/* The aside is the one place a reader is allowed to stop, so it should look
+   like a stop: a different ground, not just a rule down one side. */
+.art__aside { border-left-color: var(--g-accent); }
+
+/* Topic layers are the same problem one level up. A named number and a rule
+   let someone re-enter the page halfway down and know where they are. */
+.layer { padding-block: clamp(3rem, 6vw, 5rem); }
+.layer__head { margin-bottom: var(--g-space-lg); }
+.layer__head h2 { line-height: 1.2; }
+
+/* ---- Reading progress ---------------------------------------------------
+   Two thousand words with no end in sight is a different experience from two
+   thousand words that visibly end. One hairline, no numbers, no percentage -
+   the information is "how much is left", and a bar answers that without
+   asking to be read. */
+.readbar {
+  position: fixed; left: 0; top: 0; height: 2px; width: 100%;
+  z-index: calc(var(--g-z-sticky) + 1);
+  background: transparent; pointer-events: none;
+}
+.readbar i {
+  display: block; height: 100%; width: 0;
+  background: var(--g-accent);
+  transition: width 90ms linear;
+}
+@media (prefers-reduced-motion: reduce) { .readbar i { transition: none; } }

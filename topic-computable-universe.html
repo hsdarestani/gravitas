@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Theme, resolved before first paint. See assets/site.js for the toggle.
+   Dark is the default full stop, not "dark unless your OS says otherwise":
+   this is a night sky, and a visitor who has never touched the control should
+   see the same site every time rather than one that depends on a setting they
+   made for some other app. Only an explicit choice, stored here, overrides it. */
+(function(){try{var s=localStorage.getItem('gravitas:theme');
+document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
+}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
+</script>
+<title>Is the universe computable? · Gravitas+ Topic 04</title>
+<meta name="description" content="A full topic: film, essay at two depths, sources at three levels, timeline, an interactive Lorenz simulation, opposing viewpoints and discussion.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="mask-icon" href="assets/monogram.svg" color="#003049">
+<meta name="theme-color" content="#00263a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/gravitas.css">
+<link rel="stylesheet" href="assets/site.css">
+
+<link rel="stylesheet" href="assets/chat.css">
+</head>
+<body class="is-overview">
+<a class="g-skip-link" href="#main">Skip to content</a>
+<header class="g-header">
+  <div class="g-container g-header__inner">
+    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
+      <path d="M160.51,49.21c-2.41,2.06-4.52,4.52-6.3,7.38l-1.74-12.34h-17.84v67.6h20.12v-30.18c0-3.4.4-6.24,1.21-8.52.8-2.28,2.01-4.09,3.62-5.43,1.61-1.34,3.49-2.3,5.63-2.89,2.15-.58,4.56-.87,7.24-.87h6.84v-21.33c-3.85,0-7.33.58-10.46,1.74-3.13,1.17-5.9,2.78-8.32,4.83Z"/>
+      <path d="M239.25,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2c1.74,3.04,4.47,5.48,8.18,7.31,3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.91-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM231.54,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28s-1.14-2.23-1.14-3.76c0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <polygon points="299.2 92.93 283.38 44.25 262.32 44.25 286.73 111.85 311.41 111.85 335.82 44.25 314.9 44.25 299.2 92.93"/>
+      <path d="M365.8,17.69c-2.28-2.05-5.26-3.08-8.92-3.08s-6.48,1.03-8.72,3.08c-2.24,2.06-3.35,4.7-3.35,7.92s1.11,5.72,3.35,7.78c2.24,2.05,5.14,3.08,8.72,3.08s6.64-1.03,8.92-3.08c2.28-2.06,3.42-4.65,3.42-7.78s-1.14-5.86-3.42-7.92Z"/>
+      <rect x="346.82" y="44.25" width="20.12" height="67.6"/>
+      <path d="M413.55,93.14c-1.21-1.12-1.81-3.02-1.81-5.7v-26.42h17.03v-16.77h-17.03v-19.05h-17.98l-2.15,19.05h-11.67v16.77h11.67v26.16c0,6.17,1.03,11.05,3.09,14.62,2.06,3.57,4.96,6.15,8.72,7.71,3.76,1.56,8.05,2.35,12.88,2.35h12.61v-17.03h-9.12c-2.95,0-5.03-.56-6.24-1.68Z"/>
+      <path d="M492.75,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2,4.47,5.48,8.18,7.31c3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.9-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM485.04,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28-.76-.98-1.14-2.23-1.14-3.76,0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <path d="M569.27,73.96c-3.98-1.39-8.7-2.61-14.15-3.69-2.78-.54-5.15-1.14-7.11-1.81-1.97-.67-3.47-1.45-4.49-2.35-1.03-.89-1.54-1.88-1.54-2.95,0-1.52.76-2.79,2.28-3.82,1.52-1.03,3.71-1.54,6.57-1.54s4.98.49,6.64,1.47c1.65.99,2.75,2.37,3.29,4.16h18.78c-.9-6.35-3.78-11.4-8.65-15.15-4.87-3.76-11.51-5.63-19.92-5.63-5.99,0-11.11.96-15.36,2.88-4.25,1.93-7.46,4.49-9.66,7.71-2.19,3.22-3.28,6.84-3.28,10.87,0,3.49.71,6.33,2.15,8.52,1.43,2.19,3.4,4.02,5.9,5.5,2.5,1.48,5.34,2.66,8.52,3.55,3.17.89,6.37,1.74,9.59,2.55,2.77.54,5.14,1.12,7.11,1.74,1.96.63,3.46,1.37,4.49,2.22,1.03.85,1.54,2.12,1.54,3.82,0,1.07-.33,2.1-1,3.08-.67.98-1.72,1.77-3.15,2.35-1.43.58-3.22.87-5.37.87s-4.16-.36-5.77-1.07c-1.61-.71-2.88-1.68-3.82-2.88-.94-1.21-1.59-2.53-1.94-3.96h-19.98c.35,4.38,1.85,8.29,4.49,11.74,2.64,3.44,6.26,6.19,10.87,8.25,4.6,2.05,10.13,3.09,16.57,3.09,5.9,0,11.06-.98,15.49-2.95,4.42-1.96,7.82-4.63,10.19-7.98,2.37-3.35,3.56-7.22,3.56-11.6,0-4.74-1.14-8.4-3.42-11-2.28-2.59-5.41-4.58-9.39-5.97Z"/>
+      <polygon points="630.63 39.65 616.16 39.65 616.16 26.52 606.31 26.52 606.31 39.65 591.77 39.65 591.77 49.43 606.31 49.43 606.31 62.65 616.16 62.65 616.16 49.43 630.63 49.43 630.63 39.65"/>
+    </g>
+  </g>
+</svg></a>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" aria-current="page" href="topics.html">Topics</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
+    <div class="gh-actions">
+      <a class="g-btn g-btn--ghost g-btn--sm gh-signin" href="account.html#in">Sign in</a>
+      <!-- The header CTA is the site's single loudest control, and it used to
+           point at a mailing list. The community is the thing this project is
+           actually for, so it gets the slot. -->
+      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="community.html#join" aria-label="Join the Gravitas+ community">
+        <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 19v-1.6a3.4 3.4 0 0 0-3.4-3.4H6.4A3.4 3.4 0 0 0 3 17.4V19"/><circle cx="9.5" cy="7.5" r="3.1"/><path d="M19 11h2M20 10v2"/></svg>
+        <span>Join Us</span>
+      </a>
+      <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme">
+        <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><!-- The crescent sits centred by bounding box but not by mass: its area centroid measures (9.97, 14.03) against a 12,12 viewBox centre, which is why it read as low and left inside a circular button. Shifted part of the way back: correcting the full 2.03 would push the upper tip out of the box, so this splits the difference between the two centres, which is what optical centring is. --><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
+      </button>
+      <button class="lp-menu-btn" aria-label="Menu" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<main id="main">
+
+<section class="page-head"><div class="g-container">
+      <p class="crumb"><a href="index.html">Home</a> / <a href="topics.html">Topics</a> / 04</p><h1>Is the universe computable?</h1><p class="g-lead">If the world runs on rules, something ought to be able to run them. That thought is older than computers and still unresolved, and the disagreement is not really about hardware.</p><div class="pill-row g-mt-md">
+       <span class="g-tag">Computation</span><span class="g-tag">Philosophy of science</span>
+       <span class="g-tag">Physics</span></div>
+    </div></section>
+
+<div class="topic-nav"><div class="g-container"><nav class="topic-nav__row" aria-label="In this topic">
+  <a href="#film">Film</a><a href="#essay">Essay</a><a href="#sources">Sources</a>
+  <a href="#timeline">Timeline</a><a href="#sim">Simulation</a>
+  <a href="#views">Viewpoints</a><a href="#talk">Discussion</a>
+</nav></div></div>
+
+<div class="g-container">
+
+<section class="layer" id="film">
+  <div class="layer__head"><span class="layer__n">01</span><h2>The Film</h2></div>
+  <div class="split">
+    <a class="is-flat video"  aria-label="Play the film" aria-disabled="true">
+      <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+      <span class="video__meta">28:41 &middot; One idea, one world</span>
+    </a>
+    <div>
+      <p class="g-muted" style="font-size:var(--g-fs-small)">The film is the way in: the story of how
+        the question arose, the people who pushed it, and where it broke. Everything below is what the
+        film did not have room for.</p>
+      <dl class="kv g-mt-md">
+        <dt>Runtime</dt><dd>28 minutes</dd>
+        <dt>Companion</dt><dd><a href="game-hypothesis-machine.html">Hypothesis Machine</a>: the reasoning, as a game</dd>
+        <dt>Transcript</dt><dd><a  class="is-flat" aria-disabled="true">Full transcript with references</a></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="layer" id="essay">
+  <div class="layer__head"><span class="layer__n">02</span><h2>The Essay</h2></div>
+  <div class="depthbar">
+      <p class="depthbar__note">This essay reads two ways. Pick one.</p>
+      <div class="depth" role="group" aria-label="Reading depth">
+        <button type="button" data-depth="overview" aria-pressed="true">Overview</button>
+        <button type="button" data-depth="deep" aria-pressed="false">In depth</button>
+      </div>
+    </div>
+
+  <div class="split">
+    <article class="g-prose">
+      <div data-level="overview">
+        <p>Start with the innocent version. Physics is written as rules. Rules can be followed.
+          A computer follows rules. So in principle a computer could follow the universe's rules and
+          tell you what happens next.</p>
+        <p>Three things get in the way, and only one of them is about computers.</p>
+        <p><b>Chaos.</b> Lorenz found that perfectly deterministic equations can be
+          unpredictable in practice: tiny differences in where you start grow exponentially. Nothing is
+          uncomputable here. You simply need infinite precision about the present to say anything about
+          the distant future, and nobody has that.</p>
+        <p><b>Cost.</b> Simulating quantum systems on ordinary computers gets exponentially
+          more expensive with each particle added. This is why Feynman argued in 1982 that if you want to
+          simulate physics properly you should build your simulator out of physics.</p>
+        <p><b>Undecidability.</b> Some questions have no procedure that settles them in finite time, and physicists have since found physical questions with exactly this character,
+          including whether certain materials have an energy gap.</p>
+        <p>Which leaves the interesting possibility: that "computable" describes the relationship
+          between us and the world rather than the world itself. The universe is not running a
+          simulation. It is doing what it does. Computation is the word for our attempt to keep up.</p>
+      </div>
+
+      <div data-level="deep">
+        <p>Start with the innocent version. Physics is written as rules; rules can be followed; a
+          computer follows rules. The Church–Turing thesis makes this precise for
+          <em>effective procedures</em>, and Deutsch's 1985 physical form of it goes further: every
+          finitely realisable physical system can be simulated to arbitrary accuracy by a universal
+          model computing machine. That is a claim about physics, not about mathematics, and it is not
+          obviously true.</p>
+
+        <h3>Chaos is not uncomputability</h3>
+        <p>Lorenz's 1963 system is three coupled ODEs with a strange attractor. Nearby trajectories
+          separate exponentially, at a rate set by the leading Lyapunov exponent λ. Predicting to a
+          horizon T requires roughly λT/ln 2 additional bits of initial precision. The dynamics are
+          perfectly computable; what fails is the measurement, not the model.</p>
+        <pre class="g-code"><code><span class="c-com"># Lorenz: deterministic, and useless for long-range prediction</span>
+<span class="c-key">def</span> lorenz(s, σ=<span class="c-num">10</span>, ρ=<span class="c-num">28</span>, β=<span class="c-num">8</span>/<span class="c-num">3</span>):
+    x, y, z = s
+    <span class="c-key">return</span> [σ*(y-x), x*(ρ-z)-y, x*y-β*z]</code></pre>
+
+        <h3>Cost is the practical wall</h3>
+        <p>An <em>n</em>-particle quantum state needs on the order of 2<sup>n</sup> complex amplitudes.
+          At around 50 particles you exhaust any classical machine. Lloyd's 2002 estimate bounds the
+          observable universe at ~10<sup>120</sup> logical operations on ~10<sup>90</sup> bits since the Big Bang, so a faithful simulation of the universe cannot be smaller or faster than the
+          universe.</p>
+
+        <h3>Undecidability, made physical</h3>
+        <p>Cubitt, Pérez-García and Wolf (2015) showed the spectral gap problem is undecidable: there
+          is no algorithm that takes a local Hamiltonian and returns whether the system is gapped. This
+          is not a statement about our cleverness. It is a Turing-style limit sitting inside condensed
+          matter physics.</p>
+
+        <h3>What the question is really asking</h3>
+        <p>Each obstacle bites differently: chaos limits <em>prediction</em>, cost limits
+          <em>simulation</em>, undecidability limits <em>proof</em>. Conflating them is how the debate
+          usually goes wrong. The residue is a question about us: computation is our procedure for
+          keeping up with a universe that is simply doing what it does.</p>
+      </div>
+    </article>
+
+    <aside class="aside">
+      <div class="callout">
+        <h4>The Short Answer</h4>
+        <p>In principle, mostly. In practice, almost never, for three unrelated reasons that
+          get confused with each other constantly.</p>
+      </div>
+      <div class="callout g-mt-md">
+        <h4>Try It Yourself</h4>
+        <p><a href="#sim">The simulation below</a> lets you set the precision of the initial
+          conditions and watch the prediction horizon collapse.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="layer" id="sources">
+  <div class="layer__head"><span class="layer__n">03</span><h2>Sources, at Three Levels</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:60ch;margin-bottom:var(--g-space-md)">
+    Reading lists usually assume one reader. These do not: pick the level you want to enter at, and
+    move up when you feel like it.</p>
+  <div class="levels"><div class="level"><p class="level__tag">Start here</p><h4>No Background Needed</h4><ul><li><a  class="is-flat" aria-disabled="true">The Annotated Turing, by Charles Petzold</a></li><li><a  class="is-flat" aria-disabled="true">Chaos: Making a New Science, by James Gleick</a></li><li><a  class="is-flat" aria-disabled="true">Our short film on the same question (28 min)</a></li></ul></div><div class="level"><p class="level__tag">Go further</p><h4>Some Maths Expected</h4><ul><li><a href="https://doi.org/10.1007/BF02650179" target="_blank" rel="noopener">Feynman, “Simulating Physics with Computers” (1982)</a></li><li><a href="https://arxiv.org/abs/quant-ph/0110141" target="_blank" rel="noopener">Lloyd, “Computational Capacity of the Universe” (2002)</a></li><li><a href="https://doi.org/10.1098/rspa.1985.0070" target="_blank" rel="noopener">Deutsch, “Quantum theory, the Church–Turing principle…” (1985)</a></li></ul></div><div class="level"><p class="level__tag">Primary</p><h4>The Papers Themselves</h4><ul><li><a href="https://doi.org/10.1112/plms/s2-42.1.230" target="_blank" rel="noopener">Turing, “On Computable Numbers…” Proc. LMS (1936)</a></li><li><a href="https://doi.org/10.1175/1520-0469(1963)020<0130:DNF>2.0.CO;2" target="_blank" rel="noopener">Lorenz, “Deterministic Nonperiodic Flow”, J. Atmos. Sci. (1963)</a></li><li><a  class="is-flat" aria-disabled="true">Bennett & Landauer on the physical limits of computation</a></li></ul></div></div>
+</section>
+
+<section class="layer" id="timeline">
+  <div class="layer__head"><span class="layer__n">04</span><h2>How the Question Developed</h2></div>
+  <div class="tl"><div class="tl__item"><span class="tl__yr">1936</span><h4>Turing defines computability</h4><p>A machine that can carry out any effective procedure, and a proof that some questions no such machine can settle.</p></div><div class="tl__item"><span class="tl__yr">1948</span><h4>Shannon puts a number on information</h4><p>Information becomes a measurable quantity, which makes "how much computing does this need?" a real question.</p></div><div class="tl__item"><span class="tl__yr">1963</span><h4>Lorenz finds chaos in three equations</h4><p>Fully deterministic, fully unpredictable in practice. Computability and predictability part company.</p></div><div class="tl__item"><span class="tl__yr">1982</span><h4>Feynman proposes quantum computers</h4><p>Simulating quantum systems on classical machines costs exponentially. So use quantum ones.</p></div><div class="tl__item"><span class="tl__yr">1990s</span><h4>Simulation becomes a third pillar</h4><p>Alongside theory and experiment. Much of modern physics now happens on a cluster.</p></div><div class="tl__item"><span class="tl__yr">2020s</span><h4>Learned models enter the loop</h4><p>Systems that approximate solutions without solving the equations: fast, useful, and hard to interrogate.</p></div></div>
+</section>
+
+<section class="layer" id="sim">
+  <div class="layer__head"><span class="layer__n">05</span><h2>The Simulation</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:62ch;margin-bottom:var(--g-space-md)">
+    Two identical Lorenz systems, started a hair apart. Set how precisely you know the starting
+    point and watch how long the two agree. This is chaos, not uncertainty: the rules are exact.</p>
+  <div class="play">
+    <div class="play__bar">
+      <label for="eps" style="display:flex;align-items:center;gap:.6rem">Initial difference
+        <input id="eps" type="range" min="-12" max="-1" value="-6" step="1" style="width:11rem">
+        <b id="epsv" class="g-mono">1e-6</b></label>
+      <span>Divergence at <b id="tdiv" class="g-mono">–</b></span>
+      <button class="g-btn g-btn--ghost g-btn--sm" id="simreset" type="button">Restart</button>
+    </div>
+    <div class="play__body play__body--fig">
+      <canvas id="lorenz" style="width:100%;height:340px;display:block"></canvas>
+    </div>
+  </div>
+</section>
+
+<section class="layer" id="views">
+  <div class="layer__head"><span class="layer__n">06</span><h2>Viewpoints</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:60ch;margin-bottom:var(--g-space-md)">
+    We publish the strongest case against our own reading. If the counter-argument is weak here,
+    that is our failure, not the argument's.</p>
+  <div class="views">
+    <div class="view view--for"><p class="view__tag">For computability</p>
+      <p>Every physical process we have examined turns out to be simulable given enough resources.
+        "Enough resources" is an engineering complaint, not a metaphysical one. Deutsch's principle has
+        survived forty years of attempts to find a counterexample.</p>
+      <cite>The position the film leans toward</cite></div>
+    <div class="view view--against"><p class="view__tag">Against</p>
+      <p>Undecidability results like the spectral gap are not resource complaints: no amount of
+        compute settles them. And treating the universe as executing a computation smuggles in a
+        substrate and a clock that no physics requires. The metaphor is doing work the evidence
+        does not support.</p>
+      <cite>The strongest objection we could find</cite></div>
+  </div>
+  <div class="poll g-mt-lg" style="max-width:34rem">
+    <p class="g-eyebrow">Where do you land?</p>
+    <button class="poll__opt" data-share="41" aria-pressed="false"><span class="poll__bar"></span>
+      <span class="poll__txt"><span>Computable in principle, limited only by resources</span><span class="poll__pct"></span></span></button>
+    <button class="poll__opt" data-share="34" aria-pressed="false"><span class="poll__bar"></span>
+      <span class="poll__txt"><span>Not computable: undecidability is a hard wall</span><span class="poll__pct"></span></span></button>
+    <button class="poll__opt" data-share="25" aria-pressed="false"><span class="poll__bar"></span>
+      <span class="poll__txt"><span>The question is badly posed</span><span class="poll__pct"></span></span></button>
+    <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">
+      Sample distribution shown for illustration. Wire this to your backend to collect real votes.</p>
+  </div>
+</section>
+
+<section class="layer" id="talk">
+  <div class="layer__head"><span class="layer__n">07</span><h2>Discussion</h2></div>
+  <div class="split">
+    <div>
+      <div class="comment"><span class="avatar">MR</span><div>
+        <p class="comment__who">Maryam R.<span class="comment__role">researcher</span></p>
+        <p>The spectral gap result gets cited a lot in these debates, but it is about
+          <em>infinite families</em> of Hamiltonians. Any particular finite material is decidable. Worth
+          being precise about, because the sloppy version overstates the case.</p></div></div>
+      <div class="comment"><span class="avatar">JT</span><div>
+        <p class="comment__who">J. Tanaka<span class="comment__role">reader</span></p>
+        <p>The simulation made the chaos point land for me in a way the essay didn't. Going from
+          1e-10 to 1e-9 costs you almost nothing in horizon. That's the whole thing, isn't it.</p></div></div>
+      <div class="comment"><span class="avatar">SA</span><div>
+        <p class="comment__who">Sajad A.<span class="comment__role">host</span></p>
+        <p>Maryam is right and the film is loose about it, noted for the correction log. The
+          honest statement is that undecidability appears in the general problem, not in any given lab sample.</p></div></div>
+      <form class="g-field g-mt-md" data-demo-form>
+        <label class="g-label" for="c">Add to the discussion</label>
+        <textarea class="g-textarea" id="c" placeholder="Disagreement is more useful than agreement here."></textarea>
+        <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Post</button>
+          <span class="g-hint" data-form-note>Members can post. Everyone can read.</span></div>
+      </form>
+    </div>
+    <aside class="aside">
+      <div class="callout"><h4>This Week's Question</h4>
+        <p>If a model predicts a material's behaviour correctly but no one can say why, has physics
+          been done? <a href="community.html">Answer in the community</a>.</p></div>
+      <div class="callout g-mt-md"><h4>Correction Log</h4>
+        <p>Two corrections since publication. <a  class="is-flat" aria-disabled="true">See what changed</a>.</p></div>
+    </aside>
+  </div>
+</section>
+
+</div>
+
+</main>
+<footer class="g-footer">
+  <div class="g-container">
+    <div class="g-footer__grid">
+      <div>
+        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
+      <path d="M160.51,49.21c-2.41,2.06-4.52,4.52-6.3,7.38l-1.74-12.34h-17.84v67.6h20.12v-30.18c0-3.4.4-6.24,1.21-8.52.8-2.28,2.01-4.09,3.62-5.43,1.61-1.34,3.49-2.3,5.63-2.89,2.15-.58,4.56-.87,7.24-.87h6.84v-21.33c-3.85,0-7.33.58-10.46,1.74-3.13,1.17-5.9,2.78-8.32,4.83Z"/>
+      <path d="M239.25,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2c1.74,3.04,4.47,5.48,8.18,7.31,3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.91-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM231.54,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28s-1.14-2.23-1.14-3.76c0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <polygon points="299.2 92.93 283.38 44.25 262.32 44.25 286.73 111.85 311.41 111.85 335.82 44.25 314.9 44.25 299.2 92.93"/>
+      <path d="M365.8,17.69c-2.28-2.05-5.26-3.08-8.92-3.08s-6.48,1.03-8.72,3.08c-2.24,2.06-3.35,4.7-3.35,7.92s1.11,5.72,3.35,7.78c2.24,2.05,5.14,3.08,8.72,3.08s6.64-1.03,8.92-3.08c2.28-2.06,3.42-4.65,3.42-7.78s-1.14-5.86-3.42-7.92Z"/>
+      <rect x="346.82" y="44.25" width="20.12" height="67.6"/>
+      <path d="M413.55,93.14c-1.21-1.12-1.81-3.02-1.81-5.7v-26.42h17.03v-16.77h-17.03v-19.05h-17.98l-2.15,19.05h-11.67v16.77h11.67v26.16c0,6.17,1.03,11.05,3.09,14.62,2.06,3.57,4.96,6.15,8.72,7.71,3.76,1.56,8.05,2.35,12.88,2.35h12.61v-17.03h-9.12c-2.95,0-5.03-.56-6.24-1.68Z"/>
+      <path d="M492.75,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2,4.47,5.48,8.18,7.31c3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.9-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM485.04,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28-.76-.98-1.14-2.23-1.14-3.76,0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <path d="M569.27,73.96c-3.98-1.39-8.7-2.61-14.15-3.69-2.78-.54-5.15-1.14-7.11-1.81-1.97-.67-3.47-1.45-4.49-2.35-1.03-.89-1.54-1.88-1.54-2.95,0-1.52.76-2.79,2.28-3.82,1.52-1.03,3.71-1.54,6.57-1.54s4.98.49,6.64,1.47c1.65.99,2.75,2.37,3.29,4.16h18.78c-.9-6.35-3.78-11.4-8.65-15.15-4.87-3.76-11.51-5.63-19.92-5.63-5.99,0-11.11.96-15.36,2.88-4.25,1.93-7.46,4.49-9.66,7.71-2.19,3.22-3.28,6.84-3.28,10.87,0,3.49.71,6.33,2.15,8.52,1.43,2.19,3.4,4.02,5.9,5.5,2.5,1.48,5.34,2.66,8.52,3.55,3.17.89,6.37,1.74,9.59,2.55,2.77.54,5.14,1.12,7.11,1.74,1.96.63,3.46,1.37,4.49,2.22,1.03.85,1.54,2.12,1.54,3.82,0,1.07-.33,2.1-1,3.08-.67.98-1.72,1.77-3.15,2.35-1.43.58-3.22.87-5.37.87s-4.16-.36-5.77-1.07c-1.61-.71-2.88-1.68-3.82-2.88-.94-1.21-1.59-2.53-1.94-3.96h-19.98c.35,4.38,1.85,8.29,4.49,11.74,2.64,3.44,6.26,6.19,10.87,8.25,4.6,2.05,10.13,3.09,16.57,3.09,5.9,0,11.06-.98,15.49-2.95,4.42-1.96,7.82-4.63,10.19-7.98,2.37-3.35,3.56-7.22,3.56-11.6,0-4.74-1.14-8.4-3.42-11-2.28-2.59-5.41-4.58-9.39-5.97Z"/>
+      <polygon points="630.63 39.65 616.16 39.65 616.16 26.52 606.31 26.52 606.31 39.65 591.77 39.65 591.77 49.43 606.31 49.43 606.31 62.65 616.16 62.65 616.16 49.43 630.63 49.43 630.63 39.65"/>
+    </g>
+  </g>
+</svg></div>
+        <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
+          A media project, a lab and a community for working scientists, students and
+          the curious, in every field.</p>
+      </div>
+      <div><h5 class="g-footer__heading">Read</h5>
+        <div class="g-stack g-stack--xs"><a href="topics.html">Topics</a><a href="magazine.html">Magazine</a><a href="newsletter.html">Newsletter</a></div></div>
+      <div><h5 class="g-footer__heading">Do</h5>
+        <div class="g-stack g-stack--xs"><a href="lab.html">Interactive Lab</a><a href="learn.html">Learning Paths</a><a href="community.html">Community</a></div></div>
+      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"><li><a class="lp-social__link" href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-5.639 -2.009) scale(1.2928)" stroke-width="1.282"><path d="M15.6 3.3v9.9a3.6 3.6 0 1 1-3.6-3.6c.3 0 .6 0 .9.1"/><path d="M15.6 3.3c.3 2.3 2 4 4.3 4.2"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="X"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="currentColor"><g transform="translate(1.054 1.119) scale(0.9062)"><path d="M17.6 3h3l-6.6 7.6L21.8 21h-5.9l-4.6-6-5.3 6H3l7.1-8.1L2.6 3h6l4.2 5.5L17.6 3zm-1 16.2h1.6L7.5 4.7H5.8l10.8 14.5z"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Telegram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><g transform="translate(-0.334 1.128) scale(0.9290)" stroke-width="1.748"><path d="M21.2 4.2 L2.8 11.2 L7.6 13.2 L9.5 19.4 L12.4 16 L17.4 20 Z"/><path d="M7.6 13.2 L21.2 4.2"/></g></svg></a></li></ul>
+        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a><a href="brand.html">Brand</a></div></div>
+    </div>
+    <div class="g-footer__legal">
+      <span>&copy; 2026 Gravitas+</span>
+      <span>Curiosity brings people in. Capability keeps them here.</span>
+      <span><a href="impressum.html">Legal Notice</a> · <a href="privacy.html">Privacy</a></span>
+    </div>
+  </div>
+</footer>
+<script src="assets/site.js"></script>
+<script>
+(function(){
+  var cv=document.getElementById('lorenz'); if(!cv) return;
+  var ctx=cv.getContext('2d'), W=0,H=0,dpr=Math.min(devicePixelRatio||1,2);
+  var eps=document.getElementById('eps'), epsv=document.getElementById('epsv'),
+      tdiv=document.getElementById('tdiv'), reset=document.getElementById('simreset');
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Fixed framing. Fitting to the live trail meant the scale and offset were
+  // recomputed every frame as the trail grew, so the whole figure breathed and
+  // jittered. The Lorenz attractor's extent is known, so frame that instead:
+  // the view is then constant and the figure simply sits still, centred.
+  var EXT = {x0:-21, x1:21, z0:3, z1:48};
+  var VIEW = {sc:1, ox:0, oy:0};
+  function fitView(){
+    var pad = 16;
+    var sc = Math.min((W - pad*2) / (EXT.x1 - EXT.x0),
+                      (H - pad*2) / (EXT.z1 - EXT.z0));
+    VIEW.sc = sc;
+    VIEW.ox = W/2 - ((EXT.x0 + EXT.x1)/2) * sc;
+    VIEW.oy = H/2 + ((EXT.z0 + EXT.z1)/2) * sc;   // z is drawn upward
+  }
+
+  function size(){var r=cv.getBoundingClientRect();W=r.width;H=r.height;
+    cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);fitView();}
+  size(); addEventListener('resize',size);
+
+  var A,B,trailA,trailB,t,diverged;
+  function init(){
+    var e=Math.pow(10,+eps.value);
+    epsv.textContent='1e'+eps.value;
+    A=[1,1,20]; B=[1+e,1,20]; trailA=[]; trailB=[]; t=0; diverged=null;
+    tdiv.textContent='–';
+  }
+  function step(s,dt){
+    var x=s[0],y=s[1],z=s[2],S=10,R=28,Bq=8/3;
+    var k1=[S*(y-x), x*(R-z)-y, x*y-Bq*z];
+    var x2=x+k1[0]*dt/2, y2=y+k1[1]*dt/2, z2=z+k1[2]*dt/2;
+    var k2=[S*(y2-x2), x2*(R-z2)-y2, x2*y2-Bq*z2];
+    return [x+k2[0]*dt, y+k2[1]*dt, z+k2[2]*dt];
+  }
+  // The attractor was drawn from a fixed baseline at 62% of the height and
+  // extends upward from there, which left the bottom of the panel empty. Fit it
+  // to whatever it actually occupies instead: measure the trajectory's bounds
+  // and derive the scale and offset from those, so the figure fills the frame
+  // and stays centred at any size.
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    var sc=VIEW.sc, cx=VIEW.ox, cy=VIEW.oy;
+    function path(tr,col){
+      ctx.beginPath();
+      for(var i=0;i<tr.length;i++){
+        var p=tr[i], X=cx+p[0]*sc, Y=cy-p[2]*sc;
+        i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);
+      }
+      ctx.strokeStyle=col; ctx.lineWidth=1.2; ctx.stroke();
+    }
+    var inkA=(window.gravitasInk?window.gravitasInk('body-a','241,239,236'):'241,239,236');
+    var inkB=(window.gravitasInk?window.gravitasInk('body-b','212,201,190'):'212,201,190');
+    path(trailA,'rgba('+inkA+',.72)');
+    path(trailB,'rgba('+inkB+',.62)');
+    if(trailA.length){
+      var p=trailA[trailA.length-1];
+      ctx.fillStyle='rgb('+inkA+')'; ctx.beginPath();
+      ctx.arc(cx+p[0]*sc, cy-p[2]*sc, 2.6,0,6.3); ctx.fill();
+      var q=trailB[trailB.length-1];
+      ctx.fillStyle='rgb('+inkB+')'; ctx.beginPath();
+      ctx.arc(cx+q[0]*sc, cy-q[2]*sc, 2.6,0,6.3); ctx.fill();
+    }
+  }
+  function tick(){
+    if(!reduce){
+      for(var i=0;i<6;i++){
+        A=step(A,0.005); B=step(B,0.005); t+=0.005;
+        trailA.push(A.slice()); trailB.push(B.slice());
+        if(trailA.length>1400){trailA.shift();trailB.shift();}
+        if(diverged===null){
+          var d=Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]);
+          if(d>1){ diverged=t; tdiv.textContent='t = '+t.toFixed(1); }
+        }
+      }
+    }
+    draw(); requestAnimationFrame(tick);
+  }
+  eps.addEventListener('input',init); reset.addEventListener('click',init);
+  init(); requestAnimationFrame(tick);
+})();
+</script>
+<script src="assets/chat.js" defer></script>
+<script src="assets/production-bridge.js" defer></script>
+</body>
+</html>

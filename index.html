@@ -3,17 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gravitas+ — Science, and the gravity of questions underneath it</title>
-<meta name="description" content="Gravitas+ is a media project, interactive lab and community at the intersection of science, philosophy and society.">
+<script>
+/* Theme, resolved before first paint. See assets/site.js for the toggle.
+   Dark is the default full stop, not "dark unless your OS says otherwise":
+   this is a night sky, and a visitor who has never touched the control should
+   see the same site every time rather than one that depends on a setting they
+   made for some other app. Only an explicit choice, stored here, overrides it. */
+(function(){try{var s=localStorage.getItem('gravitas:theme');
+document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
+}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
+</script>
+<title>Gravitas+ · Science, AI and the gravity of underlying questions</title>
+<meta name="description" content="Gravitas+ is a media project, interactive lab and community at the intersection of science, AI and society, for people who always have questions and look for their answers.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="mask-icon" href="assets/monogram.svg" color="#003049">
+<meta name="theme-color" content="#00263a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/gravitas.css">
 <link rel="stylesheet" href="assets/site.css">
 <link rel="stylesheet" href="assets/hero.css">
+<link rel="stylesheet" href="assets/chat.css">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
 <header class="g-header">
   <div class="g-container g-header__inner">
-    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="#f1efec">
+    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
   <g id="Layer_1-2" data-name="Layer 1">
     <g>
       <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
@@ -29,13 +46,20 @@
     </g>
   </g>
 </svg></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="dossiers.html">Dossiers</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html">Topics</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
     <div class="gh-actions">
       <a class="g-btn g-btn--ghost g-btn--sm gh-signin" href="account.html#in">Sign in</a>
-      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="newsletter.html" aria-label="Subscribe to the newsletter">
-        <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7l9 6 9-6M3 7v10h18V7H3z"/></svg>
-        <span>Subscribe</span>
+      <!-- The header CTA is the site's single loudest control, and it used to
+           point at a mailing list. The community is the thing this project is
+           actually for, so it gets the slot. -->
+      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="community.html#join" aria-label="Join the Gravitas+ community">
+        <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 19v-1.6a3.4 3.4 0 0 0-3.4-3.4H6.4A3.4 3.4 0 0 0 3 17.4V19"/><circle cx="9.5" cy="7.5" r="3.1"/><path d="M19 11h2M20 10v2"/></svg>
+        <span>Join Us</span>
       </a>
+      <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme">
+        <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><!-- The crescent sits centred by bounding box but not by mass: its area centroid measures (9.97, 14.03) against a 12,12 viewBox centre, which is why it read as low and left inside a circular button. Shifted part of the way back: correcting the full 2.03 would push the upper tip out of the box, so this splits the difference between the two centres, which is what optical centring is. --><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
+      </button>
       <button class="lp-menu-btn" aria-label="Menu" aria-expanded="false">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
@@ -52,122 +76,166 @@
   <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
   <div class="g-container g-hero__inner" style="width:100%">
     <div class="lp-hero__grid">
-      <div>
-        <p class="g-eyebrow">Science &middot; Philosophy &middot; Society</p>
-        <h1 class="g-display lp-hero__title">Science, and the <em>gravity</em> of questions underneath it.</h1>
-        <p class="g-lead">Gravitas+ is for people who still have questions — about how science
-          actually works, how it changes the world, and how politics, money and philosophy
-          change it back. Watch the film, then take it apart.</p>
+      <!-- The column is the container the headline is measured against, not the
+           viewport. See hero.css: sizing display type off vw when it wraps
+           inside a column is what produced one word per line. -->
+      <div class="lp-hero__col">
+        <p class="g-eyebrow">Every Field &middot; One Set of Questions</p>
+        <h1 class="g-display lp-hero__title">Science, AI and the <em>gravity</em> of underlying questions.</h1>
+        <!-- The lede is split rather than shortened. It is three sentences of
+             real information; run together at one size it read as a wall, and
+             the eye bounced off it. Sentence one carries the promise at lead
+             size, the rest drops a step and gets out of the way. -->
+        <p class="g-lead lp-hero__lede">Gravitas+ is for people who always have questions and look for their answers.</p>
+        <p class="lp-hero__sub">Explore how science really works, how it shapes the world around us, and how AI
+          and machine learning are transforming scientific research and education. Watch the film. Then take
+          it apart.</p>
         <div class="g-cluster g-mt-lg">
-          <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="dossier-computable-universe.html">
-            <svg class="g-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-            Open the current dossier</a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="lab.html">Try the lab</a>
+          <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="topics.html">
+            <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            Explore Topics</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="lab.html">Try Lab</a>
         </div>
-        <p class="lp-hero__credit">New dossier monthly</p>
+        <!-- Each stat is its own element so the line breaks between facts and
+             never inside one. As loose text in a flex box, "312K" and
+             "subscribers" were separate anonymous items and could part company
+             at a wrap. -->
+        <p class="lp-hero__credit">
+          <span>New topic monthly</span>
+          <span><span class="g-nums">312K</span> subscribers</span>
+          <span><a href="community.html#join">4,100 members</a></span>
+        </p>
       </div>
       <div class="lp-orbit">
-        <canvas id="lp-3body" role="img"
-          aria-label="Animated two-body gravitational orbit; moving the pointer near it adds a third mass and disrupts the orbit"></canvas>
-        <p class="lp-orbit__cap"><span id="lp-orbit-name">Two-body orbit</span> &mdash; <span id="lp-orbit-sub">closed, periodic, exactly solvable</span></p>
+        <div class="lp-orbit__stage">
+          <canvas id="lp-3body" role="img"
+            aria-label="Animated two-body gravitational orbit; moving the pointer near it, or dragging on it, adds a third mass and disrupts the orbit"></canvas>
+          <!-- Touch play area. Only this patch swallows the gesture (touch-action:none),
+               so a drag here perturbs the orbit instead of scrolling the page, while the
+               rest of the hero still scrolls normally. -->
+          <div class="lp-orbit__hit" id="lp-orbit-hit" aria-hidden="true"></div>
+        </div>
+        <p class="lp-orbit__cap"><span id="lp-orbit-name">Two-body orbit</span>: <span id="lp-orbit-sub">closed, periodic, exactly solvable</span></p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Fields band ----------------------------------------------------------
+     The site had a physics problem: nothing in it said "physics only", but
+     every worked example came from one, and a visitor from immunology or
+     economics reads that in about four seconds. Naming the fields costs one
+     line and settles the question before the first scroll. -->
+<section class="fields" aria-label="Fields covered">
+  <div class="g-container fields__in">
+    <p class="fields__lab">Questions every field shares</p>
+    <!-- A ticker needs a copy of its content to loop against: both tracks slide
+         left by exactly their own width, so at the end of a cycle copy 2 is
+         standing where copy 1 began and the restart is invisible. The third is
+         insurance for wide viewports, where two copies can be narrower than the
+         rail they run in and a gap would open. Only the first is read aloud. -->
+    <div class="fields__ticker">
+      <ul class="fields__list"><li>Biology</li><li>Medicine</li><li>Climate</li><li>AI &amp; Computing</li><li>Psychology</li><li>Economics</li><li>Physics</li><li>Chemistry</li><li>Neuroscience</li><li>Ecology</li></ul>
+      <ul class="fields__list" aria-hidden="true"><li>Biology</li><li>Medicine</li><li>Climate</li><li>AI &amp; Computing</li><li>Psychology</li><li>Economics</li><li>Physics</li><li>Chemistry</li><li>Neuroscience</li><li>Ecology</li></ul>
+      <ul class="fields__list" aria-hidden="true"><li>Biology</li><li>Medicine</li><li>Climate</li><li>AI &amp; Computing</li><li>Psychology</li><li>Economics</li><li>Physics</li><li>Chemistry</li><li>Neuroscience</li><li>Ecology</li></ul>
     </div>
   </div>
 </section>
 
 <section class="g-section"><div class="g-container">
   <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-    <p class="g-eyebrow">Start here</p><h2>The current dossier</h2></div>
-    <a class="lp-head__link" href="dossiers.html">All dossiers <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+    <p class="g-eyebrow">Start Here</p><h2>The Current Topic</h2></div>
+    <a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
   <div class="split rv">
-    <a class="video" href="dossier-computable-universe.html" aria-label="Watch: Is the universe computable?">
+    <a class="video" href="topic-computable-universe.html" aria-label="Watch: Is the universe computable?">
       <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
-      <span class="video__meta">One idea, one world</span>
+      <span class="video__meta">28:41 &middot; One Idea, One World &middot; 418K views</span>
     </a>
     <div>
-      <p class="g-eyebrow g-eyebrow--bare">Computation</p>
+      <p class="g-eyebrow g-eyebrow--bare">Topic 04 &middot; Computation</p>
       <h3 style="font-size:var(--g-fs-h2);margin:0 0 var(--g-space-sm)">Is the universe computable?</h3>
-      <p class="g-muted" style="font-size:var(--g-fs-small)">If physics is a set of rules, something ought to be able to run them.
-        That innocent thought runs into Gödel, into chaos, into the cost of simulating a single atom — and into
-        the question of whether "computable" is a fact about the universe or about us.</p>
-      <dl class="kv g-mt-md">
-        <dt>In this dossier</dt><dd>Film, essay, sources at three levels, timeline, a simulation you can break, and the arguments against</dd>
-        
+      <p class="g-muted" style="font-size:var(--g-fs-small)">If the world runs on rules, something ought to be
+        able to run them. Gödel, chaos and thermodynamics all disagree about how far that goes.</p>
+      <dl class="lp-rt">
+        <dt>Reading time</dt>
+        <dd>18 minutes for the essay, or 4 for the summary</dd>
       </dl>
       <div class="g-cluster g-mt-md">
-        <a class="g-btn g-btn--primary" href="dossier-computable-universe.html">Open the dossier</a>
-        <a class="g-btn g-btn--ghost" href="game-hypothesis-machine.html">Play the companion game</a>
+        <a class="g-btn g-btn--primary" href="topic-computable-universe.html">Open the Topic</a>
+        <a class="g-btn g-btn--ghost" href="game-hypothesis-machine.html">Play the Game</a>
       </div>
     </div>
   </div></div></section>
 
 <section class="g-section g-section--deep"><div class="g-container">
-  <div class="g-section-head rv" style="max-width:52rem">
-    <p class="g-eyebrow">How the site works</p>
-    <h2>One path through the site</h2>
-    <p class="g-lead">Every video opens a question. The site is where that question gets its
-      evidence, its argument, its counter-argument and the people who disagree about it.</p></div>
-  <div class="spaces rv"><a class="space space--wide" href="dossiers.html">
-      <p class="space__n">01</p><h3>Dossiers</h3><p>A single question, worked from every angle: video, essay, sources, timeline, simulation, argument.</p>
+  <div class="g-section-head rv" style="max-width:44rem">
+    <p class="g-eyebrow">How the Site Works</p>
+    <h2>Six Ways In</h2></div>
+  <div class="spaces rv"><a class="space space--wide" href="topics.html">
+      <p class="space__n">01</p><h3>Topics</h3><p>One question, worked from every angle.</p>
+      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space space--wide" href="community.html">
+      <p class="space__n">02</p><h3>Community</h3><p>Six roles, weekly experiments, and the vote on what we make next.</p>
+      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="lab.html">
+      <p class="space__n">03</p><h3>Interactive Lab</h3><p>Do science rather than watch it.</p>
       <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="magazine.html">
-      <p class="space__n">02</p><h3>Magazine</h3><p>Narrative and analytical writing on science, philosophy and society.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space space--wide" href="lab.html">
-      <p class="space__n">03</p><h3>Interactive lab</h3><p>Games, simulations and tests. Do science rather than watch it.</p>
+      <p class="space__n">04</p><h3>Magazine</h3><p>Writing that stands on its own.</p>
       <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="learn.html">
-      <p class="space__n">04</p><h3>Learning paths</h3><p>Ordered routes through AI in research, computational physics, philosophy of science and reading papers.</p>
-      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="community.html">
-      <p class="space__n">05</p><h3>Community</h3><p>Roles, study groups, events, the weekly thought experiment.</p>
+      <p class="space__n">05</p><h3>Learning Paths</h3><p>The archive, put in order.</p>
       <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="newsletter.html">
-      <p class="space__n">06</p><h3>Newsletter</h3><p>One edited email a week. Ideas, not a list of links.</p>
+      <p class="space__n">06</p><h3>Newsletter</h3><p>One edited email a week.</p>
       <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a></div></div></section>
 
-<section class="g-section"><div class="g-container">
+<section class="g-section" id="make"><div class="g-container">
   <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-      <p class="g-eyebrow">On the channel</p><h2>What we make</h2></div></div>
+      <p class="g-eyebrow">On the Channel</p><h2>What We Make</h2></div></div>
   <div class="programs rv"><article class="program"><p class="program__n">01</p>
-      <h3>One idea, one world</h3><p>An 8–20 minute narrative on a single concept: how it was built, who fought over it, what it changed.</p><p class="program__cad">Long form</p></article><article class="program"><p class="program__n">02</p>
-      <h3>Science in the making</h3><p>Two or three stories a week, with context and an honest read on how much is signal.</p><p class="program__cad">Weekly</p></article><article class="program"><p class="program__n">03</p>
-      <h3>Up close</h3><p>Interviews that skip the CV and go at the real texture of research: doubt, tedium, failure.</p><p class="program__cad">Monthly</p></article><article class="program"><p class="program__n">04</p>
-      <h3>Gravitas Lab</h3><p>Practical work on AI, ML, data and simulation, each episode around one real problem.</p><p class="program__cad">Fortnightly</p></article><article class="program"><p class="program__n">05</p>
-      <h3>The Gravitas Table</h3><p>Several people on a question with no one-line answer.</p><p class="program__cad">Monthly</p></article></div>
-  <p class="g-subtle g-mt-md" style="font-size:var(--g-fs-caption);font-family:var(--g-font-mono)">
-    Shorts run alongside all five — each one a complete idea, not an offcut.</p></div></section>
+      <h3>One Idea, One World</h3><p>A single concept, 8–20 minutes.</p><p class="program__cad">Long form</p></article><article class="program"><p class="program__n">02</p>
+      <h3>Science in the Making</h3><p>New work, and how much of it is signal.</p><p class="program__cad">Weekly</p></article><article class="program"><p class="program__n">03</p>
+      <h3>Up Close</h3><p>Researchers on doubt, tedium and failure.</p><p class="program__cad">Monthly</p></article><article class="program"><p class="program__n">04</p>
+      <h3>Gravitas Lab</h3><p>AI, data and simulation on one real problem.</p><p class="program__cad">Fortnightly</p></article><article class="program"><p class="program__n">05</p>
+      <h3>The Gravitas Table</h3><p>Several people, no one-line answer.</p><p class="program__cad">Monthly</p></article></div></div></section>
 
 <section class="g-section g-section--deep"><div class="g-container">
   <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-      <p class="g-eyebrow">Latest</p><h2>Across everything</h2></div><a class="lp-head__link" href="magazine.html">Browse the archive <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+      <p class="g-eyebrow">Latest</p><h2>Across Everything</h2></div><a class="lp-head__link" href="magazine.html">Browse the archive <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
   <div class="rv">
     <a class="entry" href="magazine.html"><span class="entry__type">Essay</span><div>
       <h3>Can a model produce a hypothesis, or only a sentence that looks like one?</h3>
-      <p>Generative systems are fluent in the grammar of science. Fluency is not the same as a claim about the world.</p>
-      <div class="entry__meta"><span>14 min read</span><span>AI in research</span></div></div></a>
+      <div class="entry__meta"><span>14 min read</span><span>AI in research</span><span>4 days ago</span></div></div></a>
     <a class="entry" href="lab.html"><span class="entry__type">Game</span><div>
       <h3>Signal or hype?</h3>
-      <p>Ten headlines and ten abstracts. Decide which findings survive the trip through the press office.</p>
-      <div class="entry__meta"><span>Media literacy</span></div></div></a>
-    <a class="entry" href="dossier-computable-universe.html"><span class="entry__type">Dossier</span><div>
+      <div class="entry__meta"><span>6 min</span><span>Media literacy</span><span>1 week ago</span></div></div></a>
+    <a class="entry" href="topic-computable-universe.html"><span class="entry__type">Topic</span><div>
       <h3>Is the universe computable?</h3>
-      <p>The film, the essay, the sources, and the strongest case against the whole framing.</p>
-      <div class="entry__meta"><span>Computation</span></div></div></a>
+      <div class="entry__meta"><span>Topic 04</span><span>Computation</span><span>2 weeks ago</span></div></div></a>
     <a class="entry" href="learn.html"><span class="entry__type">Path</span><div>
       <h3>AI in research, from scratch</h3>
-      <p>Eight steps from what these models actually do to using one on your own data without fooling yourself.</p>
-      <div class="entry__meta"></div></div></a>
+      <div class="entry__meta"><span>8 steps</span><span>~6 hours</span><span>Updated monthly</span></div></div></a>
   </div></div></section>
 
+<!-- Join band -------------------------------------------------------------
+     This slot used to be a newsletter signup, and the community lived five
+     scrolls up as card 05 of six. That had the architecture backwards: the
+     mailing list is a way to keep in touch, the community is the thing being
+     built. So the loudest block on the page is now the door into it, and the
+     newsletter rides along as the quieter second option. -->
 <section class="g-section"><div class="g-container">
-  <div class="lp-cta-band rv">
+  <div class="join rv">
     <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
-    <div class="lp-cta-band__inner">
-      <p class="g-eyebrow" style="justify-content:center">One email a week</p>
-      <h2 style="font-size:var(--g-fs-h1)">The thinking, not the links</h2>
-      <p class="g-lead" style="margin-inline:auto">An edited pick of what mattered this week, why it mattered,
-        and what to be sceptical about. Plus whatever we are building next.</p>
-      <form class="g-inline-form g-mt-lg" data-newsletter-form>
-        <input class="g-input" type="email" placeholder="you@university.edu" aria-label="Email address">
-        <button class="g-btn g-btn--primary" type="submit">Subscribe</button>
-      </form>
-      <p class="g-subtle g-mt-sm" style="font-size:var(--g-fs-caption)" data-form-note>Free. Unsubscribe anytime.</p>
+    <div class="join__in">
+      <p class="g-eyebrow" style="justify-content:center">Free, and It Stays Free</p>
+      <h2 class="join__h">Come and argue with us</h2>
+      <p class="join__lede">Whatever you study, the questions are the same ones.</p>
+      <div class="join__roles">
+        <span class="join__role">Reader</span><span class="join__role">Researcher</span>
+        <span class="join__role">Translator</span><span class="join__role">Critic</span>
+        <span class="join__role">Builder</span><span class="join__role">Host</span>
+      </div>
+      <div class="join__act">
+        <a class="g-btn g-btn--primary g-btn--lg" href="community.html#join">Join Us</a>
+        <a class="g-btn g-btn--secondary g-btn--lg" href="newsletter.html">Or Just the Newsletter</a>
+      </div>
+      <p class="join__fine"><span class="g-nums">4,100</span> members &middot; They propose the next Topic and vote on it</p>
     </div>
   </div></div></section>
 
@@ -176,7 +244,7 @@
   <div class="g-container">
     <div class="g-footer__grid">
       <div>
-        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="#f1efec">
+        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
   <g id="Layer_1-2" data-name="Layer 1">
     <g>
       <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
@@ -193,24 +261,26 @@
   </g>
 </svg></div>
         <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
-          A media project, a lab and a community at the intersection of science,
-          philosophy and society.</p>
+          A media project, a lab and a community for working scientists, students and
+          the curious, in every field.</p>
       </div>
       <div><h5 class="g-footer__heading">Read</h5>
-        <div class="g-stack g-stack--xs"><a href="dossiers.html">Dossiers</a><a href="magazine.html">Magazine</a><a href="newsletter.html">Newsletter</a></div></div>
+        <div class="g-stack g-stack--xs"><a href="topics.html">Topics</a><a href="magazine.html">Magazine</a><a href="newsletter.html">Newsletter</a></div></div>
       <div><h5 class="g-footer__heading">Do</h5>
-        <div class="g-stack g-stack--xs"><a href="lab.html">Interactive lab</a><a href="learn.html">Learning paths</a><a href="community.html">Community</a></div></div>
-      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"></ul>
-        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a></div></div>
+        <div class="g-stack g-stack--xs"><a href="lab.html">Interactive Lab</a><a href="learn.html">Learning Paths</a><a href="community.html">Community</a></div></div>
+      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"><li><a class="lp-social__link" href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-5.639 -2.009) scale(1.2928)" stroke-width="1.282"><path d="M15.6 3.3v9.9a3.6 3.6 0 1 1-3.6-3.6c.3 0 .6 0 .9.1"/><path d="M15.6 3.3c.3 2.3 2 4 4.3 4.2"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="X"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="currentColor"><g transform="translate(1.054 1.119) scale(0.9062)"><path d="M17.6 3h3l-6.6 7.6L21.8 21h-5.9l-4.6-6-5.3 6H3l7.1-8.1L2.6 3h6l4.2 5.5L17.6 3zm-1 16.2h1.6L7.5 4.7H5.8l10.8 14.5z"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Telegram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><g transform="translate(-0.334 1.128) scale(0.9290)" stroke-width="1.748"><path d="M21.2 4.2 L2.8 11.2 L7.6 13.2 L9.5 19.4 L12.4 16 L17.4 20 Z"/><path d="M7.6 13.2 L21.2 4.2"/></g></svg></a></li></ul>
+        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a><a href="brand.html">Brand</a></div></div>
     </div>
     <div class="g-footer__legal">
       <span>&copy; 2026 Gravitas+</span>
       <span>Curiosity brings people in. Capability keeps them here.</span>
-    
-      <span><a href="impressum.html">Legal Notice</a> · <a href="privacy.html">Privacy</a></span></div>
+      <span><a href="impressum.html">Legal Notice</a> · <a href="privacy.html">Privacy</a></span>
+    </div>
   </div>
 </footer>
 <script src="assets/site.js"></script>
 <script src="assets/hero.js"></script>
+<script src="assets/chat.js" defer></script>
+<script src="assets/production-bridge.js" defer></script>
 </body>
 </html>

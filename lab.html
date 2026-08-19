@@ -3,17 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Interactive lab — Gravitas+</title>
-<meta name="description" content="Games and simulations that put you inside the scientific process: hypothesis testing, media literacy, science policy and physics sandboxes.">
+<script>
+/* Theme, resolved before first paint. See assets/site.js for the toggle.
+   Dark is the default full stop, not "dark unless your OS says otherwise":
+   this is a night sky, and a visitor who has never touched the control should
+   see the same site every time rather than one that depends on a setting they
+   made for some other app. Only an explicit choice, stored here, overrides it. */
+(function(){try{var s=localStorage.getItem('gravitas:theme');
+document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
+}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
+</script>
+<title>Interactive Lab · Gravitas+</title>
+<meta name="description" content="Games and simulations that put you inside the scientific process: hypothesis testing, media literacy, science policy, peer review and simulation.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="mask-icon" href="assets/monogram.svg" color="#003049">
+<meta name="theme-color" content="#00263a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/gravitas.css">
 <link rel="stylesheet" href="assets/site.css">
 
+<link rel="stylesheet" href="assets/chat.css">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
 <header class="g-header">
   <div class="g-container g-header__inner">
-    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="#f1efec">
+    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
   <g id="Layer_1-2" data-name="Layer 1">
     <g>
       <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
@@ -29,13 +46,20 @@
     </g>
   </g>
 </svg></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="dossiers.html">Dossiers</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" aria-current="page" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html">Topics</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" aria-current="page" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
     <div class="gh-actions">
       <a class="g-btn g-btn--ghost g-btn--sm gh-signin" href="account.html#in">Sign in</a>
-      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="newsletter.html" aria-label="Subscribe to the newsletter">
-        <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7l9 6 9-6M3 7v10h18V7H3z"/></svg>
-        <span>Subscribe</span>
+      <!-- The header CTA is the site's single loudest control, and it used to
+           point at a mailing list. The community is the thing this project is
+           actually for, so it gets the slot. -->
+      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="community.html#join" aria-label="Join the Gravitas+ community">
+        <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 19v-1.6a3.4 3.4 0 0 0-3.4-3.4H6.4A3.4 3.4 0 0 0 3 17.4V19"/><circle cx="9.5" cy="7.5" r="3.1"/><path d="M19 11h2M20 10v2"/></svg>
+        <span>Join Us</span>
       </a>
+      <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme">
+        <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><!-- The crescent sits centred by bounding box but not by mass: its area centroid measures (9.97, 14.03) against a 12,12 viewBox centre, which is why it read as low and left inside a circular button. Shifted part of the way back: correcting the full 2.03 would push the upper tip out of the box, so this splits the difference between the two centres, which is what optical centring is. --><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
+      </button>
       <button class="lp-menu-btn" aria-label="Menu" aria-expanded="false">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
@@ -44,34 +68,34 @@
 </header>
 <main id="main">
 <section class="page-head"><div class="g-container">
-      <p class="crumb"><a href="index.html">Home</a> / Lab</p><h1>Interactive lab</h1><p class="g-lead">A few minutes inside the process rather than the summary. You choose, you test, you get it wrong, and the result is yours rather than ours.</p>
+      <p class="crumb"><a href="index.html">Home</a> / Lab</p><h1>Interactive Lab</h1><p class="g-lead">A few minutes inside the process rather than the summary. You choose, you test, you get it wrong, and the result is yours rather than ours.</p>
     </div></section><section class="g-section"><div class="g-container">
     <div class="games rv"><a class="game-card" href="game-hypothesis-machine.html">
-      <div class="game-card__art"><canvas class="art" data-art="0"></canvas>
+      <div class="game-card__art"><canvas class="cardart" data-art="0"></canvas>
         </div>
-      <div class="game-card__b"><h3>Hypothesis Machine</h3><p>A hidden rule governs the data. Propose tests, read the answers, and work out what the rule is — the catch being that confirming your guess teaches you almost nothing.</p>
+      <div class="game-card__b"><h3>Hypothesis Machine</h3><p>A hidden rule governs the data. Propose tests, read the answers, and work out what the rule is. The catch is that confirming your guess teaches you almost nothing.</p>
         <p class="game-card__meta">Scientific method &middot; 5–10 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <div class="game-card__art"><canvas class="art" data-art="1"></canvas>
+      <div class="game-card__art"><canvas class="cardart" data-art="1"></canvas>
         <span class="badge-soon">In build</span></div>
-      <div class="game-card__b"><h3>Signal or hype?</h3><p>Ten headlines beside the abstracts they came from. Decide which claims survived the trip through the press office and which grew on the way.</p>
+      <div class="game-card__b"><h3>Signal or Hype?</h3><p>Ten headlines beside the abstracts they came from. Decide which claims survived the trip through the press office and which grew on the way.</p>
         <p class="game-card__meta">Media literacy &middot; 6 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <div class="game-card__art"><canvas class="art" data-art="2"></canvas>
+      <div class="game-card__art"><canvas class="cardart" data-art="2"></canvas>
         <span class="badge-soon">In build</span></div>
-      <div class="game-card__b"><h3>The science budget</h3><p>Split a finite budget across basic research, medicine, space, climate, education and infrastructure. Watch the consequences arrive over thirty years.</p>
+      <div class="game-card__b"><h3>The Science Budget</h3><p>Split a finite budget across basic research, medicine, space, climate, education and infrastructure. Watch the consequences arrive over thirty years.</p>
         <p class="game-card__meta">Science policy &middot; 10 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <div class="game-card__art"><canvas class="art" data-art="3"></canvas>
+      <div class="game-card__art"><canvas class="cardart" data-art="3"></canvas>
         <span class="badge-soon">In build</span></div>
-      <div class="game-card__b"><h3>Tune the universe</h3><p>Change a constant and see whether stars still form, chemistry still works, and anything can still be alive.</p>
-        <p class="game-card__meta">Physics simulation &middot; 8 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <div class="game-card__art"><canvas class="art" data-art="4"></canvas>
+      <div class="game-card__b"><h3>Tune the Universe</h3><p>Change a constant and see whether stars still form, chemistry still works, and anything can still be alive.</p>
+        <p class="game-card__meta">Simulation &middot; 8 min</p></div></a><a class="is-soon game-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <div class="game-card__art"><canvas class="cardart" data-art="4"></canvas>
         <span class="badge-soon">In build</span></div>
-      <div class="game-card__b"><h3>You are the reviewer</h3><p>A plausible-looking paper with real problems in its sampling, analysis and conclusions. Find them before you sign off.</p>
+      <div class="game-card__b"><h3>You Are the Reviewer</h3><p>A plausible-looking paper with real problems in its sampling, analysis and conclusions. Find them before you sign off.</p>
         <p class="game-card__meta">Research skills &middot; 12 min</p></div></a><a class="game-card" href="community.html">
-      <div class="game-card__art"><canvas class="art" data-art="5"></canvas>
+      <div class="game-card__art"><canvas class="cardart" data-art="5"></canvas>
         <span class="badge-soon">In build</span></div>
-      <div class="game-card__b"><h3>Thought experiment of the week</h3><p>One situation, your answer and your reasoning. Results and the best arguments get taken apart in a video afterwards.</p>
+      <div class="game-card__b"><h3>Thought Experiment of the Week</h3><p>One situation, your answer and your reasoning. Results and the best arguments get taken apart in a video afterwards.</p>
         <p class="game-card__meta">Community ritual &middot; Weekly</p></div></a></div>
-    <div class="callout g-mt-xl rv"><h4>Build one with us</h4>
+    <div class="callout g-mt-xl rv"><h4>Build One with Us</h4>
       <p>The lab is open. If you can prototype an idea, the community has a builder role and a
         monthly session for it. <a href="community.html">How to join in</a>.</p></div></div></section>
 </main>
@@ -79,7 +103,7 @@
   <div class="g-container">
     <div class="g-footer__grid">
       <div>
-        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="#f1efec">
+        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
   <g id="Layer_1-2" data-name="Layer 1">
     <g>
       <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
@@ -96,21 +120,21 @@
   </g>
 </svg></div>
         <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
-          A media project, a lab and a community at the intersection of science,
-          philosophy and society.</p>
+          A media project, a lab and a community for working scientists, students and
+          the curious, in every field.</p>
       </div>
       <div><h5 class="g-footer__heading">Read</h5>
-        <div class="g-stack g-stack--xs"><a href="dossiers.html">Dossiers</a><a href="magazine.html">Magazine</a><a href="newsletter.html">Newsletter</a></div></div>
+        <div class="g-stack g-stack--xs"><a href="topics.html">Topics</a><a href="magazine.html">Magazine</a><a href="newsletter.html">Newsletter</a></div></div>
       <div><h5 class="g-footer__heading">Do</h5>
-        <div class="g-stack g-stack--xs"><a href="lab.html">Interactive lab</a><a href="learn.html">Learning paths</a><a href="community.html">Community</a></div></div>
-      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"></ul>
-        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a></div></div>
+        <div class="g-stack g-stack--xs"><a href="lab.html">Interactive Lab</a><a href="learn.html">Learning Paths</a><a href="community.html">Community</a></div></div>
+      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"><li><a class="lp-social__link" href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-5.639 -2.009) scale(1.2928)" stroke-width="1.282"><path d="M15.6 3.3v9.9a3.6 3.6 0 1 1-3.6-3.6c.3 0 .6 0 .9.1"/><path d="M15.6 3.3c.3 2.3 2 4 4.3 4.2"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="X"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="currentColor"><g transform="translate(1.054 1.119) scale(0.9062)"><path d="M17.6 3h3l-6.6 7.6L21.8 21h-5.9l-4.6-6-5.3 6H3l7.1-8.1L2.6 3h6l4.2 5.5L17.6 3zm-1 16.2h1.6L7.5 4.7H5.8l10.8 14.5z"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Telegram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><g transform="translate(-0.334 1.128) scale(0.9290)" stroke-width="1.748"><path d="M21.2 4.2 L2.8 11.2 L7.6 13.2 L9.5 19.4 L12.4 16 L17.4 20 Z"/><path d="M7.6 13.2 L21.2 4.2"/></g></svg></a></li></ul>
+        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a><a href="brand.html">Brand</a></div></div>
     </div>
     <div class="g-footer__legal">
       <span>&copy; 2026 Gravitas+</span>
       <span>Curiosity brings people in. Capability keeps them here.</span>
-    
-      <span><a href="impressum.html">Legal Notice</a> · <a href="privacy.html">Privacy</a></span></div>
+      <span><a href="impressum.html">Legal Notice</a> · <a href="privacy.html">Privacy</a></span>
+    </div>
   </div>
 </footer>
 <script src="assets/site.js"></script>
@@ -119,16 +143,21 @@
   // Each card gets a small generative sketch rather than a stock image: cheap,
   // on-brand, and it never ships a 400 KB photograph.
   var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  [].forEach.call(document.querySelectorAll('canvas.art'),function(cv,idx){
+  [].forEach.call(document.querySelectorAll('canvas.cardart'),function(cv,idx){
     var ctx=cv.getContext('2d'),dpr=Math.min(devicePixelRatio||1,2);
     function size(){var r=cv.getBoundingClientRect();
       cv.width=r.width*dpr;cv.height=r.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
       return [r.width,r.height];}
     var d=size(); addEventListener('resize',function(){d=size();paint();});
+    // The card art is generated, not a shipped image, so it can simply be
+    // redrawn in the other theme's ink instead of needing a second asset.
+    addEventListener('gravitas:theme',function(){paint();});
+    var ink=function(n,f){return (window.gravitasInk?window.gravitasInk(n,f):f);};
     var seed=+cv.dataset.art;
     function paint(){
       var W=d[0],H=d[1]; ctx.clearRect(0,0,W,H);
-      ctx.strokeStyle='rgba(241,239,236,.28)'; ctx.fillStyle='rgba(212,201,190,.5)';
+      ctx.strokeStyle='rgba('+ink('line','241,239,236')+',.28)';
+      ctx.fillStyle='rgba('+ink('body-b','212,201,190')+',.5)';
       ctx.lineWidth=1;
       var rnd=(function(s){return function(){s=(s*16807)%2147483647;return s/2147483647;};})(seed*7919+13);
       if(seed===0){ for(var i=0;i<26;i++){var x=rnd()*W,y=rnd()*H;ctx.beginPath();ctx.arc(x,y,2.2,0,6.3);ctx.fill();}
@@ -141,7 +170,7 @@
         ctx.arc(W/2,H/2,(a+1)*Math.min(W,H)/13,0,6.3);ctx.stroke();} }
       else if(seed===4){ for(var l=0;l<9;l++){var yv=H*(l+1)/10;ctx.beginPath();
         ctx.moveTo(W*0.12,yv);ctx.lineTo(W*0.88,yv);ctx.stroke();}
-        ctx.fillStyle='rgba(201,112,95,.65)';ctx.fillRect(W*0.12,H*0.4-3,W*0.4,6); }
+        ctx.fillStyle='rgba(162,72,58,.65)';ctx.fillRect(W*0.12,H*0.4-3,W*0.4,6); }
       else { ctx.beginPath(); for(var m=0;m<W;m+=5){ctx.lineTo(m,H/2+Math.sin(m/22+seed)*H*0.26);} ctx.stroke();
         ctx.beginPath();ctx.arc(W*0.7,H*0.4,3.4,0,6.3);ctx.fill(); }
     }
@@ -149,5 +178,7 @@
   });
 })();
 </script>
+<script src="assets/chat.js" defer></script>
+<script src="assets/production-bridge.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,507 @@
+/* =========================================================================
+   GRAVITAS+ · BRAND PAGE
+   Components for /brand only. Built on gravitas.css and site.css, and using
+   nothing but their tokens: a brand page that invented its own colours or
+   spacing would be evidence against itself.
+
+   Everything on this page renders live from the design system rather than
+   from screenshots, so the specimens cannot drift from the product and both
+   themes are proved on every reload.
+   ========================================================================= */
+
+/* ---- page head ---------------------------------------------------------- */
+.bk-head { position: relative; overflow: hidden; }
+.bk-head__inner { position: relative; z-index: var(--g-z-raised); }
+.bk-meta {
+  display: flex; flex-wrap: wrap; gap: var(--g-space-sm) var(--g-space-lg);
+  margin-top: var(--g-space-lg); padding-top: var(--g-space-sm);
+  border-top: 1px solid var(--g-hairline);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle);
+}
+.bk-meta b { color: var(--g-text-muted); font-weight: var(--g-w-regular); }
+
+/* ---- layout: contents rail + body --------------------------------------- */
+.bk-layout { display: grid; gap: var(--g-space-xl); grid-template-columns: 15rem minmax(0, 1fr); align-items: start; }
+@media (max-width: 1000px) { .bk-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.bk-toc {
+  position: sticky; top: 6rem; align-self: start;
+  font-size: var(--g-fs-small);
+  max-height: calc(100vh - 8rem); overflow: auto;
+}
+.bk-toc h2 {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow);
+  text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
+  color: var(--g-text-subtle); font-weight: var(--g-w-regular);
+  margin-bottom: var(--g-space-sm);
+}
+.bk-toc ol { list-style: none; margin: 0; padding: 0; }
+.bk-toc li { margin: 0; }
+.bk-toc a {
+  display: flex; gap: var(--g-space-2xs);
+  padding: .3rem 0 .3rem .6rem;
+  border-left: 2px solid var(--g-hairline);
+  color: var(--g-text-muted); text-decoration: none;
+  transition: color var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
+}
+.bk-toc a:hover { color: var(--g-text); border-left-color: var(--g-border-strong); }
+.bk-toc a.is-current { color: var(--g-text); border-left-color: var(--g-accent); }
+.bk-toc a i { font-style: normal; font-family: var(--g-font-mono); color: var(--g-text-subtle); flex: none; }
+.bk-toc a.is-current i { color: var(--g-accent); }
+@media (max-width: 1000px) {
+  .bk-toc { position: static; max-height: none; margin-bottom: var(--g-space-xl); }
+  .bk-toc ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0 var(--g-space-sm); }
+}
+
+/* ---- section rhythm ------------------------------------------------------ */
+.bk-sec { padding-block: clamp(2.5rem, 5vw, 4rem); border-top: 1px solid var(--g-hairline); }
+.bk-sec:first-child { border-top: 0; padding-top: 0; }
+.bk-sec__n {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow);
+  letter-spacing: .16em; color: var(--g-accent); display: block;
+  margin-bottom: var(--g-space-2xs);
+}
+.bk-sec > h2 { font-size: var(--g-fs-h2); margin-bottom: var(--g-space-sm); }
+.bk-sec > .g-lead { margin-bottom: var(--g-space-lg); }
+.bk-sec h3 {
+  font-size: var(--g-fs-h4); margin-top: var(--g-space-xl); margin-bottom: var(--g-space-xs);
+  padding-top: var(--g-space-sm); position: relative;
+}
+.bk-sec h3::before {
+  content: ""; position: absolute; top: 0; left: 0;
+  width: 2rem; height: 2px; background: var(--g-accent);
+}
+.bk-sec h4 { font-size: var(--g-fs-body); margin: var(--g-space-md) 0 var(--g-space-2xs); }
+.bk-sec p, .bk-sec ul, .bk-sec ol { max-width: 62ch; }
+.bk-sec li::marker { color: var(--g-accent); }
+.bk-sec li + li { margin-top: .35em; }
+
+/* a paragraph that states a rule rather than explaining one */
+.bk-rule-line {
+  font-size: var(--g-fs-lead); line-height: var(--g-lh-snug);
+  border-left: 2px solid var(--g-accent); padding-left: var(--g-space-sm);
+  margin-block: var(--g-space-md);
+}
+
+/* ---- archetype ----------------------------------------------------------- */
+.bk-arch { display: grid; gap: var(--g-space-md); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .bk-arch { grid-template-columns: minmax(0, 1fr); } }
+.bk-arch__card {
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  padding: var(--g-space-md); background: var(--g-surface-raised);
+  display: flex; flex-direction: column;
+}
+.bk-arch__card--lead { border-color: var(--g-border); box-shadow: var(--g-glow-sm); }
+.bk-arch__role {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow);
+  text-transform: uppercase; letter-spacing: .14em; color: var(--g-accent);
+  margin-bottom: var(--g-space-2xs);
+}
+.bk-arch__card h3 { margin: 0 0 var(--g-space-2xs); padding: 0; font-size: var(--g-fs-h3); }
+.bk-arch__card h3::before { display: none; }
+.bk-arch__motto {
+  font-size: var(--g-fs-small); color: var(--g-text-muted);
+  font-style: italic; margin-bottom: var(--g-space-sm);
+}
+.bk-arch__card p { font-size: var(--g-fs-small); color: var(--g-text-muted); max-width: none; }
+
+/* ---- personality axes ---------------------------------------------------- */
+.bk-axes { display: grid; gap: var(--g-space-md); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 760px) { .bk-axes { grid-template-columns: minmax(0, 1fr); } }
+.bk-axis__labels {
+  display: flex; justify-content: space-between; gap: var(--g-space-sm);
+  font-size: var(--g-fs-caption); color: var(--g-text-muted); margin-bottom: .4rem;
+}
+.bk-axis__labels span:last-child { color: var(--g-text-subtle); text-align: right; }
+.bk-axis__track {
+  position: relative; height: 2px; background: var(--g-hairline); border-radius: 2px;
+}
+.bk-axis__track::after {
+  content: ""; position: absolute; top: 50%; left: var(--p);
+  width: .7rem; height: .7rem; margin: -.35rem 0 0 -.35rem;
+  border-radius: 50%; background: var(--g-accent);
+}
+
+/* ---- generic specimen frame ---------------------------------------------- */
+.bk-demo {
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: var(--g-surface-sunken);
+  padding: var(--g-space-md);
+  margin-block: var(--g-space-md);
+}
+.bk-demo--plain { background: transparent; }
+.bk-demo__label {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow);
+  text-transform: uppercase; letter-spacing: .14em; color: var(--g-text-subtle);
+  margin-bottom: var(--g-space-sm);
+}
+.bk-row { display: flex; flex-wrap: wrap; gap: var(--g-space-sm); align-items: center; }
+
+/* Two eyebrows stacked directly, nothing else around them - the one place in
+   this document that happens. Pin down position/display so nothing in
+   gravitas.css's own eyebrow rule (built for a single eyebrow inside a
+   header) can pull the second line out of flow against the first. */
+.bk-demo .g-eyebrow { position: static; display: block; float: none; margin: 0; }
+.bk-demo .g-eyebrow + .g-eyebrow { margin-top: var(--g-space-2xs); }
+
+/* ---- colour -------------------------------------------------------------- */
+.bk-swatches { display: grid; gap: var(--g-space-sm); grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 860px) { .bk-swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* The card is a <button> holding <span>s, so every one of them needs an
+   explicit display. Left inline, the name and the hex ran together on one
+   line and the whole grid read as broken text rather than as swatches.
+
+   The card also sits on --g-bg-deep rather than on a raised surface. A
+   swatch card is a frame around a colour, and framing Cosmos Blue in
+   cosmos-500 put the brand's own anchor against its nearest neighbour:
+   the chip and its card were a step and a half apart on one ramp and the
+   swatch simply vanished. Against cosmos-900 every one of the five reads,
+   and the inset ring covers the two cases (White Tint on light, Royal
+   Black on dark) where value alone is not enough. */
+.bk-sw {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  overflow: hidden; background: var(--g-bg-deep); text-align: left;
+  font: inherit; color: inherit; cursor: copy; padding: 0; width: 100%;
+  transition: border-color var(--g-dur) var(--g-ease-orbit), transform var(--g-dur) var(--g-ease-orbit);
+}
+.bk-sw:hover { border-color: var(--g-border-strong); transform: translateY(-2px); }
+.bk-sw__chip {
+  display: block; height: 6rem; flex: none;
+  margin: var(--g-space-2xs) var(--g-space-2xs) 0;
+  border-radius: var(--g-radius-sm);
+  box-shadow: inset 0 0 0 1px rgb(var(--g-tint) / .28);
+}
+.bk-sw__body {
+  display: block; padding: var(--g-space-xs) var(--g-space-sm) var(--g-space-sm);
+}
+.bk-sw__name { display: block; font-weight: var(--g-w-semibold); font-size: var(--g-fs-small); }
+.bk-sw__hex {
+  display: block; margin-top: .1rem;
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: var(--g-text-muted); text-transform: uppercase;
+}
+.bk-sw__use { display: block; font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin-top: .4rem; }
+
+/* the light-theme accent, shown on its own so it is not read as a fifth brand colour.
+   Sized to match one column of the four-up grid above it, not larger. */
+.bk-swatches--single { grid-template-columns: minmax(0, 13rem); }
+
+.bk-ramp { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-radius: var(--g-radius); overflow: hidden; border: 1px solid var(--g-hairline); }
+@media (max-width: 760px) { .bk-ramp { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.bk-ramp button {
+  font: inherit; color: var(--g-white-tint); text-align: left; border: 0; cursor: copy;
+  padding: var(--g-space-lg) var(--g-space-2xs) var(--g-space-2xs);
+  display: block;
+}
+.bk-ramp span { display: block; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); }
+.bk-ramp span:first-child { color: var(--g-white-tint); }
+.bk-ramp span:last-child { color: rgb(241 239 236 / .62); }
+
+/* ---- token tables -------------------------------------------------------- */
+.bk-tablewrap { overflow-x: auto; margin-block: var(--g-space-md); }
+.bk-table { width: 100%; border-collapse: collapse; font-size: var(--g-fs-small); min-width: 34rem; }
+.bk-table th, .bk-table td {
+  text-align: left; padding: var(--g-space-2xs) var(--g-space-sm);
+  border-bottom: 1px solid var(--g-hairline); vertical-align: top;
+}
+.bk-table th {
+  font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: .1em;
+  color: var(--g-text-muted); font-weight: var(--g-w-semibold); white-space: nowrap;
+}
+.bk-table td { color: var(--g-text-muted); }
+.bk-table td:first-child { color: var(--g-text); }
+.bk-table code, .bk-tok {
+  font-family: var(--g-font-mono); font-size: .92em; color: var(--g-text);
+  background: var(--g-surface-sunken); border: 1px solid var(--g-hairline);
+  border-radius: var(--g-radius-sm); padding: .05em .35em; white-space: nowrap;
+}
+button.bk-tok { cursor: copy; }
+button.bk-tok:hover { border-color: var(--g-border-strong); }
+.bk-dot {
+  display: inline-block; width: .85rem; height: .85rem; border-radius: 3px;
+  border: 1px solid var(--g-hairline); vertical-align: -2px; margin-right: .4rem;
+}
+
+/* ---- type specimen ------------------------------------------------------- */
+.bk-weights { display: grid; gap: var(--g-space-2xs); }
+.bk-weights div {
+  display: flex; align-items: baseline; gap: var(--g-space-sm);
+  border-bottom: 1px solid var(--g-hairline); padding-bottom: var(--g-space-2xs);
+}
+.bk-weights b { font-size: 1.6rem; line-height: 1.2; flex: 1; font-weight: inherit; }
+.bk-weights small { font-family: var(--g-font-mono); color: var(--g-text-subtle); flex: none; }
+.bk-spec { display: grid; gap: var(--g-space-md); }
+.bk-spec__row { display: grid; gap: var(--g-space-2xs); }
+.bk-spec__meta { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.bk-spec__sample { color: var(--g-text); line-height: 1.1; }
+
+/* ---- do / don't ---------------------------------------------------------- */
+.bk-dd { display: grid; gap: var(--g-space-sm); grid-template-columns: repeat(2, minmax(0, 1fr)); margin-block: var(--g-space-md); }
+@media (max-width: 760px) { .bk-dd { grid-template-columns: minmax(0, 1fr); } }
+.bk-dd__cell {
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  padding: var(--g-space-sm) var(--g-space-md); background: var(--g-surface-raised);
+}
+.bk-dd__cell h4 {
+  margin: 0 0 var(--g-space-2xs); font-size: var(--g-fs-caption);
+  font-family: var(--g-font-mono); text-transform: uppercase; letter-spacing: .12em;
+  display: flex; align-items: center; gap: .4rem;
+}
+.bk-dd__cell--do    { border-left: 2px solid var(--g-signal-positive); }
+.bk-dd__cell--dont  { border-left: 2px solid var(--g-signal-critical); }
+.bk-dd__cell--do h4    { color: var(--g-signal-positive); }
+.bk-dd__cell--dont h4  { color: var(--g-signal-critical); }
+.bk-dd__cell p { font-size: var(--g-fs-small); color: var(--g-text-muted); max-width: none; }
+.bk-dd__cell p + p { margin-top: var(--g-space-2xs); }
+.bk-dd__quote { color: var(--g-text); }
+
+/* ---- logo specimens ------------------------------------------------------ */
+.bk-marks { display: grid; gap: var(--g-space-sm); grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .bk-marks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.bk-mark {
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  padding: var(--g-space-md); display: grid; place-items: center; gap: var(--g-space-sm);
+  min-height: 9rem; text-align: center;
+}
+.bk-mark svg { width: 100%; max-width: 9rem; height: auto; }
+.bk-mark--icon svg { max-width: 3.5rem; }
+.bk-mark__cap { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.bk-mark--onblue  { background: var(--g-cosmos-600); color: var(--g-white-tint); }
+.bk-mark--onblack { background: var(--g-royal-black); color: var(--g-white-tint); }
+.bk-mark--onlight { background: var(--g-white-tint); color: var(--g-cosmos-600); }
+.bk-mark--onsisal { background: var(--g-sisal); color: var(--g-cosmos-600); }
+.bk-mark--onblue .bk-mark__cap,
+.bk-mark--onblack .bk-mark__cap { color: rgb(241 239 236 / .62); }
+.bk-mark--onlight .bk-mark__cap,
+.bk-mark--onsisal .bk-mark__cap { color: rgb(0 48 73 / .62); }
+
+/* clear space diagram */
+.bk-clear {
+  display: grid; justify-items: center; gap: var(--g-space-sm); padding: var(--g-space-lg);
+  background: var(--g-cosmos-600);
+  border-radius: var(--g-radius); border: 1px solid var(--g-hairline);
+}
+.bk-clear__box {
+  position: relative; padding: 2.75rem;
+  outline: 1px dashed rgb(212 201 190 / .45); outline-offset: 0;
+}
+.bk-clear__box svg { width: 12rem; max-width: 60vw; height: auto; color: var(--g-white-tint); display: block; }
+.bk-clear__cap {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  color: rgb(212 201 190 / .8); margin: 0;
+}
+/* one dimension mark per side: a short line, broken by the "x" label,
+   sitting inside the clear-space margin so the distance it names is the
+   distance it visibly spans. */
+.bk-clear__dim {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  gap: .3rem; color: rgb(212 201 190 / .85);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); line-height: 1;
+}
+.bk-clear__dim i { display: block; background: currentColor; flex: 1 1 auto; }
+.bk-clear__dim--top, .bk-clear__dim--bottom {
+  left: 50%; transform: translateX(-50%); flex-direction: column; height: 1.9rem;
+}
+.bk-clear__dim--top { top: .35rem; }
+.bk-clear__dim--bottom { bottom: .35rem; }
+.bk-clear__dim--top i, .bk-clear__dim--bottom i { width: 1px; }
+.bk-clear__dim--left, .bk-clear__dim--right {
+  top: 50%; transform: translateY(-50%); flex-direction: row; width: 1.9rem;
+}
+.bk-clear__dim--left { left: .35rem; }
+.bk-clear__dim--right { right: .35rem; }
+.bk-clear__dim--left i, .bk-clear__dim--right i { height: 1px; }
+
+/* ---- icons --------------------------------------------------------------- */
+.bk-icons { display: flex; flex-wrap: wrap; gap: var(--g-space-md); }
+.bk-icon { display: grid; justify-items: center; gap: var(--g-space-2xs); width: 5rem; }
+.bk-icon__btn {
+  width: 2.25rem; height: 2.25rem; border-radius: var(--g-radius-pill);
+  border: 1px solid var(--g-border); color: var(--g-text-muted);
+  display: grid; place-items: center;
+}
+.bk-icon__btn svg { width: 1.25rem; height: 1.25rem; }
+.bk-icon span { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+
+/* ---- texture demo -------------------------------------------------------- */
+.bk-wells { display: grid; gap: var(--g-space-sm); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .bk-wells { grid-template-columns: minmax(0, 1fr); } }
+.bk-wellbox {
+  position: relative; overflow: hidden; min-height: 11rem;
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: var(--g-grad-deep-space);
+  display: grid; align-content: end; padding: var(--g-space-sm);
+}
+.bk-wellbox .g-well { background-size: 22rem; }
+.bk-wellbox span {
+  position: relative; z-index: var(--g-z-raised);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-muted);
+}
+
+/* ---- downloads ----------------------------------------------------------- */
+.bk-dl { display: grid; gap: var(--g-space-2xs); }
+.bk-dl a {
+  display: flex; align-items: center; gap: var(--g-space-sm);
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius-sm);
+  padding: var(--g-space-2xs) var(--g-space-sm);
+  text-decoration: none; color: var(--g-text);
+  transition: border-color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit);
+}
+.bk-dl a:hover { border-color: var(--g-border-strong); background: rgb(var(--g-tint) / .05); }
+.bk-dl__mark { flex: none; width: 1.6rem; display: grid; place-items: center; color: var(--g-text-muted); }
+.bk-dl__mark svg { width: 100%; height: auto; }
+.bk-dl__name { flex: 1; font-size: var(--g-fs-small); }
+.bk-dl__type { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); flex: none; }
+
+/* ---- copy feedback ------------------------------------------------------- */
+.bk-toast {
+  position: fixed; left: 50%; bottom: 1.5rem; transform: translate(-50%, 1rem);
+  z-index: var(--g-z-modal);
+  background: var(--g-solid-bg); color: var(--g-solid-fg);
+  font-size: var(--g-fs-small); font-weight: var(--g-w-medium);
+  padding: .5rem 1rem; border-radius: var(--g-radius-pill);
+  box-shadow: var(--g-shadow);
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--g-dur) var(--g-ease-orbit),
+              transform var(--g-dur) var(--g-ease-orbit),
+              visibility 0s linear var(--g-dur);
+}
+.bk-toast.is-on {
+  opacity: 1; visibility: visible; transform: translate(-50%, 0);
+  transition-delay: 0s;
+}
+
+/* ---- version log --------------------------------------------------------- */
+.bk-log { display: grid; gap: var(--g-space-sm); }
+.bk-log__row { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--g-space-sm); font-size: var(--g-fs-small); }
+@media (max-width: 620px) { .bk-log__row { grid-template-columns: minmax(0, 1fr); gap: .2rem; } }
+.bk-log__when { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); padding-top: .15rem; }
+.bk-log__what { color: var(--g-text-muted); }
+
+/* ---- two corrections for the light theme --------------------------------
+   1. site.css sets `:root[data-theme="light"] .g-well { opacity: .16 }`, which
+      outranks the modifier classes and would render all three well specimens
+      at the same strength, so the one demo whose point is the difference would
+      show none. Scoped overrides put the three steps back.
+   2. (Resolved in the swatch rules above: chips carry their own inset ring.) */
+:root[data-theme="light"] .bk-wellbox .g-well          { opacity: .16; }
+:root[data-theme="light"] .bk-wellbox .g-well--faint   { opacity: .09; }
+:root[data-theme="light"] .bk-wellbox .g-well--strong  { opacity: .24; }
+
+
+/* ---- Aaker dimensions ---------------------------------------------------- */
+.bk-scale { display: grid; gap: var(--g-space-md); margin-block: var(--g-space-md); }
+.bk-dim__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--g-space-sm); margin-bottom: .4rem;
+}
+.bk-dim__name { font-weight: var(--g-w-semibold); }
+.bk-dim__name b {
+  font-family: var(--g-font-mono); font-weight: var(--g-w-regular);
+  font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: .12em;
+  color: var(--g-accent); margin-left: .5rem;
+}
+.bk-dim__score { font-family: var(--g-font-mono); font-size: var(--g-fs-small); color: var(--g-text-muted); }
+.bk-dim__track {
+  height: 6px; border-radius: 6px; background: rgb(var(--g-tint) / .1);
+  overflow: hidden;
+}
+.bk-dim__track span { display: block; height: 100%; width: var(--v); background: var(--g-accent); border-radius: 6px; }
+.bk-dim__note { font-size: var(--g-fs-small); color: var(--g-text-muted); margin-top: var(--g-space-2xs); }
+.bk-dim__note b { color: var(--g-text); font-weight: var(--g-w-medium); }
+
+/* ---- logo motion embed --------------------------------------------------- */
+.bk-motion {
+  position: relative; margin-block: var(--g-space-md);
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: #01121c;                 /* the piece has its own night, both themes */
+  overflow: hidden;
+}
+.bk-motion iframe {
+  display: block; width: 100%; aspect-ratio: 16 / 10; min-height: 30rem; border: 0;
+}
+@media (max-width: 620px) { .bk-motion iframe { aspect-ratio: auto; height: 34rem; } }
+.bk-motion__cap { font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+
+/* ---- the pack ------------------------------------------------------------
+   Three areas, not two: the mark, the copy, and a spec footer that runs the
+   full width under a hairline. The old card put the file metadata on the
+   title's baseline, which orphaned a mono caption on its own line at middle
+   widths, and left the whole right-hand half of the card empty while the one
+   call to action sat in the weakest corner. The footer takes both problems:
+   the metadata becomes four labelled facts instead of one middot string, and
+   the button gets the far end of that line. */
+.bk-pack {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--g-space-md); align-items: start;
+  border: 1px solid var(--g-border); border-radius: var(--g-radius);
+  background: var(--g-surface-raised); box-shadow: var(--g-glow-sm);
+  padding: var(--g-space-lg); margin-block: var(--g-space-md);
+}
+
+/* The mark is what is being downloaded, so it is shown as a specimen of the
+   default lock-up - white monogram on plain Cosmos Blue - rather than as a
+   3.25rem avatar chip. Nothing behind it: the clear-space rule wants a quiet
+   field, and the well already has its own specimens earlier in the document.
+   Cosmos Blue is named directly on purpose: this is brand artwork holding its
+   own colour in both themes, the same exception .bk-motion takes, not a UI
+   surface that should follow the theme. The inset ring is there because
+   cosmos-600 against a cosmos-500 card is a single step of the ramp, which on
+   its own reads as a smudge rather than a plate. */
+.bk-pack__specimen {
+  width: 6.75rem; height: 6.75rem; flex: none;
+  border-radius: var(--g-radius-sm);
+  background: var(--g-cosmos-600); color: var(--g-white-tint);
+  box-shadow: inset 0 0 0 1px rgb(var(--g-tint) / .14);
+  display: grid; place-items: center;
+}
+.bk-pack__specimen svg {
+  width: 3rem; height: auto;          /* clear space well past the 25% minimum */
+}
+
+.bk-pack__body { display: flex; flex-direction: column; gap: var(--g-space-2xs); min-width: 0; }
+/* Element-scoped, not class-only. `.bk-sec h3` and `.bk-sec p` are both (0,1,1)
+   and a lone `.bk-pack__title` is (0,1,0), so the section rules were quietly
+   winning: the title came out at h4 size with 3rem of margin and 1rem of
+   padding above it, and the measure snapped back to 62ch. Same shape as
+   `.bk-arch__card h3` further up - match the specificity, then rely on source
+   order. */
+.bk-pack__body h3 {
+  margin: 0; padding: 0; font-size: var(--g-fs-h3);
+}
+.bk-pack__body h3::before { display: none; }
+.bk-pack__body p {
+  margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); max-width: 58ch;
+}
+
+.bk-pack__foot {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between;
+  gap: var(--g-space-sm) var(--g-space-md);
+  border-top: 1px solid var(--g-hairline); padding-top: var(--g-space-md);
+}
+.bk-pack__specs { display: flex; flex-wrap: wrap; gap: var(--g-space-sm) var(--g-space-lg); margin: 0; }
+.bk-pack__specs > div { display: grid; gap: .15rem; }
+.bk-pack__specs dt {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow);
+  text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
+  color: var(--g-text-subtle);
+}
+.bk-pack__specs dd {
+  margin: 0; font-family: var(--g-font-mono); font-size: var(--g-fs-small); color: var(--g-text);
+}
+.bk-pack .g-btn { flex: none; }
+
+/* One column, and the specimen becomes a band across the top rather than a
+   tile stranded on a row of its own. */
+@media (max-width: 640px) {
+  .bk-pack { grid-template-columns: minmax(0, 1fr); gap: var(--g-space-sm); padding: var(--g-space-md); }
+  .bk-pack__specimen { width: 100%; height: 6rem; }
+  .bk-pack__foot { padding-top: var(--g-space-sm); }
+  /* Four facts wrap 3 + 1 when left to themselves. Two even columns instead. */
+  .bk-pack__specs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: var(--g-space-sm); }
+  .bk-pack .g-btn { width: 100%; justify-content: center; text-align: center; }
+}
+.bk-dl__hex { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin-left: .4rem; }

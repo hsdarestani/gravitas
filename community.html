@@ -3,17 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Community — Gravitas+</title>
+<script>
+/* Theme, resolved before first paint. See assets/site.js for the toggle.
+   Dark is the default full stop, not "dark unless your OS says otherwise":
+   this is a night sky, and a visitor who has never touched the control should
+   see the same site every time rather than one that depends on a setting they
+   made for some other app. Only an explicit choice, stored here, overrides it. */
+(function(){try{var s=localStorage.getItem('gravitas:theme');
+document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
+}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
+</script>
+<title>Community · Gravitas+</title>
 <meta name="description" content="Roles, study groups, events and the weekly thought experiment.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="mask-icon" href="assets/monogram.svg" color="#003049">
+<meta name="theme-color" content="#00263a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/gravitas.css">
 <link rel="stylesheet" href="assets/site.css">
 
+<link rel="stylesheet" href="assets/chat.css">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
 <header class="g-header">
   <div class="g-container g-header__inner">
-    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="#f1efec">
+    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
   <g id="Layer_1-2" data-name="Layer 1">
     <g>
       <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
@@ -29,13 +46,20 @@
     </g>
   </g>
 </svg></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="dossiers.html">Dossiers</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" aria-current="page" href="community.html">Community</a></nav>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html">Topics</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" aria-current="page" href="community.html">Community</a></nav>
     <div class="gh-actions">
       <a class="g-btn g-btn--ghost g-btn--sm gh-signin" href="account.html#in">Sign in</a>
-      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="newsletter.html" aria-label="Subscribe to the newsletter">
-        <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7l9 6 9-6M3 7v10h18V7H3z"/></svg>
-        <span>Subscribe</span>
+      <!-- The header CTA is the site's single loudest control, and it used to
+           point at a mailing list. The community is the thing this project is
+           actually for, so it gets the slot. -->
+      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="community.html#join" aria-label="Join the Gravitas+ community">
+        <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 19v-1.6a3.4 3.4 0 0 0-3.4-3.4H6.4A3.4 3.4 0 0 0 3 17.4V19"/><circle cx="9.5" cy="7.5" r="3.1"/><path d="M19 11h2M20 10v2"/></svg>
+        <span>Join Us</span>
       </a>
+      <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme">
+        <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><!-- The crescent sits centred by bounding box but not by mass: its area centroid measures (9.97, 14.03) against a 12,12 viewBox centre, which is why it read as low and left inside a circular button. Shifted part of the way back: correcting the full 2.03 would push the upper tip out of the box, so this splits the difference between the two centres, which is what optical centring is. --><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
+      </button>
       <button class="lp-menu-btn" aria-label="Menu" aria-expanded="false">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
@@ -45,27 +69,27 @@
 <main id="main">
 <section class="page-head"><div class="g-container">
       <p class="crumb"><a href="index.html">Home</a> / Community</p><h1>Community</h1><p class="g-lead">Watching is one role among several. The point of a member account is that your contribution is visible and actually changes what gets made.</p>
+      <p class="g-muted" style="font-size:var(--g-fs-small);max-width:58ch;margin-top:var(--g-space-sm)">No field requirement and no degree requirement. Members come from clinical research, ecology, economics, software, teaching and school. The argument is better for it.</p>
     </div></section>
 <section class="g-section"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
       <p class="g-eyebrow">Take part as</p><h2>Roles</h2></div></div>
-  <div class="roles rv"><div class="role"><h4>Reader</h4><p>Comment, question and argue. The lowest-friction role, and the one that shapes most dossiers.</p></div><div class="role"><h4>Researcher</h4><p>Bring evidence, correct us, and flag where a claim outruns its source.</p></div><div class="role"><h4>Translator</h4><p>Carry a dossier into another language, with the nuance intact.</p></div><div class="role"><h4>Critic</h4><p>Write the counter-argument. We publish the strongest one we receive.</p></div><div class="role"><h4>Builder</h4><p>Prototype games, simulations and tools for the lab.</p></div><div class="role"><h4>Host</h4><p>Run a study group, a reading session or a live discussion.</p></div></div></div></section>
+  <div class="roles rv"><div class="role"><h4>Reader</h4><p>Comment, question and argue. The lowest-friction role, and the one that shapes most topics.</p></div><div class="role"><h4>Researcher</h4><p>Bring evidence, correct us, and flag where a claim outruns its source.</p></div><div class="role"><h4>Translator</h4><p>Carry a topic into another language, with the nuance intact.</p></div><div class="role"><h4>Critic</h4><p>Write the counter-argument. We publish the strongest one we receive.</p></div><div class="role"><h4>Builder</h4><p>Prototype games, simulations and tools for the lab.</p></div><div class="role"><h4>Host</h4><p>Run a study group, a reading session or a live discussion.</p></div></div></div></section>
 
 <section class="g-section g-section--deep"><div class="g-container"><div class="split split--rows">
     <div class="rv split__intro"><p class="g-eyebrow">This week</p>
-      <h2 style="font-size:var(--g-fs-h2);margin-bottom:var(--g-space-sm)">Thought experiment</h2>
-      <p class="g-lead">A model predicts a material's behaviour correctly, repeatedly, and no one —
-        including its authors — can say why. Has physics been done?</p>
+      <h2 style="font-size:var(--g-fs-h2);margin-bottom:var(--g-space-sm)">Thought Experiment</h2>
+      <p class="g-lead">A model predicts a material's behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?</p>
     </div>
     <div class="rv split__body">
       <div class="poll" style="max-width:34rem">
-        <button class="poll__opt" aria-pressed="false"><span class="poll__bar"></span>
-          <span class="poll__txt"><span>Yes — prediction is the test, explanation is a bonus</span><span class="poll__pct"></span></span></button>
-        <button class="poll__opt" aria-pressed="false"><span class="poll__bar"></span>
-          <span class="poll__txt"><span>No — without a mechanism it is engineering, not science</span><span class="poll__pct"></span></span></button>
-        <button class="poll__opt" aria-pressed="false"><span class="poll__bar"></span>
+        <button class="poll__opt" data-share="38" aria-pressed="false"><span class="poll__bar"></span>
+          <span class="poll__txt"><span>Yes: prediction is the test, explanation is a bonus</span><span class="poll__pct"></span></span></button>
+        <button class="poll__opt" data-share="44" aria-pressed="false"><span class="poll__bar"></span>
+          <span class="poll__txt"><span>No: without a mechanism it is engineering, not science</span><span class="poll__pct"></span></span></button>
+        <button class="poll__opt" data-share="18" aria-pressed="false"><span class="poll__bar"></span>
           <span class="poll__txt"><span>It depends what the prediction is for</span><span class="poll__pct"></span></span></button>
       </div>
-      <form class="g-field g-mt-md" style="max-width:34rem">
+      <form class="g-field g-mt-md" data-demo-form style="max-width:34rem">
         <label class="g-label" for="arg">Your reasoning (this is the part that gets read on air)</label>
         <textarea class="g-textarea" id="arg" placeholder="Two or three sentences is plenty."></textarea>
         <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Submit</button>
@@ -73,27 +97,34 @@
       </form>
     </div>
     <aside class="aside">
-      <div class="callout"><h4>How it works</h4>
-        <p>Every Monday a new situation. Wednesday the votes close. Friday the reasoning — including
-          the arguments that changed our minds — goes into a video or an essay.</p></div>
+      <div class="callout"><h4>How It Works</h4>
+        <p>Every Monday a new situation. Wednesday the votes close. Friday the reasoning, including the arguments that changed our minds, goes into a video or an essay.</p></div>
     </aside></div></div></section>
 
 <section class="g-section"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-      <p class="g-eyebrow">What members do</p><h2>Nine ways to take part</h2></div></div>
+      <p class="g-eyebrow">What members do</p><h2>Nine Ways to Take Part</h2></div></div>
   <div class="split rv">
-    <ul class="g-prose" style="font-size:var(--g-fs-body)"><li>Propose a dossier subject and vote on what gets made next</li><li>Join a study group or an online session</li><li>Send questions for upcoming interview guests</li><li>Take part in collective experiments and data collection</li><li>Share a project, paper or tool worth attention</li><li>Write a critique or a response</li><li>Help translate a dossier</li><li>Build a game or a tool for the lab</li><li>Host a discussion or an event</li></ul>
-    <aside class="aside"><div class="callout"><h4>Why bother</h4>
+    <ul class="g-prose" style="font-size:var(--g-fs-body)"><li>Propose a Topic and vote on what gets made next</li><li>Join a study group or an online session</li><li>Send questions for upcoming interview guests</li><li>Take part in collective experiments and data collection</li><li>Share a project, paper or tool worth attention</li><li>Write a critique or a response</li><li>Help translate a topic</li><li>Build a game or a tool for the lab</li><li>Host a discussion or an event</li></ul>
+    <aside class="aside"><div class="callout"><h4>Why Bother</h4>
       <p>Because a media project that only broadcasts eventually runs out of things to say. The
-        dossier list, the guest questions and half the lab ideas come from members.</p></div></aside>
+        topic list, the guest questions and half the lab ideas come from members.</p></div></aside>
   </div></div></section>
 
-<section class="g-section g-section--deep"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0"><p class="g-eyebrow">Community calendar</p><h2>Events</h2></div></div><div class="rv"><div class="callout"><p>No public event is scheduled right now. New study groups, live discussions and build sessions will be announced here and in the newsletter.</p></div></div></div></section>
+<section class="g-section g-section--deep"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
+      <p class="g-eyebrow">Coming up</p><h2>Events</h2></div></div>
+  <div class="rv"><div class="event"><span class="event__date"><b>12</b>MAR</span>
+      <div><h4>Study Group: AI in Research, Week 3</h4><p>Retrieval, grounding, and why citations get invented. Open to path members.</p></div>
+      <a class="g-btn g-btn--secondary g-btn--sm" href="newsletter.html">Join</a></div><div class="event"><span class="event__date"><b>19</b>MAR</span>
+      <div><h4>Live: The Gravitas Table</h4><p>Should there be limits on AI use in published work? Four guests, ninety minutes, no consensus expected.</p></div>
+      <a class="g-btn g-btn--secondary g-btn--sm" href="newsletter.html">Remind me</a></div><div class="event"><span class="event__date"><b>26</b>MAR</span>
+      <div><h4>Build Session</h4><p>Prototyping the science-budget game with whoever turns up.</p></div>
+      <a class="g-btn g-btn--secondary g-btn--sm" href="newsletter.html">Join</a></div></div></div></section>
 
-<section class="g-section"><div class="g-container"><div class="join rv">
+<section class="g-section" id="join"><div class="g-container"><div class="join rv">
     <div class="g-well" aria-hidden="true"></div>
     <div class="g-starfield" aria-hidden="true"></div>
     <div class="join__in">
-      <p class="g-eyebrow" style="justify-content:center">A free account</p>
+      <p class="g-eyebrow" style="justify-content:center">Free, and it stays free</p>
       <h2 class="join__h">Start as a reader.</h2>
       <p class="join__lede">Change your mind later.</p>
 
@@ -110,7 +141,7 @@
         <a class="g-btn g-btn--primary g-btn--lg" href="account.html">Create an account</a>
         <a class="g-btn g-btn--secondary g-btn--lg" href="account.html#in">I already have one</a>
       </div>
-      <p class="join__fine">Public content stays readable without an account.</p>
+      <p class="join__fine">No payment. No tiers. Delete it in one click.</p>
     </div></div></div></section>
 
 </main>
@@ -118,7 +149,7 @@
   <div class="g-container">
     <div class="g-footer__grid">
       <div>
-        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="#f1efec">
+        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
   <g id="Layer_1-2" data-name="Layer 1">
     <g>
       <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
@@ -135,23 +166,26 @@
   </g>
 </svg></div>
         <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
-          A media project, a lab and a community at the intersection of science,
-          philosophy and society.</p>
+          A media project, a lab and a community for working scientists, students and
+          the curious, in every field.</p>
       </div>
       <div><h5 class="g-footer__heading">Read</h5>
-        <div class="g-stack g-stack--xs"><a href="dossiers.html">Dossiers</a><a href="magazine.html">Magazine</a><a href="newsletter.html">Newsletter</a></div></div>
+        <div class="g-stack g-stack--xs"><a href="topics.html">Topics</a><a href="magazine.html">Magazine</a><a href="newsletter.html">Newsletter</a></div></div>
       <div><h5 class="g-footer__heading">Do</h5>
-        <div class="g-stack g-stack--xs"><a href="lab.html">Interactive lab</a><a href="learn.html">Learning paths</a><a href="community.html">Community</a></div></div>
-      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"></ul>
-        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a></div></div>
+        <div class="g-stack g-stack--xs"><a href="lab.html">Interactive Lab</a><a href="learn.html">Learning Paths</a><a href="community.html">Community</a></div></div>
+      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"><li><a class="lp-social__link" href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-5.639 -2.009) scale(1.2928)" stroke-width="1.282"><path d="M15.6 3.3v9.9a3.6 3.6 0 1 1-3.6-3.6c.3 0 .6 0 .9.1"/><path d="M15.6 3.3c.3 2.3 2 4 4.3 4.2"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="X"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="currentColor"><g transform="translate(1.054 1.119) scale(0.9062)"><path d="M17.6 3h3l-6.6 7.6L21.8 21h-5.9l-4.6-6-5.3 6H3l7.1-8.1L2.6 3h6l4.2 5.5L17.6 3zm-1 16.2h1.6L7.5 4.7H5.8l10.8 14.5z"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Telegram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><g transform="translate(-0.334 1.128) scale(0.9290)" stroke-width="1.748"><path d="M21.2 4.2 L2.8 11.2 L7.6 13.2 L9.5 19.4 L12.4 16 L17.4 20 Z"/><path d="M7.6 13.2 L21.2 4.2"/></g></svg></a></li></ul>
+        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a><a href="brand.html">Brand</a></div></div>
     </div>
     <div class="g-footer__legal">
       <span>&copy; 2026 Gravitas+</span>
       <span>Curiosity brings people in. Capability keeps them here.</span>
-    
-      <span><a href="impressum.html">Legal Notice</a> · <a href="privacy.html">Privacy</a></span></div>
+      <span><a href="impressum.html">Legal Notice</a> · <a href="privacy.html">Privacy</a></span>
+    </div>
   </div>
 </footer>
 <script src="assets/site.js"></script>
+<script src="assets/chat.js" defer></script>
+<script src="assets/production-bridge.js" defer></script>
+<script src="assets/community-lab-live.js" defer></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
    GRAVITAS+ DESIGN SYSTEM  ·  v1.0
    A single stylesheet for the Gravitas+ website and web marketing.
 
-   Structure (CSS cascade layers — later layers win, so component styles
+   Structure (CSS cascade layers, later layers win, so component styles
    never get out-fought by a stray utility or base rule):
      1. tokens      primitive + semantic custom properties
      2. base        reset, document defaults, typography defaults
@@ -21,7 +21,7 @@
    ========================================================================== */
 @layer tokens {
   :root {
-    /* ---- Brand primitives — the four fixed colours ------------------- */
+    /* ---- Brand primitives, the four fixed colours ------------------- */
     --g-cosmos-blue: #003049;
     --g-sisal:       #d4c9be;
     --g-royal-black: #030303;
@@ -29,12 +29,12 @@
 
     /* ---- Cosmos ramp -------------------------------------------------
        Every surface value is Cosmos Blue mixed toward black or light.
-       One hue, six depths — this is how the palette stays strict while
+       One hue, six depths, this is how the palette stays strict while
        still supporting a real interface. Do not add hues here.          */
     --g-cosmos-900: #01121c;  /* the void behind everything */
     --g-cosmos-800: #011f30;  /* sunken: wells, insets, code */
     --g-cosmos-700: #00263a;  /* page background at rest */
-    --g-cosmos-600: #003049;  /* base surface — the brand anchor */
+    --g-cosmos-600: #003049;  /* base surface, the brand anchor */
     --g-cosmos-500: #013a58;  /* raised: cards, menus */
     --g-cosmos-400: #01486d;  /* hovered / lifted */
     --g-cosmos-300: #1c6288;  /* pressed, active rails */
@@ -49,16 +49,16 @@
 
     --g-text:              var(--g-white-tint);
     --g-text-muted:        var(--g-sisal);
-    --g-text-subtle:       rgb(212 201 190 / 0.62);
+    --g-text-subtle:       rgb(var(--g-tint) / 0.62);
     --g-text-inverse:      var(--g-cosmos-600);
 
-    --g-hairline:          rgb(212 201 190 / 0.16);
-    --g-border:            rgb(212 201 190 / 0.30);
-    --g-border-strong:     rgb(212 201 190 / 0.55);
+    --g-hairline:          rgb(var(--g-tint) / 0.16);
+    --g-border:            rgb(var(--g-tint) / 0.30);
+    --g-border-strong:     rgb(var(--g-tint) / 0.55);
     --g-focus:             var(--g-white-tint);
 
     /* ---- Signal colours ----------------------------------------------
-       Functional feedback only — form errors, build status, alerts.
+       Functional feedback only, form errors, build status, alerts.
        Never decorative, never a background, never in marketing art.
        Kept low-chroma so they read as neighbours of the palette rather
        than as new brand colours.                                        */
@@ -69,7 +69,7 @@
     /* ---- Type --------------------------------------------------------- */
     --g-font: "DM Sans", system-ui, -apple-system, "Segoe UI", Inter, Arial, sans-serif;
     /* DM Mono is DM Sans's sibling. Scoped strictly to code, data and
-       physics notation — the one place a single sans can't do the job. */
+       physics notation, the one place a single sans can't do the job. */
     --g-font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
     --g-w-thin: 100;  --g-w-extralight: 200; --g-w-light: 300;
@@ -100,7 +100,7 @@
 
     --g-measure: 68ch;   /* long-form line length */
 
-    /* ---- Space — 4px base ---------------------------------------------- */
+    /* ---- Space, 4px base ---------------------------------------------- */
     --g-space-3xs: 0.25rem;  --g-space-2xs: 0.5rem;  --g-space-xs: 0.75rem;
     --g-space-sm:  1rem;     --g-space-md:  1.5rem;  --g-space-lg: 2rem;
     --g-space-xl:  3rem;     --g-space-2xl: 4rem;    --g-space-3xl: 6rem;
@@ -136,7 +136,7 @@
     --g-well-image: url("assets/spacetime-well.svg");
 
     /* ---- Motion ---------------------------------------------------------
-       ease-orbit: decisive departure, long settle — things arrive the way
+       ease-orbit: decisive departure, long settle, things arrive the way
        a body settles into orbit rather than snapping into place.         */
     --g-ease-orbit: cubic-bezier(0.16, 1, 0.3, 1);
     --g-ease-fall:  cubic-bezier(0.55, 0, 0.35, 1);
@@ -146,10 +146,120 @@
 
     --g-z-base: 0; --g-z-raised: 10; --g-z-sticky: 100;
     --g-z-overlay: 500; --g-z-modal: 1000;
+
+    /* ---- Theme hooks ----------------------------------------------------
+       Everything below is a value that has to *flip* between dark and light.
+       They live here as named channels rather than as literals scattered
+       through the component files, because the old code had the dark values
+       hard-coded in ninety-odd places, which is precisely why there was no
+       light mode. Adding one meant finding them all once.                 */
+
+    /* Ink used for translucent overlays: hover washes, tracks, scrims.
+       Space-separated channels so any rule can pick its own alpha. */
+    --g-tint: 212 201 190;
+
+    /* The accent: Sisal on dark. On light Sisal is invisible, so the light
+       theme substitutes the same warmth at ink weight rather than dropping
+       the accent or borrowing a fifth hue. */
+    --g-accent: var(--g-sisal);
+
+    /* Sticky chrome (header, topic sub-nav), a translucent slab of the page
+       background rather than a fixed colour. */
+    --g-chrome: 0 38 58;
+    --g-chrome-a: 0.72;
+
+    /* Solid controls: pressed chips, primary buttons, selected tabs. */
+    --g-solid-bg: var(--g-white-tint);
+    --g-solid-fg: var(--g-cosmos-600);
+    --g-solid-bg-hover: var(--g-cosmos-600);
+    --g-solid-fg-hover: var(--g-white-tint);
+
+    /* Canvas ink, read by hero.js. Canvases can't inherit CSS colour, so the
+       three hero simulations pull these at paint time and repaint on change. */
+    --g-canvas-line: 241 239 236;
+    --g-canvas-body-a: 241 239 236;
+    --g-canvas-body-b: 212 201 190;
+    --g-canvas-body-c: 111 169 206;
+    --g-canvas-core: 255 255 255;
+
+    color-scheme: dark;
   }
 
-  /* Light inversion — press releases, print-alike pages, embeds on white.
-     Not a "light mode": it is the same system, flipped. */
+  /* ---- Light theme ------------------------------------------------------
+     A real second mode, not the inversion below. The brand is a night sky, so
+     the light theme is not "the same page with the lights on", the star
+     field, meteors and deep-space gradients switch off entirely rather than
+     rendering as grey noise on paper. What survives is the structure: Cosmos
+     Blue as ink, White Tint as ground, Sisal darkened to bronze as accent.  */
+  :root[data-theme="light"] {
+    --g-bg:                #f5f3ef;
+    --g-bg-deep:           #eae5dd;
+    --g-surface:           #ffffff;
+    --g-surface-raised:    #ffffff;
+    --g-surface-hover:     #fbfaf7;
+    --g-surface-sunken:    #eeebe4;
+
+    --g-text:              #002236;
+    --g-text-muted:        #3c5464;
+    --g-text-subtle:       #5d7280;
+    --g-text-inverse:      var(--g-white-tint);
+
+    --g-tint:              0 48 73;
+    --g-accent:            #7b6242;
+    --g-chrome:            245 243 239;
+    --g-chrome-a:          0.82;
+
+    --g-solid-bg:          var(--g-cosmos-600);
+    --g-solid-fg:          var(--g-white-tint);
+    --g-solid-bg-hover:    var(--g-cosmos-400);
+    --g-solid-fg-hover:    var(--g-white-tint);
+
+    --g-hairline:          rgb(0 48 73 / 0.13);
+    --g-border:            rgb(0 48 73 / 0.24);
+    --g-border-strong:     rgb(0 48 73 / 0.46);
+    --g-focus:             var(--g-cosmos-600);
+
+    /* Depth on paper is a cast shadow, not emitted light. The glows would
+       otherwise render as pale smudges around every raised card. */
+    --g-glow-sm: 0 1px 2px rgb(0 34 54 / 0.05), 0 2px 8px -4px rgb(0 34 54 / 0.10);
+    --g-glow-md: 0 2px 4px rgb(0 34 54 / 0.05), 0 8px 24px -10px rgb(0 34 54 / 0.16);
+    --g-glow-lg: 0 12px 48px -18px rgb(0 34 54 / 0.20);
+    --g-shadow:  0 14px 34px -22px rgb(0 34 54 / 0.42);
+
+    --g-grad-deep-space: radial-gradient(120% 120% at 50% 38%,
+                          #ffffff 0%, #f3f0ea 54%, #e6e0d6 100%);
+    --g-grad-horizon:    linear-gradient(180deg, #ffffff 0%, #f3f0ea 60%, #e9e3d9 100%);
+    --g-grad-veil:       linear-gradient(180deg, rgb(0 34 54 / 0) 0%, rgb(0 34 54 / 0.55) 100%);
+
+    --g-signal-positive: #3f6f60;
+    --g-signal-caution:  #8a6a2f;
+    --g-signal-critical: #a2483a;
+
+    --g-canvas-line:   0 48 73;
+    --g-canvas-body-a: 0 34 54;
+    --g-canvas-body-b: 123 98 66;
+    --g-canvas-body-c: 0 106 158;
+    --g-canvas-core:   0 20 32;
+
+    color-scheme: light;
+  }
+
+  /* Ordinary page transitions shouldn't animate, but a theme flip that snaps
+     is jarring, the whole field changes at once. A short cross-fade on the
+     two properties that actually carry the theme is enough; anything longer
+     and the toggle feels laggy. */
+  :root[data-theme] body,
+  :root[data-theme] .g-header,
+  :root[data-theme] .g-footer,
+  :root[data-theme] .g-card {
+    transition: background-color 260ms var(--g-ease-orbit),
+                color 260ms var(--g-ease-orbit);
+  }
+
+  /* Light inversion, press releases, print-alike pages, embeds on white.
+     Predates the light theme and is kept because it is scoped to a *block*
+     rather than the document: it inverts one panel inside an otherwise dark
+     page, which the theme cannot do. */
   .g-invert {
     --g-bg: var(--g-white-tint);
     --g-bg-deep: var(--g-sisal);
@@ -167,6 +277,14 @@
     --g-focus: var(--g-cosmos-600);
     --g-glow-sm: none; --g-glow-md: none; --g-glow-lg: none;
     --g-shadow: 0 14px 34px -22px rgb(0 48 73 / 0.45);
+    /* The theme hooks apply here too, or an inverted panel keeps painting its
+       overlays and its accent in the dark theme's ink. */
+    --g-tint: 0 48 73;
+    --g-accent: #7b6242;
+    --g-solid-bg: var(--g-cosmos-600);
+    --g-solid-fg: var(--g-white-tint);
+    --g-solid-bg-hover: var(--g-cosmos-400);
+    --g-solid-fg-hover: var(--g-white-tint);
     background: var(--g-bg);
     color: var(--g-text);
   }
@@ -337,7 +455,7 @@
   }
   /* Emphasis inside a headline: weight and warmth, never a new colour. */
   .g-display em, .g-headline-key {
-    font-style: normal; color: var(--g-sisal); font-weight: inherit;
+    font-style: normal; color: var(--g-accent); font-weight: inherit;
   }
 
   .g-lead {
@@ -349,7 +467,7 @@
 
   /* ---- The Spacetime Well ----------------------------------------------
      The signature background layer: a coordinate grid curved by a mass.
-     Drop it inside any position:relative block. It whispers — opacity
+     Drop it inside any position:relative block. It whispers, opacity
      stays low, and content always sits above it.                        */
   .g-well {
     position: absolute; inset: 0;
@@ -382,7 +500,7 @@
   /* ---- Header / nav ------------------------------------------------------ */
   .g-header {
     position: sticky; top: 0; z-index: var(--g-z-sticky);
-    background: rgb(0 38 58 / 0.72);
+    background: rgb(var(--g-chrome) / var(--g-chrome-a));
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--g-hairline);
   }
@@ -406,7 +524,7 @@
   }
   .g-nav__link:hover,
   .g-nav__link[aria-current="page"] {
-    color: var(--g-text); border-bottom-color: var(--g-sisal);
+    color: var(--g-text); border-bottom-color: var(--g-accent);
   }
   @media (max-width: 720px) { .g-nav { display: none; } }
 
@@ -448,9 +566,9 @@
     opacity: 0.45; pointer-events: none;
   }
 
-  .g-btn--primary { --_bg: var(--g-white-tint); --_fg: var(--g-cosmos-600); --_bd: var(--g-white-tint); }
+  .g-btn--primary { --_bg: var(--g-solid-bg); --_fg: var(--g-solid-fg); --_bd: var(--g-solid-bg); }
   .g-btn--secondary { --_bg: transparent; --_fg: var(--g-text); --_bd: var(--g-border-strong); }
-  .g-btn--secondary:hover { --_bd: var(--g-sisal); background: rgb(212 201 190 / 0.08); }
+  .g-btn--secondary:hover { --_bd: var(--g-accent); background: rgb(var(--g-tint) / 0.08); }
   .g-btn--ghost { --_bd: transparent; --_fg: var(--g-text-muted); padding-inline: 0.75rem; }
   .g-btn--ghost:hover { --_fg: var(--g-text); box-shadow: none; }
   .g-btn--sm { font-size: var(--g-fs-caption); padding: 0.625rem 1rem; }
@@ -488,7 +606,7 @@
     box-shadow: var(--g-glow-sm), var(--g-shadow);
   }
 
-  /* Video card — the channel's core content object */
+  /* Video card, the channel's core content object */
   .g-video-card { padding: 0; }
   .g-video-card__thumb {
     position: relative; aspect-ratio: 16 / 9;
@@ -509,7 +627,7 @@
   }
   .g-video-card__content { padding: var(--g-space-sm) var(--g-space-md) var(--g-space-md); display: flex; flex-direction: column; flex: 1; }
 
-  /* Stat — one number, one label. Used sparingly. */
+  /* Stat, one number, one label. Used sparingly. */
   .g-stat__value {
     font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem);
     font-weight: var(--g-w-bold);
@@ -568,8 +686,8 @@
   .g-input::placeholder, .g-textarea::placeholder { color: var(--g-text-subtle); }
   .g-input:hover, .g-textarea:hover, .g-select:hover { border-color: var(--g-border-strong); }
   .g-input:focus-visible, .g-textarea:focus-visible, .g-select:focus-visible {
-    outline: none; border-color: var(--g-sisal);
-    box-shadow: 0 0 0 3px rgb(212 201 190 / 0.22);
+    outline: none; border-color: var(--g-accent);
+    box-shadow: 0 0 0 3px rgb(var(--g-tint) / 0.22);
   }
   .g-textarea { min-height: 7rem; resize: vertical; line-height: var(--g-lh-body); }
   .g-hint { font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
@@ -612,7 +730,7 @@
     tab-size: 2;
   }
   .g-code .c-com { color: var(--g-text-subtle); font-style: italic; }
-  .g-code .c-key { color: var(--g-sisal); font-weight: var(--g-w-medium); }
+  .g-code .c-key { color: var(--g-accent); font-weight: var(--g-w-medium); }
   .g-code .c-str { color: var(--g-signal-positive); }
   .g-code .c-num { color: var(--g-signal-caution); }
   :not(pre) > code {
@@ -641,7 +759,7 @@
     color: var(--g-text-muted);
   }
   .g-table td { color: var(--g-text-muted); }
-  .g-table tbody tr:hover td { color: var(--g-text); background: rgb(212 201 190 / 0.04); }
+  .g-table tbody tr:hover td { color: var(--g-text); background: rgb(var(--g-tint) / 0.04); }
   .g-table--numeric td:not(:first-child),
   .g-table--numeric th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -656,15 +774,15 @@
     color: var(--g-text-muted); text-transform: uppercase; letter-spacing: 0.12em;
   }
 
-  /* ---- Prose — long-form article body ---------------------------------------- */
+  /* ---- Prose, long-form article body ---------------------------------------- */
   .g-prose { max-width: var(--g-measure); font-size: var(--g-fs-lead); }
   .g-prose > * + * { margin-top: var(--g-space-sm); }
   .g-prose h2 { margin-top: var(--g-space-xl); }
   .g-prose h3 { margin-top: var(--g-space-lg); }
   .g-prose ul, .g-prose ol { padding-left: 1.25rem; }
   .g-prose li + li { margin-top: var(--g-space-3xs); }
-  .g-prose li::marker { color: var(--g-sisal); }
-  .g-prose a { color: var(--g-text); text-decoration-color: var(--g-sisal); }
+  .g-prose li::marker { color: var(--g-accent); }
+  .g-prose a { color: var(--g-text); text-decoration-color: var(--g-accent); }
   .g-prose figcaption {
     font-size: var(--g-fs-caption); color: var(--g-text-subtle);
     margin-top: var(--g-space-2xs);

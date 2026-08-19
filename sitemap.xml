@@ -2,7 +2,9 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://gravitasplus.com/</loc></url>
   <url><loc>https://gravitasplus.com/about.html</loc></url>
-  <url><loc>https://gravitasplus.com/dossiers.html</loc></url>
+  <url><loc>https://gravitasplus.com/topics.html</loc></url>
+  <url><loc>https://gravitasplus.com/topic-computable-universe.html</loc></url>
+  <url><loc>https://gravitasplus.com/topic-machine-hypothesis.html</loc></url>
   <url><loc>https://gravitasplus.com/magazine.html</loc></url>
   <url><loc>https://gravitasplus.com/lab.html</loc></url>
   <url><loc>https://gravitasplus.com/learn.html</loc></url>

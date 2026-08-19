@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#01121c">
+<title>Gravitas+ &middot; Logo Motion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* =========================================================================
+   GRAVITAS+ · LOGO MOTION
+   Idea: the mark is not drawn, it is DERIVED. The grid is a coordinate system;
+   a mass curves it; that curvature *is* the logo's concave sides. Once the mark
+   resolves, the camera pulls back and the mark becomes the wordmark's G.
+   Geometry is the real path data: anchors sit on actual vertices.
+   ========================================================================= */
+:root{
+  --cosmos:#003049; --cosmos-900:#01121c; --cosmos-800:#011f30; --cosmos-700:#00263a;
+  --sisal:#d4c9be; --white:#f1efec; --black:#030303;
+  --sans:"DM Sans",system-ui,-apple-system,sans-serif;
+  --mono:"DM Mono",ui-monospace,Menlo,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--cosmos-900);color:var(--white);font-family:var(--sans);
+  display:grid;place-items:center;overflow:hidden;-webkit-font-smoothing:antialiased;
+  padding-bottom:4rem}
+
+.stage{position:relative;width:min(94vw,1180px,150vh);aspect-ratio:16/9;
+  isolation:isolate}
+.stage__bg{position:absolute;inset:0;border-radius:14px;overflow:hidden;
+  background:radial-gradient(120% 120% at 50% 44%,#003049 0%,#011f30 52%,#01121c 100%)}
+canvas.grid{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stars{position:absolute;inset:0;pointer-events:none}
+.star{position:absolute;border-radius:50%;background:var(--white)}
+
+svg.art{position:absolute;inset:0;z-index:2;width:100%;height:100%;overflow:visible}
+
+/* the mark: stroked while it constructs, filled once it resolves */
+#markStroke{fill:none;stroke:var(--white);stroke-width:2.2;
+  vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+#markFill{fill:var(--white);opacity:0}
+
+.anchor{fill:none;stroke:var(--sisal);stroke-width:1.4;vector-effect:non-scaling-stroke;opacity:0}
+.anchor__dot{fill:var(--sisal);opacity:0}
+
+.glyph{fill:var(--white);opacity:0}
+
+/* caption + controls */
+.hud{position:absolute;left:0;right:0;bottom:-2.6rem;display:flex;align-items:center;
+  justify-content:space-between;gap:1rem;z-index:5;font-family:var(--mono);font-size:.72rem;
+  letter-spacing:.14em;text-transform:uppercase;color:rgba(212,201,190,.55)}
+.phase{transition:opacity .4s var(--ease)}
+.ctrls{display:flex;gap:.5rem}
+.btn{font:inherit;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,239,236,.8);
+  background:transparent;border:1px solid rgba(212,201,190,.28);border-radius:99px;
+  padding:.42rem .9rem;cursor:pointer;transition:.25s var(--ease)}
+.btn:hover{color:var(--white);border-color:var(--sisal);background:rgba(212,201,190,.08)}
+.btn[aria-pressed="true"]{background:var(--white);color:var(--cosmos);border-color:var(--white)}
+:focus-visible{outline:2px solid var(--sisal);outline-offset:3px}
+
+@media (max-width:640px){
+  body{padding-bottom:6.5rem}
+  .hud{font-size:.62rem;bottom:-3.4rem;flex-direction:column;gap:.6rem}
+}
+@media (prefers-reduced-motion:reduce){
+  /* the motion is the point, so honour the preference by showing the resolved
+     end state immediately rather than animating toward it */
+  .rm-note{display:block}
+}
+.rm-note{display:none}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="stage__bg"></div>
+  <canvas class="grid" id="grid"></canvas>
+  <div class="stars" id="stars" aria-hidden="true"></div>
+
+  <svg class="art" id="art" viewBox="-36.2 -36.2 190.7 190.7" preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="The Gravitas+ logo constructing itself from a curved spacetime grid, then resolving into the Gravitas+ wordmark">
+
+    <!-- construction guides, drawn in monogram space then scaled to the G slot -->
+    <g id="guides" transform="scale(0.240731)" opacity="0.9"></g>
+
+    <!-- the mark, in monogram coordinates scaled onto the wordmark's G slot -->
+    <g transform="scale(0.240731)">
+      <path id="markStroke" d="M491.17,433.95l-57.19,57.26c-57.04-33.03-122.2-50.49-188.39-50.49s-131.47,17.46-188.35,50.46L0,433.95c33-56.87,50.46-122,50.46-188.35S33,114.13,0,57.26L57.19,0c57.07,33.03,122.2,50.46,188.39,50.46S377.08,33.03,433.95.02l42.04,72.41c-69.65,40.41-149.3,61.78-230.41,61.78-44.2,0-88.05-6.39-130.09-18.75,12.34,42.01,18.72,85.87,18.72,130.14s-6.36,88.08-18.72,130.09c42.01-12.36,85.84-18.7,130.09-18.7s88.05,6.36,130.11,18.75c-8.45-28.73-14.08-58.31-16.83-88.27h-113.28v-83.76h195.15v41.89c0,66.34,17.44,131.47,50.44,188.35Z"/>
+      <path id="markFill"   d="M491.17,433.95l-57.19,57.26c-57.04-33.03-122.2-50.49-188.39-50.49s-131.47,17.46-188.35,50.46L0,433.95c33-56.87,50.46-122,50.46-188.35S33,114.13,0,57.26L57.19,0c57.07,33.03,122.2,50.46,188.39,50.46S377.08,33.03,433.95.02l42.04,72.41c-69.65,40.41-149.3,61.78-230.41,61.78-44.2,0-88.05-6.39-130.09-18.75,12.34,42.01,18.72,85.87,18.72,130.14s-6.36,88.08-18.72,130.09c42.01-12.36,85.84-18.7,130.09-18.7s88.05,6.36,130.11,18.75c-8.45-28.73-14.08-58.31-16.83-88.27h-113.28v-83.76h195.15v41.89c0,66.34,17.44,131.47,50.44,188.35Z"/>
+    </g>
+
+    <!-- the rest of the wordmark: r a v i t a s + -->
+    <g id="word">
+      <path d="M160.51,49.21c-2.41,2.06-4.52,4.52-6.3,7.38l-1.74-12.34h-17.84v67.6h20.12v-30.18c0-3.4.4-6.24,1.21-8.52.8-2.28,2.01-4.09,3.62-5.43,1.61-1.34,3.49-2.3,5.63-2.89,2.15-.58,4.56-.87,7.24-.87h6.84v-21.33c-3.85,0-7.33.58-10.46,1.74-3.13,1.17-5.9,2.78-8.32,4.83Z"/>
+      <path d="M239.25,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2c1.74,3.04,4.47,5.48,8.18,7.31,3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.91-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM231.54,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28s-1.14-2.23-1.14-3.76c0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <polygon points="299.2 92.93 283.38 44.25 262.32 44.25 286.73 111.85 311.41 111.85 335.82 44.25 314.9 44.25 299.2 92.93"/>
+      <path d="M365.8,17.69c-2.28-2.05-5.26-3.08-8.92-3.08s-6.48,1.03-8.72,3.08c-2.24,2.06-3.35,4.7-3.35,7.92s1.11,5.72,3.35,7.78c2.24,2.05,5.14,3.08,8.72,3.08s6.64-1.03,8.92-3.08c2.28-2.06,3.42-4.65,3.42-7.78s-1.14-5.86-3.42-7.92Z"/>
+      <rect x="346.82" y="44.25" width="20.12" height="67.6"/>
+      <path d="M413.55,93.14c-1.21-1.12-1.81-3.02-1.81-5.7v-26.42h17.03v-16.77h-17.03v-19.05h-17.98l-2.15,19.05h-11.67v16.77h11.67v26.16c0,6.17,1.03,11.05,3.09,14.62,2.06,3.57,4.96,6.15,8.72,7.71,3.76,1.56,8.05,2.35,12.88,2.35h12.61v-17.03h-9.12c-2.95,0-5.03-.56-6.24-1.68Z"/>
+      <path d="M492.75,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2,4.47,5.48,8.18,7.31c3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.9-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM485.04,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28-.76-.98-1.14-2.23-1.14-3.76,0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <path d="M569.27,73.96c-3.98-1.39-8.7-2.61-14.15-3.69-2.78-.54-5.15-1.14-7.11-1.81-1.97-.67-3.47-1.45-4.49-2.35-1.03-.89-1.54-1.88-1.54-2.95,0-1.52.76-2.79,2.28-3.82,1.52-1.03,3.71-1.54,6.57-1.54s4.98.49,6.64,1.47c1.65.99,2.75,2.37,3.29,4.16h18.78c-.9-6.35-3.78-11.4-8.65-15.15-4.87-3.76-11.51-5.63-19.92-5.63-5.99,0-11.11.96-15.36,2.88-4.25,1.93-7.46,4.49-9.66,7.71-2.19,3.22-3.28,6.84-3.28,10.87,0,3.49.71,6.33,2.15,8.52,1.43,2.19,3.4,4.02,5.9,5.5,2.5,1.48,5.34,2.66,8.52,3.55,3.17.89,6.37,1.74,9.59,2.55,2.77.54,5.14,1.12,7.11,1.74,1.96.63,3.46,1.37,4.49,2.22,1.03.85,1.54,2.12,1.54,3.82,0,1.07-.33,2.1-1,3.08-.67.98-1.72,1.77-3.15,2.35-1.43.58-3.22.87-5.37.87s-4.16-.36-5.77-1.07c-1.61-.71-2.88-1.68-3.82-2.88-.94-1.21-1.59-2.53-1.94-3.96h-19.98c.35,4.38,1.85,8.29,4.49,11.74,2.64,3.44,6.26,6.19,10.87,8.25,4.6,2.05,10.13,3.09,16.57,3.09,5.9,0,11.06-.98,15.49-2.95,4.42-1.96,7.82-4.63,10.19-7.98,2.37-3.35,3.56-7.22,3.56-11.6,0-4.74-1.14-8.4-3.42-11-2.28-2.59-5.41-4.58-9.39-5.97Z"/>
+      <polygon points="630.63 39.65 616.16 39.65 616.16 26.52 606.31 26.52 606.31 39.65 591.77 39.65 591.77 49.43 606.31 49.43 606.31 62.65 616.16 62.65 616.16 49.43 630.63 49.43 630.63 39.65"/>
+    </g>
+  </svg>
+
+  <div class="hud">
+    <span class="phase" id="phase">The field</span>
+    <div class="ctrls">
+      <button class="btn" id="sound" aria-pressed="false">Sound off</button>
+      <button class="btn" id="replay">Replay</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var SCALE   = 0.240731;
+  var OUTER   = [[245.58, 50.46], [433.95, 0.02], [475.99, 72.43], [491.17, 433.95], [433.98, 491.21], [245.59, 440.72], [57.24, 491.18], [0.0, 433.95], [50.46, 245.6], [0.0, 57.26], [57.19, 0.0]];
+  var INNER   = [[245.58, 134.21], [115.49, 115.46], [134.21, 245.6], [115.49, 375.69], [245.58, 356.99], [375.69, 375.74], [358.86, 287.47], [245.58, 287.47], [245.58, 203.71], [440.73, 203.71]];
+  var ORDER   = [134.63, 189.08, 262.32, 344.81, 346.82, 379.94, 442.58, 520.94, 591.77];
+
+  var art    = document.getElementById('art');
+  var guides = document.getElementById('guides');
+  var stroke = document.getElementById('markStroke');
+  var fill   = document.getElementById('markFill');
+  var word   = document.getElementById('word');
+  var phaseEl= document.getElementById('phase');
+  var cv     = document.getElementById('grid');
+  var ctx    = cv.getContext('2d');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // order the wordmark glyphs left to right so they reveal like writing
+  var glyphs = Array.prototype.slice.call(word.children);
+  glyphs.forEach(function (g, i) { g.classList.add('glyph'); g.dataset.x = ORDER[i] || 0; });
+  glyphs.sort(function (a, b) { return a.dataset.x - b.dataset.x; });
+
+  // ---- camera: tight on the mark, then pulls back to frame the whole word ---
+  var CAM_IN  = { x: -36.2, y: -36.2, w: 190.7, h: 190.7 };
+  var CAM_OUT = { x: -64.7, y: -70.0, w: 760.0, h: 258.0 };
+  function camera(t) {                     // t: 0 = mark, 1 = wordmark
+    var e = ease(t);
+    var x = CAM_IN.x + (CAM_OUT.x - CAM_IN.x) * e;
+    var y = CAM_IN.y + (CAM_OUT.y - CAM_IN.y) * e;
+    var w = CAM_IN.w + (CAM_OUT.w - CAM_IN.w) * e;
+    var h = CAM_IN.h + (CAM_OUT.h - CAM_IN.h) * e;
+    art.setAttribute('viewBox', x + ' ' + y + ' ' + w + ' ' + h);
+  }
+  function ease(t){ return t<=0?0 : t>=1?1 : 1-Math.pow(1-t,3); }
+  function clamp01(v){ return v<0?0:v>1?1:v; }
+  function seg(now, a, b){ return clamp01((now-a)/(b-a)); }
+
+  // ---- build the anchor guides from real vertices --------------------------
+  var NS = 'http://www.w3.org/2000/svg';
+  function mkAnchor(p, cls) {
+    var g = document.createElementNS(NS, 'g');
+    var r = 13;
+    ['M'+(p[0]-r)+' '+p[1]+'h'+(2*r), 'M'+p[0]+' '+(p[1]-r)+'v'+(2*r)].forEach(function (d) {
+      var l = document.createElementNS(NS, 'path');
+      l.setAttribute('d', d); l.setAttribute('class', 'anchor ' + cls);
+      g.appendChild(l);
+    });
+    var c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', p[0]); c.setAttribute('cy', p[1]); c.setAttribute('r', 5.5);
+    c.setAttribute('class', 'anchor__dot ' + cls);
+    g.appendChild(c);
+    guides.appendChild(g);
+    return g;
+  }
+  var outerNodes = OUTER.map(function (p) { return mkAnchor(p, 'a-out'); });
+  var innerNodes = INNER.map(function (p) { return mkAnchor(p, 'a-in'); });
+
+  // ---- stroke length for the draw-on --------------------------------------
+  var LEN = stroke.getTotalLength();
+  stroke.style.strokeDasharray = LEN;
+  stroke.style.strokeDashoffset = LEN;
+
+  // ---- starfield -----------------------------------------------------------
+  (function stars(){
+    var host = document.getElementById('stars'), frag = document.createDocumentFragment();
+    for (var i = 0; i < 90; i++) {
+      var s = document.createElement('span'); s.className = 'star';
+      var sz = Math.random() < .85 ? Math.random()*1.3+.5 : Math.random()*1.6+1.9;
+      s.style.cssText = 'left:'+(Math.random()*100)+'%;top:'+(Math.random()*100)+'%;width:'+
+        sz.toFixed(2)+'px;height:'+sz.toFixed(2)+'px;opacity:'+(Math.random()*.45+.15).toFixed(2);
+      frag.appendChild(s);
+    }
+    host.appendChild(frag);
+  })();
+
+  // ---- sound: synthesised, spacious, entirely optional --------------------
+  // Everything runs through a generated convolution reverb and a feedback delay,
+  // so nothing lands dry. Tones are low sines with slow attacks and long tails,
+  // pitched from a D minor pentatonic, an open and unresolved scale that invites
+  // listening rather than announcing itself.
+  var AC = null, master = null, revBus = null, dlyBus = null, soundOn = false;
+
+  function impulse(seconds, decay) {          // a plausible hall, made from noise
+    var n = Math.floor(AC.sampleRate * seconds);
+    var buf = AC.createBuffer(2, n, AC.sampleRate);
+    for (var ch = 0; ch < 2; ch++) {
+      var d = buf.getChannelData(ch);
+      for (var i = 0; i < n; i++) {
+        var env = Math.pow(1 - i / n, decay);
+        // sparse early reflections, then a smooth diffuse tail
+        d[i] = (Math.random() * 2 - 1) * env * (i < n * 0.02 ? 0.6 : 1);
+      }
+    }
+    return buf;
+  }
+
+  function audio() {
+    if (AC) return AC;
+    var C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return null;
+    AC = new C();
+
+    master = AC.createGain(); master.gain.value = 0.5;
+    var lp = AC.createBiquadFilter();          // take the glare off everything
+    lp.type = 'lowpass'; lp.frequency.value = 4200; lp.Q.value = 0.4;
+    lp.connect(master); master.connect(AC.destination);
+
+    var conv = AC.createConvolver();
+    conv.buffer = impulse(4.2, 2.6);
+    revBus = AC.createGain(); revBus.gain.value = 0.9;
+    var revOut = AC.createGain(); revOut.gain.value = 0.85;
+    revBus.connect(conv); conv.connect(revOut); revOut.connect(lp);
+
+    var dly = AC.createDelay(1.5); dly.delayTime.value = 0.34;
+    var fb  = AC.createGain(); fb.gain.value = 0.42;
+    var dlyLp = AC.createBiquadFilter();
+    dlyLp.type = 'lowpass'; dlyLp.frequency.value = 1800;
+    dlyBus = AC.createGain(); dlyBus.gain.value = 0.5;
+    dlyBus.connect(dly); dly.connect(dlyLp); dlyLp.connect(fb); fb.connect(dly);
+    dlyLp.connect(revBus); dlyLp.connect(lp);
+
+    audio.dry = lp;
+    return AC;
+  }
+
+  // one voice: sine with a slow swell and a long tail, sent mostly to the room
+  function tone(freq, dur, vol, opts) {
+    if (!soundOn || !AC) return;
+    opts = opts || {};
+    var t = AC.currentTime + (opts.delay || 0);
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.type = opts.type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    if (opts.glide) o.frequency.exponentialRampToValueAtTime(opts.glide, t + dur * 0.9);
+    if (opts.detune) o.detune.setValueAtTime(opts.detune, t);
+
+    var atk = opts.attack == null ? 0.06 : opts.attack;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(vol, 0.0002), t + atk);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    o.connect(g);
+    var dryG = AC.createGain(); dryG.gain.value = opts.dry == null ? 0.30 : opts.dry;
+    var wetG = AC.createGain(); wetG.gain.value = opts.wet == null ? 0.85 : opts.wet;
+    var echoG = AC.createGain(); echoG.gain.value = opts.echo == null ? 0.30 : opts.echo;
+    g.connect(dryG); dryG.connect(audio.dry);
+    g.connect(wetG); wetG.connect(revBus);
+    g.connect(echoG); echoG.connect(dlyBus);
+
+    o.start(t); o.stop(t + dur + 0.1);
+  }
+
+  // a struck-bell shape: fundamental plus a quiet, slightly sharp partial
+  function bell(freq, dur, vol) {
+    tone(freq, dur, vol, { attack: 0.012, wet: 0.95, echo: 0.42, dry: 0.22 });
+    tone(freq * 2.01, dur * 0.55, vol * 0.28,
+         { attack: 0.008, wet: 0.9, echo: 0.3, dry: 0.12 });
+  }
+
+  function swell(dur, vol) {                   // filtered noise, far back in the room
+    if (!soundOn || !AC) return;
+    var t = AC.currentTime, n = Math.floor(AC.sampleRate * dur);
+    var buf = AC.createBuffer(1, n, AC.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1);
+    var src = AC.createBufferSource(); src.buffer = buf;
+    var bp = AC.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(180, t);
+    bp.frequency.exponentialRampToValueAtTime(900, t + dur);
+    bp.Q.value = 2.2;
+    var g = AC.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.1, t + dur * 0.55);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp); bp.connect(g);
+    var w = AC.createGain(); w.gain.value = 1.0; g.connect(w); w.connect(revBus);
+    var dry = AC.createGain(); dry.gain.value = 0.18; g.connect(dry); dry.connect(audio.dry);
+    src.start(t); src.stop(t + dur);
+  }
+
+  // ---- ambient bed --------------------------------------------------------
+  // A slow drone under the whole piece: root, fifth and a detuned octave, with
+  // the filter opening and closing on its own cycle so the pad breathes rather
+  // than sits. Fades in over the opening beats and away again at the end, so it
+  // frames the sequence instead of announcing itself.
+  var pad = null;
+  function padStart() {
+    if (!soundOn || !AC || pad) return;
+    var t = AC.currentTime;
+    var g = AC.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.075, t + 3.0);      // long fade in
+
+    var lp = AC.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 320; lp.Q.value = 3.0;
+
+    // a slow sweep so the timbre keeps moving, which is what reads as "curious"
+    var lfo = AC.createOscillator(), lfoAmt = AC.createGain();
+    lfo.frequency.value = 0.055; lfoAmt.gain.value = 190;
+    lfo.connect(lfoAmt); lfoAmt.connect(lp.frequency);
+    lfo.start(t);
+
+    var oscs = [];
+    [[36.71, 0], [55.00, -6], [73.42, +7], [110.00, -4]].forEach(function (spec, i) {
+      var o = AC.createOscillator();
+      o.type = i === 3 ? 'triangle' : 'sine';
+      o.frequency.setValueAtTime(spec[0], t);
+      o.detune.setValueAtTime(spec[1], t);
+      var vg = AC.createGain();
+      vg.gain.value = i === 0 ? 1.0 : (i === 3 ? 0.16 : 0.34);
+      o.connect(vg); vg.connect(lp);
+      o.start(t); oscs.push(o);
+    });
+
+    lp.connect(g);
+    var dryG = AC.createGain(); dryG.gain.value = 0.5;
+    var wetG = AC.createGain(); wetG.gain.value = 0.9;
+    g.connect(dryG); dryG.connect(audio.dry);
+    g.connect(wetG); wetG.connect(revBus);
+
+    pad = { g: g, oscs: oscs, lfo: lfo };
+  }
+  function padStop(fade) {
+    if (!pad || !AC) return;
+    var t = AC.currentTime, p = pad; pad = null;
+    p.g.gain.cancelScheduledValues(t);
+    p.g.gain.setValueAtTime(Math.max(p.g.gain.value, 0.0001), t);
+    p.g.gain.exponentialRampToValueAtTime(0.0001, t + (fade || 2.4));
+    p.oscs.forEach(function (o) { o.stop(t + (fade || 2.4) + 0.2); });
+    p.lfo.stop(t + (fade || 2.4) + 0.2);
+  }
+
+  // D minor pentatonic, low register: open and unresolved
+  var PENT = [146.83, 174.61, 196.00, 220.00, 261.63, 293.66, 349.23, 392.00];
+
+  // ---- the grid: a continuation of the monogram's own curved edges ---------
+  // Each concave side of the mark is a circular arc. Fitting the real path
+  // points gives radius 376.87 in monogram units (1.5346 x the half-width),
+  // with a sagitta of 50.46 at the chord ends. The grid is that same family of
+  // arcs extended across the frame: straight along the two axes, curved exactly
+  // like the logo where it meets the logo's edges, and flaring on past the
+  // corners the way the mark's own outline does. The straight segments of the
+  // G (the crossbar) are deliberately not represented, only the curves.
+  var ARC_R    = 376.87 / 245.585;   // arc radius, in half-widths
+  var ARC_SAG  = 50.46  / 245.585;   // edge sagitta, in half-widths
+  var ARC_HC   = 188.38 / 245.585;   // half-chord where the sagitta is measured
+  var SAG_REF  = ARC_R - Math.sqrt(ARC_R*ARC_R - ARC_HC*ARC_HC);   // == ARC_SAG
+
+  // Bulge profile along a line: 1 at the midpoint, easing to 0 at the chord
+  // ends and staying there.
+  //
+  // It used to continue past the chord, where the circle term goes negative
+  // (-6.47 by the arc radius) and then hard-clamped. That did two bad things:
+  // the clamp put a kink in every line, and the flare pushed neighbouring lines
+  // apart by 2.3x so they tangled. Held in [0,1], the displacement is a pure
+  // scale of the offset: every line is the same arc, nested and parallel, and
+  // no two can ever meet.
+  function arcProfile(u) {                 // u = distance along the line, in half-widths
+    var a = Math.abs(u);
+    if (a >= ARC_HC) return 0;
+    var root = Math.sqrt(ARC_R*ARC_R - u*u);
+    var v = (root - Math.sqrt(ARC_R*ARC_R - ARC_HC*ARC_HC)) / SAG_REF;
+    return v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+
+  var gridBend = 0;      // 0 = flat lattice, 1 = full monogram curvature
+
+  // canvas sizing: the backing store must track both the element box and the
+  // device pixel ratio, or nothing is drawn at all
+  var GW = 0, GH = 0, gdpr = 1;
+  function sizeGrid() {
+    var r = cv.getBoundingClientRect();
+    if (!r.width) return;
+    gdpr = Math.min(window.devicePixelRatio || 1, 2);
+    GW = r.width; GH = r.height;
+    cv.width  = Math.round(GW * gdpr);
+    cv.height = Math.round(GH * gdpr);
+    ctx.setTransform(gdpr, 0, 0, gdpr, 0, 0);
+  }
+  sizeGrid();
+
+  // where the mark sits on screen, so the grid tracks the camera exactly
+  function markFrame() {
+    var m = art.getScreenCTM();
+    if (!m) return null;
+    var host = cv.getBoundingClientRect();
+    var k = SCALE * m.a;                       // monogram unit -> screen px
+    return {
+      cx: m.e + 245.585 * k - host.left,
+      cy: m.f + 245.600 * k - host.top,
+      H:  245.585 * k                          // half-width on screen
+    };
+  }
+
+  // ---- the field --------------------------------------------------------
+  // Measured off the reference rather than guessed. Along a curve the quantity
+  // x^2 - y^2 stays constant to within 5%, so the family is a set of hyperbolas
+  // sharing the diagonals as asymptotes. Crossings along the axis are evenly
+  // spaced every 0.116 of the frame's half-width, which fixes the levels.
+  //
+  // The field is anchored to the FRAME, not to the mark: in the reference the
+  // visible area spans about 2.94 mark half-widths, and scaling it to the mark
+  // instead put the view 1.8x too close, showing only the sharply swept middle.
+
+  var REF_STEP = 0.207;                 // spacing along the axis, in half-frames
+  var pulse = -1;                       // shockwave progress, -1 = idle
+
+  // Adaptive stepping: walk the hyperbola so each drawn segment is about two
+  // screen pixels. A fixed point count made the long outer arms coarse, which
+  // is what showed up as jagged.
+  function hyp(c, cxp, cyp, R, wide, lim) {
+    var q = Math.sqrt(Math.abs(c));
+    for (var br = -1; br <= 1; br += 2) {
+      ctx.beginPath();
+      var first = true;
+      for (var u = -lim; u <= lim; ) {
+        var ch = Math.cosh(u), sh = Math.sinh(u);
+        var X, Y;
+        if (wide) { X = cxp + br * q * ch * R; Y = cyp + q * sh * R; }
+        else      { X = cxp + q * sh * R;      Y = cyp + br * q * ch * R; }
+        if (first) { ctx.moveTo(X, Y); first = false; } else ctx.lineTo(X, Y);
+        var speed = q * R * Math.sqrt(sh * sh + ch * ch) + 1e-6;
+        u += Math.min(0.35, Math.max(0.004, 2.0 / speed));
+      }
+      ctx.stroke();
+    }
+  }
+
+  function drawGrid(reveal, alpha) {
+    ctx.clearRect(0, 0, GW, GH);
+    if (alpha <= 0.001) return;
+    var F = markFrame();
+    if (!F) return;
+
+    var R = GH / 2;                       // one unit = the frame's half-height
+    var cxp = F.cx, cyp = F.cy;
+    var ax = (GW / 2) / R;                // how far the frame reaches sideways
+    var kMax = Math.ceil(Math.sqrt(Math.max(ax * ax, 1) + 1) / REF_STEP) + 1;
+    var shown = reveal * (kMax + 2);
+
+    // the asymptotes: the degenerate level, and the spine of the pattern
+    var aF = Math.min(1, reveal * 3);
+    if (aF > 0) {
+      var far = Math.hypot(GW, GH);
+      ctx.strokeStyle = 'rgba(241,239,236,' + (0.34 * alpha * aF).toFixed(3) + ')';
+      ctx.lineWidth = 1;
+      for (var d = -1; d <= 1; d += 2) {
+        ctx.beginPath();
+        ctx.moveTo(cxp - far, cyp - d * far);
+        ctx.lineTo(cxp + far, cyp + d * far);
+        ctx.stroke();
+      }
+    }
+
+    ctx.lineWidth = 1;
+    for (var k = 1; k <= kMax; k++) {
+      var fade = shown - k;
+      if (fade <= 0) break;
+      if (fade > 1) fade = 1;
+      var q = k * REF_STEP;
+      var c = q * q;
+      ctx.strokeStyle = 'rgba(241,239,236,' + (0.44 * alpha * fade).toFixed(3) + ')';
+      // opening left/right, then the same family a quarter turn round
+      hyp(c, cxp, cyp, R, true,  Math.acosh(Math.max(1.001, ax / q)) + 0.15);
+      hyp(c, cxp, cyp, R, false, Math.acosh(Math.max(1.001, 1.0 / q)) + 0.15);
+    }
+
+    if (pulse >= 0 && pulse <= 1) {
+      var e = 1 - Math.pow(1 - pulse, 2.4);
+      var qq = 0.12 + e * 1.5;
+      ctx.strokeStyle = 'rgba(241,239,236,' + (0.42 * (1 - pulse) * alpha).toFixed(3) + ')';
+      ctx.lineWidth = 2.0 * (1 - pulse) + 0.4;
+      hyp(qq * qq, cxp, cyp, R, true,  Math.acosh(Math.max(1.001, ax / qq)) + 0.15);
+      hyp(qq * qq, cxp, cyp, R, false, Math.acosh(Math.max(1.001, 1.0 / qq)) + 0.15);
+    }
+  }
+
+  // ---- timeline ------------------------------------------------------------
+  var T = {
+    grid:   [0.00, 1.15],
+    anchors:[1.05, 2.05],
+    outline:[1.95, 3.15],
+    inner:  [3.05, 4.05],
+    fill:   [4.00, 4.75],
+    word:   [4.85, 6.10],
+    settle: [6.10, 7.20]
+  };
+  var DUR = 7.4;
+  var PHASES = [
+    [0.00, 'The field'],
+    [1.05, 'Anchor points'],
+    [1.95, 'Contour'],
+    [3.05, 'Counter form'],
+    [4.00, 'Resolve'],
+    [4.85, 'Gravitas+'],
+    [6.20, 'Gravitas+']
+  ];
+
+  var fired = {};
+  function once(key, fn){ if(!fired[key]){ fired[key]=1; fn(); } }
+
+  var t0 = null, raf = null;
+  function reset(){
+    fired = {};
+    padStop(0.35);          // never let two beds overlap on replay
+    stroke.style.strokeDashoffset = LEN;
+    stroke.style.opacity = 1;
+    fill.style.opacity = 0;
+    fill.style.filter = 'none';
+    // The resolve phase fades this whole group out. Restoring only the child
+    // anchors left the parent at 0, so on replay the construction was silent
+    // visually while the ticks still played, so the audio appeared to run ahead.
+    guides.style.opacity = 0.9;
+    outerNodes.concat(innerNodes).forEach(function(g){
+      g.querySelectorAll('.anchor,.anchor__dot').forEach(function(e){ e.style.opacity=0; });
+    });
+    glyphs.forEach(function(g){ g.style.opacity=0; g.style.transform='translateY(6px)'; });
+    gridBend = 0; camera(0); drawGrid(0,0);
+    phaseEl.textContent = PHASES[0][1];
+  }
+
+  function frame(now){
+    if (t0 === null) t0 = now;
+    var t = (now - t0)/1000;
+
+    // grid: draws outward, and the well deepens as the mark forms
+    var gp = seg(t, T.grid[0], T.grid[1]);
+    // Once the camera pulls back and the word arrives, the scaffolding has done
+    // its job, so take it all the way out rather than leaving it under the lock-up.
+    // Clear the scaffolding while the mark is still centred. Leaving it up
+    // through the pull-back looked wrong, and by then it has done its job.
+    var gridAlpha = 1 - seg(t, T.fill[0] + 0.30, T.word[0] - 0.05);
+    gridBend = ease(seg(t, T.grid[0], T.outline[1]));
+    drawGrid(ease(gp), gridAlpha);
+    once('s_grid', function(){ padStart(); swell(2.6, 0.075); tone(73.42, 6.0, 0.05, {attack:1.2, wet:1.0, dry:0.10, echo:0.12}); });
+
+    // anchors: snap on one at a time, around the form
+    var ap = seg(t, T.anchors[0], T.anchors[1]);
+    outerNodes.forEach(function(g, i){
+      var f = clamp01(ap*outerNodes.length - i);
+      var e = ease(f);
+      g.querySelectorAll('.anchor').forEach(function(el){ el.style.opacity = 0.55*e; });
+      g.querySelector('.anchor__dot').style.opacity = e;
+      if (f > 0.02) once('a'+i, function(){ bell(PENT[i % PENT.length] * 2, 2.6, 0.085); });
+    });
+
+    // contour draws
+    var op = seg(t, T.outline[0], T.outline[1]);
+    stroke.style.strokeDashoffset = LEN * (1 - ease(op));
+    if (op > 0.01) once('s_out', function(){ tone(98, 3.2, 0.075, {attack:0.5, glide:146.83, wet:1.0, dry:0.16, echo:0.2}); });
+
+    // inner anchors + counter
+    var ip = seg(t, T.inner[0], T.inner[1]);
+    innerNodes.forEach(function(g, i){
+      var f = clamp01(ip*innerNodes.length - i), e = ease(f);
+      g.querySelectorAll('.anchor').forEach(function(el){ el.style.opacity = 0.38*e; });
+      g.querySelector('.anchor__dot').style.opacity = 0.85*e;
+      if (f > 0.02) once('i'+i, function(){ bell(PENT[(i + 3) % PENT.length] * 3, 1.9, 0.05); });
+    });
+
+    // resolve: stroke hands over to fill, guides retire
+    pulse = t >= T.fill[0] ? (t - T.fill[0]) / 1.15 : -1;
+
+    var fp = seg(t, T.fill[0], T.fill[1]);
+    if (fp > 0) {
+      var e = ease(fp);
+      fill.style.opacity = e;
+      stroke.style.opacity = 1 - e;
+      fill.style.filter = 'drop-shadow(0 0 '+(26*e).toFixed(1)+'px rgba(241,239,236,'+(0.30*e).toFixed(2)+'))';
+      guides.style.opacity = 0.9 * (1 - e);
+      once('s_fill', function(){ tone(73.42, 5.0, 0.16, {attack:0.10, wet:1.0, dry:0.30, echo:0.25}); tone(110, 4.2, 0.075, {attack:0.16, wet:1.0, dry:0.18}); });
+    }
+
+    // the mark becomes the word: camera pulls back, letters follow
+    var wp = seg(t, T.word[0], T.word[1]);
+    camera(wp);
+    if (wp > 0) {
+      glyphs.forEach(function(g, i){
+        var f = clamp01(wp*(glyphs.length+2) - i), e = ease(f);
+        g.style.opacity = e;
+        g.style.transform = 'translateY('+(6*(1-e)).toFixed(2)+'px)';
+        if (f > 0.02) once('g'+i, function(){ bell(PENT[i % PENT.length] * 4, 1.5, 0.032); });
+      });
+      once('s_word', function(){ swell(0.7, 0.08); });
+    }
+
+    // settle
+    if (t > T.settle[0]) {
+      once('s_end', function(){
+        padStop(3.0);
+        // an open fifth, left hanging in the room rather than resolved
+        bell(293.66, 5.5, 0.085);
+        tone(440.00, 5.0, 0.05, {attack:0.5, delay:0.32, wet:1.0, dry:0.14});
+        tone(146.83, 6.5, 0.06, {attack:0.8, wet:1.0, dry:0.16, echo:0.1});
+      });
+    }
+
+    for (var k = PHASES.length - 1; k >= 0; k--) {
+      if (t >= PHASES[k][0]) {
+        if (phaseEl.textContent !== PHASES[k][1]) phaseEl.textContent = PHASES[k][1];
+        break;
+      }
+    }
+
+    if (t < DUR) raf = requestAnimationFrame(frame);
+  }
+
+  function play(){
+    if (raf) cancelAnimationFrame(raf);
+    reset(); t0 = null;
+    if (reduce) { showEndState(); return; }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function showEndState(){
+    // reduced motion: present the resolved lock-up, no animation
+    gridBend = 1; drawGrid(1, 0.28);
+    stroke.style.opacity = 0; fill.style.opacity = 1;
+    guides.style.opacity = 0;
+    glyphs.forEach(function(g){ g.style.opacity = 1; g.style.transform = 'none'; });
+    camera(1);
+    phaseEl.textContent = 'Gravitas+';
+  }
+
+  document.getElementById('replay').addEventListener('click', function(){
+    if (soundOn) audio() && AC.resume();
+    play();
+  });
+
+  var sBtn = document.getElementById('sound');
+  sBtn.addEventListener('click', function(){
+    soundOn = !soundOn;
+    sBtn.setAttribute('aria-pressed', String(soundOn));
+    sBtn.textContent = soundOn ? 'Sound on' : 'Sound off';
+    if (soundOn) { audio(); if (AC && AC.state === 'suspended') AC.resume(); play(); }
+  });
+
+  addEventListener('resize', function(){ sizeGrid(); });
+  play();
+})();
+</script>
+</body>
+</html>

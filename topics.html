@@ -13,8 +13,8 @@
 document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
-<title>Hypothesis Machine · Gravitas+ Lab</title>
-<meta name="description" content="A playable version of the 2-4-6 task: find the hidden rule, and find out how much of your testing was confirmation rather than falsification.">
+<title>Topics · Gravitas+</title>
+<meta name="description" content="Long-form topics: one question, worked through film, essay, sources, timeline, simulation and debate.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="mask-icon" href="assets/monogram.svg" color="#003049">
 <meta name="theme-color" content="#00263a">
@@ -46,7 +46,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </g>
   </g>
 </svg></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html">Topics</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" aria-current="page" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" aria-current="page" href="topics.html">Topics</a><a class="g-nav__link" href="magazine.html">Magazine</a><a class="g-nav__link" href="lab.html">Lab</a><a class="g-nav__link" href="learn.html">Learn</a><a class="g-nav__link" href="community.html">Community</a></nav>
     <div class="gh-actions">
       <a class="g-btn g-btn--ghost g-btn--sm gh-signin" href="account.html#in">Sign in</a>
       <!-- The header CTA is the site's single loudest control, and it used to
@@ -67,57 +67,46 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </header>
 <main id="main">
-
 <section class="page-head"><div class="g-container">
-      <p class="crumb"><a href="index.html">Home</a> / <a href="lab.html">Lab</a> / Hypothesis Machine</p><h1>Hypothesis Machine</h1><p class="g-lead">A hidden rule decides whether a set of three numbers is admitted. Find the rule. You may run as many tests as you like. The interesting question is which ones you choose.</p>
-    </div></section>
-
-<section class="g-section"><div class="g-container">
-  <div class="split">
-    <div>
-      <div class="play">
-        <div class="play__bar">
-          <span>Rule status: <b id="status" class="g-mono">unknown</b></span>
-          <span>Tests run: <b id="ntests" class="g-mono">0</b></span>
-          <span>Confirming: <b id="nconf" class="g-mono">0</b> &middot; Falsifying: <b id="nfals" class="g-mono">0</b></span>
-        </div>
-        <div class="play__body">
-          <p class="g-muted" style="font-size:var(--g-fs-small);margin-bottom:var(--g-space-sm)">
-            The machine has admitted <b class="g-mono">2, 4, 6</b>. Propose another triple and it will
-            tell you whether that one is admitted too.</p>
-          <form class="triple" id="tform">
-            <input id="a" type="number" value="2" aria-label="First number" required>
-            <span class="triple__sep" aria-hidden="true">,</span>
-            <input id="b" type="number" value="4" aria-label="Second number" required>
-            <span class="triple__sep" aria-hidden="true">,</span>
-            <input id="c" type="number" value="6" aria-label="Third number" required>
-            <button class="g-btn g-btn--primary" type="submit">Test it</button>
-            <button class="g-btn g-btn--ghost" id="guess" type="button">I know the rule</button>
-          </form>
-          <div class="trials" id="trials"></div>
-        </div>
-      </div>
-
-      <div id="reveal" class="callout g-mt-lg" style="display:none">
-        <h4 id="rev-title">The Rule</h4>
-        <p id="rev-body"></p>
-        <div class="g-cluster g-mt-md">
-          <button class="g-btn g-btn--secondary g-btn--sm" id="again" type="button">Play again</button>
-          <a class="g-btn g-btn--ghost g-btn--sm" href="topic-computable-universe.html">Back to the topic</a>
-        </div>
-      </div>
+      <p class="crumb"><a href="index.html">Home</a> / Topics</p><h1>Topics</h1><p class="g-lead">One question, worked all the way through: film, essay, sources, simulation, and the strongest case against our own conclusion. The subjects move across fields; the questions underneath them do not.</p>
+    </div></section><section class="g-section"><div class="g-container">
+    <div class="filters rv">
+      <span class="filters__label">Filter</span>
+      <button class="chip" data-filter="all" aria-pressed="true">All</button>
+      <button class="chip" data-filter="computation" aria-pressed="false">Computation</button>
+      <button class="chip" data-filter="ai" aria-pressed="false">AI</button>
+      <button class="chip" data-filter="philosophy" aria-pressed="false">Philosophy</button>
+      <button class="chip" data-filter="society" aria-pressed="false">Society</button>
+      <button class="chip" data-filter="life" aria-pressed="false">Life Sciences</button>
+      <button class="chip" data-filter="evidence" aria-pressed="false">Evidence</button>
+      <input class="search" type="search" placeholder="Search topics…" aria-label="Search topics">
+      <span class="result-count"></span>
     </div>
-
-    <aside class="aside">
-      <div class="callout"><h4>Why This Game Exists</h4>
-        <p>Most people test triples they expect to be admitted. That feels like progress and produces
-          almost no information. The rule only becomes visible when you try to break your own guess.</p></div>
-      <div class="callout g-mt-md"><h4>What Is Being Counted</h4>
-        <p>A test is <em>confirming</em> if you expected a yes, and <em>falsifying</em> if you expected a no.
-          The ratio is shown after you commit, and it is usually a surprise.</p></div>
-    </aside>
-  </div></div></section>
-
+    <div class="rv" data-filterable><a class="is-soon entry"  data-type="evidence life society" data-tags="evidence life society replication medicine psychology statistics" aria-disabled="true"><span class="soon-chip">Planned</span>
+      <span class="entry__type">Topic 06</span><div>
+      <h3>Why do most findings shrink when someone repeats them?</h3><p>The effect that held at p&lt;0.05 comes back half the size, or not at all. Psychology found it first; oncology, ecology and economics all found it after.</p>
+      <div class="entry__meta"><span>Film · Essay · Sources · Game</span><span>Coming soon</span></div></div></a><a class="is-soon entry"  data-type="life computation" data-tags="life computation biology cell simulation" aria-disabled="true"><span class="soon-chip">Planned</span>
+      <span class="entry__type">Topic 05</span><div>
+      <h3>Can we model a living cell?</h3><p>Whole-cell simulation has gone from fantasy to funded programme. What a model of something alive would have to get right, and what it is allowed to leave out.</p>
+      <div class="entry__meta"><span>Film · Essay · Simulation</span><span>Coming soon</span></div></div></a><a class="entry" href="topic-computable-universe.html" data-type="computation philosophy" data-tags="computation philosophy">
+      <span class="entry__type">Topic 04</span><div>
+      <h3>Is the universe computable?</h3><p>If the world runs on rules, something should be able to run them. Gödel, chaos and thermodynamics all disagree about how far that goes.</p>
+      <div class="entry__meta"><span>Film · Essay · Timeline · Simulation</span><span>Open</span></div></div></a><a class="entry" href="topic-machine-hypothesis.html" data-type="ai philosophy" data-tags="ai philosophy">
+      <span class="entry__type">Topic 03</span><div>
+      <h3>Can a machine form a hypothesis?</h3><p>Systems now propose candidate explanations. Whether that is discovery or very good autocomplete depends on what you think a hypothesis is.</p>
+      <div class="entry__meta"><span>Film · Essay · Simulation · Debate</span><span>Open</span></div></div></a><a class="is-soon entry"  data-type="society policy" data-tags="society policy" aria-disabled="true"><span class="soon-chip">Planned</span>
+      <span class="entry__type">Topic 02</span><div>
+      <h3>Who pays for science, and what does that buy?</h3><p>Funding shapes which questions get asked. Follow the money through three national systems and one budget game.</p>
+      <div class="entry__meta"><span>Film · Essay · Game</span><span>Coming soon</span></div></div></a><a class="is-soon entry"  data-type="society research" data-tags="society research" aria-disabled="true"><span class="soon-chip">Planned</span>
+      <span class="entry__type">Topic 01</span><div>
+      <h3>What does peer review actually catch?</h3><p>A system everyone leans on and few defend. What it filters, what it misses, and what has been tried instead.</p>
+      <div class="entry__meta"><span>Film · Essay · Sources</span><span>Coming soon</span></div></div></a></div>
+    <div class="empty is-hidden"><p>Nothing matches that yet. Try a broader filter.</p></div>
+    <div class="callout g-mt-xl rv">
+      <h4>Suggest the Next One</h4>
+      <p>Members propose topics and vote on what gets made.
+        <a href="community.html">See how that works</a>.</p>
+    </div></div></section>
 </main>
 <footer class="g-footer">
   <div class="g-container">
@@ -158,72 +147,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js"></script>
-<script>
-(function(){
-  // The 2-4-6 task, dressed for a physics channel. The hidden rule is far more
-  // permissive than almost anyone's first guess, so a player who only tests
-  // cases they expect to pass will "confirm" their way to the wrong answer.
-  var RULES=[
-    {test:function(a,b,c){return a<b&&b<c;}, name:'any three numbers in increasing order',
-     trap:'Most players guess "even numbers ascending" or "adds two each time". Both are narrower than the truth.'},
-    {test:function(a,b,c){return c>a;}, name:'the third number is larger than the first',
-     trap:'The middle number never mattered at all.'},
-    {test:function(a,b,c){return (a+b+c)%2===0;}, name:'the three numbers sum to an even total',
-     trap:'Order was never part of it.'}
-  ];
-  var rule, tests, conf, fals, done;
-  var $=function(id){return document.getElementById(id);};
-
-  function expectYes(a,b,c){
-    // a crude read of the player's intent: did this look like a case they
-    // expected to pass, given the seed 2,4,6?
-    return a<b && b<c;
-  }
-  function start(){
-    rule=RULES[Math.floor(Math.random()*RULES.length)];
-    tests=0; conf=0; fals=0; done=false;
-    $('trials').innerHTML=''; $('reveal').style.display='none';
-    $('status').textContent='unknown'; $('ntests').textContent='0';
-    $('nconf').textContent='0'; $('nfals').textContent='0';
-    add(2,4,6,true,'the machine\u2019s own example');
-  }
-  function add(a,b,c,ok,note){
-    var row=document.createElement('div'); row.className='trial';
-    row.innerHTML='<span class="g-mono">'+a+', '+b+', '+c+'</span>'+
-      '<span class="verdict '+(ok?'verdict--yes':'verdict--no')+'">'+(ok?'admitted':'rejected')+'</span>'+
-      (note?'<span class="trial__note">'+note+'</span>':'');
-    $('trials').insertBefore(row, $('trials').firstChild);
-  }
-  $('tform').addEventListener('submit',function(e){
-    e.preventDefault(); if(done) return;
-    var a=+$('a').value,b=+$('b').value,c=+$('c').value;
-    if([a,b,c].some(function(v){return isNaN(v);})) return;
-    var ok=rule.test(a,b,c);
-    var pred=expectYes(a,b,c);
-    tests++; if(pred){conf++;}else{fals++;}
-    $('ntests').textContent=tests; $('nconf').textContent=conf; $('nfals').textContent=fals;
-    add(a,b,c,ok, pred? 'you likely expected yes' : 'you likely expected no');
-  });
-  $('guess').addEventListener('click',function(){
-    if(done) return; done=true;
-    $('status').textContent='revealed';
-    var ratio = tests? Math.round(fals/tests*100) : 0;
-    var verdict;
-    if(tests<3) verdict='You committed after '+tests+' test'+(tests===1?'':'s')+'. Fast, but on this little evidence almost any rule would fit.';
-    else if(ratio<25) verdict='Only '+ratio+'% of your tests were attempts to fail. That is the classic pattern: it feels like gathering evidence, but a rule that never gets attacked never gets tested.';
-    else if(ratio<55) verdict='You spent '+ratio+'% of your tests trying to break your own guess, which is better than most people manage.';
-    else verdict='You spent '+ratio+'% of your tests trying to break your own guess. That is how the rule actually becomes visible.';
-    $('rev-title').textContent='The Rule Was: '+rule.name;
-    $('rev-body').innerHTML=verdict+' <br><br>'+rule.trap;
-    $('reveal').style.display='block';
-    $('reveal').scrollIntoView({block:'nearest',behavior:'smooth'});
-  });
-  $('again').addEventListener('click',start);
-  start();
-})();
-</script>
 <script src="assets/chat.js" defer></script>
 <script src="assets/production-bridge.js" defer></script>
-<script src="assets/community-lab-live.js" defer></script>
 </body>
 </html>

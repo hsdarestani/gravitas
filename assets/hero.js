@@ -1,4 +1,4 @@
-// Reveal on scroll — no-op under reduced motion (system CSS zeroes transitions)
+// Reveal on scroll, no-op under reduced motion (system CSS zeroes transitions)
 (function () {
   var els = document.querySelectorAll('.reveal');
   if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('is-in'); }); return; }
@@ -10,8 +10,33 @@
   // The mobile menu is owned by site.js, which is loaded on every page.
   // It used to be bound here as well; both handlers fired on the same tap,
   // the second read the state the first had just set, and the menu toggled
-  // straight back shut — so it only ever failed on the one page that loads
+  // straight back shut, so it only ever failed on the one page that loads
   // this file.
+
+  // ---- Theme palette -------------------------------------------------------
+  // A canvas can't inherit a CSS colour, so every simulation below used to have
+  // White Tint hard-coded, which is exactly why the hero survived the light
+  // theme as invisible white-on-cream. The channels live in gravitas.css; this
+  // reads them once, and again whenever the theme flips. Subsystems register a
+  // repaint hook rather than each listening for themselves, so a flip is one
+  // pass rather than five.
+  var INK = {};
+  var themeHooks = [];
+  function readInk() {
+    var cs = getComputedStyle(document.documentElement);
+    function ch(name, fallback) {
+      var v = cs.getPropertyValue('--g-canvas-' + name).trim();
+      return v ? v.replace(/\s+/g, ',') : fallback;
+    }
+    INK.line = ch('line', '241,239,236');
+    INK.core = ch('core', '255,255,255');
+    INK.body = [ch('body-a', '241,239,236'), ch('body-b', '212,201,190'), ch('body-c', '111,169,206')];
+  }
+  readInk();
+  window.addEventListener('gravitas:theme', function () {
+    readInk();
+    themeHooks.forEach(function (fn) { try { fn(); } catch (e) {} });
+  });
 
   // ---- Hero starfield: scatter many small white dots ----
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -31,7 +56,7 @@
       s.style.height = size.toFixed(2) + 'px';
       s.style.opacity = op.toFixed(2);
       // give the larger ones a faint glow so they read as stars, not specks
-      if (size > 2) s.style.boxShadow = '0 0 ' + (size * 1.5).toFixed(1) + 'px rgba(241,239,236,0.7)';
+      if (size > 2) s.style.boxShadow = '0 0 ' + (size * 1.5).toFixed(1) + 'px rgba(' + INK.line + ',0.7)';
       // let ~a third twinkle, unless reduced motion
       if (!reduce && Math.random() < 0.32) {
         s.classList.add('is-twinkle');
@@ -42,6 +67,22 @@
       frag.appendChild(s);
     }
     starBox.appendChild(frag);
+  }
+
+  // ---- Touch: the hero is a play surface, not a block of quotable text ------
+  // Press-and-drag over the hero was starting a text selection, magnifier,
+  // handles, the lot, which stole the gesture from the gravity interaction.
+  // CSS user-select does most of the work; these two listeners are the belt to
+  // its braces on engines that let a selection start anyway. Links and buttons
+  // keep their long-press menus, and this whole block is off on a mouse.
+  var coarsePtr = window.matchMedia('(pointer: coarse)').matches;
+  var heroTouchEl = document.getElementById('top');
+  if (coarsePtr && heroTouchEl) {
+    heroTouchEl.addEventListener('selectstart', function (e) { e.preventDefault(); });
+    heroTouchEl.addEventListener('contextmenu', function (e) {
+      if (e.target && e.target.closest && e.target.closest('a, button, input, textarea')) return;
+      e.preventDefault();
+    });
   }
 
   // ---- Interactive "pucker" grid: the spacetime well bends toward the cursor ----
@@ -109,7 +150,7 @@
     }
 
     // Touch: there is no hover, so the well bends where the finger presses and
-    // eases back to rest when it lifts. Scrolling still works — a scroll fires
+    // eases back to rest when it lifts. Scrolling still works, a scroll fires
     // pointercancel, which releases the bend just like lifting off.
     heroEl.addEventListener('pointerdown', function (e) {
       if (e.pointerType !== 'touch') return;
@@ -132,6 +173,10 @@
     });
 
     var gridDirty = true, lastOn = -1, lastAx = -1, lastAy = -1;
+    // A theme change alters the ink without altering the warp, so the
+    // frame-skip test below would happily keep the previous theme's frame
+    // on screen, the grid appeared to vanish until the pointer moved.
+    themeHooks.push(function () { gridDirty = true; });
     function drawGrid() {
       ambient.x = GW * 0.5; ambient.y = GH * 0.46;
       // ease the cursor influence in and out
@@ -140,7 +185,7 @@
       amp.x += (ptr.x - amp.x) * 0.2;
       amp.y += (ptr.y - amp.y) * 0.2;
 
-      // Skip the redraw when nothing about the warp has changed — the canvas
+      // Skip the redraw when nothing about the warp has changed, the canvas
       // keeps its last frame, so an idle grid costs nothing.
       if (Math.abs(amp.on - lastOn) < 0.002 &&
           Math.abs(amp.x - lastAx) < 0.4 &&
@@ -152,7 +197,7 @@
 
       gctx.clearRect(0, 0, GW, GH);
       gctx.lineWidth = 1;
-      gctx.strokeStyle = 'rgba(241,239,236,0.14)';
+      gctx.strokeStyle = 'rgba(' + INK.line + ',0.14)';
 
       var pad = SPACING * 2;
       var step = Math.max(6, Math.floor(SPACING / 5)); // sampling along each line
@@ -214,16 +259,19 @@
     // One pre-rendered dot, scaled per particle. Building a radial gradient for
     // every particle on every frame was the comet's whole cost.
     var TSPR = 32;
-    var tailSprite = (function () {
+    var tailSprite;
+    function buildTail() {
       var c = document.createElement('canvas');
       c.width = c.height = TSPR;
       var g = c.getContext('2d');
       var gr = g.createRadialGradient(TSPR/2, TSPR/2, 0, TSPR/2, TSPR/2, TSPR/2);
-      gr.addColorStop(0, 'rgba(241,239,236,1)');
-      gr.addColorStop(1, 'rgba(241,239,236,0)');
+      gr.addColorStop(0, 'rgba(' + INK.line + ',1)');
+      gr.addColorStop(1, 'rgba(' + INK.line + ',0)');
       g.fillStyle = gr; g.fillRect(0, 0, TSPR, TSPR);
-      return c;
-    })();
+      tailSprite = c;
+    }
+    buildTail();
+    themeHooks.push(buildTail);
 
     hero.addEventListener('pointermove', function (e) {
       if (e.pointerType && e.pointerType !== 'mouse') return;
@@ -254,7 +302,7 @@
       lastCometT = now;
       ctx.clearRect(0, 0, W, H);
       if (inside) {
-        // ease the head toward the pointer — gives the tail a natural lag
+        // ease the head toward the pointer, gives the tail a natural lag
         head.x += (target.x - head.x) * 0.35;
         head.y += (target.y - head.y) * 0.35;
 
@@ -278,28 +326,28 @@
       ctx.globalAlpha = 1;
       particles = particles.filter(function (p) { return p.life > 0; });
 
-      // draw the comet head — bright core + soft glow
+      // draw the comet head, bright core + soft glow
       if (inside) {
         // ease toward a larger head when over an interactive element
         hoverScale += ((overHit ? 1.9 : 1) - hoverScale) * 0.18;
         var gr = 16 * hoverScale;
         var glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, gr);
-        glow.addColorStop(0, 'rgba(241,239,236,0.85)');
-        glow.addColorStop(0.3, 'rgba(212,201,190,0.4)');
-        glow.addColorStop(1, 'rgba(212,201,190,0)');
+        glow.addColorStop(0, 'rgba(' + INK.line + ',0.85)');
+        glow.addColorStop(0.3, 'rgba(' + INK.body[1] + ',0.4)');
+        glow.addColorStop(1, 'rgba(' + INK.body[1] + ',0)');
         ctx.fillStyle = glow;
         ctx.beginPath();
         ctx.arc(head.x, head.y, gr, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.fillStyle = 'rgba(' + INK.core + ',0.95)';
         ctx.beginPath();
         ctx.arc(head.x, head.y, 2.4 * hoverScale, 0, Math.PI * 2);
         ctx.fill();
 
-        // a thin ring appears over hit targets — extra confirmation of "clickable"
+        // a thin ring appears over hit targets, extra confirmation of "clickable"
         if (hoverScale > 1.08) {
-          ctx.strokeStyle = 'rgba(241,239,236,' + ((hoverScale - 1) * 0.5).toFixed(3) + ')';
+          ctx.strokeStyle = 'rgba(' + INK.line + ',' + ((hoverScale - 1) * 0.5).toFixed(3) + ')';
           ctx.lineWidth = 1.2;
           ctx.beginPath();
           ctx.arc(head.x, head.y, 16 * hoverScale, 0, Math.PI * 2);
@@ -312,8 +360,8 @@
   }
 
   // ---- Rare meteors ------------------------------------------------------
-  // Occasional small streaks that fade in and out. Deliberately infrequent —
-  // one every 8–18s, never more than two at once — so it reads as a happy
+  // Occasional small streaks that fade in and out. Deliberately infrequent -
+  // one every 8–18s, never more than two at once, so it reads as a happy
   // accident rather than a weather effect.
   var meteorCanvas = document.getElementById('lp-meteors');
   if (heroEl && meteorCanvas && !reduce) {
@@ -382,8 +430,8 @@
         var tailY = m.y - (m.vy / sp) * m.len;
 
         var g = mctx.createLinearGradient(m.x, m.y, tailX, tailY);
-        g.addColorStop(0, 'rgba(241,239,236,' + a.toFixed(3) + ')');
-        g.addColorStop(1, 'rgba(241,239,236,0)');
+        g.addColorStop(0, 'rgba(' + INK.line + ',' + a.toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(' + INK.line + ',0)');
         mctx.strokeStyle = g;
         mctx.lineWidth = 1.3;
         mctx.lineCap = 'round';
@@ -392,7 +440,7 @@
         mctx.lineTo(tailX, tailY);
         mctx.stroke();
 
-        mctx.fillStyle = 'rgba(255,255,255,' + (a * 0.85).toFixed(3) + ')';
+        mctx.fillStyle = 'rgba(' + INK.core + ',' + (a * 0.85).toFixed(3) + ')';
         mctx.beginPath();
         mctx.arc(m.x, m.y, 1.25, 0, Math.PI * 2);
         mctx.fill();
@@ -403,23 +451,23 @@
   }
   // Own scope: the comet above declares its own W, H, frame and step.
   // `var` is function-scoped and function declarations hoist, so without
-  // this IIFE the two subsystems overwrite each other — which silently
+  // this IIFE the two subsystems overwrite each other, which silently
   // stopped the comet from ever clearing its tail.
   (function () {
     // ---- Two-body orbit, perturbed by the cursor ----------------------------
     // The pair is a real Kepler two-body system: exactly periodic, exactly
     // solvable, and therefore a well-defined "original state" to return to.
     //
-    //   Reference  — advanced analytically. Mean anomaly steps linearly, Kepler's
+    //   Reference , advanced analytically. Mean anomaly steps linearly, Kepler's
     //                equation is solved by Newton, so the closed orbit never
     //                drifts no matter how long the tab is open.
-    //   Actual     — velocity Verlet on the real accelerations. While the cursor
+    //   Actual    , velocity Verlet on the real accelerations. While the cursor
     //                is away this is held onto the reference by a critically
     //                damped spring, so it *is* the two-body solution.
     //
     // Bring the cursor near and it becomes a third mass: it pulls on both bodies,
     // and the spring holding them to the closed orbit is released in proportion.
-    // That is the whole point — two bodies have a closed form, three do not, and
+    // That is the whole point, two bodies have a closed form, three do not, and
     // the figure falls apart in front of you. Take the cursor away and the spring
     // reels them back onto the analytic ellipse.
     //
@@ -437,7 +485,7 @@
       var SIMRATE = PERIOD / SECS_PER_ORBIT;
       var SPAN = SEMI * (1 + ECC) * 1.9;       // framing, with room to be pushed
 
-      var CURSOR_M = 4.0;                      // mass of the pointer. It was 0.72 —
+      var CURSOR_M = 4.0;                      // mass of the pointer. It was 0.72 -
                                                // lighter than either body, so it
                                                // barely pulled. Now it dominates.
       var SOFT = 0.060;                        // softening, so nothing goes singular
@@ -446,30 +494,47 @@
       var R_NEAR = 0.70, R_FAR = 1.40;         // hitbox: ramps in only within the
                                                // visible orbit area (half-span 1.25)
 
-      // Brand palette: the two bodies are White Tint and Sisal; the intruder is
-      // Cosmos Blue lifted until it can actually glow against the deep field.
-      var COLORS = [[241, 239, 236], [212, 201, 190], [111, 169, 206]];
-      var RGB = COLORS.map(function (c) { return c[0] + ',' + c[1] + ',' + c[2]; });
-      var TRAILCAP = 360;
-
+      // Brand palette, read from the theme rather than fixed. On dark the two
+      // bodies are White Tint and Sisal against deep space; on light they are
+      // ink and bronze on paper. The sprites are pre-rendered for speed, so a
+      // theme change has to rebuild them, hence the hook.
+      var RGB = [], TRAILCAP = 360;
       var SPRITE = 64;
       var SPRITE_R = [19, 16, 15];
-      var glowSprites = COLORS.map(function (col, i) {
-        var c = document.createElement('canvas');
-        c.width = c.height = SPRITE;
-        var g = c.getContext('2d');
-        var rgb = col[0] + ',' + col[1] + ',' + col[2];
-        var grad = g.createRadialGradient(SPRITE / 2, SPRITE / 2, 0, SPRITE / 2, SPRITE / 2, SPRITE / 2);
-        grad.addColorStop(0,    'rgba(' + rgb + ',0.85)');
-        grad.addColorStop(0.35, 'rgba(' + rgb + ',0.22)');
-        grad.addColorStop(1,    'rgba(' + rgb + ',0)');
-        g.fillStyle = grad;
-        g.fillRect(0, 0, SPRITE, SPRITE);
-        g.fillStyle = 'rgba(255,255,255,' + (i === 2 ? 0.85 : 0.95) + ')';
-        g.beginPath();
-        g.arc(SPRITE / 2, SPRITE / 2, (i === 2 ? 2.1 : 2.6) * SPRITE / 34, 0, 6.28318);
-        g.fill();
-        return c;
+      var glowSprites = [];
+
+      function buildBodies() {
+        RGB = INK.body.slice();
+        glowSprites = RGB.map(function (rgb, i) {
+          var c = document.createElement('canvas');
+          c.width = c.height = SPRITE;
+          var g = c.getContext('2d');
+          var grad = g.createRadialGradient(SPRITE / 2, SPRITE / 2, 0, SPRITE / 2, SPRITE / 2, SPRITE / 2);
+          grad.addColorStop(0,    'rgba(' + rgb + ',0.85)');
+          grad.addColorStop(0.35, 'rgba(' + rgb + ',0.22)');
+          grad.addColorStop(1,    'rgba(' + rgb + ',0)');
+          g.fillStyle = grad;
+          g.fillRect(0, 0, SPRITE, SPRITE);
+          g.fillStyle = 'rgba(' + INK.core + ',' + (i === 2 ? 0.85 : 0.95) + ')';
+          g.beginPath();
+          g.arc(SPRITE / 2, SPRITE / 2, (i === 2 ? 2.1 : 2.6) * SPRITE / 34, 0, 6.28318);
+          g.fill();
+          return c;
+        });
+      }
+      var blendMode = 'lighter';
+      function readBlend() {
+        blendMode = document.documentElement.getAttribute('data-theme') === 'light'
+          ? 'source-over' : 'lighter';
+      }
+      readBlend();
+      buildBodies();
+      themeHooks.push(function () {
+        readBlend();
+        buildBodies();
+        // The reduced-motion path draws once and stops, so without an explicit
+        // repaint it would keep showing the previous theme's figure forever.
+        if (reduceOrbit && tcount[0] > 2) render();
       });
 
       // --- state ---
@@ -510,7 +575,7 @@
       }
 
       // Reference two-body state from the mean anomaly. Kepler's equation by
-      // Newton — 4 iterations is plenty at this eccentricity.
+      // Newton, 4 iterations is plenty at this eccentricity.
       function reference() {
         var m = manom % (2 * Math.PI);
         var E = m + ECC * Math.sin(m);
@@ -588,7 +653,7 @@
 
       // Chunked so the tail can fade along its length: each chunk is one stroke at
       // its own alpha. Chunk counts and the point stride are kept deliberately low
-      // — this runs every frame forever, and the trail is a smooth curve, so
+      //, this runs every frame forever, and the trail is a smooth curve, so
       // drawing every stored point buys nothing visible.
       function drawTrail(bi, alphaMul) {
         var n = tcount[bi];
@@ -629,8 +694,12 @@
 
       function render() {
         octx.clearRect(0, 0, W, H);
-        octx.globalCompositeOperation = 'lighter';
-        // The cursor is already drawn — it's the comet, on its own canvas above
+        // 'lighter' adds toward white: on deep space that is how two overlapping
+        // glows read as brighter. On a cream page it fades them out instead, so
+        // the light theme composites normally. Cached, this runs 60 times a
+        // second and the answer only changes when the toggle is pressed.
+        octx.globalCompositeOperation = blendMode;
+        // The cursor is already drawn, it's the comet, on its own canvas above
         // this one. Drawing a second body here just doubled it and smeared a
         // hero-wide trail across the frame. The pointer's *gravity* still acts;
         // only its rendering belongs to the comet.
@@ -644,7 +713,7 @@
         if (p === wasPerturbed) return;
         wasPerturbed = p;
         if (nameEl) nameEl.textContent = p ? 'Three-body problem' : 'Two-body orbit';
-        if (subEl)  subEl.textContent  = p ? 'chaotic — no closed-form solution'
+        if (subEl)  subEl.textContent  = p ? 'chaotic, no closed-form solution'
                                            : 'closed, periodic, exactly solvable';
       }
 
@@ -653,8 +722,8 @@
       // Pointer → third mass. Distance does the gating, so the perturbation eases
       // in as you approach from anywhere in the hero; no enter/leave needed.
       // Read the box fresh each time. It was cached and only refreshed on scroll
-      // and resize, so any other reflow — a late web font, an image landing, a
-      // revealed section — left the mapping stale and the cursor's gravity
+      // and resize, so any other reflow, a late web font, an image landing, a
+      // revealed section, left the mapping stale and the cursor's gravity
       // acting somewhere it wasn't. One getBoundingClientRect per pointermove is
       // cheap; being wrong is not.
       function pointerTo(clientX, clientY) {
@@ -716,7 +785,7 @@
         var simDt = dtReal * SIMRATE, SUB = 16, h = simDt / SUB;
         for (var s = 0; s < SUB; s++) step(h);
 
-        // safety: a hard perturbation can still throw a body wide — if it leaves
+        // safety: a hard perturbation can still throw a body wide, if it leaves
         // the frame entirely, put the system back rather than lose it.
         if (!isFinite(X[0]) || !isFinite(X[1]) ||
             Math.abs(X[0]) > 9 || Math.abs(Y[0]) > 9 ||
@@ -734,7 +803,7 @@
       seed();
       sizeOrbit();
       window.addEventListener('resize', sizeOrbit);
-    // The canvas can change size without the window doing so — fonts arriving,
+    // The canvas can change size without the window doing so, fonts arriving,
     // the grid reflowing. Watch the element itself rather than guessing.
     if (window.ResizeObserver) {
       var ro = new ResizeObserver(function () { sizeOrbit(); });
