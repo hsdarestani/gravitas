@@ -226,6 +226,68 @@
     update();
   }
 
+  /* ---- film thumbnails --------------------------------------------------
+     A .video card is a poster frame with a play button on it, and the frame
+     was an empty gradient. Rather than paste a path into every card, the file
+     is looked up from the page the card points at: the card linking to
+     topic-computable-universe.html asks for
+     assets/thumbnails/topic-computable-universe.webp, and a .video with no
+     href — the one on a topic page, which is already on the page it means —
+     asks for its own filename. Export a still under the page's name, drop it
+     in the folder, and it appears in every card that links there. No markup
+     to edit, and no list in the code that has to be kept in step with the
+     folder, which is the thing that always drifts.
+
+     A browser cannot read a directory listing, so "the folder has one" can
+     only mean "the file loaded". Each extension is tried in turn and the
+     first that decodes wins; webp is first because that is what we export, so
+     the usual case costs one request. Nothing found is not an error — the
+     card keeps the gradient it has always had, which is why a topic without
+     artwork yet needs no special casing. */
+  var THUMB_DIR = 'assets/thumbnails/';
+  var THUMB_EXT = ['webp', 'jpg', 'png'];
+
+  // data-thumb overrides the lookup, for a card whose art is not named after
+  // its destination: data-thumb="film-04-alt" reads film-04-alt.webp.
+  function thumbName(card) {
+    if (card.getAttribute('data-thumb')) return card.getAttribute('data-thumb');
+    var href = card.getAttribute('href') || location.pathname;
+    var file = href.split(/[?#]/)[0].split('/').pop();
+    return file.replace(/\.html?$/i, '') || 'index';
+  }
+
+  // Sequential, not parallel: three simultaneous requests to find one file is
+  // two wasted every time, and the misses are the common case early on.
+  function firstThatLoads(urls, done) {
+    if (!urls.length) { done(null); return; }
+    var url = urls.shift();
+    var probe = new Image();
+    probe.onload = function () { done(url); };
+    probe.onerror = function () { firstThatLoads(urls, done); };
+    probe.src = url;
+  }
+
+  [].forEach.call(document.querySelectorAll('.video'), function (card) {
+    var name = thumbName(card);
+    var urls = THUMB_EXT.map(function (ext) { return THUMB_DIR + name + '.' + ext; });
+
+    firstThatLoads(urls, function (url) {
+      if (!url) return;
+      var img = new Image();
+      img.className = 'video__img';
+      // Decorative: the card already carries its own aria-label, and naming
+      // the film twice is noise to a screen reader, not information.
+      img.alt = '';
+      img.decoding = 'async';
+      img.loading = 'lazy';
+      img.src = url;
+      card.insertBefore(img, card.firstChild);
+      // Next frame, so the element is in the document before the class flips
+      // and the fade actually has two states to run between.
+      requestAnimationFrame(function () { card.classList.add('has-thumb'); });
+    });
+  });
+
   /* ---- newsletter / forms ---------------------------------------------- */
   [].forEach.call(document.querySelectorAll('[data-demo-form]'), function (f) {
     f.addEventListener('submit', function (e) {
