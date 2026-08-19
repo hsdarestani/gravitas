@@ -11,6 +11,43 @@
     [].forEach.call(document.querySelectorAll('.depth button'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.depth === v)); });
   }
   applyDepth(readDepth());
+
+  // Copy updates from the annotated homepage review.
+  [].forEach.call(document.querySelectorAll('.g-nav a[href="dossiers.html"]'), function (a) {
+    a.textContent = 'Topics';
+  });
+
+  if (document.body.classList.contains('is-overview')) {
+    document.title = 'Gravitas+ — Science, AI and the gravity of underlying questions';
+
+    var heroTitle = document.querySelector('.lp-hero__title');
+    if (heroTitle) heroTitle.innerHTML = 'Science, AI and the <em>gravity</em> of underlying questions.';
+
+    var heroLead = document.querySelector('.lp-hero__grid .g-lead');
+    if (heroLead) {
+      heroLead.textContent = 'Gravitas+ is for people who always have questions — and follow them — about how science actually works, how it changes the world, and how AI/ML technologies can transform scientific research and education. Watch the film, then take it apart.';
+    }
+
+    var heroActions = document.querySelector('.lp-hero__grid .g-cluster');
+    if (heroActions) {
+      var primary = heroActions.querySelector('.g-btn--primary');
+      if (primary) {
+        primary.href = 'dossiers.html';
+        var primaryTextUpdated = false;
+        [].forEach.call(primary.childNodes, function (node) {
+          if (!primaryTextUpdated && node.nodeType === 3 && node.nodeValue.trim()) {
+            node.nodeValue = ' Explore topics';
+            primaryTextUpdated = true;
+          }
+        });
+        if (!primaryTextUpdated) primary.appendChild(document.createTextNode(' Explore topics'));
+      }
+
+      var secondary = heroActions.querySelector('.g-btn--secondary');
+      if (secondary) secondary.textContent = 'Lab';
+    }
+  }
+
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('.depth button');
     if (!b) return;
