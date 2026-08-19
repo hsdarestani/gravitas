@@ -44,7 +44,7 @@
       }
 
       var secondary = heroActions.querySelector('.g-btn--secondary');
-      if (secondary) secondary.textContent = 'Lab';
+      if (secondary) secondary.textContent = 'Try lab';
     }
   }
 
