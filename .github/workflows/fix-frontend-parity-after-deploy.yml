@@ -52,8 +52,17 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/gravitas_deploy
           chmod 600 ~/.ssh/gravitas_deploy
           ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${SSH_OPTS[@]}" "$USER@$DEPLOY_HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="$USER"
+          elif [ "$USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@$DEPLOY_HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="root"
+          else
+            echo 'SSH authentication failed.'
+            exit 1
+          fi
           TOKEN='20260819-parity1'
-          ssh -i ~/.ssh/gravitas_deploy -p "$PORT" "$USER@$DEPLOY_HOST" "TOKEN='$TOKEN' bash -s" <<'REMOTE'
+          ssh "${SSH_OPTS[@]}" "$EFFECTIVE_USER@$DEPLOY_HOST" "TOKEN='$TOKEN' bash -s" <<'REMOTE'
           set -euo pipefail
           cd /var/www/gravitas
           find . -maxdepth 1 -type f -name '*.html' -print0 | while IFS= read -r -d '' f; do
