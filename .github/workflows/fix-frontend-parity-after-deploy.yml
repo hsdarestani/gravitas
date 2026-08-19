@@ -1,0 +1,64 @@
+name: Fix frontend parity after deploy
+
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  parity:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Permanently bust synced frontend asset cache in repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN='20260819-parity1'
+          find . -maxdepth 1 -type f -name '*.html' -print0 | while IFS= read -r -d '' f; do
+            sed -E -i "s#assets/(gravitas|site|hero|chat)\\.(css|js)(\\?v=[^\"']*)?#assets/\\1.\\2?v=${TOKEN}#g" "$f"
+          done
+          if git diff --quiet; then
+            echo 'Repository asset references already cache-busted.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -- '*.html'
+            git commit -m 'Use fresh frontend asset version across pages'
+            git push origin HEAD:main
+          fi
+
+      - name: Patch deployed HTML after deploy completes
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIGURED_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT_SECRET: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          USER="${CONFIGURED_USER:-deploy}"
+          PORT="${DEPLOY_PORT_SECRET:-22}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          TOKEN='20260819-parity1'
+          ssh -i ~/.ssh/gravitas_deploy -p "$PORT" "$USER@$DEPLOY_HOST" "TOKEN='$TOKEN' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd /var/www/gravitas
+          find . -maxdepth 1 -type f -name '*.html' -print0 | while IFS= read -r -d '' f; do
+            sed -E -i "s#assets/(gravitas|site|hero|chat)\\.(css|js)(\\?v=[^\"']*)?#assets/\\1.\\2?v=${TOKEN}#g" "$f"
+          done
+          grep -q 'assets/hero.css?v=20260819-parity1' index.html
+          echo 'Production HTML now points to fresh synced CSS/JS assets.'
+          REMOTE
