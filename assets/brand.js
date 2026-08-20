@@ -6,6 +6,30 @@
 (function () {
   'use strict';
 
+  /* Keep the brand book presentation pinned to the same reviewed upstream
+     revision as the public frontend without replacing production-only files. */
+  var UPSTREAM_SHA = '4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f';
+  if (!document.getElementById('brand-upstream-parity')) {
+    var css = document.createElement('link');
+    css.id = 'brand-upstream-parity';
+    css.rel = 'stylesheet';
+    css.href = 'https://cdn.jsdelivr.net/gh/desdevrad/gravitasplus@' + UPSTREAM_SHA + '/assets/brand.css';
+    document.head.appendChild(css);
+  }
+
+  function swapFilmWord(text) {
+    return String(text || '').replace(/\bFilm\b/g, 'Video').replace(/\bfilm\b/g, 'video');
+  }
+  var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+  var textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  textNodes.forEach(function (node) {
+    var p = node.parentElement;
+    if (!p || /^(SCRIPT|STYLE|CODE|PRE|TEXTAREA)$/.test(p.tagName)) return;
+    var next = swapFilmWord(node.nodeValue);
+    if (next !== node.nodeValue) node.nodeValue = next;
+  });
+
   /* ---- copy a token or a hex ---------------------------------------------
      Every swatch, ramp step and token chip carries data-copy. One delegated
      listener rather than one per element, because there are well over a
