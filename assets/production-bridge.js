@@ -1,6 +1,118 @@
 (function () {
   'use strict';
 
+  /* ----------------------------------------------------------------------
+     Frontend source-of-truth parity
+     desdevrad/gravitasplus @ 4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f
+
+     The production repository keeps the real Django/API integrations. Kiarash's
+     repository remains the visual/content source of truth, so its pinned CSS is
+     loaded after our local styles and the small markup deltas from his latest
+     pass are normalized below without replacing the backend bridge.
+     ---------------------------------------------------------------------- */
+  var UPSTREAM_SHA = '4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f';
+  var UPSTREAM_SHORT = UPSTREAM_SHA.slice(0, 12);
+
+  if (!document.getElementById('gravitas-upstream-parity')) {
+    var parityCss = document.createElement('link');
+    parityCss.id = 'gravitas-upstream-parity';
+    parityCss.rel = 'stylesheet';
+    parityCss.href = 'assets/upstream-4cb9c0.css?v=' + UPSTREAM_SHORT;
+    document.head.appendChild(parityCss);
+  }
+
+  function swapFilmWord(text) {
+    return String(text || '').replace(/\bFilm\b/g, 'Video').replace(/\bfilm\b/g, 'video');
+  }
+
+  function normalizeTextTree(root) {
+    if (!root) return;
+    var blocked = { SCRIPT: 1, STYLE: 1, CODE: 1, PRE: 1, TEXTAREA: 1 };
+    if (root.nodeType === 3) {
+      var p = root.parentElement;
+      if (!p || blocked[p.tagName]) return;
+      var next = swapFilmWord(root.nodeValue);
+      if (next !== root.nodeValue) root.nodeValue = next;
+      return;
+    }
+    if (root.nodeType !== 1 && root.nodeType !== 9 && root.nodeType !== 11) return;
+    if (root.nodeType === 1 && blocked[root.tagName]) return;
+
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        var el = node.parentElement;
+        return el && !blocked[el.tagName] ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    var nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function (node) {
+      var next = swapFilmWord(node.nodeValue);
+      if (next !== node.nodeValue) node.nodeValue = next;
+    });
+  }
+
+  function ensureLatestHeaderMarkup() {
+    var nav = document.querySelector('.g-nav');
+    if (!nav) return;
+
+    if (!nav.querySelector('.gh-nav-signin')) {
+      var sep = document.createElement('span');
+      sep.className = 'g-nav__sep';
+      sep.setAttribute('aria-hidden', 'true');
+      nav.appendChild(sep);
+
+      var sign = document.createElement('a');
+      sign.className = 'g-nav__link gh-nav-signin';
+      sign.href = 'account.html#in';
+      sign.textContent = 'Sign in';
+      nav.appendChild(sign);
+
+      var join = document.createElement('a');
+      join.className = 'g-btn g-btn--primary g-btn--sm gh-nav-join';
+      join.href = 'community.html#join';
+      join.textContent = 'Join Us';
+      nav.appendChild(join);
+    }
+  }
+
+  function normalizeLatestMarkup(root) {
+    ensureLatestHeaderMarkup();
+
+    [].forEach.call(document.querySelectorAll('[id="film"]'), function (el) {
+      el.id = 'video';
+    });
+    [].forEach.call(document.querySelectorAll('a[href*="#film"]'), function (a) {
+      a.setAttribute('href', a.getAttribute('href').replace('#film', '#video'));
+    });
+    [].forEach.call(document.querySelectorAll('[aria-label],[title]'), function (el) {
+      ['aria-label', 'title'].forEach(function (attr) {
+        if (!el.hasAttribute(attr)) return;
+        var old = el.getAttribute(attr);
+        var next = swapFilmWord(old);
+        if (next !== old) el.setAttribute(attr, next);
+      });
+    });
+    var meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', swapFilmWord(meta.getAttribute('content')));
+
+    normalizeTextTree(root || document.body);
+  }
+
+  ensureLatestHeaderMarkup();
+  normalizeLatestMarkup(document.body);
+
+  if ('MutationObserver' in window && document.body) {
+    var parityObserver = new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        [].forEach.call(m.addedNodes || [], function (node) {
+          normalizeTextTree(node);
+        });
+      });
+    });
+    parityObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
   function cookie(name) {
     var prefix = name + '=';
     var parts = document.cookie ? document.cookie.split(';') : [];
@@ -72,11 +184,10 @@
   }
 
   function markAccount(email) {
-    var signIn = document.querySelector('.gh-signin');
-    if (signIn) {
+    [].forEach.call(document.querySelectorAll('.gh-signin, .gh-nav-signin'), function (signIn) {
       signIn.textContent = 'Account';
       signIn.href = 'account.html';
-    }
+    });
     var note = document.querySelector('.auth__note[data-form-note]');
     if (note && email) note.textContent = 'Signed in as ' + email + '.';
   }
@@ -195,42 +306,13 @@
     .then(function (data) { if (data && data.authenticated) markAccount(data.user && data.user.email); })
     .catch(function () {});
 
-  /* ----------------------------------------------------------------------
-     Upstream frontend parity: desdevrad/gravitasplus @ 8f1a95984140
-
-     Kiarash's latest pass adds real poster thumbnails to .video frames,
-     removes the repeated metadata strip, keeps the play ring readable in the
-     light theme, and gives the still a subtle zoom on hover. The canonical
-     upstream site.js/site.css are synchronized by the post-deploy workflow;
-     this bridge is also a safe production fallback so the visual change is
-     visible even before those static assets finish syncing. It deliberately
-     leaves all auth/newsletter/backend behaviour above untouched.
-     ---------------------------------------------------------------------- */
+  /* The thumbnail module is retained as a local fallback. It is pinned to the
+     same upstream revision as the CSS layer, so production cannot drift when
+     Kiarash pushes the next pass before we review/sync it. */
   (function upstreamThumbnailParity() {
     if (!document.querySelector('.video')) return;
 
-    if (!document.getElementById('upstream-thumbnail-parity')) {
-      var style = document.createElement('style');
-      style.id = 'upstream-thumbnail-parity';
-      style.textContent =
-        '.video__meta{display:none!important}' +
-        '.video__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;' +
-          'transition:opacity var(--g-dur-slow) var(--g-ease-orbit),transform var(--g-dur-slow) var(--g-ease-orbit)}' +
-        '.video.has-thumb .video__img{opacity:1}' +
-        '.video.has-thumb::after{content:"";position:absolute;inset:0;pointer-events:none;background:rgb(3 3 3/.14)}' +
-        '.video__play{position:relative;z-index:1}' +
-        '.video:hover .video__img{transform:scale(1.03)}' +
-        '.video.is-flat:hover .video__img{transform:none}' +
-        ':root[data-theme="light"] .video.has-thumb .video__play{' +
-          'border-color:rgb(241 239 236/.7);background:rgb(3 3 3/.35);color:var(--g-white-tint)}' +
-        ':root[data-theme="light"] .video.has-thumb:hover .video__play{' +
-          'background:rgb(0 48 73/.6);color:var(--g-white-tint)}' +
-        '@media (prefers-reduced-motion:reduce){.video__img{transition:opacity var(--g-dur-fast) linear}' +
-          '.video:hover .video__img{transform:none}}';
-      document.head.appendChild(style);
-    }
-
-    var DIR = 'https://desdevrad.github.io/gravitasplus/assets/thumbnails/';
+    var DIR = 'https://cdn.jsdelivr.net/gh/desdevrad/gravitasplus@' + UPSTREAM_SHA + '/assets/thumbnails/';
     var EXT = ['webp', 'jpg', 'png'];
 
     function nameFor(card) {
@@ -267,7 +349,7 @@
           requestAnimationFrame(function () { card.classList.add('has-thumb'); });
         });
       });
-    }, 500);
+    }, 250);
   })();
 
   if (params.get('confirmed') === '1') {
