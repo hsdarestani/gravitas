@@ -18,7 +18,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout production repository
         uses: actions/checkout@v4
@@ -26,114 +26,124 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Sync latest desdevrad frontend changes safely
+      - name: Apply latest desdevrad frontend delta without touching backend
         shell: bash
         run: |
           set -euo pipefail
 
           UPSTREAM_REPO='desdevrad/gravitasplus'
-          UPSTREAM_SHA="$(git ls-remote "https://github.com/${UPSTREAM_REPO}.git" refs/heads/main | awk '{print $1}')"
-          test -n "$UPSTREAM_SHA"
-          RAW="https://raw.githubusercontent.com/${UPSTREAM_REPO}/${UPSTREAM_SHA}"
+          UPSTREAM_URL="https://github.com/${UPSTREAM_REPO}.git"
+          PREVIOUS="$(cat .upstream-gravitasplus 2>/dev/null || true)"
+          [ -n "$PREVIOUS" ] || PREVIOUS='8f1a959841403f6563000a5ef6a086aed8eab7d2'
 
-          echo "Syncing frontend from ${UPSTREAM_REPO}@${UPSTREAM_SHA}"
+          rm -rf /tmp/gravitasplus-upstream
+          git clone -q "$UPSTREAM_URL" /tmp/gravitasplus-upstream
+          UPSTREAM_SHA="$(git -C /tmp/gravitasplus-upstream rev-parse HEAD)"
 
-          # The production copies of these files were identical to the upstream
-          # parent before this sync. Replace them only while they are either that
-          # known base or already the freshly downloaded version; otherwise stop
-          # instead of overwriting an unrelated local frontend edit.
-          curl -fsSL "${RAW}/assets/site.css" -o /tmp/upstream-site.css
-          curl -fsSL "${RAW}/assets/site.js"  -o /tmp/upstream-site.js
+          echo "Previous upstream: $PREVIOUS"
+          echo "Latest upstream:   $UPSTREAM_SHA"
 
-          OLD_CSS='a8aa3a561447d927e584fe7197d84b121bc53df6'
-          OLD_JS='e79d56c2546a3e7b6760940c9aad80286caa4303'
-          CUR_CSS="$(git hash-object assets/site.css)"
-          CUR_JS="$(git hash-object assets/site.js)"
-          NEW_CSS="$(git hash-object /tmp/upstream-site.css)"
-          NEW_JS="$(git hash-object /tmp/upstream-site.js)"
-
-          if [ "$CUR_CSS" != "$OLD_CSS" ] && [ "$CUR_CSS" != "$NEW_CSS" ]; then
-            echo "assets/site.css has local divergence (${CUR_CSS}); refusing blind overwrite."
-            exit 1
+          if [ "$PREVIOUS" = "$UPSTREAM_SHA" ]; then
+            echo 'Already synchronized.'
+            exit 0
           fi
-          if [ "$CUR_JS" != "$OLD_JS" ] && [ "$CUR_JS" != "$NEW_JS" ]; then
-            echo "assets/site.js has local divergence (${CUR_JS}); refusing blind overwrite."
+
+          if ! git -C /tmp/gravitasplus-upstream cat-file -e "${PREVIOUS}^{commit}" 2>/dev/null; then
+            echo "Recorded upstream revision $PREVIOUS is not available; refusing an unsafe full overwrite."
             exit 1
           fi
 
-          cp /tmp/upstream-site.css assets/site.css
-          cp /tmp/upstream-site.js assets/site.js
+          # Build a patch containing only public frontend files. This deliberately
+          # excludes upstream workflows/README and never touches backend/, our
+          # production bridge, deployment config, legal files, or local fonts.
+          mapfile -t CHANGED < <(
+            git -C /tmp/gravitasplus-upstream diff --name-only "$PREVIOUS" "$UPSTREAM_SHA" -- \
+              '*.html' 'assets/**' \
+            | grep -Ev '^assets/(production-bridge\.js|local-fonts\.css|fonts/)' || true
+          )
 
-          # Pull every current thumbnail from the upstream folder. Missing
-          # artwork is intentionally allowed by upstream's thumbnail loader.
-          mkdir -p assets/thumbnails
-          python3 - "$UPSTREAM_REPO" "$UPSTREAM_SHA" <<'PY'
-          import json, pathlib, sys, urllib.request
-          repo, sha = sys.argv[1:]
-          api = f'https://api.github.com/repos/{repo}/contents/assets/thumbnails?ref={sha}'
-          req = urllib.request.Request(api, headers={'Accept':'application/vnd.github+json','User-Agent':'gravitas-sync'})
-          try:
-              with urllib.request.urlopen(req) as r:
-                  items = json.load(r)
-          except Exception as exc:
-              print(f'No upstream thumbnails folder or listing failed: {exc}')
-              items = []
-          out = pathlib.Path('assets/thumbnails')
-          for item in items:
-              if item.get('type') != 'file':
-                  continue
-              name = item.get('name','')
-              if pathlib.Path(name).suffix.lower() not in {'.webp','.jpg','.jpeg','.png'}:
-                  continue
-              url = item.get('download_url')
-              if not url:
-                  continue
-              print('thumbnail:', name)
-              urllib.request.urlretrieve(url, out / name)
-          PY
+          if [ "${#CHANGED[@]}" -eq 0 ]; then
+            printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
+          else
+            printf 'Frontend files changed upstream:\n'
+            printf ' - %s\n' "${CHANGED[@]}"
 
-          # Upstream's latest pass removes the repeated metadata bar from the
-          # film poster frames. Apply that delta to our production HTML rather
-          # than replacing whole pages, so auth/backend bridges and legal links
-          # remain ours.
-          python3 - <<'PY'
+            git -C /tmp/gravitasplus-upstream diff --binary --full-index "$PREVIOUS" "$UPSTREAM_SHA" -- "${CHANGED[@]}" > /tmp/upstream-frontend.patch
+
+            # Apply only the delta, not whole upstream pages. That preserves our
+            # real auth/newsletter/community/backend wiring while taking Kiarash's
+            # visual/content fixes exactly where he changed them.
+            if ! git apply --check --whitespace=nowarn /tmp/upstream-frontend.patch; then
+              echo 'Upstream frontend patch conflicts with a local production edit.'
+              git apply --check --verbose --whitespace=nowarn /tmp/upstream-frontend.patch || true
+              exit 1
+            fi
+            git apply --whitespace=nowarn /tmp/upstream-frontend.patch
+
+            printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
+          fi
+
+          # Production invariants: keep self-hosted fonts and real API bridge even
+          # when an upstream hunk changes adjacent head/footer markup.
+          python3 - "$UPSTREAM_SHA" <<'PY'
           from pathlib import Path
-          import re
+          import re, sys
 
-          for name in ('index.html', 'topic-computable-universe.html', 'topic-machine-hypothesis.html'):
-              p = Path(name)
-              if not p.exists():
-                  continue
+          sha = sys.argv[1]
+          token = 'up-' + sha[:12]
+
+          for p in Path('.').glob('*.html'):
               s = p.read_text()
-              s2 = re.sub(r'\s*<span class="video__meta">.*?</span>', '', s, flags=re.S)
-              if s2 != s:
-                  p.write_text(s2)
 
-          # Make the post-deploy cache token follow the actual deploy commit.
-          # This prevents a future CSS/JS update from being hidden behind the
-          # old fixed ?v=parity2 URL.
+              if 'assets/gravitas.css' in s and 'assets/local-fonts.css' not in s:
+                  s = re.sub(
+                      r'(<link[^>]+href=["\']assets/gravitas\.css(?:\?[^"\']*)?["\'][^>]*>)',
+                      '<link rel="stylesheet" href="assets/local-fonts.css?v=local1">\n\\1',
+                      s, count=1
+                  )
+
+              # Keep Kiarash's frontend files fresh on production after every sync.
+              s = re.sub(
+                  r'assets/(gravitas|site|hero|chat)\.(css|js)(?:\?v=[^"\']*)?',
+                  lambda m: f'assets/{m.group(1)}.{m.group(2)}?v={token}',
+                  s
+              )
+
+              # brand.html is documentation only; public app pages retain the
+              # bridge that turns demo forms/account interactions into real APIs.
+              if p.name != 'brand.html' and 'assets/production-bridge.js' not in s:
+                  s = s.replace('</body>', f'<script src="assets/production-bridge.js?v={token}" defer></script>\n</body>', 1)
+
+              p.write_text(s)
+
+          # Keep the post-deploy parity helper from pinning an obsolete cache key.
           p = Path('.github/workflows/fix-frontend-parity-after-deploy.yml')
           if p.exists():
               s = p.read_text()
-              token_expr = 'TOKEN="${' + '{ github.event.workflow_run.head_sha }}"'
-              s = s.replace("TOKEN='20260819-parity2'", token_expr)
-              s = s.replace("grep -q 'assets/hero.css?v=20260819-parity2' index.html",
-                            'grep -q "assets/hero.css?v=${TOKEN}" index.html')
+              s = re.sub(r"TOKEN='[^']+'", 'TOKEN="${{ github.event.workflow_run.head_sha }}"', s)
+              s = re.sub(
+                  r"grep -q ['\"]assets/hero\.css\?v=[^'\"]+['\"] index\.html",
+                  'grep -q "assets/hero.css?v=${TOKEN}" index.html',
+                  s
+              )
               p.write_text(s)
           PY
 
-          printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
+          # Sanity checks for the latest upstream pass.
+          grep -q 'gh-nav-signin' index.html
+          grep -q -- '--gh-control' assets/site.css
+          grep -q 'Layer 01.*Video\|Video' topic-computable-universe.html
+          test -f assets/production-bridge.js
+          test -f assets/local-fonts.css
 
-          if git diff --quiet && git status --porcelain --untracked-files=all | grep -qv .; then
-            echo 'Already synchronized.'
+          if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
+            echo 'No repository changes after normalization.'
             exit 0
           fi
 
           git config user.name 'Hossein Darestani'
           git config user.email '45485005+hsdarestani@users.noreply.github.com'
-          git add assets/site.css assets/site.js assets/thumbnails \
-                  index.html topic-computable-universe.html topic-machine-hypothesis.html \
-                  .github/workflows/fix-frontend-parity-after-deploy.yml .upstream-gravitasplus
+          git add -- '*.html' assets .upstream-gravitasplus .github/workflows/fix-frontend-parity-after-deploy.yml
           git commit -m "Sync frontend from desdevrad/gravitasplus ${UPSTREAM_SHA:0:12}"
           git push origin HEAD:main
 
