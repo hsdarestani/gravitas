@@ -1,0 +1,8 @@
+/* Gravitas+ frontend parity layer.
+   Pinned to desdevrad/gravitasplus@4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f.
+   Loaded after local production styles so Kiarash's frontend remains the visual
+   source of truth while the local Django/API bridge stays untouched. */
+@import url("https://cdn.jsdelivr.net/gh/desdevrad/gravitasplus@4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f/assets/gravitas.css");
+@import url("https://cdn.jsdelivr.net/gh/desdevrad/gravitasplus@4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f/assets/site.css");
+@import url("https://cdn.jsdelivr.net/gh/desdevrad/gravitasplus@4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f/assets/hero.css");
+@import url("https://cdn.jsdelivr.net/gh/desdevrad/gravitasplus@4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f/assets/chat.css");
