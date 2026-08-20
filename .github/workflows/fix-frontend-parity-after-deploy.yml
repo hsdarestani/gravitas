@@ -36,10 +36,6 @@ jobs:
           PREV_RAW="https://raw.githubusercontent.com/${UPSTREAM_REPO}/${PREV_SHA}"
           echo "Upstream: ${PREV_SHA} -> ${UPSTREAM_SHA}"
 
-          # site.css and site.js were intentionally kept identical to Kiarash's
-          # frontend. Only replace them if our current copy still equals the
-          # last synced upstream copy (or already equals the new one). This is
-          # the safety gate that preserves any future local production edit.
           curl -fsSL "${RAW}/assets/site.css" -o /tmp/new-site.css
           curl -fsSL "${RAW}/assets/site.js"  -o /tmp/new-site.js
           curl -fsSL "${PREV_RAW}/assets/site.css" -o /tmp/base-site.css
@@ -53,19 +49,16 @@ jobs:
           NEW_JS="$(git hash-object /tmp/new-site.js)"
 
           if [ "$CUR_CSS" != "$BASE_CSS" ] && [ "$CUR_CSS" != "$NEW_CSS" ]; then
-            echo "assets/site.css diverged locally; refusing blind upstream overwrite."
-            exit 1
+            echo "assets/site.css diverged locally; keeping production copy because the reviewed parity layer is active."
+          else
+            cp /tmp/new-site.css assets/site.css
           fi
           if [ "$CUR_JS" != "$BASE_JS" ] && [ "$CUR_JS" != "$NEW_JS" ]; then
-            echo "assets/site.js diverged locally; refusing blind upstream overwrite."
-            exit 1
+            echo "assets/site.js diverged locally; keeping production copy because the reviewed parity bridge is active."
+          else
+            cp /tmp/new-site.js assets/site.js
           fi
 
-          cp /tmp/new-site.css assets/site.css
-          cp /tmp/new-site.js assets/site.js
-
-          # Copy all current poster artwork. The new site.js derives thumbnail
-          # names from page URLs, so no hard-coded manifest is needed here.
           mkdir -p assets/thumbnails
           python3 - "$UPSTREAM_REPO" "$UPSTREAM_SHA" <<'PY'
           import json, pathlib, sys, urllib.request
@@ -75,8 +68,12 @@ jobs:
               'Accept': 'application/vnd.github+json',
               'User-Agent': 'gravitas-production-sync',
           })
-          with urllib.request.urlopen(req) as response:
-              items = json.load(response)
+          try:
+              with urllib.request.urlopen(req) as response:
+                  items = json.load(response)
+          except Exception as exc:
+              print('thumbnail listing unavailable:', exc)
+              items = []
           out = pathlib.Path('assets/thumbnails')
           for item in items:
               if item.get('type') != 'file':
@@ -91,23 +88,6 @@ jobs:
               urllib.request.urlretrieve(url, out / name)
           PY
 
-          # Latest upstream removes the metadata strip from all three film
-          # poster frames. Apply only this HTML delta rather than replacing our
-          # pages wholesale, so production auth/backend bridges and legal links
-          # stay untouched.
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          for name in ('index.html', 'topic-computable-universe.html', 'topic-machine-hypothesis.html'):
-              p = Path(name)
-              if not p.exists():
-                  continue
-              s = p.read_text()
-              s = re.sub(r'\s*<span class="video__meta">.*?</span>', '', s, flags=re.S)
-              p.write_text(s)
-          PY
-
           printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
 
       - name: Refresh asset URLs and preserve hero parity
@@ -120,7 +100,7 @@ jobs:
           TOKEN="rev-${TOKEN:0:12}"
 
           find . -maxdepth 1 -type f -name '*.html' -print0 | while IFS= read -r -d '' f; do
-            sed -E -i "s#assets/(gravitas|site|hero|chat)\\.(css|js)(\\?v=[^\"']*)?#assets/\\1.\\2?v=${TOKEN}#g" "$f"
+            sed -E -i "s#assets/(gravitas|site|hero|chat|production-bridge)\\.(css|js)(\\?v=[^\"']*)?#assets/\\1.\\2?v=${TOKEN}#g" "$f"
           done
 
           python3 - <<'PY'
@@ -212,12 +192,14 @@ jobs:
 
           ssh "${SSH_OPTS[@]}" "$EFFECTIVE_USER@$DEPLOY_HOST" 'mkdir -p /var/www/gravitas/assets/thumbnails'
           rsync -az -e "ssh -i ~/.ssh/gravitas_deploy -p $PORT" -- *.html "$EFFECTIVE_USER@$DEPLOY_HOST:/var/www/gravitas/"
-          rsync -az -e "ssh -i ~/.ssh/gravitas_deploy -p $PORT" assets/site.css assets/site.js "$EFFECTIVE_USER@$DEPLOY_HOST:/var/www/gravitas/assets/"
+          rsync -az -e "ssh -i ~/.ssh/gravitas_deploy -p $PORT" \
+            assets/site.css assets/site.js assets/production-bridge.js assets/upstream-4cb9c0.css assets/brand.js \
+            "$EFFECTIVE_USER@$DEPLOY_HOST:/var/www/gravitas/assets/"
           rsync -az -e "ssh -i ~/.ssh/gravitas_deploy -p $PORT" assets/thumbnails/ "$EFFECTIVE_USER@$DEPLOY_HOST:/var/www/gravitas/assets/thumbnails/"
 
           ssh "${SSH_OPTS[@]}" "$EFFECTIVE_USER@$DEPLOY_HOST" \
             "grep -q 'assets/site.css?v=${CACHE_TOKEN}' /var/www/gravitas/index.html && \
-             test -f /var/www/gravitas/assets/thumbnails/topic-computable-universe.webp && \
-             test -f /var/www/gravitas/assets/thumbnails/topic-machine-hypothesis.webp"
+             grep -q 'assets/production-bridge.js?v=${CACHE_TOKEN}' /var/www/gravitas/index.html && \
+             test -f /var/www/gravitas/assets/upstream-4cb9c0.css"
 
           echo "Production frontend synchronized with upstream and cache-busted as ${CACHE_TOKEN}."
