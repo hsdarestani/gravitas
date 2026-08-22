@@ -132,3 +132,5 @@
   .gchat__btn { width: 3.25rem !important; padding: 0 !important; justify-content: center; }
   .gchat__btn span { display: none; }
 }
+
+/* Direct production deploy marker: 2026-08-22 homepage parity repair. */
