@@ -26,7 +26,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Apply latest desdevrad frontend delta without touching backend
+      - name: Mirror latest Kiarash frontend and preserve production integrations
         shell: bash
         run: |
           set -euo pipefail
@@ -34,7 +34,7 @@ jobs:
           UPSTREAM_REPO='desdevrad/gravitasplus'
           UPSTREAM_URL="https://github.com/${UPSTREAM_REPO}.git"
           PREVIOUS="$(cat .upstream-gravitasplus 2>/dev/null || true)"
-          [ -n "$PREVIOUS" ] || PREVIOUS='8f1a959841403f6563000a5ef6a086aed8eab7d2'
+          [ -n "$PREVIOUS" ] || PREVIOUS='4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f'
 
           rm -rf /tmp/gravitasplus-upstream
           git clone -q "$UPSTREAM_URL" /tmp/gravitasplus-upstream
@@ -49,42 +49,38 @@ jobs:
           fi
 
           if ! git -C /tmp/gravitasplus-upstream cat-file -e "${PREVIOUS}^{commit}" 2>/dev/null; then
-            echo "Recorded upstream revision $PREVIOUS is not available; refusing an unsafe full overwrite."
+            echo "Recorded upstream revision $PREVIOUS is unavailable; refusing unsafe sync."
             exit 1
           fi
 
-          # Build a patch containing only public frontend files. This deliberately
-          # excludes upstream workflows/README and never touches backend/, our
-          # production bridge, deployment config, legal files, or local fonts.
           mapfile -t CHANGED < <(
-            git -C /tmp/gravitasplus-upstream diff --name-only "$PREVIOUS" "$UPSTREAM_SHA" -- \
-              '*.html' 'assets/**' \
-            | grep -Ev '^assets/(production-bridge\.js|local-fonts\.css|fonts/)' || true
+            git -C /tmp/gravitasplus-upstream diff --name-only "$PREVIOUS" "$UPSTREAM_SHA" -- '*.html' 'assets/**' \
+            | grep -Ev '^assets/(production-bridge\.js|local-fonts\.css|fonts/|upstream-[^/]+\.css$)' || true
           )
 
-          if [ "${#CHANGED[@]}" -eq 0 ]; then
-            printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
-          else
-            printf 'Frontend files changed upstream:\n'
-            printf ' - %s\n' "${CHANGED[@]}"
+          printf 'Frontend changes from Kiarash:\n'
+          printf ' - %s\n' "${CHANGED[@]}"
 
-            git -C /tmp/gravitasplus-upstream diff --binary --full-index "$PREVIOUS" "$UPSTREAM_SHA" -- "${CHANGED[@]}" > /tmp/upstream-frontend.patch
+          # The public frontend is Kiarash's source of truth. Copy every changed
+          # frontend file exactly, while never touching our backend, workflows,
+          # self-hosted fonts or production API bridge. Deletions are mirrored too.
+          for f in "${CHANGED[@]}"; do
+            case "$f" in
+              *.html|assets/*)
+                if [ -e "/tmp/gravitasplus-upstream/$f" ]; then
+                  mkdir -p "$(dirname "$f")"
+                  cp -a "/tmp/gravitasplus-upstream/$f" "$f"
+                else
+                  rm -f "$f"
+                fi
+                ;;
+            esac
+          done
 
-            # Apply only the delta, not whole upstream pages. That preserves our
-            # real auth/newsletter/community/backend wiring while taking Kiarash's
-            # visual/content fixes exactly where he changed them.
-            if ! git apply --check --whitespace=nowarn /tmp/upstream-frontend.patch; then
-              echo 'Upstream frontend patch conflicts with a local production edit.'
-              git apply --check --verbose --whitespace=nowarn /tmp/upstream-frontend.patch || true
-              exit 1
-            fi
-            git apply --whitespace=nowarn /tmp/upstream-frontend.patch
+          printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
 
-            printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
-          fi
-
-          # Production invariants: keep self-hosted fonts and real API bridge even
-          # when an upstream hunk changes adjacent head/footer markup.
+          # Keep production-only functionality without changing Kiarash's visual
+          # system: local fonts, cache-busting and the real API bridge.
           python3 - "$UPSTREAM_SHA" <<'PY'
           from pathlib import Path
           import re, sys
@@ -95,46 +91,58 @@ jobs:
           for p in Path('.').glob('*.html'):
               s = p.read_text()
 
+              # Retire old emergency parity stylesheet if it is still referenced.
+              s = re.sub(r'\s*<link[^>]+href=["\']assets/upstream-[^"\']+\.css(?:\?[^"\']*)?["\'][^>]*>\s*', '\n', s)
+
+              # The production server must not depend on Google Fonts being
+              # reachable. DM Sans / DM Mono are self-hosted locally.
+              s = re.sub(r'\s*<link[^>]+href=["\']https://fonts\.googleapis\.com/[^"\']+["\'][^>]*>\s*', '\n', s)
+              s = re.sub(r'\s*<link[^>]+href=["\']https://fonts\.gstatic\.com[^"\']*["\'][^>]*>\s*', '\n', s)
+              s = re.sub(r'\s*<link[^>]+rel=["\']preconnect["\'][^>]+fonts\.(?:googleapis|gstatic)\.com[^>]*>\s*', '\n', s)
+
               if 'assets/gravitas.css' in s and 'assets/local-fonts.css' not in s:
                   s = re.sub(
                       r'(<link[^>]+href=["\']assets/gravitas\.css(?:\?[^"\']*)?["\'][^>]*>)',
-                      '<link rel="stylesheet" href="assets/local-fonts.css?v=local1">\n\\1',
+                      f'<link rel="stylesheet" href="assets/local-fonts.css?v={token}">\n\\1',
                       s, count=1
                   )
 
-              # Keep Kiarash's frontend files fresh on production after every sync.
+              # Cache-bust every shared frontend asset changed by Kiarash.
               s = re.sub(
-                  r'assets/(gravitas|site|hero|chat)\.(css|js)(?:\?v=[^"\']*)?',
+                  r'assets/(gravitas|site|hero|chat|brand)\.(css|js)(?:\?v=[^"\']*)?',
                   lambda m: f'assets/{m.group(1)}.{m.group(2)}?v={token}',
                   s
               )
 
-              # brand.html is documentation only; public app pages retain the
-              # bridge that turns demo forms/account interactions into real APIs.
-              if p.name != 'brand.html' and 'assets/production-bridge.js' not in s:
+              # All public app pages use our real backend bridge. brand.html is
+              # documentation and intentionally remains a pure frontend page.
+              if p.name != 'brand.html':
+                  s = re.sub(r'\s*<script[^>]+src=["\']assets/production-bridge\.js(?:\?[^"\']*)?["\'][^>]*></script>\s*', '\n', s)
                   s = s.replace('</body>', f'<script src="assets/production-bridge.js?v={token}" defer></script>\n</body>', 1)
 
               p.write_text(s)
 
-          # Keep the post-deploy parity helper from pinning an obsolete cache key.
-          p = Path('.github/workflows/fix-frontend-parity-after-deploy.yml')
-          if p.exists():
-              s = p.read_text()
-              s = re.sub(r"TOKEN='[^']+'", 'TOKEN="${{ github.event.workflow_run.head_sha }}"', s)
-              s = re.sub(
-                  r"grep -q ['\"]assets/hero\.css\?v=[^'\"]+['\"] index\.html",
-                  'grep -q "assets/hero.css?v=${TOKEN}" index.html',
-                  s
-              )
-              p.write_text(s)
+          # Production password policy is 10 chars even if the visual prototype
+          # is looser. This changes validation only, not layout.
+          account = Path('account.html')
+          if account.exists():
+              s = account.read_text()
+              s = s.replace('minlength="8"', 'minlength="10"')
+              s = s.replace('at least eight characters', 'at least ten characters')
+              s = s.replace('at least 8 characters', 'at least 10 characters')
+              account.write_text(s)
           PY
 
-          # Sanity checks for the latest upstream pass.
-          grep -q 'gh-nav-signin' index.html
-          grep -q -- '--gh-control' assets/site.css
-          grep -q 'Layer 01.*Video\|Video' topic-computable-universe.html
+          # Smoke checks for the current upstream generation: new icon system,
+          # full-size logo rules and the production bridge must all be present.
+          grep -q -- '--g-ic-dim' assets/gravitas.css
+          grep -q 'g-nav__ic' assets/site.css
+          grep -q 'space__ic' index.html
+          test -f assets/icons/topics.svg
+          test -f assets/icons/signin.svg
           test -f assets/production-bridge.js
           test -f assets/local-fonts.css
+          grep -q 'assets/production-bridge.js?v=up-' index.html
 
           if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
             echo 'No repository changes after normalization.'
@@ -143,7 +151,7 @@ jobs:
 
           git config user.name 'Hossein Darestani'
           git config user.email '45485005+hsdarestani@users.noreply.github.com'
-          git add -- '*.html' assets .upstream-gravitasplus .github/workflows/fix-frontend-parity-after-deploy.yml
+          git add -- '*.html' assets .upstream-gravitasplus
           git commit -m "Sync frontend from desdevrad/gravitasplus ${UPSTREAM_SHA:0:12}"
           git push origin HEAD:main
 
