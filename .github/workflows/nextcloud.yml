@@ -1,6 +1,11 @@
 name: Provision Gravitas Nextcloud
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/nextcloud.yml'
+      - 'ops/nextcloud/**'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy Gravitas to Strato']
