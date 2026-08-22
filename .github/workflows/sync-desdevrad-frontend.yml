@@ -43,39 +43,50 @@ jobs:
           echo "Previous upstream: $PREVIOUS"
           echo "Latest upstream:   $UPSTREAM_SHA"
 
-          if [ "$PREVIOUS" = "$UPSTREAM_SHA" ]; then
-            echo 'Already synchronized.'
-            exit 0
-          fi
-
           if ! git -C /tmp/gravitasplus-upstream cat-file -e "${PREVIOUS}^{commit}" 2>/dev/null; then
             echo "Recorded upstream revision $PREVIOUS is unavailable; refusing unsafe sync."
             exit 1
           fi
 
+          # Apply only frontend files changed since the recorded upstream revision.
+          # Thumbnails are mirrored separately below because they may pre-date the
+          # recorded baseline and therefore never appear in a later delta.
           mapfile -t CHANGED < <(
             git -C /tmp/gravitasplus-upstream diff --name-only "$PREVIOUS" "$UPSTREAM_SHA" -- '*.html' 'assets/**' \
-            | grep -Ev '^assets/(production-bridge\.js|local-fonts\.css|fonts/|upstream-[^/]+\.css$)' || true
+            | grep -Ev '^assets/(production-bridge\.js|local-fonts\.css|fonts/|thumbnails/|upstream-[^/]+\.css$)' || true
           )
 
-          printf 'Frontend changes from Kiarash:\n'
-          printf ' - %s\n' "${CHANGED[@]}"
+          if [ "${#CHANGED[@]}" -gt 0 ]; then
+            printf 'Frontend changes from Kiarash:\n'
+            printf ' - %s\n' "${CHANGED[@]}"
 
-          # The public frontend is Kiarash's source of truth. Copy every changed
-          # frontend file exactly, while never touching our backend, workflows,
-          # self-hosted fonts or production API bridge. Deletions are mirrored too.
-          for f in "${CHANGED[@]}"; do
-            case "$f" in
-              *.html|assets/*)
-                if [ -e "/tmp/gravitasplus-upstream/$f" ]; then
-                  mkdir -p "$(dirname "$f")"
-                  cp -a "/tmp/gravitasplus-upstream/$f" "$f"
-                else
-                  rm -f "$f"
-                fi
-                ;;
-            esac
-          done
+            # The public frontend is Kiarash's source of truth. Copy every changed
+            # frontend file exactly, while never touching our backend, workflows,
+            # self-hosted fonts or production API bridge. Deletions are mirrored too.
+            for f in "${CHANGED[@]}"; do
+              case "$f" in
+                *.html|assets/*)
+                  if [ -e "/tmp/gravitasplus-upstream/$f" ]; then
+                    mkdir -p "$(dirname "$f")"
+                    cp -a "/tmp/gravitasplus-upstream/$f" "$f"
+                  else
+                    rm -f "$f"
+                  fi
+                  ;;
+              esac
+            done
+          else
+            echo 'No text/frontend delta since the recorded upstream revision.'
+          fi
+
+          # Binary artwork must be repaired even when PREVIOUS == UPSTREAM_SHA.
+          # These posters were added before one of our old sync baselines, which is
+          # why a perfectly valid delta sync could still leave the folder absent.
+          rm -rf assets/thumbnails
+          if [ -d /tmp/gravitasplus-upstream/assets/thumbnails ]; then
+            mkdir -p assets
+            cp -a /tmp/gravitasplus-upstream/assets/thumbnails assets/thumbnails
+          fi
 
           printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
 
@@ -107,17 +118,24 @@ jobs:
                       s, count=1
                   )
 
-              # Cache-bust every shared frontend asset changed by Kiarash.
+              # Cache-bust every shared frontend asset changed by Kiarash, plus
+              # our local font/parity layer so production cannot keep its previous
+              # copy when the upstream SHA itself did not change.
               s = re.sub(
                   r'assets/(gravitas|site|hero|chat|brand)\.(css|js)(?:\?v=[^"\']*)?',
                   lambda m: f'assets/{m.group(1)}.{m.group(2)}?v={token}',
+                  s
+              )
+              s = re.sub(
+                  r'assets/local-fonts\.css(?:\?v=[^"\']*)?',
+                  f'assets/local-fonts.css?v={token}',
                   s
               )
 
               # All public app pages use our real backend bridge. brand.html is
               # documentation and intentionally remains a pure frontend page.
               if p.name != 'brand.html':
-                  s = re.sub(r'\s*<script[^>]+src=["\']assets/production-bridge\.js(?:\?[^"\']*)?["\'][^>]*></script>\s*', '\n', s)
+                  s = re.sub(r'\s*<script[^>]+src=["\']assets/production-bridge\.js(?:\?v=[^"\']*)?["\'][^>]*></script>\s*', '\n', s)
                   s = s.replace('</body>', f'<script src="assets/production-bridge.js?v={token}" defer></script>\n</body>', 1)
 
               p.write_text(s)
@@ -133,13 +151,17 @@ jobs:
               account.write_text(s)
           PY
 
-          # Smoke checks for the current upstream generation: new icon system,
-          # full-size logo rules and the production bridge must all be present.
+          # Smoke checks for the current upstream generation and the four homepage
+          # details that previously drifted on production.
           grep -q -- '--g-ic-dim' assets/gravitas.css
           grep -q 'g-nav__ic' assets/site.css
           grep -q 'space__ic' index.html
+          grep -q 'Reading time' index.html
+          grep -q 'lp-hero__credit' assets/hero.css
           test -f assets/icons/topics.svg
           test -f assets/icons/signin.svg
+          test -f assets/thumbnails/topic-computable-universe.webp
+          test -f assets/thumbnails/topic-machine-hypothesis.webp
           test -f assets/production-bridge.js
           test -f assets/local-fonts.css
           grep -q 'assets/production-bridge.js?v=up-' index.html
