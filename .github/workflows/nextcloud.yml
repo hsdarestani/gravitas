@@ -1,11 +1,6 @@
 name: Provision Gravitas Nextcloud
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/nextcloud.yml'
-      - 'ops/nextcloud/ensure.sh'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy Gravitas to Strato']
@@ -25,12 +20,13 @@ jobs:
   nextcloud:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Resolve SSH
         shell: bash
@@ -71,23 +67,38 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          MODE=install
-          if [ "${{ github.event_name }}" = workflow_run ]; then MODE=repair; fi
           scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/nextcloud/ensure.sh \
             "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:/tmp/gravitas-nextcloud-ensure"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
-            "sudo install -m 750 /tmp/gravitas-nextcloud-ensure /usr/local/sbin/gravitas-nextcloud-ensure && sudo /usr/local/sbin/gravitas-nextcloud-ensure '$DOMAIN' '$MODE'"
+            "sudo install -m 750 /tmp/gravitas-nextcloud-ensure /usr/local/sbin/gravitas-nextcloud-ensure && sudo /usr/local/sbin/gravitas-nextcloud-ensure '$DOMAIN' repair"
 
       - name: Verify public endpoint
         shell: bash
         run: |
           set -euo pipefail
-          curl -4 -fsS --retry 15 --retry-delay 4 --connect-timeout 8 --max-time 25 \
+          curl -4 -fsS --retry 20 --retry-delay 4 --connect-timeout 8 --max-time 25 \
             "https://$DOMAIN/nextcloud/status.php" | tee /tmp/status.json
           grep -q '"installed":true' /tmp/status.json
+          curl -4 -fsSI --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+            "https://$DOMAIN/nextcloud/" | grep -Eq '^HTTP/.* (200|302|303)'
 
-      - name: Record live status
-        if: github.event_name != 'workflow_run'
+      - name: Verify containers, cron and backup timers
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          sudo docker inspect -f '{{.State.Running}}' gravitas-nextcloud | grep -qx true
+          sudo docker inspect -f '{{.State.Running}}' gravitas-nextcloud-db | grep -qx true
+          sudo docker inspect -f '{{.State.Running}}' gravitas-nextcloud-redis | grep -qx true
+          sudo systemctl is-active gravitas-nextcloud-cron.timer
+          sudo systemctl is-active gravitas-nextcloud-backup.timer
+          sudo docker exec -u www-data gravitas-nextcloud php occ status | grep -q 'installed: true'
+          sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot | grep -qx '/nextcloud'
+          sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwriteprotocol | grep -qx 'https'
+          REMOTE
+
+      - name: Record verified status on status branch
         shell: bash
         run: |
           set -euo pipefail
@@ -99,11 +110,10 @@ jobs:
           git config user.name 'gravitas-nextcloud-bot'
           git config user.email 'actions@users.noreply.github.com'
           git add .nextcloud-status
-          git commit -m 'Record live Nextcloud status' || exit 0
-          git push origin HEAD:main
+          git commit -m 'Record verified Nextcloud status'
+          git push --force origin HEAD:nextcloud-status
 
       - name: Export one-day admin credentials
-        if: github.event_name != 'workflow_run'
         shell: bash
         run: |
           set -euo pipefail
@@ -111,7 +121,6 @@ jobs:
             'sudo cat /etc/gravitas/nextcloud-admin-credentials' > nextcloud-admin-credentials.txt
 
       - name: Upload one-day admin credentials
-        if: github.event_name != 'workflow_run'
         uses: actions/upload-artifact@v4
         with:
           name: nextcloud-admin-credentials
