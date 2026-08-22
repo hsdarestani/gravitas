@@ -1,1 +1,2 @@
 Trigger post-deploy Nextcloud provisioning after the workflow was installed on the default branch.
+Forced re-run at 2026-08-22T14:44+03:30.
