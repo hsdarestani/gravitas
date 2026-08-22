@@ -6,6 +6,10 @@ on:
     paths:
       - '.github/workflows/nextcloud.yml'
       - 'ops/nextcloud/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ops/nextcloud/pr-trigger.txt'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy Gravitas to Strato']
