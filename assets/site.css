@@ -18,28 +18,87 @@
    every page. Left in the hero stylesheet, the dropdown simply did not exist
    anywhere except the home page. */
 /* ---- Header additions ---- */
+/* One height for every control in the header actions row, pill or circle. All
+   of them had been sized independently and drifted apart: the CTA and the
+   burger at 2.75rem, the theme toggle at 2.5rem, and Sign in and Join Us at
+   whatever `.g-btn--sm`'s padding happened to add up to, which is 35px. On a
+   phone that put a small circle between two larger ones; on a desktop it put
+   two short pills beside a taller circle.
+
+   The token is the row's height, not just the circles' diameter: the buttons
+   take it as a min-height and centre their label in it, so a change to the
+   type scale or the button padding cannot pull the row out of line again.
+   2.75rem below 880px is the larger of the two circle sizes already in use and
+   clears the 44px touch target. */
+:root { --gh-control: 2.5rem; --gh-control-icon: 1.125rem; }
+@media (max-width: 880px) { :root { --gh-control: 2.75rem; } }
+
+/* The pills: same height as the circles, their own width. */
+.gh-actions .g-btn { min-height: var(--gh-control); }
+
+/* ---- The logo is never the thing that gives way -------------------------
+   The header row is logo + nav + actions, and the logo was the only flex
+   item allowed to shrink, so every time the row ran out of room it was the
+   mark that got crushed: 149px down to 15px at 721px wide, and to 14px on a
+   360px phone. It is the one element on the page that cannot be allowed to
+   degrade, so it is locked at its intrinsic width and the row sheds controls
+   instead, in this order:
+
+     under 880px   the nav collapses into the menu, and "Sign in" goes with it
+     under 400px   "Join Us" follows, and the header keeps logo + theme + menu
+
+   Both live in the dropdown at every width below the breakpoint, so nothing
+   is ever merely hidden. The 880 figure is measured, not guessed: logo 149 +
+   nav 351 + actions 248 + two 24px gaps + gutters needs 864px, so the full
+   row is only offered where it actually fits. */
+.g-logo { flex: none; }
+
 .lp-header__cta { display: inline-flex; }
+/* The CTA's mark is sized in rem, not in the button's em. At --sm the button
+   sets 0.8125rem, and a 13px box cannot render a 24-unit grid without the 1.7
+   stroke landing on a fraction of a pixel — the one icon in the header that
+   would have been drawn at a different weight from all the others. 1rem in a
+   2.5rem pill leaves whole pixels either side, and the optical lead-shift below
+   is recomputed from that width instead of from 1em. */
+.lp-header__cta .g-btn__icon { width: 1rem; height: 1rem; }
+.lp-header__cta.g-btn--lead { --_shift: calc((1rem + 0.5rem) / 4); }
+/* Same for Sign in beside it, so both marks in the header row render at one
+   weight, which was the point. The dropdown's Join Us is deliberately not in
+   this rule: it is not a header control, it is the last row of a menu, and it
+   is sized to that column instead, below. */
+.gh-signin .g-btn__icon { width: 1rem; height: 1rem; }
+.gh-signin.g-btn--lead { --_shift: calc((1rem + 0.5rem) / 4); }
 .lp-menu-btn { display: none; }
 .g-header__inner { position: relative; }
 .lp-header__actions { display: flex; align-items: center; gap: var(--g-space-2xs); flex: none; flex-wrap: nowrap; }
-@media (max-width: 720px) {
+
+/* In the dropdown only. On desktop these two sit in the header itself. */
+.gh-nav-signin, .gh-nav-join, .g-nav__sep { display: none; }
+/* Likewise the nav marks: shipped in the markup on every page, revealed by the
+   dropdown's own media query below. */
+.g-nav__ic { display: none; }
+
+@media (max-width: 880px) {
   /* Collapse the CTA to a circular icon button that sits beside the hamburger.
      (The old rule targeted `.lp-header__cta .g-btn span`, but the class is on the
      button itself, so it never matched, the full label stayed, and the burger
      wrapped onto a second line.) */
   .lp-header__cta span { display: none; }
   .lp-header__cta {
-    width: 2.75rem; height: 2.75rem; padding: 0;
+    width: var(--gh-control); height: var(--gh-control); padding: 0;
     border-radius: var(--g-radius-pill); flex: none;
   }
-  .lp-header__cta .g-btn__icon { width: 1.05rem; height: 1.05rem; }
+  .lp-header__cta .g-btn__icon { width: var(--gh-control-icon); height: var(--gh-control-icon); }
   .lp-menu-btn {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 2.75rem; height: 2.75rem; flex: none;
+    width: var(--gh-control); height: var(--gh-control); flex: none;
     border-radius: var(--g-radius-pill);
     border: 1px solid var(--g-border); background: transparent; color: var(--g-text);
     cursor: pointer;
   }
+  /* Beats the width/height attributes on the inline SVG, so the three glyphs
+     carry the same optical weight and not just the same circle. */
+  .lp-menu-btn svg { width: var(--gh-control-icon); height: var(--gh-control-icon); }
   .lp-menu-btn[aria-expanded="true"] { background: rgb(var(--g-tint) / 0.12); border-color: var(--g-border-strong); }
 
   /* The dropdown panel lives entirely in CSS so nothing leaks back to desktop.
@@ -57,14 +116,85 @@
     z-index: var(--g-z-overlay);
   }
   .g-nav.is-open { display: flex; }
+  /* Row whitespace is set from the *ink*, not from the boxes. A mark's box is
+     20px but its drawing stops about 1.8px short on each side, so a 1rem inset
+     and a 0.5rem gap measured box-to-box actually read as 17.8px of air on the
+     left and 9.8px between the mark and its label — the mark ends up nearly
+     twice as far from the panel edge as from the word it belongs to, which is
+     why it looked stuck to the text. At 0.75rem each, both whitespaces come to
+     13.8px of ink-to-ink air, and the icon column separates cleanly. The label
+     lands at 44px, unchanged, so nothing else in the panel moves. */
   .g-nav .g-nav__link {
-    padding: var(--g-space-2xs) var(--g-space-sm);
+    padding: var(--g-space-2xs) var(--g-space-xs);
     border-bottom: 0; border-radius: var(--g-radius-sm);
+    display: flex; align-items: center; gap: var(--g-space-xs);
   }
+  /* The marks appear here and nowhere else in the header. On the desktop row
+     the nav is five words in a line, where an icon in front of each one turns
+     navigation into a toolbar; in a vertical panel the same marks are what
+     make the rows scannable at arm's length. Same markup, one display switch. */
+  /* Dimmed via --g-ic-dim, not --g-text-subtle: see that token's note. An icon
+     is several stroked paths, and a per-path alpha lights up every crossing. */
+  .g-nav .g-nav__ic { display: block; color: var(--g-ic-dim); opacity: var(--g-ic-dim-a); }
+  /* Sign in is the one mark whose drawing is not symmetric about the box: a
+     solid dot on one side, an open bracket on the other, so the centroid rule
+     that positions every mark leaves its *bounding box* 2.4 units left of
+     centre. On a plate that is right and invisible. In a fixed-width column it
+     is visible, because the eye aligns the drawings, not the boxes — the mark
+     sat 2px left of the other five and 2px further from its own label.
+
+     So in a row it is centred on its box instead. Whole pixels, deliberately:
+     a fractional margin puts a 1.7 stroke on a half-pixel grid and softens the
+     one mark it was meant to fix. This is a row-context correction only; on the
+     plate the mark keeps its centroid position. */
+  .g-nav .g-ic--signin { margin-left: 2px; }
+  .g-nav .g-nav__link:hover .g-nav__ic,
+  .g-nav .g-nav__link[aria-current="page"] .g-nav__ic { color: var(--g-accent); opacity: 1; }
+  /* Sign in used to be indented by hand to reach the text column the five
+     marked rows share. It has its own mark now, so the indent is gone and the
+     alignment comes from the same box the others use. */
   .g-nav .g-nav__link:hover,
   .g-nav .g-nav__link[aria-current="page"] {
     background: rgb(var(--g-tint) / 0.1); color: var(--g-text);
   }
+
+  /* Sign in leaves the header here and becomes a menu item. The hairline
+     above it separates account actions from navigation, which is the only
+     grouping the panel needs. */
+  .gh-actions .gh-signin { display: none; }
+  .gh-nav-signin { display: block; }
+  .g-nav__sep {
+    display: block; height: 1px; margin: var(--g-space-2xs) var(--g-space-3xs);
+    background: var(--g-hairline);
+  }
+
+  /* A phone header has room for the mark and two controls, no more. The gap
+     tightens with it so the logo keeps its full width down to 320px. */
+  .g-header__inner { gap: var(--g-space-sm); }
+}
+
+@media (max-width: 400px) {
+  .gh-actions .lp-header__cta { display: none; }
+  /* Join Us drops out of the header and becomes the last row of the menu. It
+     stays a filled pill, because it is still the one loud control, but it stops
+     behaving like a standalone button: a full-width button centres its
+     contents, so its mark floated in the middle of the panel while the six
+     above it sat in a column at the left edge. That is one icon out of seven
+     out of line, and it is the first thing the eye finds.
+
+     So it is set to the menu's column rather than to its own centre. The rows
+     put their label at 0.75rem of padding + a 1.25rem mark + a 0.75rem gap =
+     2.75rem from the panel's content edge, and the button reproduces that.
+
+     Its padding and gap are restated rather than inherited: at --sm the button
+     is built on 1rem and 0.5rem, and it needs the rows' 0.75rem and 0.75rem.
+     Setting padding-inline outright also retires the optical lead-shift, which
+     exists to balance a *centred* label and is simply wrong for a flush one. */
+  .gh-nav-join { display: inline-flex; width: 100%; margin-top: var(--g-space-3xs);
+                 justify-content: flex-start; }
+  .g-nav .gh-nav-join { gap: var(--g-space-xs); }
+  .g-nav .gh-nav-join.g-btn--lead { padding-inline: var(--g-space-xs); }
+  .gh-nav-join .g-btn__icon { width: 1.25rem; height: 1.25rem; }
 }
 
 /* ---- Optical centring for buttons with a leading icon --------------------
@@ -87,7 +217,7 @@
 .g-btn--lead.g-btn--lg { padding-left: calc(2rem   - var(--_shift)); padding-right: calc(2rem   + var(--_shift)); }
 .g-btn--lead.g-btn--sm { padding-left: calc(1rem   - var(--_shift)); padding-right: calc(1rem   + var(--_shift)); }
 /* the header CTA collapses to an icon-only circle on mobile, no label to centre */
-@media (max-width: 720px) { .lp-header__cta.g-btn--lead { padding: 0; } }
+@media (max-width: 880px) { .lp-header__cta.g-btn--lead { padding: 0; } }
 
 /* ---- Topic filter row (PBS season selector) ---- */
 .lp-filters { display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); margin-bottom: var(--g-space-lg); }
@@ -149,6 +279,26 @@ body.is-deep     [data-level="overview"] { display: none; }
 
 /* ---------- page head ---------------------------------------------------- */
 .page-head { padding-block: clamp(2.5rem, 5vw, 4.5rem) clamp(1.5rem, 3vw, 2.5rem); position: relative; }
+/* A section page opens with its own mark, above the crumb rather than beside
+   the heading: alongside an h1 that runs to 3.4rem the plate either has to
+   grow into a badge or sit visibly undersized, and both fight the headline.
+   Stacked, it reads as the section's stamp and the type keeps its full width.
+   Detail pages get the same mark at 1rem inside the crumb instead, which says
+   where you are without repeating the section's opening gesture. */
+/* Block-level, not the plate's inline-flex: as an inline box it would sit on a
+   line box and carry the line's leading under it, so the gap to the crumb would
+   be the margin plus whatever the descender space happened to be. */
+.page-head__ic { display: flex; margin-bottom: var(--g-space-sm); }
+/* Sized and aligned against the crumb's own type rather than left at --sm: the
+   crumb sets 0.8125rem, and a 1rem mark beside it opens the line-box and reads
+   as an icon with a caption attached. 0.875rem is the smallest step that keeps
+   the 1.7 stroke legible while still deferring to the words. The shift centres
+   the mark's box on the x-height, since the ink centroid is already at the
+   middle of that box by construction. */
+.crumb__ic {
+  display: inline-block; width: 0.875rem; height: 0.875rem;
+  vertical-align: -0.32em; margin-right: 0.4rem; color: var(--g-accent);
+}
 .page-head h1 {
   font-size: clamp(2rem, 1.3rem + 2.6vw, 3.4rem); font-weight: var(--g-w-bold);
   letter-spacing: -.03em; line-height: 1.05; margin: 0 0 var(--g-space-sm);
@@ -162,28 +312,47 @@ body.is-deep     [data-level="overview"] { display: none; }
 .crumb a { color: var(--g-text-muted); text-decoration: none; }
 .crumb a:hover { color: var(--g-text); }
 
-/* ---------- the six spaces (home) ---------------------------------------- */
-.spaces { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--g-space-sm); }
-/* six items, three to a row: two full rows, no orphan */
-@media (min-width: 861px) { .space { grid-column: span 2 !important; } }
-@media (max-width: 860px) { .spaces { grid-template-columns: repeat(2, 1fr); }
-                            .space { grid-column: span 1 !important; } }
-@media (max-width: 520px) { .spaces { grid-template-columns: 1fr; } }
+/* ---------- the six spaces (home) ----------------------------------------
+   Six equal cards, three to a row. They used to be a 6-column grid with the
+   first two spanning half a row each and four narrow ones beneath, which meant
+   the section called "Six Ways In" showed two important ways and four
+   afterthoughts, and it needed four media queries and two `!important`s to
+   hold that shape together. Now that each card carries its own mark, the set
+   reads as six of one kind, and the grid is three columns that halve twice.
+   No spans, no overrides.
+
+   The old rules are gone rather than commented out: `.space--wide` no longer
+   exists, and the two queries at 900px and 560px were already dead, beaten by
+   the `!important` in the 861px one. */
+.spaces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-sm); }
+@media (max-width: 860px) { .spaces { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .spaces { grid-template-columns: minmax(0, 1fr); } }
 .space {
-  grid-column: span 2; position: relative; overflow: hidden;
+  position: relative; overflow: hidden;
   border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
   background: linear-gradient(180deg, var(--g-surface-raised), var(--g-surface));
   padding: var(--g-space-md); text-decoration: none; display: flex; flex-direction: column;
-  min-height: 168px;
+  min-height: 200px;
   transition: transform var(--g-dur) var(--g-ease-orbit),
               border-color var(--g-dur) var(--g-ease-orbit),
               background-color var(--g-dur) var(--g-ease-orbit);
 }
 .space:hover { transform: translateY(-3px); border-color: var(--g-border); }
-.space--wide { grid-column: span 3; }
+/* Mark left, number right, on one line: the number keeps its old job of
+   ordering the set, but stops being the card's opening image. Baseline
+   alignment would hang the digits off the plate's cap height, so the row is
+   centred on the plate instead and the number is nudged by its own optical
+   centre, not the box's. */
+.space__top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--g-space-sm);
+}
 .space__n {
   font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow); letter-spacing: .16em;
-  color: var(--g-accent); margin-bottom: var(--g-space-2xs);
+  color: var(--g-text-subtle);
+}
+.space:hover .space__ic {
+  border-color: var(--g-border); background: rgb(var(--g-tint) / 0.1);
 }
 .space h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
 .space p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
@@ -193,8 +362,6 @@ body.is-deep     [data-level="overview"] { display: none; }
   color: var(--g-accent); display: inline-flex; align-items: center; gap: .35rem;
 }
 .space:hover .space__go { color: var(--g-text); }
-@media (max-width: 900px) { .space, .space--wide { grid-column: span 3; } }
-@media (max-width: 560px) { .space, .space--wide { grid-column: span 6; } }
 
 /* ---------- filter bar --------------------------------------------------- */
 .filters { display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); align-items: center; margin-bottom: var(--g-space-lg); }
@@ -241,9 +408,13 @@ body.is-deep     [data-level="overview"] { display: none; }
 .entry h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); line-height: 1.3; }
 .entry:hover h3 { color: var(--g-accent); }
 .entry p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-2xs); }
-.entry__meta { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); display: flex; gap: var(--g-space-2xs); flex-wrap: wrap; }
-.entry__meta span + span::before { content: "·"; margin-right: var(--g-space-2xs); }
-@media (max-width: 620px) { .entry { grid-template-columns: 1fr; gap: var(--g-space-2xs); } }
+.entry__meta { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); display: flex; align-items: center; gap: var(--g-space-2xs); flex-wrap: wrap; }
+/* The separator belongs between the spans, not inside the next one. Unscoped,
+   the ::before landed inside the reading-level pill and drew the dot within
+   its border, which is not a separator, it is a bullet in a tag. */
+.entry__meta span + span:not(.entry__lvl)::before { content: "·"; margin-right: var(--g-space-2xs); }
+.entry__meta .entry__lvl { margin-left: var(--g-space-3xs); }
+@media (max-width: 620px) { .entry { grid-template-columns: minmax(0, 1fr); gap: var(--g-space-2xs); } }
 
 /* ---------- topic ------------------------------------------------------ */
 .topic-nav {
@@ -282,15 +453,36 @@ body.is-deep     [data-level="overview"] { display: none; }
   transition: transform var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit);
 }
 .video:hover .video__play { transform: scale(1.08); background: rgb(0 48 73 / .6); }
-.video__meta {
-  position: absolute; left: 0; right: 0; bottom: 0; padding: var(--g-space-md);
-  background: linear-gradient(180deg, transparent, rgb(3 3 3 / .8));
-  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-muted);
+/* The poster frame, when assets/thumbnails/ holds one for the page this card
+   points at. See the thumbnail module in site.js for how it is found. The
+   image is absolute rather than a grid item so it fills the frame without
+   displacing the play button, which stays centred by the grid. */
+.video__img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--g-dur-slow) var(--g-ease-orbit),
+              transform var(--g-dur-slow) var(--g-ease-orbit);
+}
+.video.has-thumb .video__img { opacity: 1; }
+/* Light and even. The ring carries its own dark disc and blur, so this is not
+   holding up the contrast on its own — it only keeps a pale patch of a
+   thumbnail from swallowing the border, and stays faint enough that the
+   artwork is still the thing you see. */
+.video.has-thumb::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: rgb(3 3 3 / .14);
+}
+.video__play { position: relative; z-index: 1; }
+.video:hover .video__img { transform: scale(1.03); }
+.video.is-flat:hover .video__img { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .video__img { transition: opacity var(--g-dur-fast) linear; }
+  .video:hover .video__img { transform: none; }
 }
 
 /* sources at three levels */
 .levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-md); }
-@media (max-width: 860px) { .levels { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .levels { grid-template-columns: minmax(0, 1fr); } }
 .level { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); }
 .level__tag {
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em;
@@ -317,7 +509,7 @@ body.is-deep     [data-level="overview"] { display: none; }
 
 /* viewpoints */
 .views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-space-md); }
-@media (max-width: 760px) { .views { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .views { grid-template-columns: minmax(0, 1fr); } }
 .view { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); }
 .view--for { border-left: 2px solid var(--g-signal-positive); }
 .view--against { border-left: 2px solid var(--g-signal-caution); }
@@ -357,11 +549,18 @@ body.is-deep     [data-level="overview"] { display: none; }
 .game-card__b { padding: var(--g-space-md); display: flex; flex-direction: column; flex: 1; }
 .game-card h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
 .game-card p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0 0 var(--g-space-sm); }
-.game-card__meta { margin-top: auto; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent); }
+/* Typed as `.game-card p` elsewhere, which outranks a single class, so the
+   `margin-top: auto` never applied and the meta line stopped short of the
+   card's foot with a 1rem margin under it. That left a band of dead space at
+   the bottom of every card, which is where the PLANNED chip had been parked. */
+.game-card p.game-card__meta {
+  margin-top: auto; margin-bottom: 0;
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent);
+}
 .badge-soon {
   position: absolute; top: var(--g-space-2xs); right: var(--g-space-2xs);
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
-  background: rgb(3 3 3 / .7); color: var(--g-text-muted); padding: .1rem .45rem; border-radius: var(--g-radius-sm);
+  background: rgb(3 3 3 / .7); color: var(--g-text-muted); border-radius: var(--g-radius-sm);
 }
 
 /* game shell */
@@ -434,9 +633,9 @@ body.is-deep     [data-level="overview"] { display: none; }
 
 /* ---------- community ---------------------------------------------------- */
 /* six roles, three to a row */
-.roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g-space-sm); }
-@media (max-width: 860px) { .roles { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 520px) { .roles { grid-template-columns: 1fr; } }
+.roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-sm); }
+@media (max-width: 860px) { .roles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .roles { grid-template-columns: minmax(0, 1fr); } }
 .role { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); }
 .role h4 { font-size: var(--g-fs-body); margin: 0 0 var(--g-space-3xs); }
 .role p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; }
@@ -464,14 +663,14 @@ body.is-deep     [data-level="overview"] { display: none; }
 
 /* ---------- programmes strip -------------------------------------------- */
 /* five items: three then two, both rows full, rather than four then a widow */
-.programs { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--g-space-sm); }
+.programs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--g-space-sm); }
 .program { grid-column: span 2; }
 .program:nth-child(4), .program:nth-child(5) { grid-column: span 3; }
 /* two columns: the fifth is the odd one, so let it take the full width */
-@media (max-width: 900px) { .programs { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 900px) { .programs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .program { grid-column: span 1 !important; }
   .program:nth-child(5) { grid-column: span 2 !important; } }
-@media (max-width: 560px) { .programs { grid-template-columns: 1fr; }
+@media (max-width: 560px) { .programs { grid-template-columns: minmax(0, 1fr); }
   .program, .program:nth-child(5) { grid-column: span 1 !important; } }
 .program { border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-md); background: var(--g-surface-raised); }
 .program__n { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent); letter-spacing: .1em; }
@@ -480,12 +679,20 @@ body.is-deep     [data-level="overview"] { display: none; }
 .program__cad { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 
 /* ---------- misc --------------------------------------------------------- */
-.kv { display: grid; grid-template-columns: auto 1fr; gap: .35rem var(--g-space-md); font-size: var(--g-fs-small); }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .35rem var(--g-space-md); font-size: var(--g-fs-small); }
 .kv dt { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); letter-spacing: .06em; text-transform: uppercase; }
 .kv dd { margin: 0; color: var(--g-text-muted); }
 .pill-row { display: flex; gap: var(--g-space-2xs); flex-wrap: wrap; }
 .split { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 3.5rem); align-items: start; }
-@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
+/* A grid item's default `min-width: auto` means "never narrower than my own
+   min-content". A <pre> does not wrap, so its min-content is the width of its
+   longest line: on a phone the essay column refused to go below ~560px, the
+   grid pushed past the viewport, and the whole page - header included - could
+   be scrolled sideways. The In-depth essay is the only place with code, which
+   is why it only happened there. The column may now shrink; the code box keeps
+   its own scrollbar. */
+.split > * { min-width: 0; }
 .aside { position: sticky; top: 6rem; }
 @media (max-width: 900px) { .aside { position: static; } }
 .callout {
@@ -503,12 +710,12 @@ body.is-deep     [data-level="overview"] { display: none; }
 /* ---- Footer social icons, uniform circular buttons, one visual weight ---- */
 /* The Elsewhere column needs a little more room than the others so all five
    sit on a single row rather than wrapping 4+1. */
-.g-footer__grid { grid-template-columns: 1.5fr 1fr 1fr 1.35fr; }
+.g-footer__grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr); }
 /* These must sit beside the rule above: it is unlayered, so it outranks the
    design system's own breakpoints and would otherwise hold four columns all
    the way down to 360px. */
-@media (max-width: 800px) { .g-footer__grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 520px) { .g-footer__grid { grid-template-columns: 1fr; gap: var(--g-space-md); } }
+@media (max-width: 800px) { .g-footer__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .g-footer__grid { grid-template-columns: minmax(0, 1fr); gap: var(--g-space-md); } }
 .lp-social { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .lp-social__link {
   display: inline-flex; align-items: center; justify-content: center;
@@ -537,7 +744,7 @@ body.is-deep     [data-level="overview"] { display: none; }
 .entry__lvl {
   font-family: var(--g-font-mono); font-size: .62rem; letter-spacing: .12em;
   text-transform: uppercase; color: var(--g-text-subtle);
-  border: 1px solid var(--g-hairline); border-radius: 99px; padding: .08rem .45rem;
+  border: 1px solid var(--g-hairline);
 }
 body.is-overview .entry[data-reading="deep"] { opacity: .55; }
 body.is-overview .entry[data-reading="deep"]:hover { opacity: 1; }
@@ -612,8 +819,7 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 .src li { display:flex; gap:.8rem; align-items:baseline; padding:.45rem 0;
   border-bottom:1px solid var(--g-hairline); }
 .src__lvl { flex:none; font-family:var(--g-font-mono); font-size:.6rem; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--g-text-subtle); border:1px solid var(--g-hairline);
-  border-radius:99px; padding:.08rem .45rem; }
+  text-transform:uppercase; color:var(--g-text-subtle); border:1px solid var(--g-hairline); }
 .art__next { padding-block: var(--g-space-xl) var(--g-space-2xl); }
 .art__next h3 { font-size:1.1rem; margin-bottom:var(--g-space-md); }
 .nextcard { display:flex; flex-direction:column; gap:.4rem; text-decoration:none;
@@ -639,11 +845,71 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
   position: absolute; top: .7rem; right: .7rem; z-index: 2;
   font-family: var(--g-font-mono); font-size: .6rem; letter-spacing: .14em;
   text-transform: uppercase; color: var(--g-text-subtle);
-  border: 1px solid var(--g-hairline); border-radius: 99px;
-  padding: .1rem .5rem; background: rgb(var(--g-chrome) / 0.85);
+  border: 1px solid var(--g-hairline);
+  background: rgb(var(--g-chrome) / 0.85);
 }
-.game-card.is-soon .soon-chip { top: auto; bottom: .7rem; }
 
+/* ---- where the chip sits on its card ------------------------------------
+   A floating chip reads as debris unless it lines up with something. It was
+   pinned .7rem from the card's corner, which is inside the card's own padding
+   and so lines up with nothing: on a magazine entry it floated above the
+   ANALYSIS eyebrow, on a path card above the step count, and on a game card it
+   sat in the dead space under the meta line.
+
+   Each card anchors it to a real line of text instead, centring the chip on
+   that line: the card's padding, plus half the difference between the line box
+   and the chip. The chip is ~21px and the entry eyebrow's line is 21.45px, so
+   there the correction rounds away; the path card's eyebrow line is 16.8px,
+   which is where the negative term comes from. */
+.entry.is-soon .soon-chip { top: calc(var(--g-space-md) + .2rem); right: 0; }  /* the eyebrow's own padding-top */
+.path-card.is-soon .soon-chip,
+.game-card.is-soon .soon-chip {
+  /* Right edge on the card's content column, not floating inside its padding. */
+  top: auto; right: var(--g-space-md); bottom: calc(var(--g-space-md) + .06rem);
+}
+
+/* ---- and it must not land on the words ----------------------------------
+   An absolutely positioned chip takes no space, so the line it sits on ran
+   straight under it: the step count on a path card and the meta line on a
+   game card were both being overprinted at narrow widths, and an entry's
+   headline reached it as soon as the column got tight.
+
+   The line it shares keeps a gutter the width of the chip. PLANNED is a fixed
+   string at a fixed size, so its width is a known 4.25rem; the rest is the
+   space between the two. */
+.is-soon { --chip-w: 4.25rem; --chip-gutter: calc(var(--chip-w) + var(--g-space-sm)); }
+.entry.is-soon h3 { padding-right: var(--chip-gutter); }
+.path-card.is-soon > p:last-child,
+.game-card.is-soon .game-card__meta { padding-right: var(--chip-gutter); }
+
+/* The trailing margin under the last line left a band of dead space at the
+   foot of the card, the same one the game card had. */
+.path-card.is-soon > p:last-child { margin-bottom: 0; }
+
+
+/* ---- tag pills ----------------------------------------------------------
+   PLANNED, TECHNICAL, the source levels: same object, so one rule owns their
+   geometry and each component only sets colour and size.
+
+   They were centred by luck rather than by construction. The text sat in a
+   1.65 line box inherited from the body, so the box was drawn around the
+   font's full ascent and descent while the label is uppercase and uses
+   neither: the caps ended up riding high with the descender space showing
+   underneath, worst on the reading-level pill, which was also being stretched
+   by its flex row. Set the line box to the type size and let the padding do
+   the centring, which is a figure that can be reasoned about. The .02em
+   asymmetry is the caps' own overshoot above the baseline. */
+.soon-chip, .entry__lvl, .src__lvl, .badge-soon {
+  display: inline-flex; align-items: center; justify-content: center;
+  align-self: center;
+  line-height: 1;
+  padding: .5em .75em .48em;
+}
+.soon-chip, .entry__lvl, .src__lvl { border-radius: 99px; }
+/* Tracking adds a space after the last letter that the box counts but the eye
+   does not, so the label reads left of centre. Half of it back. */
+.soon-chip { text-indent: .07em; }
+.entry__lvl, .src__lvl { text-indent: .06em; }
 
 /* a reference or control whose destination does not exist yet: still readable,
    no longer pretending to be a link */
@@ -697,7 +963,7 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
   margin-inline: auto; padding-inline: var(--g-gutter);
   display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,.85fr);
   gap: clamp(1.5rem,4vw,3.5rem); align-items: start; }
-@media (max-width: 900px) { .auth__in { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .auth__in { grid-template-columns: minmax(0, 1fr); } }
 .auth__panel { background: var(--g-surface); border: 1px solid var(--g-hairline);
   border-radius: var(--g-radius-lg); padding: clamp(1.25rem,3vw,2.2rem); }
 .auth__tabs { display: flex; gap: .3rem; background: var(--g-surface-sunken);
@@ -716,9 +982,9 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 .auth__form > .g-field { margin-bottom: var(--g-space-lg); }
 .auth__form > .g-btn { margin-top: var(--g-space-2xs); }
 .auth__roles { border: 0; padding: 0; margin: 0 0 var(--g-space-md); }
-.auth__rolegrid { display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem; }
-@media (max-width: 720px) { .auth__rolegrid { grid-template-columns: repeat(2,1fr); } }
-@media (max-width: 460px) { .auth__rolegrid { grid-template-columns: 1fr; } }
+.auth__rolegrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+@media (max-width: 720px) { .auth__rolegrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .auth__rolegrid { grid-template-columns: minmax(0, 1fr); } }
 .rolepick { position: relative; display: block; cursor: pointer; }
 .rolepick input { position: absolute; opacity: 0; inset: 0; }
 .rolepick span { display: block; border: 1px solid var(--g-hairline);
@@ -803,7 +1069,7 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
    is a real card so the section does not look thin at one person. */
 /* One card per row, and generous, these are the people, not a sidebar. */
 .team { list-style: none; margin: 0; padding: 0; display: grid;
-  grid-template-columns: 1fr; gap: var(--g-space-md); max-width: 54rem; }
+  grid-template-columns: minmax(0, 1fr); gap: var(--g-space-md); max-width: 54rem; }
 .person { display: flex; gap: var(--g-space-lg); align-items: flex-start;
   border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
   background: var(--g-surface-raised); padding: var(--g-space-md); }
@@ -843,7 +1109,7 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
   color: var(--g-accent); letter-spacing: .06em; padding-top: .12rem; }
 .hist h3 { font-size: var(--g-fs-body); margin: 0 0 .25rem; }
 .hist p { font-size: var(--g-fs-small); color: var(--g-text-muted); margin: 0; max-width: 60ch; }
-@media (max-width: 560px) { .hist li { grid-template-columns: 1fr; gap: .3rem; } }
+@media (max-width: 560px) { .hist li { grid-template-columns: minmax(0, 1fr); gap: .3rem; } }
 
 /* ---- an aside that starts level with the body of the column beside it ----
    The previous version pushed the aside down with `padding-top: 13rem`, a
@@ -965,9 +1231,17 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 :root[data-theme="light"] .video:hover .video__play {
   background: var(--g-cosmos-600); color: var(--g-white-tint);
 }
-:root[data-theme="light"] .video__meta {
-  background: linear-gradient(180deg, transparent, rgb(255 255 255 / 0.92));
-  color: var(--g-text-muted);
+/* Except over a thumbnail. The inversion above is right for the empty frame,
+   which is drawn from theme tokens and really does go light — but a thumbnail
+   is a fixed picture and ours are deep space by definition. It does not
+   lighten because the reader flipped the toggle, so the ring laid over it
+   follows the image rather than the page. */
+:root[data-theme="light"] .video.has-thumb .video__play {
+  border-color: rgb(241 239 236 / .7); background: rgb(3 3 3 / .35);
+  color: var(--g-white-tint);
+}
+:root[data-theme="light"] .video.has-thumb:hover .video__play {
+  background: rgb(0 48 73 / .6); color: var(--g-white-tint);
 }
 :root[data-theme="light"] .g-video-card__duration {
   background: rgb(0 34 54 / 0.8);
@@ -1002,12 +1276,13 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 :root[data-theme="light"] .nextcard:hover { box-shadow: var(--g-glow-md); }
 
 /* ---- Theme toggle -------------------------------------------------------
-   Sits in the header actions, same footprint as the menu button so the row
-   keeps its rhythm. Both icons are in the DOM; CSS decides which shows,
+   Sits in the header actions at --gh-control, the same footprint as the menu
+   button and the collapsed CTA, so the row keeps its rhythm at every width.
+   Both icons are in the DOM; CSS decides which shows,
    which means no repaint flicker and no icon swap in JS. */
 .theme-toggle {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 2.5rem; height: 2.5rem; flex: none;
+  width: var(--gh-control); height: var(--gh-control); flex: none;
   border-radius: var(--g-radius-pill);
   border: 1px solid var(--g-border); background: transparent;
   color: var(--g-text-muted); cursor: pointer;
@@ -1019,9 +1294,10 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
   color: var(--g-text); border-color: var(--g-border-strong);
   background: rgb(var(--g-tint) / 0.08);
 }
-/* 1.125rem in a 2.5rem button: 40 - 18, so 11px a side. Also brings the
-   toggle into the same optical weight as the footer marks. */
-.theme-toggle svg { width: 1.125rem; height: 1.125rem; display: block; }
+/* 18px of glyph inside the control, the same figure the CTA and the burger
+   now use. Also brings the toggle into the same optical weight as the footer
+   marks. */
+.theme-toggle svg { width: var(--gh-control-icon); height: var(--gh-control-icon); display: block; }
 .theme-toggle .ic-sun { display: none; }
 :root[data-theme="light"] .theme-toggle .ic-sun { display: block; }
 :root[data-theme="light"] .theme-toggle .ic-moon { display: none; }
@@ -1047,7 +1323,14 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 /* A 68ch line at lead size is roughly 100 characters on a wide screen, which
    is past the point where the eye starts losing its place on the return
    sweep. 62ch is the comfortable end of the classic range. */
-div.art, .g-prose { max-width: 62ch; }
+div.art, .g-prose { max-width: 62ch; min-width: 0; }
+
+/* Last line of defence. Every known overflow is fixed at its source above; this
+   only means that if a future <pre>, table or wide embed escapes its box, it
+   cannot drag the whole page sideways with it. `clip` rather than `hidden`
+   because `hidden` would make the page a scroll container and break every
+   sticky header on the site. */
+html { overflow-x: clip; }
 div.art { line-height: 1.72; }
 
 /* Space between paragraphs should exceed space between lines, or the block

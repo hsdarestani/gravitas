@@ -50,6 +50,21 @@
     --g-text:              var(--g-white-tint);
     --g-text-muted:        var(--g-sisal);
     --g-text-subtle:       rgb(var(--g-tint) / 0.62);
+
+    /* A dimmed *icon* cannot use the token above. --g-text-subtle carries its
+       lightness in an alpha channel, which is fine for a glyph rendered once
+       but wrong for a drawing made of several stroked paths: each path is
+       composited separately, so wherever two strokes cross, the alpha applies
+       twice and the join comes out visibly brighter than the lines feeding it.
+       On the flask that put a bright pip at the neck and another at the rim.
+
+       So a dimmed icon takes an opaque colour and puts the alpha on the
+       element instead. Element opacity flattens the whole drawing first and
+       dims the result once, so a crossing is exactly as light as a line. The
+       rendered colour is identical to --g-text-subtle; only the compositing
+       order changes. */
+    --g-ic-dim:            rgb(var(--g-tint));
+    --g-ic-dim-a:          0.62;
     --g-text-inverse:      var(--g-cosmos-600);
 
     --g-hairline:          rgb(var(--g-tint) / 0.16);
@@ -202,6 +217,9 @@
     --g-text:              #002236;
     --g-text-muted:        #3c5464;
     --g-text-subtle:       #5d7280;
+    /* Opaque already, so nothing to flatten: the icon takes it at full alpha. */
+    --g-ic-dim:            #5d7280;
+    --g-ic-dim-a:          1;
     --g-text-inverse:      var(--g-white-tint);
 
     --g-tint:              0 48 73;
@@ -270,6 +288,8 @@
     --g-text: var(--g-cosmos-600);
     --g-text-muted: #4a5c68;
     --g-text-subtle: #6b7a84;
+    --g-ic-dim: #6b7a84;
+    --g-ic-dim-a: 1;
     --g-text-inverse: var(--g-white-tint);
     --g-hairline: rgb(0 48 73 / 0.14);
     --g-border: rgb(0 48 73 / 0.24);
@@ -526,7 +546,7 @@
   .g-nav__link[aria-current="page"] {
     color: var(--g-text); border-bottom-color: var(--g-accent);
   }
-  @media (max-width: 720px) { .g-nav { display: none; } }
+  @media (max-width: 880px) { .g-nav { display: none; } }
 
   /* ---- Hero -------------------------------------------------------------- */
   .g-hero {
@@ -667,6 +687,46 @@
   .g-badge--caution  { color: var(--g-signal-caution); }
   .g-badge--critical { color: var(--g-signal-critical); }
 
+  /* ---- Icons ----------------------------------------------------------------
+     Every mark in the set is drawn to the geometry in the brand book, section
+     11: a 24-unit box, an effective stroke of 1.7, and the ink centroid solved
+     onto (12, 12). This component does not draw anything. It sizes the marks,
+     and it keeps those sizes on whole pixels, because a 24-unit grid rendered
+     into a fractional box is exactly how one 1.7 stroke ends up looking like
+     two different weights in the same row.
+
+       --sm   1rem      inline with body text, footer lists, breadcrumbs
+              1.25rem   default: menu rows, buttons, list rows
+       --lg   1.5rem    inside a plate, on cards and page heads
+
+     Icons never carry a colour of their own. They inherit currentColor, so the
+     thing around them decides once and both themes follow. */
+  .g-ic     { width: 1.25rem; height: 1.25rem; flex: none; }
+  .g-ic--sm { width: 1rem;    height: 1rem; }
+  .g-ic--lg { width: 1.5rem;  height: 1.5rem; }
+
+  /* The plate is the icon's card-level presentation: a section's mark, sized
+     to sit beside a heading rather than inside a line of text. 3rem around a
+     1.5rem icon leaves 12px a side, whole pixels at 100%, and matches the
+     header controls' 2.5rem family closely enough to read as one system
+     without competing with them.
+
+     It is deliberately quiet by default and warms on hover, so a grid of six
+     reads as six labels rather than six buttons. */
+  .g-ic-plate {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 3rem; height: 3rem; flex: none;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--g-radius);
+    background: rgb(var(--g-tint) / 0.05);
+    color: var(--g-accent);
+    transition: border-color var(--g-dur) var(--g-ease-orbit),
+                background-color var(--g-dur) var(--g-ease-orbit),
+                color var(--g-dur) var(--g-ease-orbit);
+  }
+  .g-ic-plate--sm { width: 2.25rem; height: 2.25rem; border-radius: var(--g-radius-sm); }
+  .g-ic-plate--sm .g-ic { width: 1.25rem; height: 1.25rem; }
+
   /* ---- Forms ---------------------------------------------------------------- */
   .g-field { display: flex; flex-direction: column; gap: var(--g-space-3xs); }
   .g-label {
@@ -723,7 +783,11 @@
     border: 1px solid var(--g-hairline);
     border-radius: var(--g-radius);
     padding: var(--g-space-sm) var(--g-space-md);
+    /* The box scrolls itself rather than stretching its column, and the swipe
+       stops at its own edge instead of dragging the page with it. */
+    max-width: 100%;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
     font-size: var(--g-fs-small);
     line-height: 1.7;
     color: var(--g-text);
@@ -803,9 +867,9 @@
   }
   .g-footer__grid {
     display: grid; gap: var(--g-space-lg);
-    grid-template-columns: 1.5fr repeat(3, 1fr);
+    grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
   }
-  @media (max-width: 800px) { .g-footer__grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 800px) { .g-footer__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .g-footer__heading {
     font-size: var(--g-fs-eyebrow); text-transform: uppercase;
     letter-spacing: var(--g-track-eyebrow); color: var(--g-text-muted);
@@ -813,6 +877,20 @@
   }
   .g-footer a { color: var(--g-text-muted); text-decoration: none; }
   .g-footer a:hover { color: var(--g-text); }
+  /* Read and Do are the six sections, so they carry the six marks. The icon is
+     dimmer than its label at rest: in a column of three, six full-strength
+     glyphs would out-shout the words they belong to. */
+  /* flex-start on the column, so each row is only as wide as its own label:
+     a flex item is blockified, and stretched rows put the hover target several
+     centimetres to the right of the last word. */
+  .g-stack--ic { align-items: flex-start; }
+  .g-stack--ic a { display: flex; align-items: center; gap: var(--g-space-2xs); }
+  .g-stack--ic .g-ic {
+    color: var(--g-ic-dim); opacity: var(--g-ic-dim-a);
+    transition: color var(--g-dur) var(--g-ease-orbit),
+                opacity var(--g-dur) var(--g-ease-orbit);
+  }
+  .g-stack--ic a:hover .g-ic { color: var(--g-accent); opacity: 1; }
   .g-footer__legal {
     margin-top: var(--g-space-xl); padding-top: var(--g-space-sm);
     border-top: 1px solid var(--g-hairline);

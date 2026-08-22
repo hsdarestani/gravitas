@@ -24,6 +24,11 @@
 /* ---- layout: contents rail + body --------------------------------------- */
 .bk-layout { display: grid; gap: var(--g-space-xl); grid-template-columns: 15rem minmax(0, 1fr); align-items: start; }
 @media (max-width: 1000px) { .bk-layout { grid-template-columns: minmax(0, 1fr); } }
+/* Same trap as the essay column: the body holds <pre> samples, one of them a
+   140-character font link, and a grid item will not shrink below its own
+   min-content unless told to. Without this the brand book pushed sideways at
+   every width, not just on a phone. The code boxes scroll themselves. */
+.bk-layout > * { min-width: 0; }
 
 .bk-toc {
   position: sticky; top: 6rem; align-self: start;
@@ -324,6 +329,12 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
 }
 .bk-icon__btn svg { width: 1.25rem; height: 1.25rem; }
 .bk-icon span { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+/* The section set is shown on its plate, at the size it is actually used, so
+   the row is a specimen rather than a legend. The tile is wider than the
+   interface one because these labels are words rather than platform names,
+   and "Learning Paths" broke over three lines in a 5rem column. */
+.bk-icon--wide { width: 7.5rem; }
+.bk-icon--wide span { text-align: center; }
 
 /* ---- texture demo -------------------------------------------------------- */
 .bk-wells { display: grid; gap: var(--g-space-sm); grid-template-columns: repeat(3, minmax(0, 1fr)); }
