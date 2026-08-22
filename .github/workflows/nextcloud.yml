@@ -76,10 +76,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            'sudo rm -f /tmp/gravitas-nextcloud-ensure'
           scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/nextcloud/ensure.sh \
             "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:/tmp/gravitas-nextcloud-ensure"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
-            "sudo install -m 750 /tmp/gravitas-nextcloud-ensure /usr/local/sbin/gravitas-nextcloud-ensure && sudo /usr/local/sbin/gravitas-nextcloud-ensure '$DOMAIN' repair"
+            "sudo install -m 750 /tmp/gravitas-nextcloud-ensure /usr/local/sbin/gravitas-nextcloud-ensure && sudo rm -f /tmp/gravitas-nextcloud-ensure && sudo /usr/local/sbin/gravitas-nextcloud-ensure '$DOMAIN' repair"
 
       - name: Verify public endpoint
         shell: bash
