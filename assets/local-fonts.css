@@ -38,36 +38,57 @@
 /* -------------------------------------------------------------------------
    Production parity safety net.
 
-   The canonical markup/styles remain Kiarash's. These rules only cover four
-   homepage details that can disappear when an older static file survives a
-   deployment: the hero separators/link underline, the current-topic poster,
-   the reading-time row, and the assistant launcher's measured geometry.
-   When the current upstream HTML/CSS is present these declarations resolve to
-   the same visual result and the reading-time fallback stays inactive.
+   The canonical markup/styles remain Kiarash's. These rules only cover details
+   that have previously drifted on the production domain. They are deliberately
+   narrow and use !important only where an older cached stylesheet could win.
    ---------------------------------------------------------------------- */
 
-/* Hero facts: match the upstream pseudo-dot treatment even if an older hero
-   stylesheet is still in a browser cache. */
+/* Hero facts. Use an actual text bullet as the generated separator rather than
+   a 3px background circle. It is still generated (so the canonical markup stays
+   untouched), but this renders reliably even in the production combination that
+   repeatedly lost the old empty pseudo-element/background-dot treatment. */
+.lp-hero__credit {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: .35rem .8rem !important;
+}
 .lp-hero__credit > span {
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-  gap: 0.25em;
+  display: inline-flex !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+  gap: 0.25em !important;
 }
 .lp-hero__credit > span + span::before {
-  content: "" !important;
-  width: 3px !important;
-  height: 3px !important;
-  border-radius: 50% !important;
+  content: "•" !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
   flex: none !important;
-  background: var(--g-border-strong) !important;
-  margin-right: calc(.8rem - 0.25em) !important;
+  background: none !important;
+  color: var(--g-border-strong) !important;
+  margin-right: .1rem !important;
+  font-size: .62em !important;
+  line-height: 1 !important;
 }
 .lp-hero__credit a {
-  color: inherit;
+  color: inherit !important;
   text-decoration-line: underline !important;
   text-decoration-color: var(--g-border-strong) !important;
-  text-underline-offset: .14em;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: .2em !important;
+}
+
+/* Kiarash upstream 9f54828feea4: Overview and In-depth readings occupy the
+   same flow slot. A hidden sibling still participates in sibling matching, so
+   without this correction switching depth can move the essay down by one gap. */
+.g-prose > [data-level="overview"] + [data-level="deep"],
+.g-prose > [data-level="deep"] + [data-level="overview"] {
+  margin-top: 0 !important;
+}
+.g-prose > * + [data-level="overview"] + [data-level="deep"],
+.g-prose > * + [data-level="deep"] + [data-level="overview"] {
+  margin-top: var(--g-space-sm) !important;
 }
 
 /* The two canonical topic thumbnails were already upstream before our latest
@@ -133,4 +154,4 @@
   .gchat__btn span { display: none; }
 }
 
-/* Direct production deploy marker: 2026-08-22 homepage parity repair. */
+/* Direct production parity update: 2026-08-23 / upstream 9f54828feea4. */
