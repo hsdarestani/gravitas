@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/sync-desdevrad-frontend.yml'
+      - '.sync-desdevrad-trigger'
 
 permissions:
   contents: write
@@ -18,7 +19,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout production repository
         uses: actions/checkout@v4
@@ -149,15 +150,51 @@ jobs:
               s = s.replace('at least eight characters', 'at least ten characters')
               s = s.replace('at least 8 characters', 'at least 10 characters')
               account.write_text(s)
+
+          # The live domain has repeatedly served the hero stat row without the
+          # generated separator dots even though hero.css itself matches upstream.
+          # Make the two separators literal children of their facts so wrapping can
+          # never strand them, disable the generated copies, and explicitly retain
+          # the members underline. This is a tiny production parity guard and is
+          # re-applied after every upstream sync without changing Kiarash's files.
+          index = Path('index.html')
+          if index.exists():
+              s = index.read_text()
+              old = re.compile(
+                  r'<p class="lp-hero__credit">\s*'
+                  r'<span>New topic monthly</span>\s*'
+                  r'<span><span class="g-nums">312K</span> subscribers</span>\s*'
+                  r'<span><a href="community\.html#join">4,100 members</a></span>\s*'
+                  r'</p>', re.S
+              )
+              new = '''<p class="lp-hero__credit">
+          <span>New topic monthly</span>
+          <span><span class="lp-hero__literal-sep" aria-hidden="true">•</span><span class="g-nums">312K</span> subscribers</span>
+          <span><span class="lp-hero__literal-sep" aria-hidden="true">•</span><a href="community.html#join">4,100 members</a></span>
+        </p>'''
+              s, n = old.subn(new, s, count=1)
+              if n == 0 and 'lp-hero__literal-sep' not in s:
+                  raise SystemExit('Could not locate hero stat row for production parity guard')
+
+              style = '''<style id="production-hero-stat-parity">
+.lp-hero__credit > span + span::before { content: none !important; }
+.lp-hero__credit .lp-hero__literal-sep { color: var(--g-border-strong); font-size: .65em; line-height: 1; flex: none; }
+.lp-hero__credit a { text-decoration-line: underline; text-underline-offset: .2em; }
+</style>'''
+              s = re.sub(r'\s*<style id="production-hero-stat-parity">.*?</style>\s*', '\n', s, flags=re.S)
+              s = s.replace('</head>', style + '\n</head>', 1)
+              index.write_text(s)
           PY
 
-          # Smoke checks for the current upstream generation and the four homepage
+          # Smoke checks for the current upstream generation and the homepage
           # details that previously drifted on production.
           grep -q -- '--g-ic-dim' assets/gravitas.css
           grep -q 'g-nav__ic' assets/site.css
           grep -q 'space__ic' index.html
           grep -q 'Reading time' index.html
           grep -q 'lp-hero__credit' assets/hero.css
+          grep -q 'lp-hero__literal-sep' index.html
+          grep -q 'production-hero-stat-parity' index.html
           test -f assets/icons/topics.svg
           test -f assets/icons/signin.svg
           test -f assets/thumbnails/topic-computable-universe.webp
@@ -186,3 +223,21 @@ jobs:
           set -euo pipefail
           gh workflow run deploy.yml --ref main
           echo 'Production deployment dispatched.'
+
+          SHA="$(cat .upstream-gravitasplus)"
+          TOKEN="up-${SHA:0:12}"
+          URL="https://gravitasplus.com/?sync=${SHA:0:12}-${GITHUB_RUN_ID}"
+          echo "Waiting for production to serve $TOKEN and hero parity guard..."
+          ok=0
+          for attempt in $(seq 1 72); do
+            HTML="$(curl -4 -fsS --connect-timeout 8 --max-time 20 -H 'Cache-Control: no-cache' "$URL" || true)"
+            if printf '%s' "$HTML" | grep -q "$TOKEN" \
+              && printf '%s' "$HTML" | grep -q 'production-hero-stat-parity' \
+              && printf '%s' "$HTML" | grep -q 'lp-hero__literal-sep'; then
+              ok=1
+              echo "Production frontend verified on attempt $attempt."
+              break
+            fi
+            sleep 10
+          done
+          [ "$ok" -eq 1 ] || { echo 'Production did not converge to the synchronized hero/frontend revision in time.'; exit 1; }
