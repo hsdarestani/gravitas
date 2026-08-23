@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - '.sync-k-now'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.sync-k-now'
   workflow_dispatch:
 
 permissions:
