@@ -1,0 +1,21 @@
+name: Kick frontend sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/kick-frontend-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  kick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch canonical frontend sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run sync-desdevrad-frontend.yml --repo hsdarestani/gravitas --ref main
