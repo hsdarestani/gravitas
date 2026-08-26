@@ -55,6 +55,8 @@ jobs:
                   headers['Content-Type'] = 'application/json'
               if method != 'GET':
                   headers['X-CSRFToken'] = csrf()
+                  headers['Referer'] = base + '/workspace/operating'
+                  headers['Origin'] = base
               req = urllib.request.Request(base + path, data=body, headers=headers, method=method)
               try:
                   with opener.open(req, timeout=45) as response:
