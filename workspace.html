@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Research Workspace · Gravitas+</title>
+  <link rel="icon" href="assets/favicon.svg">
+  <link rel="stylesheet" href="assets/local-fonts.css">
+  <link rel="stylesheet" href="assets/gravitas.css">
+  <link rel="stylesheet" href="assets/workspace.css">
+</head>
+<body>
+  <a class="g-skip" href="#workspace-main">Skip to workspace</a>
+  <header class="ws-topbar">
+    <a class="ws-brand" href="index.html" aria-label="Gravitas home"><img src="assets/logotype-white.svg" alt="Gravitas+"></a>
+    <div class="ws-topbar__actions">
+      <span id="ws-user" class="ws-user"></span>
+      <button id="ws-theme" class="ws-icon-btn" type="button" aria-label="Toggle theme">◐</button>
+      <button id="ws-logout" class="ws-quiet-btn" type="button">Sign out</button>
+    </div>
+  </header>
+
+  <div class="ws-shell">
+    <aside class="ws-sidebar" aria-label="Workspace navigation">
+      <p class="ws-eyebrow">Research workspace</p>
+      <nav id="ws-nav">
+        <button class="is-active" data-view="dashboard"><span>◈</span>Dashboard</button>
+        <button data-view="projects"><span>□</span>Projects</button>
+        <button data-view="knowledge"><span>◇</span>Knowledge</button>
+        <button data-view="files"><span>↑</span>Files</button>
+        <button data-view="notes"><span>≡</span>Notes</button>
+        <button data-view="datasets"><span>∷</span>Datasets</button>
+      </nav>
+      <div class="ws-storage">
+        <div><span>Storage</span><strong id="ws-storage-label">—</strong></div>
+        <div class="ws-meter"><i id="ws-storage-meter"></i></div>
+        <small id="ws-plan">Free plan</small>
+      </div>
+    </aside>
+
+    <main id="workspace-main" class="ws-main" tabindex="-1">
+      <div class="ws-mobile-nav"><label for="ws-mobile-select">Section</label><select id="ws-mobile-select"><option value="dashboard">Dashboard</option><option value="projects">Projects</option><option value="knowledge">Knowledge</option><option value="files">Files</option><option value="notes">Notes</option><option value="datasets">Datasets</option></select></div>
+      <section class="ws-hero">
+        <div><p class="ws-kicker">PRIVATE · YOUR RESEARCH</p><h1 id="ws-title">Dashboard</h1><p id="ws-subtitle">Everything you are thinking with, in one place.</p></div>
+        <div id="ws-primary-actions" class="ws-actions"></div>
+      </section>
+      <div id="ws-alert" class="ws-alert" role="status" hidden></div>
+      <div id="ws-content" aria-live="polite"><div class="ws-loading">Opening your workspace…</div></div>
+    </main>
+  </div>
+
+  <dialog id="ws-dialog" class="ws-dialog">
+    <form id="ws-form" method="dialog">
+      <div class="ws-dialog__head"><div><p class="ws-kicker">GRAVITAS WORKSPACE</p><h2 id="ws-dialog-title">Create</h2></div><button type="button" class="ws-icon-btn" data-close aria-label="Close">×</button></div>
+      <div id="ws-form-fields"></div>
+      <div class="ws-dialog__actions"><button type="button" class="ws-quiet-btn" data-close>Cancel</button><button type="submit" class="ws-primary-btn">Save</button></div>
+    </form>
+  </dialog>
+
+  <script src="assets/workspace.js" defer></script>
+</body>
+</html>

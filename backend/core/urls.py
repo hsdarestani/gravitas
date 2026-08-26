@@ -2,8 +2,23 @@ from django.urls import path
 
 from core.content_api import content_detail, content_list
 from core.kpi import kpi_summary
+from core.workspace_api import (
+    collection_detail,
+    collections,
+    file_download,
+    file_upload,
+    project_detail,
+    projects,
+    resource_detail,
+    resources,
+    storage_status,
+    tag_detail,
+    tags,
+    workspace_dashboard,
+)
 from core.views import (
     auth_csrf,
+    auth_delete,
     auth_export,
     auth_login,
     auth_logout,
@@ -30,9 +45,22 @@ urlpatterns = [
     path('auth/logout/', auth_logout),
     path('auth/me/', auth_me),
     path('auth/export/', auth_export),
+    path('auth/delete/', auth_delete),
     path('auth/password-reset/', password_reset_request),
     path('auth/password-reset/confirm/', password_reset_confirm),
     path('community/comments/<slug:content_key>/', comments),
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
+    path('workspace/dashboard/', workspace_dashboard),
+    path('workspace/projects/', projects),
+    path('workspace/projects/<int:project_id>/', project_detail),
+    path('workspace/knowledge/', resources),
+    path('workspace/knowledge/<int:resource_id>/', resource_detail),
+    path('workspace/files/upload/', file_upload),
+    path('workspace/files/<int:resource_id>/download/', file_download),
+    path('workspace/collections/', collections),
+    path('workspace/collections/<int:collection_id>/', collection_detail),
+    path('workspace/tags/', tags),
+    path('workspace/tags/<int:tag_id>/', tag_detail),
+    path('workspace/storage/', storage_status),
 ]

@@ -1,0 +1,85 @@
+name: Gravitas Workspace Production E2E
+
+on:
+  workflow_run:
+    workflows: ['Provision Gravitas Nextcloud']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workspace-e2e:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DOMAIN: gravitasplus.com
+    steps:
+      - name: Verify private workspace lifecycle in production
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN="${{ github.run_id }}"
+          EMAIL_A="workspace-a-$RUN@example.com"
+          EMAIL_B="workspace-b-$RUN@example.com"
+          PASSWORD='Workspace-E2E-Password-2026!'
+          JAR_A="$RUNNER_TEMP/a.cookies"
+          JAR_B="$RUNNER_TEMP/b.cookies"
+          BASE="https://$DOMAIN"
+          REFERER="$BASE/workspace.html"
+
+          signup() {
+            local jar="$1" email="$2" csrf
+            curl -4 -fsS -c "$jar" "$BASE/api/auth/csrf/" >/dev/null
+            csrf="$(awk '$6=="csrftoken" {print $7}' "$jar" | tail -n1)"
+            curl -4 -fsS -b "$jar" -c "$jar" -X POST "$BASE/api/auth/signup/" \
+              -H 'Content-Type: application/json' -H "X-CSRFToken: $csrf" -H "Referer: $REFERER" \
+              --data "{\"name\":\"Workspace E2E\",\"email\":\"$email\",\"password\":\"$PASSWORD\"}" >/dev/null
+          }
+          post_json() {
+            local jar="$1" url="$2" data="$3" csrf
+            csrf="$(awk '$6=="csrftoken" {print $7}' "$jar" | tail -n1)"
+            curl -4 -fsS -b "$jar" -c "$jar" -X POST "$url" \
+              -H 'Content-Type: application/json' -H "X-CSRFToken: $csrf" -H "Referer: $REFERER" --data "$data"
+          }
+
+          signup "$JAR_A" "$EMAIL_A"
+          signup "$JAR_B" "$EMAIL_B"
+
+          PROJECT="$(post_json "$JAR_A" "$BASE/api/workspace/projects/" '{"title":"Production verification project","description":"E2E"}')"
+          PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["project"]["id"])' <<<"$PROJECT")"
+          NOTE="$(post_json "$JAR_A" "$BASE/api/workspace/knowledge/" "{\"kind\":\"note\",\"title\":\"Private production note\",\"body\":\"Isolation marker $RUN\",\"project_id\":$PROJECT_ID}")"
+          NOTE_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["item"]["id"])' <<<"$NOTE")"
+
+          STATUS="$(curl -4 -sS -o "$RUNNER_TEMP/isolation.json" -w '%{http_code}' -b "$JAR_B" "$BASE/api/workspace/knowledge/$NOTE_ID/")"
+          test "$STATUS" = 404
+
+          printf 'sample,value\nalpha,42\n' > "$RUNNER_TEMP/dataset.csv"
+          CSRF_A="$(awk '$6=="csrftoken" {print $7}' "$JAR_A" | tail -n1)"
+          DATASET="$(curl -4 -fsS -b "$JAR_A" -c "$JAR_A" -X POST "$BASE/api/workspace/files/upload/" \
+            -H "X-CSRFToken: $CSRF_A" -H "Referer: $REFERER" \
+            -F kind=dataset -F title='Production dataset' -F project_id="$PROJECT_ID" \
+            -F file=@"$RUNNER_TEMP/dataset.csv"\;type=text/csv)"
+          DATASET_ID="$(python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["item"]["kind"]=="dataset"; print(d["item"]["id"])' <<<"$DATASET")"
+          curl -4 -fsS -b "$JAR_A" "$BASE/api/workspace/files/$DATASET_ID/download/" -o "$RUNNER_TEMP/download.csv"
+          cmp "$RUNNER_TEMP/dataset.csv" "$RUNNER_TEMP/download.csv"
+
+          curl -4 -fsS -b "$JAR_A" "$BASE/api/workspace/dashboard/" | \
+            python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["counts"]["projects"]>=1; assert d["counts"]["notes"]>=1; assert d["counts"]["datasets"]>=1; assert d["storage"]["used_bytes"]>0; assert d["storage"]["quota_bytes"]>d["storage"]["used_bytes"]'
+          curl -4 -fsS "$BASE/" | grep -qi 'Gravitas'
+          curl -4 -fsS "$BASE/account.html" | grep -qi 'Create an account'
+          curl -4 -fsS "$BASE/workspace.html" | grep -qi 'Research workspace'
+          curl -4 -fsS "$BASE/api/health/" | grep -q '"status": "ok"'
+
+          delete_account() {
+            local jar="$1" csrf
+            csrf="$(awk '$6=="csrftoken" {print $7}' "$jar" | tail -n1)"
+            curl -4 -fsS -b "$jar" -X POST "$BASE/api/auth/delete/" \
+              -H 'Content-Type: application/json' -H "X-CSRFToken: $csrf" -H "Referer: $REFERER" \
+              --data "{\"password\":\"$PASSWORD\",\"confirmation\":\"delete\"}" >/dev/null
+          }
+          delete_account "$JAR_A"
+          delete_account "$JAR_B"
+          echo 'workspace-production-e2e-passed'

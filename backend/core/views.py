@@ -1,4 +1,5 @@
 import json
+import logging
 from urllib.parse import quote
 
 from django.conf import settings
@@ -15,9 +16,11 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
+from . import cloud
 from .models import Comment, LabProgress, NewsletterSubscriber
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 NEWSLETTER_SIGNING_SALT = 'gravitas-newsletter-confirm-v1'
 NEWSLETTER_CONFIRM_MAX_AGE = 60 * 60 * 48
 
@@ -321,6 +324,12 @@ def auth_delete(request):
         return JsonResponse({'ok': False, 'error': 'invalid_credentials'}, status=401)
 
     email = user.email
+    identity = getattr(user, 'gravitas_nextcloud', None)
+    if identity is not None:
+        try:
+            cloud.delete_identity(identity)
+        except Exception:
+            logger.exception('Could not remove Nextcloud identity for deleted user %s', user.pk)
     logout(request)
     NewsletterSubscriber.objects.filter(email__iexact=email).delete()
     user.delete()

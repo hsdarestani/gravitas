@@ -31,6 +31,15 @@ fi
 # shellcheck disable=SC1090
 . "$ENV_FILE"
 
+# Give the Django service only the service credentials it needs. The values
+# remain in the root-owned environment file and are never shipped to browsers.
+touch /etc/gravitas/backend.env
+sed -i '/^NEXTCLOUD_INTERNAL_URL=/d;/^NEXTCLOUD_ADMIN_USER=/d;/^NEXTCLOUD_ADMIN_PASSWORD=/d' /etc/gravitas/backend.env
+printf 'NEXTCLOUD_INTERNAL_URL=http://127.0.0.1:8081\nNEXTCLOUD_ADMIN_USER=%s\nNEXTCLOUD_ADMIN_PASSWORD=%s\n' \
+  "$NC_ADMIN_USER" "$NC_ADMIN_PASSWORD" >> /etc/gravitas/backend.env
+chown root:gravitas /etc/gravitas/backend.env
+chmod 640 /etc/gravitas/backend.env
+
 docker network inspect gravitas-nextcloud >/dev/null 2>&1 || docker network create gravitas-nextcloud >/dev/null
 docker volume inspect gravitas_nextcloud_db >/dev/null 2>&1 || docker volume create gravitas_nextcloud_db >/dev/null
 docker volume inspect gravitas_nextcloud_html >/dev/null 2>&1 || docker volume create gravitas_nextcloud_html >/dev/null
@@ -204,3 +213,4 @@ systemctl enable --now gravitas-nextcloud-cron.timer gravitas-nextcloud-backup.t
 
 curl -fsS "https://$DOMAIN/nextcloud/status.php" | grep -q '"installed":true'
 docker exec -u www-data gravitas-nextcloud php occ status
+systemctl try-restart gravitas-backend.service || true

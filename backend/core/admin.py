@@ -1,4 +1,33 @@
 from django.contrib import admin
+
+from .models import (
+    Collection,
+    KnowledgeActivity,
+    KnowledgeResource,
+    NextcloudIdentity,
+    Organization,
+    OrganizationMembership,
+    ProjectMembership,
+    ResearchProject,
+    StoragePlan,
+    Tag,
+    Workspace,
+    WorkspaceMembership,
+)
+
+
+admin.site.register(Organization)
+admin.site.register(OrganizationMembership)
+admin.site.register(Workspace)
+admin.site.register(WorkspaceMembership)
+admin.site.register(StoragePlan)
+admin.site.register(NextcloudIdentity)
+admin.site.register(ResearchProject)
+admin.site.register(ProjectMembership)
+admin.site.register(Collection)
+admin.site.register(Tag)
+admin.site.register(KnowledgeResource)
+admin.site.register(KnowledgeActivity)
 from django.utils import timezone
 
 from .models import (

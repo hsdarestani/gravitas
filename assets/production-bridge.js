@@ -97,8 +97,8 @@
 
   function markAccount(email) {
     [].forEach.call(document.querySelectorAll('.gh-signin, .gh-nav-signin'), function (signIn) {
-      setLinkLabel(signIn, 'Account');
-      signIn.href = 'account.html';
+      setLinkLabel(signIn, 'Workspace');
+      signIn.href = 'workspace.html';
     });
     var note = document.querySelector('.auth__note[data-form-note]');
     if (note && email) note.textContent = 'Signed in as ' + email + '.';
@@ -149,7 +149,8 @@
         markAccount(data.user && data.user.email);
         setNote(form, data.newsletter_pending
           ? 'Account created. Check your inbox to confirm the newsletter subscription.'
-          : 'Account created. You are signed in.');
+          : 'Account created. Opening your workspace…');
+        window.setTimeout(function () { location.href = 'workspace.html'; }, 350);
       });
     } else if (isLogin) {
       setNote(form, 'Signing in…');
@@ -159,7 +160,8 @@
         keep: !!(form.elements.keep && form.elements.keep.checked)
       }).then(function (data) {
         markAccount(data.user && data.user.email);
-        setNote(form, 'Signed in as ' + (data.user && data.user.email || 'your account') + '.');
+        setNote(form, 'Signed in. Opening your workspace…');
+        window.setTimeout(function () { location.href = 'workspace.html'; }, 250);
       });
     } else if (isReset && resetUid && resetToken) {
       setNote(form, 'Updating your password…');
