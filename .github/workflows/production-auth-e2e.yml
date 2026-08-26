@@ -79,3 +79,183 @@ jobs:
             -H "X-CSRFToken: $CSRF" \
             -H "Referer: https://$DOMAIN/login" \
             --data '{"password":"Production-E2E-Password-2026!","confirmation":"delete"}' >/dev/null
+
+  browser-auth-smoke:
+    name: browser-visual-auth-smoke
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    needs: auth-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOMAIN: gravitasplus.com
+      BROWSER_EMAIL: browser-e2e-${{ github.run_id }}-${{ github.run_attempt }}@example.com
+      BROWSER_PASSWORD: Browser-E2E-Password-2026!
+    steps:
+      - name: Install Chromium browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          HARNESS="$RUNNER_TEMP/gravitas-browser"
+          mkdir -p "$HARNESS"
+          cd "$HARNESS"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify rendered signup, workspace and sign-in flows
+        shell: bash
+        run: |
+          set -euo pipefail
+          HARNESS="$RUNNER_TEMP/gravitas-browser"
+          ARTIFACTS="$RUNNER_TEMP/gravitas-browser-artifacts"
+          mkdir -p "$ARTIFACTS"
+          cat > "$HARNESS/smoke.mjs" <<'EOF'
+          import { chromium } from 'playwright';
+          import assert from 'node:assert/strict';
+          import path from 'node:path';
+
+          const base = `https://${process.env.DOMAIN}`;
+          const email = process.env.BROWSER_EMAIL;
+          const password = process.env.BROWSER_PASSWORD;
+          const artifacts = path.join(process.env.RUNNER_TEMP, 'gravitas-browser-artifacts');
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 1440, height: 1000 },
+            colorScheme: 'dark',
+            reducedMotion: 'reduce'
+          });
+          const page = await context.newPage();
+          const pageErrors = [];
+          const failedSameOriginRequests = [];
+
+          page.on('pageerror', error => pageErrors.push(String(error)));
+          page.on('requestfailed', request => {
+            try {
+              const target = new URL(request.url());
+              if (target.origin === base) failedSameOriginRequests.push(`${request.method()} ${target.pathname}: ${request.failure()?.errorText || 'failed'}`);
+            } catch (_) {}
+          });
+
+          async function settle() {
+            await page.waitForLoadState('domcontentloaded');
+            await page.evaluate(async () => {
+              if (document.fonts && document.fonts.ready) await document.fonts.ready;
+            });
+          }
+
+          async function visible(selector) {
+            const locator = page.locator(selector);
+            await locator.waitFor({ state: 'visible', timeout: 15000 });
+            const box = await locator.boundingBox();
+            assert(box && box.width > 20 && box.height > 20, `${selector} has no rendered box`);
+            return locator;
+          }
+
+          async function assertNoHorizontalBreakage(tolerance = 24) {
+            const dimensions = await page.evaluate(() => ({
+              viewport: window.innerWidth,
+              body: document.body.scrollWidth,
+              root: document.documentElement.scrollWidth
+            }));
+            assert(Math.max(dimensions.body, dimensions.root) <= dimensions.viewport + tolerance,
+              `unexpected horizontal overflow: viewport=${dimensions.viewport}, body=${dimensions.body}, root=${dimensions.root}`);
+          }
+
+          try {
+            await page.goto(`${base}/signup`, { waitUntil: 'networkidle', timeout: 30000 });
+            await settle();
+            assert.match(await page.title(), /Gravitas\+/);
+            await visible('#p-up');
+            await visible('#up-name');
+            await visible('#up-mail');
+            await visible('#up-pass');
+            await visible('#p-up button[type="submit"]');
+            await assertNoHorizontalBreakage();
+            await page.screenshot({ path: path.join(artifacts, '01-signup-desktop.png'), fullPage: true, animations: 'disabled' });
+
+            await page.locator('#up-name').fill('Browser Production E2E');
+            await page.locator('#up-mail').fill(email);
+            await page.locator('#up-pass').fill(password);
+            await page.locator('#p-up button[type="submit"]').click();
+            await page.waitForURL(url => url.origin === base && url.pathname === '/workspace', { timeout: 20000 });
+            await settle();
+            await visible('#workspace-main');
+            await visible('.ws-sidebar');
+            await page.waitForFunction(expected => document.querySelector('#ws-user')?.textContent?.trim() === expected, email, { timeout: 15000 });
+            await page.waitForFunction(() => !document.querySelector('#ws-content .ws-loading'), null, { timeout: 15000 });
+            assert.equal((await page.locator('#ws-title').textContent())?.trim(), 'Dashboard');
+            await assertNoHorizontalBreakage();
+            await page.screenshot({ path: path.join(artifacts, '02-workspace-desktop.png'), fullPage: true, animations: 'disabled' });
+
+            await page.setViewportSize({ width: 390, height: 844 });
+            await page.waitForTimeout(300);
+            await visible('.ws-mobile-nav');
+            await visible('#ws-mobile-select');
+            await assertNoHorizontalBreakage(32);
+            await page.screenshot({ path: path.join(artifacts, '03-workspace-mobile.png'), fullPage: true, animations: 'disabled' });
+
+            await page.setViewportSize({ width: 1440, height: 1000 });
+            await page.locator('details.ws-account summary').click();
+            await visible('#ws-logout');
+            await page.locator('#ws-logout').click();
+            await page.waitForURL(url => url.origin === base && url.pathname === '/', { timeout: 15000 });
+
+            await page.goto(`${base}/login`, { waitUntil: 'networkidle', timeout: 30000 });
+            await settle();
+            await visible('#p-in');
+            await visible('#in-mail');
+            await visible('#in-pass');
+            await page.locator('#in-mail').fill(email);
+            await page.locator('#in-pass').fill(password);
+            await page.locator('#p-in button[type="submit"]').click();
+            await page.waitForURL(url => url.origin === base && url.pathname === '/workspace', { timeout: 20000 });
+            await settle();
+            await visible('#workspace-main');
+            await page.waitForFunction(expected => document.querySelector('#ws-user')?.textContent?.trim() === expected, email, { timeout: 15000 });
+            await page.waitForFunction(() => !document.querySelector('#ws-content .ws-loading'), null, { timeout: 15000 });
+            await page.screenshot({ path: path.join(artifacts, '04-workspace-after-login.png'), fullPage: true, animations: 'disabled' });
+
+            assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`);
+            assert.deepEqual(failedSameOriginRequests, [], `failed production requests: ${failedSameOriginRequests.join(' | ')}`);
+            console.log('browser-visual-auth-smoke-passed');
+          } finally {
+            await browser.close();
+          }
+          EOF
+          cd "$HARNESS"
+          node smoke.mjs
+
+      - name: Upload browser verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-browser-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gravitas-browser-artifacts/*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove browser test account
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          COOKIE_JAR="$RUNNER_TEMP/gravitas-browser-cleanup-cookies.txt"
+          curl -4 -fsS -c "$COOKIE_JAR" "https://$DOMAIN/api/auth/csrf/" >/dev/null || exit 0
+          CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
+          test -n "$CSRF" || exit 0
+          LOGIN="$(curl -4 -sS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+            -X POST "https://$DOMAIN/api/auth/login/" \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -H "X-CSRFToken: $CSRF" \
+            -H "Referer: https://$DOMAIN/login" \
+            --data "{\"email\":\"$BROWSER_EMAIL\",\"password\":\"$BROWSER_PASSWORD\",\"keep\":false}")"
+          printf '%s' "$LOGIN" | grep -q '"ok": true' || exit 0
+          CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
+          curl -4 -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+            -X POST "https://$DOMAIN/api/auth/delete/" \
+            -H 'Content-Type: application/json' \
+            -H "X-CSRFToken: $CSRF" \
+            -H "Referer: https://$DOMAIN/login" \
+            --data "{\"password\":\"$BROWSER_PASSWORD\",\"confirmation\":\"delete\"}" >/dev/null
+          exit 0
