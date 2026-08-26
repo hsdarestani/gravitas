@@ -18,18 +18,24 @@ jobs:
         run: |
           set -euo pipefail
           DOMAIN=gravitasplus.com
+          TMPDIR="$(mktemp -d)"
+          trap 'rm -rf "$TMPDIR"' EXIT
 
           curl -4 -fsS --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
-            "https://$DOMAIN/" | grep -qi 'Gravitas'
+            -o "$TMPDIR/home.html" "https://$DOMAIN/"
+          grep -qi 'Gravitas' "$TMPDIR/home.html"
 
           curl -4 -fsS --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
-            "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
+            -o "$TMPDIR/health.json" "https://$DOMAIN/api/health/"
+          grep -q '"status": "ok"' "$TMPDIR/health.json"
 
           curl -4 -fsS --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
-            "https://$DOMAIN/sitemap.xml" | grep -q '<urlset'
+            -o "$TMPDIR/sitemap.xml" "https://$DOMAIN/sitemap.xml"
+          grep -q '<urlset' "$TMPDIR/sitemap.xml"
 
-          curl -4 -fsSI --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
-            "https://$DOMAIN/robots.txt" | grep -qi '^HTTP/.* 200'
+          ROBOTS_STATUS="$(curl -4 -fsS --retry 4 --retry-delay 3 --connect-timeout 8 --max-time 20 \
+            -o /dev/null -w '%{http_code}' "https://$DOMAIN/robots.txt")"
+          test "$ROBOTS_STATUS" = "200"
 
           echo production-public-monitor-passed
 
