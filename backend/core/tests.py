@@ -177,3 +177,20 @@ class WorkspaceApiTests(TestCase):
         with self.assertRaises(cloud.CloudError):
             cloud.safe_relative_path('../another-user/file.txt')
         self.assertEqual(cloud.drive_path(['Papers', '2026'], 'method.pdf'), 'Gravitas/My Files/Papers/2026/method.pdf')
+
+    @patch('core.cloud.delete')
+    @patch('core.cloud.upload')
+    @patch('core.cloud.download')
+    @patch('core.cloud.path_exists', return_value=False)
+    def test_cloud_move_streams_then_deletes_without_overwrite(self, exists, download, upload, delete):
+        upstream = Mock()
+        upstream.iter_content.return_value = [b'research ', b'data']
+        upstream.headers = {'Content-Type': 'text/plain'}
+        download.return_value = upstream
+        identity = Mock()
+        copied = {}
+        upload.side_effect = lambda _identity, _path, file_obj: copied.update(content=file_obj.read(), content_type=file_obj.content_type)
+        cloud.move(identity, 'Gravitas/My Files/old.txt', 'Gravitas/My Files/new.txt')
+        self.assertEqual(copied, {'content': b'research data', 'content_type': 'text/plain'})
+        delete.assert_called_once_with(identity, 'Gravitas/My Files/old.txt')
+        upstream.close.assert_called_once()

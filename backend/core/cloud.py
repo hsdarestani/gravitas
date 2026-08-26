@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import secrets
+import tempfile
 from pathlib import PurePosixPath
 from urllib.parse import quote
 from xml.etree import ElementTree
@@ -222,15 +223,44 @@ def folder_is_empty(identity, path):
     return len(responses) <= 1
 
 
+def path_exists(identity, path):
+    response = _request(
+        'PROPFIND',
+        _dav_url(identity, path),
+        auth=_auth(identity),
+        expected={207, 404},
+        headers={'Depth': '0'},
+    )
+    return response.status_code == 207
+
+
 def move(identity, old_path, new_path):
     clean_new = safe_relative_path(new_path)
-    parent = str(PurePosixPath(clean_new).parent)
-    if parent and parent != '.':
-        make_folder(identity, parent)
-    _request(
-        'MOVE',
-        _dav_url(identity, old_path),
-        auth=_auth(identity),
-        expected={201, 204},
-        headers={'Destination': _dav_url(identity, clean_new), 'Overwrite': 'F'},
-    )
+    clean_old = safe_relative_path(old_path)
+    if clean_old == clean_new:
+        return
+    if path_exists(identity, clean_new):
+        raise CloudError('Destination already exists')
+
+    # Some reverse-proxied Nextcloud deployments hold WebDAV MOVE requests
+    # until the upstream timeout. A bounded copy/delete has the same user-facing
+    # semantics, keeps Overwrite=F behavior, and gives us a rollback point.
+    upstream = download(identity, clean_old)
+    try:
+        with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as copied:
+            for chunk in upstream.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    copied.write(chunk)
+            copied.seek(0)
+            copied.content_type = upstream.headers.get('Content-Type', 'application/octet-stream')
+            upload(identity, clean_new, copied)
+    finally:
+        upstream.close()
+    try:
+        delete(identity, clean_old)
+    except CloudError:
+        try:
+            delete(identity, clean_new)
+        except CloudError:
+            pass
+        raise
