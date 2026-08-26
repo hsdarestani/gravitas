@@ -44,9 +44,18 @@
   <dialog id="ws-dialog" class="ws-dialog"><form id="ws-form" method="dialog"><div class="ws-dialog__head"><div><p class="ws-kicker">GRAVITAS WORKSPACE</p><h2 id="ws-dialog-title">Create</h2></div><button type="button" class="ws-icon-btn" data-close aria-label="Close">×</button></div><div id="ws-form-fields"></div><div class="ws-dialog__actions"><button type="button" class="ws-quiet-btn" data-close>Cancel</button><button type="submit" class="ws-primary-btn">Save</button></div></form></dialog>
   <script>
     (function(){
+      var operating=/^\/workspace\/operating(?:\/|$)/.test(location.pathname);
       var s=document.createElement('script');
-      s.src=/^\/workspace\/operating(?:\/|$)/.test(location.pathname)?'/assets/operating.js':'/assets/workspace.js';
+      s.src=operating?'/assets/operating.js':'/assets/workspace.js';
       s.async=false;
+      if(operating){
+        s.onload=function(){
+          var extra=document.createElement('script');
+          extra.src='/assets/operating-enhancements.js';
+          extra.async=false;
+          document.body.appendChild(extra);
+        };
+      }
       document.body.appendChild(s);
     })();
   </script>
