@@ -63,7 +63,7 @@ jobs:
             --data "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"keep\":true}")"
           printf '%s' "$LOGIN" | grep -q '"ok": true'
           curl -4 -fsS -b "$COOKIE_JAR" "https://$DOMAIN/api/auth/me/" | grep -q '"authenticated": true'
-          curl -4 -fsS "https://$DOMAIN/assets/site.js" | grep -q '/api/auth/signup/'
+          curl -4 -fsS "https://$DOMAIN/assets/production-bridge.js" | grep -q '/api/auth/signup/'
           echo "TEST_EMAIL=$EMAIL" >> "$GITHUB_ENV"
 
       - name: Remove production auth test data
