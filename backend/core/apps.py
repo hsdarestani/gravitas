@@ -9,3 +9,4 @@ class CoreConfig(AppConfig):
         # Operating models live in a separate module to keep the research/KMS
         # domain stable while the Gravitas operating layer evolves.
         from . import operating_models  # noqa: F401
+        from . import operating_admin  # noqa: F401
