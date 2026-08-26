@@ -406,7 +406,9 @@ jobs:
           sudo systemctl is-active gravitas-backup.timer
           sudo systemctl is-active gravitas-backend
           sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
-          curl -fsS http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'
+          curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'
+          BACKEND_ERRORS="$(sudo journalctl -u gravitas-backend --since '5 minutes ago' -p err --no-pager --quiet)"
+          test -z "$BACKEND_ERRORS" || { printf '%s\n' "$BACKEND_ERRORS"; exit 1; }
           sudo /usr/local/sbin/gravitas-backup
           test -n "$(sudo find /var/backups/gravitas -maxdepth 1 -type f -name 'db-*.dump' -print -quit)"
           test ! -e /var/www/gravitas/backend
