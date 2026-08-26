@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 
 class Health(models.TextChoices):
@@ -92,6 +93,7 @@ class Initiative(models.Model):
     description = models.TextField(blank=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='gravitas_initiatives_owned')
     priority = models.CharField(max_length=8, choices=Priority.choices, default=Priority.P2)
+    stage = models.CharField(max_length=80, blank=True)
     health = models.CharField(max_length=12, choices=Health.choices, default=Health.GREEN)
     status = models.CharField(max_length=16, choices=WorkStatus.choices, default=WorkStatus.ACTIVE)
     start_date = models.DateField(blank=True, null=True)
@@ -144,6 +146,24 @@ class OperatingMilestone(models.Model):
         ordering = ['due_date', 'id']
 
 
+class OperatingWorkPackage(models.Model):
+    """Commercial-project execution level explicitly defined by the Operating Model."""
+    workspace = models.ForeignKey('core.Workspace', on_delete=models.CASCADE, related_name='operating_work_packages')
+    milestone = models.ForeignKey(OperatingMilestone, on_delete=models.CASCADE, related_name='work_packages')
+    project = models.ForeignKey('core.ResearchProject', on_delete=models.SET_NULL, related_name='operating_work_packages', blank=True, null=True)
+    title = models.CharField(max_length=220)
+    description = models.TextField(blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='gravitas_work_packages_owned')
+    due_date = models.DateField(blank=True, null=True)
+    definition_of_done = models.TextField(blank=True)
+    status = models.CharField(max_length=16, choices=WorkStatus.choices, default=WorkStatus.ACTIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['due_date', 'id']
+
+
 class OperatingMeeting(models.Model):
     class Kind(models.TextChoices):
         WEEKLY = 'weekly_gravitas', 'Gravitas Weekly'
@@ -173,10 +193,30 @@ class OperatingMeeting(models.Model):
         ordering = ['scheduled_for']
 
 
+class OperatingRisk(models.Model):
+    """Minimal risk register for the Operations / Management control loop."""
+    workspace = models.ForeignKey('core.Workspace', on_delete=models.CASCADE, related_name='operating_risks')
+    initiative = models.ForeignKey(Initiative, on_delete=models.SET_NULL, related_name='risks', blank=True, null=True)
+    project = models.ForeignKey('core.ResearchProject', on_delete=models.SET_NULL, related_name='operating_risks', blank=True, null=True)
+    title = models.CharField(max_length=220)
+    description = models.TextField(blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='gravitas_risks_owned')
+    mitigation = models.TextField(blank=True)
+    due_date = models.DateField(blank=True, null=True)
+    health = models.CharField(max_length=12, choices=Health.choices, default=Health.YELLOW)
+    status = models.CharField(max_length=16, choices=WorkStatus.choices, default=WorkStatus.ACTIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['health', 'due_date', '-updated_at']
+
+
 class OperatingTask(models.Model):
     workspace = models.ForeignKey('core.Workspace', on_delete=models.CASCADE, related_name='operating_tasks')
     initiative = models.ForeignKey(Initiative, on_delete=models.CASCADE, related_name='tasks')
     milestone = models.ForeignKey(OperatingMilestone, on_delete=models.SET_NULL, related_name='tasks', blank=True, null=True)
+    work_package = models.ForeignKey(OperatingWorkPackage, on_delete=models.SET_NULL, related_name='tasks', blank=True, null=True)
     cycle = models.ForeignKey(OperatingCycle, on_delete=models.SET_NULL, related_name='tasks', blank=True, null=True)
     project = models.ForeignKey('core.ResearchProject', on_delete=models.SET_NULL, related_name='operating_tasks', blank=True, null=True)
     meeting = models.ForeignKey(OperatingMeeting, on_delete=models.SET_NULL, related_name='action_items', blank=True, null=True)
@@ -198,4 +238,14 @@ class OperatingTask(models.Model):
         indexes = [
             models.Index(fields=['workspace', 'status', 'priority'], name='grav_task_status_priority'),
             models.Index(fields=['workspace', 'owner', 'status'], name='grav_task_owner_status'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(cycle__isnull=False) | Q(due_date__isnull=False),
+                name='grav_task_cycle_or_due',
+            ),
+            models.CheckConstraint(
+                condition=Q(meeting__isnull=True) | Q(due_date__isnull=False),
+                name='grav_meeting_action_due',
+            ),
         ]
