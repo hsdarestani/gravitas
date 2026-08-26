@@ -3,6 +3,7 @@ import hashlib
 import secrets
 from pathlib import PurePosixPath
 from urllib.parse import quote
+from xml.etree import ElementTree
 
 import requests
 from cryptography.fernet import Fernet, InvalidToken
@@ -157,6 +158,14 @@ def resource_path(resource_id, filename):
     return f'Gravitas/resources/{int(resource_id)}/{safe_filename(filename)}'
 
 
+def drive_path(folder_parts, filename=None):
+    parts = ['Gravitas', 'My Files']
+    parts.extend(safe_filename(part) for part in folder_parts if str(part).strip())
+    if filename:
+        parts.append(safe_filename(filename))
+    return '/'.join(parts)
+
+
 def _dav_url(identity, path):
     clean = safe_relative_path(path)
     encoded = '/'.join(quote(part, safe='') for part in clean.split('/'))
@@ -193,6 +202,24 @@ def download(identity, path):
 
 def delete(identity, path):
     _request('DELETE', _dav_url(identity, path), auth=_auth(identity), expected={200, 204, 404})
+
+
+def folder_is_empty(identity, path):
+    response = _request(
+        'PROPFIND',
+        _dav_url(identity, path),
+        auth=_auth(identity),
+        expected={207, 404},
+        headers={'Depth': '1'},
+    )
+    if response.status_code == 404:
+        return True
+    try:
+        root = ElementTree.fromstring(response.content)
+    except ElementTree.ParseError as exc:
+        raise CloudError('Invalid cloud folder response') from exc
+    responses = root.findall('{DAV:}response')
+    return len(responses) <= 1
 
 
 def move(identity, old_path, new_path):

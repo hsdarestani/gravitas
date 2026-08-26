@@ -194,6 +194,8 @@ def auth_signup(request):
         password=password,
         first_name=name,
     )
+    from core.workspace_api import provision_personal_workspace
+    provision_personal_workspace(user)
     login(request, user)
 
     newsletter_pending = False

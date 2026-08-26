@@ -28,7 +28,7 @@ jobs:
           JAR_A="$RUNNER_TEMP/a.cookies"
           JAR_B="$RUNNER_TEMP/b.cookies"
           BASE="https://$DOMAIN"
-          REFERER="$BASE/workspace.html"
+          REFERER="$BASE/workspace"
 
           signup() {
             local jar="$1" email="$2" csrf
@@ -42,6 +42,12 @@ jobs:
             local jar="$1" url="$2" data="$3" csrf
             csrf="$(awk '$6=="csrftoken" {print $7}' "$jar" | tail -n1)"
             curl -4 -fsS -b "$jar" -c "$jar" -X POST "$url" \
+              -H 'Content-Type: application/json' -H "X-CSRFToken: $csrf" -H "Referer: $REFERER" --data "$data"
+          }
+          patch_json() {
+            local jar="$1" url="$2" data="$3" csrf
+            csrf="$(awk '$6=="csrftoken" {print $7}' "$jar" | tail -n1)"
+            curl -4 -fsS -b "$jar" -c "$jar" -X PATCH "$url" \
               -H 'Content-Type: application/json' -H "X-CSRFToken: $csrf" -H "Referer: $REFERER" --data "$data"
           }
           delete_account() {
@@ -63,6 +69,11 @@ jobs:
           NOTE="$(post_json "$JAR_A" "$BASE/api/workspace/knowledge/" "{\"kind\":\"note\",\"title\":\"Private production note\",\"body\":\"Isolation marker $RUN\",\"project_id\":$PROJECT_ID}")"
           NOTE_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["item"]["id"])' <<<"$NOTE")"
 
+          FOLDER="$(post_json "$JAR_A" "$BASE/api/workspace/collections/" "{\"name\":\"Experiments $RUN\",\"project_id\":$PROJECT_ID}")"
+          FOLDER_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["collection"]["id"])' <<<"$FOLDER")"
+          CHILD="$(post_json "$JAR_A" "$BASE/api/workspace/collections/" "{\"name\":\"Runs\",\"parent_id\":$FOLDER_ID,\"project_id\":$PROJECT_ID}")"
+          CHILD_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["collection"]["id"])' <<<"$CHILD")"
+
           STATUS="$(curl -4 -sS -o "$RUNNER_TEMP/isolation.json" -w '%{http_code}' -b "$JAR_B" "$BASE/api/workspace/knowledge/$NOTE_ID/")"
           test "$STATUS" = 404
 
@@ -70,17 +81,32 @@ jobs:
           CSRF_A="$(awk '$6=="csrftoken" {print $7}' "$JAR_A" | tail -n1)"
           DATASET="$(curl -4 -fsS -b "$JAR_A" -c "$JAR_A" -X POST "$BASE/api/workspace/files/upload/" \
             -H "X-CSRFToken: $CSRF_A" -H "Referer: $REFERER" \
-            -F kind=dataset -F title='Production dataset' -F project_id="$PROJECT_ID" \
+            -F kind=dataset -F title='Production dataset' -F project_id="$PROJECT_ID" -F collection_id="$CHILD_ID" \
             -F file=@"$RUNNER_TEMP/dataset.csv"\;type=text/csv)"
           DATASET_ID="$(python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["item"]["kind"]=="dataset"; print(d["item"]["id"])' <<<"$DATASET")"
+          patch_json "$JAR_A" "$BASE/api/workspace/knowledge/$DATASET_ID/" \
+            "{\"filename\":\"verified-$RUN.csv\",\"collection_id\":$FOLDER_ID,\"project_id\":$PROJECT_ID}" >/dev/null
+          patch_json "$JAR_A" "$BASE/api/workspace/collections/$FOLDER_ID/" \
+            "{\"name\":\"Verified Experiments $RUN\"}" >/dev/null
+
+          LINK="$(post_json "$JAR_A" "$BASE/api/workspace/knowledge/$NOTE_ID/links/" "{\"target_id\":$DATASET_ID,\"relation\":\"supports\"}")"
+          LINK_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["link"]["id"])' <<<"$LINK")"
+          curl -4 -fsS -b "$JAR_A" "$BASE/api/workspace/knowledge/$DATASET_ID/" | \
+            python3 -c 'import json,sys; d=json.load(sys.stdin)["item"]; assert d["original_name"].startswith("verified-"); assert any(x["id"]==int(sys.argv[1]) for x in d["related"])' "$LINK_ID"
           curl -4 -fsS -b "$JAR_A" "$BASE/api/workspace/files/$DATASET_ID/download/" -o "$RUNNER_TEMP/download.csv"
           cmp "$RUNNER_TEMP/dataset.csv" "$RUNNER_TEMP/download.csv"
 
           curl -4 -fsS -b "$JAR_A" "$BASE/api/workspace/dashboard/" | \
             python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["counts"]["projects"]>=1; assert d["counts"]["notes"]>=1; assert d["counts"]["datasets"]>=1; assert d["storage"]["used_bytes"]>0; assert d["storage"]["quota_bytes"]>d["storage"]["used_bytes"]'
           curl -4 -fsS "$BASE/" -o "$RUNNER_TEMP/home.html"
-          curl -4 -fsS "$BASE/account.html" -o "$RUNNER_TEMP/account.html"
-          curl -4 -fsS "$BASE/workspace.html" -o "$RUNNER_TEMP/workspace.html"
+          for route in login signup workspace workspace/projects workspace/knowledge workspace/files workspace/notes workspace/datasets; do
+            test "$(curl -4 -sS -o "$RUNNER_TEMP/route.html" -w '%{http_code}' "$BASE/$route")" = 200
+          done
+          test "$(curl -4 -sS -o /dev/null -w '%{http_code}' "$BASE/workspace.html")" = 301
+          test "$(curl -4 -sS -o /dev/null -w '%{redirect_url}' "$BASE/workspace.html")" = "$BASE/workspace"
+          test "$(curl -4 -sS -o /dev/null -w '%{http_code}' "$BASE/account.html")" = 301
+          curl -4 -fsS "$BASE/login" -o "$RUNNER_TEMP/account.html"
+          curl -4 -fsS "$BASE/workspace" -o "$RUNNER_TEMP/workspace.html"
           curl -4 -fsS "$BASE/api/health/" -o "$RUNNER_TEMP/health.json"
           grep -qi 'Gravitas' "$RUNNER_TEMP/home.html"
           grep -qi 'Create an account' "$RUNNER_TEMP/account.html"

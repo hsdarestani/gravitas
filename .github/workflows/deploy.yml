@@ -26,6 +26,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Test workspace backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/gravitas-tests"
+          "$RUNNER_TEMP/gravitas-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django test core
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django check
+          node --check assets/workspace.js
+
       - name: Validate deployment configuration
         shell: bash
         run: |
@@ -248,6 +261,13 @@ jobs:
                   proxy_set_header X-Forwarded-Proto \$scheme;
               }
 
+              location = /account.html { return 301 /login; }
+              location = /workspace.html { return 301 /workspace; }
+              location = /login { try_files /account.html =404; }
+              location = /signup { try_files /account.html =404; }
+              location = /workspace { try_files /workspace.html =404; }
+              location ^~ /workspace/ { try_files /workspace.html =404; }
+
               location / {
                   try_files \$uri \$uri/ /index.html;
               }
@@ -289,6 +309,13 @@ jobs:
               location ^~ /django-static/ {
                   proxy_pass http://127.0.0.1:8000;
               }
+
+              location = /account.html { return 301 /login; }
+              location = /workspace.html { return 301 /workspace; }
+              location = /login { try_files /account.html =404; }
+              location = /signup { try_files /account.html =404; }
+              location = /workspace { try_files /workspace.html =404; }
+              location ^~ /workspace/ { try_files /workspace.html =404; }
 
               location / {
                   try_files \$uri \$uri/ /index.html;
@@ -358,7 +385,7 @@ jobs:
           DJANGO_ENV=(DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$BACKEND_PATH")
 
           cd "$BACKEND_PATH"
-          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" makemigrations core --noinput
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" makemigrations core --check --dry-run
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" migrate --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" collectstatic --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" check --deploy

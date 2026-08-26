@@ -272,3 +272,12 @@ Sign-in row separated from the submit button. The community's "How it works"
 card now sits level with the poll (0px difference). The join block reduced to one
 dominant line and one quiet answer. The magazine drop cap set to a true two-line
 cap, so nothing is left hanging under it.
+
+---
+
+## Private workspace demo content
+
+For an existing account, seed the private demo idempotently with
+`cd backend && DJANGO_SETTINGS_MODULE=gravitas_backend.settings python -m django seed_workspace_demo --user researcher@example.com`.
+Remove only seeded content with the same command plus `--remove`. The command is
+never run automatically and does not create or expose credentials.

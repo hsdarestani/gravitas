@@ -78,11 +78,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
       <!-- create -->
       <form class="auth__form" id="p-up" role="tabpanel" aria-labelledby="t-up" data-demo-form>
-        <h1 class="auth__h">Keep your place.</h1>
-        <p class="auth__lede">Free, and it stays free. An account follows topics, saves where you
-          got to in a path, and lets you put your name to an argument.</p>
+        <h1 class="auth__h">Create your research workspace.</h1>
+        <p class="auth__lede">One private place for projects, notes, papers, datasets and files — connected to the rest of Gravitas.</p>
 
-        <label class="g-field"><span class="g-label" for="up-name">Name or handle</span>
+        <label class="g-field"><span class="g-label" for="up-name">Name</span>
           <input class="g-input" id="up-name" name="name" type="text" autocomplete="nickname" required></label>
         <label class="g-field"><span class="g-label" for="up-mail">Email</span>
           <input class="g-input" id="up-mail" name="email" type="email" autocomplete="email" required>
@@ -90,27 +89,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <label class="g-field"><span class="g-label" for="up-pass">Password</span>
           <input class="g-input" id="up-pass" name="password" type="password"
                  autocomplete="new-password" minlength="10" required>
-          <span class="g-hint">Eight characters or more.</span></label>
-
-        <fieldset class="auth__roles">
-          <legend class="g-label">Where do you think you'll start?</legend>
-          <p class="g-hint" style="margin:-.2rem 0 .6rem">You can change this whenever. It only
-            decides what the site puts in front of you first.</p>
-          <div class="auth__rolegrid">
-            <label class="rolepick"><input type="radio" name="role" value="reader" checked>
-              <span><b>Reader</b>Follow the argument. Nothing more required.</span></label>
-            <label class="rolepick"><input type="radio" name="role" value="researcher">
-              <span><b>Researcher</b>Sources, methods and the technical layer by default.</span></label>
-            <label class="rolepick"><input type="radio" name="role" value="translator">
-              <span><b>Translator</b>Bring a topic into another language.</span></label>
-            <label class="rolepick"><input type="radio" name="role" value="critic">
-              <span><b>Critic</b>Write the strongest case against what we published.</span></label>
-            <label class="rolepick"><input type="radio" name="role" value="builder">
-              <span><b>Builder</b>Make the tools, simulations and games.</span></label>
-            <label class="rolepick"><input type="radio" name="role" value="host">
-              <span><b>Host</b>Run a study group or a table.</span></label>
-          </div>
-        </fieldset>
+          <span class="g-hint">Ten characters or more.</span></label>
 
         <label class="auth__check"><input type="checkbox" name="news">
           <span>Send me the newsletter: one edition, every other week.</span></label>
@@ -122,7 +101,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <!-- sign in -->
       <form class="auth__form" id="p-in" role="tabpanel" aria-labelledby="t-in" hidden data-demo-form>
         <h1 class="auth__h">Welcome back.</h1>
-        <p class="auth__lede">Pick up where you left off.</p>
+        <p class="auth__lede">Return to your private research workspace.</p>
 
         <label class="g-field"><span class="g-label" for="in-mail">Email</span>
           <input class="g-input" id="in-mail" name="email" type="email" autocomplete="email" required></label>
@@ -156,22 +135,18 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <p class="auth__alt">Remembered it? <button class="linkish" type="button" data-tab="in">Sign in instead</button></p>
       </form>
 
-      <p class="auth__note" data-form-note>Front-end only. Wire the form action to your auth
-        provider to go live. Nothing is sent anywhere from this page.</p>
+      <p class="auth__note" data-form-note>Your workspace is private and provisioned automatically.</p>
     </div>
 
     <aside class="auth__side">
-      <h2>What an Account Is For</h2>
+      <h2>Research starts connected.</h2>
       <ul class="auth__list">
-        <li><b>Follow a topic.</b> They keep growing after publication; you get told what changed
-          rather than having to check.</li>
-        <li><b>Keep your place in a path.</b> Learning paths run over weeks, not one sitting.</li>
-        <li><b>Put your name to an argument.</b> Critiques and answers to the weekly question are
-          attributed, and the strongest become part of the next piece.</li>
-        <li><b>Nothing else.</b> No feed, no ranking, no attention metrics.</li>
+        <li><b>Projects hold the question.</b> Keep notes, evidence, files and data together.</li>
+        <li><b>Knowledge keeps its context.</b> Link assumptions to papers, datasets and methods.</li>
+        <li><b>Files stay private.</b> Gravitas manages secure cloud storage without sending you elsewhere.</li>
+        <li><b>Your work remains yours.</b> No feed, ranking or attention metrics.</li>
       </ul>
-      <p class="auth__side-note">Reading, watching, playing and the whole archive stay open without
-        an account. This only exists for the parts where being someone matters.</p>
+      <p class="auth__side-note">The public Gravitas archive stays open. An account adds the private workspace where your own research can grow.</p>
     </aside>
 
   </div>
@@ -236,7 +211,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       panels[k].hidden = k !== which;
       if (tabs[k]) tabs[k].setAttribute('aria-selected', String(k === which));
     });
-    if (history.replaceState) history.replaceState(null, '', '#' + which);
+    if (history.replaceState) history.replaceState(null, '', which === 'up' ? '/signup' : (which === 'in' ? '/login' : '/login#reset'));
     if (focus) {
       var f = panels[which].querySelector('input');
       if (f) f.focus();
@@ -258,7 +233,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
   function fromHash() {
     var h = location.hash;
-    return h === '#in' ? 'in' : (h === '#reset' ? 'reset' : 'up');
+    if (h === '#reset') return 'reset';
+    if (location.pathname === '/login' || h === '#in') return 'in';
+    return 'up';
   }
 
   // A hash change on the page we are already on is a same-document navigation:
