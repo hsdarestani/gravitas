@@ -1,0 +1,208 @@
+name: Gravitas Operating Browser E2E
+
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  operating-browser:
+    name: operating-browser-visual-smoke
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOMAIN: gravitasplus.com
+      BROWSER_EMAIL: operating-browser-${{ github.run_id }}-${{ github.run_attempt }}@example.com
+      BROWSER_PASSWORD: Operating-Browser-E2E-2026!
+
+    steps:
+      - name: Install Chromium browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          HARNESS="$RUNNER_TEMP/gravitas-operating-browser"
+          mkdir -p "$HARNESS"
+          cd "$HARNESS"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify rendered Operating Workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          HARNESS="$RUNNER_TEMP/gravitas-operating-browser"
+          ARTIFACTS="$RUNNER_TEMP/gravitas-operating-browser-artifacts"
+          mkdir -p "$ARTIFACTS"
+          cat > "$HARNESS/smoke.mjs" <<'EOF'
+          import { chromium } from 'playwright';
+          import assert from 'node:assert/strict';
+          import path from 'node:path';
+
+          const base = `https://${process.env.DOMAIN}`;
+          const email = process.env.BROWSER_EMAIL;
+          const password = process.env.BROWSER_PASSWORD;
+          const artifacts = path.join(process.env.RUNNER_TEMP, 'gravitas-operating-browser-artifacts');
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 1440, height: 1000 },
+            colorScheme: 'dark',
+            reducedMotion: 'reduce'
+          });
+          const page = await context.newPage();
+          const pageErrors = [];
+          const failedSameOriginRequests = [];
+
+          page.on('pageerror', error => pageErrors.push(String(error)));
+          page.on('requestfailed', request => {
+            try {
+              const target = new URL(request.url());
+              if (target.origin === base) {
+                failedSameOriginRequests.push(`${request.method()} ${target.pathname}: ${request.failure()?.errorText || 'failed'}`);
+              }
+            } catch (_) {}
+          });
+
+          async function settle() {
+            await page.waitForLoadState('domcontentloaded');
+            await page.evaluate(async () => {
+              if (document.fonts && document.fonts.ready) await document.fonts.ready;
+            });
+          }
+
+          async function visible(selector, timeout = 15000) {
+            const locator = page.locator(selector);
+            await locator.waitFor({ state: 'visible', timeout });
+            const box = await locator.boundingBox();
+            assert(box && box.width > 15 && box.height > 15, `${selector} has no rendered box`);
+            return locator;
+          }
+
+          async function waitOperating(title) {
+            await visible('#workspace-main');
+            await page.waitForFunction(expected => document.querySelector('#ws-title')?.textContent?.trim() === expected, title, { timeout: 15000 });
+            await page.waitForFunction(() => !document.querySelector('#ws-content .ws-loading'), null, { timeout: 15000 });
+            assert.equal((await page.locator('#ws-kicker').textContent())?.trim(), 'GRAVITAS OPERATING SYSTEM');
+          }
+
+          async function assertNoHorizontalBreakage(tolerance = 24) {
+            const dimensions = await page.evaluate(() => ({
+              viewport: window.innerWidth,
+              body: document.body.scrollWidth,
+              root: document.documentElement.scrollWidth
+            }));
+            assert(Math.max(dimensions.body, dimensions.root) <= dimensions.viewport + tolerance,
+              `unexpected horizontal overflow: viewport=${dimensions.viewport}, body=${dimensions.body}, root=${dimensions.root}`);
+          }
+
+          async function openSection(pathname, title) {
+            await page.goto(`${base}${pathname}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await settle();
+            await waitOperating(title);
+            await assertNoHorizontalBreakage();
+          }
+
+          try {
+            await page.goto(`${base}/signup`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await settle();
+            await visible('#p-up');
+            await page.locator('#up-name').fill('Operating Browser E2E');
+            await page.locator('#up-mail').fill(email);
+            await page.locator('#up-pass').fill(password);
+            await page.locator('#p-up button[type="submit"]').click();
+            await page.waitForURL(url => url.origin === base && url.pathname === '/workspace', { timeout: 20000 });
+
+            await openSection('/workspace/operating', 'Operating Dashboard');
+            await page.waitForFunction(expected => document.querySelector('#ws-user')?.textContent?.trim() === expected, email, { timeout: 15000 });
+            await visible('.ws-sidebar');
+            await visible('.op-section-note');
+            assert.match((await page.locator('.op-section-note').first().textContent()) || '', /Operating traceability is active/i);
+            await visible('[data-action="new-initiative"]');
+            await visible('[data-action="new-task"]');
+            await page.locator('#op-risk-panel').waitFor({ state: 'attached', timeout: 15000 });
+            assert.equal(await page.locator('#ws-nav a[href="/workspace/operating/strategy"]').count(), 1);
+            assert.equal(await page.locator('#ws-nav a[href="/workspace/operating/initiatives"]').count(), 1);
+            assert.equal(await page.locator('#ws-nav a[href="/workspace/operating/processes"]').count(), 1);
+            assert.equal(await page.locator('#ws-nav a[href="/workspace/operating/cycles"]').count(), 1);
+            assert.equal(await page.locator('#ws-nav a[href="/workspace/operating/tasks"]').count(), 1);
+            assert.equal(await page.locator('#ws-nav a[href="/workspace/operating/meetings"]').count(), 1);
+            await page.screenshot({ path: path.join(artifacts, '01-operating-overview-desktop.png'), fullPage: true, animations: 'disabled' });
+
+            await openSection('/workspace/operating/strategy', 'Strategy & OKRs');
+            await visible('.op-strategy-tree');
+
+            await openSection('/workspace/operating/initiatives', 'Initiatives');
+            await visible('[data-action="new-initiative"]');
+
+            await openSection('/workspace/operating/processes', 'Processes');
+            await page.waitForFunction(() => document.querySelectorAll('.op-process').length === 5, null, { timeout: 15000 });
+            assert.equal(await page.locator('.op-process').count(), 5, 'expected the five fixed operating processes');
+            await page.screenshot({ path: path.join(artifacts, '02-operating-processes-desktop.png'), fullPage: true, animations: 'disabled' });
+
+            await openSection('/workspace/operating/cycles', 'Cycles & Milestones');
+            await page.locator('#op-work-package-panel').waitFor({ state: 'attached', timeout: 15000 });
+
+            await openSection('/workspace/operating/tasks', 'Tasks');
+            await visible('[data-action="new-task"]');
+
+            await openSection('/workspace/operating/meetings', 'Meetings');
+            await page.locator('#op-meeting-action-panel').waitFor({ state: 'attached', timeout: 15000 });
+
+            await page.setViewportSize({ width: 390, height: 844 });
+            await openSection('/workspace/operating', 'Operating Dashboard');
+            await visible('.ws-mobile-nav');
+            await visible('#ws-mobile-select');
+            assert.equal(await page.locator('#ws-mobile-select option').count(), 8);
+            await assertNoHorizontalBreakage(32);
+            await page.screenshot({ path: path.join(artifacts, '03-operating-overview-mobile.png'), fullPage: true, animations: 'disabled' });
+
+            assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`);
+            assert.deepEqual(failedSameOriginRequests, [], `failed production requests: ${failedSameOriginRequests.join(' | ')}`);
+            console.log('operating-browser-visual-smoke-passed');
+          } finally {
+            await browser.close();
+          }
+          EOF
+          cd "$HARNESS"
+          node smoke.mjs
+
+      - name: Upload Operating Workspace screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operating-browser-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gravitas-operating-browser-artifacts/*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove browser test account
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          COOKIE_JAR="$RUNNER_TEMP/gravitas-operating-browser-cleanup.txt"
+          curl -4 -fsS -c "$COOKIE_JAR" "https://$DOMAIN/api/auth/csrf/" >/dev/null || exit 0
+          CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
+          test -n "$CSRF" || exit 0
+          LOGIN="$(curl -4 -sS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+            -X POST "https://$DOMAIN/api/auth/login/" \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -H "X-CSRFToken: $CSRF" \
+            -H "Referer: https://$DOMAIN/login" \
+            --data "{\"email\":\"$BROWSER_EMAIL\",\"password\":\"$BROWSER_PASSWORD\",\"keep\":false}")"
+          printf '%s' "$LOGIN" | grep -q '"ok": true' || exit 0
+          CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
+          curl -4 -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+            -X POST "https://$DOMAIN/api/auth/delete/" \
+            -H 'Content-Type: application/json' \
+            -H "X-CSRFToken: $CSRF" \
+            -H "Referer: https://$DOMAIN/login" \
+            --data "{\"password\":\"$BROWSER_PASSWORD\",\"confirmation\":\"delete\"}" >/dev/null
