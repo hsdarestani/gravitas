@@ -2,7 +2,7 @@ name: Gravitas Operating Browser E2E
 
 on:
   workflow_run:
-    workflows: ["Deploy Gravitas to Strato"]
+    workflows: ["Gravitas Operating Production E2E"]
     types: [completed]
   workflow_dispatch:
 
@@ -110,7 +110,7 @@ jobs:
           }
 
           try {
-            await page.goto(`${base}/signup`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.goto(`${base}/signup`, { waitUntil: 'networkidle', timeout: 30000 });
             await settle();
             await visible('#p-up');
             await page.locator('#up-name').fill('Operating Browser E2E');
