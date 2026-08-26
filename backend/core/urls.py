@@ -19,7 +19,6 @@ from core.operating_api import (
 from core.operating_api_v2 import (
     initiative_detail,
     initiatives,
-    operating_dashboard,
     risk_detail,
     risks,
     task_detail,
@@ -27,6 +26,7 @@ from core.operating_api_v2 import (
     work_package_detail,
     work_packages,
 )
+from core.operating_api_v3 import operating_dashboard
 from core.workspace_api import (
     collection_detail,
     collections,
