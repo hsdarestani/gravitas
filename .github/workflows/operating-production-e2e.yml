@@ -2,7 +2,7 @@ name: Gravitas Operating Production E2E
 
 on:
   workflow_run:
-    workflows: ["Deploy Gravitas to Strato"]
+    workflows: ["Gravitas Production Auth E2E"]
     types: [completed]
   workflow_dispatch:
 
@@ -13,7 +13,7 @@ jobs:
   operating-e2e:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
