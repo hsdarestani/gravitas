@@ -1,0 +1,131 @@
+name: Gravitas Operating Production E2E
+
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  operating-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify Strategy → KR → Initiative → Task traceability in production
+        env:
+          BASE_URL: https://gravitasplus.com
+          TEST_EMAIL: operating-e2e-${{ github.run_id }}-${{ github.run_attempt }}@example.com
+          TEST_PASSWORD: Operating-E2E-Password-2026!
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+          import http.cookiejar
+
+          base = os.environ['BASE_URL'].rstrip('/')
+          email = os.environ['TEST_EMAIL']
+          password = os.environ['TEST_PASSWORD']
+          jar = http.cookiejar.CookieJar()
+          opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+
+          def csrf():
+              req = urllib.request.Request(base + '/api/auth/csrf/', headers={'Accept': 'application/json'})
+              with opener.open(req, timeout=30) as response:
+                  response.read()
+              for cookie in jar:
+                  if cookie.name == 'csrftoken':
+                      return cookie.value
+              raise RuntimeError('CSRF cookie was not issued')
+
+          def request(path, method='GET', payload=None):
+              headers = {'Accept': 'application/json'}
+              body = None
+              if payload is not None:
+                  body = json.dumps(payload).encode('utf-8')
+                  headers['Content-Type'] = 'application/json'
+              if method != 'GET':
+                  headers['X-CSRFToken'] = csrf()
+              req = urllib.request.Request(base + path, data=body, headers=headers, method=method)
+              try:
+                  with opener.open(req, timeout=45) as response:
+                      raw = response.read().decode('utf-8')
+                      return response.status, json.loads(raw or '{}')
+              except urllib.error.HTTPError as exc:
+                  raw = exc.read().decode('utf-8', errors='replace')
+                  raise RuntimeError(f'{method} {path} failed: HTTP {exc.code}: {raw}')
+
+          created = False
+          try:
+              status, signup = request('/api/auth/signup/', 'POST', {
+                  'name': 'Operating Production E2E',
+                  'email': email,
+                  'password': password,
+              })
+              assert status == 201 and signup.get('ok') is True, signup
+              created = True
+
+              _, dashboard = request('/api/operating/dashboard/')
+              processes = dashboard.get('processes', [])
+              assert len(processes) == 5, dashboard
+              process = next(item for item in processes if item['key'] == 'research')
+
+              _, objective = request('/api/operating/objectives/', 'POST', {
+                  'title': 'Production traceability objective',
+                  'quarter': 'E2E',
+              })
+              objective_id = objective['objective']['id']
+
+              _, kr = request('/api/operating/key-results/', 'POST', {
+                  'objective_id': objective_id,
+                  'title': 'Production traceability KR',
+                  'baseline_value': 0,
+                  'target_value': 10,
+                  'current_value': 2,
+                  'unit': 'items',
+              })
+              kr_id = kr['key_result']['id']
+
+              _, initiative = request('/api/operating/initiatives/', 'POST', {
+                  'key_result_id': kr_id,
+                  'process_id': process['id'],
+                  'title': 'Production traceability initiative',
+                  'priority': 'p1',
+              })
+              initiative_id = initiative['initiative']['id']
+
+              _, task = request('/api/operating/tasks/', 'POST', {
+                  'initiative_id': initiative_id,
+                  'title': 'Production traceability task',
+                  'definition_of_done': 'Trace is present from task to objective.',
+                  'priority': 'p1',
+              })
+              task_data = task['task']
+              trace = task_data['trace']
+              assert trace['objective']['id'] == objective_id, trace
+              assert trace['key_result']['id'] == kr_id, trace
+              assert trace['initiative']['id'] == initiative_id, trace
+              assert trace['process']['key'] == 'research', trace
+
+              _, updated = request(f"/api/operating/tasks/{task_data['id']}/", 'PATCH', {'status': 'done'})
+              assert updated['task']['status'] == 'done', updated
+
+              _, final_dashboard = request('/api/operating/dashboard/')
+              assert final_dashboard['counts']['objectives'] == 1, final_dashboard
+              assert final_dashboard['counts']['key_results'] == 1, final_dashboard
+              assert final_dashboard['counts']['initiatives'] == 1, final_dashboard
+              print('operating-production-e2e-passed')
+          finally:
+              if created:
+                  try:
+                      request('/api/auth/delete/', 'POST', {'password': password, 'confirmation': 'delete'})
+                  except Exception as cleanup_error:
+                      print('cleanup warning:', cleanup_error)
+          PY
