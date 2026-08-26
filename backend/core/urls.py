@@ -2,6 +2,25 @@ from django.urls import path
 
 from core.content_api import content_detail, content_list
 from core.kpi import kpi_summary
+from core.operating_api import (
+    cycle_detail,
+    cycles,
+    initiative_detail,
+    initiatives,
+    key_result_detail,
+    key_results,
+    meeting_detail,
+    meetings,
+    milestone_detail,
+    milestones,
+    objective_detail,
+    objectives,
+    operating_dashboard,
+    process_detail,
+    processes,
+    task_detail,
+    tasks,
+)
 from core.workspace_api import (
     collection_detail,
     collections,
@@ -53,6 +72,27 @@ urlpatterns = [
     path('community/comments/<slug:content_key>/', comments),
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
+
+    # Gravitas Operating Workspace: Strategy → OKR → Initiative → Cycle/Milestone → Task.
+    path('operating/dashboard/', operating_dashboard),
+    path('operating/processes/', processes),
+    path('operating/processes/<int:process_id>/', process_detail),
+    path('operating/objectives/', objectives),
+    path('operating/objectives/<int:objective_id>/', objective_detail),
+    path('operating/key-results/', key_results),
+    path('operating/key-results/<int:kr_id>/', key_result_detail),
+    path('operating/initiatives/', initiatives),
+    path('operating/initiatives/<int:initiative_id>/', initiative_detail),
+    path('operating/cycles/', cycles),
+    path('operating/cycles/<int:cycle_id>/', cycle_detail),
+    path('operating/milestones/', milestones),
+    path('operating/milestones/<int:milestone_id>/', milestone_detail),
+    path('operating/tasks/', tasks),
+    path('operating/tasks/<int:task_id>/', task_detail),
+    path('operating/meetings/', meetings),
+    path('operating/meetings/<int:meeting_id>/', meeting_detail),
+
+    # Research / Knowledge layer.
     path('workspace/dashboard/', workspace_dashboard),
     path('workspace/projects/', projects),
     path('workspace/projects/<int:project_id>/', project_detail),
