@@ -5,8 +5,6 @@ from core.kpi import kpi_summary
 from core.operating_api import (
     cycle_detail,
     cycles,
-    initiative_detail,
-    initiatives,
     key_result_detail,
     key_results,
     meeting_detail,
@@ -15,11 +13,19 @@ from core.operating_api import (
     milestones,
     objective_detail,
     objectives,
-    operating_dashboard,
     process_detail,
     processes,
+)
+from core.operating_api_v2 import (
+    initiative_detail,
+    initiatives,
+    operating_dashboard,
+    risk_detail,
+    risks,
     task_detail,
     tasks,
+    work_package_detail,
+    work_packages,
 )
 from core.workspace_api import (
     collection_detail,
@@ -73,7 +79,8 @@ urlpatterns = [
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
 
-    # Gravitas Operating Workspace: Strategy → OKR → Initiative → Cycle/Milestone → Task.
+    # Gravitas Operating Workspace: Strategy → OKR → Initiative → Process / Project
+    # → Milestone / Cycle → Work Package → Task, with Risks and meeting action items.
     path('operating/dashboard/', operating_dashboard),
     path('operating/processes/', processes),
     path('operating/processes/<int:process_id>/', process_detail),
@@ -87,8 +94,12 @@ urlpatterns = [
     path('operating/cycles/<int:cycle_id>/', cycle_detail),
     path('operating/milestones/', milestones),
     path('operating/milestones/<int:milestone_id>/', milestone_detail),
+    path('operating/work-packages/', work_packages),
+    path('operating/work-packages/<int:work_package_id>/', work_package_detail),
     path('operating/tasks/', tasks),
     path('operating/tasks/<int:task_id>/', task_detail),
+    path('operating/risks/', risks),
+    path('operating/risks/<int:risk_id>/', risk_detail),
     path('operating/meetings/', meetings),
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
