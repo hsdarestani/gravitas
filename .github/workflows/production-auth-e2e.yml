@@ -23,7 +23,7 @@ jobs:
           EMAIL="auth-e2e-${{ github.run_id }}@example.com"
           PASSWORD='Production-E2E-Password-2026!'
           COOKIE_JAR="$RUNNER_TEMP/gravitas-auth-cookies.txt"
-          REFERER="https://$DOMAIN/account.html"
+          REFERER="https://$DOMAIN/login"
 
           curl -4 -fsS -c "$COOKIE_JAR" "https://$DOMAIN/api/auth/csrf/" >/dev/null
           CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
@@ -71,12 +71,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
-          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
-          HOST="${{ secrets.DEPLOY_HOST }}"
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
-          chmod 600 ~/.ssh/key
-          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" \
-            "sudo -u postgres psql -d gravitas -v ON_ERROR_STOP=1 -c \"DELETE FROM core_newslettersubscriber WHERE email = '$TEST_EMAIL'; DELETE FROM auth_user WHERE email = '$TEST_EMAIL';\"" >/dev/null
+          COOKIE_JAR="$RUNNER_TEMP/gravitas-auth-cookies.txt"
+          CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
+          curl -4 -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+            -X POST "https://$DOMAIN/api/auth/delete/" \
+            -H 'Content-Type: application/json' \
+            -H "X-CSRFToken: $CSRF" \
+            -H "Referer: https://$DOMAIN/login" \
+            --data '{"password":"Production-E2E-Password-2026!","confirmation":"delete"}' >/dev/null
