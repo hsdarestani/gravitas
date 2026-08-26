@@ -7,7 +7,9 @@ from .operating_models import (
     OperatingMeeting,
     OperatingMilestone,
     OperatingProcess,
+    OperatingRisk,
     OperatingTask,
+    OperatingWorkPackage,
     StrategicObjective,
 )
 
@@ -35,9 +37,9 @@ class KeyResultAdmin(admin.ModelAdmin):
 
 @admin.register(Initiative)
 class InitiativeAdmin(admin.ModelAdmin):
-    list_display = ('title', 'process', 'key_result', 'owner', 'priority', 'health', 'status', 'due_date')
+    list_display = ('title', 'process', 'stage', 'key_result', 'owner', 'priority', 'health', 'status', 'due_date')
     list_filter = ('process__key', 'priority', 'health', 'status')
-    search_fields = ('title', 'description', 'key_result__title', 'owner__email')
+    search_fields = ('title', 'description', 'stage', 'key_result__title', 'owner__email')
 
 
 @admin.register(OperatingCycle)
@@ -54,11 +56,25 @@ class OperatingMilestoneAdmin(admin.ModelAdmin):
     search_fields = ('title', 'initiative__title', 'owner__email')
 
 
+@admin.register(OperatingWorkPackage)
+class OperatingWorkPackageAdmin(admin.ModelAdmin):
+    list_display = ('title', 'milestone', 'project', 'owner', 'due_date', 'status')
+    list_filter = ('status', 'milestone__initiative__process__key')
+    search_fields = ('title', 'description', 'milestone__title', 'owner__email')
+
+
 @admin.register(OperatingTask)
 class OperatingTaskAdmin(admin.ModelAdmin):
-    list_display = ('title', 'initiative', 'owner', 'priority', 'status', 'due_date', 'updated_at')
+    list_display = ('title', 'initiative', 'work_package', 'owner', 'priority', 'status', 'due_date', 'updated_at')
     list_filter = ('priority', 'status', 'initiative__process__key')
     search_fields = ('title', 'description', 'definition_of_done', 'owner__email', 'initiative__title')
+
+
+@admin.register(OperatingRisk)
+class OperatingRiskAdmin(admin.ModelAdmin):
+    list_display = ('title', 'initiative', 'project', 'owner', 'health', 'status', 'due_date')
+    list_filter = ('health', 'status')
+    search_fields = ('title', 'description', 'mitigation', 'owner__email', 'initiative__title')
 
 
 @admin.register(OperatingMeeting)
