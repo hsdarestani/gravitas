@@ -4,24 +4,32 @@ on:
   pull_request:
     paths:
       - 'backend/core/initiative_planner.py'
+      - 'backend/core/task_reorder_api.py'
       - 'backend/core/test_initiative_planner.py'
+      - 'backend/core/test_task_reorder.py'
       - 'backend/core/urls.py'
       - 'assets/initiative-planner.js'
       - 'assets/initiative-planner.css'
       - 'assets/initiative-task-editor.js'
       - 'assets/initiative-task-editor.css'
+      - 'assets/initiative-task-reorder.js'
+      - 'assets/initiative-task-reorder.css'
       - 'workspace.html'
       - '.github/workflows/initiative-planner-validation.yml'
   push:
     branches: [main]
     paths:
       - 'backend/core/initiative_planner.py'
+      - 'backend/core/task_reorder_api.py'
       - 'backend/core/test_initiative_planner.py'
+      - 'backend/core/test_task_reorder.py'
       - 'backend/core/urls.py'
       - 'assets/initiative-planner.js'
       - 'assets/initiative-planner.css'
       - 'assets/initiative-task-editor.js'
       - 'assets/initiative-task-editor.css'
+      - 'assets/initiative-task-reorder.js'
+      - 'assets/initiative-task-reorder.css'
       - 'workspace.html'
       - '.github/workflows/initiative-planner-validation.yml'
 
@@ -38,6 +46,7 @@ jobs:
         run: |
           node --check assets/initiative-planner.js
           node --check assets/initiative-task-editor.js
+          node --check assets/initiative-task-reorder.js
       - name: Test initiative planner
         shell: bash
         run: |
@@ -46,5 +55,5 @@ jobs:
           "$RUNNER_TEMP/gravitas-planner-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
           export PYTHONPATH="$GITHUB_WORKSPACE/backend"
           export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
-          "$RUNNER_TEMP/gravitas-planner-tests/bin/python" -m django test core.test_initiative_planner
+          "$RUNNER_TEMP/gravitas-planner-tests/bin/python" -m django test core.test_initiative_planner core.test_task_reorder
           "$RUNNER_TEMP/gravitas-planner-tests/bin/python" -m django check
