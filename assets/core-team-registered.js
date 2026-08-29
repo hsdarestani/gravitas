@@ -4,6 +4,7 @@
 var route=/^\/workspace\/core\/team\/?$/;
 var busy=false;
 var timer=null;
+var selected='core';
 
 function active(){return route.test(location.pathname)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
@@ -23,12 +24,13 @@ function row(u){return '<article class="ct-member" data-ct-registered-row data-c
 function empty(){return '<div class="ct-empty">'+icons('users')+'<strong>No users waiting for access</strong><span>New self-registered accounts that are not yet in Core or Research will appear here.</span></div>'}
 
 function showTab(name){
+  selected=name||'core';
   var core=document.querySelector('[data-ct-section="core"]');
   var research=document.querySelector('[data-ct-section="research"]');
   var registered=document.querySelector('[data-ct-section="registered"]');
   if(!core||!research||!registered)return;
-  core.hidden=name!=='core'; research.hidden=name!=='research'; registered.hidden=name!=='registered';
-  document.querySelectorAll('.ct-tab').forEach(function(btn){btn.classList.toggle('is-active',btn.getAttribute('data-ct-tab')===name||btn.getAttribute('data-ct-registered-tab')===name)});
+  core.hidden=selected!=='core'; research.hidden=selected!=='research'; registered.hidden=selected!=='registered';
+  document.querySelectorAll('.ct-tab').forEach(function(btn){btn.classList.toggle('is-active',btn.getAttribute('data-ct-tab')===selected||btn.getAttribute('data-ct-registered-tab')===selected)});
 }
 
 function render(data){
@@ -40,13 +42,15 @@ function render(data){
   var users=data.registered_users||[];
   var tab=tabs.querySelector('[data-ct-registered-tab]');
   if(!tab){
-    tabs.insertAdjacentHTML('beforeend','<button type="button" class="ct-tab" data-ct-registered-tab="registered">Registered Users'+(users.length?' ('+users.length+')':'')+'</button>');
+    tabs.insertAdjacentHTML('beforeend','<button type="button" class="ct-tab '+(selected==='registered'?'is-active':'')+'" data-ct-registered-tab="registered">Registered Users'+(users.length?' ('+users.length+')':'')+'</button>');
   }else{
     tab.textContent='Registered Users'+(users.length?' ('+users.length+')':'');
+    tab.classList.toggle('is-active',selected==='registered');
   }
   var section=root.querySelector('[data-ct-section="registered"]');
-  var html='<section class="ct-section" hidden data-ct-section="registered"><div class="ct-panel"><div class="ct-panel__head"><div><h2>Registered Users</h2><p>Accounts created through sign-up that have not yet been granted Core or Research access.</p></div><span class="ct-badge" data-tone="admin">Pending access</span></div><div class="ct-list">'+(users.map(row).join('')||empty())+'</div></div><div class="ct-hint"><strong>Sign-up does not automatically grant internal access.</strong> Choose Member for normal Core access or Admin only for people who should manage the team and access settings.</div></section>';
+  var html='<section class="ct-section" '+(selected==='registered'?'':'hidden')+' data-ct-section="registered"><div class="ct-panel"><div class="ct-panel__head"><div><h2>Registered Users</h2><p>Accounts created through sign-up that have not yet been granted Core or Research access.</p></div><span class="ct-badge" data-tone="admin">Pending access</span></div><div class="ct-list">'+(users.map(row).join('')||empty())+'</div></div><div class="ct-hint"><strong>Sign-up does not automatically grant internal access.</strong> Choose Member for normal Core access or Admin only for people who should manage the team and access settings.</div></section>';
   if(section)section.outerHTML=html;else root.insertAdjacentHTML('beforeend',html);
+  showTab(selected);
 }
 
 function load(){
@@ -62,7 +66,7 @@ document.addEventListener('click',function(e){
   var tab=e.target.closest('[data-ct-registered-tab]');
   if(tab){showTab('registered');return}
   var regular=e.target.closest('[data-ct-tab]');
-  if(regular&&document.querySelector('[data-ct-section="registered"]')){showTab(regular.getAttribute('data-ct-tab'));return}
+  if(regular){selected=regular.getAttribute('data-ct-tab')||'core';setTimeout(schedule,0);return}
   var add=e.target.closest('[data-ct-register-add]');
   if(!add)return;
   var rowEl=add.closest('[data-ct-registered-row]');
@@ -77,7 +81,12 @@ document.addEventListener('click',function(e){
     .catch(function(err){toast(err.message,true);add.disabled=false});
 });
 
-var observer=new MutationObserver(schedule);
+var observer=new MutationObserver(function(){
+  if(!active()||busy)return;
+  var root=document.querySelector('[data-core-team-root]');
+  if(!root)return;
+  if(!root.querySelector('[data-ct-registered-tab]')||!root.querySelector('[data-ct-section="registered"]'))schedule();
+});
 observer.observe(document.documentElement,{childList:true,subtree:true});
 window.addEventListener('popstate',schedule);
 schedule();

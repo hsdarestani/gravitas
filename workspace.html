@@ -100,7 +100,7 @@
       function add(src,onload){
         var s=document.createElement('script');s.src=src;s.async=false;if(onload)s.onload=onload;document.body.appendChild(s);
       }
-      function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js')})})}
+      function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js?v=20260829b')})})}
       function addNavigation(){add('/assets/platform-v3-navigation.js',addVisuals)}
       function addOperatingShell(){add('/assets/operating-core-shell.js',addNavigation)}
 

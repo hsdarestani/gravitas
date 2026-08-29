@@ -42,6 +42,27 @@ jobs:
             node --check "$file"
           done
 
+      - name: Check Registered Users tab render contract
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const src = fs.readFileSync('assets/core-team-registered.js', 'utf8');
+          const checks = [
+            ["var selected='core'", 'tab selection state must be persisted'],
+            ["selected==='registered'?'':'hidden'", 'registered section visibility must follow selection'],
+            ["selected=regular.getAttribute('data-ct-tab')||'core'", 'switching back to native tabs must update selection'],
+            ["if(!root.querySelector('[data-ct-registered-tab]')||!root.querySelector('[data-ct-section=\"registered\"]'))schedule()", 'observer must reload only when the extension DOM is missing']
+          ];
+          for (const [needle, message] of checks) {
+            if (!src.includes(needle)) throw new Error(message);
+          }
+          if (/new MutationObserver\s*\(\s*schedule\s*\)/.test(src)) {
+            throw new Error('registered users observer must not self-trigger on every render');
+          }
+          console.log('Registered Users render-state regression contract passed.');
+          NODE
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
