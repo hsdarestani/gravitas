@@ -39,29 +39,26 @@ function renderWorkspacePicker(area){
   var picker=document.getElementById('v3-workspace-picker');
   if(!picker)return;
   var html='';
-  if(coreAllowed()){
-    html+='<a href="/workspace/core" class="'+(area==='core'?'is-current':'')+'"><span>◎</span><span><strong>Core Workspace</strong><small>Internal team operations</small></span></a>';
-  }
+  if(coreAllowed())html+='<a href="/workspace/core" class="'+(area==='core'?'is-current':'')+'"><span>◎</span><span><strong>Core Workspace</strong><small>Internal team operations</small></span></a>';
   html+='<a href="/workspace/research" class="'+(area==='research'?'is-current':'')+'"><span>◇</span><span><strong>Research Workspace</strong><small>Projects & scientific collaboration</small></span></a>';
-  picker.innerHTML=html;
+  if(picker.dataset.v3Html!==html){picker.dataset.v3Html=html;picker.innerHTML=html}
 }
 
 function renderContextNav(area){
   var box=document.getElementById('v3-context-nav');
   var label=document.getElementById('v3-context-label');
   if(!box||!label)return;
-  if(area==='home'){
-    label.textContent='Workspaces';
-    box.innerHTML='';
-    return;
+  var html='',text='Workspaces';
+  if(area!=='home'){
+    var items=area==='core'?coreNav:researchNav;
+    text=area==='core'?'Core menu':'Research menu';
+    html=items.map(function(x){return link(x[0],x[1],x[2],x[3]())}).join('');
   }
-  var items=area==='core'?coreNav:researchNav;
-  label.textContent=area==='core'?'Core menu':'Research menu';
-  box.innerHTML=items.map(function(x){return link(x[0],x[1],x[2],x[3]())}).join('');
+  if(label.textContent!==text)label.textContent=text;
+  if(box.dataset.v3Html!==html){box.dataset.v3Html=html;box.innerHTML=html}
 }
 
 function labelForPath(){
-  var p=location.pathname;
   if(exact('/workspace/core'))return 'Overview';
   if(starts('/workspace/core/tasks'))return 'Tasks & Execution';
   if(starts('/workspace/core/content'))return 'Content Pipeline';
@@ -83,10 +80,12 @@ function renderBreadcrumb(area){
   var hero=main&&main.querySelector('.ws-hero');
   if(!main||!hero)return;
   var old=document.getElementById('v3-breadcrumbs');
+  if(area==='home'){if(old)old.remove();return}
+  var key=area+'|'+labelForPath();
+  if(old&&old.dataset.v3Key===key)return;
   if(old)old.remove();
-  if(area==='home')return;
   var crumb=document.createElement('nav');
-  crumb.id='v3-breadcrumbs';crumb.className='v3-breadcrumbs';crumb.setAttribute('aria-label','Breadcrumb');
+  crumb.id='v3-breadcrumbs';crumb.className='v3-breadcrumbs';crumb.dataset.v3Key=key;crumb.setAttribute('aria-label','Breadcrumb');
   var ws=area==='core'?'Core Workspace':'Research Workspace';
   var href=area==='core'?'/workspace/core':'/workspace/research';
   crumb.innerHTML='<a href="/workspace/my-work">Home</a><i>›</i><a href="'+href+'">'+ws+'</a><i>›</i><strong>'+esc(labelForPath())+'</strong>';
@@ -94,18 +93,15 @@ function renderBreadcrumb(area){
 }
 
 function renderContextStrip(area){
-  var main=document.getElementById('workspace-main');
   var alertBox=document.getElementById('ws-alert');
-  if(!main||!alertBox)return;
+  if(!alertBox)return;
   var old=document.getElementById('v3-context-strip');
+  if(area==='home'){if(old)old.remove();return}
+  if(old&&old.dataset.v3Area===area)return;
   if(old)old.remove();
-  if(area==='home')return;
-  var box=document.createElement('div');box.id='v3-context-strip';box.className='v3-context-strip';
-  if(area==='core'){
-    box.innerHTML='<span>◎</span><div><b>Internal Gravitas workspace</b>Projects, execution, content and team planning. This workspace is visible only to members of the Gravitas core team.</div>';
-  }else{
-    box.innerHTML='<span>◇</span><div><b>Research collaboration workspace</b>Scientific and client projects live here. Access is granted per project or item; private notes and files stay private until shared.</div>';
-  }
+  var box=document.createElement('div');box.id='v3-context-strip';box.className='v3-context-strip';box.dataset.v3Area=area;
+  if(area==='core')box.innerHTML='<span>◎</span><div><b>Internal Gravitas workspace</b>Projects, execution, content and team planning. This workspace is visible only to members of the Gravitas core team.</div>';
+  else box.innerHTML='<span>◇</span><div><b>Research collaboration workspace</b>Scientific and client projects live here. Access is granted per project or item; private notes and files stay private until shared.</div>';
   alertBox.parentNode.insertBefore(box,alertBox);
 }
 
@@ -118,15 +114,16 @@ function renderMobile(area){
   options=options.concat([
     ['/workspace/research','Research · Overview'],['/workspace/research/projects','Research · Projects'],['/workspace/research/notes','Research · Notes'],['/workspace/research/files','Research · Files & Data Rooms'],['/workspace/research/datasets','Research · Datasets'],['/workspace/research/mindmaps','Research · Mind Maps'],['/workspace/people','Research · Researchers'],['/workspace/community','Research · Opportunities'],['/workspace/shared','Research · Shared with me']
   ]);
-  select.innerHTML=options.map(function(x){return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join('');
+  var key=(coreAllowed()?'core1':'core0');
+  if(select.dataset.v3Options!==key){
+    select.dataset.v3Options=key;
+    select.innerHTML=options.map(function(x){return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join('');
+  }
   var p=location.pathname.replace(/\/$/,'');
   var matched=options.find(function(x){return p===x[0]||p.indexOf(x[0]+'/')===0});
-  if(matched)select.value=matched[0];
-  if(label)label.textContent=area==='home'?'Go to':'Current workspace';
-  if(!select.dataset.v3Bound){
-    select.dataset.v3Bound='1';
-    select.addEventListener('change',function(){if(this.value)location.href=this.value});
-  }
+  if(matched&&select.value!==matched[0])select.value=matched[0];
+  var labelText=area==='home'?'Go to':'Current workspace';if(label&&label.textContent!==labelText)label.textContent=labelText;
+  if(!select.dataset.v3Bound){select.dataset.v3Bound='1';select.addEventListener('change',function(){if(this.value)location.href=this.value})}
 }
 
 function workspaceCard(kind){
@@ -136,7 +133,7 @@ function workspaceCard(kind){
 
 function decorateHome(){
   var title=document.getElementById('ws-title'),sub=document.getElementById('ws-subtitle'),kick=document.getElementById('ws-kicker');
-  if(title)title.textContent='Home';
+  if(title&&title.textContent!=='Home')title.textContent='Home';
   if(sub)sub.textContent='Choose a workspace, then continue with the work assigned to you.';
   if(kick)kick.textContent='GRAVITAS · HOME';
   var content=document.getElementById('ws-content');
@@ -152,10 +149,8 @@ function decorateResearchPrivateScope(area){
   var content=document.getElementById('ws-content');
   if(!content||content.querySelector('.v3-research-private-note'))return;
   if(!/^\/workspace\/research\/(?:notes|files|datasets)\/?$/.test(location.pathname))return;
-  var toolbar=content.querySelector('.v2-toolbar');
-  if(!toolbar)return;
-  var note=document.createElement('div');note.className='v3-research-private-note';
-  note.textContent='Private is a scope, not another workspace. New items can stay private, be attached to a research project, or be shared explicitly.';
+  var toolbar=content.querySelector('.v2-toolbar');if(!toolbar)return;
+  var note=document.createElement('div');note.className='v3-research-private-note';note.textContent='Private is a scope, not another workspace. New items can stay private, be attached to a research project, or be shared explicitly.';
   toolbar.parentNode.insertBefore(note,toolbar.nextSibling);
 }
 
@@ -164,33 +159,21 @@ function applyShell(){
   decorating=true;
   try{
     var area=currentArea();
-    if(area==='core'&&!coreAllowed()){
-      location.replace('/workspace/research');
-      return;
-    }
-    var name=document.getElementById('ws-workspace-name');
-    if(name)name.textContent=area==='home'?'Gravitas Home':area==='core'?'Core Workspace':'Research Workspace';
-    var home=document.querySelector('[data-v3-home]');
-    if(home)home.classList.toggle('is-active',area==='home');
+    if(area==='core'&&!coreAllowed()){location.replace('/workspace/research');return}
+    var name=document.getElementById('ws-workspace-name');var nameText=area==='home'?'Gravitas Home':area==='core'?'Core Workspace':'Research Workspace';if(name&&name.textContent!==nameText)name.textContent=nameText;
+    var home=document.querySelector('[data-v3-home]');if(home)home.classList.toggle('is-active',area==='home');
     renderWorkspacePicker(area);renderContextNav(area);renderBreadcrumb(area);renderContextStrip(area);renderMobile(area);
     document.querySelectorAll('[data-core-only]').forEach(function(el){el.hidden=!coreAllowed()});
     var storage=document.querySelector('.ws-storage');if(storage)storage.dataset.v3Hidden=area==='research'?'false':'true';
-    decorateHome();decorateResearchPrivateScope(area);
-    lastPath=location.pathname;
+    decorateHome();decorateResearchPrivateScope(area);lastPath=location.pathname;
   }finally{decorating=false}
 }
 
 function load(){
-  fetch('/api/platform/bootstrap/',{credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(r){
-    if(r.status===401){location.href='/login';throw new Error('auth')}
-    return r.json();
-  }).then(function(d){boot=d;applyShell()}).catch(function(){});
+  fetch('/api/platform/bootstrap/',{credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(r){if(r.status===401){location.href='/login';throw new Error('auth')}return r.json()}).then(function(d){boot=d;applyShell()}).catch(function(){});
 }
 
-var observer=new MutationObserver(function(){
-  clearTimeout(observer.v3timer);
-  observer.v3timer=setTimeout(function(){if(boot)applyShell()},60);
-});
+var observer=new MutationObserver(function(){clearTimeout(observer.v3timer);observer.v3timer=setTimeout(function(){if(boot)applyShell()},60)});
 var main=document.getElementById('workspace-main');if(main)observer.observe(main,{childList:true,subtree:true});
 window.addEventListener('popstate',function(){setTimeout(applyShell,0)});
 document.addEventListener('click',function(){setTimeout(function(){if(location.pathname!==lastPath)applyShell()},0)});
