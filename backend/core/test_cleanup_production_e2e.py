@@ -4,6 +4,10 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 
+from core.models import Organization, Workspace
+from core.operating_models import StrategicObjective
+from core.workspace_api import provision_personal_workspace
+
 
 class CleanupProductionE2EUsersTests(TestCase):
     def setUp(self):
@@ -58,6 +62,25 @@ class CleanupProductionE2EUsersTests(TestCase):
             self.assertFalse(User.objects.filter(pk=user.pk).exists())
         self.assertTrue(User.objects.filter(pk=self.lookalike.pk).exists())
         self.assertTrue(User.objects.filter(pk=self.real.pk).exists())
+
+    def test_operating_scope_removes_protected_owned_data_and_personal_workspace(self):
+        personal = provision_personal_workspace(self.operating_user)
+        org = Organization.objects.create(name='Cleanup Test Org', slug='cleanup-test-org', created_by=self.real)
+        team = Workspace.objects.create(name='Cleanup Test Core', kind=Workspace.Kind.TEAM, organization=org)
+        objective = StrategicObjective.objects.create(
+            workspace=team,
+            title='Production traceability objective',
+            owner=self.operating_user,
+            quarter='E2E',
+        )
+
+        call_command('cleanup_production_e2e_users', scope='operating', stdout=StringIO())
+
+        User = get_user_model()
+        self.assertFalse(User.objects.filter(pk=self.operating_user.pk).exists())
+        self.assertFalse(Workspace.objects.filter(pk=personal.pk).exists())
+        self.assertFalse(StrategicObjective.objects.filter(pk=objective.pk).exists())
+        self.assertTrue(Workspace.objects.filter(pk=team.pk).exists())
 
     def test_dry_run_deletes_nothing(self):
         call_command('cleanup_production_e2e_users', scope='all', dry_run=True, stdout=StringIO())
