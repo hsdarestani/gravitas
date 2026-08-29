@@ -3,6 +3,7 @@ from django.urls import path
 from core.content_api import content_detail, content_list
 from core.kpi import kpi_summary
 from core.initiative_planner import initiative_planner
+from core.task_reorder_api import reorder_tasks
 from core.operating_api import (
     cycle_detail,
     cycles,
@@ -170,6 +171,7 @@ urlpatterns = [
     path('operating/work-packages/', work_packages),
     path('operating/work-packages/<int:work_package_id>/', work_package_detail),
     path('operating/tasks/', tasks),
+    path('operating/tasks/reorder/', reorder_tasks),
     path('operating/tasks/<int:task_id>/', task_detail),
     path('operating/risks/', risks),
     path('operating/risks/<int:risk_id>/', risk_detail),
