@@ -1,0 +1,51 @@
+name: Gravitas Roadmap OKR Validation
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/roadmap_okr.py'
+      - 'backend/core/roadmap_models.py'
+      - 'backend/core/test_roadmap_okr.py'
+      - 'backend/core/migrations/**'
+      - 'backend/core/apps.py'
+      - 'backend/gravitas_backend/urls.py'
+      - 'assets/roadmap-okr-sync.js'
+      - 'assets/roadmap-okr-sync.css'
+      - 'workspace.html'
+      - '.github/workflows/roadmap-okr-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/core/roadmap_okr.py'
+      - 'backend/core/roadmap_models.py'
+      - 'backend/core/test_roadmap_okr.py'
+      - 'backend/core/migrations/**'
+      - 'backend/core/apps.py'
+      - 'backend/gravitas_backend/urls.py'
+      - 'assets/roadmap-okr-sync.js'
+      - 'assets/roadmap-okr-sync.css'
+      - 'workspace.html'
+      - '.github/workflows/roadmap-okr-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate browser JavaScript
+        run: node --check assets/roadmap-okr-sync.js
+      - name: Test Roadmap OKR sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/gravitas-roadmap-tests"
+          "$RUNNER_TEMP/gravitas-roadmap-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" -m django test core.test_roadmap_okr
+          "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" -m django check
