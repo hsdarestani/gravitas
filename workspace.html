@@ -102,7 +102,9 @@
         });
       }else if(operating){
         add('/assets/operating.js',function(){
-          add('/assets/operating-enhancements.js',addNavigation);
+          add('/assets/operating-enhancements.js',function(){
+            add('/assets/operating-core-shell.js',addNavigation);
+          });
         });
       }else{
         add('/assets/workspace.js',addNavigation);
