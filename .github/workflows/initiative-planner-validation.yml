@@ -1,0 +1,44 @@
+name: Gravitas Initiative Planner Validation
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/initiative_planner.py'
+      - 'backend/core/test_initiative_planner.py'
+      - 'backend/core/urls.py'
+      - 'assets/initiative-planner.js'
+      - 'assets/initiative-planner.css'
+      - 'workspace.html'
+      - '.github/workflows/initiative-planner-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/core/initiative_planner.py'
+      - 'backend/core/test_initiative_planner.py'
+      - 'backend/core/urls.py'
+      - 'assets/initiative-planner.js'
+      - 'assets/initiative-planner.css'
+      - 'workspace.html'
+      - '.github/workflows/initiative-planner-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate planner JavaScript
+        run: node --check assets/initiative-planner.js
+      - name: Test initiative planner
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/gravitas-planner-tests"
+          "$RUNNER_TEMP/gravitas-planner-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/gravitas-planner-tests/bin/python" -m django test core.test_initiative_planner
+          "$RUNNER_TEMP/gravitas-planner-tests/bin/python" -m django check

@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/assets/workspace.css">
   <link rel="stylesheet" href="/assets/operating.css">
   <link rel="stylesheet" href="/assets/roadmap-okr-sync.css">
+  <link rel="stylesheet" href="/assets/initiative-planner.css">
   <link rel="stylesheet" href="/assets/platform-v2.css">
   <link rel="stylesheet" href="/assets/platform-v2-ux.css">
   <link rel="stylesheet" href="/assets/platform-v3-navigation.css">
@@ -92,12 +93,14 @@
       var operating=/^\/workspace\/operating(?:\/|$)/.test(location.pathname);
       var platform=/^\/workspace\/(?:core|research|shared|people|community|my-work)(?:\/|$)/.test(location.pathname);
       var strategy=/^\/workspace\/operating\/strategy\/?$/.test(location.pathname);
+      var initiatives=/^\/workspace\/operating\/initiatives\/?$/.test(location.pathname);
 
       function add(src,onload){
         var s=document.createElement('script');s.src=src;s.async=false;if(onload)s.onload=onload;document.body.appendChild(s);
       }
       function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js')})}
       function addNavigation(){add('/assets/platform-v3-navigation.js',addVisuals)}
+      function addOperatingShell(){add('/assets/operating-core-shell.js',addNavigation)}
 
       if(platform){
         add('/assets/platform-v2.js',function(){
@@ -109,9 +112,11 @@
         add('/assets/operating.js',function(){
           add('/assets/operating-enhancements.js',function(){
             if(strategy){
-              add('/assets/roadmap-okr-sync.js',function(){add('/assets/operating-core-shell.js',addNavigation)});
+              add('/assets/roadmap-okr-sync.js',addOperatingShell);
+            }else if(initiatives){
+              add('/assets/initiative-planner.js',addOperatingShell);
             }else{
-              add('/assets/operating-core-shell.js',addNavigation);
+              addOperatingShell();
             }
           });
         });
