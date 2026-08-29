@@ -7,7 +7,7 @@ var timer=null;
 var selected='core';
 
 function active(){return route.test(location.pathname)}
-function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]})}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function cookie(name){var parts=(document.cookie||'').split(';');for(var i=0;i<parts.length;i++){var item=parts[i].trim();if(item.indexOf(name+'=')===0)return decodeURIComponent(item.slice(name.length+1))}return ''}
 function api(url,opts){opts=opts||{};opts.credentials='same-origin';opts.headers=opts.headers||{};opts.headers.Accept='application/json';if(opts.method&&opts.method!=='GET'){opts.headers['X-CSRFToken']=cookie('csrftoken');opts.headers['Content-Type']='application/json'}return fetch(url,opts).then(function(r){return r.json().catch(function(){return {}}).then(function(d){if(!r.ok)throw new Error(String(d.error||'Request failed').replace(/_/g,' '));return d})})}
 function initials(name,email){var s=(name||email||'?').trim().split(/\s+/).filter(Boolean);return s.length>1?(s[0][0]+s[s.length-1][0]).toUpperCase():(s[0]||'?').slice(0,2).toUpperCase()}
