@@ -1,0 +1,118 @@
+/* Gravitas V2 UX hardening ------------------------------------------------ */
+body.v2-modal-open{overflow:hidden}
+
+/* Dialogs: always closable, scroll-safe and usable on short/mobile screens. */
+.ws-dialog{
+  max-height:calc(100dvh - 24px);
+  overflow:hidden;
+  overscroll-behavior:contain;
+}
+.ws-dialog form{
+  padding:0;
+  max-height:inherit;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+.ws-dialog__head{
+  flex:0 0 auto;
+  margin:0;
+  padding:22px 24px 16px;
+  background:color-mix(in srgb,var(--g-surface) 96%,transparent);
+  z-index:2;
+}
+#ws-form-fields,#v2-task-dialog-body{
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:20px 24px 4px;
+  scrollbar-gutter:stable;
+}
+.ws-dialog__actions{
+  flex:0 0 auto;
+  margin:0;
+  padding:14px 24px 20px;
+  border-top:1px solid var(--ws-line);
+  background:color-mix(in srgb,var(--g-surface) 96%,transparent);
+  z-index:2;
+}
+.ws-dialog[open]{animation:v2-dialog-in .14s ease-out}
+.ws-dialog::backdrop{animation:v2-backdrop-in .14s ease-out}
+@keyframes v2-dialog-in{from{opacity:0;transform:translateY(7px) scale(.99)}to{opacity:1;transform:none}}
+@keyframes v2-backdrop-in{from{opacity:0}to{opacity:1}}
+
+.ws-dialog .ws-field input,.ws-dialog .ws-field textarea,.ws-dialog .ws-field select{width:100%}
+.ws-dialog .ws-field input:not([type="checkbox"]),.ws-dialog .ws-field select{min-height:44px}
+.ws-dialog .ws-field input[type="file"]{padding:9px}
+.ws-dialog .ws-field textarea{min-height:110px;max-height:34vh}
+.ws-dialog .ws-field input:invalid:not(:placeholder-shown),.ws-dialog .ws-field textarea:invalid:not(:placeholder-shown){border-color:color-mix(in srgb,var(--ws-danger) 70%,var(--ws-line-strong))}
+.v2-field-help,.v2-form-warning{display:block;margin-top:5px;font-size:10px;line-height:1.45;text-transform:none;letter-spacing:0;font-weight:500}
+.v2-field-help{color:var(--ws-muted)}
+.v2-form-warning{color:var(--ws-warn)}
+
+/* Clear keyboard focus, not only hover affordances. */
+.ws-dialog button:focus-visible,.ws-dialog input:focus-visible,.ws-dialog textarea:focus-visible,.ws-dialog select:focus-visible,
+.v2-row button:focus-visible,.v2-row a:focus-visible,.v2-mini-btn:focus-visible,.v2-tabs button:focus-visible,
+.v2-project__foot button:focus-visible,.v2-card__actions button:focus-visible,.v2-card__actions a:focus-visible,
+.v2-switcher a:focus-visible,.ws-sidebar nav a:focus-visible,.ws-account summary:focus-visible,.ws-account nav a:focus-visible,.ws-account nav button:focus-visible{
+  outline:2px solid var(--ws-accent);
+  outline-offset:2px;
+}
+
+/* Better touch targets and less accidental taps. */
+.v2-row button,.v2-row a,.v2-mini-btn,.v2-tabs button,.v2-card__actions button,.v2-card__actions a,.v2-project__foot button{min-height:38px;display:inline-flex;align-items:center;justify-content:center}
+.v2-project__foot button{padding:6px 8px;border-radius:8px}
+.v2-row__actions{row-gap:7px}
+
+/* Make horizontal boards feel intentional on smaller screens. */
+.v2-kanban{scroll-snap-type:x proximity;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.v2-column{scroll-snap-align:start}
+.v2-tabs{scrollbar-width:thin;overscroll-behavior-x:contain}
+
+/* Share links should never push the dialog wider than the viewport. */
+.v2-share-link{min-width:0}
+.v2-share-link code{overflow-wrap:anywhere}
+.v2-share-link button{flex:0 0 auto}
+
+/* Account popover stays on-screen. */
+.ws-account nav{max-width:min(320px,calc(100vw - 24px));max-height:min(70vh,520px);overflow:auto}
+
+@media(max-width:720px){
+  .ws-dialog{width:calc(100% - 16px);max-height:calc(100dvh - 16px);border-radius:16px}
+  .ws-dialog__head{padding:16px 16px 13px;align-items:center}
+  .ws-dialog h2{font-size:22px;line-height:1.1}
+  #ws-form-fields,#v2-task-dialog-body{padding:15px 16px 4px}
+  .ws-dialog__actions{padding:12px 16px 16px;gap:8px}
+  .ws-dialog__actions .ws-primary-btn,.ws-dialog__actions .ws-quiet-btn{flex:1;justify-content:center}
+  .ws-dialog .ws-field input:not([type="checkbox"]),.ws-dialog .ws-field textarea,.ws-dialog .ws-field select{font-size:16px}
+  .ws-dialog .ws-field textarea{min-height:100px;max-height:28vh}
+
+  .v2-panel__head{align-items:flex-start;flex-wrap:wrap}
+  .v2-panel__head>div{display:flex;flex-wrap:wrap;gap:7px}
+  .v2-row__main strong{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+  .v2-row__actions{width:100%;justify-content:flex-start}
+  .v2-row__actions>*{min-height:40px}
+  .v2-kanban{grid-template-columns:repeat(5,minmax(78vw,1fr));padding-bottom:14px}
+  .v2-column{min-height:220px}
+  .v2-project__foot{align-items:flex-end}
+  .v2-toolbar{align-items:stretch}
+  .v2-toolbar input,.v2-toolbar select{width:100%;min-height:44px}
+  .v2-share-link{align-items:stretch;flex-direction:column}
+  .v2-share-link button{align-self:flex-start}
+  .ws-alert{left:12px;right:12px;top:auto;bottom:14px;max-width:none}
+  .ws-account nav{right:-4px;top:44px}
+}
+
+@media(max-width:420px){
+  .v2-summary{grid-template-columns:1fr 1fr}
+  .v2-summary article{min-width:0}
+  .v2-summary strong{font-size:20px}
+  .v2-meta-grid{grid-template-columns:1fr}
+  .v2-switcher a{min-height:52px}
+  .ws-hero h1{font-size:34px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .ws-dialog[open],.ws-dialog::backdrop{animation:none}
+  .v2-row button,.v2-row a,.v2-mini-btn,.v2-project__foot button{transition:none}
+}
