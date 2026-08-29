@@ -30,12 +30,9 @@ from core.operating_api_v3 import operating_dashboard
 from core.platform_api import (
     community_project_detail,
     community_projects,
-    content_work_detail,
-    content_work_items,
     entity_links,
     mindmap_detail,
     mindmaps,
-    platform_bootstrap,
     platform_project_detail,
     platform_projects,
     project_application_detail,
@@ -48,7 +45,19 @@ from core.platform_api import (
     shared_with_me,
     sharing,
 )
-from core.platform_dashboard_api import platform_dashboard
+from core.platform_runtime_v3 import (
+    content_work_detail_v3,
+    content_work_items_v3,
+    install_runtime,
+    platform_bootstrap_v3,
+    platform_dashboard_v3,
+)
+
+# Install canonical workspace resolution before the remaining V2 modules import
+# their workspace helper. Core is explicit internal membership; Research is the
+# shared project/object ACL context.
+install_runtime()
+
 from core.platform_objects_api import shared_task_detail
 from core.platform_resources_api import (
     platform_file_download,
@@ -109,15 +118,15 @@ urlpatterns = [
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
 
-    # Gravitas V2: dual Core / Research workspace and collaboration layer.
-    path('platform/bootstrap/', platform_bootstrap),
-    path('platform/dashboard/', platform_dashboard),
+    # Gravitas V3 shell: Home + two real workspaces.
+    path('platform/bootstrap/', platform_bootstrap_v3),
+    path('platform/dashboard/', platform_dashboard_v3),
     path('platform/projects/', platform_projects),
     path('platform/projects/<int:project_id>/', platform_project_detail),
     path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
     path('platform/projects/<int:project_id>/applications/<int:application_id>/', project_application_detail),
-    path('platform/content/', content_work_items),
-    path('platform/content/<int:item_id>/', content_work_detail),
+    path('platform/content/', content_work_items_v3),
+    path('platform/content/<int:item_id>/', content_work_detail_v3),
     path('platform/research-requests/', research_requests),
     path('platform/research-requests/<int:request_id>/', research_request_detail),
     path('platform/tasks/<int:task_id>/', shared_task_detail),
@@ -137,8 +146,8 @@ urlpatterns = [
     path('platform/mindmaps/<int:map_id>/', mindmap_detail),
     path('platform/links/', entity_links),
 
-    # Gravitas Operating Workspace: Strategy → OKR → Initiative → Process / Project
-    # → Milestone / Cycle → Work Package → Task, with Risks and meeting action items.
+    # Core Operating Workspace: internal Gravitas team only. The V3 runtime
+    # resolves every operating request to the canonical Core workspace.
     path('operating/dashboard/', operating_dashboard),
     path('operating/processes/', processes),
     path('operating/processes/<int:process_id>/', process_detail),
@@ -161,7 +170,8 @@ urlpatterns = [
     path('operating/meetings/', meetings),
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
-    # Original personal Research / Knowledge layer (kept for backward compatibility).
+    # Legacy personal KMS APIs stay available for private-scope data and
+    # backward compatibility, but V3 no longer presents them as a workspace.
     path('workspace/dashboard/', workspace_dashboard),
     path('workspace/projects/', projects),
     path('workspace/projects/<int:project_id>/', project_detail),
