@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/assets/workspace.css">
   <link rel="stylesheet" href="/assets/operating.css">
   <link rel="stylesheet" href="/assets/platform-v2.css">
+  <link rel="stylesheet" href="/assets/platform-v2-ux.css">
 </head>
 <body>
   <a class="g-skip" href="#workspace-main">Skip to workspace</a>
@@ -82,6 +83,12 @@
           var patch=document.createElement('script');
           patch.src='/assets/platform-v2-patches.js';
           patch.async=false;
+          patch.onload=function(){
+            var ux=document.createElement('script');
+            ux.src='/assets/platform-v2-ux.js';
+            ux.async=false;
+            document.body.appendChild(ux);
+          };
           document.body.appendChild(patch);
         };
       }else if(operating){
