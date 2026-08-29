@@ -27,6 +27,28 @@ from core.operating_api_v2 import (
     work_packages,
 )
 from core.operating_api_v3 import operating_dashboard
+from core.platform_api import (
+    community_project_detail,
+    community_projects,
+    content_work_detail,
+    content_work_items,
+    entity_links,
+    mindmap_detail,
+    mindmaps,
+    platform_bootstrap,
+    platform_dashboard,
+    platform_project_detail,
+    platform_projects,
+    project_application_detail,
+    project_deliverables,
+    researcher_me,
+    researchers,
+    research_request_detail,
+    research_requests,
+    shared_link,
+    shared_with_me,
+    sharing,
+)
 from core.workspace_api import (
     collection_detail,
     collections,
@@ -78,6 +100,28 @@ urlpatterns = [
     path('community/comments/<slug:content_key>/', comments),
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
+
+    # Gravitas V2: dual Core / Research workspace and collaboration layer.
+    path('platform/bootstrap/', platform_bootstrap),
+    path('platform/dashboard/', platform_dashboard),
+    path('platform/projects/', platform_projects),
+    path('platform/projects/<int:project_id>/', platform_project_detail),
+    path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
+    path('platform/projects/<int:project_id>/applications/<int:application_id>/', project_application_detail),
+    path('platform/content/', content_work_items),
+    path('platform/content/<int:item_id>/', content_work_detail),
+    path('platform/research-requests/', research_requests),
+    path('platform/research-requests/<int:request_id>/', research_request_detail),
+    path('platform/share/', sharing),
+    path('platform/shared-with-me/', shared_with_me),
+    path('platform/shared/<uuid:token>/', shared_link),
+    path('platform/community/projects/', community_projects),
+    path('platform/community/projects/<slug:public_slug>/', community_project_detail),
+    path('platform/researchers/', researchers),
+    path('platform/researchers/me/', researcher_me),
+    path('platform/mindmaps/', mindmaps),
+    path('platform/mindmaps/<int:map_id>/', mindmap_detail),
+    path('platform/links/', entity_links),
 
     # Gravitas Operating Workspace: Strategy → OKR → Initiative → Process / Project
     # → Milestone / Cycle → Work Package → Task, with Risks and meeting action items.
