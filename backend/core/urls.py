@@ -49,6 +49,7 @@ from core.platform_api import (
     sharing,
 )
 from core.platform_dashboard_api import platform_dashboard
+from core.platform_objects_api import shared_task_detail
 from core.platform_resources_api import (
     platform_file_download,
     platform_file_upload,
@@ -119,6 +120,7 @@ urlpatterns = [
     path('platform/content/<int:item_id>/', content_work_detail),
     path('platform/research-requests/', research_requests),
     path('platform/research-requests/<int:request_id>/', research_request_detail),
+    path('platform/tasks/<int:task_id>/', shared_task_detail),
     path('platform/resources/', platform_resources),
     path('platform/resources/<int:resource_id>/', platform_resource_detail),
     path('platform/files/upload/', platform_file_upload),
