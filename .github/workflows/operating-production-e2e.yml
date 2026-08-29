@@ -16,12 +16,74 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      BASE_URL: https://gravitasplus.com
+      TEST_EMAIL: operating-e2e-${{ github.run_id }}-${{ github.run_attempt }}@example.com
+      TEST_PASSWORD: Operating-E2E-Password-2026!
     steps:
+      - name: Prepare SSH for controlled Core access grant
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}" || { echo 'Missing DEPLOY_HOST'; exit 1; }
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo 'Missing DEPLOY_SSH_KEY'; exit 1; }
+          USERNAME="${{ secrets.DEPLOY_USER }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$USERNAME" ] || USERNAME=deploy
+          [ -n "$PORT" ] || PORT=22
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/gravitas_deploy -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${OPTS[@]}" "$USERNAME@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER="$USERNAME"
+          elif [ "$USERNAME" != root ] && ssh "${OPTS[@]}" "root@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER=root
+          else
+            echo 'SSH authentication failed'; exit 1
+          fi
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Register production Operating E2E account
+        shell: bash
+        run: |
+          set -euo pipefail
+          COOKIE_JAR="$RUNNER_TEMP/gravitas-operating-signup.txt"
+          curl -4 -fsS -c "$COOKIE_JAR" "$BASE_URL/api/auth/csrf/" >/dev/null
+          CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
+          test -n "$CSRF"
+          SIGNUP="$(curl -4 -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+            -X POST "$BASE_URL/api/auth/signup/" \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -H "X-CSRFToken: $CSRF" \
+            -H "Referer: $BASE_URL/signup" \
+            --data "{\"name\":\"Operating Production E2E\",\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")"
+          printf '%s' "$SIGNUP" | grep -q '"ok": true'
+
+      - name: Grant registered E2E account Core member access
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$TEST_EMAIL" <<'REMOTE'
+          set -euo pipefail
+          EMAIL="$1"
+          sudo -u gravitas bash -c '
+            set -a
+            . /etc/gravitas/backend.env
+            set +a
+            export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+            export PYTHONPATH=/opt/gravitas-backend
+            cd /opt/gravitas-backend
+            exec .venv/bin/django-admin grant_production_e2e_core_access "$1"
+          ' _ "$EMAIL"
+          REMOTE
+
       - name: Verify operating-model traceability in production
-        env:
-          BASE_URL: https://gravitasplus.com
-          TEST_EMAIL: operating-e2e-${{ github.run_id }}-${{ github.run_attempt }}@example.com
-          TEST_PASSWORD: Operating-E2E-Password-2026!
+        shell: bash
         run: |
           python3 - <<'PY'
           import json
@@ -66,102 +128,97 @@ jobs:
                   raw = exc.read().decode('utf-8', errors='replace')
                   raise RuntimeError(f'{method} {path} failed: HTTP {exc.code}: {raw}')
 
-          created = False
-          try:
-              status, signup = request('/api/auth/signup/', 'POST', {
-                  'name': 'Operating Production E2E',
-                  'email': email,
-                  'password': password,
-              })
-              assert status == 201 and signup.get('ok') is True, signup
-              created = True
+          status, login = request('/api/auth/login/', 'POST', {
+              'email': email,
+              'password': password,
+              'keep': False,
+          })
+          assert status == 200 and login.get('ok') is True, login
 
-              _, dashboard = request('/api/operating/dashboard/')
-              processes = dashboard.get('processes', [])
-              assert len(processes) == 5, dashboard
-              research = next(item for item in processes if item['key'] == 'research')
+          _, bootstrap = request('/api/platform/bootstrap/')
+          assert bootstrap['access']['core'] is True, bootstrap
+          assert bootstrap['access']['core_role'] == 'member', bootstrap
 
-              _, objective = request('/api/operating/objectives/', 'POST', {
-                  'title': 'Production traceability objective',
-                  'quarter': 'E2E',
-              })
-              objective_id = objective['objective']['id']
+          _, dashboard = request('/api/operating/dashboard/')
+          processes = dashboard.get('processes', [])
+          assert len(processes) == 5, dashboard
+          research = next(item for item in processes if item['key'] == 'research')
 
-              _, kr = request('/api/operating/key-results/', 'POST', {
-                  'objective_id': objective_id,
-                  'title': 'Production traceability KR',
-                  'baseline_value': 0,
-                  'target_value': 10,
-                  'current_value': 2,
-                  'unit': 'items',
-              })
-              kr_id = kr['key_result']['id']
+          _, objective = request('/api/operating/objectives/', 'POST', {
+              'title': 'Production traceability objective',
+              'quarter': 'E2E',
+          })
+          objective_id = objective['objective']['id']
 
-              _, initiative = request('/api/operating/initiatives/', 'POST', {
-                  'key_result_id': kr_id,
-                  'process_id': research['id'],
-                  'title': 'Production traceability initiative',
-                  'priority': 'p1',
-              })
-              initiative_data = initiative['initiative']
-              initiative_id = initiative_data['id']
-              assert initiative_data['stage'] == 'Question', initiative_data
+          _, kr = request('/api/operating/key-results/', 'POST', {
+              'objective_id': objective_id,
+              'title': 'Production traceability KR',
+              'baseline_value': 0,
+              'target_value': 10,
+              'current_value': 2,
+              'unit': 'items',
+          })
+          kr_id = kr['key_result']['id']
 
-              _, milestone = request('/api/operating/milestones/', 'POST', {
-                  'initiative_id': initiative_id,
-                  'title': 'Production validation milestone',
-                  'due_date': due,
-                  'definition_of_done': 'Validation accepted.',
-              })
-              milestone_id = milestone['milestone']['id']
+          _, initiative = request('/api/operating/initiatives/', 'POST', {
+              'key_result_id': kr_id,
+              'process_id': research['id'],
+              'title': 'Production traceability initiative',
+              'priority': 'p1',
+          })
+          initiative_data = initiative['initiative']
+          initiative_id = initiative_data['id']
+          assert initiative_data['stage'] == 'Question', initiative_data
 
-              _, package = request('/api/operating/work-packages/', 'POST', {
-                  'milestone_id': milestone_id,
-                  'title': 'Production analysis package',
-                  'due_date': due,
-                  'definition_of_done': 'Analysis reviewed.',
-              })
-              package_id = package['work_package']['id']
+          _, milestone = request('/api/operating/milestones/', 'POST', {
+              'initiative_id': initiative_id,
+              'title': 'Production validation milestone',
+              'due_date': due,
+              'definition_of_done': 'Validation accepted.',
+          })
+          milestone_id = milestone['milestone']['id']
 
-              _, risk = request('/api/operating/risks/', 'POST', {
-                  'initiative_id': initiative_id,
-                  'title': 'Production test dependency risk',
-                  'health': 'yellow',
-                  'mitigation': 'Close dependency before delivery.',
-                  'due_date': due,
-              })
-              assert risk['risk']['initiative_id'] == initiative_id, risk
+          _, package = request('/api/operating/work-packages/', 'POST', {
+              'milestone_id': milestone_id,
+              'title': 'Production analysis package',
+              'due_date': due,
+              'definition_of_done': 'Analysis reviewed.',
+          })
+          package_id = package['work_package']['id']
 
-              _, task = request('/api/operating/tasks/', 'POST', {
-                  'initiative_id': initiative_id,
-                  'work_package_id': package_id,
-                  'title': 'Production traceability task',
-                  'definition_of_done': 'Trace is present from task to objective.',
-                  'priority': 'p1',
-                  'due_date': due,
-              })
-              task_data = task['task']
-              trace = task_data['trace']
-              assert trace['objective']['id'] == objective_id, trace
-              assert trace['key_result']['id'] == kr_id, trace
-              assert trace['initiative']['id'] == initiative_id, trace
-              assert trace['process']['key'] == 'research', trace
-              assert task_data['work_package_id'] == package_id, task_data
+          _, risk = request('/api/operating/risks/', 'POST', {
+              'initiative_id': initiative_id,
+              'title': 'Production test dependency risk',
+              'health': 'yellow',
+              'mitigation': 'Close dependency before delivery.',
+              'due_date': due,
+          })
+          assert risk['risk']['initiative_id'] == initiative_id, risk
 
-              _, updated = request(f"/api/operating/tasks/{task_data['id']}/", 'PATCH', {'status': 'done'})
-              assert updated['task']['status'] == 'done', updated
+          _, task = request('/api/operating/tasks/', 'POST', {
+              'initiative_id': initiative_id,
+              'work_package_id': package_id,
+              'title': 'Production traceability task',
+              'definition_of_done': 'Trace is present from task to objective.',
+              'priority': 'p1',
+              'due_date': due,
+          })
+          task_data = task['task']
+          trace = task_data['trace']
+          assert trace['objective']['id'] == objective_id, trace
+          assert trace['key_result']['id'] == kr_id, trace
+          assert trace['initiative']['id'] == initiative_id, trace
+          assert trace['process']['key'] == 'research', trace
+          assert task_data['work_package_id'] == package_id, task_data
 
-              _, final_dashboard = request('/api/operating/dashboard/')
-              assert final_dashboard['counts']['objectives'] == 1, final_dashboard
-              assert final_dashboard['counts']['key_results'] == 1, final_dashboard
-              assert final_dashboard['counts']['initiatives'] == 1, final_dashboard
-              assert final_dashboard['counts']['work_packages'] == 1, final_dashboard
-              assert final_dashboard['counts']['risks'] == 1, final_dashboard
-              print('operating-production-e2e-passed')
-          finally:
-              if created:
-                  try:
-                      request('/api/auth/delete/', 'POST', {'password': password, 'confirmation': 'delete'})
-                  except Exception as cleanup_error:
-                      print('cleanup warning:', cleanup_error)
+          _, updated = request(f"/api/operating/tasks/{task_data['id']}/", 'PATCH', {'status': 'done'})
+          assert updated['task']['status'] == 'done', updated
+
+          _, final_dashboard = request('/api/operating/dashboard/')
+          assert final_dashboard['counts']['objectives'] == 1, final_dashboard
+          assert final_dashboard['counts']['key_results'] == 1, final_dashboard
+          assert final_dashboard['counts']['initiatives'] == 1, final_dashboard
+          assert final_dashboard['counts']['work_packages'] == 1, final_dashboard
+          assert final_dashboard['counts']['risks'] == 1, final_dashboard
+          print('operating-production-e2e-passed')
           PY
