@@ -2,6 +2,7 @@ from django.urls import path
 
 from core.content_api import content_detail, content_list
 from core.kpi import kpi_summary
+from core.initiative_planner import initiative_planner
 from core.operating_api import (
     cycle_detail,
     cycles,
@@ -153,6 +154,7 @@ urlpatterns = [
     # Core Operating Workspace: internal Gravitas team only. The V3 runtime
     # resolves every operating request to the canonical Core workspace.
     path('operating/dashboard/', operating_dashboard),
+    path('operating/initiative-planner/', initiative_planner),
     path('operating/processes/', processes),
     path('operating/processes/<int:process_id>/', process_detail),
     path('operating/objectives/', objectives),
