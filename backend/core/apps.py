@@ -10,5 +10,6 @@ class CoreConfig(AppConfig):
         # operating system and collaboration platform can evolve independently.
         from . import operating_models  # noqa: F401
         from . import platform_models  # noqa: F401
+        from . import roadmap_models  # noqa: F401
         from . import platform_signals  # noqa: F401
         from . import operating_admin  # noqa: F401
