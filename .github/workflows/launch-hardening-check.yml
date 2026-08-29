@@ -101,28 +101,25 @@ jobs:
               published_at=timezone.now(),
           )
 
-          user = get_user_model().objects.create_user(
-              username='ci-schema@example.com',
-              email='ci-schema@example.com',
-              password='ci-schema-password',
-          )
-          Comment.objects.create(
-              content_key='community',
-              author=user,
-              body='Schema check',
-              status=Comment.Status.PUBLISHED,
-          )
-          LabProgress.objects.create(
-              user=user,
-              lab_key='schema-check',
-              completed=True,
-              score=1,
-          )
-
           client = Client(HTTP_HOST='localhost')
-          response = client.get('/content/ci-language-check/?lang=de')
+          response = client.get('/api/content/ci-language-check/?lang=de', secure=True)
           assert response.status_code == 200, response.content
-          assert 'Deutscher Titel' in response.content.decode('utf-8')
-          assert Comment.objects.filter(content_key='community').exists()
-          assert LabProgress.objects.filter(user=user, lab_key='schema-check').exists()
+          payload = response.json()['item']
+          assert payload['locale'] == 'de'
+          assert payload['title'] == 'Deutscher Titel'
+          assert payload['fallback_to_english'] is False
+
+          response = client.get('/api/content/ci-language-check/?lang=fa', secure=True)
+          assert response.status_code == 200, response.content
+          payload = response.json()['item']
+          assert payload['locale'] == 'en'
+          assert payload['fallback_to_english'] is True
+
+          User = get_user_model()
+          user = User.objects.create_user(username='ci@example.com', email='ci@example.com', password='CI-Password-2026-Strong!')
+          comment = Comment.objects.create(author=user, content_key='ci-language-check', body='CI moderation test')
+          assert comment.status == Comment.Status.PENDING
+          progress = LabProgress.objects.create(user=user, lab_key='ci-lab', state={'step': 1}, completed=False)
+          assert progress.state['step'] == 1
+          print('backend-validation-passed')
           PY
