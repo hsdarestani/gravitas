@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'workspace.html'
+      - 'assets/platform-v2*.js'
+      - 'assets/platform-v2*.css'
       - '.github/workflows/launch-hardening-check.yml'
   workflow_dispatch:
 
@@ -45,6 +48,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validate workspace JavaScript
+        run: |
+          node --check assets/platform-v2.js
+          node --check assets/platform-v2-patches.js
+          node --check assets/platform-v2-ux.js
       - name: Install backend dependencies
         run: python -m pip install -q -r backend/requirements.txt
       - name: Compile Python
