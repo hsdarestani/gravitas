@@ -69,6 +69,7 @@ from core.platform_resources_api import (
     shared_file_download,
 )
 from core.team_api import core_team, core_team_member, core_team_password_reset
+from core.team_storage_api import team_storage, team_storage_user
 from core.workspace_api import (
     collection_detail,
     collections,
@@ -125,8 +126,10 @@ urlpatterns = [
     path('platform/bootstrap/', platform_bootstrap_v3),
     path('platform/dashboard/', platform_dashboard_v3),
     path('platform/team/', core_team),
+    path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),
     path('platform/team/<int:user_id>/password-reset/', core_team_password_reset),
+    path('platform/team/<int:user_id>/storage/', team_storage_user),
     path('platform/projects/', platform_projects),
     path('platform/projects/<int:project_id>/', platform_project_detail),
     path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
