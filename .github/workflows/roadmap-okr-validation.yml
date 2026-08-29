@@ -50,6 +50,8 @@ jobs:
           "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" -m django makemigrations core --check --dry-run
           "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" -m django check
           "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" - <<'PY'
+          import django
+          django.setup()
           from core.roadmap_okr import _fetch_source, parse_roadmap_okr
           spec = parse_roadmap_okr(_fetch_source())
           assert len(spec) == 4, len(spec)
