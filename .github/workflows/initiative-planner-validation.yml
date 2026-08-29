@@ -8,6 +8,8 @@ on:
       - 'backend/core/urls.py'
       - 'assets/initiative-planner.js'
       - 'assets/initiative-planner.css'
+      - 'assets/initiative-task-editor.js'
+      - 'assets/initiative-task-editor.css'
       - 'workspace.html'
       - '.github/workflows/initiative-planner-validation.yml'
   push:
@@ -18,6 +20,8 @@ on:
       - 'backend/core/urls.py'
       - 'assets/initiative-planner.js'
       - 'assets/initiative-planner.css'
+      - 'assets/initiative-task-editor.js'
+      - 'assets/initiative-task-editor.css'
       - 'workspace.html'
       - '.github/workflows/initiative-planner-validation.yml'
 
@@ -31,7 +35,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate planner JavaScript
-        run: node --check assets/initiative-planner.js
+        run: |
+          node --check assets/initiative-planner.js
+          node --check assets/initiative-task-editor.js
       - name: Test initiative planner
         shell: bash
         run: |

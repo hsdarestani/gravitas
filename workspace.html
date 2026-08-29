@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/assets/operating.css">
   <link rel="stylesheet" href="/assets/roadmap-okr-sync.css">
   <link rel="stylesheet" href="/assets/initiative-planner.css">
+  <link rel="stylesheet" href="/assets/initiative-task-editor.css">
   <link rel="stylesheet" href="/assets/platform-v2.css">
   <link rel="stylesheet" href="/assets/platform-v2-ux.css">
   <link rel="stylesheet" href="/assets/platform-v3-navigation.css">
@@ -114,7 +115,9 @@
             if(strategy){
               add('/assets/roadmap-okr-sync.js',addOperatingShell);
             }else if(initiatives){
-              add('/assets/initiative-planner.js',addOperatingShell);
+              add('/assets/initiative-planner.js',function(){
+                add('/assets/initiative-task-editor.js',addOperatingShell);
+              });
             }else{
               addOperatingShell();
             }
