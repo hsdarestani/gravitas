@@ -10,6 +10,8 @@ on:
       - 'assets/platform-v2*.css'
       - 'assets/platform-v3*.js'
       - 'assets/platform-v3*.css'
+      - 'assets/core-team.js'
+      - 'assets/core-team.css'
       - '.github/workflows/launch-hardening-check.yml'
   workflow_dispatch:
 
@@ -56,6 +58,7 @@ jobs:
           node --check assets/platform-v2-patches.js
           node --check assets/platform-v2-ux.js
           node --check assets/platform-v3-navigation.js
+          node --check assets/core-team.js
       - name: Install backend dependencies
         run: python -m pip install -q -r backend/requirements.txt
       - name: Compile Python
@@ -66,8 +69,8 @@ jobs:
         run: django-admin migrate --noinput
       - name: Check Django configuration
         run: django-admin check
-      - name: Run Gravitas workspace and role tests
-        run: django-admin test core.test_operating core.test_platform_v2 core.test_platform_v3_roles --noinput
+      - name: Run Gravitas workspace role and team tests
+        run: django-admin test core.test_operating core.test_platform_v2 core.test_platform_v3_roles core.test_team_api --noinput
       - name: Verify CMS translations Community and Lab schema
         run: |
           python - <<'PY'
