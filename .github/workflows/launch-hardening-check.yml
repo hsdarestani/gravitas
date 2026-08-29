@@ -88,14 +88,14 @@ jobs:
           )
 
           client = Client(HTTP_HOST='localhost')
-          response = client.get('/api/content/ci-language-check/?lang=de')
+          response = client.get('/api/content/ci-language-check/?lang=de', secure=True)
           assert response.status_code == 200, response.content
           payload = response.json()['item']
           assert payload['locale'] == 'de'
           assert payload['title'] == 'Deutscher Titel'
           assert payload['fallback_to_english'] is False
 
-          response = client.get('/api/content/ci-language-check/?lang=fa')
+          response = client.get('/api/content/ci-language-check/?lang=fa', secure=True)
           assert response.status_code == 200, response.content
           payload = response.json()['item']
           assert payload['locale'] == 'en'
