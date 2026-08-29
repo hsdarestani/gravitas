@@ -66,8 +66,8 @@ jobs:
         run: django-admin migrate --noinput
       - name: Check Django configuration
         run: django-admin check
-      - name: Run Gravitas collaboration and role tests
-        run: django-admin test core.test_platform_v2 core.test_platform_v3_roles --noinput
+      - name: Run Gravitas workspace and role tests
+        run: django-admin test core.test_operating core.test_platform_v2 core.test_platform_v3_roles --noinput
       - name: Verify CMS translations Community and Lab schema
         run: |
           python - <<'PY'
