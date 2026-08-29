@@ -66,6 +66,7 @@ from core.platform_resources_api import (
     platform_resources,
     shared_file_download,
 )
+from core.team_api import core_team, core_team_member, core_team_password_reset
 from core.workspace_api import (
     collection_detail,
     collections,
@@ -121,6 +122,9 @@ urlpatterns = [
     # Gravitas V3 shell: Home + two real workspaces.
     path('platform/bootstrap/', platform_bootstrap_v3),
     path('platform/dashboard/', platform_dashboard_v3),
+    path('platform/team/', core_team),
+    path('platform/team/<int:user_id>/', core_team_member),
+    path('platform/team/<int:user_id>/password-reset/', core_team_password_reset),
     path('platform/projects/', platform_projects),
     path('platform/projects/<int:project_id>/', platform_project_detail),
     path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
