@@ -19,9 +19,9 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: gravitas-production-e2e-cleanup
-  cancel-in-progress: false
+# Auth, Workspace and Operating use disjoint, strictly matched account patterns.
+# Do not serialize these cleanup runs: GitHub may cancel a queued workflow_run
+# when multiple upstream E2E workflows finish at nearly the same time.
 
 jobs:
   cleanup:
@@ -77,7 +77,6 @@ jobs:
             bash -s -- "$CLEANUP_SCOPE" <<'REMOTE'
           set -euo pipefail
           SCOPE="$1"
-          BACKEND=/opt/gravitas-backend
           sudo -u gravitas bash -c '
             set -a
             . /etc/gravitas/backend.env
