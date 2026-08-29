@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from core.operating_models import Initiative, KeyResult, OperatingProcess, OperatingTask, StrategicObjective
-from core.workspace_api import provision_personal_workspace
+from core.platform_runtime_v3 import ensure_platform_workspaces
 
 
 User = get_user_model()
@@ -15,7 +15,9 @@ class OperatingWorkspaceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='operator@example.com', email='operator@example.com', password='test-password-123')
         self.other = User.objects.create_user(username='other@example.com', email='other@example.com', password='test-password-123')
-        self.workspace = provision_personal_workspace(self.user)
+        # V3 Operating System belongs to the canonical internal Core workspace.
+        # The first bootstrap user is the initial Core admin in a clean test DB.
+        self.workspace = ensure_platform_workspaces(self.user)['core']
         self.client.force_login(self.user)
 
     def post_json(self, path, payload):
@@ -105,7 +107,7 @@ class OperatingWorkspaceTests(TestCase):
         self.assertEqual(unscheduled.status_code, 400)
         self.assertEqual(unscheduled.json()['error'], 'task_requires_cycle_or_due_date')
 
-    def test_other_user_cannot_access_personal_operating_data(self):
+    def test_other_user_cannot_access_core_operating_data(self):
         self.client.get('/api/operating/dashboard/')
         process = OperatingProcess.objects.filter(workspace=self.workspace).first()
         objective = StrategicObjective.objects.create(workspace=self.workspace, title='Private objective', owner=self.user)
