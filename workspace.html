@@ -77,7 +77,14 @@
         s.src=operating?'/assets/operating.js':'/assets/workspace.js';
       }
       s.async=false;
-      if(operating){
+      if(platform){
+        s.onload=function(){
+          var patch=document.createElement('script');
+          patch.src='/assets/platform-v2-patches.js';
+          patch.async=false;
+          document.body.appendChild(patch);
+        };
+      }else if(operating){
         s.onload=function(){
           var extra=document.createElement('script');
           extra.src='/assets/operating-enhancements.js';
