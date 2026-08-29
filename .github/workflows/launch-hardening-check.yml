@@ -55,6 +55,8 @@ jobs:
         run: django-admin migrate --noinput
       - name: Check Django configuration
         run: django-admin check
+      - name: Run Gravitas V2 collaboration tests
+        run: django-admin test core.test_platform_v2 --noinput
       - name: Verify CMS translations Community and Lab schema
         run: |
           python - <<'PY'
@@ -86,14 +88,14 @@ jobs:
           )
 
           client = Client(HTTP_HOST='localhost')
-          response = client.get('/api/content/ci-language-check/?lang=de')
+          response = client.get('/api/content/ci-language-check/?lang=de', secure=True)
           assert response.status_code == 200, response.content
           payload = response.json()['item']
           assert payload['locale'] == 'de'
           assert payload['title'] == 'Deutscher Titel'
           assert payload['fallback_to_english'] is False
 
-          response = client.get('/api/content/ci-language-check/?lang=fa')
+          response = client.get('/api/content/ci-language-check/?lang=fa', secure=True)
           assert response.status_code == 200, response.content
           payload = response.json()['item']
           assert payload['locale'] == 'en'
