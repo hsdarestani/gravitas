@@ -13,6 +13,7 @@ function currentArea(){
   return 'research';
 }
 function coreAllowed(){return !!(boot&&boot.access&&boot.access.core)}
+function coreAdmin(){var role=boot&&boot.access&&boot.access.core_role;return role==='owner'||role==='admin'}
 function link(href,icon,label,active){return '<a href="'+href+'" class="'+(active?'is-active':'')+'"><span>'+icon+'</span>'+esc(label)+'</a>'}
 function exact(path){return location.pathname.replace(/\/$/,'')===path}
 function starts(path){return location.pathname.indexOf(path)===0}
@@ -34,6 +35,7 @@ var researchNav=[
   ['/workspace/community','◌','Research Opportunities',function(){return starts('/workspace/community')}],
   ['/workspace/shared','⇄','Shared with me',function(){return starts('/workspace/shared')}]
 ];
+function coreItems(){var items=coreNav.slice();if(coreAdmin())items.push(['/workspace/core/team','♙','Team & Access',function(){return starts('/workspace/core/team')}]);return items}
 
 function renderWorkspacePicker(area){
   var picker=document.getElementById('v3-workspace-picker');
@@ -50,7 +52,7 @@ function renderContextNav(area){
   if(!box||!label)return;
   var html='',text='Workspaces';
   if(area!=='home'){
-    var items=area==='core'?coreNav:researchNav;
+    var items=area==='core'?coreItems():researchNav;
     text=area==='core'?'Core menu':'Research menu';
     html=items.map(function(x){return link(x[0],x[1],x[2],x[3]())}).join('');
   }
@@ -62,6 +64,7 @@ function labelForPath(){
   if(exact('/workspace/core'))return 'Overview';
   if(starts('/workspace/core/tasks'))return 'Tasks & Execution';
   if(starts('/workspace/core/content'))return 'Content Pipeline';
+  if(starts('/workspace/core/team'))return 'Team & Access';
   if(starts('/workspace/operating'))return 'Planning & Projects';
   if(exact('/workspace/research'))return 'Overview';
   if(starts('/workspace/research/projects'))return 'Projects';
@@ -110,11 +113,14 @@ function renderMobile(area){
   var label=select&&select.previousElementSibling;
   if(!select)return;
   var options=[['/workspace/my-work','Home']];
-  if(coreAllowed())options.push(['/workspace/core','Core · Overview'],['/workspace/core/tasks','Core · Tasks'],['/workspace/core/content','Core · Content'],['/workspace/operating','Core · Planning & Projects']);
+  if(coreAllowed()){
+    options.push(['/workspace/core','Core · Overview'],['/workspace/core/tasks','Core · Tasks'],['/workspace/core/content','Core · Content'],['/workspace/operating','Core · Planning & Projects']);
+    if(coreAdmin())options.push(['/workspace/core/team','Core · Team & Access']);
+  }
   options=options.concat([
     ['/workspace/research','Research · Overview'],['/workspace/research/projects','Research · Projects'],['/workspace/research/notes','Research · Notes'],['/workspace/research/files','Research · Files & Data Rooms'],['/workspace/research/datasets','Research · Datasets'],['/workspace/research/mindmaps','Research · Mind Maps'],['/workspace/people','Research · Researchers'],['/workspace/community','Research · Opportunities'],['/workspace/shared','Research · Shared with me']
   ]);
-  var key=(coreAllowed()?'core1':'core0');
+  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member');
   if(select.dataset.v3Options!==key){
     select.dataset.v3Options=key;
     select.innerHTML=options.map(function(x){return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join('');
@@ -169,6 +175,7 @@ function applyShell(){
   try{
     var area=currentArea();
     if(area==='core'&&!coreAllowed()){location.replace('/workspace/research');return}
+    if(starts('/workspace/core/team')&&!coreAdmin()){location.replace('/workspace/core');return}
     var name=document.getElementById('ws-workspace-name');var nameText=area==='home'?'Gravitas Home':area==='core'?'Core Workspace':'Research Workspace';if(name&&name.textContent!==nameText)name.textContent=nameText;
     var home=document.querySelector('[data-v3-home]');if(home)home.classList.toggle('is-active',area==='home');
     renderWorkspacePicker(area);renderContextNav(area);renderBreadcrumb(area);renderContextStrip(area);renderMobile(area);
