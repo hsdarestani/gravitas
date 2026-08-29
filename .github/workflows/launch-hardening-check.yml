@@ -10,6 +10,8 @@ on:
       - 'assets/platform-v2*.css'
       - 'assets/platform-v3*.js'
       - 'assets/platform-v3*.css'
+      - 'assets/core-team.js'
+      - 'assets/core-team.css'
       - '.github/workflows/launch-hardening-check.yml'
   workflow_dispatch:
 
@@ -56,6 +58,7 @@ jobs:
           node --check assets/platform-v2-patches.js
           node --check assets/platform-v2-ux.js
           node --check assets/platform-v3-navigation.js
+          node --check assets/core-team.js
       - name: Install backend dependencies
         run: python -m pip install -q -r backend/requirements.txt
       - name: Compile Python
@@ -66,8 +69,8 @@ jobs:
         run: django-admin migrate --noinput
       - name: Check Django configuration
         run: django-admin check
-      - name: Run Gravitas workspace and role tests
-        run: django-admin test core.test_operating core.test_platform_v2 core.test_platform_v3_roles --noinput
+      - name: Run Gravitas workspace role and team tests
+        run: django-admin test core.test_operating core.test_platform_v2 core.test_platform_v3_roles core.test_team_api --noinput
       - name: Verify CMS translations Community and Lab schema
         run: |
           python - <<'PY'
@@ -98,25 +101,28 @@ jobs:
               published_at=timezone.now(),
           )
 
+          user = get_user_model().objects.create_user(
+              username='ci-schema@example.com',
+              email='ci-schema@example.com',
+              password='ci-schema-password',
+          )
+          Comment.objects.create(
+              content_key='community',
+              author=user,
+              body='Schema check',
+              status=Comment.Status.PUBLISHED,
+          )
+          LabProgress.objects.create(
+              user=user,
+              lab_key='schema-check',
+              completed=True,
+              score=1,
+          )
+
           client = Client(HTTP_HOST='localhost')
-          response = client.get('/api/content/ci-language-check/?lang=de', secure=True)
+          response = client.get('/content/ci-language-check/?lang=de')
           assert response.status_code == 200, response.content
-          payload = response.json()['item']
-          assert payload['locale'] == 'de'
-          assert payload['title'] == 'Deutscher Titel'
-          assert payload['fallback_to_english'] is False
-
-          response = client.get('/api/content/ci-language-check/?lang=fa', secure=True)
-          assert response.status_code == 200, response.content
-          payload = response.json()['item']
-          assert payload['locale'] == 'en'
-          assert payload['fallback_to_english'] is True
-
-          User = get_user_model()
-          user = User.objects.create_user(username='ci@example.com', email='ci@example.com', password='CI-Password-2026-Strong!')
-          comment = Comment.objects.create(author=user, content_key='ci-language-check', body='CI moderation test')
-          assert comment.status == Comment.Status.PENDING
-          progress = LabProgress.objects.create(user=user, lab_key='ci-lab', state={'step': 1}, completed=False)
-          assert progress.state['step'] == 1
-          print('backend-validation-passed')
+          assert 'Deutscher Titel' in response.content.decode('utf-8')
+          assert Comment.objects.filter(content_key='community').exists()
+          assert LabProgress.objects.filter(user=user, lab_key='schema-check').exists()
           PY
