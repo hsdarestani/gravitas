@@ -6,7 +6,8 @@ class CoreConfig(AppConfig):
     name = 'core'
 
     def ready(self):
-        # Operating models live in a separate module to keep the research/KMS
-        # domain stable while the Gravitas operating layer evolves.
+        # Domain layers live in separate modules so the public CMS, research/KMS,
+        # operating system and collaboration platform can evolve independently.
         from . import operating_models  # noqa: F401
+        from . import platform_models  # noqa: F401
         from . import operating_admin  # noqa: F401
