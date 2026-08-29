@@ -131,7 +131,17 @@ function workspaceCard(kind){
   return '<a class="v3-workspace-card" href="/workspace/research"><div class="v3-workspace-card__icon">◇</div><small>Research collaboration</small><h2>Research Workspace</h2><p>Scientific research, client projects, secure data rooms, notes, datasets and researcher collaboration.</p><footer>Open Research Workspace →</footer></a>';
 }
 
-function decorateHome(){
+function clearHomeDecoration(){
+  var content=document.getElementById('ws-content');
+  if(!content)return;
+  content.querySelectorAll('[data-v3-home-decoration]').forEach(function(el){el.remove()});
+}
+
+function decorateHome(area){
+  if(area!=='home'){
+    clearHomeDecoration();
+    return;
+  }
   var title=document.getElementById('ws-title'),sub=document.getElementById('ws-subtitle'),kick=document.getElementById('ws-kicker');
   if(title&&title.textContent!=='Home')title.textContent='Home';
   if(sub)sub.textContent='Choose a workspace, then continue with the work assigned to you.';
@@ -139,9 +149,8 @@ function decorateHome(){
   var content=document.getElementById('ws-content');
   if(!content||content.querySelector('.v3-home-workspaces'))return;
   var cards=(coreAllowed()?workspaceCard('core'):'')+workspaceCard('research');
-  var intro=document.createElement('div');
-  intro.innerHTML='<div class="v3-home-section-title"><h2>Your workspaces</h2><span>Two contexts. One platform.</span></div><div class="v3-home-workspaces">'+cards+'</div><div class="v3-home-section-title"><h2>Assigned to you</h2><span>Across the workspaces you can access</span></div>';
-  while(intro.firstChild)content.insertBefore(intro.firstChild,content.firstChild);
+  var html='<div data-v3-home-decoration class="v3-home-section-title"><h2>Your workspaces</h2><span>Two contexts. One platform.</span></div><div data-v3-home-decoration class="v3-home-workspaces">'+cards+'</div><div data-v3-home-decoration class="v3-home-section-title"><h2>Assigned to you</h2><span>Across the workspaces you can access</span></div>';
+  content.insertAdjacentHTML('afterbegin',html);
 }
 
 function decorateResearchPrivateScope(area){
@@ -165,7 +174,7 @@ function applyShell(){
     renderWorkspacePicker(area);renderContextNav(area);renderBreadcrumb(area);renderContextStrip(area);renderMobile(area);
     document.querySelectorAll('[data-core-only]').forEach(function(el){el.hidden=!coreAllowed()});
     var storage=document.querySelector('.ws-storage');if(storage)storage.dataset.v3Hidden=area==='research'?'false':'true';
-    decorateHome();decorateResearchPrivateScope(area);lastPath=location.pathname;
+    decorateHome(area);decorateResearchPrivateScope(area);lastPath=location.pathname;
   }finally{decorating=false}
 }
 
