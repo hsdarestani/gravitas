@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/assets/platform-v2-ux.css">
   <link rel="stylesheet" href="/assets/platform-v3-navigation.css">
   <link rel="stylesheet" href="/assets/platform-v3-route-fixes.css">
+  <link rel="stylesheet" href="/assets/workspace-visuals.css">
 </head>
 <body>
   <a class="g-skip" href="#workspace-main">Skip to workspace</a>
@@ -92,7 +93,8 @@
       function add(src,onload){
         var s=document.createElement('script');s.src=src;s.async=false;if(onload)s.onload=onload;document.body.appendChild(s);
       }
-      function addNavigation(){add('/assets/platform-v3-navigation.js')}
+      function addVisuals(){add('/assets/workspace-visuals.js')}
+      function addNavigation(){add('/assets/platform-v3-navigation.js',addVisuals)}
 
       if(platform){
         add('/assets/platform-v2.js',function(){
