@@ -183,7 +183,7 @@ jobs:
             await visible('.ws-sidebar');
             await page.waitForFunction(expected => document.querySelector('#ws-user')?.textContent?.trim() === expected, email, { timeout: 15000 });
             await page.waitForFunction(() => !document.querySelector('#ws-content .ws-loading'), null, { timeout: 15000 });
-            assert.equal((await page.locator('#ws-title').textContent())?.trim(), 'Dashboard');
+            assert.equal((await page.locator('#ws-title').textContent())?.trim(), 'Home');
             await assertNoHorizontalBreakage();
             await page.screenshot({ path: path.join(artifacts, '02-workspace-desktop.png'), fullPage: true, animations: 'disabled' });
 
