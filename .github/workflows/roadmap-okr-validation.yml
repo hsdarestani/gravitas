@@ -49,3 +49,10 @@ jobs:
           "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" -m django test core.test_roadmap_okr
           "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" -m django makemigrations core --check --dry-run
           "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" -m django check
+          "$RUNNER_TEMP/gravitas-roadmap-tests/bin/python" - <<'PY'
+          from core.roadmap_okr import _fetch_source, parse_roadmap_okr
+          spec = parse_roadmap_okr(_fetch_source())
+          assert len(spec) == 4, len(spec)
+          assert sum(len(item['key_results']) for item in spec) == 32
+          print('Live Gravitas Roadmap source parsed: 4 objectives / 32 key results')
+          PY
