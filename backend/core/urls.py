@@ -36,7 +36,6 @@ from core.platform_api import (
     mindmap_detail,
     mindmaps,
     platform_bootstrap,
-    platform_dashboard,
     platform_project_detail,
     platform_projects,
     project_application_detail,
@@ -49,6 +48,7 @@ from core.platform_api import (
     shared_with_me,
     sharing,
 )
+from core.platform_dashboard_api import platform_dashboard
 from core.platform_resources_api import (
     platform_file_download,
     platform_file_upload,
