@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/assets/gravitas.css">
   <link rel="stylesheet" href="/assets/workspace.css">
   <link rel="stylesheet" href="/assets/operating.css">
+  <link rel="stylesheet" href="/assets/platform-v2.css">
 </head>
 <body>
   <a class="g-skip" href="#workspace-main">Skip to workspace</a>
@@ -17,25 +18,46 @@
     <a class="ws-brand" href="/" aria-label="Gravitas home"><img src="/assets/logotype-white.svg" alt="Gravitas+"></a>
     <div class="ws-topbar__actions">
       <button id="ws-theme" class="ws-icon-btn" type="button" aria-label="Toggle theme">◐</button>
-      <details class="ws-account"><summary><span id="ws-avatar">G</span><span id="ws-user">Account</span></summary><nav><a href="/workspace/operating">Operating Workspace</a><a href="/workspace">Research Workspace</a><a href="/login">Account</a><button id="ws-logout" type="button">Logout</button></nav></details>
+      <details class="ws-account"><summary><span id="ws-avatar">G</span><span id="ws-user">Account</span></summary><nav><a href="/workspace/my-work">My Work</a><a href="/workspace/core">Core Workspace</a><a href="/workspace/research">Research Workspace</a><a href="/workspace">Personal Research</a><a href="/login">Account</a><button id="ws-logout" type="button">Logout</button></nav></details>
     </div>
   </header>
   <div class="ws-shell">
     <aside class="ws-sidebar" aria-label="Workspace navigation">
-      <div><p class="ws-eyebrow">Gravitas workspace</p><strong class="ws-workspace-name" id="ws-workspace-name">Private workspace</strong></div>
+      <div><p class="ws-eyebrow">Gravitas platform</p><strong class="ws-workspace-name" id="ws-workspace-name">Workspace</strong></div>
       <nav id="ws-nav">
-        <a href="/workspace/operating" data-view="operating"><span>◎</span>Operating</a>
-        <a href="/workspace" data-view="dashboard"><span>⌂</span>Research dashboard</a>
-        <a href="/workspace/projects" data-view="projects"><span>□</span>Projects</a>
-        <a href="/workspace/knowledge" data-view="knowledge"><span>◇</span>Knowledge</a>
-        <a href="/workspace/files" data-view="files"><span>↑</span>Files</a>
-        <a href="/workspace/notes" data-view="notes"><span>≡</span>Notes</a>
-        <a href="/workspace/datasets" data-view="datasets"><span>∷</span>Datasets</a>
+        <a href="/workspace/my-work" data-go><span>⌂</span>My Work</a>
+
+        <p class="v2-nav-label">Core</p>
+        <a href="/workspace/core" data-go><span>◎</span>Core Dashboard</a>
+        <a href="/workspace/core/tasks" data-go><span>✓</span>Tasks & Execution</a>
+        <a href="/workspace/core/content" data-go><span>▶</span>Content Pipeline</a>
+        <a href="/workspace/operating" data-view="operating"><span>↗</span>Operating System</a>
+
+        <p class="v2-nav-label">Research</p>
+        <a href="/workspace/research" data-go><span>◇</span>Research Dashboard</a>
+        <a href="/workspace/research/projects" data-go><span>□</span>Projects</a>
+        <a href="/workspace/research/notes" data-go><span>≡</span>Notes</a>
+        <a href="/workspace/research/files" data-go><span>↑</span>Files</a>
+        <a href="/workspace/research/datasets" data-go><span>∷</span>Datasets</a>
+        <a href="/workspace/research/mindmaps" data-go><span>⌘</span>Mind Maps</a>
+        <a href="/workspace/community" data-go><span>◌</span>Community</a>
+
+        <p class="v2-nav-label">Collaboration</p>
+        <a href="/workspace/shared" data-go><span>⇄</span>Shared with me</a>
+        <a href="/workspace/people" data-go><span>◉</span>Researchers</a>
+
+        <div class="v2-nav-divider"></div>
+        <a href="/workspace" data-view="dashboard"><span>♙</span>Personal Research</a>
+        <a href="/workspace/projects" data-view="projects" hidden><span>□</span>Personal Projects</a>
+        <a href="/workspace/knowledge" data-view="knowledge" hidden><span>◇</span>Personal Knowledge</a>
+        <a href="/workspace/files" data-view="files" hidden><span>↑</span>Personal Files</a>
+        <a href="/workspace/notes" data-view="notes" hidden><span>≡</span>Personal Notes</a>
+        <a href="/workspace/datasets" data-view="datasets" hidden><span>∷</span>Personal Datasets</a>
       </nav>
       <div class="ws-storage"><div><span>Storage</span><strong id="ws-storage-label">—</strong></div><div class="ws-meter"><i id="ws-storage-meter"></i></div><small id="ws-plan">Research knowledge layer</small><p id="ws-storage-message"></p></div>
     </aside>
     <main id="workspace-main" class="ws-main" tabindex="-1">
-      <div class="ws-mobile-nav"><label for="ws-mobile-select">Workspace</label><select id="ws-mobile-select"><option value="dashboard">Research Dashboard</option><option value="projects">Projects</option><option value="knowledge">Knowledge</option><option value="files">Files</option><option value="notes">Notes</option><option value="datasets">Datasets</option></select></div>
+      <div class="ws-mobile-nav"><label for="ws-mobile-select">Workspace</label><select id="ws-mobile-select"><option value="dashboard">Personal Dashboard</option><option value="projects">Personal Projects</option><option value="knowledge">Personal Knowledge</option><option value="files">Personal Files</option><option value="notes">Personal Notes</option><option value="datasets">Personal Datasets</option></select></div>
       <section class="ws-hero"><div><p class="ws-kicker" id="ws-kicker">GRAVITAS WORKSPACE</p><h1 id="ws-title">Workspace</h1><p id="ws-subtitle">Strategy, execution and knowledge in one connected system.</p></div><div id="ws-primary-actions" class="ws-actions"></div></section>
       <div id="ws-alert" class="ws-alert" role="status" hidden></div>
       <div id="ws-content" aria-live="polite"><div class="ws-loading">Opening your workspace…</div></div>
@@ -45,8 +67,15 @@
   <script>
     (function(){
       var operating=/^\/workspace\/operating(?:\/|$)/.test(location.pathname);
+      var platform=/^\/workspace\/(?:core|research|shared|people|community|my-work)(?:\/|$)/.test(location.pathname);
       var s=document.createElement('script');
-      s.src=operating?'/assets/operating.js':'/assets/workspace.js';
+      if(platform){
+        var select=document.getElementById('ws-mobile-select');
+        select.innerHTML='<option value="/workspace/my-work">My Work</option><option value="/workspace/core">Core Dashboard</option><option value="/workspace/core/tasks">Core · Tasks</option><option value="/workspace/core/content">Core · Content</option><option value="/workspace/research">Research Dashboard</option><option value="/workspace/research/projects">Research · Projects</option><option value="/workspace/research/notes">Research · Notes</option><option value="/workspace/research/files">Research · Files</option><option value="/workspace/research/datasets">Research · Datasets</option><option value="/workspace/research/mindmaps">Research · Mind Maps</option><option value="/workspace/community">Community</option><option value="/workspace/shared">Shared with me</option><option value="/workspace/people">Researchers</option>';
+        s.src='/assets/platform-v2.js';
+      }else{
+        s.src=operating?'/assets/operating.js':'/assets/workspace.js';
+      }
       s.async=false;
       if(operating){
         s.onload=function(){
