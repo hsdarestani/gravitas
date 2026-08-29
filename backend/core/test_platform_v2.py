@@ -23,6 +23,7 @@ from .platform_models import (
 @override_settings(
     GRAVITAS_DEFAULT_QUOTA_BYTES=1024 * 1024 * 100,
     GRAVITAS_MAX_UPLOAD_BYTES=1024 * 1024 * 10,
+    SECURE_SSL_REDIRECT=False,
 )
 class PlatformV2Tests(TestCase):
     def setUp(self):
