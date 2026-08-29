@@ -49,6 +49,13 @@ from core.platform_api import (
     shared_with_me,
     sharing,
 )
+from core.platform_resources_api import (
+    platform_file_download,
+    platform_file_upload,
+    platform_resource_detail,
+    platform_resources,
+    shared_file_download,
+)
 from core.workspace_api import (
     collection_detail,
     collections,
@@ -112,9 +119,14 @@ urlpatterns = [
     path('platform/content/<int:item_id>/', content_work_detail),
     path('platform/research-requests/', research_requests),
     path('platform/research-requests/<int:request_id>/', research_request_detail),
+    path('platform/resources/', platform_resources),
+    path('platform/resources/<int:resource_id>/', platform_resource_detail),
+    path('platform/files/upload/', platform_file_upload),
+    path('platform/files/<int:resource_id>/download/', platform_file_download),
     path('platform/share/', sharing),
     path('platform/shared-with-me/', shared_with_me),
     path('platform/shared/<uuid:token>/', shared_link),
+    path('platform/shared/<uuid:token>/download/', shared_file_download),
     path('platform/community/projects/', community_projects),
     path('platform/community/projects/<slug:public_slug>/', community_project_detail),
     path('platform/researchers/', researchers),
@@ -147,7 +159,7 @@ urlpatterns = [
     path('operating/meetings/', meetings),
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
-    # Research / Knowledge layer.
+    # Original personal Research / Knowledge layer (kept for backward compatibility).
     path('workspace/dashboard/', workspace_dashboard),
     path('workspace/projects/', projects),
     path('workspace/projects/<int:project_id>/', project_detail),
