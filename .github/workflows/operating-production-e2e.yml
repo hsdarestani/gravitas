@@ -193,6 +193,7 @@ jobs:
               'mitigation': 'Close dependency before delivery.',
               'due_date': due,
           })
+          risk_id = risk['risk']['id']
           assert risk['risk']['initiative_id'] == initiative_id, risk
 
           _, task = request('/api/operating/tasks/', 'POST', {
@@ -214,11 +215,18 @@ jobs:
           _, updated = request(f"/api/operating/tasks/{task_data['id']}/", 'PATCH', {'status': 'done'})
           assert updated['task']['status'] == 'done', updated
 
+          # Production contains real Gravitas OKRs. Never assert global counts are
+          # exactly one; verify the exact objects created by this E2E run instead.
           _, final_dashboard = request('/api/operating/dashboard/')
-          assert final_dashboard['counts']['objectives'] == 1, final_dashboard
-          assert final_dashboard['counts']['key_results'] == 1, final_dashboard
-          assert final_dashboard['counts']['initiatives'] == 1, final_dashboard
-          assert final_dashboard['counts']['work_packages'] == 1, final_dashboard
-          assert final_dashboard['counts']['risks'] == 1, final_dashboard
+          final_initiative = next(
+              item for item in final_dashboard.get('recent_initiatives', [])
+              if item['id'] == initiative_id
+          )
+          assert final_initiative['objective']['id'] == objective_id, final_initiative
+          assert final_initiative['key_result']['id'] == kr_id, final_initiative
+          assert final_initiative['process']['key'] == 'research', final_initiative
+          assert final_initiative['task_count'] >= 1, final_initiative
+          assert any(item['id'] == milestone_id for item in final_dashboard.get('upcoming_milestones', [])), final_dashboard
+          assert any(item['id'] == risk_id for item in final_dashboard.get('risks', [])), final_dashboard
           print('operating-production-e2e-passed')
           PY
