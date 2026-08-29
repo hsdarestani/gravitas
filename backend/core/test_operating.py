@@ -2,7 +2,7 @@ import json
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from core.operating_models import Initiative, KeyResult, OperatingProcess, OperatingTask, StrategicObjective
 from core.platform_runtime_v3 import ensure_platform_workspaces
@@ -11,6 +11,7 @@ from core.platform_runtime_v3 import ensure_platform_workspaces
 User = get_user_model()
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class OperatingWorkspaceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='operator@example.com', email='operator@example.com', password='test-password-123')
