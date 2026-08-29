@@ -110,6 +110,18 @@ def _researcher_json(user, research):
     }
 
 
+def _registered_json(user):
+    return {
+        'id': user.pk,
+        'name': _display_name(user),
+        'email': user.email,
+        'is_active': user.is_active,
+        'date_joined': _iso(user.date_joined),
+        'last_login': _iso(user.last_login),
+        'nextcloud': _nextcloud(user),
+    }
+
+
 def _target_user(user_id):
     try:
         return User.objects.get(pk=user_id)
@@ -176,7 +188,7 @@ def core_team(request):
             .order_by('role', 'user__first_name', 'user__email')
         )
         member_ids = [item.user_id for item in memberships]
-        research_users = (
+        research_users = list(
             User.objects.filter(
                 Q(gravitas_researcher_profile__isnull=False)
                 | Q(gravitas_project_memberships__project__workspace=research)
@@ -185,6 +197,14 @@ def core_team(request):
             .exclude(pk__in=member_ids)
             .distinct()
             .order_by('first_name', 'email')[:200]
+        )
+        research_user_ids = [user.pk for user in research_users]
+        registered_users = list(
+            User.objects.exclude(pk__in=member_ids)
+            .exclude(pk__in=research_user_ids)
+            .exclude(is_superuser=True)
+            .exclude(email='')
+            .order_by('-date_joined')[:200]
         )
         return JsonResponse({
             'ok': True,
@@ -197,10 +217,12 @@ def core_team(request):
                 'core_members': len(memberships),
                 'core_admins': sum(1 for item in memberships if item.role in MANAGER_ROLES and item.user.is_active),
                 'active_members': sum(1 for item in memberships if item.user.is_active),
-                'external_researchers': research_users.count() if hasattr(research_users, 'count') else len(research_users),
+                'external_researchers': len(research_users),
+                'registered_users': len(registered_users),
             },
             'members': [_member_json(item, research) for item in memberships],
             'researchers': [_researcher_json(user, research) for user in research_users],
+            'registered_users': [_registered_json(user) for user in registered_users],
         })
 
     payload = _body(request)
