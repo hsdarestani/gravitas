@@ -28,6 +28,7 @@ jobs:
             assets/platform-v3-navigation.js
             assets/workspace-visuals.js
             assets/core-team.js
+            assets/core-team-registered.js
             assets/operating.js
             assets/operating-enhancements.js
             assets/operating-core-shell.js
