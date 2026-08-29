@@ -1,0 +1,66 @@
+name: Gravitas Demo Readiness
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  demo-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate workspace JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            assets/workspace.js
+            assets/platform-v2.js
+            assets/platform-v2-patches.js
+            assets/platform-v2-ux.js
+            assets/platform-v3-navigation.js
+            assets/workspace-visuals.js
+            assets/core-team.js
+            assets/operating.js
+            assets/operating-enhancements.js
+            assets/operating-core-shell.js
+            assets/roadmap-okr-sync.js
+            assets/initiative-planner.js
+            assets/initiative-task-editor.js
+            assets/initiative-task-reorder.js
+          )
+          for file in "${files[@]}"; do
+            echo "Checking $file"
+            node --check "$file"
+          done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: pip install --disable-pip-version-check -q -r backend/requirements.txt
+
+      - name: Check migrations and Django configuration
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          python -m django makemigrations --check --dry-run
+          python -m django check
+
+      - name: Run complete workspace test suite
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          python -m django test core --verbosity 2
