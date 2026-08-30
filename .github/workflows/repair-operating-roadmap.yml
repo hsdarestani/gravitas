@@ -1,0 +1,117 @@
+name: Repair Core Roadmap After Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'workspace.html'
+      - 'backend/core/management/commands/repair_core_roadmap_okr.py'
+      - 'backend/core/test_operating_demo_repair.py'
+      - '.github/workflows/repair-operating-roadmap.yml'
+  workflow_run:
+    workflows: ['Deploy Gravitas to Strato']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-core-roadmap-repair
+  cancel-in-progress: false
+
+env:
+  BACKEND_PATH: /opt/gravitas-backend
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Validate route repair and canonical Core data
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          set -euo pipefail
+          pip install --disable-pip-version-check -q -r backend/requirements.txt
+          node --check assets/operating.js
+          node --check assets/operating-enhancements.js
+          python -m django test core.test_operating_demo_repair --verbosity 2
+          grep -q '/assets/operating.js?v=20260830b' workspace.html
+          grep -q '/assets/operating-enhancements.js?v=20260830b' workspace.html
+          grep -q '/assets/operating-core-shell.js?v=20260830b' workspace.html
+
+  production:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout deployed revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}"
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}"
+          USERNAME="${{ secrets.DEPLOY_USER }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$USERNAME" ] || USERNAME=deploy
+          [ -n "$PORT" ] || PORT=22
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/gravitas_deploy -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${OPTS[@]}" "$USERNAME@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER="$USERNAME"
+          elif [ "$USERNAME" != root ] && ssh "${OPTS[@]}" "root@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER=root
+          else
+            echo 'SSH authentication failed'
+            exit 1
+          fi
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Repair and verify canonical Core Roadmap
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$BACKEND_PATH" <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH="$1"
+          ENV_FILE=/etc/gravitas/backend.env
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
+          test -n "$SECRET"
+          cd "$BACKEND_PATH"
+          OUTPUT="$(sudo -u gravitas env \
+            DJANGO_SECRET_KEY="$SECRET" \
+            DJANGO_DEBUG=0 \
+            DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            PYTHONPATH="$BACKEND_PATH" \
+            "$BACKEND_PATH/.venv/bin/python" "$BACKEND_PATH/manage.py" repair_core_roadmap_okr)"
+          printf '%s\n' "$OUTPUT"
+          printf '%s\n' "$OUTPUT" | grep -Eq 'core roadmap ready objectives=[4-9][0-9]* key_results=[4-9][0-9]*'
+          sudo systemctl restart gravitas-backend
+          sudo systemctl is-active gravitas-backend
+          REMOTE
+
+      - name: Verify public app
+        run: |
+          set -euo pipefail
+          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 https://gravitasplus.com/api/health/ | grep -q '"status": "ok"'
