@@ -1,0 +1,228 @@
+name: Migrate Research Files to Team Folders
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/team-folder-migration.yml'
+      - 'ops/migrations/nextcloud-team-folders.mode'
+      - 'backend/core/management/commands/migrate_project_files_to_team_folders.py'
+      - 'backend/core/test_team_folder_migration.py'
+  workflow_run:
+    workflows: ['Deploy Gravitas to Strato']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-team-folder-migration
+  cancel-in-progress: false
+
+env:
+  DOMAIN: gravitasplus.com
+  BACKEND_PATH: /opt/gravitas-backend
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate migration mode and Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODE="$(tr -d '[:space:]' < ops/migrations/nextcloud-team-folders.mode)"
+          case "$MODE" in
+            dry-run|execute|disabled) ;;
+            *) echo "Invalid migration mode: $MODE"; exit 1 ;;
+          esac
+          python3 -m py_compile backend/core/management/commands/migrate_project_files_to_team_folders.py
+          python3 -m py_compile backend/core/test_team_folder_migration.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Run migration safety tests
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          set -euo pipefail
+          pip install --disable-pip-version-check -q -r backend/requirements.txt
+          python -m django test core.test_team_folder_migration --verbosity 2
+
+  production:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout the exact deployed revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Resolve migration mode
+        id: migration_mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f ops/migrations/nextcloud-team-folders.mode ]; then
+            echo 'mode=disabled' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          MODE="$(tr -d '[:space:]' < ops/migrations/nextcloud-team-folders.mode)"
+          case "$MODE" in
+            dry-run|execute|disabled) ;;
+            *) echo "Invalid migration mode: $MODE"; exit 1 ;;
+          esac
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "Team Folder migration mode: $MODE"
+
+      - name: Validate disabled state
+        if: steps.migration_mode.outputs.mode == 'disabled'
+        run: echo 'Legacy Team Folder migration is disabled for this deployed revision.'
+
+      - name: Resolve SSH
+        if: steps.migration_mode.outputs.mode != 'disabled'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}" || { echo 'Missing DEPLOY_HOST'; exit 1; }
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo 'Missing DEPLOY_SSH_KEY'; exit 1; }
+          USERNAME="${{ secrets.DEPLOY_USER }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$USERNAME" ] || USERNAME=deploy
+          [ -n "$PORT" ] || PORT=22
+          echo "CONFIGURED_USER=$USERNAME" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Prepare SSH
+        if: steps.migration_mode.outputs.mode != 'disabled'
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keygen -y -f ~/.ssh/gravitas_deploy >/dev/null
+          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          if ssh "${OPTS[@]}" "$CONFIGURED_USER@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="$CONFIGURED_USER"
+          elif [ "$CONFIGURED_USER" != root ] && ssh "${OPTS[@]}" "root@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER=root
+          else
+            echo 'SSH authentication failed'
+            exit 1
+          fi
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+
+      - name: Verify production storage before migration
+        if: steps.migration_mode.outputs.mode != 'disabled'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -4 -fsS --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+            "https://$DOMAIN/nextcloud/status.php" | grep -q '"installed":true'
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          sudo systemctl is-active gravitas-backend
+          sudo systemctl is-active gravitas-nextcloud-nginx-guard.path
+          sudo docker inspect -f '{{.State.Running}}' gravitas-nextcloud | grep -qx true
+          sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -Eq '^[[:space:]]*-[[:space:]]+groupfolders:'
+          REMOTE
+
+      - name: Run guarded migration
+        if: steps.migration_mode.outputs.mode != 'disabled'
+        shell: bash
+        env:
+          MIGRATION_MODE: ${{ steps.migration_mode.outputs.mode }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$MIGRATION_MODE" "$BACKEND_PATH" <<'REMOTE'
+          set -euo pipefail
+          MODE="$1"
+          BACKEND_PATH="$2"
+          ENV_FILE=/etc/gravitas/backend.env
+          MARKER=/etc/gravitas/team-folder-migration-v4.done
+
+          test -x "$BACKEND_PATH/.venv/bin/python"
+          test -f "$BACKEND_PATH/manage.py"
+          test -r "$ENV_FILE"
+
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
+          NC_URL="$(sudo awk -F= '/^NEXTCLOUD_INTERNAL_URL=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
+          NC_USER="$(sudo awk -F= '/^NEXTCLOUD_ADMIN_USER=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
+          NC_PASS="$(sudo awk -F= '/^NEXTCLOUD_ADMIN_PASSWORD=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
+          test -n "$SECRET" && test -n "$NC_URL" && test -n "$NC_USER" && test -n "$NC_PASS"
+
+          run_migration() {
+            sudo -u gravitas env \
+              DJANGO_SECRET_KEY="$SECRET" \
+              DJANGO_DEBUG=0 \
+              DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+              PYTHONPATH="$BACKEND_PATH" \
+              NEXTCLOUD_INTERNAL_URL="$NC_URL" \
+              NEXTCLOUD_ADMIN_USER="$NC_USER" \
+              NEXTCLOUD_ADMIN_PASSWORD="$NC_PASS" \
+              "$BACKEND_PATH/.venv/bin/python" "$BACKEND_PATH/manage.py" \
+              migrate_project_files_to_team_folders "$@"
+          }
+
+          if [ "$MODE" = dry-run ]; then
+            # Default dry-run intentionally prints only the candidate count, never
+            # research filenames or paths into CI logs.
+            run_migration --dry-run
+            exit 0
+          fi
+
+          if [ "$MODE" != execute ]; then
+            echo "Unexpected migration mode: $MODE"
+            exit 1
+          fi
+
+          if sudo test -f "$MARKER"; then
+            echo 'Team Folder migration marker already exists; verifying nothing remains.'
+            VERIFY="$(run_migration --dry-run)"
+            printf '%s\n' "$VERIFY"
+            printf '%s\n' "$VERIFY" | grep -q 'dry-run matched=0'
+            exit 0
+          fi
+
+          # Take both application/database and Nextcloud backups immediately
+          # before the one-time destructive source cleanup phase.
+          sudo /usr/local/sbin/gravitas-backup
+          sudo /usr/local/sbin/gravitas-nextcloud-backup
+
+          run_migration
+          VERIFY="$(run_migration --dry-run)"
+          printf '%s\n' "$VERIFY"
+          printf '%s\n' "$VERIFY" | grep -q 'dry-run matched=0'
+          printf 'completed_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" | sudo tee "$MARKER" >/dev/null
+          sudo chmod 600 "$MARKER"
+          echo 'Legacy Research project files are fully migrated to Team Folders.'
+          REMOTE
+
+      - name: Verify production after migration
+        if: steps.migration_mode.outputs.mode != 'disabled'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -4 -fsS --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+            "https://$DOMAIN/nextcloud/status.php" | grep -q '"installed":true'
+          curl -4 -fsS --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+            "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
