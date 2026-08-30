@@ -136,6 +136,7 @@ class DemoReadinessTests(TestCase):
             '/api/platform/community/projects/',
             '/api/platform/shared-with-me/',
             '/api/platform/research-requests/',
+            '/api/platform/nextcloud/',
         ]
         for endpoint in endpoints:
             with self.subTest(endpoint=endpoint):
@@ -257,7 +258,12 @@ class DemoReadinessTests(TestCase):
         })
         self.assertEqual(paper_response.status_code, 201, paper_response.content)
 
-        with patch('core.platform_resources_api.cloud.ensure_identity', return_value=object()), patch('core.platform_resources_api.cloud.upload'):
+        with (
+            patch('core.platform_resources_api.nextcloud_bridge.ensure_project_space') as ensure_project_space,
+            patch('core.platform_resources_api.nextcloud_bridge.ensure_user', return_value=object()),
+            patch('core.platform_resources_api.nextcloud_bridge.sync_resource_acl') as sync_resource_acl,
+            patch('core.platform_resources_api.cloud.upload'),
+        ):
             file_response = self.client.post('/api/platform/files/upload/', {
                 'project_id': str(project_id),
                 'kind': 'file',
@@ -275,6 +281,9 @@ class DemoReadinessTests(TestCase):
             })
             self.assertEqual(dataset_response.status_code, 201, dataset_response.content)
             dataset_id = dataset_response.json()['item']['id']
+
+            self.assertEqual(ensure_project_space.call_count, 2)
+            self.assertEqual(sync_resource_acl.call_count, 2)
 
         deliverable_response = self.post_json(f'/api/platform/projects/{project_id}/deliverables/', {
             'title': 'Validated demo output',
@@ -447,6 +456,7 @@ class DemoReadinessTests(TestCase):
             '/workspace/research/files',
             '/workspace/research/datasets',
             '/workspace/research/mindmaps',
+            '/workspace/research/nextcloud',
             '/workspace/people',
             '/workspace/community',
             '/workspace/shared',
@@ -460,6 +470,7 @@ class DemoReadinessTests(TestCase):
             'platform-v2-patches.js',
             'platform-v2-ux.js',
             'platform-v3-navigation.js',
+            'nextcloud-native.js',
             'workspace-visuals.js',
             'core-team.js',
             'operating.js',

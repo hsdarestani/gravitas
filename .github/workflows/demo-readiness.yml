@@ -26,6 +26,7 @@ jobs:
             assets/platform-v2-patches.js
             assets/platform-v2-ux.js
             assets/platform-v3-navigation.js
+            assets/nextcloud-native.js
             assets/workspace-visuals.js
             assets/core-team.js
             assets/core-team-registered.js
@@ -42,6 +43,16 @@ jobs:
             echo "Checking $file"
             node --check "$file"
           done
+
+      - name: Validate Nextcloud provisioning scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n ops/nextcloud/ensure.sh
+          bash -n ops/nextcloud/apps.sh
+          grep -q 'groupfolders required' ops/nextcloud/apps.sh
+          grep -q 'Nextcloud Apps' assets/platform-v3-navigation.js
+          grep -q 'project_membership_required' backend/core/nextcloud_api.py
 
       - name: Check Registered Users tab render contract
         shell: bash

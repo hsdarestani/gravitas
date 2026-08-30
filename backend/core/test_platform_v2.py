@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -100,7 +101,8 @@ class PlatformV2Tests(TestCase):
         self.assertEqual(response.json()['error'], 'secure_data_room_blocks_public_sharing')
         self.assertFalse(ShareLink.objects.exists())
 
-    def test_direct_project_grant_is_visible_without_research_workspace_membership(self):
+    @patch('core.nextcloud_api.nextcloud_bridge.add_project_user')
+    def test_direct_project_grant_is_visible_without_research_workspace_membership(self, add_project_user):
         project_response = self.post_json('/api/platform/projects/', {
             'title': 'Shared Scientific Project',
             'category': 'internal',
@@ -118,6 +120,7 @@ class PlatformV2Tests(TestCase):
         self.assertTrue(can_view(self.researcher, project))
         self.assertTrue(ProjectMembership.objects.filter(project=project, user=self.researcher, role='editor').exists())
         self.assertFalse(WorkspaceMembership.objects.filter(workspace=project.workspace, user=self.researcher).exists())
+        add_project_user.assert_called_once_with(project, self.researcher)
 
     def test_private_personal_note_requires_explicit_grant(self):
         boot = self.client.get('/api/platform/bootstrap/').json()
