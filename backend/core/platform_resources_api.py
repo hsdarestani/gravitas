@@ -11,10 +11,18 @@ from django.http import JsonResponse, StreamingHttpResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from . import cloud
+from . import cloud, nextcloud_bridge
 from .models import Collection, KnowledgeResource, StoragePlan
-from .platform_access import can_edit, can_view, downloads_allowed, policy_for
-from .platform_api import _audit, _project_profile, _resource_json, ensure_dual_workspaces
+from .platform_access import (
+    INHERIT_VISIBILITY,
+    VALID_VISIBILITIES,
+    can_edit,
+    can_view,
+    downloads_allowed,
+    inherited_from,
+    policy_for,
+)
+from .platform_api import _audit, _resource_json, ensure_dual_workspaces
 from .platform_models import ObjectPolicy, ShareLink
 
 logger = logging.getLogger(__name__)
@@ -58,13 +66,7 @@ def _collection_ancestors(item):
 
 
 def _project_storage_path(project, collection, filename):
-    profile = _project_profile(project)
-    parts = [profile.nextcloud_root.rstrip('/')]
-    if collection:
-        parts.extend(cloud.safe_filename(item.name) for item in _collection_ancestors(collection))
-    if filename:
-        parts.append(cloud.safe_filename(filename))
-    return '/'.join(part.strip('/') for part in parts if part)
+    return nextcloud_bridge.project_storage_path(project, collection, filename)
 
 
 def _personal_storage_path(collection, filename):
@@ -80,14 +82,17 @@ def _storage_path(project, collection, filename):
     return _project_storage_path(project, collection, filename) if project else _personal_storage_path(collection, filename)
 
 
-def _visibility(data, project, workspace):
+def _visibility(data, project, workspace, collection=None):
     requested = str(data.get('visibility', '')).strip()
-    if requested and requested not in ObjectPolicy.Visibility.values:
+    if requested and requested not in VALID_VISIBILITIES:
         raise ValueError('invalid_visibility')
     if requested:
         return requested
     if project:
-        return ObjectPolicy.Visibility.PROJECT
+        # Project items inherit their folder/project ACL unless explicitly
+        # overridden. This is the key to keeping Gravitas and Team Folders in
+        # one permission tree.
+        return INHERIT_VISIBILITY
     if workspace.kind == 'personal':
         return ObjectPolicy.Visibility.PRIVATE
     return ObjectPolicy.Visibility.PRIVATE
@@ -111,7 +116,7 @@ def _resolve_context(user, data):
     collection = None
     if data.get('collection_id'):
         collection = Collection.objects.select_related('workspace', 'project', 'parent').filter(pk=data['collection_id'], workspace=workspace).first()
-        if not collection:
+        if not collection or not can_view(user, collection):
             raise ValueError('invalid_collection')
         if collection.project_id and (not project or collection.project_id != project.pk):
             raise ValueError('collection_project_mismatch')
@@ -138,13 +143,15 @@ def _resource_detail_json(resource, user):
         'metadata': resource.metadata,
         'collection_id': resource.collection_id,
         'collection_name': resource.collection.name if resource.collection else None,
+        'native_url': nextcloud_bridge.native_url_for(resource) if resource.project_id else cloud.native_files_url('Gravitas/My Files'),
         'permissions': {
             'can_view': can_view(user, resource),
             'can_edit': can_edit(user, resource),
         },
         'policy': {
-            'visibility': policy.visibility if policy else 'workspace',
+            'visibility': policy.visibility if policy else INHERIT_VISIBILITY,
             'allow_download': policy.allow_download if policy else True,
+            'inherited_from': inherited_from(resource),
         },
     })
     return data
@@ -184,7 +191,7 @@ def platform_resources(request):
         return _error('title_required')
     try:
         workspace, project, collection = _resolve_context(request.user, data)
-        visibility = _visibility(data, project, workspace)
+        visibility = _visibility(data, project, workspace, collection)
     except PermissionError:
         return _error('permission_denied', 403)
     except ValueError as exc:
@@ -221,9 +228,10 @@ def platform_resource_detail(request, resource_id):
     if request.method == 'DELETE':
         if resource.storage_path:
             try:
-                cloud.delete(cloud.ensure_identity(resource.owner, _plan(resource.owner).quota_bytes), resource.storage_path)
+                identity = nextcloud_bridge.ensure_user(request.user if resource.project_id else resource.owner)
+                cloud.delete(identity, resource.storage_path)
             except cloud.CloudError:
-                logger.exception('V2 cloud delete failed for resource %s', resource.pk)
+                logger.exception('V4 cloud delete failed for resource %s', resource.pk)
                 return _error('cloud_unavailable', 503)
         project = resource.project
         _audit(project, request.user, 'resource_deleted', resource, title=resource.title)
@@ -243,15 +251,20 @@ def platform_resource_detail(request, resource_id):
         resource.source_url = str(data['source_url']).strip()[:1000]
     try:
         if 'visibility' in data:
-            visibility = _visibility(data, resource.project, resource.workspace)
+            visibility = _visibility(data, resource.project, resource.workspace, resource.collection)
             _apply_policy(resource, request.user, visibility, data.get('allow_download', True))
         elif 'allow_download' in data:
             policy = policy_for(resource, create=True, created_by=request.user)
             policy.allow_download = bool(data['allow_download'])
             policy.save(update_fields=['allow_download', 'updated_at'])
+        resource.save()
+        if resource.project_id and resource.storage_path:
+            nextcloud_bridge.sync_resource_acl(resource)
     except ValueError as exc:
         return _error(str(exc))
-    resource.save()
+    except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError):
+        logger.exception('Could not synchronize resource ACL %s to Nextcloud', resource.pk)
+        return _error('cloud_acl_sync_failed', 503)
     _audit(resource.project, request.user, 'resource_updated', resource)
     return JsonResponse({'ok': True, 'item': _resource_detail_json(resource, request.user)})
 
@@ -273,7 +286,7 @@ def platform_file_upload(request):
         return _error('unsupported_dataset_type', 415, allowed=sorted(DATASET_EXTENSIONS))
     try:
         workspace, project, collection = _resolve_context(request.user, request.POST)
-        visibility = _visibility(request.POST, project, workspace)
+        visibility = _visibility(request.POST, project, workspace, collection)
     except PermissionError:
         return _error('permission_denied', 403)
     except ValueError as exc:
@@ -288,6 +301,14 @@ def platform_file_upload(request):
         kind__in=FILE_KINDS,
     ).exists():
         return _error('file_exists', 409)
+
+    try:
+        if project:
+            nextcloud_bridge.ensure_project_space(project)
+    except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError):
+        logger.exception('Could not provision Team Folder for project %s', project.pk if project else None)
+        return _error('cloud_unavailable', 503)
+
     with transaction.atomic():
         plan = _plan(request.user, lock=True)
         used = KnowledgeResource.objects.filter(owner=request.user).aggregate(total=Sum('file_size'))['total'] or 0
@@ -310,21 +331,29 @@ def platform_file_upload(request):
                 'extension': PurePosixPath(filename).suffix.lower(),
                 'storage_zone': collection.name if collection else ('project-root' if project else 'personal'),
                 'project_data_room': bool(project),
+                'nextcloud_team_folder': bool(project),
             },
             storage_path=path,
         )
         _apply_policy(resource, request.user, visibility, request.POST.get('allow_download', '1') not in {'0', 'false', 'False'})
     try:
-        identity = cloud.ensure_identity(request.user, plan.quota_bytes)
+        identity = nextcloud_bridge.ensure_user(request.user)
         digest = hashlib.sha256()
         uploaded.seek(0)
         for chunk in uploaded.chunks():
             digest.update(chunk)
         uploaded.seek(0)
         cloud.upload(identity, resource.storage_path, uploaded)
+        if project:
+            nextcloud_bridge.sync_resource_acl(resource)
     except Exception:
+        try:
+            if resource.storage_path:
+                cloud.delete(identity, resource.storage_path)
+        except Exception:
+            pass
         resource.delete()
-        logger.exception('V2 cloud upload failed for user %s', request.user.pk)
+        logger.exception('V4 cloud upload failed for user %s', request.user.pk)
         return _error('cloud_unavailable', 503)
     resource.checksum = f'sha256:{digest.hexdigest()}'
     resource.save(update_fields=['checksum', 'updated_at'])
@@ -332,14 +361,15 @@ def platform_file_upload(request):
     return JsonResponse({'ok': True, 'item': _resource_detail_json(resource, request.user)}, status=201)
 
 
-def _download_response(resource):
+def _download_response(resource, access_user=None):
     try:
+        identity_user = access_user if (access_user and resource.project_id) else resource.owner
         upstream = cloud.download(
-            cloud.ensure_identity(resource.owner, _plan(resource.owner).quota_bytes),
+            nextcloud_bridge.ensure_user(identity_user),
             resource.storage_path,
         )
     except cloud.CloudError:
-        logger.exception('V2 cloud download failed for resource %s', resource.pk)
+        logger.exception('V4 cloud download failed for resource %s', resource.pk)
         return _error('cloud_unavailable', 503)
     response = StreamingHttpResponse(
         upstream.iter_content(chunk_size=64 * 1024),
@@ -361,7 +391,7 @@ def platform_file_download(request, resource_id):
     if not downloads_allowed(resource):
         return _error('download_not_allowed', 403)
     _audit(resource.project, request.user, 'resource_downloaded', resource)
-    return _download_response(resource)
+    return _download_response(resource, request.user)
 
 
 @require_http_methods(['GET'])
@@ -378,4 +408,7 @@ def shared_file_download(request, token):
     if not downloads_allowed(resource):
         return _error('download_not_allowed', 403)
     _audit(resource.project, request.user if request.user.is_authenticated else None, 'shared_resource_downloaded', resource, share_link_id=link.pk)
-    return _download_response(resource)
+    # Shared-link downloads are brokered with the project owner's Team Folder
+    # identity after Gravitas validates the link policy.
+    access_user = resource.project.owner if resource.project_id else None
+    return _download_response(resource, access_user)
