@@ -25,6 +25,7 @@ jobs:
             assets/platform-v2.js
             assets/platform-v2-patches.js
             assets/platform-v2-ux.js
+            assets/research-v5.js
             assets/platform-v3-navigation.js
             assets/nextcloud-native.js
             assets/workspace-visuals.js
@@ -43,6 +44,20 @@ jobs:
             echo "Checking $file"
             node --check "$file"
           done
+
+      - name: Validate Research V5 cockpit contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "platform/projects/<int:project_id>/cockpit/" backend/core/urls.py
+          grep -q "platform/projects/<int:project_id>/access-candidates/" backend/core/urls.py
+          grep -q "ProjectAuditEvent" backend/core/project_cockpit.py
+          grep -q "EntityLink" backend/core/project_cockpit.py
+          grep -q "data-v5-tab=\"connections\"" assets/research-v5.js
+          grep -q "Ctrl" assets/research-v5.js || grep -q "ctrlKey" assets/research-v5.js
+          grep -q "research-v5.js" workspace.html
+          grep -q "research-v5.css" workspace.html
+          python -m py_compile backend/core/project_cockpit.py backend/core/test_project_cockpit.py
 
       - name: Validate Nextcloud provisioning scripts
         shell: bash
