@@ -9,8 +9,10 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - '.github/workflows/nextcloud.yml'
       - 'ops/nextcloud/pr-trigger.txt'
       - 'ops/nextcloud/apps.sh'
+      - 'ops/nextcloud/ensure.sh'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy Gravitas to Strato']
@@ -27,8 +29,26 @@ env:
   DOMAIN: gravitasplus.com
 
 jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout proposed Nextcloud changes
+        uses: actions/checkout@v4
+
+      - name: Validate provisioning scripts without touching production
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n ops/nextcloud/ensure.sh
+          bash -n ops/nextcloud/apps.sh
+          grep -q 'groupfolders required' ops/nextcloud/apps.sh
+          grep -q 'user_oidc' ops/nextcloud/apps.sh
+          echo 'Nextcloud PR validation passed; production provisioning is intentionally disabled for pull requests.'
+
   nextcloud:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
