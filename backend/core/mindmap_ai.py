@@ -1,6 +1,5 @@
 import json
 import logging
-import math
 import urllib.error
 import urllib.request
 from collections import defaultdict, deque
@@ -13,20 +12,15 @@ from django.views.decorators.http import require_POST
 from .platform_access import can_edit, can_view
 from .platform_models import MindMap, MindMapEdge, MindMapNode
 
-
 logger = logging.getLogger(__name__)
 
 ALLOWED_KINDS = set(MindMapNode.Kind.values)
 ALLOWED_RELATIONS = {
-    'related',
-    'supports',
-    'contradicts',
-    'depends-on',
-    'derived-from',
-    'contains',
-    'causes',
-    'evidence-for',
-    'question-for',
+    'related', 'supports', 'contradicts', 'depends-on', 'derived-from',
+    'contains', 'causes', 'evidence-for', 'question-for',
+}
+GENERIC_TITLES = {
+    'test', 'mind map', 'mindmap', 'new mind map', 'untitled', 'research map',
 }
 
 
@@ -43,23 +37,15 @@ def _body(request):
 
 def _node_json(node):
     return {
-        'id': node.pk,
-        'key': node.key,
-        'title': node.title,
-        'body': node.body,
-        'kind': node.kind,
-        'x': node.x,
-        'y': node.y,
+        'id': node.pk, 'key': node.key, 'title': node.title, 'body': node.body,
+        'kind': node.kind, 'x': node.x, 'y': node.y,
     }
 
 
 def _edge_json(edge):
     return {
-        'id': edge.pk,
-        'source_id': edge.source_id,
-        'target_id': edge.target_id,
-        'relation': edge.relation,
-        'label': edge.label,
+        'id': edge.pk, 'source_id': edge.source_id, 'target_id': edge.target_id,
+        'relation': edge.relation, 'label': edge.label,
     }
 
 
@@ -82,19 +68,14 @@ def _schema(max_nodes):
             'title': {'type': 'string'},
             'summary': {'type': 'string'},
             'nodes': {
-                'type': 'array',
-                'minItems': 3,
-                'maxItems': max_nodes,
+                'type': 'array', 'minItems': 3, 'maxItems': max_nodes,
                 'items': {
                     'type': 'object',
                     'properties': {
                         'key': {'type': 'string'},
                         'title': {'type': 'string'},
                         'body': {'type': 'string'},
-                        'kind': {
-                            'type': 'string',
-                            'enum': sorted(ALLOWED_KINDS),
-                        },
+                        'kind': {'type': 'string', 'enum': sorted(ALLOWED_KINDS)},
                     },
                     'required': ['key', 'title', 'body', 'kind'],
                 },
@@ -120,39 +101,35 @@ def _schema(max_nodes):
 def _cloudflare_graph(prompt, *, max_nodes):
     account_id = str(getattr(settings, 'CLOUDFLARE_AI_ACCOUNT_ID', '') or '').strip()
     api_token = str(getattr(settings, 'CLOUDFLARE_AI_API_TOKEN', '') or '').strip()
-    model = str(
-        getattr(
-            settings,
-            'CLOUDFLARE_AI_MODEL',
-            '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-        )
-        or '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
-    ).strip()
+    model = str(getattr(settings, 'CLOUDFLARE_AI_MODEL', '@cf/meta/llama-3.3-70b-instruct-fp8-fast') or '@cf/meta/llama-3.3-70b-instruct-fp8-fast').strip()
     timeout = int(getattr(settings, 'CLOUDFLARE_AI_TIMEOUT', 45) or 45)
-
     if not account_id or not api_token:
         raise RuntimeError('cloudflare_ai_not_configured')
 
     endpoint = f'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}'
     system_prompt = (
-        'You create concise, useful research mind maps. Return only the requested structured JSON. '
-        'Use the same language as the user prompt unless the prompt explicitly asks for another language. '
-        'Create one clear central/root concept, then meaningful branches and cross-links. '
-        'Keep node titles short, put explanation in body, avoid duplicate concepts, and make relations semantically useful. '
-        'Node keys must be simple unique ASCII identifiers such as root, branch-1, evidence-2. '
-        'Every edge source and target must reference an existing node key. Do not create self-links.'
+        'You are an expert research mind-map architect. Return only the requested structured JSON. '
+        'Use the same language as the user prompt unless another language is explicitly requested. '
+        'The map must be intellectually useful, concrete, and visually balanced. '
+        'Create exactly one central root concept. Connect 3 to 6 primary branches directly to the root whenever the node budget allows. '
+        'Put secondary concepts under those branches and keep hierarchy depth at 3 levels maximum. '
+        'Prefer a broad tree over a long chain. Cross-links are allowed but should be sparse and meaningful. '
+        'Every node title must name a specific concept from the actual topic. Never use generic filler titles such as '
+        '"Core Idea", "Related Concepts", "Supporting Evidence", "Contradictory Evidence", "Branch", "Topic", or "Complex Mind Map" '
+        'unless those exact phrases are themselves the subject. '
+        'Keep titles short (roughly 2-7 words) and put concise explanation in body. Avoid duplicates and vague abstractions. '
+        'Use short edge labels only when they add meaning; otherwise use an empty label. '
+        'Node keys must be unique simple ASCII identifiers such as root, mechanism-1, evidence-2. '
+        'Every edge source and target must reference an existing node key and self-links are forbidden.'
     )
     body = {
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': prompt},
         ],
-        'temperature': 0.25,
-        'max_tokens': 3200,
-        'response_format': {
-            'type': 'json_schema',
-            'json_schema': _schema(max_nodes),
-        },
+        'temperature': 0.18,
+        'max_tokens': 3600,
+        'response_format': {'type': 'json_schema', 'json_schema': _schema(max_nodes)},
     }
     request = urllib.request.Request(
         endpoint,
@@ -203,16 +180,13 @@ def _clean_key(value, fallback):
 
 def _normalise_graph(graph, max_nodes):
     raw_nodes = graph.get('nodes') if isinstance(graph.get('nodes'), list) else []
-    nodes = []
-    used = set()
-    key_map = {}
+    nodes, used, key_map = [], set(), {}
     for index, raw in enumerate(raw_nodes[:max_nodes], start=1):
         if not isinstance(raw, dict):
             continue
         original = str(raw.get('key') or f'node-{index}')
         key = _clean_key(original, f'node-{index}')
-        base = key
-        suffix = 2
+        base, suffix = key, 2
         while key in used:
             key = f'{base[:62]}-{suffix}'
             suffix += 1
@@ -236,14 +210,12 @@ def _normalise_graph(graph, max_nodes):
         raise RuntimeError('cloudflare_ai_invalid_graph')
 
     valid_keys = {node['key'] for node in nodes}
-    edges = []
-    seen_edges = set()
+    edges, seen_edges = [], set()
     raw_edges = graph.get('edges') if isinstance(graph.get('edges'), list) else []
     for raw in raw_edges[: max_nodes * 3]:
         if not isinstance(raw, dict):
             continue
-        source_raw = str(raw.get('source') or '')
-        target_raw = str(raw.get('target') or '')
+        source_raw, target_raw = str(raw.get('source') or ''), str(raw.get('target') or '')
         source = key_map.get(source_raw) or key_map.get(_clean_key(source_raw, source_raw))
         target = key_map.get(target_raw) or key_map.get(_clean_key(target_raw, target_raw))
         if source not in valid_keys or target not in valid_keys or source == target:
@@ -255,34 +227,28 @@ def _normalise_graph(graph, max_nodes):
         if signature in seen_edges:
             continue
         seen_edges.add(signature)
-        edges.append({
-            'source': source,
-            'target': target,
-            'relation': relation,
-            'label': str(raw.get('label') or '').strip()[:160],
-        })
+        label = str(raw.get('label') or '').strip()[:40]
+        edges.append({'source': source, 'target': target, 'relation': relation, 'label': label})
 
     if not edges:
         root = nodes[0]['key']
-        edges = [
-            {'source': root, 'target': node['key'], 'relation': 'related', 'label': ''}
-            for node in nodes[1:]
-        ]
-
+        edges = [{'source': root, 'target': n['key'], 'relation': 'related', 'label': ''} for n in nodes[1:]]
     return nodes, edges
 
 
-def _layout(nodes, edges, *, x_offset=80.0, y_offset=80.0):
+def _layout(nodes, edges, *, x_offset=80.0, y_offset=90.0):
+    """Compact three-column layout that keeps long AI chains readable."""
     keys = [node['key'] for node in nodes]
     if not keys:
         return {}
-    outgoing = defaultdict(list)
-    incoming = defaultdict(int)
+
+    outgoing, incoming = defaultdict(list), defaultdict(int)
     for edge in edges:
         outgoing[edge['source']].append(edge['target'])
         incoming[edge['target']] += 1
 
-    root = next((key for key in keys if incoming[key] == 0), keys[0])
+    root = next((key for key in keys if key == 'root'), None)
+    root = root or next((key for key in keys if incoming[key] == 0), keys[0])
     depth = {root: 0}
     queue = deque([root])
     while queue:
@@ -291,25 +257,22 @@ def _layout(nodes, edges, *, x_offset=80.0, y_offset=80.0):
             if target not in depth:
                 depth[target] = depth[source] + 1
                 queue.append(target)
-    for key in keys:
-        if key not in depth:
-            depth[key] = max(depth.values(), default=0) + 1
 
     levels = defaultdict(list)
     for key in keys:
-        levels[depth[key]].append(key)
+        visual_depth = min(depth.get(key, 2), 2)
+        levels[visual_depth].append(key)
 
+    max_rows = max((len(group) for group in levels.values()), default=1)
+    spacing_y = 176.0
+    center_y = y_offset + (max_rows - 1) * spacing_y / 2.0
     positions = {}
     for level in sorted(levels):
-        level_keys = levels[level]
-        count = len(level_keys)
-        spacing = 150.0
-        total = (count - 1) * spacing
-        for index, key in enumerate(level_keys):
-            positions[key] = (
-                x_offset + level * 310.0,
-                y_offset + index * spacing - total / 2.0 + max(total / 2.0, 0),
-            )
+        group = levels[level]
+        total = (len(group) - 1) * spacing_y
+        start_y = center_y - total / 2.0
+        for index, key in enumerate(group):
+            positions[key] = (x_offset + level * 390.0, start_y + index * spacing_y)
     return positions
 
 
@@ -334,13 +297,25 @@ def generate_mindmap_ai(request, map_id):
         max_nodes = 14
     max_nodes = max(5, min(max_nodes, 28))
 
-    prompt = str(data.get('prompt') or '').strip()
+    user_prompt = str(data.get('prompt') or '').strip()
+    if user_prompt and len(user_prompt) < 12:
+        return _error('prompt_too_vague')
+
+    prompt = user_prompt
     if not prompt:
+        title = str(item.title or '').strip()
+        if title.lower() in GENERIC_TITLES and not str(item.description or '').strip() and not item.project:
+            return _error('prompt_too_vague')
         project_context = ''
         if item.project:
             project_context = f' Project: {item.project.title}. {item.project.description or ""}'
-        prompt = f'Create a research mind map for “{item.title}”. {item.description or ""}{project_context}'.strip()
-    prompt = prompt[:8000]
+        prompt = f'Create a research mind map for “{title}”. {item.description or ""}{project_context}'.strip()
+
+    prompt = (
+        f'{prompt[:8000]}\n\n'
+        f'Output target: about {max_nodes} nodes. Use one concrete root, several direct primary branches, '
+        'then secondary concepts. Avoid generic placeholder wording and avoid a single long chain.'
+    )
 
     if mode == 'append' and item.nodes.exists():
         existing = '; '.join(node.title for node in item.nodes.all()[:20])
@@ -360,29 +335,30 @@ def generate_mindmap_ai(request, map_id):
             x_offset = 80.0
         else:
             current_max_x = max((node.x for node in item.nodes.all()), default=-220.0)
-            x_offset = max(80.0, current_max_x + 320.0)
+            x_offset = max(80.0, current_max_x + 360.0)
 
         positions = _layout(nodes, edges, x_offset=x_offset, y_offset=90.0)
         created = {}
         existing_keys = set(item.nodes.values_list('key', flat=True))
         for index, node_data in enumerate(nodes, start=1):
-            key = node_data['key']
+            original_key = node_data['key']
+            key = original_key
             if key in existing_keys:
-                base = f'ai-{key}'[:70]
+                base, suffix = f'ai-{key}'[:70], 2
                 key = base
-                suffix = 2
                 while key in existing_keys:
                     key = f'{base[:62]}-{suffix}'
                     suffix += 1
-                # Update generated edge references to the final persisted key.
                 for edge in edges:
-                    if edge['source'] == node_data['key']:
+                    if edge['source'] == original_key:
                         edge['source'] = key
-                    if edge['target'] == node_data['key']:
+                    if edge['target'] == original_key:
                         edge['target'] = key
                 node_data['key'] = key
+                if original_key in positions:
+                    positions[key] = positions.pop(original_key)
             existing_keys.add(key)
-            x, y = positions.get(node_data['key'], (x_offset, 90.0 + index * 150.0))
+            x, y = positions.get(key, (x_offset, 90.0 + index * 176.0))
             node = MindMapNode.objects.create(
                 mind_map=item,
                 key=key,
@@ -395,8 +371,7 @@ def generate_mindmap_ai(request, map_id):
             created[key] = node
 
         for edge_data in edges:
-            source = created.get(edge_data['source'])
-            target = created.get(edge_data['target'])
+            source, target = created.get(edge_data['source']), created.get(edge_data['target'])
             if not source or not target or source.pk == target.pk:
                 continue
             MindMapEdge.objects.get_or_create(
