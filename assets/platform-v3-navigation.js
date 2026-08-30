@@ -31,6 +31,7 @@ var researchNav=[
   ['/workspace/research/files','↑','Files & Data Rooms',function(){return starts('/workspace/research/files')}],
   ['/workspace/research/datasets','∷','Datasets',function(){return starts('/workspace/research/datasets')}],
   ['/workspace/research/mindmaps','⌘','Mind Maps',function(){return starts('/workspace/research/mindmaps')}],
+  ['/workspace/research/nextcloud','☁','Nextcloud Apps',function(){return starts('/workspace/research/nextcloud')}],
   ['/workspace/people','◉','Researchers',function(){return starts('/workspace/people')}],
   ['/workspace/community','◌','Research Opportunities',function(){return starts('/workspace/community')}],
   ['/workspace/shared','⇄','Shared with me',function(){return starts('/workspace/shared')}]
@@ -72,6 +73,7 @@ function labelForPath(){
   if(starts('/workspace/research/files'))return 'Files & Data Rooms';
   if(starts('/workspace/research/datasets'))return 'Datasets';
   if(starts('/workspace/research/mindmaps'))return 'Mind Maps';
+  if(starts('/workspace/research/nextcloud'))return 'Nextcloud Apps';
   if(starts('/workspace/people'))return 'Researchers';
   if(starts('/workspace/community'))return 'Research Opportunities';
   if(starts('/workspace/shared'))return 'Shared with me';
@@ -118,9 +120,9 @@ function renderMobile(area){
     if(coreAdmin())options.push(['/workspace/core/team','Core · Team & Access']);
   }
   options=options.concat([
-    ['/workspace/research','Research · Overview'],['/workspace/research/projects','Research · Projects'],['/workspace/research/notes','Research · Notes'],['/workspace/research/files','Research · Files & Data Rooms'],['/workspace/research/datasets','Research · Datasets'],['/workspace/research/mindmaps','Research · Mind Maps'],['/workspace/people','Research · Researchers'],['/workspace/community','Research · Opportunities'],['/workspace/shared','Research · Shared with me']
+    ['/workspace/research','Research · Overview'],['/workspace/research/projects','Research · Projects'],['/workspace/research/notes','Research · Notes'],['/workspace/research/files','Research · Files & Data Rooms'],['/workspace/research/datasets','Research · Datasets'],['/workspace/research/mindmaps','Research · Mind Maps'],['/workspace/research/nextcloud','Research · Nextcloud Apps'],['/workspace/people','Research · Researchers'],['/workspace/community','Research · Opportunities'],['/workspace/shared','Research · Shared with me']
   ]);
-  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member');
+  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member')+'-nc1';
   if(select.dataset.v3Options!==key){
     select.dataset.v3Options=key;
     select.innerHTML=options.map(function(x){return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join('');
