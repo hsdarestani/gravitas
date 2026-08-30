@@ -1,12 +1,13 @@
 from functools import reduce
 from operator import or_
 
+from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from .models import KnowledgeActivity, KnowledgeResource, ResearchProject
+from .models import KnowledgeActivity, KnowledgeResource, ProjectMembership, ResearchProject
 from .operating_models import OperatingTask
 from .platform_access import can_edit, can_manage, can_view, content_type_for, effective_role
 from .platform_api import _auth, _project_json, _request_json, _resource_json
@@ -181,14 +182,60 @@ def _connections(objects):
     return links[:500], linkable
 
 
+def _project(request, project_id, minimum='view'):
+    project = ResearchProject.objects.select_related('workspace', 'owner').filter(
+        pk=project_id, archived=False
+    ).first()
+    checker = {'view': can_view, 'edit': can_edit, 'manage': can_manage}[minimum]
+    return project if project and checker(request.user, project) else None
+
+
+@require_http_methods(['GET'])
+def project_access_candidates(request, project_id):
+    if response := _auth(request):
+        return response
+    project = _project(request, project_id, 'manage')
+    if not project:
+        return JsonResponse({'ok': False, 'error': 'permission_denied'}, status=403)
+    query = str(request.GET.get('q', '')).strip()
+    if len(query) < 2:
+        return JsonResponse({'ok': True, 'items': []})
+    qs = get_user_model().objects.filter(
+        is_active=True,
+        is_staff=False,
+        is_superuser=False,
+    ).filter(
+        Q(email__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query)
+    ).order_by('first_name', 'last_name', 'email')[:20]
+    memberships = {
+        item.user_id: item.role
+        for item in ProjectMembership.objects.filter(project=project, user_id__in=[user.pk for user in qs])
+    }
+    items = []
+    for user in qs:
+        name = _person(user)
+        profile = getattr(user, 'gravitas_researcher_profile', None)
+        items.append({
+            'user_id': user.pk,
+            'name': name,
+            'email': user.email,
+            'initials': ''.join(part[:1].upper() for part in name.split()[:2]) or 'R',
+            'is_member': user.pk in memberships or project.owner_id == user.pk,
+            'project_role': 'owner' if project.owner_id == user.pk else memberships.get(user.pk),
+            'headline': profile.headline if profile else '',
+            'institution': profile.institution if profile else '',
+        })
+    return JsonResponse({'ok': True, 'items': items})
+
+
 @require_http_methods(['GET'])
 def project_cockpit(request, project_id):
     if response := _auth(request):
         return response
-    project = ResearchProject.objects.select_related('workspace', 'owner').filter(
-        pk=project_id, archived=False
-    ).first()
-    if not project or not can_view(request.user, project):
+    project = _project(request, project_id, 'view')
+    if not project:
         return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
 
     resources = [
@@ -212,7 +259,7 @@ def project_cockpit(request, project_id):
         if can_view(request.user, item)
     ]
 
-    connection_objects = [(project, 'project', 'project', getattr(project, 'status', None))]
+    connection_objects = [(project, 'project', 'project', None)]
     connection_objects += [(item, 'resource', item.kind, None) for item in resources]
     connection_objects += [(item, 'deliverable', 'deliverable', item.status) for item in deliverables]
     connection_objects += [(item, 'mindmap', 'mindmap', None) for item in mindmaps]
