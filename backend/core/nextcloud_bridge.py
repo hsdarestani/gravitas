@@ -127,9 +127,6 @@ def _project_root_roles(project):
         workspace=project.workspace,
         role__in=['owner', 'admin'],
     ).select_related('user'):
-        # Only users who are project members receive native root access. Core or
-        # Research admins still recover ACLs through the service account unless
-        # they have explicitly joined the project.
         if ProjectMembership.objects.filter(project=project, user=membership.user).exists() or membership.user_id == project.owner_id:
             roles[ensure_user(membership.user).username] = 'manage'
     return roles
@@ -291,11 +288,22 @@ def native_url_for(obj):
 
 def create_native_client_credentials(user):
     identity = ensure_user(user)
-    app_password = cloud.create_app_password(identity)
+    response = cloud._request(
+        'GET',
+        f'{settings.NEXTCLOUD_INTERNAL_URL}/ocs/v2.php/core/getapppassword',
+        auth=cloud._auth(identity),
+        expected={200},
+        headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'},
+        params={'format': 'json'},
+    )
+    data = cloud._ocs_data(response, 'Could not create a Nextcloud app password')
+    app_password = data.get('apppassword') if isinstance(data, dict) else data
+    if not app_password:
+        raise cloud.CloudError('Nextcloud did not return an app password')
     return {
         'server': f'{settings.PUBLIC_BASE_URL}/nextcloud',
         'username': identity.username,
-        'app_password': app_password,
+        'app_password': str(app_password),
         'web_url': f'{settings.PUBLIC_BASE_URL}/nextcloud/',
         'note': 'This app password is shown once. Store it in the official Nextcloud client; it can be revoked from Nextcloud security settings.',
     }
