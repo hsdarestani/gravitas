@@ -43,6 +43,7 @@ jobs:
           python3 -m py_compile backend/core/management/commands/migrate_project_files_to_team_folders.py
           python3 -m py_compile backend/core/test_team_folder_migration.py
           grep -q 'django-admin" migrate_project_files_to_team_folders' .github/workflows/team-folder-migration.yml
+          grep -q 'sudo test -r "$ENV_FILE"' .github/workflows/team-folder-migration.yml
 
       - uses: actions/setup-python@v5
         with:
@@ -162,7 +163,7 @@ jobs:
           MARKER=/etc/gravitas/team-folder-migration-v4.done
 
           test -x "$BACKEND_PATH/.venv/bin/django-admin"
-          test -r "$ENV_FILE"
+          sudo test -r "$ENV_FILE"
 
           SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
           NC_URL="$(sudo awk -F= '/^NEXTCLOUD_INTERNAL_URL=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
