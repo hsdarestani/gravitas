@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="/assets/core-team-storage.css?v=20260829a">
   <link rel="stylesheet" href="/assets/nextcloud-native.css?v=20260830c">
   <link rel="stylesheet" href="/assets/research-v5.css?v=20260830a">
+  <link rel="stylesheet" href="/assets/mindmap-editor.css?v=20260830a">
 </head>
 <body>
   <a class="g-skip" href="#workspace-main">Skip to workspace</a>
@@ -117,7 +118,9 @@
           add('/assets/platform-v2-patches.js',function(){
             add('/assets/platform-v2-ux.js',function(){
               add('/assets/research-v5.js?v=20260830a',function(){
-                add('/assets/nextcloud-native.js?v=20260830c',addNavigation);
+                add('/assets/mindmap-editor-v2.js?v=20260830a',function(){
+                  add('/assets/nextcloud-native.js?v=20260830c',addNavigation);
+                });
               });
             });
           });
