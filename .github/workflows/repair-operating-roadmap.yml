@@ -104,7 +104,7 @@ jobs:
             DJANGO_DEBUG=0 \
             DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
             PYTHONPATH="$BACKEND_PATH" \
-            "$BACKEND_PATH/.venv/bin/python" "$BACKEND_PATH/manage.py" repair_core_roadmap_okr)"
+            "$BACKEND_PATH/.venv/bin/django-admin" repair_core_roadmap_okr)"
           printf '%s\n' "$OUTPUT"
           printf '%s\n' "$OUTPUT" | grep -Eq 'core roadmap ready objectives=[4-9][0-9]* key_results=[4-9][0-9]*'
           sudo systemctl restart gravitas-backend
