@@ -14,6 +14,11 @@ class Command(BaseCommand):
         parser.add_argument('--project-id', type=int)
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--limit', type=int, default=0)
+        parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='Print resource paths. Do not use this in public CI logs.',
+        )
 
     def handle(self, *args, **options):
         qs = KnowledgeResource.objects.filter(
@@ -35,16 +40,17 @@ class Command(BaseCommand):
                 break
 
         if options['dry_run']:
-            for resource in resources:
-                new_path = nextcloud_bridge.project_storage_path(
-                    resource.project,
-                    resource.collection,
-                    resource.original_name,
-                )
-                self.stdout.write(
-                    f'Would migrate resource={resource.pk} project={resource.project_id} '
-                    f'{resource.storage_path} -> {new_path}'
-                )
+            if options['verbose']:
+                for resource in resources:
+                    new_path = nextcloud_bridge.project_storage_path(
+                        resource.project,
+                        resource.collection,
+                        resource.original_name,
+                    )
+                    self.stdout.write(
+                        f'Would migrate resource={resource.pk} project={resource.project_id} '
+                        f'{resource.storage_path} -> {new_path}'
+                    )
             self.stdout.write(self.style.SUCCESS(f'dry-run matched={len(resources)}'))
             return
 
@@ -72,7 +78,7 @@ class Command(BaseCommand):
                 # interrupted attempt and must be inspected explicitly.
                 if cloud.path_exists(destination_identity, new_path):
                     raise CommandError(
-                        f'Destination already exists for resource {resource.pk}: {new_path}'
+                        f'Destination already exists for resource {resource.pk}'
                     )
 
                 upstream = cloud.download(source_identity, old_path)
@@ -128,7 +134,8 @@ class Command(BaseCommand):
 
                 cloud.delete(source_identity, old_path)
                 migrated += 1
-                self.stdout.write(f'Migrated resource={resource.pk} -> {new_path}')
+                if options['verbose']:
+                    self.stdout.write(f'Migrated resource={resource.pk} -> {new_path}')
             except CommandError:
                 raise
             except Exception as exc:
