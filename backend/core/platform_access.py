@@ -21,6 +21,8 @@ from .platform_models import (
 )
 
 ROLE_RANK = {'view': 10, 'comment': 20, 'edit': 30, 'manage': 40}
+INHERIT_VISIBILITY = 'inherit'
+VALID_VISIBILITIES = set(ObjectPolicy.Visibility.values) | {INHERIT_VISIBILITY}
 
 TARGET_MODELS = {
     'workspace': Workspace,
@@ -69,6 +71,38 @@ def _project(obj):
     return getattr(obj, 'research_project', None)
 
 
+def _parent_object(obj):
+    """Return the object whose ACL should be inherited by ``obj``.
+
+    Collections inherit from their parent folder and then from the project.
+    Project resources inherit from their collection when present. Other
+    project-scoped objects inherit from the project; workspace-scoped objects
+    inherit from the workspace. This keeps permission inheritance explicit and
+    deterministic without maintaining a second ACL tree.
+    """
+    if isinstance(obj, KnowledgeResource):
+        if obj.collection_id:
+            return obj.collection
+        if obj.project_id:
+            return obj.project
+        return obj.workspace
+    if isinstance(obj, Collection):
+        if obj.parent_id:
+            return obj.parent
+        if obj.project_id:
+            return obj.project
+        return obj.workspace
+    if isinstance(obj, ResearchProject):
+        return obj.workspace
+    project = _project(obj)
+    if project is not None:
+        return project
+    workspace = _workspace(obj)
+    if workspace is not obj:
+        return workspace
+    return None
+
+
 def _workspace_role(user, workspace):
     if not user or not getattr(user, 'is_authenticated', False) or workspace is None:
         return None
@@ -78,6 +112,15 @@ def _workspace_role(user, workspace):
     if not membership:
         return None
     return 'manage' if membership.role in {'owner', 'admin'} else 'edit'
+
+
+def _workspace_admin_role(user, workspace):
+    if not user or not getattr(user, 'is_authenticated', False) or workspace is None:
+        return None
+    if workspace.kind == Workspace.Kind.PERSONAL and workspace.owner_id == user.pk:
+        return 'manage'
+    membership = WorkspaceMembership.objects.filter(workspace=workspace, user=user).first()
+    return 'manage' if membership and membership.role in {'owner', 'admin'} else None
 
 
 def _project_role(user, project):
@@ -100,6 +143,19 @@ def _owner_role(user, obj):
     if isinstance(obj, Workspace) and obj.owner_id == user.pk:
         return 'manage'
     return None
+
+
+def _administrative_role(user, obj):
+    """Keep project owners and workspace admins able to recover ACLs.
+
+    A restricted folder can hide data from ordinary project members, but the
+    project owner and Research workspace administrators must never lock
+    themselves out of the object they are responsible for managing.
+    """
+    project = _project(obj)
+    if project is not None and project.owner_id == getattr(user, 'pk', None):
+        return 'manage'
+    return _workspace_admin_role(user, _workspace(obj))
 
 
 def direct_grant(user, obj):
@@ -129,13 +185,22 @@ def policy_for(obj, *, create=False, created_by=None, default_visibility=None):
     )
 
 
-def effective_role(user, obj):
+def effective_role(user, obj, _seen=None):
     if obj is None:
         return None
+    _seen = set() if _seen is None else _seen
+    key = (obj.__class__.__name__, getattr(obj, 'pk', None))
+    if key in _seen:
+        return None
+    _seen.add(key)
+
     roles = []
     owner_role = _owner_role(user, obj)
     if owner_role:
         roles.append(owner_role)
+    admin_role = _administrative_role(user, obj)
+    if admin_role:
+        roles.append(admin_role)
     grant_role = direct_grant(user, obj)
     if grant_role:
         roles.append(grant_role)
@@ -146,12 +211,22 @@ def effective_role(user, obj):
 
     if policy is None:
         # Backward compatible default for objects created before V2.
-        project_role = _project_role(user, project)
-        workspace_role = _workspace_role(user, workspace)
-        if project_role:
-            roles.append(project_role)
-        elif workspace_role:
-            roles.append(workspace_role)
+        parent = _parent_object(obj)
+        if parent is not None and not isinstance(obj, ResearchProject):
+            inherited = effective_role(user, parent, _seen)
+            if inherited:
+                roles.append(inherited)
+        else:
+            project_role = _project_role(user, project)
+            workspace_role = _workspace_role(user, workspace)
+            if project_role:
+                roles.append(project_role)
+            elif workspace_role:
+                roles.append(workspace_role)
+    elif policy.visibility == INHERIT_VISIBILITY:
+        inherited = effective_role(user, _parent_object(obj), _seen)
+        if inherited:
+            roles.append(inherited)
     elif policy.visibility == ObjectPolicy.Visibility.PRIVATE:
         pass
     elif policy.visibility == ObjectPolicy.Visibility.SPECIFIC:
@@ -207,6 +282,18 @@ def can_manage(user, obj):
     return has_role(user, obj, 'manage')
 
 
+def inherited_from(obj):
+    parent = _parent_object(obj)
+    if parent is None:
+        return None
+    target_type = next((key for key, model in TARGET_MODELS.items() if isinstance(parent, model)), parent.__class__.__name__.lower())
+    return {
+        'type': target_type,
+        'id': parent.pk,
+        'title': getattr(parent, 'title', None) or getattr(parent, 'name', str(parent)),
+    }
+
+
 def public_view_allowed(obj):
     policy = policy_for(obj)
     return bool(policy and policy.visibility == ObjectPolicy.Visibility.PUBLIC)
@@ -224,10 +311,21 @@ def link_allowed_for_project(obj):
     return profile.allow_public_links or profile.visibility in {'community', 'public'}
 
 
-def downloads_allowed(obj):
+def downloads_allowed(obj, _seen=None):
+    _seen = set() if _seen is None else _seen
+    if obj is None:
+        return True
+    key = (obj.__class__.__name__, getattr(obj, 'pk', None))
+    if key in _seen:
+        return False
+    _seen.add(key)
     policy = policy_for(obj)
     if policy and not policy.allow_download:
         return False
+    if policy and policy.visibility == INHERIT_VISIBILITY:
+        parent = _parent_object(obj)
+        if parent is not None and not downloads_allowed(parent, _seen):
+            return False
     project = _project(obj)
     profile = getattr(project, 'platform_profile', None) if project else None
     return not profile or profile.allow_downloads
