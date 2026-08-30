@@ -45,7 +45,14 @@ from core.platform_api import (
     research_requests,
     shared_link,
     shared_with_me,
-    sharing,
+)
+from core.nextcloud_api import (
+    nextcloud_client_credentials,
+    nextcloud_status,
+    project_folder_detail,
+    project_folders,
+    project_nextcloud_sync,
+    sharing_v4,
 )
 from core.platform_runtime_v3 import (
     content_work_detail_v3,
@@ -134,6 +141,11 @@ urlpatterns = [
     path('platform/projects/<int:project_id>/', platform_project_detail),
     path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
     path('platform/projects/<int:project_id>/applications/<int:application_id>/', project_application_detail),
+    path('platform/projects/<int:project_id>/folders/', project_folders),
+    path('platform/projects/<int:project_id>/folders/<int:collection_id>/', project_folder_detail),
+    path('platform/projects/<int:project_id>/nextcloud/sync/', project_nextcloud_sync),
+    path('platform/nextcloud/', nextcloud_status),
+    path('platform/nextcloud/client-credentials/', nextcloud_client_credentials),
     path('platform/content/', content_work_items_v3),
     path('platform/content/<int:item_id>/', content_work_detail_v3),
     path('platform/research-requests/', research_requests),
@@ -143,7 +155,7 @@ urlpatterns = [
     path('platform/resources/<int:resource_id>/', platform_resource_detail),
     path('platform/files/upload/', platform_file_upload),
     path('platform/files/<int:resource_id>/download/', platform_file_download),
-    path('platform/share/', sharing),
+    path('platform/share/', sharing_v4),
     path('platform/shared-with-me/', shared_with_me),
     path('platform/shared/<uuid:token>/', shared_link),
     path('platform/shared/<uuid:token>/download/', shared_file_download),
@@ -177,7 +189,6 @@ urlpatterns = [
     path('operating/tasks/reorder/', reorder_tasks),
     path('operating/tasks/<int:task_id>/', task_detail),
     path('operating/risks/', risks),
-    path('operating/risks/<int:risk_id>/', risk_detail),
     path('operating/meetings/', meetings),
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
