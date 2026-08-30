@@ -26,6 +26,7 @@ jobs:
             assets/platform-v2-patches.js
             assets/platform-v2-ux.js
             assets/research-v5.js
+            assets/mindmap-editor-v2.js
             assets/platform-v3-navigation.js
             assets/nextcloud-native.js
             assets/workspace-visuals.js
@@ -58,6 +59,18 @@ jobs:
           grep -q "research-v5.js" workspace.html
           grep -q "research-v5.css" workspace.html
           python -m py_compile backend/core/project_cockpit.py backend/core/test_project_cockpit.py
+
+      - name: Validate AI mind-map editor contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "mindmap-editor-v2.js" workspace.html
+          grep -q "mindmap-editor.css" workspace.html
+          grep -q "Generate with AI" assets/mindmap-editor-v2.js
+          grep -q "node.update" assets/mindmap-editor-v2.js
+          grep -q "CLOUDFLARE_AI_ACCOUNT_ID" backend/gravitas_backend/settings.py
+          grep -q "generate_mindmap_ai" backend/gravitas_backend/urls.py
+          python -m py_compile backend/core/mindmap_ai.py
 
       - name: Validate Nextcloud provisioning scripts
         shell: bash
