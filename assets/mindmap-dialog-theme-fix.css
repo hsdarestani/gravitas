@@ -1,0 +1,19 @@
+html[data-theme="light"] .mm-dialog{--mm-dialog-bg:#fff;--mm-dialog-subtle:#f5f8fa;--mm-dialog-field:#fff;--mm-dialog-text:#0b2f3f;--mm-dialog-muted:#627782;--mm-dialog-line:#d9e2e7;background:#fff;color:#0b2f3f}
+html[data-theme="light"] .mm-dialog form,html[data-theme="light"] .mm-dialog__head,html[data-theme="light"] #mm-body{background:#fff}
+html[data-theme="light"] .mm-dialog__head>button{border-color:#d9e2e7;background:#fff;color:#617681}
+html[data-theme="light"] .mm-dialog__head>button:hover{background:#f6f8f9;color:#0b2f3f}
+html[data-theme="light"] .mm-dialog-copy{border-color:#e2e9ed;background:#f5f8fa;color:#536a76}
+html[data-theme="light"] .mm-field>span{color:#38515e}
+html[data-theme="light"] .mm-field input,html[data-theme="light"] .mm-field textarea,html[data-theme="light"] .mm-field select{border-color:#cfdbe1;background:#fff;color:#0b2f3f}
+html[data-theme="light"] .mm-field input:focus,html[data-theme="light"] .mm-field textarea:focus,html[data-theme="light"] .mm-field select:focus{border-color:#315f73;background:#fff;box-shadow:0 0 0 3px rgba(49,95,115,.12)}
+html[data-theme="light"] .mm-dialog__actions{border-color:#d9e2e7;background:#f8fafb}
+
+html[data-theme="dark"] .mm-dialog{--mm-dialog-bg:#112731;--mm-dialog-subtle:#17333f;--mm-dialog-field:#0d222c;--mm-dialog-text:#edf5f7;--mm-dialog-muted:#9bb0ba;--mm-dialog-line:#29434f;background:#112731;color:#edf5f7}
+html[data-theme="dark"] .mm-dialog form,html[data-theme="dark"] .mm-dialog__head,html[data-theme="dark"] #mm-body{background:#112731}
+html[data-theme="dark"] .mm-dialog__head>button{border-color:#29434f;background:#17333f;color:#afc0c8}
+html[data-theme="dark"] .mm-dialog__head>button:hover{background:#1d3b47;color:#fff}
+html[data-theme="dark"] .mm-dialog-copy{border-color:#29434f;background:#17333f;color:#aabdc6}
+html[data-theme="dark"] .mm-field>span{color:#c3d2d8}
+html[data-theme="dark"] .mm-field input,html[data-theme="dark"] .mm-field textarea,html[data-theme="dark"] .mm-field select{border-color:#35505c;background:#0d222c;color:#edf5f7}
+html[data-theme="dark"] .mm-field input:focus,html[data-theme="dark"] .mm-field textarea:focus,html[data-theme="dark"] .mm-field select:focus{border-color:#7ba3b4;background:#0d222c;box-shadow:0 0 0 3px rgba(123,163,180,.15)}
+html[data-theme="dark"] .mm-dialog__actions{border-color:#29434f;background:#0e222c}
