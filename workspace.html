@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/assets/workspace-visuals.css">
   <link rel="stylesheet" href="/assets/core-team.css">
   <link rel="stylesheet" href="/assets/core-team-storage.css?v=20260829a">
+  <link rel="stylesheet" href="/assets/nextcloud-native.css?v=20260830a">
 </head>
 <body>
   <a class="g-skip" href="#workspace-main">Skip to workspace</a>
@@ -102,13 +103,15 @@
         var s=document.createElement('script');s.src=src;s.async=false;if(onload)s.onload=onload;document.body.appendChild(s);
       }
       function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js?v=20260829b',function(){add('/assets/core-team-storage.js?v=20260829a')})})})}
-      function addNavigation(){add('/assets/platform-v3-navigation.js',addVisuals)}
+      function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830a',addVisuals)}
       function addOperatingShell(){add('/assets/operating-core-shell.js',addNavigation)}
 
       if(platform){
         add('/assets/platform-v2.js',function(){
           add('/assets/platform-v2-patches.js',function(){
-            add('/assets/platform-v2-ux.js',addNavigation);
+            add('/assets/platform-v2-ux.js',function(){
+              add('/assets/nextcloud-native.js?v=20260830a',addNavigation);
+            });
           });
         });
       }else if(operating){
