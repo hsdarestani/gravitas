@@ -43,7 +43,6 @@ jobs:
           python3 -m py_compile backend/core/management/commands/migrate_project_files_to_team_folders.py
           python3 -m py_compile backend/core/test_team_folder_migration.py
           grep -q 'django-admin" migrate_project_files_to_team_folders' .github/workflows/team-folder-migration.yml
-          ! grep -q 'BACKEND_PATH/manage.py' .github/workflows/team-folder-migration.yml
 
       - uses: actions/setup-python@v5
         with:
