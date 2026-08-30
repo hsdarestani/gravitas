@@ -85,25 +85,30 @@ class NextcloudV4AccessTests(TestCase):
         self.assertFalse(can_view(self.outsider, self.project))
         self.assertFalse(can_view(self.outsider, self.folder))
 
+    @patch('core.nextcloud_bridge._ensure_collection_folder')
     @patch('core.nextcloud_bridge._write_team_acl')
     @patch('core.nextcloud_bridge._set_project_group_read_only')
     @patch('core.nextcloud_bridge.cloud.add_user_to_group')
     @patch('core.nextcloud_bridge.cloud.ensure_team_folder')
     @patch('core.nextcloud_bridge.ensure_user')
     def test_native_team_folder_root_maps_viewer_editor_manager_roles(
-        self, ensure_user, ensure_team_folder, add_user, set_read_only, write_acl
+        self, ensure_user, ensure_team_folder, add_user, set_read_only, write_acl, ensure_collection
     ):
         ensure_user.side_effect = lambda user: SimpleNamespace(username=f'gravitas-u-{user.pk}')
-        ensure_team_folder.return_value = {'id': 77, 'mount_point': cloud.project_mountpoint(self.project), 'group_id': cloud.project_group_id(self.project)}
-        with patch.object(Collection.objects, 'filter', wraps=Collection.objects.filter):
-            result = nextcloud_bridge.ensure_project_space(self.project)
+        ensure_team_folder.return_value = {
+            'id': 77,
+            'mount_point': cloud.project_mountpoint(self.project),
+            'group_id': cloud.project_group_id(self.project),
+        }
+        result = nextcloud_bridge.ensure_project_space(self.project)
         self.assertEqual(result['folder_id'], 77)
         set_read_only.assert_called_once_with(77, cloud.project_group_id(self.project))
-        args = write_acl.call_args_list[0].args
-        roles = args[3]
+        root_call = next(call for call in write_acl.call_args_list if call.args[1] == '')
+        roles = root_call.args[3]
         self.assertEqual(roles[f'gravitas-u-{self.owner.pk}'], 'manage')
         self.assertEqual(roles[f'gravitas-u-{self.editor.pk}'], 'edit')
         self.assertEqual(roles[f'gravitas-u-{self.viewer.pk}'], 'view')
+        ensure_collection.assert_called()
 
     def test_project_storage_path_uses_stable_team_folder_mount(self):
         path = nextcloud_bridge.project_storage_path(self.project, self.folder, 'dataset.csv')
