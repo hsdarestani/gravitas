@@ -125,6 +125,11 @@ NEXTCLOUD_ADMIN_PASSWORD = os.environ.get('NEXTCLOUD_ADMIN_PASSWORD', '')
 NEXTCLOUD_CONNECT_TIMEOUT = int(os.environ.get('NEXTCLOUD_CONNECT_TIMEOUT', '5'))
 NEXTCLOUD_READ_TIMEOUT = int(os.environ.get('NEXTCLOUD_READ_TIMEOUT', '300'))
 
+CLOUDFLARE_AI_ACCOUNT_ID = os.environ.get('CLOUDFLARE_AI_ACCOUNT_ID', '')
+CLOUDFLARE_AI_API_TOKEN = os.environ.get('CLOUDFLARE_AI_API_TOKEN', '')
+CLOUDFLARE_AI_MODEL = os.environ.get('CLOUDFLARE_AI_MODEL', '@cf/meta/llama-3.3-70b-instruct-fp8-fast')
+CLOUDFLARE_AI_TIMEOUT = int(os.environ.get('CLOUDFLARE_AI_TIMEOUT', '45'))
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
