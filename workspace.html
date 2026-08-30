@@ -9,8 +9,8 @@
   <link rel="stylesheet" href="/assets/local-fonts.css">
   <link rel="stylesheet" href="/assets/gravitas.css">
   <link rel="stylesheet" href="/assets/workspace.css">
-  <link rel="stylesheet" href="/assets/operating.css">
-  <link rel="stylesheet" href="/assets/roadmap-okr-sync.css">
+  <link rel="stylesheet" href="/assets/operating.css?v=20260830b">
+  <link rel="stylesheet" href="/assets/roadmap-okr-sync.css?v=20260830b">
   <link rel="stylesheet" href="/assets/initiative-planner.css">
   <link rel="stylesheet" href="/assets/initiative-task-editor.css">
   <link rel="stylesheet" href="/assets/initiative-task-reorder.css">
@@ -104,7 +104,7 @@
       }
       function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js?v=20260829b',function(){add('/assets/core-team-storage.js?v=20260829a')})})})}
       function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830a',addVisuals)}
-      function addOperatingShell(){add('/assets/operating-core-shell.js',addNavigation)}
+      function addOperatingShell(){add('/assets/operating-core-shell.js?v=20260830b',addNavigation)}
 
       if(platform){
         add('/assets/platform-v2.js',function(){
@@ -115,14 +115,14 @@
           });
         });
       }else if(operating){
-        add('/assets/operating.js',function(){
-          add('/assets/operating-enhancements.js',function(){
+        add('/assets/operating.js?v=20260830b',function(){
+          add('/assets/operating-enhancements.js?v=20260830b',function(){
             if(strategy){
-              add('/assets/roadmap-okr-sync.js',addOperatingShell);
+              add('/assets/roadmap-okr-sync.js?v=20260830b',addOperatingShell);
             }else if(initiatives){
-              add('/assets/initiative-planner.js',function(){
-                add('/assets/initiative-task-editor.js',function(){
-                  add('/assets/initiative-task-reorder.js',addOperatingShell);
+              add('/assets/initiative-planner.js?v=20260830b',function(){
+                add('/assets/initiative-task-editor.js?v=20260830b',function(){
+                  add('/assets/initiative-task-reorder.js?v=20260830b',addOperatingShell);
                 });
               });
             }else{
