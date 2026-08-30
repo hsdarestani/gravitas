@@ -206,6 +206,10 @@ def effective_role(user, obj, _seen=None):
             inherited = effective_role(user, parent, _seen)
             if inherited:
                 roles.append(inherited)
+        elif isinstance(obj, ResearchProject):
+            project_role = _project_role(user, obj)
+            if project_role:
+                roles.append(project_role)
         else:
             project_role = _project_role(user, project)
             workspace_role = _workspace_role(user, workspace)
@@ -226,9 +230,18 @@ def effective_role(user, obj, _seen=None):
         if project_role:
             roles.append(project_role)
     elif policy.visibility == ObjectPolicy.Visibility.WORKSPACE:
-        workspace_role = _workspace_role(user, workspace)
-        if workspace_role:
-            roles.append(workspace_role)
+        # Research projects are security boundaries. Historical project records
+        # used WORKSPACE as their default policy, but broad Research workspace
+        # membership must not imply project access. ProjectMembership remains
+        # the gate; workspace admins retain recovery through admin_role above.
+        if isinstance(obj, ResearchProject):
+            project_role = _project_role(user, obj)
+            if project_role:
+                roles.append(project_role)
+        else:
+            workspace_role = _workspace_role(user, workspace)
+            if workspace_role:
+                roles.append(workspace_role)
     elif policy.visibility == ObjectPolicy.Visibility.LINK:
         project_role = _project_role(user, project)
         workspace_role = _workspace_role(user, workspace)
