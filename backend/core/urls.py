@@ -46,7 +46,7 @@ from core.platform_api import (
     shared_link,
     shared_with_me,
 )
-from core.project_cockpit import project_cockpit
+from core.project_cockpit import project_access_candidates, project_cockpit
 from core.nextcloud_api import (
     nextcloud_client_credentials,
     nextcloud_status,
@@ -141,6 +141,7 @@ urlpatterns = [
     path('platform/projects/', platform_projects),
     path('platform/projects/<int:project_id>/', platform_project_detail),
     path('platform/projects/<int:project_id>/cockpit/', project_cockpit),
+    path('platform/projects/<int:project_id>/access-candidates/', project_access_candidates),
     path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
     path('platform/projects/<int:project_id>/applications/<int:application_id>/', project_application_detail),
     path('platform/projects/<int:project_id>/folders/', project_folders),
