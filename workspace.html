@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/assets/workspace-visuals.css">
   <link rel="stylesheet" href="/assets/core-team.css">
   <link rel="stylesheet" href="/assets/core-team-storage.css?v=20260829a">
-  <link rel="stylesheet" href="/assets/nextcloud-native.css?v=20260830a">
+  <link rel="stylesheet" href="/assets/nextcloud-native.css?v=20260830c">
   <link rel="stylesheet" href="/assets/research-v5.css?v=20260830a">
 </head>
 <body>
@@ -97,6 +97,7 @@
       }
       var operating=/^\/workspace\/operating(?:\/|$)/.test(location.pathname);
       var platform=/^\/workspace\/(?:core|research|shared|people|community|my-work)(?:\/|$)/.test(location.pathname);
+      var nextcloud=/^\/workspace\/research\/nextcloud\/?$/.test(location.pathname);
       var strategy=/^\/workspace\/operating\/strategy\/?$/.test(location.pathname);
       var initiatives=/^\/workspace\/operating\/initiatives\/?$/.test(location.pathname);
 
@@ -107,12 +108,14 @@
       function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830a',addVisuals)}
       function addOperatingShell(){add('/assets/operating-core-shell.js?v=20260830b',addNavigation)}
 
-      if(platform){
+      if(nextcloud){
+        add('/assets/nextcloud-native.js?v=20260830c',addNavigation);
+      }else if(platform){
         add('/assets/platform-v2.js',function(){
           add('/assets/platform-v2-patches.js',function(){
             add('/assets/platform-v2-ux.js',function(){
               add('/assets/research-v5.js?v=20260830a',function(){
-                add('/assets/nextcloud-native.js?v=20260830a',addNavigation);
+                add('/assets/nextcloud-native.js?v=20260830c',addNavigation);
               });
             });
           });
