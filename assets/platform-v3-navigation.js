@@ -17,6 +17,8 @@ function coreAdmin(){var role=boot&&boot.access&&boot.access.core_role;return ro
 function link(href,icon,label,active){return '<a href="'+href+'" class="'+(active?'is-active':'')+'"><span>'+icon+'</span>'+esc(label)+'</a>'}
 function exact(path){return location.pathname.replace(/\/$/,'')===path}
 function starts(path){return location.pathname.indexOf(path)===0}
+function inResearchLibrary(){return starts('/workspace/research/files')||starts('/workspace/research/datasets')||starts('/workspace/research/mindmaps')||starts('/workspace/shared')}
+function inResearchCollaboration(){return starts('/workspace/research/nextcloud')||starts('/workspace/people')||starts('/workspace/community')}
 
 var coreNav=[
   ['/workspace/core','◎','Overview',function(){return exact('/workspace/core')}],
@@ -27,14 +29,8 @@ var coreNav=[
 var researchNav=[
   ['/workspace/research','◇','Overview',function(){return exact('/workspace/research')}],
   ['/workspace/research/projects','□','Projects',function(){return starts('/workspace/research/projects')}],
-  ['/workspace/research/notes','≡','Research Notes',function(){return starts('/workspace/research/notes')}],
-  ['/workspace/research/files','↑','Files & Data Rooms',function(){return starts('/workspace/research/files')}],
-  ['/workspace/research/datasets','∷','Datasets',function(){return starts('/workspace/research/datasets')}],
-  ['/workspace/research/mindmaps','⌘','Mind Maps',function(){return starts('/workspace/research/mindmaps')}],
-  ['/workspace/research/nextcloud','☁','Nextcloud Apps',function(){return starts('/workspace/research/nextcloud')}],
-  ['/workspace/people','◉','Researchers',function(){return starts('/workspace/people')}],
-  ['/workspace/community','◌','Research Opportunities',function(){return starts('/workspace/community')}],
-  ['/workspace/shared','⇄','Shared with me',function(){return starts('/workspace/shared')}]
+  ['/workspace/research/files','↑','Files & Data Rooms',function(){return inResearchLibrary()}],
+  ['/workspace/research/nextcloud','◉','Collaboration',function(){return inResearchCollaboration()}]
 ];
 function coreItems(){var items=coreNav.slice();if(coreAdmin())items.push(['/workspace/core/team','♙','Team & Access',function(){return starts('/workspace/core/team')}]);return items}
 
@@ -120,15 +116,21 @@ function renderMobile(area){
     if(coreAdmin())options.push(['/workspace/core/team','Core · Team & Access']);
   }
   options=options.concat([
-    ['/workspace/research','Research · Overview'],['/workspace/research/projects','Research · Projects'],['/workspace/research/notes','Research · Notes'],['/workspace/research/files','Research · Files & Data Rooms'],['/workspace/research/datasets','Research · Datasets'],['/workspace/research/mindmaps','Research · Mind Maps'],['/workspace/research/nextcloud','Research · Nextcloud Apps'],['/workspace/people','Research · Researchers'],['/workspace/community','Research · Opportunities'],['/workspace/shared','Research · Shared with me']
+    ['/workspace/research','Research · Overview'],
+    ['/workspace/research/projects','Research · Projects'],
+    ['/workspace/research/files','Research · Files & Data Rooms'],
+    ['/workspace/research/nextcloud','Research · Collaboration']
   ]);
-  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member')+'-nc1';
+  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member')+'-research4';
   if(select.dataset.v3Options!==key){
     select.dataset.v3Options=key;
     select.innerHTML=options.map(function(x){return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join('');
   }
   var p=location.pathname.replace(/\/$/,'');
   var matched=options.find(function(x){return p===x[0]||p.indexOf(x[0]+'/')===0});
+  if(inResearchLibrary())matched=options.find(function(x){return x[0]==='/workspace/research/files'});
+  if(inResearchCollaboration())matched=options.find(function(x){return x[0]==='/workspace/research/nextcloud'});
+  if(starts('/workspace/research/notes'))matched=options.find(function(x){return x[0]==='/workspace/research/projects'});
   if(matched&&select.value!==matched[0])select.value=matched[0];
   var labelText=area==='home'?'Go to':'Current workspace';if(label&&label.textContent!==labelText)label.textContent=labelText;
   if(!select.dataset.v3Bound){select.dataset.v3Bound='1';select.addEventListener('change',function(){if(this.value)location.href=this.value})}
