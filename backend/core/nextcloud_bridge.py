@@ -6,7 +6,7 @@ from django.conf import settings
 from . import cloud
 from .models import Collection, KnowledgeResource, ProjectMembership, StoragePlan, WorkspaceMembership
 from .platform_access import INHERIT_VISIBILITY, content_type_for, policy_for
-from .platform_models import AccessGrant, ObjectPolicy
+from .platform_models import AccessGrant
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +63,7 @@ def _ensure_collection_folder(project, collection, identity):
 
 
 def ensure_project_space(project):
-    """Provision a native Team Folder and map all project members into it.
-
-    This operation is idempotent and can safely be called on project open,
-    membership changes and file uploads. The mount point is derived from the
-    immutable project id, so renaming the project never breaks sync clients.
-    """
+    """Provision a native Team Folder and map all project members into it."""
     mountpoint = cloud.project_mountpoint(project)
     group_id = cloud.project_group_id(project)
     team = cloud.ensure_team_folder(mountpoint, group_id)
@@ -80,9 +75,6 @@ def ensure_project_space(project):
         cloud.add_user_to_group(identity.username, group_id)
 
     owner_identity = identities.get(project.owner_id) or ensure_user(project.owner)
-    # Ensure the standard project tree and all custom nested collections exist
-    # physically in the Team Folder so native Nextcloud clients see the same
-    # structure as Gravitas.
     for collection in Collection.objects.filter(project=project).select_related('parent').order_by('id'):
         _ensure_collection_folder(project, collection, owner_identity)
 
@@ -136,29 +128,29 @@ def _acl_user_roles(obj, project, visibility):
     if visibility not in {'specific', 'private'}:
         return {}
     roles = _explicit_roles(obj)
-    # ACL recovery: project owner/workspace admins always retain management.
     for user in _manager_users(project):
         roles[user.pk] = (user, 'manage')
-    # The creator/owner of the object also keeps management when available.
     for attr in ('owner', 'created_by'):
         user = getattr(obj, attr, None)
         if user is not None:
             roles[user.pk] = (user, 'manage')
+    project_user_ids = {item.pk for item in project_users(project)}
     result = {}
     for user, role in roles.values():
-        # Native Team Folder ACL can only grant users who are project members.
-        # A direct object share does not silently expose the rest of the project.
-        if user.pk not in {item.pk for item in project_users(project)}:
+        if user.pk not in project_user_ids:
             continue
         result[ensure_user(user).username] = role
+    # The service account performs future PROPPATCH/reconciliation operations.
+    # Keep it explicitly allowed whenever a path denies the project group so an
+    # administrator can never lock the integration out of a restricted subtree.
+    if settings.NEXTCLOUD_ADMIN_USER:
+        result.setdefault(settings.NEXTCLOUD_ADMIN_USER, 'manage')
     return result
 
 
 def _visibility(obj):
     policy = policy_for(obj)
-    if not policy:
-        return INHERIT_VISIBILITY
-    return policy.visibility
+    return policy.visibility if policy else INHERIT_VISIBILITY
 
 
 def sync_collection_acl(collection):
@@ -187,8 +179,6 @@ def sync_resource_acl(resource):
     mountpoint = team['mount_point']
     clean = str(resource.storage_path).strip('/')
     if not (clean == mountpoint or clean.startswith(mountpoint + '/')):
-        # Legacy per-user resource. It remains protected by Gravitas until the
-        # migration command moves it into the project Team Folder.
         return {'legacy': True, **team}
     relative = clean[len(mountpoint):].strip('/')
     visibility = _visibility(resource)
@@ -216,13 +206,11 @@ def native_url_for(obj):
     project = getattr(obj, 'project', None)
     if project is None:
         return cloud.native_files_url()
-    mountpoint = cloud.project_mountpoint(project)
     if isinstance(obj, Collection):
         return cloud.native_files_url(project_storage_path(project, obj))
     if isinstance(obj, KnowledgeResource) and obj.storage_path:
-        path = str(PurePosixPath(obj.storage_path).parent)
-        return cloud.native_files_url(path)
-    return cloud.native_files_url(mountpoint)
+        return cloud.native_files_url(str(PurePosixPath(obj.storage_path).parent))
+    return cloud.native_files_url(cloud.project_mountpoint(project))
 
 
 def create_native_client_credentials(user):
