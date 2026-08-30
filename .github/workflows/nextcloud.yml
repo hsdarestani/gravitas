@@ -10,9 +10,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/nextcloud.yml'
-      - 'ops/nextcloud/pr-trigger.txt'
-      - 'ops/nextcloud/apps.sh'
-      - 'ops/nextcloud/ensure.sh'
+      - 'ops/nextcloud/**'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy Gravitas to Strato']
@@ -30,7 +28,7 @@ env:
 
 jobs:
   validate:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -43,12 +41,14 @@ jobs:
           set -euo pipefail
           bash -n ops/nextcloud/ensure.sh
           bash -n ops/nextcloud/apps.sh
+          bash -n ops/nextcloud/nginx-guard.sh
           grep -q 'groupfolders required' ops/nextcloud/apps.sh
           grep -q 'user_oidc' ops/nextcloud/apps.sh
-          echo 'Nextcloud PR validation passed; production provisioning is intentionally disabled for pull requests.'
+          grep -q 'gravitas-nextcloud-nginx-guard.path' ops/nextcloud/nginx-guard.sh
+          echo 'Nextcloud code validation passed; production provisioning only runs after a successful Gravitas deploy or manual dispatch.'
 
   nextcloud:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -113,6 +113,15 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             'sudo install -m 750 /tmp/gravitas-nextcloud-apps /usr/local/sbin/gravitas-nextcloud-apps && sudo rm -f /tmp/gravitas-nextcloud-apps && sudo /usr/local/sbin/gravitas-nextcloud-apps'
 
+      - name: Install persistent Nginx route guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/nextcloud/nginx-guard.sh \
+            "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:/tmp/gravitas-nextcloud-nginx-guard"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo install -m 750 /tmp/gravitas-nextcloud-nginx-guard /usr/local/sbin/gravitas-nextcloud-nginx-guard-install && sudo rm -f /tmp/gravitas-nextcloud-nginx-guard && sudo /usr/local/sbin/gravitas-nextcloud-nginx-guard-install '$DOMAIN'"
+
       - name: Verify public endpoint
         shell: bash
         run: |
@@ -123,7 +132,7 @@ jobs:
           curl -4 -fsSI --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
             "https://$DOMAIN/nextcloud/" | grep -Eq '^HTTP/.* (200|302|303)'
 
-      - name: Verify containers, apps, cron and backup timers
+      - name: Verify containers, apps, route guard, cron and backup timers
         shell: bash
         run: |
           set -euo pipefail
@@ -134,10 +143,12 @@ jobs:
           sudo docker inspect -f '{{.State.Running}}' gravitas-nextcloud-redis | grep -qx true
           sudo systemctl is-active gravitas-nextcloud-cron.timer
           sudo systemctl is-active gravitas-nextcloud-backup.timer
+          sudo systemctl is-active gravitas-nextcloud-nginx-guard.path
           sudo docker exec -u www-data gravitas-nextcloud php occ status | grep -q 'installed: true'
           sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -Eq '^[[:space:]]*-[[:space:]]+groupfolders:'
           sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot | grep -qx '/nextcloud'
           sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwriteprotocol | grep -qx 'https'
+          sudo grep -q '# BEGIN GRAVITAS NEXTCLOUD' /etc/nginx/sites-available/gravitas
           REMOTE
 
       - name: Record verified status on status branch
@@ -147,7 +158,7 @@ jobs:
           VERSION=$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo docker exec -u www-data gravitas-nextcloud php occ status" | sed -n 's/^  - versionstring: //p' | head -n1)
           [ -n "$VERSION" ] || VERSION=unknown
-          printf 'status=live\nurl=https://%s/nextcloud/\nversion=%s\nteam_folders=enabled\nverified_at=%s\n' \
+          printf 'status=live\nurl=https://%s/nextcloud/\nversion=%s\nteam_folders=enabled\nnginx_guard=enabled\nverified_at=%s\n' \
             "$DOMAIN" "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .nextcloud-status
           git config user.name 'gravitas-nextcloud-bot'
           git config user.email 'actions@users.noreply.github.com'
