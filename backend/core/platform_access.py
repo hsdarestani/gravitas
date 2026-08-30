@@ -72,14 +72,6 @@ def _project(obj):
 
 
 def _parent_object(obj):
-    """Return the object whose ACL should be inherited by ``obj``.
-
-    Collections inherit from their parent folder and then from the project.
-    Project resources inherit from their collection when present. Other
-    project-scoped objects inherit from the project; workspace-scoped objects
-    inherit from the workspace. This keeps permission inheritance explicit and
-    deterministic without maintaining a second ACL tree.
-    """
     if isinstance(obj, KnowledgeResource):
         if obj.collection_id:
             return obj.collection
@@ -146,12 +138,6 @@ def _owner_role(user, obj):
 
 
 def _administrative_role(user, obj):
-    """Keep project owners and workspace admins able to recover ACLs.
-
-    A restricted folder can hide data from ordinary project members, but the
-    project owner and Research workspace administrators must never lock
-    themselves out of the object they are responsible for managing.
-    """
     project = _project(obj)
     if project is not None and project.owner_id == getattr(user, 'pk', None):
         return 'manage'
@@ -176,7 +162,12 @@ def policy_for(obj, *, create=False, created_by=None, default_visibility=None):
     if policy or not create:
         return policy
     if default_visibility is None:
-        default_visibility = ObjectPolicy.Visibility.PRIVATE if isinstance(obj, Workspace) and obj.kind == Workspace.Kind.PERSONAL else ObjectPolicy.Visibility.WORKSPACE
+        if isinstance(obj, Workspace) and obj.kind == Workspace.Kind.PERSONAL:
+            default_visibility = ObjectPolicy.Visibility.PRIVATE
+        elif _project(obj) is not None and not isinstance(obj, ResearchProject):
+            default_visibility = INHERIT_VISIBILITY
+        else:
+            default_visibility = ObjectPolicy.Visibility.WORKSPACE
     return ObjectPolicy.objects.create(
         content_type=ct,
         object_id=obj.pk,
@@ -210,7 +201,6 @@ def effective_role(user, obj, _seen=None):
     workspace = _workspace(obj)
 
     if policy is None:
-        # Backward compatible default for objects created before V2.
         parent = _parent_object(obj)
         if parent is not None and not isinstance(obj, ResearchProject):
             inherited = effective_role(user, parent, _seen)
@@ -240,7 +230,6 @@ def effective_role(user, obj, _seen=None):
         if workspace_role:
             roles.append(workspace_role)
     elif policy.visibility == ObjectPolicy.Visibility.LINK:
-        # A link token must be validated separately. Logged-in membership still applies.
         project_role = _project_role(user, project)
         workspace_role = _workspace_role(user, workspace)
         if project_role:
