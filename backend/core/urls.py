@@ -189,6 +189,7 @@ urlpatterns = [
     path('operating/tasks/reorder/', reorder_tasks),
     path('operating/tasks/<int:task_id>/', task_detail),
     path('operating/risks/', risks),
+    path('operating/risks/<int:risk_id>/', risk_detail),
     path('operating/meetings/', meetings),
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
