@@ -51,6 +51,10 @@ class Command(BaseCommand):
         migrated = 0
         for resource in resources:
             project = resource.project
+            destination_identity = None
+            new_path = None
+            uploaded = False
+            old_path = resource.storage_path
             try:
                 nextcloud_bridge.ensure_project_space(project)
                 source_identity = nextcloud_bridge.ensure_user(resource.owner)
@@ -71,9 +75,8 @@ class Command(BaseCommand):
                         f'Destination already exists for resource {resource.pk}: {new_path}'
                     )
 
-                upstream = cloud.download(source_identity, resource.storage_path)
+                upstream = cloud.download(source_identity, old_path)
                 digest = hashlib.sha256()
-                uploaded = False
                 try:
                     with tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024) as copied:
                         for chunk in upstream.iter_content(chunk_size=1024 * 1024):
@@ -92,11 +95,10 @@ class Command(BaseCommand):
 
                 expected = resource.checksum.removeprefix('sha256:') if resource.checksum else ''
                 if expected and digest.hexdigest() != expected:
-                    if uploaded:
-                        cloud.delete(destination_identity, new_path)
+                    cloud.delete(destination_identity, new_path)
+                    uploaded = False
                     raise CommandError(f'Checksum mismatch while migrating resource {resource.pk}')
 
-                old_path = resource.storage_path
                 resource.storage_path = new_path
                 metadata = dict(resource.metadata or {})
                 metadata['nextcloud_team_folder'] = True
@@ -107,15 +109,21 @@ class Command(BaseCommand):
                 try:
                     nextcloud_bridge.sync_resource_acl(resource)
                 except Exception:
-                    # Roll the database pointer back before surfacing the error.
-                    # The copied destination remains intact for recovery and the
-                    # legacy source is deliberately not deleted.
+                    # Fully restore the legacy pointer before surfacing the error.
+                    # Best-effort removal of the copied destination keeps retries
+                    # idempotent; the original source is never deleted on failure.
                     resource.storage_path = old_path
                     metadata = dict(resource.metadata or {})
                     metadata.pop('nextcloud_team_folder', None)
                     metadata.pop('migrated_from', None)
                     resource.metadata = metadata
                     resource.save(update_fields=['storage_path', 'metadata', 'updated_at'])
+                    if uploaded and destination_identity and new_path:
+                        try:
+                            cloud.delete(destination_identity, new_path)
+                            uploaded = False
+                        except cloud.CloudError:
+                            pass
                     raise
 
                 cloud.delete(source_identity, old_path)
