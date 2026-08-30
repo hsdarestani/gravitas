@@ -90,7 +90,7 @@ class TeamFolderLegacyMigrationTests(TestCase):
     def identity_for(self, user):
         return self.destination_identity if user.pk == self.owner.pk else self.source_identity
 
-    def test_dry_run_lists_only_legacy_paths_and_mutates_nothing(self):
+    def test_dry_run_verbose_lists_only_legacy_paths_and_mutates_nothing(self):
         native = KnowledgeResource.objects.create(
             workspace=self.workspace,
             project=self.project,
@@ -101,13 +101,27 @@ class TeamFolderLegacyMigrationTests(TestCase):
             storage_path=f'{cloud.project_mountpoint(self.project)}/native.pdf',
         )
         out = StringIO()
-        call_command('migrate_project_files_to_team_folders', dry_run=True, stdout=out)
+        call_command(
+            'migrate_project_files_to_team_folders',
+            dry_run=True,
+            verbose=True,
+            stdout=out,
+        )
         text = out.getvalue()
         self.assertIn(f'resource={self.resource.pk}', text)
         self.assertNotIn(f'resource={native.pk} ', text)
         self.assertIn('dry-run matched=1', text)
         self.resource.refresh_from_db()
         self.assertEqual(self.resource.storage_path, self.legacy_path)
+
+    def test_default_dry_run_exposes_only_count_not_research_paths(self):
+        out = StringIO()
+        call_command('migrate_project_files_to_team_folders', dry_run=True, stdout=out)
+        text = out.getvalue()
+        self.assertEqual(text.strip(), 'dry-run matched=1')
+        self.assertNotIn(self.legacy_path, text)
+        self.assertNotIn(self.resource.original_name, text)
+        self.assertNotIn(self.project.title, text)
 
     @patch('core.management.commands.migrate_project_files_to_team_folders.nextcloud_bridge.sync_resource_acl')
     @patch('core.management.commands.migrate_project_files_to_team_folders.cloud.delete')
@@ -149,6 +163,7 @@ class TeamFolderLegacyMigrationTests(TestCase):
         self.assertTrue(self.resource.metadata['nextcloud_team_folder'])
         self.assertEqual(self.resource.metadata['migrated_from'], self.legacy_path)
         self.assertIn('migration complete migrated=1', out.getvalue())
+        self.assertNotIn(self.new_path, out.getvalue())
 
     @patch('core.management.commands.migrate_project_files_to_team_folders.cloud.download')
     @patch('core.management.commands.migrate_project_files_to_team_folders.cloud.path_exists', return_value=True)
@@ -161,6 +176,7 @@ class TeamFolderLegacyMigrationTests(TestCase):
         with self.assertRaises(CommandError) as exc:
             call_command('migrate_project_files_to_team_folders')
         self.assertIn('Destination already exists', str(exc.exception))
+        self.assertNotIn(self.new_path, str(exc.exception))
         download.assert_not_called()
         self.resource.refresh_from_db()
         self.assertEqual(self.resource.storage_path, self.legacy_path)
