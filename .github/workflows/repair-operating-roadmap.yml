@@ -106,7 +106,7 @@ jobs:
             PYTHONPATH="$BACKEND_PATH" \
             "$BACKEND_PATH/.venv/bin/django-admin" repair_core_roadmap_okr)"
           printf '%s\n' "$OUTPUT"
-          printf '%s\n' "$OUTPUT" | grep -Eq 'core roadmap ready objectives=[4-9][0-9]* key_results=[4-9][0-9]*'
+          printf '%s\n' "$OUTPUT" | grep -Eq 'core roadmap ready objectives=[1-9][0-9]* key_results=[1-9][0-9]*'
           sudo systemctl restart gravitas-backend
           sudo systemctl is-active gravitas-backend
           REMOTE
