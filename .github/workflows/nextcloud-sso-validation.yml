@@ -44,11 +44,11 @@ jobs:
         run: pip install -r backend/requirements.txt
 
       - name: Validate Django schema and SSO tests
-        working-directory: backend
         env:
+          PYTHONPATH: ${{ github.workspace }}/backend
           DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
         run: |
           set -euo pipefail
-          python manage.py makemigrations core --check --dry-run
-          python manage.py check
-          python manage.py test core.test_oidc_sso -v 2
+          python -m django makemigrations core --check --dry-run
+          python -m django check
+          python -m django test core.test_oidc_sso -v 2
