@@ -1,0 +1,54 @@
+name: Validate Nextcloud SSO
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/core/oidc_*.py'
+      - 'backend/core/migrations/0010_oidc_sso.py'
+      - 'backend/gravitas_backend/**'
+      - 'assets/nextcloud-sso.js'
+      - 'workspace.html'
+      - 'ops/nextcloud/sso.sh'
+      - '.github/workflows/nextcloud-sso-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/core/oidc_*.py'
+      - 'backend/core/migrations/0010_oidc_sso.py'
+      - 'backend/gravitas_backend/**'
+      - 'assets/nextcloud-sso.js'
+      - 'workspace.html'
+      - 'ops/nextcloud/sso.sh'
+      - '.github/workflows/nextcloud-sso-validation.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate browser and provisioning syntax
+        run: |
+          set -euo pipefail
+          node --check assets/nextcloud-sso.js
+          bash -n ops/nextcloud/sso.sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend requirements
+        run: pip install -r backend/requirements.txt
+
+      - name: Validate Django schema and SSO tests
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          set -euo pipefail
+          python manage.py makemigrations core --check --dry-run
+          python manage.py check
+          python manage.py test core.test_oidc_sso -v 2
