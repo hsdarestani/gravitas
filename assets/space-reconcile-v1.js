@@ -6,8 +6,17 @@ function cookie(name){var parts=(document.cookie||'').split(';');for(var i=0;i<p
 function api(url,opts){opts=opts||{};opts.credentials='same-origin';opts.headers=opts.headers||{};opts.headers.Accept='application/json';if(opts.method&&opts.method!=='GET'){opts.headers['X-CSRFToken']=cookie('csrftoken');opts.headers['Content-Type']='application/json'}return fetch(url,opts).then(function(r){return r.json().catch(function(){return {}}).then(function(d){if(!r.ok){var e=new Error(String(d.error||'Request failed').replace(/_/g,' '));e.code=d.error;e.data=d;throw e}return d})})}
 function message(text,bad){var box=document.getElementById('ws-alert');if(!box)return;box.hidden=false;box.textContent=text;box.style.borderLeftColor=bad?'var(--ws-danger)':'var(--ws-accent)';clearTimeout(message.timer);message.timer=setTimeout(function(){box.hidden=true},6000)}
 function onNotes(){return location.pathname.replace(/\/$/,'')==='/workspace/research/notes'}
+function ensureManaged(){
+  if(!onNotes()||document.querySelector('script[data-space-managed]'))return;
+  var managed=document.createElement('script');
+  managed.src='/assets/space-managed-v1.js?v=20260831b';
+  managed.async=false;
+  managed.dataset.spaceManaged='1';
+  document.body.appendChild(managed);
+}
 function inject(){
   if(!onNotes())return;
+  ensureManaged();
   var box=document.getElementById('ws-primary-actions');
   if(!box||box.querySelector('[data-space-reconcile]'))return;
   var button=document.createElement('button');
@@ -27,12 +36,4 @@ function reconcile(){
 document.addEventListener('click',function(e){if(e.target.closest('[data-space-reconcile]')){e.preventDefault();reconcile()}},true);
 var observer=new MutationObserver(function(){clearTimeout(timer);timer=setTimeout(inject,80)});observer.observe(document.body,{childList:true,subtree:true});
 window.addEventListener('popstate',inject);document.addEventListener('click',function(){setTimeout(inject,40)});inject();
-
-if(!document.querySelector('script[data-space-managed]')){
-  var managed=document.createElement('script');
-  managed.src='/assets/space-managed-v1.js?v=20260831a';
-  managed.async=false;
-  managed.dataset.spaceManaged='1';
-  document.body.appendChild(managed);
-}
 })();
