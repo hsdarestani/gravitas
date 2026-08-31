@@ -20,7 +20,9 @@ function consolidateSidebar(){
   var html=[
     link('/workspace/research','◇','Overview',exact('/workspace/research')),
     link('/workspace/research/projects','□','Projects',starts('/workspace/research/projects')),
+    link('/workspace/research/notes','▤','Notes',starts('/workspace/research/notes')),
     link('/workspace/research/files','↑','Files & Data Rooms',inLibrary()),
+    link('/workspace/research/ai','✦','AI & Models',starts('/workspace/research/ai')),
     link('/workspace/research/nextcloud','◉','Collaboration',inCollaboration())
   ].join('');
   if(box.dataset.researchConsolidatedHtml!==html){
@@ -38,7 +40,9 @@ function consolidateMobile(){
     ['/workspace/my-work','Home'],
     ['/workspace/research','Research · Overview'],
     ['/workspace/research/projects','Research · Projects'],
+    ['/workspace/research/notes','Research · Notes'],
     ['/workspace/research/files','Research · Files & Data Rooms'],
+    ['/workspace/research/ai','Research · AI & Models'],
     ['/workspace/research/nextcloud','Research · Collaboration']
   ];
   var html=options.map(function(x){return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join('');
@@ -46,7 +50,7 @@ function consolidateMobile(){
     select.dataset.researchConsolidatedOptions=html;
     select.innerHTML=html;
   }
-  var value=exact('/workspace/research')?'/workspace/research':starts('/workspace/research/projects')?'/workspace/research/projects':inLibrary()?'/workspace/research/files':inCollaboration()?'/workspace/research/nextcloud':'/workspace/research';
+  var value=exact('/workspace/research')?'/workspace/research':starts('/workspace/research/projects')?'/workspace/research/projects':starts('/workspace/research/notes')?'/workspace/research/notes':starts('/workspace/research/ai')?'/workspace/research/ai':inLibrary()?'/workspace/research/files':inCollaboration()?'/workspace/research/nextcloud':'/workspace/research';
   if(select.value!==value)select.value=value;
 }
 
