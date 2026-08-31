@@ -14,9 +14,6 @@ class OIDCAuthorizationCode(models.Model):
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
 
-    class Meta:
-        indexes = [models.Index(fields=['expires_at'])]
-
 
 class OIDCAccessToken(models.Model):
     token_hash = models.CharField(max_length=64, unique=True)
@@ -25,6 +22,3 @@ class OIDCAccessToken(models.Model):
     scope = models.CharField(max_length=300, default='openid email profile')
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
-
-    class Meta:
-        indexes = [models.Index(fields=['expires_at'])]
