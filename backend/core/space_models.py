@@ -42,10 +42,15 @@ class SpaceNode(models.Model):
 
 
 class ProjectSpaceLink(models.Model):
-    project = models.OneToOneField(
+    project = models.ForeignKey(
         'core.ResearchProject',
         on_delete=models.CASCADE,
-        related_name='space_link',
+        related_name='space_links',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_project_space_links',
     )
     category = models.ForeignKey(
         SpaceNode,
@@ -60,6 +65,11 @@ class ProjectSpaceLink(models.Model):
     last_synced_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['project', 'user'], name='unique_gravitas_project_space_user'),
+        ]
 
 
 class NoteSpaceLink(models.Model):
