@@ -1,5 +1,6 @@
 from django.urls import path
 
+from core.ai_api import ai_provider_detail, ai_provider_test, ai_providers
 from core.content_api import content_detail, content_list
 from core.kpi import kpi_summary
 from core.initiative_planner import initiative_planner
@@ -35,8 +36,6 @@ from core.platform_api import (
     entity_links,
     mindmap_detail,
     mindmaps,
-    platform_project_detail,
-    platform_projects,
     project_application_detail,
     project_deliverables,
     researcher_me,
@@ -72,9 +71,20 @@ from core.platform_objects_api import shared_task_detail
 from core.platform_resources_api import (
     platform_file_download,
     platform_file_upload,
-    platform_resource_detail,
-    platform_resources,
     shared_file_download,
+)
+from core.space_api import (
+    platform_project_detail_v6,
+    platform_projects_v6,
+    platform_resource_detail_v6,
+    platform_resources_v6,
+    space_markdown_content,
+    space_markdown_list,
+    space_note_attachments,
+    space_note_detail,
+    space_nodes,
+    space_overview,
+    space_sync,
 )
 from core.team_api import core_team, core_team_member, core_team_password_reset
 from core.team_storage_api import team_storage, team_storage_user
@@ -138,8 +148,8 @@ urlpatterns = [
     path('platform/team/<int:user_id>/', core_team_member),
     path('platform/team/<int:user_id>/password-reset/', core_team_password_reset),
     path('platform/team/<int:user_id>/storage/', team_storage_user),
-    path('platform/projects/', platform_projects),
-    path('platform/projects/<int:project_id>/', platform_project_detail),
+    path('platform/projects/', platform_projects_v6),
+    path('platform/projects/<int:project_id>/', platform_project_detail_v6),
     path('platform/projects/<int:project_id>/cockpit/', project_cockpit),
     path('platform/projects/<int:project_id>/access-candidates/', project_access_candidates),
     path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
@@ -149,13 +159,23 @@ urlpatterns = [
     path('platform/projects/<int:project_id>/nextcloud/sync/', project_nextcloud_sync),
     path('platform/nextcloud/', nextcloud_status),
     path('platform/nextcloud/client-credentials/', nextcloud_client_credentials),
+    path('platform/space/', space_overview),
+    path('platform/space/nodes/', space_nodes),
+    path('platform/space/markdown/', space_markdown_list),
+    path('platform/space/markdown/content/', space_markdown_content),
+    path('platform/space/notes/<int:resource_id>/', space_note_detail),
+    path('platform/space/notes/<int:resource_id>/attachments/', space_note_attachments),
+    path('platform/space/sync/', space_sync),
+    path('platform/ai/providers/', ai_providers),
+    path('platform/ai/providers/test/', ai_provider_test),
+    path('platform/ai/providers/<int:provider_id>/', ai_provider_detail),
     path('platform/content/', content_work_items_v3),
     path('platform/content/<int:item_id>/', content_work_detail_v3),
     path('platform/research-requests/', research_requests),
     path('platform/research-requests/<int:request_id>/', research_request_detail),
     path('platform/tasks/<int:task_id>/', shared_task_detail),
-    path('platform/resources/', platform_resources),
-    path('platform/resources/<int:resource_id>/', platform_resource_detail),
+    path('platform/resources/', platform_resources_v6),
+    path('platform/resources/<int:resource_id>/', platform_resource_detail_v6),
     path('platform/files/upload/', platform_file_upload),
     path('platform/files/<int:resource_id>/download/', platform_file_download),
     path('platform/share/', sharing_v4),
