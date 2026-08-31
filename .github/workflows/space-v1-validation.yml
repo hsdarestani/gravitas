@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/**'
       - 'assets/space-v1.js'
+      - 'assets/space-reconcile-v1.js'
       - 'workspace.html'
       - 'ops/nextcloud/**'
       - '.github/workflows/space-v1-validation.yml'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'backend/**'
       - 'assets/space-v1.js'
+      - 'assets/space-reconcile-v1.js'
       - 'workspace.html'
       - 'ops/nextcloud/**'
       - '.github/workflows/space-v1-validation.yml'
@@ -33,6 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check assets/space-v1.js
+          node --check assets/space-reconcile-v1.js
           bash -n ops/nextcloud/ensure.sh
           bash -n ops/nextcloud/apps.sh
           bash -n ops/nextcloud/nginx-guard.sh
