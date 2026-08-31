@@ -7,8 +7,10 @@ from django.test import TestCase
 from .ai_providers import decrypt_api_key, encrypt_api_key
 from .models import KnowledgeResource, ResearchProject
 from .platform_api import ensure_dual_workspaces
+from .platform_models import ResearchProjectProfile
 from .space_fs import create_node, ensure_note_link, ensure_project_link, filesystem_name
 from .space_models import AIProviderCredential, SpaceNode
+from .space_project_metadata import project_markdown
 from .space_reconcile import _parse_markdown
 
 
@@ -47,6 +49,31 @@ class SpaceFilesystemTests(TestCase):
         self.assertEqual(link.metadata_path, 'Space/Research/Client_Work/Protein_Folding.md')
         self.assertEqual(link.category, category)
         self.assertEqual(link.user, self.user)
+
+    def test_project_markdown_contains_complete_form_metadata(self):
+        project = ResearchProject.objects.create(
+            workspace=self.spaces['research'], owner=self.user,
+            title='Cell Atlas', description='Full project brief',
+        )
+        ResearchProjectProfile.objects.create(
+            project=project,
+            category='client', visibility='invite', status='active',
+            research_question='Which cell states matter?',
+            client_name='Client A', requester_name='Requester B', requester_email='requester@example.com',
+            confidentiality='restricted', compensation_text='Paid project',
+            required_skills=['Python', 'biology'], application_open=True,
+            secure_data_room=True, allow_public_links=False, allow_downloads=False,
+            currency='EUR',
+        )
+        text = project_markdown(project, self.user)
+        self.assertIn('@project', text)
+        self.assertIn('project_type: "client"', text)
+        self.assertIn('requester_email: "requester@example.com"', text)
+        self.assertIn('required_skills: ["Python", "biology"]', text)
+        self.assertIn('application_open: true', text)
+        self.assertIn('secure_data_room: true', text)
+        self.assertIn('allow_downloads: false', text)
+        self.assertIn('Full project brief', text)
 
     @patch('core.space_fs.ensure_space_root')
     def test_nested_note_uses_parent_same_name_attachment_folder(self, ensure_root):
