@@ -4,15 +4,26 @@ set -euo pipefail
 DOMAIN="${1:-gravitasplus.com}"
 TARGET=/etc/nginx/sites-available/gravitas
 GUARD=/usr/local/sbin/gravitas-nextcloud-nginx-route
+PUBLIC_URL_FILE=/etc/gravitas/nextcloud-public-url
+
+if [ ! -f "$PUBLIC_URL_FILE" ]; then
+  printf 'https://%s/nextcloud\n' "$DOMAIN" > "$PUBLIC_URL_FILE"
+  chmod 644 "$PUBLIC_URL_FILE"
+fi
 
 cat > "$GUARD" <<'SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail
 TARGET=/etc/nginx/sites-available/gravitas
+PUBLIC_URL_FILE=/etc/gravitas/nextcloud-public-url
 [ -f "$TARGET" ] || exit 0
+PUBLIC_URL="$(cat "$PUBLIC_URL_FILE" 2>/dev/null || true)"
+export PUBLIC_URL
 
 python3 - <<'PY'
 from pathlib import Path
+from urllib.parse import urlparse
+import os
 import re
 
 p = Path('/etc/nginx/sites-available/gravitas')
@@ -23,7 +34,26 @@ m = re.search(r'(?m)^(?P<indent>\s*)location / \{', s)
 if not m:
     raise SystemExit('Could not find Gravitas frontend location in nginx config')
 i = m.group('indent')
-block = f'''{i}# BEGIN GRAVITAS NEXTCLOUD
+public_url = os.environ.get('PUBLIC_URL', '').rstrip('/')
+parsed = urlparse(public_url)
+subdomain_mode = bool(parsed.hostname and parsed.path in ('', '/') and parsed.hostname.startswith('cloud.'))
+
+if subdomain_mode:
+    base = f'https://{parsed.hostname}'
+    block = f'''{i}# BEGIN GRAVITAS NEXTCLOUD
+{i}location = /NextCloud {{ return 301 {base}/; }}
+{i}location = /nextcloud {{ return 301 {base}/; }}
+{i}location = /nextcloud/ {{ return 301 {base}/; }}
+{i}location = /.well-known/carddav {{ return 301 {base}/remote.php/dav; }}
+{i}location = /.well-known/caldav {{ return 301 {base}/remote.php/dav; }}
+{i}location ^~ /nextcloud/ {{
+{i}    rewrite ^/nextcloud/(.*)$ {base}/$1 permanent;
+{i}}}
+{i}# END GRAVITAS NEXTCLOUD
+'''
+else:
+    block = f'''{i}# BEGIN GRAVITAS NEXTCLOUD
+{i}location = /NextCloud {{ return 301 /nextcloud/; }}
 {i}location = /nextcloud {{ return 301 /nextcloud/; }}
 {i}location = /.well-known/carddav {{ return 301 /nextcloud/remote.php/dav; }}
 {i}location = /.well-known/caldav {{ return 301 /nextcloud/remote.php/dav; }}
@@ -57,7 +87,7 @@ chmod 750 "$GUARD"
 
 cat > /etc/systemd/system/gravitas-nextcloud-nginx-guard.service <<EOF
 [Unit]
-Description=Restore Gravitas Nextcloud reverse-proxy route after Nginx config changes
+Description=Restore Gravitas Nextcloud route/redirect after Nginx config changes
 After=nginx.service
 
 [Service]
@@ -81,5 +111,6 @@ systemctl daemon-reload
 systemctl enable --now gravitas-nextcloud-nginx-guard.path
 "$GUARD"
 
-curl -fsS "https://$DOMAIN/nextcloud/status.php" | grep -q '"installed":true'
-echo 'Nextcloud Nginx route guard installed and verified.'
+PUBLIC_URL="$(cat "$PUBLIC_URL_FILE")"
+curl -fsSL "$PUBLIC_URL/status.php" | grep -q '"installed":true'
+echo "Nextcloud Nginx route guard installed and verified for $PUBLIC_URL."
