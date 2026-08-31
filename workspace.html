@@ -108,11 +108,12 @@
       }
       function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js?v=20260829b',function(){add('/assets/core-team-storage.js?v=20260829a')})})})}
       function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830c',function(){add('/assets/research-navigation-consolidation.js?v=20260830a',addVisuals)})}
+      function addSpace(next){add('/assets/space-v1.js?v=20260831a',next)}
       function addOperatingShell(){add('/assets/operating-core-shell.js?v=20260830b',addNavigation)}
 
       if(nextcloud){
         add('/assets/workspace-shell-session.js?v=20260830a',function(){
-          add('/assets/nextcloud-native.js?v=20260830c',addNavigation);
+          add('/assets/nextcloud-native.js?v=20260830c',function(){addSpace(addNavigation)});
         });
       }else if(platform){
         add('/assets/platform-v2.js',function(){
@@ -121,7 +122,7 @@
               add('/assets/research-v5.js?v=20260830a',function(){
                 add('/assets/mindmap-editor-v2.js?v=20260830d',function(){
                   add('/assets/mindmap-dialog-polish.js?v=20260830a',function(){
-                    add('/assets/nextcloud-native.js?v=20260830c',addNavigation);
+                    add('/assets/nextcloud-native.js?v=20260830c',function(){addSpace(addNavigation)});
                   });
                 });
               });
