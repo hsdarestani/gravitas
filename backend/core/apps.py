@@ -12,6 +12,14 @@ class CoreConfig(AppConfig):
         from . import platform_models  # noqa: F401
         from . import roadmap_models  # noqa: F401
         from . import space_models  # noqa: F401
+        from . import space_fs
+        from .space_project_metadata import project_markdown
+
+        # Keep the filesystem engine generic while the project sidecar follows
+        # the evolving project form schema. Every sync entry point resolves this
+        # module-level formatter at call time.
+        space_fs._project_markdown = project_markdown
+
         from . import platform_signals  # noqa: F401
         from . import space_signals  # noqa: F401
         from . import operating_admin  # noqa: F401
