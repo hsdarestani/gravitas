@@ -44,9 +44,12 @@ jobs:
           bash -n ops/nextcloud/apps.sh
           bash -n ops/nextcloud/nginx-guard.sh
           bash -n ops/nextcloud/subdomain.sh
+          bash -n ops/nextcloud/sso.sh
           grep -q 'groupfolders required' ops/nextcloud/apps.sh
           grep -q 'assistant' ops/nextcloud/apps.sh
           grep -q 'user_oidc' ops/nextcloud/apps.sh
+          grep -q 'mapping-uid=nextcloud_uid' ops/nextcloud/sso.sh
+          grep -q 'disable_account_creation' ops/nextcloud/sso.sh
           grep -q 'gravitas-nextcloud-nginx-guard.path' ops/nextcloud/nginx-guard.sh
           grep -q 'cloud.gravitasplus.com' .github/workflows/nextcloud.yml
           echo 'Nextcloud code validation passed; production provisioning only runs after a successful Gravitas deploy or manual dispatch.'
@@ -135,6 +138,21 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo install -m 750 /tmp/gravitas-nextcloud-subdomain /usr/local/sbin/gravitas-nextcloud-subdomain && sudo rm -f /tmp/gravitas-nextcloud-subdomain && sudo /usr/local/sbin/gravitas-nextcloud-subdomain '$DOMAIN' '$CLOUD_DOMAIN'"
 
+      - name: Configure Gravitas single sign-on
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUBLIC_URL=$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || true")
+          if [ "$PUBLIC_URL" != "https://$CLOUD_DOMAIN" ]; then
+            echo "Canonical cloud hostname is not ready; skipping SSO provider configuration safely."
+            exit 0
+          fi
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/nextcloud/sso.sh \
+            "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:/tmp/gravitas-nextcloud-sso"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo install -m 750 /tmp/gravitas-nextcloud-sso /usr/local/sbin/gravitas-nextcloud-sso && sudo rm -f /tmp/gravitas-nextcloud-sso && sudo /usr/local/sbin/gravitas-nextcloud-sso '$DOMAIN' '$CLOUD_DOMAIN'"
+
       - name: Verify public endpoint
         shell: bash
         run: |
@@ -147,8 +165,12 @@ jobs:
           curl -4 -fsSL --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
             "$PUBLIC_URL/" >/dev/null
           echo "Verified Nextcloud at $PUBLIC_URL/"
+          if [ "$PUBLIC_URL" = "https://$CLOUD_DOMAIN" ]; then
+            curl -4 -fsSL --retry 8 --retry-delay 3 "https://$DOMAIN/api/oidc/.well-known/openid-configuration" | grep -q 'authorization_endpoint'
+            curl -4 -fsSL --retry 8 --retry-delay 3 "https://$DOMAIN/api/oidc/jwks/" | grep -q 'RS256'
+          fi
 
-      - name: Verify containers, apps, route guard, cron and backup timers
+      - name: Verify containers, apps, SSO, route guard, cron and backup timers
         shell: bash
         run: |
           set -euo pipefail
@@ -169,6 +191,9 @@ jobs:
             sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritehost | grep -qx 'cloud.gravitasplus.com'
             ! sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot 2>/dev/null | grep -q '/nextcloud'
             sudo test -f /etc/nginx/sites-available/gravitas-nextcloud-cloud
+            sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -Eq '^[[:space:]]*-[[:space:]]+user_oidc:'
+            sudo docker exec -u www-data gravitas-nextcloud php occ user_oidc:provider gravitas --output=json | grep -q 'nextcloud_uid'
+            sudo grep -Eq '^NEXTCLOUD_OIDC_PROVIDER_ID=[0-9]+$' /etc/gravitas/backend.env
           else
             sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot | grep -qx '/nextcloud'
           fi
@@ -183,8 +208,13 @@ jobs:
           [ -n "$VERSION" ] || VERSION=unknown
           PUBLIC_URL=$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || printf 'https://$DOMAIN/nextcloud\\n'")
-          printf 'status=live\nurl=%s/\nversion=%s\nteam_folders=enabled\nassistant=optional\nnginx_guard=enabled\nverified_at=%s\n' \
-            "$PUBLIC_URL" "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .nextcloud-status
+          SSO=disabled
+          if ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo grep -Eq '^NEXTCLOUD_OIDC_PROVIDER_ID=[0-9]+$' /etc/gravitas/backend.env"; then
+            SSO=enabled
+          fi
+          printf 'status=live\nurl=%s/\nversion=%s\nteam_folders=enabled\nassistant=optional\nsso=%s\nnginx_guard=enabled\nverified_at=%s\n' \
+            "$PUBLIC_URL" "$VERSION" "$SSO" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .nextcloud-status
           git config user.name 'gravitas-nextcloud-bot'
           git config user.email 'actions@users.noreply.github.com'
           git add .nextcloud-status
