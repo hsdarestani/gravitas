@@ -20,6 +20,7 @@ function consolidateSidebar(){
   var html=[
     link('/workspace/research','◇','Overview',exact('/workspace/research')),
     link('/workspace/research/projects','□','Projects',starts('/workspace/research/projects')),
+    link('/workspace/research/notes','✎','Notes',starts('/workspace/research/notes')),
     link('/workspace/research/files','↑','Files & Data Rooms',inLibrary()),
     link('/workspace/research/nextcloud','◉','Collaboration',inCollaboration())
   ].join('');
@@ -38,6 +39,7 @@ function consolidateMobile(){
     ['/workspace/my-work','Home'],
     ['/workspace/research','Research · Overview'],
     ['/workspace/research/projects','Research · Projects'],
+    ['/workspace/research/notes','Research · Notes'],
     ['/workspace/research/files','Research · Files & Data Rooms'],
     ['/workspace/research/nextcloud','Research · Collaboration']
   ];
@@ -46,7 +48,7 @@ function consolidateMobile(){
     select.dataset.researchConsolidatedOptions=html;
     select.innerHTML=html;
   }
-  var value=exact('/workspace/research')?'/workspace/research':starts('/workspace/research/projects')?'/workspace/research/projects':inLibrary()?'/workspace/research/files':inCollaboration()?'/workspace/research/nextcloud':'/workspace/research';
+  var value=exact('/workspace/research')?'/workspace/research':starts('/workspace/research/projects')?'/workspace/research/projects':starts('/workspace/research/notes')?'/workspace/research/notes':inLibrary()?'/workspace/research/files':inCollaboration()?'/workspace/research/nextcloud':'/workspace/research';
   if(select.value!==value)select.value=value;
 }
 
@@ -80,7 +82,7 @@ function renderHubTabs(){
 function injectStyle(){
   if(document.getElementById('research-navigation-consolidation-style'))return;
   var style=document.createElement('style');style.id='research-navigation-consolidation-style';
-  style.textContent='.research-hub-tabs{display:flex;gap:5px;align-items:center;overflow:auto;margin:0 0 16px;padding:5px;border:1px solid var(--ws-line);border-radius:13px;background:var(--ws-panel);scrollbar-width:none}.research-hub-tabs::-webkit-scrollbar{display:none}.research-hub-tabs a{flex:0 0 auto;padding:8px 11px;border-radius:9px;color:var(--ws-muted);font-size:10px;font-weight:750;text-decoration:none;white-space:nowrap}.research-hub-tabs a:hover{color:var(--ws-text);background:color-mix(in srgb,var(--ws-bg) 65%,transparent)}.research-hub-tabs a.is-active{color:var(--ws-bg);background:var(--ws-text)}@media(max-width:580px){.research-hub-tabs{margin-bottom:12px}.research-hub-tabs a{padding:8px 10px}}';
+  style.textContent='.research-hub-tabs{display:flex;gap:5px;align-items:center;overflow:auto;margin:0 0 16px;padding:5px;border:1px solid var(--ws-line);border-radius:13px;background:var(--ws-panel);scrollbar-width:none}.research-hub-tabs::-webkit-scrollbar{display:none}.research-hub-tabs a{flex:0 0 auto;padding:8px 11px;border-radius:9px;color:var(--ws-muted);font-size:10px;font-weight:750;text-decoration:none;white-space:nowrap}.research-hub-tabs a:hover{color:var(--ws-text);background:color-mix(in srgb,var(--ws-bg) 65%,transparent)}.research-hub-tabs a.is-active{color:var(--ws-bg);background:var(--ws-text)}#space-v1-dialog [data-space-body]{padding:18px 24px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}#space-v1-dialog>form{display:flex;flex-direction:column;max-height:min(88dvh,900px);overflow:hidden}#space-v1-dialog .ws-dialog__head,#space-v1-dialog .ws-dialog__actions{flex:0 0 auto}@media(max-width:580px){.research-hub-tabs{margin-bottom:12px}.research-hub-tabs a{padding:8px 10px}#space-v1-dialog.ws-dialog{width:calc(100vw - 24px);max-width:none;max-height:calc(100dvh - 24px);margin:auto;padding:0;overflow:hidden}#space-v1-dialog>form{max-height:calc(100dvh - 24px);min-height:0}#space-v1-dialog .ws-dialog__head{padding:16px 16px 12px}#space-v1-dialog [data-space-body]{flex:1 1 auto;min-height:0;padding:12px 16px 20px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}#space-v1-dialog .ws-dialog__actions{padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--ws-panel-solid);border-top:1px solid var(--ws-line);position:relative;z-index:1}}';
   document.head.appendChild(style);
 }
 
