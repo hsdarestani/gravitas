@@ -33,7 +33,12 @@ def nextcloud_status_canonical(request):
         payload = json.loads(response.content.decode('utf-8'))
     except (ValueError, UnicodeDecodeError):
         return response
-    return JsonResponse(_rewrite(payload), status=response.status_code)
+    payload = _rewrite(payload)
+    nextcloud = payload.get('nextcloud') or {}
+    nextcloud['sso_url'] = '/api/platform/nextcloud/sso/'
+    nextcloud['sso_ready'] = str(getattr(settings, 'NEXTCLOUD_OIDC_PROVIDER_ID', '') or '').isdigit()
+    payload['nextcloud'] = nextcloud
+    return JsonResponse(payload, status=response.status_code)
 
 
 @require_http_methods(['POST'])
