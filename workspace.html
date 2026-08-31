@@ -108,7 +108,7 @@
       }
       function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js?v=20260829b',function(){add('/assets/core-team-storage.js?v=20260829a')})})})}
       function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830c',function(){add('/assets/research-navigation-consolidation.js?v=20260830a',addVisuals)})}
-      function addSpace(next){add('/assets/space-v1.js?v=20260831a',next)}
+      function addSpace(next){add('/assets/space-v1.js?v=20260831b',function(){add('/assets/space-reconcile-v1.js?v=20260831a',next)})}
       function addOperatingShell(){add('/assets/operating-core-shell.js?v=20260830b',addNavigation)}
 
       if(nextcloud){
