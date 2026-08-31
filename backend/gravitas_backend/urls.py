@@ -14,8 +14,17 @@ from core.oidc_provider import (
     oidc_userinfo,
 )
 from core.roadmap_okr import roadmap_okr_sync
-from core.space_api import space_note, space_notes, space_project, space_sync, space_tree
-from core.space_reconcile import reconcile_space_from_nextcloud
+from core.space_api import space_tree
+from core.space_full_api import (
+    space_item_detail,
+    space_items,
+    space_node_detail,
+    space_note_full,
+    space_notes_full,
+    space_project_full,
+    space_sync_full,
+)
+from core.space_reconcile_full import reconcile_space_complete
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,11 +38,14 @@ urlpatterns = [
     path('api/platform/ai/providers/', ai_providers),
     path('api/platform/ai/providers/<int:provider_id>/', ai_provider_detail),
     path('api/platform/space/tree/', space_tree),
-    path('api/platform/space/projects/<int:project_id>/', space_project),
-    path('api/platform/space/notes/', space_notes),
-    path('api/platform/space/notes/<int:resource_id>/', space_note),
-    path('api/platform/space/sync/', space_sync),
-    path('api/platform/space/reconcile/', reconcile_space_from_nextcloud),
+    path('api/platform/space/nodes/<int:node_id>/', space_node_detail),
+    path('api/platform/space/projects/<int:project_id>/', space_project_full),
+    path('api/platform/space/notes/', space_notes_full),
+    path('api/platform/space/notes/<int:resource_id>/', space_note_full),
+    path('api/platform/space/items/', space_items),
+    path('api/platform/space/items/<int:item_id>/', space_item_detail),
+    path('api/platform/space/sync/', space_sync_full),
+    path('api/platform/space/reconcile/', reconcile_space_complete),
     # These canonical wrappers intentionally precede the legacy core.urls
     # routes with the same URLs.
     path('api/platform/nextcloud/', nextcloud_status_canonical),
