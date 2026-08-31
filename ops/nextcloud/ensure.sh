@@ -6,6 +6,19 @@ MODE="${2:-repair}"
 ENV_FILE=/etc/gravitas/nextcloud.env
 CREDS=/etc/gravitas/nextcloud-admin-credentials
 BACKUP_DIR=/var/backups/gravitas-nextcloud
+PUBLIC_URL_FILE=/etc/gravitas/nextcloud-public-url
+LEGACY_PUBLIC_URL="https://$DOMAIN/nextcloud"
+PUBLIC_URL="$LEGACY_PUBLIC_URL"
+
+if [ -s "$PUBLIC_URL_FILE" ]; then
+  PUBLIC_URL="$(tr -d '\r\n' < "$PUBLIC_URL_FILE")"
+fi
+PUBLIC_URL="${PUBLIC_URL%/}"
+CANONICAL_CLOUD=0
+case "$PUBLIC_URL" in
+  https://cloud.*) CANONICAL_CLOUD=1 ;;
+  *) PUBLIC_URL="$LEGACY_PUBLIC_URL" ;;
+esac
 
 mkdir -p /opt/gravitas-nextcloud /etc/gravitas "$BACKUP_DIR"
 
@@ -91,6 +104,10 @@ ensure_container gravitas-nextcloud \
   -v gravitas_nextcloud_html:/var/www/html \
   nextcloud:stable-apache
 
+# The legacy /nextcloud reverse proxy is only an install/bootstrap concern.
+# Once subdomain.sh has moved the instance to cloud.<domain>, repair must not
+# race the persistent route guard by rewriting the main vhost back to legacy.
+if [ "$CANONICAL_CLOUD" -eq 0 ]; then
 python3 - <<'PY'
 from pathlib import Path
 import re
@@ -128,6 +145,7 @@ block = f'''{i}# BEGIN GRAVITAS NEXTCLOUD
 s = s[:m.start()] + block + s[m.start():]
 p.write_text(s)
 PY
+fi
 
 nginx -t
 systemctl reload nginx
@@ -148,8 +166,16 @@ for _ in $(seq 1 60); do
 done
 
 docker exec -u www-data gravitas-nextcloud php occ status >/dev/null
-docker exec -u www-data gravitas-nextcloud php occ config:system:set overwrite.cli.url --value="https://$DOMAIN/nextcloud" >/dev/null
-docker exec -u www-data gravitas-nextcloud php occ config:system:set overwritewebroot --value=/nextcloud >/dev/null
+if [ "$CANONICAL_CLOUD" -eq 1 ]; then
+  CLOUD_HOST="${PUBLIC_URL#https://}"
+  docker exec -u www-data gravitas-nextcloud php occ config:system:set overwrite.cli.url --value="$PUBLIC_URL" >/dev/null
+  docker exec -u www-data gravitas-nextcloud php occ config:system:set overwritehost --value="$CLOUD_HOST" >/dev/null
+  docker exec -u www-data gravitas-nextcloud php occ config:system:delete overwritewebroot >/dev/null 2>&1 || true
+else
+  docker exec -u www-data gravitas-nextcloud php occ config:system:set overwrite.cli.url --value="$LEGACY_PUBLIC_URL" >/dev/null
+  docker exec -u www-data gravitas-nextcloud php occ config:system:set overwritehost --value="$DOMAIN" >/dev/null
+  docker exec -u www-data gravitas-nextcloud php occ config:system:set overwritewebroot --value=/nextcloud >/dev/null
+fi
 docker exec -u www-data gravitas-nextcloud php occ config:system:set overwriteprotocol --value=https >/dev/null
 docker exec -u www-data gravitas-nextcloud php occ config:system:set default_phone_region --value=DE >/dev/null
 docker exec -u www-data gravitas-nextcloud php occ background:cron >/dev/null
@@ -211,6 +237,8 @@ EOF
 systemctl daemon-reload
 systemctl enable --now gravitas-nextcloud-cron.timer gravitas-nextcloud-backup.timer
 
-curl -fsS "https://$DOMAIN/nextcloud/status.php" | grep -q '"installed":true'
+# Follow redirects only in legacy mode; in canonical mode the health endpoint is
+# checked directly so a redirect cannot masquerade as a healthy JSON response.
+curl -fsS "$PUBLIC_URL/status.php" | grep -q '"installed":true'
 docker exec -u www-data gravitas-nextcloud php occ status
 systemctl try-restart gravitas-backend.service || true
