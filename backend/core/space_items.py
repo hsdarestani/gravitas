@@ -1,16 +1,15 @@
-import json
-
 from django.db import transaction
 from django.utils import timezone
 
 from . import cloud
 from .nextcloud_bridge import ensure_user
 from .space_fs import SpaceConflict, _meta_lines, _remote_text, _safe_write, _sha, ensure_defaults, filesystem_name
-from .space_models import ProjectSpaceLink, SpaceManagedItem, SpaceNode
+from .space_models import SpaceManagedItem, SpaceNode
 from .space_moves import move_remote, sync_project_moveaware
 
 
 MANAGED_KINDS = set(SpaceManagedItem.Kind.values)
+_UNSET = object()
 
 
 def _item_base(owner, *, project=None, category=None, parent=None):
@@ -98,16 +97,13 @@ def create_item(owner, *, kind, title, body='', metadata=None, project=None, cat
     return item
 
 
-def update_item(item, *, title=None, body=None, metadata=None, project=None, category=None, parent=None, force=False):
+def update_item(item, *, title=None, body=None, metadata=None, project=_UNSET, category=_UNSET, parent=_UNSET, force=False):
     new_title = str(title if title is not None else item.title).strip()[:240]
     if not new_title:
         raise ValueError('title_required')
-    parent_supplied = parent is not None
-    project_supplied = project is not None
-    category_supplied = category is not None
-    target_parent = parent if parent_supplied else item.parent
-    target_project = project if project_supplied else item.project
-    target_category = category if category_supplied else item.category
+    target_parent = item.parent if parent is _UNSET else parent
+    target_project = item.project if project is _UNSET else project
+    target_category = item.category if category is _UNSET else category
     if target_parent:
         target_project = None
         target_category = None
@@ -118,6 +114,8 @@ def update_item(item, *, title=None, body=None, metadata=None, project=None, cat
     )
     if item.kind == SpaceManagedItem.Kind.SUBTASK and not target_parent:
         raise ValueError('subtask_parent_required')
+    if item.kind == SpaceManagedItem.Kind.SUBTASK and target_parent.kind not in {SpaceManagedItem.Kind.TASK, SpaceManagedItem.Kind.SUBTASK}:
+        raise ValueError('invalid_subtask_parent')
     if target_parent:
         cursor = target_parent
         while cursor:
@@ -138,7 +136,7 @@ def update_item(item, *, title=None, body=None, metadata=None, project=None, cat
         old_file, old_folder = item.file_path, item.folder_path
         moved_folder = move_remote(identity, old_folder, new_folder, folder=True)
         try:
-            moved_file = move_remote(identity, old_file, new_file, folder=False)
+            move_remote(identity, old_file, new_file, folder=False)
         except Exception:
             if moved_folder:
                 try:
