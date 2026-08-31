@@ -1,0 +1,52 @@
+name: Validate Space Notes AI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'assets/space-v1.js'
+      - 'workspace.html'
+      - 'ops/nextcloud/**'
+      - '.github/workflows/space-v1-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'assets/space-v1.js'
+      - 'workspace.html'
+      - 'ops/nextcloud/**'
+      - '.github/workflows/space-v1-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate browser and provisioning syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/space-v1.js
+          bash -n ops/nextcloud/ensure.sh
+          bash -n ops/nextcloud/apps.sh
+          bash -n ops/nextcloud/nginx-guard.sh
+          bash -n ops/nextcloud/subdomain.sh
+
+      - name: Test Django schema and backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/gravitas-space-tests"
+          "$RUNNER_TEMP/gravitas-space-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django check
+          "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django test core.test_space_v1
+          "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django test core
