@@ -7,6 +7,7 @@ on:
       - 'backend/**'
       - 'assets/space-v1.js'
       - 'assets/space-reconcile-v1.js'
+      - 'assets/space-managed-v1.js'
       - 'workspace.html'
       - 'ops/nextcloud/**'
       - '.github/workflows/space-v1-validation.yml'
@@ -16,6 +17,7 @@ on:
       - 'backend/**'
       - 'assets/space-v1.js'
       - 'assets/space-reconcile-v1.js'
+      - 'assets/space-managed-v1.js'
       - 'workspace.html'
       - 'ops/nextcloud/**'
       - '.github/workflows/space-v1-validation.yml'
@@ -36,10 +38,12 @@ jobs:
           set -euo pipefail
           node --check assets/space-v1.js
           node --check assets/space-reconcile-v1.js
+          node --check assets/space-managed-v1.js
           bash -n ops/nextcloud/ensure.sh
           bash -n ops/nextcloud/apps.sh
           bash -n ops/nextcloud/nginx-guard.sh
           bash -n ops/nextcloud/subdomain.sh
+          bash -n ops/nextcloud/sso.sh
 
       - name: Test Django schema and backend
         shell: bash
@@ -51,5 +55,5 @@ jobs:
           export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
           "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django makemigrations core --check --dry-run
           "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django check
-          "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django test core.test_space_v1
+          "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django test core.test_space_v1 core.test_space_complete
           "$RUNNER_TEMP/gravitas-space-tests/bin/python" -m django test core
