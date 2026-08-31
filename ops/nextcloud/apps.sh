@@ -41,10 +41,10 @@ ensure_app() {
 # than silently falling back to per-user storage when this app is unavailable.
 ensure_app groupfolders required
 
-# First-party / established collaboration surface exposed from Research V4.
-# Optional installation is deliberate: one incompatible community app must not
-# take the secure project file layer offline during a Nextcloud major upgrade.
-for app in calendar contacts tasks deck notes collectives tables forms spreed; do
+# First-party / established collaboration surface exposed from Research.
+# Assistant is optional because provider availability can differ between
+# Nextcloud versions; a failed optional AI app must never take file storage down.
+for app in calendar contacts tasks deck notes collectives tables forms spreed assistant; do
   ensure_app "$app" optional
 done
 
