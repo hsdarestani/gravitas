@@ -1,4 +1,5 @@
 import json
+from pathlib import PurePosixPath
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -18,13 +19,15 @@ from .space_service import (
     ensure_default_space,
     identity_for,
     known_markdown,
+    markdown_type,
     place_note,
     place_project,
     review_cloud_changes,
+    storage_name,
     sync_all_to_cloud,
     sync_note,
-    sync_project,
     upload_note_attachment,
+    walk_markdown,
 )
 
 
@@ -71,15 +74,75 @@ def _placement_json(placement):
     }
 
 
+def _note_json(resource, placement=None):
+    placement = placement or NoteSpacePlacement.objects.filter(resource=resource, owner=resource.owner).first()
+    return {
+        'id': resource.pk,
+        'title': resource.title,
+        'description': resource.description,
+        'body': resource.body,
+        'project_id': resource.project_id,
+        'space_parent_id': placement.space_parent_id if placement else None,
+        'parent_note_id': placement.parent_note_id if placement else None,
+        'markdown_path': placement.markdown_path if placement else None,
+        'attachments_path': placement.attachments_path if placement else None,
+        'sync_state': placement.sync_state if placement else 'pending',
+        'updated_at': resource.updated_at.isoformat(),
+    }
+
+
+def _backfill_space(user):
+    try:
+        ensure_default_space(user)
+    except cloud.CloudError:
+        # Keep database operations available even when Nextcloud is offline.
+        pass
+    for project in ResearchProject.objects.filter(owner=user, archived=False).exclude(space_placement__isnull=False):
+        try:
+            place_project(project)
+        except (ValueError, cloud.CloudError):
+            continue
+    for resource in KnowledgeResource.objects.filter(owner=user, kind=KnowledgeResource.Kind.NOTE).exclude(space_placement__isnull=False):
+        try:
+            place_note(resource)
+        except (ValueError, cloud.CloudError):
+            continue
+
+
+def _markdown_index(user):
+    known = known_markdown(user)
+    by_path = {item['path']: item for item in known}
+    try:
+        for entry in walk_markdown(user):
+            path = entry['path']
+            if path in by_path:
+                continue
+            try:
+                text = _read_text(identity_for(user), path)
+                kind = markdown_type(text)
+            except cloud.CloudError:
+                kind = 'markdown'
+            title = PurePosixPath(path).stem.replace('_', ' ') or path
+            item = {
+                'type': kind,
+                'title': title,
+                'path': path,
+                'editable': False,
+                'sync_state': 'external',
+                'object_id': None,
+            }
+            known.append(item)
+            by_path[path] = item
+    except cloud.CloudError:
+        pass
+    return sorted(known, key=lambda item: item['path'].lower())
+
+
 @require_http_methods(['GET'])
 def space_overview(request):
     if response := _auth(request):
         return response
-    try:
-        ensure_default_space(request.user)
-    except cloud.CloudError:
-        # Database structure remains usable while Nextcloud is temporarily down.
-        pass
+    _backfill_space(request.user)
     nodes = list(SpaceNode.objects.filter(owner=request.user).select_related('parent'))
     projects = list(ProjectSpacePlacement.objects.filter(owner=request.user).select_related('project', 'parent'))
     return JsonResponse({
@@ -94,7 +157,7 @@ def space_overview(request):
             'markdown_path': item.markdown_path,
             'sync_state': item.sync_state,
         } for item in projects],
-        'markdown': known_markdown(request.user),
+        'markdown': _markdown_index(request.user),
         'native_url': cloud.native_files_url('Space'),
     })
 
@@ -125,7 +188,8 @@ def space_nodes(request):
 def space_markdown_list(request):
     if response := _auth(request):
         return response
-    return JsonResponse({'ok': True, 'items': known_markdown(request.user)})
+    _backfill_space(request.user)
+    return JsonResponse({'ok': True, 'items': _markdown_index(request.user)})
 
 
 @require_http_methods(['GET'])
@@ -133,7 +197,7 @@ def space_markdown_content(request):
     if response := _auth(request):
         return response
     path = str(request.GET.get('path') or '').strip('/')
-    allowed = {item['path']: item for item in known_markdown(request.user)}
+    allowed = {item['path']: item for item in _markdown_index(request.user)}
     if path not in allowed:
         return _error('not_found', 404)
     try:
@@ -154,35 +218,31 @@ def space_note_detail(request, resource_id):
         return _error('not_found', 404)
     placement = NoteSpacePlacement.objects.filter(resource=resource, owner=request.user).select_related('space_parent', 'parent_note').first()
     if request.method == 'GET':
-        return JsonResponse({'ok': True, 'item': {
-            'id': resource.pk,
-            'title': resource.title,
-            'description': resource.description,
-            'body': resource.body,
-            'project_id': resource.project_id,
-            'space_parent_id': placement.space_parent_id if placement else None,
-            'parent_note_id': placement.parent_note_id if placement else None,
-            'markdown_path': placement.markdown_path if placement else None,
-            'attachments_path': placement.attachments_path if placement else None,
-            'sync_state': placement.sync_state if placement else 'pending',
-            'updated_at': resource.updated_at.isoformat(),
-        }})
+        if not placement:
+            try:
+                placement = place_note(resource)
+            except (ValueError, cloud.CloudError):
+                placement = None
+        return JsonResponse({'ok': True, 'item': _note_json(resource, placement)})
     if not can_edit(request.user, resource):
         return _error('permission_denied', 403)
     if request.method == 'DELETE':
         if placement:
-            identity = identity_for(request.user)
             try:
+                identity = identity_for(request.user)
                 if cloud.path_exists(identity, placement.markdown_path):
                     cloud.delete(identity, placement.markdown_path)
-                if cloud.path_exists(identity, placement.attachments_path):
-                    cloud.delete(identity, placement.attachments_path)
+                # Attachment folders can contain user data, therefore deleting a
+                # note does not silently remove that folder. The user can clean it
+                # up directly in Nextcloud after reviewing its contents.
             except cloud.CloudError:
                 pass
         resource.delete()
         return JsonResponse({'ok': True})
 
     data = _body(request)
+    old_path = placement.markdown_path if placement else None
+    old_title = resource.title
     if 'title' in data:
         title = str(data['title']).strip()
         if not title:
@@ -194,16 +254,21 @@ def space_note_detail(request, resource_id):
         resource.body = str(data['body'])
     resource.save()
 
-    space_parent = None
-    project = resource.project
-    parent_note = None
+    space_parent = placement.space_parent if placement else None
+    project = placement.project if placement else resource.project
+    parent_note = placement.parent_note if placement else None
     if data.get('space_parent_id'):
-        space_parent = SpaceNode.objects.filter(pk=data['space_parent_id'], owner=request.user).first()
+        space_parent = SpaceNode.objects.filter(pk=data['space_parent_id'], owner=request.user, kind=SpaceNode.Kind.CATEGORY).first()
+        if not space_parent:
+            return _error('invalid_space_parent')
         project = None
+        parent_note = None
     if data.get('project_id'):
         project = ResearchProject.objects.filter(pk=data['project_id']).first()
         if not project or not can_edit(request.user, project):
             return _error('invalid_project')
+        space_parent = None
+        parent_note = None
     if data.get('parent_note_id'):
         parent_note = NoteSpacePlacement.objects.filter(resource_id=data['parent_note_id'], owner=request.user).first()
         if not parent_note:
@@ -211,13 +276,35 @@ def space_note_detail(request, resource_id):
         project = None
         space_parent = None
     try:
-        if placement and not any(key in data for key in ('space_parent_id', 'project_id', 'parent_note_id')):
-            sync_note(resource)
+        if not placement:
+            placement = place_note(resource, space_parent=space_parent, project=project, parent_note=parent_note)
+        elif any(key in data for key in ('space_parent_id', 'project_id', 'parent_note_id')):
+            placement = place_note(resource, space_parent=space_parent, project=project, parent_note=parent_note)
+        elif old_title != resource.title and not placement.children.exists():
+            identity = identity_for(request.user)
+            attachments_exist = cloud.path_exists(identity, placement.attachments_path)
+            if not attachments_exist:
+                base = str(PurePosixPath(placement.markdown_path).parent)
+                name = storage_name(resource.title)
+                placement.storage_name = name
+                placement.markdown_path = f'{base}/{name}.md'
+                placement.attachments_path = f'{base}/{name}'
+                placement.save(update_fields=['storage_name', 'markdown_path', 'attachments_path', 'updated_at'])
+                sync_note(resource)
+                if old_path and old_path != placement.markdown_path and cloud.path_exists(identity, old_path):
+                    cloud.delete(identity, old_path)
+            else:
+                # Keep a stable filesystem name when an attachment folder exists;
+                # moving a non-empty directory must be an explicit Nextcloud action.
+                sync_note(resource)
         else:
-            place_note(resource, space_parent=space_parent, project=project, parent_note=parent_note)
-    except (ValueError, cloud.CloudError) as exc:
-        return _error(str(exc) if isinstance(exc, ValueError) else 'cloud_sync_failed', 503 if isinstance(exc, cloud.CloudError) else 400)
-    return space_note_detail(request, resource.pk)
+            sync_note(resource)
+    except ValueError as exc:
+        return _error(str(exc))
+    except cloud.CloudError:
+        return _error('cloud_sync_failed', 503)
+    placement.refresh_from_db()
+    return JsonResponse({'ok': True, 'item': _note_json(resource, placement)})
 
 
 @require_http_methods(['GET', 'POST'])
@@ -231,7 +318,7 @@ def space_note_attachments(request, resource_id):
     if not placement:
         try:
             placement = place_note(resource)
-        except cloud.CloudError:
+        except (ValueError, cloud.CloudError):
             return _error('cloud_sync_failed', 503)
     if request.method == 'GET':
         try:
@@ -292,8 +379,7 @@ def platform_projects_v6(request):
     if response.status_code >= 400:
         return response
     payload = _response_data(response)
-    project_id = (payload.get('project') or {}).get('id')
-    project = ResearchProject.objects.filter(pk=project_id).first()
+    project = ResearchProject.objects.filter(pk=(payload.get('project') or {}).get('id')).first()
     if project:
         try:
             placement = place_project(project, parent)
@@ -310,7 +396,13 @@ def platform_project_detail_v6(request, project_id):
         if response.status_code >= 400:
             return response
         payload = _response_data(response)
+        project = ResearchProject.objects.filter(pk=project_id, owner=request.user).first()
         placement = ProjectSpacePlacement.objects.filter(project_id=project_id, owner=request.user).first()
+        if project and not placement:
+            try:
+                placement = place_project(project)
+            except (ValueError, cloud.CloudError):
+                placement = None
         if placement:
             payload['project']['space'] = _placement_json(placement)
         return JsonResponse(payload)
@@ -319,14 +411,15 @@ def platform_project_detail_v6(request, project_id):
     if response.status_code >= 400 or request.method == 'DELETE':
         return response
     project = ResearchProject.objects.filter(pk=project_id).first()
-    if project:
+    if project and project.owner_id == request.user.pk:
         parent = None
         if data.get('space_parent_id'):
             parent = SpaceNode.objects.filter(pk=data['space_parent_id'], owner=request.user, kind=SpaceNode.Kind.CATEGORY).first()
             if not parent:
                 return _error('project_parent_must_be_category')
+        current = ProjectSpacePlacement.objects.filter(project=project, owner=request.user).select_related('parent').first()
         try:
-            placement = place_project(project, parent or getattr(getattr(project, 'space_placement', None), 'parent', None))
+            placement = place_project(project, parent or (current.parent if current else None))
             payload = _response_data(response)
             payload['project']['space'] = _placement_json(placement)
             return JsonResponse(payload)
@@ -339,6 +432,8 @@ def platform_project_detail_v6(request, project_id):
 def platform_resources_v6(request):
     if request.method == 'GET':
         return base_resources(request)
+    if response := _auth(request):
+        return response
     data = _body(request)
     response = base_resources(request)
     if response.status_code >= 400 or str(data.get('kind')) != KnowledgeResource.Kind.NOTE:
@@ -348,22 +443,29 @@ def platform_resources_v6(request):
     resource = KnowledgeResource.objects.filter(pk=item.get('id'), owner=request.user).first()
     if not resource:
         return response
-    space_parent = SpaceNode.objects.filter(pk=data.get('space_parent_id'), owner=request.user).first() if data.get('space_parent_id') else None
-    parent_note = NoteSpacePlacement.objects.filter(resource_id=data.get('parent_note_id'), owner=request.user).first() if data.get('parent_note_id') else None
-    project = resource.project
+    space_parent = None
+    if data.get('space_parent_id'):
+        space_parent = SpaceNode.objects.filter(pk=data['space_parent_id'], owner=request.user, kind=SpaceNode.Kind.CATEGORY).first()
+        if not space_parent:
+            resource.delete()
+            return _error('invalid_space_parent')
+    parent_note = None
+    if data.get('parent_note_id'):
+        parent_note = NoteSpacePlacement.objects.filter(resource_id=data['parent_note_id'], owner=request.user).first()
+        if not parent_note:
+            resource.delete()
+            return _error('invalid_parent_note')
     try:
-        placement = place_note(resource, space_parent=space_parent, project=project if not space_parent and not parent_note else None, parent_note=parent_note)
+        placement = place_note(resource, space_parent=space_parent, project=resource.project if not space_parent and not parent_note else None, parent_note=parent_note)
         item['space'] = {
             'markdown_path': placement.markdown_path,
             'attachments_path': placement.attachments_path,
             'sync_state': placement.sync_state,
         }
-        payload['item'] = item
-        return JsonResponse(payload, status=response.status_code)
     except (ValueError, cloud.CloudError):
         item['space'] = {'sync_state': 'pending'}
-        payload['item'] = item
-        return JsonResponse(payload, status=response.status_code)
+    payload['item'] = item
+    return JsonResponse(payload, status=response.status_code)
 
 
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
@@ -373,8 +475,8 @@ def platform_resource_detail_v6(request, resource_id):
     response = base_resource_detail(request, resource_id)
     if response.status_code >= 400 or not was_note or request.method == 'DELETE':
         return response
-    resource = KnowledgeResource.objects.filter(pk=resource_id).first()
-    if resource and resource.owner_id == request.user.pk:
+    resource = KnowledgeResource.objects.filter(pk=resource_id, owner=request.user).first()
+    if resource:
         try:
             sync_note(resource)
         except cloud.CloudError:
