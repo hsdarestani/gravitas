@@ -96,7 +96,11 @@ def space_project_full(request, project_id):
     if request.method == 'GET':
         try:
             link = existing or place_project(project, request.user)
-        except (ValueError, cloud.CloudError):
+        except SpaceConflict as exc:
+            return _error('space_sync_conflict', 409, path=exc.path, confirmation_required=True)
+        except ValueError as exc:
+            return _error(str(exc))
+        except cloud.CloudError:
             return _error('cloud_unavailable', 503)
         return JsonResponse({'ok': True, 'placement': _project_json(link)})
     data = _body(request)
@@ -165,7 +169,11 @@ def space_note_full(request, resource_id):
     if request.method == 'GET':
         try:
             link = existing or place_note(resource)
-        except (ValueError, cloud.CloudError):
+        except SpaceConflict as exc:
+            return _error('space_sync_conflict', 409, path=exc.path, confirmation_required=True)
+        except ValueError as exc:
+            return _error(str(exc))
+        except cloud.CloudError:
             return _error('cloud_unavailable', 503)
         return JsonResponse({'ok': True, 'placement': _note_json(link)})
     if not can_edit(request.user, resource):
@@ -229,7 +237,9 @@ def space_items(request):
         )
     except ValueError as exc:
         return _error(str(exc))
-    except (SpaceConflict, cloud.CloudError):
+    except SpaceConflict as exc:
+        return _error('space_sync_conflict', 409, path=exc.path, confirmation_required=True)
+    except cloud.CloudError:
         return _error('cloud_unavailable', 503)
     return JsonResponse({'ok': True, 'item': item_json(item)}, status=201)
 
@@ -251,33 +261,48 @@ def space_item_detail(request, item_id):
         except cloud.CloudError:
             return _error('cloud_unavailable', 503)
         return JsonResponse({'ok': True})
+
     data = _body(request)
-    project = item.project
-    category = item.category
-    parent = item.parent
+    placement = {}
     if 'project_id' in data:
         pid = data.get('project_id')
         project = None if pid in (None, '') else ResearchProject.objects.filter(pk=pid).first()
         if pid not in (None, '') and (not project or not can_view(request.user, project)):
             return _error('invalid_project')
+        placement['project'] = project
+        if project:
+            placement['category'] = None
+            placement['parent'] = None
     if 'category_id' in data:
         cid = data.get('category_id')
         category = None if cid in (None, '') else SpaceNode.objects.filter(pk=cid, owner=request.user, kind=SpaceNode.Kind.CATEGORY).first()
         if cid not in (None, '') and not category:
             return _error('invalid_managed_category')
+        placement['category'] = category
+        if category:
+            placement['project'] = None
+            placement['parent'] = None
     if 'parent_id' in data:
         parent_id = data.get('parent_id')
         parent = None if parent_id in (None, '') else SpaceManagedItem.objects.filter(pk=parent_id, owner=request.user).first()
         if parent_id not in (None, '') and not parent:
             return _error('invalid_managed_parent')
+        placement['parent'] = parent
+        if parent:
+            placement['project'] = None
+            placement['category'] = None
+
     force = bool(data.get('force'))
     if force and not data.get('confirmed'):
         return _error('confirmation_required', 409)
     try:
         item = update_item(
-            item, title=data.get('title'), body=data.get('body') if 'body' in data else None,
+            item,
+            title=data.get('title') if 'title' in data else None,
+            body=data.get('body') if 'body' in data else None,
             metadata=data.get('metadata') if 'metadata' in data else None,
-            project=project, category=category, parent=parent, force=force,
+            force=force,
+            **placement,
         )
     except SpaceConflict as exc:
         return _error('space_sync_conflict', 409, path=exc.path, confirmation_required=True)
