@@ -7,6 +7,7 @@ from django.dispatch import receiver
 from . import cloud
 from .models import KnowledgeResource, ResearchProject
 from .space_fs import SpaceConflict, ensure_note_link, ensure_project_link, sync_note, sync_project
+from .space_models import ProjectSpaceLink
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +16,22 @@ def _sync_project(project_id):
     project = ResearchProject.objects.select_related('owner', 'workspace').filter(pk=project_id).first()
     if not project:
         return
-    try:
-        ensure_project_link(project, sync=False)
-        sync_project(project)
-    except SpaceConflict:
-        logger.info('Project %s has a Nextcloud metadata conflict; user confirmation required', project_id)
-    except (cloud.CloudError, ValueError):
-        logger.exception('Project %s Space sync deferred', project_id)
+    # The Space hierarchy is personal. Update every member placement that
+    # already exists, while always ensuring the owner has a canonical copy.
+    users = {project.owner_id: project.owner}
+    for link in ProjectSpaceLink.objects.filter(project=project).select_related('user'):
+        users[link.user_id] = link.user
+    for user in users.values():
+        try:
+            ensure_project_link(project, user=user, sync=False)
+            sync_project(project, user=user)
+        except SpaceConflict:
+            logger.info(
+                'Project %s Space copy for user %s has a Nextcloud metadata conflict; confirmation required',
+                project_id, user.pk,
+            )
+        except (cloud.CloudError, ValueError):
+            logger.exception('Project %s Space sync for user %s deferred', project_id, user.pk)
 
 
 def _sync_note(resource_id):
