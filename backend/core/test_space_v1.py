@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -8,6 +9,7 @@ from .models import KnowledgeResource, ResearchProject
 from .platform_api import ensure_dual_workspaces
 from .space_fs import create_node, ensure_note_link, ensure_project_link, filesystem_name
 from .space_models import AIProviderCredential, SpaceNode
+from .space_reconcile import _parse_markdown
 
 
 class SpaceFilesystemTests(TestCase):
@@ -20,7 +22,8 @@ class SpaceFilesystemTests(TestCase):
 
     def test_filesystem_name_replaces_spaces_with_underscores(self):
         self.assertEqual(filesystem_name('  Protein folding project  '), 'Protein_folding_project')
-        self.assertEqual(filesystem_name('Nested / Category'), 'Nested_Category')
+        self.assertEqual(filesystem_name('Nested   Category'), 'Nested_Category')
+        self.assertNotIn('/', filesystem_name('Nested / Category'))
 
     def test_nested_categories_keep_parent_paths(self):
         research = create_node(self.user, 'Research', SpaceNode.Kind.SUBSPACE, sync=False)
@@ -43,6 +46,7 @@ class SpaceFilesystemTests(TestCase):
         self.assertEqual(link.folder_path, 'Space/Research/Client_Work/Protein_Folding')
         self.assertEqual(link.metadata_path, 'Space/Research/Client_Work/Protein_Folding.md')
         self.assertEqual(link.category, category)
+        self.assertEqual(link.user, self.user)
 
     @patch('core.space_fs.ensure_space_root')
     def test_nested_note_uses_parent_same_name_attachment_folder(self, ensure_root):
@@ -61,6 +65,24 @@ class SpaceFilesystemTests(TestCase):
         self.assertEqual(parent_link.attachments_path, 'Space/Personal/Notes/Reading_Notes')
         self.assertEqual(child_link.note_path, 'Space/Personal/Notes/Reading_Notes/Paper_One.md')
         self.assertEqual(child_link.parent_note, parent)
+
+    def test_markdown_parser_recovers_tag_metadata_and_body(self):
+        tag, metadata, body = _parse_markdown(
+            '@note\n---\ngravitas_type: note\ntitle: "Field Note"\n---\n\n# Field Note\n\nRemote body\n'
+        )
+        self.assertEqual(tag, 'note')
+        self.assertEqual(metadata['title'], 'Field Note')
+        self.assertEqual(body, 'Remote body')
+
+    def test_reconcile_requires_explicit_confirmation(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            '/api/platform/space/reconcile/',
+            json.dumps({}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error'], 'confirmation_required')
 
 
 class AIProviderCredentialTests(TestCase):
