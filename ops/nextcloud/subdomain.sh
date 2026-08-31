@@ -5,6 +5,7 @@ MAIN_DOMAIN="${1:-gravitasplus.com}"
 CLOUD_DOMAIN="${2:-cloud.gravitasplus.com}"
 PUBLIC_URL_FILE=/etc/gravitas/nextcloud-public-url
 CREDS=/etc/gravitas/nextcloud-admin-credentials
+ENV_FILE=/etc/gravitas/nextcloud.env
 SITE=/etc/nginx/sites-available/gravitas-nextcloud-cloud
 
 # Start with an HTTP-only vhost so Certbot can complete the ACME challenge.
@@ -48,8 +49,6 @@ if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
     fi
 fi
 
-# Certbot may have edited the temporary vhost. Replace it with the canonical,
-# deterministic proxy so future deploys are independent of Certbot formatting.
 cat > "$SITE" <<NGINX
 server {
     listen 80;
@@ -95,6 +94,43 @@ NGINX
 ln -sfn "$SITE" /etc/nginx/sites-enabled/gravitas-nextcloud-cloud
 nginx -t
 systemctl reload nginx
+
+# The official Nextcloud Docker image reads OVERWRITEWEBROOT directly from the
+# container environment. Recreate only the stateless app container after the
+# certificate is valid so a later restart cannot restore /nextcloud. Database,
+# Redis and the persistent Nextcloud HTML/data volume remain untouched.
+if [ -f "$ENV_FILE" ]; then
+    # shellcheck disable=SC1090
+    . "$ENV_FILE"
+    IMAGE="$(docker inspect -f '{{.Config.Image}}' gravitas-nextcloud 2>/dev/null || true)"
+    [ -n "$IMAGE" ] || IMAGE=nextcloud:stable-apache
+    docker rm -f gravitas-nextcloud >/dev/null 2>&1 || true
+    docker run -d --name gravitas-nextcloud --restart unless-stopped \
+      --network gravitas-nextcloud \
+      -p 127.0.0.1:8081:80 \
+      -e POSTGRES_HOST=gravitas-nextcloud-db \
+      -e POSTGRES_DB=nextcloud \
+      -e POSTGRES_USER=nextcloud \
+      -e POSTGRES_PASSWORD="$NC_DB_PASSWORD" \
+      -e REDIS_HOST=gravitas-nextcloud-redis \
+      -e NEXTCLOUD_ADMIN_USER="$NC_ADMIN_USER" \
+      -e NEXTCLOUD_ADMIN_PASSWORD="$NC_ADMIN_PASSWORD" \
+      -e NEXTCLOUD_TRUSTED_DOMAINS="$MAIN_DOMAIN $CLOUD_DOMAIN" \
+      -e TRUSTED_PROXIES=172.16.0.0/12 \
+      -e OVERWRITEHOST="$CLOUD_DOMAIN" \
+      -e OVERWRITEPROTOCOL=https \
+      -e OVERWRITECLIURL="https://$CLOUD_DOMAIN" \
+      -v gravitas_nextcloud_html:/var/www/html \
+      "$IMAGE" >/dev/null
+fi
+
+for _ in $(seq 1 120); do
+    if curl -fsS http://127.0.0.1:8081/status.php >/dev/null 2>&1; then
+        break
+    fi
+    sleep 2
+done
+curl -fsS http://127.0.0.1:8081/status.php | grep -q '"installed":true'
 
 occ() {
     docker exec -u www-data gravitas-nextcloud php occ "$@"
