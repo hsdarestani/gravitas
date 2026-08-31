@@ -16,7 +16,7 @@ function inject(){
   if(sync&&sync.nextSibling)box.insertBefore(button,sync.nextSibling);else box.appendChild(button);
 }
 function reconcile(){
-  if(!confirm('Accept Nextcloud-side Markdown changes into Gravitas? Conflicted notes/projects will update the database and new @note files will be imported.'))return;
+  if(!confirm('Accept confirmed Nextcloud-side Markdown and structural changes into Gravitas? Notes, projects, categories, subspaces, subprojects, tasks, subtasks and repositories can be reconciled.'))return;
   var button=document.querySelector('[data-space-reconcile]');if(button)button.disabled=true;
   api('/api/platform/space/reconcile/',{method:'POST',body:JSON.stringify({confirmed:true})}).then(function(d){
     var imported=(d.imported||[]).length,updated=(d.updated||[]).length,errors=(d.errors||[]).length;
@@ -27,4 +27,12 @@ function reconcile(){
 document.addEventListener('click',function(e){if(e.target.closest('[data-space-reconcile]')){e.preventDefault();reconcile()}},true);
 var observer=new MutationObserver(function(){clearTimeout(timer);timer=setTimeout(inject,80)});observer.observe(document.body,{childList:true,subtree:true});
 window.addEventListener('popstate',inject);document.addEventListener('click',function(){setTimeout(inject,40)});inject();
+
+if(!document.querySelector('script[data-space-managed]')){
+  var managed=document.createElement('script');
+  managed.src='/assets/space-managed-v1.js?v=20260831a';
+  managed.async=false;
+  managed.dataset.spaceManaged='1';
+  document.body.appendChild(managed);
+}
 })();
