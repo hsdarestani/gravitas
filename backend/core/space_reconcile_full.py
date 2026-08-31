@@ -10,10 +10,17 @@ from . import cloud
 from .models import KnowledgeResource, ResearchProject
 from .nextcloud_bridge import ensure_user
 from .platform_access import can_manage
-from .space_fs import _remote_text, _sha, remote_markdown_files
-from .space_items import accept_remote_item
+from .space_fs import _remote_text, _sha, filesystem_name, remote_markdown_files
+from .space_items import accept_remote_item, update_item
 from .space_models import NoteSpaceLink, ProjectSpaceLink, SpaceManagedItem, SpaceNode
-from .space_moves import _rewrite_related_paths, adopt_node_remote_path, sync_note_moveaware, sync_project_moveaware
+from .space_moves import (
+    _rewrite_related_paths,
+    adopt_node_remote_path,
+    move_node,
+    move_remote,
+    sync_note_moveaware,
+    sync_project_moveaware,
+)
 from .space_reconcile import _accept_note, _accept_project, _import_remote_note, _parse_markdown, _remote_note_context
 
 
@@ -39,15 +46,23 @@ def _remote_folder_for_sidecar(path):
     return path[:-3] if str(path).lower().endswith('.md') else str(path)
 
 
+def _ensure_moved_folder(identity, old_folder, new_folder):
+    if cloud.path_exists(identity, new_folder):
+        return
+    if old_folder and old_folder != new_folder and cloud.path_exists(identity, old_folder):
+        move_remote(identity, old_folder, new_folder, folder=True)
+    else:
+        cloud.make_folder(identity, new_folder)
+
+
 def _adopt_project_path(user, identity, link, remote_path):
     folder_path = _remote_folder_for_sidecar(remote_path)
     parent_path = str(PurePosixPath(folder_path).parent)
     category = SpaceNode.objects.filter(owner=user, kind=SpaceNode.Kind.CATEGORY, nextcloud_path=parent_path).first()
     if not category:
         raise ValueError('remote_project_category_not_indexed')
-    if not cloud.path_exists(identity, folder_path):
-        raise ValueError('remote_project_folder_missing')
     old_folder = link.folder_path
+    _ensure_moved_folder(identity, old_folder, folder_path)
     with transaction.atomic():
         link.category = category
         link.folder_path = folder_path
@@ -65,7 +80,9 @@ def _adopt_note_path(user, identity, link, remote_path):
     del workspace
     old_folder = link.attachments_path
     attachments_path = _remote_folder_for_sidecar(remote_path)
-    if not cloud.path_exists(identity, attachments_path):
+    if old_folder:
+        _ensure_moved_folder(identity, old_folder, attachments_path)
+    elif not cloud.path_exists(identity, attachments_path):
         attachments_path = ''
     with transaction.atomic():
         link.category = category
@@ -122,24 +139,68 @@ def _import_managed(user, identity, remote, text, tag, metadata, body):
     )
     if not cloud.path_exists(identity, folder_path):
         cloud.make_folder(identity, folder_path)
+    expected_name = filesystem_name(item.title)
+    if PurePosixPath(item.file_path).stem != expected_name:
+        item = update_item(item, title=item.title, force=True)
     return item
 
 
-def _reconcile_node(user, identity, remote, tag, metadata):
-    node_id = _int_id(metadata.get('gravitas_id'))
-    if not node_id:
-        return None
-    node = SpaceNode.objects.filter(pk=node_id, owner=user, kind=tag).first()
-    if not node:
-        return None
+def _import_space_node(user, identity, remote, tag, metadata, text):
     remote_folder = _remote_folder_for_sidecar(remote['path'])
+    parent_path = str(PurePosixPath(remote_folder).parent)
     title = str(metadata.get('title') or '').strip()[:220] or PurePosixPath(remote_folder).name.replace('_', ' ')
+    if tag == SpaceNode.Kind.SUBSPACE:
+        if parent_path != 'Space':
+            raise ValueError('subspace_must_be_top_level')
+        parent = None
+    else:
+        parent = SpaceNode.objects.filter(
+            owner=user,
+            nextcloud_path=parent_path,
+            kind__in=[SpaceNode.Kind.SUBSPACE, SpaceNode.Kind.CATEGORY],
+        ).first()
+        if not parent:
+            raise ValueError('remote_parent_not_indexed')
     if not cloud.path_exists(identity, remote_folder):
-        raise ValueError('remote_space_folder_missing')
-    if node.nextcloud_path != remote_folder or node.title != title:
+        cloud.make_folder(identity, remote_folder)
+    node = SpaceNode.objects.create(
+        owner=user,
+        parent=parent,
+        kind=tag,
+        title=title,
+        filesystem_name=PurePosixPath(remote_folder).name,
+        nextcloud_path=remote_folder,
+        content_hash=_sha(text),
+        sync_state='synced',
+        sync_error='',
+    )
+    if PurePosixPath(remote_folder).name != filesystem_name(title):
+        node = move_node(node, title=title, parent=parent, force=True)
+    return node
+
+
+def _reconcile_node(user, identity, remote, tag, metadata, text):
+    node_id = _int_id(metadata.get('gravitas_id'))
+    remote_folder = _remote_folder_for_sidecar(remote['path'])
+    node = SpaceNode.objects.filter(pk=node_id, owner=user, kind=tag).first() if node_id else None
+    if not node:
+        node = SpaceNode.objects.filter(owner=user, nextcloud_path=remote_folder, kind=tag).first()
+    if not node:
+        return _import_space_node(user, identity, remote, tag, metadata, text)
+
+    title = str(metadata.get('title') or '').strip()[:220] or PurePosixPath(remote_folder).name.replace('_', ' ')
+    old_folder = node.nextcloud_path
+    if not cloud.path_exists(identity, remote_folder):
+        _ensure_moved_folder(identity, old_folder, remote_folder)
+    if node.nextcloud_path != remote_folder:
         adopt_node_remote_path(node, remote_folder, title=title)
-    text = _remote_text(identity, remote['path']) or ''
-    node.content_hash = _sha(text)
+        node.refresh_from_db()
+    desired_name = filesystem_name(title)
+    if node.title != title or PurePosixPath(node.nextcloud_path).name != desired_name:
+        node = move_node(node, title=title, parent=node.parent, force=True)
+    final_path = node.nextcloud_path + '.md'
+    final_text = _remote_text(identity, final_path) or text
+    node.content_hash = _sha(final_text)
     node.sync_state = 'synced'
     node.sync_error = ''
     node.save(update_fields=['content_hash', 'sync_state', 'sync_error', 'updated_at'])
@@ -174,11 +235,12 @@ def reconcile_space_complete(request):
                 continue
             tag, metadata, body = _parse_markdown(text)
             if tag in {SpaceNode.Kind.SUBSPACE, SpaceNode.Kind.CATEGORY}:
-                node = _reconcile_node(request.user, identity, remote, tag, metadata)
-                if node:
-                    updated.append(path)
-                else:
-                    skipped.append(path)
+                existing_id = _int_id(metadata.get('gravitas_id'))
+                existed = bool(existing_id and SpaceNode.objects.filter(pk=existing_id, owner=request.user).exists())
+                node = _reconcile_node(request.user, identity, remote, tag, metadata, text)
+                (updated if existed else imported).append(path if existed else {
+                    'path': node.nextcloud_path + '.md', 'type': tag, 'id': node.pk, 'title': node.title,
+                })
                 continue
 
             if tag == 'project':
@@ -239,14 +301,22 @@ def reconcile_space_complete(request):
                     context = _managed_context(request.user, path)
                     if not context:
                         raise ValueError('remote_managed_parent_not_indexed')
+                    old_folder = item.folder_path
+                    new_folder = _remote_folder_for_sidecar(path)
+                    _ensure_moved_folder(identity, old_folder, new_folder)
                     item.parent = context['parent']
                     item.project = context['project']
                     item.category = context['category']
                     accept_remote_item(item, text, remote_path=path)
+                    if old_folder != new_folder:
+                        _rewrite_related_paths(request.user, old_folder, new_folder)
+                    item.refresh_from_db()
+                    if PurePosixPath(item.file_path).stem != filesystem_name(item.title):
+                        item = update_item(item, title=item.title, force=True)
                     updated.append(path)
                 else:
                     item = _import_managed(request.user, identity, remote, text, tag, metadata, body)
-                    imported.append({'path': path, 'type': tag, 'id': item.pk, 'title': item.title})
+                    imported.append({'path': item.file_path, 'type': tag, 'id': item.pk, 'title': item.title})
                 continue
 
             skipped.append(path)
