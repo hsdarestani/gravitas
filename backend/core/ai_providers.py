@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db import transaction
 
 from . import cloud
+from .models import NextcloudIdentity, StoragePlan
 from .space_models import AIProviderAccount
 
 
@@ -52,15 +53,19 @@ def serialize_provider(item):
     }
 
 
+def _has_nextcloud_identity(user):
+    return NextcloudIdentity.objects.filter(user=user).exists()
+
+
 def builtins(user):
     configured = list(AIProviderAccount.objects.filter(user=user))
     providers = {item.provider for item in configured if item.enabled}
-    return [
+    result = [
         {
             'provider': AIProviderAccount.Provider.NEXTCLOUD,
             'label': 'Nextcloud AI',
             'description': 'Uses the AI Task Processing providers connected to your Nextcloud account.',
-            'available': bool(getattr(user, 'gravitas_nextcloud', None)),
+            'available': _has_nextcloud_identity(user),
             'managed': True,
         },
         {
@@ -70,20 +75,21 @@ def builtins(user):
             'available': bool(getattr(settings, 'CLOUDFLARE_AI_ACCOUNT_ID', '') and getattr(settings, 'CLOUDFLARE_AI_API_TOKEN', '')),
             'managed': True,
         },
-        {
+    ]
+    for key in (
+        AIProviderAccount.Provider.OPENAI,
+        AIProviderAccount.Provider.ANTHROPIC,
+        AIProviderAccount.Provider.GEMINI,
+        AIProviderAccount.Provider.OPENAI_COMPATIBLE,
+    ):
+        result.append({
             'provider': key,
             'label': PROVIDER_DEFAULTS[key]['label'],
             'description': 'Bring your own account/API key.',
             'available': key in providers,
             'managed': False,
-        }
-        for key in (
-            AIProviderAccount.Provider.OPENAI,
-            AIProviderAccount.Provider.ANTHROPIC,
-            AIProviderAccount.Provider.GEMINI,
-            AIProviderAccount.Provider.OPENAI_COMPATIBLE,
-        )
-    ]
+        })
+    return result
 
 
 def save_provider(user, data, item=None):
@@ -132,11 +138,10 @@ def default_provider(user):
     first = AIProviderAccount.objects.filter(user=user, enabled=True).first()
     if first:
         return first
-    # Prefer Nextcloud AI when a native identity exists, otherwise managed AI.
-    if getattr(user, 'gravitas_nextcloud', None):
-        return AIProviderAccount(user=user, provider='nextcloud', label='Nextcloud AI', enabled=True)
+    if _has_nextcloud_identity(user):
+        return AIProviderAccount(user=user, provider=AIProviderAccount.Provider.NEXTCLOUD, label='Nextcloud AI', enabled=True)
     if getattr(settings, 'CLOUDFLARE_AI_ACCOUNT_ID', '') and getattr(settings, 'CLOUDFLARE_AI_API_TOKEN', ''):
-        return AIProviderAccount(user=user, provider='gravitas', label='Gravitas AI', enabled=True)
+        return AIProviderAccount(user=user, provider=AIProviderAccount.Provider.GRAVITAS, label='Gravitas AI', enabled=True)
     raise AIProviderError('no_ai_provider_configured')
 
 
@@ -159,7 +164,7 @@ def _raise_http(response, code):
 
 def _openai(account, prompt, system_prompt):
     key = decrypt_secret(account.encrypted_api_key)
-    model = account.model or PROVIDER_DEFAULTS['openai']['model']
+    model = account.model or PROVIDER_DEFAULTS[AIProviderAccount.Provider.OPENAI]['model']
     response = requests.post(
         'https://api.openai.com/v1/chat/completions',
         headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
@@ -175,7 +180,7 @@ def _openai(account, prompt, system_prompt):
 
 def _anthropic(account, prompt, system_prompt):
     key = decrypt_secret(account.encrypted_api_key)
-    model = account.model or PROVIDER_DEFAULTS['anthropic']['model']
+    model = account.model or PROVIDER_DEFAULTS[AIProviderAccount.Provider.ANTHROPIC]['model']
     payload = {'model': model, 'max_tokens': 4096, 'messages': [{'role': 'user', 'content': prompt}]}
     if system_prompt:
         payload['system'] = system_prompt
@@ -194,7 +199,7 @@ def _anthropic(account, prompt, system_prompt):
 
 def _gemini(account, prompt, system_prompt):
     key = decrypt_secret(account.encrypted_api_key)
-    model = account.model or PROVIDER_DEFAULTS['gemini']['model']
+    model = account.model or PROVIDER_DEFAULTS[AIProviderAccount.Provider.GEMINI]['model']
     text = f'{system_prompt}\n\n{prompt}'.strip() if system_prompt else prompt
     response = requests.post(
         f'https://generativelanguage.googleapis.com/v1beta/models/{quote(model, safe="-._")}:generateContent',
@@ -213,7 +218,12 @@ def _gemini(account, prompt, system_prompt):
 def _compatible(account, prompt, system_prompt):
     key = decrypt_secret(account.encrypted_api_key)
     base = account.base_url.rstrip('/')
-    endpoint = base + ('/chat/completions' if base.endswith('/v1') else '/v1/chat/completions' if '/v1' not in base.rsplit('/', 1)[-1] else '/chat/completions')
+    if base.endswith('/chat/completions'):
+        endpoint = base
+    elif base.endswith('/v1'):
+        endpoint = base + '/chat/completions'
+    else:
+        endpoint = base + '/v1/chat/completions'
     response = requests.post(
         endpoint,
         headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
@@ -247,7 +257,9 @@ def _gravitas(prompt, system_prompt):
 
 
 def _nextcloud(user, prompt, system_prompt):
-    identity = cloud.ensure_identity(user, getattr(getattr(user, 'gravitas_storage_plan', None), 'quota_bytes', settings.GRAVITAS_DEFAULT_QUOTA_BYTES))
+    plan = StoragePlan.objects.filter(user=user).first()
+    quota = plan.quota_bytes if plan else settings.GRAVITAS_DEFAULT_QUOTA_BYTES
+    identity = cloud.ensure_identity(user, quota)
     text = f'{system_prompt}\n\n{prompt}'.strip() if system_prompt else prompt
     response = cloud._request(
         'POST',
@@ -267,8 +279,10 @@ def _nextcloud(user, prompt, system_prompt):
         response = cloud._request(
             'GET',
             f'{settings.NEXTCLOUD_INTERNAL_URL}/ocs/v2.php/taskprocessing/task/{task_id}',
-            auth=cloud._auth(identity), expected={200},
-            headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'}, params={'format': 'json'},
+            auth=cloud._auth(identity),
+            expected={200},
+            headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'},
+            params={'format': 'json'},
         )
         task = cloud._ocs_data(response, 'Could not read Nextcloud AI task') or {}
         status = str(task.get('status') or '').upper()
