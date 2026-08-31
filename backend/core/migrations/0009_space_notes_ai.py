@@ -41,7 +41,8 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('category', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='projects', to='core.spacenode')),
-                ('project', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='space_link', to='core.researchproject')),
+                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='space_links', to='core.researchproject')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='gravitas_project_space_links', to=settings.AUTH_USER_MODEL)),
             ],
         ),
         migrations.CreateModel(
@@ -83,7 +84,11 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='spacenode',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('kind', 'subspace'), ('parent__isnull', True)), ('kind', 'category'), _connector='OR'), name='gravitas_subspace_is_top_level'),
+            constraint=models.CheckConstraint(condition=(models.Q(kind='subspace', parent__isnull=True) | models.Q(kind='category')), name='gravitas_subspace_is_top_level'),
+        ),
+        migrations.AddConstraint(
+            model_name='projectspacelink',
+            constraint=models.UniqueConstraint(fields=('project', 'user'), name='unique_gravitas_project_space_user'),
         ),
         migrations.AddConstraint(
             model_name='aiprovidercredential',
