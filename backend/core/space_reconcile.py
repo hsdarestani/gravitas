@@ -1,5 +1,7 @@
 import hashlib
 import json
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import PurePosixPath
 
 from django.db import transaction
@@ -10,7 +12,9 @@ from django.views.decorators.http import require_POST
 from . import cloud
 from .models import KnowledgeResource
 from .nextcloud_bridge import ensure_user
-from .platform_api import ensure_dual_workspaces
+from .platform_access import can_manage, content_type_for, policy_for
+from .platform_api import _unique_slug, ensure_dual_workspaces
+from .platform_models import ObjectPolicy, ResearchProjectProfile
 from .space_fs import _remote_text, remote_markdown_files
 from .space_models import NoteSpaceLink, ProjectSpaceLink, SpaceNode
 
@@ -62,6 +66,44 @@ def _parse_markdown(text):
     return tag, metadata, '\n'.join(body_lines).strip()
 
 
+def _bool_value(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value or '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _date_value(value):
+    if value in (None, ''):
+        return None
+    try:
+        return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
+    except ValueError as exc:
+        raise ValueError('invalid_deadline') from exc
+
+
+def _datetime_value(value):
+    if value in (None, ''):
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError as exc:
+        raise ValueError('invalid_external_access_expiry') from exc
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed)
+    return parsed
+
+
+def _decimal_value(value):
+    if value in (None, ''):
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError('invalid_budget') from exc
+
+
 def _accept_note(link, identity):
     text = _remote_text(identity, link.note_path)
     if text is None:
@@ -98,34 +140,126 @@ def _accept_project(link, identity):
     tag, metadata, body = _parse_markdown(text)
     if tag and tag != 'project':
         return False
+
+    # The caller has already verified manager permission. Record this exact
+    # Nextcloud version as the accepted baseline before saving DB changes; the
+    # DB→Nextcloud signal can then normalize the sidecar without a false conflict.
     link.content_hash = _hash(text)
     link.sync_state = 'synced'
     link.sync_error = ''
     link.last_synced_at = timezone.now()
     link.save(update_fields=['content_hash', 'sync_state', 'sync_error', 'last_synced_at', 'updated_at'])
+
     project = link.project
-    changed = False
+    project_changed = False
     if project.description != body:
         project.description = body
-        changed = True
-    profile = getattr(project, 'platform_profile', None)
-    profile_changed = []
-    if profile:
-        for field in ('research_question', 'client_name', 'status', 'visibility', 'confidentiality'):
-            if field not in metadata:
-                continue
-            value = str(metadata.get(field) or '').strip()
-            model_field = profile._meta.get_field(field)
-            choices = {choice[0] for choice in getattr(model_field, 'choices', [])}
-            if choices and value not in choices:
-                continue
-            if getattr(profile, field) != value:
-                setattr(profile, field, value)
-                profile_changed.append(field)
-        if profile_changed:
-            profile.save(update_fields=profile_changed + ['updated_at'])
-    if changed:
+        project_changed = True
+
+    profile, _ = ResearchProjectProfile.objects.get_or_create(project=project)
+    changed_fields = []
+
+    # Shared project metadata may be accepted only by a manager. Filesystem
+    # placement itself is intentionally not read from Markdown because it is a
+    # private per-user preference stored in ProjectSpaceLink.
+    choice_fields = {
+        'category': ('project_type', ResearchProjectProfile.Category.values),
+        'visibility': ('visibility', ResearchProjectProfile.Visibility.values),
+        'status': ('status', ResearchProjectProfile.Status.values),
+        'confidentiality': ('confidentiality', ResearchProjectProfile.Confidentiality.values),
+    }
+    for field, (metadata_key, allowed) in choice_fields.items():
+        if metadata_key not in metadata:
+            continue
+        value = str(metadata.get(metadata_key) or '').strip()
+        if value not in allowed:
+            continue
+        if getattr(profile, field) != value:
+            setattr(profile, field, value)
+            changed_fields.append(field)
+
+    for field in ('research_question', 'client_name', 'requester_name', 'requester_email', 'compensation_text'):
+        if field not in metadata:
+            continue
+        limit = {'client_name': 220, 'requester_name': 220, 'requester_email': 254, 'compensation_text': 240}.get(field)
+        value = str(metadata.get(field) or '').strip()
+        if limit:
+            value = value[:limit]
+        if getattr(profile, field) != value:
+            setattr(profile, field, value)
+            changed_fields.append(field)
+
+    if 'deadline' in metadata:
+        value = _date_value(metadata.get('deadline'))
+        if profile.deadline != value:
+            profile.deadline = value
+            changed_fields.append('deadline')
+
+    if 'budget' in metadata:
+        value = _decimal_value(metadata.get('budget'))
+        if profile.budget != value:
+            profile.budget = value
+            changed_fields.append('budget')
+
+    if 'currency' in metadata:
+        value = str(metadata.get('currency') or 'EUR').strip()[:8] or 'EUR'
+        if profile.currency != value:
+            profile.currency = value
+            changed_fields.append('currency')
+
+    if 'required_skills' in metadata:
+        raw = metadata.get('required_skills')
+        if isinstance(raw, list):
+            value = [str(item).strip() for item in raw if str(item).strip()]
+        else:
+            value = [item.strip() for item in str(raw or '').split(',') if item.strip()]
+        if profile.required_skills != value:
+            profile.required_skills = value
+            changed_fields.append('required_skills')
+
+    for field in ('application_open', 'secure_data_room', 'allow_public_links', 'allow_downloads'):
+        if field not in metadata:
+            continue
+        value = _bool_value(metadata.get(field))
+        if getattr(profile, field) != value:
+            setattr(profile, field, value)
+            changed_fields.append(field)
+
+    if 'external_access_expires_at' in metadata:
+        value = _datetime_value(metadata.get('external_access_expires_at'))
+        if profile.external_access_expires_at != value:
+            profile.external_access_expires_at = value
+            changed_fields.append('external_access_expires_at')
+
+    if (profile.visibility in {'community', 'public'} or profile.application_open) and not profile.public_slug:
+        profile.public_slug = _unique_slug(ResearchProjectProfile, project.title, field='public_slug', max_length=220)
+        changed_fields.append('public_slug')
+
+    if changed_fields:
+        profile.save(update_fields=list(dict.fromkeys(changed_fields + ['updated_at'])))
+
+    # Keep the permission model consistent with the accepted project form state.
+    policy = policy_for(project, create=True, created_by=project.owner)
+    desired_visibility = ObjectPolicy.Visibility.PUBLIC if profile.visibility == 'public' else ObjectPolicy.Visibility.WORKSPACE
+    policy_changed = False
+    if policy.visibility != desired_visibility:
+        policy.visibility = desired_visibility
+        policy_changed = True
+    if policy.allow_download != profile.allow_downloads:
+        policy.allow_download = profile.allow_downloads
+        policy_changed = True
+    if policy.allow_reshare != profile.allow_public_links:
+        policy.allow_reshare = profile.allow_public_links
+        policy_changed = True
+    if policy_changed:
+        policy.save(update_fields=['visibility', 'allow_download', 'allow_reshare', 'updated_at'])
+
+    if project_changed:
         project.save(update_fields=['description', 'updated_at'])
+    elif changed_fields or policy_changed:
+        # Touch the project to trigger the normalized DB→Nextcloud write for all
+        # personal member placements after accepting the remote metadata.
+        project.save(update_fields=['updated_at'])
     return True
 
 
@@ -212,7 +346,12 @@ def reconcile_space_from_nextcloud(request):
 
     for link in ProjectSpaceLink.objects.filter(
         user=request.user, sync_state='conflict',
-    ).select_related('project'):
+    ).select_related('project__owner'):
+        if not can_manage(request.user, link.project):
+            link.sync_error = 'Only a project manager can accept shared project metadata from a personal Space file.'
+            link.save(update_fields=['sync_error', 'updated_at'])
+            skipped.append(link.metadata_path)
+            continue
         try:
             if _accept_project(link, identity):
                 updated.append(link.metadata_path)
