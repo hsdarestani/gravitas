@@ -41,10 +41,17 @@ ensure_app() {
 # than silently falling back to per-user storage when this app is unavailable.
 ensure_app groupfolders required
 
-# First-party / established collaboration surface exposed from Research V4.
-# Optional installation is deliberate: one incompatible community app must not
-# take the secure project file layer offline during a Nextcloud major upgrade.
+# First-party / established collaboration surface exposed from Research.
 for app in calendar contacts tasks deck notes collectives tables forms spreed; do
+  ensure_app "$app" optional
+done
+
+# Nextcloud Assistant is a UI over the Task Processing API and needs a provider
+# app before it can answer requests. Keep every AI component optional so an app
+# compatibility issue can never take secure file storage offline. The OpenAI
+# integration also supports LocalAI/Ollama and OpenAI-compatible providers when
+# configured by the Nextcloud administrator.
+for app in assistant integration_openai context_agent; do
   ensure_app "$app" optional
 done
 
