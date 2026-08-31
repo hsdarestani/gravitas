@@ -25,6 +25,8 @@
   <link rel="stylesheet" href="/assets/research-v5.css?v=20260830a">
   <link rel="stylesheet" href="/assets/mindmap-editor.css?v=20260830b">
   <link rel="stylesheet" href="/assets/mindmap-dialog-theme-fix.css?v=20260830a">
+  <link rel="stylesheet" href="/assets/space-system.css?v=20260831a">
+  <link rel="stylesheet" href="/assets/ai-provider-settings.css?v=20260831a">
 </head>
 <body>
   <a class="g-skip" href="#workspace-main">Skip to workspace</a>
@@ -38,6 +40,8 @@
           <a href="/workspace/my-work">Home</a>
           <a href="/workspace/core" data-core-only hidden>Core Workspace</a>
           <a href="/workspace/research">Research Workspace</a>
+          <a href="/workspace/research/notes">Notes</a>
+          <a href="/workspace/research/ai">AI & Models</a>
           <a href="/login">Account</a>
           <button id="ws-logout" type="button">Logout</button>
         </nav>
@@ -107,7 +111,8 @@
         var s=document.createElement('script');s.src=src;s.async=false;if(onload)s.onload=onload;document.body.appendChild(s);
       }
       function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js?v=20260829b',function(){add('/assets/core-team-storage.js?v=20260829a')})})})}
-      function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830c',function(){add('/assets/research-navigation-consolidation.js?v=20260830a',addVisuals)})}
+      function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830c',function(){add('/assets/research-navigation-consolidation.js?v=20260831a',addVisuals)})}
+      function addSpaceFeatures(onload){add('/assets/space-system.js?v=20260831a',function(){add('/assets/ai-provider-settings.js?v=20260831a',onload)})}
       function addOperatingShell(){add('/assets/operating-core-shell.js?v=20260830b',addNavigation)}
 
       if(nextcloud){
@@ -121,7 +126,7 @@
               add('/assets/research-v5.js?v=20260830a',function(){
                 add('/assets/mindmap-editor-v2.js?v=20260830d',function(){
                   add('/assets/mindmap-dialog-polish.js?v=20260830a',function(){
-                    add('/assets/nextcloud-native.js?v=20260830c',addNavigation);
+                    add('/assets/nextcloud-native.js?v=20260830c',function(){addSpaceFeatures(addNavigation)});
                   });
                 });
               });
