@@ -25,6 +25,7 @@ concurrency:
 
 env:
   DOMAIN: gravitasplus.com
+  CLOUD_DOMAIN: cloud.gravitasplus.com
 
 jobs:
   validate:
@@ -42,9 +43,12 @@ jobs:
           bash -n ops/nextcloud/ensure.sh
           bash -n ops/nextcloud/apps.sh
           bash -n ops/nextcloud/nginx-guard.sh
+          bash -n ops/nextcloud/subdomain.sh
           grep -q 'groupfolders required' ops/nextcloud/apps.sh
+          grep -q 'assistant' ops/nextcloud/apps.sh
           grep -q 'user_oidc' ops/nextcloud/apps.sh
           grep -q 'gravitas-nextcloud-nginx-guard.path' ops/nextcloud/nginx-guard.sh
+          grep -q 'cloud.gravitasplus.com' .github/workflows/nextcloud.yml
           echo 'Nextcloud code validation passed; production provisioning only runs after a successful Gravitas deploy or manual dispatch.'
 
   nextcloud:
@@ -104,7 +108,7 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo install -m 750 /tmp/gravitas-nextcloud-ensure /usr/local/sbin/gravitas-nextcloud-ensure && sudo rm -f /tmp/gravitas-nextcloud-ensure && sudo /usr/local/sbin/gravitas-nextcloud-ensure '$DOMAIN' repair"
 
-      - name: Install collaboration app suite
+      - name: Install collaboration and AI app suite
         shell: bash
         run: |
           set -euo pipefail
@@ -122,15 +126,27 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo install -m 750 /tmp/gravitas-nextcloud-nginx-guard /usr/local/sbin/gravitas-nextcloud-nginx-guard-install && sudo rm -f /tmp/gravitas-nextcloud-nginx-guard && sudo /usr/local/sbin/gravitas-nextcloud-nginx-guard-install '$DOMAIN'"
 
+      - name: Move canonical Nextcloud URL to cloud subdomain when DNS is ready
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/nextcloud/subdomain.sh \
+            "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:/tmp/gravitas-nextcloud-subdomain"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo install -m 750 /tmp/gravitas-nextcloud-subdomain /usr/local/sbin/gravitas-nextcloud-subdomain && sudo rm -f /tmp/gravitas-nextcloud-subdomain && sudo /usr/local/sbin/gravitas-nextcloud-subdomain '$DOMAIN' '$CLOUD_DOMAIN'"
+
       - name: Verify public endpoint
         shell: bash
         run: |
           set -euo pipefail
-          curl -4 -fsS --retry 20 --retry-delay 4 --connect-timeout 8 --max-time 25 \
+          curl -4 -fsSL --retry 20 --retry-delay 4 --connect-timeout 8 --max-time 25 \
             "https://$DOMAIN/nextcloud/status.php" | tee /tmp/status.json
           grep -q '"installed":true' /tmp/status.json
-          curl -4 -fsSI --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
-            "https://$DOMAIN/nextcloud/" | grep -Eq '^HTTP/.* (200|302|303)'
+          PUBLIC_URL=$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || printf 'https://$DOMAIN/nextcloud\\n'")
+          curl -4 -fsSL --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+            "$PUBLIC_URL/" >/dev/null
+          echo "Verified Nextcloud at $PUBLIC_URL/"
 
       - name: Verify containers, apps, route guard, cron and backup timers
         shell: bash
@@ -146,9 +162,16 @@ jobs:
           sudo systemctl is-active gravitas-nextcloud-nginx-guard.path
           sudo docker exec -u www-data gravitas-nextcloud php occ status | grep -q 'installed: true'
           sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -Eq '^[[:space:]]*-[[:space:]]+groupfolders:'
-          sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot | grep -qx '/nextcloud'
           sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwriteprotocol | grep -qx 'https'
           sudo grep -q '# BEGIN GRAVITAS NEXTCLOUD' /etc/nginx/sites-available/gravitas
+          PUBLIC_URL="$(sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || true)"
+          if printf '%s' "$PUBLIC_URL" | grep -q '^https://cloud\.'; then
+            sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritehost | grep -qx 'cloud.gravitasplus.com'
+            ! sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot 2>/dev/null | grep -q '/nextcloud'
+            sudo test -f /etc/nginx/sites-available/gravitas-nextcloud-cloud
+          else
+            sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot | grep -qx '/nextcloud'
+          fi
           REMOTE
 
       - name: Record verified status on status branch
@@ -158,12 +181,14 @@ jobs:
           VERSION=$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo docker exec -u www-data gravitas-nextcloud php occ status" | sed -n 's/^  - versionstring: //p' | head -n1)
           [ -n "$VERSION" ] || VERSION=unknown
-          printf 'status=live\nurl=https://%s/nextcloud/\nversion=%s\nteam_folders=enabled\nnginx_guard=enabled\nverified_at=%s\n' \
-            "$DOMAIN" "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .nextcloud-status
+          PUBLIC_URL=$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || printf 'https://$DOMAIN/nextcloud\\n'")
+          printf 'status=live\nurl=%s/\nversion=%s\nteam_folders=enabled\nassistant=optional\nnginx_guard=enabled\nverified_at=%s\n' \
+            "$PUBLIC_URL" "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .nextcloud-status
           git config user.name 'gravitas-nextcloud-bot'
           git config user.email 'actions@users.noreply.github.com'
           git add .nextcloud-status
-          git commit -m 'Record verified Nextcloud status'
+          git commit -m 'Record verified Nextcloud status' || true
           git push --force origin HEAD:nextcloud-status
 
       - name: Export one-day admin credentials
