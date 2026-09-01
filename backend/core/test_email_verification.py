@@ -21,11 +21,12 @@ class AccountEmailVerificationTests(TestCase):
         return self.client.post(url, json.dumps(data), content_type='application/json')
 
     def test_public_signup_sends_real_account_confirmation_and_link_marks_verified(self):
-        response = self._post('/api/auth/signup/', {
-            'name': 'Ada Researcher',
-            'email': 'ada@gravitas.test',
-            'password': 'A-secure-password-456!',
-        })
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self._post('/api/auth/signup/', {
+                'name': 'Ada Researcher',
+                'email': 'ada@gravitas.test',
+                'password': 'A-secure-password-456!',
+            })
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, 'Confirm your Gravitas+ email')
