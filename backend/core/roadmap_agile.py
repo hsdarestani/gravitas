@@ -23,6 +23,7 @@ ROLE_LABELS = {
     'hossein': 'Hossein',
     'ahmad': 'Ahmad',
     'kiarash': 'Kiarash',
+    'sajad': 'Sajjad',
     'sajjad': 'Sajjad',
 }
 ROLE_BLOCK_PREFIX = 'Roadmap intended owner is not linked to an active Core member: '
@@ -198,6 +199,7 @@ def _ensure_kickoff_tasks(workspace, initiative, roles, unresolved_roles):
             .first()
         )
         desired = {
+            'title': blueprint['title'],
             'owner': roles[role],
             'description': (
                 'Roadmap kickoff task for O1-KR1. '
