@@ -111,6 +111,21 @@
       function addSpace(next){add('/assets/space-v1.js?v=20260831b',function(){add('/assets/space-reconcile-v1.js?v=20260831a',next)})}
       function addOperatingShell(){add('/assets/operating-core-shell.js?v=20260830b',addNavigation)}
       function addNextcloud(next){add('/assets/nextcloud-native.js?v=20260830c',function(){add('/assets/nextcloud-sso.js?v=20260831a',next)})}
+      function afterOperatingEnhancements(){
+        add('/assets/operating-task-detail.js?v=20260901a',function(){
+          if(strategy){
+            add('/assets/roadmap-okr-sync.js?v=20260830b',addOperatingShell);
+          }else if(initiatives){
+            add('/assets/initiative-planner.js?v=20260830b',function(){
+              add('/assets/initiative-task-editor.js?v=20260830b',function(){
+                add('/assets/initiative-task-reorder.js?v=20260830b',addOperatingShell);
+              });
+            });
+          }else{
+            addOperatingShell();
+          }
+        });
+      }
 
       if(nextcloud){
         add('/assets/workspace-shell-session.js?v=20260830a',function(){
@@ -132,19 +147,7 @@
         });
       }else if(operating){
         add('/assets/operating.js?v=20260830b',function(){
-          add('/assets/operating-enhancements.js?v=20260830b',function(){
-            if(strategy){
-              add('/assets/roadmap-okr-sync.js?v=20260830b',addOperatingShell);
-            }else if(initiatives){
-              add('/assets/initiative-planner.js?v=20260830b',function(){
-                add('/assets/initiative-task-editor.js?v=20260830b',function(){
-                  add('/assets/initiative-task-reorder.js?v=20260830b',addOperatingShell);
-                });
-              });
-            }else{
-              addOperatingShell();
-            }
-          });
+          add('/assets/operating-enhancements.js?v=20260830b',afterOperatingEnhancements);
         });
       }else{
         add('/assets/workspace.js',addNavigation);
