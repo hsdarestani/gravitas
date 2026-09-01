@@ -6,12 +6,17 @@ on:
     paths:
       - 'workspace.html'
       - 'assets/operating-core-shell.js'
+      - 'assets/production-bridge.js'
+      - 'backend/core/email_verification.py'
+      - 'backend/core/urls.py'
+      - 'backend/core/management/commands/provision_core_member_by_email_hash.py'
       - 'backend/core/management/commands/repair_core_roadmap_okr.py'
       - 'backend/core/roadmap_execution.py'
       - 'backend/core/roadmap_calendar.py'
       - 'backend/core/roadmap_agile.py'
       - 'backend/core/roadmap_assignment.py'
       - 'backend/core/roadmap_assignment_signals.py'
+      - 'backend/core/test_email_verification.py'
       - 'backend/core/test_operating_demo_repair.py'
       - 'backend/core/test_roadmap_assignment.py'
       - 'backend/core/test_roadmap_calendar.py'
@@ -54,7 +59,8 @@ jobs:
           node --check assets/operating.js
           node --check assets/operating-enhancements.js
           node --check assets/operating-core-shell.js
-          python -m django test core.test_operating_demo_repair core.test_roadmap_assignment core.test_roadmap_calendar core.test_roadmap_agile --verbosity 2
+          node --check assets/production-bridge.js
+          python -m django test core.test_email_verification core.test_operating_demo_repair core.test_roadmap_assignment core.test_roadmap_calendar core.test_roadmap_agile --verbosity 2
           grep -q '/assets/operating.js?v=20260830b' workspace.html
           grep -q '/assets/operating-enhancements.js?v=20260830b' workspace.html
           grep -q '/assets/operating-core-shell.js?v=20260830b' workspace.html
@@ -120,6 +126,59 @@ jobs:
           printf '%s\n' "$OUTPUT" | grep -Eq 'core roadmap ready objectives=[1-9][0-9]* key_results=[1-9][0-9]*'
           sudo systemctl restart gravitas-backend
           sudo systemctl is-active gravitas-backend
+          REMOTE
+
+      - name: Provision requested Core member once
+        shell: bash
+        env:
+          TARGET_EMAIL_SHA256: a2d01c513295c04d1f7e555024be9ab4fe5c5fb7a10e645986af3c5ff9cb0815
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$BACKEND_PATH" "$TARGET_EMAIL_SHA256" <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH="$1"
+          TARGET_HASH="$2"
+          ENV_FILE=/etc/gravitas/backend.env
+          MARKER_DIR=/var/lib/gravitas/core-member-requests
+          MARKER="$MARKER_DIR/20260901-video-owner.done"
+          sudo install -d -m 755 "$MARKER_DIR"
+          if sudo test -f "$MARKER"; then
+            echo 'core member request already processed'
+            exit 0
+          fi
+
+          read_env() {
+            sudo awk -F= -v key="$1" '$1==key {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE"
+          }
+          SECRET="$(read_env DJANGO_SECRET_KEY)"
+          EMAIL_PASSWORD="$(read_env EMAIL_HOST_PASSWORD)"
+          EMAIL_USER="$(read_env EMAIL_HOST_USER)"
+          EMAIL_HOST_VALUE="$(read_env EMAIL_HOST)"
+          DEFAULT_FROM="$(read_env DEFAULT_FROM_EMAIL)"
+          PUBLIC_BASE="$(read_env PUBLIC_BASE_URL)"
+          test -n "$SECRET"
+          test -n "$EMAIL_PASSWORD"
+
+          cd "$BACKEND_PATH"
+          OUTPUT="$(sudo -u gravitas env \
+            DJANGO_SECRET_KEY="$SECRET" \
+            DJANGO_DEBUG=0 \
+            DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            PYTHONPATH="$BACKEND_PATH" \
+            EMAIL_HOST_PASSWORD="$EMAIL_PASSWORD" \
+            EMAIL_HOST_USER="${EMAIL_USER:-webmaster@gravitasplus.com}" \
+            EMAIL_HOST="${EMAIL_HOST_VALUE:-smtp.strato.de}" \
+            DEFAULT_FROM_EMAIL="${DEFAULT_FROM:-Gravitas+ <webmaster@gravitasplus.com>}" \
+            PUBLIC_BASE_URL="${PUBLIC_BASE:-https://gravitasplus.com}" \
+            "$BACKEND_PATH/.venv/bin/django-admin" provision_core_member_by_email_hash \
+              --email-sha256 "$TARGET_HASH" \
+              --name Ahmad \
+              --role member \
+              --send-verification)"
+          printf '%s\n' "$OUTPUT"
+          printf '%s\n' "$OUTPUT" | grep -q 'core member provisioned'
+          sudo touch "$MARKER"
           REMOTE
 
       - name: Verify public app
