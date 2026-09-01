@@ -1,7 +1,7 @@
 from django.db import transaction
 
 from .operating_models import Initiative, WorkStatus
-from .roadmap_calendar import seed_workspace_roadmap_calendar
+from .roadmap_agile import seed_workspace_agile_roadmap
 from .roadmap_execution import (
     ROADMAP_EXECUTION_PLANS,
     _resolve_roles,
@@ -32,12 +32,12 @@ def _save_changed(instance, desired):
 
 
 def reconcile_workspace_roadmap_assignments(workspace):
-    """Seed the Roadmap plan, reconcile team ownership, then materialize its execution calendar."""
+    """Seed the Roadmap plan, reconcile team ownership, then apply the agile execution schedule."""
     result = seed_workspace_roadmap_execution(workspace)
     if not result.get('planned'):
         result['assignment_updates'] = 0
         result['blocked_role_tasks'] = 0
-        result.update(seed_workspace_roadmap_calendar(workspace))
+        result.update(seed_workspace_agile_roadmap(workspace))
         return result
 
     roles, unresolved_roles = _resolve_roles(workspace)
@@ -112,5 +112,5 @@ def reconcile_workspace_roadmap_assignments(workspace):
     result['unresolved_roles'] = sorted(unresolved_roles)
     result['assignment_updates'] = assignment_updates
     result['blocked_role_tasks'] = blocked_role_tasks
-    result.update(seed_workspace_roadmap_calendar(workspace))
+    result.update(seed_workspace_agile_roadmap(workspace))
     return result
