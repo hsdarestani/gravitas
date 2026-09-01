@@ -9,7 +9,7 @@ from core.roadmap_okr import ROADMAP_PERIOD, sync_workspace_okr
 
 
 class Command(BaseCommand):
-    help = 'Ensure the canonical Core workspace contains Roadmap OKRs plus their execution initiatives/tasks.'
+    help = 'Ensure the canonical Core workspace contains Roadmap OKRs and the full execution planning layer.'
 
     def handle(self, *args, **options):
         core = (
@@ -74,6 +74,10 @@ class Command(BaseCommand):
                 f'execution_planned={execution["planned"]} '
                 f'initiatives_created={execution["initiatives_created"]} '
                 f'tasks_created={execution["tasks_created"]} '
+                f'cycles_created={execution["cycles_created"]} '
+                f'milestones_created={execution["milestones_created"]} '
+                f'work_packages_created={execution["work_packages_created"]} '
+                f'task_links_updated={execution["task_links_updated"]} '
                 f'assignment_updates={execution["assignment_updates"]} '
                 f'blocked_role_tasks={execution["blocked_role_tasks"]} '
                 f'missing_bindings={execution["missing_bindings"]} '
