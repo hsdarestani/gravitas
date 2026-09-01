@@ -5,14 +5,17 @@ on:
     branches: [main]
     paths:
       - 'workspace.html'
+      - 'assets/operating-core-shell.js'
       - 'backend/core/management/commands/repair_core_roadmap_okr.py'
       - 'backend/core/roadmap_execution.py'
       - 'backend/core/roadmap_calendar.py'
+      - 'backend/core/roadmap_agile.py'
       - 'backend/core/roadmap_assignment.py'
       - 'backend/core/roadmap_assignment_signals.py'
       - 'backend/core/test_operating_demo_repair.py'
       - 'backend/core/test_roadmap_assignment.py'
       - 'backend/core/test_roadmap_calendar.py'
+      - 'backend/core/test_roadmap_agile.py'
       - 'backend/core/apps.py'
       - '.github/workflows/repair-operating-roadmap.yml'
   workflow_run:
@@ -50,7 +53,8 @@ jobs:
           pip install --disable-pip-version-check -q -r backend/requirements.txt
           node --check assets/operating.js
           node --check assets/operating-enhancements.js
-          python -m django test core.test_operating_demo_repair core.test_roadmap_assignment core.test_roadmap_calendar --verbosity 2
+          node --check assets/operating-core-shell.js
+          python -m django test core.test_operating_demo_repair core.test_roadmap_assignment core.test_roadmap_calendar core.test_roadmap_agile --verbosity 2
           grep -q '/assets/operating.js?v=20260830b' workspace.html
           grep -q '/assets/operating-enhancements.js?v=20260830b' workspace.html
           grep -q '/assets/operating-core-shell.js?v=20260830b' workspace.html
