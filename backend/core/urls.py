@@ -1,6 +1,7 @@
 from django.urls import path
 
 from core.content_api import content_detail, content_list
+from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
@@ -124,6 +125,8 @@ urlpatterns = [
     path('auth/me/', auth_me),
     path('auth/export/', auth_export),
     path('auth/delete/', auth_delete),
+    path('auth/email-confirm/', account_email_confirm),
+    path('auth/email-confirm/resend/', account_email_resend),
     path('auth/password-reset/', password_reset_request),
     path('auth/password-reset/confirm/', password_reset_confirm),
     path('community/comments/<slug:content_key>/', comments),
