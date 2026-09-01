@@ -2,11 +2,13 @@ from django.core.management.base import BaseCommand, CommandError
 
 from core.operating_models import KeyResult, StrategicObjective, WorkStatus
 from core.platform_models import WorkspaceProfile
+from core.roadmap_execution import ROADMAP_EXECUTION_PLANS, seed_workspace_roadmap_execution
+from core.roadmap_models import RoadmapOKRSyncState
 from core.roadmap_okr import ROADMAP_PERIOD, sync_workspace_okr
 
 
 class Command(BaseCommand):
-    help = 'Ensure the canonical Core workspace contains the active Gravitas Roadmap OKRs.'
+    help = 'Ensure the canonical Core workspace contains Roadmap OKRs plus their execution initiatives/tasks.'
 
     def handle(self, *args, **options):
         core = (
@@ -33,21 +35,45 @@ class Command(BaseCommand):
                 ).count(),
             )
 
+        def bound_kr_count():
+            state = RoadmapOKRSyncState.objects.filter(workspace=workspace).first()
+            if not state:
+                return None
+            return len(((state.bindings or {}).get('key_results') or {}))
+
         objective_count, kr_count = counts()
+        bound_count = bound_kr_count()
         repaired = False
-        if objective_count < 4 or kr_count < 4:
+        if (
+            objective_count < 4
+            or kr_count < 4
+            or (bound_count is not None and bound_count < len(ROADMAP_EXECUTION_PLANS))
+        ):
             sync_workspace_okr(workspace)
             repaired = True
             objective_count, kr_count = counts()
+            bound_count = bound_kr_count()
 
         if objective_count < 4 or kr_count < 4:
             raise CommandError(
                 f'core_roadmap_incomplete objectives={objective_count} key_results={kr_count}'
             )
+        if bound_count is not None and bound_count < len(ROADMAP_EXECUTION_PLANS):
+            raise CommandError(
+                f'core_roadmap_bindings_incomplete bound_key_results={bound_count} '
+                f'expected={len(ROADMAP_EXECUTION_PLANS)}'
+            )
+
+        execution = seed_workspace_roadmap_execution(workspace)
 
         self.stdout.write(
             self.style.SUCCESS(
                 f'core roadmap ready objectives={objective_count} '
-                f'key_results={kr_count} repaired={str(repaired).lower()}'
+                f'key_results={kr_count} repaired={str(repaired).lower()} '
+                f'execution_planned={execution["planned"]} '
+                f'initiatives_created={execution["initiatives_created"]} '
+                f'tasks_created={execution["tasks_created"]} '
+                f'missing_bindings={execution["missing_bindings"]} '
+                f'unresolved_roles={",".join(execution["unresolved_roles"]) or "none"}'
             )
         )
