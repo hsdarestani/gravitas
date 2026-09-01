@@ -23,4 +23,5 @@ class CoreConfig(AppConfig):
 
         from . import platform_signals  # noqa: F401
         from . import space_signals  # noqa: F401
+        from . import roadmap_assignment_signals  # noqa: F401
         from . import operating_admin  # noqa: F401

@@ -2,7 +2,8 @@ from django.core.management.base import BaseCommand, CommandError
 
 from core.operating_models import KeyResult, StrategicObjective, WorkStatus
 from core.platform_models import WorkspaceProfile
-from core.roadmap_execution import ROADMAP_EXECUTION_PLANS, seed_workspace_roadmap_execution
+from core.roadmap_assignment import reconcile_workspace_roadmap_assignments
+from core.roadmap_execution import ROADMAP_EXECUTION_PLANS
 from core.roadmap_models import RoadmapOKRSyncState
 from core.roadmap_okr import ROADMAP_PERIOD, sync_workspace_okr
 
@@ -64,7 +65,7 @@ class Command(BaseCommand):
                 f'expected={len(ROADMAP_EXECUTION_PLANS)}'
             )
 
-        execution = seed_workspace_roadmap_execution(workspace)
+        execution = reconcile_workspace_roadmap_assignments(workspace)
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -73,6 +74,8 @@ class Command(BaseCommand):
                 f'execution_planned={execution["planned"]} '
                 f'initiatives_created={execution["initiatives_created"]} '
                 f'tasks_created={execution["tasks_created"]} '
+                f'assignment_updates={execution["assignment_updates"]} '
+                f'blocked_role_tasks={execution["blocked_role_tasks"]} '
                 f'missing_bindings={execution["missing_bindings"]} '
                 f'unresolved_roles={",".join(execution["unresolved_roles"]) or "none"}'
             )

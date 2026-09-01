@@ -6,7 +6,11 @@ on:
     paths:
       - 'workspace.html'
       - 'backend/core/management/commands/repair_core_roadmap_okr.py'
+      - 'backend/core/roadmap_assignment.py'
+      - 'backend/core/roadmap_assignment_signals.py'
       - 'backend/core/test_operating_demo_repair.py'
+      - 'backend/core/test_roadmap_assignment.py'
+      - 'backend/core/apps.py'
       - '.github/workflows/repair-operating-roadmap.yml'
   workflow_run:
     workflows: ['Deploy Gravitas to Strato']
@@ -43,7 +47,7 @@ jobs:
           pip install --disable-pip-version-check -q -r backend/requirements.txt
           node --check assets/operating.js
           node --check assets/operating-enhancements.js
-          python -m django test core.test_operating_demo_repair --verbosity 2
+          python -m django test core.test_operating_demo_repair core.test_roadmap_assignment --verbosity 2
           grep -q '/assets/operating.js?v=20260830b' workspace.html
           grep -q '/assets/operating-enhancements.js?v=20260830b' workspace.html
           grep -q '/assets/operating-core-shell.js?v=20260830b' workspace.html
