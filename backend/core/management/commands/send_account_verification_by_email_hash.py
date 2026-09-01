@@ -1,3 +1,5 @@
+import re
+
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
@@ -18,6 +20,13 @@ def _safe_delivery_error(exc):
     reason = getattr(exc, 'reason', None)
     if reason is not None:
         parts.append(f'reason_type={reason.__class__.__name__}')
+    if isinstance(exc, ValueError):
+        message = str(exc).replace('\r', ' ').replace('\n', ' ')
+        message = re.sub(r'[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}', '[email]', message, flags=re.I)
+        message = re.sub(r'(?<![A-Za-z0-9])[A-Za-z0-9_\-:=./+]{24,}(?![A-Za-z0-9])', '[value]', message)
+        message = message[:180].strip()
+        if message:
+            parts.append(f'detail={message}')
     return ' '.join(parts)
 
 
