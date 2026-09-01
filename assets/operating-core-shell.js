@@ -5,6 +5,7 @@ if(!/^\/workspace\/operating(?:\/|$)/.test(location.pathname))return;
 
 var nav=document.getElementById('ws-nav');
 var select=document.getElementById('ws-mobile-select');
+var content=document.getElementById('ws-content');
 var timer=null;
 
 function coreShellMarkup(){
@@ -48,9 +49,16 @@ function restoreMobile(){
   select.onchange=function(){if(this.value)location.href=this.value};
 }
 
+function dedupeWorkPackages(){
+  if(!content||!/^\/workspace\/operating\/cycles\/?$/.test(location.pathname))return;
+  var panels=content.querySelectorAll('#op-work-package-panel');
+  for(var i=1;i<panels.length;i++)panels[i].remove();
+}
+
 function restoreContext(){
   restoreSidebar();
   restoreMobile();
+  dedupeWorkPackages();
   var name=document.getElementById('ws-workspace-name');
   var kicker=document.getElementById('ws-kicker');
   if(name)name.textContent='Core Workspace';
@@ -67,6 +75,9 @@ if(nav){
 }
 if(select){
   new MutationObserver(queueRestore).observe(select,{childList:true});
+}
+if(content){
+  new MutationObserver(queueRestore).observe(content,{childList:true});
 }
 
 restoreContext();
