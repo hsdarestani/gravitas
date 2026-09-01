@@ -148,9 +148,9 @@
       }).then(function (data) {
         markAccount(data.user && data.user.email);
         setNote(form, data.newsletter_pending
-          ? 'Account created. Check your inbox to confirm the newsletter subscription.'
-          : 'Account created. Opening your workspace…');
-        window.setTimeout(function () { location.href = '/workspace'; }, 350);
+          ? 'Account created. Check your inbox to confirm your account email and newsletter subscription.'
+          : 'Account created. Check your inbox to confirm your email. Opening your workspace…');
+        window.setTimeout(function () { location.href = '/workspace'; }, 650);
       });
     } else if (isLogin) {
       setNote(form, 'Signing in…');
@@ -224,7 +224,13 @@
     if (data && data.authenticated) markAccount(data.user && data.user.email);
   }).catch(function () {});
 
-  if (params.get('confirmed') === '1') {
+  if (params.get('email_verified') === '1') {
+    var ev1 = document.querySelector('[data-form-note]');
+    if (ev1) ev1.textContent = 'Email confirmed. Your Gravitas+ account is verified.';
+  } else if (params.get('email_verified') === '0') {
+    var ev0 = document.querySelector('[data-form-note]');
+    if (ev0) ev0.textContent = 'That account confirmation link is invalid or has expired.';
+  } else if (params.get('confirmed') === '1') {
     var n1 = document.querySelector('[data-form-note]');
     if (n1) n1.textContent = 'Subscription confirmed. Welcome to the newsletter.';
   } else if (params.get('confirmed') === '0') {
