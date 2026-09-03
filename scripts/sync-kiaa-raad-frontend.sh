@@ -28,7 +28,7 @@ fi
 
 mapfile -t CHANGED < <(
   git -C "$UPSTREAM_DIR" diff --name-only "$PREVIOUS" "$UPSTREAM_SHA" -- '*.html' 'assets/**' \
-  | grep -Ev '^assets/(production-bridge\.js|local-fonts\.css|fonts/|upstream-[^/]+\.css$)' || true
+  | grep -Ev '^assets/(production-bridge\.js|production-overrides\.css|local-fonts\.css|fonts/|upstream-[^/]+\.css$)' || true
 )
 
 if [ "${#CHANGED[@]}" -gt 0 ]; then
@@ -53,8 +53,7 @@ fi
 
 # These files jointly define the public landing-page geometry and behavior.
 # Mirror them unconditionally. A delta-only sync can miss an older divergence
-# when the marker already points at the newest upstream commit (the exact bug
-# that left production site.css/site.js behind while hero.css was current).
+# when the marker already points at the newest upstream commit.
 CANONICAL_VISUAL_CORE=(
   index.html
   assets/gravitas.css
@@ -85,8 +84,7 @@ fi
 
 printf '%s\n' "$UPSTREAM_SHA" > "$MARKER"
 
-# Re-apply only non-visual production integration after Kiarash's files land.
-# No hero/site/brand CSS or markup is reconstructed here.
+# Re-apply production integration after Kiarash's canonical files land.
 python3 - "$UPSTREAM_SHA" <<'PY'
 from pathlib import Path
 import hashlib
@@ -95,12 +93,14 @@ import sys
 
 sha = sys.argv[1]
 local_css = Path('assets/local-fonts.css')
+overrides_css = Path('assets/production-overrides.css')
 
-# Cache keys change when the sync guard or self-hosted font declarations change.
+# Cache keys change whenever production integration styles or sync logic change.
 h = hashlib.sha256()
 h.update(Path('scripts/sync-kiaa-raad-frontend.sh').read_bytes())
-if local_css.exists():
-    h.update(local_css.read_bytes())
+for extra in (local_css, overrides_css):
+    if extra.exists():
+        h.update(extra.read_bytes())
 guard_hash = h.hexdigest()[:8]
 token = f'up-{sha[:12]}-g{guard_hash}'
 
@@ -108,7 +108,7 @@ for p in Path('.').glob('*.html'):
     s = p.read_text()
 
     # Keep the exact upstream visual CSS/JS. Only swap Google-hosted font files
-    # for byte-compatible local copies, which does not alter the design rules.
+    # for byte-compatible local copies.
     s = re.sub(r'\s*<link[^>]+href=["\']https://fonts\.googleapis\.com/[^"\']+["\'][^>]*>\s*', '\n', s)
     s = re.sub(r'\s*<link[^>]+href=["\']https://fonts\.gstatic\.com[^"\']*["\'][^>]*>\s*', '\n', s)
     s = re.sub(r'\s*<link[^>]+rel=["\']preconnect["\'][^>]+fonts\.(?:googleapis|gstatic)\.com[^>]*>\s*', '\n', s)
@@ -121,22 +121,45 @@ for p in Path('.').glob('*.html'):
             count=1,
         )
 
+    # Always load the tiny production override LAST so canonical styles cannot
+    # erase production-only parity fixes during/after page load.
+    s = re.sub(r'\s*<link[^>]+href=["\']assets/production-overrides\.css(?:\?[^"\']*)?["\'][^>]*>\s*', '\n', s)
+    if overrides_css.exists():
+        s = s.replace('</head>', f'<link rel="stylesheet" href="assets/production-overrides.css?v={token}">\n</head>', 1)
+
     # Cache-bust the canonical assets without changing their contents.
     s = re.sub(
         r'assets/(gravitas|site|hero|chat|brand)\.(css|js)(?:\?v=[^"\']*)?',
         lambda m: f'assets/{m.group(1)}.{m.group(2)}?v={token}',
         s,
     )
-    s = re.sub(
-        r'assets/local-fonts\.css(?:\?v=[^"\']*)?',
-        f'assets/local-fonts.css?v={token}',
-        s,
-    )
+    s = re.sub(r'assets/local-fonts\.css(?:\?v=[^"\']*)?', f'assets/local-fonts.css?v={token}', s)
+    s = re.sub(r'assets/production-overrides\.css(?:\?v=[^"\']*)?', f'assets/production-overrides.css?v={token}', s)
 
     # Production bridge contains API/auth behavior only; it does not patch UI.
     if p.name != 'brand.html':
         s = re.sub(r'\s*<script[^>]+src=["\']assets/production-bridge\.js(?:\?v=[^"\']*)?["\'][^>]*></script>\s*', '\n', s)
         s = s.replace('</body>', f'<script src="assets/production-bridge.js?v={token}" defer></script>\n</body>', 1)
+
+    # Homepage-only: use REAL separator elements. Upstream's selector is
+    # `span + span::before`; inserting an <i> between spans also prevents the
+    # generated pseudo-dot from firing, so there can never be duplicates.
+    if p.name == 'index.html':
+        old = '''<p class="lp-hero__credit">
+          <span>New topic monthly</span>
+          <span><span class="g-nums">312K</span> subscribers</span>
+          <span><a href="community.html#join">4,100 members</a></span>
+        </p>'''
+        new = '''<p class="lp-hero__credit">
+          <span>New topic monthly</span>
+          <i class="lp-hero__sep" aria-hidden="true"></i>
+          <span><span class="g-nums">312K</span> subscribers</span>
+          <i class="lp-hero__sep" aria-hidden="true"></i>
+          <span><a href="community.html#join">4,100 members</a></span>
+        </p>'''
+        if old not in s:
+            raise SystemExit('Homepage credit markup changed upstream; refusing an unsafe separator patch.')
+        s = s.replace(old, new, 1)
 
     p.write_text(s)
 
@@ -152,8 +175,10 @@ PY
 # Production safety + visual parity checks.
 test -f assets/production-bridge.js
 test -f assets/local-fonts.css
+test -f assets/production-overrides.css
 test -f "$MARKER"
 grep -q 'assets/production-bridge.js?v=up-' index.html
+grep -q 'assets/production-overrides.css?v=up-' index.html
 cmp -s assets/gravitas.css "$UPSTREAM_DIR/assets/gravitas.css"
 cmp -s assets/site.css "$UPSTREAM_DIR/assets/site.css"
 cmp -s assets/site.js "$UPSTREAM_DIR/assets/site.js"
@@ -163,6 +188,7 @@ cmp -s assets/chat.css "$UPSTREAM_DIR/assets/chat.css"
 cmp -s assets/chat.js "$UPSTREAM_DIR/assets/chat.js"
 grep -Fq '<span><span class="g-nums">312K</span> subscribers</span>' index.html
 grep -Fq '<span><a href="community.html#join">4,100 members</a></span>' index.html
+[ "$(grep -o 'class="lp-hero__sep"' index.html | wc -l | tr -d ' ')" = "2" ]
 
 if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
   echo 'No repository changes after parity verification.'
