@@ -43,9 +43,24 @@
    narrow and use !important only where an older cached stylesheet could win.
    ---------------------------------------------------------------------- */
 
-/* IMPORTANT: Hero fact separators intentionally have no production override.
-   assets/hero.css is canonical here, so the production row stays pixel-for-pixel
-   aligned with Kiarash's version. */
+/* Hero fact separators.
+   Production repeatedly failed to paint the empty ::before/background circle
+   even though the selector was present. The sync guard now inserts a real,
+   aria-hidden element inside facts 2 and 3. Keep the exact upstream rhythm:
+   .8rem before the fact from the parent flex gap, then .8rem from the dot to
+   the fact text (margin + the span's existing .25em gap). */
+.lp-hero__credit > span + span::before {
+  content: none !important;
+}
+.lp-hero__sep {
+  display: inline-block !important;
+  width: 3px !important;
+  height: 3px !important;
+  border-radius: 50% !important;
+  flex: none !important;
+  background: var(--g-border-strong) !important;
+  margin-right: calc(.8rem - 0.25em) !important;
+}
 
 /* Kiarash upstream 9f54828feea4: Overview and In-depth readings occupy the
    same flow slot. A hidden sibling still participates in sibling matching, so
