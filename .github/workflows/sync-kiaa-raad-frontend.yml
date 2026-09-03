@@ -30,10 +30,36 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Prepare durable separator-aware sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/sync-kiaa-raad-frontend.sh /tmp/sync-kiaa-raad-frontend.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/sync-kiaa-raad-frontend.sh')
+          s = p.read_text()
+          old = '<i class="lp-hero__sep" aria-hidden="true"></i>'
+          new = '<i class="lp-hero__sep" aria-hidden="true">·</i>'
+          if old not in s and new not in s:
+              raise SystemExit('Separator template not found in sync script')
+          s = s.replace(old, new)
+          p.write_text(s)
+          PY
+          chmod +x /tmp/sync-kiaa-raad-frontend.sh
+
       - name: Sync latest Kiarash design
         id: sync
         shell: bash
-        run: bash scripts/sync-kiaa-raad-frontend.sh
+        run: bash /tmp/sync-kiaa-raad-frontend.sh
+
+      - name: Verify durable hero separators
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(grep -o 'class="lp-hero__sep"' index.html | wc -l | tr -d ' ')" = "2"
+          test "$(grep -o '>·</i>' index.html | wc -l | tr -d ' ')" = "2"
+          grep -q 'lp-hero__sep' assets/production-overrides.css
 
       - name: Deploy when design changed
         if: steps.sync.outputs.changed == 'true'
@@ -49,5 +75,6 @@ jobs:
           echo '### Kiarash frontend auto-sync' >> "$GITHUB_STEP_SUMMARY"
           echo 'Source: kiaa-raad/gravitasplus' >> "$GITHUB_STEP_SUMMARY"
           echo 'Schedule: every 15 minutes' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Hero separators: literal middot characters, reapplied on every sync' >> "$GITHUB_STEP_SUMMARY"
           echo 'Changed: ${{ steps.sync.outputs.changed }}' >> "$GITHUB_STEP_SUMMARY"
           echo 'Upstream SHA: ${{ steps.sync.outputs.sha }}' >> "$GITHUB_STEP_SUMMARY"
