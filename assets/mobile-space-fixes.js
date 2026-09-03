@@ -5,12 +5,15 @@ var scheduled=false;
 var legacyLoadedFor=null;
 var legacyState=null;
 var legacyLoading=false;
+var spaceLoadedFor=null;
+var spacePlacement=null;
 
 function notesRoute(){return location.pathname.indexOf('/workspace/research/notes')===0}
 function projectId(){var m=location.pathname.match(/^\/workspace\/research\/projects\/(\d+)\/?$/);return m?Number(m[1]):null}
 function cookie(name){var parts=(document.cookie||'').split(';');for(var i=0;i<parts.length;i++){var value=parts[i].trim();if(value.indexOf(name+'=')===0)return decodeURIComponent(value.slice(name.length+1))}return ''}
-function api(url,opts){opts=opts||{};opts.credentials='same-origin';opts.headers=opts.headers||{};opts.headers.Accept='application/json';if(opts.method&&opts.method!=='GET'){opts.headers['X-CSRFToken']=cookie('csrftoken');opts.headers['Content-Type']='application/json'}return fetch(url,opts).then(function(r){return r.json().catch(function(){return {}}).then(function(d){if(!r.ok){var e=new Error(String(d.error||'request_failed').replace(/_/g,' '));e.code=d.error;throw e}return d})})}
-function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function api(url,opts){opts=opts||{};opts.credentials='same-origin';opts.headers=opts.headers||{};opts.headers.Accept='application/json';if(opts.method&&opts.method!=='GET'){opts.headers['X-CSRFToken']=cookie('csrftoken');opts.headers['Content-Type']='application/json'}return fetch(url,opts).then(function(r){return r.json().catch(function(){return {}}).then(function(d){if(!r.ok){var e=new Error(String(d.error||'request_failed').replace(/_/g,' '));e.code=d.error;e.data=d;e.status=r.status;throw e}return d})})}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]})}
+function spaceUrl(path){return '/nextcloud/index.php/apps/files/files?dir='+encodeURIComponent('/'+String(path||'').replace(/^\/+/,''))}
 
 function ensureNotesNavigation(){
   var box=document.getElementById('v3-context-nav');
@@ -53,7 +56,7 @@ function showLegacyMessage(text,bad){
   box.textContent=text;
   box.style.borderLeftColor=bad?'var(--ws-danger)':'var(--ws-good)';
   clearTimeout(showLegacyMessage.timer);
-  showLegacyMessage.timer=setTimeout(function(){box.hidden=true},6500);
+  showLegacyMessage.timer=setTimeout(function(){box.hidden=true},bad?10000:6500);
 }
 
 function hardenSpaceProjectForm(){
@@ -92,6 +95,30 @@ function legacyDismissed(id){
   try{return sessionStorage.getItem('gravitas-legacy-folders-'+id)==='dismissed'}catch(e){return false}
 }
 
+function loadSpacePlacement(){
+  var id=projectId();
+  if(!id)return;
+  if(spaceLoadedFor===id&&spacePlacement){decorateSpacePlacement();return}
+  api('/api/platform/space/projects/'+id+'/').then(function(d){
+    if(projectId()!==id)return;
+    spaceLoadedFor=id;
+    spacePlacement=d.placement||null;
+    decorateSpacePlacement();
+  }).catch(function(){spaceLoadedFor=id;spacePlacement=null});
+}
+
+function decorateSpacePlacement(){
+  if(!spacePlacement||!spacePlacement.folder_path)return;
+  var banner=document.getElementById('legacy-folder-banner');
+  if(banner){
+    var target=banner.querySelector('[data-legacy-space-path]');
+    if(target){
+      target.hidden=false;
+      target.innerHTML='Current Nextcloud Space: <code>'+esc(spacePlacement.folder_path)+'</code> · <a href="'+esc(spaceUrl(spacePlacement.folder_path))+'" target="_blank" rel="noopener">Open Space ↗</a>';
+    }
+  }
+}
+
 function renderLegacyFolders(legacy){
   var id=projectId();
   var old=document.getElementById('legacy-folder-banner');
@@ -102,7 +129,7 @@ function renderLegacyFolders(legacy){
   var content=document.getElementById('ws-content');
   var cockpit=content&&content.querySelector('.v5-cockpit');
   if(!cockpit)return;
-  if(old&&old.dataset.projectId===String(id))return;
+  if(old&&old.dataset.projectId===String(id)){decorateSpacePlacement();return}
   if(old)old.remove();
 
   var banner=document.createElement('section');
@@ -111,9 +138,10 @@ function renderLegacyFolders(legacy){
   banner.dataset.projectId=String(id);
   var blocked=legacy.database_blocked_count||0;
   var chips=(legacy.items||[]).map(function(item){return '<span'+(!item.database_empty?' data-busy="true"':'')+'>'+esc(item.name)+'</span>'}).join('');
-  banner.innerHTML='<div class="legacy-folder-banner__copy"><small>OLDER PROJECT STRUCTURE</small><strong>Legacy auto-generated folders detected</strong><p>This project still has folders created by the old fixed structure. Gravitas can remove only folders that are empty in both the database and Nextcloud. Files and subfolders are never deleted.</p><div class="legacy-folder-banner__chips">'+chips+'</div>'+(blocked?'<em>'+blocked+' folder'+(blocked===1?' already contains':'s already contain')+' linked content and will be kept.</em>':'')+'</div><div class="legacy-folder-banner__actions"><button type="button" class="ws-secondary-btn" data-legacy-folder-keep>Keep for now</button><button type="button" class="ws-primary-btn" data-legacy-folder-clean>Clean empty folders</button></div>';
+  banner.innerHTML='<div class="legacy-folder-banner__copy"><small>OLDER PROJECT STRUCTURE</small><strong>Legacy auto-generated folders detected</strong><p>This project still has folders created by the old fixed structure. Gravitas can remove only folders that are empty in both the database and Nextcloud. Files and subfolders are never deleted.</p><div class="legacy-folder-banner__chips">'+chips+'</div>'+(blocked?'<em>'+blocked+' folder'+(blocked===1?' already contains':'s already contain')+' linked content and will be kept.</em>':'')+'<em data-legacy-space-path hidden></em></div><div class="legacy-folder-banner__actions"><button type="button" class="ws-secondary-btn" data-legacy-folder-keep>Keep for now</button><button type="button" class="ws-primary-btn" data-legacy-folder-clean>Clean empty folders</button></div>';
   var strip=cockpit.querySelector('.v5-project-strip');
   if(strip&&strip.nextSibling)cockpit.insertBefore(banner,strip.nextSibling);else cockpit.insertBefore(banner,cockpit.firstChild);
+  loadSpacePlacement();
 }
 
 function checkLegacyFolders(){
@@ -121,6 +149,8 @@ function checkLegacyFolders(){
   if(!id){
     legacyLoadedFor=null;
     legacyState=null;
+    spaceLoadedFor=null;
+    spacePlacement=null;
     var old=document.getElementById('legacy-folder-banner');
     if(old)old.remove();
     return;
@@ -156,24 +186,35 @@ function cleanLegacyFolders(button){
   if(!window.confirm(message))return;
   var original=button.textContent;
   button.disabled=true;
-  button.textContent='Checking…';
+  button.textContent='Checking Nextcloud…';
   api('/api/platform/projects/'+id+'/legacy-folders/',{method:'POST',body:JSON.stringify({confirmed:true})}).then(function(d){
     legacyLoadedFor=id;
     legacyState=d.legacy;
     var cleaned=(d.cleaned||[]).length;
     var blocked=(d.blocked||[]).length;
+    var pending=d.nextcloud&&d.nextcloud.space_pending?d.nextcloud.space_pending.length:0;
+    if(d.nextcloud&&d.nextcloud.space_paths&&d.nextcloud.space_paths.length){
+      var first=d.nextcloud.space_paths[0];
+      if(first&&first.path){spaceLoadedFor=id;spacePlacement={folder_path:first.path};}
+    }
     if(cleaned){
-      showLegacyMessage('Cleaned '+cleaned+' empty legacy folder'+(cleaned===1?'':'s')+'. '+blocked+' folder'+(blocked===1?' was':'s were')+' kept because they contain data.');
-      setTimeout(function(){if(projectId()===id)location.reload()},850);
+      showLegacyMessage('Cleaned '+cleaned+' empty legacy folder'+(cleaned===1?'':'s')+'. '+blocked+' folder'+(blocked===1?' was':'s were')+' kept because they contain data.'+(pending?' Space sync has '+pending+' pending item(s).':''));
+      setTimeout(function(){if(projectId()===id)location.reload()},1000);
     }else if(blocked){
       showLegacyMessage('Nothing was removed. The detected legacy folders contain data and were kept.');
       renderLegacyFolders(legacyState);
     }else{
-      showLegacyMessage('No empty legacy folders remain.');
+      showLegacyMessage('No empty legacy folders remain. Nextcloud and Space were reconciled.');
       renderLegacyFolders(legacyState);
     }
   }).catch(function(err){
-    showLegacyMessage(err.code==='cloud_check_failed'?'Nextcloud could not be checked safely, so nothing was removed.':err.message,true);
+    if(err.code==='cloud_check_failed'){
+      var detail=err.data||{};
+      var where=detail.folder?' while checking “'+detail.folder+'”':'';
+      showLegacyMessage('Nextcloud check failed'+where+'. Nothing was deleted. Please retry; the error is now preserved for diagnostics.',true);
+    }else{
+      showLegacyMessage(err.message,true);
+    }
   }).finally(function(){
     button.disabled=false;
     button.textContent=original;
@@ -195,7 +236,7 @@ function schedule(){
 }
 
 new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['open']});
-window.addEventListener('popstate',function(){legacyLoadedFor=null;legacyState=null;schedule()});
+window.addEventListener('popstate',function(){legacyLoadedFor=null;legacyState=null;spaceLoadedFor=null;spacePlacement=null;schedule()});
 document.addEventListener('click',function(e){
   var keep=e.target.closest('[data-legacy-folder-keep]');
   if(keep){e.preventDefault();keepLegacyFolders();return}

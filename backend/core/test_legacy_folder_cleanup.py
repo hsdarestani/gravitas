@@ -5,6 +5,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
+from .legacy_folder_cleanup import _delete_remote_folder
 from .models import Collection, KnowledgeResource, ProjectMembership, ResearchProject
 
 
@@ -94,25 +95,31 @@ class LegacyFolderCleanupTests(TestCase):
             storage_path='GRV-%06d/02 Working/evidence.csv' % self.project.pk,
             original_name='evidence.csv',
         )
+        remote_state = {'exists': True, 'empty': True, 'via': 'admin'}
+        reconciled = {'team_folder': True, 'space_paths': [{'user_id': self.owner.pk, 'path': 'Space/Research/Client/Legacy_folder_migration_test'}], 'space_pending': []}
 
         with (
             patch('core.legacy_folder_cleanup.nextcloud_bridge.ensure_project_space', return_value={}),
             patch('core.legacy_folder_cleanup.nextcloud_bridge.ensure_user', return_value=SimpleNamespace()),
-            patch('core.legacy_folder_cleanup.cloud.folder_is_empty', return_value=True) as is_empty,
-            patch('core.legacy_folder_cleanup.cloud.delete') as delete,
+            patch('core.legacy_folder_cleanup._remote_folder_state', return_value=remote_state) as inspect,
+            patch('core.legacy_folder_cleanup._delete_remote_folder', return_value='admin') as delete,
+            patch('core.legacy_folder_cleanup._reconcile_nextcloud', return_value=reconciled) as reconcile,
         ):
             response = self.post_cleanup()
 
         self.assertEqual(response.status_code, 200, response.content)
         data = response.json()
         self.assertEqual({item['name'] for item in data['cleaned']}, set(LEGACY_NAMES) - {'02 Working'})
+        self.assertTrue(all(item['deleted_via'] == 'admin' for item in data['cleaned']))
         self.assertEqual(data['blocked'], [{
             'id': busy.pk,
             'name': '02 Working',
             'reason': 'contains_database_content',
         }])
-        self.assertEqual(is_empty.call_count, 5)
+        self.assertEqual(inspect.call_count, 5)
         self.assertEqual(delete.call_count, 5)
+        reconcile.assert_called_once_with(self.project)
+        self.assertTrue(data['nextcloud']['team_folder'])
         self.assertEqual(list(self.project.collections.values_list('name', flat=True)), ['02 Working'])
 
         # Once a cleanup has been confirmed, the remaining legacy folder stays
@@ -126,8 +133,9 @@ class LegacyFolderCleanupTests(TestCase):
         with (
             patch('core.legacy_folder_cleanup.nextcloud_bridge.ensure_project_space', return_value={}),
             patch('core.legacy_folder_cleanup.nextcloud_bridge.ensure_user', return_value=SimpleNamespace()),
-            patch('core.legacy_folder_cleanup.cloud.folder_is_empty', return_value=True),
-            patch('core.legacy_folder_cleanup.cloud.delete'),
+            patch('core.legacy_folder_cleanup._remote_folder_state', return_value=remote_state),
+            patch('core.legacy_folder_cleanup._delete_remote_folder', return_value='admin'),
+            patch('core.legacy_folder_cleanup._reconcile_nextcloud', return_value=reconciled),
         ):
             second = self.post_cleanup()
         self.assertEqual(second.status_code, 200, second.content)
@@ -135,14 +143,19 @@ class LegacyFolderCleanupTests(TestCase):
         self.assertFalse(self.project.collections.exists())
 
     def test_nextcloud_content_is_never_deleted(self):
-        def remote_empty(_identity, path):
-            return not path.endswith('/03 Datasets')
+        def remote_state(_identity, path):
+            return {
+                'exists': True,
+                'empty': not path.endswith('/03 Datasets'),
+                'via': 'admin',
+            }
 
         with (
             patch('core.legacy_folder_cleanup.nextcloud_bridge.ensure_project_space', return_value={}),
             patch('core.legacy_folder_cleanup.nextcloud_bridge.ensure_user', return_value=SimpleNamespace()),
-            patch('core.legacy_folder_cleanup.cloud.folder_is_empty', side_effect=remote_empty),
-            patch('core.legacy_folder_cleanup.cloud.delete') as delete,
+            patch('core.legacy_folder_cleanup._remote_folder_state', side_effect=remote_state),
+            patch('core.legacy_folder_cleanup._delete_remote_folder', return_value='admin') as delete,
+            patch('core.legacy_folder_cleanup._reconcile_nextcloud', return_value={'team_folder': True, 'space_paths': [], 'space_pending': []}),
         ):
             response = self.post_cleanup()
 
@@ -153,6 +166,21 @@ class LegacyFolderCleanupTests(TestCase):
         self.assertEqual(blocked[0]['reason'], 'contains_nextcloud_content')
         self.assertTrue(self.project.collections.filter(name='03 Datasets').exists())
         self.assertEqual(delete.call_count, 5)
+
+    def test_admin_dav_is_used_for_deleting_verified_team_folder(self):
+        identity = SimpleNamespace()
+        with (
+            patch('core.legacy_folder_cleanup.cloud._admin_dav_url', return_value='https://nc/admin/path') as admin_url,
+            patch('core.legacy_folder_cleanup.cloud._admin_auth', return_value=('admin', 'secret')),
+            patch('core.legacy_folder_cleanup.cloud._request') as request,
+            patch('core.legacy_folder_cleanup.cloud.delete') as owner_delete,
+        ):
+            via = _delete_remote_folder(identity, 'GRV-000123/01 Client Input', {'exists': True, 'empty': True, 'via': 'admin'})
+        self.assertEqual(via, 'admin')
+        admin_url.assert_called_once_with('GRV-000123/01 Client Input')
+        request.assert_called_once()
+        self.assertEqual(request.call_args.args[0], 'DELETE')
+        owner_delete.assert_not_called()
 
     def test_cleanup_requires_explicit_confirmation(self):
         response = self.post_cleanup(confirmed=False)
