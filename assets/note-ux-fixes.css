@@ -1,0 +1,260 @@
+/* Project-note overlays deliberately avoid native <dialog>. Native dialogs live
+   in the browser top layer and can cover extension UI such as Grammarly. This
+   regular fixed overlay stays above Gravitas while extension popovers may still
+   render above it. */
+body.note-ux-open {
+  overflow: hidden;
+}
+
+.note-ux-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+
+.note-ux-overlay.is-visible {
+  opacity: 1;
+}
+
+.note-ux-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 15, 24, .72);
+  backdrop-filter: blur(8px);
+}
+
+.note-ux-panel {
+  position: relative;
+  z-index: 1;
+  width: min(760px, 100%);
+  max-height: calc(100dvh - 36px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ws-line, rgba(255,255,255,.15));
+  border-radius: 20px;
+  background: var(--ws-panel-solid, #063448);
+  color: var(--ws-text, #f6f7f4);
+  box-shadow: 0 30px 90px rgba(0,0,0,.45);
+}
+
+.note-ux-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--ws-line, rgba(255,255,255,.12));
+}
+
+.note-ux-head small {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .15em;
+  color: var(--ws-muted, #9eb3bd);
+}
+
+.note-ux-head h2 {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.08;
+}
+
+.note-ux-close {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ws-line, rgba(255,255,255,.18));
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.note-ux-form {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.note-ux-body,
+.note-ux-detail-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 22px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.note-ux-field {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.note-ux-field > span,
+.note-ux-source > span:first-child {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ws-muted, #9eb3bd);
+}
+
+.note-ux-field input,
+.note-ux-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--ws-line, rgba(255,255,255,.17));
+  border-radius: 13px;
+  outline: 0;
+  background: color-mix(in srgb, var(--ws-bg, #05293a) 84%, transparent);
+  color: inherit;
+  font: inherit;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+
+.note-ux-field input {
+  min-height: 48px;
+  padding: 0 14px;
+}
+
+.note-ux-field textarea {
+  min-height: 148px;
+  max-height: 34dvh;
+  padding: 13px 14px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.note-ux-field input:focus,
+.note-ux-field textarea:focus {
+  border-color: color-mix(in srgb, var(--ws-accent, #9fd5ff) 70%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ws-accent, #9fd5ff) 18%, transparent);
+}
+
+.note-ux-scope {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--ws-line, rgba(255,255,255,.12));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ws-bg, #05293a) 58%, transparent);
+}
+
+.note-ux-scope > span {
+  font-size: 18px;
+}
+
+.note-ux-scope strong,
+.note-ux-scope small {
+  display: block;
+}
+
+.note-ux-scope strong {
+  font-size: 12px;
+}
+
+.note-ux-scope small {
+  margin-top: 2px;
+  color: var(--ws-muted, #9eb3bd);
+  font-size: 10px;
+}
+
+.note-ux-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 13px 22px calc(13px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--ws-line, rgba(255,255,255,.12));
+  background: color-mix(in srgb, var(--ws-panel-solid, #063448) 96%, transparent);
+}
+
+.note-ux-actions button,
+.note-ux-actions a {
+  min-height: 42px;
+}
+
+.note-ux-detail {
+  width: min(820px, 100%);
+}
+
+.note-ux-detail-meta {
+  margin-bottom: 14px;
+  color: var(--ws-muted, #9eb3bd);
+  font-size: 11px;
+}
+
+.note-ux-detail-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.note-ux-source {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ws-line, rgba(255,255,255,.12));
+  overflow-wrap: anywhere;
+  color: var(--ws-muted, #9eb3bd);
+  font-size: 12px;
+}
+
+.note-ux-empty,
+.note-ux-loading {
+  padding: 34px 12px;
+  text-align: center;
+  color: var(--ws-muted, #9eb3bd);
+}
+
+@media (max-width: 700px) {
+  .note-ux-overlay {
+    place-items: end center;
+    padding: 10px;
+  }
+
+  .note-ux-panel {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+    border-radius: 17px;
+  }
+
+  .note-ux-head {
+    padding: 16px 16px 13px;
+  }
+
+  .note-ux-body,
+  .note-ux-detail-body {
+    padding: 14px 16px;
+  }
+
+  .note-ux-field input,
+  .note-ux-field textarea {
+    font-size: 16px;
+  }
+
+  .note-ux-field textarea {
+    min-height: 126px;
+    max-height: 31dvh;
+  }
+
+  .note-ux-actions {
+    padding: 11px 16px calc(11px + env(safe-area-inset-bottom));
+  }
+}
