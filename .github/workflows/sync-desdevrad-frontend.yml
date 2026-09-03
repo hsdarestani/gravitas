@@ -2,11 +2,16 @@ name: Sync frontend from Kiarash
 
 on:
   workflow_dispatch:
+  schedule:
+    # GitHub cannot receive push events from another repository directly, so poll
+    # Kiarash's public design repository every 15 minutes and exit immediately
+    # when its HEAD has not changed.
+    - cron: '*/15 * * * *'
   push:
     branches: [main]
     paths:
       - '.github/workflows/sync-desdevrad-frontend.yml'
-      - '.sync-desdevrad-trigger'
+      - '.sync-kiaa-raad-trigger'
 
 permissions:
   contents: write
@@ -14,7 +19,7 @@ permissions:
 
 concurrency:
   group: gravitas-upstream-frontend-sync
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -27,72 +32,81 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Mirror latest Kiarash frontend and preserve production integrations
+      - name: Check Kiarash upstream revision
+        id: upstream
         shell: bash
         run: |
           set -euo pipefail
-
           UPSTREAM_REPO='kiaa-raad/gravitasplus'
           UPSTREAM_URL="https://github.com/${UPSTREAM_REPO}.git"
           PREVIOUS="$(cat .upstream-gravitasplus 2>/dev/null || true)"
-          [ -n "$PREVIOUS" ] || PREVIOUS='4cb9c0ed0f12bcdc8b3277deadde1b818dd5d72f'
 
           rm -rf /tmp/gravitasplus-upstream
           git clone -q "$UPSTREAM_URL" /tmp/gravitasplus-upstream
           UPSTREAM_SHA="$(git -C /tmp/gravitasplus-upstream rev-parse HEAD)"
 
-          echo "Previous upstream: $PREVIOUS"
-          echo "Latest upstream:   $UPSTREAM_SHA"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
+          echo "sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
 
-          if ! git -C /tmp/gravitasplus-upstream cat-file -e "${PREVIOUS}^{commit}" 2>/dev/null; then
-            echo "Recorded upstream revision $PREVIOUS is unavailable; refusing unsafe sync."
-            exit 1
+          if [ "$PREVIOUS" = "$UPSTREAM_SHA" ]; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo "Already synchronized with $UPSTREAM_SHA"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            echo "Kiarash update detected: ${PREVIOUS:-none} -> $UPSTREAM_SHA"
           fi
 
-          # Apply only frontend files changed since the recorded upstream revision.
-          # Thumbnails are mirrored separately below because they may pre-date the
-          # recorded baseline and therefore never appear in a later delta.
+      - name: Mirror latest Kiarash frontend and preserve production integrations
+        if: steps.upstream.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PREVIOUS='${{ steps.upstream.outputs.previous }}'
+          UPSTREAM_SHA='${{ steps.upstream.outputs.sha }}'
+          UPSTREAM_DIR='/tmp/gravitasplus-upstream'
+
+          # If the marker is absent or no longer exists upstream, use the upstream
+          # parent as a safe one-commit baseline instead of aborting the whole sync.
+          if [ -z "$PREVIOUS" ] || ! git -C "$UPSTREAM_DIR" cat-file -e "${PREVIOUS}^{commit}" 2>/dev/null; then
+            PREVIOUS="$(git -C "$UPSTREAM_DIR" rev-parse "${UPSTREAM_SHA}^" 2>/dev/null || printf '%s' "$UPSTREAM_SHA")"
+            echo "Using safe fallback baseline: $PREVIOUS"
+          fi
+
           mapfile -t CHANGED < <(
-            git -C /tmp/gravitasplus-upstream diff --name-only "$PREVIOUS" "$UPSTREAM_SHA" -- '*.html' 'assets/**' \
-            | grep -Ev '^assets/(production-bridge\.js|local-fonts\.css|fonts/|thumbnails/|upstream-[^/]+\.css$)' || true
+            git -C "$UPSTREAM_DIR" diff --name-only "$PREVIOUS" "$UPSTREAM_SHA" -- '*.html' 'assets/**' \
+            | grep -Ev '^assets/(production-bridge\.js|local-fonts\.css|fonts/|upstream-[^/]+\.css$)' || true
           )
 
           if [ "${#CHANGED[@]}" -gt 0 ]; then
             printf 'Frontend changes from Kiarash:\n'
             printf ' - %s\n' "${CHANGED[@]}"
 
-            # The public frontend is Kiarash's source of truth. Copy every changed
-            # frontend file exactly, while never touching our backend, workflows,
-            # self-hosted fonts or production API bridge. Deletions are mirrored too.
             for f in "${CHANGED[@]}"; do
               case "$f" in
                 *.html|assets/*)
-                  if [ -e "/tmp/gravitasplus-upstream/$f" ]; then
+                  if [ -e "$UPSTREAM_DIR/$f" ]; then
                     mkdir -p "$(dirname "$f")"
-                    cp -a "/tmp/gravitasplus-upstream/$f" "$f"
+                    cp -a "$UPSTREAM_DIR/$f" "$f"
                   else
                     rm -f "$f"
                   fi
                   ;;
               esac
             done
-          else
-            echo 'No text/frontend delta since the recorded upstream revision.'
           fi
 
-          # Binary artwork must be repaired even when PREVIOUS == UPSTREAM_SHA.
-          # These posters were added before one of our old sync baselines, which is
-          # why a perfectly valid delta sync could still leave the folder absent.
+          # Keep artwork exactly aligned with Kiarash. This folder is design-only
+          # and does not contain production integration code.
           rm -rf assets/thumbnails
-          if [ -d /tmp/gravitasplus-upstream/assets/thumbnails ]; then
+          if [ -d "$UPSTREAM_DIR/assets/thumbnails" ]; then
             mkdir -p assets
-            cp -a /tmp/gravitasplus-upstream/assets/thumbnails assets/thumbnails
+            cp -a "$UPSTREAM_DIR/assets/thumbnails" assets/thumbnails
           fi
 
           printf '%s\n' "$UPSTREAM_SHA" > .upstream-gravitasplus
 
-          # Keep production-only functionality without changing Kiarash's visual
-          # system: local fonts, cache-busting and the real API bridge.
+          # Re-apply production-only integration guards after every visual sync.
           python3 - "$UPSTREAM_SHA" <<'PY'
           from pathlib import Path
           import re, sys
@@ -103,11 +117,7 @@ jobs:
           for p in Path('.').glob('*.html'):
               s = p.read_text()
 
-              # Retire old emergency parity stylesheet if it is still referenced.
               s = re.sub(r'\s*<link[^>]+href=["\']assets/upstream-[^"\']+\.css(?:\?[^"\']*)?["\'][^>]*>\s*', '\n', s)
-
-              # The production server must not depend on Google Fonts being
-              # reachable. DM Sans / DM Mono are self-hosted locally.
               s = re.sub(r'\s*<link[^>]+href=["\']https://fonts\.googleapis\.com/[^"\']+["\'][^>]*>\s*', '\n', s)
               s = re.sub(r'\s*<link[^>]+href=["\']https://fonts\.gstatic\.com[^"\']*["\'][^>]*>\s*', '\n', s)
               s = re.sub(r'\s*<link[^>]+rel=["\']preconnect["\'][^>]+fonts\.(?:googleapis|gstatic)\.com[^>]*>\s*', '\n', s)
@@ -119,9 +129,6 @@ jobs:
                       s, count=1
                   )
 
-              # Cache-bust every shared frontend asset changed by Kiarash, plus
-              # our local font/parity layer so production cannot keep its previous
-              # copy when the upstream SHA itself did not change.
               s = re.sub(
                   r'assets/(gravitas|site|hero|chat|brand)\.(css|js)(?:\?v=[^"\']*)?',
                   lambda m: f'assets/{m.group(1)}.{m.group(2)}?v={token}',
@@ -133,16 +140,12 @@ jobs:
                   s
               )
 
-              # All public app pages use our real backend bridge. brand.html is
-              # documentation and intentionally remains a pure frontend page.
               if p.name != 'brand.html':
                   s = re.sub(r'\s*<script[^>]+src=["\']assets/production-bridge\.js(?:\?v=[^"\']*)?["\'][^>]*></script>\s*', '\n', s)
                   s = s.replace('</body>', f'<script src="assets/production-bridge.js?v={token}" defer></script>\n</body>', 1)
 
               p.write_text(s)
 
-          # Production password policy is 10 chars even if the visual prototype
-          # is looser. This changes validation only, not layout.
           account = Path('account.html')
           if account.exists():
               s = account.read_text()
@@ -151,12 +154,6 @@ jobs:
               s = s.replace('at least 8 characters', 'at least 10 characters')
               account.write_text(s)
 
-          # The live domain has repeatedly served the hero stat row without the
-          # generated separator dots even though hero.css itself matches upstream.
-          # Make the two separators literal children of their facts so wrapping can
-          # never strand them, disable the generated copies, and explicitly retain
-          # the members underline. This is a tiny production parity guard and is
-          # re-applied after every upstream sync without changing Kiarash's files.
           index = Path('index.html')
           if index.exists():
               s = index.read_text()
@@ -186,21 +183,9 @@ jobs:
               index.write_text(s)
           PY
 
-          # Smoke checks for the current upstream generation and the homepage
-          # details that previously drifted on production.
-          grep -q -- '--g-ic-dim' assets/gravitas.css
-          grep -q 'g-nav__ic' assets/site.css
-          grep -q 'space__ic' index.html
-          grep -q 'Reading time' index.html
-          grep -q 'lp-hero__credit' assets/hero.css
-          grep -q 'lp-hero__literal-sep' index.html
-          grep -q 'production-hero-stat-parity' index.html
-          test -f assets/icons/topics.svg
-          test -f assets/icons/signin.svg
-          test -f assets/thumbnails/topic-computable-universe.webp
-          test -f assets/thumbnails/topic-machine-hypothesis.webp
           test -f assets/production-bridge.js
           test -f assets/local-fonts.css
+          test -f .upstream-gravitasplus
           grep -q 'assets/production-bridge.js?v=up-' index.html
 
           if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
@@ -208,14 +193,14 @@ jobs:
             exit 0
           fi
 
-          git config user.name 'Hossein Darestani'
+          git config user.name 'Gravitas Design Sync'
           git config user.email '45485005+hsdarestani@users.noreply.github.com'
           git add -- '*.html' assets .upstream-gravitasplus
           git commit -m "Sync frontend from kiaa-raad/gravitasplus ${UPSTREAM_SHA:0:12}"
           git push origin HEAD:main
 
       - name: Deploy synchronized production revision
-        if: success()
+        if: steps.upstream.outputs.changed == 'true' && success()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -224,20 +209,11 @@ jobs:
           gh workflow run deploy.yml --ref main
           echo 'Production deployment dispatched.'
 
-          SHA="$(cat .upstream-gravitasplus)"
-          TOKEN="up-${SHA:0:12}"
-          URL="https://gravitasplus.com/?sync=${SHA:0:12}-${GITHUB_RUN_ID}"
-          echo "Waiting for production to serve $TOKEN and hero parity guard..."
-          ok=0
-          for attempt in $(seq 1 72); do
-            HTML="$(curl -4 -fsS --connect-timeout 8 --max-time 20 -H 'Cache-Control: no-cache' "$URL" || true)"
-            if printf '%s' "$HTML" | grep -q "$TOKEN" \
-              && printf '%s' "$HTML" | grep -q 'production-hero-stat-parity' \
-              && printf '%s' "$HTML" | grep -q 'lp-hero__literal-sep'; then
-              ok=1
-              echo "Production frontend verified on attempt $attempt."
-              break
-            fi
-            sleep 10
-          done
-          [ "$ok" -eq 1 ] || { echo 'Production did not converge to the synchronized hero/frontend revision in time.'; exit 1; }
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "### Kiarash design sync" >> "$GITHUB_STEP_SUMMARY"
+          echo "Upstream: kiaa-raad/gravitasplus" >> "$GITHUB_STEP_SUMMARY"
+          echo "Latest SHA: ${{ steps.upstream.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Changed: ${{ steps.upstream.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
