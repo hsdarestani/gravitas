@@ -43,28 +43,6 @@
    narrow and use !important only where an older cached stylesheet could win.
    ---------------------------------------------------------------------- */
 
-/* Hero fact separators.
-   The separator is a literal middle-dot glyph in the DOM. Do not paint a tiny
-   background circle here: late CSS/font/cache settling made that empty element
-   disappear on production. Keeping the glyph as text makes the separator
-   survive every render phase while preserving the upstream spacing. */
-.lp-hero__credit > span + span::before {
-  content: none !important;
-}
-.lp-hero__sep {
-  display: inline-block !important;
-  width: auto !important;
-  height: auto !important;
-  border-radius: 0 !important;
-  flex: none !important;
-  background: none !important;
-  color: currentColor !important;
-  font: inherit !important;
-  font-style: normal !important;
-  font-size: 1em !important;
-  line-height: 1 !important;
-  margin-right: calc(.8rem - 0.25em) !important;
-}
 
 /* Kiarash upstream 9f54828feea4: Overview and In-depth readings occupy the
    same flow slot. A hidden sibling still participates in sibling matching, so
