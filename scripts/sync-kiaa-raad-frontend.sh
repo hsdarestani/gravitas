@@ -124,10 +124,10 @@ index = Path('index.html')
 if index.exists():
     s = index.read_text()
 
-    # Keep Kiarash's fact grouping and spacing, but use real DOM dots because
-    # production has repeatedly failed to paint the empty ::before background
-    # circles even when hero.css itself is correct. The explicit dots live
-    # inside facts 2 and 3 so wrapping still happens between whole facts.
+    # Keep Kiarash's fact grouping and wrapping, but make each separator a
+    # literal middle-dot glyph. Production showed that an empty element painted
+    # as a 3px CSS background circle can vanish after late style/font settling;
+    # text in the DOM cannot disappear for that reason.
     row = re.compile(
         r'<p class="lp-hero__credit">.*?'
         r'<span>New topic monthly</span>.*?'
@@ -137,15 +137,15 @@ if index.exists():
     )
     new = '''<p class="lp-hero__credit">
           <span>New topic monthly</span>
-          <span><i class="lp-hero__sep" aria-hidden="true"></i><span class="g-nums">312K</span> subscribers</span>
-          <span><i class="lp-hero__sep" aria-hidden="true"></i><a href="community.html#join">4,100 members</a></span>
+          <span><i class="lp-hero__sep" aria-hidden="true">·</i><span class="g-nums">312K</span> subscribers</span>
+          <span><i class="lp-hero__sep" aria-hidden="true">·</i><a href="community.html#join">4,100 members</a></span>
         </p>'''
     s, n = row.subn(new, s, count=1)
     if n == 0:
         raise SystemExit('Could not locate hero stat row for production parity guard')
 
     # Remove obsolete inline parity experiments; the durable rule is now in
-    # assets/local-fonts.css and the dots themselves are real DOM elements.
+    # assets/local-fonts.css and the separators themselves are literal text.
     s = re.sub(r'\s*<style id="production-hero-stat-parity">.*?</style>\s*', '\n', s, flags=re.S)
     index.write_text(s)
 PY
@@ -155,11 +155,12 @@ test -f assets/production-bridge.js
 test -f assets/local-fonts.css
 test -f "$MARKER"
 grep -q 'assets/production-bridge.js?v=up-' index.html
-grep -Fq '<i class="lp-hero__sep" aria-hidden="true"></i><span class="g-nums">312K</span>' index.html
-grep -Fq '<i class="lp-hero__sep" aria-hidden="true"></i><a href="community.html#join">4,100 members</a>' index.html
+grep -Fq '<i class="lp-hero__sep" aria-hidden="true">·</i><span class="g-nums">312K</span>' index.html
+grep -Fq '<i class="lp-hero__sep" aria-hidden="true">·</i><a href="community.html#join">4,100 members</a>' index.html
 ! grep -q 'production-hero-stat-parity' index.html
 grep -Fq '.lp-hero__credit > span + span::before' assets/hero.css
 grep -Fq '.lp-hero__sep' assets/local-fonts.css
+grep -Fq 'background: none !important' assets/local-fonts.css
 
 if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
   echo 'No repository changes after normalization.'
