@@ -22,6 +22,14 @@ class CoreConfig(AppConfig):
         # module-level formatter at call time.
         space_fs._project_markdown = project_markdown
 
+        # Project-internal folders are manager-defined. Older versions of the
+        # platform seeded six fixed Collection folders (Client Input, Working,
+        # Datasets, Analysis, Deliverables, Archive) for client/community/secure
+        # projects. Keep the legacy constant available for compatibility, but
+        # disable that automatic seeding for all newly created projects.
+        from . import platform_api
+        platform_api.PROJECT_FOLDERS = ()
+
         from . import platform_signals  # noqa: F401
         from . import space_signals  # noqa: F401
         from . import roadmap_assignment_signals  # noqa: F401

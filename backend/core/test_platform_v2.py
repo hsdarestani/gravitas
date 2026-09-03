@@ -64,7 +64,7 @@ class PlatformV2Tests(TestCase):
         self.assertFalse(WorkspaceMembership.objects.filter(workspace_id=research_id, user=self.owner).exists())
         self.assertTrue(WorkspaceProfile.objects.filter(workspace_id=research_id, purpose='research').exists())
 
-    def test_client_project_gets_v2_profile_and_data_room_folders(self):
+    def test_client_project_gets_v2_profile_without_seeded_data_room_folders(self):
         response = self.post_json('/api/platform/projects/', {
             'title': 'Secure Biology Model',
             'category': 'client',
@@ -80,7 +80,7 @@ class PlatformV2Tests(TestCase):
         self.assertTrue(profile.secure_data_room)
         self.assertFalse(profile.allow_public_links)
         self.assertEqual(profile.nextcloud_root, f'Gravitas/Projects/GRV-{project_id:06d}')
-        self.assertEqual(profile.project.collections.count(), 6)
+        self.assertEqual(profile.project.collections.count(), 0)
         self.assertTrue(ProjectMembership.objects.filter(project_id=project_id, user=self.owner, role='owner').exists())
 
     def test_secure_data_room_rejects_public_share_link(self):

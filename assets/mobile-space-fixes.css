@@ -1,0 +1,140 @@
+/* Mobile interaction hardening for Gravitas dialogs and Space forms.
+   Keep modal content inside the visual viewport, make the form body scrollable,
+   and preserve a tappable action area above mobile browser safe areas. */
+
+@media (max-width: 700px) {
+  dialog.ws-dialog,
+  dialog.v5-dialog {
+    width: calc(100vw - 24px) !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 24px) !important;
+    margin: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  dialog.ws-dialog {
+    overflow: hidden !important;
+  }
+
+  dialog.ws-dialog > form {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100%;
+    max-height: calc(100dvh - 24px) !important;
+    min-height: 0;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  dialog.ws-dialog .ws-dialog__head {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    padding: 16px 16px 12px !important;
+    background: color-mix(in srgb, var(--ws-panel-solid) 96%, transparent);
+  }
+
+  #ws-form-fields,
+  #space-v1-dialog [data-space-body] {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 14px 16px 22px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+
+  dialog.ws-dialog .ws-dialog__actions {
+    flex: 0 0 auto;
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 0 !important;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) !important;
+    border-top: 1px solid var(--ws-line);
+    background: color-mix(in srgb, var(--ws-panel-solid) 97%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  dialog.ws-dialog .ws-dialog__actions button,
+  dialog.v5-dialog button,
+  dialog.v5-dialog a,
+  #v5-candidate-results button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  dialog.ws-dialog .ws-primary-btn,
+  dialog.ws-dialog .ws-quiet-btn {
+    min-height: 44px !important;
+  }
+
+  .ws-field input,
+  .ws-field textarea,
+  .ws-field select,
+  .v5-dialog input,
+  .v5-dialog textarea,
+  .v5-dialog select {
+    font-size: 16px !important;
+  }
+
+  .ws-field select,
+  .v5-dialog select {
+    min-height: 46px;
+  }
+
+  dialog.v5-dialog {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .v5-dialog__head {
+    padding: 16px !important;
+  }
+
+  .v5-dialog__body {
+    padding: 16px !important;
+    min-height: 0;
+  }
+
+  .v5-add-person {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .v5-person-search,
+  .v5-person-search input,
+  #v5-new-role,
+  #v5-new-expiry {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #v5-candidate-results {
+    position: relative;
+    z-index: 8;
+    max-height: min(42dvh, 320px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #v5-candidate-results button {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-height: 54px;
+  }
+
+  .v5-grant {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+  }
+
+  .v5-grant select,
+  .v5-grant button {
+    grid-column: 2;
+    width: 100%;
+  }
+}
