@@ -330,10 +330,6 @@
   }
 
   function run() {
-    var heroCredit = document.querySelector('.lp-hero__credit');
-    cleanText(heroCredit, [
-      [/\s*·\s*312K\s+subscribers\b/gi, '']
-    ]);
 
     document.querySelectorAll('.video__meta').forEach(function (node) {
       cleanText(node, [
