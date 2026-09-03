@@ -14,13 +14,12 @@ UPSTREAM_SHA="$(git -C "$UPSTREAM_DIR" rev-parse HEAD)"
 echo "Previous upstream: ${PREVIOUS:-none}"
 echo "Latest upstream:   $UPSTREAM_SHA"
 
+# IMPORTANT: even when Kiarash has no new commit, do NOT exit here.
+# Production-only normalization below is intentionally self-healing: it repairs
+# literal hero separators, API bridge/cache-busting and other guards if any
+# deployment or manual edit has drifted from the expected production markup.
 if [ "$PREVIOUS" = "$UPSTREAM_SHA" ]; then
-  echo 'No Kiarash update detected.'
-  if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    echo 'changed=false' >> "$GITHUB_OUTPUT"
-    echo "sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
-  fi
-  exit 0
+  echo 'No Kiarash update detected; running production normalization anyway.'
 fi
 
 if [ -z "$PREVIOUS" ] || ! git -C "$UPSTREAM_DIR" cat-file -e "${PREVIOUS}^{commit}" 2>/dev/null; then
@@ -50,7 +49,7 @@ if [ "${#CHANGED[@]}" -gt 0 ]; then
     esac
   done
 else
-  echo 'Upstream HEAD changed, but there is no HTML/assets delta.'
+  echo 'No HTML/assets delta from Kiarash.'
 fi
 
 # Artwork is design-owned and safe to mirror wholesale.
@@ -115,6 +114,9 @@ if account.exists():
 index = Path('index.html')
 if index.exists():
     s = index.read_text()
+
+    # Hero stats must use literal separator characters in the DOM. Do not rely
+    # on ::before because upstream markup/CSS changes can silently remove them.
     old = re.compile(
         r'<p class="lp-hero__credit">\s*'
         r'<span>New topic monthly</span>\s*'
@@ -129,12 +131,28 @@ if index.exists():
           <span><span class="lp-hero__literal-sep" aria-hidden="true">•</span><a href="community.html#join">4,100 members</a></span>
         </p>'''
     s, n = old.subn(new, s, count=1)
-    if n == 0 and 'lp-hero__literal-sep' not in s:
-        raise SystemExit('Could not locate hero stat row for production parity guard')
+
+    # Also normalize a previously-patched block so there is always exactly one
+    # literal dot before each of the second and third facts.
+    if n == 0 and 'lp-hero__literal-sep' in s:
+        patched = re.compile(
+            r'<p class="lp-hero__credit">\s*'
+            r'<span>New topic monthly</span>\s*'
+            r'<span>.*?<span class="g-nums">312K</span> subscribers</span>\s*'
+            r'<span>.*?<a href="community\.html#join">4,100 members</a></span>\s*'
+            r'</p>',
+            re.S,
+        )
+        s, n = patched.subn(new, s, count=1)
+
+    if n == 0:
+        raise SystemExit('Could not locate hero stat row for production separator guard')
 
     style = '''<style id="production-hero-stat-parity">
-.lp-hero__credit > span + span::before { content: none !important; }
-.lp-hero__credit .lp-hero__literal-sep { color: var(--g-border-strong); font-size: .65em; line-height: 1; flex: none; }
+.lp-hero__credit { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lp-hero__credit > span { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+.lp-hero__credit > span + span::before { content: none !important; display: none !important; }
+.lp-hero__credit .lp-hero__literal-sep { display: inline-block !important; color: var(--g-border-strong); font-size: .65em; line-height: 1; flex: none; opacity: 1; }
 .lp-hero__credit a { text-decoration-line: underline; text-underline-offset: .2em; }
 </style>'''
     s = re.sub(r'\s*<style id="production-hero-stat-parity">.*?</style>\s*', '\n', s, flags=re.S)
@@ -147,6 +165,8 @@ test -f assets/production-bridge.js
 test -f assets/local-fonts.css
 test -f "$MARKER"
 grep -q 'assets/production-bridge.js?v=up-' index.html
+grep -q 'lp-hero__literal-sep' index.html
+grep -q 'production-hero-stat-parity' index.html
 
 if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
   echo 'No repository changes after normalization.'
