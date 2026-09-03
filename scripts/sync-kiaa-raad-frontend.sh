@@ -64,11 +64,17 @@ printf '%s\n' "$UPSTREAM_SHA" > "$MARKER"
 # Re-apply production-only integration guards after Kiarash's visual files land.
 python3 - "$UPSTREAM_SHA" <<'PY'
 from pathlib import Path
+import hashlib
 import re
 import sys
 
 sha = sys.argv[1]
-token = 'up-' + sha[:12]
+# Cache keys must change not only when Kiarash changes upstream assets, but also
+# when our production guard changes. Otherwise Cloudflare/browser caches can keep
+# serving an obsolete local-fonts.css or hero.css under the same ?v= URL.
+guard_bytes = Path('scripts/sync-kiaa-raad-frontend.sh').read_bytes()
+guard_hash = hashlib.sha256(guard_bytes).hexdigest()[:8]
+token = f'up-{sha[:12]}-g{guard_hash}'
 
 for p in Path('.').glob('*.html'):
     s = p.read_text()
@@ -150,6 +156,7 @@ grep -Fq '<span><span class="g-nums">312K</span> subscribers</span>' index.html
 ! grep -q 'lp-hero__literal-sep' index.html
 ! grep -q 'production-hero-stat-parity' index.html
 grep -Fq '.lp-hero__credit > span + span::before' assets/hero.css
+! grep -Fq '.lp-hero__credit > span + span::before' assets/local-fonts.css
 
 if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
   echo 'No repository changes after normalization.'
