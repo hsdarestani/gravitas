@@ -1,16 +1,23 @@
 /* Production-only parity fixes.
    Keep this file tiny and load it after the canonical Kiarash styles. */
 
-/* Homepage stats: use real flex items for the two separator dots.
-   This reproduces the GitHub Pages rendering without depending on ::before. */
+/* Homepage stats: the separators are literal middot characters in the DOM.
+   They remain visible even if a stylesheet is delayed or replaced. */
 .lp-hero__credit > .lp-hero__sep {
-  display: block;
-  width: 3px;
-  height: 3px;
-  min-width: 3px;
-  border-radius: 50%;
-  flex: none;
-  margin: 0;
-  padding: 0;
-  background: var(--g-border-strong);
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: none !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: none !important;
+  color: var(--g-border-strong) !important;
+  font-style: normal !important;
+  font-size: 0.9em !important;
+  line-height: 1 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
