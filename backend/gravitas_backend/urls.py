@@ -4,6 +4,7 @@ from django.urls import include, path
 from core.ai_mindmap import generate_mindmap_ai
 from core.ai_provider_api import ai_provider_detail, ai_providers
 from core.content_api import content_page
+from core.legacy_folder_cleanup import project_legacy_folders
 from core.nextcloud_public_api import nextcloud_client_credentials_canonical, nextcloud_status_canonical
 from core.oidc_provider import (
     nextcloud_sso,
@@ -46,6 +47,10 @@ urlpatterns = [
     path('api/platform/space/items/<int:item_id>/', space_item_detail),
     path('api/platform/space/sync/', space_sync_full),
     path('api/platform/space/reconcile/', reconcile_space_complete),
+    # Safe cleanup for the six fixed folders created by older Gravitas builds.
+    # This route precedes core.urls so it remains canonical even as the legacy
+    # project API surface evolves.
+    path('api/platform/projects/<int:project_id>/legacy-folders/', project_legacy_folders),
     # These canonical wrappers intentionally precede the legacy core.urls
     # routes with the same URLs.
     path('api/platform/nextcloud/', nextcloud_status_canonical),
