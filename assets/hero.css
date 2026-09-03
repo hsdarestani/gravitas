@@ -180,7 +180,7 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
 @media (max-width: 860px) {
   .lp-hero__grid { grid-template-columns: minmax(0, 1fr); text-align: center; }
   .lp-hero { min-height: 0; padding-block: var(--g-space-3xl); }
-  .lp-hero__inner .g-cluster { justify-content: center; }
+  .g-hero__inner .g-cluster { justify-content: center; }
   /* The orbit used to be pulled above the copy on a phone (order: -1), where a
      square canvas plus its caption ate most of the first screen and the
      headline started below the fold. It reads better as the reward *after*
