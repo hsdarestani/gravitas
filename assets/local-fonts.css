@@ -44,21 +44,25 @@
    ---------------------------------------------------------------------- */
 
 /* Hero fact separators.
-   Production repeatedly failed to paint the empty ::before/background circle
-   even though the selector was present. The sync guard now inserts a real,
-   aria-hidden element inside facts 2 and 3. Keep the exact upstream rhythm:
-   .8rem before the fact from the parent flex gap, then .8rem from the dot to
-   the fact text (margin + the span's existing .25em gap). */
+   The separator is a literal middle-dot glyph in the DOM. Do not paint a tiny
+   background circle here: late CSS/font/cache settling made that empty element
+   disappear on production. Keeping the glyph as text makes the separator
+   survive every render phase while preserving the upstream spacing. */
 .lp-hero__credit > span + span::before {
   content: none !important;
 }
 .lp-hero__sep {
   display: inline-block !important;
-  width: 3px !important;
-  height: 3px !important;
-  border-radius: 50% !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
   flex: none !important;
-  background: var(--g-border-strong) !important;
+  background: none !important;
+  color: currentColor !important;
+  font: inherit !important;
+  font-style: normal !important;
+  font-size: 1em !important;
+  line-height: 1 !important;
   margin-right: calc(.8rem - 0.25em) !important;
 }
 
