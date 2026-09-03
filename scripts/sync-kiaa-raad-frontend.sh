@@ -15,11 +15,10 @@ echo "Previous upstream: ${PREVIOUS:-none}"
 echo "Latest upstream:   $UPSTREAM_SHA"
 
 # IMPORTANT: even when Kiarash has no new commit, do NOT exit here.
-# Production-only normalization below is intentionally self-healing: it repairs
-# API bridge/cache-busting and other production guards if any deployment or
-# manual edit has drifted from the expected production markup.
+# The canonical visual core is mirrored on every run so production can never
+# remain on an older shared stylesheet/JS just because the marker is current.
 if [ "$PREVIOUS" = "$UPSTREAM_SHA" ]; then
-  echo 'No Kiarash update detected; running production normalization anyway.'
+  echo 'No Kiarash update detected; verifying canonical visual parity anyway.'
 fi
 
 if [ -z "$PREVIOUS" ] || ! git -C "$UPSTREAM_DIR" cat-file -e "${PREVIOUS}^{commit}" 2>/dev/null; then
@@ -52,6 +51,31 @@ else
   echo 'No HTML/assets delta from Kiarash.'
 fi
 
+# These files jointly define the public landing-page geometry and behavior.
+# Mirror them unconditionally. A delta-only sync can miss an older divergence
+# when the marker already points at the newest upstream commit (the exact bug
+# that left production site.css/site.js behind while hero.css was current).
+CANONICAL_VISUAL_CORE=(
+  index.html
+  assets/gravitas.css
+  assets/site.css
+  assets/site.js
+  assets/hero.css
+  assets/hero.js
+  assets/chat.css
+  assets/chat.js
+  assets/brand.css
+  assets/brand.js
+)
+for f in "${CANONICAL_VISUAL_CORE[@]}"; do
+  if [ ! -f "$UPSTREAM_DIR/$f" ]; then
+    echo "Missing required upstream visual file: $f" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$f")"
+  cp -a "$UPSTREAM_DIR/$f" "$f"
+done
+
 # Artwork is design-owned and safe to mirror wholesale.
 rm -rf assets/thumbnails
 if [ -d "$UPSTREAM_DIR/assets/thumbnails" ]; then
@@ -61,35 +85,18 @@ fi
 
 printf '%s\n' "$UPSTREAM_SHA" > "$MARKER"
 
-# Re-apply production-only integration guards after Kiarash's visual files land.
-# Do not override Kiarash's hero markup or hero CSS here: design-owned sections
-# must remain byte-for-byte equivalent to upstream whenever possible.
-python3 - "$UPSTREAM_SHA" "$UPSTREAM_DIR" <<'PY'
+# Re-apply only non-visual production integration after Kiarash's files land.
+# No hero/site/brand CSS or markup is reconstructed here.
+python3 - "$UPSTREAM_SHA" <<'PY'
 from pathlib import Path
 import hashlib
 import re
 import sys
 
 sha = sys.argv[1]
-upstream_dir = Path(sys.argv[2])
-
-# Remove the obsolete hero separator override introduced by an earlier
-# production-parity experiment. Kiarash's canonical hero.css already owns the
-# separators; duplicating that behavior caused the stat row to drift after load.
 local_css = Path('assets/local-fonts.css')
-if local_css.exists():
-    css = local_css.read_text()
-    css = re.sub(
-        r'\n?/\* Hero fact separators\..*?\n\.lp-hero__sep \{.*?\n\}\n',
-        '\n',
-        css,
-        count=1,
-        flags=re.S,
-    )
-    local_css.write_text(css)
 
-# Cache keys must change when either the sync guard or production-only CSS
-# changes. This prevents a correct deployment from still rendering stale CSS.
+# Cache keys change when the sync guard or self-hosted font declarations change.
 h = hashlib.sha256()
 h.update(Path('scripts/sync-kiaa-raad-frontend.sh').read_bytes())
 if local_css.exists():
@@ -100,7 +107,8 @@ token = f'up-{sha[:12]}-g{guard_hash}'
 for p in Path('.').glob('*.html'):
     s = p.read_text()
 
-    s = re.sub(r'\s*<link[^>]+href=["\']assets/upstream-[^"\']+\.css(?:\?[^"\']*)?["\'][^>]*>\s*', '\n', s)
+    # Keep the exact upstream visual CSS/JS. Only swap Google-hosted font files
+    # for byte-compatible local copies, which does not alter the design rules.
     s = re.sub(r'\s*<link[^>]+href=["\']https://fonts\.googleapis\.com/[^"\']+["\'][^>]*>\s*', '\n', s)
     s = re.sub(r'\s*<link[^>]+href=["\']https://fonts\.gstatic\.com[^"\']*["\'][^>]*>\s*', '\n', s)
     s = re.sub(r'\s*<link[^>]+rel=["\']preconnect["\'][^>]+fonts\.(?:googleapis|gstatic)\.com[^>]*>\s*', '\n', s)
@@ -113,6 +121,7 @@ for p in Path('.').glob('*.html'):
             count=1,
         )
 
+    # Cache-bust the canonical assets without changing their contents.
     s = re.sub(
         r'assets/(gravitas|site|hero|chat|brand)\.(css|js)(?:\?v=[^"\']*)?',
         lambda m: f'assets/{m.group(1)}.{m.group(2)}?v={token}',
@@ -124,6 +133,7 @@ for p in Path('.').glob('*.html'):
         s,
     )
 
+    # Production bridge contains API/auth behavior only; it does not patch UI.
     if p.name != 'brand.html':
         s = re.sub(r'\s*<script[^>]+src=["\']assets/production-bridge\.js(?:\?v=[^"\']*)?["\'][^>]*></script>\s*', '\n', s)
         s = s.replace('</body>', f'<script src="assets/production-bridge.js?v={token}" defer></script>\n</body>', 1)
@@ -137,40 +147,25 @@ if account.exists():
     s = s.replace('at least eight characters', 'at least ten characters')
     s = s.replace('at least 8 characters', 'at least 10 characters')
     account.write_text(s)
-
-# Hero is design-owned. Always restore the complete hero stat row from the
-# current upstream index instead of reconstructing it locally.
-index = Path('index.html')
-upstream_index = upstream_dir / 'index.html'
-if index.exists() and upstream_index.exists():
-    row = re.compile(r'<p class="lp-hero__credit">.*?</p>', re.S)
-    upstream_match = row.search(upstream_index.read_text())
-    if not upstream_match:
-        raise SystemExit('Could not locate upstream hero stat row')
-
-    s = index.read_text()
-    s, n = row.subn(upstream_match.group(0), s, count=1)
-    if n == 0:
-        raise SystemExit('Could not locate production hero stat row')
-
-    # Remove obsolete inline parity experiments if an old deployment left one.
-    s = re.sub(r'\s*<style id="production-hero-stat-parity">.*?</style>\s*', '\n', s, flags=re.S)
-    index.write_text(s)
 PY
 
-# Production safety checks.
+# Production safety + visual parity checks.
 test -f assets/production-bridge.js
 test -f assets/local-fonts.css
 test -f "$MARKER"
 grep -q 'assets/production-bridge.js?v=up-' index.html
+cmp -s assets/gravitas.css "$UPSTREAM_DIR/assets/gravitas.css"
+cmp -s assets/site.css "$UPSTREAM_DIR/assets/site.css"
+cmp -s assets/site.js "$UPSTREAM_DIR/assets/site.js"
+cmp -s assets/hero.css "$UPSTREAM_DIR/assets/hero.css"
+cmp -s assets/hero.js "$UPSTREAM_DIR/assets/hero.js"
+cmp -s assets/chat.css "$UPSTREAM_DIR/assets/chat.css"
+cmp -s assets/chat.js "$UPSTREAM_DIR/assets/chat.js"
 grep -Fq '<span><span class="g-nums">312K</span> subscribers</span>' index.html
 grep -Fq '<span><a href="community.html#join">4,100 members</a></span>' index.html
-! grep -Fq 'lp-hero__sep' index.html
-! grep -Fq '.lp-hero__sep' assets/local-fonts.css
-grep -Fq '.lp-hero__credit > span + span::before' assets/hero.css
 
 if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
-  echo 'No repository changes after normalization.'
+  echo 'No repository changes after parity verification.'
   if [ -n "${GITHUB_OUTPUT:-}" ]; then
     echo 'changed=false' >> "$GITHUB_OUTPUT"
     echo "sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
@@ -181,7 +176,7 @@ fi
 git config user.name 'Gravitas Design Sync'
 git config user.email '45485005+hsdarestani@users.noreply.github.com'
 git add -- '*.html' assets "$MARKER"
-git commit -m "Sync frontend from kiaa-raad/gravitasplus ${UPSTREAM_SHA:0:12}"
+git commit -m "Sync canonical frontend from kiaa-raad/gravitasplus ${UPSTREAM_SHA:0:12}"
 git push origin HEAD:main
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
@@ -189,4 +184,4 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
 fi
 
-echo "Synchronized Kiarash frontend at $UPSTREAM_SHA"
+echo "Synchronized canonical Kiarash frontend at $UPSTREAM_SHA"
