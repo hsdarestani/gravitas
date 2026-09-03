@@ -1,0 +1,53 @@
+name: Auto-sync Kiarash frontend
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sync-kiaa-raad-frontend.yml'
+      - 'scripts/sync-kiaa-raad-frontend.sh'
+      - '.sync-kiaa-raad-trigger'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: gravitas-kiaa-raad-frontend-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout production repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest Kiarash design
+        id: sync
+        shell: bash
+        run: bash scripts/sync-kiaa-raad-frontend.sh
+
+      - name: Deploy when design changed
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: gh workflow run deploy.yml --ref main
+
+      - name: Report
+        if: always()
+        shell: bash
+        run: |
+          echo '### Kiarash frontend auto-sync' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Source: kiaa-raad/gravitasplus' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Schedule: every 15 minutes' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Changed: ${{ steps.sync.outputs.changed }}' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Upstream SHA: ${{ steps.sync.outputs.sha }}' >> "$GITHUB_STEP_SUMMARY"
