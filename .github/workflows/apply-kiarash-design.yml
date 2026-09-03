@@ -1,0 +1,60 @@
+name: Apply latest Kiarash design delta
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-kiarash-design.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply Kiarash design changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Kiarash f706806: fix the mobile hero action alignment selector.
+          sed -i 's/\.lp-hero__inner \.g-cluster/\.g-hero__inner \.g-cluster/g' assets/hero.css
+
+          # Kiarash f706806: update the homepage field ticker without replacing
+          # our production integrations in index.html.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('index.html')
+          s = p.read_text()
+          old = '<li>Biology</li><li>Medicine</li><li>Climate</li><li>AI &amp; Computing</li><li>Psychology</li><li>Economics</li><li>Physics</li><li>Chemistry</li><li>Neuroscience</li><li>Ecology</li>'
+          new = '<li>Modeling</li><li>Biotech</li><li>Simulation</li><li>Computation</li><li>Informatics</li><li>Genomics</li><li>Robotics</li><li>Data Science</li><li>Neurotech</li><li>Bioinformatics</li>'
+          if old not in s and new not in s:
+              raise SystemExit('Expected Kiarash field ticker source was not found')
+          s = s.replace(old, new)
+          p.write_text(s)
+          PY
+
+          printf '%s\n' 'f706806e3a02634c8660827ca9cbbfd9b4b10a20' > .upstream-gravitasplus
+
+          grep -q '.g-hero__inner .g-cluster' assets/hero.css
+          grep -q '<li>Modeling</li><li>Biotech</li><li>Simulation</li>' index.html
+
+          if git diff --quiet; then
+            echo 'Kiarash design delta already applied.'
+            exit 0
+          fi
+
+          git config user.name 'Hossein Darestani'
+          git config user.email '45485005+hsdarestani@users.noreply.github.com'
+          git add assets/hero.css index.html .upstream-gravitasplus
+          git commit -m 'Sync latest Kiarash design delta f706806'
+          git push origin HEAD:main
