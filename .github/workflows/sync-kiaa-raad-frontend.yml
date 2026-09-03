@@ -39,14 +39,14 @@ jobs:
 
           p = Path('assets/production-cleanup.js')
           s = p.read_text()
-          old = '''    var heroCredit = document.querySelector('.lp-hero__credit');
-    cleanText(heroCredit, [
-      [/\\s*·\\s*312K\\s+subscribers\\b/gi, '']
-    ]);
-
-'''
-          if old in s:
-              s = s.replace(old, '', 1)
+          start = "    var heroCredit = document.querySelector('.lp-hero__credit');\n"
+          end = "    ]);\n"
+          i = s.find(start)
+          if i >= 0:
+              j = s.find(end, i)
+              if j < 0:
+                  raise SystemExit('Found hero cleanup start but not its end')
+              s = s[:i] + s[j + len(end):]
           if '312K\\s+subscribers' in s:
               raise SystemExit('Stale hero subscriber cleanup is still present')
           p.write_text(s)
