@@ -69,11 +69,14 @@ import re
 import sys
 
 sha = sys.argv[1]
-# Cache keys must change not only when Kiarash changes upstream assets, but also
-# when our production guard changes. Otherwise Cloudflare/browser caches can keep
-# serving an obsolete local-fonts.css or hero.css under the same ?v= URL.
-guard_bytes = Path('scripts/sync-kiaa-raad-frontend.sh').read_bytes()
-guard_hash = hashlib.sha256(guard_bytes).hexdigest()[:8]
+# Cache keys must change when either the sync guard or production-only CSS
+# changes. This prevents a correct deployment from still rendering stale CSS.
+h = hashlib.sha256()
+h.update(Path('scripts/sync-kiaa-raad-frontend.sh').read_bytes())
+local_css = Path('assets/local-fonts.css')
+if local_css.exists():
+    h.update(local_css.read_bytes())
+guard_hash = h.hexdigest()[:8]
 token = f'up-{sha[:12]}-g{guard_hash}'
 
 for p in Path('.').glob('*.html'):
@@ -121,10 +124,10 @@ index = Path('index.html')
 if index.exists():
     s = index.read_text()
 
-    # Keep this row byte-for-byte equivalent to Kiarash's semantic structure.
-    # The separators belong to assets/hero.css via `span + span::before`; that
-    # CSS intentionally gives the dots the exact horizontal rhythm seen on the
-    # design reference. Never inject literal dots or override this CSS again.
+    # Keep Kiarash's fact grouping and spacing, but use real DOM dots because
+    # production has repeatedly failed to paint the empty ::before background
+    # circles even when hero.css itself is correct. The explicit dots live
+    # inside facts 2 and 3 so wrapping still happens between whole facts.
     row = re.compile(
         r'<p class="lp-hero__credit">.*?'
         r'<span>New topic monthly</span>.*?'
@@ -134,15 +137,15 @@ if index.exists():
     )
     new = '''<p class="lp-hero__credit">
           <span>New topic monthly</span>
-          <span><span class="g-nums">312K</span> subscribers</span>
-          <span><a href="community.html#join">4,100 members</a></span>
+          <span><i class="lp-hero__sep" aria-hidden="true"></i><span class="g-nums">312K</span> subscribers</span>
+          <span><i class="lp-hero__sep" aria-hidden="true"></i><a href="community.html#join">4,100 members</a></span>
         </p>'''
     s, n = row.subn(new, s, count=1)
     if n == 0:
-        raise SystemExit('Could not locate hero stat row for Kiarash parity guard')
+        raise SystemExit('Could not locate hero stat row for production parity guard')
 
-    # Remove the obsolete production separator override introduced by an older
-    # sync guard. Kiarash's hero.css is now authoritative for this component.
+    # Remove obsolete inline parity experiments; the durable rule is now in
+    # assets/local-fonts.css and the dots themselves are real DOM elements.
     s = re.sub(r'\s*<style id="production-hero-stat-parity">.*?</style>\s*', '\n', s, flags=re.S)
     index.write_text(s)
 PY
@@ -152,11 +155,11 @@ test -f assets/production-bridge.js
 test -f assets/local-fonts.css
 test -f "$MARKER"
 grep -q 'assets/production-bridge.js?v=up-' index.html
-grep -Fq '<span><span class="g-nums">312K</span> subscribers</span>' index.html
-! grep -q 'lp-hero__literal-sep' index.html
+grep -Fq '<i class="lp-hero__sep" aria-hidden="true"></i><span class="g-nums">312K</span>' index.html
+grep -Fq '<i class="lp-hero__sep" aria-hidden="true"></i><a href="community.html#join">4,100 members</a>' index.html
 ! grep -q 'production-hero-stat-parity' index.html
 grep -Fq '.lp-hero__credit > span + span::before' assets/hero.css
-! grep -Fq '.lp-hero__credit > span + span::before' assets/local-fonts.css
+grep -Fq '.lp-hero__sep' assets/local-fonts.css
 
 if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
   echo 'No repository changes after normalization.'
