@@ -14,13 +14,16 @@ from .space_moves import sync_note_moveaware, sync_project_moveaware
 
 logger = logging.getLogger(__name__)
 
-# Saving a note must not wait for multiple WebDAV round trips. A small daemon
-# worker keeps Space/Nextcloud synchronization eventual while the API can return
-# as soon as the database commit succeeds. The bounded queue also prevents a
-# burst of edits from creating an unbounded number of threads.
+# Saving user-facing objects must not wait for multiple WebDAV round trips.
+# Bounded daemon queues keep Space/Nextcloud synchronization eventual while the
+# API returns as soon as the database commit succeeds.
 _NOTE_SYNC_QUEUE = queue.Queue(maxsize=256)
 _NOTE_SYNC_WORKER_STARTED = False
 _NOTE_SYNC_WORKER_LOCK = threading.Lock()
+
+_PROJECT_SYNC_QUEUE = queue.Queue(maxsize=128)
+_PROJECT_SYNC_WORKER_STARTED = False
+_PROJECT_SYNC_WORKER_LOCK = threading.Lock()
 
 
 def _sync_project(project_id):
@@ -58,8 +61,6 @@ def _note_sync_worker():
     while True:
         resource_id = _NOTE_SYNC_QUEUE.get()
         try:
-            # Django database connections are thread-local. Reset them before
-            # and after every job so long-lived workers never reuse stale state.
             close_old_connections()
             _sync_note(resource_id)
         except Exception:
@@ -67,6 +68,19 @@ def _note_sync_worker():
         finally:
             close_old_connections()
             _NOTE_SYNC_QUEUE.task_done()
+
+
+def _project_sync_worker():
+    while True:
+        project_id = _PROJECT_SYNC_QUEUE.get()
+        try:
+            close_old_connections()
+            _sync_project(project_id)
+        except Exception:
+            logger.exception('Unexpected background Space sync failure for project %s', project_id)
+        finally:
+            close_old_connections()
+            _PROJECT_SYNC_QUEUE.task_done()
 
 
 def _ensure_note_sync_worker():
@@ -85,20 +99,41 @@ def _ensure_note_sync_worker():
         _NOTE_SYNC_WORKER_STARTED = True
 
 
+def _ensure_project_sync_worker():
+    global _PROJECT_SYNC_WORKER_STARTED
+    if _PROJECT_SYNC_WORKER_STARTED:
+        return
+    with _PROJECT_SYNC_WORKER_LOCK:
+        if _PROJECT_SYNC_WORKER_STARTED:
+            return
+        worker = threading.Thread(
+            target=_project_sync_worker,
+            name='gravitas-project-space-sync',
+            daemon=True,
+        )
+        worker.start()
+        _PROJECT_SYNC_WORKER_STARTED = True
+
+
 def _queue_note_sync(resource_id):
     _ensure_note_sync_worker()
     try:
         _NOTE_SYNC_QUEUE.put_nowait(resource_id)
     except queue.Full:
-        # The database save remains authoritative. The regular Space sync action
-        # will pick the note up later instead of making the user's save request
-        # block or fail because the remote synchronization queue is saturated.
         logger.warning('Background Space sync queue full; note %s remains pending', resource_id)
+
+
+def _queue_project_sync(project_id):
+    _ensure_project_sync_worker()
+    try:
+        _PROJECT_SYNC_QUEUE.put_nowait(project_id)
+    except queue.Full:
+        logger.warning('Background Space sync queue full; project %s remains pending', project_id)
 
 
 @receiver(post_save, sender=ResearchProject)
 def sync_project_markdown_after_save(sender, instance, **kwargs):
-    transaction.on_commit(lambda: _sync_project(instance.pk))
+    transaction.on_commit(lambda: _queue_project_sync(instance.pk))
 
 
 @receiver(post_save, sender=KnowledgeResource)
