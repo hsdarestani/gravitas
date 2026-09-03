@@ -58,3 +58,5 @@ jobs:
           git add assets/hero.css index.html .upstream-gravitasplus
           git commit -m 'Sync latest Kiarash design delta f706806'
           git push origin HEAD:main
+
+          echo 'Kiarash design delta applied.'
