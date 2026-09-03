@@ -30,6 +30,28 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Remove stale homepage metric cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('assets/production-cleanup.js')
+          s = p.read_text()
+          old = '''    var heroCredit = document.querySelector('.lp-hero__credit');
+    cleanText(heroCredit, [
+      [/\\s*·\\s*312K\\s+subscribers\\b/gi, '']
+    ]);
+
+'''
+          if old in s:
+              s = s.replace(old, '', 1)
+          if '312K\\s+subscribers' in s:
+              raise SystemExit('Stale hero subscriber cleanup is still present')
+          p.write_text(s)
+          PY
+
       - name: Prepare durable separator-aware sync
         shell: bash
         run: |
@@ -53,12 +75,19 @@ jobs:
         shell: bash
         run: bash /tmp/sync-kiaa-raad-frontend.sh
 
-      - name: Verify durable hero separators
+      - name: Verify complete hero credit
         shell: bash
         run: |
           set -euo pipefail
           test "$(grep -o 'class="lp-hero__sep"' index.html | wc -l | tr -d ' ')" = "2"
           test "$(grep -o '>·</i>' index.html | wc -l | tr -d ' ')" = "2"
+          grep -Fq '<span>New topic monthly</span>' index.html
+          grep -Fq '<span><span class="g-nums">312K</span> subscribers</span>' index.html
+          grep -Fq '<span><a href="community.html#join">4,100 members</a></span>' index.html
+          if grep -Fq '312K\s+subscribers' assets/production-cleanup.js; then
+            echo 'production-cleanup.js still removes the subscriber stat' >&2
+            exit 1
+          fi
           grep -q 'lp-hero__sep' assets/production-overrides.css
 
       - name: Deploy when design changed
@@ -75,6 +104,6 @@ jobs:
           echo '### Kiarash frontend auto-sync' >> "$GITHUB_STEP_SUMMARY"
           echo 'Source: kiaa-raad/gravitasplus' >> "$GITHUB_STEP_SUMMARY"
           echo 'Schedule: every 15 minutes' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Hero separators: literal middot characters, reapplied on every sync' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Hero credit: New topic monthly · 312K subscribers · 4,100 members' >> "$GITHUB_STEP_SUMMARY"
           echo 'Changed: ${{ steps.sync.outputs.changed }}' >> "$GITHUB_STEP_SUMMARY"
           echo 'Upstream SHA: ${{ steps.sync.outputs.sha }}' >> "$GITHUB_STEP_SUMMARY"
