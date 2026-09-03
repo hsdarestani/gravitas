@@ -29,13 +29,13 @@
      answers stay in one place where an editor can read them. */
   var INDEX = [
     {
-      k: 'topic topics dossier long form deep dive series film essay layers what is a topic',
-      a: 'A Topic is one question worked all the way through: the film that opens it, the essay that argues it, the sources at three levels of difficulty, a timeline, something interactive to break, and the strongest case against our own conclusion.',
+      k: 'topic topics dossier long form deep dive series video essay layers what is a topic',
+      a: 'A Topic is one question worked all the way through: the video that opens it, the essay that argues it, the sources at three levels of difficulty, a timeline, something interactive to break, and the strongest case against our own conclusion.',
       l: [['Browse Topics', 'topics.html'], ['See a finished one', 'topic-computable-universe.html']]
     },
     {
       k: 'magazine article essay read writing archive blog',
-      a: 'The Magazine is the written side: narrative and analytical pieces that stand on their own rather than supporting a film. Most run 8–20 minutes.',
+      a: 'The Magazine is the written side: narrative and analytical pieces that stand on their own rather than supporting a video. Most run 8–20 minutes.',
       l: [['Magazine', 'magazine.html']]
     },
     {
@@ -84,7 +84,7 @@
       l: []
     },
     {
-      k: 'video youtube channel watch episode programme show series film',
+      k: 'video youtube channel watch episode programme show series',
       a: 'Five strands: one long narrative a month, a weekly read on new work, monthly interviews, a fortnightly practical lab, and a monthly roundtable on questions with no one-line answer.',
       l: [['What we make', 'index.html#make']]
     },

@@ -271,6 +271,20 @@
 body.is-overview [data-level="deep"],
 body.is-deep     [data-level="overview"] { display: none; }
 
+/* The two readings share one slot in the flow, so they must start at the same
+   height. `display: none` removes an element from layout but not from sibling
+   matching, so `.g-prose > * + *` still saw the Overview block sitting in front
+   of the In-depth block and gave the second one a --g-space-sm top margin the
+   first never had. Switching depth then moved the essay down by that much,
+   about half a line, with nothing above it to explain the shift.
+   Zero the margin on the alternate, then put it back on the first line below
+   for the case where the pair does not open the prose - there the block it
+   replaces would have carried the gap, so the alternate has to carry it too. */
+.g-prose > [data-level="overview"] + [data-level="deep"],
+.g-prose > [data-level="deep"] + [data-level="overview"] { margin-top: 0; }
+.g-prose > * + [data-level="overview"] + [data-level="deep"],
+.g-prose > * + [data-level="deep"] + [data-level="overview"] { margin-top: var(--g-space-sm); }
+
 .depth-note {
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
   color: var(--g-text-subtle); border-left: 2px solid var(--g-border);

@@ -93,7 +93,7 @@
       if (nav.classList.contains('is-open') && !nav.contains(e.target) && !mb.contains(e.target)) setMenu(false);
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMenu(false); });
-    var mq = window.matchMedia('(min-width: 721px)');
+    var mq = window.matchMedia('(min-width: 881px)');
     var onWide = function () { if (mq.matches) setMenu(false); };
     if (mq.addEventListener) mq.addEventListener('change', onWide);
     window.addEventListener('resize', onWide);
@@ -226,7 +226,7 @@
     update();
   }
 
-  /* ---- film thumbnails --------------------------------------------------
+  /* ---- video thumbnails --------------------------------------------------
      A .video card is a poster frame with a play button on it, and the frame
      was an empty gradient. Rather than paste a path into every card, the file
      is looked up from the page the card points at: the card linking to
@@ -248,7 +248,7 @@
   var THUMB_EXT = ['webp', 'jpg', 'png'];
 
   // data-thumb overrides the lookup, for a card whose art is not named after
-  // its destination: data-thumb="film-04-alt" reads film-04-alt.webp.
+  // its destination: data-thumb="video-04-alt" reads video-04-alt.webp.
   function thumbName(card) {
     if (card.getAttribute('data-thumb')) return card.getAttribute('data-thumb');
     var href = card.getAttribute('href') || location.pathname;
@@ -276,7 +276,7 @@
       var img = new Image();
       img.className = 'video__img';
       // Decorative: the card already carries its own aria-label, and naming
-      // the film twice is noise to a screen reader, not information.
+      // the video twice is noise to a screen reader, not information.
       img.alt = '';
       img.decoding = 'async';
       img.loading = 'lazy';
