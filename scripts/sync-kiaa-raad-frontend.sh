@@ -16,8 +16,8 @@ echo "Latest upstream:   $UPSTREAM_SHA"
 
 # IMPORTANT: even when Kiarash has no new commit, do NOT exit here.
 # Production-only normalization below is intentionally self-healing: it repairs
-# literal hero separators, API bridge/cache-busting and other guards if any
-# deployment or manual edit has drifted from the expected production markup.
+# API bridge/cache-busting and other production guards if any deployment or
+# manual edit has drifted from the expected production markup.
 if [ "$PREVIOUS" = "$UPSTREAM_SHA" ]; then
   echo 'No Kiarash update detected; running production normalization anyway.'
 fi
@@ -115,48 +115,29 @@ index = Path('index.html')
 if index.exists():
     s = index.read_text()
 
-    # Hero stats must use literal separator characters in the DOM. Do not rely
-    # on ::before because upstream markup/CSS changes can silently remove them.
-    old = re.compile(
-        r'<p class="lp-hero__credit">\s*'
-        r'<span>New topic monthly</span>\s*'
-        r'<span><span class="g-nums">312K</span> subscribers</span>\s*'
-        r'<span><a href="community\.html#join">4,100 members</a></span>\s*'
+    # Keep this row byte-for-byte equivalent to Kiarash's semantic structure.
+    # The separators belong to assets/hero.css via `span + span::before`; that
+    # CSS intentionally gives the dots the exact horizontal rhythm seen on the
+    # design reference. Never inject literal dots or override this CSS again.
+    row = re.compile(
+        r'<p class="lp-hero__credit">.*?'
+        r'<span>New topic monthly</span>.*?'
+        r'4,100 members.*?'
         r'</p>',
         re.S,
     )
     new = '''<p class="lp-hero__credit">
           <span>New topic monthly</span>
-          <span><span class="lp-hero__literal-sep" aria-hidden="true">•</span><span class="g-nums">312K</span> subscribers</span>
-          <span><span class="lp-hero__literal-sep" aria-hidden="true">•</span><a href="community.html#join">4,100 members</a></span>
+          <span><span class="g-nums">312K</span> subscribers</span>
+          <span><a href="community.html#join">4,100 members</a></span>
         </p>'''
-    s, n = old.subn(new, s, count=1)
-
-    # Also normalize a previously-patched block so there is always exactly one
-    # literal dot before each of the second and third facts.
-    if n == 0 and 'lp-hero__literal-sep' in s:
-        patched = re.compile(
-            r'<p class="lp-hero__credit">\s*'
-            r'<span>New topic monthly</span>\s*'
-            r'<span>.*?<span class="g-nums">312K</span> subscribers</span>\s*'
-            r'<span>.*?<a href="community\.html#join">4,100 members</a></span>\s*'
-            r'</p>',
-            re.S,
-        )
-        s, n = patched.subn(new, s, count=1)
-
+    s, n = row.subn(new, s, count=1)
     if n == 0:
-        raise SystemExit('Could not locate hero stat row for production separator guard')
+        raise SystemExit('Could not locate hero stat row for Kiarash parity guard')
 
-    style = '''<style id="production-hero-stat-parity">
-.lp-hero__credit { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.lp-hero__credit > span { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
-.lp-hero__credit > span + span::before { content: none !important; display: none !important; }
-.lp-hero__credit .lp-hero__literal-sep { display: inline-block !important; color: var(--g-border-strong); font-size: .65em; line-height: 1; flex: none; opacity: 1; }
-.lp-hero__credit a { text-decoration-line: underline; text-underline-offset: .2em; }
-</style>'''
+    # Remove the obsolete production separator override introduced by an older
+    # sync guard. Kiarash's hero.css is now authoritative for this component.
     s = re.sub(r'\s*<style id="production-hero-stat-parity">.*?</style>\s*', '\n', s, flags=re.S)
-    s = s.replace('</head>', style + '\n</head>', 1)
     index.write_text(s)
 PY
 
@@ -165,8 +146,10 @@ test -f assets/production-bridge.js
 test -f assets/local-fonts.css
 test -f "$MARKER"
 grep -q 'assets/production-bridge.js?v=up-' index.html
-grep -q 'lp-hero__literal-sep' index.html
-grep -q 'production-hero-stat-parity' index.html
+grep -Fq '<span><span class="g-nums">312K</span> subscribers</span>' index.html
+! grep -q 'lp-hero__literal-sep' index.html
+! grep -q 'production-hero-stat-parity' index.html
+grep -Fq '.lp-hero__credit > span + span::before' assets/hero.css
 
 if git diff --quiet && [ -z "$(git status --porcelain --untracked-files=all)" ]; then
   echo 'No repository changes after normalization.'
