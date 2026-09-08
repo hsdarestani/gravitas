@@ -8,6 +8,7 @@
   <link rel="icon" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09">
   <script src="/assets/dialog-compat.js?v=20260903c"></script>
+  <script src="/assets/gravitas-icons.js?v=20260907a"></script>
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/workspace.css">
   <link rel="stylesheet" href="/assets/operating.css?v=20260830b">
@@ -19,7 +20,6 @@
   <link rel="stylesheet" href="/assets/platform-v2-ux.css">
   <link rel="stylesheet" href="/assets/platform-v3-navigation.css">
   <link rel="stylesheet" href="/assets/platform-v3-route-fixes.css">
-  <link rel="stylesheet" href="/assets/core-blueprints.css?v=20260908b">
   <link rel="stylesheet" href="/assets/workspace-visuals.css">
   <link rel="stylesheet" href="/assets/core-team.css">
   <link rel="stylesheet" href="/assets/core-team-storage.css?v=20260829a">
@@ -31,14 +31,14 @@
   <link rel="stylesheet" href="/assets/mindmap-dialog-theme-fix.css?v=20260830a">
   <script src="/assets/mobile-space-fixes.js?v=20260903a" defer></script>
   <script src="/assets/note-ux-fixes.js?v=20260903b" defer></script>
-<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09">
+<link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09">
 </head>
 <body>
   <a class="g-skip" href="#workspace-main">Skip to workspace</a>
   <header class="ws-topbar">
-    <a class="ws-brand" href="/" aria-label="Gravitas home"><img src="/assets/logotype-white.svg" alt="Gravitas+"></a>
+    <a class="ws-brand" href="/" aria-label="Gravitas+ home"><img src="/assets/logotype-white.svg" alt="Gravitas+"></a>
     <div class="ws-topbar__actions">
-      <button id="ws-theme" class="ws-icon-btn" type="button" aria-label="Toggle theme">◐</button>
+      <button id="ws-theme" class="ws-icon-btn theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme"><svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg> <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg></button>
       <details class="ws-account">
         <summary><span id="ws-avatar">G</span><span id="ws-user">Account</span></summary>
         <nav>
@@ -55,15 +55,15 @@
   <div class="ws-shell">
     <aside class="ws-sidebar" aria-label="Workspace navigation">
       <div>
-        <p class="ws-eyebrow">Gravitas platform</p>
-        <strong class="ws-workspace-name" id="ws-workspace-name">Gravitas Home</strong>
+        <p class="ws-eyebrow">Gravitas+ platform</p>
+        <strong class="ws-workspace-name" id="ws-workspace-name">Gravitas+ Home</strong>
       </div>
 
       <nav id="ws-nav">
-        <div class="v3-home-link"><a href="/workspace/my-work" data-v3-home><span>⌂</span>Home</a></div>
+        <div class="v3-home-link"><a href="/workspace/my-work" data-v3-home><span><svg class="g-wi g-wi--nav" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.241 -1.483) scale(0.980000)" stroke-width="1.735"><path d="M3 10.2 12 3l9 7.2"/><path d="M5.2 12v8.2a1 1 0 0 0 1 1h11.6a1 1 0 0 0 1-1V12"/><circle cx="12" cy="16.4" r="1.582" fill="currentColor" stroke="none"/></g></svg></span>Home</a></div>
         <p class="v3-workspace-label">Choose workspace</p>
         <div id="v3-workspace-picker" class="v3-workspace-picker">
-          <a href="/workspace/research"><span>◇</span><span><strong>Research Workspace</strong><small>Projects & scientific collaboration</small></span></a>
+          <a href="/workspace/research"><span><svg class="g-wi g-wi--nav" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.073 1.079) scale(0.906898)" stroke-width="1.875"><circle cx="8.6" cy="12" r="6.4"/><circle cx="15.4" cy="12" r="6.4"/><circle cx="12" cy="12" r="1.709" fill="currentColor" stroke="none"/></g></svg></span><span><strong>Research Workspace</strong><small>Projects & scientific collaboration</small></span></a>
         </div>
         <p id="v3-context-label" class="v3-workspace-label">Workspace menu</p>
         <div id="v3-context-nav" class="v3-context-nav"></div>
@@ -83,17 +83,17 @@
         <select id="ws-mobile-select"><option value="/workspace/my-work">Home</option><option value="/workspace/research">Research Workspace</option></select>
       </div>
       <section class="ws-hero">
-        <div><p class="ws-kicker" id="ws-kicker">GRAVITAS</p><h1 id="ws-title">Home</h1><p id="ws-subtitle">Choose the workspace that matches what you want to do.</p></div>
+        <div><h1 id="ws-title">Home</h1><p id="ws-subtitle">Choose the workspace that matches what you want to do.</p></div>
         <div id="ws-primary-actions" class="ws-actions"></div>
       </section>
       <div id="ws-alert" class="ws-alert" role="status" hidden></div>
-      <div id="ws-content" aria-live="polite"><div class="ws-loading">Opening Gravitas…</div></div>
+      <div id="ws-content" aria-live="polite"><div class="ws-loading">Opening Gravitas+…</div></div>
     </main>
   </div>
 
   <dialog id="ws-dialog" class="ws-dialog">
     <form id="ws-form" method="dialog">
-      <div class="ws-dialog__head"><div><p class="ws-kicker">GRAVITAS</p><h2 id="ws-dialog-title">Create</h2></div><button type="button" class="ws-icon-btn" data-close aria-label="Close">×</button></div>
+      <div class="ws-dialog__head"><div><p class="ws-kicker">GRAVITAS+</p><h2 id="ws-dialog-title">Create</h2></div><button type="button" class="ws-icon-btn" data-close aria-label="Close"><svg class="g-wi g-wi--close" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></div>
       <div id="ws-form-fields"></div>
       <div class="ws-dialog__actions"><button type="button" class="ws-quiet-btn" data-close>Cancel</button><button type="submit" class="ws-primary-btn">Save</button></div>
     </form>
@@ -101,11 +101,12 @@
 
   <script>
     (function(){
+      var t=document.getElementById('ws-theme');
+      if(t)t.setAttribute('aria-pressed',String(document.documentElement.getAttribute('data-theme')==='light'));
       if(location.pathname==='/workspace'||location.pathname==='/workspace/'){
         history.replaceState({},'', '/workspace/my-work');
       }
       var operating=/^\/workspace\/operating(?:\/|$)/.test(location.pathname);
-      var blueprint=/^\/workspace\/core\/assets(?:\/|$)/.test(location.pathname);
       var platform=/^\/workspace\/(?:core|research|shared|people|community|my-work)(?:\/|$)/.test(location.pathname);
       var nextcloud=/^\/workspace\/research\/nextcloud\/?$/.test(location.pathname);
       var strategy=/^\/workspace\/operating\/strategy\/?$/.test(location.pathname);
@@ -115,7 +116,7 @@
         var s=document.createElement('script');s.src=src;s.async=false;if(onload)s.onload=onload;document.body.appendChild(s);
       }
       function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js?v=20260829b',function(){add('/assets/core-team-storage.js?v=20260829a')})})})}
-      function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260908a',function(){add('/assets/research-navigation-consolidation.js?v=20260830a',addVisuals)})}
+      function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830c',function(){add('/assets/research-navigation-consolidation.js?v=20260830a',addVisuals)})}
       function addSpace(next){add('/assets/space-v1.js?v=20260831b',function(){add('/assets/space-reconcile-v1.js?v=20260831a',next)})}
       function addOperatingShell(){add('/assets/operating-core-shell.js?v=20260830b',addNavigation)}
       function addNextcloud(next){add('/assets/nextcloud-native.js?v=20260830c',function(){add('/assets/nextcloud-sso.js?v=20260831a',next)})}
@@ -138,10 +139,6 @@
       if(nextcloud){
         add('/assets/workspace-shell-session.js?v=20260830a',function(){
           addNextcloud(function(){addSpace(addNavigation)});
-        });
-      }else if(blueprint){
-        add('/assets/workspace-shell-session.js?v=20260830a',function(){
-          add('/assets/core-blueprints.js?v=20260908b',addNavigation);
         });
       }else if(platform){
         add('/assets/platform-v2.js',function(){
@@ -166,6 +163,6 @@
       }
     })();
   </script>
-<script src="assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09" defer></script>
+<script src="/assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09" defer></script>
 </body>
 </html>
