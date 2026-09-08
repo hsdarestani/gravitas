@@ -5,7 +5,7 @@ var boot=null;
 var decorating=false;
 var lastPath='';
 
-function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]})}
 function currentArea(){
   var p=location.pathname;
   if(p==='/workspace'||p==='/workspace/'||/^\/workspace\/my-work\/?$/.test(p))return 'home';
@@ -24,6 +24,7 @@ var coreNav=[
   ['/workspace/core','◎','Overview',function(){return exact('/workspace/core')}],
   ['/workspace/core/tasks','✓','Tasks & Execution',function(){return starts('/workspace/core/tasks')}],
   ['/workspace/core/content','▶','Content Pipeline',function(){return starts('/workspace/core/content')}],
+  ['/workspace/core/assets','⌘','Assets & Blueprints',function(){return starts('/workspace/core/assets')}],
   ['/workspace/operating','↗','Planning & Projects',function(){return starts('/workspace/operating')}]
 ];
 var researchNav=[
@@ -61,6 +62,8 @@ function labelForPath(){
   if(exact('/workspace/core'))return 'Overview';
   if(starts('/workspace/core/tasks'))return 'Tasks & Execution';
   if(starts('/workspace/core/content'))return 'Content Pipeline';
+  if(exact('/workspace/core/assets'))return 'Assets & Blueprints';
+  if(starts('/workspace/core/assets/'))return 'Content Studio Blueprint';
   if(starts('/workspace/core/team'))return 'Team & Access';
   if(starts('/workspace/operating'))return 'Planning & Projects';
   if(exact('/workspace/research'))return 'Overview';
@@ -101,7 +104,7 @@ function renderContextStrip(area){
   if(old&&old.dataset.v3Area===area)return;
   if(old)old.remove();
   var box=document.createElement('div');box.id='v3-context-strip';box.className='v3-context-strip';box.dataset.v3Area=area;
-  if(area==='core')box.innerHTML='<span>◎</span><div><b>Internal Gravitas workspace</b>Projects, execution, content and team planning. This workspace is visible only to members of the Gravitas core team.</div>';
+  if(area==='core')box.innerHTML='<span>◎</span><div><b>Internal Gravitas workspace</b>Projects, execution, content, system assets and team planning. This workspace is visible only to members of the Gravitas core team.</div>';
   else box.innerHTML='<span>◇</span><div><b>Research collaboration workspace</b>Scientific and client projects live here. Access is granted per project or item; private notes and files stay private until shared.</div>';
   alertBox.parentNode.insertBefore(box,alertBox);
 }
@@ -112,7 +115,7 @@ function renderMobile(area){
   if(!select)return;
   var options=[['/workspace/my-work','Home']];
   if(coreAllowed()){
-    options.push(['/workspace/core','Core · Overview'],['/workspace/core/tasks','Core · Tasks'],['/workspace/core/content','Core · Content'],['/workspace/operating','Core · Planning & Projects']);
+    options.push(['/workspace/core','Core · Overview'],['/workspace/core/tasks','Core · Tasks'],['/workspace/core/content','Core · Content'],['/workspace/core/assets','Core · Assets & Blueprints'],['/workspace/operating','Core · Planning & Projects']);
     if(coreAdmin())options.push(['/workspace/core/team','Core · Team & Access']);
   }
   options=options.concat([
@@ -121,7 +124,7 @@ function renderMobile(area){
     ['/workspace/research/files','Research · Files & Data Rooms'],
     ['/workspace/research/nextcloud','Research · Collaboration']
   ]);
-  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member')+'-research4';
+  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member')+'-assets1-research4';
   if(select.dataset.v3Options!==key){
     select.dataset.v3Options=key;
     select.innerHTML=options.map(function(x){return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join('');
@@ -137,7 +140,7 @@ function renderMobile(area){
 }
 
 function workspaceCard(kind){
-  if(kind==='core')return '<a class="v3-workspace-card" href="/workspace/core"><div class="v3-workspace-card__icon">◎</div><small>Internal team only</small><h2>Core Workspace</h2><p>Run Gravitas: projects, tasks, content production and operating priorities.</p><footer>Open Core Workspace →</footer></a>';
+  if(kind==='core')return '<a class="v3-workspace-card" href="/workspace/core"><div class="v3-workspace-card__icon">◎</div><small>Internal team only</small><h2>Core Workspace</h2><p>Run Gravitas: projects, tasks, content production, system assets and operating priorities.</p><footer>Open Core Workspace →</footer></a>';
   return '<a class="v3-workspace-card" href="/workspace/research"><div class="v3-workspace-card__icon">◇</div><small>Research collaboration</small><h2>Research Workspace</h2><p>Scientific research, client projects, secure data rooms, notes, datasets and researcher collaboration.</p><footer>Open Research Workspace →</footer></a>';
 }
 
