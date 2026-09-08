@@ -140,7 +140,9 @@
           addNextcloud(function(){addSpace(addNavigation)});
         });
       }else if(blueprint){
-        add('/assets/core-blueprints.js?v=20260908a',addNavigation);
+        add('/assets/workspace-shell-session.js?v=20260830a',function(){
+          add('/assets/core-blueprints.js?v=20260908a',addNavigation);
+        });
       }else if(platform){
         add('/assets/platform-v2.js',function(){
           add('/assets/platform-v2-patches.js',function(){
