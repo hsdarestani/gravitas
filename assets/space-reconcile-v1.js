@@ -25,7 +25,7 @@ function inject(){
   if(sync&&sync.nextSibling)box.insertBefore(button,sync.nextSibling);else box.appendChild(button);
 }
 function reconcile(){
-  if(!confirm('Accept confirmed Nextcloud-side Markdown and structural changes into Gravitas? Notes, projects, categories, subspaces, subprojects, tasks, subtasks and repositories can be reconciled.'))return;
+  if(!confirm('Accept confirmed Nextcloud-side Markdown and structural changes into Gravitas+? Notes, projects, categories, subspaces, subprojects, tasks, subtasks and repositories can be reconciled.'))return;
   var button=document.querySelector('[data-space-reconcile]');if(button)button.disabled=true;
   api('/api/platform/space/reconcile/',{method:'POST',body:JSON.stringify({confirmed:true})}).then(function(d){
     var imported=(d.imported||[]).length,updated=(d.updated||[]).length,errors=(d.errors||[]).length;

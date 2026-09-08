@@ -14,6 +14,15 @@
   font-family: var(--g-font); line-height: 0;
 }
 
+/* The monogram on its own is turned 45 degrees counter-clockwise, so the
+   four-pointed G reads as a diamond instead of a second square inside the
+   round launcher. Only the solo mark turns: inside the logotype the G stays
+   upright, because there it is a letter and not an icon. The scale comes with
+   the rotation: turned 45 degrees the mark's diagonal lands on the width of
+   its box, so at 1:1 it would read a third larger than every other icon in the
+   widget. 0.8 puts the optical size back where the layout was drawn for. */
+.gchat__mark { transform: rotate(-45deg) scale(.8); }
+
 /* ---- Launcher -----------------------------------------------------------
    One control, one job: open. It used to morph into an X while the panel was
    also showing a close button in its header, two ways to shut the same thing,

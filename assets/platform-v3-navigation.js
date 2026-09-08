@@ -5,7 +5,7 @@ var boot=null;
 var decorating=false;
 var lastPath='';
 
-function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]})}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function currentArea(){
   var p=location.pathname;
   if(p==='/workspace'||p==='/workspace/'||/^\/workspace\/my-work\/?$/.test(p))return 'home';
@@ -14,33 +14,38 @@ function currentArea(){
 }
 function coreAllowed(){return !!(boot&&boot.access&&boot.access.core)}
 function coreAdmin(){var role=boot&&boot.access&&boot.access.core_role;return role==='owner'||role==='admin'}
-function link(href,icon,label,active){return '<a href="'+href+'" class="'+(active?'is-active':'')+'"><span>'+icon+'</span>'+esc(label)+'</a>'}
+/* Marks come from the workspace icon set (assets/gravitas-icons.js), which is
+   drawn to the brand book's geometry. Before this they were Unicode glyphs —
+   U+25C7 for Overview, U+2191 for Files, U+2659, a chess pawn, for Team — which
+   rendered at whatever weight the reader's font stack supplied and sat beside
+   the brand's own 1.7-stroke marks looking like a different product. */
+function mark(name){return window.GravitasIcons?window.GravitasIcons.icon(name,'g-wi g-wi--nav'):''}
+function link(href,icon,label,active){return '<a href="'+href+'" class="'+(active?'is-active':'')+'"><span>'+mark(icon)+'</span>'+esc(label)+'</a>'}
 function exact(path){return location.pathname.replace(/\/$/,'')===path}
 function starts(path){return location.pathname.indexOf(path)===0}
 function inResearchLibrary(){return starts('/workspace/research/files')||starts('/workspace/research/datasets')||starts('/workspace/research/mindmaps')||starts('/workspace/shared')}
 function inResearchCollaboration(){return starts('/workspace/research/nextcloud')||starts('/workspace/people')||starts('/workspace/community')}
 
 var coreNav=[
-  ['/workspace/core','◎','Overview',function(){return exact('/workspace/core')}],
-  ['/workspace/core/tasks','✓','Tasks & Execution',function(){return starts('/workspace/core/tasks')}],
-  ['/workspace/core/content','▶','Content Pipeline',function(){return starts('/workspace/core/content')}],
-  ['/workspace/core/assets','⌘','Assets & Blueprints',function(){return starts('/workspace/core/assets')}],
-  ['/workspace/operating','↗','Planning & Projects',function(){return starts('/workspace/operating')}]
+  ['/workspace/core','overview','Overview',function(){return exact('/workspace/core')}],
+  ['/workspace/core/tasks','tasks','Tasks & Execution',function(){return starts('/workspace/core/tasks')}],
+  ['/workspace/core/content','content','Content Pipeline',function(){return starts('/workspace/core/content')}],
+  ['/workspace/operating','planning','Planning & Projects',function(){return starts('/workspace/operating')}]
 ];
 var researchNav=[
-  ['/workspace/research','◇','Overview',function(){return exact('/workspace/research')}],
-  ['/workspace/research/projects','□','Projects',function(){return starts('/workspace/research/projects')}],
-  ['/workspace/research/files','↑','Files & Data Rooms',function(){return inResearchLibrary()}],
-  ['/workspace/research/nextcloud','◉','Collaboration',function(){return inResearchCollaboration()}]
+  ['/workspace/research','overview','Overview',function(){return exact('/workspace/research')}],
+  ['/workspace/research/projects','projects','Projects',function(){return starts('/workspace/research/projects')}],
+  ['/workspace/research/files','files','Files & Data Rooms',function(){return inResearchLibrary()}],
+  ['/workspace/research/nextcloud','collaboration','Collaboration',function(){return inResearchCollaboration()}]
 ];
-function coreItems(){var items=coreNav.slice();if(coreAdmin())items.push(['/workspace/core/team','♙','Team & Access',function(){return starts('/workspace/core/team')}]);return items}
+function coreItems(){var items=coreNav.slice();if(coreAdmin())items.push(['/workspace/core/team','team','Team & Access',function(){return starts('/workspace/core/team')}]);return items}
 
 function renderWorkspacePicker(area){
   var picker=document.getElementById('v3-workspace-picker');
   if(!picker)return;
   var html='';
-  if(coreAllowed())html+='<a href="/workspace/core" class="'+(area==='core'?'is-current':'')+'"><span>◎</span><span><strong>Core Workspace</strong><small>Internal team operations</small></span></a>';
-  html+='<a href="/workspace/research" class="'+(area==='research'?'is-current':'')+'"><span>◇</span><span><strong>Research Workspace</strong><small>Projects & scientific collaboration</small></span></a>';
+  if(coreAllowed())html+='<a href="/workspace/core" class="'+(area==='core'?'is-current':'')+'"><span>'+mark('overview')+'</span><span><strong>Core Workspace</strong><small>Internal team operations</small></span></a>';
+  html+='<a href="/workspace/research" class="'+(area==='research'?'is-current':'')+'"><span>'+mark('collaboration')+'</span><span><strong>Research Workspace</strong><small>Projects & scientific collaboration</small></span></a>';
   if(picker.dataset.v3Html!==html){picker.dataset.v3Html=html;picker.innerHTML=html}
 }
 
@@ -55,6 +60,10 @@ function renderContextNav(area){
     html=items.map(function(x){return link(x[0],x[1],x[2],x[3]())}).join('');
   }
   if(label.textContent!==text)label.textContent=text;
+  /* On Home there is no context menu, so the heading above it was captioning
+     nothing: the sidebar showed "WORKSPACES" with empty space under it. Hide
+     the caption whenever its list is empty. */
+  label.hidden=!html;
   if(box.dataset.v3Html!==html){box.dataset.v3Html=html;box.innerHTML=html}
 }
 
@@ -62,8 +71,6 @@ function labelForPath(){
   if(exact('/workspace/core'))return 'Overview';
   if(starts('/workspace/core/tasks'))return 'Tasks & Execution';
   if(starts('/workspace/core/content'))return 'Content Pipeline';
-  if(exact('/workspace/core/assets'))return 'Assets & Blueprints';
-  if(starts('/workspace/core/assets/'))return 'Content Studio Blueprint';
   if(starts('/workspace/core/team'))return 'Team & Access';
   if(starts('/workspace/operating'))return 'Planning & Projects';
   if(exact('/workspace/research'))return 'Overview';
@@ -92,7 +99,7 @@ function renderBreadcrumb(area){
   crumb.id='v3-breadcrumbs';crumb.className='v3-breadcrumbs';crumb.dataset.v3Key=key;crumb.setAttribute('aria-label','Breadcrumb');
   var ws=area==='core'?'Core Workspace':'Research Workspace';
   var href=area==='core'?'/workspace/core':'/workspace/research';
-  crumb.innerHTML='<a href="/workspace/my-work">Home</a><i>›</i><a href="'+href+'">'+ws+'</a><i>›</i><strong>'+esc(labelForPath())+'</strong>';
+  crumb.innerHTML='<a href="/workspace/my-work">Home</a><i>/</i><a href="'+href+'">'+ws+'</a><i>/</i><strong>'+esc(labelForPath())+'</strong>';
   hero.parentNode.insertBefore(crumb,hero);
 }
 
@@ -104,8 +111,8 @@ function renderContextStrip(area){
   if(old&&old.dataset.v3Area===area)return;
   if(old)old.remove();
   var box=document.createElement('div');box.id='v3-context-strip';box.className='v3-context-strip';box.dataset.v3Area=area;
-  if(area==='core')box.innerHTML='<span>◎</span><div><b>Internal Gravitas workspace</b>Projects, execution, content, system assets and team planning. This workspace is visible only to members of the Gravitas core team.</div>';
-  else box.innerHTML='<span>◇</span><div><b>Research collaboration workspace</b>Scientific and client projects live here. Access is granted per project or item; private notes and files stay private until shared.</div>';
+  if(area==='core')box.innerHTML='<span>'+mark('overview')+'</span><div><b>Internal Gravitas+ workspace</b>Projects, execution, content and team planning. This workspace is visible only to members of the Gravitas+ core team.</div>';
+  else box.innerHTML='<span>'+mark('collaboration')+'</span><div><b>Research collaboration workspace</b>Scientific and client projects live here. Access is granted per project or item; private notes and files stay private until shared.</div>';
   alertBox.parentNode.insertBefore(box,alertBox);
 }
 
@@ -115,7 +122,7 @@ function renderMobile(area){
   if(!select)return;
   var options=[['/workspace/my-work','Home']];
   if(coreAllowed()){
-    options.push(['/workspace/core','Core · Overview'],['/workspace/core/tasks','Core · Tasks'],['/workspace/core/content','Core · Content'],['/workspace/core/assets','Core · Assets & Blueprints'],['/workspace/operating','Core · Planning & Projects']);
+    options.push(['/workspace/core','Core · Overview'],['/workspace/core/tasks','Core · Tasks'],['/workspace/core/content','Core · Content'],['/workspace/operating','Core · Planning & Projects']);
     if(coreAdmin())options.push(['/workspace/core/team','Core · Team & Access']);
   }
   options=options.concat([
@@ -124,7 +131,7 @@ function renderMobile(area){
     ['/workspace/research/files','Research · Files & Data Rooms'],
     ['/workspace/research/nextcloud','Research · Collaboration']
   ]);
-  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member')+'-assets1-research4';
+  var key=(coreAllowed()?'core1':'core0')+(coreAdmin()?'-admin':'-member')+'-research4';
   if(select.dataset.v3Options!==key){
     select.dataset.v3Options=key;
     select.innerHTML=options.map(function(x){return '<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join('');
@@ -140,8 +147,8 @@ function renderMobile(area){
 }
 
 function workspaceCard(kind){
-  if(kind==='core')return '<a class="v3-workspace-card" href="/workspace/core"><div class="v3-workspace-card__icon">◎</div><small>Internal team only</small><h2>Core Workspace</h2><p>Run Gravitas: projects, tasks, content production, system assets and operating priorities.</p><footer>Open Core Workspace →</footer></a>';
-  return '<a class="v3-workspace-card" href="/workspace/research"><div class="v3-workspace-card__icon">◇</div><small>Research collaboration</small><h2>Research Workspace</h2><p>Scientific research, client projects, secure data rooms, notes, datasets and researcher collaboration.</p><footer>Open Research Workspace →</footer></a>';
+  if(kind==='core')return '<a class="v3-workspace-card" href="/workspace/core"><div class="v3-workspace-card__icon">'+mark('overview')+'</div><small>Internal team only</small><h2>Core Workspace</h2><p>Run Gravitas+: projects, tasks, content production and operating priorities.</p><footer>Open Core Workspace'+mark('arrow')+'</footer></a>';
+  return '<a class="v3-workspace-card" href="/workspace/research"><div class="v3-workspace-card__icon">'+mark('collaboration')+'</div><small>Research collaboration</small><h2>Research Workspace</h2><p>Scientific research, client projects, secure data rooms, notes, datasets and researcher collaboration.</p><footer>Open Research Workspace'+mark('arrow')+'</footer></a>';
 }
 
 function clearHomeDecoration(){
@@ -155,10 +162,10 @@ function decorateHome(area){
     clearHomeDecoration();
     return;
   }
-  var title=document.getElementById('ws-title'),sub=document.getElementById('ws-subtitle'),kick=document.getElementById('ws-kicker');
+  var title=document.getElementById('ws-title'),sub=document.getElementById('ws-subtitle');
   if(title&&title.textContent!=='Home')title.textContent='Home';
   if(sub)sub.textContent='Choose a workspace, then continue with the work assigned to you.';
-  if(kick)kick.textContent='GRAVITAS · HOME';
+  
   var content=document.getElementById('ws-content');
   if(!content||content.querySelector('.v3-home-workspaces'))return;
   var cards=(coreAllowed()?workspaceCard('core'):'')+workspaceCard('research');
@@ -183,7 +190,7 @@ function applyShell(){
     var area=currentArea();
     if(area==='core'&&!coreAllowed()){location.replace('/workspace/research');return}
     if(starts('/workspace/core/team')&&!coreAdmin()){location.replace('/workspace/core');return}
-    var name=document.getElementById('ws-workspace-name');var nameText=area==='home'?'Gravitas Home':area==='core'?'Core Workspace':'Research Workspace';if(name&&name.textContent!==nameText)name.textContent=nameText;
+    var name=document.getElementById('ws-workspace-name');var nameText=area==='home'?'Gravitas+ Home':area==='core'?'Core Workspace':'Research Workspace';if(name&&name.textContent!==nameText)name.textContent=nameText;
     var home=document.querySelector('[data-v3-home]');if(home)home.classList.toggle('is-active',area==='home');
     renderWorkspacePicker(area);renderContextNav(area);renderBreadcrumb(area);renderContextStrip(area);renderMobile(area);
     document.querySelectorAll('[data-core-only]').forEach(function(el){el.hidden=!coreAllowed()});

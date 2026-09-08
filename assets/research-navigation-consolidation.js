@@ -10,7 +10,13 @@ function isResearch(){return !(/^\/workspace\/(?:core|operating)(?:\/|$)/.test(l
 function inLibrary(){return starts('/workspace/research/files')||starts('/workspace/research/datasets')||starts('/workspace/research/mindmaps')||starts('/workspace/shared')}
 function inCollaboration(){return starts('/workspace/research/nextcloud')||starts('/workspace/people')||starts('/workspace/community')}
 
-function link(href,icon,label,active){return '<a href="'+href+'" class="'+(active?'is-active':'')+'"><span>'+icon+'</span>'+esc(label)+'</a>'}
+/* Same marks as the rest of the shell, from assets/gravitas-icons.js. This
+   file used to hand-write Unicode glyphs here, and because it caches its own
+   HTML in a data attribute it kept winning the race against the icon pass that
+   was meant to upgrade them — which is why the research sidebar shipped with
+   raw glyphs rather than icons. Drawing the real mark here removes the race. */
+function mark(name){return window.GravitasIcons?window.GravitasIcons.icon(name,'g-wi g-wi--nav'):''}
+function link(href,icon,label,active){return '<a href="'+href+'" class="'+(active?'is-active':'')+'"><span>'+mark(icon)+'</span>'+esc(label)+'</a>'}
 
 function consolidateSidebar(){
   if(!isResearch())return;
@@ -18,11 +24,11 @@ function consolidateSidebar(){
   var label=document.getElementById('v3-context-label');
   if(!box)return;
   var html=[
-    link('/workspace/research','◇','Overview',exact('/workspace/research')),
-    link('/workspace/research/projects','□','Projects',starts('/workspace/research/projects')),
-    link('/workspace/research/notes','✎','Notes',starts('/workspace/research/notes')),
-    link('/workspace/research/files','↑','Files & Data Rooms',inLibrary()),
-    link('/workspace/research/nextcloud','◉','Collaboration',inCollaboration())
+    link('/workspace/research','overview','Overview',exact('/workspace/research')),
+    link('/workspace/research/projects','projects','Projects',starts('/workspace/research/projects')),
+    link('/workspace/research/notes','notes','Notes',starts('/workspace/research/notes')),
+    link('/workspace/research/files','files','Files & Data Rooms',inLibrary()),
+    link('/workspace/research/nextcloud','collaboration','Collaboration',inCollaboration())
   ].join('');
   if(box.dataset.researchConsolidatedHtml!==html){
     box.dataset.researchConsolidatedHtml=html;

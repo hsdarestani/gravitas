@@ -1,6 +1,9 @@
 (function(){
 'use strict';
 
+/* Marks from assets/gravitas-icons.js, so this shell matches the brand set. */
+function mark(name){return window.GravitasIcons?window.GravitasIcons.icon(name,'g-wi g-wi--nav'):''}
+
 if(!/^\/workspace\/operating(?:\/|$)/.test(location.pathname))return;
 
 var nav=document.getElementById('ws-nav');
@@ -10,18 +13,18 @@ var timer=null;
 
 function coreShellMarkup(){
   return ''+
-    '<div class="v3-home-link"><a href="/workspace/my-work" data-v3-home><span>⌂</span>Home</a></div>'+
+    '<div class="v3-home-link"><a href="/workspace/my-work" data-v3-home><span>'+mark('home')+'</span>Home</a></div>'+
     '<p class="v3-workspace-label">Choose workspace</p>'+
     '<div id="v3-workspace-picker" class="v3-workspace-picker">'+
-      '<a href="/workspace/core" class="is-current"><span>◎</span><span><strong>Core Workspace</strong><small>Internal team operations</small></span></a>'+
-      '<a href="/workspace/research"><span>◇</span><span><strong>Research Workspace</strong><small>Projects & scientific collaboration</small></span></a>'+
+      '<a href="/workspace/core" class="is-current"><span>'+mark('overview')+'</span><span><strong>Core Workspace</strong><small>Internal team operations</small></span></a>'+
+      '<a href="/workspace/research"><span>'+mark('collaboration')+'</span><span><strong>Research Workspace</strong><small>Projects & scientific collaboration</small></span></a>'+
     '</div>'+
     '<p id="v3-context-label" class="v3-workspace-label">Core menu</p>'+
     '<div id="v3-context-nav" class="v3-context-nav">'+
-      '<a href="/workspace/core"><span>◎</span>Overview</a>'+
-      '<a href="/workspace/core/tasks"><span>✓</span>Tasks & Execution</a>'+
-      '<a href="/workspace/core/content"><span>▶</span>Content Pipeline</a>'+
-      '<a href="/workspace/operating" class="is-active"><span>↗</span>Planning & Projects</a>'+
+      '<a href="/workspace/core"><span>'+mark('overview')+'</span>Overview</a>'+
+      '<a href="/workspace/core/tasks"><span>'+mark('tasks')+'</span>Tasks & Execution</a>'+
+      '<a href="/workspace/core/content"><span>'+mark('content')+'</span>Content Pipeline</a>'+
+      '<a href="/workspace/operating" class="is-active"><span>'+mark('planning')+'</span>Planning & Projects</a>'+
     '</div>';
 }
 
@@ -60,9 +63,9 @@ function restoreContext(){
   restoreMobile();
   dedupeWorkPackages();
   var name=document.getElementById('ws-workspace-name');
-  var kicker=document.getElementById('ws-kicker');
+  
   if(name)name.textContent='Core Workspace';
-  if(kicker)kicker.textContent='CORE · PLANNING & PROJECTS';
+  
 }
 
 function queueRestore(){

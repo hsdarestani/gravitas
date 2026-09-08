@@ -71,7 +71,7 @@ if(mainDialog){
 var taskDialog=document.createElement('dialog');
 taskDialog.id='v2-task-share-dialog';
 taskDialog.className='ws-dialog';
-taskDialog.innerHTML='<form method="dialog"><div class="ws-dialog__head"><div><p class="ws-kicker">GRAVITAS ACCESS</p><h2 id="v2-task-dialog-title">Task</h2></div><button type="button" class="ws-icon-btn" data-task-dialog-close aria-label="Close">×</button></div><div id="v2-task-dialog-body"></div><div class="ws-dialog__actions"><button type="button" class="ws-quiet-btn" data-task-dialog-close>Close</button></div></form>';
+taskDialog.innerHTML='<form method="dialog"><div class="ws-dialog__head"><div><p class="ws-kicker">GRAVITAS+ ACCESS</p><h2 id="v2-task-dialog-title">Task</h2></div><button type="button" class="ws-icon-btn" data-task-dialog-close aria-label="Close"><svg class="g-wi g-wi--close" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></div><div id="v2-task-dialog-body"></div><div class="ws-dialog__actions"><button type="button" class="ws-quiet-btn" data-task-dialog-close>Close</button></div></form>';
 document.body.appendChild(taskDialog);
 var taskBody=taskDialog.querySelector('#v2-task-dialog-body');
 var taskTitle=taskDialog.querySelector('#v2-task-dialog-title');

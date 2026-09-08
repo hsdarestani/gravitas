@@ -96,12 +96,12 @@ function openProjectNoteComposer(id){
   if(!id)return;
   var overlay=mountOverlay(
     '<section class="note-ux-panel note-ux-composer" role="dialog" aria-modal="true" aria-labelledby="note-ux-title">'+
-      '<header class="note-ux-head"><div><small>GRAVITAS</small><h2 id="note-ux-title">New note</h2></div><button type="button" class="note-ux-close" data-note-ux-close aria-label="Close">×</button></header>'+
+      '<header class="note-ux-head"><div><small>GRAVITAS+</small><h2 id="note-ux-title">New note</h2></div><button type="button" class="note-ux-close" data-note-ux-close aria-label="Close"><svg class="g-wi g-wi--close" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></header>'+
       '<form class="note-ux-form">'+
         '<div class="note-ux-body">'+
           '<label class="note-ux-field"><span>Title</span><input name="title" type="text" maxlength="240" required autocomplete="off" placeholder="Note title"></label>'+
           '<label class="note-ux-field"><span>Note</span><textarea name="body" required spellcheck="true" placeholder="Write your research note…"></textarea></label>'+
-          '<div class="note-ux-scope"><span>◇</span><div><strong>Current project</strong><small>Shared with project members according to project access.</small></div></div>'+
+          '<div class="note-ux-scope"><span><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.073 1.079) scale(0.906898)" stroke-width="1.875"><circle cx="8.6" cy="12" r="6.4"/><circle cx="15.4" cy="12" r="6.4"/><circle cx="12" cy="12" r="1.709" fill="currentColor" stroke="none"/></g></svg></span><div><strong>Current project</strong><small>Shared with project members according to project access.</small></div></div>'+
         '</div>'+
         '<footer class="note-ux-actions"><button type="button" class="ws-quiet-btn" data-note-ux-close>Cancel</button><button type="submit" class="ws-primary-btn" data-note-ux-save>Save note</button></footer>'+
       '</form>'+
@@ -155,7 +155,7 @@ function openResourceOverlay(resourceId){
   if(!resourceId)return;
   var overlay=mountOverlay(
     '<section class="note-ux-panel note-ux-detail" role="dialog" aria-modal="true" aria-labelledby="note-ux-detail-title">'+
-      '<header class="note-ux-head"><div><small>KNOWLEDGE</small><h2 id="note-ux-detail-title">Opening…</h2></div><button type="button" class="note-ux-close" data-note-ux-close aria-label="Close">×</button></header>'+
+      '<header class="note-ux-head"><div><small>KNOWLEDGE</small><h2 id="note-ux-detail-title">Opening…</h2></div><button type="button" class="note-ux-close" data-note-ux-close aria-label="Close"><svg class="g-wi g-wi--close" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></header>'+
       '<div class="note-ux-detail-body"><div class="note-ux-loading">Loading note…</div></div>'+
       '<footer class="note-ux-actions"><button type="button" class="ws-secondary-btn" data-note-ux-close>Close</button></footer>'+
     '</section>',

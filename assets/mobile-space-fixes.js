@@ -20,7 +20,7 @@ function ensureNotesNavigation(){
   if(box&&location.pathname.indexOf('/workspace/research')===0&&!box.querySelector('a[href="/workspace/research/notes"]')){
     var link=document.createElement('a');
     link.href='/workspace/research/notes';
-    link.innerHTML='<span>✎</span>Notes';
+    link.innerHTML='<span><svg class="g-wi g-wi--nav" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.586 0.550) scale(0.889943)" stroke-width="1.910"><path d="M5.6 3.6a1.6 1.6 0 0 1 1.6-1.6h6.2l5 5v13.4a1.6 1.6 0 0 1-1.6 1.6H7.2a1.6 1.6 0 0 1-1.6-1.6z"/><path d="M13.4 2v5h5"/><path d="M9.2 12.6h5.6"/><path d="M9.2 15.8h3.4"/><circle cx="9.6" cy="19" r="1.742" fill="currentColor" stroke="none"/></g></svg></span>Notes';
     if(notesRoute())link.className='is-active';
     var files=box.querySelector('a[href="/workspace/research/files"]');
     box.insertBefore(link,files||null);
@@ -138,7 +138,7 @@ function renderLegacyFolders(legacy){
   banner.dataset.projectId=String(id);
   var blocked=legacy.database_blocked_count||0;
   var chips=(legacy.items||[]).map(function(item){return '<span'+(!item.database_empty?' data-busy="true"':'')+'>'+esc(item.name)+'</span>'}).join('');
-  banner.innerHTML='<div class="legacy-folder-banner__copy"><small>OLDER PROJECT STRUCTURE</small><strong>Legacy auto-generated folders detected</strong><p>This project still has folders created by the old fixed structure. Gravitas can remove only folders that are empty in both the database and Nextcloud. Files and subfolders are never deleted.</p><div class="legacy-folder-banner__chips">'+chips+'</div>'+(blocked?'<em>'+blocked+' folder'+(blocked===1?' already contains':'s already contain')+' linked content and will be kept.</em>':'')+'<em data-legacy-space-path hidden></em></div><div class="legacy-folder-banner__actions"><button type="button" class="ws-secondary-btn" data-legacy-folder-keep>Keep for now</button><button type="button" class="ws-primary-btn" data-legacy-folder-clean>Clean empty folders</button></div>';
+  banner.innerHTML='<div class="legacy-folder-banner__copy"><small>OLDER PROJECT STRUCTURE</small><strong>Legacy auto-generated folders detected</strong><p>This project still has folders created by the old fixed structure. Gravitas+ can remove only folders that are empty in both the database and Nextcloud. Files and subfolders are never deleted.</p><div class="legacy-folder-banner__chips">'+chips+'</div>'+(blocked?'<em>'+blocked+' folder'+(blocked===1?' already contains':'s already contain')+' linked content and will be kept.</em>':'')+'<em data-legacy-space-path hidden></em></div><div class="legacy-folder-banner__actions"><button type="button" class="ws-secondary-btn" data-legacy-folder-keep>Keep for now</button><button type="button" class="ws-primary-btn" data-legacy-folder-clean>Clean empty folders</button></div>';
   var strip=cockpit.querySelector('.v5-project-strip');
   if(strip&&strip.nextSibling)cockpit.insertBefore(banner,strip.nextSibling);else cockpit.insertBefore(banner,cockpit.firstChild);
   loadSpacePlacement();
@@ -182,7 +182,7 @@ function keepLegacyFolders(){
 function cleanLegacyFolders(button){
   var id=projectId();
   if(!id)return;
-  var message='Gravitas will remove only legacy folders that are empty in both Gravitas and Nextcloud. Any folder containing files or subfolders will be kept. Continue?';
+  var message='Gravitas+ will remove only legacy folders that are empty in both Gravitas+ and Nextcloud. Any folder containing files or subfolders will be kept. Continue?';
   if(!window.confirm(message))return;
   var original=button.textContent;
   button.disabled=true;

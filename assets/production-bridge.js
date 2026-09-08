@@ -81,18 +81,47 @@
     return 'Something went wrong. Please try again.';
   }
 
+  /* The label lives in one of three shapes depending on which header slot the
+     link sits in: an explicit [data-auth-label], a bare <span> next to the icon
+     (.gh-signin), or a loose text node after the icon (.gh-nav-signin). The
+     previous version only knew about the text node and *appended* otherwise,
+     which is why a signed-in visitor read "Sign inWorkspace" in the header:
+     the <span> kept saying "Sign in" and "Workspace" was added after it. Write
+     to whichever holder exists, then clear the others so the label can never be
+     duplicated, however many times this runs. */
   function setLinkLabel(link, label) {
     if (!link) return;
-    var nodes = link.childNodes;
-    for (var i = nodes.length - 1; i >= 0; i--) {
-      if (nodes[i].nodeType === 3 && nodes[i].nodeValue.trim()) {
-        nodes[i].nodeValue = label;
-        return;
+
+    var holder = link.querySelector('[data-auth-label]');
+    if (!holder) {
+      var spans = link.children;
+      for (var s = 0; s < spans.length; s++) {
+        if (spans[s].tagName === 'SPAN' && spans[s].getAttribute('aria-hidden') !== 'true') {
+          holder = spans[s];
+          break;
+        }
       }
     }
-    var explicit = link.querySelector('[data-auth-label]');
-    if (explicit) explicit.textContent = label;
-    else link.appendChild(document.createTextNode(label));
+
+    var nodes = link.childNodes, text = null;
+    for (var i = nodes.length - 1; i >= 0; i--) {
+      if (nodes[i].nodeType === 3 && nodes[i].nodeValue.trim()) { text = nodes[i]; break; }
+    }
+
+    if (holder) {
+      holder.textContent = label;
+      // Drop any stray text node, including one a previous run appended.
+      for (var j = nodes.length - 1; j >= 0; j--) {
+        if (nodes[j].nodeType === 3 && nodes[j].nodeValue.trim()) link.removeChild(nodes[j]);
+      }
+    } else if (text) {
+      text.nodeValue = label;
+    } else {
+      link.appendChild(document.createTextNode(label));
+    }
+
+    if (link.hasAttribute('aria-label')) link.setAttribute('aria-label', label);
+    if (link.hasAttribute('title')) link.setAttribute('title', label);
   }
 
   function markAccount(email) {
