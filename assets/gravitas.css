@@ -532,6 +532,30 @@
   .g-logo { display: inline-flex; align-items: center; }
   .g-logo svg { height: 1.75rem; width: auto; }
   .g-logo--mark svg { height: 2rem; }
+  /* ---- The marks ---------------------------------------------------
+     One logotype, one file. Every place the wordmark or the monogram is
+     drawn masks the SVG in assets/logos and paints it with currentColor,
+     so the ink follows the theme and no page carries a second copy of the
+     geometry that can drift away from the brand file. */
+  .g-mark {
+    display: block;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    -webkit-mask-size: contain; mask-size: contain;
+  }
+  .g-mark--logotype {
+    aspect-ratio: 661 / 118.2;
+    -webkit-mask-image: url("logos/Logotype_Black.svg");
+    mask-image: url("logos/Logotype_Black.svg");
+  }
+  .g-mark--logo {
+    aspect-ratio: 491.17 / 491.22;
+    -webkit-mask-image: url("logos/Logo_Black.svg");
+    mask-image: url("logos/Logo_Black.svg");
+  }
+  .g-logo .g-mark--logotype { height: 1.75rem; }
+  .g-logo .g-mark--logo { height: 2rem; }
 
   .g-nav { display: flex; align-items: center; gap: var(--g-space-md); }
   .g-nav__link {

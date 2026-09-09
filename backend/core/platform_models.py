@@ -96,6 +96,17 @@ class ResearcherProfile(models.Model):
     languages = models.JSONField(default=list, blank=True)
     availability = models.CharField(max_length=120, blank=True)
     is_public = models.BooleanField(default=False)
+
+    # The profile picture, held as a data URI rather than a file.
+    #
+    # A FileField would be the reflex, but this deployment configures no
+    # MEDIA_ROOT and no media URL, and Pillow is not installed, so an
+    # ImageField would add three pieces of deployment surface for one small
+    # image. Research files go to Nextcloud precisely because they are large
+    # and shared; an avatar is neither. Held here it needs no storage backend
+    # and no second request to display, and the cap enforced by the view that
+    # writes it keeps the column small.
+    avatar = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

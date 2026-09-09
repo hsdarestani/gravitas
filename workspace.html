@@ -1,170 +1,138 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
   <title>Workspace · Gravitas+</title>
   <link rel="icon" href="/assets/favicon.svg">
-  <link rel="stylesheet" href="/assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09">
-  <script src="/assets/dialog-compat.js?v=20260903c"></script>
-  <script src="/assets/gravitas-icons.js?v=20260907a"></script>
-  <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
-  <link rel="stylesheet" href="/assets/workspace.css">
-  <link rel="stylesheet" href="/assets/operating.css?v=20260830b">
-  <link rel="stylesheet" href="/assets/roadmap-okr-sync.css?v=20260830b">
-  <link rel="stylesheet" href="/assets/initiative-planner.css">
-  <link rel="stylesheet" href="/assets/initiative-task-editor.css">
-  <link rel="stylesheet" href="/assets/initiative-task-reorder.css">
-  <link rel="stylesheet" href="/assets/platform-v2.css">
-  <link rel="stylesheet" href="/assets/platform-v2-ux.css">
-  <link rel="stylesheet" href="/assets/platform-v3-navigation.css">
-  <link rel="stylesheet" href="/assets/platform-v3-route-fixes.css">
-  <link rel="stylesheet" href="/assets/workspace-visuals.css">
-  <link rel="stylesheet" href="/assets/core-team.css">
-  <link rel="stylesheet" href="/assets/core-team-storage.css?v=20260829a">
-  <link rel="stylesheet" href="/assets/nextcloud-native.css?v=20260830c">
-  <link rel="stylesheet" href="/assets/research-v5.css?v=20260830a">
-  <link rel="stylesheet" href="/assets/mobile-space-fixes.css?v=20260903a">
-  <link rel="stylesheet" href="/assets/note-ux-fixes.css?v=20260903b">
-  <link rel="stylesheet" href="/assets/mindmap-editor.css?v=20260830b">
-  <link rel="stylesheet" href="/assets/mindmap-dialog-theme-fix.css?v=20260830a">
-  <script src="/assets/mobile-space-fixes.js?v=20260903a" defer></script>
-  <script src="/assets/note-ux-fixes.js?v=20260903b" defer></script>
-<link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09">
-<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09">
-</head>
-<body>
-  <a class="g-skip" href="#workspace-main">Skip to workspace</a>
-  <header class="ws-topbar">
-    <a class="ws-brand" href="/" aria-label="Gravitas+ home"><img src="/assets/logotype-white.svg" alt="Gravitas+"></a>
-    <div class="ws-topbar__actions">
-      <button id="ws-theme" class="ws-icon-btn theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme"><svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg> <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg></button>
-      <details class="ws-account">
-        <summary><span id="ws-avatar">G</span><span id="ws-user">Account</span></summary>
-        <nav>
-          <a href="/workspace/my-work">Home</a>
-          <a href="/workspace/core" data-core-only hidden>Core Workspace</a>
-          <a href="/workspace/research">Research Workspace</a>
-          <a href="/login">Account</a>
-          <button id="ws-logout" type="button">Logout</button>
-        </nav>
-      </details>
-    </div>
-  </header>
 
-  <div class="ws-shell">
-    <aside class="ws-sidebar" aria-label="Workspace navigation">
-      <div>
-        <p class="ws-eyebrow">Gravitas+ platform</p>
-        <strong class="ws-workspace-name" id="ws-workspace-name">Gravitas+ Home</strong>
-      </div>
-
-      <nav id="ws-nav">
-        <div class="v3-home-link"><a href="/workspace/my-work" data-v3-home><span><svg class="g-wi g-wi--nav" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.241 -1.483) scale(0.980000)" stroke-width="1.735"><path d="M3 10.2 12 3l9 7.2"/><path d="M5.2 12v8.2a1 1 0 0 0 1 1h11.6a1 1 0 0 0 1-1V12"/><circle cx="12" cy="16.4" r="1.582" fill="currentColor" stroke="none"/></g></svg></span>Home</a></div>
-        <p class="v3-workspace-label">Choose workspace</p>
-        <div id="v3-workspace-picker" class="v3-workspace-picker">
-          <a href="/workspace/research"><span><svg class="g-wi g-wi--nav" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.073 1.079) scale(0.906898)" stroke-width="1.875"><circle cx="8.6" cy="12" r="6.4"/><circle cx="15.4" cy="12" r="6.4"/><circle cx="12" cy="12" r="1.709" fill="currentColor" stroke="none"/></g></svg></span><span><strong>Research Workspace</strong><small>Projects & scientific collaboration</small></span></a>
-        </div>
-        <p id="v3-context-label" class="v3-workspace-label">Workspace menu</p>
-        <div id="v3-context-nav" class="v3-context-nav"></div>
-      </nav>
-
-      <div class="ws-storage" data-v3-hidden="true">
-        <div><span>Research storage</span><strong id="ws-storage-label">Nextcloud</strong></div>
-        <div class="ws-meter"><i id="ws-storage-meter"></i></div>
-        <small id="ws-plan">Project-aware secure storage</small>
-        <p id="ws-storage-message">Private by default · shared per project or item.</p>
-      </div>
-    </aside>
-
-    <main id="workspace-main" class="ws-main" tabindex="-1">
-      <div class="ws-mobile-nav">
-        <label for="ws-mobile-select">Go to</label>
-        <select id="ws-mobile-select"><option value="/workspace/my-work">Home</option><option value="/workspace/research">Research Workspace</option></select>
-      </div>
-      <section class="ws-hero">
-        <div><h1 id="ws-title">Home</h1><p id="ws-subtitle">Choose the workspace that matches what you want to do.</p></div>
-        <div id="ws-primary-actions" class="ws-actions"></div>
-      </section>
-      <div id="ws-alert" class="ws-alert" role="status" hidden></div>
-      <div id="ws-content" aria-live="polite"><div class="ws-loading">Opening Gravitas+…</div></div>
-    </main>
-  </div>
-
-  <dialog id="ws-dialog" class="ws-dialog">
-    <form id="ws-form" method="dialog">
-      <div class="ws-dialog__head"><div><p class="ws-kicker">GRAVITAS+</p><h2 id="ws-dialog-title">Create</h2></div><button type="button" class="ws-icon-btn" data-close aria-label="Close"><svg class="g-wi g-wi--close" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></div>
-      <div id="ws-form-fields"></div>
-      <div class="ws-dialog__actions"><button type="button" class="ws-quiet-btn" data-close>Cancel</button><button type="submit" class="ws-primary-btn">Save</button></div>
-    </form>
-  </dialog>
-
+  <!-- The theme is set before the first paint. Reading it from script after
+       the stylesheet has applied shows one frame of the wrong theme, which is
+       the flash every dark-mode site is judged on. -->
   <script>
-    (function(){
-      var t=document.getElementById('ws-theme');
-      if(t)t.setAttribute('aria-pressed',String(document.documentElement.getAttribute('data-theme')==='light'));
-      if(location.pathname==='/workspace'||location.pathname==='/workspace/'){
-        history.replaceState({},'', '/workspace/my-work');
-      }
-      var operating=/^\/workspace\/operating(?:\/|$)/.test(location.pathname);
-      var platform=/^\/workspace\/(?:core|research|shared|people|community|my-work)(?:\/|$)/.test(location.pathname);
-      var nextcloud=/^\/workspace\/research\/nextcloud\/?$/.test(location.pathname);
-      var strategy=/^\/workspace\/operating\/strategy\/?$/.test(location.pathname);
-      var initiatives=/^\/workspace\/operating\/initiatives\/?$/.test(location.pathname);
-
-      function add(src,onload){
-        var s=document.createElement('script');s.src=src;s.async=false;if(onload)s.onload=onload;document.body.appendChild(s);
-      }
-      function addVisuals(){add('/assets/workspace-visuals.js',function(){add('/assets/core-team.js',function(){add('/assets/core-team-registered.js?v=20260829b',function(){add('/assets/core-team-storage.js?v=20260829a')})})})}
-      function addNavigation(){add('/assets/platform-v3-navigation.js?v=20260830c',function(){add('/assets/research-navigation-consolidation.js?v=20260830a',addVisuals)})}
-      function addSpace(next){add('/assets/space-v1.js?v=20260831b',function(){add('/assets/space-reconcile-v1.js?v=20260831a',next)})}
-      function addOperatingShell(){add('/assets/operating-core-shell.js?v=20260830b',addNavigation)}
-      function addNextcloud(next){add('/assets/nextcloud-native.js?v=20260830c',function(){add('/assets/nextcloud-sso.js?v=20260831a',next)})}
-      function afterOperatingEnhancements(){
-        add('/assets/operating-task-detail.js?v=20260901a',function(){
-          if(strategy){
-            add('/assets/roadmap-okr-sync.js?v=20260830b',addOperatingShell);
-          }else if(initiatives){
-            add('/assets/initiative-planner.js?v=20260830b',function(){
-              add('/assets/initiative-task-editor.js?v=20260830b',function(){
-                add('/assets/initiative-task-reorder.js?v=20260830b',addOperatingShell);
-              });
-            });
-          }else{
-            addOperatingShell();
-          }
-        });
-      }
-
-      if(nextcloud){
-        add('/assets/workspace-shell-session.js?v=20260830a',function(){
-          addNextcloud(function(){addSpace(addNavigation)});
-        });
-      }else if(platform){
-        add('/assets/platform-v2.js',function(){
-          add('/assets/platform-v2-patches.js',function(){
-            add('/assets/platform-v2-ux.js',function(){
-              add('/assets/research-v5.js?v=20260830a',function(){
-                add('/assets/mindmap-editor-v2.js?v=20260830d',function(){
-                  add('/assets/mindmap-dialog-polish.js?v=20260830a',function(){
-                    addNextcloud(function(){addSpace(addNavigation)});
-                  });
-                });
-              });
-            });
-          });
-        });
-      }else if(operating){
-        add('/assets/operating.js?v=20260830b',function(){
-          add('/assets/operating-enhancements.js?v=20260830b',afterOperatingEnhancements);
-        });
-      }else{
-        add('/assets/workspace.js',addNavigation);
-      }
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem('gravitas-theme'); } catch (e) { /* storage denied */ }
+      var system = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', saved || system);
     })();
   </script>
-<script src="/assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09" defer></script>
-<script src="assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09" defer></script>
+
+  <link rel="stylesheet" href="/assets/local-fonts.css">
+  <link rel="stylesheet" href="/assets/gravitas.css">
+  <link rel="stylesheet" href="/assets/ws/ws.css">
+  <script src="/assets/gravitas-icons.js" defer></script>
+</head>
+<body>
+  <a class="g-skip-link" href="#ws-view">Skip to the page</a>
+
+  <div class="ws" id="ws" data-index="on" data-dock="on">
+
+    <header class="ws-topbar">
+      <div class="ws-topbar__lead">
+        <!-- The wordmark is the site's own .g-logo mark: it masks the single brand
+             file at assets/logos/Logotype_Black.svg and paints it with currentColor,
+             which is how every other Gravitas page draws it. One file, one
+             drawing, and it inks correctly on both themes. -->
+        <a class="g-logo ws-topbar__brand" href="/" aria-label="Gravitas+ home"><span class="g-mark g-mark--logotype" aria-hidden="true"></span>
+        </a>
+        <button class="ws-ibtn" id="ws-toggle-index" type="button" aria-label="Show or hide the index">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M9.2 4.5v15"/>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="ws-crumbs" id="ws-crumbs" aria-label="Breadcrumb"></nav>
+
+      <div class="ws-topbar__actions">
+        <button class="ws-search" id="ws-open-palette" type="button" aria-label="Search, or run a command">
+          <svg class="g-wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" aria-hidden="true"><circle cx="10.6" cy="10.6" r="7.4"/><path d="m16 16 5 5"/></svg>
+          <span class="ws-search__label">Search</span>
+          <kbd>⌘K</kbd>
+        </button>
+
+        <button class="ws-ibtn" id="ws-toggle-dock" type="button" aria-label="Show or hide the side panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M14.8 4.5v15"/>
+          </svg>
+        </button>
+
+        <!-- The site's own theme control: same class, same two marks, same
+             behaviour as the header on every public page. -->
+        <button class="theme-toggle" id="ws-theme" type="button" aria-pressed="false"
+                aria-label="Switch colour theme" title="Switch colour theme">
+          <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none"
+               stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <!-- The crescent is centred by mass rather than by bounding box, which
+                 is why it carries a transform. Copied from the public header so the
+                 two controls are optically identical. -->
+            <g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g>
+          </svg>
+          <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none"
+               stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.1"/>
+            <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="ws__body">
+      <nav class="ws-rail" id="ws-rail" aria-label="Workspaces"></nav>
+
+      <div class="ws__index">
+        <div class="ws-pane">
+          <div class="ws-pane__head">
+            <span class="ws-pane__title" id="ws-index-title">Index</span>
+          </div>
+          <div class="ws-pane__body" id="ws-index-body"></div>
+          <div class="ws-pane__foot" id="ws-index-count"></div>
+        </div>
+        <div class="ws-grip" id="ws-grip-index" aria-label="Resize the index"></div>
+      </div>
+
+      <main class="ws-main" id="ws-main">
+        <div class="ws-view" id="ws-view" tabindex="-1"></div>
+      </main>
+
+      <div class="ws__dock">
+        <div class="ws-grip" id="ws-grip-dock" aria-label="Resize the side panel"></div>
+        <div class="ws-pane">
+          <div class="ws-tabs" id="ws-dock-tabs" role="tablist" aria-label="Side panel"></div>
+          <div class="ws-pane__body" id="ws-dock-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="ws-status">
+      <span class="ws-save" id="ws-save" data-state="saved">Saved</span>
+      <span id="ws-words"></span>
+      <span id="ws-pages-mode"></span>
+      <span class="ws-status__spacer"></span>
+      <span id="ws-mode"></span>
+    </footer>
+  </div>
+
+  <noscript>
+    <div class="ws-alert" style="margin:24px">
+      <p class="ws-alert__title">The workspace needs JavaScript</p>
+      <p>It is an editor and a live view of your projects, so there is no meaningful version to render on the server. The public site at <a href="/">gravitasplus.com</a> works without it.</p>
+    </div>
+  </noscript>
+
+  <script type="module">
+    import { start } from '/assets/ws/ws-app.js';
+
+    // The icon module is a classic script that sets a global, so it may not
+    // have run when this module executes. Waiting for load is cheaper and
+    // more honest than converting it and touching every page that uses it.
+    if (window.GravitasIcons) start();
+    else addEventListener('load', start, { once: true });
+  </script>
 </body>
 </html>

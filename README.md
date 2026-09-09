@@ -281,3 +281,119 @@ For an existing account, seed the private demo idempotently with
 `cd backend && DJANGO_SETTINGS_MODULE=gravitas_backend.settings python -m django seed_workspace_demo --user researcher@example.com`.
 Remove only seeded content with the same command plus `--remove`. The command is
 never run automatically and does not create or expose credentials.
+
+---
+
+## The workspace
+
+`workspace.html` plus `assets/ws/`. Same rules as the rest of the repository:
+static files, no build step, no dependencies.
+
+The structure is the platform's, unchanged. **Home**, then two workspaces:
+
+| | Sections |
+|---|---|
+| **Core** (internal team) | Overview · Tasks & Execution · Content Pipeline · Planning & Projects · Team & Access |
+| **Research** | Overview · Projects · Files & Data Rooms · Pages · Collaboration |
+
+Core is gated on `access.core` from `/api/platform/bootstrap/`, and Team &
+Access on the owner or admin role. Both checks are the server's; hiding the
+entries only avoids offering a door that will not open. Every route the
+previous workspace published still resolves to the same screen.
+
+```
+workspace.html             the shell
+assets/ws/ws.css           every workspace style, on gravitas.css tokens
+assets/ws/ws-app.js        router, panes, index tree, editor, dock
+assets/ws/ws-nav.js        the two workspaces and their sections
+assets/ws/ws-platform.js   the platform API: bootstrap, dashboards, projects
+assets/ws/ws-views.js      the screens that render backend data
+assets/ws/ws-api.js        the page store, with a local fallback
+assets/ws/ws-palette.js    command palette
+assets/ws/ws-ai.js         assistant panel
+assets/ws/ws-seed.js       the pages a cold workspace opens with
+```
+
+### What changed, and what did not
+
+Only the presentation. The old shell put a flat list of links in a sidebar and
+rebuilt the page underneath it; this one puts the sections in an index tree
+beside a document pane, with a command palette over the top. The workspaces,
+the sections, the routes, the access rules and the backend calls are the same.
+
+The theme control is the site's own: same `.theme-toggle` class and the same
+moon and sun marks as the public header. The wordmark is the site's `.g-logo`
+SVG, filled `currentColor`. Icons are the twenty-nine marks in
+`assets/gravitas-icons.js`, drawn to the brand book's geometry.
+
+### Two data layers, and why
+
+`ws-platform.js` talks to the platform. Those routes are registered and answer
+today, so there is no fallback and there should not be: a Core dashboard
+invented in the browser would be a fabricated report on a real team's work. A
+failed call renders what failed and a retry.
+
+`ws-api.js` handles pages, and does have a fallback. `backend/core/space_api.py`
+implements the space views, but `backend/core/urls.py` never registers a path
+for them, so every `/api/platform/space/…` request answers 404. The old
+frontend called them anyway and showed a permanent spinner. This one detects
+it, says so in the status bar, and keeps working against a real `localStorage`
+store. Wiring those routes is the whole fix; `adopt()` lifts existing local
+pages to the account once they are live.
+
+There is deliberately no local task store. Tasks are Core objects the server
+owns, and a browser-local task list would render identically to the real one
+and disagree with it the moment two people looked at the same board.
+
+### The dashboard
+
+Home and the Overview of each workspace are the same screen with different
+sources: greeting, live clock, weather, a focus line, what is due, what is
+next, and what is running. `assets/ws/ws-home.js`.
+
+The focus line is arithmetic over real due dates, not prose from a model, and
+the card says so under it. An assistant button is beside it for the cases
+where a real answer is wanted. Projects show status and deadline rather than a
+progress bar, because the project payload carries no percentage and a bar
+drawn from a status enum would be a number the system does not have.
+
+Weather is the one request the workspace makes outside Gravitas. It goes to
+Open-Meteo, which needs no key, and sends the coordinates of a chosen city and
+nothing else: no account, no page, no browser location prompt. It defaults to
+Potsdam, the address in the legal notice, and Settings can change the city or
+switch it off. It fails silently and stays hidden.
+
+### Settings
+
+Reached from the account button at the foot of the rail, under the Assistant.
+Profile picture, profile fields, password, and the preferences that live in
+this browser.
+
+The picture is cropped square and resized to 256px in the browser before it is
+sent. That keeps it under the column cap, drops the EXIF block a phone photo
+carries (which includes where it was taken), and produces the one shape every
+place that shows it wants.
+
+Two endpoints were added for this:
+
+| Endpoint | What it does |
+|---|---|
+| `PATCH /api/platform/researchers/me/` | now also accepts `avatar`, validated for type, encoding and size |
+| `POST /api/auth/password-change/` | changes the password of a signed-in user |
+
+The password endpoint requires the current password, which the reset-by-email
+flow cannot, because there the person is by definition locked out. It keeps the
+current session alive and invalidates every other one.
+
+The avatar is a `TextField` holding a data URI rather than a `FileField`. This
+deployment configures no `MEDIA_ROOT` and serves no media URL, and Pillow is
+not installed, so an `ImageField` would add three pieces of deployment surface
+for one small image. **Migration `0012_researcher_avatar` must be applied.**
+
+### What was removed
+
+The previous workspace loaded 24 stylesheets and about 20 scripts, in layers
+named `platform-v2`, `platform-v3`, and then four more whose names began with
+`fix`. Behaviour was defined in one file and redefined in a later one, so
+reading it meant knowing the order the script tags happened to be in. Those 46
+files are gone. Nothing outside the workspace referenced any of them.

@@ -109,6 +109,7 @@ from core.views import (
     newsletter_confirm,
     newsletter_subscribe,
     password_reset_confirm,
+    password_change,
     password_reset_request,
 )
 
@@ -127,6 +128,7 @@ urlpatterns = [
     path('auth/delete/', auth_delete),
     path('auth/email-confirm/', account_email_confirm),
     path('auth/email-confirm/resend/', account_email_resend),
+    path('auth/password-change/', password_change),
     path('auth/password-reset/', password_reset_request),
     path('auth/password-reset/confirm/', password_reset_confirm),
     path('community/comments/<slug:content_key>/', comments),

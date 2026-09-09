@@ -1,0 +1,1542 @@
+/* ==========================================================================
+   GRAVITAS+ WORKSPACE  ·  v4
+   One stylesheet for the whole workspace shell. It replaces twenty-two
+   sheets that had grown on top of each other (platform-v2, platform-v3,
+   then four more files whose names all began with "fix"), and it adds no
+   colour, type or motion of its own: every value below resolves to a token
+   from gravitas.css, so the workspace and the public site stay one design.
+
+   Layers are declared after gravitas.css's own, which means a rule here
+   always wins over a component rule there without needing a single
+   !important or a repeated selector.
+
+   Two rules govern the whole file:
+
+   SHAPE.  One radius scale, no exceptions. 6px on anything a pointer acts
+   on directly (rows, buttons, inputs, chips), 10px on anything that holds
+   those (panes, cards, dialogs, the palette). Pill is reserved for status,
+   which is the one shape that must never be mistaken for a control.
+
+   DENSITY.  This is a tool somebody keeps open all day, so it is dense on
+   purpose: 28px tree rows, 32px list rows, 13px interface text. Density is
+   bought with rhythm rather than with cramming, which is why the row
+   heights are multiples of four and the panes share one 12px gutter.
+   ========================================================================== */
+
+@layer ws-tokens, ws-shell, ws-panes, ws-components, ws-utilities;
+
+/* ==========================================================================
+   1. TOKENS
+   Only measurements live here. Colour comes from gravitas.css unchanged.
+   ========================================================================== */
+@layer ws-tokens {
+  :root {
+    --ws-topbar-h: 48px;
+    --ws-status-h: 26px;
+    --ws-rail-w: 52px;
+
+    /* Pane widths are live: the drag handles write these back. The clamps
+       are the real constraint, so a handle cannot produce a pane too narrow
+       to read a filename in. */
+    --ws-index-w: 264px;
+    --ws-dock-w: 312px;
+    --ws-index-min: 200px;
+    --ws-index-max: 460px;
+    --ws-dock-min: 260px;
+    --ws-dock-max: 520px;
+
+    --ws-row-h: 28px;
+    --ws-list-row-h: 32px;
+    --ws-gutter: 12px;
+
+    --ws-fs: 13px;
+    --ws-fs-sm: 12px;
+    --ws-fs-xs: 11px;
+
+    /* One radius scale. See the SHAPE rule at the top of this file. */
+    --ws-r-control: 6px;
+    --ws-r-panel: 10px;
+
+    /* The brand's house easing, named locally so a reader of this file can
+       see at a glance that the workspace does not invent its own motion. */
+    --ws-ease: var(--g-ease-orbit);
+  }
+
+  /* Light theme: subtle text is darkened, inside the workspace only.
+     --g-text-subtle (#5d7280) was set against the page ground (#f5f3ef),
+     where it measures 4.5:1. The workspace puts a lot of that text on the
+     sunken surface instead (#eeebe4, the index and dock), where the same
+     colour falls to 4.22:1 and misses AA for text this small. #556977 is
+     the same hue at 4.80:1 on sunken and 5.16:1 on the ground, so it clears
+     the bar on both. Scoped here rather than corrected in gravitas.css,
+     because the public site's pairing is fine and does not need changing. */
+  :root[data-theme="light"] .ws {
+    --g-text-subtle: #556977;
+    --g-ic-dim: #556977;
+  }
+
+  /* Dark theme, the same correction and the same cause. --g-text-subtle is
+     the tint at 0.62 alpha, which measures 4.51:1 on the page ground and was
+     presumably checked there. The workspace puts that text on three other
+     surfaces as well, and on the raised one it falls to 3.78:1. Raising the
+     alpha to 0.75 clears AA on all four: ground 5.97, surface 5.42, raised
+     4.81, sunken 6.38. Scoped to the workspace, because the public site does
+     not stack surfaces this way and its pairing is fine. */
+  :root:not([data-theme="light"]) .ws {
+    --g-text-subtle: rgb(var(--g-tint) / 0.75);
+    --g-ic-dim-a: 0.75;
+  }
+}
+
+/* ==========================================================================
+   2. SHELL
+   A single grid. Panes are grid tracks rather than floated or absolutely
+   positioned boxes, so hiding one is a change to the template and never a
+   change to any pane's own CSS.
+   ========================================================================== */
+@layer ws-shell {
+  html, body {
+    height: 100%;
+    overflow: hidden;   /* the shell scrolls its panes, never the document */
+  }
+
+  body {
+    margin: 0;
+    background: var(--g-bg);
+    color: var(--g-text);
+    font-family: var(--g-font);
+    font-size: var(--ws-fs);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .ws {
+    display: grid;
+    grid-template-rows: var(--ws-topbar-h) minmax(0, 1fr) var(--ws-status-h);
+    height: 100dvh;   /* not vh: the iOS address bar makes vh lie */
+  }
+
+  .ws__body {
+    display: grid;
+    grid-template-columns:
+      var(--ws-rail-w)
+      var(--ws-index-w)
+      minmax(0, 1fr)
+      var(--ws-dock-w);
+    min-height: 0;
+  }
+
+  /* Each pane names its own track. Auto-placement would do the same thing
+     right up until a pane leaves the flow: at phone width the rail becomes
+     position:fixed, and with auto-placement every remaining pane shifted one
+     track to the left, putting the document in a zero-width column. */
+  .ws-rail   { grid-column: 1; }
+  .ws__index { grid-column: 2; }
+  .ws-main   { grid-column: 3; }
+  .ws__dock  { grid-column: 4; }
+
+  /* Panes collapse by zeroing their track. The pane keeps its own styles,
+     which is what makes reopening it free of layout surprises. */
+  .ws[data-index="off"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) var(--ws-dock-w); }
+  .ws[data-dock="off"]  .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-index-w) minmax(0, 1fr) 0; }
+  .ws[data-index="off"][data-dock="off"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
+
+  /* Relative, because each holds an absolutely positioned resize handle on
+     its inner edge. */
+  .ws__index, .ws__dock { overflow: hidden; position: relative; }
+  .ws[data-index="off"] .ws__index,
+  .ws[data-dock="off"]  .ws__dock { visibility: hidden; }
+
+  /* Width changes animate; a drag does not, or the pane lags the pointer. */
+  .ws:not([data-resizing]) .ws__body {
+    transition: grid-template-columns var(--g-dur-slow) var(--ws-ease);
+  }
+}
+
+/* ==========================================================================
+   3. TOPBAR · RAIL · STATUS
+   ========================================================================== */
+@layer ws-components {
+  .ws-topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--g-space-sm);
+    padding-inline: 10px var(--g-space-xs);
+    border-bottom: 1px solid var(--g-hairline);
+    background: var(--g-surface-sunken);
+  }
+
+  /* ---- Icon default -----------------------------------------------------
+     gravitas-icons.js tags every mark .g-wi, but no stylesheet in the repo
+     defines that class: it exists to be sized by whatever holds the icon.
+     An inline SVG with a viewBox and no size falls back to 300 by 150, so a
+     single mark placed somewhere without a parent size rule renders at the
+     width of a paragraph. It swallowed the header search field exactly once.
+     A default here ends the whole category; the rules below override it
+     wherever a different size is wanted. */
+  .ws .g-wi { width: 16px; height: 16px; flex: none; display: block; }
+
+  /* ---- hidden -----------------------------------------------------------
+     The UA stylesheet sets [hidden]{display:none} at the lowest specificity
+     there is, so any class here that sets its own display silently wins and
+     the element stays on screen. That caught the save indicator and the
+     avatar Remove button before it was made general. Stated once, for
+     everything, rather than remembered per component. */
+  .ws [hidden] { display: none !important; }
+
+  .ws-topbar__lead { display: flex; align-items: center; gap: 6px; }
+
+  /* The public site's .g-logo, at interface scale. It masks the one brand
+     file in assets/logos and paints it with currentColor, so it follows the
+     theme with the text beside it and needs no second file and no swap. */
+  .ws-topbar__brand { display: flex; align-items: center; text-decoration: none; color: var(--g-text); }
+  .ws-topbar__brand svg,
+  .ws-topbar__brand .g-mark { height: 16px; width: auto; display: block; }
+
+  /* ---- Theme toggle -----------------------------------------------------
+     The same control as the public header: same class, same two marks, same
+     swap rule. Those rules live in site.css, which is a public-site sheet the
+     workspace has no reason to load in full, so the handful that matter are
+     restated here at the workspace's own control size. Changing the pair
+     means changing both, which is the cost of not shipping 1,400 lines of
+     landing-page CSS into an editor. */
+  .theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; flex: none;
+    border-radius: var(--g-radius-pill);
+    border: 1px solid var(--g-border);
+    background: transparent; color: var(--g-text-muted);
+    cursor: pointer;
+    transition: color var(--g-dur-fast) var(--ws-ease),
+                border-color var(--g-dur-fast) var(--ws-ease),
+                background-color var(--g-dur-fast) var(--ws-ease),
+                transform var(--g-dur-fast) var(--ws-ease);
+  }
+  .theme-toggle svg { width: 16px; height: 16px; display: block; }
+  .theme-toggle:active { transform: scale(0.96); }
+  .theme-toggle .ic-sun { display: none; }
+  :root[data-theme="light"] .theme-toggle .ic-sun { display: block; }
+  :root[data-theme="light"] .theme-toggle .ic-moon { display: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .theme-toggle:hover {
+      color: var(--g-text); border-color: var(--g-border-strong);
+      background: rgb(var(--g-tint) / 0.08);
+    }
+  }
+
+  /* Breadcrumb. The last crumb is the page and is not a link, because a
+     link to where you already are is a small lie the reader has to test. */
+  /* overflow:hidden, or the nowrap crumbs grow past their 1fr track and
+     slide underneath the buttons on the right instead of truncating. */
+  .ws-crumbs {
+    display: flex; align-items: center; gap: 6px;
+    min-width: 0; overflow: hidden;
+    font-size: var(--ws-fs-sm);
+  }
+  .ws-crumbs a { color: var(--g-text-subtle); text-decoration: none; white-space: nowrap; border-radius: 4px; }
+  .ws-crumbs a:hover { color: var(--g-text); }
+  .ws-crumbs__sep { color: var(--g-text-subtle); opacity: 0.5; }
+  .ws-crumbs__here { color: var(--g-text); font-weight: var(--g-w-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .ws-topbar__actions { display: flex; align-items: center; gap: 4px; }
+
+  /* The search field is a button. It opens the palette, so making it an
+     input would promise an inline search that does not exist there. */
+  .ws-search {
+    display: flex; align-items: center; gap: 8px;
+    height: 28px; padding: 0 8px 0 10px;
+    min-width: 200px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-control);
+    background: var(--g-bg);
+    color: var(--g-text-subtle);
+    font: inherit; font-size: var(--ws-fs-sm);
+    cursor: text;
+    transition: border-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-search:hover { border-color: var(--g-border); color: var(--g-text-muted); }
+  .ws-search__label { flex: 1; text-align: left; }
+
+  kbd {
+    font-family: var(--g-font-mono);
+    font-size: 10px;
+    padding: 2px 5px;
+    border: 1px solid var(--g-hairline);
+    border-radius: 4px;
+    color: var(--g-text-subtle);
+    background: var(--g-surface-sunken);
+    white-space: nowrap;
+  }
+
+  /* ---- Icon button ------------------------------------------------------
+     The workspace's most repeated control, so it carries the press feedback
+     the whole interface is judged on: a 0.96 scale that confirms the click
+     landed before any data comes back. */
+  .ws-ibtn {
+    display: inline-grid; place-items: center;
+    width: 28px; height: 28px;
+    border: 0; border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text-muted);
+    cursor: pointer;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease),
+                transform var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-ibtn svg { width: 17px; height: 17px; }
+  .ws-ibtn:active { transform: scale(0.96); }
+  .ws-ibtn[aria-pressed="true"] { background: var(--g-surface-raised); color: var(--g-text); }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ws-ibtn:hover { background: var(--g-surface-hover); color: var(--g-text); }
+  }
+
+  /* ---- Left rail --------------------------------------------------------
+     Six destinations, icon only, label in a tooltip. The active mark is a
+     bar on the rail's inner edge rather than a filled tile: a filled tile
+     at this size reads as a button waiting to be pressed, and the active
+     item is the one thing on screen that is not pressable. */
+  .ws-rail {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px; padding: 6px 0;
+    border-right: 1px solid var(--g-hairline);
+    background: var(--g-surface-sunken);
+  }
+  .ws-rail__spacer { flex: 1; }
+
+  .ws-rail__btn {
+    position: relative;
+    display: grid; place-items: center;
+    width: 36px; height: 36px;
+    border: 0; border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-ic-dim); opacity: var(--g-ic-dim-a);
+    cursor: pointer;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease),
+                opacity var(--g-dur-fast) var(--ws-ease),
+                transform var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-rail__btn svg { width: 19px; height: 19px; }
+  .ws-rail__btn:active { transform: scale(0.94); }
+  .ws-rail__btn[aria-current="page"] { color: var(--g-text); opacity: 1; }
+  /* On the rail's outer edge, not the inner one. Against the inner edge the
+     bar lands exactly on the divider between rail and index and reads as a
+     stray tick in the border rather than as a mark against its own button. */
+  .ws-rail__btn[aria-current="page"]::before {
+    content: ""; position: absolute; left: -8px;
+    width: 2px; height: 18px; border-radius: 2px;
+    background: var(--g-accent);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .ws-rail__btn:hover { background: var(--g-surface-hover); color: var(--g-text); opacity: 1; }
+  }
+
+  /* Tooltip. It waits 400ms so brushing past the rail does not fire it,
+     then every later one on the rail opens instantly, because once the
+     reader has demonstrably asked for labels the delay is only a tax. */
+  .ws-tip {
+    position: absolute; left: calc(100% + 10px);
+    padding: 4px 8px; border-radius: var(--ws-r-control);
+    background: var(--g-cosmos-800); color: var(--g-text);
+    border: 1px solid var(--g-hairline);
+    font-size: var(--ws-fs-sm); white-space: nowrap;
+    pointer-events: none; z-index: var(--g-z-overlay);
+    opacity: 0; transform: scale(0.96) translateX(-2px);
+    transform-origin: left center;
+    transition: opacity 125ms var(--ws-ease), transform 125ms var(--ws-ease);
+  }
+  :root[data-theme="light"] .ws-tip { background: var(--g-cosmos-600); color: var(--g-white-tint); }
+  .ws-tip[data-open] { opacity: 1; transform: scale(1) translateX(0); }
+  .ws-tip[data-instant] { transition-duration: 0ms; }
+
+  /* ---- Status bar -------------------------------------------------------
+     Genuine state only: save state, counts, cursor. No build numbers. */
+  .ws-status {
+    display: flex; align-items: center; gap: var(--g-space-sm);
+    padding-inline: 10px;
+    border-top: 1px solid var(--g-hairline);
+    background: var(--g-surface-sunken);
+    color: var(--g-text-subtle);
+    font-size: var(--ws-fs-xs);
+  }
+  .ws-status__spacer { flex: 1; }
+  .ws-status b { font-weight: var(--g-w-medium); color: var(--g-text-muted); }
+
+  /* The save indicator is the one dot in the interface, because it is the
+     one place a colour genuinely carries state the words do not. */
+  .ws-save { display: inline-flex; align-items: center; gap: 6px; }
+  .ws-save::before {
+    content: ""; width: 6px; height: 6px; border-radius: var(--g-radius-pill);
+    background: var(--g-signal-positive);
+    transition: background-color var(--g-dur) var(--ws-ease);
+  }
+  .ws-save[data-state="saving"]::before { background: var(--g-signal-caution); }
+  .ws-save[data-state="error"]::before  { background: var(--g-signal-critical); }
+  .ws-save[data-state="offline"]::before { background: var(--g-text-subtle); }
+}
+
+/* ==========================================================================
+   4. PANES
+   ========================================================================== */
+@layer ws-panes {
+  .ws-pane {
+    display: flex; flex-direction: column;
+    min-width: 0; min-height: 0; height: 100%;
+    background: var(--g-bg);
+  }
+  .ws__index .ws-pane { border-right: 1px solid var(--g-hairline); background: var(--g-surface-sunken); }
+  .ws__dock  .ws-pane { border-left: 1px solid var(--g-hairline);  background: var(--g-surface-sunken); }
+
+  .ws-pane__head {
+    display: flex; align-items: center; gap: 6px;
+    height: 34px; padding-inline: var(--ws-gutter) 6px;
+    flex: 0 0 auto;
+  }
+  .ws-pane__title {
+    flex: 1; min-width: 0;
+    font-size: var(--ws-fs-xs);
+    font-weight: var(--g-w-medium);
+    letter-spacing: var(--g-track-eyebrow);
+    text-transform: uppercase;
+    color: var(--g-text-subtle);
+  }
+  .ws-pane__body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  .ws-pane__foot {
+    flex: 0 0 auto; padding: 8px var(--ws-gutter);
+    border-top: 1px solid var(--g-hairline);
+    font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
+  }
+
+  /* ---- Resize handles ---------------------------------------------------
+     Four pixels wide with a sixteen-pixel hit area either side, because a
+     4px target is a pointer-accuracy test nobody asked to sit. */
+  .ws-grip {
+    position: absolute; inset-block: 0; width: 0;
+    z-index: var(--g-z-raised);
+  }
+  .ws__index .ws-grip { right: 0; }
+  .ws__dock  .ws-grip { left: 0; }
+  .ws-grip::after {
+    content: ""; position: absolute; inset-block: 0;
+    left: -8px; width: 16px;
+    cursor: col-resize;
+  }
+  .ws-grip::before {
+    content: ""; position: absolute; inset-block: 0;
+    left: -1px; width: 2px;
+    background: var(--g-accent);
+    opacity: 0;
+    transition: opacity var(--g-dur) var(--ws-ease);
+  }
+  .ws-grip[data-active]::before { opacity: 1; }
+  @media (hover: hover) and (pointer: fine) {
+    .ws-grip:hover::before { opacity: 0.55; }
+  }
+  .ws[data-resizing] { cursor: col-resize; user-select: none; }
+
+  /* ---- Index tree -------------------------------------------------------
+     Depth is drawn with a guide line rather than with padding alone, so a
+     reader can follow a branch down a long list without counting pixels. */
+  .ws-tree { padding: 2px 6px 12px; }
+
+  .ws-node { position: relative; }
+
+  /* The row is indented past the twist, which is absolutely positioned over
+     that space. They are siblings rather than nested because a button inside
+     a button is invalid HTML, and the twist has to be a real button so it is
+     keyboard reachable and can carry aria-expanded. */
+  .ws-node__row {
+    display: flex; align-items: center; gap: 4px;
+    width: 100%; height: var(--ws-row-h);
+    padding-right: 6px;
+    padding-left: calc(24px + var(--depth, 0) * 13px);
+    border: 0; border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text-muted);
+    font: inherit; font-size: var(--ws-fs);
+    text-align: left; cursor: pointer;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-node__row:active { background: var(--g-surface-raised); }
+  @media (hover: hover) and (pointer: fine) {
+    .ws-node__row:hover { background: var(--g-surface-hover); color: var(--g-text); }
+  }
+  .ws-node__row[aria-current="page"] {
+    background: var(--g-surface-raised);
+    color: var(--g-text);
+    font-weight: var(--g-w-medium);
+  }
+
+  .ws-node__twist {
+    position: absolute; top: 0; z-index: 1;
+    left: calc(4px + var(--depth, 0) * 13px);
+    display: grid; place-items: center;
+    width: 18px; height: var(--ws-row-h);
+    border: 0; border-radius: 4px;
+    background: transparent; color: var(--g-text-subtle);
+    padding: 0; cursor: pointer;
+  }
+  .ws-node__twist svg {
+    width: 11px; height: 11px;
+    transition: transform var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-node[data-open] > .ws-node__twist svg { transform: rotate(90deg); }
+  .ws-node__twist--leaf { visibility: hidden; pointer-events: none; }
+  @media (hover: hover) and (pointer: fine) {
+    button.ws-node__twist:hover { color: var(--g-text); }
+  }
+
+  .ws-node__icon { flex: 0 0 16px; display: grid; place-items: center; color: var(--g-ic-dim); opacity: var(--g-ic-dim-a); }
+  .ws-node__icon svg { width: 15px; height: 15px; }
+  .ws-node__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* A page that is linked but has no file yet. Italic is the whole signal;
+     it needs no badge, and the title attribute carries the explanation. */
+  .ws-node__row[data-phantom] .ws-node__label { font-style: italic; color: var(--g-text-subtle); }
+
+  .ws-node__kids { position: relative; }
+  .ws-node__kids::before {
+    content: ""; position: absolute; inset-block: 0;
+    left: calc(13px + var(--depth, 0) * 13px);
+    width: 1px; background: var(--g-hairline);
+  }
+
+  /* ---- Dock tabs --------------------------------------------------------
+     Journal, Tasks, Links, Assistant. Underline rather than a filled pill,
+     to keep one shape language with the rail's active bar. */
+  .ws-tabs {
+    display: flex; gap: 2px; flex: 0 0 auto;
+    padding: 0 6px; border-bottom: 1px solid var(--g-hairline);
+  }
+  .ws-tab {
+    position: relative;
+    padding: 8px 8px 7px;
+    border: 0; background: transparent;
+    color: var(--g-text-subtle);
+    font: inherit; font-size: var(--ws-fs-sm);
+    cursor: pointer;
+    transition: color var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-tab::after {
+    content: ""; position: absolute; inset-inline: 6px; bottom: -1px; height: 2px;
+    background: var(--g-accent); border-radius: 2px;
+    opacity: 0; transform: scaleX(0.6);
+    transition: opacity var(--g-dur) var(--ws-ease), transform var(--g-dur) var(--ws-ease);
+  }
+  .ws-tab[aria-selected="true"] { color: var(--g-text); }
+  .ws-tab[aria-selected="true"]::after { opacity: 1; transform: scaleX(1); }
+  @media (hover: hover) and (pointer: fine) {
+    .ws-tab:hover { color: var(--g-text); }
+  }
+}
+
+/* ==========================================================================
+   5. MAIN VIEWS
+   ========================================================================== */
+@layer ws-components {
+  .ws-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .ws-view { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+
+  .ws-doc { max-width: 74ch; margin: 0 auto; padding: 28px var(--g-space-lg) 96px; }
+
+  .ws-doc__head { margin-bottom: var(--g-space-md); }
+  .ws-doc__title {
+    font-size: 24px; line-height: 1.2; font-weight: var(--g-w-medium);
+    letter-spacing: var(--g-track-head); margin: 0 0 4px;
+    color: var(--g-text);
+  }
+  /* The title is edited in place. No pencil, no dialog: the heading is the
+     field, and it only reveals itself as one on focus. */
+  .ws-doc__title[contenteditable]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--g-focus);
+    border-radius: var(--ws-r-control);
+  }
+  .ws-doc__meta { font-size: var(--ws-fs-sm); color: var(--g-text-subtle); }
+
+  /* ---- Blocks -----------------------------------------------------------
+     Every block carries a grip and an insert control that appear on hover
+     of that block only. They are absolutely positioned in the left margin,
+     so revealing them never moves the text the reader is aiming at. */
+  .ws-block { position: relative; padding: 2px 0; }
+  .ws-block__gutter {
+    position: absolute; left: -46px; top: 2px;
+    display: flex; gap: 2px;
+    opacity: 0;
+    transition: opacity var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-block:hover .ws-block__gutter,
+  .ws-block:focus-within .ws-block__gutter { opacity: 1; }
+  .ws-block__gutter .ws-ibtn { width: 20px; height: 20px; color: var(--g-text-subtle); }
+  .ws-block__gutter .ws-ibtn svg { width: 13px; height: 13px; }
+
+  .ws-block__body { min-height: 22px; }
+  .ws-block__body:focus-visible { outline: none; }
+  .ws-block[data-focus] { background: var(--g-surface-hover); border-radius: var(--ws-r-control); }
+
+  .ws-block p { margin: 0 0 6px; line-height: var(--g-lh-body); font-size: 14px; }
+  .ws-block h2 { font-size: 17px; font-weight: var(--g-w-medium); margin: 18px 0 6px; letter-spacing: var(--g-track-head); }
+  .ws-block h3 { font-size: 15px; font-weight: var(--g-w-medium); margin: 14px 0 4px; }
+  .ws-block ul, .ws-block ol { margin: 0 0 6px; padding-left: 20px; }
+  .ws-block li { line-height: var(--g-lh-body); font-size: 14px; margin-bottom: 2px; }
+
+  .ws-block pre {
+    margin: 6px 0; padding: 10px 12px;
+    background: var(--g-surface-sunken);
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-panel);
+    font-family: var(--g-font-mono); font-size: var(--ws-fs-sm);
+    line-height: 1.6; overflow-x: auto;
+  }
+  .ws-block__lang {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--g-font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--g-text-subtle); margin-bottom: 4px;
+  }
+
+  /* Internal page link. Solid when the page exists, italic when it is a
+     name somebody has written but not yet filled in. Same rule as the tree,
+     so the two views never contradict each other. */
+  .ws-link {
+    color: var(--g-text); text-decoration: none;
+    border-bottom: 1px solid var(--g-border);
+    border-radius: 2px;
+    transition: border-color var(--g-dur-fast) var(--ws-ease),
+                background-color var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-link:hover { border-color: var(--g-accent); background: var(--g-surface-hover); }
+  .ws-link[data-phantom] { font-style: italic; color: var(--g-text-subtle); border-bottom-style: dashed; }
+
+  /* ---- Attachment card -------------------------------------------------- */
+  .ws-attach {
+    display: flex; align-items: center; gap: 10px;
+    margin: 8px 0; padding: 10px 12px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface);
+    transition: border-color var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-attach:hover { border-color: var(--g-border); }
+  .ws-attach__kind {
+    flex: 0 0 auto; padding: 3px 7px;
+    border-radius: var(--ws-r-control);
+    background: var(--g-surface-sunken);
+    font-family: var(--g-font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--g-text-muted);
+  }
+  .ws-attach__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ws-fs); }
+  .ws-attach__meta { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); }
+
+  /* ---- Generic list rows (tasks, backlinks, search results) ------------- */
+  .ws-list { padding: 4px 6px 12px; }
+  .ws-row {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; min-height: var(--ws-list-row-h);
+    padding: 5px 8px;
+    border: 0; border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text-muted);
+    font: inherit; font-size: var(--ws-fs); text-align: left;
+    cursor: pointer;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .ws-row:hover { background: var(--g-surface-hover); color: var(--g-text); }
+  }
+  .ws-row__main { flex: 1; min-width: 0; }
+  .ws-row__title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ws-row__sub { display: block; font-size: var(--ws-fs-xs); color: var(--g-text-subtle); }
+  .ws-row[data-done] .ws-row__title { text-decoration: line-through; color: var(--g-text-subtle); }
+
+  /* Checkbox. Native input, restyled, so keyboard and screen readers keep
+     everything they already knew about it. */
+  .ws-check {
+    appearance: none; flex: 0 0 15px;
+    width: 15px; height: 15px; margin: 0;
+    border: 1.5px solid var(--g-border);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                border-color var(--g-dur-fast) var(--ws-ease),
+                transform var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-check:active { transform: scale(0.9); }
+  .ws-check:checked {
+    background: var(--g-accent) no-repeat center;
+    border-color: var(--g-accent);
+    /* The tick is a background image rather than a child element so the
+       label stays a plain text node and stays selectable. */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 4.8 8.5 9.5 3.8' fill='none' stroke='%23011f30' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 12px;
+  }
+
+  /* ---- Calendar ---------------------------------------------------------- */
+  .ws-cal { padding: 8px var(--ws-gutter) 12px; }
+  .ws-cal__head { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+  .ws-cal__month { flex: 1; font-size: var(--ws-fs); font-weight: var(--g-w-medium); }
+  .ws-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .ws-cal__dow {
+    display: grid; place-items: center; height: 20px;
+    font-size: 10px; color: var(--g-text-subtle);
+  }
+  .ws-cal__day {
+    display: grid; place-items: center;
+    aspect-ratio: 1; min-height: 26px;
+    border: 0; border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text-muted);
+    font: inherit; font-size: var(--ws-fs-sm);
+    cursor: pointer; position: relative;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease);
+  }
+  /* Neighbouring-month days are spans, not buttons: they hold the grid's
+     shape and take no pointer. */
+  .ws-cal__day[data-out] { color: var(--g-text-subtle); opacity: 0.45; cursor: default; }
+  .ws-cal__day[data-today] { font-weight: var(--g-w-semibold); color: var(--g-text); }
+  /* A day that has an entry gets an underscore, not a dot: it sits clear of
+     the numeral instead of competing with it for the same optical centre. */
+  .ws-cal__day[data-has]::after {
+    content: ""; position: absolute; bottom: 3px;
+    width: 10px; height: 1.5px; border-radius: 2px;
+    background: var(--g-accent);
+  }
+  .ws-cal__day[aria-pressed="true"] { background: var(--g-solid-bg); color: var(--g-solid-fg); }
+  @media (hover: hover) and (pointer: fine) {
+    .ws-cal__day:hover { background: var(--g-surface-hover); color: var(--g-text); }
+  }
+
+  /* ---- Buttons ----------------------------------------------------------- */
+  .ws-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 12px;
+    border: 1px solid var(--g-border);
+    border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text);
+    font: inherit; font-size: var(--ws-fs-sm); font-weight: var(--g-w-medium);
+    white-space: nowrap; cursor: pointer;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                border-color var(--g-dur-fast) var(--ws-ease),
+                transform var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-btn:active { transform: scale(0.97); }
+  .ws-btn:hover { background: var(--g-surface-hover); border-color: var(--g-border-strong); }
+  .ws-btn--solid {
+    background: var(--g-solid-bg); color: var(--g-solid-fg); border-color: transparent;
+  }
+  .ws-btn--solid:hover { background: var(--g-solid-bg-hover); color: var(--g-solid-fg-hover); }
+
+  /* ---- Focus ------------------------------------------------------------
+     One ring for the whole workspace, on the token the theme flips. */
+  :where(.ws) :focus-visible {
+    outline: 2px solid var(--g-focus);
+    outline-offset: 1px;
+    border-radius: var(--ws-r-control);
+  }
+}
+
+/* ==========================================================================
+   6. COMMAND PALETTE
+   Deliberately unanimated. It is opened by keyboard dozens of times a day,
+   and at that frequency any transition reads as the app being slow rather
+   than as the app being polished. The backdrop does not fade either, for
+   the same reason.
+   ========================================================================== */
+@layer ws-components {
+  .ws-palette {
+    position: fixed; inset: 0; z-index: var(--g-z-modal);
+    display: grid; place-items: start center;
+    padding-top: 14vh;
+    background: rgb(1 18 28 / 0.5);
+  }
+  :root[data-theme="light"] .ws-palette { background: rgb(0 34 54 / 0.28); }
+  .ws-palette[hidden] { display: none; }
+
+  .ws-palette__box {
+    width: min(560px, calc(100vw - 32px));
+    max-height: 62vh;
+    display: flex; flex-direction: column;
+    border: 1px solid var(--g-border);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface-raised);
+    box-shadow: var(--g-shadow), var(--g-glow-md);
+    overflow: hidden;
+  }
+
+  .ws-palette__input {
+    height: 44px; padding: 0 14px;
+    border: 0; border-bottom: 1px solid var(--g-hairline);
+    background: transparent; color: var(--g-text);
+    font: inherit; font-size: 15px;
+  }
+  .ws-palette__input::placeholder { color: var(--g-text-subtle); }
+  .ws-palette__input:focus { outline: none; }
+
+  .ws-palette__list { flex: 1; min-height: 0; overflow: auto; padding: 6px; }
+
+  .ws-palette__group {
+    padding: 8px 8px 4px;
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: var(--g-track-eyebrow);
+    color: var(--g-text-subtle);
+  }
+
+  .ws-opt {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 7px 8px;
+    border: 0; border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text-muted);
+    font: inherit; font-size: var(--ws-fs); text-align: left;
+    cursor: pointer;
+  }
+  /* Selection follows the keyboard, so it is an attribute rather than
+     :hover. The pointer sets the same attribute on move, which keeps one
+     highlight on screen instead of two fighting. */
+  .ws-opt[data-active] { background: var(--g-surface-hover); color: var(--g-text); }
+  .ws-opt__icon { flex: 0 0 16px; display: grid; place-items: center; color: var(--g-ic-dim); opacity: var(--g-ic-dim-a); }
+  .ws-opt__icon svg { width: 15px; height: 15px; }
+  .ws-opt__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ws-opt__hint { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); }
+
+  .ws-palette__foot {
+    display: flex; align-items: center; gap: var(--g-space-sm);
+    padding: 7px 12px;
+    border-top: 1px solid var(--g-hairline);
+    font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
+  }
+}
+
+/* ==========================================================================
+   7. ASSISTANT
+   ========================================================================== */
+@layer ws-components {
+  .ws-ai { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+  .ws-ai__log { flex: 1; min-height: 0; overflow: auto; padding: var(--ws-gutter); display: flex; flex-direction: column; gap: 12px; }
+
+  .ws-ai__turn { font-size: var(--ws-fs); line-height: var(--g-lh-body); }
+  .ws-ai__who {
+    font-size: 10px; text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
+    color: var(--g-text-subtle); margin-bottom: 4px;
+  }
+  .ws-ai__turn[data-who="you"] .ws-ai__text {
+    padding: 8px 10px; border-radius: var(--ws-r-panel);
+    background: var(--g-surface-raised); color: var(--g-text);
+  }
+  .ws-ai__text p { margin: 0 0 8px; }
+  .ws-ai__text p:last-child { margin-bottom: 0; }
+
+  .ws-ai__cite {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 6px; margin-right: 4px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text-muted);
+    font: inherit; font-size: var(--ws-fs-xs);
+    cursor: pointer;
+    transition: border-color var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-ai__cite:hover { border-color: var(--g-border); color: var(--g-text); }
+
+  .ws-ai__actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+  .ws-ai__compose {
+    flex: 0 0 auto; padding: var(--ws-gutter);
+    border-top: 1px solid var(--g-hairline);
+    display: flex; gap: 6px; align-items: flex-end;
+  }
+  .ws-ai__input {
+    flex: 1; min-width: 0;
+    min-height: 32px; max-height: 140px;
+    padding: 7px 10px; resize: none;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-control);
+    background: var(--g-bg); color: var(--g-text);
+    font: inherit; font-size: var(--ws-fs); line-height: 1.5;
+    transition: border-color var(--g-dur-fast) var(--ws-ease);
+  }
+  .ws-ai__input::placeholder { color: var(--g-text-subtle); }
+  .ws-ai__input:focus { outline: none; border-color: var(--g-border-strong); }
+
+  /* Thinking indicator. Three dots at 1.1s: fast enough to read as work in
+     progress, slow enough not to look like an error. */
+  .ws-think { display: inline-flex; gap: 4px; align-items: center; height: 18px; }
+  .ws-think i {
+    width: 4px; height: 4px; border-radius: var(--g-radius-pill);
+    background: var(--g-text-subtle);
+    animation: ws-think 1.1s var(--ws-ease) infinite;
+  }
+  .ws-think i:nth-child(2) { animation-delay: 0.14s; }
+  .ws-think i:nth-child(3) { animation-delay: 0.28s; }
+  @keyframes ws-think {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-2px); }
+  }
+}
+
+/* ==========================================================================
+   8. STATE VIEWS
+   Empty, loading and error are built here rather than improvised at the
+   call site, so every pane fails and waits the same way.
+   ========================================================================== */
+@layer ws-components {
+  .ws-empty {
+    display: grid; place-items: center; gap: 8px;
+    padding: var(--g-space-xl) var(--g-space-md);
+    text-align: center; color: var(--g-text-subtle);
+  }
+  .ws-empty__title { font-size: var(--ws-fs); color: var(--g-text-muted); font-weight: var(--g-w-medium); }
+  .ws-empty__body { font-size: var(--ws-fs-sm); max-width: 34ch; line-height: var(--g-lh-body); }
+
+  /* Skeletons take the shape of what is coming, so the pane does not
+     re-flow when the data lands. */
+  .ws-skel { padding: 8px var(--ws-gutter); display: flex; flex-direction: column; gap: 10px; }
+  .ws-skel i {
+    display: block; height: 10px; border-radius: 4px;
+    background: linear-gradient(90deg,
+      rgb(var(--g-tint) / 0.07) 25%,
+      rgb(var(--g-tint) / 0.14) 37%,
+      rgb(var(--g-tint) / 0.07) 63%);
+    background-size: 400% 100%;
+    animation: ws-shimmer 1.4s ease infinite;
+  }
+  @keyframes ws-shimmer { to { background-position: -100% 50%; } }
+
+  .ws-alert {
+    margin: var(--ws-gutter); padding: 10px 12px;
+    border: 1px solid var(--g-signal-critical);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface);
+    font-size: var(--ws-fs-sm); color: var(--g-text);
+  }
+  .ws-alert__title { font-weight: var(--g-w-medium); margin-bottom: 2px; }
+}
+
+/* ==========================================================================
+   9. RESPONSIVE
+   Below 1100px the dock leaves, below 860px the index becomes an overlay
+   and the rail moves to the bottom, where a thumb can reach it.
+   ========================================================================== */
+@layer ws-utilities {
+  @media (max-width: 1100px) {
+    .ws .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-index-w) minmax(0, 1fr) 0; }
+    .ws .ws__dock { visibility: hidden; }
+    /* The dock is still reachable: opening it takes the whole right side. */
+    .ws[data-dock="on"][data-dock-overlay] .ws__dock {
+      visibility: visible;
+      position: fixed; inset-block: var(--ws-topbar-h) var(--ws-status-h);
+      right: 0; width: min(360px, 88vw);
+      z-index: var(--g-z-overlay);
+      box-shadow: var(--g-shadow);
+    }
+  }
+
+  @media (max-width: 860px) {
+    .ws .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
+    .ws[data-index="on"] .ws__index {
+      visibility: visible;
+      position: fixed; inset-block: var(--ws-topbar-h) var(--ws-status-h);
+      left: var(--ws-rail-w); width: min(300px, 82vw);
+      z-index: var(--g-z-overlay);
+      box-shadow: var(--g-shadow);
+    }
+    .ws-grip { display: none; }
+    .ws-doc { padding-inline: var(--g-space-sm); }
+    .ws-block__gutter { display: none; }   /* no hover target on touch */
+
+    /* The search field collapses to its icon, and the dock toggle goes: the
+       dock is a reading aid, and at this width the page itself needs the
+       room more than its side panel does. */
+    .ws-search { min-width: 0; padding-inline: 7px; }
+    .ws-search__label, .ws-search kbd { display: none; }
+    #ws-toggle-dock { display: none; }
+
+    /* A scrim behind the index overlay, so it reads as a layer over the page
+       rather than as a pane that has eaten it. Tapping it closes. */
+    .ws[data-index="on"]::after {
+      content: ""; position: fixed; inset: 0;
+      background: rgb(1 18 28 / 0.4);
+      z-index: calc(var(--g-z-overlay) - 1);
+    }
+  }
+
+  /* The breadcrumb is the first thing to go: the page title is the first
+     line of the document anyway, so the crumb is duplication here. */
+  @media (max-width: 700px) {
+    .ws-crumbs { display: none; }
+  }
+
+  @media (max-width: 640px) {
+    .ws { grid-template-rows: var(--ws-topbar-h) minmax(0, 1fr) auto; }
+    .ws__body { grid-template-columns: 0 0 minmax(0, 1fr) 0 !important; }
+    .ws-rail {
+      position: fixed; inset-inline: 0; bottom: 0;
+      flex-direction: row; justify-content: space-around;
+      height: 52px; padding: 0 4px;
+      border-right: 0; border-top: 1px solid var(--g-hairline);
+      z-index: var(--g-z-sticky);
+    }
+    .ws-rail__spacer { display: none; }
+    /* The rail is horizontal here, so the mark goes under the button. */
+    .ws-rail__btn[aria-current="page"]::before {
+      left: 50%; transform: translateX(-50%);
+      bottom: -4px; width: 18px; height: 2px;
+    }
+    .ws-status { display: none; }
+    .ws-view { padding-bottom: 56px; }
+    .ws[data-index="on"] .ws__index { left: 0; inset-block: var(--ws-topbar-h) 52px; }
+  }
+}
+
+/* ==========================================================================
+   10. REDUCED MOTION
+   Movement goes; opacity and colour stay, because those carry meaning the
+   interface would otherwise have to spell out in words.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .ws:not([data-resizing]) .ws__body { transition: none; }
+  .ws-tip { transition: opacity 120ms linear; transform: none; }
+  .ws-tip[data-open] { transform: none; }
+  .ws-tab::after { transition: opacity 120ms linear; transform: none; }
+  .ws-tab[aria-selected="true"]::after { transform: none; }
+  .ws-node__twist svg { transition: none; }
+  .ws-ibtn:active, .ws-rail__btn:active, .ws-btn:active, .ws-check:active { transform: none; }
+  .ws-skel i, .ws-think i { animation: none; }
+  .ws-think i { opacity: 0.6; }
+}
+
+/* ==========================================================================
+   11. WORKSPACE VIEWS
+   Home, Core and Research. These render backend data, so the job of the
+   styles here is legibility of real numbers and real rows, not decoration.
+   Same radius scale and same tokens as everything above.
+   ========================================================================== */
+@layer ws-components {
+
+  /* The data views are wider than a page of prose: a document wants a
+     measure, a dashboard wants its columns. */
+  .ws-doc--wide { max-width: 1080px; }
+
+  /* ---- Panel ------------------------------------------------------------
+     A hairline box, not a card with a shadow. On a dashboard where six of
+     them sit side by side, shadows turn the screen into a pile of receipts. */
+  .v-panel {
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface);
+    margin-bottom: var(--g-space-md);
+    overflow: hidden;
+  }
+  .v-panel__head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--g-hairline);
+  }
+  .v-panel__head h2 {
+    flex: 1; margin: 0;
+    font-size: var(--ws-fs); font-weight: var(--g-w-medium);
+    letter-spacing: 0;
+  }
+  .v-panel__body { padding: 4px; }
+  .v-panel__body > .ws-empty { padding: var(--g-space-lg) var(--g-space-md); }
+  .v-panel__body > .v-prose { padding: 8px 8px 12px; margin: 0; line-height: var(--g-lh-body); }
+  .v-panel__body > strong { display: block; padding: 8px 8px 0; }
+  .v-panel__body > small { display: block; padding: 4px 8px 10px; color: var(--g-text-subtle); font-size: var(--ws-fs-xs); }
+
+  .v-mini-btn {
+    padding: 3px 9px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text-muted);
+    font: inherit; font-size: var(--ws-fs-xs);
+    cursor: pointer; white-space: nowrap;
+    transition: border-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease),
+                transform var(--g-dur-fast) var(--ws-ease);
+  }
+  .v-mini-btn:active { transform: scale(0.97); }
+  @media (hover: hover) and (pointer: fine) {
+    .v-mini-btn:hover { border-color: var(--g-border); color: var(--g-text); }
+  }
+
+  /* ---- Columns ----------------------------------------------------------
+     Two equal columns that become one below 900px. Grid rather than flex
+     percentages, so the gap is never subtracted from a hand-computed width. */
+  .v-columns {
+    display: grid; gap: var(--g-space-md);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: var(--g-space-md);
+  }
+  @media (max-width: 900px) { .v-columns { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---- Counts -----------------------------------------------------------
+     Figures in the mono face. In the proportional face a 1 and an 8 are
+     different widths, and a row of counts meant to be compared at a glance
+     reads as though the narrow one is smaller. */
+  .v-stats {
+    display: grid; gap: 1px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    margin-bottom: var(--g-space-md);
+    background: var(--g-hairline);
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-panel);
+    overflow: hidden;
+  }
+  .v-stat { padding: 12px 14px; background: var(--g-surface); }
+  .v-stat__value {
+    display: block;
+    font-family: var(--g-font-mono);
+    font-size: 22px; font-weight: var(--g-w-regular);
+    line-height: 1.1; color: var(--g-text);
+    font-variant-numeric: tabular-nums;
+  }
+  .v-stat__label {
+    display: block; margin-top: 3px;
+    font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
+  }
+
+  /* ---- Row --------------------------------------------------------------
+     One row style for tasks, projects, resources, people and shared items,
+     because they are the same object to the reader: a thing with a name, a
+     line of context, and somewhere to go. */
+  .v-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    width: 100%; padding: 8px;
+    border: 0; border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text);
+    font: inherit; font-size: var(--ws-fs); text-align: left;
+    transition: background-color var(--g-dur-fast) var(--ws-ease);
+  }
+  button.v-row { cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) {
+    button.v-row:hover { background: var(--g-surface-hover); }
+  }
+  .v-row + .v-row { box-shadow: 0 -1px 0 var(--g-hairline); }
+  .v-row__main { flex: 1; min-width: 0; }
+  .v-row__main strong {
+    display: block; font-weight: var(--g-w-medium);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .v-row__main small {
+    display: block; margin-top: 2px;
+    font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .v-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .v-badge {
+    padding: 2px 7px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--g-radius-pill);
+    font-size: 10.5px; color: var(--g-text-muted);
+    white-space: nowrap;
+  }
+
+  .v-avatar {
+    flex: 0 0 26px;
+    display: grid; place-items: center;
+    width: 26px; height: 26px;
+    border-radius: var(--g-radius-pill);
+    background: var(--g-surface-sunken);
+    border: 1px solid var(--g-hairline);
+    font-size: var(--ws-fs-sm); font-weight: var(--g-w-medium);
+    color: var(--g-text-muted);
+  }
+
+  /* ---- Home: the two workspaces ----------------------------------------
+     The single most important choice on the screen, so they are the largest
+     targets on it and nothing else competes at that size. */
+  .v-workspaces {
+    display: grid; gap: var(--g-space-sm);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    margin-bottom: var(--g-space-lg);
+  }
+  .v-workspace {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--g-border);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface);
+    color: var(--g-text);
+    font: inherit; text-align: left; cursor: pointer;
+    transition: border-color var(--g-dur) var(--ws-ease),
+                background-color var(--g-dur) var(--ws-ease),
+                transform var(--g-dur-fast) var(--ws-ease);
+  }
+  .v-workspace:active { transform: scale(0.995); }
+  @media (hover: hover) and (pointer: fine) {
+    .v-workspace:hover { border-color: var(--g-border-strong); background: var(--g-surface-hover); }
+    .v-workspace:hover .v-workspace__go { opacity: 1; transform: translateX(2px); }
+  }
+  .v-workspace__icon {
+    flex: 0 0 34px;
+    display: grid; place-items: center;
+    width: 34px; height: 34px;
+    border-radius: var(--ws-r-control);
+    background: var(--g-surface-sunken);
+    color: var(--g-text-muted);
+  }
+  .v-workspace__icon svg { width: 19px; height: 19px; }
+  .v-workspace__body { flex: 1; min-width: 0; display: block; }
+  .v-workspace__body small {
+    display: block;
+    font-size: var(--ws-fs-xs);
+    text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
+    color: var(--g-text-subtle);
+  }
+  .v-workspace__body strong {
+    display: block; margin: 0 0 5px;
+    font-size: 16px; font-weight: var(--g-w-medium);
+  }
+  .v-workspace__long {
+    display: block;
+    font-size: var(--ws-fs-sm); line-height: var(--g-lh-body);
+    color: var(--g-text-muted);
+  }
+  .v-workspace__go {
+    flex: 0 0 auto; color: var(--g-text-subtle);
+    opacity: 0.6;
+    transition: opacity var(--g-dur) var(--ws-ease), transform var(--g-dur) var(--ws-ease);
+  }
+  .v-workspace__go svg { width: 16px; height: 16px; }
+
+  /* ---- Project cards ---------------------------------------------------- */
+  .v-grid {
+    display: grid; gap: var(--g-space-sm);
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .v-project {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+    padding: 14px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface);
+    color: var(--g-text); font: inherit; text-align: left;
+    transition: border-color var(--g-dur-fast) var(--ws-ease),
+                transform var(--g-dur-fast) var(--ws-ease);
+  }
+  button.v-project { cursor: pointer; }
+  button.v-project:active { transform: scale(0.99); }
+  @media (hover: hover) and (pointer: fine) {
+    button.v-project:hover { border-color: var(--g-border); }
+  }
+  .v-project__title { font-size: 15px; font-weight: var(--g-w-medium); line-height: 1.3; }
+  .v-project__question {
+    margin: 0; font-size: var(--ws-fs-sm);
+    line-height: var(--g-lh-body); color: var(--g-text-muted);
+  }
+  .v-project__meta { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); margin-top: auto; padding-top: 4px; }
+
+  /* ---- Content pipeline board -------------------------------------------
+     The one genuinely two-dimensional screen here. The board scrolls
+     sideways as a single unit; columns scrolling independently makes a card
+     impossible to find twice. */
+  /* Six columns have to fit the pane at a normal desktop width, or the last
+     two sit off-screen behind a scrollbar nobody looks for and the pipeline
+     stops being a pipeline. 168px is the narrowest a two-line content title
+     stays readable at, and six of those plus the gaps clear 1100px. Below
+     that it scrolls, which is the honest fallback rather than the default. */
+  .v-board {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(168px, 1fr);
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    /* A visible track, so when it does scroll the reader is told. */
+    scrollbar-width: thin;
+  }
+  .v-column {
+    display: flex; flex-direction: column; gap: 6px;
+    min-width: 0;
+  }
+  .v-column__head {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 2px;
+    border-bottom: 1px solid var(--g-hairline);
+  }
+  .v-column__head strong {
+    flex: 1;
+    font-size: var(--ws-fs-xs); font-weight: var(--g-w-medium);
+    text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
+    color: var(--g-text-subtle);
+  }
+  .v-column__count {
+    font-family: var(--g-font-mono); font-size: var(--ws-fs-xs);
+    color: var(--g-text-subtle);
+  }
+  /* An empty column is a dashed slot. Six columns each spelling out that
+     they are empty would be noise; the shape already says it. */
+  .v-column__empty {
+    min-height: 56px;
+    border: 1px dashed var(--g-hairline);
+    border-radius: var(--ws-r-panel);
+  }
+  .v-card {
+    padding: 10px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface);
+  }
+  .v-card h3 { margin: 0 0 4px; font-size: var(--ws-fs); font-weight: var(--g-w-medium); line-height: 1.3; }
+  .v-card p { margin: 0; font-size: var(--ws-fs-sm); line-height: 1.5; color: var(--g-text-muted); }
+  .v-card__meta {
+    display: flex; gap: 8px; margin-top: 8px;
+    font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
+  }
+
+  /* ---- Toolbar ----------------------------------------------------------- */
+  .v-toolbar {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: var(--g-space-sm); flex-wrap: wrap;
+  }
+  .v-input {
+    height: 30px; padding: 0 10px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-control);
+    background: var(--g-bg); color: var(--g-text);
+    font: inherit; font-size: var(--ws-fs);
+    transition: border-color var(--g-dur-fast) var(--ws-ease);
+  }
+  .v-input::placeholder { color: var(--g-text-subtle); }
+  .v-input:focus { outline: none; border-color: var(--g-border-strong); }
+  input.v-input { flex: 1; min-width: 160px; }
+  .v-toolbar__count {
+    font-family: var(--g-font-mono); font-size: var(--ws-fs-xs);
+    color: var(--g-text-subtle); white-space: nowrap;
+  }
+
+  .v-prose { line-height: var(--g-lh-body); color: var(--g-text-muted); max-width: var(--g-measure); }
+
+  /* ---- Rail rule --------------------------------------------------------
+     Separates Home from the workspaces, because they are different kinds of
+     destination and the rail is otherwise an undifferentiated stack. */
+  .ws-rail__rule {
+    width: 18px; height: 1px; margin: 4px 0;
+    background: var(--g-hairline);
+  }
+
+  /* A two-line index row, used on Home where each workspace carries a
+     description under its name. */
+  .ws-node__row--tall { height: auto; padding-block: 6px; align-items: flex-start; }
+  .ws-node__sub {
+    display: block; margin-top: 1px;
+    font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
+    font-weight: var(--g-w-regular);
+  }
+
+  .ws-btn--tiny { height: 20px; padding: 0 8px; font-size: var(--ws-fs-xs); }
+
+  /* A breadcrumb step that is neither a link nor the current page: the page
+     path inside Pages, where the folders are context rather than routes. */
+  .ws-crumbs__plain { color: var(--g-text-subtle); white-space: nowrap; }
+}
+
+/* ==========================================================================
+   12. DASHBOARD, SETTINGS, NOTES
+   ========================================================================== */
+@layer ws-components {
+
+  /* ---- Hero -------------------------------------------------------------
+     Greeting on the left, clock and weather on the right. The clock is the
+     only element on the screen that changes without being asked, so it is
+     set in the mono face with tabular figures: a proportional clock jitters
+     sideways every second as the digit widths change, and the movement pulls
+     the eye away from the work. */
+  .v-hero {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: var(--g-space-md);
+    flex-wrap: wrap;
+    padding-bottom: var(--g-space-md);
+    margin-bottom: var(--g-space-md);
+    border-bottom: 1px solid var(--g-hairline);
+  }
+  .v-hero__hello {
+    margin: 0;
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.75rem);
+    font-weight: var(--g-w-medium);
+    letter-spacing: var(--g-track-head);
+    line-height: 1.2;
+  }
+  .v-hero__date { margin: 4px 0 0; font-size: var(--ws-fs); color: var(--g-text-muted); }
+
+  .v-hero__aside { text-align: right; }
+  .v-hero__clock {
+    display: block;
+    font-family: var(--g-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+    font-weight: var(--g-w-light);
+    line-height: 1.1;
+    color: var(--g-text);
+  }
+  .v-hero__weather {
+    display: flex; align-items: baseline; justify-content: flex-end;
+    gap: 6px; margin-top: 2px;
+    font-size: var(--ws-fs); color: var(--g-text-muted);
+  }
+  .v-hero__temp { font-family: var(--g-font-mono); font-size: 15px; color: var(--g-text); }
+  .v-hero__sky { color: var(--g-text-subtle); }
+  @media (max-width: 620px) {
+    .v-hero__aside { text-align: left; }
+    .v-hero__weather { justify-content: flex-start; }
+  }
+
+  /* ---- Focus ------------------------------------------------------------
+     The one card on the dashboard with a tinted ground, because it is the
+     one thing meant to be read rather than scanned. Everything else on the
+     screen is a list. */
+  .v-focus {
+    padding: 14px 16px;
+    margin-bottom: var(--g-space-md);
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface-sunken);
+  }
+  .v-focus__head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .v-focus__head h2 {
+    margin: 0; font-size: var(--ws-fs-xs);
+    font-weight: var(--g-w-medium);
+    text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
+    color: var(--g-text-subtle);
+  }
+  .v-focus__mark { display: grid; place-items: center; color: var(--g-accent); }
+  .v-focus__body {
+    margin: 0;
+    font-size: 15px; line-height: var(--g-lh-body);
+    max-width: 68ch; color: var(--g-text);
+  }
+  .v-focus__foot {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; margin-top: 12px;
+  }
+  .v-focus__source { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); }
+
+  /* ---- Flags ------------------------------------------------------------
+     The right-hand end of a row: how late, or what state. Late is the only
+     one that takes a colour, because it is the only one that changes what
+     the reader should do next. */
+  .v-flag {
+    flex: 0 0 auto; align-self: center;
+    padding: 2px 7px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--g-radius-pill);
+    font-size: 10.5px; white-space: nowrap;
+    color: var(--g-text-subtle);
+  }
+  .v-flag[data-tone="late"] {
+    color: var(--g-signal-critical);
+    border-color: color-mix(in srgb, var(--g-signal-critical) 45%, transparent);
+  }
+  .v-flag[data-tone="doing"] { color: var(--g-text-muted); border-color: var(--g-border); }
+  .v-flag[data-tone="done"] { color: var(--g-signal-positive); border-color: transparent; }
+
+  /* The time on a schedule row. Fixed width in the mono face so a column of
+     them lines up and can be scanned without reading each one. */
+  .v-when {
+    flex: 0 0 auto;
+    font-family: var(--g-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--ws-fs-sm);
+    color: var(--g-text-muted);
+    padding-top: 1px;
+  }
+
+  /* ---- Show more --------------------------------------------------------- */
+  .v-more {
+    display: block; width: 100%;
+    padding: 7px 8px; margin-top: 2px;
+    border: 0; border-radius: var(--ws-r-control);
+    background: transparent; color: var(--g-text-subtle);
+    font: inherit; font-size: var(--ws-fs-sm); text-align: left;
+    cursor: pointer;
+    transition: color var(--g-dur-fast) var(--ws-ease),
+                background-color var(--g-dur-fast) var(--ws-ease);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .v-more:hover { color: var(--g-text); background: var(--g-surface-hover); }
+  }
+
+  /* ---- Forms ------------------------------------------------------------- */
+  .ws-doc--narrow { max-width: 660px; }
+
+  .v-form { display: flex; flex-direction: column; gap: 14px; padding: 10px 8px 12px; }
+  .v-field { display: flex; flex-direction: column; gap: 5px; }
+  .v-field__label { font-size: var(--ws-fs-sm); font-weight: var(--g-w-medium); color: var(--g-text); }
+  .v-field__input { width: 100%; }
+  textarea.v-field__input { height: auto; padding: 8px 10px; resize: vertical; line-height: var(--g-lh-body); }
+  .v-field__help { margin: 0; font-size: var(--ws-fs-xs); color: var(--g-text-subtle); line-height: 1.5; }
+  .v-field__error { margin: 0; font-size: var(--ws-fs-xs); color: var(--g-signal-critical); }
+  .v-input[aria-invalid="true"] { border-color: var(--g-signal-critical); }
+
+  .v-form__foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  .v-note { margin: 0; font-size: var(--ws-fs-sm); color: var(--g-text-subtle); line-height: 1.5; }
+  .v-note[data-tone="ok"] { color: var(--g-signal-positive); }
+  .v-note[data-tone="bad"] { color: var(--g-signal-critical); }
+  .v-note[data-tone="warn"] { color: var(--g-signal-caution); }
+
+  .v-check-row { display: flex; align-items: center; gap: 8px; font-size: var(--ws-fs); cursor: pointer; }
+
+  /* A segmented choice. Buttons rather than radios because there are three
+     of them, they fit on one line, and the state is worth seeing without
+     hunting for a filled dot. */
+  .v-choices { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--g-hairline); border-radius: var(--ws-r-control); align-self: flex-start; }
+  .v-choice {
+    padding: 5px 12px;
+    border: 0; border-radius: 4px;
+    background: transparent; color: var(--g-text-muted);
+    font: inherit; font-size: var(--ws-fs-sm);
+    cursor: pointer;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease);
+  }
+  .v-choice[aria-pressed="true"] { background: var(--g-solid-bg); color: var(--g-solid-fg); }
+  @media (hover: hover) and (pointer: fine) {
+    .v-choice:not([aria-pressed="true"]):hover { color: var(--g-text); background: var(--g-surface-hover); }
+  }
+
+  /* ---- Avatar ------------------------------------------------------------ */
+  .v-avatar-edit { display: flex; align-items: flex-start; gap: 16px; padding: 10px 8px 12px; flex-wrap: wrap; }
+  .v-avatar-edit__side { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 10px; }
+  .v-avatar-edit__controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .v-avatar-lg {
+    flex: 0 0 72px;
+    display: grid; place-items: center;
+    width: 72px; height: 72px;
+    border-radius: var(--g-radius-pill);
+    overflow: hidden;
+    background: var(--g-surface-sunken);
+    border: 1px solid var(--g-hairline);
+    font-size: 26px; font-weight: var(--g-w-light);
+    color: var(--g-text-muted);
+  }
+  .v-avatar-lg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* The rail's account button carries the picture when there is one. */
+  .ws-rail__btn--account { overflow: hidden; }
+  .ws-rail__btn--account img {
+    width: 24px; height: 24px;
+    border-radius: var(--g-radius-pill);
+    object-fit: cover; display: block;
+  }
+}
+
+@layer ws-components {
+  /* The account button's fallback face: the reader's initial, at the same
+     size and shape the picture takes, so setting one changes the content of
+     the slot and not its geometry. */
+  .ws-rail__initial {
+    display: grid; place-items: center;
+    width: 24px; height: 24px;
+    border-radius: var(--g-radius-pill);
+    background: var(--g-surface-raised);
+    border: 1px solid var(--g-hairline);
+    font-size: var(--ws-fs-sm);
+    font-weight: var(--g-w-medium);
+    color: var(--g-text-muted);
+  }
+}

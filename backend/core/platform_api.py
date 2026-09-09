@@ -1,4 +1,7 @@
+import base64
+import binascii
 import json
+import re
 from datetime import datetime
 
 from django.contrib.auth import get_user_model
@@ -1145,6 +1148,43 @@ def researchers(request):
     } for item in profiles]})
 
 
+# Profile pictures arrive as data URIs. Three things are checked, in this
+# order, because each one makes the next cheaper: the declared type must be
+# an image we are willing to serve back, the payload must actually decode as
+# base64, and the decoded bytes must be under the cap. The cap is deliberately
+# small. This is an avatar, not a research file; large shared files belong in
+# Nextcloud, which is what the upload endpoint is for.
+AVATAR_MAX_BYTES = 512 * 1024
+AVATAR_TYPES = ('image/png', 'image/jpeg', 'image/webp', 'image/gif')
+
+
+def _clean_avatar(value):
+    """Return a safe data URI, or raise ValueError naming what was wrong."""
+    text = str(value or '').strip()
+    if not text:
+        return ''
+
+    match = re.match(r'^data:([a-z/+-]+);base64,(.+)$', text, re.IGNORECASE | re.DOTALL)
+    if not match:
+        raise ValueError('avatar_must_be_data_uri')
+
+    mime = match.group(1).lower()
+    if mime not in AVATAR_TYPES:
+        raise ValueError('avatar_unsupported_type')
+
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except (binascii.Error, ValueError):
+        raise ValueError('avatar_not_base64')
+
+    if len(raw) > AVATAR_MAX_BYTES:
+        raise ValueError('avatar_too_large')
+
+    return text
+
+
+
+
 @require_http_methods(['GET', 'PATCH'])
 def researcher_me(request):
     if response := _auth(request):
@@ -1160,6 +1200,11 @@ def researcher_me(request):
                 setattr(profile, field, _list(data[field]))
         if 'is_public' in data:
             profile.is_public = bool(data['is_public'])
+        if 'avatar' in data:
+            try:
+                profile.avatar = _clean_avatar(data['avatar'])
+            except ValueError as exc:
+                return _error(str(exc))
         profile.save()
     return JsonResponse({'ok': True, 'profile': {
         'headline': profile.headline,
@@ -1173,6 +1218,7 @@ def researcher_me(request):
         'languages': profile.languages,
         'availability': profile.availability,
         'is_public': profile.is_public,
+        'avatar': profile.avatar,
     }})
 
 

@@ -3,7 +3,7 @@ import logging
 from urllib.parse import quote
 
 from django.conf import settings
-from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core import signing
@@ -506,3 +506,41 @@ def lab_progress(request, lab_key):
         },
         status=201 if created else 200,
     )
+
+
+def password_change(request):
+    """Change the password of the signed-in user.
+
+    Distinct from the reset flow above, which proves identity through an
+    emailed token because the person asking is by definition locked out.
+    Here they are already signed in, so the proof is the current password.
+    Requiring it is what stops a borrowed unlocked laptop from becoming a
+    permanent account takeover.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+
+    payload = _payload(request)
+    current = str(payload.get('current_password', ''))
+    password = str(payload.get('password', ''))
+
+    if not request.user.check_password(current):
+        return JsonResponse({'ok': False, 'error': 'current_password_incorrect'}, status=400)
+
+    try:
+        validate_password(password, user=request.user)
+    except ValidationError as exc:
+        return JsonResponse({'ok': False, 'error': 'password_rejected', 'detail': list(exc.messages)}, status=400)
+
+    request.user.set_password(password)
+    request.user.save(update_fields=['password'])
+
+    # Changing a password rotates the session hash, which would sign the
+    # person out of the tab they just used to change it. This keeps the
+    # current session valid; every other session is invalidated, which is
+    # the behaviour someone changing a password after a scare expects.
+    update_session_auth_hash(request, request.user)
+
+    return JsonResponse({'ok': True})
