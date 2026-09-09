@@ -270,8 +270,8 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
   padding: var(--g-space-md); display: grid; place-items: center; gap: var(--g-space-sm);
   min-height: 9rem; text-align: center;
 }
-.bk-mark svg, .bk-mark .g-mark { width: 100%; max-width: 9rem; height: auto; }
-.bk-mark--icon svg, .bk-mark--icon .g-mark { max-width: 3.5rem; }
+.bk-mark svg { width: 100%; max-width: 9rem; height: auto; }
+.bk-mark--icon svg { max-width: 3.5rem; }
 .bk-mark__cap { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 .bk-mark--onblue  { background: var(--g-cosmos-600); color: var(--g-white-tint); }
 .bk-mark--onblack { background: var(--g-royal-black); color: var(--g-white-tint); }
@@ -292,7 +292,7 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
   position: relative; padding: 2.75rem;
   outline: 1px dashed rgb(212 201 190 / .45); outline-offset: 0;
 }
-.bk-clear__box svg, .bk-clear__box .g-mark { width: 12rem; max-width: 60vw; height: auto; color: var(--g-white-tint); display: block; }
+.bk-clear__box svg { width: 12rem; max-width: 60vw; height: auto; color: var(--g-white-tint); display: block; }
 .bk-clear__cap {
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
   color: rgb(212 201 190 / .8); margin: 0;
@@ -362,7 +362,7 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
 }
 .bk-dl a:hover { border-color: var(--g-border-strong); background: rgb(var(--g-tint) / .05); }
 .bk-dl__mark { flex: none; width: 1.6rem; display: grid; place-items: center; color: var(--g-text-muted); }
-.bk-dl__mark svg, .bk-dl__mark .g-mark { width: 100%; height: auto; }
+.bk-dl__mark svg { width: 100%; height: auto; }
 .bk-dl__name { flex: 1; font-size: var(--g-fs-small); }
 .bk-dl__type { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); flex: none; }
 
@@ -468,7 +468,7 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
   box-shadow: inset 0 0 0 1px rgb(var(--g-tint) / .14);
   display: grid; place-items: center;
 }
-.bk-pack__specimen svg, .bk-pack__specimen .g-mark {
+.bk-pack__specimen svg {
   width: 3rem; height: auto;          /* clear space well past the 25% minimum */
 }
 
