@@ -20,31 +20,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=(
-            assets/workspace.js
-            assets/platform-v2.js
-            assets/platform-v2-patches.js
-            assets/platform-v2-ux.js
-            assets/research-v5.js
-            assets/mindmap-editor-v2.js
-            assets/platform-v3-navigation.js
-            assets/nextcloud-native.js
-            assets/workspace-visuals.js
-            assets/core-team.js
-            assets/core-team-registered.js
-            assets/core-team-storage.js
-            assets/operating.js
-            assets/operating-enhancements.js
-            assets/operating-core-shell.js
-            assets/roadmap-okr-sync.js
-            assets/initiative-planner.js
-            assets/initiative-task-editor.js
-            assets/initiative-task-reorder.js
-          )
-          for file in "${files[@]}"; do
+          # The workspace ships as ES modules under assets/ws. Older Node
+          # releases parse a bare `node --check file.js` as CommonJS, so the
+          # source is fed through stdin with an explicit module type instead.
+          shopt -s nullglob
+          modules=(assets/ws/*.js)
+          if [ "${#modules[@]}" -eq 0 ]; then
+            echo "No workspace modules found under assets/ws/"
+            exit 1
+          fi
+          for file in "${modules[@]}"; do
+            echo "Checking $file"
+            node --input-type=module --check < "$file"
+          done
+
+      - name: Validate site JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in assets/site.js assets/space-managed-v1.js; do
             echo "Checking $file"
             node --check "$file"
           done
+
+      - name: Validate workspace shell contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "assets/ws/ws.css" workspace.html
+          grep -q "assets/ws/ws-app.js" workspace.html
+          grep -q "assets/local-fonts.css" workspace.html
 
       - name: Validate Research V5 cockpit contract
         shell: bash
@@ -54,20 +59,12 @@ jobs:
           grep -q "platform/projects/<int:project_id>/access-candidates/" backend/core/urls.py
           grep -q "ProjectAuditEvent" backend/core/project_cockpit.py
           grep -q "EntityLink" backend/core/project_cockpit.py
-          grep -q "connections','Connections" assets/research-v5.js
-          grep -q "ctrlKey" assets/research-v5.js
-          grep -q "research-v5.js" workspace.html
-          grep -q "research-v5.css" workspace.html
           python -m py_compile backend/core/project_cockpit.py backend/core/test_project_cockpit.py
 
-      - name: Validate AI mind-map editor contract
+      - name: Validate AI mind-map contract
         shell: bash
         run: |
           set -euo pipefail
-          grep -q "mindmap-editor-v2.js" workspace.html
-          grep -q "mindmap-editor.css" workspace.html
-          grep -q "Generate with AI" assets/mindmap-editor-v2.js
-          grep -q "node.update" assets/mindmap-editor-v2.js
           grep -q "CLOUDFLARE_AI_ACCOUNT_ID" backend/gravitas_backend/settings.py
           grep -q "generate_mindmap_ai" backend/gravitas_backend/urls.py
           python -m py_compile backend/core/mindmap_ai.py
@@ -79,29 +76,8 @@ jobs:
           bash -n ops/nextcloud/ensure.sh
           bash -n ops/nextcloud/apps.sh
           grep -q 'groupfolders required' ops/nextcloud/apps.sh
-          grep -q 'Nextcloud Apps' assets/platform-v3-navigation.js
+          grep -q 'Nextcloud' assets/ws/ws-views.js
           grep -q 'project_membership_required' backend/core/nextcloud_api.py
-
-      - name: Check Registered Users tab render contract
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const src = fs.readFileSync('assets/core-team-registered.js', 'utf8');
-          const checks = [
-            ["var selected='core'", 'tab selection state must be persisted'],
-            ["selected==='registered'?'':'hidden'", 'registered section visibility must follow selection'],
-            ["selected=regular.getAttribute('data-ct-tab')||'core'", 'switching back to native tabs must update selection'],
-            ["if(!root.querySelector('[data-ct-registered-tab]')||!root.querySelector('[data-ct-section=\"registered\"]'))schedule()", 'observer must reload only when the extension DOM is missing']
-          ];
-          for (const [needle, message] of checks) {
-            if (!src.includes(needle)) throw new Error(message);
-          }
-          if (/new MutationObserver\s*\(\s*schedule\s*\)/.test(src)) {
-            throw new Error('registered users observer must not self-trigger on every render');
-          }
-          console.log('Registered Users render-state regression contract passed.');
-          NODE
 
       - uses: actions/setup-python@v5
         with:

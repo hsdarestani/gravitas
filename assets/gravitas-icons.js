@@ -1,6 +1,6 @@
 /* ==========================================================================
    GRAVITAS+ WORKSPACE ICONS
-   Twenty-nine marks for the product interface, drawn to the same geometry as the
+   Thirty-two marks for the product interface, drawn to the same geometry as the
    sixteen in the brand book (section 11) so the workspace and the public site
    speak with one hand.
 
@@ -50,6 +50,19 @@
     target: "<g transform=\"translate(0.332 0.331) scale(0.968448)\" stroke-width=\"1.755\"><circle cx=\"12\" cy=\"12\" r=\"9.2\"/><circle cx=\"12\" cy=\"12\" r=\"4.8\"/><circle cx=\"12\" cy=\"12\" r=\"1.600\" fill=\"currentColor\" stroke=\"none\"/></g>",
     cycle: "<g transform=\"translate(-1.028 0.184) scale(1.038200)\" stroke-width=\"1.637\"><path d=\"M20.4 12a8.4 8.4 0 1 1-2.9-6.35\"/><path d=\"M20.8 3.2v5.2h-5.2\"/><circle cx=\"12\" cy=\"12\" r=\"1.493\" fill=\"currentColor\" stroke=\"none\"/></g>",
     meeting: "<g transform=\"translate(0.225 0.531) scale(0.968286)\" stroke-width=\"1.756\"><circle cx=\"12\" cy=\"12\" r=\"9.2\"/><path d=\"M12 6.6V12l3.8 2.4\"/></g>",
+
+    /* The three workspaces. One motif, three fields: a mass at the centre, and
+       around it the structure that workspace is. A cube for what the team builds
+       and ships, an orbit for the evidence a question gets circled with, a spiral
+       for knowledge coming back round deeper on each pass. They read as one
+       family at a glance and never as each other, which the marks they replace
+       did not: Core borrowed the window it also uses for its own Overview row,
+       Research borrowed the Venn that means collaboration everywhere else, and
+       Knowledge borrowed the mindmap the Assistant button already draws. */
+    'space-core': "<g transform=\"translate(-0.488 -0.488) scale(1.040698)\" stroke-width=\"1.634\"><path d=\"M12 3.4L19.45 7.7L19.45 16.3L12 20.6L4.55 16.3L4.55 7.7Z\"/><path d=\"M12 15.2L12 20.6\"/><path d=\"M14.77 10.4L19.45 7.7\"/><path d=\"M9.23 10.4L4.55 7.7\"/><circle cx=\"12\" cy=\"12\" r=\"1.489\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    'space-research': "<g transform=\"translate(0.067 0.881) scale(0.951412)\" stroke-width=\"1.787\"><path d=\"M19.4 12.86C18.58 14.14 17.36 15.38 15.93 16.37C14.49 17.37 12.84 18.12 11.22 18.52C9.61 18.91 8.05 18.95 6.77 18.62C5.48 18.29 4.49 17.6 3.95 16.65C3.4 15.7 3.29 14.5 3.65 13.22C4 11.95 4.82 10.61 5.97 9.41C7.12 8.21 8.59 7.16 10.18 6.41C11.76 5.67 13.44 5.23 14.96 5.16\"/><circle cx=\"20.05\" cy=\"7.35\" r=\"2.2\"/><circle cx=\"12\" cy=\"12\" r=\"1.629\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    'space-knowledge': "<g transform=\"translate(-2.735 -0.185) scale(1.118773)\" stroke-width=\"1.52\"><path d=\"M11.69 8.51C12.91 8.16 14.46 8.51 15.51 9.61C16.56 10.71 17.03 12.54 16.46 14.23C15.9 15.91 14.29 17.38 12.27 17.72C10.26 18.07 7.93 17.24 6.51 15.43C5.09 13.62 4.66 10.88 5.67 8.53C6.68 6.17 9.12 4.31 11.93 4.04C14.74 3.77 17.82 5.13 19.56 7.68C21.3 10.23 21.61 13.88 20.1 16.87\"/><circle cx=\"12\" cy=\"12\" r=\"1.385\" fill=\"currentColor\" stroke=\"none\"/></g>",
+
     plus: "<g transform=\"translate(-2.099 -2.094) scale(1.174958)\" stroke-width=\"1.447\"><path d=\"M12 4.4v15.2\"/><path d=\"M4.4 12h15.2\"/></g>",
     arrow: "<g transform=\"translate(-2.850 -0.453) scale(1.033855)\" stroke-width=\"1.644\"><path d=\"M3.4 12h17.2\"/><path d=\"m14.2 5.6 6.4 6.4-6.4 6.4\"/></g>",
     external: "<g transform=\"translate(-8.982 -3.969) scale(1.533503)\" stroke-width=\"1.109\"><path d=\"M6.2 17.8 17.8 6.2\"/><path d=\"M8.6 6.2h9.2v9.2\"/></g>",
@@ -59,7 +72,11 @@
     search: "<g transform=\"translate(0.287 0.291) scale(1.000150)\" stroke-width=\"1.700\"><circle cx=\"10.6\" cy=\"10.6\" r=\"7.4\"/><path d=\"m16 16 5 5\"/></g>",
     more: "<g transform=\"translate(0.048 0.047) scale(1.000167)\" stroke-width=\"1.700\"><circle cx=\"12\" cy=\"4.6\" r=\"1.55\"/><circle cx=\"12\" cy=\"12\" r=\"1.55\"/><circle cx=\"12\" cy=\"19.4\" r=\"1.55\"/></g>",
     filter: "<g transform=\"translate(0.380 2.683) scale(0.968399)\" stroke-width=\"1.755\"><path d=\"M2.8 5.2h18.4\"/><path d=\"M6.2 12h11.6\"/><path d=\"M9.6 18.8h4.8\"/></g>",
-    theme: "<g transform=\"translate(-1.799 0.002) scale(1.000000)\" stroke-width=\"1.700\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 3a9 9 0 0 1 0 18z\" fill=\"currentColor\" stroke=\"none\"/></g>"
+    /* The theme control is the one mark that has to say both states at once,
+       so it is the header's own two marks in one drawing: the sun's three
+       left-hand rays, at the spacing the sun uses, lighting a disc whose far
+       limb is the moon. The rays the moon would cover are the ones left off. */
+    theme: "<g transform=\"translate(-0.851 -2.055) scale(1.171637)\" stroke-width=\"1.451\"><circle cx=\"12\" cy=\"12\" r=\"5\"/><path d=\"M11.092 7.083A5 5 0 1 1 11.092 16.917A5.2 5.2 0 0 0 11.092 7.083Z\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M3.9 12H1.7\"/><path d=\"M6.3 6.3L4.7 4.7\"/><path d=\"M6.3 17.7L4.7 19.3\"/></g>"
   };
 
   /* One <svg> wrapper for every mark: fill and stroke inherit currentColor so

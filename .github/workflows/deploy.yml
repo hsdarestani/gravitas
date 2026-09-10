@@ -37,7 +37,11 @@ jobs:
           "$RUNNER_TEMP/gravitas-tests/bin/python" -m django test core
           "$RUNNER_TEMP/gravitas-tests/bin/python" -m django makemigrations core --check --dry-run
           "$RUNNER_TEMP/gravitas-tests/bin/python" -m django check
-          node --check assets/workspace.js
+          shopt -s nullglob
+          for module in assets/ws/*.js; do
+            echo "Checking $module"
+            node --input-type=module --check < "$module"
+          done
 
       - name: Validate deployment configuration
         shell: bash

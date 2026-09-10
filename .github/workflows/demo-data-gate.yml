@@ -39,8 +39,6 @@ jobs:
             '>12</b>MAR'
             '>19</b>MAR'
             '>26</b>MAR'
-            'fonts.googleapis.com'
-            'fonts.gstatic.com'
           )
           for marker in "${forbidden[@]}"; do
             if grep -F -n -- "$marker" "${FILES[@]}"; then
@@ -48,4 +46,12 @@ jobs:
               exit 1
             fi
           done
+          # Google Fonts must never be *loaded*. brand.html documents the
+          # embed snippet as escaped sample markup (&lt;link ...&gt;), so this
+          # matches a real tag rather than any mention of the hostname.
+          if grep -n -E '<(link|script)[^>]*(href|src)="https://fonts\.(googleapis|gstatic)\.com|@import[^;]*fonts\.(googleapis|gstatic)\.com' "${FILES[@]}"; then
+            echo "Google Fonts is loaded at runtime; use assets/local-fonts.css instead."
+            exit 1
+          fi
+
           echo gravitas-demo-data-gate-passed

@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>
-/* Theme, resolved before first paint. See assets/site.js?v=up-f706806e3a02-g1df6ff09"dark unless your OS says otherwise":
+/* Theme, resolved before first paint. See assets/site.js for the toggle.
+   Dark is the default full stop, not "dark unless your OS says otherwise":
    this is a night sky, and a visitor who has never touched the control should
    see the same site every time rather than one that depends on a setting they
    made for some other app. Only an explicit choice, stored here, overrides it. */
@@ -31,14 +32,14 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <header class="g-header">
   <div class="g-container g-header__inner">
     <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg>Topics</a><a class="g-nav__link" href="magazine.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.971 3.385) scale(1.17763)" stroke-width="1.444"><path d="M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5"/><path d="M8.35,2.33v9.24"/><path d="M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41"/><path d="M10.38,5.74h3.1"/><path d="M10.38,8.74h2.2"/><circle cx="4.85" cy="7.24" r="1.316" fill="currentColor" stroke="none"/></g></svg>Magazine</a><a class="g-nav__link" href="lab.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg>Lab</a><a class="g-nav__link" href="learn.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg>Learn</a><a class="g-nav__link" href="community.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg>Community</a><span class="g-nav__sep" aria-hidden="true"></span><a class="g-nav__link gh-nav-signin" href="account.html#in"><svg class="g-ic g-nav__ic g-ic--signin" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg>Sign in</a><a class="g-btn g-btn--primary g-btn--sm g-btn--lead gh-nav-join" href="community.html#join"><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.662 4.159) scale(1.11875)" stroke-width="1.52"><path d="M13.75,8.5h3M15.25,7v3"/><path d="M13.75,14c-2.41-2.67-4.53-4-6.5-4s-4.09,1.33-6.5,4"/><circle cx="7.25" cy="3.5" r="3.5" fill="currentColor" stroke="none"/></g></svg><span>Join Us</span></a></nav>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg>Topics</a><a class="g-nav__link" href="magazine.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.971 3.385) scale(1.17763)" stroke-width="1.444"><path d="M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5"/><path d="M8.35,2.33v9.24"/><path d="M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41"/><path d="M10.38,5.74h3.1"/><path d="M10.38,8.74h2.2"/><circle cx="4.85" cy="7.24" r="1.316" fill="currentColor" stroke="none"/></g></svg>Magazine</a><a class="g-nav__link" href="lab.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg>Lab</a><a class="g-nav__link" href="learn.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg>Learn</a><a class="g-nav__link" href="community.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg>Community</a><span class="g-nav__sep" aria-hidden="true"></span><a class="g-nav__link gh-nav-signin" href="account.html#in"><svg class="g-ic g-nav__ic g-ic--signin" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg>Sign in</a><a class="g-btn g-btn--primary g-btn--sm g-btn--lead gh-nav-join" href="community.html#join"><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg><span>Join Us</span></a></nav>
     <div class="gh-actions">
       <a class="g-btn g-btn--ghost g-btn--sm g-btn--lead gh-signin" href="account.html#in"><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg><span>Sign in</span></a>
       <!-- The header CTA is the site's single loudest control, and it used to
            point at a mailing list. The community is the thing this project is
            actually for, so it gets the slot. -->
       <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="community.html#join" aria-label="Join the Gravitas+ community">
-        <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.662 4.159) scale(1.11875)" stroke-width="1.52"><path d="M13.75,8.5h3M15.25,7v3"/><path d="M13.75,14c-2.41-2.67-4.53-4-6.5-4s-4.09,1.33-6.5,4"/><circle cx="7.25" cy="3.5" r="3.5" fill="currentColor" stroke="none"/></g></svg>
+        <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg>
         <span>Join Us</span>
       </a>
       <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme">
@@ -64,7 +65,13 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     <div class="bk-meta">
       <span><b>Version</b> 2.1</span>
       <span><b>Updated</b> August 2026</span>
-      <span><b>Source of truth</b> assets/gravitas.css?v=up-f706806e3a02-g1df6ff09"g-section">
+      <span><b>Source of truth</b> assets/gravitas.css</span>
+      <span><b>Status</b> living document</span>
+    </div>
+  </div>
+</section>
+
+<section class="g-section">
   <div class="g-container">
     <div class="bk-layout">
 
@@ -165,6 +172,34 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <h2>Personality and Archetype</h2>
   <p class="g-lead">A brand personality is only useful when it rules things out. This one does.</p>
 
+  <h3>The Aaker Dimensions</h3>
+  <p>Jennifer Aaker's <em>Dimensions of Brand Personality</em> (1997) says what a brand is like to
+    deal with, in five dimensions that can actually be measured: Sincerity, Excitement, Competence,
+    Sophistication and Ruggedness, each rated 1 to 5 for how well it describes the brand. It leads
+    here because a reader can score it, which makes it the one to survey against. The archetypes
+    below say what story the brand is in. The two models answer different questions and both are
+    worth having.</p>
+  <p>Enduring brands lead on one dimension. Ours is <b>Competence</b>. Target below, with the
+    facets that matter.</p>
+
+  <div class="bk-scale">
+    <div class="bk-dim">
+      <div class="bk-dim__head">
+        <span class="bk-dim__name">Competence <b>primary</b></span>
+        <span class="bk-dim__score">4.6</span>
+      </div>
+      <div class="bk-dim__track"><span style="--v:92%"></span></div>
+      <p class="bk-dim__note"><b>Reliable, intelligent, successful.</b> The whole promise rests
+        here: sources graded, code shipped beside the claim, limits stated, corrections logged. Read
+        "successful" as authoritative rather than commercially large. This is the dimension a reader
+        should feel within one paragraph.</p>
+    </div>
+  </div>
+  <p class="g-subtle" style="font-size:var(--g-fs-caption)">Aaker, J. L. (1997). Dimensions of Brand
+    Personality. <em>Journal of Marketing Research</em>, 34(3), 347 to 356. Scores are targets set
+    by us, not survey results. If they are ever measured, the measured numbers replace these and the
+    gap becomes the brief.</p>
+
   <h3>The Jungian Reading</h3>
   <p>Gravitas+ is a <b>Sage</b> brand with a <b>Magician</b> engine and a measured dose of
     <b>Outlaw</b>. The three are not equal partners: the Sage decides what is said, the Magician
@@ -221,33 +256,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     visibly delighted when a result overturns something they said last year, and hands you the
     notebook instead of describing what is in it. Says "I do not know, but here is how we would
     find out" more often than any other sentence.</p>
-
-  <h3>The Aaker Dimensions</h3>
-  <p>Jung's archetypes say what story the brand is in. Jennifer Aaker's <em>Dimensions of Brand
-    Personality</em> (1997) says what it is like to deal with, in five dimensions that can actually
-    be measured: Sincerity, Excitement, Competence, Sophistication and Ruggedness, each rated 1 to
-    5 for how well it describes the brand. The two models answer different questions and both are
-    worth having. Aaker's is the one to survey against, because a reader can score it.</p>
-  <p>Enduring brands lead on one dimension. Ours is <b>Competence</b>. Target below, with the
-    facets that matter.</p>
-
-  <div class="bk-scale">
-    <div class="bk-dim">
-      <div class="bk-dim__head">
-        <span class="bk-dim__name">Competence <b>primary</b></span>
-        <span class="bk-dim__score">4.6</span>
-      </div>
-      <div class="bk-dim__track"><span style="--v:92%"></span></div>
-      <p class="bk-dim__note"><b>Reliable, intelligent, successful.</b> The whole promise rests
-        here: sources graded, code shipped beside the claim, limits stated, corrections logged. Read
-        "successful" as authoritative rather than commercially large. This is the dimension a reader
-        should feel within one paragraph.</p>
-    </div>
-  </div>
-  <p class="g-subtle" style="font-size:var(--g-fs-caption)">Aaker, J. L. (1997). Dimensions of Brand
-    Personality. <em>Journal of Marketing Research</em>, 34(3), 347 to 356. Scores are targets set
-    by us, not survey results. If they are ever measured, the measured numbers replace these and the
-    gap becomes the brief.</p>
 
   <h3>The Tension Axes</h3>
   <p>Aaker measures how the brand is perceived. These six say what to do when two good qualities
@@ -1196,8 +1204,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <section class="bk-sec" id="icons">
   <span class="bk-sec__n">11</span>
   <h2>Icons</h2>
-  <p class="g-lead">Sixteen marks in two sets, drawn to one geometry, not interchangeable with
-    stock.</p>
+  <p class="g-lead">Forty-eight marks in three sets, drawn to one geometry, not interchangeable
+    with stock.</p>
 
   <h3>The Product Set</h3>
   <p>One mark for each of the six ways into the site, plus the two account actions that run across
@@ -1206,7 +1214,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     grows past 1.25rem.</p>
 
   <div class="bk-demo">
-    <div class="bk-icons"><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg></span><span>Topics</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg></span><span>Community</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg></span><span>Interactive Lab</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.971 3.385) scale(1.17763)" stroke-width="1.444"><path d="M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5"/><path d="M8.35,2.33v9.24"/><path d="M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41"/><path d="M10.38,5.74h3.1"/><path d="M10.38,8.74h2.2"/><circle cx="4.85" cy="7.24" r="1.316" fill="currentColor" stroke="none"/></g></svg></span><span>Magazine</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg></span><span>Learning Paths</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg></span><span>Newsletter</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.662 4.159) scale(1.11875)" stroke-width="1.52"><path d="M13.75,8.5h3M15.25,7v3"/><path d="M13.75,14c-2.41-2.67-4.53-4-6.5-4s-4.09,1.33-6.5,4"/><circle cx="7.25" cy="3.5" r="3.5" fill="currentColor" stroke="none"/></g></svg></span><span>Join Us</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg></span><span>Sign in</span></div></div>
+    <div class="bk-icons"><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg></span><span>Topics</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg></span><span>Community</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg></span><span>Interactive Lab</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.971 3.385) scale(1.17763)" stroke-width="1.444"><path d="M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5"/><path d="M8.35,2.33v9.24"/><path d="M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41"/><path d="M10.38,5.74h3.1"/><path d="M10.38,8.74h2.2"/><circle cx="4.85" cy="7.24" r="1.316" fill="currentColor" stroke="none"/></g></svg></span><span>Magazine</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg></span><span>Learning Paths</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg></span><span>Newsletter</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg></span><span>Join Us</span></div><div class="bk-icon bk-icon--wide"><span class="g-ic-plate"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg></span><span>Sign in</span></div></div>
   </div>
 
   <p>Each of them carries a solid element inside an otherwise open outline. That is the set's shared
@@ -1255,6 +1263,96 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <div class="bk-icon"><span class="bk-icon__btn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg></span><span>Moon</span></div></div>
   </div>
 
+  <h3>The Workspace Set</h3>
+  <p>Thirty-two marks for the product interface, drawn to the geometry below so the workspace and
+    the public site speak with one hand. They replace two foreign vocabularies that had grown
+    inside the app: a vendored subset of a stock library, and a scattering of Unicode geometric
+    glyphs used as icons, which rendered at whatever weight and baseline the reader&rsquo;s font stack
+    happened to supply. Both disagreed with the sets above and with each other.</p>
+
+  <p>The set keeps the product set&rsquo;s split, in the same terms. A mark for a <b>thing</b> carries the
+    solid accent dot; a mark for an <b>action</b> does not. That is why Plus, Search and Close are
+    open outlines while Projects, Files and Team each hold a dot, and why Activity and Meeting,
+    which draw a reading rather than an object, carry none.</p>
+
+  <div class="bk-demo">
+    <div class="bk-icons">
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.241 -1.483) scale(0.980000)" stroke-width="1.735"><path d="M3 10.2 12 3l9 7.2"/><path d="M5.2 12v8.2a1 1 0 0 0 1 1h11.6a1 1 0 0 0 1-1V12"/><circle cx="12" cy="16.4" r="1.582" fill="currentColor" stroke="none"/></g></svg></span><span>Home</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.647 0.325) scale(0.946052)" stroke-width="1.797"><rect x="2.6" y="3.4" width="18.8" height="17.2" rx="4"/><path d="M2.6 9.4h18.8"/><path d="M13.4 14.2h5"/><path d="M13.4 17.4h3"/><circle cx="7.6" cy="15.8" r="1.638" fill="currentColor" stroke="none"/></g></svg></span><span>Overview</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.758 -0.858) scale(0.968270)" stroke-width="1.756"><path d="M2.8 6.4a2 2 0 0 1 2-2h4.3a2 2 0 0 1 1.6.8l1 1.4a2 2 0 0 0 1.6.8h5.9a2 2 0 0 1 2 2v9.2a2 2 0 0 1-2 2H4.8a2 2 0 0 1-2-2z"/><circle cx="12" cy="14.4" r="1.601" fill="currentColor" stroke="none"/></g></svg></span><span>Projects</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.586 0.550) scale(0.889943)" stroke-width="1.910"><path d="M5.6 3.6a1.6 1.6 0 0 1 1.6-1.6h6.2l5 5v13.4a1.6 1.6 0 0 1-1.6 1.6H7.2a1.6 1.6 0 0 1-1.6-1.6z"/><path d="M13.4 2v5h5"/><path d="M9.2 12.6h5.6"/><path d="M9.2 15.8h3.4"/><circle cx="9.6" cy="19" r="1.742" fill="currentColor" stroke="none"/></g></svg></span><span>Notes</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.650 1.082) scale(0.945894)" stroke-width="1.797"><rect x="2.6" y="4.4" width="18.8" height="15.2" rx="3.2"/><path d="M2.6 11.2h18.8"/><path d="M9.4 4.4V2.6h5.2v1.8"/><circle cx="12" cy="15.4" r="1.639" fill="currentColor" stroke="none"/></g></svg></span><span>Files</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.715 -0.207) scale(0.968270)" stroke-width="1.756"><rect x="2.8" y="3.6" width="18.4" height="16.8" rx="3.2"/><path d="M2.8 9.2h18.4"/><path d="M2.8 14.8h18.4"/><path d="M12 9.2v11.2"/><circle cx="7.4" cy="17.6" r="1.601" fill="currentColor" stroke="none"/></g></svg></span><span>Datasets</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.073 1.079) scale(0.906898)" stroke-width="1.875"><circle cx="8.6" cy="12" r="6.4"/><circle cx="15.4" cy="12" r="6.4"/><circle cx="12" cy="12" r="1.709" fill="currentColor" stroke="none"/></g></svg></span><span>Collaboration</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M17 14.4a4.6 4.6 0 0 1 4.4 4.6v1.4"/><path d="M16.2 4.2a3.5 3.5 0 0 1 0 6.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg></span><span>Team</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.996 0.562) scale(0.945752)" stroke-width="1.798"><path d="M2.6 6.4 4.4 8.2 8 4.6"/><path d="M11.4 6.4h10"/><path d="M11.4 12h10"/><path d="M11.4 17.6h10"/><path d="M2.6 12h3.6"/><circle cx="4.4" cy="17.6" r="1.639" fill="currentColor" stroke="none"/></g></svg></span><span>Tasks</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-0.333 0.397) scale(0.949432)" stroke-width="1.791"><path d="M7.4 2.6h8.4a2 2 0 0 1 2 2v11.8a2 2 0 0 1-2 2H7.4a2 2 0 0 1-2-2V4.6a2 2 0 0 1 2-2z"/><path d="M8.8 21.4h8.6a3 3 0 0 0 3-3V7.6"/><path d="M9.2 7.4h4.8"/><circle cx="9.8" cy="11.4" r="1.633" fill="currentColor" stroke="none"/></g></svg></span><span>Content</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.794 0.673) scale(0.946052)" stroke-width="1.797"><path d="M2.6 18.4h18.8"/><path d="M6.2 18.4V9.6"/><path d="M12 18.4V4.6"/><path d="M17.8 18.4v-6.2"/><circle cx="6.2" cy="7.4" r="1.5"/><circle cx="17.8" cy="10" r="1.5"/><circle cx="12" cy="2.6" r="1.638" fill="currentColor" stroke="none"/></g></svg></span><span>Planning</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.321 2.143) scale(0.893620)" stroke-width="1.902"><circle cx="4.4" cy="6" r="2.4"/><circle cx="19.6" cy="6" r="2.4"/><circle cx="12" cy="20.4" r="2.4"/><path d="M6.4 7.4 10.6 11.6"/><path d="M17.6 7.4 13.4 11.6"/><path d="M12 14.8v3.2"/><circle cx="12" cy="12.8" r="1.735" fill="currentColor" stroke="none"/></g></svg></span><span>Mind Map</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.381 0.574) scale(0.968270)" stroke-width="1.756"><path d="M4.4 4.6a1.8 1.8 0 0 1 1.8-1.8h11.6a1.8 1.8 0 0 1 1.8 1.8v14.8a1.8 1.8 0 0 1-1.8 1.8H6.2a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M4.4 13.6h15.2"/><circle cx="12" cy="8" r="1.601" fill="currentColor" stroke="none"/></g></svg></span><span>Storage</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.957 -0.750) scale(0.949771)" stroke-width="1.790"><path d="M2.6 14.6h3.8l2.4-7.2 3.4 12 2.8-9.2 1.8 4.4h4.6"/></g></svg></span><span>Activity</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-1.224 0.329) scale(0.972384)" stroke-width="1.748"><circle cx="18.4" cy="5.4" r="2.6"/><circle cx="18.4" cy="18.6" r="2.6"/><path d="M7.6 10.8 16 6.6"/><path d="M7.6 13.2 16 17.4"/><circle cx="5.6" cy="12" r="2.6" fill="currentColor" stroke="none"/></g></svg></span><span>Share</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.739 -0.407) scale(0.938477)" stroke-width="1.811"><rect x="3.6" y="10.2" width="16.8" height="11.2" rx="3"/><path d="M7.4 10.2V7a4.6 4.6 0 0 1 9.2 0v3.2"/><circle cx="12" cy="15.8" r="1.652" fill="currentColor" stroke="none"/></g></svg></span><span>Secure</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.332 0.331) scale(0.968448)" stroke-width="1.755"><circle cx="12" cy="12" r="9.2"/><circle cx="12" cy="12" r="4.8"/><circle cx="12" cy="12" r="1.600" fill="currentColor" stroke="none"/></g></svg></span><span>Target</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-1.028 0.184) scale(1.038200)" stroke-width="1.637"><path d="M20.4 12a8.4 8.4 0 1 1-2.9-6.35"/><path d="M20.8 3.2v5.2h-5.2"/><circle cx="12" cy="12" r="1.493" fill="currentColor" stroke="none"/></g></svg></span><span>Cycle</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.225 0.531) scale(0.968286)" stroke-width="1.756"><circle cx="12" cy="12" r="9.2"/><path d="M12 6.6V12l3.8 2.4"/></g></svg></span><span>Meeting</span></div></div>
+  </div>
+
+  <h4>The Three Workspaces</h4>
+  <p>One motif, three fields: a mass at the centre and, around it, the structure that workspace
+    is. They have to read as one family at a glance and never as each other, which the marks they
+    replace did not &mdash; each had been borrowed from somewhere else in the interface and already
+    meant something there.</p>
+
+  <div class="bk-demo">
+    <div class="bk-icons">
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-0.488 -0.488) scale(1.040698)" stroke-width="1.634"><path d="M12 3.4L19.45 7.7L19.45 16.3L12 20.6L4.55 16.3L4.55 7.7Z"/><path d="M12 15.2L12 20.6"/><path d="M14.77 10.4L19.45 7.7"/><path d="M9.23 10.4L4.55 7.7"/><circle cx="12" cy="12" r="1.489" fill="currentColor" stroke="none"/></g></svg></span><span>Core</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.067 0.881) scale(0.951412)" stroke-width="1.787"><path d="M19.4 12.86C18.58 14.14 17.36 15.38 15.93 16.37C14.49 17.37 12.84 18.12 11.22 18.52C9.61 18.91 8.05 18.95 6.77 18.62C5.48 18.29 4.49 17.6 3.95 16.65C3.4 15.7 3.29 14.5 3.65 13.22C4 11.95 4.82 10.61 5.97 9.41C7.12 8.21 8.59 7.16 10.18 6.41C11.76 5.67 13.44 5.23 14.96 5.16"/><circle cx="20.05" cy="7.35" r="2.2"/><circle cx="12" cy="12" r="1.629" fill="currentColor" stroke="none"/></g></svg></span><span>Research</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-2.735 -0.185) scale(1.118773)" stroke-width="1.52"><path d="M11.69 8.51C12.91 8.16 14.46 8.51 15.51 9.61C16.56 10.71 17.03 12.54 16.46 14.23C15.9 15.91 14.29 17.38 12.27 17.72C10.26 18.07 7.93 17.24 6.51 15.43C5.09 13.62 4.66 10.88 5.67 8.53C6.68 6.17 9.12 4.31 11.93 4.04C14.74 3.77 17.82 5.13 19.56 7.68C21.3 10.23 21.61 13.88 20.1 16.87"/><circle cx="12" cy="12" r="1.385" fill="currentColor" stroke="none"/></g></svg></span><span>Knowledge</span></div></div>
+  </div>
+
+  <div class="bk-tablewrap">
+    <table class="bk-table">
+      <thead><tr><th>Mark</th><th>What the drawing is doing</th></tr></thead>
+      <tbody>
+        <tr><td>Core</td><td>A cube. What the team builds and ships, seen as an object with sides.</td></tr>
+        <tr><td>Research</td><td>An orbit. The evidence a question gets circled with, and the one body doing the circling.</td></tr>
+        <tr><td>Knowledge</td><td>A spiral. The same ground come back round to, deeper on each pass.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Controls</h4>
+  <p>Ten marks for the things a control does rather than for anything it holds. None carries a
+    dot.</p>
+
+  <div class="bk-demo">
+    <div class="bk-icons">
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-2.099 -2.094) scale(1.174958)" stroke-width="1.447"><path d="M12 4.4v15.2"/><path d="M4.4 12h15.2"/></g></svg></span><span>Plus</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-2.850 -0.453) scale(1.033855)" stroke-width="1.644"><path d="M3.4 12h17.2"/><path d="m14.2 5.6 6.4 6.4-6.4 6.4"/></g></svg></span><span>Arrow</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-8.982 -3.969) scale(1.533503)" stroke-width="1.109"><path d="M6.2 17.8 17.8 6.2"/><path d="M8.6 6.2h9.2v9.2"/></g></svg></span><span>External</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></span><span>Close</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></span><span>Chevron</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-0.793 -1.901) scale(1.060362)" stroke-width="1.603"><path d="m3.6 12.6 5.6 5.6L20.4 6.4"/></g></svg></span><span>Check</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.287 0.291) scale(1.000150)" stroke-width="1.700"><circle cx="10.6" cy="10.6" r="7.4"/><path d="m16 16 5 5"/></g></svg></span><span>Search</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.048 0.047) scale(1.000167)" stroke-width="1.700"><circle cx="12" cy="4.6" r="1.55"/><circle cx="12" cy="12" r="1.55"/><circle cx="12" cy="19.4" r="1.55"/></g></svg></span><span>More</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.380 2.683) scale(0.968399)" stroke-width="1.755"><path d="M2.8 5.2h18.4"/><path d="M6.2 12h11.6"/><path d="M9.6 18.8h4.8"/></g></svg></span><span>Filter</span></div>
+      <div class="bk-icon"><span class="bk-icon__btn"><svg class="g-wi" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-0.851 -2.055) scale(1.171637)" stroke-width="1.451"><circle cx="12" cy="12" r="5"/><path d="M11.092 7.083A5 5 0 1 1 11.092 16.917A5.2 5.2 0 0 0 11.092 7.083Z" fill="currentColor" stroke="none"/><path d="M3.9 12H1.7"/><path d="M6.3 6.3L4.7 4.7"/><path d="M6.3 17.7L4.7 19.3"/></g></svg></span><span>Theme</span></div></div>
+  </div>
+
+  <h4>Where the Workspace Marks Go</h4>
+  <ul>
+    <li><b>1.25rem or smaller, always.</b> Navigation rows, buttons, tabs, empty states. Never on
+      a plate: the plate belongs to the six public section marks, and a workspace mark on one
+      would claim the authority of a section heading it does not have.</li>
+    <li><b>One vocabulary per surface.</b> Inside the workspace these marks are the whole set. Do
+      not mix in a stock icon for a case the set does not cover yet &mdash; draw the case, by the
+      procedure at the end of this section, and add it to the file.</li>
+    <li><b>Named, not pasted.</b> They ship as one file,
+      <code>assets/gravitas-icons.js</code>, and are drawn by name through
+      <code>GravitasIcons.icon(name)</code>. Colour comes from <code>currentColor</code>, so the
+      row or button decides it and the mark never carries its own.</li>
+  </ul>
   <h3>The Geometry</h3>
   <ul>
     <li>Each glyph's <b>ink centroid</b> is solved onto (12, 12) in a 24-unit viewBox, by
@@ -1278,7 +1376,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       part of the figure, and keeps the size it was drawn at. Where growing a dot to 3.1 would
       close a gap the artwork was drawn with, the dot <em>moves</em> rather than shrinks, as it
       does in Sign in: the diameter is the rule, the clearance is the drawing.</li>
-    <li>All sixteen set <code>shape-rendering="geometricPrecision"</code>. A residual of a third
+    <li>Every mark in all three sets carries <code>shape-rendering="geometricPrecision"</code>. A residual of a third
       of a unit slides visibly as the page is zoomed, and it slides differently for each icon.</li>
     <li>Render sizes are chosen so the leftover space divides to whole pixels at 100%: 1.25rem in a
       2.25rem footer button, 1.125rem in a 2.5rem theme toggle.</li>
@@ -1606,6 +1704,15 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <p class="g-lead">This document changes when the product does. Corrections are logged, not
     quietly applied.</p>
   <div class="bk-log">
+    <div class="bk-log__row">
+      <div class="bk-log__when">2.4 &middot; Sep 2026</div>
+      <div class="bk-log__what">The workspace set joins section 11: thirty-two marks for the
+        product interface, fitted by the same procedure as the public ones and shipped as
+        <code>assets/gravitas-icons.js</code>. They retire a vendored stock subset and a set of
+        Unicode geometric glyphs that had been standing in for icons inside the app. Documents the
+        three workspace marks as one family, and restates the dot rule for the new set: a thing
+        carries the accent dot, an action does not.</div>
+    </div>
     <div class="bk-log__row">
       <div class="bk-log__when">2.3 &middot; Aug 2026</div>
       <div class="bk-log__what">The eight product marks join the icon set, fitted to the existing

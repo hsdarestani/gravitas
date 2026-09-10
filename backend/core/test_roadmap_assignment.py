@@ -22,7 +22,7 @@ class RoadmapAssignmentTests(TestCase):
         self.sajjad = User.objects.create_user(
             username='sajjad@example.com',
             email='sajjad@example.com',
-            first_name='Sajjad',
+            first_name='Sajad',
             password='StrongPass!123',
         )
         self.ahmad = User.objects.create_user(

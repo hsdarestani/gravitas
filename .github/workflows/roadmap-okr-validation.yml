@@ -9,8 +9,6 @@ on:
       - 'backend/core/migrations/**'
       - 'backend/core/apps.py'
       - 'backend/gravitas_backend/urls.py'
-      - 'assets/roadmap-okr-sync.js'
-      - 'assets/roadmap-okr-sync.css'
       - 'workspace.html'
       - '.github/workflows/roadmap-okr-validation.yml'
   push:
@@ -22,8 +20,6 @@ on:
       - 'backend/core/migrations/**'
       - 'backend/core/apps.py'
       - 'backend/gravitas_backend/urls.py'
-      - 'assets/roadmap-okr-sync.js'
-      - 'assets/roadmap-okr-sync.css'
       - 'workspace.html'
       - '.github/workflows/roadmap-okr-validation.yml'
 
@@ -36,8 +32,6 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Validate browser JavaScript
-        run: node --check assets/roadmap-okr-sync.js
       - name: Test Roadmap OKR sync
         shell: bash
         run: |

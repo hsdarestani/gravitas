@@ -1,13 +1,18 @@
 /* ==========================================================================
    GRAVITAS+ WORKSPACE  ·  SHELL
-   Home plus two workspaces, Core and Research, in a three pane shell.
+   Home plus three workspaces — Core, Research and Knowledge — in a three
+   pane shell.
 
-   The structure is the platform's own and is unchanged: same two
-   workspaces, same sections, same routes, same access rules, same backend.
-   What changed is the presentation. The old shell put a flat list of links
-   in a sidebar and rebuilt the page under it; this one puts the sections in
-   an index tree beside a document pane, with a command palette over the top,
+   The structure is the platform's own: same sections, same routes, same
+   access rules, same backend. The old shell put a flat list of links in a
+   sidebar and rebuilt the page under it; this one puts the sections in an
+   index tree beside a document pane, with a command palette over the top,
    which is the shape the reference mockups asked for.
+
+   Two things are added rather than restyled. Core's Assets & Blueprints
+   section, which the backend has always served and no screen ever drew, and
+   the Knowledge workspace, which is where learning happens: sources,
+   distilled notes, a recall queue and the skills they add up to.
 
    Rendering is direct DOM work, no framework and no build step, which is the
    repository's standing constraint. The discipline that makes that
@@ -17,7 +22,12 @@
 import * as api from './ws-api.js';
 import * as P from './ws-platform.js';
 import * as views from './ws-views.js';
-import { areaOf, sectionsFor, activeSection, titleFor, WORKSPACES, availableWorkspaces } from './ws-nav.js';
+import * as assets from './ws-core-assets.js';
+import * as kms from './ws-kms-views.js';
+import {
+  areaOf, sectionsFor, activeSection, titleFor,
+  WORKSPACES, availableWorkspaces, spaceOf,
+} from './ws-nav.js';
 import { renderDashboard, stopClock } from './ws-home.js';
 import { renderSettings } from './ws-settings.js';
 import { mountPalette, openPalette } from './ws-palette.js';
@@ -42,7 +52,7 @@ const ui = {
   index: true,
   dock: true,
   openSections: new Set(),
-  openNodes: new Set(['dossiers', 'd-cu', 'method', 'journal']),
+  openNodes: new Set(['dossiers', 'd-cu', 'method', 'journal', 'c-decisions', 'c-standards', 'k-concepts', 'k-methods']),
   nodes: [],
   page: null,
   pagesById: {},
@@ -77,8 +87,21 @@ const ROUTES = [
   [/^\/workspace\/core\/?$/,                        () => ({ view: 'core' })],
   [/^\/workspace\/core\/tasks\/?$/,                 () => ({ view: 'core-tasks' })],
   [/^\/workspace\/core\/content\/?$/,               () => ({ view: 'core-content' })],
+  [/^\/workspace\/core\/notes\/?$/,                 () => ({ view: 'core-notes' })],
   [/^\/workspace\/core\/team\/?$/,                  () => ({ view: 'core-team' })],
+  // The blueprint route is matched before the library it lives under, or the
+  // library's own pattern would swallow it.
+  [/^\/workspace\/core\/assets\/content-studio-blueprint\/?$/, () => ({ view: 'core-blueprint' })],
+  [/^\/workspace\/core\/assets\/?$/,                () => ({ view: 'core-assets' })],
   [/^\/workspace\/operating(?:\/.*)?$/,             () => ({ view: 'core-planning' })],
+
+  [/^\/workspace\/kms\/?$/,                         () => ({ view: 'kms' })],
+  [/^\/workspace\/kms\/paths\/([^/]+)\/?$/,         (m) => ({ view: 'kms-path', id: m[1] })],
+  [/^\/workspace\/kms\/paths\/?$/,                  () => ({ view: 'kms-paths' })],
+  [/^\/workspace\/kms\/sources\/?$/,                () => ({ view: 'kms-sources' })],
+  [/^\/workspace\/kms\/base\/?$/,                   () => ({ view: 'kms-base' })],
+  [/^\/workspace\/kms\/recall\/?$/,                 () => ({ view: 'kms-recall' })],
+  [/^\/workspace\/kms\/skills\/?$/,                 () => ({ view: 'kms-skills' })],
 
   [/^\/workspace\/research\/?$/,                    () => ({ view: 'research' })],
   [/^\/workspace\/research\/projects\/(\d+)\/?$/,   (m) => ({ view: 'project', id: m[1] })],
@@ -97,6 +120,11 @@ const ROUTES = [
   [/^\/workspace\/page\/([^/]+)\/?$/,               (m) => ({ view: 'editor', pageId: m[1] })],
   [/^\/workspace\/folder\/([^/]+)\/?$/,             (m) => ({ view: 'folder', folderId: m[1] })],
 ];
+
+/* The inverse of ws-nav's spaceOf. Kept next to the router because the
+   router is the only place that has to go this way: from a page's space
+   back to the workspace whose index should be open around it. */
+const AREA_OF_SPACE = { core: 'core', research: 'research', kms: 'kms' };
 
 function parse(path) {
   for (const [pattern, build] of ROUTES) {
@@ -125,10 +153,18 @@ async function apply(path) {
     return;
   }
 
-  ui.area = areaOf(path);
   ui.route = route;
   ui.pageId = route.pageId || null;
   ui.folderId = route.folderId || null;
+
+  /* A page URL carries no workspace, so the area is read off the page
+     itself. Without this, opening a Core meeting note from search dropped
+     the reader into the Research index with none of its rows lit, and the
+     rail claimed they had changed workspace. The page decides, because the
+     page is the thing they asked for. */
+  ui.area = areaOf(path);
+  const held = route.pageId || route.folderId;
+  if (held) ui.area = AREA_OF_SPACE[api.spaceOfNode(ui.nodes, held)] || ui.area;
 
   // Keep the section containing the current route open in the index.
   const { section } = activeSection(ui.area, path);
@@ -275,21 +311,12 @@ function renderIndex() {
 
   if (ui.area === 'home') {
     title.textContent = 'Workspaces';
-    for (const workspace of availableWorkspaces()) {
-      body.append(sectionRow({
-        label: workspace.name,
-        sub: workspace.blurb,
-        mark: workspace.icon,
-        depth: 0,
-        active: false,
-        onClick: () => go(workspace.home),
-      }));
-    }
+    body.append(...availableWorkspaces().map(workspaceChoice));
     foot.textContent = P.platform.boot ? 'Signed in' : '';
     return;
   }
 
-  title.textContent = ui.area === 'core' ? 'Core Workspace' : 'Research Workspace';
+  title.textContent = WORKSPACES[ui.area]?.name || 'Workspace';
 
   /* Deliberately not role="tree". That role carries a full keyboard
      contract: up and down across the whole flattened tree, home and end,
@@ -337,22 +364,57 @@ function renderIndex() {
       }));
     }
 
-    // Pages expands into the knowledge base rather than into more links.
-    if (section.tree) group.append(...pageBranch(null, 1));
+    // A tree section expands into its own branch of the page store rather
+    // than into more links, and only into its own: `space` is what keeps a
+    // Core standard out of the knowledge base without needing three editors.
+    if (section.tree) group.append(...pageBranch(null, 1, section.space));
 
     tree.append(group);
   }
 
   body.append(tree);
 
-  const pages = ui.nodes.filter((n) => !n.phantom).length;
-  const phantoms = ui.nodes.filter((n) => n.phantom).length;
-  foot.textContent = ui.openSections.has('res-pages')
-    ? `${pages} pages · ${phantoms} linked, not written`
-    : '';
+  /* The count describes the branch that is open, not the whole store. It
+     read "26 pages" under the research tree while showing eleven of them,
+     which is the sort of small lie that makes a person stop trusting the
+     rest of the numbers on the screen. */
+  const openTree = sectionsFor(ui.area).find((section) => section.tree && ui.openSections.has(section.id));
+  if (openTree) {
+    const mine = ui.nodes.filter((node) => api.spaceOfNode(ui.nodes, node.id) === openTree.space);
+    const pages = mine.filter((node) => !node.phantom).length;
+    const phantoms = mine.filter((node) => node.phantom).length;
+    foot.textContent = phantoms
+      ? `${pages} pages · ${phantoms} linked, not written`
+      : `${pages} pages`;
+  } else {
+    foot.textContent = '';
+  }
 }
 
-function sectionRow({ label, sub, mark, depth, active, expandable, expanded, onToggle, onClick }) {
+/* Home's workspace list.
+
+   This used to be a two-line `sectionRow` carrying the workspace glyph, which
+   put the same three marks twice on one screen: once in the rail, once again
+   two centimetres to the right, at a size small enough to read as decoration
+   rather than as a mark. Repeating an icon beside itself teaches the reader
+   nothing the rail has not already said.
+
+   So the index drops the glyph and says the part the rail cannot: the name at
+   full weight, the sentence explaining what the workspace is for underneath,
+   wrapped rather than truncated. The rail is the icon, this is the label. */
+function workspaceChoice(workspace) {
+  const row = document.createElement('button');
+  row.className = 'ws-space';
+  row.type = 'button';
+  row.append(
+    el('span', 'ws-space__name', workspace.name),
+    el('span', 'ws-space__blurb', workspace.blurb),
+  );
+  row.addEventListener('click', () => go(workspace.home));
+  return row;
+}
+
+function sectionRow({ label, mark, depth, active, expandable, expanded, onToggle, onClick }) {
   const wrap = document.createElement('div');
   wrap.className = 'ws-node';
   if (expanded) wrap.setAttribute('data-open', '');
@@ -392,10 +454,6 @@ function sectionRow({ label, sub, mark, depth, active, expandable, expanded, onT
   text.textContent = label;
 
   row.append(glyph, text);
-  if (sub) {
-    row.classList.add('ws-node__row--tall');
-    text.append(el('small', 'ws-node__sub', sub));
-  }
   row.addEventListener('click', onClick);
   // Arrow keys still expand from the row, which is where the hand already is.
   row.addEventListener('keydown', (event) => {
@@ -410,9 +468,13 @@ function sectionRow({ label, sub, mark, depth, active, expandable, expanded, onT
 
 /* ---- The page tree ------------------------------------------------------ */
 
-function pageBranch(parentId, depth) {
+/* `space` is only consulted at the top of a branch. Below the roots every
+   node has already been filtered by its ancestor, and re-testing each child
+   would walk the parent chain once per row for no new answer. */
+function pageBranch(parentId, depth, space) {
   return ui.nodes
     .filter((node) => node.parent === parentId)
+    .filter((node) => !space || parentId !== null || api.spaceOfNode(ui.nodes, node.id) === space)
     .map((node) => pageNode(node, depth));
 }
 
@@ -1044,6 +1106,20 @@ function renderCrumbs() {
    Views get this rather than importing the shell, which keeps the direction
    of dependency one way: the shell knows about views, views do not know
    about the shell. */
+/* Where a new page lands in each workspace. The first root of that space in
+   the tree, with a named preference where the space has an obvious inbox —
+   research notes belong under Dossiers, knowledge under Concepts. If the
+   space has no roots at all the page is created as a root itself, which is
+   the only outcome that cannot lose it. */
+const PREFERRED_ROOT = { research: 'dossiers', core: 'c-meetings', kms: 'k-concepts' };
+
+function defaultRoot(space) {
+  const wanted = PREFERRED_ROOT[space];
+  if (ui.nodes.some((node) => node.id === wanted)) return wanted;
+  const root = ui.nodes.find((node) => !node.parent && api.spaceOfNode(ui.nodes, node.id) === space);
+  return root ? root.id : null;
+}
+
 function viewContext() {
   return {
     go,
@@ -1060,16 +1136,49 @@ function viewContext() {
     },
 
     // Notes
-    pages: () => Object.values(ui.pagesById)
+    area: ui.area,
+    space: spaceOf(ui.area),
+
+    /* Scoped by default to the workspace the reader is standing in. Passing
+       no space returns every page, which only the palette wants: search is
+       the one place where finding a page in another workspace is the point
+       rather than a leak. */
+    pages: (space) => Object.values(ui.pagesById)
+      .filter((page) => !space || api.spaceOfNode(ui.nodes, page.id) === space)
       .sort((a, b) => (b.updated || '').localeCompare(a.updated || '')),
+
     pagesOnServer: () => api.state.mode === 'server',
     pathOf: (id) => crumbPath(id).join(' / '),
     when: relative,
-    newNote: async () => {
-      const made = await api.createPage({ title: 'Untitled', parent: 'dossiers' });
+
+    /* One creator for all three workspaces. It lands the page in the space
+       the reader is in unless told otherwise, under that space's default
+       root, and can pre-fill the blocks — which is what lets Sources open a
+       distillation note with its headings already written instead of
+       handing somebody a blank page at the exact moment the method matters.
+
+       It returns the page, so a caller that needs the id (to link a source
+       to it) does not have to guess it or re-read the tree. */
+    newNote: async ({ space, title = 'Untitled', parent, blocks, open = true } = {}) => {
+      const target = space || spaceOf(ui.area);
+      const root = parent || defaultRoot(target);
+      const made = await api.createPage({ title, parent: root, space: target });
+      if (!made) return null;
+
+      if (blocks?.length) {
+        const filled = blocks.map((block) => ({
+          id: 'b-' + Math.random().toString(36).slice(2, 9),
+          type: block.type || 'p',
+          text: block.text || '',
+        }));
+        Object.assign(made, await api.savePage(made.id, { blocks: filled }) || {});
+      }
+
       ui.nodes.push({ id: made.id, title: made.title, kind: 'note', parent: made.parent, phantom: false });
       ui.pagesById[made.id] = made;
-      go(`/workspace/page/${made.id}`);
+      if (open) go(`/workspace/page/${made.id}`);
+      else renderIndex();
+      return made;
     },
 
     // Settings
@@ -1110,10 +1219,20 @@ function render() {
   if (view === 'home') renderDashboard(host, ctx, 'home');
   else if (view === 'core') renderDashboard(host, ctx, 'core');
   else if (view === 'research') renderDashboard(host, ctx, 'research');
+  else if (view === 'kms') kms.renderKmsOverview(host, ctx);
   else if (view === 'core-tasks') views.renderCoreTasks(host, ctx);
   else if (view === 'core-content') views.renderCoreContent(host, ctx);
   else if (view === 'core-team') views.renderCoreTeam(host, ctx);
   else if (view === 'core-planning') views.renderCorePlanning(host, ctx);
+  else if (view === 'core-notes') views.renderCoreNotes(host, ctx);
+  else if (view === 'core-assets') assets.renderCoreAssets(host, ctx);
+  else if (view === 'core-blueprint') assets.renderContentStudioBlueprint(host, ctx);
+  else if (view === 'kms-paths') kms.renderKmsPaths(host, ctx);
+  else if (view === 'kms-path') kms.renderKmsPath(host, ui.route.id, ctx);
+  else if (view === 'kms-sources') kms.renderKmsSources(host, ctx);
+  else if (view === 'kms-base') kms.renderKmsBase(host, ctx);
+  else if (view === 'kms-recall') kms.renderKmsRecall(host, ctx);
+  else if (view === 'kms-skills') kms.renderKmsSkills(host, ctx);
   else if (view === 'projects') views.renderResearchProjects(host, ctx);
   else if (view === 'project') views.renderResearchProject(host, ui.route.id, ctx);
   else if (view === 'resources') views.renderResources(host, ui.route.kind);
@@ -1341,7 +1460,16 @@ export async function start() {
     if (body) ui.pagesById[node.id] = body;
   }
 
-  mountPalette({ go, api, platform: P, nodes: () => ui.nodes, currentPage: () => ui.page });
+  mountPalette({
+    go, api, platform: P,
+    nodes: () => ui.nodes,
+    currentPage: () => ui.page,
+    // The palette can be opened from anywhere, so it asks rather than
+    // assumes: a page made with Ctrl N in the Knowledge workspace belongs
+    // to the knowledge base, not to whichever tree happens to be default.
+    newNote: (options) => viewContext().newNote(options),
+    space: () => spaceOf(ui.area),
+  });
 
   const path = location.pathname.replace(/\/$/, '');
   if (path === '/workspace') go('/workspace/my-work', { replace: true });

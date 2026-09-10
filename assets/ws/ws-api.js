@@ -22,7 +22,13 @@
 import { seed } from './ws-seed.js';
 
 const API = '/api';
-const LS_KEY = 'gravitas.ws.store.v4';
+/* Bumped to v5 with the three-space page store. A browser holding a v4 store
+   has no Core or Knowledge roots in it, and those two trees would open empty
+   with no way for the reader to tell whether that is a bug or the truth.
+   Starting from the new seed is the honest outcome; the old key is left in
+   place rather than deleted, so nothing anybody wrote is destroyed by a
+   deployment and it can still be recovered by hand. */
+const LS_KEY = 'gravitas.ws.store.v5';
 const LS_MODE = 'gravitas.ws.mode';
 
 /* ---- Transport ----------------------------------------------------------
@@ -205,9 +211,9 @@ export function savePage(id, patch) {
   );
 }
 
-export function createPage({ title, parent = null, kind = 'note' }) {
+export function createPage({ title, parent = null, kind = 'note', space = null }) {
   return withFallback(
-    () => request('/platform/space/notes/', { method: 'POST', body: { title, parent, kind } }),
+    () => request('/platform/space/notes/', { method: 'POST', body: { title, parent, kind, space } }),
     () => {
       const id = 'p-' + Math.random().toString(36).slice(2, 9);
       const now = new Date().toISOString();
@@ -216,11 +222,38 @@ export function createPage({ title, parent = null, kind = 'note' }) {
         blocks: [{ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'p', text: '' }],
         created: now, updated: now,
       };
-      store.nodes.push({ id, title, kind, parent, phantom: false });
+      // Only a root carries `space`; everything else inherits it through its
+      // parent. See spaceOfNode below and the note on the seed's roots.
+      const node = { id, title, kind, parent, phantom: false };
+      if (!parent && space) node.space = space;
+      store.nodes.push(node);
       persist();
       return structuredClone(store.pages[id]);
     }
   );
+}
+
+/* Which workspace a page belongs to. Walks to the root and reads the space
+   declared there, because only roots declare one: a page dragged into
+   another branch changes workspace by the move itself, with no second field
+   to keep in step.
+
+   Anything whose root says nothing is research. That is the space the
+   product had before it had three, so every page written under the old
+   model, and every node a server without the field returns, lands where its
+   author left it rather than in a new section they have never seen.
+
+   The guard on depth is not defensive decoration. Parent pointers arrive
+   from the server, and one cycle in that data would otherwise hang the tab
+   inside a render. */
+export function spaceOfNode(nodes, id) {
+  let current = nodes.find((node) => node.id === id);
+  for (let hops = 0; current && hops < 64; hops += 1) {
+    if (current.space) return current.space;
+    if (!current.parent) break;
+    current = nodes.find((node) => node.id === current.parent);
+  }
+  return 'research';
 }
 
 /* A phantom is a page somebody has linked to but not written. It is real

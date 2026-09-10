@@ -129,12 +129,12 @@ for p in Path('.').glob('*.html'):
 
     # Cache-bust the canonical assets without changing their contents.
     s = re.sub(
-        r'assets/(gravitas|site|hero|chat|brand)\.(css|js)(?:\?v=[^"\']*)?',
+        r'(?<=["\'])assets/(gravitas|site|hero|chat|brand)\.(css|js)(?:\?v=[^"\'\s<>]*)?',
         lambda m: f'assets/{m.group(1)}.{m.group(2)}?v={token}',
         s,
     )
-    s = re.sub(r'assets/local-fonts\.css(?:\?v=[^"\']*)?', f'assets/local-fonts.css?v={token}', s)
-    s = re.sub(r'assets/production-overrides\.css(?:\?v=[^"\']*)?', f'assets/production-overrides.css?v={token}', s)
+    s = re.sub(r'(?<=["\'])assets/local-fonts\.css(?:\?v=[^"\'\s<>]*)?', f'assets/local-fonts.css?v={token}', s)
+    s = re.sub(r'(?<=["\'])assets/production-overrides\.css(?:\?v=[^"\'\s<>]*)?', f'assets/production-overrides.css?v={token}', s)
 
     # Production bridge contains API/auth behavior only; it does not patch UI.
     if p.name != 'brand.html':

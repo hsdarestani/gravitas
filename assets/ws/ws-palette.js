@@ -12,7 +12,7 @@
    of motion is none.
    ========================================================================== */
 
-import { availableWorkspaces, sectionsFor } from './ws-nav.js';
+import { availableWorkspaces, sectionsFor, SPACE_LABEL } from './ws-nav.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -38,8 +38,14 @@ function actions() {
       hint: 'Ctrl N',
       icon: 'plus',
       run: async () => {
-        const made = await context.api.createPage({ title: 'Untitled', parent: page?.parent || null });
-        context.go(`/workspace/page/${made.id}`);
+        /* Beside the page you are reading when there is one, and in the
+           workspace you are standing in otherwise. Creating it at the root
+           of the research tree from a Core screen, which is what this did,
+           put the page somewhere the reader was not looking. */
+        await context.newNote({
+          space: context.space(),
+          parent: page?.parent || undefined,
+        });
       },
     },
     {
@@ -91,10 +97,10 @@ function actions() {
   ];
 }
 
-/* Every section of both workspaces, flattened, and prefixed with the
-   workspace it belongs to. Two workspaces have an Overview and a Projects
-   each, so an unprefixed list would offer the reader two identical rows and
-   no way to tell which is which. Built from the same nav table the index
+/* Every section of every workspace, flattened, and prefixed with the
+   workspace it belongs to. All three have an Overview, and two of them have
+   a Notes, so an unprefixed list would offer the reader identical rows with
+   no way to tell them apart. Built from the same nav table the index
    tree uses, so a section added there appears here without a second edit. */
 function destinations() {
   const out = [{
@@ -128,10 +134,14 @@ function destinations() {
 function compute(query) {
   const q = query.trim().toLowerCase();
 
+  /* Search crosses all three workspaces on purpose: finding the note you
+     half-remember is exactly the moment you do not know which one it is in.
+     The hint carries the workspace, because "Editorial brief" exists in
+     more than one of them and the title alone cannot tell them apart. */
   const pages = context.api.search(query).map((hit) => ({
     group: 'Pages',
     label: hit.title,
-    hint: hit.hint,
+    hint: [SPACE_LABEL[context.api.spaceOfNode(context.nodes(), hit.id)], hit.hint].filter(Boolean).join(' · '),
     icon: 'notes',
     run: () => context.go(`/workspace/page/${hit.id}`),
   }));

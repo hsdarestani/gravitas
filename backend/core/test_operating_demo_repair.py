@@ -96,7 +96,7 @@ class RoadmapExecutionRepairTests(TestCase):
         self.sajjad = User.objects.create_user(
             username='sajjad@example.com',
             email='sajjad@example.com',
-            first_name='Sajjad',
+            first_name='Sajad',
             password='StrongPass!123',
         )
         self.core = ensure_platform_workspaces(self.hossein)['core']

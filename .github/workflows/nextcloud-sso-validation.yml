@@ -7,7 +7,6 @@ on:
       - 'backend/core/oidc_*.py'
       - 'backend/core/migrations/0010_oidc_sso.py'
       - 'backend/gravitas_backend/**'
-      - 'assets/nextcloud-sso.js'
       - 'workspace.html'
       - 'ops/nextcloud/sso.sh'
       - '.github/workflows/nextcloud-sso-validation.yml'
@@ -17,7 +16,6 @@ on:
       - 'backend/core/oidc_*.py'
       - 'backend/core/migrations/0010_oidc_sso.py'
       - 'backend/gravitas_backend/**'
-      - 'assets/nextcloud-sso.js'
       - 'workspace.html'
       - 'ops/nextcloud/sso.sh'
       - '.github/workflows/nextcloud-sso-validation.yml'
@@ -32,7 +30,6 @@ jobs:
       - name: Validate browser and provisioning syntax
         run: |
           set -euo pipefail
-          node --check assets/nextcloud-sso.js
           bash -n ops/nextcloud/sso.sh
 
       - name: Set up Python

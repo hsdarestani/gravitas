@@ -5,8 +5,6 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
-      - 'assets/space-v1.js'
-      - 'assets/space-reconcile-v1.js'
       - 'assets/space-managed-v1.js'
       - 'workspace.html'
       - 'ops/nextcloud/**'
@@ -15,8 +13,6 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
-      - 'assets/space-v1.js'
-      - 'assets/space-reconcile-v1.js'
       - 'assets/space-managed-v1.js'
       - 'workspace.html'
       - 'ops/nextcloud/**'
@@ -36,8 +32,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --check assets/space-v1.js
-          node --check assets/space-reconcile-v1.js
           node --check assets/space-managed-v1.js
           bash -n ops/nextcloud/ensure.sh
           bash -n ops/nextcloud/apps.sh

@@ -14,6 +14,7 @@
 import * as P from './ws-platform.js';
 import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js';
 import { availableWorkspaces } from './ws-nav.js';
+import * as K from './ws-kms.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -443,6 +444,40 @@ function renderHomeBody(doc, ctx, boot) {
   doc.append(columns);
 
   doc.append(projectsPanel(boot.my_work.research || [], ctx));
+  doc.append(learningPanel(ctx));
+}
+
+/* ---- Learning on Home ---------------------------------------------------
+   One panel, and only when there is something to do. Learning loses every
+   argument with a deadline, which is exactly why the review queue has to
+   appear beside the deadlines rather than in a workspace somebody has to
+   remember to visit. When nothing is due it says so in one line and takes
+   up no more room than that: a permanent "keep learning!" card is an advert
+   and gets tuned out within a week. */
+function learningPanel(ctx) {
+  const counts = K.queueCounts();
+  const box = panel('Learning', linkBtn('Knowledge', '/workspace/kms', ctx));
+
+  if (counts.due) {
+    const node = row({
+      title: `${counts.due} ${counts.due === 1 ? 'card is' : 'cards are'} due for review`,
+      sub: 'Roughly a minute each. These are the ones closest to being forgotten.',
+      onClick: () => ctx.go('/workspace/kms/recall'),
+    });
+    box.body.append(node);
+  } else {
+    const next = K.nextStep();
+    if (next) {
+      box.body.append(row({
+        title: next.step.title,
+        sub: `${next.item.title} · ${next.progress.done} of ${next.progress.total} steps done`,
+        onClick: () => ctx.go(`/workspace/kms/paths/${next.item.id}`),
+      }));
+    } else {
+      box.body.append(empty('Nothing due', 'The review queue is empty and every path is finished.'));
+    }
+  }
+  return box;
 }
 
 /* ---- Core --------------------------------------------------------------- */
@@ -495,6 +530,19 @@ function renderCoreBody(doc, ctx, boot) {
 
       second.append(content, initiatives);
       holder.append(second);
+
+      /* Operating assets, on the Overview rather than only in the index.
+         A blueprint that nobody opens is a blueprint the team is not
+         actually running on, and the boards above it are downstream of this
+         one: the tasks in them are supposed to have been cut from here. */
+      const assets = panel('Operating assets', linkBtn('Assets & Blueprints', '/workspace/core/assets', ctx));
+      assets.body.append(row({
+        title: 'Content Studio Blueprint',
+        sub: 'The content operating system, from strategy through governance. Awaiting team approval of scope and ownership.',
+        badges: ['v0.2', 'Team approval', '16 sections'],
+        onClick: () => ctx.go('/workspace/core/assets/content-studio-blueprint'),
+      }));
+      holder.append(assets);
     })
     .catch((err) => {
       holder.innerHTML = '';

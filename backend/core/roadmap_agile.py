@@ -23,8 +23,8 @@ ROLE_LABELS = {
     'hossein': 'Hossein',
     'ahmad': 'Ahmad',
     'kiarash': 'Kiarash',
-    'sajad': 'Sajjad',
-    'sajjad': 'Sajjad',
+    'sajad': 'Sajad',
+    'sajjad': 'Sajad',
 }
 ROLE_BLOCK_PREFIX = 'Roadmap intended owner is not linked to an active Core member: '
 GENERATED_CYCLE_PREFIXES = (

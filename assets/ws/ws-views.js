@@ -697,7 +697,7 @@ export function renderNotes(host, ctx) {
 
   const newNote = el('button', 'ws-btn ws-btn--solid', 'New note');
   newNote.type = 'button';
-  newNote.addEventListener('click', () => ctx.newNote());
+  newNote.addEventListener('click', () => ctx.newNote({ space: 'research' }));
 
   const picker = el('input');
   picker.type = 'file';
@@ -752,7 +752,7 @@ export function renderNotes(host, ctx) {
 
   /* ---- Notes ------------------------------------------------------------ */
   const notes = panel('Your notes');
-  const pages = ctx.pages();
+  const pages = ctx.pages('research');
 
   if (!pages.length) {
     notes.body.append(empty('No notes yet', 'Press New note, or Control N anywhere in the workspace.'));
@@ -806,6 +806,106 @@ export function renderNotes(host, ctx) {
 
   host.append(doc);
 }
+
+/* ==========================================================================
+   CORE · NOTES
+   The team's own writing, which Core had nowhere to put. Meeting notes were
+   going into the research tree next to dossier briefs, or into a chat
+   thread, which is the same as nowhere.
+
+   Three roots, and the split between them is the point of the screen: a
+   meeting produces a Meeting note, a meeting that settles something
+   produces a Decision, and a decision that has to bind future work becomes
+   a Standard. That is also the order of value — a decision nobody can find
+   six months later was not really made — so the screen names it rather than
+   leaving people to invent a filing scheme each.
+   ========================================================================== */
+
+const CORE_ROOTS = [
+  ['c-meetings',  'Meeting',  'What was discussed, and what was carried.'],
+  ['c-decisions', 'Decision', 'What was settled, and the reasoning somebody will want in six months.'],
+  ['c-standards', 'Standard', 'A rule that binds future work. The draft a blueprint gets cut from.'],
+];
+
+export function renderCoreNotes(host, ctx) {
+  host.innerHTML = '';
+  const doc = el('div', 'ws-doc ws-doc--wide');
+  host.append(doc);
+
+  const head = el('header', 'ws-doc__head');
+  head.append(el('h1', 'ws-doc__title', 'Notes'));
+  head.append(el('p', 'ws-doc__meta', 'What the team writes while running the company: meetings, decisions and the standards they harden into.'));
+  doc.append(head);
+
+  const bar = el('div', 'v-toolbar');
+  for (const [root, label, hint] of CORE_ROOTS) {
+    const button = el('button', root === 'c-meetings' ? 'ws-btn ws-btn--solid' : 'ws-btn', `New ${label.toLowerCase()}`);
+    button.type = 'button';
+    button.title = hint;
+    button.addEventListener('click', () => ctx.newNote({
+      space: 'core',
+      parent: root,
+      title: `Untitled ${label.toLowerCase()}`,
+    }));
+    bar.append(button);
+  }
+  doc.append(bar);
+
+  const pages = ctx.pages('core');
+
+  if (!pages.length) {
+    doc.append(empty(
+      'Nothing written yet',
+      'Start with the meeting you are in. A note written during it is worth three written afterwards.',
+    ));
+    return;
+  }
+
+  /* Grouped by root rather than sorted by date. A flat "recently edited"
+     list is the right shape for a person's own notes and the wrong shape
+     for a team's, where the question is almost always "what did we decide
+     about X" and almost never "what did I touch on Tuesday". */
+  for (const [root, label] of CORE_ROOTS) {
+    const mine = pages.filter((page) => ctx.pathOf(page.id).startsWith(rootTitle(root)));
+    if (!mine.length) continue;
+
+    const box = panel(`${label}s`);
+    for (const page of mine) {
+      box.body.append(row({
+        title: page.title,
+        sub: ctx.when(page.updated),
+        onClick: () => ctx.go(`/workspace/page/${page.id}`),
+      }));
+    }
+    doc.append(box);
+  }
+
+  const loose = pages.filter((page) => !CORE_ROOTS.some(([root]) => ctx.pathOf(page.id).startsWith(rootTitle(root))));
+  if (loose.length) {
+    const box = panel('Elsewhere in Core');
+    for (const page of loose) {
+      box.body.append(row({
+        title: page.title,
+        sub: `${ctx.pathOf(page.id)} · ${ctx.when(page.updated)}`,
+        onClick: () => ctx.go(`/workspace/page/${page.id}`),
+      }));
+    }
+    doc.append(box);
+  }
+
+  const where = el('p', 'v-note');
+  where.dataset.tone = ctx.pagesOnServer() ? 'ok' : 'warn';
+  where.textContent = ctx.pagesOnServer()
+    ? 'Core notes are saved to your account and visible to the core team.'
+    : 'The page service is not deployed on this build, so these are saved in this browser only. Nobody else on the team can see them yet.';
+  doc.append(where);
+}
+
+/* The breadcrumb path is built from titles, not ids, so grouping compares
+   titles. Kept in one place so a renamed root needs one edit rather than
+   three string literals scattered through the screen. */
+const ROOT_TITLES = { 'c-meetings': 'Meetings', 'c-decisions': 'Decisions', 'c-standards': 'Standards' };
+const rootTitle = (id) => ROOT_TITLES[id] || '';
 
 function readCookie(name) {
   const hit = document.cookie.split('; ').find((r) => r.startsWith(name + '='));
