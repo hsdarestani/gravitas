@@ -27,25 +27,21 @@ class DemoReadinessTests(TestCase):
             username='demo-admin@example.com',
             email='demo-admin@example.com',
             first_name='Demo Admin',
-            password='Demo-Admin-Pass-4827!',
         )
         self.member = User.objects.create_user(
             username='demo-member@example.com',
             email='demo-member@example.com',
             first_name='Demo Member',
-            password='Demo-Member-Pass-5938!',
         )
         self.researcher = User.objects.create_user(
             username='demo-researcher@example.com',
             email='demo-researcher@example.com',
             first_name='Demo Researcher',
-            password='Demo-Researcher-Pass-7194!',
         )
         self.outsider = User.objects.create_user(
             username='demo-outsider@example.com',
             email='demo-outsider@example.com',
             first_name='Demo Outsider',
-            password='Demo-Outsider-Pass-8642!',
         )
         self.client.force_login(self.admin)
         boot_response = self.client.get('/api/platform/bootstrap/')
@@ -108,7 +104,6 @@ class DemoReadinessTests(TestCase):
 
     def test_every_workspace_feature_endpoint_loads_for_demo_admin(self):
         endpoints = [
-            # Core workspace
             '/api/platform/bootstrap/',
             '/api/platform/dashboard/?workspace=core',
             '/api/platform/team/',
@@ -125,7 +120,6 @@ class DemoReadinessTests(TestCase):
             '/api/operating/tasks/',
             '/api/operating/risks/',
             '/api/operating/meetings/',
-            # Research workspace
             '/api/platform/dashboard/?workspace=research',
             '/api/platform/projects/',
             '/api/platform/resources/?workspace=research&kind=note',
@@ -144,7 +138,6 @@ class DemoReadinessTests(TestCase):
 
     def test_core_demo_flow_content_okr_initiative_tasks_assignment_and_reorder(self):
         self.add_core_member()
-
         content_response = self.post_json('/api/platform/content/', {
             'title': 'Demo science video',
             'kind': 'video',
@@ -442,7 +435,7 @@ class DemoReadinessTests(TestCase):
     def test_workspace_frontend_navigation_and_runtime_asset_contract(self):
         root = Path(__file__).resolve().parents[2]
         shell = (root / 'workspace.html').read_text(encoding='utf-8')
-        navigation = (root / 'assets' / 'platform-v3-navigation.js').read_text(encoding='utf-8')
+        navigation = (root / 'assets' / 'ws' / 'ws-nav.js').read_text(encoding='utf-8')
 
         routes = [
             '/workspace/core',
@@ -460,28 +453,29 @@ class DemoReadinessTests(TestCase):
             '/workspace/people',
             '/workspace/community',
             '/workspace/shared',
+            '/workspace/kms',
+            '/workspace/kms/paths',
+            '/workspace/kms/sources',
+            '/workspace/kms/base',
+            '/workspace/kms/recall',
+            '/workspace/kms/skills',
         ]
         for route in routes:
             with self.subTest(route=route):
                 self.assertIn(route, navigation)
 
+        self.assertIn('/assets/ws/ws.css', shell)
+        self.assertIn("import { start } from '/assets/ws/ws-app.js'", shell)
+
         runtime_assets = [
-            'platform-v2.js',
-            'platform-v2-patches.js',
-            'platform-v2-ux.js',
-            'platform-v3-navigation.js',
-            'nextcloud-native.js',
-            'workspace-visuals.js',
-            'core-team.js',
-            'operating.js',
-            'operating-enhancements.js',
-            'operating-core-shell.js',
-            'roadmap-okr-sync.js',
-            'initiative-planner.js',
-            'initiative-task-editor.js',
-            'initiative-task-reorder.js',
+            'ws-app.js',
+            'ws-nav.js',
+            'ws-platform.js',
+            'ws-api.js',
+            'ws-views.js',
+            'ws-core-assets.js',
+            'ws-kms.js',
         ]
         for asset in runtime_assets:
             with self.subTest(asset=asset):
-                self.assertIn(asset, shell)
-                self.assertTrue((root / 'assets' / asset).exists())
+                self.assertTrue((root / 'assets' / 'ws' / asset).exists())
