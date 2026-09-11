@@ -4,53 +4,61 @@ from django.test import SimpleTestCase
 
 
 ROOT = Path(__file__).resolve().parents[2]
+WS = ROOT / 'assets' / 'ws'
 
 
-class WorkspaceModalContractTests(SimpleTestCase):
+class WorkspaceRuntimeContractTests(SimpleTestCase):
     def read(self, relative_path):
         return (ROOT / relative_path).read_text(encoding='utf-8')
 
-    def test_dialog_compat_loads_before_workspace_runtime(self):
+    def test_workspace_boots_the_v4_module_runtime(self):
         html = self.read('workspace.html')
-        compat = html.index('/assets/dialog-compat.js')
-        runtime = html.index('function add(src,onload)')
-        self.assertLess(compat, runtime)
+        self.assertIn('/assets/ws/ws.css', html)
+        self.assertIn("import { start } from '/assets/ws/ws-app.js'", html)
+        self.assertNotIn('/assets/dialog-compat.js', html)
+        self.assertNotIn('function add(src,onload)', html)
 
-    def test_dialog_compat_disables_native_top_layer_for_every_dialog(self):
-        compat = self.read('assets/dialog-compat.js')
-        self.assertIn('HTMLDialogElement.prototype', compat)
-        self.assertIn('proto.showModal=function()', compat)
-        self.assertIn("dialog.setAttribute('open','')", compat)
-        self.assertIn('g-dom-dialog-backdrop', compat)
-
-    def test_all_workspace_dialog_entry_points_are_covered(self):
-        sources = [
-            'assets/workspace.js',
-            'assets/platform-v2.js',
-            'assets/operating.js',
-            'assets/operating-enhancements.js',
-            'assets/operating-task-detail.js',
-            'assets/initiative-planner.js',
-            'assets/initiative-task-editor.js',
-            'assets/mindmap-editor-v2.js',
-            'assets/nextcloud-native.js',
+    def test_v4_runtime_modules_exist(self):
+        modules = [
+            'ws-app.js',
+            'ws-api.js',
+            'ws-nav.js',
+            'ws-platform.js',
+            'ws-views.js',
+            'ws-home.js',
+            'ws-kms.js',
+            'ws-kms-views.js',
+            'ws-core-assets.js',
+            'ws-palette.js',
+            'ws-settings.js',
+            'ws-ai.js',
+            'ws-seed.js',
         ]
-        native_dialog_sources = []
-        for source in sources:
-            text = self.read(source)
-            if '.showModal()' in text or "createElement('dialog')" in text:
-                native_dialog_sources.append(source)
-        self.assertGreaterEqual(len(native_dialog_sources), 6)
-        self.assertIn('assets/operating-task-detail.js', native_dialog_sources)
-        self.assertIn('assets/mindmap-editor-v2.js', native_dialog_sources)
-        self.assertIn('assets/nextcloud-native.js', native_dialog_sources)
+        for module in modules:
+            with self.subTest(module=module):
+                self.assertTrue((WS / module).is_file())
 
-    def test_project_cockpit_open_is_intercepted_before_rerender(self):
-        fix = self.read('assets/note-ux-fixes.js')
-        research = self.read('assets/research-v5.js')
-        platform = self.read('assets/platform-v2.js')
-        self.assertIn('[data-open-resource]', fix)
-        self.assertIn('event.stopImmediatePropagation()', fix)
-        self.assertIn('openResourceOverlay', fix)
-        self.assertIn('data-open-resource', research)
-        self.assertIn('if(t.dataset.openResource)return openResource', platform)
+    def test_v4_runtime_does_not_depend_on_native_dialog_top_layer(self):
+        for source in WS.glob('*.js'):
+            text = source.read_text(encoding='utf-8')
+            with self.subTest(source=source.name):
+                self.assertNotIn('.showModal()', text)
+                self.assertNotIn("createElement('dialog')", text)
+
+    def test_navigation_and_workspace_router_share_the_same_v4_model(self):
+        nav = self.read('assets/ws/ws-nav.js')
+        app = self.read('assets/ws/ws-app.js')
+        for route in (
+            '/workspace/core',
+            '/workspace/core/tasks',
+            '/workspace/core/content',
+            '/workspace/core/team',
+            '/workspace/research',
+            '/workspace/research/projects',
+            '/workspace/research/notes',
+            '/workspace/research/files',
+            '/workspace/kms',
+            '/workspace/kms/base',
+        ):
+            self.assertIn(route, nav)
+        self.assertIn("from './ws-nav.js'", app)
