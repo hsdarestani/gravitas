@@ -24,6 +24,7 @@ import * as P from './ws-platform.js';
 import * as views from './ws-views.js';
 import * as assets from './ws-core-assets.js';
 import * as kms from './ws-kms-views.js';
+import * as research from './ws-research.js';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
@@ -104,6 +105,10 @@ const ROUTES = [
   [/^\/workspace\/kms\/skills\/?$/,                 () => ({ view: 'kms-skills' })],
 
   [/^\/workspace\/research\/?$/,                    () => ({ view: 'research' })],
+  [/^\/workspace\/research\/calendar\/?$/,          () => ({ view: 'research-calendar' })],
+  [/^\/workspace\/research\/editor\/?$/,            () => ({ view: 'notes' })],
+  [/^\/workspace\/research\/folders\/?$/,           () => ({ view: 'research-folders' })],
+  [/^\/workspace\/research\/tasks\/?$/,             () => ({ view: 'research-tasks' })],
   [/^\/workspace\/research\/projects\/(\d+)\/?$/,   (m) => ({ view: 'project', id: m[1] })],
   [/^\/workspace\/research\/projects\/?$/,          () => ({ view: 'projects' })],
   [/^\/workspace\/research\/files\/?$/,             () => ({ view: 'resources', kind: 'file' })],
@@ -196,16 +201,36 @@ function renderRail() {
 
   rail.append(el('div', 'ws-rail__rule'));
 
-  for (const workspace of availableWorkspaces()) {
-    rail.append(railButton(
-      workspace.icon,
-      workspace.name,
-      ui.area === workspace.id,
-      () => go(workspace.home),
-    ));
-  }
+  if (ui.area === 'research') {
+    const modules = [
+      ['overview', 'Dashboard', '/workspace/research'],
+      ['meeting', 'Calendar', '/workspace/research/calendar'],
+      ['notes', 'Editor', '/workspace/research/editor'],
+      ['files', 'Folder', '/workspace/research/folders'],
+      ['projects', 'Projects', '/workspace/research/projects'],
+      ['tasks', 'Tasks', '/workspace/research/tasks'],
+    ];
+    for (const [mark, label, path] of modules) {
+      const active = path === '/workspace/research'
+        ? location.pathname === path || location.pathname === path + '/'
+        : location.pathname.startsWith(path);
+      rail.append(railButton(mark, label, active, () => go(path)));
+    }
+    rail.append(el('div', 'ws-rail__spacer'));
+    rail.append(railButton('collaboration', 'Switch workspace', false, () => go('/workspace/my-work')));
+  } else {
 
-  rail.append(el('div', 'ws-rail__spacer'));
+    for (const workspace of availableWorkspaces()) {
+      rail.append(railButton(
+        workspace.icon,
+        workspace.name,
+        ui.area === workspace.id,
+        () => go(workspace.home),
+      ));
+    }
+
+    rail.append(el('div', 'ws-rail__spacer'));
+  }
 
   rail.append(railButton('mindmap', 'Assistant', ui.dock && ui.dockTab === 'assistant', () => {
     ui.dock = true;
@@ -1197,7 +1222,9 @@ function render() {
   shell.dataset.dock = ui.dock ? 'on' : 'off';
   // Settings has nothing to navigate, so the index closes for it rather
   // than showing a workspace tree beside preferences that belong to neither.
-  shell.dataset.index = ui.index && ui.route?.view !== 'settings' ? 'on' : 'off';
+  const researchIndexViews = new Set(['notes', 'editor', 'research-folders', 'folder']);
+  const indexBelongsToView = ui.area !== 'research' || researchIndexViews.has(ui.route?.view);
+  shell.dataset.index = ui.index && ui.route?.view !== 'settings' && indexBelongsToView ? 'on' : 'off';
   shell.dataset.area = ui.area;
 
   renderRail();
@@ -1219,6 +1246,9 @@ function render() {
   if (view === 'home') renderDashboard(host, ctx, 'home');
   else if (view === 'core') renderDashboard(host, ctx, 'core');
   else if (view === 'research') renderDashboard(host, ctx, 'research');
+  else if (view === 'research-calendar') research.renderCalendar(host, ctx);
+  else if (view === 'research-folders') research.renderFolders(host, ctx);
+  else if (view === 'research-tasks') research.renderTasks(host, ctx);
   else if (view === 'kms') kms.renderKmsOverview(host, ctx);
   else if (view === 'core-tasks') views.renderCoreTasks(host, ctx);
   else if (view === 'core-content') views.renderCoreContent(host, ctx);
@@ -1233,7 +1263,7 @@ function render() {
   else if (view === 'kms-base') kms.renderKmsBase(host, ctx);
   else if (view === 'kms-recall') kms.renderKmsRecall(host, ctx);
   else if (view === 'kms-skills') kms.renderKmsSkills(host, ctx);
-  else if (view === 'projects') views.renderResearchProjects(host, ctx);
+  else if (view === 'projects') research.renderProjects(host, ctx);
   else if (view === 'project') views.renderResearchProject(host, ui.route.id, ctx);
   else if (view === 'resources') views.renderResources(host, ui.route.kind);
   else if (view === 'mindmaps') views.renderMindMaps(host, ctx);

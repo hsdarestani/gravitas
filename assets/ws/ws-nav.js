@@ -158,6 +158,35 @@ export const RESEARCH_SECTIONS = [
     match: exact('/workspace/research'),
   },
   {
+    id: 'res-calendar',
+    label: 'Calendar',
+    icon: 'meeting',
+    path: '/workspace/research/calendar',
+    match: under('/workspace/research/calendar'),
+  },
+  {
+    id: 'res-editor',
+    label: 'Editor',
+    icon: 'notes',
+    path: '/workspace/research/editor',
+    match: any(under('/workspace/research/editor'), under('/workspace/page')),
+    tree: true,
+    space: 'research',
+  },
+  {
+    id: 'res-folders',
+    label: 'Folder',
+    icon: 'files',
+    path: '/workspace/research/folders',
+    match: any(under('/workspace/research/folders'), under('/workspace/folder'), under('/workspace/research/files'), under('/workspace/research/datasets'), under('/workspace/research/mindmaps'), under('/workspace/shared')),
+    children: [
+      { id: 'res-files',    label: 'Files & Data Rooms', icon: 'files',    path: '/workspace/research/files',     match: under('/workspace/research/files') },
+      { id: 'res-datasets', label: 'Datasets',           icon: 'datasets', path: '/workspace/research/datasets',  match: under('/workspace/research/datasets') },
+      { id: 'res-maps',     label: 'Mind Maps',          icon: 'mindmap',  path: '/workspace/research/mindmaps',  match: under('/workspace/research/mindmaps') },
+      { id: 'res-shared',   label: 'Shared with me',     icon: 'share',    path: '/workspace/shared',             match: under('/workspace/shared') },
+    ],
+  },
+  {
     id: 'res-projects',
     label: 'Projects',
     icon: 'projects',
@@ -165,28 +194,11 @@ export const RESEARCH_SECTIONS = [
     match: under('/workspace/research/projects'),
   },
   {
-    id: 'res-library',
-    label: 'Files & Data Rooms',
-    icon: 'files',
-    path: '/workspace/research/files',
-    match: any(under('/workspace/research/files'), under('/workspace/shared')),
-    children: [
-      { id: 'res-datasets', label: 'Datasets',  icon: 'datasets', path: '/workspace/research/datasets', match: under('/workspace/research/datasets') },
-      { id: 'res-maps',     label: 'Mind Maps', icon: 'mindmap',  path: '/workspace/research/mindmaps', match: under('/workspace/research/mindmaps') },
-      { id: 'res-shared',   label: 'Shared with me', icon: 'share', path: '/workspace/shared',          match: under('/workspace/shared') },
-    ],
-  },
-  {
-    /* Research's working notes: the pages attached to a project, a dossier
-       or an argument being built. Knowledge that outlives the project is
-       distilled into the Knowledge Workspace instead of accumulating here. */
-    id: 'res-pages',
-    label: 'Notes',
-    icon: 'notes',
-    path: '/workspace/research/notes',
-    match: any(under('/workspace/research/notes'), under('/workspace/page'), under('/workspace/folder')),
-    tree: true,
-    space: 'research',
+    id: 'res-tasks',
+    label: 'Tasks',
+    icon: 'tasks',
+    path: '/workspace/research/tasks',
+    match: under('/workspace/research/tasks'),
   },
   {
     id: 'res-collab',
@@ -334,6 +346,6 @@ export const SPACE_LABEL = {
    whichever one the reader happened to come from. */
 export const SPACE_HOME = {
   core: '/workspace/core/notes',
-  research: '/workspace/research/notes',
+  research: '/workspace/research/editor',
   kms: '/workspace/kms/base',
 };

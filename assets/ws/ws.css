@@ -88,6 +88,41 @@
   }
 }
 
+/* Research KMS surfaces use the existing Gravitas tokens. The reference
+   contributes hierarchy and density only; no foreign colour system enters. */
+@layer ws-components {
+  .rkms-calendar, .rkms-tree { display: grid; gap: var(--ws-gutter); }
+  .rkms-event { grid-template-columns: 110px minmax(0, 1fr); }
+  .rkms-event__date { color: var(--g-text-subtle); font: var(--ws-fs-xs) var(--g-font-mono); }
+  .rkms-tree__row { display:flex; align-items:center; gap:8px; min-height:34px; padding:3px 8px 3px calc(8px + var(--tree-depth, 0) * 16px); border-bottom:1px solid var(--g-hairline); }
+  .rkms-tree__row--file { padding-left:24px; }
+  .rkms-tree__row[data-selected] { background:var(--g-surface-raised); box-shadow:inset 2px 0 var(--g-accent); }
+  .rkms-tree__glyph { width:16px; color:var(--g-text-subtle); text-align:center; }
+  .rkms-tree__meta { margin-left:auto; color:var(--g-text-subtle); font-size:var(--ws-fs-xs); }
+  .rkms-board { display:grid; grid-template-columns:repeat(4,minmax(190px,1fr)); gap:var(--ws-gutter); overflow:auto; padding-bottom:8px; }
+  .rkms-lane { min-width:190px; padding:10px; border:1px solid var(--g-hairline); border-radius:var(--ws-r-panel); background:var(--g-surface-sunken); }
+  .rkms-lane__title { margin:0 0 10px; font-size:var(--ws-fs-xs); color:var(--g-text-subtle); text-transform:uppercase; letter-spacing:var(--g-track-eyebrow); }
+  .rkms-task { display:grid; gap:5px; margin-bottom:8px; padding:10px; border:1px solid var(--g-hairline); border-radius:var(--ws-r-control); background:var(--g-bg); }
+  .rkms-task small { color:var(--g-text-subtle); }
+  .rkms-switcher { flex-wrap:wrap; }
+  .rkms-switcher .ws-btn[aria-pressed="true"] { color:var(--g-text); border-color:var(--g-accent); background:var(--g-surface-raised); }
+  .rkms-table-wrap { overflow:auto; border:1px solid var(--g-hairline); border-radius:var(--ws-r-panel); }
+  .rkms-table { width:100%; border-collapse:collapse; font-size:var(--ws-fs-sm); }
+  .rkms-table th,.rkms-table td { padding:9px 12px; text-align:left; border-bottom:1px solid var(--g-hairline); white-space:nowrap; }
+  .rkms-table th { color:var(--g-text-subtle); font-size:var(--ws-fs-xs); text-transform:uppercase; letter-spacing:var(--g-track-eyebrow); }
+  .rkms-link { padding:0; border:0; background:none; color:var(--g-text); font:inherit; font-weight:var(--g-w-medium); cursor:pointer; text-align:left; }
+  .rkms-link:hover { color:var(--g-accent); }
+  .rkms-timeline { display:grid; gap:2px; border:1px solid var(--g-hairline); border-radius:var(--ws-r-panel); overflow:hidden; }
+  .rkms-timeline__row { display:grid; grid-template-columns:minmax(140px,240px) 1fr; align-items:center; gap:14px; min-height:42px; padding:5px 12px; border-bottom:1px solid var(--g-hairline); }
+  .rkms-timeline__track { position:relative; height:2px; background:var(--g-hairline); }
+  .rkms-timeline__dot { position:absolute; top:50%; width:9px; height:9px; transform:translate(-50%,-50%); border-radius:50%; background:var(--g-accent); }
+  .rkms-graph { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:20px; border:1px solid var(--g-hairline); border-radius:var(--ws-r-panel); }
+  .rkms-graph__node,.rkms-graph__leaf { padding:8px 11px; border:1px solid var(--g-border); border-radius:var(--ws-r-control); background:var(--g-surface-raised); color:var(--g-text); }
+  button.rkms-graph__node { cursor:pointer; font:inherit; font-weight:var(--g-w-medium); }
+  .rkms-graph__edge { color:var(--g-text-subtle); font-size:var(--ws-fs-xs); }
+  @media (max-width:900px) { .rkms-board { grid-template-columns:repeat(4,240px); } }
+}
+
 /* ==========================================================================
    2. SHELL
    A single grid. Panes are grid tracks rather than floated or absolutely

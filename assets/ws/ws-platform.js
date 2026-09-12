@@ -91,6 +91,22 @@ export function isCoreAdmin() {
 export const dashboard = (workspace) => call(`/platform/dashboard/?workspace=${workspace}`);
 export const projects = () => call('/platform/projects/');
 export const project = (id) => call(`/platform/projects/${id}/`);
+export const projectCockpit = (id) => call(`/platform/projects/${id}/cockpit/`);
+export const spaceTree = () => call('/platform/space/tree/');
+export const spaceItems = () => call('/platform/space/items/');
+export const spaceNotes = () => call('/platform/space/notes/');
+export const syncSpace = () => call('/platform/space/sync/', { method: 'POST', body: {} });
+export const createSpaceFolder = ({ title, parentId = null }) => call('/platform/space/tree/', {
+  method: 'POST', body: { title, kind: 'category', parent_id: parentId },
+});
+export const renameSpaceFolder = (id, title) => call(`/platform/space/nodes/${id}/`, {
+  method: 'PATCH', body: { title },
+});
+export const createSpaceItem = (payload) => call('/platform/space/items/', { method: 'POST', body: payload });
+export const updateSpaceItem = (id, payload) => call(`/platform/space/items/${id}/`, {
+  method: 'PATCH', body: payload,
+});
+export const deleteSpaceItem = (id) => call(`/platform/space/items/${id}/`, { method: 'DELETE' });
 export const content = () => call('/platform/content/');
 export const resources = (kind) => call(`/platform/resources/?kind=${encodeURIComponent(kind)}`);
 export const mindmaps = () => call('/platform/mindmaps/');
