@@ -169,7 +169,9 @@ export const RESEARCH_SECTIONS = [
     label: 'Editor',
     icon: 'notes',
     path: '/workspace/research/editor',
-    match: any(under('/workspace/research/editor'), under('/workspace/page')),
+    // Keep the former /notes URL as a first-class alias so existing links
+    // continue to open the same Editor module.
+    match: any(under('/workspace/research/editor'), under('/workspace/research/notes'), under('/workspace/page')),
     tree: true,
     space: 'research',
   },
