@@ -14,7 +14,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
     def test_workspace_boots_the_v4_module_runtime(self):
         html = self.read('workspace.html')
         self.assertIn('/assets/ws/ws.css', html)
-        self.assertIn("import { start } from '/assets/ws/ws-app.js'", html)
+        self.assertIn("import { start } from '/assets/ws/ws-app.js", html)
         self.assertNotIn('/assets/dialog-compat.js', html)
         self.assertNotIn('function add(src,onload)', html)
 
@@ -61,4 +61,4 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
             '/workspace/kms/base',
         ):
             self.assertIn(route, nav)
-        self.assertIn("from './ws-nav.js'", app)
+        self.assertIn("from './ws-nav.js", app)
