@@ -12,7 +12,7 @@
    and falls back to search rather than to invention.
    ========================================================================== */
 
-import * as api from './ws-api.js';
+import * as api from './ws-api.js?v=20260912-2';
 import * as P from './ws-platform.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');

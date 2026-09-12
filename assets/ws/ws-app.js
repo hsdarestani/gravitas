@@ -19,20 +19,20 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as api from './ws-api.js';
+import * as api from './ws-api.js?v=20260912-2';
 import * as P from './ws-platform.js';
 import * as views from './ws-views.js';
 import * as assets from './ws-core-assets.js';
 import * as kms from './ws-kms-views.js';
-import * as research from './ws-research.js';
+import * as research from './ws-research.js?v=20260912-2';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js';
+} from './ws-nav.js?v=20260912-2';
 import { renderDashboard, stopClock } from './ws-home.js';
 import { renderSettings } from './ws-settings.js';
 import { mountPalette, openPalette } from './ws-palette.js';
-import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js';
+import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260912-2';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);
