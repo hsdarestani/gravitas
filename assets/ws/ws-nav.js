@@ -159,7 +159,7 @@ export const RESEARCH_SECTIONS = [
   },
   {
     id: 'res-calendar',
-    label: 'Calendar',
+    label: 'Journal',
     icon: 'meeting',
     path: '/workspace/research/calendar',
     match: under('/workspace/research/calendar'),

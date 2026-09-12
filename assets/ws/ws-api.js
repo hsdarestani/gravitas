@@ -100,6 +100,8 @@ function load() {
 
 let store = load();
 let writeTimer = 0;
+let serverNodes = [];
+let serverPages = {};
 
 function persist() {
   // Coalesced: typing in the editor calls this on every keystroke, and
@@ -151,7 +153,7 @@ export async function boot() {
   }
 
   try {
-    await request('/platform/space/tree/');
+    await request('/platform/pages/');
     setMode('server', 'Connected.');
   } catch (err) {
     setMode('local', err instanceof Unavailable && err.status === 404
@@ -183,14 +185,23 @@ async function withFallback(fn, local) {
 
 export function tree() {
   return withFallback(
-    async () => (await request('/platform/space/tree/')).nodes,
+    async () => {
+      const data = await request('/platform/pages/');
+      serverNodes = data.nodes || [];
+      serverPages = Object.fromEntries((data.pages || []).map((page) => [String(page.id), page]));
+      return structuredClone(serverNodes);
+    },
     () => structuredClone(store.nodes)
   );
 }
 
 export function page(id) {
   return withFallback(
-    () => request(`/platform/space/notes/${encodeURIComponent(id)}/`),
+    async () => {
+      const data = await request(`/platform/pages/${encodeURIComponent(id)}/`);
+      serverPages[String(id)] = data.page;
+      return data.page;
+    },
     () => {
       const found = store.pages[id];
       return found ? structuredClone(found) : null;
@@ -200,7 +211,13 @@ export function page(id) {
 
 export function savePage(id, patch) {
   return withFallback(
-    () => request(`/platform/space/notes/${encodeURIComponent(id)}/`, { method: 'PATCH', body: patch }),
+    async () => {
+      const data = await request(`/platform/pages/${encodeURIComponent(id)}/`, { method: 'PATCH', body: patch });
+      serverPages[String(id)] = data.page;
+      const node = serverNodes.find((item) => String(item.id) === String(id));
+      if (node) Object.assign(node, { title: data.page.title, parent: data.page.parent });
+      return data.page;
+    },
     () => {
       const target = store.pages[id];
       if (!target) throw new Error('page_not_found');
@@ -211,16 +228,22 @@ export function savePage(id, patch) {
   );
 }
 
-export function createPage({ title, parent = null, kind = 'note', space = null }) {
+export function createPage({ title, parent = null, kind = 'note', space = null, journal_date = null }) {
   return withFallback(
-    () => request('/platform/space/notes/', { method: 'POST', body: { title, parent, kind, space } }),
+    async () => {
+      const data = await request('/platform/pages/', { method: 'POST', body: { title, parent, kind, space, journal_date } });
+      const made = data.page;
+      serverPages[String(made.id)] = made;
+      serverNodes.push({ id: made.id, title: made.title, kind: made.kind, parent: made.parent, space: made.space, phantom: false });
+      return made;
+    },
     () => {
       const id = 'p-' + Math.random().toString(36).slice(2, 9);
       const now = new Date().toISOString();
       store.pages[id] = {
         id, title, kind, parent,
         blocks: [{ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'p', text: '' }],
-        created: now, updated: now,
+        created: now, updated: now, journal_date,
       };
       // Only a root carries `space`; everything else inherits it through its
       // parent. See spaceOfNode below and the note on the seed's roots.
@@ -262,7 +285,8 @@ export function spaceOfNode(nodes, id) {
    link keeps one definition of "does this page exist". */
 export function resolveLink(title) {
   const key = title.trim().toLowerCase();
-  const node = store.nodes.find((n) => n.title.trim().toLowerCase() === key);
+  const nodes = state.mode === 'server' ? serverNodes : store.nodes;
+  const node = nodes.find((n) => n.title.trim().toLowerCase() === key);
   return node ? { id: node.id, phantom: !!node.phantom } : { id: null, phantom: true };
 }
 
@@ -312,7 +336,8 @@ export function search(query) {
   const titles = [];
   const bodies = [];
 
-  for (const p of Object.values(store.pages)) {
+  const pages = state.mode === 'server' ? Object.values(serverPages) : Object.values(store.pages);
+  for (const p of pages) {
     const title = p.title.toLowerCase();
     if (title.includes(q)) {
       titles.push({ id: p.id, title: p.title, kind: p.kind, hint: 'page' });
@@ -343,12 +368,20 @@ export function journalId(date) {
 }
 
 export function journalDays() {
-  return Object.keys(store.pages)
-    .filter((id) => id.startsWith('journal-'))
-    .map((id) => id.slice('journal-'.length));
+  const pages = state.mode === 'server' ? Object.values(serverPages) : Object.values(store.pages);
+  return pages.filter((page) => page.kind === 'journal' && page.journal_date).map((page) => page.journal_date);
 }
 
 export async function openJournal(date) {
+  const dateKey = date.toISOString().slice(0, 10);
+  if (state.mode === 'server') {
+    const existing = Object.values(serverPages).find((item) => item.kind === 'journal' && item.journal_date === dateKey);
+    if (existing) return page(existing.id);
+    return createPage({
+      title: date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+      parent: null, kind: 'journal', space: 'research', journal_date: dateKey,
+    });
+  }
   const id = journalId(date);
   const existing = await page(id);
   if (existing) return existing;
@@ -360,7 +393,7 @@ export async function openJournal(date) {
   store.pages[id] = {
     id, title, kind: 'journal', parent: 'journal',
     blocks: [{ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'p', text: '' }],
-    created: now, updated: now,
+    created: now, updated: now, journal_date: dateKey,
   };
   store.nodes.push({ id, title, kind: 'journal', parent: 'journal', phantom: false });
   persist();
@@ -414,11 +447,14 @@ export async function adopt() {
   if (state.mode !== 'server') throw new Error('not_connected');
   const created = [];
   for (const p of Object.values(store.pages)) {
-    const made = await request('/platform/space/notes/', {
+    const made = await request('/platform/pages/', {
       method: 'POST',
-      body: { title: p.title, kind: p.kind, blocks: p.blocks },
+      body: {
+        title: p.title, kind: p.kind, blocks: p.blocks,
+        parent: p.parent, space: p.space, journal_date: p.journal_date,
+      },
     });
-    created.push(made.id);
+    created.push((made.page || made).id);
   }
   return created;
 }

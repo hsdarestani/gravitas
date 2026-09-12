@@ -50,13 +50,32 @@ async function projectData() {
   }));
 }
 
-export function renderCalendar(host) {
-  const doc = shell(host, 'Research Calendar', 'Deadlines and activity across accessible research projects.');
+export function renderCalendar(host, ctx) {
+  const doc = shell(host, 'Journal', 'Daily research notes with project deadlines in the same calendar.');
   const body = el('div', 'rkms-calendar'); doc.append(body);
   body.append(notice('Loading calendar', 'Reading live project deadlines…'));
 
-  projectData().then((rows) => {
+  Promise.all([projectData(), Promise.resolve(ctx.pages('research'))]).then(([rows, pages]) => {
     body.innerHTML = '';
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const journalDays = new Set(pages.filter((page) => page.kind === 'journal').map((page) => page.journal_date));
+    const month = el('section', 'v-panel rkms-month');
+    month.append(el('h2', 'v-panel__title', now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })));
+    const grid = el('div', 'rkms-month__grid');
+    for (const label of ['S', 'M', 'T', 'W', 'T', 'F', 'S']) grid.append(el('span', 'rkms-month__dayname', label));
+    for (let pad = 0; pad < first.getDay(); pad += 1) grid.append(el('span'));
+    for (let day = 1; day <= last.getDate(); day += 1) {
+      const date = new Date(now.getFullYear(), now.getMonth(), day);
+      const key = dayKey(date); const cell = button(String(day), () => ctx.openJournal(date));
+      cell.className = 'rkms-month__day';
+      if (key === dayKey(now)) cell.dataset.today = '';
+      if (journalDays.has(key)) cell.dataset.journal = '';
+      cell.title = journalDays.has(key) ? 'Open journal entry' : 'Create journal entry';
+      grid.append(cell);
+    }
+    month.append(grid); body.append(month);
     const events = [];
     for (const { project, cockpit } of rows) {
       for (const task of cockpit?.tasks || []) if (task.due_date) events.push({ ...task, project: project.title, kind: 'Task' });
@@ -307,6 +326,24 @@ function taskBoard(body, records) {
   body.append(board);
 }
 
+function taskList(body, records) {
+  body.innerHTML = '';
+  if (!records.length) { body.append(notice('No matching tasks', 'Change the search or status filters.')); return; }
+  const table = el('table', 'rkms-table');
+  const head = el('tr');
+  for (const value of ['Priority', 'Task', 'Start', 'Due', 'Project', 'Owner', 'Status']) head.append(el('th', null, value));
+  const thead = el('thead'); thead.append(head); table.append(thead);
+  const tbody = el('tbody');
+  for (const { task, project } of records) {
+    const row = el('tr');
+    for (const value of [P.label(task.priority), task.title, P.formatDate(task.start_date), P.formatDate(task.due_date), project.title, task.owner || '—', P.label(task.status)]) {
+      row.append(el('td', null, value || '—'));
+    }
+    tbody.append(row);
+  }
+  table.append(tbody); const wrap = el('div', 'rkms-table-wrap'); wrap.append(table); body.append(wrap);
+}
+
 export function renderTasks(host) {
   const doc = shell(host, 'Research Tasks', 'One board aggregated from tasks in every accessible research project.');
   const body = el('div'); doc.append(body); body.append(notice('Loading tasks', 'Reading project cockpits…'));
@@ -314,13 +351,25 @@ export function renderTasks(host) {
     const records = rows.flatMap(({ project, cockpit }) => (cockpit?.tasks || []).map((task) => ({ task, project })));
     const bar = el('div', 'v-toolbar');
     const query = el('input', 'v-input'); query.type = 'search'; query.placeholder = 'Search tasks';
-    const count = el('span', 'v-toolbar__count'); bar.append(query, count);
+    let mode = sessionStorage.getItem('gravitas.research.taskView') || 'board';
+    const board = button('Board', () => { mode = 'board'; sessionStorage.setItem('gravitas.research.taskView', mode); draw(); }, true);
+    const list = button('List', () => { mode = 'list'; sessionStorage.setItem('gravitas.research.taskView', mode); draw(); });
+    const filter = el('select', 'v-input'); filter.setAttribute('aria-label', 'Filter tasks by status');
+    for (const [value, label] of [['', 'Open & done'], ['draft', 'Draft'], ['active', 'Active'], ['blocked', 'Blocked'], ['done', 'Done']]) {
+      const option = el('option', null, label); option.value = value; filter.append(option);
+    }
+    const count = el('span', 'v-toolbar__count'); bar.append(query, board, list, filter, count);
     const content = el('div'); body.innerHTML = ''; body.append(bar, content);
     const draw = () => {
       const q = query.value.trim().toLowerCase();
-      const visible = records.filter(({ task, project }) => !q || `${task.title} ${task.owner} ${project.title}`.toLowerCase().includes(q));
-      count.textContent = `${visible.length} of ${records.length}`; taskBoard(content, visible);
+      const visible = records.filter(({ task, project }) =>
+        (!q || `${task.title} ${task.owner} ${project.title}`.toLowerCase().includes(q))
+        && (!filter.value || task.status === filter.value));
+      board.setAttribute('aria-pressed', String(mode === 'board'));
+      list.setAttribute('aria-pressed', String(mode === 'list'));
+      count.textContent = `${visible.length} of ${records.length}`;
+      if (mode === 'list') taskList(content, visible); else taskBoard(content, visible);
     };
-    query.addEventListener('input', draw); draw();
+    query.addEventListener('input', draw); filter.addEventListener('change', draw); draw();
   }).catch(() => { body.innerHTML = ''; body.append(notice('Tasks unavailable', 'The project service did not answer. No local task board was created.', true)); });
 }

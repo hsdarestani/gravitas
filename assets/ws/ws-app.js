@@ -36,6 +36,10 @@ import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);
+const cookie = (name) => {
+  const hit = document.cookie.split('; ').find((row) => row.startsWith(name + '='));
+  return hit ? decodeURIComponent(hit.slice(name.length + 1)) : '';
+};
 
 const ui = {
   /* True until the platform has answered for the first time.
@@ -204,7 +208,7 @@ function renderRail() {
   if (ui.area === 'research') {
     const modules = [
       ['overview', 'Dashboard', '/workspace/research'],
-      ['meeting', 'Calendar', '/workspace/research/calendar'],
+      ['meeting', 'Journal', '/workspace/research/calendar'],
       ['notes', 'Editor', '/workspace/research/editor'],
       ['files', 'Folder', '/workspace/research/folders'],
       ['projects', 'Projects', '/workspace/research/projects'],
@@ -623,7 +627,51 @@ function renderEditor(host) {
   head.append(title, meta);
   doc.append(head);
 
-  for (const block of ui.page.blocks) doc.append(blockEl(block));
+  const tools = document.createElement('div');
+  tools.className = 'v-toolbar ws-editor-tools';
+  const insert = (label, type, text = '') => {
+    const control = document.createElement('button');
+    control.className = 'ws-btn ws-btn--tiny'; control.type = 'button'; control.textContent = label;
+    control.addEventListener('click', () => {
+      ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type, text });
+      queueSave(); render();
+      requestAnimationFrame(() => doc.querySelector('.ws-block:last-child [contenteditable]')?.focus());
+    });
+    tools.append(control);
+  };
+  insert('Text', 'p'); insert('Heading', 'h2'); insert('Bullet', 'ul'); insert('Code', 'code'); insert('Quote', 'quote'); insert('Equation', 'equation');
+
+  const picker = document.createElement('input'); picker.type = 'file'; picker.hidden = true;
+  const attach = document.createElement('button'); attach.className = 'ws-btn ws-btn--tiny'; attach.type = 'button'; attach.textContent = 'Attach file';
+  attach.addEventListener('click', () => picker.click());
+  picker.addEventListener('change', async () => {
+    const file = picker.files?.[0]; picker.value = ''; if (!file) return;
+    attach.disabled = true; attach.textContent = 'Uploading…';
+    const form = new FormData(); form.append('file', file); form.append('kind', 'file');
+    try {
+      const response = await fetch('/api/platform/files/upload/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
+      const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'upload_failed');
+      const item = data.item || {};
+      ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'attach', text: item.original_name || file.name, kind: (item.mime_type || 'file').split('/').at(-1).toUpperCase(), meta: P.formatBytes ? P.formatBytes(item.file_size) : `${item.file_size || file.size} bytes`, resourceId: item.id });
+      queueSave(); render();
+    } catch { attach.disabled = false; attach.textContent = 'Upload failed — retry'; }
+  });
+  const bookmark = document.createElement('button'); bookmark.className = 'ws-btn ws-btn--tiny'; bookmark.type = 'button';
+  bookmark.textContent = ui.page.bookmarked ? 'Bookmarked' : 'Bookmark';
+  bookmark.addEventListener('click', async () => { ui.page.bookmarked = !ui.page.bookmarked; await api.savePage(ui.page.id, { bookmarked: ui.page.bookmarked }); render(); });
+  tools.append(attach, picker, bookmark); doc.append(tools);
+
+  const layout = document.createElement('div'); layout.className = 'ws-editor-layout';
+  const canvas = document.createElement('div'); canvas.className = 'ws-editor-canvas';
+  const outline = document.createElement('aside'); outline.className = 'ws-editor-outline';
+  outline.append(el('strong', null, 'ON THIS NOTE'));
+  for (const block of ui.page.blocks.filter((item) => item.type === 'h2' || item.type === 'h3')) {
+    const jump = document.createElement('button'); jump.type = 'button'; jump.textContent = block.text || 'Untitled heading';
+    jump.addEventListener('click', () => $(`.ws-block[data-id="${block.id}"] [contenteditable]`)?.focus()); outline.append(jump);
+  }
+
+  for (const block of ui.page.blocks) canvas.append(blockEl(block));
+  layout.append(canvas, outline); doc.append(layout);
   host.append(doc);
 }
 
@@ -683,6 +731,15 @@ function blockEl(block) {
     body.append(label, pre);
     wrap.append(body);
     return wrap;
+  }
+
+  if (block.type === 'quote' || block.type === 'equation') {
+    const node = document.createElement(block.type === 'quote' ? 'blockquote' : 'div');
+    node.className = block.type === 'quote' ? 'ws-block__quote' : 'ws-block__equation';
+    node.contentEditable = 'plaintext-only'; node.textContent = block.text;
+    node.dataset.placeholder = block.type === 'quote' ? 'Quote…' : 'LaTeX equation…';
+    node.addEventListener('input', () => { block.text = node.textContent; queueSave(); });
+    body.append(node); wrap.append(body); return wrap;
   }
 
   const tag = block.type === 'h2' ? 'h2' : block.type === 'h3' ? 'h3' : block.type === 'ul' ? 'ul' : 'p';
@@ -791,8 +848,12 @@ function removeBlock(id) {
 }
 
 function attachmentEl(block) {
-  const card = document.createElement('div');
+  const card = document.createElement(block.resourceId ? 'a' : 'div');
   card.className = 'ws-attach';
+  if (block.resourceId) {
+    card.href = `/api/platform/files/${block.resourceId}/download/`;
+    card.title = 'Download attachment';
+  }
   card.append(el('span', 'ws-attach__kind', block.kind || 'FILE'));
   card.append(el('span', 'ws-attach__name', block.text));
   card.append(el('span', 'ws-attach__meta', block.meta || ''));
@@ -1175,6 +1236,11 @@ function viewContext() {
     pagesOnServer: () => api.state.mode === 'server',
     pathOf: (id) => crumbPath(id).join(' / '),
     when: relative,
+    openJournal: async (date) => {
+      const page = await api.openJournal(date);
+      if (page) go(`/workspace/page/${page.id}`);
+      return page;
+    },
 
     /* One creator for all three workspaces. It lands the page in the space
        the reader is in unless told otherwise, under that space's default
@@ -1222,9 +1288,10 @@ function render() {
   shell.dataset.dock = ui.dock ? 'on' : 'off';
   // Settings has nothing to navigate, so the index closes for it rather
   // than showing a workspace tree beside preferences that belong to neither.
-  const researchIndexViews = new Set(['notes', 'editor', 'research-folders', 'folder']);
-  const indexBelongsToView = ui.area !== 'research' || researchIndexViews.has(ui.route?.view);
-  shell.dataset.index = ui.index && ui.route?.view !== 'settings' && indexBelongsToView ? 'on' : 'off';
+  // The reader owns the index state. Route changes must never silently undo
+  // the toggle (the reference keeps panes stable while switching modules).
+  shell.dataset.index = ui.index && ui.route?.view !== 'settings' ? 'on' : 'off';
+  $('#ws-toggle-index').setAttribute('aria-pressed', String(ui.index));
   shell.dataset.area = ui.area;
 
   renderRail();
