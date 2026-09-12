@@ -1,0 +1,8 @@
+status=live
+url=https://cloud.gravitasplus.com/
+version=34.0.3
+team_folders=enabled
+assistant=optional
+sso=enabled
+nginx_guard=enabled
+verified_at=2026-09-12T14:16:33Z
