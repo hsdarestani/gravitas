@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from .models import KnowledgeResource
+from .models import KnowledgeResource, Workspace
 
 
 class WorkspacePagesApiTests(TestCase):
@@ -50,3 +50,26 @@ class WorkspacePagesApiTests(TestCase):
     def test_pages_require_authentication(self):
         self.client.logout()
         self.assertEqual(self.client.get('/api/workspace/pages/').status_code, 401)
+
+    @patch('core.workspace_pages_api._sync', return_value=None)
+    def test_owned_legacy_note_is_readable_without_workspace_membership(self, _sync):
+        legacy_owner = get_user_model().objects.create_user(
+            'legacy@example.com', 'legacy@example.com', 'A-secure-password-123!'
+        )
+        team = Workspace.objects.create(
+            name='Legacy workspace', kind=Workspace.Kind.PERSONAL, owner=legacy_owner,
+        )
+        note = KnowledgeResource.objects.create(
+            workspace=team,
+            owner=self.user,
+            kind=KnowledgeResource.Kind.NOTE,
+            title='Owned legacy note',
+        )
+
+        listed = self.client.get('/api/workspace/pages/')
+        self.assertEqual(listed.status_code, 200)
+        self.assertIn(str(note.pk), [page['id'] for page in listed.json()['pages']])
+
+        detail = self.client.get(f'/api/workspace/pages/{note.pk}/')
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()['page']['title'], 'Owned legacy note')

@@ -60,7 +60,7 @@ def _resource(user, page_id):
     except (TypeError, ValueError):
         return None
     return KnowledgeResource.objects.select_related('workspace', 'project', 'owner').filter(
-        Q(workspace__owner=user) | Q(workspace__memberships__user=user),
+        Q(owner=user) | Q(workspace__owner=user) | Q(workspace__memberships__user=user),
         pk=pk, kind=KnowledgeResource.Kind.NOTE,
     ).distinct().first()
 

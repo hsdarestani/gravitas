@@ -198,7 +198,17 @@ export function tree() {
 export function page(id) {
   return withFallback(
     async () => {
-      const data = await request(`/workspace/pages/${encodeURIComponent(id)}/`);
+      let data;
+      try {
+        data = await request(`/workspace/pages/${encodeURIComponent(id)}/`);
+      } catch (err) {
+        // A stale tree row or a note whose access was removed is not evidence
+        // that the page service itself is offline. Treat only that page as
+        // absent; otherwise one historical row demotes the whole editor to
+        // localStorage for the rest of the browser session.
+        if (err instanceof Unavailable && err.status === 404) return null;
+        throw err;
+      }
       serverPages[String(id)] = data.page;
       return data.page;
     },
