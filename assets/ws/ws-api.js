@@ -153,7 +153,7 @@ export async function boot() {
   }
 
   try {
-    await request('/platform/pages/');
+    await request('/workspace/pages/');
     setMode('server', 'Connected.');
   } catch (err) {
     setMode('local', err instanceof Unavailable && err.status === 404
@@ -186,7 +186,7 @@ async function withFallback(fn, local) {
 export function tree() {
   return withFallback(
     async () => {
-      const data = await request('/platform/pages/');
+      const data = await request('/workspace/pages/');
       serverNodes = data.nodes || [];
       serverPages = Object.fromEntries((data.pages || []).map((page) => [String(page.id), page]));
       return structuredClone(serverNodes);
@@ -198,7 +198,7 @@ export function tree() {
 export function page(id) {
   return withFallback(
     async () => {
-      const data = await request(`/platform/pages/${encodeURIComponent(id)}/`);
+      const data = await request(`/workspace/pages/${encodeURIComponent(id)}/`);
       serverPages[String(id)] = data.page;
       return data.page;
     },
@@ -212,7 +212,7 @@ export function page(id) {
 export function savePage(id, patch) {
   return withFallback(
     async () => {
-      const data = await request(`/platform/pages/${encodeURIComponent(id)}/`, { method: 'PATCH', body: patch });
+      const data = await request(`/workspace/pages/${encodeURIComponent(id)}/`, { method: 'PATCH', body: patch });
       serverPages[String(id)] = data.page;
       const node = serverNodes.find((item) => String(item.id) === String(id));
       if (node) Object.assign(node, { title: data.page.title, parent: data.page.parent });
@@ -231,7 +231,7 @@ export function savePage(id, patch) {
 export function createPage({ title, parent = null, kind = 'note', space = null, journal_date = null }) {
   return withFallback(
     async () => {
-      const data = await request('/platform/pages/', { method: 'POST', body: { title, parent, kind, space, journal_date } });
+      const data = await request('/workspace/pages/', { method: 'POST', body: { title, parent, kind, space, journal_date } });
       const made = data.page;
       serverPages[String(made.id)] = made;
       serverNodes.push({ id: made.id, title: made.title, kind: made.kind, parent: made.parent, space: made.space, phantom: false });
@@ -447,7 +447,7 @@ export async function adopt() {
   if (state.mode !== 'server') throw new Error('not_connected');
   const created = [];
   for (const p of Object.values(store.pages)) {
-    const made = await request('/platform/pages/', {
+    const made = await request('/workspace/pages/', {
       method: 'POST',
       body: {
         title: p.title, kind: p.kind, blocks: p.blocks,

@@ -17,7 +17,7 @@ class WorkspacePagesApiTests(TestCase):
     @patch('core.workspace_pages_api._sync', return_value=None)
     def test_page_create_edit_and_read_are_account_backed(self, _sync):
         created = self.client.post(
-            '/api/platform/pages/',
+            '/api/workspace/pages/',
             json.dumps({
                 'title': 'Research log', 'kind': 'note', 'space': 'research',
                 'blocks': [{'id': 'b-1', 'type': 'p', 'text': 'Initial evidence'}],
@@ -29,7 +29,7 @@ class WorkspacePagesApiTests(TestCase):
         self.assertEqual(page['blocks'][0]['text'], 'Initial evidence')
 
         updated = self.client.patch(
-            f"/api/platform/pages/{page['id']}/",
+            f"/api/workspace/pages/{page['id']}/",
             json.dumps({
                 'title': 'Research log updated', 'bookmarked': True,
                 'blocks': [{'id': 'b-1', 'type': 'h2', 'text': 'Verified evidence'}],
@@ -42,11 +42,11 @@ class WorkspacePagesApiTests(TestCase):
         self.assertEqual(stored.body, 'Verified evidence')
         self.assertEqual(stored.metadata['ws_blocks'][0]['type'], 'h2')
 
-        detail = self.client.get(f"/api/platform/pages/{page['id']}/")
+        detail = self.client.get(f"/api/workspace/pages/{page['id']}/")
         self.assertEqual(detail.json()['page']['title'], 'Research log updated')
-        tree = self.client.get('/api/platform/pages/').json()
+        tree = self.client.get('/api/workspace/pages/').json()
         self.assertIn(page['id'], [node['id'] for node in tree['nodes']])
 
     def test_pages_require_authentication(self):
         self.client.logout()
-        self.assertEqual(self.client.get('/api/platform/pages/').status_code, 401)
+        self.assertEqual(self.client.get('/api/workspace/pages/').status_code, 401)

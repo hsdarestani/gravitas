@@ -649,7 +649,7 @@ function renderEditor(host) {
     attach.disabled = true; attach.textContent = 'Uploading…';
     const form = new FormData(); form.append('file', file); form.append('kind', 'file');
     try {
-      const response = await fetch('/api/platform/files/upload/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
+      const response = await fetch('/api/workspace/files/upload/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
       const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'upload_failed');
       const item = data.item || {};
       ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'attach', text: item.original_name || file.name, kind: (item.mime_type || 'file').split('/').at(-1).toUpperCase(), meta: P.formatBytes ? P.formatBytes(item.file_size) : `${item.file_size || file.size} bytes`, resourceId: item.id });
@@ -851,7 +851,7 @@ function attachmentEl(block) {
   const card = document.createElement(block.resourceId ? 'a' : 'div');
   card.className = 'ws-attach';
   if (block.resourceId) {
-    card.href = `/api/platform/files/${block.resourceId}/download/`;
+    card.href = `/api/workspace/files/${block.resourceId}/download/`;
     card.title = 'Download attachment';
   }
   card.append(el('span', 'ws-attach__kind', block.kind || 'FILE'));
