@@ -134,9 +134,10 @@
 
   /* ---- Markup ------------------------------------------------------------ */
   var ICON = {
-    // The channel's own G, not a generic sparkle. An assistant that wears the
-    // brand reads as part of the site rather than as a bolted-on vendor widget.
-    spark: '<svg class="gchat__spark gchat__mark" viewBox="0 0 491.17 491.22" fill="currentColor" aria-hidden="true"><path d="M491.17,433.95l-57.19,57.26c-57.04-33.03-122.2-50.49-188.39-50.49s-131.47,17.46-188.35,50.46L0,433.95c33-56.87,50.46-122,50.46-188.35S33,114.13,0,57.26L57.19,0c57.07,33.03,122.2,50.46,188.39,50.46S377.08,33.03,433.95.02l42.04,72.41c-69.65,40.41-149.3,61.78-230.41,61.78-44.2,0-88.05-6.39-130.09-18.75,12.34,42.01,18.72,85.87,18.72,130.14s-6.36,88.08-18.72,130.09c42.01-12.36,85.84-18.7,130.09-18.7s88.05,6.36,130.11,18.75c-8.45-28.73-14.08-58.31-16.83-88.27h-113.28v-83.76h195.15v41.89c0,66.34,17.44,131.47,50.44,188.35Z"/></svg>',
+    // The Plusar mark, the assistant's own identity. An assistant that wears
+    // the brand reads as part of the site rather than as a bolted-on vendor
+    // widget.
+    spark: '<svg class="gchat__spark gchat__mark" viewBox="0 0 82.14 82.14" fill="currentColor" aria-hidden="true"><path d="M61.23,82.14L41.07,82.14C41.07,59.49,59.49,41.07,82.14,41.07L82.14,61.23C70.61,61.23,61.23,70.61,61.23,82.14Z"/><path d="M0,61.23L0,41.07C22.65,41.07,41.07,59.49,41.07,82.14L20.91,82.14C20.91,70.61,11.53,61.23,0,61.23Z"/><path d="M20.91,0L41.07,0C41.07,22.65,22.65,41.07,0,41.07L0,20.91C11.53,20.91,20.91,11.53,20.91,0Z"/><path d="M82.14,20.91L82.14,41.07C59.49,41.07,41.07,22.65,41.07,0L61.23,0C61.23,11.53,70.61,20.91,82.14,20.91Z"/></svg>',
     x: '<svg class="gchat__x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>'
   };
@@ -144,7 +145,7 @@
   var root = document.createElement('div');
   root.className = 'gchat';
   root.innerHTML =
-    '<div class="gchat__panel" id="gchat-panel" role="dialog" aria-label="Ask Gravitas+" aria-modal="false">' +
+    '<div class="gchat__panel" id="gchat-panel" role="dialog" aria-label="Ask Plusar" aria-modal="false">' +
       // A lockup and a close, nothing else. The old header put the mark in a
       // bordered circle (which reads as an avatar, this is a logo, not a
       // person) above a mono uppercase strapline that repeated the note at the
@@ -154,7 +155,7 @@
       '<div class="gchat__head">' +
         '<span class="gchat__brand">' +
           ICON.spark +
-          '<span class="gchat__title">Ask Gravitas<span class="gchat__plus">+</span></span>' +
+          '<span class="gchat__title">Ask Plusar</span>' +
         '</span>' +
         '<button class="gchat__close" type="button" aria-label="Close assistant">' + ICON.x + '</button>' +
       '</div>' +
@@ -166,8 +167,8 @@
       '</form>' +
       '<p class="gchat__foot"></p>' +
     '</div>' +
-    '<button class="gchat__btn" type="button" aria-expanded="false" aria-controls="gchat-panel" aria-label="Ask Gravitas+">' +
-      ICON.spark + '<span>Ask Gravitas+</span>' +
+    '<button class="gchat__btn" type="button" aria-expanded="false" aria-controls="gchat-panel" aria-label="Ask Plusar">' +
+      ICON.spark + '<span>Ask Plusar</span>' +
     '</button>';
   document.body.appendChild(root);
 
