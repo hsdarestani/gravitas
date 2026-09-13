@@ -203,6 +203,13 @@ export const RESEARCH_SECTIONS = [
     match: under('/workspace/research/tasks'),
   },
   {
+    id: 'res-search',
+    label: 'Search',
+    icon: 'search',
+    path: '/workspace/research/search',
+    match: under('/workspace/research/search'),
+  },
+  {
     id: 'res-collab',
     label: 'Collaboration',
     icon: 'collaboration',

@@ -154,6 +154,7 @@ export const updateSpaceItem = (id, payload) => call(`/platform/space/items/${id
 export const deleteSpaceItem = (id) => call(`/platform/space/items/${id}/`, { method: 'DELETE' });
 export const content = () => call('/platform/content/');
 export const resources = (kind) => call(`/platform/resources/?kind=${encodeURIComponent(kind)}`);
+export const searchResources = (query) => call(`/platform/resources/?workspace=research&q=${encodeURIComponent(query)}`);
 export const mindmaps = () => call('/platform/mindmaps/');
 export const researchers = () => call('/platform/researchers/');
 export const myProfile = () => call('/platform/researchers/me/');

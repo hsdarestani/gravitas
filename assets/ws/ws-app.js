@@ -113,6 +113,7 @@ const ROUTES = [
   [/^\/workspace\/research\/editor\/?$/,            () => ({ view: 'notes' })],
   [/^\/workspace\/research\/folders\/?$/,           () => ({ view: 'research-folders' })],
   [/^\/workspace\/research\/tasks\/?$/,             () => ({ view: 'research-tasks' })],
+  [/^\/workspace\/research\/search\/?$/,            () => ({ view: 'research-search' })],
   [/^\/workspace\/research\/projects\/(\d+)\/?$/,   (m) => ({ view: 'project', id: m[1] })],
   [/^\/workspace\/research\/projects\/?$/,          () => ({ view: 'projects' })],
   [/^\/workspace\/research\/files\/?$/,             () => ({ view: 'resources', kind: 'file' })],
@@ -213,6 +214,7 @@ function renderRail() {
       ['files', 'Folder', '/workspace/research/folders'],
       ['projects', 'Projects', '/workspace/research/projects'],
       ['tasks', 'Tasks', '/workspace/research/tasks'],
+      ['search', 'Search', '/workspace/research/search'],
     ];
     for (const [mark, label, path] of modules) {
       const active = path === '/workspace/research'
@@ -1331,6 +1333,7 @@ function render() {
   else if (view === 'research-calendar') research.renderCalendar(host, ctx);
   else if (view === 'research-folders') research.renderFolders(host, ctx);
   else if (view === 'research-tasks') research.renderTasks(host, ctx);
+  else if (view === 'research-search') research.renderSearch(host, ctx);
   else if (view === 'kms') kms.renderKmsOverview(host, ctx);
   else if (view === 'core-tasks') views.renderCoreTasks(host, ctx);
   else if (view === 'core-content') views.renderCoreContent(host, ctx);

@@ -55,6 +55,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
             '/workspace/core/team',
             '/workspace/research',
             '/workspace/research/projects',
+            '/workspace/research/search',
             '/workspace/research/notes',
             '/workspace/research/files',
             '/workspace/kms',
@@ -62,6 +63,15 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         ):
             self.assertIn(route, nav)
         self.assertIn("from './ws-nav.js", app)
+
+    def test_research_search_uses_permission_filtered_platform_data(self):
+        app = self.read('assets/ws/ws-app.js')
+        platform = self.read('assets/ws/ws-platform.js')
+        research = self.read('assets/ws/ws-research.js')
+        self.assertIn("view: 'research-search'", app)
+        self.assertIn("workspace=research&q=", platform)
+        self.assertIn('P.searchResources(term)', research)
+        self.assertIn('P.projects()', research)
 
     def test_server_notes_only_use_real_space_folders_as_default_parents(self):
         app = self.read('assets/ws/ws-app.js')
