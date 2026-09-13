@@ -6,9 +6,9 @@
    It is named rather than labelled "Assistant" because it is one thing with
    one behaviour, not a generic slot, and because the rail is a column of
    nouns: Home, Projects, Tasks, Plusar. The name is the plus in Gravitas+,
-   and its mark in assets/gravitas-icons.js is that same plus — the logo in
-   the topbar, cut down to a line icon — so the panel reads as Gravitas
-   answering rather than as a third party bolted on.
+   and its mark in assets/gravitas-icons.js is the diamond that name reads as,
+   with the brand logo's inward bow on its edges, so the panel reads as
+   Gravitas answering rather than as a third party bolted on.
 
    The rule this panel is built around: it never answers without sources.
    This is a research tool for a project whose public method is a permanent,

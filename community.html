@@ -66,24 +66,21 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <p class="g-lead">A model predicts a material's behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?</p>
     </div>
     <div class="rv split__body">
-      <div class="poll" style="max-width:34rem">
-        <button class="poll__opt" data-share="38" aria-pressed="false"><span class="poll__bar"></span>
-          <span class="poll__txt"><span>Yes: prediction is the test, explanation is a bonus</span><span class="poll__pct"></span></span></button>
-        <button class="poll__opt" data-share="44" aria-pressed="false"><span class="poll__bar"></span>
-          <span class="poll__txt"><span>No: without a mechanism it is engineering, not science</span><span class="poll__pct"></span></span></button>
-        <button class="poll__opt" data-share="18" aria-pressed="false"><span class="poll__bar"></span>
-          <span class="poll__txt"><span>It depends what the prediction is for</span><span class="poll__pct"></span></span></button>
-      </div>
-      <form class="g-field g-mt-md" data-demo-form style="max-width:34rem">
+      <ul class="stance" style="max-width:34rem">
+        <li class="stance__opt">Prediction is the test, explanation is a bonus</li>
+        <li class="stance__opt">Without a mechanism it is engineering, not science</li>
+        <li class="stance__opt">It depends what the prediction is for</li>
+      </ul>
+      <form class="g-field g-mt-md" data-comment-form="thought-experiment" style="max-width:34rem">
         <label class="g-label" for="arg">Your reasoning (this is the part that gets read on air)</label>
-        <textarea class="g-textarea" id="arg" placeholder="Two or three sentences is plenty."></textarea>
+        <textarea class="g-textarea" id="arg" name="body" placeholder="Two or three sentences is plenty."></textarea>
         <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Submit</button>
           <span class="g-hint" data-form-note>The best arguments get taken apart in next week's video.</span></div>
       </form>
     </div>
     <aside class="aside">
       <div class="callout"><h4>How It Works</h4>
-        <p>Every Monday a new situation. Wednesday the votes close. Friday the reasoning, including the arguments that changed our minds, goes into a video or an essay.</p></div>
+        <p>Every Monday a new situation. Wednesday the thread closes. Friday the reasoning, including the arguments that changed our minds, goes into a video or an essay.</p></div>
     </aside></div></div></section>
 
 <section class="g-section"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
@@ -97,13 +94,12 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
 <section class="g-section g-section--deep"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
       <p class="g-eyebrow">Coming up</p><h2>Events</h2></div></div>
-  <div class="rv"><div class="event"><span class="event__date"><b>12</b>MAR</span>
-      <div><h4>Study Group: AI in Research, Week 3</h4><p>Retrieval, grounding, and why citations get invented. Open to path members.</p></div>
-      <a class="g-btn g-btn--secondary g-btn--sm" href="newsletter.html">Join</a></div><div class="event"><span class="event__date"><b>19</b>MAR</span>
-      <div><h4>Live: The Gravitas+ Table</h4><p>Should there be limits on AI use in published work? Four guests, ninety minutes, no consensus expected.</p></div>
-      <a class="g-btn g-btn--secondary g-btn--sm" href="newsletter.html">Remind me</a></div><div class="event"><span class="event__date"><b>26</b>MAR</span>
-      <div><h4>Build Session</h4><p>Prototyping the science-budget game with whoever turns up.</p></div>
-      <a class="g-btn g-btn--secondary g-btn--sm" href="newsletter.html">Join</a></div></div></div></section>
+  <div class="split rv">
+    <ul class="g-prose" style="font-size:var(--g-fs-body)"><li>Study groups, run over several weeks around one question</li><li>The Gravitas+ Table: a live panel, ninety minutes, no consensus expected</li><li>Build sessions, prototyping lab tools with whoever turns up</li></ul>
+    <aside class="aside"><div class="callout"><h4>How to Hear About Them</h4>
+      <p>Dates go out in the newsletter before they go anywhere else.
+        <a href="newsletter.html">Subscribe</a> and you will not miss one.</p></div></aside>
+  </div></div></section>
 
 <section class="g-section" id="join"><div class="g-container"><div class="join rv">
     <div class="g-well" aria-hidden="true"></div>
@@ -126,7 +122,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <a class="g-btn g-btn--primary g-btn--lg" href="account.html">Create an account</a>
         <a class="g-btn g-btn--secondary g-btn--lg" href="account.html#in">I already have one</a>
       </div>
-      <p class="join__fine">No payment. No tiers. Delete it in one click.</p>
+      <p class="join__fine">No payment. No tiers.</p>
     </div></div></div></section>
 
 </main>

@@ -219,16 +219,15 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         does not support.</p>
       <cite>The strongest objection we could find</cite></div>
   </div>
-  <div class="poll g-mt-lg" style="max-width:34rem">
+  <div class="stance g-mt-lg" style="max-width:34rem">
     <p class="g-eyebrow">Where do you land?</p>
-    <button class="poll__opt" data-share="41" aria-pressed="false"><span class="poll__bar"></span>
-      <span class="poll__txt"><span>Computable in principle, limited only by resources</span><span class="poll__pct"></span></span></button>
-    <button class="poll__opt" data-share="34" aria-pressed="false"><span class="poll__bar"></span>
-      <span class="poll__txt"><span>Not computable: undecidability is a hard wall</span><span class="poll__pct"></span></span></button>
-    <button class="poll__opt" data-share="25" aria-pressed="false"><span class="poll__bar"></span>
-      <span class="poll__txt"><span>The question is badly posed</span><span class="poll__pct"></span></span></button>
+    <ul class="stance__list">
+      <li class="stance__opt">Computable in principle, limited only by resources</li>
+      <li class="stance__opt">Not computable: undecidability is a hard wall</li>
+      <li class="stance__opt">The question is badly posed</li>
+    </ul>
     <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">
-      Sample distribution shown for illustration. Wire this to your backend to collect real votes.</p>
+      Make your case in the discussion below.</p>
   </div>
 </section>
 
@@ -249,9 +248,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <p class="comment__who">Sajad A.<span class="comment__role">host</span></p>
         <p>Maryam is right and the video is loose about it, noted for the correction log. The
           honest statement is that undecidability appears in the general problem, not in any given lab sample.</p></div></div>
-      <form class="g-field g-mt-md" data-demo-form>
+      <form class="g-field g-mt-md" data-comment-form="computable-universe">
         <label class="g-label" for="c">Add to the discussion</label>
-        <textarea class="g-textarea" id="c" placeholder="Disagreement is more useful than agreement here."></textarea>
+        <textarea class="g-textarea" id="c" name="body" placeholder="Disagreement is more useful than agreement here."></textarea>
         <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Post</button>
           <span class="g-hint" data-form-note>Members can post. Everyone can read.</span></div>
       </form>

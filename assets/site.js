@@ -168,25 +168,13 @@
     Object.keys(map).forEach(function (k) { spy.observe(map[k]); });
   }
 
-  /* ---- polls ------------------------------------------------------------
-     Illustrative only: no backend here, so the result is generated locally and
-     clearly marked as a sample rather than pretending to be live data. */
-  [].forEach.call(document.querySelectorAll('.poll'), function (poll) {
-    var opts = [].slice.call(poll.querySelectorAll('.poll__opt'));
-    var seeds = opts.map(function (o) { return parseFloat(o.dataset.share || '0'); });
-    var total = seeds.reduce(function (a, b) { return a + b; }, 0) || 1;
-    opts.forEach(function (o, i) {
-      o.addEventListener('click', function () {
-        poll.classList.add('is-voted');
-        opts.forEach(function (x) { x.setAttribute('aria-pressed', String(x === o)); });
-        opts.forEach(function (x, k) {
-          var pct = Math.round(seeds[k] / total * 100);
-          x.querySelector('.poll__bar').style.width = pct + '%';
-          x.querySelector('.poll__pct').textContent = pct + '%';
-        });
-      });
-    });
-  });
+  /* ---- polls -------------------------------------------------------------
+     Removed. This seeded each option from a hard-coded share attribute and
+     rendered it as a percentage, which looked like a tally of real votes and
+     was not one — there is no poll model in the backend to tally. The three
+     positions are still worth reading, so they stayed as a static .stance
+     list; what went is the button that pretended to count. Bring this back
+     only alongside a real endpoint. */
 
   /* ---- reading progress --------------------------------------------------
      Only on pages that are actually long, an article body or a topic's
@@ -288,19 +276,13 @@
     });
   });
 
-  /* ---- newsletter / forms ---------------------------------------------- */
-  [].forEach.call(document.querySelectorAll('[data-demo-form]'), function (f) {
-    f.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var note = f.querySelector('[data-form-note]');
-      var input = f.querySelector('input[type="email"]');
-      if (input && !input.value.trim()) {
-        if (note) note.textContent = 'Add an email address and we will send the next issue.';
-        input.focus();
-        return;
-      }
-      if (note) note.textContent = 'This is a front-end demo. Connect it to your mail provider to go live.';
-      f.reset();
-    });
-  });
+  /* ---- newsletter / forms ------------------------------------------------
+     Removed with the polls, for the same reason. This caught every form the
+     prototype had flagged as a demo and answered "this is a front-end demo",
+     which on a live site reads as a submission that quietly went nowhere.
+     Every form it used to cover is now handled for real in
+     assets/production-bridge.js: the auth forms by id, the newsletter by
+     .g-inline-form, and the discussion forms by the [data-comment-form]
+     content key they post against. The demo flag is gone from the public HTML
+     and the demo-data gate now bans the attribute outright. */
 })();

@@ -1048,6 +1048,19 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 .poll__note { font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
   color: var(--g-text-subtle); margin: var(--g-space-sm) 0 0; }
 
+/* ---- stance list --------------------------------------------------------
+   What replaced the poll. The three positions are the editorial content and
+   are worth showing; the vote was not, because nothing counts it. So this
+   keeps the framed, one-per-row reading of the poll and drops every affordance
+   that implied a tally: no button, no bar, no percentage, no pressed state. */
+.stance { margin-top: var(--g-space-lg); border: 1px solid var(--g-hairline);
+  border-radius: var(--g-radius); background: var(--g-surface-sunken); padding: var(--g-space-md); }
+.stance__list { list-style: none; margin: 0; padding: 0; }
+.stance__opt { display: block; border: 1px solid var(--g-border); border-radius: var(--g-radius-sm);
+  padding: var(--g-space-sm) var(--g-space-md); font-size: var(--g-fs-small); }
+.stance__opt + .stance__opt { margin-top: .5rem; }
+ul.stance { list-style: none; }
+
 /* ---- reading-depth bar --------------------------------------------------
    Moved out of the header, where it was permanent chrome competing with
    navigation on every page. Sat at the top of the section it governs, it reads

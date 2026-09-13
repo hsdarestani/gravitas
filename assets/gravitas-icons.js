@@ -65,22 +65,32 @@
 
     /* ---- Plusar -----------------------------------------------------------
        The workspace assistant is called Plusar, after the plus in Gravitas+,
-       so its mark is that plus: the brand logo reduced to a line icon rather
-       than a new drawing. The logo is a square of four wavefronts bowing
-       inward around a mass, and nothing else in this set is built from
-       inward-bowing edges, so it never reads as another mark here. It also
-       never reads as a robot, a spark or a speech bubble, which are the three
-       shapes every other product hands its assistant — this one is the
-       product itself answering, and it should look like the product.
+       and the shape everyone already reads that name as is a diamond. So this
+       is a diamond, not the brand logo traced: the first cut of this mark was
+       the logo silhouette carried across literally, and axis-aligned with a
+       flat top and flat sides it read as a rounded square. Correct geometry,
+       wrong word.
 
-       Geometry taken from assets/logos/Logo_Black.svg rather than eyeballed:
-       the corner chamfer is 13.77/118.45 of the side and each edge bows in by
-       12.17/118.45, both carried across to an 18-unit box spanning 3 to 21.
-       The accent dot is the mass at the centre, which the logo carries as the
-       counter its four fronts leave open. Fitted by this file's own procedure:
-       ink extent 18 scaled onto the 19.6 optical cap, stroke counter-scaled so
-       it still draws at 1.7, accent re-cut to 3.1 across in the final frame. */
-    plusar: "<g transform=\"translate(-1.067 -1.067) scale(1.088889)\" stroke-width=\"1.561\"><path d=\"M5.09 3C9.7 5.47 14.3 5.47 18.91 3L21 5.09C18.53 9.7 18.53 14.3 21 18.91L18.91 21C14.3 18.53 9.7 18.53 5.09 21L3 18.91C5.47 14.3 5.47 9.7 3 5.09Z\"/><circle cx=\"12\" cy=\"12\" r=\"1.424\" fill=\"currentColor\" stroke=\"none\"/></g>",
+       What the logo does contribute is the curve. Its four edges bow inward
+       by 12.17/118.45 of the side, which is the whole idea of the brand —
+       space bent by a mass — and the same bow is on these four edges at half
+       that rate. Half, because a diamond meets its neighbours at 90 degrees
+       where the logo meets them at 45, so the logo depth over these shorter
+       chords pinched the waist until the mark turned into the four-pointed
+       sparkle every other product uses for its assistant. Half keeps the
+       bend legible at 16px and keeps the silhouette a diamond.
+
+       The accent dot is the mass the edges bend around, and it is the counter
+       the logo leaves open at its own centre.
+
+       Cap 21.0, not the 19.6 the outline marks share. A diamond spends its
+       extent on four points and carries no ink at the corners of its box, so
+       at a matched extent it reads a size smaller than the square-ish marks
+       either side of it in the rail. Checked against home, projects, tasks
+       and space-knowledge at 19px rather than reasoned about. Stroke stays a
+       true 1.7 and the geometry is stated at final size, so unlike the fitted
+       marks above this one needs no counter-scaling transform. */
+    plusar: "<g stroke-width=\"1.7\"><path d=\"M12 1.5C14.54 5.96 18.04 9.46 22.5 12C18.04 14.54 14.54 18.04 12 22.5C9.46 18.04 5.96 14.54 1.5 12C5.96 9.46 9.46 5.96 12 1.5Z\"/><circle cx=\"12\" cy=\"12\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     plus: "<g transform=\"translate(-2.099 -2.094) scale(1.174958)\" stroke-width=\"1.447\"><path d=\"M12 4.4v15.2\"/><path d=\"M4.4 12h15.2\"/></g>",
     arrow: "<g transform=\"translate(-2.850 -0.453) scale(1.033855)\" stroke-width=\"1.644\"><path d=\"M3.4 12h17.2\"/><path d=\"m14.2 5.6 6.4 6.4-6.4 6.4\"/></g>",

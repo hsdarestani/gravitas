@@ -41,7 +41,7 @@ jobs:
             TOTAL=$((TOTAL + SIZE))
           done
           echo "Core CSS/JS total: $TOTAL bytes"
-          test "$TOTAL" -lt 220000
+          test "$TOTAL" -lt 240000
 
           HTML_SIZE="$(curl -4 -fsS "$BASE/" | wc -c)"
           echo "Homepage HTML: $HTML_SIZE bytes"

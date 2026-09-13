@@ -158,8 +158,13 @@
     var isSignup = form.id === 'p-up';
     var isLogin = form.id === 'p-in';
     var isReset = form.id === 'p-reset';
-    var isNewsletter = form.matches && form.matches('.g-inline-form[data-demo-form]');
-    if (!isSignup && !isLogin && !isReset && !isNewsletter) return;
+    // The prototype tagged every form `data-demo-form` and let site.js fake a
+    // success note. That string is now banned from the public HTML, so the
+    // hooks here are the real ones: auth forms by id, the newsletter by its
+    // only class, and discussion forms by the content key they post against.
+    var isNewsletter = form.matches && form.matches('.g-inline-form');
+    var commentKey = form.getAttribute && form.getAttribute('data-comment-form');
+    if (!isSignup && !isLogin && !isReset && !isNewsletter && !commentKey) return;
 
     // Capture phase wins before the prototype's demo-form listener.
     e.preventDefault();
@@ -209,6 +214,31 @@
       job = apiPost('/api/auth/password-reset/request/', { email: resetEmail }).then(function () {
         setNote(form, 'If that address has an account, a reset link has been sent.');
         form.reset();
+      });
+    } else if (commentKey) {
+      // Posting requires an account and everything lands in moderation, so the
+      // note has to say both: a comment that silently waits for a moderator
+      // reads as a comment that was dropped.
+      var field = form.querySelector('textarea');
+      var body = field && field.value.trim();
+      if (!body) {
+        setNote(form, 'Write something first.');
+        if (field) field.focus();
+        setBusy(form, false);
+        return;
+      }
+      setNote(form, 'Posting…');
+      job = apiPost('/api/community/comments/' + encodeURIComponent(commentKey) + '/', {
+        body: body
+      }).then(function () {
+        setNote(form, 'Posted. A moderator reads it before it appears.');
+        form.reset();
+      }).catch(function (err) {
+        if (err && err.error === 'authentication_required') {
+          setNote(form, 'Sign in to post. Everyone can read without an account.');
+          return;
+        }
+        throw err;
       });
     } else {
       var input = form.querySelector('input[type="email"]');
