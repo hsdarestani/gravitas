@@ -65,9 +65,12 @@ jobs:
           }
           trap 'delete_account "$JAR_A"; delete_account "$JAR_B"' EXIT
 
+          echo 'workspace-stage=signup-a'
           signup "$JAR_A" "$EMAIL_A"
+          echo 'workspace-stage=signup-b'
           signup "$JAR_B" "$EMAIL_B"
 
+          echo 'workspace-stage=create-project'
           PROJECT="$(post_json "$JAR_A" "$BASE/api/workspace/projects/" '{"title":"Production verification project","description":"E2E"}')"
           PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["project"]["id"])' <<<"$PROJECT")"
           NOTE="$(post_json "$JAR_A" "$BASE/api/workspace/knowledge/" "{\"kind\":\"note\",\"title\":\"Private production note\",\"body\":\"Isolation marker $RUN\",\"project_id\":$PROJECT_ID}")"
@@ -78,16 +81,36 @@ jobs:
           CHILD="$(post_json "$JAR_A" "$BASE/api/workspace/collections/" "{\"name\":\"Runs\",\"parent_id\":$FOLDER_ID,\"project_id\":$PROJECT_ID}")"
           CHILD_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["collection"]["id"])' <<<"$CHILD")"
 
+          echo 'workspace-stage=verify-isolation'
           STATUS="$(curl -4 -sS -o "$RUNNER_TEMP/isolation.json" -w '%{http_code}' -b "$JAR_B" "$BASE/api/workspace/knowledge/$NOTE_ID/")"
           test "$STATUS" = 404
 
+          echo 'workspace-stage=dataset-upload'
           printf 'sample,value\nalpha,42\n' > "$RUNNER_TEMP/dataset.csv"
           CSRF_A="$(awk '$6=="csrftoken" {print $7}' "$JAR_A" | tail -n1)"
-          DATASET="$(curl -4 -fsS -b "$JAR_A" -c "$JAR_A" -X POST "$BASE/api/workspace/files/upload/" \
+          DATASET_RESPONSE="$RUNNER_TEMP/dataset-response.json"
+          DATASET_STATUS="$(curl -4 -sS -o "$DATASET_RESPONSE" -w '%{http_code}' -b "$JAR_A" -c "$JAR_A" -X POST "$BASE/api/workspace/files/upload/" \
             -H "X-CSRFToken: $CSRF_A" -H "Referer: $REFERER" \
             -F kind=dataset -F title='Production dataset' -F project_id="$PROJECT_ID" -F collection_id="$CHILD_ID" \
             -F file=@"$RUNNER_TEMP/dataset.csv"\;type=text/csv)"
+          echo "workspace-stage=dataset-upload status=$DATASET_STATUS"
+          if test "$DATASET_STATUS" != 201; then
+            python3 - "$DATASET_RESPONSE" <<'PY'
+          import json
+          import sys
+
+          try:
+              with open(sys.argv[1], encoding='utf-8') as response:
+                  error = json.load(response).get('error', 'invalid_response')
+          except (OSError, ValueError, AttributeError):
+              error = 'invalid_response'
+          print(f'workspace-error={error}')
+          PY
+            exit 1
+          fi
+          DATASET="$(cat "$DATASET_RESPONSE")"
           DATASET_ID="$(python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["item"]["kind"]=="dataset"; print(d["item"]["id"])' <<<"$DATASET")"
+          echo 'workspace-stage=rename-and-link'
           patch_json "$JAR_A" "$BASE/api/workspace/knowledge/$DATASET_ID/" \
             "{\"filename\":\"verified-$RUN.csv\",\"collection_id\":$FOLDER_ID,\"project_id\":$PROJECT_ID}" >/dev/null
           patch_json "$JAR_A" "$BASE/api/workspace/collections/$FOLDER_ID/" \
@@ -100,6 +123,7 @@ jobs:
           curl -4 -fsS -b "$JAR_A" "$BASE/api/workspace/files/$DATASET_ID/download/" -o "$RUNNER_TEMP/download.csv"
           cmp "$RUNNER_TEMP/dataset.csv" "$RUNNER_TEMP/download.csv"
 
+          echo 'workspace-stage=dashboard-and-routes'
           curl -4 -fsS -b "$JAR_A" "$BASE/api/workspace/dashboard/" | \
             python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["counts"]["projects"]>=1; assert d["counts"]["notes"]>=1; assert d["counts"]["datasets"]>=1; assert d["storage"]["used_bytes"]>0; assert d["storage"]["quota_bytes"]>d["storage"]["used_bytes"]'
           curl -4 -fsS "$BASE/" -o "$RUNNER_TEMP/home.html"

@@ -514,3 +514,8 @@ class DemoReadinessTests(TestCase):
         self.assertIn('Could not activate cloud identity credentials', cloud_source)
         self.assertIn("headers.setdefault('Host', public_host)", cloud_source)
         self.assertIn("headers.setdefault('X-Forwarded-Proto', 'https')", cloud_source)
+
+        workspace_e2e = (root / '.github/workflows/workspace-production-e2e.yml').read_text(encoding='utf-8')
+        self.assertIn('workspace-stage=dataset-upload', workspace_e2e)
+        self.assertIn('DATASET_STATUS=', workspace_e2e)
+        self.assertIn('workspace-error=', workspace_e2e)
