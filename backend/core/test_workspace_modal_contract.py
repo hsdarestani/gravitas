@@ -62,3 +62,9 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         ):
             self.assertIn(route, nav)
         self.assertIn("from './ws-nav.js", app)
+
+    def test_server_notes_only_use_real_space_folders_as_default_parents(self):
+        app = self.read('assets/ws/ws-app.js')
+        self.assertIn("if (api.state.mode === 'server')", app)
+        self.assertIn("node.kind === 'folder'", app)
+        self.assertIn("String(node.id).startsWith('s-')", app)
