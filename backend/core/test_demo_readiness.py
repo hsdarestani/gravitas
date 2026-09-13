@@ -492,3 +492,13 @@ class DemoReadinessTests(TestCase):
             with self.subTest(path=path):
                 content = (root / path).read_text(encoding='utf-8')
                 self.assertNotRegex(content, r'app:list[^\n]*\|\s*grep\s+-[^\s\n]*q')
+
+        for path in (
+            '.github/workflows/production-auth-e2e.yml',
+            '.github/workflows/workspace-production-e2e.yml',
+            '.github/workflows/team-folder-migration.yml',
+        ):
+            with self.subTest(nextcloud_dependency=path):
+                content = (root / path).read_text(encoding='utf-8')
+                self.assertIn("workflows: ['Provision Gravitas Nextcloud']", content.replace('"', "'"))
+                self.assertIn("github.event.workflow_run.event == 'workflow_run'", content)
