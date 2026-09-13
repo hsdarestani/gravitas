@@ -49,22 +49,29 @@
 
     --g-text:              var(--g-white-tint);
     --g-text-muted:        var(--g-sisal);
-    --g-text-subtle:       rgb(var(--g-tint) / 0.62);
+    /* Opaque, and that is the whole point. This token used to be the tint at
+       0.62 alpha, which is harmless under a glyph rendered once but wrong
+       under a drawing made of several stroked paths: each path composites
+       separately, so wherever two strokes cross the alpha applies twice and
+       the join comes out visibly brighter than the lines feeding it. The
+       chevron's corner, the arrow's head, the flask's neck and rim all lit up
+       that way.
 
-    /* A dimmed *icon* cannot use the token above. --g-text-subtle carries its
-       lightness in an alpha channel, which is fine for a glyph rendered once
-       but wrong for a drawing made of several stroked paths: each path is
-       composited separately, so wherever two strokes cross, the alpha applies
-       twice and the join comes out visibly brighter than the lines feeding it.
-       On the flask that put a bright pip at the neck and another at the rim.
+       The old answer was a second pair of tokens (--g-ic-dim, below) that a
+       rule had to opt into, and every rule that dimmed an icon by setting the
+       colour on its *container* rather than on the mark — the tree twist, the
+       workspace card's arrow — missed the opt-in and let the alpha back in.
+       So the alpha is baked in here instead: 0.62 of the tint composited over
+       the raised surface (#013a58), the lightest ground this text sits on.
+       Every other surface is darker, so the flattened value reads at or above
+       the contrast the alpha version measured there, and no crossing anywhere
+       in the system can brighten again. */
+    --g-text-subtle:       #849397;
 
-       So a dimmed icon takes an opaque colour and puts the alpha on the
-       element instead. Element opacity flattens the whole drawing first and
-       dims the result once, so a crossing is exactly as light as a line. The
-       rendered colour is identical to --g-text-subtle; only the compositing
-       order changes. */
-    --g-ic-dim:            rgb(var(--g-tint));
-    --g-ic-dim-a:          0.62;
+    /* Still the named channel for a dimmed icon, so no rule has to change, and
+       now simply that same opaque colour: there is nothing left to flatten. */
+    --g-ic-dim:            #849397;
+    --g-ic-dim-a:          1;
     --g-text-inverse:      var(--g-cosmos-600);
 
     --g-hairline:          rgb(var(--g-tint) / 0.16);

@@ -1,7 +1,14 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  ASSISTANT
-   A panel that answers questions about the pages in this workspace and
-   cites which ones it read.
+   GRAVITAS+ WORKSPACE  ·  PLUSAR
+   The workspace assistant. It answers questions about the pages in this
+   workspace and cites which ones it read.
+
+   It is named rather than labelled "Assistant" because it is one thing with
+   one behaviour, not a generic slot, and because the rail is a column of
+   nouns: Home, Projects, Tasks, Plusar. The name is the plus in Gravitas+,
+   and its mark in assets/gravitas-icons.js is that same plus — the logo in
+   the topbar, cut down to a line icon — so the panel reads as Gravitas
+   answering rather than as a third party bolted on.
 
    The rule this panel is built around: it never answers without sources.
    This is a research tool for a project whose public method is a permanent,
@@ -31,7 +38,7 @@ export function mountAssistant(host, ctx) {
   log = document.createElement('div');
   log.className = 'ws-ai__log';
   log.setAttribute('role', 'log');
-  log.setAttribute('aria-label', 'Assistant conversation');
+  log.setAttribute('aria-label', 'Plusar conversation');
 
   const compose = document.createElement('div');
   compose.className = 'ws-ai__compose';
@@ -39,8 +46,8 @@ export function mountAssistant(host, ctx) {
   input = document.createElement('textarea');
   input.className = 'ws-ai__input';
   input.rows = 1;
-  input.placeholder = 'Ask about these pages';
-  input.setAttribute('aria-label', 'Ask the assistant');
+  input.placeholder = 'Ask Plusar about these pages';
+  input.setAttribute('aria-label', 'Ask Plusar');
 
   // Grow with the text, to a ceiling. A fixed one-line box hides the end of
   // anything longer than a sentence, which is most real questions.
@@ -121,7 +128,7 @@ function turnEl(turn) {
 
   const who = document.createElement('p');
   who.className = 'ws-ai__who';
-  who.textContent = turn.who === 'you' ? 'You' : 'Assistant';
+  who.textContent = turn.who === 'you' ? 'You' : 'Plusar';
 
   const text = document.createElement('div');
   text.className = 'ws-ai__text';
@@ -215,7 +222,7 @@ async function send() {
   } catch {
     Object.assign(pending, {
       pending: false,
-      text: 'That request did not go through. The assistant service may be down; nothing was changed in your pages.',
+      text: 'That request did not go through. Plusar may be down; nothing was changed in your pages.',
       sources: [],
     });
   }

@@ -236,7 +236,10 @@ function renderRail() {
     rail.append(el('div', 'ws-rail__spacer'));
   }
 
-  rail.append(railButton('mindmap', 'Assistant', ui.dock && ui.dockTab === 'assistant', () => {
+  /* Plusar, the workspace assistant. It keeps the dock tab id 'assistant',
+     which is written into saved preferences on every reader's machine; the
+     name is what changed, not the slot. */
+  rail.append(railButton('plusar', 'Plusar', ui.dock && ui.dockTab === 'assistant', () => {
     ui.dock = true;
     ui.dockTab = 'assistant';
     writePrefs({ dock: true, dockTab: 'assistant' });
@@ -244,7 +247,7 @@ function renderRail() {
     focusAssistant();
   }));
 
-  /* Settings sits under the Assistant, at the foot of the rail, which is
+  /* Settings sits under Plusar, at the foot of the rail, which is
      where every desktop tool of this shape puts the account. It shows the
      profile picture rather than a gear when there is one: a face is easier
      to find than another 16px line drawing in a column of line drawings,
@@ -924,7 +927,7 @@ const DOCK_TABS = [
   { id: 'tasks',     label: 'Tasks' },
   { id: 'journal',   label: 'Journal' },
   { id: 'links',     label: 'Links' },
-  { id: 'assistant', label: 'Assistant' },
+  { id: 'assistant', label: 'Plusar' },
 ];
 
 function renderDock() {

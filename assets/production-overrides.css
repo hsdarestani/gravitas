@@ -16,12 +16,17 @@
   mask-size: contain;
 }
 .g-mark--logotype {
-  aspect-ratio: 661 / 118.2;
+  /* The checked-in viewBox, not a remembered one: the two logo files were
+     recut, and a stale ratio here leaves the mask short of its box, which
+     with mask-size:contain shows up as a sliver of dead space after the
+     wordmark rather than as a wrong drawing — invisible, and it pushes
+     whatever sits next to it. */
+  aspect-ratio: 658.7 / 118.45;
   -webkit-mask-image: url("logos/Logotype_Black.svg");
   mask-image: url("logos/Logotype_Black.svg");
 }
 .g-mark--logo {
-  aspect-ratio: 491.17 / 491.22;
+  aspect-ratio: 118.44 / 118.45;
   -webkit-mask-image: url("logos/Logo_Black.svg");
   mask-image: url("logos/Logo_Black.svg");
 }
@@ -48,3 +53,18 @@
   visibility: visible !important;
   opacity: 1 !important;
 }
+
+/* ---- Workspace brand size -------------------------------------------------
+   The two heights above are the public header's, and they were also landing
+   in the workspace topbar, where the wordmark came out at 1.75rem — 28px of a
+   48px bar, about 156px wide — so it read as a page title rather than as the
+   chrome around one, and it crowded the index toggle beside it.
+
+   ws.css already states the right value, 16px, but it states it inside
+   @layer ws-components while this file is unlayered, and unlayered rules beat
+   layered ones whatever their specificity. So the fix cannot live there: the
+   public default has to step aside for the workspace here, in the same
+   unlayered cascade that was overriding it. Scoped to .ws, which only
+   workspace.html carries, so no public page moves. */
+.ws .g-logo .g-mark--logotype { height: 16px; }
+.ws .g-logo .g-mark--logo { height: 18px; }

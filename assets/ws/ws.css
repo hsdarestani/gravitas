@@ -75,16 +75,23 @@
     --g-ic-dim: #556977;
   }
 
-  /* Dark theme, the same correction and the same cause. --g-text-subtle is
-     the tint at 0.62 alpha, which measures 4.51:1 on the page ground and was
-     presumably checked there. The workspace puts that text on three other
-     surfaces as well, and on the raised one it falls to 3.78:1. Raising the
-     alpha to 0.75 clears AA on all four: ground 5.97, surface 5.42, raised
-     4.81, sunken 6.38. Scoped to the workspace, because the public site does
-     not stack surfaces this way and its pairing is fine. */
+  /* Dark theme, the same correction and the same cause. The public token was
+     checked against the page ground; the workspace puts that text on three
+     other surfaces as well, and on the raised one it fell to 3.78:1. Lifting
+     it to 0.75 of the tint cleared AA on all four: ground 5.97, surface 5.42,
+     raised 4.81, sunken 6.38.
+
+     Given opaque, not as an alpha, for the reason gravitas.css gives at
+     --g-text-subtle: a stroked mark composites each path on its own, so a
+     translucent paint doubles at every crossing and lights the join. This is
+     that same 0.75 of the tint flattened over the raised surface (#013a58),
+     the lightest of the four, so the three darker ones only read higher.
+     Scoped to the workspace, because the public site does not stack surfaces
+     this way and its pairing is fine. */
   :root:not([data-theme="light"]) .ws {
-    --g-text-subtle: rgb(var(--g-tint) / 0.75);
-    --g-ic-dim-a: 0.75;
+    --g-text-subtle: #9fa5a5;
+    --g-ic-dim: #9fa5a5;
+    --g-ic-dim-a: 1;
   }
 }
 
@@ -545,7 +552,7 @@
   }
 
   /* ---- Dock tabs --------------------------------------------------------
-     Journal, Tasks, Links, Assistant. Underline rather than a filled pill,
+     Journal, Tasks, Links, Plusar. Underline rather than a filled pill,
      to keep one shape language with the rail's active bar. */
   .ws-tabs {
     display: flex; gap: 2px; flex: 0 0 auto;
@@ -852,7 +859,7 @@
 }
 
 /* ==========================================================================
-   7. ASSISTANT
+   7. PLUSAR (the assistant panel)
    ========================================================================== */
 @layer ws-components {
   .ws-ai { display: flex; flex-direction: column; height: 100%; min-height: 0; }
