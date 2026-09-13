@@ -512,3 +512,5 @@ class DemoReadinessTests(TestCase):
         cloud_source = (root / 'backend/core/cloud.py').read_text(encoding='utf-8')
         self.assertIn("data={'key': 'password', 'value': password}", cloud_source)
         self.assertIn('Could not activate cloud identity credentials', cloud_source)
+        self.assertIn("headers.setdefault('Host', public_host)", cloud_source)
+        self.assertIn("headers.setdefault('X-Forwarded-Proto', 'https')", cloud_source)

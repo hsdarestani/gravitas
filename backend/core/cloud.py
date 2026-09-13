@@ -3,7 +3,7 @@ import hashlib
 import secrets
 import tempfile
 from pathlib import PurePosixPath
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 from xml.etree import ElementTree
 
 import requests
@@ -57,12 +57,23 @@ def _admin_auth():
 
 
 def _request(method, url, *, auth, expected, **kwargs):
+    headers = dict(kwargs.pop('headers', {}) or {})
+    # Nextcloud is reached over loopback by Django, but its canonical hostname
+    # is the public cloud subdomain. Supplying that Host avoids a redirect that
+    # can strip Basic auth or change PUT/DELETE semantics on DAV requests.
+    internal = settings.NEXTCLOUD_INTERNAL_URL
+    if url.startswith(internal):
+        public_host = urlparse(settings.NEXTCLOUD_PUBLIC_URL).netloc
+        if public_host:
+            headers.setdefault('Host', public_host)
+            headers.setdefault('X-Forwarded-Proto', 'https')
     try:
         response = requests.request(
             method,
             url,
             auth=auth,
             timeout=(settings.NEXTCLOUD_CONNECT_TIMEOUT, settings.NEXTCLOUD_READ_TIMEOUT),
+            headers=headers,
             **kwargs,
         )
     except requests.RequestException as exc:
