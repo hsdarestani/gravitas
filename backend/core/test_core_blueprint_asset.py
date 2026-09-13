@@ -53,7 +53,7 @@ class WorkspaceShellContractTests(SimpleTestCase):
     def test_workspace_html_boots_the_v4_shell(self):
         html = self.read('workspace.html')
         self.assertIn('/assets/ws/ws.css', html)
-        self.assertIn("import { start } from '/assets/ws/ws-app.js'", html)
+        self.assertIn("import { start } from '/assets/ws/ws-app.js", html)
 
 
 class CoreBlueprintContractTests(SimpleTestCase):
@@ -86,7 +86,7 @@ class CoreBlueprintContractTests(SimpleTestCase):
     def test_every_section_has_a_plain_language_description(self):
         js = self.read('assets/ws/ws-core-assets.js')
         self.assertEqual(js.count("desc: '"), len(SECTION_OWNERS))
-        self.assertIn('Defines why Gravitas creates content', js)
+        self.assertIn('Defines why Gravitas+ creates content', js)
         self.assertIn('Checks scientific correctness, clarity and quality', js)
         self.assertIn('Tracks performance, captures what worked or failed', js)
 

@@ -26,6 +26,7 @@ from core.space_full_api import (
     space_sync_full,
 )
 from core.space_reconcile_full import reconcile_space_complete
+from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -47,6 +48,8 @@ urlpatterns = [
     path('api/platform/space/items/<int:item_id>/', space_item_detail),
     path('api/platform/space/sync/', space_sync_full),
     path('api/platform/space/reconcile/', reconcile_space_complete),
+    path('api/platform/pages/', workspace_pages),
+    path('api/platform/pages/<str:page_id>/', workspace_page_detail),
     # Safe cleanup for the six fixed folders created by older Gravitas builds.
     # This route precedes core.urls so it remains canonical even as the legacy
     # project API surface evolves.

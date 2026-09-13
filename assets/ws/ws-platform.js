@@ -91,6 +91,22 @@ export function isCoreAdmin() {
 export const dashboard = (workspace) => call(`/platform/dashboard/?workspace=${workspace}`);
 export const projects = () => call('/platform/projects/');
 export const project = (id) => call(`/platform/projects/${id}/`);
+export const projectCockpit = (id) => call(`/platform/projects/${id}/cockpit/`);
+export const spaceTree = () => call('/platform/space/tree/');
+export const spaceItems = () => call('/platform/space/items/');
+export const spaceNotes = () => call('/platform/space/notes/');
+export const syncSpace = () => call('/platform/space/sync/', { method: 'POST', body: {} });
+export const createSpaceFolder = ({ title, parentId = null }) => call('/platform/space/tree/', {
+  method: 'POST', body: { title, kind: 'category', parent_id: parentId },
+});
+export const renameSpaceFolder = (id, title) => call(`/platform/space/nodes/${id}/`, {
+  method: 'PATCH', body: { title },
+});
+export const createSpaceItem = (payload) => call('/platform/space/items/', { method: 'POST', body: payload });
+export const updateSpaceItem = (id, payload) => call(`/platform/space/items/${id}/`, {
+  method: 'PATCH', body: payload,
+});
+export const deleteSpaceItem = (id) => call(`/platform/space/items/${id}/`, { method: 'DELETE' });
 export const content = () => call('/platform/content/');
 export const resources = (kind) => call(`/platform/resources/?kind=${encodeURIComponent(kind)}`);
 export const mindmaps = () => call('/platform/mindmaps/');
@@ -131,3 +147,50 @@ export function formatDate(value) {
 export function meta(parts) {
   return parts.filter(Boolean).join(' · ');
 }
+
+/* Compatibility renderer for the Core Tasks screen.
+   The canonical V4 view calls taskRow(task), but the helper was accidentally
+   dropped during the frontend sync. Because ws-views.js imports this module
+   before rendering, publishing the helper on the global environment restores
+   the missing binding without fabricating any task data. Keep the adapter
+   tolerant of both dashboard and operating API shapes. */
+globalThis.taskRow = function taskRow(task) {
+  const node = document.createElement('div');
+  node.className = 'v-row';
+
+  const main = document.createElement('div');
+  main.className = 'v-row__main';
+
+  const title = document.createElement('strong');
+  title.textContent = task?.title || 'Untitled task';
+  main.append(title);
+
+  const initiative = typeof task?.initiative === 'string'
+    ? task.initiative
+    : task?.initiative?.title || task?.trace?.initiative?.title || '';
+  const owner = typeof task?.owner === 'string'
+    ? task.owner
+    : task?.owner?.name || task?.owner?.email || '';
+  const detail = meta([initiative, owner, formatDate(task?.due_date)]);
+  if (detail) {
+    const sub = document.createElement('small');
+    sub.textContent = detail;
+    main.append(sub);
+  }
+
+  const badges = [label(task?.priority), label(task?.status)].filter(Boolean);
+  if (badges.length) {
+    const strip = document.createElement('div');
+    strip.className = 'v-badges';
+    for (const text of badges) {
+      const badge = document.createElement('span');
+      badge.className = 'v-badge';
+      badge.textContent = text;
+      strip.append(badge);
+    }
+    main.append(strip);
+  }
+
+  node.append(main);
+  return node;
+};

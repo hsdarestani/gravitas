@@ -1,6 +1,33 @@
 /* Production-only parity fixes.
    Keep this file tiny and load it after the canonical Kiarash styles. */
 
+/* The current canonical stylesheet dropped the shared mark rules while the
+   HTML still renders the header brand as an empty .g-mark span. Restore the
+   exact mask-based logo contract here so every page paints the checked-in
+   Gravitas+ SVG again without changing Kiarash's page markup. */
+.g-mark {
+  display: block;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.g-mark--logotype {
+  aspect-ratio: 661 / 118.2;
+  -webkit-mask-image: url("logos/Logotype_Black.svg");
+  mask-image: url("logos/Logotype_Black.svg");
+}
+.g-mark--logo {
+  aspect-ratio: 491.17 / 491.22;
+  -webkit-mask-image: url("logos/Logo_Black.svg");
+  mask-image: url("logos/Logo_Black.svg");
+}
+.g-logo .g-mark--logotype { height: 1.75rem; }
+.g-logo .g-mark--logo { height: 2rem; }
+
 /* Homepage stats: the separators are literal middot characters in the DOM.
    They remain visible even if a stylesheet is delayed or replaced. */
 .lp-hero__credit > .lp-hero__sep {
