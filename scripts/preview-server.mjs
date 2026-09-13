@@ -67,6 +67,13 @@ async function resolveFile(pathname) {
   if (redirects[pathname]) return { redirect: redirects[pathname] };
   if (pathname === '/login' || pathname === '/signup') return { file: path.join(ROOT, 'account.html') };
   if (pathname === '/workspace' || pathname.startsWith('/workspace/')) {
+    /* nginx serves workspace.html for every /workspace/* path, which means a
+       relative asset href inside the shell resolves under the route rather
+       than under the site root, and the catch-all answers it with the HTML.
+       Production rewrites those back to the real file; mirror it here, or the
+       preview quietly works where the deployed site loses its stylesheet. */
+    const nested = pathname.match(/^\/workspace\/.+?\/(assets\/.*)$/);
+    if (nested) return { redirect: '/' + nested[1] };
     return { file: path.join(ROOT, 'workspace.html') };
   }
 

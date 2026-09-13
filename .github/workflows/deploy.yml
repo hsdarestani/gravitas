@@ -270,7 +270,15 @@ jobs:
               location = /login { try_files /account.html =404; }
               location = /signup { try_files /account.html =404; }
               location = /workspace { try_files /workspace.html =404; }
-              location ^~ /workspace/ { try_files /workspace.html =404; }
+              # The shell is one file served under every /workspace/* path, so a
+              # relative asset href inside it resolves to a nested path that this
+              # same catch-all would answer with the HTML. Send those back to the
+              # real file instead of handing the browser a stylesheet made of
+              # markup, which nosniff rejects and which reads as a missing logo.
+              location ^~ /workspace/ {
+                  rewrite ^/workspace/.+?/(assets/.*)$ /\$1 last;
+                  try_files /workspace.html =404;
+              }
 
               location / {
                   try_files \$uri \$uri/ /index.html;
@@ -319,7 +327,15 @@ jobs:
               location = /login { try_files /account.html =404; }
               location = /signup { try_files /account.html =404; }
               location = /workspace { try_files /workspace.html =404; }
-              location ^~ /workspace/ { try_files /workspace.html =404; }
+              # The shell is one file served under every /workspace/* path, so a
+              # relative asset href inside it resolves to a nested path that this
+              # same catch-all would answer with the HTML. Send those back to the
+              # real file instead of handing the browser a stylesheet made of
+              # markup, which nosniff rejects and which reads as a missing logo.
+              location ^~ /workspace/ {
+                  rewrite ^/workspace/.+?/(assets/.*)$ /\$1 last;
+                  try_files /workspace.html =404;
+              }
 
               location / {
                   try_files \$uri \$uri/ /index.html;

@@ -140,25 +140,28 @@ function setMode(mode, reason) {
   announce();
 }
 
-export async function boot() {
-  try {
-    state.user = await request('/auth/me/');
-  } catch {
-    state.user = null;
+/* `user` is passed in by the shell, which has already asked /auth/me/ for the
+   greeting. Asking again here was a second identical round trip in front of
+   the first screen, and the two answers could not usefully disagree.
+
+   This no longer probes /workspace/pages/ either. tree() is the very next
+   call and fetches exactly that route, so the probe was the same request
+   twice: it is tree() that now reports the mode, on the evidence of the call
+   the shell actually needed. Until it answers the mode stays 'unknown',
+   which the status bar reads as "connecting" rather than as a verdict. */
+export async function boot({ user } = {}) {
+  if (user !== undefined) {
+    state.user = user;
+  } else {
+    try {
+      state.user = await request('/auth/me/');
+    } catch {
+      state.user = null;
+    }
   }
 
   if (!state.user || state.user.authenticated === false) {
     setMode('local', 'Signed out. Pages are saved in this browser.');
-    return state;
-  }
-
-  try {
-    await request('/workspace/pages/');
-    setMode('server', 'Connected.');
-  } catch (err) {
-    setMode('local', err instanceof Unavailable && err.status === 404
-      ? 'Page service not deployed on this build. Pages are saved in this browser.'
-      : 'Page service unreachable. Pages are saved in this browser.');
   }
   return state;
 }
@@ -171,7 +174,14 @@ async function withFallback(fn, local) {
     return await fn();
   } catch (err) {
     if (err instanceof Unavailable) {
-      setMode('local', 'Page service stopped responding. Pages are saved in this browser.');
+      /* 404 is a different sentence from a timeout, and the reader deserves
+         the right one: one says this build has no page service, the other
+         says the one it has stopped answering. boot() used to draw that
+         distinction on its own probe; the probe is gone, so it is drawn
+         here, where the failure actually happens. */
+      setMode('local', err.status === 404 || err.status === 501
+        ? 'Page service not deployed on this build. Pages are saved in this browser.'
+        : 'Page service unreachable. Pages are saved in this browser.');
       return local();
     }
     throw err;
@@ -189,9 +199,30 @@ export function tree() {
       const data = await request('/workspace/pages/');
       serverNodes = data.nodes || [];
       serverPages = Object.fromEntries((data.pages || []).map((page) => [String(page.id), page]));
+      // The one call that proves the page service is live, so it is the one
+      // that says so. withFallback handles the other direction already.
+      setMode('server', 'Connected.');
       return structuredClone(serverNodes);
     },
     () => structuredClone(store.nodes)
+  );
+}
+
+/* Every page the reader owns, keyed by id, from whichever side is live.
+
+   This exists because the shell used to warm its cache by walking the tree
+   and awaiting page() for each row, one request at a time. The list endpoint
+   already returns each page in full — blocks included — so those were N
+   sequential round trips for data that had arrived in the first one, and the
+   route could not draw until the last of them came back. On an account with
+   thirty notes that is thirty trips of latency before anything appears, which
+   is the delay the workspace was being judged for.
+
+   A snapshot, cloned, because callers hold it in ui state and edit it. */
+export function allPages() {
+  const source = state.mode === 'server' ? serverPages : store.pages;
+  return structuredClone(
+    Object.fromEntries(Object.entries(source).map(([id, value]) => [String(id), value]))
   );
 }
 

@@ -1377,6 +1377,13 @@ function updateStatus() {
     const who = P.platform.boot.access.core ? 'Core and Research' : 'Research';
     mode.textContent = who;
     mode.title = `Signed in. Workspaces you can open: ${who}.`;
+  } else if (!P.platform.settled) {
+    /* Not yet an answer, so not yet a verdict. This branch used to fall
+       through to "Offline / The platform did not answer" on the first paint,
+       every time, which is the shell reporting a failure it has not observed —
+       the one thing ui.booting exists to prevent. */
+    mode.textContent = 'Connecting';
+    mode.title = 'Loading your workspaces.';
   } else {
     mode.textContent = 'Offline';
     mode.title = 'The platform did not answer.';
@@ -1555,14 +1562,17 @@ export async function start() {
     return;
   }
 
-  await api.boot();
+  // The user is handed over rather than fetched again: loadBootstrap has
+  // already asked who this is.
+  await api.boot({ user: P.platform.user });
   ui.nodes = await api.tree();
-  ui.pagesById = {};
-  for (const node of ui.nodes) {
-    if (node.kind === 'folder' || node.phantom) continue;
-    const body = await api.page(node.id);
-    if (body) ui.pagesById[node.id] = body;
-  }
+
+  /* One call, not one per page. The tree response carries every page in full,
+     so this reads the cache tree() just filled instead of walking the rows and
+     awaiting a request for each. That loop was the boot delay: it ran in
+     series, and apply() below — the call that finally draws the screen the
+     reader asked for — sat behind the last of it. */
+  ui.pagesById = api.allPages();
 
   mountPalette({
     go, api, platform: P,

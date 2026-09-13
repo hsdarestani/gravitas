@@ -53,7 +53,39 @@ export const platform = {
   boot: null,
   user: null,
   error: null,
+  /* What the last successful bootstrap on this machine said about access, and
+     whether this one has answered yet. Together they let the shell draw the
+     rail once instead of twice.
+
+     Without the memo the first paint has no access rules, so Core is missing
+     from the rail and from the index, and the reader watches it appear a
+     round trip later and push every other workspace down. Remembering it is
+     not the same thing as inventing data: it is last week's answer to the
+     same question, it is replaced the moment the real one lands, and the
+     server still authorizes every route behind it. A revoked membership loses
+     the button one paint late; a member stops seeing the shell rearrange
+     itself on every refresh. */
+  remembered: null,
+  settled: false,
 };
+
+const ACCESS_MEMO = 'gravitas.ws.access.v1';
+
+function rememberAccess(access) {
+  platform.remembered = access
+    ? { core: !!access.core, core_role: access.core_role || '' }
+    : null;
+  try {
+    if (platform.remembered) localStorage.setItem(ACCESS_MEMO, JSON.stringify(platform.remembered));
+    else localStorage.removeItem(ACCESS_MEMO);
+  } catch { /* storage denied: the shell just paints twice, as it used to */ }
+}
+
+// Read at module load, before the first paint asks.
+try {
+  const saved = JSON.parse(localStorage.getItem(ACCESS_MEMO) || 'null');
+  if (saved && typeof saved === 'object') platform.remembered = saved;
+} catch { /* storage denied or corrupt */ }
 
 export async function loadBootstrap() {
   // Both at once. The greeting needs the name and the shell needs the access
@@ -70,17 +102,30 @@ export async function loadBootstrap() {
     platform.boot = null;
     platform.error = err instanceof AuthRequired ? 'signed-out' : 'unreachable';
   }
+
+  platform.settled = true;
+  // A signed-out answer clears the memo rather than keeping it: the next
+  // reader of this browser is not necessarily the same person.
+  if (platform.boot) rememberAccess(platform.boot.access);
+  else if (platform.error === 'signed-out') rememberAccess(null);
   return platform.boot;
 }
 
+/* Both of these are asked during the first paint, before bootstrap has
+   answered. Until it does they answer from the memo; after it does they
+   answer only from the server. */
+
 export function canOpenCore() {
-  return !!platform.boot?.access?.core;
+  if (platform.boot) return !!platform.boot.access?.core;
+  if (platform.settled) return false;
+  return !!platform.remembered?.core;
 }
 
 /* Team and Access is owner and admin only. The server enforces this too;
    hiding the entry here is so nobody is offered a door that will not open. */
 export function isCoreAdmin() {
-  const role = platform.boot?.access?.core_role;
+  const source = platform.boot?.access || (platform.settled ? null : platform.remembered);
+  const role = source?.core_role;
   return role === 'owner' || role === 'admin';
 }
 

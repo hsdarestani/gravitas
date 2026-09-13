@@ -23,7 +23,13 @@
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/ws/ws.css?v=20260913-2">
   <script src="/assets/gravitas-icons.js" defer></script>
-<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09">
+  <!-- Root-absolute, and it has to stay that way. nginx serves this one file
+       for every /workspace/* route, so a relative "assets/..." href on
+       /workspace/core/tasks resolves to /workspace/core/assets/..., which the
+       same catch-all answers with this HTML again. With nosniff the browser
+       then refuses it as a stylesheet and the masked wordmark vanishes on
+       refresh: the bug looks like a flaky logo and is really a relative URL. -->
+<link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09">
 </head>
 <body>
   <a class="g-skip-link" href="#ws-view">Skip to the page</a>
@@ -135,6 +141,6 @@
     if (window.GravitasIcons) start();
     else addEventListener('load', start, { once: true });
   </script>
-<script src="assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09" defer></script>
+<script src="/assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09" defer></script>
 </body>
 </html>
