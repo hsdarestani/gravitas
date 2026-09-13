@@ -83,14 +83,25 @@
        The accent dot is the mass the edges bend around, and it is the counter
        the logo leaves open at its own centre.
 
-       Cap 21.0, not the 19.6 the outline marks share. A diamond spends its
-       extent on four points and carries no ink at the corners of its box, so
-       at a matched extent it reads a size smaller than the square-ish marks
-       either side of it in the rail. Checked against home, projects, tasks
-       and space-knowledge at 19px rather than reasoned about. Stroke stays a
-       true 1.7 and the geometry is stated at final size, so unlike the fitted
-       marks above this one needs no counter-scaling transform. */
-    plusar: "<g stroke-width=\"1.7\"><path d=\"M12 1.5C14.54 5.96 18.04 9.46 22.5 12C18.04 14.54 14.54 18.04 12 22.5C9.46 18.04 5.96 14.54 1.5 12C5.96 9.46 9.46 5.96 12 1.5Z\"/><circle cx=\"12\" cy=\"12\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
+       Cap 19.2, under the 19.6 the outline marks share rather than over it.
+       The reasoning that put this mark above its neighbours was the usual
+       one — a diamond carries no ink at the corners of its box, so it should
+       be drawn a little large to match. It is wrong here, and two rounds of
+       looking at the rail on a phone said so: 21.0 read as a different,
+       larger icon, and 19.9 still read big. The reason is where the ink
+       sits, not how much of it there is. A diamond puts its four points on
+       the cardinal axes, exactly where the cube, the orbit and the spiral
+       either side of it present flat edges, so at a matched cap it is the
+       only mark in the column that reaches past the others at top, bottom
+       and sides. Pulling it under the shared cap is what lines those extremes
+       up. The corner void never mattered; nothing in the rail is close enough
+       to a corner for the eye to miss it.
+
+       The geometry below is still stated at the original 21.0 cap and fitted
+       down by the transform, the same way the marks above are, so the drawn
+       path stays the one the curve rationale describes. Stroke is
+       counter-scaled to land on a true 1.7. */
+    plusar: "<g transform=\"translate(1.029 1.029) scale(0.914286)\" stroke-width=\"1.859\"><path d=\"M12 1.5C14.54 5.96 18.04 9.46 22.5 12C18.04 14.54 14.54 18.04 12 22.5C9.46 18.04 5.96 14.54 1.5 12C5.96 9.46 9.46 5.96 12 1.5Z\"/><circle cx=\"12\" cy=\"12\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     plus: "<g transform=\"translate(-2.099 -2.094) scale(1.174958)\" stroke-width=\"1.447\"><path d=\"M12 4.4v15.2\"/><path d=\"M4.4 12h15.2\"/></g>",
     arrow: "<g transform=\"translate(-2.850 -0.453) scale(1.033855)\" stroke-width=\"1.644\"><path d=\"M3.4 12h17.2\"/><path d=\"m14.2 5.6 6.4 6.4-6.4 6.4\"/></g>",

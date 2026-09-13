@@ -79,6 +79,30 @@ const writePrefs = (patch) => {
   try { localStorage.setItem(PREFS, JSON.stringify({ ...readPrefs(), ...patch })); } catch { /* optional */ }
 };
 
+/* ---- Where a pane stops being a column ----------------------------------
+   These two widths are section 9 of ws.css, restated. The stylesheet decides
+   whether a pane floats over the page; this file decides whether it may be
+   open and whether that state is worth remembering. The two have to agree:
+   when they drifted apart the dock toggle between 861 and 1100px flipped a
+   pane the stylesheet had already made unreachable, so the button did
+   nothing at every laptop width.
+
+   Module scope rather than inside start(), because the rail and the views
+   open the dock too and they need the same answer. */
+const NARROW = matchMedia('(max-width: 860px)');
+const DOCK_FLOATS = matchMedia('(max-width: 1100px)');
+
+/* Opening the assistant, from the rail or from a view. On a width where the
+   dock floats it is an overlay, so the index gets out of its way and the
+   open state is not written back: a panel somebody opened once on a phone
+   should not be waiting for them on the machine they actually work on. */
+function openDock(tab) {
+  ui.dock = true;
+  ui.dockTab = tab;
+  if (NARROW.matches) ui.index = false;
+  writePrefs(DOCK_FLOATS.matches ? { dockTab: tab } : { dock: true, dockTab: tab });
+}
+
 /* ==========================================================================
    ROUTING
    Real paths. Every route the previous workspace published still resolves to
@@ -244,9 +268,7 @@ function renderRail() {
      mindmap is still the Mind Maps section's own icon in ws-nav.js, so
      pointing this button back at it puts one drawing on two unrelated rows. */
   rail.append(railButton('plusar', 'Plusar', ui.dock && ui.dockTab === 'assistant', () => {
-    ui.dock = true;
-    ui.dockTab = 'assistant';
-    writePrefs({ dock: true, dockTab: 'assistant' });
+    openDock('assistant');
     render();
     focusAssistant();
   }));
@@ -1229,9 +1251,7 @@ function viewContext() {
     reload: () => start(),
 
     openAssistant: (question) => {
-      ui.dock = true;
-      ui.dockTab = 'assistant';
-      writePrefs({ dock: true, dockTab: 'assistant' });
+      openDock('assistant');
       render();
       askAssistant(question);
     },
@@ -1508,28 +1528,48 @@ export async function start() {
   if (prefs['--ws-index-w']) document.documentElement.style.setProperty('--ws-index-w', prefs['--ws-index-w']);
   if (prefs['--ws-dock-w']) document.documentElement.style.setProperty('--ws-dock-w', prefs['--ws-dock-w']);
 
-  /* Below 860px the index is an overlay rather than a column, so it starts
-     closed: opening on load would put a navigation tree over the screen
-     somebody asked for. Watched rather than read once, because a tablet
-     rotating crosses this line without a reload. */
-  const narrow = matchMedia('(max-width: 860px)');
-  const applyWidth = (matches) => {
-    ui.index = matches ? false : readPrefs().index !== false;
+  /* Below 1100px the dock is an overlay over the page rather than a column
+     beside it, and below 860px the index is too. An overlay starts closed:
+     restoring a saved "open" on a phone puts a panel over the screen
+     somebody asked for. Both are watched rather than read once, because a
+     tablet rotating crosses these lines without a reload.
+
+     closeOverlays dismisses whatever is floating and reports whether anything
+     actually closed, so a caller can skip a redraw it does not need. */
+  const closeOverlays = () => {
+    let changed = false;
+    if (NARROW.matches && ui.index) { ui.index = false; changed = true; }
+    if (DOCK_FLOATS.matches && ui.dock) { ui.dock = false; changed = true; }
+    return changed;
+  };
+
+  const applyWidth = () => {
+    ui.index = NARROW.matches ? false : readPrefs().index !== false;
+    ui.dock = DOCK_FLOATS.matches ? false : readPrefs().dock !== false;
     render();
   };
-  narrow.addEventListener('change', (event) => applyWidth(event.matches));
+  NARROW.addEventListener('change', applyWidth);
+  DOCK_FLOATS.addEventListener('change', applyWidth);
 
   wireGrip($('#ws-grip-index'), { variable: '--ws-index-w', min: 200, max: 460, from: 'left' });
   wireGrip($('#ws-grip-dock'), { variable: '--ws-dock-w', min: 260, max: 520, from: 'right' });
 
+  /* Two overlays over one phone screen is one too many, so opening either
+     closes the other. On a desktop both are columns and neither is in the
+     other's way, which is why the exclusion is conditional rather than a
+     rule of the shell. A width where a pane floats is also a width whose
+     pane state is not worth remembering: the preference belongs to the
+     machine the reader works on, not to the phone they checked it from. */
   $('#ws-toggle-index').addEventListener('click', () => {
     ui.index = !ui.index;
-    if (!narrow.matches) writePrefs({ index: ui.index });
+    if (ui.index && NARROW.matches) ui.dock = false;
+    if (!NARROW.matches) writePrefs({ index: ui.index });
     render();
   });
   $('#ws-toggle-dock').addEventListener('click', () => {
     ui.dock = !ui.dock;
-    writePrefs({ dock: ui.dock });
+    if (ui.dock && NARROW.matches) ui.index = false;
+    if (!DOCK_FLOATS.matches) writePrefs({ dock: ui.dock });
     render();
   });
   $('#ws-open-palette').addEventListener('click', () => openPalette());
@@ -1537,15 +1577,28 @@ export async function start() {
   // The scrim is a pseudo-element on the shell, so a tap landing on the shell
   // itself rather than on a pane is a tap on the scrim.
   $('#ws').addEventListener('click', (event) => {
-    if (event.target === $('#ws') && narrow.matches && ui.index) { ui.index = false; render(); }
+    if (event.target === $('#ws') && closeOverlays()) render();
   });
-  addEventListener('ws:navigate', () => {
-    if (narrow.matches && ui.index) ui.index = false;
+
+  /* Escape dismisses a floating pane, which is what every overlay on the web
+     has taught people to expect. The palette is checked first: it is the
+     overlay above these, it handles its own Escape, and closing the panel
+     underneath at the same time would answer a keypress twice. */
+  addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (document.querySelector('.ws-palette:not([hidden])')) return;
+    if (closeOverlays()) render();
   });
+
+  /* Navigating is the reader saying they are done with the panel they
+     navigated from. render() follows from the route change itself, so this
+     only has to set the state. */
+  addEventListener('ws:navigate', closeOverlays);
 
   addEventListener('popstate', () => apply(location.pathname));
 
-  ui.index = !narrow.matches && prefs.index !== false;
+  ui.index = !NARROW.matches && prefs.index !== false;
+  ui.dock = !DOCK_FLOATS.matches && prefs.dock !== false;
   ui.route = parse(location.pathname);
   ui.area = areaOf(location.pathname);
 

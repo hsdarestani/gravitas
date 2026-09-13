@@ -965,50 +965,130 @@
 
 /* ==========================================================================
    9. RESPONSIVE
-   Below 1100px the dock leaves, below 860px the index becomes an overlay
-   and the rail moves to the bottom, where a thumb can reach it.
+   Three widths, and a fourth axis that is not a width at all.
+
+   1100px  the dock stops being a column and becomes an overlay on the right.
+    860px  the index does the same, from the left.
+    640px  the rail moves to the bottom, where a thumb can reach it.
+
+   The fourth axis is the pointer. A finger is not a mouse with a shorter
+   reach: it is about nine millimetres wide, it cannot hover, and on iOS it
+   summons a zoom whenever it lands in a field whose text is under 16px —
+   a zoom the browser never undoes, which leaves the reader typing into a
+   shell that no longer fits the screen. Those rules live in the
+   (pointer: coarse) block at the end and apply at every width, because a
+   thirteen-inch touchscreen is still a touchscreen.
+
+   Safe-area insets matter on this page and nowhere else on the site: the
+   workspace is the one screen that pins something to the bottom edge, and
+   on a phone that edge is where the home indicator lives.
    ========================================================================== */
 @layer ws-utilities {
+  /* The two bars that run the full width of the shell keep their content
+     clear of a notch, at every width and on every device: env() resolves to
+     zero where there is no inset, so neither needs a query to guard it.
+     They are the only two rules on the site that need this, and they need it
+     because workspace.html is the one page that asks for viewport-fit=cover. */
+  .ws-topbar { padding-inline: calc(10px + env(safe-area-inset-left, 0px)) calc(var(--g-space-xs) + env(safe-area-inset-right, 0px)); }
+  .ws-status { padding-inline: calc(10px + env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-right, 0px)); }
+
+  :root {
+    /* Named because four rules have to clear the bottom rail, and the same
+       literal repeated four times is the kind of thing that drifts. */
+    --ws-rail-h: 52px;
+    --ws-safe-b: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* ---- 1100px: the dock floats -----------------------------------------
+     It used to be keyed on a data-dock-overlay attribute that nothing in the
+     shell ever set, so between 861 and 1100 the toggle flipped a pane that
+     could not become visible: the button did nothing, and the assistant, the
+     task list and the journal were simply unreachable at laptop width. The
+     open state is the only condition there ever was. */
   @media (max-width: 1100px) {
-    .ws .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-index-w) minmax(0, 1fr) 0; }
+    .ws .ws__body,
+    .ws[data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-index-w) minmax(0, 1fr) 0; }
+    .ws[data-index="off"] .ws__body,
+    .ws[data-index="off"][data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
     .ws .ws__dock { visibility: hidden; }
-    /* The dock is still reachable: opening it takes the whole right side. */
-    .ws[data-dock="on"][data-dock-overlay] .ws__dock {
+
+    .ws[data-dock="on"] .ws__dock {
       visibility: visible;
       position: fixed; inset-block: var(--ws-topbar-h) var(--ws-status-h);
       right: 0; width: min(360px, 88vw);
       z-index: var(--g-z-overlay);
       box-shadow: var(--g-shadow);
     }
+    /* Nothing to drag once the pane is fixed. The index grip stays, because
+       the index is still a real column at this width. */
+    .ws__dock .ws-grip { display: none; }
+
+    /* The topbar stays above the scrim and above the panel, because it holds
+       the button that closes them. Dimming the only way out and making it
+       take two taps instead of one is the thing overlays get wrong. */
+    .ws-topbar { position: relative; z-index: calc(var(--g-z-overlay) + 1); }
+
+    /* A scrim, so the panel reads as a layer over the page rather than as a
+       pane that has eaten it. Tapping it closes: the handler in ws-app.js
+       treats a click landing on the shell itself as a click on the scrim. */
+    .ws[data-dock="on"]::after {
+      content: ""; position: fixed; inset: var(--ws-topbar-h) 0 0 0;
+      background: rgb(1 18 28 / 0.4);
+      z-index: calc(var(--g-z-overlay) - 1);
+    }
   }
 
+  /* ---- 860px: the index floats too -------------------------------------- */
   @media (max-width: 860px) {
-    .ws .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
+    .ws .ws__body,
+    .ws[data-index="on"] .ws__body,
+    .ws[data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
     .ws[data-index="on"] .ws__index {
       visibility: visible;
       position: fixed; inset-block: var(--ws-topbar-h) var(--ws-status-h);
-      left: var(--ws-rail-w); width: min(300px, 82vw);
+      left: var(--ws-rail-w); width: min(320px, 84vw);
       z-index: var(--g-z-overlay);
       box-shadow: var(--g-shadow);
     }
     .ws-grip { display: none; }
-    .ws-doc { padding-inline: var(--g-space-sm); }
+    .ws-doc { padding-inline: var(--g-space-sm); padding-top: 20px; }
     .ws-block__gutter { display: none; }   /* no hover target on touch */
 
-    /* The search field collapses to its icon, and the dock toggle goes: the
-       dock is a reading aid, and at this width the page itself needs the
-       room more than its side panel does. */
-    .ws-search { min-width: 0; padding-inline: 7px; }
-    .ws-search__label, .ws-search kbd { display: none; }
-    #ws-toggle-dock { display: none; }
+    /* The search field collapses to its icon. The dock toggle stays: on a
+       phone the assistant and the task list are the reason the panel
+       exists, and hiding the only way in is not a simplification.
 
-    /* A scrim behind the index overlay, so it reads as a layer over the page
-       rather than as a pane that has eaten it. Tapping it closes. */
+       Collapsed, it has stopped being a field: it is the third mark in a row
+       of four. Keeping its border there put a lone rectangle between two
+       borderless icons and a round theme toggle, and four controls drawn
+       three different ways read as three unrelated things rather than one
+       set. So both bordered controls drop their chrome at this width and
+       take the icon button's shape. The square comes from aspect-ratio so it
+       follows whatever height the coarse-pointer block sets, rather than a
+       literal that would drift away from it. */
+    .ws-search {
+      min-width: 0; width: auto; aspect-ratio: 1; padding: 0;
+      justify-content: center;
+      border-radius: var(--ws-r-control);
+      border-color: transparent; background: transparent;
+      color: var(--g-text-muted);
+      cursor: pointer;
+    }
+    .ws-search:hover { border-color: transparent; }
+    .ws-search:active { transform: scale(0.96); }
+    .ws-search__label, .ws-search kbd { display: none; }
+    .theme-toggle { border-color: transparent; }
+
     .ws[data-index="on"]::after {
-      content: ""; position: fixed; inset: 0;
+      content: ""; position: fixed; inset: var(--ws-topbar-h) 0 0 0;
       background: rgb(1 18 28 / 0.4);
       z-index: calc(var(--g-z-overlay) - 1);
     }
+
+    /* The editor's outline is a second copy of the document's headings.
+       Beside the text it is navigation; under it, it is duplication. */
+    .ws-editor-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .ws-editor-outline { display: none; }
   }
 
   /* The breadcrumb is the first thing to go: the page title is the first
@@ -1017,25 +1097,184 @@
     .ws-crumbs { display: none; }
   }
 
+  /* ---- 640px: the rail goes to the bottom -------------------------------- */
   @media (max-width: 640px) {
     .ws { grid-template-rows: var(--ws-topbar-h) minmax(0, 1fr) auto; }
     .ws__body { grid-template-columns: 0 0 minmax(0, 1fr) 0 !important; }
+
+    /* Inside Research the rail carries nine destinations, which is more than
+       fits across a phone. It scrolls sideways rather than squeezing every
+       target below a fingertip: a cramped row of nine marks is a row nobody
+       can hit, and dropping half of them would drop half the product.
+       "safe center" keeps the first item reachable when it does overflow —
+       plain centring puts it behind the scroll origin. */
     .ws-rail {
       position: fixed; inset-inline: 0; bottom: 0;
-      flex-direction: row; justify-content: space-around;
-      height: 52px; padding: 0 4px;
+      flex-direction: row;
+      justify-content: center;
+      justify-content: safe center;
+      gap: 4px;
+      height: calc(var(--ws-rail-h) + var(--ws-safe-b));
+      padding: 0 8px var(--ws-safe-b);
       border-right: 0; border-top: 1px solid var(--g-hairline);
-      z-index: var(--g-z-sticky);
+      overflow-x: auto; overflow-y: hidden;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      /* Above the scrim, for the reason the topbar is: this is the primary
+         navigation on a phone, and navigation that greys out whenever a
+         panel is open is navigation the reader stops trusting. */
+      z-index: calc(var(--g-z-overlay) + 1);
     }
+    /* So the scrim darkens the page and nothing else. */
+    .ws[data-index="on"]::after,
+    .ws[data-dock="on"]::after { bottom: calc(var(--ws-rail-h) + var(--ws-safe-b)); }
+    .ws-rail::-webkit-scrollbar { display: none; }
+    .ws-rail__btn { flex: 0 0 auto; }
     .ws-rail__spacer { display: none; }
-    /* The rail is horizontal here, so the mark goes under the button. */
+    /* The rule separated Home from the workspaces down a vertical stack. In
+       a horizontal one it has to stand up, or it reads as a stray dash. */
+    .ws-rail__rule { flex: 0 0 auto; width: 1px; height: 18px; margin: 0 3px; }
+    /* The rail is horizontal here, so the active mark goes above the button
+       — still on the rail's outer edge, which is the top one now. */
     .ws-rail__btn[aria-current="page"]::before {
       left: 50%; transform: translateX(-50%);
-      bottom: -4px; width: 18px; height: 2px;
+      top: -5px; bottom: auto; width: 18px; height: 2px;
     }
+    /* The rail tooltip goes. Beside the button is off the screen edge, and
+       above it is inside a sideways scroller that would clip it. It was
+       never the label anyway: aria-label is, and it is still there for the
+       readers who need it spoken. A hover affordance on a surface that
+       cannot be hovered is not a loss. */
+    .ws-rail .ws-tip { display: none; }
+
+    /* Landscape on a notched phone puts the rail's ends under the rounded
+       corners, and the bar is the full width of the screen here. */
+    .ws-rail { padding-inline: calc(8px + env(safe-area-inset-left, 0px)) calc(8px + env(safe-area-inset-right, 0px)); }
+
     .ws-status { display: none; }
-    .ws-view { padding-bottom: 56px; }
-    .ws[data-index="on"] .ws__index { left: 0; inset-block: var(--ws-topbar-h) 52px; }
+    .ws-view { padding-bottom: calc(var(--ws-rail-h) + var(--ws-safe-b)); }
+
+    /* Both overlays stop at the rail rather than running under it, and both
+       take 84% of the width rather than all of it. The strip they leave is
+       not wasted page: it is the target that closes them, and a drawer with
+       nothing beside it is a drawer whose only way out is a button in the
+       corner. */
+    .ws[data-index="on"] .ws__index,
+    .ws[data-dock="on"] .ws__dock {
+      inset-block: var(--ws-topbar-h) calc(var(--ws-rail-h) + var(--ws-safe-b));
+    }
+    .ws[data-index="on"] .ws__index { left: 0; width: min(320px, 84vw); }
+    .ws[data-dock="on"] .ws__dock { right: 0; width: min(340px, 84vw); }
+
+    /* The palette is opened by keyboard on a desktop and by thumb here, so
+       it sits higher and taller: the on-screen keyboard takes half the
+       screen the moment the field is focused. dvh, because that keyboard is
+       exactly what makes vh lie. */
+    .ws-palette { padding-top: 7vh; }
+    .ws-palette__box { width: calc(100vw - 20px); max-height: 72dvh; }
+
+    /* A sideways board on a phone is a carousel whether it admits it or not,
+       so the columns are card-width and snap. A 168px column on a 390px
+       screen shows one and two thirds of another, which reads as a layout
+       that failed rather than as something to swipe. */
+    .v-board { grid-auto-columns: min(78vw, 260px); scroll-snap-type: x proximity; }
+    .v-column { scroll-snap-align: start; }
+    .rkms-board { grid-template-columns: repeat(4, min(78vw, 260px)); scroll-snap-type: x proximity; }
+    .rkms-lane { scroll-snap-align: start; }
+  }
+
+  /* ---- 560px: two-dimensional things become one-dimensional ------------- */
+  @media (max-width: 560px) {
+    /* A label column of 110 to 140px beside the content leaves the content
+       about forty per cent of a phone. Stacked, both get the full measure. */
+    .rkms-event { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .rkms-timeline__row { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 9px 12px; }
+    .v-skill__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rkms-month { padding: 12px; }
+
+    .v-stat { padding: 10px 12px; }
+    .v-stat__value { font-size: 19px; }
+    .v-focus { padding: 12px 13px; }
+    .v-focus__body { font-size: var(--ws-fs); }
+    .v-review { padding: 15px; }
+    .v-review__front { font-size: 17px; }
+    .v-next__title { font-size: 17px; }
+    .ws-doc__title { font-size: 21px; }
+    .v-workspace, .v-asset { padding: 13px; }
+
+    /* A panel head is a title, a note and usually two buttons. On one line
+       at this width the buttons win and the title truncates to nothing. */
+    .v-panel__head { flex-wrap: wrap; row-gap: 6px; }
+    .v-panel__head h2 { flex: 1 0 100%; }
+  }
+
+  /* ---- Touch -------------------------------------------------------------
+     Not a width. A 28px control is comfortable under a mouse and a coin toss
+     under a finger, so the controls the workspace repeats all day grow here,
+     and the rows they sit in grow with them. Written against the density
+     tokens rather than against each component, so the whole shell moves
+     together and nothing is left behind at the old rhythm. */
+  @media (pointer: coarse) {
+    .ws { --ws-row-h: 34px; --ws-list-row-h: 40px; }
+
+    /* The bar kept a 48px shell while every control inside it grew to 38px,
+       which left five pixels of air over the whole row: it read as something
+       that had overflowed rather than as a bar. The shell grows with what it
+       holds, and the wordmark grows with it — a 16px logo beside a 38px
+       target is the one thing left behind at the old scale. */
+    :root { --ws-topbar-h: 56px; }
+    .ws-topbar__brand .g-mark,
+    .ws-topbar__brand svg { height: 18px; }
+    /* Fingertip targets sit against each other, not apart: at 38px the gap
+       is already inside the control, and a wider one only spreads the
+       cluster until it stops reading as one group. */
+    .ws-topbar__lead, .ws-topbar__actions { gap: 2px; }
+
+    .ws-ibtn, .theme-toggle { width: 38px; height: 38px; }
+    .ws-ibtn svg { width: 19px; height: 19px; }
+    .ws-rail__btn { width: 42px; height: 42px; }
+    .ws-rail__btn svg { width: 21px; height: 21px; }
+    /* Matched to .ws-ibtn rather than near it: collapsed, these are the same
+       control drawn four times across, and 36 beside 38 shows as a wobble. */
+    .ws-search { height: 38px; }
+    /* And its mark with it, or the one square in the row holds a smaller
+       icon than its neighbours. */
+    .ws-search .g-wi { width: 19px; height: 19px; }
+    .ws-btn { height: 36px; padding: 0 14px; }
+    .ws-btn--tiny { height: 28px; padding: 0 10px; }
+    .v-mini-btn { padding: 7px 12px; }
+    .ws-tab { padding: 12px 10px 11px; }
+    .ws-cal__day { min-height: 34px; }
+    .ws-opt { padding: 10px 8px; }
+    .v-row { padding: 10px 8px; }
+    .v-choice { padding: 9px 14px; }
+    .v-more { padding: 10px 8px; }
+    .ws-check { flex-basis: 18px; width: 18px; height: 18px; }
+    .ws-check:checked { background-size: 14px; }
+    .v-back { padding: 6px 0; }
+
+    /* 16px is not a taste decision — see the note at the top of this
+       section. Everything a finger can put a caret into clears it. */
+    .ws input:not([type="checkbox"]),
+    .ws textarea,
+    .ws select,
+    .ws-palette__input { font-size: 16px; }
+    .v-input { height: 38px; }
+    .ws-ai__input { min-height: 40px; }
+
+    /* Document text at 14px is an interface size, not a reading size. On a
+       phone held at arm's length it is the difference between reading the
+       page and pinching it. */
+    .ws-block p, .ws-block li, .ws-block__body { font-size: 16px; }
+    /* Raised with it: a 15px h3 over 16px body is a heading that has stopped
+       being one. */
+    .ws-block h2 { font-size: 20px; }
+    .ws-block h3 { font-size: 17px; }
+    .ws-block pre { font-size: 13.5px; }
+
+    /* A tap does not hover, so anything whose only entrance is a hover has
+       to be there already. */
+    .ws-block__gutter { opacity: 1; }
   }
 }
 
@@ -1126,7 +1365,7 @@
      reads as though the narrow one is smaller. */
   .v-stats {
     display: grid; gap: 1px;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
     margin-bottom: var(--g-space-md);
     background: var(--g-hairline);
     border: 1px solid var(--g-hairline);
@@ -1206,7 +1445,7 @@
      for it, since the book reserves plates for the six public marks. */
   .v-workspaces {
     display: grid; gap: var(--g-space-sm);
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
     margin-bottom: var(--g-space-lg);
   }
   .v-workspace {
@@ -1260,7 +1499,7 @@
   /* ---- Project cards ---------------------------------------------------- */
   .v-grid {
     display: grid; gap: var(--g-space-sm);
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   }
   .v-project {
     display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
