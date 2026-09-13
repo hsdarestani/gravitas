@@ -201,6 +201,9 @@ def _normalise_path(raw):
         'item_key': key,
         'done': steps,
         'total': total,
+        # The reader's explicit untick. Without it every POST would be a
+        # union and a step could only ever be added, never taken back.
+        'replace': bool(raw.get('replace')),
         'title': _text(raw.get('title'), 240),
         'url': _text(raw.get('url'), 300),
     }
