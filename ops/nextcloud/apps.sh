@@ -8,7 +8,9 @@ occ() {
 }
 
 enabled() {
-  occ app:list --enabled 2>/dev/null | grep -Eq "^[[:space:]]*-[[:space:]]+$1:"
+  # Do not use grep -q here. With pipefail, an early grep exit can give the
+  # docker exec producer SIGPIPE and turn a positive match into a failure.
+  occ app:list --enabled 2>/dev/null | grep -E "^[[:space:]]*-[[:space:]]+$1:" >/dev/null
 }
 
 ensure_app() {

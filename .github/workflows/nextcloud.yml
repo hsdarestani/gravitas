@@ -183,7 +183,7 @@ jobs:
           sudo systemctl is-active gravitas-nextcloud-backup.timer
           sudo systemctl is-active gravitas-nextcloud-nginx-guard.path
           sudo docker exec -u www-data gravitas-nextcloud php occ status | grep -q 'installed: true'
-          sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -Eq '^[[:space:]]*-[[:space:]]+groupfolders:'
+          sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+groupfolders:' >/dev/null
           sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwriteprotocol | grep -qx 'https'
           sudo grep -q '# BEGIN GRAVITAS NEXTCLOUD' /etc/nginx/sites-available/gravitas
           PUBLIC_URL="$(sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || true)"
@@ -191,7 +191,7 @@ jobs:
             sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritehost | grep -qx 'cloud.gravitasplus.com'
             ! sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot 2>/dev/null | grep -q '/nextcloud'
             sudo test -f /etc/nginx/sites-available/gravitas-nextcloud-cloud
-            sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -Eq '^[[:space:]]*-[[:space:]]+user_oidc:'
+            sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+user_oidc:' >/dev/null
             sudo docker exec -u www-data gravitas-nextcloud php occ user_oidc:provider gravitas --output=json | grep -q 'nextcloud_uid'
             sudo grep -Eq '^NEXTCLOUD_OIDC_PROVIDER_ID=[0-9]+$' /etc/gravitas/backend.env
           else

@@ -479,3 +479,16 @@ class DemoReadinessTests(TestCase):
         for asset in runtime_assets:
             with self.subTest(asset=asset):
                 self.assertTrue((root / 'assets' / 'ws' / asset).exists())
+
+    def test_nextcloud_app_checks_do_not_false_fail_under_pipefail(self):
+        root = Path(__file__).resolve().parents[2]
+        paths = [
+            'ops/nextcloud/apps.sh',
+            'ops/nextcloud/sso.sh',
+            '.github/workflows/nextcloud.yml',
+            '.github/workflows/team-folder-migration.yml',
+        ]
+        for path in paths:
+            with self.subTest(path=path):
+                content = (root / path).read_text(encoding='utf-8')
+                self.assertNotRegex(content, r'app:list[^\n]*\|\s*grep\s+-[^\s\n]*q')

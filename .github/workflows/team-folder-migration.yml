@@ -144,7 +144,7 @@ jobs:
           sudo systemctl is-active gravitas-backend
           sudo systemctl is-active gravitas-nextcloud-nginx-guard.path
           sudo docker inspect -f '{{.State.Running}}' gravitas-nextcloud | grep -qx true
-          sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -Eq '^[[:space:]]*-[[:space:]]+groupfolders:'
+          sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+groupfolders:' >/dev/null
           REMOTE
 
       - name: Run guarded migration
