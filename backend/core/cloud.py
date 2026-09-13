@@ -109,19 +109,18 @@ def ensure_identity(user, quota_bytes):
         raise CloudError('Invalid response from cloud provisioning') from exc
     if ocs_code != 100 and 'already exists' not in ocs_message.lower():
         raise CloudError('Could not provision private cloud storage')
-    if ocs_code != 100:
-        # A prior interrupted request may have created the cloud user but not the
-        # Django mapping. Set a fresh password using the administrator API.
-        response = _request(
-            'PUT',
-            f'{endpoint}/{quote(username, safe="")}',
-            auth=_admin_auth(),
-            expected={100, 200},
-            headers=headers,
-            data={'key': 'password', 'value': password},
-        )
-        if response.status_code == 200:
-            _ocs_data(response, 'Could not recover cloud identity')
+    # Re-assert the generated credential even after a successful create. This
+    # closes a Nextcloud edge case where the OCS create succeeds but the first
+    # DAV request races account initialization or password-policy processing.
+    response = _request(
+        'PUT',
+        f'{endpoint}/{quote(username, safe="")}',
+        auth=_admin_auth(),
+        expected={200},
+        headers=headers,
+        data={'key': 'password', 'value': password},
+    )
+    _ocs_data(response, 'Could not activate cloud identity credentials')
 
     identity = NextcloudIdentity.objects.create(
         user=user,

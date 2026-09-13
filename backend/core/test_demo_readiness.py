@@ -508,3 +508,7 @@ class DemoReadinessTests(TestCase):
         self.assertIn('/ocs/v2.php/cloud/capabilities?format=json', ensure)
         self.assertIn('group:adduser admin', ensure)
         self.assertIn('/index.php/apps/groupfolders/folders?format=json', ensure)
+
+        cloud_source = (root / 'backend/core/cloud.py').read_text(encoding='utf-8')
+        self.assertIn("data={'key': 'password', 'value': password}", cloud_source)
+        self.assertIn('Could not activate cloud identity credentials', cloud_source)
