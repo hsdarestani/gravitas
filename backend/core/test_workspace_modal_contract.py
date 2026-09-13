@@ -73,6 +73,21 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         self.assertIn('P.searchResources(term)', research)
         self.assertIn('P.projects()', research)
 
+    def test_space_sync_conflicts_require_an_explicit_direction(self):
+        platform = self.read('assets/ws/ws-platform.js')
+        research = self.read('assets/ws/ws-research.js')
+        self.assertIn("error.data = data", platform)
+        self.assertIn("P.syncSpace({ force: true, confirmed: true })", research)
+        self.assertIn('P.reconcileSpace()', research)
+        self.assertIn('Keep Gravitas version', research)
+        self.assertIn('Use Nextcloud version', research)
+
+    def test_journal_keys_use_the_readers_local_calendar_date(self):
+        api = self.read('assets/ws/ws-api.js')
+        self.assertIn('function localDateKey(date)', api)
+        self.assertIn("const dateKey = localDateKey(date)", api)
+        self.assertNotIn("const dateKey = date.toISOString().slice(0, 10)", api)
+
     def test_server_notes_only_use_real_space_folders_as_default_parents(self):
         app = self.read('assets/ws/ws-app.js')
         self.assertIn("if (api.state.mode === 'server') return null", app)

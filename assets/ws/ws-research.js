@@ -249,10 +249,36 @@ export function renderFolders(host) {
       body.innerHTML = '';
       const bar = el('div', 'v-toolbar');
       const status = el('span', 'v-note', noteData.cloud_unavailable ? 'Nextcloud currently unavailable' : 'Connected to Space');
+      const conflictActions = (error) => {
+        const prior = body.querySelector('[data-sync-conflict]');
+        if (prior) prior.remove();
+        const box = notice(
+          'Nextcloud has newer changes',
+          `${error.data?.conflicts?.length || 1} path${error.data?.conflicts?.length === 1 ? '' : 's'} changed outside Gravitas. Choose which copy should win.`,
+          true,
+        );
+        box.dataset.syncConflict = '';
+        const actions = el('div', 'v-toolbar');
+        const keepLocal = button('Keep Gravitas version', async () => {
+          keepLocal.disabled = true; useCloud.disabled = true; status.textContent = 'Writing Gravitas versions…';
+          try { await P.syncSpace({ force: true, confirmed: true }); await load(); }
+          catch { status.textContent = 'Conflict could not be resolved'; keepLocal.disabled = false; useCloud.disabled = false; }
+        }, true);
+        const useCloud = button('Use Nextcloud version', async () => {
+          keepLocal.disabled = true; useCloud.disabled = true; status.textContent = 'Reading Nextcloud versions…';
+          try { await P.reconcileSpace(); await load(); }
+          catch { status.textContent = 'Conflict could not be resolved'; keepLocal.disabled = false; useCloud.disabled = false; }
+        });
+        actions.append(keepLocal, useCloud); box.append(actions); bar.after(box);
+      };
       const sync = button('Sync now', async () => {
         sync.disabled = true; status.textContent = 'Synchronising…';
         try { await P.syncSpace(); status.textContent = 'Synchronised'; await load(); }
-        catch { status.textContent = 'Sync failed — no data was discarded'; sync.disabled = false; }
+        catch (error) {
+          status.textContent = 'Sync stopped — no data was discarded';
+          sync.disabled = false;
+          if (error.message === 'space_sync_conflict') conflictActions(error);
+        }
       }, true);
       const add = button('New folder', async () => {
         const title = prompt('Folder name');

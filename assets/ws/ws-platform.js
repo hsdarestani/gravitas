@@ -40,7 +40,12 @@ export async function call(path, { method = 'GET', body } = {}) {
   if (res.status === 401) throw new AuthRequired('authentication_required');
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `http_${res.status}`);
+  if (!res.ok) {
+    const error = new Error(data.error || `http_${res.status}`);
+    error.status = res.status;
+    error.data = data;
+    throw error;
+  }
   return data;
 }
 
@@ -140,7 +145,12 @@ export const projectCockpit = (id) => call(`/platform/projects/${id}/cockpit/`);
 export const spaceTree = () => call('/platform/space/tree/');
 export const spaceItems = () => call('/platform/space/items/');
 export const spaceNotes = () => call('/platform/space/notes/');
-export const syncSpace = () => call('/platform/space/sync/', { method: 'POST', body: {} });
+export const syncSpace = ({ force = false, confirmed = false } = {}) => call('/platform/space/sync/', {
+  method: 'POST', body: { force, confirmed },
+});
+export const reconcileSpace = () => call('/platform/space/reconcile/', {
+  method: 'POST', body: { confirmed: true },
+});
 export const createSpaceFolder = ({ title, parentId = null }) => call('/platform/space/tree/', {
   method: 'POST', body: { title, kind: 'category', parent_id: parentId },
 });

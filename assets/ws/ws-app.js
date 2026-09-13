@@ -656,9 +656,9 @@ function renderEditor(host) {
   picker.addEventListener('change', async () => {
     const file = picker.files?.[0]; picker.value = ''; if (!file) return;
     attach.disabled = true; attach.textContent = 'Uploading…';
-    const form = new FormData(); form.append('file', file); form.append('kind', 'file');
+    const form = new FormData(); form.append('file', file);
     try {
-      const response = await fetch('/api/workspace/files/upload/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
+      const response = await fetch(`/api/workspace/pages/${encodeURIComponent(ui.page.id)}/attachments/`, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
       const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'upload_failed');
       const item = data.item || {};
       ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'attach', text: item.original_name || file.name, kind: (item.mime_type || 'file').split('/').at(-1).toUpperCase(), meta: P.formatBytes ? P.formatBytes(item.file_size) : `${item.file_size || file.size} bytes`, resourceId: item.id });

@@ -5,7 +5,12 @@ from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
-from core.workspace_pages_api import workspace_page_detail, workspace_pages
+from core.workspace_pages_api import (
+    workspace_page_attachment,
+    workspace_page_backlinks,
+    workspace_page_detail,
+    workspace_pages,
+)
 from core.operating_api import (
     cycle_detail,
     cycles,
@@ -207,6 +212,8 @@ urlpatterns = [
     path('workspace/dashboard/', workspace_dashboard),
     path('workspace/pages/', workspace_pages),
     path('workspace/pages/<str:page_id>/', workspace_page_detail),
+    path('workspace/pages/<str:page_id>/backlinks/', workspace_page_backlinks),
+    path('workspace/pages/<str:page_id>/attachments/', workspace_page_attachment),
     path('workspace/projects/', projects),
     path('workspace/projects/<int:project_id>/', project_detail),
     path('workspace/knowledge/', resources),
