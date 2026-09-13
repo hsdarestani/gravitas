@@ -8,8 +8,10 @@ from xml.etree import ElementTree
 
 import requests
 from cryptography.fernet import Fernet, InvalidToken
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.db import transaction
 
 from .models import NextcloudIdentity
 
@@ -95,7 +97,13 @@ def _ocs_data(response, message='Invalid response from Nextcloud'):
         raise CloudError(message) from exc
 
 
+@transaction.atomic
 def ensure_identity(user, quota_bytes):
+    # Project/note sync workers can reach provisioning at the same time as the
+    # foreground request. Lock the stable user row because an identity row does
+    # not exist yet; without this lock, competing workers generate different
+    # passwords for the same Nextcloud username and the last OCS reset wins.
+    get_user_model().objects.select_for_update().only('pk').get(pk=user.pk)
     existing = NextcloudIdentity.objects.filter(user=user).first()
     if existing:
         return existing
