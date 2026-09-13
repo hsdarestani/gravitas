@@ -88,6 +88,33 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         self.assertIn("const dateKey = localDateKey(date)", api)
         self.assertNotIn("const dateKey = date.toISOString().slice(0, 10)", api)
 
+    def test_zip_reference_editor_interactions_are_wired(self):
+        app = self.read('assets/ws/ws-app.js')
+        for contract in (
+            'Recently viewed', 'Bookmarked notes', "block.highlight",
+            "block.comment", "wrap.draggable = true", "Open with…",
+            "type = 'range'", "Page title to link",
+        ):
+            self.assertIn(contract, app)
+
+    def test_zip_reference_tree_and_task_interactions_are_wired(self):
+        api = self.read('assets/ws/ws-api.js')
+        research = self.read('assets/ws/ws-research.js')
+        nav = self.read('assets/ws/ws-nav.js')
+        self.assertIn('decoratedServerNodes', api)
+        self.assertIn("id: 'journal'", api)
+        self.assertIn('phantom-', api)
+        self.assertIn("ctx.go(`/workspace/page/${item.id}`)", research)
+        self.assertIn("Sort: due date", research)
+        self.assertIn("rkms-timeline__bar", research)
+        self.assertIn("tree: true", nav)
+
+    def test_resource_views_have_download_and_open_actions(self):
+        views = self.read('assets/ws/ws-views.js')
+        self.assertIn('function resourceRow(item)', views)
+        self.assertIn('/api/platform/files/${item.id}/download/', views)
+        self.assertIn('Open with…', views)
+
     def test_server_notes_only_use_real_space_folders_as_default_parents(self):
         app = self.read('assets/ws/ws-app.js')
         self.assertIn("if (api.state.mode === 'server') return null", app)

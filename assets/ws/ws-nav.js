@@ -181,6 +181,8 @@ export const RESEARCH_SECTIONS = [
     icon: 'files',
     path: '/workspace/research/folders',
     match: any(under('/workspace/research/folders'), under('/workspace/folder'), under('/workspace/research/files'), under('/workspace/research/datasets'), under('/workspace/research/mindmaps'), under('/workspace/shared')),
+    tree: true,
+    space: 'research',
     children: [
       { id: 'res-files',    label: 'Files & Data Rooms', icon: 'files',    path: '/workspace/research/files',     match: under('/workspace/research/files') },
       { id: 'res-datasets', label: 'Datasets',           icon: 'datasets', path: '/workspace/research/datasets',  match: under('/workspace/research/datasets') },

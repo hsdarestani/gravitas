@@ -197,6 +197,14 @@ export function formatDate(value) {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+export function formatBytes(value) {
+  const bytes = Number(value) || 0;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+}
+
 /* Joins the parts of a metadata line, dropping the empty ones. Without the
    filter an item with no due date renders as "High · Open ·  · " and the
    stray separators read as missing data rather than as absent fields. */

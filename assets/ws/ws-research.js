@@ -62,7 +62,10 @@ export function renderCalendar(host, ctx) {
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const journalDays = new Set(pages.filter((page) => page.kind === 'journal').map((page) => page.journal_date));
     const month = el('section', 'v-panel rkms-month');
-    month.append(el('h2', 'v-panel__title', now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })));
+    const monthHead = el('div', 'v-toolbar');
+    monthHead.append(el('h2', 'v-panel__title', now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })));
+    const todayButton = button('Today', () => ctx.openJournal(new Date()), true);
+    monthHead.append(todayButton); month.append(monthHead);
     const grid = el('div', 'rkms-month__grid');
     for (const label of ['S', 'M', 'T', 'W', 'T', 'F', 'S']) grid.append(el('span', 'rkms-month__dayname', label));
     for (let pad = 0; pad < first.getDay(); pad += 1) grid.append(el('span'));
@@ -183,7 +186,7 @@ function drawProjectView(host, records, view, go) {
     table.append(tbody); const wrap = el('div', 'rkms-table-wrap'); wrap.append(table); host.append(wrap); return;
   }
   if (view === 'timeline') {
-    const allDates = records.flatMap(({ cockpit }) => (cockpit?.tasks || []).map((task) => task.due_date).filter(Boolean)).sort();
+    const allDates = records.flatMap(({ cockpit }) => (cockpit?.tasks || []).flatMap((task) => [task.updated_at, task.due_date]).filter(Boolean)).sort();
     const min = allDates[0] ? new Date(allDates[0]) : new Date();
     const max = allDates.at(-1) ? new Date(allDates.at(-1)) : new Date(min.getTime() + 86400000);
     const span = Math.max(86400000, max - min);
@@ -193,9 +196,13 @@ function drawProjectView(host, records, view, go) {
       const title = el('button', 'rkms-link', project.title); title.addEventListener('click', () => go(`/workspace/research/projects/${project.id}`)); row.append(title);
       const track = el('div', 'rkms-timeline__track');
       for (const task of cockpit?.tasks || []) if (task.due_date) {
-        const dot = el('span', 'rkms-timeline__dot');
-        dot.style.left = `${Math.max(0, Math.min(100, ((new Date(task.due_date) - min) / span) * 100))}%`;
-        dot.title = `${task.title} · ${P.formatDate(task.due_date)}`; track.append(dot);
+        const start = new Date(task.updated_at || task.due_date);
+        const end = new Date(task.due_date);
+        const left = Math.max(0, Math.min(100, ((start - min) / span) * 100));
+        const right = Math.max(left + 2, Math.min(100, ((end - min) / span) * 100));
+        const bar = el('span', 'rkms-timeline__bar');
+        bar.style.left = `${left}%`; bar.style.width = `${Math.max(2, right - left)}%`;
+        bar.title = `${task.title} · ${P.formatDate(task.due_date)}`; track.append(bar);
       }
       row.append(track); timeline.append(row);
     }
@@ -203,17 +210,24 @@ function drawProjectView(host, records, view, go) {
   }
   if (view === 'graph') {
     const graph = el('div', 'rkms-graph');
-    const projects = records.map(({ project }) => project);
-    const links = records.flatMap(({ cockpit }) => cockpit?.connections || []);
-    const names = new Set(projects.map((p) => p.title));
-    for (const project of projects) {
-      const node = button(project.title, () => go(`/workspace/research/projects/${project.id}`)); node.className = 'rkms-graph__node'; graph.append(node);
-      const related = links.filter((link) => link.source?.title === project.title || link.target?.title === project.title);
-      for (const link of related.slice(0, 8)) {
-        const other = link.source?.title === project.title ? link.target : link.source;
-        if (!other?.title || names.has(other.title)) continue;
-        graph.append(el('span', 'rkms-graph__edge', link.relation_label || P.label(link.relation)), el('span', 'rkms-graph__leaf', other.title));
+    for (const { project, cockpit } of records) {
+      const cluster = el('section', 'rkms-graph__cluster');
+      const root = button(project.title, () => go(`/workspace/research/projects/${project.id}`)); root.className = 'rkms-graph__node'; cluster.append(root);
+      const resources = new Map((cockpit?.resources || []).map((item) => [`resource:${item.id}`, item]));
+      const shown = new Set();
+      for (const link of cockpit?.connections || []) {
+        for (const endpoint of [link.source, link.target]) {
+          if (!endpoint || endpoint.type !== 'resource') continue;
+          const key = `resource:${endpoint.id}`;
+          if (shown.has(key)) continue;
+          shown.add(key);
+          const item = resources.get(key) || endpoint;
+          const leaf = el('span', 'rkms-graph__leaf', item.title);
+          leaf.dataset.kind = item.kind || 'note'; cluster.append(el('span', 'rkms-graph__edge', link.relation_label || P.label(link.relation)), leaf);
+        }
       }
+      if (!shown.size) cluster.append(el('span', 'v-note', 'No linked project notes yet.'));
+      graph.append(cluster);
     }
     host.append(graph); return;
   }
@@ -328,6 +342,11 @@ export function renderFolders(host) {
         const main = el('span', 'v-row__main');
         main.append(el('strong', null, item.title || item.path), el('small', null, item.path || item.file_path || ''));
         const state = el('span', 'rkms-tree__meta', P.label(item.sync_state)); row.append(main, state);
+        if ((item.type || item.kind) === 'note' && item.id) {
+          row.tabIndex = 0; row.setAttribute('role', 'link');
+          row.addEventListener('click', () => ctx.go(`/workspace/page/${item.id}`));
+          row.addEventListener('keydown', (event) => { if (event.key === 'Enter') ctx.go(`/workspace/page/${item.id}`); });
+        }
         if (item.source === 'managed' || item.file_path) {
           const move = button('Move', async () => {
             const target = prompt(`Destination folder ID:\n${folders.map((folder) => `${folder.id}: ${folder.title}`).join('\n')}`, String(selectedFolder || ''));
@@ -355,7 +374,7 @@ export function renderFolders(host) {
   load();
 }
 
-function taskBoard(body, records) {
+function taskBoard(body, records, go) {
   body.innerHTML = '';
   const states = [['draft', 'Draft'], ['active', 'Active'], ['blocked', 'Blocked'], ['done', 'Done']];
   const board = el('div', 'rkms-board');
@@ -364,7 +383,8 @@ function taskBoard(body, records) {
     const matches = records.filter((row) => (row.task.status || 'draft') === key);
     lane.append(el('h2', 'rkms-lane__title', `${label} · ${matches.length}`));
     for (const { task, project } of matches) {
-      const card = el('article', 'rkms-task');
+      const card = el('button', 'rkms-task'); card.type = 'button';
+      card.addEventListener('click', () => go(`/workspace/research/projects/${project.id}`));
       card.append(el('strong', null, task.title), el('small', null, P.meta([project.title, task.owner, P.formatDate(task.due_date)])));
       lane.append(card);
     }
@@ -373,7 +393,7 @@ function taskBoard(body, records) {
   body.append(board);
 }
 
-function taskList(body, records) {
+function taskList(body, records, go) {
   body.innerHTML = '';
   if (!records.length) { body.append(notice('No matching tasks', 'Change the search or status filters.')); return; }
   const table = el('table', 'rkms-table');
@@ -383,6 +403,9 @@ function taskList(body, records) {
   const tbody = el('tbody');
   for (const { task, project } of records) {
     const row = el('tr');
+    row.tabIndex = 0;
+    row.addEventListener('click', () => go(`/workspace/research/projects/${project.id}`));
+    row.addEventListener('keydown', (event) => { if (event.key === 'Enter') go(`/workspace/research/projects/${project.id}`); });
     for (const value of [P.label(task.priority), task.title, P.formatDate(task.start_date), P.formatDate(task.due_date), project.title, task.owner || '—', P.label(task.status)]) {
       row.append(el('td', null, value || '—'));
     }
@@ -391,7 +414,7 @@ function taskList(body, records) {
   table.append(tbody); const wrap = el('div', 'rkms-table-wrap'); wrap.append(table); body.append(wrap);
 }
 
-export function renderTasks(host) {
+export function renderTasks(host, { go }) {
   const doc = shell(host, 'Research Tasks', 'One board aggregated from tasks in every accessible research project.');
   const body = el('div'); doc.append(body); body.append(notice('Loading tasks', 'Reading project cockpits…'));
   projectData().then((rows) => {
@@ -405,19 +428,24 @@ export function renderTasks(host) {
     for (const [value, label] of [['', 'Open & done'], ['draft', 'Draft'], ['active', 'Active'], ['blocked', 'Blocked'], ['done', 'Done']]) {
       const option = el('option', null, label); option.value = value; filter.append(option);
     }
-    const count = el('span', 'v-toolbar__count'); bar.append(query, board, list, filter, count);
+    const sort = el('select', 'v-input'); sort.setAttribute('aria-label', 'Sort tasks');
+    for (const [value, label] of [['due_date', 'Sort: due date'], ['priority', 'Sort: priority'], ['title', 'Sort: task'], ['project', 'Sort: project']]) {
+      const option = el('option', null, label); option.value = value; sort.append(option);
+    }
+    const count = el('span', 'v-toolbar__count'); bar.append(query, board, list, filter, sort, count);
     const content = el('div'); body.innerHTML = ''; body.append(bar, content);
     const draw = () => {
       const q = query.value.trim().toLowerCase();
       const visible = records.filter(({ task, project }) =>
         (!q || `${task.title} ${task.owner} ${project.title}`.toLowerCase().includes(q))
-        && (!filter.value || task.status === filter.value));
+        && (!filter.value || task.status === filter.value))
+        .sort((a, b) => String(sort.value === 'project' ? a.project.title : a.task[sort.value] || '').localeCompare(String(sort.value === 'project' ? b.project.title : b.task[sort.value] || '')));
       board.setAttribute('aria-pressed', String(mode === 'board'));
       list.setAttribute('aria-pressed', String(mode === 'list'));
       count.textContent = `${visible.length} of ${records.length}`;
-      if (mode === 'list') taskList(content, visible); else taskBoard(content, visible);
+      if (mode === 'list') taskList(content, visible, go); else taskBoard(content, visible, go);
     };
-    query.addEventListener('input', draw); filter.addEventListener('change', draw); draw();
+    query.addEventListener('input', draw); filter.addEventListener('change', draw); sort.addEventListener('change', draw); draw();
   }).catch(() => { body.innerHTML = ''; body.append(notice('Tasks unavailable', 'The project service did not answer. No local task board was created.', true)); });
 }
 

@@ -103,6 +103,42 @@ let writeTimer = 0;
 let serverNodes = [];
 let serverPages = {};
 
+function decoratedServerNodes(nodes, pages) {
+  const out = structuredClone(nodes);
+  const journalRoot = { id: 'journal', title: 'Journal', kind: 'folder', parent: null, space: 'research', phantom: false, virtual: true };
+  if (!out.some((node) => node.id === journalRoot.id)) out.unshift(journalRoot);
+  for (const node of out) {
+    const page = pages[String(node.id)];
+    if (page?.kind === 'journal' && !node.parent) node.parent = 'journal';
+  }
+
+  const known = new Set(out.map((node) => String(node.title || '').trim().toLowerCase()));
+  const pattern = /\[\[([^\]]+)\]\]/g;
+  for (const page of Object.values(pages)) {
+    for (const block of page.blocks || []) {
+      let match;
+      while ((match = pattern.exec(String(block.text || ''))) !== null) {
+        const title = match[1].trim();
+        const key = title.toLowerCase();
+        if (!title || known.has(key)) continue;
+        const journalDate = /^\d{4}-\d{2}-\d{2}$/.test(title) ? title : null;
+        out.push({
+          id: `phantom-${encodeURIComponent(key)}`,
+          title,
+          kind: journalDate ? 'journal' : 'note',
+          journal_date: journalDate,
+          parent: journalDate ? 'journal' : (page.parent || null),
+          space: page.space || 'research',
+          phantom: true,
+        });
+        known.add(key);
+      }
+      pattern.lastIndex = 0;
+    }
+  }
+  return out;
+}
+
 function persist() {
   // Coalesced: typing in the editor calls this on every keystroke, and
   // localStorage writes are synchronous and hit the main thread.
@@ -197,8 +233,8 @@ export function tree() {
   return withFallback(
     async () => {
       const data = await request('/workspace/pages/');
-      serverNodes = data.nodes || [];
       serverPages = Object.fromEntries((data.pages || []).map((page) => [String(page.id), page]));
+      serverNodes = decoratedServerNodes(data.nodes || [], serverPages);
       // The one call that proves the page service is live, so it is the one
       // that says so. withFallback handles the other direction already.
       setMode('server', 'Connected.');
@@ -256,7 +292,12 @@ export function savePage(id, patch) {
       const data = await request(`/workspace/pages/${encodeURIComponent(id)}/`, { method: 'PATCH', body: patch });
       serverPages[String(id)] = data.page;
       const node = serverNodes.find((item) => String(item.id) === String(id));
-      if (node) Object.assign(node, { title: data.page.title, parent: data.page.parent });
+      if (node) Object.assign(node, {
+        title: data.page.title,
+        // Journal pages are stored as roots by the API, but grouped beneath
+        // the virtual Journal node in the client tree.
+        parent: data.page.kind === 'journal' && !data.page.parent ? 'journal' : data.page.parent,
+      });
       return data.page;
     },
     () => {
@@ -275,7 +316,8 @@ export function createPage({ title, parent = null, kind = 'note', space = null, 
       const data = await request('/workspace/pages/', { method: 'POST', body: { title, parent, kind, space, journal_date } });
       const made = data.page;
       serverPages[String(made.id)] = made;
-      serverNodes.push({ id: made.id, title: made.title, kind: made.kind, parent: made.parent, space: made.space, phantom: false });
+      const displayParent = made.kind === 'journal' && !made.parent ? 'journal' : made.parent;
+      serverNodes.push({ id: made.id, title: made.title, kind: made.kind, parent: displayParent, space: made.space, phantom: false });
       return made;
     },
     () => {
@@ -409,7 +451,14 @@ function localDateKey(date) {
 }
 
 export function journalId(date) {
-  return 'journal-' + localDateKey(date);
+  const dateKey = localDateKey(date);
+  if (state.mode === 'server') {
+    const existing = Object.values(serverPages).find(
+      (item) => item.kind === 'journal' && item.journal_date === dateKey
+    );
+    if (existing) return existing.id;
+  }
+  return 'journal-' + dateKey;
 }
 
 export function journalDays() {

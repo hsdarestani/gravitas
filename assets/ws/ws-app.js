@@ -19,16 +19,16 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20260913-2';
-import * as P from './ws-platform.js';
-import * as views from './ws-views.js?v=20260913-3';
+import * as api from './ws-api.js?v=20260913-3';
+import * as P from './ws-platform.js?v=20260913-1';
+import * as views from './ws-views.js?v=20260913-4';
 import * as assets from './ws-core-assets.js';
 import * as kms from './ws-kms-views.js';
-import * as research from './ws-research.js?v=20260913-3';
+import * as research from './ws-research.js?v=20260913-4';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20260913-2';
+} from './ws-nav.js?v=20260913-3';
 import { renderDashboard, stopClock } from './ws-home.js';
 import { renderSettings } from './ws-settings.js';
 import { mountPalette, openPalette } from './ws-palette.js';
@@ -40,6 +40,7 @@ const cookie = (name) => {
   const hit = document.cookie.split('; ').find((row) => row.startsWith(name + '='));
   return hit ? decodeURIComponent(hit.slice(name.length + 1)) : '';
 };
+const localDayKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const ui = {
   /* True until the platform has answered for the first time.
@@ -64,6 +65,7 @@ const ui = {
   save: 'saved',
   calMonth: new Date(),
   selectedDay: new Date(),
+  activeBlockId: null,
 };
 
 /* ---- Layout memory ------------------------------------------------------
@@ -78,6 +80,16 @@ const readPrefs = () => {
 const writePrefs = (patch) => {
   try { localStorage.setItem(PREFS, JSON.stringify({ ...readPrefs(), ...patch })); } catch { /* optional */ }
 };
+const RECENT_PAGES = 'gravitas.ws.recent-pages.v1';
+function recentPages() {
+  try { return JSON.parse(localStorage.getItem(RECENT_PAGES) || '[]'); } catch { return []; }
+}
+function rememberPage(page) {
+  if (!page) return;
+  const next = [{ id: String(page.id), title: page.title, seen: new Date().toISOString() },
+    ...recentPages().filter((item) => String(item.id) !== String(page.id))].slice(0, 20);
+  try { localStorage.setItem(RECENT_PAGES, JSON.stringify(next)); } catch { /* optional */ }
+}
 
 /* ---- Where a pane stops being a column ----------------------------------
    These two widths are section 9 of ws.css, restated. The stylesheet decides
@@ -208,8 +220,24 @@ async function apply(path) {
     ui.page = await api.page(route.pageId);
     if (!ui.page) {
       const node = ui.nodes.find((n) => n.id === route.pageId);
-      ui.page = node ? await api.createPage({ title: node.title, parent: node.parent }) : null;
+      if (node) {
+        const journal = node.kind === 'journal' && node.journal_date;
+        ui.page = await api.createPage({
+          title: node.title,
+          parent: journal ? null : node.parent,
+          kind: journal ? 'journal' : 'note',
+          space: node.space || 'research',
+          journal_date: journal ? node.journal_date : null,
+        });
+        if (ui.page && node.phantom) {
+          ui.nodes = ui.nodes.filter((item) => item.id !== node.id);
+          ui.nodes.push({ id: ui.page.id, title: ui.page.title, kind: ui.page.kind, parent: journal ? 'journal' : ui.page.parent, space: ui.page.space, phantom: false });
+          go(`/workspace/page/${ui.page.id}`, { replace: true });
+          return;
+        }
+      }
     }
+    rememberPage(ui.page);
   }
 
   render();
@@ -672,6 +700,61 @@ function renderEditor(host) {
   };
   insert('Text', 'p'); insert('Heading', 'h2'); insert('Bullet', 'ul'); insert('Code', 'code'); insert('Quote', 'quote'); insert('Equation', 'equation');
 
+  const menu = document.createElement('div');
+  menu.className = 'ws-editor-menu';
+  menu.hidden = true;
+  const showMenu = (titleText, items) => {
+    menu.innerHTML = '';
+    menu.append(el('strong', 'ws-editor-menu__title', titleText));
+    if (!items.length) menu.append(el('span', 'v-note', 'Nothing here yet.'));
+    for (const item of items) {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'v-row';
+      row.append(el('span', 'v-row__main', item.title));
+      row.addEventListener('click', () => { menu.hidden = true; go(`/workspace/page/${item.id}`); });
+      menu.append(row);
+    }
+    menu.hidden = false;
+  };
+
+  const historyButton = document.createElement('button');
+  historyButton.className = 'ws-btn ws-btn--tiny'; historyButton.type = 'button'; historyButton.textContent = 'History';
+  historyButton.addEventListener('click', () => showMenu('Recently viewed', recentPages()));
+
+  const bookmarksButton = document.createElement('button');
+  bookmarksButton.className = 'ws-btn ws-btn--tiny'; bookmarksButton.type = 'button'; bookmarksButton.textContent = 'Bookmarks';
+  bookmarksButton.addEventListener('click', () => showMenu('Bookmarked notes', Object.values(ui.pagesById).filter((page) => page.bookmarked)));
+
+  const highlight = document.createElement('button');
+  highlight.className = 'ws-btn ws-btn--tiny'; highlight.type = 'button'; highlight.textContent = 'Highlight';
+  highlight.addEventListener('click', () => {
+    const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
+    if (!block) return;
+    const colors = ['', 'amber', 'green', 'blue'];
+    block.highlight = colors[(colors.indexOf(block.highlight || '') + 1) % colors.length];
+    queueSave(); render();
+  });
+
+  const linkButton = document.createElement('button');
+  linkButton.className = 'ws-btn ws-btn--tiny'; linkButton.type = 'button'; linkButton.textContent = 'Link';
+  linkButton.addEventListener('click', () => {
+    const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
+    if (!block || block.type === 'attach') return;
+    const target = prompt('Page title to link');
+    if (!target?.trim()) return;
+    block.text = `${block.text || ''}${block.text ? ' ' : ''}[[${target.trim()}]]`;
+    queueSave(); render();
+  });
+
+  const comment = document.createElement('button');
+  comment.className = 'ws-btn ws-btn--tiny'; comment.type = 'button'; comment.textContent = 'Comment';
+  comment.addEventListener('click', () => {
+    const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
+    if (!block) return;
+    const value = prompt('Annotation for this block', block.comment || '');
+    if (value === null) return;
+    block.comment = value.trim(); queueSave(); render();
+  });
+
   const picker = document.createElement('input'); picker.type = 'file'; picker.hidden = true;
   const attach = document.createElement('button'); attach.className = 'ws-btn ws-btn--tiny'; attach.type = 'button'; attach.textContent = 'Attach file';
   attach.addEventListener('click', () => picker.click());
@@ -683,14 +766,14 @@ function renderEditor(host) {
       const response = await fetch(`/api/workspace/pages/${encodeURIComponent(ui.page.id)}/attachments/`, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
       const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'upload_failed');
       const item = data.item || {};
-      ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'attach', text: item.original_name || file.name, kind: (item.mime_type || 'file').split('/').at(-1).toUpperCase(), meta: P.formatBytes ? P.formatBytes(item.file_size) : `${item.file_size || file.size} bytes`, resourceId: item.id });
+      ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'attach', text: item.original_name || file.name, kind: (item.mime_type || 'file').split('/').at(-1).toUpperCase(), mime: item.mime_type || file.type, meta: P.formatBytes ? P.formatBytes(item.file_size) : `${item.file_size || file.size} bytes`, resourceId: item.id });
       queueSave(); render();
     } catch { attach.disabled = false; attach.textContent = 'Upload failed — retry'; }
   });
   const bookmark = document.createElement('button'); bookmark.className = 'ws-btn ws-btn--tiny'; bookmark.type = 'button';
   bookmark.textContent = ui.page.bookmarked ? 'Bookmarked' : 'Bookmark';
   bookmark.addEventListener('click', async () => { ui.page.bookmarked = !ui.page.bookmarked; await api.savePage(ui.page.id, { bookmarked: ui.page.bookmarked }); render(); });
-  tools.append(attach, picker, bookmark); doc.append(tools);
+  tools.append(linkButton, highlight, comment, attach, picker, bookmark, bookmarksButton, historyButton); doc.append(tools, menu);
 
   const layout = document.createElement('div'); layout.className = 'ws-editor-layout';
   const canvas = document.createElement('div'); canvas.className = 'ws-editor-canvas';
@@ -710,6 +793,27 @@ function blockEl(block) {
   const wrap = document.createElement('div');
   wrap.className = 'ws-block';
   wrap.dataset.id = block.id;
+  wrap.draggable = true;
+  if (block.highlight) wrap.dataset.highlight = block.highlight;
+  wrap.addEventListener('dragstart', (event) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', block.id);
+    wrap.dataset.dragging = '';
+  });
+  wrap.addEventListener('dragend', () => delete wrap.dataset.dragging);
+  wrap.addEventListener('dragover', (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; });
+  wrap.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const sourceId = event.dataTransfer.getData('text/plain');
+    if (!sourceId || sourceId === block.id) return;
+    const source = ui.page.blocks.findIndex((item) => item.id === sourceId);
+    const target = ui.page.blocks.findIndex((item) => item.id === block.id);
+    if (source < 0 || target < 0) return;
+    const [moved] = ui.page.blocks.splice(source, 1);
+    ui.page.blocks.splice(target, 0, moved);
+    queueSave(); render();
+  });
+  wrap.addEventListener('focusin', () => { ui.activeBlockId = block.id; });
 
   const gutter = document.createElement('div');
   gutter.className = 'ws-block__gutter';
@@ -727,6 +831,7 @@ function blockEl(block) {
 
   if (block.type === 'attach') {
     body.append(attachmentEl(block));
+    if (block.comment) body.append(el('p', 'ws-block__comment', block.comment));
     wrap.append(body);
     return wrap;
   }
@@ -770,7 +875,9 @@ function blockEl(block) {
     node.contentEditable = 'plaintext-only'; node.textContent = block.text;
     node.dataset.placeholder = block.type === 'quote' ? 'Quote…' : 'LaTeX equation…';
     node.addEventListener('input', () => { block.text = node.textContent; queueSave(); });
-    body.append(node); wrap.append(body); return wrap;
+    body.append(node);
+    if (block.comment) body.append(el('p', 'ws-block__comment', block.comment));
+    wrap.append(body); return wrap;
   }
 
   const tag = block.type === 'h2' ? 'h2' : block.type === 'h3' ? 'h3' : block.type === 'ul' ? 'ul' : 'p';
@@ -807,6 +914,7 @@ function blockEl(block) {
     body.append(node);
   }
 
+  if (block.comment) body.append(el('p', 'ws-block__comment', block.comment));
   wrap.append(body);
   return wrap;
 }
@@ -879,15 +987,27 @@ function removeBlock(id) {
 }
 
 function attachmentEl(block) {
-  const card = document.createElement(block.resourceId ? 'a' : 'div');
+  const card = document.createElement('div');
   card.className = 'ws-attach';
-  if (block.resourceId) {
-    card.href = `/api/workspace/files/${block.resourceId}/download/`;
-    card.title = 'Download attachment';
+  const url = block.resourceId ? `/api/workspace/files/${block.resourceId}/download/` : '';
+  if (url && block.mime?.startsWith('image/')) {
+    const preview = document.createElement('img');
+    preview.className = 'ws-attach__image'; preview.src = url; preview.alt = block.text || '';
+    preview.style.width = `${block.width || 100}%`;
+    const size = document.createElement('input'); size.type = 'range'; size.min = '30'; size.max = '100'; size.value = String(block.width || 100);
+    size.setAttribute('aria-label', 'Image width');
+    size.addEventListener('input', () => { block.width = Number(size.value); preview.style.width = `${block.width}%`; queueSave(); });
+    card.append(preview, size);
   }
   card.append(el('span', 'ws-attach__kind', block.kind || 'FILE'));
   card.append(el('span', 'ws-attach__name', block.text));
   card.append(el('span', 'ws-attach__meta', block.meta || ''));
+  if (url) {
+    const download = document.createElement('a'); download.className = 'ws-btn ws-btn--tiny'; download.href = url; download.textContent = 'Download';
+    const open = document.createElement('button'); open.className = 'ws-btn ws-btn--tiny'; open.type = 'button'; open.textContent = 'Open with…';
+    open.addEventListener('click', () => window.open(url, '_blank', 'noopener'));
+    card.append(download, open);
+  }
   return card;
 }
 
@@ -1118,7 +1238,7 @@ function calendarEl() {
     btn.type = 'button';
     btn.textContent = date.getDate();
     if (date.toDateString() === today) btn.setAttribute('data-today', '');
-    if (written.has(date.toISOString().slice(0, 10))) btn.setAttribute('data-has', '');
+    if (written.has(localDayKey(date))) btn.setAttribute('data-has', '');
     btn.setAttribute('aria-pressed', String(date.toDateString() === ui.selectedDay.toDateString()));
     btn.setAttribute('aria-label', date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }));
     btn.addEventListener('click', async () => {

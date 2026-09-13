@@ -474,6 +474,25 @@ const RESOURCE_VIEWS = {
   note:    ['Research Notes', 'Notes attached to projects, and private notes.'],
 };
 
+function resourceRow(item) {
+  const node = el('div', 'v-row v-row--static');
+  const main = el('div', 'v-row__main');
+  main.append(el('strong', null, item.title || item.original_name || 'Untitled'));
+  main.append(el('small', null, P.meta([
+    item.project_title, item.collection_name, P.formatBytes(item.file_size), P.formatDate(item.updated_at),
+  ])));
+  node.append(main);
+  if (item.has_download) {
+    const actions = el('div', 'v-row__actions');
+    const download = el('a', 'ws-btn ws-btn--tiny', 'Download');
+    download.href = `/api/platform/files/${item.id}/download/`;
+    const open = el('button', 'ws-btn ws-btn--tiny', 'Open with…'); open.type = 'button';
+    open.addEventListener('click', () => window.open(download.href, '_blank', 'noopener'));
+    actions.append(download, open); node.append(actions);
+  }
+  return node;
+}
+
 export function renderResources(host, kind) {
   const [title, subtitle] = RESOURCE_VIEWS[kind] || RESOURCE_VIEWS.file;
   const doc = docShell(host, title, subtitle);
