@@ -697,7 +697,23 @@ export function renderNotes(host, ctx) {
 
   const newNote = el('button', 'ws-btn ws-btn--solid', 'New note');
   newNote.type = 'button';
-  newNote.addEventListener('click', () => ctx.newNote({ space: 'research' }));
+  newNote.addEventListener('click', async () => {
+    if (newNote.disabled) return;
+    newNote.disabled = true;
+    newNote.textContent = 'Creating…';
+    status.hidden = false;
+    status.dataset.tone = '';
+    status.textContent = 'Creating the note and syncing its file…';
+    try {
+      const made = await ctx.newNote({ space: 'research' });
+      if (!made) throw new Error('note_not_created');
+    } catch {
+      newNote.disabled = false;
+      newNote.textContent = 'New note';
+      status.dataset.tone = 'bad';
+      status.textContent = 'The note was not created. Nothing was changed.';
+    }
+  });
 
   const picker = el('input');
   picker.type = 'file';
