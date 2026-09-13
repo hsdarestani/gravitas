@@ -506,3 +506,5 @@ class DemoReadinessTests(TestCase):
         ensure = (root / 'ops/nextcloud/ensure.sh').read_text(encoding='utf-8')
         self.assertIn('user:resetpassword --password-from-env', ensure)
         self.assertIn('/ocs/v2.php/cloud/capabilities?format=json', ensure)
+        self.assertIn('group:adduser admin', ensure)
+        self.assertIn('/index.php/apps/groupfolders/folders?format=json', ensure)

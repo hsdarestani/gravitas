@@ -138,7 +138,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          STATUS=$(curl -4 -fsS --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+          STATUS=$(curl -4 -fsSL --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
             "https://$DOMAIN/nextcloud/status.php")
           grep -E '"installed":true' <<<"$STATUS" >/dev/null
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" 'bash -s' <<'REMOTE'
