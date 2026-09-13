@@ -21,10 +21,10 @@
 
 import * as api from './ws-api.js?v=20260913-2';
 import * as P from './ws-platform.js';
-import * as views from './ws-views.js';
+import * as views from './ws-views.js?v=20260913-3';
 import * as assets from './ws-core-assets.js';
 import * as kms from './ws-kms-views.js';
-import * as research from './ws-research.js?v=20260913-2';
+import * as research from './ws-research.js?v=20260913-3';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
@@ -1207,6 +1207,14 @@ function renderCrumbs() {
 const PREFERRED_ROOT = { research: 'dossiers', core: 'c-meetings', kms: 'k-concepts' };
 
 function defaultRoot(space) {
+  /* Server parents must be an explicitly selected note or Space category.
+     The named roots below belong to the browser seed, while the server tree
+     also contains non-category Space nodes that are rendered as folders.
+     Guessing either as a parent makes New note fail with `invalid_parent`.
+     The Notes screen therefore creates at the workspace root; folder-aware
+     actions pass their validated parent explicitly. */
+  if (api.state.mode === 'server') return null;
+
   const wanted = PREFERRED_ROOT[space];
   if (ui.nodes.some((node) => node.id === wanted)) return wanted;
   const root = ui.nodes.find((node) => !node.parent && api.spaceOfNode(ui.nodes, node.id) === space);

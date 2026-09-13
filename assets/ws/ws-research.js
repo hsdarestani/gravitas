@@ -68,7 +68,28 @@ export function renderCalendar(host, ctx) {
     for (let pad = 0; pad < first.getDay(); pad += 1) grid.append(el('span'));
     for (let day = 1; day <= last.getDate(); day += 1) {
       const date = new Date(now.getFullYear(), now.getMonth(), day);
-      const key = dayKey(date); const cell = button(String(day), () => ctx.openJournal(date));
+      const key = dayKey(date);
+      let cell;
+      cell = button(String(day), async () => {
+        if (cell.disabled) return;
+        const oldTitle = cell.title;
+        cell.disabled = true;
+        cell.dataset.loading = '';
+        cell.title = journalDays.has(key) ? 'Opening journal entry…' : 'Creating journal entry…';
+        try {
+          const page = await ctx.openJournal(date);
+          if (!page) throw new Error('journal_not_opened');
+        } catch {
+          cell.disabled = false;
+          delete cell.dataset.loading;
+          cell.title = oldTitle;
+          const prior = body.querySelector('[data-journal-error]');
+          if (prior) prior.remove();
+          const error = notice('Journal entry unavailable', 'The entry was not opened. Nothing was changed.', true);
+          error.dataset.journalError = '';
+          body.prepend(error);
+        }
+      });
       cell.className = 'rkms-month__day';
       if (key === dayKey(now)) cell.dataset.today = '';
       if (journalDays.has(key)) cell.dataset.journal = '';
