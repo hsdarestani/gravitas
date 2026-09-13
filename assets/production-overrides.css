@@ -68,3 +68,325 @@
    workspace.html carries, so no public page moves. */
 .ws .g-logo .g-mark--logotype { height: 16px; }
 .ws .g-logo .g-mark--logo { height: 18px; }
+
+/* ==========================================================================
+   THE READER'S LIBRARY
+   Controls injected by the reader-library block in production-bridge.js.
+   They live beside that script rather than in gravitas.css because they style
+   nothing the design system draws: every selector here belongs to a node this
+   deployment injects, and gravitas.css is the brand system, which should not
+   carry rules for elements it does not know exist.
+
+   The whole visual argument is restraint. A save control is the second-most
+   important thing on a card and must never compete with the headline, so it
+   is a hairline ghost button that only fills in once it is holding something
+   — the filled state is the information, and an empty one should read as
+   available rather than as a call to action.
+   ========================================================================== */
+
+.rl-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--g-space-2xs);
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-radius-pill);
+  background: transparent;
+  color: var(--g-text-muted);
+  font: inherit;
+  font-size: var(--g-fs-caption);
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--g-dur-fast) var(--g-ease-fall),
+              border-color var(--g-dur-fast) var(--g-ease-fall),
+              background-color var(--g-dur-fast) var(--g-ease-fall);
+}
+.rl-toggle > svg { width: 1rem; height: 1rem; flex: none; }
+.rl-toggle:hover { color: var(--g-text); border-color: var(--g-border-strong); }
+.rl-toggle[aria-pressed="true"] {
+  color: var(--g-text);
+  border-color: var(--g-border-strong);
+  background: rgb(var(--g-tint) / 0.10);
+}
+/* Filled, not merely highlighted. Across a grid of cards the only state a
+   reader can read at a glance is solid versus outline. */
+.rl-toggle[aria-pressed="true"] > svg { fill: currentColor; }
+.rl-toggle:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
+
+/* ---- On a card ----------------------------------------------------------
+   Top right, inside the card's own anchor, and only fully opaque once it
+   holds something: a row of six bright bookmarks on a topics index would read
+   as decoration. Always visible on touch, where there is no hover to reveal
+   it. */
+.rl-card-tray {
+  position: absolute;
+  top: var(--g-space-2xs);
+  right: var(--g-space-2xs);
+  z-index: 2;
+  display: flex;
+  gap: 0.25rem;
+}
+.entry.rl-has-tray,
+.path-card.rl-has-tray,
+.game-card.rl-has-tray { position: relative; }
+/* The eyebrow already occupies the top-right of an entry card, so make room
+   rather than stacking the tray on top of it. */
+.entry.rl-has-tray { padding-right: 4.25rem; }
+
+.rl-toggle--card {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  justify-content: center;
+  border-color: var(--g-hairline);
+  background: rgb(var(--g-chrome) / 0.55);
+  backdrop-filter: blur(6px);
+  opacity: 0.55;
+}
+.rl-toggle--card[aria-pressed="true"],
+.rl-toggle--card:hover,
+.rl-toggle--card:focus-visible { opacity: 1; }
+@media (hover: none) {
+  .rl-toggle--card { opacity: 1; }
+}
+
+/* ---- Under a headline -------------------------------------------------- */
+.rl-page-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--g-space-2xs) var(--g-space-xs);
+  margin-top: var(--g-space-md);
+}
+.rl-page-bar__note {
+  margin: 0;
+  color: var(--g-text-subtle);
+  font-size: var(--g-fs-caption);
+  max-width: 42ch;
+}
+
+/* ---- A learning-path step --------------------------------------------- */
+.rl-step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--g-space-2xs);
+  margin-top: var(--g-space-2xs);
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-radius-pill);
+  background: transparent;
+  color: var(--g-text-muted);
+  font: inherit;
+  font-size: var(--g-fs-caption);
+  line-height: 1;
+  cursor: pointer;
+}
+.rl-step > i {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+  border: 1px solid var(--g-border-strong);
+  border-radius: 4px;
+}
+.rl-step:hover { color: var(--g-text); border-color: var(--g-border-strong); }
+.rl-step[aria-pressed="true"] { color: var(--g-text); border-color: var(--g-signal-positive); }
+.rl-step[aria-pressed="true"] > i {
+  border-color: var(--g-signal-positive);
+  background: var(--g-signal-positive);
+}
+.rl-step:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
+
+.rl-path-summary {
+  margin-top: var(--g-space-md);
+  color: var(--g-text-subtle);
+  font-size: var(--g-fs-caption);
+}
+
+/* ---- The header trigger ------------------------------------------------
+   A count, not a dot. "3" is a reason to open the drawer; a dot only says
+   something changed. Zero keeps the button — a control that appears the first
+   time you save something is a control nobody discovers. */
+.rl-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--g-radius-pill);
+  background: transparent;
+  color: var(--g-text-muted);
+  cursor: pointer;
+}
+.rl-trigger > svg { width: 1.15rem; height: 1.15rem; }
+.rl-trigger:hover { color: var(--g-text); border-color: var(--g-border); }
+.rl-trigger:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
+.rl-trigger > b {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  min-width: 1.05rem;
+  padding: 0 0.22rem;
+  border-radius: var(--g-radius-pill);
+  background: var(--g-accent);
+  color: var(--g-cosmos-700);
+  font-size: 0.6875rem;
+  font-weight: var(--g-w-semibold);
+  line-height: 1.05rem;
+  text-align: center;
+}
+.rl-trigger[data-rl-empty="true"] > b { display: none; }
+
+/* ---- The drawer ------------------------------------------------------- */
+.rl-locked { overflow: hidden; }
+
+.rl-drawer { position: fixed; inset: 0; z-index: var(--g-z-modal); }
+.rl-drawer__veil {
+  position: absolute;
+  inset: 0;
+  background: rgb(3 3 3 / 0.55);
+  animation: rl-fade var(--g-dur) var(--g-ease-fall);
+}
+.rl-drawer__panel {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(26rem, 100%);
+  background: var(--g-surface);
+  border-left: 1px solid var(--g-border);
+  box-shadow: var(--g-shadow);
+  animation: rl-slide var(--g-dur) var(--g-ease-orbit);
+}
+@keyframes rl-fade { from { opacity: 0; } }
+@keyframes rl-slide { from { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .rl-drawer__veil, .rl-drawer__panel { animation: none; }
+}
+
+.rl-drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--g-space-sm);
+  padding: var(--g-space-sm) var(--g-space-md);
+  border-bottom: 1px solid var(--g-hairline);
+}
+.rl-drawer__head h2 {
+  margin: 0;
+  font-size: var(--g-fs-h4);
+  letter-spacing: var(--g-track-head);
+}
+.rl-drawer__close {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--g-radius-pill);
+  background: transparent;
+  color: var(--g-text-muted);
+  cursor: pointer;
+}
+.rl-drawer__close > svg { width: 1.05rem; height: 1.05rem; }
+.rl-drawer__close:hover { color: var(--g-text); border-color: var(--g-border); }
+
+.rl-drawer__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--g-space-md);
+  display: grid;
+  gap: var(--g-space-lg);
+  align-content: start;
+}
+.rl-drawer__foot {
+  padding: var(--g-space-md);
+  border-top: 1px solid var(--g-hairline);
+  background: var(--g-surface-sunken);
+}
+.rl-cta { width: 100%; justify-content: center; }
+.rl-foot__note {
+  margin: var(--g-space-2xs) 0 0;
+  color: var(--g-text-subtle);
+  font-size: var(--g-fs-caption);
+  line-height: var(--g-lh-snug);
+}
+
+.rl-group { display: grid; gap: var(--g-space-2xs); }
+.rl-group > h3 {
+  margin: 0;
+  font-size: var(--g-fs-eyebrow);
+  font-weight: var(--g-w-semibold);
+  letter-spacing: var(--g-track-eyebrow);
+  text-transform: uppercase;
+  color: var(--g-text-subtle);
+}
+.rl-group__hint {
+  margin: 0 0 var(--g-space-2xs);
+  color: var(--g-text-subtle);
+  font-size: var(--g-fs-caption);
+  line-height: var(--g-lh-snug);
+}
+
+.rl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--g-space-2xs);
+  padding: var(--g-space-2xs) 0;
+  border-bottom: 1px solid var(--g-hairline);
+}
+.rl-row:last-child { border-bottom: 0; }
+.rl-row__link {
+  flex: 1;
+  display: grid;
+  gap: 0.2rem;
+  text-decoration: none;
+  color: inherit;
+}
+.rl-row__link > strong {
+  font-size: var(--g-fs-small);
+  font-weight: var(--g-w-medium);
+  line-height: var(--g-lh-snug);
+}
+.rl-row__link > small { color: var(--g-text-subtle); font-size: var(--g-fs-caption); }
+.rl-row__link:hover > strong { text-decoration: underline; }
+.rl-row__drop {
+  flex: none;
+  width: 1.65rem;
+  height: 1.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--g-radius-pill);
+  background: transparent;
+  color: var(--g-text-subtle);
+  cursor: pointer;
+}
+.rl-row__drop > svg { width: 0.85rem; height: 0.85rem; }
+.rl-row__drop:hover { color: var(--g-signal-critical); }
+
+.rl-meter {
+  height: 3px;
+  margin-top: 0.3rem;
+  border-radius: var(--g-radius-pill);
+  background: rgb(var(--g-tint) / 0.16);
+  overflow: hidden;
+}
+.rl-meter > i { display: block; height: 100%; background: var(--g-accent); }
+
+.rl-blank { color: var(--g-text-muted); font-size: var(--g-fs-small); line-height: var(--g-lh-body); }
+.rl-blank p { margin: 0 0 var(--g-space-2xs); }
+.rl-alert {
+  margin: 0;
+  padding: var(--g-space-2xs) var(--g-space-xs);
+  border: 1px solid var(--g-signal-caution);
+  border-radius: var(--g-radius-sm);
+  color: var(--g-text-muted);
+  font-size: var(--g-fs-caption);
+  line-height: var(--g-lh-snug);
+}

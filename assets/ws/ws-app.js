@@ -24,6 +24,7 @@ import * as P from './ws-platform.js?v=20260913-1';
 import * as views from './ws-views.js?v=20260913-4';
 import * as assets from './ws-core-assets.js';
 import * as kms from './ws-kms-views.js';
+import * as library from './ws-library.js';
 import * as research from './ws-research.js?v=20260913-4';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
@@ -137,6 +138,7 @@ const ROUTES = [
   [/^\/workspace\/operating(?:\/.*)?$/,             () => ({ view: 'core-planning' })],
 
   [/^\/workspace\/kms\/?$/,                         () => ({ view: 'kms' })],
+  [/^\/workspace\/kms\/library\/?$/,                () => ({ view: 'kms-library' })],
   [/^\/workspace\/kms\/paths\/([^/]+)\/?$/,         (m) => ({ view: 'kms-path', id: m[1] })],
   [/^\/workspace\/kms\/paths\/?$/,                  () => ({ view: 'kms-paths' })],
   [/^\/workspace\/kms\/sources\/?$/,                () => ({ view: 'kms-sources' })],
@@ -1482,6 +1484,7 @@ function render() {
   else if (view === 'core-notes') views.renderCoreNotes(host, ctx);
   else if (view === 'core-assets') assets.renderCoreAssets(host, ctx);
   else if (view === 'core-blueprint') assets.renderContentStudioBlueprint(host, ctx);
+  else if (view === 'kms-library') library.renderLibrary(host, ctx);
   else if (view === 'kms-paths') kms.renderKmsPaths(host, ctx);
   else if (view === 'kms-path') kms.renderKmsPath(host, ui.route.id, ctx);
   else if (view === 'kms-sources') kms.renderKmsSources(host, ctx);

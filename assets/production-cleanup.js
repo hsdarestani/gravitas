@@ -329,26 +329,6 @@
     });
   }
 
-  // The hero headline is capitalised here, not in index.html. index.html sits in
-  // the sync workflow's CANONICAL_VISUAL_CORE list and is re-copied from upstream
-  // unconditionally on every run, so the same edit made in the markup survives
-  // only until the next sync. Keyed on the exact words rather than a blanket
-  // capitalize, so a future upstream rewrite of the headline is left alone.
-  function capitaliseHeroKeywords() {
-    var title = document.querySelector('.lp-hero__title');
-    if (!title) return;
-    Array.prototype.forEach.call(title.childNodes, function (node) {
-      if (node.nodeType === 3) {
-        node.nodeValue = node.nodeValue
-          .replace(/\bunderlying\b/g, 'Underlying')
-          .replace(/\bquestions\b/g, 'Questions');
-      }
-    });
-    title.querySelectorAll('em').forEach(function (em) {
-      if ((em.textContent || '').trim() === 'gravity') em.textContent = 'Gravity';
-    });
-  }
-
   function run() {
 
     document.querySelectorAll('.video__meta').forEach(function (node) {
@@ -388,7 +368,6 @@
       }
     });
 
-    capitaliseHeroKeywords();
     loadHomepageCms();
     enableAccountControls();
     enableCommunity();

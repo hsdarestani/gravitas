@@ -80,7 +80,7 @@ The domain is layered rather than flat, and the layer names carry meaning:
 
 | Layer | Modules | Purpose |
 |---|---|---|
-| Content | `models.py`, `content_api.py` | public site: articles, comments, newsletter |
+| Content | `models.py`, `content_api.py`, `reader_library.py` | public site: articles, comments, newsletter, the reader's saved items |
 | Platform | `platform_models.py`, `platform_api.py`, `platform_runtime_v3.py` | organizations, workspaces, researchers, projects |
 | Operating | `operating_models.py`, `operating_api*.py`, `roadmap_*.py` | Objective → Key Result → Initiative → Task, documented in `docs/operating-workspace.md` |
 | Space | `space_*.py` | the page/file tree |
@@ -109,6 +109,7 @@ ws-platform.js   platform API — no fallback, by design
 ws-api.js        page store — localStorage fallback, by design
 ws-views.js      screens over platform data
 ws-core-assets.js / ws-kms.js / ws-kms-views.js   Core assets and the Knowledge workspace
+ws-library.js    what the reader kept from the public site (see `docs/reader-library.md`)
 ws-home.js       dashboard (Home and each workspace Overview are one screen)
 ws-palette.js · ws-ai.js · ws-settings.js · ws-seed.js
 ```
@@ -128,23 +129,26 @@ deliberately no local task store.
 Icons come from `assets/gravitas-icons.js`. Theme is set inline in `<head>`
 before first paint to avoid a wrong-theme frame.
 
-## Upstream sync — read before editing public HTML or shared assets
+## This repository is the frontend source
 
-This repository is a production mirror, not the design source. Two GitHub
-Actions pull the visual layer from `kiaa-raad/gravitasplus` (revision recorded
-in `.upstream-gravitasplus`), on a 15-minute schedule:
+It was not always. The public HTML and `assets/**` used to be mirrored in from
+`desdevrad`/`kiaa-raad/gravitasplus` by scheduled workflows that re-copied a
+`CANONICAL_VISUAL_CORE` list unconditionally, so a hand edit to `index.html` or
+`assets/site.css` was silently reverted within fifteen minutes. That is gone:
+the sync workflows, the `.upstream-gravitasplus` revision marker and the
+`assets/upstream-*.css` CDN parity layer have all been deleted. Edit the real
+file. Nothing overwrites it.
 
-- `sync-kiaa-raad-frontend.yml` / `scripts/sync-kiaa-raad-frontend.sh` mirrors
-  changed `*.html` and `assets/**`, and re-copies a `CANONICAL_VISUAL_CORE` list
-  (including `index.html`, `assets/gravitas.css`, `assets/site.css`)
-  **unconditionally on every run**.
-- `apply-kiarash-design.yml` re-applies specific deltas on top.
+Two leftovers of that arrangement are harmless and deliberately left alone:
 
-So a hand edit to a synced file will be silently reverted. Production-only
-behaviour lives in the files the sync excludes: `assets/production-bridge.js`
-(prototype forms → real Django calls), `assets/production-overrides.css`,
-`assets/production-cleanup.js`, `assets/local-fonts.css`, `assets/fonts/`,
-`assets/upstream-*.css`. Put changes there, or upstream.
+- Stylesheet and script URLs carry a `?v=up-f706806e3a02-…` query string. It is
+  now just a cache-busting version token that happens to name the last upstream
+  revision. Bump it as one string across the HTML when a shared asset changes.
+- `assets/production-bridge.js`, `assets/production-overrides.css` and
+  `assets/production-cleanup.js` exist because the sync could not touch them.
+  They are still the right home for what they hold — prototype forms wired to
+  real Django calls, production-only style corrections, prototype copy removed
+  at runtime — but they are no longer a way of hiding an edit from a mirror.
 
 ## Conventions
 

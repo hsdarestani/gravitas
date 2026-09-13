@@ -36,6 +36,7 @@ from .models import (
     ContentTranslation,
     LabProgress,
     NewsletterSubscriber,
+    ReaderSavedItem,
 )
 
 
@@ -123,4 +124,13 @@ class LabProgressAdmin(admin.ModelAdmin):
     list_filter = ('completed', 'lab_key')
     search_fields = ('user__username', 'user__email', 'lab_key')
     ordering = ('-updated_at',)
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(ReaderSavedItem)
+class ReaderSavedItemAdmin(admin.ModelAdmin):
+    list_display = ('title', 'user', 'relation', 'kind', 'item_key', 'created_at')
+    list_filter = ('relation', 'kind')
+    search_fields = ('title', 'item_key', 'user__username', 'user__email')
+    ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')

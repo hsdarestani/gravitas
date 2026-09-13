@@ -123,6 +123,79 @@ class Comment(models.Model):
         return f'{self.author} · {self.content_key} · {self.status}'
 
 
+class ReaderSavedItem(models.Model):
+    """One thing a reader kept from the public site.
+
+    The shopping-basket shape, deliberately: a visitor browses without an
+    account, keeps what interests them, and signs up only when they want the
+    pile in one place. The guest's pile lives in localStorage and is adopted
+    into rows here on the first authenticated request, which is why every
+    field a row needs in order to render has to arrive from the client. At
+    adoption time the server has nothing else to go on — the public pages are
+    static HTML rather than ContentItem rows, so a saved dossier may have no
+    database record at all. `title`, `url` and `meta` are a snapshot of the
+    card as the reader saw it, not a foreign key.
+
+    One table carries both relations a reader can have with something. Saving
+    an article and following a topic differ in what the reader expects to
+    happen next, not in what has to be stored, and splitting them would mean
+    two models, two endpoints and two adoption paths for one gesture.
+    """
+
+    class Kind(models.TextChoices):
+        ARTICLE = 'article', 'Article'
+        DOSSIER = 'dossier', 'Dossier'
+        TOPIC = 'topic', 'Topic'
+        PATH = 'path', 'Learning path'
+        LAB = 'lab', 'Lab / Interactive'
+        PAGE = 'page', 'Page'
+
+    class Relation(models.TextChoices):
+        SAVED = 'saved', 'Saved'
+        FOLLOWING = 'following', 'Following'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_saved_items',
+    )
+    relation = models.CharField(
+        max_length=16,
+        choices=Relation.choices,
+        default=Relation.SAVED,
+        db_index=True,
+    )
+    kind = models.CharField(max_length=24, choices=Kind.choices, default=Kind.ARTICLE)
+    # The client's stable identifier, usually the page slug. Unique per reader
+    # and relation, which is what makes both the save toggle and the guest
+    # adoption idempotent however many times either one is retried.
+    item_key = models.SlugField(max_length=190, db_index=True)
+    url = models.CharField(max_length=300, blank=True)
+    title = models.CharField(max_length=240)
+    summary = models.TextField(blank=True)
+    meta = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'relation', 'item_key'],
+                name='unique_reader_saved_item',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', 'relation', '-created_at'],
+                name='grav_saved_reader_recent',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.user} · {self.relation} · {self.item_key}'
+
+
 class LabProgress(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

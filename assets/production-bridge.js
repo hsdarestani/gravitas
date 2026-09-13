@@ -184,7 +184,15 @@
         setNote(form, data.newsletter_pending
           ? 'Account created. Check your inbox to confirm your account email and newsletter subscription.'
           : 'Account created. Check your inbox to confirm your email. Opening your workspace…');
-        window.setTimeout(function () { location.href = '/workspace'; }, 650);
+        // The basket moves to the till before the page navigates. A reader who
+        // signed up *because* they had a pile should land on the pile, not on
+        // an empty workspace they then have to go looking through.
+        return adoptReaderLibrary().then(function (adopted) {
+          if (adopted) setNote(form, 'Account created. Your saved items came with you — opening your library…');
+          window.setTimeout(function () {
+            location.href = adopted ? '/workspace/kms/library' : '/workspace';
+          }, 650);
+        });
       });
     } else if (isLogin) {
       setNote(form, 'Signing in…');
@@ -195,7 +203,12 @@
       }).then(function (data) {
         markAccount(data.user && data.user.email);
         setNote(form, 'Signed in. Opening your workspace…');
-        window.setTimeout(function () { location.href = '/workspace'; }, 250);
+        return adoptReaderLibrary().then(function (adopted) {
+          if (adopted) setNote(form, 'Signed in. Your saved items came with you — opening your library…');
+          window.setTimeout(function () {
+            location.href = adopted ? '/workspace/kms/library' : '/workspace';
+          }, 250);
+        });
       });
     } else if (isReset && resetUid && resetToken) {
       setNote(form, 'Updating your password…');
@@ -280,7 +293,17 @@
   }).then(function (res) {
     return res.ok ? res.json() : null;
   }).then(function (data) {
-    if (data && data.authenticated) markAccount(data.user && data.user.email);
+    if (data && data.authenticated) {
+      markAccount(data.user && data.user.email);
+      // Any page load is a chance to finish a handover that failed earlier, and
+      // for a reader who signed in on another tab it is the only chance.
+      adoptReaderLibrary().catch(function () {});
+    } else {
+      readerSignedOut();
+    }
+    // A failed request is left alone deliberately: it cannot tell a signed-out
+    // reader from a dropped connection, and discarding the cache on a flaky
+    // network would be the worse of the two mistakes.
   }).catch(function () {});
 
   if (params.get('email_verified') === '1') {
@@ -296,4 +319,904 @@
     var n0 = document.querySelector('[data-form-note]');
     if (n0) n0.textContent = 'That confirmation link is invalid or has expired.';
   }
+
+  /* ==========================================================================
+     THE READER'S LIBRARY
+     Browse first, sign up at the till.
+
+     An online shop lets you fill a basket before it asks who you are. The
+     public archive works the same way here: a visitor can keep an article,
+     follow a topic and tick off the steps of a learning path with no account
+     at all, and the account is what turns that pile into something that
+     survives the browser, moves between devices, and shows up in the
+     Knowledge workspace. Asking for an email address before the visitor has
+     decided the site is worth anything is the fastest way to lose them.
+
+     WHERE THE PILE LIVES
+
+     Guest: one localStorage object, `gravitas.reader.v1`. It is the real
+     store, not a queue of pending writes — a visitor who never signs up still
+     gets a working library, on that device, for as long as they keep the
+     browser. Signed in: the same shape, held by /api/reader/library/, with
+     the local copy kept as a mirror so the header count and every save
+     button paint from the first frame rather than after a round trip.
+
+     The handover is one POST of the whole local pile on the first
+     authenticated moment (sign-in, sign-up, or arriving already signed in).
+     The endpoint merges idempotently, so it does not matter how many times
+     that runs, in how many tabs, or whether the previous attempt failed
+     halfway.
+
+     WHY THIS IS INJECTED RATHER THAN WRITTEN INTO THE PAGES
+
+     A save control belongs on every card on every index, plus the headline of
+     every item page. Hand-written that is the same markup copied into a dozen
+     files, each of which then has to be kept in step with the store, the
+     signed-in state and the count in the header — and the public HTML is
+     hand-authored, so there is no template to change once.
+
+     So it is all injected from here, from selectors the design already uses:
+     `.entry`, `.path-card` and `.game-card` are the card shapes, and `.step`
+     is a learning-path step. If one of those is renamed the controls
+     disappear, which is the correct failure: no button is much better than a
+     button in the wrong place. When a shape is renamed, the selector list
+     above `libMountCards` is the one place to change.
+
+     WHAT IS SAVABLE
+
+     Only the five real item families, recognised by page-slug prefix. This
+     matters more than it looks: the home page uses `.entry` for cards that
+     point at section indexes — Magazine, Lab, Learn — and a "save" on those
+     would mean saving a list, which is not a thing a reader ever wants back.
+     ========================================================================== */
+
+  /* Two keys, and the distinction is load-bearing. LIB_KEY is the guest's
+     pile: rows that exist nowhere else and have not reached an account yet.
+     LIB_MIRROR is a signed-in reader's cache of what the server already
+     holds, kept only so the header count and every save button paint on the
+     first frame instead of a round trip later.
+
+     Writing both to one key would make the two indistinguishable, and the
+     Library screen in the workspace reads the guest key to warn a reader that
+     something of theirs has not made it across — a warning that would then
+     fire for every signed-in reader about items already safely stored. So
+     adoption removes the guest key, and only the guest key is ever a claim
+     that something is at risk. */
+  var LIB_KEY = 'gravitas.reader.v1';
+  var LIB_MIRROR = 'gravitas.reader.mirror.v1';
+  var LIB_API = '/api/reader/library/';
+  var LIB_HOME = '/workspace/kms/library';
+
+  /* Slug prefix → what kind of thing it is. Also the whitelist: a link whose
+     slug starts with none of these gets no save control. */
+  var LIB_KINDS = [
+    ['topic-', 'topic'],
+    ['dossier-', 'dossier'],
+    ['article-', 'article'],
+    ['path-', 'path'],
+    ['game-', 'lab'],
+  ];
+
+  var LIB_KIND_LABEL = {
+    topic: 'Topic', dossier: 'Dossier', article: 'Article',
+    path: 'Learning path', lab: 'Interactive', page: 'Page',
+  };
+
+  var lib = libRead();
+  var libAuthed = false;
+  /* Set when the server refused a write we had already applied locally. The
+     drawer says so rather than pretending: a library that silently stops
+     saving is worse than one that admits it is offline. */
+  var libOffline = false;
+
+  function libBlank() { return { saved: {}, following: {}, paths: {} }; }
+
+  /* The guest pile wins when both exist, which is the case immediately after
+     somebody signs out and keeps browsing: those rows are the ones nobody
+     else has a copy of. */
+  function libRead() {
+    return libReadKey(LIB_KEY) || libReadKey(LIB_MIRROR) || libBlank();
+  }
+
+  function libReadKey(key) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      var out = libBlank();
+      var any = false;
+      ['saved', 'following', 'paths'].forEach(function (bucket) {
+        if (parsed[bucket] && typeof parsed[bucket] === 'object') {
+          out[bucket] = parsed[bucket];
+          if (Object.keys(parsed[bucket]).length) any = true;
+        }
+      });
+      return any ? out : null;
+    } catch (err) {
+      // Private mode, blocked storage, or a shape from a future version.
+      return null;
+    }
+  }
+
+  function libWrite() {
+    try {
+      localStorage.setItem(libAuthed ? LIB_MIRROR : LIB_KEY, JSON.stringify(lib));
+    } catch (err) {}
+  }
+
+  function libCount() {
+    return Object.keys(lib.saved).length + Object.keys(lib.following).length;
+  }
+
+  /* ---- Identifying a thing ------------------------------------------------
+     The slug of its page, which is the one identifier the static site and the
+     database can both agree on. Query strings and hashes are dropped: the
+     depth switch and the section anchors are ways of reading one item, not
+     different items. */
+  function libSlug(href) {
+    if (!href) return '';
+    var url;
+    try { url = new URL(href, location.origin); } catch (err) { return ''; }
+    if (url.origin !== location.origin) return '';
+    var last = url.pathname.replace(/\/+$/, '').split('/').pop() || '';
+    return last.replace(/\.html$/, '');
+  }
+
+  function libKind(slug) {
+    for (var i = 0; i < LIB_KINDS.length; i++) {
+      if (slug.indexOf(LIB_KINDS[i][0]) === 0) return LIB_KINDS[i][1];
+    }
+    return '';
+  }
+
+  function libText(node) {
+    return node ? node.textContent.replace(/\s+/g, ' ').trim() : '';
+  }
+
+  /* ---- Reading a card ----------------------------------------------------
+     A saved row is a snapshot of the card as the reader saw it, because most
+     of what is savable here is hand-authored HTML with no database row behind
+     it. So the title, the summary and the small meta bag are lifted out of
+     the card itself rather than fetched. */
+  function libItemFromCard(card) {
+    var slug = libSlug(card.getAttribute('href'));
+    var kind = libKind(slug);
+    if (!slug || !kind) return null;
+
+    var heading = card.querySelector('h2, h3, h4');
+    var title = libText(heading);
+    if (!title) return null;
+
+    var summary = '';
+    var paragraphs = card.querySelectorAll('p');
+    for (var i = 0; i < paragraphs.length; i++) {
+      var p = paragraphs[i];
+      if (p.closest('.entry__meta') || p.classList.contains('g-eyebrow')) continue;
+      summary = libText(p);
+      if (summary) break;
+    }
+
+    var meta = {};
+    var eyebrow = libText(card.querySelector('.entry__type, .g-eyebrow, .game-card__meta'));
+    if (eyebrow) meta.eyebrow = eyebrow;
+    var detail = libText(card.querySelector('.entry__meta span, .game-card__meta span'));
+    if (detail && detail !== eyebrow) meta.detail = detail;
+
+    return {
+      item_key: slug, kind: kind, title: title,
+      url: '/' + slug + '.html', summary: summary, meta: meta,
+    };
+  }
+
+  /* The page you are on, read the same way. Used by the control under the
+     headline on an article, topic, dossier, path or lab page. */
+  function libItemFromPage() {
+    var slug = libSlug(location.pathname);
+    var kind = libKind(slug);
+    if (!slug || !kind) return null;
+
+    var heading = document.querySelector('#main h1, main h1');
+    var title = libText(heading) || document.title.split('·')[0].trim();
+    if (!title) return null;
+
+    var lede = document.querySelector('#main .g-lead, #main .art__standfirst, main .g-lead');
+    var description = document.querySelector('meta[name="description"]');
+    var summary = libText(lede) || (description ? description.getAttribute('content') || '' : '');
+
+    var meta = {};
+    var eyebrow = libText(document.querySelector('#main .entry__type, #main .g-eyebrow'));
+    if (eyebrow) meta.eyebrow = eyebrow;
+
+    return {
+      item_key: slug, kind: kind, title: title,
+      url: '/' + slug + '.html', summary: summary.slice(0, 400), meta: meta,
+    };
+  }
+
+  /* ---- Writing -----------------------------------------------------------
+     Local first, always, then the server when there is an account. The local
+     write is what makes the button feel like a button; the server write is
+     what makes it true tomorrow. When the second one fails the first one
+     stands and the drawer says the library is offline, because dropping the
+     reader's save to stay consistent with a server that is not answering
+     serves nobody. */
+  function libToggle(item, relation) {
+    var bucket = lib[relation];
+    var had = !!bucket[item.item_key];
+    if (had) delete bucket[item.item_key];
+    else bucket[item.item_key] = Object.assign({ saved_at: new Date().toISOString() }, item);
+    libWrite();
+    libPaint();
+
+    if (!libAuthed) return Promise.resolve(!had);
+    var job = had
+      ? libSend('DELETE', { relation: relation, item_key: item.item_key })
+      : libSend('POST', libEnvelope(relation, [bucket[item.item_key]]));
+    return job.then(function () { return !had; });
+  }
+
+  function libEnvelope(relation, items) {
+    var body = {};
+    body[relation] = items.map(function (item) {
+      return {
+        item_key: item.item_key, kind: item.kind, title: item.title,
+        url: item.url, summary: item.summary, meta: item.meta,
+      };
+    });
+    return body;
+  }
+
+  function libSend(method, body) {
+    return csrfToken().then(function (token) {
+      return fetch(LIB_API, {
+        method: method,
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRFToken': token,
+        },
+        body: JSON.stringify(body || {}),
+      });
+    }).then(function (res) {
+      if (!res.ok) throw new Error('library_' + res.status);
+      return res.json();
+    }).then(function (data) {
+      libOffline = false;
+      libAdopt(data);
+      return data;
+    }).catch(function (err) {
+      libOffline = true;
+      libPaint();
+      throw err;
+    });
+  }
+
+  /* The server's answer is the truth once there is an account, so replace the
+     mirror wholesale rather than merging field by field — a removal on
+     another device has to be able to reach this one. */
+  function libAdopt(data) {
+    if (!data) return;
+    var next = libBlank();
+    (data.saved || []).forEach(function (item) { next.saved[item.item_key] = item; });
+    (data.following || []).forEach(function (item) { next.following[item.item_key] = item; });
+    (data.paths || []).forEach(function (path) {
+      next.paths[path.item_key] = {
+        done: path.done || [], total: path.total || 0,
+        title: path.title || '', url: path.url || '',
+      };
+    });
+    lib = next;
+    libWrite();
+    /* The server has the pile now, so the guest key is no longer a claim on
+       anything. Dropping it is what stops the workspace warning about items
+       that are already stored, and it is safe precisely because this runs only
+       on a successful response. */
+    try { localStorage.removeItem(LIB_KEY); } catch (err) {}
+    libPaint();
+  }
+
+  /* ---- Learning-path progress -------------------------------------------
+     Steps are ticked, not measured. The design's path page numbers its steps
+     `01`…`08` in `.step__n`, so that number is the step id: stable across a
+     reworded step, and readable in the stored JSON, which matters when the
+     only way to inspect a reader's progress is a JSON column.
+
+     `replace` goes to the server on every write. The endpoint unions by
+     default so two devices cannot undo each other, but a reader unticking a
+     step is an explicit correction and has to win. */
+  function libPath(key) {
+    if (!lib.paths[key]) lib.paths[key] = { done: [], total: 0, title: '', url: '' };
+    return lib.paths[key];
+  }
+
+  function libToggleStep(key, step, total, title) {
+    var path = libPath(key);
+    path.total = total || path.total;
+    path.title = title || path.title;
+    path.url = '/' + key + '.html';
+    var at = path.done.indexOf(step);
+    if (at === -1) path.done.push(step);
+    else path.done.splice(at, 1);
+    path.done.sort();
+    libWrite();
+    libPaint();
+
+    if (!libAuthed) return;
+    libSend('POST', { paths: [{
+      item_key: key, done: path.done, total: path.total,
+      title: path.title, url: path.url, replace: true,
+    }] }).catch(function () {});
+  }
+
+  function libPathPercent(key) {
+    var path = lib.paths[key];
+    if (!path || !path.total) return 0;
+    return Math.round((path.done.length / path.total) * 100);
+  }
+
+  /* ==========================================================================
+     CONTROLS
+     ========================================================================== */
+
+  var LIB_ICON_SAVE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.75h12a1.25 1.25 0 0 1 1.25 1.25v15.25L12 15.9l-7.25 4.35V5A1.25 1.25 0 0 1 6 3.75Z"/></svg>';
+  var LIB_ICON_FOLLOW = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"/><path d="M12 7.75v4.35l3 1.8"/></svg>';
+  var LIB_ICON_CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+  function libButton(className, html, label) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.innerHTML = html;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    return button;
+  }
+
+  /* One toggle, wherever it appears. `sync` repaints it from the store rather
+     than from what it did last, so a save made in the drawer, on another
+     card for the same item, or on another device all reach this button. */
+  function libToggleButton(item, relation, size) {
+    var saved = relation === 'following' ? 'Following' : 'Saved';
+    var idle = relation === 'following' ? 'Follow this topic' : 'Save for later';
+    var icon = relation === 'following' ? LIB_ICON_FOLLOW : LIB_ICON_SAVE;
+
+    var button = libButton('rl-toggle' + (size === 'card' ? ' rl-toggle--card' : ''), icon, idle);
+    button.dataset.rlRelation = relation;
+    button.dataset.rlKey = item.item_key;
+    if (size !== 'card') button.append(document.createElement('span'));
+
+    button.sync = function () {
+      var on = !!lib[relation][item.item_key];
+      button.setAttribute('aria-pressed', String(on));
+      var label = on ? saved : idle;
+      button.setAttribute('aria-label', label);
+      button.title = label;
+      var text = button.querySelector('span');
+      if (text) text.textContent = label;
+    };
+
+    button.addEventListener('click', function (event) {
+      // Card buttons sit inside the card's own anchor.
+      event.preventDefault();
+      event.stopPropagation();
+      libToggle(item, relation).catch(function () {});
+    });
+
+    libButtons.push(button);
+    button.sync();
+    return button;
+  }
+
+  var libButtons = [];
+
+  function libPaint() {
+    for (var i = libButtons.length - 1; i >= 0; i--) {
+      if (!libButtons[i].isConnected) { libButtons.splice(i, 1); continue; }
+      libButtons[i].sync();
+    }
+    libPaintTrigger();
+    libPaintDrawer();
+    libPaintPathProgress();
+  }
+
+  /* ---- Cards -------------------------------------------------------------
+     `.is-soon` cards describe something that does not exist yet and carry no
+     href, so there is nothing to come back to and they get no control. */
+  function libMountCards() {
+    var cards = document.querySelectorAll('a.entry[href], a.path-card[href], a.game-card[href]');
+    [].forEach.call(cards, function (card) {
+      if (card.dataset.rlMounted) return;
+      var item = libItemFromCard(card);
+      if (!item) return;
+      card.dataset.rlMounted = '1';
+
+      var tray = document.createElement('div');
+      tray.className = 'rl-card-tray';
+      tray.append(libToggleButton(item, 'saved', 'card'));
+      if (item.kind === 'topic') tray.append(libToggleButton(item, 'following', 'card'));
+      card.append(tray);
+      card.classList.add('rl-has-tray');
+    });
+  }
+
+  /* ---- The page itself ---------------------------------------------------
+     Placed after the last element of the heading block rather than after the
+     <h1>, so it reads as part of the page's own furniture and does not
+     interrupt the headline and its standfirst. */
+  function libMountPage() {
+    var item = libItemFromPage();
+    if (!item || document.querySelector('.rl-page-bar')) return;
+
+    var heading = document.querySelector('#main h1, main h1');
+    if (!heading) return;
+    var head = heading.parentElement;
+    var tail = heading;
+    ['.pill-row', '.art__meta', '.g-lead', '.art__standfirst'].forEach(function (selector) {
+      var found = head.querySelector(':scope > ' + selector);
+      if (found && (tail.compareDocumentPosition(found) & Node.DOCUMENT_POSITION_FOLLOWING)) tail = found;
+    });
+
+    var bar = document.createElement('div');
+    bar.className = 'rl-page-bar';
+    bar.append(libToggleButton(item, 'saved'));
+    if (item.kind === 'topic') bar.append(libToggleButton(item, 'following'));
+
+    var note = document.createElement('p');
+    note.className = 'rl-page-bar__note';
+    bar.append(note);
+    libNotes.push(note);
+    libPaintNote(note);
+
+    tail.after(bar);
+  }
+
+  var libNotes = [];
+
+  function libPaintNote(note) {
+    if (libAuthed) {
+      note.textContent = 'Kept in your Knowledge workspace.';
+      return;
+    }
+    var count = libCount();
+    note.textContent = count
+      ? 'Kept on this device. ' + count + ' ' + (count === 1 ? 'item' : 'items') +
+        ' move to your account when you make one.'
+      : 'No account needed. It moves with you if you make one later.';
+  }
+
+  /* ---- Learning-path steps ---------------------------------------------- */
+  function libMountSteps() {
+    var slug = libSlug(location.pathname);
+    if (libKind(slug) !== 'path') return;
+    var steps = document.querySelectorAll('#main .step, main .step');
+    if (!steps.length) return;
+
+    var title = libText(document.querySelector('#main h1, main h1'));
+    var path = libPath(slug);
+    path.total = steps.length;
+    path.title = path.title || title;
+    path.url = '/' + slug + '.html';
+    libWrite();
+
+    [].forEach.call(steps, function (step, index) {
+      if (step.dataset.rlMounted) return;
+      step.dataset.rlMounted = '1';
+      var id = 'step-' + libText(step.querySelector('.step__n')).replace(/[^0-9a-z]/gi, '')
+        || 'step-' + (index + 1);
+
+      var button = libButton('rl-step', '', 'Mark this step done');
+      button.append(document.createElement('i'));
+      button.append(document.createElement('span'));
+      button.sync = function () {
+        var done = lib.paths[slug] && lib.paths[slug].done.indexOf(id) !== -1;
+        button.setAttribute('aria-pressed', String(!!done));
+        button.querySelector('span').textContent = done ? 'Done' : 'Mark done';
+        var label = done ? 'Step done. Undo' : 'Mark this step done';
+        button.setAttribute('aria-label', label);
+        button.title = label;
+      };
+      button.addEventListener('click', function () {
+        libToggleStep(slug, id, steps.length, title);
+      });
+      libButtons.push(button);
+      button.sync();
+
+      var holder = step.querySelector('.step__links') || step.lastElementChild || step;
+      holder.append(button);
+    });
+
+    var summary = document.createElement('p');
+    summary.className = 'rl-path-summary';
+    steps[steps.length - 1].after(summary);
+    libPathSummary = { node: summary, key: slug, total: steps.length };
+  }
+
+  var libPathSummary = null;
+
+  /* Learn's path cards ship a hardcoded percentage from the prototype — 42%
+     on a path nobody has opened. Once real progress exists it is the only
+     honest number to draw there, and a reader with none should be told
+     "Not started" rather than a figure they did not earn. */
+  function libPaintPathProgress() {
+    [].forEach.call(document.querySelectorAll('a.path-card[href]'), function (card) {
+      var slug = libSlug(card.getAttribute('href'));
+      if (libKind(slug) !== 'path') return;
+      var percent = libPathPercent(slug);
+      var fill = card.querySelector('.progress > i');
+      if (fill) fill.style.width = percent + '%';
+      var caption = card.querySelector('.progress ~ p');
+      if (caption) {
+        caption.textContent = percent === 0 ? 'Not started'
+          : percent === 100 ? 'Finished' : 'In progress: ' + percent + '%';
+      }
+    });
+
+    if (libPathSummary) {
+      var path = lib.paths[libPathSummary.key];
+      var done = path ? path.done.length : 0;
+      libPathSummary.node.textContent = done
+        ? done + ' of ' + libPathSummary.total + ' steps done · ' +
+          libPathPercent(libPathSummary.key) + '%' +
+          (libAuthed ? '' : ' · kept on this device until you have an account')
+        : 'Tick a step as you finish it. No account needed — progress follows you to one.';
+    }
+
+    libNotes.forEach(libPaintNote);
+  }
+
+  /* ==========================================================================
+     THE DRAWER
+     The basket, and the only screen a guest has. It exists on every public
+     page because the decision to sign up is made from it: the reader has to
+     be able to see the pile they are about to lose.
+     ========================================================================== */
+
+  var libTrigger = null;
+  var libDrawer = null;
+  var libLastFocus = null;
+
+  function libMountTrigger() {
+    var actions = document.querySelector('.gh-actions');
+    if (!actions || libTrigger) return;
+
+    libTrigger = libButton('rl-trigger', LIB_ICON_SAVE, 'Saved items');
+    libTrigger.append(document.createElement('b'));
+    libTrigger.addEventListener('click', libOpen);
+
+    var toggle = actions.querySelector('.theme-toggle');
+    if (toggle) actions.insertBefore(libTrigger, toggle);
+    else actions.append(libTrigger);
+    libPaintTrigger();
+  }
+
+  function libPaintTrigger() {
+    if (!libTrigger) return;
+    var count = libCount();
+    var badge = libTrigger.querySelector('b');
+    badge.textContent = count > 99 ? '99+' : String(count);
+    libTrigger.dataset.rlEmpty = count ? 'false' : 'true';
+    var label = count
+      ? 'Saved items (' + count + ')'
+      : 'Saved items — nothing kept yet';
+    libTrigger.setAttribute('aria-label', label);
+    libTrigger.title = label;
+  }
+
+  function libOpen() {
+    if (libDrawer) return;
+    libLastFocus = document.activeElement;
+
+    libDrawer = document.createElement('div');
+    libDrawer.className = 'rl-drawer';
+    libDrawer.innerHTML =
+      '<div class="rl-drawer__veil" data-rl-close></div>' +
+      '<aside class="rl-drawer__panel" role="dialog" aria-modal="true" aria-label="Saved items">' +
+        '<header class="rl-drawer__head">' +
+          '<h2>Saved</h2>' +
+          '<button class="rl-drawer__close" type="button" data-rl-close aria-label="Close">' + LIB_ICON_CLOSE + '</button>' +
+        '</header>' +
+        '<div class="rl-drawer__body"></div>' +
+        '<footer class="rl-drawer__foot"></footer>' +
+      '</aside>';
+    document.body.append(libDrawer);
+    document.body.classList.add('rl-locked');
+
+    libDrawer.addEventListener('click', function (event) {
+      if (event.target.closest('[data-rl-close]')) libClose();
+    });
+    document.addEventListener('keydown', libEscape);
+    libPaintDrawer();
+    libDrawer.querySelector('.rl-drawer__close').focus();
+
+    // Signed in, the server is the truth and another device may have changed
+    // it. Refresh in the background; the mirror is already on screen.
+    if (libAuthed) libLoad();
+  }
+
+  function libEscape(event) {
+    if (event.key === 'Escape') libClose();
+  }
+
+  function libClose() {
+    if (!libDrawer) return;
+    document.removeEventListener('keydown', libEscape);
+    libDrawer.remove();
+    libDrawer = null;
+    document.body.classList.remove('rl-locked');
+    if (libLastFocus && libLastFocus.isConnected) libLastFocus.focus();
+  }
+
+  function libGroup(title, hint) {
+    var section = document.createElement('section');
+    section.className = 'rl-group';
+    var heading = document.createElement('h3');
+    heading.textContent = title;
+    section.append(heading);
+    if (hint) {
+      var note = document.createElement('p');
+      note.className = 'rl-group__hint';
+      note.textContent = hint;
+      section.append(note);
+    }
+    return section;
+  }
+
+  function libRow(item, relation) {
+    var row = document.createElement('div');
+    row.className = 'rl-row';
+
+    var link = document.createElement('a');
+    link.className = 'rl-row__link';
+    link.href = item.url || '/' + item.item_key + '.html';
+    link.append(Object.assign(document.createElement('strong'), { textContent: item.title }));
+    var kindLabel = LIB_KIND_LABEL[item.kind] || item.kind;
+    var line = [kindLabel, item.meta && item.meta.detail].filter(Boolean).join(' · ');
+    link.append(Object.assign(document.createElement('small'), { textContent: line }));
+    row.append(link);
+
+    var drop = libButton('rl-row__drop', LIB_ICON_CLOSE,
+      relation === 'following' ? 'Stop following' : 'Remove from saved');
+    drop.addEventListener('click', function () {
+      libToggle(item, relation).catch(function () {});
+    });
+    row.append(drop);
+    return row;
+  }
+
+  function libPathRow(key, path) {
+    var row = document.createElement('div');
+    row.className = 'rl-row';
+
+    var link = document.createElement('a');
+    link.className = 'rl-row__link';
+    link.href = path.url || '/' + key + '.html';
+    link.append(Object.assign(document.createElement('strong'),
+      { textContent: path.title || key }));
+    link.append(Object.assign(document.createElement('small'),
+      { textContent: path.done.length + ' of ' + (path.total || '?') + ' steps · ' + libPathPercent(key) + '%' }));
+
+    var meter = document.createElement('div');
+    meter.className = 'rl-meter';
+    var fill = document.createElement('i');
+    fill.style.width = Math.max(2, libPathPercent(key)) + '%';
+    meter.append(fill);
+    link.append(meter);
+    row.append(link);
+    return row;
+  }
+
+  function libPaintDrawer() {
+    if (!libDrawer) return;
+    var body = libDrawer.querySelector('.rl-drawer__body');
+    var foot = libDrawer.querySelector('.rl-drawer__foot');
+    body.innerHTML = '';
+    foot.innerHTML = '';
+
+    var saved = Object.keys(lib.saved).map(function (key) { return lib.saved[key]; });
+    var following = Object.keys(lib.following).map(function (key) { return lib.following[key]; });
+    var paths = Object.keys(lib.paths).filter(function (key) {
+      return lib.paths[key].done.length;
+    });
+
+    if (libOffline) {
+      var warning = document.createElement('p');
+      warning.className = 'rl-alert';
+      warning.textContent = 'Your last change is kept on this device — the server did not answer. ' +
+        'It will be sent again next time you open a page.';
+      body.append(warning);
+    }
+
+    if (!saved.length && !following.length && !paths.length) {
+      var blank = document.createElement('div');
+      blank.className = 'rl-blank';
+      blank.innerHTML =
+        '<p><b>Nothing kept yet.</b></p>' +
+        '<p>Use the bookmark on any topic, dossier, essay, path or interactive and it lands here. ' +
+        'No account needed to start — one only matters when you want the pile on another device.</p>';
+      body.append(blank);
+      return;
+    }
+
+    if (saved.length) {
+      var savedGroup = libGroup('Saved · ' + saved.length);
+      saved.sort(libNewestFirst).forEach(function (item) {
+        savedGroup.append(libRow(item, 'saved'));
+      });
+      body.append(savedGroup);
+    }
+
+    if (following.length) {
+      var followGroup = libGroup('Following · ' + following.length,
+        'Topics you want more of. Once you have an account these decide what the newsletter sends you.');
+      following.sort(libNewestFirst).forEach(function (item) {
+        followGroup.append(libRow(item, 'following'));
+      });
+      body.append(followGroup);
+    }
+
+    if (paths.length) {
+      var pathGroup = libGroup('Paths in progress · ' + paths.length);
+      paths.forEach(function (key) { pathGroup.append(libPathRow(key, lib.paths[key])); });
+      body.append(pathGroup);
+    }
+
+    if (libAuthed) {
+      var open = document.createElement('a');
+      open.className = 'g-btn g-btn--primary g-btn--sm rl-cta';
+      open.href = LIB_HOME;
+      open.textContent = 'Open in your workspace';
+      foot.append(open);
+      var kept = document.createElement('p');
+      kept.className = 'rl-foot__note';
+      kept.textContent = 'Saved to your account. It follows you to any device you sign in on.';
+      foot.append(kept);
+      return;
+    }
+
+    var join = document.createElement('a');
+    join.className = 'g-btn g-btn--primary g-btn--sm rl-cta';
+    join.href = '/signup';
+    join.textContent = 'Create a free account to keep these';
+    foot.append(join);
+
+    var signIn = document.createElement('p');
+    signIn.className = 'rl-foot__note';
+    signIn.innerHTML = 'Everything above is stored in this browser only — clearing site data loses it. ' +
+      'Making an account moves the lot across as it is. ' +
+      '<a href="/login">Already have one?</a>';
+    foot.append(signIn);
+  }
+
+  function libNewestFirst(a, b) {
+    return String(b.saved_at || '').localeCompare(String(a.saved_at || ''));
+  }
+
+  /* ==========================================================================
+     THE HANDOVER
+     Called from the sign-up and sign-in handlers above, and again on any page
+     load that finds an existing session. Resolves to true when there was a
+     guest pile to move, which is what decides whether a fresh account opens
+     on its library or on the workspace it would normally land in.
+     ========================================================================== */
+  function adoptReaderLibrary() {
+    libAuthed = true;
+    var saved = Object.keys(lib.saved).map(function (key) { return lib.saved[key]; });
+    var following = Object.keys(lib.following).map(function (key) { return lib.following[key]; });
+    var paths = Object.keys(lib.paths).filter(function (key) { return lib.paths[key].done.length; });
+
+    if (!saved.length && !following.length && !paths.length) {
+      return libLoad().then(function () { return false; });
+    }
+
+    var body = Object.assign(
+      libEnvelope('saved', saved),
+      libEnvelope('following', following),
+    );
+    body.paths = paths.map(function (key) {
+      var path = lib.paths[key];
+      return {
+        item_key: key, done: path.done, total: path.total,
+        title: path.title, url: path.url,
+      };
+    });
+
+    return libSend('POST', body).then(function () { return true; })
+      .catch(function () {
+        // The pile stays local and the next page load tries again. Nothing is
+        // lost, and the reader is not told about a failure they cannot act on
+        // in the middle of signing in.
+        return false;
+      });
+  }
+
+  /* Signing out has to empty the drawer.
+
+     The mirror is a signed-in reader's cache, so on a shared machine it would
+     otherwise keep showing the previous account's saved titles to whoever
+     browses next — and their first save would fold those titles into a fresh
+     guest pile, which the next sign-in would hand to the wrong account. So an
+     authenticated-as-nobody answer drops the mirror and falls back to whatever
+     guest pile this browser has of its own. */
+  function readerSignedOut() {
+    libAuthed = false;
+    var mirror = false;
+    try { mirror = !!localStorage.getItem(LIB_MIRROR); } catch (err) {}
+    if (!mirror) return;
+    try { localStorage.removeItem(LIB_MIRROR); } catch (err) {}
+    lib = libRead();
+    libPaint();
+  }
+
+  function libLoad() {
+    return fetch(LIB_API, {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+    }).then(function (res) {
+      if (!res.ok) throw new Error('library_' + res.status);
+      return res.json();
+    }).then(function (data) {
+      libOffline = false;
+      libAdopt(data);
+    }).catch(function () {
+      libOffline = true;
+      libPaint();
+    });
+  }
+
+  /* The account page, arrived at from the drawer's call to action. A reader
+     who came here to keep six things should be told that those six things are
+     what they are about to keep — the sidebar sells a research workspace,
+     which is the right pitch for everyone except the person already holding a
+     basket. Only the note is rewritten, never the form or the copy around it,
+     and only while there is something in the basket to name. */
+  function libMountAuthNote() {
+    var note = document.querySelector('.auth__note[data-form-note]');
+    if (!note || libAuthed) return;
+    var count = libCount();
+    var paths = Object.keys(lib.paths).filter(function (key) { return lib.paths[key].done.length; }).length;
+    if (!count && !paths) return;
+
+    var parts = [];
+    if (count) parts.push(count + ' saved ' + (count === 1 ? 'item' : 'items'));
+    if (paths) parts.push(paths + ' learning ' + (paths === 1 ? 'path' : 'paths'));
+    note.textContent = parts.join(' and ') +
+      ' kept in this browser will move into your account the moment it exists.';
+  }
+
+  function libMount() {
+    libMountTrigger();
+    libMountCards();
+    libMountPage();
+    libMountSteps();
+    libMountAuthNote();
+    libPaint();
+  }
+
+  libMount();
+
+  /* The magazine and topic filters hide and show cards rather than replacing
+     them, so nothing needs re-mounting there. This is for anything the site
+     adds later — the CMS-backed lists on the home page arrive after first
+     paint. */
+  if (window.MutationObserver) {
+    /* Guarded and deferred on purpose. Mounting a control is itself a DOM
+       change, so an observer that reacted to its own work would never
+       settle; the flag collapses a burst into one pass, and because
+       libMountCards is idempotent the pass after that one finds nothing to
+       do and the cascade stops. Only cards are rescanned — repainting the
+       drawer from here would put the same loop back. */
+    var libScanning = false;
+    var libWatcher = new MutationObserver(function () {
+      if (libScanning) return;
+      libScanning = true;
+      requestAnimationFrame(function () {
+        libScanning = false;
+        libMountCards();
+      });
+    });
+    libWatcher.observe(document.body, { childList: true, subtree: true });
+  }
+
 })();

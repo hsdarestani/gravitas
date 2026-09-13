@@ -236,7 +236,15 @@ export const RESEARCH_SECTIONS = [
    Learning Paths sits above the loop rather than inside it. It is the
    curriculum: the entry somebody opens when they do not know what to work
    on, which is most mornings, and the only screen here that can answer
-   "what next" with one name instead of a list. */
+   "what next" with one name instead of a list.
+
+   Library sits above both, at the mouth of the loop. It holds what the
+   reader kept from the public site — including whatever they saved before
+   they had an account, which is the whole point of letting them save without
+   one — and its only forward action is to turn one of those into a Source.
+   Material that has caught somebody's attention but has not been read yet is
+   upstream of everything else here, so it is drawn upstream of everything
+   else here. */
 export const KMS_SECTIONS = [
   {
     id: 'kms-overview',
@@ -244,6 +252,13 @@ export const KMS_SECTIONS = [
     icon: 'overview',
     path: '/workspace/kms',
     match: exact('/workspace/kms'),
+  },
+  {
+    id: 'kms-library',
+    label: 'Library',
+    icon: 'files',
+    path: '/workspace/kms/library',
+    match: under('/workspace/kms/library'),
   },
   {
     id: 'kms-paths',

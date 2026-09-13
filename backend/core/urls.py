@@ -3,6 +3,7 @@ from django.urls import path
 from core.content_api import content_detail, content_list
 from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
+from core.reader_library import reader_library
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
 from core.workspace_pages_api import (
@@ -140,6 +141,11 @@ urlpatterns = [
     path('community/comments/<slug:content_key>/', comments),
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
+
+    # What a reader kept before they had an account, adopted on the first
+    # authenticated request. See core/reader_library.py for why it is one
+    # route for the list, the merge and the removal.
+    path('reader/library/', reader_library),
 
     # Gravitas V3 shell: Home + two real workspaces.
     path('platform/bootstrap/', platform_bootstrap_v3),

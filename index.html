@@ -22,8 +22,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/hero.css?v=up-f706806e3a02-g1df6ff09">
+<link rel="stylesheet" href="assets/topic-rail.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/chat.css?v=up-f706806e3a02-g1df6ff09">
-<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09">
+<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl1">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -128,29 +129,153 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 
-<section class="g-section"><div class="g-container">
+<!-- The current Topic, read across ----------------------------------------
+     This slot used to be one card: a poster, a paragraph, two buttons. It
+     announced that a Topic existed and gave no evidence that anything stood
+     behind it, so the only way to find out was to leave the page.
+
+     It is now a four-panel horizontal pass through the Topic itself. The
+     section pins under the header, the rail moves sideways as you scroll, and
+     at the end it releases and the page carries on down. Layout and behaviour
+     are in assets/topic-rail.css and assets/topic-rail.js; .video, .view and
+     .comment come from site.css so the rail looks like the rest of the site
+     rather than a widget dropped into it.
+
+     Without JavaScript, or on a phone, or with prefers-reduced-motion, this is
+     a plain horizontal scroller with snap points. Nothing below depends on the
+     script running. -->
+<section class="g-section trail" id="current-topic" data-rail="native"><div class="g-container">
   <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
     <p class="g-eyebrow">Start Here</p><h2>The Current Topic</h2></div>
     <a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-  <div class="split rv">
-    <a class="video" href="topic-computable-universe.html" aria-label="Watch: Is the universe computable?">
-      <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
-    </a>
-    <div>
-      <p class="g-eyebrow g-eyebrow--bare">Topic 04 &middot; Computation</p>
-      <h3 style="font-size:var(--g-fs-h2);margin:0 0 var(--g-space-sm)">Is the universe computable?</h3>
-      <p class="g-muted" style="font-size:var(--g-fs-small)">If the world runs on rules, something ought to be
-        able to run them. Gödel, chaos and thermodynamics all disagree about how far that goes.</p>
-      <dl class="lp-rt">
-        <dt>Reading time</dt>
-        <dd>18 minutes for the essay, or 4 for the summary</dd>
-      </dl>
-      <div class="g-cluster g-mt-md">
-        <a class="g-btn g-btn--primary" href="topic-computable-universe.html">Open the Topic</a>
-        <a class="g-btn g-btn--ghost" href="game-hypothesis-machine.html">Play the Game</a>
+
+  <div class="trail__track">
+    <div class="trail__stage">
+      <div class="trail__bar">
+        <p class="trail__now"><b>Is the universe computable?</b> &middot; <span data-rail-label>The Topic</span></p>
+        <div class="trail__dots" role="group" aria-label="Jump within this topic">
+          <button class="trail__dot" type="button" aria-current="true" aria-label="The Topic"></button>
+          <button class="trail__dot" type="button" aria-current="false" aria-label="What it looks like"></button>
+          <button class="trail__dot" type="button" aria-current="false" aria-label="Two readings"></button>
+          <button class="trail__dot" type="button" aria-current="false" aria-label="The discussion"></button>
+        </div>
+        <span class="trail__count g-nums" data-rail-count>01 / 04</span>
       </div>
+
+      <div class="trail__rail" tabindex="0" role="region" aria-label="Current topic, scrolled sideways">
+
+        <article class="trail__panel" data-rail-title="The Topic">
+          <div class="trail__side">
+            <p class="trail__n">01 &middot; TOPIC 04</p>
+            <h3>Is the universe computable?</h3>
+            <p class="trail__say">If the world runs on rules, something ought to be able to run them.
+              G&ouml;del, chaos and thermodynamics all disagree about how far that goes.</p>
+            <p class="trail__meta">18 min essay &middot; 4 min summary</p>
+            <div class="trail__act">
+              <a class="g-btn g-btn--primary" href="topic-computable-universe.html">Open the Topic</a>
+              <a class="g-btn g-btn--secondary" href="game-hypothesis-machine.html">Play the Game</a>
+            </div>
+          </div>
+          <div class="trail__body">
+            <a class="video" href="topic-computable-universe.html" aria-label="Watch: Is the universe computable?">
+              <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+            </a>
+          </div>
+        </article>
+
+        <article class="trail__panel" data-rail-title="What it looks like">
+          <div class="trail__side">
+            <p class="trail__n">02 &middot; THE PICTURES</p>
+            <h3>Four pictures it keeps returning to</h3>
+            <p class="trail__say">A proof, a trajectory, a machine made of four rules, and the room where
+              &ldquo;in principle&rdquo; first started costing electricity.</p>
+            <div class="trail__act">
+              <a class="g-btn g-btn--secondary g-btn--sm" href="topic-computable-universe.html#timeline">How the question developed</a>
+            </div>
+          </div>
+          <div class="trail__body">
+            <div class="trail__gal">
+              <figure class="trail__fig trail__fig--face">
+                <img src="assets/img/topic-04/turing.jpg" alt="Passport photograph of Alan Turing at sixteen" width="675" height="919" loading="lazy" decoding="async">
+                <figcaption><b>Turing, 1936</b><span>Defines what a machine can compute, and proves some questions it cannot settle.</span></figcaption>
+              </figure>
+              <figure class="trail__fig">
+                <img src="assets/img/topic-04/lorenz.svg" alt="A Lorenz attractor: one trajectory looping through two lobes" width="600" height="600" loading="lazy" decoding="async">
+                <figcaption><b>The attractor</b><span>Deterministic and still unpredictable. Integrated here from Lorenz&rsquo;s 1963 equations.</span></figcaption>
+              </figure>
+              <figure class="trail__fig trail__fig--pixel">
+                <img src="assets/img/topic-04/glider-gun.gif" alt="Gosper&rsquo;s glider gun in Conway&rsquo;s Game of Life, emitting gliders" width="250" height="180" loading="lazy" decoding="async">
+                <figcaption><b>A glider gun</b><span>Game of Life is Turing complete. A universe of four rules already computes.</span></figcaption>
+              </figure>
+              <figure class="trail__fig trail__fig--wide">
+                <img src="assets/img/topic-04/eniac.jpg" alt="Two operators working at the ENIAC computer" width="960" height="723" loading="lazy" decoding="async">
+                <figcaption><b>ENIAC, 1946</b><span>Where computability stopped being a proof and started being a power bill.</span></figcaption>
+              </figure>
+            </div>
+            <p class="trail__credit">Turing: public domain. Glider gun (Lucas Vieira) and ENIAC:
+              <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>, CC BY-SA 3.0.
+              The attractor is computed for this page.</p>
+          </div>
+        </article>
+
+        <article class="trail__panel" data-rail-title="Two readings">
+          <div class="trail__side">
+            <p class="trail__n">03 &middot; VIEWPOINTS</p>
+            <h3>Two readings, both defensible</h3>
+            <p class="trail__say">We publish the strongest case against our own reading. If the
+              counter-argument is weak here, that is our failure.</p>
+            <div class="trail__act">
+              <a class="g-btn g-btn--secondary g-btn--sm" href="topic-computable-universe.html#views">Where do you land?</a>
+            </div>
+          </div>
+          <div class="trail__body">
+            <div class="trail__views">
+              <div class="view view--for"><p class="view__tag">For computability</p>
+                <p>Every physical process we have examined turns out to be simulable given enough resources.
+                  &ldquo;Enough resources&rdquo; is an engineering complaint, not a metaphysical one.</p>
+                <cite>The position the video leans toward</cite></div>
+              <div class="view view--against"><p class="view__tag">Against</p>
+                <p>Undecidability is not a resource complaint: no amount of compute settles it. And treating
+                  the universe as executing a computation smuggles in a substrate and a clock no physics requires.</p>
+                <cite>The strongest objection we could find</cite></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="trail__panel" data-rail-title="The discussion">
+          <div class="trail__side">
+            <p class="trail__n">04 &middot; DISCUSSION</p>
+            <h3>The argument is already running</h3>
+            <p class="trail__say">This week: if a model predicts a material&rsquo;s behaviour correctly but
+              no one can say why, has physics been done?</p>
+            <div class="trail__act">
+              <a class="g-btn g-btn--primary" href="topic-computable-universe.html#talk">Read the thread</a>
+              <a class="g-btn g-btn--secondary" href="community.html#join">Join Us</a>
+            </div>
+          </div>
+          <div class="trail__body trail__talk">
+            <div class="comment"><span class="avatar">MR</span><div>
+              <p class="comment__who">Maryam R.<span class="comment__role">researcher</span></p>
+              <p>The spectral gap result gets cited a lot in these debates, but it is about
+                <em>infinite families</em> of Hamiltonians. Any particular finite material is decidable.</p></div></div>
+            <div class="comment"><span class="avatar">JT</span><div>
+              <p class="comment__who">J. Tanaka<span class="comment__role">reader</span></p>
+              <p>The simulation made the chaos point land for me in a way the essay didn&rsquo;t. Going from
+                1e-10 to 1e-9 costs you almost nothing in horizon. That&rsquo;s the whole thing, isn&rsquo;t it.</p></div></div>
+            <div class="comment"><span class="avatar">SA</span><div>
+              <p class="comment__who">Sajad A.<span class="comment__role">host</span></p>
+              <p>Maryam is right and the video is loose about it, noted for the correction log. Undecidability
+                appears in the general problem, not in any given lab sample.</p></div></div>
+          </div>
+        </article>
+
+      </div>
+
+      <div class="trail__line" aria-hidden="true"><span></span></div>
+      <p class="trail__hint">Scroll sideways, or use the dots.</p>
     </div>
-  </div></div></section>
+  </div>
+</div></section>
 
 <section class="g-section g-section--deep"><div class="g-container">
   <div class="g-section-head rv" style="max-width:44rem">
@@ -270,7 +395,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </footer>
 <script src="assets/site.js?v=up-f706806e3a02-g1df6ff09"></script>
 <script src="assets/hero.js?v=up-f706806e3a02-g1df6ff09"></script>
+<script src="assets/topic-rail.js?v=up-f706806e3a02-g1df6ff09" defer></script>
 <script src="assets/chat.js?v=up-f706806e3a02-g1df6ff09" defer></script>
-<script src="assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09" defer></script>
+<script src="assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09-rl1" defer></script>
 </body>
 </html>
