@@ -73,11 +73,14 @@ jobs:
           echo 'workspace-stage=create-project'
           PROJECT="$(post_json "$JAR_A" "$BASE/api/workspace/projects/" '{"title":"Production verification project","description":"E2E"}')"
           PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["project"]["id"])' <<<"$PROJECT")"
+          echo 'workspace-stage=create-note'
           NOTE="$(post_json "$JAR_A" "$BASE/api/workspace/knowledge/" "{\"kind\":\"note\",\"title\":\"Private production note\",\"body\":\"Isolation marker $RUN\",\"project_id\":$PROJECT_ID}")"
           NOTE_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["item"]["id"])' <<<"$NOTE")"
 
+          echo 'workspace-stage=create-root-folder'
           FOLDER="$(post_json "$JAR_A" "$BASE/api/workspace/collections/" "{\"name\":\"Experiments $RUN\",\"project_id\":$PROJECT_ID}")"
           FOLDER_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["collection"]["id"])' <<<"$FOLDER")"
+          echo 'workspace-stage=create-child-folder'
           CHILD="$(post_json "$JAR_A" "$BASE/api/workspace/collections/" "{\"name\":\"Runs\",\"parent_id\":$FOLDER_ID,\"project_id\":$PROJECT_ID}")"
           CHILD_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["collection"]["id"])' <<<"$CHILD")"
 
