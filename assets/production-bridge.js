@@ -297,14 +297,29 @@
       markAccount(data.user && data.user.email);
       // Any page load is a chance to finish a handover that failed earlier, and
       // for a reader who signed in on another tab it is the only chance.
-      adoptReaderLibrary().catch(function () {});
+      adoptReaderLibrary().then(function () {
+        libPaint();
+      }).catch(function () {});
     } else {
       readerSignedOut();
     }
     // A failed request is left alone deliberately: it cannot tell a signed-out
     // reader from a dropped connection, and discarding the cache on a flaky
     // network would be the worse of the two mistakes.
-  }).catch(function () {});
+  }).catch(function () {
+    /* The wording is still owed an answer. A browser that has never held a
+       signed-in mirror has never had an account on it, so the guest note is
+       safe to show; one that has could belong to a signed-in reader on a bad
+       connection, and there the note stays blank rather than guess wrong.
+       `libAuthed` is untouched either way — nothing is written to a session
+       we have not confirmed. */
+    var mirror = false;
+    try { mirror = !!localStorage.getItem(LIB_MIRROR); } catch (err) {}
+    if (mirror) return;
+    libAuthKnown = true;
+    libPaint();
+    libMountAuthNote();
+  });
 
   if (params.get('email_verified') === '1') {
     var ev1 = document.querySelector('[data-form-note]');
@@ -404,6 +419,13 @@
 
   var lib = libRead();
   var libAuthed = false;
+  /* Tri-state, because `libAuthed` alone cannot tell "signed out" from "we
+     have not asked yet". The session answer arrives a fetch later than first
+     paint, so anything that names where the pile lives — the page note, the
+     drawer's footer, the sign-up note — has to say nothing until this is true.
+     Claiming "kept on this device" and then correcting it to "kept in your
+     Knowledge workspace" a moment later is a lie the reader watches happen. */
+  var libAuthKnown = false;
   /* Set when the server refused a write we had already applied locally. The
      drawer says so rather than pretending: a library that silently stops
      saving is worse than one that admits it is offline. */
@@ -775,6 +797,10 @@
   var libNotes = [];
 
   function libPaintNote(note) {
+    if (!libAuthKnown) {
+      note.textContent = '';
+      return;
+    }
     if (libAuthed) {
       note.textContent = 'Kept in your Knowledge workspace.';
       return;
@@ -1062,6 +1088,8 @@
       body.append(pathGroup);
     }
 
+    if (!libAuthKnown) return;
+
     if (libAuthed) {
       var open = document.createElement('a');
       open.className = 'g-btn g-btn--primary g-btn--sm rl-cta';
@@ -1102,6 +1130,7 @@
      ========================================================================== */
   function adoptReaderLibrary() {
     libAuthed = true;
+    libAuthKnown = true;
     var saved = Object.keys(lib.saved).map(function (key) { return lib.saved[key]; });
     var following = Object.keys(lib.following).map(function (key) { return lib.following[key]; });
     var paths = Object.keys(lib.paths).filter(function (key) { return lib.paths[key].done.length; });
@@ -1141,12 +1170,17 @@
      guest pile this browser has of its own. */
   function readerSignedOut() {
     libAuthed = false;
+    libAuthKnown = true;
     var mirror = false;
     try { mirror = !!localStorage.getItem(LIB_MIRROR); } catch (err) {}
-    if (!mirror) return;
-    try { localStorage.removeItem(LIB_MIRROR); } catch (err) {}
-    lib = libRead();
+    if (mirror) {
+      try { localStorage.removeItem(LIB_MIRROR); } catch (err) {}
+      lib = libRead();
+    }
+    // Always repaint: even with no mirror to drop, this is the moment the
+    // guest wording is allowed on screen for the first time.
     libPaint();
+    libMountAuthNote();
   }
 
   function libLoad() {
@@ -1173,7 +1207,7 @@
      and only while there is something in the basket to name. */
   function libMountAuthNote() {
     var note = document.querySelector('.auth__note[data-form-note]');
-    if (!note || libAuthed) return;
+    if (!note || !libAuthKnown || libAuthed) return;
     var count = libCount();
     var paths = Object.keys(lib.paths).filter(function (key) { return lib.paths[key].done.length; }).length;
     if (!count && !paths) return;
