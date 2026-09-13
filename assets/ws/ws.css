@@ -288,7 +288,19 @@
   .ws-crumbs__sep { color: var(--g-text-subtle); opacity: 0.5; }
   .ws-crumbs__here { color: var(--g-text); font-weight: var(--g-w-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .ws-topbar__actions { display: flex; align-items: center; gap: 4px; }
+  /* grid-column is not decoration here, it is the whole alignment.
+     The topbar is three tracks, auto / 1fr / auto, and the three children
+     auto-place into them in order. Below 700px the breadcrumb is display:none,
+     which does not make it an empty grid item — it removes it from the grid
+     entirely. The actions then auto-place into track 2, the 1fr one, and a
+     flex row with the default flex-start inside a stretched track draws every
+     control hard against the left of it. That is the bar on a phone: logo,
+     index toggle, then search, dock and theme immediately after them, and two
+     thirds of the bar empty to the right of the lot. It reads as five icons
+     dropped in the middle, because that is exactly what it is.
+     Pinning the group to track 3 states the arrangement instead of inferring
+     it from how many siblings happen to be visible. */
+  .ws-topbar__actions { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 4px; }
 
   /* The search field is a button. It opens the palette, so making it an
      input would promise an inline search that does not exist there. */
