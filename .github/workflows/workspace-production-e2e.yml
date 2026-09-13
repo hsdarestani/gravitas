@@ -127,18 +127,25 @@ jobs:
           cmp "$RUNNER_TEMP/dataset.csv" "$RUNNER_TEMP/download.csv"
 
           echo 'workspace-stage=dashboard-and-routes'
+          echo 'workspace-stage=dashboard'
           curl -4 -fsS -b "$JAR_A" "$BASE/api/workspace/dashboard/" | \
             python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["counts"]["projects"]>=1; assert d["counts"]["notes"]>=1; assert d["counts"]["datasets"]>=1; assert d["storage"]["used_bytes"]>0; assert d["storage"]["quota_bytes"]>d["storage"]["used_bytes"]'
+          echo 'workspace-stage=home'
           curl -4 -fsS "$BASE/" -o "$RUNNER_TEMP/home.html"
+          echo 'workspace-stage=route-statuses'
           for route in login signup workspace workspace/projects workspace/knowledge workspace/files workspace/notes workspace/datasets; do
             test "$(curl -4 -sS -o "$RUNNER_TEMP/route.html" -w '%{http_code}' "$BASE/$route")" = 200
           done
+          echo 'workspace-stage=legacy-redirects'
           test "$(curl -4 -sS -o /dev/null -w '%{http_code}' "$BASE/workspace.html")" = 301
           test "$(curl -4 -sS -o /dev/null -w '%{redirect_url}' "$BASE/workspace.html")" = "$BASE/workspace"
           test "$(curl -4 -sS -o /dev/null -w '%{http_code}' "$BASE/account.html")" = 301
+          echo 'workspace-stage=page-content'
           curl -4 -fsS "$BASE/login" -o "$RUNNER_TEMP/account.html"
           curl -4 -fsS "$BASE/workspace" -o "$RUNNER_TEMP/workspace.html"
+          echo 'workspace-stage=health'
           curl -4 -fsS "$BASE/api/health/" -o "$RUNNER_TEMP/health.json"
+          echo 'workspace-stage=content-assertions'
           grep -qi 'Gravitas' "$RUNNER_TEMP/home.html"
           grep -qi 'Create an account' "$RUNNER_TEMP/account.html"
           grep -qi 'Research workspace' "$RUNNER_TEMP/workspace.html"

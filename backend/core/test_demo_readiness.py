@@ -520,5 +520,7 @@ class DemoReadinessTests(TestCase):
         self.assertIn('workspace-stage=dataset-upload', workspace_e2e)
         self.assertIn('workspace-stage=create-root-folder', workspace_e2e)
         self.assertIn('workspace-stage=create-child-folder', workspace_e2e)
+        self.assertIn('workspace-stage=dashboard', workspace_e2e)
+        self.assertIn('workspace-stage=health', workspace_e2e)
         self.assertIn('DATASET_STATUS=', workspace_e2e)
         self.assertIn('workspace-error=', workspace_e2e)
