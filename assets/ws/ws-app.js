@@ -137,6 +137,7 @@ const ROUTES = [
   [/^\/workspace\/research\/editor\/?$/,            () => ({ view: 'notes' })],
   [/^\/workspace\/research\/folders\/?$/,           () => ({ view: 'research-folders' })],
   [/^\/workspace\/research\/tasks\/?$/,             () => ({ view: 'research-tasks' })],
+  [/^\/workspace\/research\/search\/?$/,            () => ({ view: 'research-search' })],
   [/^\/workspace\/research\/projects\/(\d+)\/?$/,   (m) => ({ view: 'project', id: m[1] })],
   [/^\/workspace\/research\/projects\/?$/,          () => ({ view: 'projects' })],
   [/^\/workspace\/research\/files\/?$/,             () => ({ view: 'resources', kind: 'file' })],
@@ -237,6 +238,7 @@ function renderRail() {
       ['files', 'Folder', '/workspace/research/folders'],
       ['projects', 'Projects', '/workspace/research/projects'],
       ['tasks', 'Tasks', '/workspace/research/tasks'],
+      ['search', 'Search', '/workspace/research/search'],
     ];
     for (const [mark, label, path] of modules) {
       const active = path === '/workspace/research'
@@ -676,9 +678,9 @@ function renderEditor(host) {
   picker.addEventListener('change', async () => {
     const file = picker.files?.[0]; picker.value = ''; if (!file) return;
     attach.disabled = true; attach.textContent = 'Uploading…';
-    const form = new FormData(); form.append('file', file); form.append('kind', 'file');
+    const form = new FormData(); form.append('file', file);
     try {
-      const response = await fetch('/api/workspace/files/upload/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
+      const response = await fetch(`/api/workspace/pages/${encodeURIComponent(ui.page.id)}/attachments/`, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
       const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'upload_failed');
       const item = data.item || {};
       ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'attach', text: item.original_name || file.name, kind: (item.mime_type || 'file').split('/').at(-1).toUpperCase(), meta: P.formatBytes ? P.formatBytes(item.file_size) : `${item.file_size || file.size} bytes`, resourceId: item.id });
@@ -1351,6 +1353,7 @@ function render() {
   else if (view === 'research-calendar') research.renderCalendar(host, ctx);
   else if (view === 'research-folders') research.renderFolders(host, ctx);
   else if (view === 'research-tasks') research.renderTasks(host, ctx);
+  else if (view === 'research-search') research.renderSearch(host, ctx);
   else if (view === 'kms') kms.renderKmsOverview(host, ctx);
   else if (view === 'core-tasks') views.renderCoreTasks(host, ctx);
   else if (view === 'core-content') views.renderCoreContent(host, ctx);

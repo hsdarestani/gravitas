@@ -1,6 +1,13 @@
+import hashlib
 import json
+import logging
+import re
+from pathlib import PurePosixPath
 
+from django.conf import settings
 from django.db.models import Q
+from django.db import transaction
+from django.db.models import Sum
 from django.core.exceptions import ImproperlyConfigured
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -8,10 +15,13 @@ from django.views.decorators.http import require_http_methods
 from . import cloud
 from .models import KnowledgeActivity, KnowledgeResource
 from .platform_access import can_edit, can_view
-from .space_fs import SpaceConflict
+from .space_fs import SpaceConflict, ensure_note_link, ensure_space_root
 from .space_models import NoteSpaceLink, SpaceNode
 from .space_moves import place_note, sync_note_moveaware
-from .workspace_api import provision_personal_workspace
+from .workspace_api import _plan, _resource_json, _storage_json, provision_personal_workspace
+
+
+logger = logging.getLogger(__name__)
 
 
 def _body(request):
@@ -120,10 +130,19 @@ def workspace_pages(request):
         {'id': f'b-new-1', 'type': 'p', 'text': ''},
     ]
     workspace = provision_personal_workspace(request.user)
+    kind = str(data.get('kind') or 'note')[:20]
+    journal_date = str(data.get('journal_date') or '')[:10] or None
+    if kind == 'journal' and journal_date:
+        existing = KnowledgeResource.objects.filter(
+            owner=request.user, kind=KnowledgeResource.Kind.NOTE,
+            metadata__ws_kind='journal', metadata__ws_journal_date=journal_date,
+        ).first()
+        if existing:
+            return JsonResponse({'ok': True, 'page': _page_json(existing)})
     metadata = {
-        'ws_blocks': blocks, 'ws_kind': str(data.get('kind') or 'note')[:20],
+        'ws_blocks': blocks, 'ws_kind': kind,
         'ws_parent': parent, 'ws_space': str(data.get('space') or 'research')[:20],
-        'ws_journal_date': str(data.get('journal_date') or '')[:10] or None,
+        'ws_journal_date': journal_date,
     }
     resource = KnowledgeResource.objects.create(
         workspace=workspace, owner=request.user, kind=KnowledgeResource.Kind.NOTE,
@@ -181,3 +200,102 @@ def workspace_page_detail(request, page_id):
     if link:
         payload['sync_state'], payload['sync_error'] = link.sync_state, link.sync_error
     return JsonResponse({'ok': True, 'page': payload})
+
+
+@require_http_methods(['GET'])
+def workspace_page_backlinks(request, page_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    target = _resource(request.user, page_id)
+    if not target or not can_view(request.user, target):
+        return _error('not_found', 404)
+
+    title = target.title.strip()
+    pattern = re.compile(r'\[\[\s*' + re.escape(title) + r'\s*\]\]', re.IGNORECASE)
+    candidates = KnowledgeResource.objects.select_related('workspace', 'project', 'owner').filter(
+        Q(owner=request.user) | Q(workspace__owner=request.user) | Q(workspace__memberships__user=request.user),
+        kind=KnowledgeResource.Kind.NOTE,
+    ).exclude(pk=target.pk).distinct()
+    links = []
+    for resource in candidates:
+        if not can_view(request.user, resource):
+            continue
+        for block in _blocks(resource):
+            text = str(block.get('text') or '') if isinstance(block, dict) else ''
+            match = pattern.search(text)
+            if not match:
+                continue
+            start = max(0, match.start() - 48)
+            excerpt = text[start:match.end() + 72].strip()
+            if start:
+                excerpt = '…' + excerpt
+            if match.end() + 72 < len(text):
+                excerpt += '…'
+            links.append({'id': str(resource.pk), 'title': resource.title, 'excerpt': excerpt})
+            break
+    return JsonResponse({'ok': True, 'links': links})
+
+
+@require_http_methods(['POST'])
+def workspace_page_attachment(request, page_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    note = _resource(request.user, page_id)
+    if not note or not can_view(request.user, note):
+        return _error('not_found', 404)
+    if not can_edit(request.user, note):
+        return _error('permission_denied', 403)
+    uploaded = request.FILES.get('file')
+    if not uploaded:
+        return _error('file_required')
+    if uploaded.size <= 0 or uploaded.size > settings.GRAVITAS_MAX_UPLOAD_BYTES:
+        return _error('file_size_invalid', 413)
+
+    filename = cloud.safe_filename(uploaded.name)
+    try:
+        link = ensure_note_link(note, attachments=True, sync=False)
+        identity = ensure_space_root(note.owner)
+        cloud.make_folder(identity, link.attachments_path)
+    except (cloud.CloudError, ValueError, ImproperlyConfigured):
+        logger.exception('Could not prepare attachment folder for note %s', note.pk)
+        return _error('cloud_unavailable', 503)
+
+    storage_path = f'{link.attachments_path}/{filename}'
+    if KnowledgeResource.objects.filter(owner=note.owner, storage_path__iexact=storage_path).exists():
+        return _error('file_exists', 409)
+
+    with transaction.atomic():
+        plan = _plan(note.owner, lock=True)
+        used = KnowledgeResource.objects.filter(owner=note.owner).aggregate(total=Sum('file_size'))['total'] or 0
+        if used + uploaded.size > plan.quota_bytes:
+            return _error('quota_exceeded', 413)
+        resource = KnowledgeResource.objects.create(
+            workspace=note.workspace, project=note.project, owner=note.owner,
+            kind=KnowledgeResource.Kind.FILE, title=filename, original_name=filename,
+            mime_type=(uploaded.content_type or 'application/octet-stream')[:160],
+            file_size=uploaded.size, ingestion_status='pending', storage_path=storage_path,
+            metadata={'extension': PurePosixPath(filename).suffix.lower(), 'ws_parent_page': str(note.pk)},
+        )
+
+    try:
+        digest = hashlib.sha256()
+        uploaded.seek(0)
+        for chunk in uploaded.chunks():
+            digest.update(chunk)
+        uploaded.seek(0)
+        cloud.upload(identity, storage_path, uploaded)
+    except Exception:
+        resource.delete()
+        logger.exception('Cloud attachment upload failed for note %s', note.pk)
+        return _error('cloud_unavailable', 503)
+
+    resource.checksum = f'sha256:{digest.hexdigest()}'
+    resource.save(update_fields=['checksum', 'updated_at'])
+    KnowledgeActivity.objects.create(
+        workspace=note.workspace, actor=request.user, resource=resource, project=note.project,
+        action='file_uploaded', detail={'title': filename, 'parent_note_id': note.pk},
+    )
+    return JsonResponse({
+        'ok': True, 'item': _resource_json(resource, True, request.user, True),
+        'storage': _storage_json(note.owner),
+    }, status=201)

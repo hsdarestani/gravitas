@@ -344,7 +344,7 @@ export function resolveLink(title) {
 
 export function backlinks(id) {
   return withFallback(
-    async () => (await request(`/platform/links/?target=${encodeURIComponent(id)}`)).results || [],
+    async () => (await request(`/workspace/pages/${encodeURIComponent(id)}/backlinks/`)).links || [],
     () => {
       const target = store.pages[id];
       if (!target) return [];
@@ -404,8 +404,12 @@ function excerpt(text, q) {
    One page per day, created on first write rather than in advance, so an
    untouched month leaves no empty pages behind. */
 
+function localDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export function journalId(date) {
-  return 'journal-' + date.toISOString().slice(0, 10);
+  return 'journal-' + localDateKey(date);
 }
 
 export function journalDays() {
@@ -414,7 +418,7 @@ export function journalDays() {
 }
 
 export async function openJournal(date) {
-  const dateKey = date.toISOString().slice(0, 10);
+  const dateKey = localDateKey(date);
   if (state.mode === 'server') {
     const existing = Object.values(serverPages).find((item) => item.kind === 'journal' && item.journal_date === dateKey);
     if (existing) return page(existing.id);

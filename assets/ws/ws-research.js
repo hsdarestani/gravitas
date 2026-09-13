@@ -249,10 +249,36 @@ export function renderFolders(host) {
       body.innerHTML = '';
       const bar = el('div', 'v-toolbar');
       const status = el('span', 'v-note', noteData.cloud_unavailable ? 'Nextcloud currently unavailable' : 'Connected to Space');
+      const conflictActions = (error) => {
+        const prior = body.querySelector('[data-sync-conflict]');
+        if (prior) prior.remove();
+        const box = notice(
+          'Nextcloud has newer changes',
+          `${error.data?.conflicts?.length || 1} path${error.data?.conflicts?.length === 1 ? '' : 's'} changed outside Gravitas. Choose which copy should win.`,
+          true,
+        );
+        box.dataset.syncConflict = '';
+        const actions = el('div', 'v-toolbar');
+        const keepLocal = button('Keep Gravitas version', async () => {
+          keepLocal.disabled = true; useCloud.disabled = true; status.textContent = 'Writing Gravitas versions…';
+          try { await P.syncSpace({ force: true, confirmed: true }); await load(); }
+          catch { status.textContent = 'Conflict could not be resolved'; keepLocal.disabled = false; useCloud.disabled = false; }
+        }, true);
+        const useCloud = button('Use Nextcloud version', async () => {
+          keepLocal.disabled = true; useCloud.disabled = true; status.textContent = 'Reading Nextcloud versions…';
+          try { await P.reconcileSpace(); await load(); }
+          catch { status.textContent = 'Conflict could not be resolved'; keepLocal.disabled = false; useCloud.disabled = false; }
+        });
+        actions.append(keepLocal, useCloud); box.append(actions); bar.after(box);
+      };
       const sync = button('Sync now', async () => {
         sync.disabled = true; status.textContent = 'Synchronising…';
         try { await P.syncSpace(); status.textContent = 'Synchronised'; await load(); }
-        catch { status.textContent = 'Sync failed — no data was discarded'; sync.disabled = false; }
+        catch (error) {
+          status.textContent = 'Sync stopped — no data was discarded';
+          sync.disabled = false;
+          if (error.message === 'space_sync_conflict') conflictActions(error);
+        }
       }, true);
       const add = button('New folder', async () => {
         const title = prompt('Folder name');
@@ -393,4 +419,114 @@ export function renderTasks(host) {
     };
     query.addEventListener('input', draw); filter.addEventListener('change', draw); draw();
   }).catch(() => { body.innerHTML = ''; body.append(notice('Tasks unavailable', 'The project service did not answer. No local task board was created.', true)); });
+}
+
+export function renderSearch(host, ctx) {
+  const doc = shell(host, 'Search', 'Search accessible research projects, notes, datasets and attachments.');
+  const form = el('form', 'v-toolbar rkms-search');
+  const query = el('input', 'v-input');
+  query.type = 'search';
+  query.name = 'q';
+  query.placeholder = 'Search research';
+  query.setAttribute('aria-label', 'Search research');
+  const submit = button('Search', () => {}, true);
+  submit.type = 'submit';
+  const count = el('span', 'v-toolbar__count', 'Enter a search term');
+  form.append(query, submit, count);
+  const results = el('div');
+  doc.append(form, results);
+
+  const openResult = (item) => {
+    if (item.project_id) ctx.go(`/workspace/research/projects/${item.project_id}`);
+    else if (item.kind === 'dataset') ctx.go('/workspace/research/datasets');
+    else if (item.kind === 'file') ctx.go('/workspace/research/files');
+    else ctx.go('/workspace/research/editor');
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const term = query.value.trim();
+    if (!term) {
+      count.textContent = 'Enter a search term';
+      results.innerHTML = '';
+      query.focus();
+      return;
+    }
+
+    submit.disabled = true;
+    query.disabled = true;
+    count.textContent = 'Searching…';
+    results.innerHTML = '';
+    results.append(notice('Searching research', 'Reading only projects and resources you can access…'));
+
+    try {
+      const [resourceData, projectList] = await Promise.all([P.searchResources(term), P.projects()]);
+      const needle = term.toLowerCase();
+      const resources = resourceData.items || [];
+      const projects = (projectList.projects || []).filter((project) =>
+        [project.title, project.description, project.research_question, project.client_name]
+          .filter(Boolean).some((value) => String(value).toLowerCase().includes(needle)));
+      const pages = ctx.pages('research').filter((page) =>
+        [page.title, ...(page.blocks || []).map((block) => block.text)]
+          .filter(Boolean).some((value) => String(value).toLowerCase().includes(needle)));
+
+      results.innerHTML = '';
+      const total = projects.length + resources.length + pages.length;
+      count.textContent = `${total} result${total === 1 ? '' : 's'}`;
+      if (!total) {
+        results.append(notice('Nothing matched', 'Try a title, phrase, filename or project name.'));
+        return;
+      }
+
+      if (projects.length) {
+        const panel = el('section', 'v-panel');
+        panel.append(el('h2', 'v-panel__title', `Projects · ${projects.length}`));
+        for (const project of projects) {
+          const item = el('button', 'v-row'); item.type = 'button';
+          item.addEventListener('click', () => ctx.go(`/workspace/research/projects/${project.id}`));
+          const main = el('span', 'v-row__main');
+          main.append(el('strong', null, project.title), el('small', null, P.meta([P.label(project.status), project.description])));
+          item.append(main); panel.append(item);
+        }
+        results.append(panel);
+      }
+
+      if (pages.length) {
+        const panel = el('section', 'v-panel');
+        panel.append(el('h2', 'v-panel__title', `Workspace notes · ${pages.length}`));
+        for (const page of pages) {
+          const item = el('button', 'v-row'); item.type = 'button';
+          item.addEventListener('click', () => ctx.go(`/workspace/page/${page.id}`));
+          const main = el('span', 'v-row__main');
+          main.append(el('strong', null, page.title), el('small', null, ctx.pathOf(page.id)));
+          item.append(main); panel.append(item);
+        }
+        results.append(panel);
+      }
+
+      if (resources.length) {
+        const panel = el('section', 'v-panel');
+        panel.append(el('h2', 'v-panel__title', `Files and knowledge · ${resources.length}`));
+        for (const resource of resources) {
+          const item = el('button', 'v-row'); item.type = 'button';
+          item.addEventListener('click', () => openResult(resource));
+          const main = el('span', 'v-row__main');
+          main.append(el('strong', null, resource.title || resource.original_name || 'Untitled'));
+          main.append(el('small', null, P.meta([P.label(resource.kind), resource.description, P.formatDate(resource.updated_at)])));
+          item.append(main); panel.append(item);
+        }
+        results.append(panel);
+      }
+    } catch {
+      results.innerHTML = '';
+      results.append(notice('Search unavailable', 'The research service did not answer. No local or unfiltered results were substituted.', true));
+      count.textContent = 'Search failed';
+    } finally {
+      submit.disabled = false;
+      query.disabled = false;
+      query.focus();
+    }
+  });
+
+  query.focus();
 }
