@@ -1207,20 +1207,13 @@ function renderCrumbs() {
 const PREFERRED_ROOT = { research: 'dossiers', core: 'c-meetings', kms: 'k-concepts' };
 
 function defaultRoot(space) {
-  /* Server parents are real note ids or Space folders (`s-<id>`). The named
-     roots below belong to the browser seed; sending one of those synthetic
-     ids to Django makes an otherwise valid New note fail with
-     `invalid_parent`. On an account with no Space folders, create the page at
-     the workspace root instead of quietly nesting it under the first note. */
-  if (api.state.mode === 'server') {
-    const folder = ui.nodes.find((node) => (
-      node.kind === 'folder'
-      && !node.parent
-      && String(node.id).startsWith('s-')
-      && api.spaceOfNode(ui.nodes, node.id) === space
-    ));
-    return folder ? folder.id : null;
-  }
+  /* Server parents must be an explicitly selected note or Space category.
+     The named roots below belong to the browser seed, while the server tree
+     also contains non-category Space nodes that are rendered as folders.
+     Guessing either as a parent makes New note fail with `invalid_parent`.
+     The Notes screen therefore creates at the workspace root; folder-aware
+     actions pass their validated parent explicitly. */
+  if (api.state.mode === 'server') return null;
 
   const wanted = PREFERRED_ROOT[space];
   if (ui.nodes.some((node) => node.id === wanted)) return wanted;
