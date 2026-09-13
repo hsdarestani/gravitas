@@ -19,20 +19,20 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20260912-3';
+import * as api from './ws-api.js?v=20260913-1';
 import * as P from './ws-platform.js';
 import * as views from './ws-views.js';
 import * as assets from './ws-core-assets.js';
 import * as kms from './ws-kms-views.js';
-import * as research from './ws-research.js?v=20260912-3';
+import * as research from './ws-research.js?v=20260913-1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20260912-3';
+} from './ws-nav.js?v=20260913-1';
 import { renderDashboard, stopClock } from './ws-home.js';
 import { renderSettings } from './ws-settings.js';
 import { mountPalette, openPalette } from './ws-palette.js';
-import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260912-3';
+import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260913-1';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -236,10 +236,7 @@ function renderRail() {
     rail.append(el('div', 'ws-rail__spacer'));
   }
 
-  /* Plusar, the workspace assistant. It keeps the dock tab id 'assistant',
-     which is written into saved preferences on every reader's machine; the
-     name is what changed, not the slot. */
-  rail.append(railButton('plusar', 'Plusar', ui.dock && ui.dockTab === 'assistant', () => {
+  rail.append(railButton('mindmap', 'Assistant', ui.dock && ui.dockTab === 'assistant', () => {
     ui.dock = true;
     ui.dockTab = 'assistant';
     writePrefs({ dock: true, dockTab: 'assistant' });
@@ -247,7 +244,7 @@ function renderRail() {
     focusAssistant();
   }));
 
-  /* Settings sits under Plusar, at the foot of the rail, which is
+  /* Settings sits under the Assistant, at the foot of the rail, which is
      where every desktop tool of this shape puts the account. It shows the
      profile picture rather than a gear when there is one: a face is easier
      to find than another 16px line drawing in a column of line drawings,
@@ -927,7 +924,7 @@ const DOCK_TABS = [
   { id: 'tasks',     label: 'Tasks' },
   { id: 'journal',   label: 'Journal' },
   { id: 'links',     label: 'Links' },
-  { id: 'assistant', label: 'Plusar' },
+  { id: 'assistant', label: 'Assistant' },
 ];
 
 function renderDock() {

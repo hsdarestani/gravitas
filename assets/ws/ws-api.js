@@ -428,14 +428,10 @@ export async function assistantProviders() {
 }
 
 export async function ask(question) {
-  const providers = await assistantProviders();
-
-  if (providers.length) {
-    try {
-      return await request('/platform/ai/ask/', { method: 'POST', body: { question } });
-    } catch {
-      // Fall through to the local answer rather than showing a dead end.
-    }
+  try {
+    return await request('/platform/ai/ask/', { method: 'POST', body: { question } });
+  } catch {
+    // Fall through to the local answer rather than showing a dead end.
   }
 
   const hits = search(question);
