@@ -231,7 +231,11 @@
   padding: 0 0.22rem;
   border-radius: var(--g-radius-pill);
   background: var(--g-accent);
-  color: var(--g-cosmos-700);
+  /* The numeral is inked in the page ground, not a fixed navy. On dark the
+     accent is Sisal and cosmos read cleanly on it; on light the accent is the
+     same warmth at ink weight, where a navy numeral collapsed to roughly
+     1.5:1. The ground inverts with the theme and clears 5:1 in both. */
+  color: var(--g-bg);
   font-size: 0.6875rem;
   font-weight: var(--g-w-semibold);
   line-height: 1.05rem;

@@ -512,6 +512,40 @@ body.is-deep     [data-level="overview"] { display: none; }
 .level a { color: var(--g-text-muted); text-decoration-color: var(--g-border); }
 .level a:hover { color: var(--g-text); }
 
+/* plates: the photographic run above the timeline ------------------------
+   A timeline of six sentences is a list of claims you are asked to take on
+   trust. Four of them have a picture — a man, a room, a trajectory, a
+   machine made of rules — and the pictures are what make the century feel
+   like it happened. They sit above the dates rather than inside them
+   because only four of the six entries have one, and threading images into
+   half a list leaves the other half looking unfinished.
+
+   Fixed tile height, cover crop: five sources of different proportions
+   (a passport photo, a press photo, a square render, a 250px GIF) have to
+   agree on a line, and letterboxing each into its own ratio would break it. */
+.plates {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--g-space-md); margin-bottom: var(--g-space-lg);
+}
+@media (max-width: 860px) { .plates { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .plates { grid-template-columns: minmax(0, 1fr); } }
+.plate { margin: 0; min-width: 0; }
+.plate img {
+  display: block; width: 100%; height: 11rem; object-fit: cover;
+  border-radius: var(--g-radius); border: 1px solid var(--g-hairline);
+  background: var(--g-surface-sunken);
+}
+.plate--face img { object-position: center 20%; }
+.plate--wide img { object-position: 62% 50%; }
+/* Cellular automata upscale badly through a smoothing filter: keep the
+   cells square, and give the GIF the white ground it was drawn on. */
+.plate--pixel img { image-rendering: pixelated; background: #fff; object-position: 28% 22%; }
+.plate figcaption { margin-top: var(--g-space-2xs); font-size: var(--g-fs-small); color: var(--g-text-muted); }
+.plate__yr { display: block; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent); }
+.plate__what { display: block; color: var(--g-text); font-weight: var(--g-w-semibold); }
+.plates__credit { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0 0 var(--g-space-lg); }
+.plates__credit a { color: inherit; }
+
 /* timeline */
 .tl { position: relative; padding-left: 1.6rem; }
 .tl::before { content: ""; position: absolute; left: .32rem; top: .4rem; bottom: .4rem; width: 1px; background: var(--g-border); }

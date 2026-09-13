@@ -179,13 +179,17 @@
 }
 /* The buttons sit on the panel's floor, so the CTA is in the same place in
    every panel and the reader stops hunting for it. */
+/* On a phone the two actions sat on two lines and ate 50px of a panel that
+   is height-budgeted to the pixel. auto-fit rather than a fixed pair of
+   columns: panel 02 carries a single long button and needs the whole width. */
 .trail__act {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: var(--g-space-2xs);
   margin-top: auto;
   padding-top: var(--g-space-sm);
 }
+.trail__act .g-btn { width: 100%; justify-content: center; text-align: center; padding-inline: var(--g-space-xs); }
 .trail__body { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: var(--g-space-2xs); }
 
 /* 01 — the poster keeps 16:9. Letting it stretch to the panel height was
@@ -218,16 +222,30 @@
 .trail__credit a { color: inherit; }
 
 /* 03 — the two readings. */
-.trail__views { flex: 1; min-height: 0; display: grid; grid-auto-rows: 1fr; gap: var(--g-space-xs); }
-.trail__views .view { display: flex; flex-direction: column; gap: var(--g-space-3xs); padding: var(--g-space-sm); min-height: 0; overflow: hidden; }
+/* grid-auto-rows: 1fr forced both cards to an equal share of whatever height
+   was left, and on a phone that share was smaller than a card needs. Flex
+   children then squashed below their own line boxes and the tag came out
+   sliced through the middle. So on the narrow layout the cards size to their
+   content, the children refuse to shrink, and the attribution — the one part
+   a reader does not need in a teaser — steps out instead. */
+.trail__views { flex: 1; min-height: 0; display: grid; grid-auto-rows: auto; align-content: start; gap: var(--g-space-xs); }
+.trail__views .view { display: flex; flex-direction: column; gap: var(--g-space-3xs); padding: var(--g-space-sm); overflow: hidden; }
+.trail__views .view > * { flex: 0 0 auto; }
+.trail__views .view cite { display: none; }
+/* -webkit-line-clamp caps the paragraph, but the card can still be shorter
+   than tag + clamp + cite on a small phone. margin-top:auto on the cite was
+   the bug in that case: a flex box that overflows with an auto margin
+   distributes the overflow to BOTH ends, so the card lost the top of its own
+   tag. The cite is pinned to the floor only where there is a floor to pin it
+   to — the two-column desktop layout, where both cards share a row. */
 .trail__views .view p {
   margin: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
-.trail__views .view cite { margin-top: auto; }
+.trail__views .view cite { margin-top: 0; }
 
 /* 04 — the discussion. These are the comments already published on the Topic
    page; nothing here invents a count or a timestamp. */
@@ -267,9 +285,13 @@
   .trail__gal { gap: var(--g-space-sm) var(--g-space-md); }
   .trail__fig figcaption span { display: inline; }
   .trail__credit { display: block; }
-  .trail__views { grid-auto-rows: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; gap: var(--g-space-md); }
+  .trail__views { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; gap: var(--g-space-md); }
+  .trail__views .view cite { display: block; }
   .trail__views .view { padding: var(--g-space-md); }
   .trail__views .view p { -webkit-line-clamp: 5; }
+  .trail__views .view cite { margin-top: auto; }
+  .trail__act { grid-template-columns: none; display: flex; flex-wrap: wrap; }
+  .trail__act .g-btn { width: auto; padding-inline: var(--g-space-md); }
   .trail__talk { justify-content: center; }
   .trail__talk .comment { padding-block: var(--g-space-sm); }
   .trail__talk .comment:nth-child(2) { border-bottom: 1px solid var(--g-hairline); }
