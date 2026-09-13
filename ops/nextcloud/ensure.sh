@@ -166,6 +166,18 @@ for _ in $(seq 1 60); do
 done
 
 docker exec -u www-data gravitas-nextcloud php occ status >/dev/null
+# The persisted Nextcloud database can outlive both the container and the
+# service environment. Re-assert the service-account password on every repair
+# so Django and Nextcloud cannot silently drift apart.
+docker exec -u www-data -e OC_PASS="$NC_ADMIN_PASSWORD" gravitas-nextcloud \
+  php occ user:resetpassword --password-from-env "$NC_ADMIN_USER" >/dev/null
+
+# Prove the exact credentials consumed by Django work against the internal OCS
+# endpoint. Container/app health alone does not catch credential drift.
+curl -fsS -u "$NC_ADMIN_USER:$NC_ADMIN_PASSWORD" \
+  -H 'OCS-APIRequest: true' -H 'Accept: application/json' \
+  'http://127.0.0.1:8081/ocs/v2.php/cloud/capabilities?format=json' \
+  | grep -E '"statuscode"[[:space:]]*:[[:space:]]*200' >/dev/null
 if [ "$CANONICAL_CLOUD" -eq 1 ]; then
   CLOUD_HOST="${PUBLIC_URL#https://}"
   docker exec -u www-data gravitas-nextcloud php occ config:system:set overwrite.cli.url --value="$PUBLIC_URL" >/dev/null
@@ -180,6 +192,7 @@ docker exec -u www-data gravitas-nextcloud php occ config:system:set overwritepr
 docker exec -u www-data gravitas-nextcloud php occ config:system:set default_phone_region --value=DE >/dev/null
 docker exec -u www-data gravitas-nextcloud php occ background:cron >/dev/null
 docker exec -u www-data gravitas-nextcloud php occ config:system:set maintenance_window_start --type=integer --value=1 >/dev/null || true
+systemctl try-restart gravitas-backend.service || true
 
 cat > /etc/systemd/system/gravitas-nextcloud-cron.service <<'EOF'
 [Unit]

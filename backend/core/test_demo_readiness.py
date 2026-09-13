@@ -502,3 +502,7 @@ class DemoReadinessTests(TestCase):
                 content = (root / path).read_text(encoding='utf-8')
                 self.assertIn("workflows: ['Provision Gravitas Nextcloud']", content.replace('"', "'"))
                 self.assertIn("github.event.workflow_run.event == 'workflow_run'", content)
+
+        ensure = (root / 'ops/nextcloud/ensure.sh').read_text(encoding='utf-8')
+        self.assertIn('user:resetpassword --password-from-env', ensure)
+        self.assertIn('/ocs/v2.php/cloud/capabilities?format=json', ensure)
