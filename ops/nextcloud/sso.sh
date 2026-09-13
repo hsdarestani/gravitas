@@ -87,7 +87,7 @@ restart_and_wait_oidc() {
   return 1
 }
 
-if ! occ app:list --enabled 2>/dev/null | grep -Eq '^[[:space:]]*-[[:space:]]+user_oidc:'; then
+if ! occ app:list --enabled 2>/dev/null | grep -E '^[[:space:]]*-[[:space:]]+user_oidc:' >/dev/null; then
   echo 'user_oidc must be installed before SSO configuration' >&2
   exit 1
 fi

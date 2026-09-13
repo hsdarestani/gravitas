@@ -9,7 +9,7 @@ on:
       - 'backend/core/management/commands/migrate_project_files_to_team_folders.py'
       - 'backend/core/test_team_folder_migration.py'
   workflow_run:
-    workflows: ['Deploy Gravitas to Strato']
+    workflows: ['Provision Gravitas Nextcloud']
     types: [completed]
 
 permissions:
@@ -65,6 +65,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_run' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -137,14 +138,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -4 -fsS --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
-            "https://$DOMAIN/nextcloud/status.php" | grep -q '"installed":true'
+          STATUS=$(curl -4 -fsSL --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+            "https://$DOMAIN/nextcloud/status.php")
+          grep -E '"installed":true' <<<"$STATUS" >/dev/null
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" 'bash -s' <<'REMOTE'
           set -euo pipefail
-          sudo systemctl is-active gravitas-backend
-          sudo systemctl is-active gravitas-nextcloud-nginx-guard.path
-          sudo docker inspect -f '{{.State.Running}}' gravitas-nextcloud | grep -qx true
-          sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -Eq '^[[:space:]]*-[[:space:]]+groupfolders:'
+          sudo systemctl is-active --quiet gravitas-backend
+          sudo systemctl is-active --quiet gravitas-nextcloud-nginx-guard.path
+          test "$(sudo docker inspect -f '{{.State.Running}}' gravitas-nextcloud)" = true
+          APPS=$(sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled)
+          grep -E '^[[:space:]]*-[[:space:]]+groupfolders:' <<<"$APPS" >/dev/null
           REMOTE
 
       - name: Run guarded migration
@@ -222,7 +225,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -4 -fsS --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
-            "https://$DOMAIN/nextcloud/status.php" | grep -q '"installed":true'
-          curl -4 -fsS --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
-            "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
+          STATUS=$(curl -4 -fsSL --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+            "https://$DOMAIN/nextcloud/status.php")
+          grep -E '"installed":true' <<<"$STATUS" >/dev/null
+          HEALTH=$(curl -4 -fsS --retry 8 --retry-delay 3 --connect-timeout 8 --max-time 25 \
+            "https://$DOMAIN/api/health/")
+          grep -E '"status"[[:space:]]*:[[:space:]]*"ok"' <<<"$HEALTH" >/dev/null

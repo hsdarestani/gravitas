@@ -479,3 +479,48 @@ class DemoReadinessTests(TestCase):
         for asset in runtime_assets:
             with self.subTest(asset=asset):
                 self.assertTrue((root / 'assets' / 'ws' / asset).exists())
+
+    def test_nextcloud_app_checks_do_not_false_fail_under_pipefail(self):
+        root = Path(__file__).resolve().parents[2]
+        paths = [
+            'ops/nextcloud/apps.sh',
+            'ops/nextcloud/sso.sh',
+            '.github/workflows/nextcloud.yml',
+            '.github/workflows/team-folder-migration.yml',
+        ]
+        for path in paths:
+            with self.subTest(path=path):
+                content = (root / path).read_text(encoding='utf-8')
+                self.assertNotRegex(content, r'app:list[^\n]*\|\s*grep\s+-[^\s\n]*q')
+
+        for path in (
+            '.github/workflows/production-auth-e2e.yml',
+            '.github/workflows/workspace-production-e2e.yml',
+            '.github/workflows/team-folder-migration.yml',
+        ):
+            with self.subTest(nextcloud_dependency=path):
+                content = (root / path).read_text(encoding='utf-8')
+                self.assertIn("workflows: ['Provision Gravitas Nextcloud']", content.replace('"', "'"))
+                self.assertIn("github.event.workflow_run.event == 'workflow_run'", content)
+
+        ensure = (root / 'ops/nextcloud/ensure.sh').read_text(encoding='utf-8')
+        self.assertIn('user:resetpassword --password-from-env', ensure)
+        self.assertIn('/ocs/v2.php/cloud/capabilities?format=json', ensure)
+        self.assertIn('group:adduser admin', ensure)
+        self.assertIn('/index.php/apps/groupfolders/folders?format=json', ensure)
+
+        cloud_source = (root / 'backend/core/cloud.py').read_text(encoding='utf-8')
+        self.assertIn("data={'key': 'password', 'value': password}", cloud_source)
+        self.assertIn('Could not activate cloud identity credentials', cloud_source)
+        self.assertIn("select_for_update().only('pk').get(pk=user.pk)", cloud_source)
+        self.assertIn("headers.setdefault('Host', public_host)", cloud_source)
+        self.assertIn("headers.setdefault('X-Forwarded-Proto', 'https')", cloud_source)
+
+        workspace_e2e = (root / '.github/workflows/workspace-production-e2e.yml').read_text(encoding='utf-8')
+        self.assertIn('workspace-stage=dataset-upload', workspace_e2e)
+        self.assertIn('workspace-stage=create-root-folder', workspace_e2e)
+        self.assertIn('workspace-stage=create-child-folder', workspace_e2e)
+        self.assertIn('workspace-stage=dashboard', workspace_e2e)
+        self.assertIn('workspace-stage=health', workspace_e2e)
+        self.assertIn('DATASET_STATUS=', workspace_e2e)
+        self.assertIn('workspace-error=', workspace_e2e)

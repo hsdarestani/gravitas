@@ -3,13 +3,15 @@ import hashlib
 import secrets
 import tempfile
 from pathlib import PurePosixPath
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 from xml.etree import ElementTree
 
 import requests
 from cryptography.fernet import Fernet, InvalidToken
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.db import transaction
 
 from .models import NextcloudIdentity
 
@@ -57,12 +59,23 @@ def _admin_auth():
 
 
 def _request(method, url, *, auth, expected, **kwargs):
+    headers = dict(kwargs.pop('headers', {}) or {})
+    # Nextcloud is reached over loopback by Django, but its canonical hostname
+    # is the public cloud subdomain. Supplying that Host avoids a redirect that
+    # can strip Basic auth or change PUT/DELETE semantics on DAV requests.
+    internal = settings.NEXTCLOUD_INTERNAL_URL
+    if url.startswith(internal):
+        public_host = urlparse(settings.NEXTCLOUD_PUBLIC_URL).netloc
+        if public_host:
+            headers.setdefault('Host', public_host)
+            headers.setdefault('X-Forwarded-Proto', 'https')
     try:
         response = requests.request(
             method,
             url,
             auth=auth,
             timeout=(settings.NEXTCLOUD_CONNECT_TIMEOUT, settings.NEXTCLOUD_READ_TIMEOUT),
+            headers=headers,
             **kwargs,
         )
     except requests.RequestException as exc:
@@ -84,7 +97,13 @@ def _ocs_data(response, message='Invalid response from Nextcloud'):
         raise CloudError(message) from exc
 
 
+@transaction.atomic
 def ensure_identity(user, quota_bytes):
+    # Project/note sync workers can reach provisioning at the same time as the
+    # foreground request. Lock the stable user row because an identity row does
+    # not exist yet; without this lock, competing workers generate different
+    # passwords for the same Nextcloud username and the last OCS reset wins.
+    get_user_model().objects.select_for_update().only('pk').get(pk=user.pk)
     existing = NextcloudIdentity.objects.filter(user=user).first()
     if existing:
         return existing
@@ -109,19 +128,18 @@ def ensure_identity(user, quota_bytes):
         raise CloudError('Invalid response from cloud provisioning') from exc
     if ocs_code != 100 and 'already exists' not in ocs_message.lower():
         raise CloudError('Could not provision private cloud storage')
-    if ocs_code != 100:
-        # A prior interrupted request may have created the cloud user but not the
-        # Django mapping. Set a fresh password using the administrator API.
-        response = _request(
-            'PUT',
-            f'{endpoint}/{quote(username, safe="")}',
-            auth=_admin_auth(),
-            expected={100, 200},
-            headers=headers,
-            data={'key': 'password', 'value': password},
-        )
-        if response.status_code == 200:
-            _ocs_data(response, 'Could not recover cloud identity')
+    # Re-assert the generated credential even after a successful create. This
+    # closes a Nextcloud edge case where the OCS create succeeds but the first
+    # DAV request races account initialization or password-policy processing.
+    response = _request(
+        'PUT',
+        f'{endpoint}/{quote(username, safe="")}',
+        auth=_admin_auth(),
+        expected={200},
+        headers=headers,
+        data={'key': 'password', 'value': password},
+    )
+    _ocs_data(response, 'Could not activate cloud identity credentials')
 
     identity = NextcloudIdentity.objects.create(
         user=user,
