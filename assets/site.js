@@ -276,6 +276,48 @@
     });
   });
 
+  /* ---- auth completion safety -------------------------------------------
+     production-bridge owns the real signup/login work and normally opens the
+     workspace after it has handed any guest library to the authenticated
+     account. That handover is useful but non-essential: a slow auxiliary
+     request must never leave a successfully authenticated person parked on
+     the account form forever.
+
+     This listener is registered before the deferred production bridge. It
+     does not submit, mutate or compete with the auth flow. Four seconds after
+     an auth form was submitted it asks the authoritative session endpoint;
+     if the session is already valid and the bridge has not navigated yet, it
+     opens the workspace. The bridge is loaded there too, so a guest library
+     that was still pending is retried on the next page without losing data. */
+  if (document.getElementById('p-up') || document.getElementById('p-in')) {
+    document.addEventListener('submit', function (event) {
+      var form = event.target;
+      if (!form || (form.id !== 'p-up' && form.id !== 'p-in')) return;
+
+      var attempts = 0;
+      function checkSession() {
+        if (location.pathname !== '/signup' && location.pathname !== '/login') return;
+        attempts += 1;
+        fetch('/api/auth/me/', {
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        }).then(function (response) {
+          return response.ok ? response.json() : null;
+        }).then(function (data) {
+          if (data && data.authenticated) {
+            location.href = '/workspace';
+            return;
+          }
+          if (attempts < 8) window.setTimeout(checkSession, 1000);
+        }).catch(function () {
+          if (attempts < 8) window.setTimeout(checkSession, 1000);
+        });
+      }
+
+      window.setTimeout(checkSession, 4000);
+    }, true);
+  }
+
   /* ---- newsletter / forms ------------------------------------------------
      Removed with the polls, for the same reason. This caught every form the
      prototype had flagged as a demo and answered "this is a front-end demo",
