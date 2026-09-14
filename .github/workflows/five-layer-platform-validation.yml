@@ -23,6 +23,7 @@ on:
       - 'assets/ws/ws-platform.js'
       - 'assets/ws/ws-five-layer.js'
       - 'assets/ws/ws-member-lms.js'
+      - 'assets/ws/ws-member-progress.js'
       - 'assets/ws/ws-admin.js'
       - 'assets/ws/ws-project.js'
       - 'assets/ws/ws-five-layer.css'
@@ -52,6 +53,7 @@ on:
       - 'assets/ws/ws-platform.js'
       - 'assets/ws/ws-five-layer.js'
       - 'assets/ws/ws-member-lms.js'
+      - 'assets/ws/ws-member-progress.js'
       - 'assets/ws/ws-admin.js'
       - 'assets/ws/ws-project.js'
       - 'assets/ws/ws-five-layer.css'
@@ -76,6 +78,7 @@ jobs:
           node --check assets/ws/ws-platform.js
           node --check assets/ws/ws-five-layer.js
           node --check assets/ws/ws-member-lms.js
+          node --check assets/ws/ws-member-progress.js
           node --check assets/ws/ws-admin.js
           node --check assets/ws/ws-project.js
 
