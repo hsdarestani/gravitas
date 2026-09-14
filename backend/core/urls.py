@@ -4,6 +4,7 @@ from core.content_api import content_detail, content_list
 from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
 from core.reader_library import reader_library
+from core.member_api import member_dashboard
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
 from core.workspace_pages_api import (
@@ -63,6 +64,7 @@ from core.nextcloud_api import (
     project_nextcloud_sync,
     sharing_v4,
 )
+from core.nextcloud_deck import deck_status, deck_sync
 from core.platform_runtime_v3 import (
     content_work_detail_v3,
     content_work_items_v3,
@@ -81,6 +83,12 @@ from core.layer_admin_api import (
     platform_admin_overview,
     platform_admin_user_detail,
     platform_admin_users,
+)
+from core.platform_admin_extended import (
+    admin_lms_enrollment_detail,
+    admin_lms_enrollments,
+    admin_research_project_detail,
+    admin_research_projects,
 )
 from core.layer_guards import require_research_or_core
 from core.lms_api import (
@@ -164,9 +172,14 @@ urlpatterns = [
     path('analytics/kpi/', kpi_summary),
     path('reader/library/', reader_library),
 
-    # Five-layer bootstrap and Layer 5 control plane.
+    # Five-layer bootstrap and Layer 2 account home.
     path('platform/bootstrap/', platform_bootstrap_v3),
     path('platform/dashboard/', platform_dashboard_v3),
+    path('member/dashboard/', member_dashboard),
+
+    # Layer 5 control plane. These routes are deliberately separate from the
+    # participant APIs below: Core administrators can operate every layer
+    # without receiving a fake Learner or Researcher identity.
     path('platform/admin/overview/', platform_admin_overview),
     path('platform/admin/users/', platform_admin_users),
     path('platform/admin/users/<int:user_id>/', platform_admin_user_detail),
@@ -175,6 +188,12 @@ urlpatterns = [
     path('platform/admin/site/content/<int:item_id>/', admin_site_content_detail),
     path('platform/admin/site/comments/', admin_site_comments),
     path('platform/admin/site/comments/<int:comment_id>/', admin_site_comment_detail),
+    path('platform/admin/research/projects/', admin_research_projects),
+    path('platform/admin/research/projects/<int:project_id>/', admin_research_project_detail),
+    path('platform/admin/lms/enrollments/', admin_lms_enrollments),
+    path('platform/admin/lms/enrollments/<int:enrollment_id>/', admin_lms_enrollment_detail),
+    path('platform/admin/deck/', deck_status),
+    path('platform/admin/deck/sync/', deck_sync),
     path('platform/team/', core_team),
     path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),
@@ -255,8 +274,8 @@ urlpatterns = [
     path('operating/meetings/', meetings),
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
-    # Legacy private KMS storage remains for notes/learning tools and backwards
-    # compatibility; it is no longer a community role or a product-layer gate.
+    # Legacy private KMS storage remains for note/learning internals and URL
+    # compatibility. It is no longer presented as a sixth product surface.
     path('workspace/dashboard/', workspace_dashboard),
     path('workspace/pages/', workspace_pages),
     path('workspace/pages/<str:page_id>/', workspace_page_detail),
