@@ -56,6 +56,13 @@ from core.platform_api import (
     shared_with_me,
 )
 from core.project_cockpit import project_access_candidates, project_cockpit
+from core.research_project_tools import (
+    project_discussion_detail,
+    project_discussions,
+    project_experiment_detail,
+    project_experiments,
+    project_milestones,
+)
 from core.nextcloud_api import (
     nextcloud_client_credentials,
     nextcloud_status,
@@ -207,6 +214,11 @@ urlpatterns = [
     path('platform/projects/<int:project_id>/', require_research_or_core(platform_project_detail)),
     path('platform/projects/<int:project_id>/cockpit/', require_research_or_core(project_cockpit)),
     path('platform/projects/<int:project_id>/access-candidates/', require_research_or_core(project_access_candidates)),
+    path('platform/projects/<int:project_id>/milestones/', require_research_or_core(project_milestones)),
+    path('platform/projects/<int:project_id>/experiments/', require_research_or_core(project_experiments)),
+    path('platform/projects/<int:project_id>/experiments/<int:experiment_id>/', require_research_or_core(project_experiment_detail)),
+    path('platform/projects/<int:project_id>/discussions/', require_research_or_core(project_discussions)),
+    path('platform/projects/<int:project_id>/discussions/<int:message_id>/', require_research_or_core(project_discussion_detail)),
     path('platform/projects/<int:project_id>/deliverables/', require_research_or_core(project_deliverables)),
     path('platform/projects/<int:project_id>/applications/<int:application_id>/', require_research_or_core(project_application_detail)),
     path('platform/projects/<int:project_id>/folders/', require_research_or_core(project_folders)),
