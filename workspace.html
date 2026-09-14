@@ -108,8 +108,10 @@
 
   <script type="module">
     import { start } from '/assets/ws/ws-app.js?v=20260914-1';
-    import { loadBootstrap } from '/assets/ws/ws-platform.js?v=20260914-6';
-    import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260914-1';
+    // Keep this URL exactly aligned with ws-five-layer.js so both imports
+    // share one ESM module instance and therefore one access/bootstrap state.
+    import { loadBootstrap } from '/assets/ws/ws-platform.js?v=20260914-7';
+    import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260914-2';
 
     async function bootWorkspace() {
       await start();
