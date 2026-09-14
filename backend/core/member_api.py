@@ -5,10 +5,11 @@ from django.views.decorators.http import require_http_methods
 from .layer_access import effective_modules, module_access
 from .layer_models import ActivityEvent, CommunityProfile, ModuleGrant
 from .lms_models import CourseEnrollment
-from .models import Comment, ProjectMembership, ReaderSavedItem, ResearchProject
+from .models import Comment, LabProgress, ProjectMembership, ReaderSavedItem, ResearchProject
 
 
 MAX_RECENT = 12
+PATH_KEY_PREFIX = 'path-'
 
 
 def _iso(value):
@@ -25,6 +26,24 @@ def _saved_json(item):
         'summary': item.summary,
         'meta': item.meta,
         'saved_at': _iso(item.created_at),
+    }
+
+
+def _path_json(progress):
+    state = progress.state if isinstance(progress.state, dict) else {}
+    done = [step for step in state.get('done', []) if isinstance(step, str)]
+    total = state.get('total')
+    total = total if isinstance(total, int) and total > 0 else len(done)
+    percent = 0 if total <= 0 else min(100, round((len(done) / total) * 100, 1))
+    return {
+        'item_key': progress.lab_key,
+        'title': state.get('title') or progress.lab_key.replace('-', ' ').title(),
+        'url': state.get('url') or f'/{progress.lab_key}.html',
+        'done_count': len(done),
+        'total': total,
+        'progress_percent': percent,
+        'completed': bool(progress.completed),
+        'updated_at': _iso(progress.updated_at),
     }
 
 
@@ -101,9 +120,9 @@ def member_dashboard(request):
 
     This endpoint intentionally aggregates references from the other layers
     instead of copying their records. A member sees one account-level picture
-    of saved material, discussions, learning and research, while the LMS and
-    project ACLs remain authoritative when they follow a link into those
-    layers.
+    of saved material, public learning paths, discussions, LMS learning and
+    research, while the LMS and project ACLs remain authoritative when they
+    follow a link into those layers.
     """
     if not request.user.is_authenticated:
         return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
@@ -116,6 +135,7 @@ def member_dashboard(request):
 
     saved_qs = ReaderSavedItem.objects.filter(user=user, relation=ReaderSavedItem.Relation.SAVED)
     following_qs = ReaderSavedItem.objects.filter(user=user, relation=ReaderSavedItem.Relation.FOLLOWING)
+    path_qs = LabProgress.objects.filter(user=user, lab_key__startswith=PATH_KEY_PREFIX).order_by('-updated_at')
     comments_qs = Comment.objects.filter(author=user).order_by('-updated_at')
 
     enrollments = CourseEnrollment.objects.filter(user=user).select_related('course').order_by('-updated_at')
@@ -132,10 +152,15 @@ def member_dashboard(request):
         Q(subject_user=user) | Q(actor=user)
     ).order_by('-created_at')[:MAX_RECENT]
 
-    # A compact, deterministic list for the first screen: unfinished learning
-    # first, then recently touched research. These are links, not duplicated
-    # task objects, so the source layer still owns progress and permissions.
     next_actions = []
+    for progress in path_qs.filter(completed=False)[:3]:
+        item = _path_json(progress)
+        next_actions.append({
+            'kind': 'path',
+            'title': item['title'],
+            'meta': f"{item['progress_percent']}% complete",
+            'href': item['url'],
+        })
     for enrollment in active_enrollments[:4]:
         next_actions.append({
             'kind': 'learning',
@@ -167,6 +192,12 @@ def member_dashboard(request):
             'following_count': following_qs.count(),
             'recent_saved': [_saved_json(item) for item in saved_qs.order_by('-updated_at')[:MAX_RECENT]],
             'following': [_saved_json(item) for item in following_qs.order_by('-updated_at')[:MAX_RECENT]],
+        },
+        'public_paths': {
+            'total': path_qs.count(),
+            'completed': path_qs.filter(completed=True).count(),
+            'in_progress': path_qs.filter(completed=False).count(),
+            'items': [_path_json(item) for item in path_qs[:MAX_RECENT]],
         },
         'discussions': {
             'total': comments_qs.count(),
