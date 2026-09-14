@@ -1,9 +1,15 @@
 """Nextcloud Deck execution adapter for the Core Workspace.
 
-Gravitas remains the canonical task store. Deck is a native execution surface
-for the internal team, so this module only mirrors OperatingTask rows outward.
-The stable Gravitas task id is embedded in every card description; no second
-mapping table is required and a recreated Deck board can be reconciled safely.
+Gravitas keeps the relational operating model (initiative, milestone, project,
+ACL and audit context), while Deck is a native execution surface for the team.
+Execution fields are mirrored both ways: title, lane/status and due date may be
+changed in either Gravitas or Deck. Rich Gravitas-only metadata stays canonical
+in Gravitas and is rendered into the card description.
+
+Every pushed card carries both a stable task id and the task ``updated_at``
+value used for that push. That gives reconciliation a common ancestor: a Deck
+edit can safely be pulled when Gravitas has not changed since the last push,
+and concurrent edits become an explicit conflict instead of last-write-wins.
 """
 
 import re
@@ -29,7 +35,14 @@ STACKS = [
     ('Blocked', {WorkStatus.BLOCKED}),
     ('Done', {WorkStatus.DONE, WorkStatus.ARCHIVED}),
 ]
+STACK_STATUS = {
+    'Backlog': WorkStatus.DRAFT,
+    'Active': WorkStatus.ACTIVE,
+    'Blocked': WorkStatus.BLOCKED,
+    'Done': WorkStatus.DONE,
+}
 TASK_MARKER_RE = re.compile(r'<!--\s*gravitas-task:(\d+)\s*-->')
+SYNC_MARKER_RE = re.compile(r'<!--\s*gravitas-task-updated:([0-9.]+)\s*-->')
 
 
 class DeckError(Exception):
@@ -146,9 +159,10 @@ def _description(task):
         '',
         f'[Open in Gravitas]({settings.PUBLIC_BASE_URL}/workspace/core/tasks)',
         f'<!-- gravitas-task:{task.pk} -->',
+        f'<!-- gravitas-task-updated:{task.updated_at.timestamp():.6f} -->',
     ]
     if task.project_id:
-        parts.insert(-2, f'**Research project:** GRV-{task.project_id:06d}')
+        parts.insert(-3, f'**Research project:** GRV-{task.project_id:06d}')
     return '\n'.join(part for part in parts if part is not None).strip()
 
 
@@ -169,6 +183,36 @@ def _card_payload(task, *, order=999):
 def _marker(card):
     match = TASK_MARKER_RE.search(str(card.get('description') or ''))
     return int(match.group(1)) if match else None
+
+
+def _sync_marker(card):
+    match = SYNC_MARKER_RE.search(str(card.get('description') or ''))
+    try:
+        return float(match.group(1)) if match else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _card_modified(card):
+    value = card.get('lastModified')
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _card_due(card):
+    raw = str(card.get('duedate') or '').strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace('Z', '+00:00')).date()
+    except ValueError:
+        # Some Deck versions serialize a bare YYYY-MM-DD.
+        try:
+            return datetime.strptime(raw[:10], '%Y-%m-%d').date()
+        except ValueError:
+            return None
 
 
 def _cards_by_task(board_id, stacks):
@@ -223,29 +267,102 @@ def _archive_card(board_id, stack_id, card_id):
     )
 
 
-def sync_tasks_to_deck():
-    """Reconcile all non-deleted Core tasks into the canonical Deck board.
+def _safe_remote_diff(task, current):
+    card = current['card']
+    diff = {}
+    remote_title = str(card.get('title') or '').strip()[:240]
+    if remote_title and remote_title != task.title:
+        diff['title'] = remote_title
 
-    Deck has had versions where the cross-stack reorder endpoint rejects a
-    correct target stack. To keep production sync deterministic, a status move
-    is performed as create-in-target then archive-old. The marker makes the
-    operation idempotent after an interrupted run: on the next pass the active
-    target card is found and any archived predecessor is ignored.
+    remote_status = STACK_STATUS.get(current['stack_title'])
+    if remote_status and remote_status != task.status:
+        # Deck's Done lane represents completed work. Archived is intentionally
+        # not imported because archive is an administrative Gravitas state.
+        diff['status'] = remote_status
+
+    remote_due = _card_due(card)
+    if remote_due != task.due_date:
+        # OperatingTask requires either a cycle or a due date. A user may clear
+        # the date in Deck only when that invariant remains valid.
+        if remote_due is not None or task.cycle_id:
+            diff['due_date'] = remote_due
+    return diff
+
+
+def _pull_card(task, current):
+    """Import a safe Deck edit or report a concurrent-edit conflict.
+
+    Returns ``pulled`` / ``conflict`` / ``unchanged``. The generated card
+    description is never imported, so Gravitas relations and definition of done
+    cannot be destroyed by a native Deck edit.
+    """
+    diff = _safe_remote_diff(task, current)
+    if not diff:
+        return 'unchanged'
+
+    card = current['card']
+    sync_marker = _sync_marker(card)
+    local_modified = task.updated_at.timestamp()
+    if sync_marker is not None:
+        local_changed_since_push = local_modified > sync_marker + 0.001
+        if local_changed_since_push:
+            return 'conflict'
+    else:
+        # Upgrade path for cards produced before sync markers existed. Prefer
+        # the side with the later modification time; if Deck cannot report one,
+        # Gravitas remains authoritative for this first reconciliation.
+        if _card_modified(card) <= local_modified:
+            return 'conflict'
+
+    for field, value in diff.items():
+        setattr(task, field, value)
+    update_fields = list(diff)
+    if 'status' in diff:
+        if diff['status'] == WorkStatus.DONE:
+            if task.completed_at is None:
+                task.completed_at = timezone.now()
+                update_fields.append('completed_at')
+        elif task.completed_at is not None:
+            task.completed_at = None
+            update_fields.append('completed_at')
+    task.save(update_fields=[*dict.fromkeys(update_fields), 'updated_at'])
+    return 'pulled'
+
+
+def sync_tasks_to_deck():
+    """Bidirectionally reconcile Core execution tasks with the canonical Deck.
+
+    Status moves are still performed as create-in-target then archive-old
+    because Deck releases differ in cross-stack reorder behavior. The stable
+    marker makes this idempotent. Concurrent safe-field edits are never
+    overwritten; they are counted as conflicts and left untouched for the next
+    explicit reconciliation after a human resolves one side.
     """
     board = _ensure_board()
     board_id = int(board['id'])
     stacks = _ensure_stacks(board_id)
     existing = _cards_by_task(board_id, stacks)
 
-    counts = {'created': 0, 'updated': 0, 'moved': 0, 'archived': 0}
+    counts = {'created': 0, 'updated': 0, 'moved': 0, 'archived': 0, 'pulled': 0, 'conflicts': 0}
+    conflict_task_ids = []
     tasks = OperatingTask.objects.select_related('owner', 'project').all().order_by('pk')
     live_ids = set()
 
     for task in tasks:
         live_ids.add(task.pk)
+        current = existing.get(task.pk)
+        if current is not None:
+            inbound = _pull_card(task, current)
+            if inbound == 'conflict':
+                counts['conflicts'] += 1
+                conflict_task_ids.append(task.pk)
+                continue
+            if inbound == 'pulled':
+                counts['pulled'] += 1
+                task.refresh_from_db()
+
         target_title = _stack_for_task(task)
         target_stack = stacks[target_title]
-        current = existing.get(task.pk)
         if current is None:
             _create_card(board_id, target_stack['id'], task)
             counts['created'] += 1
@@ -275,6 +392,7 @@ def sync_tasks_to_deck():
         'stacks': {title: int(stack['id']) for title, stack in stacks.items()},
         'tasks': tasks.count(),
         'changes': counts,
+        'conflict_task_ids': conflict_task_ids,
     }
 
 
@@ -299,6 +417,7 @@ def deck_status(request):
             'url': f'{settings.NEXTCLOUD_PUBLIC_URL}/index.php/apps/deck/#/board/{int(board["id"])}',
         } if board else None,
         'task_count': OperatingTask.objects.count(),
+        'mirror_mode': 'bidirectional-execution',
     })
 
 
@@ -316,6 +435,6 @@ def deck_sync(request):
         actor=request.user,
         object_type='nextcloud_deck',
         object_id=result['board']['id'],
-        detail={'tasks': result['tasks'], 'changes': result['changes']},
+        detail={'tasks': result['tasks'], 'changes': result['changes'], 'conflicts': result['conflict_task_ids']},
     )
     return JsonResponse({'ok': True, **result})
