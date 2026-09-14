@@ -4,6 +4,7 @@ set -euo pipefail
 BACKEND_PATH="${1:-/opt/gravitas-backend}"
 ENV_FILE=/etc/gravitas/backend.env
 NC_CONTAINER="${NC_CONTAINER:-gravitas-nextcloud}"
+NC_DB_CONTAINER="${NC_DB_CONTAINER:-gravitas-nextcloud-db}"
 NC_NETWORK="${NC_NETWORK:-gravitas-nextcloud}"
 
 if [ ! -x "$BACKEND_PATH/.venv/bin/django-admin" ]; then
@@ -21,19 +22,65 @@ fi
 systemctl stop gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
 systemctl stop gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
 
-# Nextcloud's brute-force protection keys failed Basic-auth attempts by the
-# address it sees. All trusted server-to-server traffic reaches the container
-# through the private Docker gateway. A historical credential mismatch can
-# therefore throttle the otherwise-correct service account forever after the
-# password has been repaired. Reset only the private internal addresses during
-# provisioning; public client addresses and global protection stay untouched.
+# Nextcloud's brute-force protection records the address that reaches Apache.
+# With Docker port publishing that address is not guaranteed to equal the
+# gateway of the user-defined Nextcloud network: it can be another Docker
+# bridge gateway or a host/private address. Resetting only NC_NETWORK therefore
+# left a stale private source in production and the credential repair hit 429
+# again after the first recreated accounts.
+#
+# Build the candidate set from loopback, host addresses, every Docker gateway,
+# and — most importantly — the addresses Nextcloud itself has persisted in its
+# brute-force table. Filter the set to local/private/link-local addresses before
+# calling OCC so public-client protection is never weakened.
+internal_bruteforce_addresses() {
+  {
+    printf '%s\n' 127.0.0.1 ::1
+    hostname -I 2>/dev/null | tr ' ' '\n' || true
+    docker network ls -q 2>/dev/null | while IFS= read -r network_id; do
+      [ -n "$network_id" ] || continue
+      docker network inspect "$network_id" \
+        --format '{{range .IPAM.Config}}{{if .Gateway}}{{.Gateway}}{{"\n"}}{{end}}{{end}}' \
+        2>/dev/null || true
+    done
+    docker exec "$NC_DB_CONTAINER" psql -U nextcloud -d nextcloud -Atc \
+      "SELECT DISTINCT ip FROM oc_bruteforce_attempts WHERE ip IS NOT NULL AND ip <> '';" \
+      2>/dev/null || true
+  } | python3 -c '
+import ipaddress
+import sys
+
+seen = set()
+for raw in sys.stdin:
+    value = raw.strip().strip("[]")
+    if not value:
+        continue
+    # Nextcloud stores normal textual addresses; tolerate an IPv6 zone suffix
+    # if an OS ever supplies one in a host-interface candidate.
+    value = value.split("%", 1)[0]
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        continue
+    if not (address.is_private or address.is_loopback or address.is_link_local):
+        continue
+    normalized = str(address)
+    if normalized in seen:
+        continue
+    seen.add(normalized)
+    print(normalized)
+'
+}
+
 reset_internal_bruteforce() {
-  local gateway=""
-  gateway="$(docker network inspect "$NC_NETWORK" --format '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || true)"
-  for ip in 127.0.0.1 ::1 "$gateway"; do
+  local ip=""
+  local count=0
+  while IFS= read -r ip; do
     [ -n "$ip" ] || continue
     docker exec -u www-data "$NC_CONTAINER" php occ security:bruteforce:reset "$ip" >/dev/null 2>&1 || true
-  done
+    count=$((count + 1))
+  done < <(internal_bruteforce_addresses)
+  echo "Cleared Nextcloud brute-force state for $count trusted internal address(es)."
 }
 
 reset_internal_bruteforce
@@ -91,20 +138,35 @@ WantedBy=timers.target
 EOF
 
 systemctl daemon-reload
-systemctl reset-failed gravitas-nextcloud-credential-repair.service >/dev/null 2>&1 || true
 
 # Legacy identities may contain a valid decryptable secret that no longer
 # matches the password in Nextcloud. Re-assert every managed identity while the
 # timer is stopped, before any per-user Notes/DAV authentication is attempted.
-# This is intentionally a provisioning-time repair, not a two-minute operation.
-if ! systemctl start gravitas-nextcloud-credential-repair.service; then
-  echo "Gravitas Nextcloud identity credential repair failed." >&2
+# A second bounded attempt is useful when the first pass repairs/recreates
+# enough identities to expose a pre-existing throttle entry that was not visible
+# before the pass started. Each pass is idempotent and we clear only trusted
+# internal addresses between attempts.
+repair_ok=0
+for attempt in 1 2 3; do
+  systemctl reset-failed gravitas-nextcloud-credential-repair.service >/dev/null 2>&1 || true
+  reset_internal_bruteforce
+  if systemctl start gravitas-nextcloud-credential-repair.service; then
+    repair_ok=1
+    break
+  fi
+  echo "Gravitas Nextcloud credential repair attempt $attempt failed; clearing trusted internal throttle state before retry." >&2
+  reset_internal_bruteforce
+  sleep "$attempt"
+done
+
+if [ "$repair_ok" -ne 1 ]; then
+  echo "Gravitas Nextcloud identity credential repair failed after bounded recovery attempts." >&2
   systemctl --no-pager --full status gravitas-nextcloud-credential-repair.service >&2 || true
-  journalctl -u gravitas-nextcloud-credential-repair.service -n 80 --no-pager >&2 || true
+  journalctl -u gravitas-nextcloud-credential-repair.service -n 120 --no-pager >&2 || true
   exit 1
 fi
 
-# The credential repair used only valid admin OCS requests, but clear internal
+# The credential repair used only managed credentials, but clear internal
 # brute-force state once more so historical attempts cannot affect the first
 # repaired per-user request.
 reset_internal_bruteforce
