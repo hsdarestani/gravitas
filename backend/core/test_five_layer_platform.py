@@ -5,7 +5,7 @@ from django.test import TestCase, override_settings
 
 from .layer_access import module_access, set_module_grant
 from .layer_models import ActivityEvent, CommunityProfile, ModuleGrant
-from .lms_models import Assessment, Certificate, Course, CourseEnrollment, CourseModule, Lesson
+from .lms_models import Assessment, Certificate, Course, CourseEnrollment, Lesson
 from .models import WorkspaceMembership
 from .platform_runtime_v3 import ensure_platform_workspaces
 
@@ -164,10 +164,10 @@ class FiveLayerPlatformTests(TestCase):
         lesson = Lesson.objects.get(module__course=course)
         assessment = Assessment.objects.get(course=course)
 
-        # Correct answers are never sent down in the learner payload.
+        # Before enrollment, protected lesson/exam content stays closed.
         self.client.force_login(self.member)
         detail = self.client.get(f'/api/lms/courses/{course.pk}/').json()['course']
-        self.assertNotIn('correct_answer', detail['assessments'][0]['questions'][0])
+        self.assertEqual(detail['assessments'][0]['questions'], [])
         self.assertEqual(detail['modules'][0]['lessons'][0]['body'], '')
         self.assertTrue(detail['modules'][0]['lessons'][0]['locked'])
 
@@ -178,6 +178,15 @@ class FiveLayerPlatformTests(TestCase):
         )
         self.assertEqual(enrolled.status_code, 201, enrolled.content)
         self.assertTrue(module_access(self.member, ModuleGrant.Module.LMS))
+
+        # Enrollment reveals the learning material/questions, but never the
+        # answer key used by server-side scoring.
+        detail = self.client.get(f'/api/lms/courses/{course.pk}/').json()['course']
+        self.assertEqual(detail['modules'][0]['lessons'][0]['body'], 'Protected lesson content')
+        self.assertFalse(detail['modules'][0]['lessons'][0]['locked'])
+        self.assertEqual(len(detail['assessments'][0]['questions']), 1)
+        self.assertNotIn('correct_answer', detail['assessments'][0]['questions'][0])
+        self.assertNotIn('correct', detail['assessments'][0]['questions'][0])
 
         lesson_done = self.client.put(
             f'/api/lms/lessons/{lesson.pk}/progress/',
