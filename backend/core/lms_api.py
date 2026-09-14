@@ -2,7 +2,7 @@ import json
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -183,6 +183,10 @@ def _course_json(course, user=None, *, include_structure=False):
 def _replace_structure(course, modules_payload, assessments_payload=None):
     if course.enrollments.exists():
         raise ValueError('course_structure_locked_after_enrollment')
+    # Course-level assessments do not cascade from CourseModule, so deleting
+    # only the modules used to leave old final exams behind on every edit.
+    # Replace the complete authored structure atomically instead.
+    course.assessments.all().delete()
     course.modules.all().delete()
     for m_index, raw_module in enumerate(modules_payload or [], start=1):
         if not isinstance(raw_module, dict) or not str(raw_module.get('title', '')).strip():
@@ -271,7 +275,7 @@ def lms_courses(request):
         price = _as_decimal(data.get('price'))
     except ValueError:
         return JsonResponse({'ok': False, 'error': 'invalid_price'}, status=400)
-    if access_type == Course.AccessType.PAID and (price is None or price < 0):
+    if access_type == Course.AccessType.PAID and (price is None or price <= 0):
         return JsonResponse({'ok': False, 'error': 'paid_course_price_required'}, status=400)
 
     try:
@@ -292,10 +296,8 @@ def lms_courses(request):
             _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
-    except Exception as exc:
-        if exc.__class__.__name__ == 'IntegrityError':
-            return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
-        raise
+    except IntegrityError:
+        return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
 
     record_activity(
         layer=ActivityEvent.Layer.LMS,
@@ -354,13 +356,15 @@ def lms_course_detail(request, course_id):
                 course.price = _as_decimal(data.get('price'))
             if 'certificate_enabled' in data:
                 course.certificate_enabled = bool(data['certificate_enabled'])
-            if course.access_type == Course.AccessType.PAID and (course.price is None or course.price < 0):
+            if course.access_type == Course.AccessType.PAID and (course.price is None or course.price <= 0):
                 raise ValueError('paid_course_price_required')
             course.save()
             if 'modules' in data or 'assessments' in data:
                 _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=409 if str(exc) == 'course_structure_locked_after_enrollment' else 400)
+    except IntegrityError:
+        return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
 
     record_activity(
         layer=ActivityEvent.Layer.LMS,
