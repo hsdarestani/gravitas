@@ -150,22 +150,18 @@ fi
 nginx -t
 systemctl reload nginx
 
+# Do not use HTTP as the first readiness probe. If a previous service-password
+# mismatch caused Nextcloud to throttle the private Docker gateway, even an
+# unauthenticated status.php request can return 429 and prevent the repair code
+# from ever reaching the reset. CLI readiness is independent of HTTP throttling.
 for _ in $(seq 1 120); do
-  if curl -fsS http://127.0.0.1:8081/status.php >/tmp/nextcloud-status.json 2>/dev/null; then
+  if docker exec -u www-data gravitas-nextcloud php occ status >/dev/null 2>&1; then
     break
   fi
   sleep 3
 done
-curl -fsS http://127.0.0.1:8081/status.php >/tmp/nextcloud-status.json
-
-for _ in $(seq 1 60); do
-  if docker exec -u www-data gravitas-nextcloud php occ status >/dev/null 2>&1; then
-    break
-  fi
-  sleep 2
-done
-
 docker exec -u www-data gravitas-nextcloud php occ status >/dev/null
+
 # The persisted Nextcloud database can outlive both the container and the
 # service environment. Re-assert the service-account password on every repair
 # so Django and Nextcloud cannot silently drift apart.
@@ -174,6 +170,16 @@ docker exec -u www-data -e OC_PASS="$NC_ADMIN_PASSWORD" gravitas-nextcloud \
 docker exec -u www-data gravitas-nextcloud php occ group:adduser admin "$NC_ADMIN_USER" >/dev/null 2>&1 || true
 ADMIN_INFO="$(docker exec -u www-data gravitas-nextcloud php occ user:info "$NC_ADMIN_USER")"
 grep -E '^[[:space:]]*-[[:space:]]+admin$' <<<"$ADMIN_INFO" >/dev/null
+
+# Clear only stale server-to-server brute-force state before making any
+# internal HTTP request. Public/client addresses and global protections remain
+# untouched. This is intentionally repeated later by mirror.sh as a defensive
+# repair boundary for standalone mirror provisioning.
+NC_GATEWAY="$(docker network inspect gravitas-nextcloud --format '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || true)"
+for ip in 127.0.0.1 ::1 "$NC_GATEWAY"; do
+  [ -n "$ip" ] || continue
+  docker exec -u www-data gravitas-nextcloud php occ security:bruteforce:reset "$ip" >/dev/null 2>&1 || true
+done
 
 # Prove the exact credentials consumed by Django work against the internal OCS
 # endpoint. Container/app health alone does not catch credential drift.
