@@ -6,24 +6,24 @@ into the official Nextcloud Notes app and can be edited from either surface.
 
 The Notes API's ETag is the concurrency boundary. We never silently overwrite
 when Gravitas and Nextcloud changed since the last common snapshot; the mirror
-is marked as a conflict and both versions remain intact until a user resolves
-it. Notes created directly in Nextcloud are adopted only when their category
-is below ``Gravitas/`` so unrelated personal notes are never pulled into the
-platform by surprise.
+is marked as a conflict and both versions remain intact until a user explicitly
+chooses a winner. Notes created directly in Nextcloud are adopted only from a
+Gravitas category the user is actually entitled to use.
 """
 
 import hashlib
 import json
-from urllib.parse import quote
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from . import cloud
 from .layer_access import module_access
+from .layer_models import ActivityEvent
 from .models import KnowledgeActivity, KnowledgeResource
 from .nextcloud_bridge import ensure_user
 from .platform_access import can_edit, can_view
@@ -35,13 +35,12 @@ SPACE_CATEGORY = {
     'core': f'{CATEGORY_ROOT}/Core',
     'research': f'{CATEGORY_ROOT}/Research',
     'kms': f'{CATEGORY_ROOT}/Learning',
-    'learning': f'{CATEGORY_ROOT}/Learning',
 }
-CATEGORY_SPACE = {
-    value: key if key != 'learning' else 'kms'
-    for key, value in SPACE_CATEGORY.items()
-}
+CATEGORY_SPACE = {value: key for key, value in SPACE_CATEGORY.items()}
 MIRROR_KEY = 'nextcloud_notes'
+DELETE_PENDING_ACTION = 'note.nextcloud_delete_pending'
+DELETE_DONE_ACTION = 'note.nextcloud_deleted'
+DELETE_OBJECT_TYPE = 'nextcloud_note_tombstone'
 
 
 class NotesError(Exception):
@@ -50,6 +49,20 @@ class NotesError(Exception):
 
 class NotesConflict(NotesError):
     pass
+
+
+def _allowed_space(user, space):
+    if not user or not getattr(user, 'is_authenticated', False) or not user.is_active:
+        return False
+    if user.is_superuser:
+        return True
+    if space == 'core':
+        return module_access(user, 'core')
+    if space == 'research':
+        return module_access(user, 'research') or module_access(user, 'core')
+    if space == 'kms':
+        return module_access(user, 'dashboard')
+    return False
 
 
 def _base():
@@ -101,6 +114,13 @@ def _get_remote(identity, note_id):
     return payload
 
 
+def _delete_remote(identity, note_id):
+    status, _payload, _headers_out = _request(
+        'DELETE', f'/notes/{int(note_id)}', identity=identity, expected=(200, 404),
+    )
+    return status in {200, 404}
+
+
 def _remote_fingerprint(note):
     if not note:
         return ''
@@ -119,11 +139,15 @@ def _remote_fingerprint(note):
 
 def _space(resource):
     value = str((resource.metadata or {}).get('ws_space') or 'research').strip().lower()
-    return value if value in {'core', 'research', 'kms'} else 'research'
+    return value if value in SPACE_CATEGORY else 'research'
 
 
 def _category(resource):
     return SPACE_CATEGORY[_space(resource)]
+
+
+def _remote_space(remote):
+    return CATEGORY_SPACE.get(str((remote or {}).get('category') or '').strip())
 
 
 def _favorite(resource):
@@ -195,6 +219,75 @@ def _mark(resource, state, error='', *, remote=None):
     return current
 
 
+def record_note_delete_tombstone(resource):
+    """Persist a remote-delete intent after a local note row disappears.
+
+    Without a tombstone, a temporarily unreachable Nextcloud could leave the
+    remote note behind and the next reconciliation would adopt it as a new
+    local note, effectively resurrecting a deletion. ActivityEvent is used as a
+    durable queue because it has no workspace/resource FK and survives cleanup.
+    """
+    mirror = _mirror(resource)
+    note_id = mirror.get('id')
+    if note_id is None:
+        return None
+    return ActivityEvent.objects.create(
+        layer=ActivityEvent.Layer.CORE if _space(resource) == 'core' else ActivityEvent.Layer.RESEARCH,
+        action=DELETE_PENDING_ACTION,
+        object_type=DELETE_OBJECT_TYPE,
+        object_id=str(int(note_id)),
+        detail={
+            'user_id': resource.owner_id,
+            'resource_id': resource.pk,
+            'title': resource.title,
+            'space': _space(resource),
+        },
+    )
+
+
+def process_note_delete_tombstones(user, *, identity=None):
+    identity = identity or ensure_user(user)
+    pending_ids = set()
+    deleted = 0
+    events = ActivityEvent.objects.filter(
+        action=DELETE_PENDING_ACTION,
+        object_type=DELETE_OBJECT_TYPE,
+    ).order_by('id')
+    for event in events.iterator():
+        detail = event.detail if isinstance(event.detail, dict) else {}
+        try:
+            owner_id = int(detail.get('user_id'))
+        except (TypeError, ValueError):
+            continue
+        if owner_id != user.pk:
+            continue
+        try:
+            note_id = int(event.object_id)
+        except (TypeError, ValueError):
+            event.action = DELETE_DONE_ACTION
+            detail['processed_at'] = timezone.now().isoformat()
+            detail['result'] = 'invalid_remote_id'
+            event.detail = detail
+            event.save(update_fields=['action', 'detail'])
+            continue
+        pending_ids.add(note_id)
+        try:
+            _delete_remote(identity, note_id)
+        except NotesError as exc:
+            detail['last_error'] = str(exc)[:240]
+            detail['last_attempt_at'] = timezone.now().isoformat()
+            event.detail = detail
+            event.save(update_fields=['detail'])
+            continue
+        detail['processed_at'] = timezone.now().isoformat()
+        detail['result'] = 'deleted_or_already_missing'
+        event.action = DELETE_DONE_ACTION
+        event.detail = detail
+        event.save(update_fields=['action', 'detail'])
+        deleted += 1
+    return {'pending_ids': pending_ids, 'deleted': deleted}
+
+
 def _create_remote(identity, resource):
     status, note, _headers_out = _request(
         'POST', '/notes', identity=identity, expected=(200,), body=_local_payload(resource),
@@ -224,6 +317,26 @@ def _update_remote(identity, resource, remote):
             _mark(resource, 'conflict', 'changed_in_nextcloud_and_gravitas')
         raise NotesConflict('changed_in_nextcloud_and_gravitas')
     if status == 404:
+        _mark(resource, 'conflict', 'deleted_in_nextcloud')
+        raise NotesConflict('deleted_in_nextcloud')
+    if not isinstance(note, dict):
+        raise NotesError('notes_update_failed')
+    _write_mirror(resource, _snapshot(note, _local_fingerprint(resource)))
+    return note
+
+
+def _force_update_remote(identity, resource, remote):
+    """Explicitly choose the Gravitas copy as the conflict winner."""
+    if remote is None:
+        return _create_remote(identity, resource)
+    if remote.get('readonly'):
+        _mark(resource, 'readonly', 'nextcloud_note_readonly', remote=remote)
+        raise NotesError('nextcloud_note_readonly')
+    status, note, _headers_out = _request(
+        'PUT', f'/notes/{int(remote["id"])}', identity=identity,
+        expected=(200, 404), body=_local_payload(resource), headers={},
+    )
+    if status == 404:
         return _create_remote(identity, resource)
     if not isinstance(note, dict):
         raise NotesError('notes_update_failed')
@@ -234,6 +347,14 @@ def _update_remote(identity, resource, remote):
 def _pull_remote(resource, remote):
     if not isinstance(remote, dict):
         raise NotesError('notes_invalid_note')
+    target_space = _remote_space(remote)
+    if target_space is None:
+        _mark(resource, 'conflict', 'moved_outside_gravitas', remote=remote)
+        raise NotesConflict('moved_outside_gravitas')
+    if not _allowed_space(resource.owner, target_space):
+        _mark(resource, 'conflict', 'space_access_required', remote=remote)
+        raise NotesConflict('space_access_required')
+
     content = str(remote.get('content') or '')
     title = str(remote.get('title') or '').strip()[:240] or 'Untitled'
     metadata = dict(resource.metadata or {})
@@ -242,8 +363,7 @@ def _pull_remote(resource, remote):
     # workspace block on an inbound edit rather than trying to reverse-engineer
     # rich blocks and risking destructive formatting changes.
     metadata['ws_blocks'] = [{'id': f'b-{resource.pk}-native', 'type': 'p', 'text': content}]
-    category = str(remote.get('category') or '')
-    metadata['ws_space'] = CATEGORY_SPACE.get(category, metadata.get('ws_space') or 'research')
+    metadata['ws_space'] = target_space
 
     resource.title = title
     resource.body = content
@@ -259,6 +379,10 @@ def sync_note_to_nextcloud(resource, *, identity=None):
     """Reconcile one Gravitas note against its mapped native Notes note."""
     if resource.kind != KnowledgeResource.Kind.NOTE:
         return None
+    if not _allowed_space(resource.owner, _space(resource)):
+        _mark(resource, 'blocked', 'space_access_required')
+        raise NotesError('space_access_required')
+
     identity = identity or ensure_user(resource.owner)
     mirror = _mirror(resource)
     note_id = mirror.get('id')
@@ -266,11 +390,13 @@ def sync_note_to_nextcloud(resource, *, identity=None):
         return _create_remote(identity, resource)
 
     remote = _get_remote(identity, note_id)
-    if remote is None:
-        return _create_remote(identity, resource)
-
     local_hash = _local_fingerprint(resource)
     stored_local = str(mirror.get('local_fingerprint') or '')
+    if remote is None:
+        error = 'deleted_in_nextcloud_and_changed_in_gravitas' if stored_local and local_hash != stored_local else 'deleted_in_nextcloud'
+        _mark(resource, 'conflict', error)
+        raise NotesConflict(error)
+
     stored_remote = str(mirror.get('remote_fingerprint') or '')
     current_remote = _remote_fingerprint(remote)
     local_changed = bool(stored_local and local_hash != stored_local)
@@ -296,8 +422,6 @@ def sync_note_to_nextcloud(resource, *, identity=None):
             and bool(remote.get('favorite')) == expected['favorite']
         )
         if not same:
-            # There is no trustworthy common ancestor. Preserve both and make
-            # the conflict explicit instead of choosing a winner by timestamp.
             _mark(resource, 'conflict', 'initial_native_note_mismatch', remote=remote)
             raise NotesConflict('initial_native_note_mismatch')
     _write_mirror(resource, _snapshot(remote, local_hash))
@@ -305,9 +429,8 @@ def sync_note_to_nextcloud(resource, *, identity=None):
 
 
 def _adopt_remote(user, remote):
-    category = str(remote.get('category') or '')
-    space = CATEGORY_SPACE.get(category)
-    if not space:
+    space = _remote_space(remote)
+    if not space or not _allowed_space(user, space):
         return None
     workspace = provision_personal_workspace(user)
     content = str(remote.get('content') or '')
@@ -344,19 +467,31 @@ def _adopt_remote(user, remote):
 
 
 def reconcile_notes(user, *, adopt=True):
-    """Bidirectionally reconcile all of a user's Gravitas-native Notes notes."""
+    """Bidirectionally reconcile all entitled native Notes for one account."""
     identity = ensure_user(user)
+    tombstones = process_note_delete_tombstones(user, identity=identity)
     remote_notes = _list_remote(identity)
     remote_by_id = {int(item['id']): item for item in remote_notes}
-    locals_qs = KnowledgeResource.objects.filter(owner=user, kind=KnowledgeResource.Kind.NOTE).order_by('pk')
-    local_items = list(locals_qs)
+    all_local_items = list(
+        KnowledgeResource.objects.filter(owner=user, kind=KnowledgeResource.Kind.NOTE).order_by('pk')
+    )
+    local_items = [item for item in all_local_items if _allowed_space(user, _space(item))]
     mapped_ids = {
         int(value)
-        for resource in local_items
+        for resource in all_local_items
         for value in [_mirror(resource).get('id')]
         if value is not None
     }
-    counts = {'created': 0, 'pushed': 0, 'pulled': 0, 'adopted': 0, 'conflicts': 0, 'errors': 0}
+    mapped_ids.update(tombstones['pending_ids'])
+    counts = {
+        'created': 0,
+        'pushed': 0,
+        'pulled': 0,
+        'adopted': 0,
+        'deleted': tombstones['deleted'],
+        'conflicts': 0,
+        'errors': 0,
+    }
 
     for resource in local_items:
         before = _mirror(resource)
@@ -401,18 +536,8 @@ def reconcile_notes(user, *, adopt=True):
         'counts': counts,
         'native_url': _remote_url(),
         'remote_total': len(remote_notes),
-        'local_total': KnowledgeResource.objects.filter(owner=user, kind=KnowledgeResource.Kind.NOTE).count(),
+        'local_total': len(local_items),
     }
-
-
-def _allowed_space(user, space):
-    if user.is_superuser:
-        return True
-    if space == 'core':
-        return module_access(user, 'core')
-    if space == 'research':
-        return module_access(user, 'research') or module_access(user, 'core')
-    return module_access(user, 'dashboard')
 
 
 def _resource_for_user(user, resource_id):
@@ -421,7 +546,7 @@ def _resource_for_user(user, resource_id):
     except (TypeError, ValueError):
         return None
     resource = KnowledgeResource.objects.filter(pk=resource_id, kind=KnowledgeResource.Kind.NOTE).first()
-    if not resource or not can_view(user, resource):
+    if not resource or not can_view(user, resource) or not _allowed_space(user, _space(resource)):
         return None
     return resource
 
@@ -442,6 +567,7 @@ def _json(resource):
         'remote_id': mirror.get('id'),
         'remote_modified': mirror.get('modified') or 0,
         'readonly': bool(mirror.get('readonly')),
+        'can_resolve': mirror.get('state') == 'conflict',
         'native_url': _remote_url(mirror.get('id')) if mirror.get('id') else _remote_url(),
     }
 
@@ -463,7 +589,7 @@ def native_notes(request):
         title = str(data.get('title') or '').strip()[:240] or 'Untitled'
         content = str(data.get('content') or '')
         space = str(data.get('space') or 'research').strip().lower()
-        if space not in {'core', 'research', 'kms'} or not _allowed_space(request.user, space):
+        if space not in SPACE_CATEGORY or not _allowed_space(request.user, space):
             return JsonResponse({'ok': False, 'error': 'space_access_required'}, status=403)
         workspace = provision_personal_workspace(request.user)
         resource = KnowledgeResource.objects.create(
@@ -513,7 +639,7 @@ def native_notes(request):
     })
 
 
-@require_http_methods(['GET', 'PATCH'])
+@require_http_methods(['GET', 'PATCH', 'DELETE'])
 def native_note_detail(request, resource_id):
     if not request.user.is_authenticated:
         return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
@@ -524,6 +650,22 @@ def native_note_detail(request, resource_id):
         return JsonResponse({'ok': True, 'item': _json(resource)})
     if not can_edit(request.user, resource):
         return JsonResponse({'ok': False, 'error': 'permission_denied'}, status=403)
+
+    if request.method == 'DELETE':
+        mirror = _mirror(resource)
+        note_id = mirror.get('id')
+        if note_id is not None:
+            try:
+                _delete_remote(ensure_user(resource.owner), note_id)
+            except (NotesError, cloud.CloudError, ImproperlyConfigured) as exc:
+                return JsonResponse({'ok': False, 'error': 'notes_delete_failed', 'detail': str(exc)}, status=503)
+        workspace, project, title = resource.workspace, resource.project, resource.title
+        resource.delete()
+        KnowledgeActivity.objects.create(
+            workspace=workspace, actor=request.user, project=project,
+            action='note_deleted', detail={'title': title, 'surface': 'nextcloud_notes'},
+        )
+        return JsonResponse({'ok': True, 'deleted': True})
 
     data = _body(request)
     metadata = dict(resource.metadata or {})
@@ -539,7 +681,7 @@ def native_note_detail(request, resource_id):
         metadata['ws_bookmarked'] = bool(data.get('favorite'))
     if 'space' in data:
         space = str(data.get('space') or '').strip().lower()
-        if space not in {'core', 'research', 'kms'} or not _allowed_space(request.user, space):
+        if space not in SPACE_CATEGORY or not _allowed_space(request.user, space):
             return JsonResponse({'ok': False, 'error': 'space_access_required'}, status=403)
         metadata['ws_space'] = space
     resource.metadata = metadata
@@ -556,6 +698,56 @@ def native_note_detail(request, resource_id):
     except Exception as exc:
         _mark(resource, 'error', str(exc))
     return JsonResponse({'ok': True, 'item': _json(resource)})
+
+
+@require_http_methods(['POST'])
+def native_note_resolve(request, resource_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+    resource = _resource_for_user(request.user, resource_id)
+    if not resource:
+        return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
+    if not can_edit(request.user, resource):
+        return JsonResponse({'ok': False, 'error': 'permission_denied'}, status=403)
+    if _mirror(resource).get('state') != 'conflict':
+        return JsonResponse({'ok': False, 'error': 'note_not_in_conflict'}, status=409)
+
+    winner = str(_body(request).get('winner') or '').strip().lower()
+    if winner not in {'gravitas', 'nextcloud'}:
+        return JsonResponse({'ok': False, 'error': 'invalid_winner'}, status=400)
+
+    try:
+        identity = ensure_user(resource.owner)
+        remote = _get_remote(identity, _mirror(resource).get('id')) if _mirror(resource).get('id') else None
+        if winner == 'gravitas':
+            _force_update_remote(identity, resource, remote)
+            KnowledgeActivity.objects.create(
+                workspace=resource.workspace, actor=request.user, resource=resource, project=resource.project,
+                action='note_conflict_resolved', detail={'winner': 'gravitas'},
+            )
+            return JsonResponse({'ok': True, 'winner': winner, 'item': _json(resource)})
+
+        if remote is None:
+            workspace, project, title = resource.workspace, resource.project, resource.title
+            resource.delete()
+            KnowledgeActivity.objects.create(
+                workspace=workspace, actor=request.user, project=project,
+                action='note_conflict_resolved', detail={'winner': 'nextcloud', 'remote_deleted': True, 'title': title},
+            )
+            return JsonResponse({'ok': True, 'winner': winner, 'deleted': True})
+        target_space = _remote_space(remote)
+        if not target_space or not _allowed_space(request.user, target_space):
+            return JsonResponse({'ok': False, 'error': 'space_access_required'}, status=403)
+        _pull_remote(resource, remote)
+        KnowledgeActivity.objects.create(
+            workspace=resource.workspace, actor=request.user, resource=resource, project=resource.project,
+            action='note_conflict_resolved', detail={'winner': 'nextcloud'},
+        )
+        return JsonResponse({'ok': True, 'winner': winner, 'item': _json(resource)})
+    except NotesConflict as exc:
+        return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource)}, status=409)
+    except (NotesError, cloud.CloudError, ImproperlyConfigured) as exc:
+        return JsonResponse({'ok': False, 'error': 'notes_resolution_failed', 'detail': str(exc)}, status=503)
 
 
 @require_http_methods(['POST'])
