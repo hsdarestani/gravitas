@@ -190,8 +190,18 @@ class FiveLayerCompletionTests(TestCase):
             'board': {'id': 9, 'title': 'Gravitas+ Execution', 'url': 'https://example.invalid/deck/9'},
             'stacks': {'Backlog': 1, 'Active': 2, 'Blocked': 3, 'Done': 4},
             'tasks': 3,
-            'changes': {'created': 1, 'updated': 2, 'moved': 0, 'archived': 0},
+            'changes': {
+                'created': 1,
+                'updated': 1,
+                'moved': 0,
+                'archived': 0,
+                'pulled': 1,
+                'conflicts': 1,
+            },
+            'conflict_task_ids': [17],
         }
         response = self.client.post('/api/platform/admin/deck/sync/', data='{}', content_type='application/json')
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertTrue(ActivityEvent.objects.filter(action='deck.synced', object_id='9').exists())
+        event = ActivityEvent.objects.get(action='deck.synced', object_id='9')
+        self.assertEqual(event.detail['changes']['pulled'], 1)
+        self.assertEqual(event.detail['conflicts'], [17])
