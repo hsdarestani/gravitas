@@ -6,6 +6,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_http_methods
 
 from . import cloud, nextcloud_bridge
@@ -154,6 +155,17 @@ def _decimal(value):
         raise ValueError('invalid_budget')
 
 
+def _date(value):
+    if value in (None, ''):
+        return None
+    if not isinstance(value, str):
+        raise ValueError('invalid_deadline')
+    parsed = parse_date(value)
+    if parsed is None:
+        raise ValueError('invalid_deadline')
+    return parsed
+
+
 def _apply_project_fields(project, profile, data):
     changes = {}
     for field in ('title', 'description'):
@@ -197,6 +209,14 @@ def _apply_project_fields(project, profile, data):
             if getattr(profile, field) != value:
                 changes[field] = {'from': getattr(profile, field), 'to': value}
                 setattr(profile, field, value)
+    if 'deadline' in data:
+        value = _date(data.get('deadline'))
+        if profile.deadline != value:
+            changes['deadline'] = {
+                'from': profile.deadline.isoformat() if profile.deadline else None,
+                'to': value.isoformat() if value else None,
+            }
+            profile.deadline = value
     if 'budget' in data:
         value = _decimal(data.get('budget'))
         if profile.budget != value:
@@ -267,15 +287,9 @@ def _apply_member(actor, project, raw):
     with transaction.atomic():
         membership, _ = ProjectMembership.objects.update_or_create(project=project, user=user, defaults={'role': role})
         grant_role(project, user, access_role, granted_by=actor)
-        set_module_grant(
-            user,
-            ModuleGrant.Module.RESEARCH,
-            enabled=True,
-            access_level=ModuleGrant.AccessLevel.EDIT if role in {ProjectMembership.Role.OWNER, ProjectMembership.Role.EDITOR} else ModuleGrant.AccessLevel.PARTICIPATE,
-            source=ModuleGrant.Source.PROJECT,
-            granted_by=actor,
-            metadata={'project_id': project.pk, 'project_membership_id': membership.pk},
-        )
+        # Project participation itself unlocks Layer 4 when no explicit
+        # ModuleGrant exists. Do not overwrite an administrator's explicit
+        # Research suspension or other entitlement provenance here.
         try:
             nextcloud_bridge.add_project_user(project, user)
         except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError) as exc:
@@ -301,10 +315,8 @@ def admin_research_project_detail(request, project_id):
             project = ResearchProject.objects.select_for_update().select_related('owner').get(pk=project.pk)
             profile = _profile(project)
             changes = _apply_project_fields(project, profile, data)
-        member_change = None
         if 'member' in data:
-            member_change = _apply_member(request.user, project, data['member'])
-            changes['member'] = member_change
+            changes['member'] = _apply_member(request.user, project, data['member'])
     except ValueError as exc:
         code = str(exc)
         return JsonResponse({'ok': False, 'error': code}, status=404 if code == 'user_not_found' else (409 if code.startswith('cannot_') else 400))
