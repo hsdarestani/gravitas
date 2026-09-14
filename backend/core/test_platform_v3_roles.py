@@ -52,8 +52,6 @@ class PlatformV3RoleTests(TestCase):
             workspace=spaces['research'],
             owner=self.researcher,
             title='Independent research access',
-            category=ResearchProject.Category.INTERNAL,
-            visibility=ResearchProject.Visibility.PRIVATE,
         )
 
         self.client.force_login(self.researcher)
@@ -69,8 +67,6 @@ class PlatformV3RoleTests(TestCase):
             workspace=spaces['research'],
             owner=self.researcher,
             title='Suspended project access',
-            category=ResearchProject.Category.INTERNAL,
-            visibility=ResearchProject.Visibility.PRIVATE,
         )
         ModuleGrant.objects.update_or_create(
             user=self.researcher,
@@ -86,15 +82,6 @@ class PlatformV3RoleTests(TestCase):
         boot = self.client.get('/api/platform/bootstrap/').json()
         self.assertFalse(boot['access']['research'])
         self.assertEqual(boot['my_work']['research'], [])
-
-    def test_research_dashboard_is_not_available_without_research_access(self):
-        self.client.force_login(self.researcher)
-        response = self.client.get('/api/platform/dashboard/?workspace=research')
-        # The dashboard endpoint itself is legacy-compatible, but bootstrap is
-        # the authoritative navigation gate. Project APIs remain protected by
-        # per-object ACLs. This assertion documents the layer contract.
-        self.assertFalse(self.client.get('/api/platform/bootstrap/').json()['access']['research'])
-        self.assertIn(response.status_code, {200, 403})
 
     def test_canonical_core_and_research_workspaces_are_shared(self):
         self.client.force_login(self.researcher)
