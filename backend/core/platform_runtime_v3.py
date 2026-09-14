@@ -5,6 +5,8 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from .layer_access import community_profile, module_access, module_access_level
+from .layer_models import ModuleGrant
 from .models import (
     Organization,
     OrganizationMembership,
@@ -40,12 +42,11 @@ def _canonical_organization(user):
 
 @transaction.atomic
 def ensure_platform_workspaces(user):
-    """Return the one shared Core and Research platform, plus the user's private scope.
+    """Return the shared Core/Research platform plus the user's private scope.
 
-    V2 originally provisioned a new organization/Core/Research trio for every user.
-    V3 makes Core an explicit internal-team membership and keeps Research as the
-    shared collaboration context. Private notes/files remain a scope, not a third
-    workspace in navigation.
+    Layer access is intentionally resolved elsewhere. Provisioning a shared
+    Research workspace must never imply that this account is allowed to open
+    Research; project participation or a module grant decides that.
     """
     personal = provision_personal_workspace(user)
     WorkspaceProfile.objects.get_or_create(
@@ -71,8 +72,8 @@ def ensure_platform_workspaces(user):
         )
         created_core = True
 
-    # Only the user who bootstraps a brand-new platform becomes an internal member.
-    # Existing/new researchers are never auto-enrolled into Core.
+    # Only the user who bootstraps a brand-new platform becomes an internal
+    # member. Team/community role never grants Core on its own.
     if created_core:
         WorkspaceMembership.objects.get_or_create(
             workspace=core,
@@ -96,8 +97,9 @@ def ensure_platform_workspaces(user):
             nextcloud_root='Gravitas/Research',
         )
 
-    # Research deliberately has no broad WorkspaceMembership. Project/object ACLs
-    # decide what each researcher sees. The signal also removes legacy memberships.
+    # Research deliberately has no broad WorkspaceMembership. Project/object
+    # ACLs decide what each researcher sees. The signal also removes legacy
+    # memberships that would widen a private project boundary.
     WorkspaceMembership.objects.filter(workspace=research).delete()
     return {'personal': personal, 'core': core, 'research': research}
 
@@ -107,13 +109,17 @@ def core_access(user, core=None):
         return False
     if getattr(user, 'is_superuser', False):
         return True
-    core = core or ensure_platform_workspaces(user)['core']
-    return WorkspaceMembership.objects.filter(workspace=core, user=user).exists()
+    # module_access(CORE) requires the actual Core WorkspaceMembership. An
+    # explicit disabled Core grant can suspend it, but a grant cannot create
+    # membership and therefore cannot manufacture internal access.
+    return module_access(user, ModuleGrant.Module.CORE)
 
 
 def core_role(user, core=None):
     if getattr(user, 'is_superuser', False):
         return 'admin'
+    if not core_access(user, core):
+        return None
     core = core or ensure_platform_workspaces(user)['core']
     membership = WorkspaceMembership.objects.filter(workspace=core, user=user).first()
     return membership.role if membership else None
@@ -155,28 +161,55 @@ def platform_bootstrap_v3(request):
     spaces = ensure_platform_workspaces(request.user)
     core = spaces['core']
     research = spaces['research']
+    profile = community_profile(request.user)
+
+    has_dashboard = module_access(request.user, ModuleGrant.Module.DASHBOARD)
+    has_lms = module_access(request.user, ModuleGrant.Module.LMS)
+    has_research = module_access(request.user, ModuleGrant.Module.RESEARCH)
     has_core = core_access(request.user, core)
 
     task_qs = OperatingTask.objects.filter(workspace=core, owner=request.user).exclude(status__in=['done', 'archived']) if has_core else OperatingTask.objects.none()
     my_tasks = list(task_qs.select_related('initiative')[:8])
 
-    research_qs = ResearchProject.objects.filter(workspace=research, archived=False).select_related('owner', 'workspace')
-    visible_research = [item for item in research_qs if can_view(request.user, item)]
-    my_research = [item for item in visible_research if item.owner_id == request.user.pk or item.memberships.filter(user=request.user).exists()][:8]
+    if has_research:
+        research_qs = ResearchProject.objects.filter(workspace=research, archived=False).select_related('owner', 'workspace')
+        visible_research = [item for item in research_qs if can_view(request.user, item)]
+        my_research = [item for item in visible_research if item.owner_id == request.user.pk or item.memberships.filter(user=request.user).exists()][:8]
+        visible_requests = [
+            item for item in ResearchRequest.objects.filter(
+                Q(project__workspace=research) | Q(requested_by=request.user) | Q(assignee=request.user)
+            ).select_related('project', 'assignee')[:100]
+            if can_view(request.user, item)
+        ]
+    else:
+        visible_research = []
+        my_research = []
+        visible_requests = []
 
-    visible_requests = [
-        item for item in ResearchRequest.objects.filter(
-            Q(project__workspace=research) | Q(requested_by=request.user) | Q(assignee=request.user)
-        ).select_related('project', 'assignee')[:100]
-        if can_view(request.user, item)
-    ]
+    access = {
+        # Legacy keys are retained while the workspace client migrates.
+        'dashboard': has_dashboard,
+        'lms': has_lms,
+        'research': has_research,
+        'core': has_core,
+        'core_role': core_role(request.user, core),
+        'community_role': profile.role if profile else 'member',
+        'community_status': profile.status if profile else 'active',
+        'levels': {
+            module: module_access_level(request.user, module)
+            for module in ModuleGrant.Module.values
+        },
+    }
 
     return JsonResponse({
         'ok': True,
-        'access': {
-            'core': has_core,
-            'core_role': core_role(request.user, core),
-            'research': True,
+        'access': access,
+        'layers': {
+            '1': {'id': 'shell', 'name': 'Shell / Showcase', 'enabled': True},
+            '2': {'id': 'dashboard', 'name': 'Member Dashboard', 'enabled': has_dashboard},
+            '3': {'id': 'lms', 'name': 'LMS', 'enabled': has_lms},
+            '4': {'id': 'research', 'name': 'Research Workspace', 'enabled': has_research},
+            '5': {'id': 'core', 'name': 'Core Workspace', 'enabled': has_core},
         },
         'workspaces': {key: _workspace_json(value) for key, value in spaces.items()},
         'my_work': {
