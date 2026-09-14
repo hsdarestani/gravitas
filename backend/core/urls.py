@@ -76,6 +76,20 @@ from core.platform_runtime_v3 import (
 # shared project/object ACL context.
 install_runtime()
 
+from core.layer_admin_api import (
+    platform_admin_activity,
+    platform_admin_overview,
+    platform_admin_user_detail,
+    platform_admin_users,
+)
+from core.lms_api import (
+    lms_assessment_attempt,
+    lms_course_detail,
+    lms_course_enroll,
+    lms_courses,
+    lms_lesson_progress,
+    lms_me,
+)
 from core.platform_objects_api import shared_task_detail
 from core.platform_resources_api import (
     platform_file_download,
@@ -147,9 +161,15 @@ urlpatterns = [
     # route for the list, the merge and the removal.
     path('reader/library/', reader_library),
 
-    # Gravitas V3 shell: Home + two real workspaces.
+    # Five-layer platform bootstrap and Layer 5 administration. The admin
+    # routes require a Core owner/admin on the server; hiding their navigation
+    # in the browser is never the authorization boundary.
     path('platform/bootstrap/', platform_bootstrap_v3),
     path('platform/dashboard/', platform_dashboard_v3),
+    path('platform/admin/overview/', platform_admin_overview),
+    path('platform/admin/users/', platform_admin_users),
+    path('platform/admin/users/<int:user_id>/', platform_admin_user_detail),
+    path('platform/admin/activity/', platform_admin_activity),
     path('platform/team/', core_team),
     path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),
@@ -187,6 +207,15 @@ urlpatterns = [
     path('platform/mindmaps/<int:map_id>/', mindmap_detail),
     path('platform/links/', entity_links),
 
+    # Layer 3 — LMS. Published catalog data may be read without Core access;
+    # authoring and locked-course grants are Core-admin operations.
+    path('lms/courses/', lms_courses),
+    path('lms/courses/<int:course_id>/', lms_course_detail),
+    path('lms/courses/<int:course_id>/enroll/', lms_course_enroll),
+    path('lms/me/', lms_me),
+    path('lms/lessons/<int:lesson_id>/progress/', lms_lesson_progress),
+    path('lms/assessments/<int:assessment_id>/attempt/', lms_assessment_attempt),
+
     # Core Operating Workspace: internal Gravitas team only. The V3 runtime
     # resolves every operating request to the canonical Core workspace.
     path('operating/dashboard/', operating_dashboard),
@@ -214,7 +243,8 @@ urlpatterns = [
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
     # Legacy personal KMS APIs stay available for private-scope data and
-    # backward compatibility, but V3 no longer presents them as a workspace.
+    # backward compatibility. The five-layer UI treats this knowledge store as
+    # supporting data for Dashboard/LMS/Research rather than an access role.
     path('workspace/dashboard/', workspace_dashboard),
     path('workspace/pages/', workspace_pages),
     path('workspace/pages/<str:page_id>/', workspace_page_detail),
