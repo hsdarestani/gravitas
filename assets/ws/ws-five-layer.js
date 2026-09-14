@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20260914-6';
+import * as P from './ws-platform.js?v=20260914-7';
 import {
   renderCertificates,
   renderCourse,
@@ -7,9 +7,9 @@ import {
   renderMemberDiscussions,
   renderMemberLibrary,
   renderMemberOverview,
-  renderMemberProgress,
   renderMyLearning,
 } from './ws-member-lms.js?v=20260914-3';
+import { renderMemberProgress } from './ws-member-progress.js?v=20260914-1';
 import {
   renderAdminActivity,
   renderAdminContent,
@@ -59,6 +59,13 @@ const ADMIN_INDEX = [
 ];
 
 function navigate(path, { replace = false } = {}) {
+  // Public learning paths and public-site content deliberately leave the
+  // workspace shell. Treating those URLs as SPA routes made ws-app fall back
+  // to its home route and looked like the link did nothing.
+  if (!String(path || '').startsWith('/workspace')) {
+    location.href = path;
+    return;
+  }
   if (path === location.pathname && !location.search && !location.hash) return;
   history[replace ? 'replaceState' : 'pushState']({}, '', path);
   // ws-app owns the legacy routes and listens to popstate. Dispatching a
