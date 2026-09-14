@@ -43,7 +43,7 @@ function setCrumbs(info) {
 function stateBadge(item) {
   const value = item?.sync_state || 'pending';
   const labels = {
-    synced: 'Mirrored', pending: 'Pending', error: 'Sync error', conflict: 'Conflict', readonly: 'Read only',
+    synced: 'Mirrored', pending: 'Pending', error: 'Sync error', conflict: 'Conflict', readonly: 'Read only', blocked: 'Access blocked',
   };
   const badge = el('span', 'v-badge nc-note-badge', labels[value] || value);
   badge.dataset.state = value;
@@ -114,7 +114,7 @@ function syncSummary(data) {
   const counts = data?.sync?.counts || data?.counts || {};
   const bits = [];
   for (const [key, label] of [
-    ['created', 'created'], ['pushed', 'pushed'], ['pulled', 'pulled'], ['adopted', 'adopted'], ['conflicts', 'conflicts'],
+    ['created', 'created'], ['pushed', 'pushed'], ['pulled', 'pulled'], ['adopted', 'adopted'], ['deleted', 'deleted'], ['conflicts', 'conflicts'],
   ]) {
     if (Number(counts[key] || 0)) bits.push(`${counts[key]} ${label}`);
   }
@@ -398,7 +398,32 @@ async function renderNativeNotes(host, info) {
     scheduleSave();
   }, { tiny: true });
   const open = action('Open native', () => openNative(selected.native_url), { tiny: true });
-  tools.append(favorite, open);
+  let deleteArmed = false;
+  let deleteTimer = null;
+  const remove = action('Delete', async () => {
+    if (!deleteArmed) {
+      deleteArmed = true;
+      remove.textContent = 'Delete from both?';
+      clearTimeout(deleteTimer);
+      deleteTimer = setTimeout(() => {
+        deleteArmed = false;
+        remove.textContent = 'Delete';
+      }, 5000);
+      return;
+    }
+    remove.disabled = true;
+    clearTimeout(deleteTimer);
+    try {
+      await P.call(`/platform/nextcloud/notes/${selected.id}/`, { method: 'DELETE' });
+      selections.delete(info.space);
+      await renderNativeNotes(host, info);
+    } catch (error) {
+      remove.textContent = error?.data?.detail || error?.message || 'Delete failed';
+      remove.disabled = false;
+      deleteArmed = false;
+    }
+  }, { tiny: true });
+  tools.append(favorite, open, remove);
   editorHead.append(titleWrap, tools);
 
   const body = el('div', 'nc-notes__editor-body');
@@ -412,13 +437,59 @@ async function renderNativeNotes(host, info) {
 
   if (selected.sync_state === 'conflict') {
     const conflict = el('div', 'ws-alert nc-note-conflict');
-    conflict.append(el('p', 'ws-alert__title', 'This note changed in both places.'));
-    conflict.append(el('p', null, 'Neither side was overwritten. Open the native copy to compare it with this Gravitas copy, then make the versions agree and run Sync now.'));
-    conflict.append(action('Open Nextcloud copy', () => openNative(selected.native_url), { solid: true }));
+    const remoteDeleted = String(selected.sync_error || '').startsWith('deleted_in_nextcloud');
+    const movedOut = selected.sync_error === 'moved_outside_gravitas' || selected.sync_error === 'space_access_required';
+    conflict.append(el('p', 'ws-alert__title', remoteDeleted
+      ? 'The Nextcloud copy was deleted.'
+      : movedOut
+        ? 'The Nextcloud copy moved outside your allowed Gravitas space.'
+        : 'This note changed in both places.'));
+    conflict.append(el('p', null, remoteDeleted
+      ? 'Choose whether to restore the Gravitas copy to Nextcloud or accept the Nextcloud deletion.'
+      : movedOut
+        ? 'No data was overwritten. Move the native note back to an allowed Gravitas category, or keep the Gravitas copy.'
+        : 'Neither side was overwritten. Compare both versions, then explicitly choose the copy that should win.'));
+    const conflictTools = el('div', 'nc-mirror-actions');
+    const keepLocal = action('Keep Gravitas version', async () => {
+      keepLocal.disabled = true;
+      useNative.disabled = true;
+      try {
+        const result = await P.call(`/platform/nextcloud/notes/${selected.id}/resolve/`, {
+          method: 'POST', body: { winner: 'gravitas' },
+        });
+        if (result.item) Object.assign(selected, result.item);
+        await renderNativeNotes(host, info);
+      } catch (error) {
+        saveState.textContent = error?.data?.detail || error?.message || 'Conflict resolution failed';
+        saveState.dataset.tone = 'bad';
+        keepLocal.disabled = false;
+        useNative.disabled = false;
+      }
+    }, { solid: true, tiny: true });
+    const useNative = action(remoteDeleted ? 'Accept deletion' : 'Use Nextcloud version', async () => {
+      keepLocal.disabled = true;
+      useNative.disabled = true;
+      try {
+        const result = await P.call(`/platform/nextcloud/notes/${selected.id}/resolve/`, {
+          method: 'POST', body: { winner: 'nextcloud' },
+        });
+        if (result.deleted) selections.delete(info.space);
+        else if (result.item) Object.assign(selected, result.item);
+        await renderNativeNotes(host, info);
+      } catch (error) {
+        saveState.textContent = error?.data?.detail || error?.message || 'Conflict resolution failed';
+        saveState.dataset.tone = 'bad';
+        keepLocal.disabled = false;
+        useNative.disabled = false;
+      }
+    }, { tiny: true });
+    conflictTools.append(keepLocal, useNative);
+    if (!remoteDeleted) conflictTools.append(action('Open Nextcloud copy', () => openNative(selected.native_url), { tiny: true }));
+    conflict.append(conflictTools);
     body.prepend(conflict);
-  } else if (selected.sync_state === 'error') {
+  } else if (selected.sync_state === 'error' || selected.sync_state === 'blocked') {
     const warning = el('div', 'ws-alert');
-    warning.append(el('p', 'ws-alert__title', 'Saved in Gravitas; Nextcloud mirror is pending.'));
+    warning.append(el('p', 'ws-alert__title', selected.sync_state === 'blocked' ? 'This note is outside your current workspace access.' : 'Saved in Gravitas; Nextcloud mirror is pending.'));
     warning.append(el('p', null, selected.sync_error || 'The background mirror will retry automatically.'));
     body.prepend(warning);
   }
