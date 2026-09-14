@@ -82,6 +82,7 @@ from core.layer_admin_api import (
     platform_admin_user_detail,
     platform_admin_users,
 )
+from core.layer_guards import require_research
 from core.lms_api import (
     lms_assessment_attempt,
     lms_course_detail,
@@ -89,6 +90,12 @@ from core.lms_api import (
     lms_courses,
     lms_lesson_progress,
     lms_me,
+)
+from core.site_admin_api import (
+    admin_site_comment_detail,
+    admin_site_comments,
+    admin_site_content,
+    admin_site_content_detail,
 )
 from core.platform_objects_api import shared_task_detail
 from core.platform_resources_api import (
@@ -155,41 +162,50 @@ urlpatterns = [
     path('community/comments/<slug:content_key>/', comments),
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
-
-    # What a reader kept before they had an account, adopted on the first
-    # authenticated request. See core/reader_library.py for why it is one
-    # route for the list, the merge and the removal.
     path('reader/library/', reader_library),
 
-    # Five-layer platform bootstrap and Layer 5 administration. The admin
-    # routes require a Core owner/admin on the server; hiding their navigation
-    # in the browser is never the authorization boundary.
+    # Five-layer bootstrap and Layer 5 control plane.
     path('platform/bootstrap/', platform_bootstrap_v3),
     path('platform/dashboard/', platform_dashboard_v3),
     path('platform/admin/overview/', platform_admin_overview),
     path('platform/admin/users/', platform_admin_users),
     path('platform/admin/users/<int:user_id>/', platform_admin_user_detail),
     path('platform/admin/activity/', platform_admin_activity),
+    path('platform/admin/site/content/', admin_site_content),
+    path('platform/admin/site/content/<int:item_id>/', admin_site_content_detail),
+    path('platform/admin/site/comments/', admin_site_comments),
+    path('platform/admin/site/comments/<int:comment_id>/', admin_site_comment_detail),
     path('platform/team/', core_team),
     path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),
     path('platform/team/<int:user_id>/password-reset/', core_team_password_reset),
     path('platform/team/<int:user_id>/storage/', team_storage_user),
-    path('platform/projects/', platform_projects),
-    path('platform/projects/<int:project_id>/', platform_project_detail),
-    path('platform/projects/<int:project_id>/cockpit/', project_cockpit),
-    path('platform/projects/<int:project_id>/access-candidates/', project_access_candidates),
-    path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
-    path('platform/projects/<int:project_id>/applications/<int:application_id>/', project_application_detail),
-    path('platform/projects/<int:project_id>/folders/', project_folders),
-    path('platform/projects/<int:project_id>/folders/<int:collection_id>/', project_folder_detail),
-    path('platform/projects/<int:project_id>/nextcloud/sync/', project_nextcloud_sync),
+
+    # Layer 4. Entering Research is an explicit entitlement; after this gate,
+    # the existing project/object ACL remains the final authorization check.
+    path('platform/projects/', require_research(platform_projects)),
+    path('platform/projects/<int:project_id>/', require_research(platform_project_detail)),
+    path('platform/projects/<int:project_id>/cockpit/', require_research(project_cockpit)),
+    path('platform/projects/<int:project_id>/access-candidates/', require_research(project_access_candidates)),
+    path('platform/projects/<int:project_id>/deliverables/', require_research(project_deliverables)),
+    path('platform/projects/<int:project_id>/applications/<int:application_id>/', require_research(project_application_detail)),
+    path('platform/projects/<int:project_id>/folders/', require_research(project_folders)),
+    path('platform/projects/<int:project_id>/folders/<int:collection_id>/', require_research(project_folder_detail)),
+    path('platform/projects/<int:project_id>/nextcloud/sync/', require_research(project_nextcloud_sync)),
+    path('platform/research-requests/', require_research(research_requests)),
+    path('platform/research-requests/<int:request_id>/', require_research(research_request_detail)),
+    path('platform/researchers/', require_research(researchers)),
+    path('platform/researchers/me/', require_research(researcher_me)),
+    path('platform/mindmaps/', require_research(mindmaps)),
+    path('platform/mindmaps/<int:map_id>/', require_research(mindmap_detail)),
+
+    # Shared platform services. Their own ACL checks decide which object is
+    # visible because the same resource/file can be linked from more than one
+    # product layer.
     path('platform/nextcloud/', nextcloud_status),
     path('platform/nextcloud/client-credentials/', nextcloud_client_credentials),
     path('platform/content/', content_work_items_v3),
     path('platform/content/<int:item_id>/', content_work_detail_v3),
-    path('platform/research-requests/', research_requests),
-    path('platform/research-requests/<int:request_id>/', research_request_detail),
     path('platform/tasks/<int:task_id>/', shared_task_detail),
     path('platform/resources/', platform_resources),
     path('platform/resources/<int:resource_id>/', platform_resource_detail),
@@ -201,14 +217,10 @@ urlpatterns = [
     path('platform/shared/<uuid:token>/download/', shared_file_download),
     path('platform/community/projects/', community_projects),
     path('platform/community/projects/<slug:public_slug>/', community_project_detail),
-    path('platform/researchers/', researchers),
-    path('platform/researchers/me/', researcher_me),
-    path('platform/mindmaps/', mindmaps),
-    path('platform/mindmaps/<int:map_id>/', mindmap_detail),
     path('platform/links/', entity_links),
 
-    # Layer 3 — LMS. Published catalog data may be read without Core access;
-    # authoring and locked-course grants are Core-admin operations.
+    # Layer 3 — LMS. Catalog reads are public; enrollment/progress APIs enforce
+    # learner access and authoring is limited to Core owner/admin accounts.
     path('lms/courses/', lms_courses),
     path('lms/courses/<int:course_id>/', lms_course_detail),
     path('lms/courses/<int:course_id>/enroll/', lms_course_enroll),
@@ -216,8 +228,8 @@ urlpatterns = [
     path('lms/lessons/<int:lesson_id>/progress/', lms_lesson_progress),
     path('lms/assessments/<int:assessment_id>/attempt/', lms_assessment_attempt),
 
-    # Core Operating Workspace: internal Gravitas team only. The V3 runtime
-    # resolves every operating request to the canonical Core workspace.
+    # Layer 5 operating system: internal Gravitas team only. Existing runtime
+    # resolution pins every call to the canonical Core workspace.
     path('operating/dashboard/', operating_dashboard),
     path('operating/initiative-planner/', initiative_planner),
     path('operating/processes/', processes),
@@ -242,9 +254,8 @@ urlpatterns = [
     path('operating/meetings/', meetings),
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
-    # Legacy personal KMS APIs stay available for private-scope data and
-    # backward compatibility. The five-layer UI treats this knowledge store as
-    # supporting data for Dashboard/LMS/Research rather than an access role.
+    # Legacy private KMS storage remains for notes/learning tools and backwards
+    # compatibility; it is no longer a community role or a product-layer gate.
     path('workspace/dashboard/', workspace_dashboard),
     path('workspace/pages/', workspace_pages),
     path('workspace/pages/<str:page_id>/', workspace_page_detail),
