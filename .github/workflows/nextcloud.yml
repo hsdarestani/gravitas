@@ -51,8 +51,8 @@ jobs:
           bash -n ops/nextcloud/sso.sh
           bash -n ops/nextcloud/mirror.sh
           grep -q 'groupfolders required' ops/nextcloud/apps.sh
-          grep -q 'deck' ops/nextcloud/apps.sh
-          grep -q 'notes' ops/nextcloud/apps.sh
+          grep -q 'ensure_app deck required' ops/nextcloud/apps.sh
+          grep -q 'ensure_app notes required' ops/nextcloud/apps.sh
           grep -q 'assistant' ops/nextcloud/apps.sh
           grep -q 'user_oidc' ops/nextcloud/apps.sh
           grep -q 'mapping-uid=nextcloud_uid' ops/nextcloud/sso.sh
@@ -207,9 +207,17 @@ jobs:
           sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+deck:' >/dev/null
           sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwriteprotocol | grep -qx 'https'
           sudo grep -q '# BEGIN GRAVITAS NEXTCLOUD' /etc/nginx/sites-available/gravitas
-          . /etc/gravitas/nextcloud.env
-          curl -fsS -u "$NC_ADMIN_USER:$NC_ADMIN_PASSWORD" -H 'Accept: application/json' \
-            'http://127.0.0.1:8081/index.php/apps/notes/api/v1/notes' >/dev/null
+          sudo bash -c '
+            set -euo pipefail
+            . /etc/gravitas/nextcloud.env
+            curl -fsS -u "$NC_ADMIN_USER:$NC_ADMIN_PASSWORD" -H "Accept: application/json" \
+              http://127.0.0.1:8081/index.php/apps/notes/api/v1/notes >/dev/null
+          '
+          # Do not settle for an enabled timer: exercise the actual Django ↔
+          # Notes/Deck/ACL reconciliation once and require a successful result.
+          sudo systemctl reset-failed gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
+          sudo systemctl start gravitas-nextcloud-mirror.service
+          sudo systemctl show gravitas-nextcloud-mirror.service --property=Result --value | grep -qx success
           PUBLIC_URL="$(sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || true)"
           if printf '%s' "$PUBLIC_URL" | grep -q '^https://cloud\.'; then
             sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritehost | grep -qx 'cloud.gravitasplus.com'
