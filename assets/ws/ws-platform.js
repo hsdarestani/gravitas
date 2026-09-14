@@ -1,14 +1,8 @@
 /* ==========================================================================
    GRAVITAS+ WORKSPACE  ·  PLATFORM DATA
-   The two real workspaces, Core and Research, and everything the backend
-   serves for them.
-
-   These endpoints are all registered in backend/core/urls.py and answer
-   today, which is the difference between this file and the page endpoints
-   in ws-api.js. So there is no local fallback here and there should not be:
-   a Core dashboard invented in the browser would be a fabricated report on
-   a real team's work. When a call fails, the view says what failed and
-   offers a retry.
+   The five product layers share one account and one backend. Product-layer
+   access is independent from community role; the server remains authoritative
+   for every request and every object ACL.
    ========================================================================== */
 
 const API = '/api';
@@ -34,9 +28,6 @@ export async function call(path, { method = 'GET', body } = {}) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
-  // The old workspace redirected to /login from inside its fetch wrapper, so
-  // a single stale request could throw away unsaved work in another pane.
-  // This throws instead and lets the shell decide.
   if (res.status === 401) throw new AuthRequired('authentication_required');
 
   const data = await res.json().catch(() => ({}));
@@ -49,53 +40,39 @@ export async function call(path, { method = 'GET', body } = {}) {
   return data;
 }
 
-/* ---- The shape of the platform ------------------------------------------
-   bootstrap answers who the reader is, which workspaces they may open, and
-   what is assigned to them. Everything else in the shell keys off it, so it
-   is fetched once and held. */
-
 export const platform = {
   boot: null,
   user: null,
   error: null,
-  /* What the last successful bootstrap on this machine said about access, and
-     whether this one has answered yet. Together they let the shell draw the
-     rail once instead of twice.
-
-     Without the memo the first paint has no access rules, so Core is missing
-     from the rail and from the index, and the reader watches it appear a
-     round trip later and push every other workspace down. Remembering it is
-     not the same thing as inventing data: it is last week's answer to the
-     same question, it is replaced the moment the real one lands, and the
-     server still authorizes every route behind it. A revoked membership loses
-     the button one paint late; a member stops seeing the shell rearrange
-     itself on every refresh. */
   remembered: null,
   settled: false,
 };
 
-const ACCESS_MEMO = 'gravitas.ws.access.v1';
+const ACCESS_MEMO = 'gravitas.ws.access.v2';
 
 function rememberAccess(access) {
   platform.remembered = access
-    ? { core: !!access.core, core_role: access.core_role || '' }
+    ? {
+        dashboard: !!access.dashboard,
+        lms: !!access.lms,
+        research: !!access.research,
+        core: !!access.core,
+        core_role: access.core_role || '',
+        community_role: access.community_role || 'member',
+      }
     : null;
   try {
     if (platform.remembered) localStorage.setItem(ACCESS_MEMO, JSON.stringify(platform.remembered));
     else localStorage.removeItem(ACCESS_MEMO);
-  } catch { /* storage denied: the shell just paints twice, as it used to */ }
+  } catch { /* storage denied */ }
 }
 
-// Read at module load, before the first paint asks.
 try {
   const saved = JSON.parse(localStorage.getItem(ACCESS_MEMO) || 'null');
   if (saved && typeof saved === 'object') platform.remembered = saved;
 } catch { /* storage denied or corrupt */ }
 
 export async function loadBootstrap() {
-  // Both at once. The greeting needs the name and the shell needs the access
-  // rules, and running them in series would put a second round trip in front
-  // of the first paint for no reason.
   const [me, boot] = await Promise.allSettled([call('/auth/me/'), call('/platform/bootstrap/')]);
   platform.user = me.status === 'fulfilled' ? me.value : null;
 
@@ -109,35 +86,34 @@ export async function loadBootstrap() {
   }
 
   platform.settled = true;
-  // A signed-out answer clears the memo rather than keeping it: the next
-  // reader of this browser is not necessarily the same person.
   if (platform.boot) rememberAccess(platform.boot.access);
   else if (platform.error === 'signed-out') rememberAccess(null);
   return platform.boot;
 }
 
-/* Both of these are asked during the first paint, before bootstrap has
-   answered. Until it does they answer from the memo; after it does they
-   answer only from the server. */
-
-export function canOpenCore() {
-  if (platform.boot) return !!platform.boot.access?.core;
+function accessValue(key) {
+  if (platform.boot) return !!platform.boot.access?.[key];
   if (platform.settled) return false;
-  return !!platform.remembered?.core;
+  return !!platform.remembered?.[key];
 }
 
-/* Team and Access is owner and admin only. The server enforces this too;
-   hiding the entry here is so nobody is offered a door that will not open. */
+export const canOpenDashboard = () => accessValue('dashboard');
+export const canOpenLms = () => accessValue('lms');
+export const canOpenResearch = () => accessValue('research');
+export const canOpenCore = () => accessValue('core');
+
+export function communityRole() {
+  const source = platform.boot?.access || (platform.settled ? null : platform.remembered);
+  return source?.community_role || 'member';
+}
+
 export function isCoreAdmin() {
   const source = platform.boot?.access || (platform.settled ? null : platform.remembered);
   const role = source?.core_role;
   return role === 'owner' || role === 'admin';
 }
 
-/* ---- Endpoints ----------------------------------------------------------
-   Thin wrappers, named for what the reader asked for rather than for the
-   URL, so a route change is one edit here. */
-
+/* ---- Platform endpoints ------------------------------------------------- */
 export const dashboard = (workspace) => call(`/platform/dashboard/?workspace=${workspace}`);
 export const projects = () => call('/platform/projects/');
 export const project = (id) => call(`/platform/projects/${id}/`);
@@ -178,11 +154,32 @@ export const operatingInitiatives = () => call('/operating/initiatives/');
 export const operatingTasks = () => call('/operating/tasks/');
 export const operatingCycles = () => call('/operating/cycles/');
 
-/* ---- Display helpers ----------------------------------------------------
-   Shared so a status reads the same in the sidebar, a card and a row. The
-   backend sends snake_case enum values; nothing else should be turning them
-   into English in six different places. */
+/* ---- Layer 3 / LMS ------------------------------------------------------ */
+export const lmsCourses = ({ all = false } = {}) => call(`/lms/courses/${all ? '?all=1' : ''}`);
+export const lmsCourse = (id) => call(`/lms/courses/${id}/`);
+export const lmsEnroll = (id, body = {}) => call(`/lms/courses/${id}/enroll/`, { method: 'POST', body });
+export const lmsMe = () => call('/lms/me/');
+export const lmsLessonProgress = (id, body) => call(`/lms/lessons/${id}/progress/`, { method: 'PUT', body });
+export const lmsAssessmentAttempt = (id, answers) => call(`/lms/assessments/${id}/attempt/`, {
+  method: 'POST', body: { answers },
+});
+export const lmsCreateCourse = (body) => call('/lms/courses/', { method: 'POST', body });
+export const lmsUpdateCourse = (id, body) => call(`/lms/courses/${id}/`, { method: 'PATCH', body });
 
+/* ---- Layer 5 administration -------------------------------------------- */
+export const adminOverview = () => call('/platform/admin/overview/');
+export const adminUsers = (query = '') => call(`/platform/admin/users/${query ? `?q=${encodeURIComponent(query)}` : ''}`);
+export const adminUser = (id) => call(`/platform/admin/users/${id}/`);
+export const adminUpdateUser = (id, body) => call(`/platform/admin/users/${id}/`, { method: 'PATCH', body });
+export const adminActivity = ({ layer = '', userId = '' } = {}) => {
+  const params = new URLSearchParams();
+  if (layer) params.set('layer', layer);
+  if (userId) params.set('user_id', userId);
+  const suffix = params.toString();
+  return call(`/platform/admin/activity/${suffix ? `?${suffix}` : ''}`);
+};
+
+/* ---- Display helpers ---------------------------------------------------- */
 export function label(value) {
   if (!value) return '';
   return String(value)
@@ -205,19 +202,10 @@ export function formatBytes(value) {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
-/* Joins the parts of a metadata line, dropping the empty ones. Without the
-   filter an item with no due date renders as "High · Open ·  · " and the
-   stray separators read as missing data rather than as absent fields. */
 export function meta(parts) {
   return parts.filter(Boolean).join(' · ');
 }
 
-/* Compatibility renderer for the Core Tasks screen.
-   The canonical V4 view calls taskRow(task), but the helper was accidentally
-   dropped during the frontend sync. Because ws-views.js imports this module
-   before rendering, publishing the helper on the global environment restores
-   the missing binding without fabricating any task data. Keep the adapter
-   tolerant of both dashboard and operating API shapes. */
 globalThis.taskRow = function taskRow(task) {
   const node = document.createElement('div');
   node.className = 'v-row';
