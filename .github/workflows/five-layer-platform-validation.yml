@@ -10,6 +10,9 @@ on:
       - 'backend/core/research_*.py'
       - 'backend/core/platform_admin_extended.py'
       - 'backend/core/nextcloud_deck.py'
+      - 'backend/core/nextcloud_notes.py'
+      - 'backend/core/space_signals.py'
+      - 'backend/core/management/commands/reconcile_nextcloud_native.py'
       - 'backend/core/site_admin_api.py'
       - 'backend/core/platform_runtime_v3.py'
       - 'backend/core/urls.py'
@@ -20,10 +23,13 @@ on:
       - 'backend/core/test_research_project_tools.py'
       - 'backend/core/test_core_task_links.py'
       - 'backend/core/test_auth_logout_flow.py'
+      - 'backend/core/test_nextcloud_native_apps.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
       - 'assets/ws/ws-platform.js'
       - 'assets/ws/ws-five-layer.js'
+      - 'assets/ws/ws-nextcloud-native.js'
+      - 'assets/ws/ws-nextcloud-native.css'
       - 'assets/ws/ws-member-lms.js'
       - 'assets/ws/ws-member-progress.js'
       - 'assets/ws/ws-core-links.js'
@@ -43,6 +49,9 @@ on:
       - 'backend/core/research_*.py'
       - 'backend/core/platform_admin_extended.py'
       - 'backend/core/nextcloud_deck.py'
+      - 'backend/core/nextcloud_notes.py'
+      - 'backend/core/space_signals.py'
+      - 'backend/core/management/commands/reconcile_nextcloud_native.py'
       - 'backend/core/site_admin_api.py'
       - 'backend/core/platform_runtime_v3.py'
       - 'backend/core/urls.py'
@@ -53,10 +62,13 @@ on:
       - 'backend/core/test_research_project_tools.py'
       - 'backend/core/test_core_task_links.py'
       - 'backend/core/test_auth_logout_flow.py'
+      - 'backend/core/test_nextcloud_native_apps.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
       - 'assets/ws/ws-platform.js'
       - 'assets/ws/ws-five-layer.js'
+      - 'assets/ws/ws-nextcloud-native.js'
+      - 'assets/ws/ws-nextcloud-native.css'
       - 'assets/ws/ws-member-lms.js'
       - 'assets/ws/ws-member-progress.js'
       - 'assets/ws/ws-core-links.js'
@@ -83,6 +95,7 @@ jobs:
           set -euo pipefail
           node --check assets/ws/ws-platform.js
           node --check assets/ws/ws-five-layer.js
+          node --check assets/ws/ws-nextcloud-native.js
           node --check assets/ws/ws-member-lms.js
           node --check assets/ws/ws-member-progress.js
           node --check assets/ws/ws-core-links.js
@@ -119,5 +132,6 @@ jobs:
             core.test_research_project_tools \
             core.test_core_task_links \
             core.test_auth_logout_flow \
+            core.test_nextcloud_native_apps \
             core.test_site_layer_admin \
             core.test_platform_v3_roles
