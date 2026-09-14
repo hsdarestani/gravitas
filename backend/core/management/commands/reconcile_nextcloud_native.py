@@ -3,8 +3,9 @@ import json
 from django.core.management.base import BaseCommand
 
 from core.models import NextcloudIdentity
-from core.nextcloud_deck import DeckError, sync_tasks_to_deck
-from core.nextcloud_notes import NotesError, reconcile_notes
+from core.nextcloud_deck import sync_tasks_to_deck
+from core.nextcloud_deck_access import ensure_core_deck_access
+from core.nextcloud_notes import reconcile_notes
 
 
 class Command(BaseCommand):
@@ -43,10 +44,11 @@ class Command(BaseCommand):
         if not notes_only:
             try:
                 summary['deck'] = sync_tasks_to_deck()
-            except (DeckError, NotesError, Exception) as exc:
+                summary['deck']['access'] = ensure_core_deck_access(summary['deck']['board']['id'])
+            except Exception as exc:
                 # The timer runs frequently. Keep the command observable but do
                 # not prevent the next run from reconciling Notes because Deck
-                # is temporarily unavailable (or vice versa).
+                # or its membership mirror is temporarily unavailable.
                 summary['deck'] = {'ok': False, 'error': str(exc)}
                 self.stderr.write(f'Deck mirror failed: {exc}')
 
