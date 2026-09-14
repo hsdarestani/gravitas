@@ -5,15 +5,27 @@ on:
     paths:
       - 'backend/core/layer_*.py'
       - 'backend/core/lms_*.py'
+      - 'backend/core/member_api.py'
+      - 'backend/core/research_*.py'
+      - 'backend/core/platform_admin_extended.py'
+      - 'backend/core/nextcloud_deck.py'
       - 'backend/core/site_admin_api.py'
       - 'backend/core/platform_runtime_v3.py'
       - 'backend/core/urls.py'
       - 'backend/core/apps.py'
       - 'backend/core/migrations/0014_five_layer_platform_foundation.py'
-      - 'backend/core/test_five_layer_platform.py'
+      - 'backend/core/migrations/0015_research_experiments_discussions.py'
+      - 'backend/core/test_five_layer_*.py'
+      - 'backend/core/test_research_project_tools.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
       - 'assets/ws/ws-platform.js'
+      - 'assets/ws/ws-five-layer.js'
+      - 'assets/ws/ws-member-lms.js'
+      - 'assets/ws/ws-admin.js'
+      - 'assets/ws/ws-project.js'
+      - 'assets/ws/ws-five-layer.css'
+      - 'workspace.html'
       - 'docs/five-layer-platform-architecture.md'
       - '.github/workflows/five-layer-platform-validation.yml'
   push:
@@ -21,15 +33,27 @@ on:
     paths:
       - 'backend/core/layer_*.py'
       - 'backend/core/lms_*.py'
+      - 'backend/core/member_api.py'
+      - 'backend/core/research_*.py'
+      - 'backend/core/platform_admin_extended.py'
+      - 'backend/core/nextcloud_deck.py'
       - 'backend/core/site_admin_api.py'
       - 'backend/core/platform_runtime_v3.py'
       - 'backend/core/urls.py'
       - 'backend/core/apps.py'
       - 'backend/core/migrations/0014_five_layer_platform_foundation.py'
-      - 'backend/core/test_five_layer_platform.py'
+      - 'backend/core/migrations/0015_research_experiments_discussions.py'
+      - 'backend/core/test_five_layer_*.py'
+      - 'backend/core/test_research_project_tools.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
       - 'assets/ws/ws-platform.js'
+      - 'assets/ws/ws-five-layer.js'
+      - 'assets/ws/ws-member-lms.js'
+      - 'assets/ws/ws-admin.js'
+      - 'assets/ws/ws-project.js'
+      - 'assets/ws/ws-five-layer.css'
+      - 'workspace.html'
       - 'docs/five-layer-platform-architecture.md'
       - '.github/workflows/five-layer-platform-validation.yml'
 
@@ -39,9 +63,19 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate five-layer browser modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/ws/ws-platform.js
+          node --check assets/ws/ws-five-layer.js
+          node --check assets/ws/ws-member-lms.js
+          node --check assets/ws/ws-admin.js
+          node --check assets/ws/ws-project.js
 
       - name: Set up five-layer test environment
         shell: bash
@@ -69,5 +103,7 @@ jobs:
           PY="$RUNNER_TEMP/gravitas-five-layer-tests/bin/python"
           "$PY" -m django test \
             core.test_five_layer_platform \
+            core.test_five_layer_completion \
+            core.test_research_project_tools \
             core.test_site_layer_admin \
             core.test_platform_v3_roles
