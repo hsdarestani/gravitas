@@ -12,19 +12,51 @@ function cookie(name) {
   return hit ? decodeURIComponent(hit.slice(name.length + 1)) : '';
 }
 
+function csrfCookie() {
+  return cookie('csrftoken') || cookie('gravitas_staging_csrftoken');
+}
+
+async function csrfToken() {
+  let token = csrfCookie();
+  if (token) return token;
+
+  const res = await fetch(`${API}/auth/csrf/`, {
+    method: 'GET',
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const error = new Error(`csrf_http_${res.status}`);
+    error.status = res.status;
+    throw error;
+  }
+
+  token = csrfCookie();
+  if (!token) throw new Error('csrf_token_missing');
+  return token;
+}
+
 export class AuthRequired extends Error {}
 
 export async function call(path, { method = 'GET', body } = {}) {
+  const verb = String(method || 'GET').toUpperCase();
+  const unsafe = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(verb);
   const headers = { Accept: 'application/json' };
-  if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    headers['X-CSRFToken'] = cookie('csrftoken');
-  }
+
+  // CSRF protects the HTTP verb, not the presence of a JSON body. The old
+  // client only sent X-CSRFToken when `body` existed, which made body-less
+  // POSTs such as /auth/logout/ fail with Django's CSRF rejection while the
+  // UI redirected anyway. Every unsafe request now gets a real token, and a
+  // direct workspace visit can bootstrap the cookie when it is absent.
+  if (unsafe) headers['X-CSRFToken'] = await csrfToken();
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
 
   const res = await fetch(API + path, {
-    method,
+    method: verb,
     headers,
     credentials: 'same-origin',
+    cache: verb === 'GET' ? 'default' : 'no-store',
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
@@ -89,6 +121,15 @@ export async function loadBootstrap() {
   if (platform.boot) rememberAccess(platform.boot.access);
   else if (platform.error === 'signed-out') rememberAccess(null);
   return platform.boot;
+}
+
+export async function signOut() {
+  await call('/auth/logout/', { method: 'POST' });
+  platform.boot = null;
+  platform.user = null;
+  platform.error = 'signed-out';
+  platform.settled = true;
+  rememberAccess(null);
 }
 
 function accessValue(key) {
