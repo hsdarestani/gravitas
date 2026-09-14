@@ -113,7 +113,9 @@ export function isCoreAdmin() {
   return role === 'owner' || role === 'admin';
 }
 
-/* ---- Platform endpoints ------------------------------------------------- */
+/* ---- Shared platform endpoints ----------------------------------------- */
+export const memberDashboard = () => call('/member/dashboard/');
+export const readerLibrary = () => call('/reader/library/');
 export const dashboard = (workspace) => call(`/platform/dashboard/?workspace=${workspace}`);
 export const projects = () => call('/platform/projects/');
 export const project = (id) => call(`/platform/projects/${id}/`);
@@ -178,6 +180,40 @@ export const adminActivity = ({ layer = '', userId = '' } = {}) => {
   const suffix = params.toString();
   return call(`/platform/admin/activity/${suffix ? `?${suffix}` : ''}`);
 };
+
+export const adminSiteContent = (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== '')).toString();
+  return call(`/platform/admin/site/content/${query ? `?${query}` : ''}`);
+};
+export const adminCreateSiteContent = (body) => call('/platform/admin/site/content/', { method: 'POST', body });
+export const adminSiteContentItem = (id) => call(`/platform/admin/site/content/${id}/`);
+export const adminUpdateSiteContent = (id, body) => call(`/platform/admin/site/content/${id}/`, { method: 'PATCH', body });
+export const adminSiteComments = (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== '')).toString();
+  return call(`/platform/admin/site/comments/${query ? `?${query}` : ''}`);
+};
+export const adminModerateComment = (id, status) => call(`/platform/admin/site/comments/${id}/`, {
+  method: 'PATCH', body: { status },
+});
+
+export const adminResearchProjects = (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== '')).toString();
+  return call(`/platform/admin/research/projects/${query ? `?${query}` : ''}`);
+};
+export const adminResearchProject = (id) => call(`/platform/admin/research/projects/${id}/`);
+export const adminUpdateResearchProject = (id, body) => call(`/platform/admin/research/projects/${id}/`, {
+  method: 'PATCH', body,
+});
+
+export const adminLmsEnrollments = (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== '')).toString();
+  return call(`/platform/admin/lms/enrollments/${query ? `?${query}` : ''}`);
+};
+export const adminUpdateLmsEnrollment = (id, body) => call(`/platform/admin/lms/enrollments/${id}/`, {
+  method: 'PATCH', body,
+});
+export const adminDeck = () => call('/platform/admin/deck/');
+export const adminDeckSync = () => call('/platform/admin/deck/sync/', { method: 'POST', body: {} });
 
 /* ---- Display helpers ---------------------------------------------------- */
 export function label(value) {
