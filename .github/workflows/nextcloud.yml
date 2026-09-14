@@ -6,11 +6,15 @@ on:
     paths:
       - '.github/workflows/nextcloud.yml'
       - 'ops/nextcloud/**'
+      - 'backend/core/nextcloud_*.py'
+      - 'backend/core/management/commands/reconcile_nextcloud_native.py'
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/nextcloud.yml'
       - 'ops/nextcloud/**'
+      - 'backend/core/nextcloud_*.py'
+      - 'backend/core/management/commands/reconcile_nextcloud_native.py'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy Gravitas to Strato']
@@ -45,12 +49,16 @@ jobs:
           bash -n ops/nextcloud/nginx-guard.sh
           bash -n ops/nextcloud/subdomain.sh
           bash -n ops/nextcloud/sso.sh
+          bash -n ops/nextcloud/mirror.sh
           grep -q 'groupfolders required' ops/nextcloud/apps.sh
+          grep -q 'deck' ops/nextcloud/apps.sh
+          grep -q 'notes' ops/nextcloud/apps.sh
           grep -q 'assistant' ops/nextcloud/apps.sh
           grep -q 'user_oidc' ops/nextcloud/apps.sh
           grep -q 'mapping-uid=nextcloud_uid' ops/nextcloud/sso.sh
           grep -q 'disable_account_creation' ops/nextcloud/sso.sh
           grep -q 'gravitas-nextcloud-nginx-guard.path' ops/nextcloud/nginx-guard.sh
+          grep -q 'gravitas-nextcloud-mirror.timer' ops/nextcloud/mirror.sh
           grep -q 'cloud.gravitasplus.com' .github/workflows/nextcloud.yml
           echo 'Nextcloud code validation passed; production provisioning only runs after a successful Gravitas deploy or manual dispatch.'
 
@@ -153,6 +161,15 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo install -m 750 /tmp/gravitas-nextcloud-sso /usr/local/sbin/gravitas-nextcloud-sso && sudo rm -f /tmp/gravitas-nextcloud-sso && sudo /usr/local/sbin/gravitas-nextcloud-sso '$DOMAIN' '$CLOUD_DOMAIN'"
 
+      - name: Install continuous Notes and Deck mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/nextcloud/mirror.sh \
+            "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:/tmp/gravitas-nextcloud-mirror"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo install -m 750 /tmp/gravitas-nextcloud-mirror /usr/local/sbin/gravitas-nextcloud-mirror-install && sudo rm -f /tmp/gravitas-nextcloud-mirror && sudo /usr/local/sbin/gravitas-nextcloud-mirror-install /opt/gravitas-backend"
+
       - name: Verify public endpoint
         shell: bash
         run: |
@@ -170,7 +187,7 @@ jobs:
             curl -4 -fsSL --retry 8 --retry-delay 3 "https://$DOMAIN/api/oidc/jwks/" | grep -q 'RS256'
           fi
 
-      - name: Verify containers, apps, SSO, route guard, cron and backup timers
+      - name: Verify containers, native apps, SSO, mirrors, cron and backup timers
         shell: bash
         run: |
           set -euo pipefail
@@ -182,10 +199,17 @@ jobs:
           sudo systemctl is-active gravitas-nextcloud-cron.timer
           sudo systemctl is-active gravitas-nextcloud-backup.timer
           sudo systemctl is-active gravitas-nextcloud-nginx-guard.path
+          sudo systemctl is-active gravitas-nextcloud-mirror.timer
+          sudo systemctl is-enabled gravitas-nextcloud-mirror.timer >/dev/null
           sudo docker exec -u www-data gravitas-nextcloud php occ status | grep -q 'installed: true'
           sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+groupfolders:' >/dev/null
+          sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+notes:' >/dev/null
+          sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+deck:' >/dev/null
           sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwriteprotocol | grep -qx 'https'
           sudo grep -q '# BEGIN GRAVITAS NEXTCLOUD' /etc/nginx/sites-available/gravitas
+          . /etc/gravitas/nextcloud.env
+          curl -fsS -u "$NC_ADMIN_USER:$NC_ADMIN_PASSWORD" -H 'Accept: application/json' \
+            'http://127.0.0.1:8081/index.php/apps/notes/api/v1/notes' >/dev/null
           PUBLIC_URL="$(sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || true)"
           if printf '%s' "$PUBLIC_URL" | grep -q '^https://cloud\.'; then
             sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritehost | grep -qx 'cloud.gravitasplus.com'
@@ -213,7 +237,7 @@ jobs:
             "sudo grep -Eq '^NEXTCLOUD_OIDC_PROVIDER_ID=[0-9]+$' /etc/gravitas/backend.env"; then
             SSO=enabled
           fi
-          printf 'status=live\nurl=%s/\nversion=%s\nteam_folders=enabled\nassistant=optional\nsso=%s\nnginx_guard=enabled\nverified_at=%s\n' \
+          printf 'status=live\nurl=%s/\nversion=%s\nteam_folders=enabled\nnotes=mirrored\ndeck=mirrored\nmirror_cadence=2m\nassistant=optional\nsso=%s\nnginx_guard=enabled\nverified_at=%s\n' \
             "$PUBLIC_URL" "$VERSION" "$SSO" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .nextcloud-status
           git config user.name 'gravitas-nextcloud-bot'
           git config user.email 'actions@users.noreply.github.com'
