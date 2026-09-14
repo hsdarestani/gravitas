@@ -120,6 +120,15 @@ export const dashboard = (workspace) => call(`/platform/dashboard/?workspace=${w
 export const projects = () => call('/platform/projects/');
 export const project = (id) => call(`/platform/projects/${id}/`);
 export const projectCockpit = (id) => call(`/platform/projects/${id}/cockpit/`);
+export const projectMilestones = (id) => call(`/platform/projects/${id}/milestones/`);
+export const projectExperiments = (id) => call(`/platform/projects/${id}/experiments/`);
+export const createProjectExperiment = (id, body) => call(`/platform/projects/${id}/experiments/`, { method: 'POST', body });
+export const updateProjectExperiment = (projectId, experimentId, body) => call(`/platform/projects/${projectId}/experiments/${experimentId}/`, { method: 'PATCH', body });
+export const deleteProjectExperiment = (projectId, experimentId) => call(`/platform/projects/${projectId}/experiments/${experimentId}/`, { method: 'DELETE' });
+export const projectDiscussions = (id) => call(`/platform/projects/${id}/discussions/`);
+export const createProjectDiscussion = (id, body) => call(`/platform/projects/${id}/discussions/`, { method: 'POST', body });
+export const updateProjectDiscussion = (projectId, messageId, body) => call(`/platform/projects/${projectId}/discussions/${messageId}/`, { method: 'PATCH', body });
+export const deleteProjectDiscussion = (projectId, messageId) => call(`/platform/projects/${projectId}/discussions/${messageId}/`, { method: 'DELETE' });
 export const spaceTree = () => call('/platform/space/tree/');
 export const spaceItems = () => call('/platform/space/items/');
 export const spaceNotes = () => call('/platform/space/notes/');
