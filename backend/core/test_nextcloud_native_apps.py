@@ -5,9 +5,12 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from .layer_models import ActivityEvent, ModuleGrant
 from .models import KnowledgeResource
 from .nextcloud_deck import _pull_card
 from .nextcloud_notes import (
+    DELETE_DONE_ACTION,
+    DELETE_PENDING_ACTION,
     NotesConflict,
     _local_fingerprint,
     _remote_fingerprint,
@@ -26,6 +29,15 @@ class NativeNotesMirrorTests(TestCase):
         self.addCleanup(self.queue_patcher.stop)
         self.user = get_user_model().objects.create_user(
             username='notes-user', email='notes@example.com', password='not-a-real-secret',
+        )
+        ModuleGrant.objects.update_or_create(
+            user=self.user,
+            module=ModuleGrant.Module.RESEARCH,
+            defaults={
+                'enabled': True,
+                'access_level': ModuleGrant.AccessLevel.PARTICIPATE,
+                'source': ModuleGrant.Source.ADMIN,
+            },
         )
         self.workspace = provision_personal_workspace(self.user)
 
@@ -141,6 +153,98 @@ class NativeNotesMirrorTests(TestCase):
         self.assertEqual(adopted.metadata['ws_space'], 'research')
         self.assertTrue(adopted.metadata['ws_bookmarked'])
         self.assertFalse(KnowledgeResource.objects.filter(owner=self.user, title='Private native').exists())
+
+    @patch('core.nextcloud_notes.ensure_user', return_value=object())
+    @patch('core.nextcloud_notes._list_remote')
+    def test_remote_notes_are_adopted_only_for_entitled_layers(self, list_remote, _ensure):
+        User = get_user_model()
+        member = User.objects.create_user(username='plain-member', email='plain@example.com')
+        provision_personal_workspace(member)
+        list_remote.return_value = [
+            {'id': 80, 'etag': 'a', 'readonly': False, 'title': 'Core native', 'content': '', 'category': 'Gravitas/Core', 'favorite': False, 'modified': 1},
+            {'id': 81, 'etag': 'b', 'readonly': False, 'title': 'Research native', 'content': '', 'category': 'Gravitas/Research', 'favorite': False, 'modified': 1},
+            {'id': 82, 'etag': 'c', 'readonly': False, 'title': 'Learning native', 'content': '', 'category': 'Gravitas/Learning', 'favorite': False, 'modified': 1},
+        ]
+
+        result = reconcile_notes(member)
+
+        self.assertEqual(result['counts']['adopted'], 1)
+        self.assertTrue(KnowledgeResource.objects.filter(owner=member, title='Learning native').exists())
+        self.assertFalse(KnowledgeResource.objects.filter(owner=member, title='Research native').exists())
+        self.assertFalse(KnowledgeResource.objects.filter(owner=member, title='Core native').exists())
+
+    @patch('core.nextcloud_notes.ensure_user', return_value=object())
+    @patch('core.nextcloud_notes._request')
+    def test_remote_deletion_becomes_conflict_instead_of_recreating_note(self, request, _ensure):
+        resource = self.note()
+        original_remote = {
+            'id': 90, 'etag': 'etag-a', 'readonly': False,
+            'title': resource.title, 'content': resource.body,
+            'category': 'Gravitas/Research', 'favorite': False, 'modified': 10,
+        }
+        metadata = dict(resource.metadata)
+        metadata['nextcloud_notes'] = _snapshot(original_remote, _local_fingerprint(resource))
+        KnowledgeResource.objects.filter(pk=resource.pk).update(metadata=metadata)
+        resource.metadata = metadata
+        request.return_value = (404, None, {})
+
+        with self.assertRaises(NotesConflict):
+            sync_note_to_nextcloud(resource)
+
+        resource.refresh_from_db()
+        self.assertEqual(resource.metadata['nextcloud_notes']['state'], 'conflict')
+        self.assertEqual(resource.metadata['nextcloud_notes']['error'], 'deleted_in_nextcloud')
+        self.assertEqual(request.call_args.args[:2], ('GET', '/notes/90'))
+        self.assertEqual(request.call_count, 1)
+
+    @patch('core.nextcloud_notes._delete_remote', return_value=True)
+    @patch('core.nextcloud_notes._list_remote')
+    @patch('core.nextcloud_notes.ensure_user', return_value=object())
+    def test_legacy_local_delete_uses_tombstone_and_never_readopts_remote_note(self, _ensure, list_remote, delete_remote):
+        resource = self.note()
+        remote = {
+            'id': 91, 'etag': 'etag-a', 'readonly': False,
+            'title': resource.title, 'content': resource.body,
+            'category': 'Gravitas/Research', 'favorite': False, 'modified': 10,
+        }
+        metadata = dict(resource.metadata)
+        metadata['nextcloud_notes'] = _snapshot(remote, _local_fingerprint(resource))
+        KnowledgeResource.objects.filter(pk=resource.pk).update(metadata=metadata)
+        resource.metadata = metadata
+        resource.delete()
+        self.assertTrue(ActivityEvent.objects.filter(action=DELETE_PENDING_ACTION, object_id='91').exists())
+        list_remote.return_value = [remote]
+
+        result = reconcile_notes(self.user)
+
+        delete_remote.assert_called_once()
+        self.assertEqual(result['counts']['deleted'], 1)
+        self.assertFalse(KnowledgeResource.objects.filter(owner=self.user, title='Local title').exists())
+        self.assertTrue(ActivityEvent.objects.filter(action=DELETE_DONE_ACTION, object_id='91').exists())
+
+    @patch('core.nextcloud_notes.ensure_user', return_value=object())
+    @patch('core.nextcloud_notes._get_remote', return_value=None)
+    def test_user_can_accept_native_deletion_to_resolve_conflict(self, _get_remote, _ensure):
+        resource = self.note()
+        remote = {
+            'id': 92, 'etag': 'etag-a', 'readonly': False,
+            'title': resource.title, 'content': resource.body,
+            'category': 'Gravitas/Research', 'favorite': False, 'modified': 10,
+        }
+        metadata = dict(resource.metadata)
+        metadata['nextcloud_notes'] = _snapshot(remote, _local_fingerprint(resource), state='conflict', error='deleted_in_nextcloud')
+        KnowledgeResource.objects.filter(pk=resource.pk).update(metadata=metadata)
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            f'/api/platform/nextcloud/notes/{resource.pk}/resolve/',
+            data='{"winner":"nextcloud"}',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()['deleted'])
+        self.assertFalse(KnowledgeResource.objects.filter(pk=resource.pk).exists())
 
     def test_native_notes_api_requires_authentication(self):
         response = self.client.get('/api/platform/nextcloud/notes/')
