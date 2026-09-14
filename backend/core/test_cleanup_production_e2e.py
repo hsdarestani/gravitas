@@ -99,6 +99,27 @@ class CleanupProductionE2EUsersTests(TestCase):
         self.assertEqual(delete_identity.call_args.args[0].pk, identity.pk)
         self.assertFalse(get_user_model().objects.filter(pk=self.workspace_user.pk).exists())
 
+    def test_already_absent_nextcloud_identity_allows_local_cleanup(self):
+        NextcloudIdentity.objects.create(
+            user=self.workspace_user,
+            username=f'gravitas-u-{self.workspace_user.pk}',
+            encrypted_password='test-ciphertext',
+        )
+        out = StringIO()
+
+        with patch(
+            'core.management.commands.cleanup_production_e2e_users.cloud.delete_identity',
+            side_effect=cloud.CloudError('Could not delete cloud identity'),
+        ), patch(
+            'core.management.commands.cleanup_production_e2e_users._nextcloud_identity_state',
+            return_value=('missing', 'OCS 998: The requested user could not be found'),
+        ):
+            call_command('cleanup_production_e2e_users', scope='workspace', stdout=out)
+
+        self.assertFalse(get_user_model().objects.filter(pk=self.workspace_user.pk).exists())
+        self.assertIn('Nextcloud identity already absent', out.getvalue())
+        self.assertIn('deleted=1', out.getvalue())
+
     def test_nextcloud_failure_preserves_user_reports_cause_and_continues(self):
         NextcloudIdentity.objects.create(
             user=self.workspace_user,
