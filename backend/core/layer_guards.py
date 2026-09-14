@@ -32,13 +32,15 @@ def require_module(module):
 
 
 def require_research_or_core(view):
-    """Research product entry for researchers *or* the internal control plane.
+    """Research product entry for participants or the internal control plane.
 
-    Layer 5 must be able to create/manage Layer 4 objects without pretending
-    that the administrator is a Research participant.  Core access is checked
-    independently and the existing project/object ACL still runs inside the
-    endpoint. This preserves the user's rule that LMS/Research entitlements
-    are independent while keeping Core capable of administering every layer.
+    A Core administrator may operate Layer 4 without being labelled a
+    Researcher. An explicit disabled Research grant still blocks a participant
+    path. For direct project URLs with *no configured Research grant*, however,
+    the underlying object ACL is allowed to answer: an unrelated account then
+    receives the same 404 it always received instead of revealing that a
+    private project exists. Real project participants already resolve to
+    Research access through their project relationship.
     """
     @wraps(view)
     def wrapped(request, *args, **kwargs):
@@ -54,6 +56,17 @@ def require_research_or_core(view):
         spaces = ensure_platform_workspaces(request.user)
         if core_access(request.user, spaces['core']):
             return view(request, *args, **kwargs)
+
+        explicit = ModuleGrant.objects.filter(
+            user=request.user,
+            module=ModuleGrant.Module.RESEARCH,
+        ).first()
+        if explicit is None and kwargs.get('project_id') is not None:
+            # Let can_view/can_edit inside the endpoint produce a non-leaking
+            # 404/403. This is not a layer bypass: an explicitly suspended
+            # account never reaches this branch.
+            return view(request, *args, **kwargs)
+
         return JsonResponse({'ok': False, 'error': 'research_access_required'}, status=403)
     return wrapped
 
