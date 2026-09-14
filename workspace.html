@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/ws/ws.css?v=20260913-3">
   <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20260914-1">
+  <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20260914-1">
   <script src="/assets/gravitas-icons.js" defer></script>
   <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
   <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
@@ -108,10 +109,11 @@
 
   <script type="module">
     import { start } from '/assets/ws/ws-app.js?v=20260914-1';
-    // Keep this URL exactly aligned with ws-five-layer.js so both imports
-    // share one ESM module instance and therefore one access/bootstrap state.
+    // Keep this URL exactly aligned with ws-five-layer.js and native app
+    // integrations so every surface shares one access/bootstrap state.
     import { loadBootstrap } from '/assets/ws/ws-platform.js?v=20260914-7';
     import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260914-2';
+    import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20260914-1';
 
     async function bootWorkspace() {
       await start();
@@ -120,6 +122,7 @@
       // the rail so entitlements are never guessed in the browser.
       await loadBootstrap();
       installFiveLayer();
+      installNextcloudNativeRouter();
     }
 
     if (window.GravitasIcons) bootWorkspace();
