@@ -14,9 +14,10 @@ from .space_moves import sync_note_moveaware, sync_project_moveaware
 
 logger = logging.getLogger(__name__)
 
-# Saving user-facing objects must not wait for multiple WebDAV round trips.
-# Bounded daemon queues keep Space/Nextcloud synchronization eventual while the
-# API returns as soon as the database commit succeeds.
+# Saving user-facing objects must not wait for Nextcloud round trips. A single
+# bounded worker mirrors each note to both the durable Space/WebDAV tree and
+# the native Notes app. The periodic reconciler is the second line of defence
+# for process restarts or a temporarily unavailable cloud.
 _NOTE_SYNC_QUEUE = queue.Queue(maxsize=256)
 _NOTE_SYNC_WORKER_STARTED = False
 _NOTE_SYNC_WORKER_LOCK = threading.Lock()
@@ -49,12 +50,27 @@ def _sync_note(resource_id):
     resource = KnowledgeResource.objects.select_related('owner', 'project').filter(pk=resource_id, kind='note').first()
     if not resource:
         return
+
+    # Keep the filesystem mirror because project folders, attachments, desktop
+    # clients and backups depend on it.
     try:
         sync_note_moveaware(resource)
     except SpaceConflict:
         logger.info('Note %s has a Nextcloud metadata conflict; user confirmation required', resource_id)
     except (cloud.CloudError, ValueError):
         logger.exception('Note %s Space sync deferred', resource_id)
+
+    # The Notes app is the native writing surface. Import lazily to avoid a
+    # model/signal import cycle during Django app startup.
+    try:
+        from .nextcloud_notes import NotesConflict, NotesError, sync_note_to_nextcloud
+        sync_note_to_nextcloud(resource)
+    except NotesConflict:
+        logger.info('Note %s changed in Gravitas and Nextcloud Notes; preserving both versions', resource_id)
+    except (NotesError, cloud.CloudError, ValueError, ImproperlyConfigured):
+        logger.exception('Note %s native Notes sync deferred', resource_id)
+    except Exception:
+        logger.exception('Note %s native Notes sync failed unexpectedly', resource_id)
 
 
 def _note_sync_worker():
@@ -92,7 +108,7 @@ def _ensure_note_sync_worker():
             return
         worker = threading.Thread(
             target=_note_sync_worker,
-            name='gravitas-note-space-sync',
+            name='gravitas-note-nextcloud-sync',
             daemon=True,
         )
         worker.start()
@@ -120,7 +136,7 @@ def _queue_note_sync(resource_id):
     try:
         _NOTE_SYNC_QUEUE.put_nowait(resource_id)
     except queue.Full:
-        logger.warning('Background Space sync queue full; note %s remains pending', resource_id)
+        logger.warning('Background Nextcloud sync queue full; note %s remains pending', resource_id)
 
 
 def _queue_project_sync(project_id):
