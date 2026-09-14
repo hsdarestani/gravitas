@@ -82,7 +82,7 @@ from core.layer_admin_api import (
     platform_admin_user_detail,
     platform_admin_users,
 )
-from core.layer_guards import require_research
+from core.layer_guards import require_research_or_core
 from core.lms_api import (
     lms_assessment_attempt,
     lms_course_detail,
@@ -181,23 +181,24 @@ urlpatterns = [
     path('platform/team/<int:user_id>/password-reset/', core_team_password_reset),
     path('platform/team/<int:user_id>/storage/', team_storage_user),
 
-    # Layer 4. Entering Research is an explicit entitlement; after this gate,
-    # the existing project/object ACL remains the final authorization check.
-    path('platform/projects/', require_research(platform_projects)),
-    path('platform/projects/<int:project_id>/', require_research(platform_project_detail)),
-    path('platform/projects/<int:project_id>/cockpit/', require_research(project_cockpit)),
-    path('platform/projects/<int:project_id>/access-candidates/', require_research(project_access_candidates)),
-    path('platform/projects/<int:project_id>/deliverables/', require_research(project_deliverables)),
-    path('platform/projects/<int:project_id>/applications/<int:application_id>/', require_research(project_application_detail)),
-    path('platform/projects/<int:project_id>/folders/', require_research(project_folders)),
-    path('platform/projects/<int:project_id>/folders/<int:collection_id>/', require_research(project_folder_detail)),
-    path('platform/projects/<int:project_id>/nextcloud/sync/', require_research(project_nextcloud_sync)),
-    path('platform/research-requests/', require_research(research_requests)),
-    path('platform/research-requests/<int:request_id>/', require_research(research_request_detail)),
-    path('platform/researchers/', require_research(researchers)),
-    path('platform/researchers/me/', require_research(researcher_me)),
-    path('platform/mindmaps/', require_research(mindmaps)),
-    path('platform/mindmaps/<int:map_id>/', require_research(mindmap_detail)),
+    # Layer 4. A Research participant may enter directly. Layer 5 may also
+    # operate these endpoints as the control plane without being labelled a
+    # Research participant. The existing object/project ACL remains final.
+    path('platform/projects/', require_research_or_core(platform_projects)),
+    path('platform/projects/<int:project_id>/', require_research_or_core(platform_project_detail)),
+    path('platform/projects/<int:project_id>/cockpit/', require_research_or_core(project_cockpit)),
+    path('platform/projects/<int:project_id>/access-candidates/', require_research_or_core(project_access_candidates)),
+    path('platform/projects/<int:project_id>/deliverables/', require_research_or_core(project_deliverables)),
+    path('platform/projects/<int:project_id>/applications/<int:application_id>/', require_research_or_core(project_application_detail)),
+    path('platform/projects/<int:project_id>/folders/', require_research_or_core(project_folders)),
+    path('platform/projects/<int:project_id>/folders/<int:collection_id>/', require_research_or_core(project_folder_detail)),
+    path('platform/projects/<int:project_id>/nextcloud/sync/', require_research_or_core(project_nextcloud_sync)),
+    path('platform/research-requests/', require_research_or_core(research_requests)),
+    path('platform/research-requests/<int:request_id>/', require_research_or_core(research_request_detail)),
+    path('platform/researchers/', require_research_or_core(researchers)),
+    path('platform/researchers/me/', require_research_or_core(researcher_me)),
+    path('platform/mindmaps/', require_research_or_core(mindmaps)),
+    path('platform/mindmaps/<int:map_id>/', require_research_or_core(mindmap_detail)),
 
     # Shared platform services. Their own ACL checks decide which object is
     # visible because the same resource/file can be linked from more than one
