@@ -134,6 +134,7 @@ def ensure_core_deck_access(board_id):
             )
 
     return {
+        'configured': True,
         'group_id': CORE_GROUP_ID,
         'workspace_id': workspace.pk,
         'member_count': len(desired),
@@ -155,6 +156,9 @@ def deck_sync_with_access(request):
     try:
         payload = json.loads(response.content.decode('utf-8'))
         board_id = int(payload['board']['id'])
+        if not (settings.NEXTCLOUD_ADMIN_USER and settings.NEXTCLOUD_ADMIN_PASSWORD):
+            payload['access'] = {'configured': False}
+            return JsonResponse(payload)
         payload['access'] = ensure_core_deck_access(board_id)
     except Exception as exc:
         return JsonResponse(
