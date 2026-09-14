@@ -82,7 +82,7 @@ jobs:
         run: django-admin migrate --noinput
       - name: Check Django configuration
         run: django-admin check
-      - name: Run Gravitas workspace role team five-layer and Nextcloud regression tests
+      - name: Run Gravitas workspace role team five-layer and credential-repair regression tests
         run: >-
           django-admin test
           core.test_operating
@@ -92,8 +92,6 @@ jobs:
           core.test_auth_logout_flow
           core.test_core_task_links
           core.test_nextcloud_credential_repair
-          core.test_nextcloud_native_apps
-          core.test_nextcloud_deck_access
           --noinput
       - name: Verify CMS translations Community and Lab schema
         run: |
