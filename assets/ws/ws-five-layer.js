@@ -125,6 +125,7 @@ function pathKind(path = location.pathname) {
   if (path === '/workspace/core/admin/links' || path === '/workspace/core/admin/links/') return { kind: 'admin', page: 'links' };
   if (path === '/workspace/core/admin/activity' || path === '/workspace/core/admin/activity/') return { kind: 'admin', page: 'activity' };
   if (path === '/workspace/core/admin/deck' || path === '/workspace/core/admin/deck/') return { kind: 'admin', page: 'deck' };
+  if (path === '/workspace/core/admin/nextcloud' || path === '/workspace/core/admin/nextcloud/') return { kind: 'admin', page: 'nextcloud' };
   return null;
 }
 
@@ -319,6 +320,9 @@ async function renderCustom() {
     if (route.page === 'links') await renderCoreLinks(host, ctx);
     if (route.page === 'activity') await renderAdminActivity(host, ctx);
     if (route.page === 'deck') await renderAdminDeck(host, ctx);
+    // The native-app router owns the Nextcloud Mirror body. Recognizing this
+    // route here still gives it the correct Platform Admin index and guard.
+    if (route.page === 'nextcloud') host.innerHTML = '<div class="fl-skeleton"></div>';
     return true;
   }
   return false;
@@ -331,7 +335,7 @@ function labelRole(value) {
 function adminTitle(page) {
   return {
     users: 'Users & Access', user: 'Account', content: 'Public Content', 'content-editor': 'Content', moderation: 'Moderation',
-    lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck',
+    lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck', nextcloud: 'Nextcloud Mirror',
   }[page] || 'Admin';
 }
 
