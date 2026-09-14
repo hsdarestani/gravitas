@@ -43,8 +43,15 @@ ensure_app() {
 # than silently falling back to per-user storage when this app is unavailable.
 ensure_app groupfolders required
 
-# First-party / established collaboration surface exposed from Research.
-for app in calendar contacts tasks deck notes collectives tables forms spreed; do
+# Notes and Deck are now first-class Gravitas workspace surfaces. Treat them as
+# infrastructure, not optional cosmetics: deploying the mirror without either
+# app would leave the UI claiming a contract the server cannot fulfil.
+ensure_app notes required
+ensure_app deck required
+
+# Other established collaboration surfaces stay optional until Gravitas owns a
+# mirrored contract for them as well.
+for app in calendar contacts tasks collectives tables forms spreed; do
   ensure_app "$app" optional
 done
 
@@ -71,3 +78,5 @@ echo "Enabled Gravitas Nextcloud apps:"
 occ app:list --enabled | sed -n '/Enabled:/,/Disabled:/p'
 
 enabled groupfolders
+enabled notes
+enabled deck
