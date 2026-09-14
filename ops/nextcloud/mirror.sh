@@ -15,6 +15,12 @@ if [ ! -r "$ENV_FILE" ]; then
   exit 1
 fi
 
+# Never let the old two-minute timer race credential repair. A stale identity
+# firing one more Basic-auth request while provisioning is resetting accounts
+# can immediately rebuild the private-gateway throttle we are trying to clear.
+systemctl stop gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+systemctl stop gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
+
 # Nextcloud's brute-force protection keys failed Basic-auth attempts by the
 # address it sees. All trusted server-to-server traffic reaches the container
 # through the private Docker gateway. A historical credential mismatch can
@@ -31,6 +37,25 @@ reset_internal_bruteforce() {
 }
 
 reset_internal_bruteforce
+
+cat > /etc/systemd/system/gravitas-nextcloud-credential-repair.service <<EOF
+[Unit]
+Description=Repair Gravitas-managed Nextcloud identity credentials
+After=network-online.target gravitas-backend.service docker.service
+Wants=network-online.target
+Requires=gravitas-backend.service docker.service
+
+[Service]
+Type=oneshot
+User=gravitas
+Group=gravitas
+WorkingDirectory=$BACKEND_PATH
+EnvironmentFile=$ENV_FILE
+Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+Environment=PYTHONPATH=$BACKEND_PATH
+ExecStart=$BACKEND_PATH/.venv/bin/django-admin repair_nextcloud_identity_credentials
+Nice=5
+EOF
 
 cat > /etc/systemd/system/gravitas-nextcloud-mirror.service <<EOF
 [Unit]
@@ -66,6 +91,24 @@ WantedBy=timers.target
 EOF
 
 systemctl daemon-reload
+systemctl reset-failed gravitas-nextcloud-credential-repair.service >/dev/null 2>&1 || true
+
+# Legacy identities may contain a valid decryptable secret that no longer
+# matches the password in Nextcloud. Re-assert every managed identity while the
+# timer is stopped, before any per-user Notes/DAV authentication is attempted.
+# This is intentionally a provisioning-time repair, not a two-minute operation.
+if ! systemctl start gravitas-nextcloud-credential-repair.service; then
+  echo "Gravitas Nextcloud identity credential repair failed." >&2
+  systemctl --no-pager --full status gravitas-nextcloud-credential-repair.service >&2 || true
+  journalctl -u gravitas-nextcloud-credential-repair.service -n 80 --no-pager >&2 || true
+  exit 1
+fi
+
+# The credential repair used only valid admin OCS requests, but clear internal
+# brute-force state once more so historical attempts cannot affect the first
+# repaired per-user request.
+reset_internal_bruteforce
+
 systemctl enable --now gravitas-nextcloud-mirror.timer
 systemctl reset-failed gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
 
