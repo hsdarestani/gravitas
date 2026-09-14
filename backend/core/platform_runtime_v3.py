@@ -247,11 +247,16 @@ def platform_dashboard_v3(request):
     spaces = ensure_platform_workspaces(request.user) if request.user.is_authenticated else None
     if purpose == 'core' and (not spaces or not core_access(request.user, spaces['core'])):
         return _core_denied()
-    if purpose == 'research' and (
-        not request.user.is_authenticated
-        or not module_access(request.user, ModuleGrant.Module.RESEARCH)
-    ):
-        return _research_denied()
+    if purpose == 'research':
+        if not request.user.is_authenticated:
+            return _research_denied()
+        # Core owner/admin may inspect the Research dashboard as the Layer 5
+        # control plane without receiving a Research participant entitlement.
+        # Object/project ACLs remain final for any detail request.
+        research_allowed = module_access(request.user, ModuleGrant.Module.RESEARCH)
+        core_control_plane = bool(spaces and core_access(request.user, spaces['core']))
+        if not research_allowed and not core_control_plane:
+            return _research_denied()
     return platform_dashboard(request)
 
 
