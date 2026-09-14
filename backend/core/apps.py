@@ -10,10 +10,14 @@ class CoreConfig(AppConfig):
         # operating system and collaboration platform can evolve independently.
         from . import operating_models  # noqa: F401
         from . import platform_models  # noqa: F401
+        from . import layer_models  # noqa: F401
+        from . import lms_models  # noqa: F401
+        from . import research_models  # noqa: F401
         from . import roadmap_models  # noqa: F401
         from . import space_models  # noqa: F401
         from . import oidc_models  # noqa: F401
         from . import email_verification  # noqa: F401
+        from . import layer_signals  # noqa: F401
         from . import space_fs
         from .space_project_metadata import project_markdown
 

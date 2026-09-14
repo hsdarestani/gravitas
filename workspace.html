@@ -8,8 +8,7 @@
   <link rel="icon" href="/assets/favicon.svg">
 
   <!-- The theme is set before the first paint. Reading it from script after
-       the stylesheet has applied shows one frame of the wrong theme, which is
-       the flash every dark-mode site is judged on. -->
+       the stylesheet has applied shows one frame of the wrong theme. -->
   <script>
     (function () {
       var saved = null;
@@ -22,31 +21,20 @@
   <link rel="stylesheet" href="/assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/ws/ws.css?v=20260913-3">
+  <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20260914-1">
   <script src="/assets/gravitas-icons.js" defer></script>
-  <!-- Root-absolute, and it has to stay that way. nginx serves this one file
-       for every /workspace/* route, so a relative "assets/..." href on
-       /workspace/core/tasks resolves to /workspace/core/assets/..., which the
-       same catch-all answers with this HTML again. With nosniff the browser
-       then refuses it as a stylesheet and the masked wordmark vanishes on
-       refresh: the bug looks like a flaky logo and is really a relative URL. -->
-<link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
+  <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
+  <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
 </head>
 <body>
   <a class="g-skip-link" href="#ws-view">Skip to the page</a>
 
   <div class="ws" id="ws" data-index="on" data-dock="on">
-
     <header class="ws-topbar">
       <div class="ws-topbar__lead">
-        <!-- The wordmark is the site's own .g-logo mark: it masks the single brand
-             file at assets/logos/Logotype_Black.svg and paints it with currentColor,
-             which is how every other Gravitas page draws it. One file, one
-             drawing, and it inks correctly on both themes. -->
-        <a class="g-logo ws-topbar__brand" href="/" aria-label="Gravitas+ home"><span class="g-mark g-mark--logotype" aria-hidden="true"></span>
-        </a>
+        <a class="g-logo ws-topbar__brand" href="/" aria-label="Gravitas+ home"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></a>
         <button class="ws-ibtn" id="ws-toggle-index" type="button" aria-label="Show or hide the index">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M9.2 4.5v15"/>
           </svg>
         </button>
@@ -56,32 +44,22 @@
 
       <div class="ws-topbar__actions">
         <button class="ws-search" id="ws-open-palette" type="button" aria-label="Search, or run a command">
-          <svg class="g-wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-               stroke-linecap="round" aria-hidden="true"><circle cx="10.6" cy="10.6" r="7.4"/><path d="m16 16 5 5"/></svg>
+          <svg class="g-wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.6" cy="10.6" r="7.4"/><path d="m16 16 5 5"/></svg>
           <span class="ws-search__label">Search</span>
           <kbd>⌘K</kbd>
         </button>
 
         <button class="ws-ibtn" id="ws-toggle-dock" type="button" aria-label="Show or hide the side panel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M14.8 4.5v15"/>
           </svg>
         </button>
 
-        <!-- The site's own theme control: same class, same two marks, same
-             behaviour as the header on every public page. -->
-        <button class="theme-toggle" id="ws-theme" type="button" aria-pressed="false"
-                aria-label="Switch colour theme" title="Switch colour theme">
-          <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none"
-               stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <!-- The crescent is centred by mass rather than by bounding box, which
-                 is why it carries a transform. Copied from the public header so the
-                 two controls are optically identical. -->
+        <button class="theme-toggle" id="ws-theme" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme">
+          <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g>
           </svg>
-          <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none"
-               stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4.1"/>
             <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/>
           </svg>
@@ -90,22 +68,18 @@
     </header>
 
     <div class="ws__body">
-      <nav class="ws-rail" id="ws-rail" aria-label="Workspaces"></nav>
+      <nav class="ws-rail" id="ws-rail" aria-label="Product layers"></nav>
 
       <div class="ws__index">
         <div class="ws-pane">
-          <div class="ws-pane__head">
-            <span class="ws-pane__title" id="ws-index-title">Index</span>
-          </div>
+          <div class="ws-pane__head"><span class="ws-pane__title" id="ws-index-title">Index</span></div>
           <div class="ws-pane__body" id="ws-index-body"></div>
           <div class="ws-pane__foot" id="ws-index-count"></div>
         </div>
         <div class="ws-grip" id="ws-grip-index" aria-label="Resize the index"></div>
       </div>
 
-      <main class="ws-main" id="ws-main">
-        <div class="ws-view" id="ws-view" tabindex="-1"></div>
-      </main>
+      <main class="ws-main" id="ws-main"><div class="ws-view" id="ws-view" tabindex="-1"></div></main>
 
       <div class="ws__dock">
         <div class="ws-grip" id="ws-grip-dock" aria-label="Resize the side panel"></div>
@@ -133,14 +107,22 @@
   </noscript>
 
   <script type="module">
-    import { start } from '/assets/ws/ws-app.js?v=20260913-8';
+    import { start } from '/assets/ws/ws-app.js?v=20260914-1';
+    import { loadBootstrap } from '/assets/ws/ws-platform.js?v=20260914-6';
+    import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260914-1';
 
-    // The icon module is a classic script that sets a global, so it may not
-    // have run when this module executes. Waiting for load is cheaper and
-    // more honest than converting it and touching every page that uses it.
-    if (window.GravitasIcons) start();
-    else addEventListener('load', start, { once: true });
+    async function bootWorkspace() {
+      await start();
+      // ws-app keeps its backwards-compatible data client while the five-layer
+      // shell uses the new access contract. Prime that module before drawing
+      // the rail so entitlements are never guessed in the browser.
+      await loadBootstrap();
+      installFiveLayer();
+    }
+
+    if (window.GravitasIcons) bootWorkspace();
+    else addEventListener('load', bootWorkspace, { once: true });
   </script>
-<script src="/assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09-rl2" defer></script>
+  <script src="/assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09-rl2" defer></script>
 </body>
 </html>

@@ -1,9 +1,11 @@
 from django.urls import path
 
 from core.content_api import content_detail, content_list
+from core.core_links_api import task_cross_layer_links
 from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
 from core.reader_library import reader_library
+from core.member_api import member_dashboard
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
 from core.workspace_pages_api import (
@@ -55,6 +57,13 @@ from core.platform_api import (
     shared_with_me,
 )
 from core.project_cockpit import project_access_candidates, project_cockpit
+from core.research_project_tools import (
+    project_discussion_detail,
+    project_discussions,
+    project_experiment_detail,
+    project_experiments,
+    project_milestones,
+)
 from core.nextcloud_api import (
     nextcloud_client_credentials,
     nextcloud_status,
@@ -63,6 +72,7 @@ from core.nextcloud_api import (
     project_nextcloud_sync,
     sharing_v4,
 )
+from core.nextcloud_deck import deck_status, deck_sync
 from core.platform_runtime_v3 import (
     content_work_detail_v3,
     content_work_items_v3,
@@ -76,6 +86,33 @@ from core.platform_runtime_v3 import (
 # shared project/object ACL context.
 install_runtime()
 
+from core.layer_admin_api import (
+    platform_admin_activity,
+    platform_admin_overview,
+    platform_admin_user_detail,
+    platform_admin_users,
+)
+from core.platform_admin_extended import (
+    admin_lms_enrollment_detail,
+    admin_lms_enrollments,
+    admin_research_project_detail,
+    admin_research_projects,
+)
+from core.layer_guards import require_research_or_core
+from core.lms_api import (
+    lms_assessment_attempt,
+    lms_course_detail,
+    lms_course_enroll,
+    lms_courses,
+    lms_lesson_progress,
+    lms_me,
+)
+from core.site_admin_api import (
+    admin_site_comment_detail,
+    admin_site_comments,
+    admin_site_content,
+    admin_site_content_detail,
+)
 from core.platform_objects_api import shared_task_detail
 from core.platform_resources_api import (
     platform_file_download,
@@ -141,35 +178,67 @@ urlpatterns = [
     path('community/comments/<slug:content_key>/', comments),
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
-
-    # What a reader kept before they had an account, adopted on the first
-    # authenticated request. See core/reader_library.py for why it is one
-    # route for the list, the merge and the removal.
     path('reader/library/', reader_library),
 
-    # Gravitas V3 shell: Home + two real workspaces.
+    # Five-layer bootstrap and Layer 2 account home.
     path('platform/bootstrap/', platform_bootstrap_v3),
     path('platform/dashboard/', platform_dashboard_v3),
+    path('member/dashboard/', member_dashboard),
+
+    # Layer 5 control plane. These routes are deliberately separate from the
+    # participant APIs below: Core administrators can operate every layer
+    # without receiving a fake Learner or Researcher identity.
+    path('platform/admin/overview/', platform_admin_overview),
+    path('platform/admin/users/', platform_admin_users),
+    path('platform/admin/users/<int:user_id>/', platform_admin_user_detail),
+    path('platform/admin/activity/', platform_admin_activity),
+    path('platform/admin/site/content/', admin_site_content),
+    path('platform/admin/site/content/<int:item_id>/', admin_site_content_detail),
+    path('platform/admin/site/comments/', admin_site_comments),
+    path('platform/admin/site/comments/<int:comment_id>/', admin_site_comment_detail),
+    path('platform/admin/research/projects/', admin_research_projects),
+    path('platform/admin/research/projects/<int:project_id>/', admin_research_project_detail),
+    path('platform/admin/lms/enrollments/', admin_lms_enrollments),
+    path('platform/admin/lms/enrollments/<int:enrollment_id>/', admin_lms_enrollment_detail),
+    path('platform/admin/deck/', deck_status),
+    path('platform/admin/deck/sync/', deck_sync),
     path('platform/team/', core_team),
     path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),
     path('platform/team/<int:user_id>/password-reset/', core_team_password_reset),
     path('platform/team/<int:user_id>/storage/', team_storage_user),
-    path('platform/projects/', platform_projects),
-    path('platform/projects/<int:project_id>/', platform_project_detail),
-    path('platform/projects/<int:project_id>/cockpit/', project_cockpit),
-    path('platform/projects/<int:project_id>/access-candidates/', project_access_candidates),
-    path('platform/projects/<int:project_id>/deliverables/', project_deliverables),
-    path('platform/projects/<int:project_id>/applications/<int:application_id>/', project_application_detail),
-    path('platform/projects/<int:project_id>/folders/', project_folders),
-    path('platform/projects/<int:project_id>/folders/<int:collection_id>/', project_folder_detail),
-    path('platform/projects/<int:project_id>/nextcloud/sync/', project_nextcloud_sync),
+
+    # Layer 4. A Research participant may enter directly. Layer 5 may also
+    # operate these endpoints as the control plane without being labelled a
+    # Research participant. The existing object/project ACL remains final.
+    path('platform/projects/', require_research_or_core(platform_projects)),
+    path('platform/projects/<int:project_id>/', require_research_or_core(platform_project_detail)),
+    path('platform/projects/<int:project_id>/cockpit/', require_research_or_core(project_cockpit)),
+    path('platform/projects/<int:project_id>/access-candidates/', require_research_or_core(project_access_candidates)),
+    path('platform/projects/<int:project_id>/milestones/', require_research_or_core(project_milestones)),
+    path('platform/projects/<int:project_id>/experiments/', require_research_or_core(project_experiments)),
+    path('platform/projects/<int:project_id>/experiments/<int:experiment_id>/', require_research_or_core(project_experiment_detail)),
+    path('platform/projects/<int:project_id>/discussions/', require_research_or_core(project_discussions)),
+    path('platform/projects/<int:project_id>/discussions/<int:message_id>/', require_research_or_core(project_discussion_detail)),
+    path('platform/projects/<int:project_id>/deliverables/', require_research_or_core(project_deliverables)),
+    path('platform/projects/<int:project_id>/applications/<int:application_id>/', require_research_or_core(project_application_detail)),
+    path('platform/projects/<int:project_id>/folders/', require_research_or_core(project_folders)),
+    path('platform/projects/<int:project_id>/folders/<int:collection_id>/', require_research_or_core(project_folder_detail)),
+    path('platform/projects/<int:project_id>/nextcloud/sync/', require_research_or_core(project_nextcloud_sync)),
+    path('platform/research-requests/', require_research_or_core(research_requests)),
+    path('platform/research-requests/<int:request_id>/', require_research_or_core(research_request_detail)),
+    path('platform/researchers/', require_research_or_core(researchers)),
+    path('platform/researchers/me/', require_research_or_core(researcher_me)),
+    path('platform/mindmaps/', require_research_or_core(mindmaps)),
+    path('platform/mindmaps/<int:map_id>/', require_research_or_core(mindmap_detail)),
+
+    # Shared platform services. Their own ACL checks decide which object is
+    # visible because the same resource/file can be linked from more than one
+    # product layer.
     path('platform/nextcloud/', nextcloud_status),
     path('platform/nextcloud/client-credentials/', nextcloud_client_credentials),
     path('platform/content/', content_work_items_v3),
     path('platform/content/<int:item_id>/', content_work_detail_v3),
-    path('platform/research-requests/', research_requests),
-    path('platform/research-requests/<int:request_id>/', research_request_detail),
     path('platform/tasks/<int:task_id>/', shared_task_detail),
     path('platform/resources/', platform_resources),
     path('platform/resources/<int:resource_id>/', platform_resource_detail),
@@ -181,14 +250,19 @@ urlpatterns = [
     path('platform/shared/<uuid:token>/download/', shared_file_download),
     path('platform/community/projects/', community_projects),
     path('platform/community/projects/<slug:public_slug>/', community_project_detail),
-    path('platform/researchers/', researchers),
-    path('platform/researchers/me/', researcher_me),
-    path('platform/mindmaps/', mindmaps),
-    path('platform/mindmaps/<int:map_id>/', mindmap_detail),
     path('platform/links/', entity_links),
 
-    # Core Operating Workspace: internal Gravitas team only. The V3 runtime
-    # resolves every operating request to the canonical Core workspace.
+    # Layer 3 — LMS. Catalog reads are public; enrollment/progress APIs enforce
+    # learner access and authoring is limited to Core owner/admin accounts.
+    path('lms/courses/', lms_courses),
+    path('lms/courses/<int:course_id>/', lms_course_detail),
+    path('lms/courses/<int:course_id>/enroll/', lms_course_enroll),
+    path('lms/me/', lms_me),
+    path('lms/lessons/<int:lesson_id>/progress/', lms_lesson_progress),
+    path('lms/assessments/<int:assessment_id>/attempt/', lms_assessment_attempt),
+
+    # Layer 5 operating system: internal Gravitas team only. Existing runtime
+    # resolution pins every call to the canonical Core workspace.
     path('operating/dashboard/', operating_dashboard),
     path('operating/initiative-planner/', initiative_planner),
     path('operating/processes/', processes),
@@ -207,14 +281,15 @@ urlpatterns = [
     path('operating/work-packages/<int:work_package_id>/', work_package_detail),
     path('operating/tasks/', tasks),
     path('operating/tasks/reorder/', reorder_tasks),
+    path('operating/tasks/<int:task_id>/links/', task_cross_layer_links),
     path('operating/tasks/<int:task_id>/', task_detail),
     path('operating/risks/', risks),
     path('operating/risks/<int:risk_id>/', risk_detail),
     path('operating/meetings/', meetings),
     path('operating/meetings/<int:meeting_id>/', meeting_detail),
 
-    # Legacy personal KMS APIs stay available for private-scope data and
-    # backward compatibility, but V3 no longer presents them as a workspace.
+    # Legacy private KMS storage remains for note/learning internals and URL
+    # compatibility. It is no longer presented as a sixth product surface.
     path('workspace/dashboard/', workspace_dashboard),
     path('workspace/pages/', workspace_pages),
     path('workspace/pages/<str:page_id>/', workspace_page_detail),

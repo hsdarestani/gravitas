@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'workspace.html'
-      - 'assets/operating-core-shell.js'
+      - 'assets/ws/**'
       - 'assets/production-bridge.js'
       - 'backend/core/email_verification.py'
       - 'backend/core/urls.py'
@@ -57,14 +57,12 @@ jobs:
         run: |
           set -euo pipefail
           pip install --disable-pip-version-check -q -r backend/requirements.txt
-          node --check assets/operating.js
-          node --check assets/operating-enhancements.js
-          node --check assets/operating-core-shell.js
+          node --check assets/ws/ws-app.js
+          node --check assets/ws/ws-five-layer.js
           node --check assets/production-bridge.js
           python -m django test core.test_email_verification core.test_operating_demo_repair core.test_roadmap_assignment core.test_roadmap_calendar core.test_roadmap_agile --verbosity 2
-          grep -q '/assets/operating.js?v=20260830b' workspace.html
-          grep -q '/assets/operating-enhancements.js?v=20260830b' workspace.html
-          grep -q '/assets/operating-core-shell.js?v=20260830b' workspace.html
+          grep -q '/assets/ws/ws-app.js' workspace.html
+          grep -q '/assets/ws/ws-five-layer.js' workspace.html
 
   production:
     if: >-

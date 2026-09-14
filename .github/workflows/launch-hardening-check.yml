@@ -6,12 +6,10 @@ on:
     paths:
       - 'backend/**'
       - 'workspace.html'
-      - 'assets/platform-v2*.js'
-      - 'assets/platform-v2*.css'
-      - 'assets/platform-v3*.js'
-      - 'assets/platform-v3*.css'
-      - 'assets/core-team.js'
-      - 'assets/core-team.css'
+      - 'assets/ws/**'
+      - 'assets/core-blueprints.js'
+      - 'assets/cms-*.js'
+      - 'assets/community-lab-live.js'
       - '.github/workflows/launch-hardening-check.yml'
   workflow_dispatch:
 
@@ -21,7 +19,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     services:
       postgres:
         image: postgres:16
@@ -52,13 +50,28 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Validate workspace JavaScript
+      - name: Validate current workspace JavaScript
         run: |
-          node --check assets/platform-v2.js
-          node --check assets/platform-v2-patches.js
-          node --check assets/platform-v2-ux.js
-          node --check assets/platform-v3-navigation.js
-          node --check assets/core-team.js
+          set -euo pipefail
+          node --check assets/ws/ws-app.js
+          node --check assets/ws/ws-nav.js
+          node --check assets/ws/ws-platform.js
+          node --check assets/ws/ws-research.js
+          node --check assets/ws/ws-home.js
+          node --check assets/ws/ws-kms.js
+          node --check assets/ws/ws-kms-views.js
+          node --check assets/ws/ws-core-assets.js
+          node --check assets/ws/ws-five-layer.js
+          node --check assets/ws/ws-member-lms.js
+          node --check assets/ws/ws-member-progress.js
+          node --check assets/ws/ws-core-links.js
+          node --check assets/ws/ws-admin.js
+          node --check assets/ws/ws-project.js
+          node --check assets/core-blueprints.js
+          node --check assets/cms-home.js
+          node --check assets/cms-links.js
+          node --check assets/cms-live.js
+          node --check assets/community-lab-live.js
       - name: Install backend dependencies
         run: python -m pip install -q -r backend/requirements.txt
       - name: Compile Python
@@ -69,8 +82,16 @@ jobs:
         run: django-admin migrate --noinput
       - name: Check Django configuration
         run: django-admin check
-      - name: Run Gravitas workspace role and team tests
-        run: django-admin test core.test_operating core.test_platform_v2 core.test_platform_v3_roles core.test_team_api --noinput
+      - name: Run Gravitas workspace role team and five-layer regression tests
+        run: >-
+          django-admin test
+          core.test_operating
+          core.test_platform_v2
+          core.test_platform_v3_roles
+          core.test_team_api
+          core.test_auth_logout_flow
+          core.test_core_task_links
+          --noinput
       - name: Verify CMS translations Community and Lab schema
         run: |
           python - <<'PY'
