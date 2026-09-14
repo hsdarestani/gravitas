@@ -24,6 +24,7 @@ import {
   renderAdminUser,
   renderAdminUsers,
 } from './ws-admin.js?v=20260914-3';
+import { renderCoreLinks } from './ws-core-links.js?v=20260914-1';
 import { renderResearchProject } from './ws-project.js?v=20260914-2';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
@@ -53,6 +54,7 @@ const ADMIN_INDEX = [
   ['Moderation', '/workspace/core/admin/moderation', 'collaboration'],
   ['LMS Admin', '/workspace/core/admin/lms', 'planning'],
   ['Research Admin', '/workspace/core/admin/research', 'projects'],
+  ['Cross-layer Links', '/workspace/core/admin/links', 'link'],
   ['Activity', '/workspace/core/admin/activity', 'cycle'],
   ['Nextcloud Deck', '/workspace/core/admin/deck', 'tasks'],
   ['Back to Core Ops', '/workspace/core', 'space-core'],
@@ -120,6 +122,7 @@ function pathKind(path = location.pathname) {
   if (path === '/workspace/core/admin/research' || path === '/workspace/core/admin/research/') return { kind: 'admin', page: 'research' };
   match = path.match(/^\/workspace\/core\/admin\/research\/(\d+)\/?$/);
   if (match) return { kind: 'admin', page: 'research-project', id: match[1] };
+  if (path === '/workspace/core/admin/links' || path === '/workspace/core/admin/links/') return { kind: 'admin', page: 'links' };
   if (path === '/workspace/core/admin/activity' || path === '/workspace/core/admin/activity/') return { kind: 'admin', page: 'activity' };
   if (path === '/workspace/core/admin/deck' || path === '/workspace/core/admin/deck/') return { kind: 'admin', page: 'deck' };
   return null;
@@ -313,6 +316,7 @@ async function renderCustom() {
     if (route.page === 'course-editor') await renderAdminCourseEditor(host, route.id, ctx);
     if (route.page === 'research') await renderAdminResearch(host, ctx);
     if (route.page === 'research-project') await renderAdminResearchProject(host, route.id, ctx);
+    if (route.page === 'links') await renderCoreLinks(host, ctx);
     if (route.page === 'activity') await renderAdminActivity(host, ctx);
     if (route.page === 'deck') await renderAdminDeck(host, ctx);
     return true;
@@ -327,7 +331,7 @@ function labelRole(value) {
 function adminTitle(page) {
   return {
     users: 'Users & Access', user: 'Account', content: 'Public Content', 'content-editor': 'Content', moderation: 'Moderation',
-    lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', activity: 'Activity', deck: 'Nextcloud Deck',
+    lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck',
   }[page] || 'Admin';
 }
 
