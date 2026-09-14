@@ -72,7 +72,8 @@ from core.nextcloud_api import (
     project_nextcloud_sync,
     sharing_v4,
 )
-from core.nextcloud_deck import deck_status, deck_sync
+from core.nextcloud_deck import deck_status
+from core.nextcloud_deck_access import deck_sync_with_access
 from core.nextcloud_notes import (
     native_note_detail,
     native_note_resolve,
@@ -207,7 +208,7 @@ urlpatterns = [
     path('platform/admin/lms/enrollments/', admin_lms_enrollments),
     path('platform/admin/lms/enrollments/<int:enrollment_id>/', admin_lms_enrollment_detail),
     path('platform/admin/deck/', deck_status),
-    path('platform/admin/deck/sync/', deck_sync),
+    path('platform/admin/deck/sync/', deck_sync_with_access),
     path('platform/team/', core_team),
     path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),
