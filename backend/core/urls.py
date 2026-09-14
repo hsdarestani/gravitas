@@ -73,6 +73,7 @@ from core.nextcloud_api import (
     sharing_v4,
 )
 from core.nextcloud_deck import deck_status, deck_sync
+from core.nextcloud_notes import native_note_detail, native_notes, native_notes_sync
 from core.platform_runtime_v3 import (
     content_work_detail_v3,
     content_work_items_v3,
@@ -237,6 +238,9 @@ urlpatterns = [
     # product layer.
     path('platform/nextcloud/', nextcloud_status),
     path('platform/nextcloud/client-credentials/', nextcloud_client_credentials),
+    path('platform/nextcloud/notes/', native_notes),
+    path('platform/nextcloud/notes/sync/', native_notes_sync),
+    path('platform/nextcloud/notes/<int:resource_id>/', native_note_detail),
     path('platform/content/', content_work_items_v3),
     path('platform/content/<int:item_id>/', content_work_detail_v3),
     path('platform/tasks/<int:task_id>/', shared_task_detail),
