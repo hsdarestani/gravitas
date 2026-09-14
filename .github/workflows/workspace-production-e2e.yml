@@ -28,7 +28,7 @@ jobs:
           RUN="${{ github.run_id }}"
           EMAIL_A="workspace-a-$RUN@example.com"
           EMAIL_B="workspace-b-$RUN@example.com"
-          PASSWORD='Workspace-E2E-Password-2026!'
+          PASSWORD="E2E-${RUN}-$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')-aA1!"
           JAR_A="$RUNNER_TEMP/a.cookies"
           JAR_B="$RUNNER_TEMP/b.cookies"
           BASE="https://$DOMAIN"
@@ -148,7 +148,10 @@ jobs:
           echo 'workspace-stage=content-assertions'
           grep -qi 'Gravitas' "$RUNNER_TEMP/home.html"
           grep -qi 'Create an account' "$RUNNER_TEMP/account.html"
-          grep -qi 'Research workspace' "$RUNNER_TEMP/workspace.html"
+          # The current workspace is the five-layer shell; assert stable
+          # structural markers instead of copy from the retired shell.
+          grep -q 'id="ws-main"' "$RUNNER_TEMP/workspace.html"
+          grep -q 'ws-five-layer.js' "$RUNNER_TEMP/workspace.html"
           grep -q '"status": "ok"' "$RUNNER_TEMP/health.json"
 
           delete_account "$JAR_A"
