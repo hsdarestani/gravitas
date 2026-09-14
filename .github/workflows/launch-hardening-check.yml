@@ -19,7 +19,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     services:
       postgres:
         image: postgres:16
@@ -63,6 +63,8 @@ jobs:
           node --check assets/ws/ws-core-assets.js
           node --check assets/ws/ws-five-layer.js
           node --check assets/ws/ws-member-lms.js
+          node --check assets/ws/ws-member-progress.js
+          node --check assets/ws/ws-core-links.js
           node --check assets/ws/ws-admin.js
           node --check assets/ws/ws-project.js
           node --check assets/core-blueprints.js
@@ -80,8 +82,16 @@ jobs:
         run: django-admin migrate --noinput
       - name: Check Django configuration
         run: django-admin check
-      - name: Run Gravitas workspace role and team tests
-        run: django-admin test core.test_operating core.test_platform_v2 core.test_platform_v3_roles core.test_team_api --noinput
+      - name: Run Gravitas workspace role team and five-layer regression tests
+        run: >-
+          django-admin test
+          core.test_operating
+          core.test_platform_v2
+          core.test_platform_v3_roles
+          core.test_team_api
+          core.test_auth_logout_flow
+          core.test_core_task_links
+          --noinput
       - name: Verify CMS translations Community and Lab schema
         run: |
           python - <<'PY'
