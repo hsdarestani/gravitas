@@ -1,6 +1,7 @@
 from django.urls import path
 
 from core.content_api import content_detail, content_list
+from core.core_links_api import task_cross_layer_links
 from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
 from core.reader_library import reader_library
@@ -280,6 +281,7 @@ urlpatterns = [
     path('operating/work-packages/<int:work_package_id>/', work_package_detail),
     path('operating/tasks/', tasks),
     path('operating/tasks/reorder/', reorder_tasks),
+    path('operating/tasks/<int:task_id>/links/', task_cross_layer_links),
     path('operating/tasks/<int:task_id>/', task_detail),
     path('operating/risks/', risks),
     path('operating/risks/<int:risk_id>/', risk_detail),
