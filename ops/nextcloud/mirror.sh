@@ -85,6 +85,28 @@ reset_internal_bruteforce() {
 
 reset_internal_bruteforce
 
+# Nextcloud 34 independently rate-limits the authenticated Provisioning API
+# editUser action to 50 requests per 600 seconds. Gravitas legitimately
+# re-asserts one managed password per identity during a production repair, so a
+# damaged population plus bounded retries can exhaust that route even when every
+# credential is correct and brute-force state is empty. Use Nextcloud's supported
+# route-specific override for this scripted action instead of disabling global
+# rate limiting or weakening anonymous/public protections. 200/600 is enough for
+# several complete Gravitas repair passes while remaining bounded to logged-in
+# calls to provisioning_api.users.edituser.
+docker exec -u www-data "$NC_CONTAINER" php occ config:system:set \
+  ratelimit_overwrite provisioning_api.users.edituser user limit \
+  --type=integer --value=200 >/dev/null
+docker exec -u www-data "$NC_CONTAINER" php occ config:system:set \
+  ratelimit_overwrite provisioning_api.users.edituser user period \
+  --type=integer --value=600 >/dev/null
+
+docker exec -u www-data "$NC_CONTAINER" php occ config:system:get \
+  ratelimit_overwrite provisioning_api.users.edituser user limit | grep -qx '200'
+docker exec -u www-data "$NC_CONTAINER" php occ config:system:get \
+  ratelimit_overwrite provisioning_api.users.edituser user period | grep -qx '600'
+echo "Configured bounded Nextcloud editUser rate limit for Gravitas repair automation (200/600s)."
+
 cat > /etc/systemd/system/gravitas-nextcloud-credential-repair.service <<EOF
 [Unit]
 Description=Repair Gravitas-managed Nextcloud identity credentials
