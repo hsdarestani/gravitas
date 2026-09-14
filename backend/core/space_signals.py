@@ -2,6 +2,7 @@ import logging
 import queue
 import threading
 
+from django.core.exceptions import ImproperlyConfigured
 from django.db import close_old_connections, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
