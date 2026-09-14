@@ -10,6 +10,7 @@ on:
       - 'backend/core/research_*.py'
       - 'backend/core/platform_admin_extended.py'
       - 'backend/core/nextcloud_deck.py'
+      - 'backend/core/nextcloud_deck_access.py'
       - 'backend/core/nextcloud_notes.py'
       - 'backend/core/space_signals.py'
       - 'backend/core/management/commands/reconcile_nextcloud_native.py'
@@ -24,6 +25,7 @@ on:
       - 'backend/core/test_core_task_links.py'
       - 'backend/core/test_auth_logout_flow.py'
       - 'backend/core/test_nextcloud_native_apps.py'
+      - 'backend/core/test_nextcloud_deck_access.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
       - 'assets/ws/ws-platform.js'
@@ -49,6 +51,7 @@ on:
       - 'backend/core/research_*.py'
       - 'backend/core/platform_admin_extended.py'
       - 'backend/core/nextcloud_deck.py'
+      - 'backend/core/nextcloud_deck_access.py'
       - 'backend/core/nextcloud_notes.py'
       - 'backend/core/space_signals.py'
       - 'backend/core/management/commands/reconcile_nextcloud_native.py'
@@ -63,6 +66,7 @@ on:
       - 'backend/core/test_core_task_links.py'
       - 'backend/core/test_auth_logout_flow.py'
       - 'backend/core/test_nextcloud_native_apps.py'
+      - 'backend/core/test_nextcloud_deck_access.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
       - 'assets/ws/ws-platform.js'
@@ -133,5 +137,6 @@ jobs:
             core.test_core_task_links \
             core.test_auth_logout_flow \
             core.test_nextcloud_native_apps \
+            core.test_nextcloud_deck_access \
             core.test_site_layer_admin \
             core.test_platform_v3_roles
