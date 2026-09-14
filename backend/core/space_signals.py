@@ -4,7 +4,7 @@ import threading
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import close_old_connections, transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from . import cloud
@@ -157,3 +157,23 @@ def sync_project_markdown_after_save(sender, instance, **kwargs):
 def sync_note_markdown_after_save(sender, instance, **kwargs):
     if instance.kind == KnowledgeResource.Kind.NOTE:
         transaction.on_commit(lambda: _queue_note_sync(instance.pk))
+
+
+@receiver(post_delete, sender=KnowledgeResource)
+def tombstone_native_note_after_delete(sender, instance, **kwargs):
+    """Keep native Notes deletion eventual even through legacy delete paths.
+
+    The ordinary workspace resource endpoint predates the native Notes mirror.
+    Recording the tombstone here means every local note deletion (old or new UI)
+    is reconciled without allowing the remote copy to be re-adopted later.
+    """
+    if instance.kind != KnowledgeResource.Kind.NOTE:
+        return
+    try:
+        from .nextcloud_notes import record_note_delete_tombstone
+        record_note_delete_tombstone(instance)
+    except Exception:
+        # The database deletion must not be rolled back because the cloud is
+        # unavailable. A persisted tombstone is best-effort here; the native
+        # DELETE endpoint itself performs the cloud deletion synchronously.
+        logger.exception('Could not record Nextcloud Notes deletion tombstone for note %s', instance.pk)
