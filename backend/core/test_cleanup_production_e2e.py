@@ -1,10 +1,13 @@
 from io import StringIO
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 
-from core.models import Organization, Workspace
+from core import cloud
+from core.models import NextcloudIdentity, Organization, Workspace
 from core.operating_models import StrategicObjective
 from core.workspace_api import provision_personal_workspace
 
@@ -81,6 +84,57 @@ class CleanupProductionE2EUsersTests(TestCase):
         self.assertFalse(Workspace.objects.filter(pk=personal.pk).exists())
         self.assertFalse(StrategicObjective.objects.filter(pk=objective.pk).exists())
         self.assertTrue(Workspace.objects.filter(pk=team.pk).exists())
+
+    def test_nextcloud_identity_is_deleted_before_test_user(self):
+        identity = NextcloudIdentity.objects.create(
+            user=self.workspace_user,
+            username=f'gravitas-u-{self.workspace_user.pk}',
+            encrypted_password='test-ciphertext',
+        )
+
+        with patch('core.management.commands.cleanup_production_e2e_users.cloud.delete_identity') as delete_identity:
+            call_command('cleanup_production_e2e_users', scope='workspace', stdout=StringIO())
+
+        delete_identity.assert_called_once()
+        self.assertEqual(delete_identity.call_args.args[0].pk, identity.pk)
+        self.assertFalse(get_user_model().objects.filter(pk=self.workspace_user.pk).exists())
+
+    def test_nextcloud_failure_preserves_user_reports_cause_and_continues(self):
+        NextcloudIdentity.objects.create(
+            user=self.workspace_user,
+            username=f'gravitas-u-{self.workspace_user.pk}',
+            encrypted_password='test-ciphertext',
+        )
+        second = get_user_model().objects.create_user(
+            username='workspace-b-654321@example.com',
+            email='workspace-b-654321@example.com',
+            first_name='Workspace E2E',
+        )
+        err = StringIO()
+
+        def delete_identity(identity):
+            if identity.user_id == self.workspace_user.pk:
+                raise cloud.CloudError('Cloud storage returned HTTP 500')
+
+        # Give the second test user an identity as well so the command proves a
+        # failed first deletion does not prevent later cloud cleanup.
+        NextcloudIdentity.objects.create(
+            user=second,
+            username=f'gravitas-u-{second.pk}',
+            encrypted_password='test-ciphertext',
+        )
+
+        with patch(
+            'core.management.commands.cleanup_production_e2e_users.cloud.delete_identity',
+            side_effect=delete_identity,
+        ):
+            with self.assertRaises(CommandError) as raised:
+                call_command('cleanup_production_e2e_users', scope='workspace', stdout=StringIO(), stderr=err)
+
+        self.assertIn('Cloud storage returned HTTP 500', str(raised.exception))
+        self.assertIn('failures=1', str(raised.exception))
+        self.assertTrue(get_user_model().objects.filter(pk=self.workspace_user.pk).exists())
+        self.assertFalse(get_user_model().objects.filter(pk=second.pk).exists())
 
     def test_dry_run_deletes_nothing(self):
         call_command('cleanup_production_e2e_users', scope='all', dry_run=True, stdout=StringIO())

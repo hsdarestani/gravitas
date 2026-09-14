@@ -77,6 +77,25 @@ jobs:
             bash -s -- "$CLEANUP_SCOPE" <<'REMOTE'
           set -euo pipefail
           SCOPE="$1"
+
+          # Native Notes/Deck reconciliation walks every NextcloudIdentity. An
+          # E2E cleanup deleting a freshly used account must not race that DAV
+          # traffic or Nextcloud can reject the user deletion while files are
+          # still being reconciled. Quiesce the mirror only for the cleanup
+          # critical section and always restore its timer afterwards.
+          TIMER_WAS_ENABLED=0
+          if systemctl is-enabled --quiet gravitas-nextcloud-mirror.timer 2>/dev/null; then
+            TIMER_WAS_ENABLED=1
+          fi
+          restore_mirror() {
+            if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
+              systemctl start gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+            fi
+          }
+          trap restore_mirror EXIT
+          systemctl stop gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+          systemctl stop gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
+
           sudo -u gravitas bash -c '
             set -a
             . /etc/gravitas/backend.env
