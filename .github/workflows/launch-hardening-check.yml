@@ -61,6 +61,10 @@ jobs:
           node --check assets/ws/ws-kms.js
           node --check assets/ws/ws-kms-views.js
           node --check assets/ws/ws-core-assets.js
+          node --check assets/ws/ws-five-layer.js
+          node --check assets/ws/ws-member-lms.js
+          node --check assets/ws/ws-admin.js
+          node --check assets/ws/ws-project.js
           node --check assets/core-blueprints.js
           node --check assets/cms-home.js
           node --check assets/cms-links.js
