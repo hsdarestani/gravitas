@@ -1,5 +1,7 @@
 import re
+from urllib.parse import quote
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models.deletion import ProtectedError
@@ -47,6 +49,46 @@ def matches_scope(user, scope):
 
 def matching_scopes(user):
     return [scope for scope in SCOPES if matches_scope(user, scope)]
+
+
+def _nextcloud_identity_state(identity):
+    """Return (present|missing|unknown, diagnostic) for one OCS account.
+
+    Account deletion is intentionally idempotent. A browser/API delete can
+    remove the remote Nextcloud user and then fail later while deleting local
+    Django data. The follow-up cleanup still has the local NextcloudIdentity
+    row in that case; treating OCS "user not found" as another failure leaves
+    an otherwise deletable E2E account behind forever.
+
+    This probe is only used after delete_identity reported an OCS-level delete
+    failure, so the normal successful path still performs one DELETE request.
+    """
+    endpoint = (
+        f'{settings.NEXTCLOUD_INTERNAL_URL}/ocs/v1.php/cloud/users/'
+        f'{quote(identity.username, safe="")}'
+    )
+    try:
+        response = cloud._request(
+            'GET',
+            endpoint,
+            auth=cloud._admin_auth(),
+            expected={200},
+            headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'},
+        )
+        meta = response.json()['ocs']['meta']
+        code = int(meta.get('statuscode', 0))
+        message = str(meta.get('message', '') or '').strip()
+    except Exception as exc:
+        return 'unknown', f'identity probe failed: {type(exc).__name__}: {exc}'
+
+    diagnostic = f'OCS {code}' + (f': {message}' if message else '')
+    if code in {100, 200}:
+        return 'present', diagnostic
+
+    missing_markers = ('not found', 'could not be found', 'does not exist', 'unknown user')
+    if code == 998 or any(marker in message.lower() for marker in missing_markers):
+        return 'missing', diagnostic
+    return 'unknown', diagnostic
 
 
 def delete_e2e_owned_data(user, scopes):
@@ -102,16 +144,32 @@ class Command(BaseCommand):
                 try:
                     cloud.delete_identity(identity)
                 except cloud.CloudError as exc:
-                    message = (
-                        f'Nextcloud cleanup failed for test user {user.pk} ({user.email}): {exc}; '
-                        'Django account was kept so cleanup can be retried.'
-                    )
-                    failures.append(message)
-                    self.stderr.write(message)
-                    # One locked/temporarily unavailable identity must not
-                    # leave every later E2E account behind. Keep this user
-                    # intact and continue; the command still exits non-zero.
-                    continue
+                    # delete_identity deliberately rejects non-success OCS
+                    # codes. If a prior account-delete attempt already removed
+                    # the remote user, Nextcloud answers the repeat DELETE with
+                    # "not found". Probe once and accept only that exact state;
+                    # every other failure remains visible and retryable.
+                    state = 'unknown'
+                    diagnostic = ''
+                    if str(exc) == 'Could not delete cloud identity':
+                        state, diagnostic = _nextcloud_identity_state(identity)
+                    if state == 'missing':
+                        self.stdout.write(
+                            f'Nextcloud identity already absent for E2E user {user.pk} '
+                            f'({identity.username}); continuing local cleanup [{diagnostic}]'
+                        )
+                    else:
+                        detail = f' [{diagnostic}]' if diagnostic else ''
+                        message = (
+                            f'Nextcloud cleanup failed for test user {user.pk} ({user.email}): {exc}{detail}; '
+                            'Django account was kept so cleanup can be retried.'
+                        )
+                        failures.append(message)
+                        self.stderr.write(message)
+                        # One locked/temporarily unavailable identity must not
+                        # leave every later E2E account behind. Keep this user
+                        # intact and continue; the command still exits non-zero.
+                        continue
 
             delete_e2e_owned_data(user, user_scopes)
             email = user.email
@@ -120,6 +178,14 @@ class Command(BaseCommand):
                 user.delete()
             except ProtectedError as exc:
                 message = f'E2E user {pk} ({email}) still owns protected data after cleanup: {exc}'
+                failures.append(message)
+                self.stderr.write(message)
+                continue
+            except Exception as exc:
+                message = (
+                    f'E2E user {pk} ({email}) local cleanup failed: '
+                    f'{type(exc).__name__}: {exc}'
+                )
                 failures.append(message)
                 self.stderr.write(message)
                 continue
