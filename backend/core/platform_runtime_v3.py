@@ -187,7 +187,6 @@ def platform_bootstrap_v3(request):
         visible_requests = []
 
     access = {
-        # Legacy keys are retained while the workspace client migrates.
         'dashboard': has_dashboard,
         'lms': has_lms,
         'research': has_research,
@@ -238,12 +237,21 @@ def _core_denied():
     return JsonResponse({'ok': False, 'error': 'core_workspace_for_internal_team_only'}, status=403)
 
 
+def _research_denied():
+    return JsonResponse({'ok': False, 'error': 'research_access_required'}, status=403)
+
+
 def platform_dashboard_v3(request):
     from .platform_dashboard_api import platform_dashboard
     purpose = request.GET.get('workspace', 'core').strip().lower()
     spaces = ensure_platform_workspaces(request.user) if request.user.is_authenticated else None
     if purpose == 'core' and (not spaces or not core_access(request.user, spaces['core'])):
         return _core_denied()
+    if purpose == 'research' and (
+        not request.user.is_authenticated
+        or not module_access(request.user, ModuleGrant.Module.RESEARCH)
+    ):
+        return _research_denied()
     return platform_dashboard(request)
 
 
