@@ -94,17 +94,24 @@ class Command(BaseCommand):
             return
 
         deleted = 0
+        failures = []
         for user in matched:
             user_scopes = [scope for scope in matching_scopes(user) if scope in scopes]
             identity = getattr(user, 'gravitas_nextcloud', None)
             if identity:
                 try:
                     cloud.delete_identity(identity)
-                except Exception as exc:
-                    raise CommandError(
-                        f'Nextcloud cleanup failed for test user {user.pk} ({user.email}); '
+                except cloud.CloudError as exc:
+                    message = (
+                        f'Nextcloud cleanup failed for test user {user.pk} ({user.email}): {exc}; '
                         'Django account was kept so cleanup can be retried.'
-                    ) from exc
+                    )
+                    failures.append(message)
+                    self.stderr.write(message)
+                    # One locked/temporarily unavailable identity must not
+                    # leave every later E2E account behind. Keep this user
+                    # intact and continue; the command still exits non-zero.
+                    continue
 
             delete_e2e_owned_data(user, user_scopes)
             email = user.email
@@ -112,10 +119,17 @@ class Command(BaseCommand):
             try:
                 user.delete()
             except ProtectedError as exc:
-                raise CommandError(
-                    f'E2E user {pk} ({email}) still owns protected data after cleanup: {exc}'
-                ) from exc
+                message = f'E2E user {pk} ({email}) still owns protected data after cleanup: {exc}'
+                failures.append(message)
+                self.stderr.write(message)
+                continue
             deleted += 1
             self.stdout.write(f'Deleted E2E user {pk} {email}')
+
+        if failures:
+            raise CommandError(
+                f'cleanup incomplete scope={options["scope"]} deleted={deleted} failures={len(failures)}; '
+                + ' | '.join(failures[:10])
+            )
 
         self.stdout.write(self.style.SUCCESS(f'cleanup complete scope={options["scope"]} deleted={deleted}'))
