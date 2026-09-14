@@ -947,7 +947,7 @@
         '<footer class="rl-drawer__foot"></footer>' +
       '</aside>';
     document.body.append(libDrawer);
-    document.body.classList.add('rl-locked');
+    document.documentElement.classList.add('rl-locked');
 
     libDrawer.addEventListener('click', function (event) {
       if (event.target.closest('[data-rl-close]')) libClose();
@@ -970,7 +970,7 @@
     document.removeEventListener('keydown', libEscape);
     libDrawer.remove();
     libDrawer = null;
-    document.body.classList.remove('rl-locked');
+    document.documentElement.classList.remove('rl-locked');
     if (libLastFocus && libLastFocus.isConnected) libLastFocus.focus();
   }
 

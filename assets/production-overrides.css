@@ -206,22 +206,33 @@
    A count, not a dot. "3" is a reason to open the drawer; a dot only says
    something changed. Zero keeps the button — a control that appears the first
    time you save something is a control nobody discovers. */
+/* Footprint and glyph come from the same two tokens the theme toggle and the
+   menu button use. It stands next to the toggle, so anything of its own — the
+   2.25rem box and the transparent border it used to carry — read as one of the
+   pair being slightly wrong rather than as a deliberate difference. */
 .rl-trigger {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: var(--gh-control, 2.5rem);
+  height: var(--gh-control, 2.5rem);
   flex: none;
-  border: 1px solid transparent;
+  border: 1px solid var(--g-border);
   border-radius: var(--g-radius-pill);
   background: transparent;
   color: var(--g-text-muted);
   cursor: pointer;
+  transition: color var(--g-dur) var(--g-ease-orbit),
+              border-color var(--g-dur) var(--g-ease-orbit),
+              background-color var(--g-dur) var(--g-ease-orbit);
 }
-.rl-trigger > svg { width: 1.15rem; height: 1.15rem; }
-.rl-trigger:hover { color: var(--g-text); border-color: var(--g-border); }
+.rl-trigger > svg { width: var(--gh-control-icon, 1.125rem); height: var(--gh-control-icon, 1.125rem); display: block; }
+.rl-trigger:hover {
+  color: var(--g-text);
+  border-color: var(--g-border-strong);
+  background: rgb(var(--g-tint) / 0.08);
+}
 .rl-trigger:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
 .rl-trigger > b {
   position: absolute;
@@ -244,7 +255,22 @@
 .rl-trigger[data-rl-empty="true"] > b { display: none; }
 
 /* ---- The drawer ------------------------------------------------------- */
-.rl-locked { overflow: hidden; }
+/* The lock goes on the root element, not on <body>. site.css sets
+   "html { overflow-x: clip }", and a non-visible overflow on the root stops
+   the body's own overflow from propagating to the viewport — so
+   "body { overflow: hidden }" locked nothing (html kept scrolling) and, worse,
+   made the body the scrollport for every position:sticky descendant.
+   Opening the drawer inside the pinned topic rail therefore dropped its sticky
+   stage back to its static position at the top of a viewport-tall track, and
+   the page behind the veil went black. On the root the viewport keeps its
+   scroll offset, sticky keeps resolving against it, and the page actually stops
+   scrolling. overflow-y only, so the horizontal clip above survives.
+   The gutter is reserved for as long as the lock holds, so taking the
+   scrollbar away does not shift the page sideways under the drawer. Scoped to
+   the locked state rather than declared on the root outright: workspace.html
+   sets its own `html { overflow: hidden }`, where a standing gutter would be a
+   permanent empty strip down the right of a shell that never scrolls. */
+:root.rl-locked { overflow-y: hidden; scrollbar-gutter: stable; }
 
 .rl-drawer { position: fixed; inset: 0; z-index: var(--g-z-modal); }
 .rl-drawer__veil {
