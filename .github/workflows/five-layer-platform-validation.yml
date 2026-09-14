@@ -17,6 +17,7 @@ on:
       - 'backend/core/migrations/0015_research_experiments_discussions.py'
       - 'backend/core/test_five_layer_*.py'
       - 'backend/core/test_research_project_tools.py'
+      - 'backend/core/test_auth_logout_flow.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
       - 'assets/ws/ws-platform.js'
@@ -45,6 +46,7 @@ on:
       - 'backend/core/migrations/0015_research_experiments_discussions.py'
       - 'backend/core/test_five_layer_*.py'
       - 'backend/core/test_research_project_tools.py'
+      - 'backend/core/test_auth_logout_flow.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
       - 'assets/ws/ws-platform.js'
@@ -105,5 +107,6 @@ jobs:
             core.test_five_layer_platform \
             core.test_five_layer_completion \
             core.test_research_project_tools \
+            core.test_auth_logout_flow \
             core.test_site_layer_admin \
             core.test_platform_v3_roles
