@@ -7,14 +7,16 @@ in lock-step with the canonical Core workspace membership and that group gets
 edit access to the board.
 """
 
+import json
 from urllib.parse import quote
 
 from django.conf import settings
+from django.http import JsonResponse
 
 from . import cloud
 from .models import WorkspaceMembership
 from .nextcloud_bridge import ensure_user
-from .nextcloud_deck import _request
+from .nextcloud_deck import _request, deck_sync as _deck_sync
 from .platform_models import WorkspaceProfile
 
 
@@ -137,3 +139,26 @@ def ensure_core_deck_access(board_id):
         'member_count': len(desired),
         'usernames': sorted(desired),
     }
+
+
+def deck_sync_with_access(request):
+    """Run the existing task reconciliation and the membership mirror together.
+
+    The Core Admin button must mean "reconcile Deck", not only "reconcile
+    cards". The periodic timer already does both; this wrapper gives the manual
+    endpoint the exact same contract without creating an import cycle inside
+    the low-level Deck adapter.
+    """
+    response = _deck_sync(request)
+    if response.status_code != 200:
+        return response
+    try:
+        payload = json.loads(response.content.decode('utf-8'))
+        board_id = int(payload['board']['id'])
+        payload['access'] = ensure_core_deck_access(board_id)
+    except Exception as exc:
+        return JsonResponse(
+            {'ok': False, 'error': 'deck_access_sync_failed', 'detail': str(exc)},
+            status=503,
+        )
+    return JsonResponse(payload)
