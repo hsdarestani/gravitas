@@ -16,11 +16,12 @@
  *    Page Down, find-in-page and the scrollbar all behave normally, and if
  *    this script fails the page is only a horizontal scroller again.
  *
- * 2. It opts out rather than degrades. Under 900px, or with
- *    prefers-reduced-motion, the pinned mode is never installed — a pinned
- *    section on a phone fights the browser's own address-bar resizing, and a
- *    reader who asked for less motion should not be handed a section that
- *    moves sideways when they scroll down.
+ * 2. It opts out rather than degrades. Under 900px wide or 620px tall, or
+ *    with prefers-reduced-motion, the pinned mode is never installed — a
+ *    pinned section on a phone fights the browser's own address-bar resizing,
+ *    a short window cannot hold the pinned composition without clipping it,
+ *    and a reader who asked for less motion should not be handed a section
+ *    that moves sideways when they scroll down.
  *
  * 3. Keyboard focus moves the rail. Tabbing into a link three panels along
  *    would otherwise focus something parked off-screen, so focusin scrolls
@@ -50,7 +51,11 @@
   if (panels.length < 2) return;
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-  var wide = window.matchMedia('(min-width: 900px)');
+  /* Height as well as width: the pinned stage is one viewport-high box with
+     the head, the bar, a panel and the progress line centred inside it, and
+     under about 620px there is no longer room for that group. A short window
+     keeps the honest horizontal scroller rather than a clipped composition. */
+  var wide = window.matchMedia('(min-width: 900px) and (min-height: 620px)');
   var pinned = false;
   var distance = 0;
   var index = -1;

@@ -22,7 +22,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/hero.css?v=up-f706806e3a02-g1df6ff09">
-<link rel="stylesheet" href="assets/topic-rail.css?v=up-f706806e3a02-g1df6ff09">
+<link rel="stylesheet" href="assets/topic-rail.css?v=up-f706806e3a02-g1df6ff09-tr2">
 <link rel="stylesheet" href="assets/chat.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl1">
 </head>
@@ -145,16 +145,15 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      a plain horizontal scroller with snap points. Nothing below depends on the
      script running. -->
 <section class="g-section trail" id="current-topic" data-rail="native"><div class="g-container">
-  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-    <p class="g-eyebrow">Start Here</p><h2>The Current Topic</h2></div>
-    <a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-
   <div class="trail__track">
     <div class="trail__stage">
+      <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
+        <p class="g-eyebrow">Start Here</p><h2>The Current Topic</h2></div>
+        <a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
       <div class="trail__bar">
-        <p class="trail__now"><b>Is the universe computable?</b> &middot; <span data-rail-label>The Topic</span></p>
+        <p class="trail__now"><b>Is the universe computable?</b> &middot; <span data-rail-label>The question</span></p>
         <div class="trail__dots" role="group" aria-label="Jump within this topic">
-          <button class="trail__dot" type="button" aria-current="true" aria-label="The Topic"></button>
+          <button class="trail__dot" type="button" aria-current="true" aria-label="The question"></button>
           <button class="trail__dot" type="button" aria-current="false" aria-label="What it looks like"></button>
           <button class="trail__dot" type="button" aria-current="false" aria-label="Two readings"></button>
           <button class="trail__dot" type="button" aria-current="false" aria-label="The discussion"></button>
@@ -164,15 +163,15 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
       <div class="trail__rail" tabindex="0" role="region" aria-label="Current topic, scrolled sideways">
 
-        <article class="trail__panel" data-rail-title="The Topic">
+        <article class="trail__panel" data-rail-title="The question">
           <div class="trail__side">
-            <p class="trail__n">01 &middot; TOPIC 04</p>
+            <p class="trail__n">01 &middot; THE QUESTION</p>
             <h3>Is the universe computable?</h3>
             <p class="trail__say">If the world runs on rules, something ought to be able to run them.
               G&ouml;del, chaos and thermodynamics all disagree about how far that goes.</p>
             <p class="trail__meta">18 min essay &middot; 4 min summary</p>
             <div class="trail__act">
-              <a class="g-btn g-btn--primary" href="topic-computable-universe.html">Open the Topic</a>
+              <a class="g-btn g-btn--primary" href="topic-computable-universe.html">Read the essay</a>
               <a class="g-btn g-btn--secondary" href="game-hypothesis-machine.html">Play the Game</a>
             </div>
           </div>
@@ -395,7 +394,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </footer>
 <script src="assets/site.js?v=up-f706806e3a02-g1df6ff09"></script>
 <script src="assets/hero.js?v=up-f706806e3a02-g1df6ff09"></script>
-<script src="assets/topic-rail.js?v=up-f706806e3a02-g1df6ff09" defer></script>
+<script src="assets/topic-rail.js?v=up-f706806e3a02-g1df6ff09-tr2" defer></script>
 <script src="assets/chat.js?v=up-f706806e3a02-g1df6ff09" defer></script>
 <script src="assets/production-bridge.js?v=up-f706806e3a02-g1df6ff09-rl1" defer></script>
 </body>

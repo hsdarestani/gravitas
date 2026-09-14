@@ -53,11 +53,19 @@
 }
 @media (min-width: 900px) {
   .trail {
-    --panel-h: clamp(26rem, calc(100svh - var(--g-header-h, 4.5rem) - 9rem), 35rem);
+    --panel-h: clamp(22rem, calc(100svh - var(--g-header-h, 4.5rem) - 14rem), 35rem);
   }
 }
 
-/* The section head keeps scrolling normally; only the stage pins. */
+/* The section head lives INSIDE the stage, so it pins together with the bar
+   and the rail instead of scrolling away above them. It used to sit above the
+   track, and that forced the stage to start at the very top of the pinned
+   area: centring it there would have opened a dead gap between the heading and
+   the bar on the way in. The cost was that the panels sat high under the
+   header with the bottom of the screen empty. As one pinned group the whole
+   composition can be centred in the space under the header, and the heading
+   stays readable for the length of the horizontal pass. */
+.trail .lp-head { margin-bottom: var(--g-space-md); }
 .trail__stage {
   position: relative;
   display: flex;
@@ -303,10 +311,20 @@
 /* Pinned mode ------------------------------------------------------------ */
 
 .trail[data-rail="pinned"] .trail__track { position: relative; }
+/* The stage takes the whole height under the header and centres the group in
+   it, so the panels land in the middle of the screen rather than hanging from
+   the top with the lower half of the viewport empty. This is only safe because
+   the section head moved inside the stage: the earlier version centred a
+   full-height stage whose head was outside it, and the centring then showed up
+   as a hundred-odd pixels of nothing between the heading and the bar on the way
+   in. --panel-h is clamped against the same viewport height, 14rem of which is
+   reserved for the head, the bar and the progress line, so the group fits the
+   box instead of being clipped by it. topic-rail.js measures this element for
+   the track's height, so the rail still ends on its last panel. */
 .trail[data-rail="pinned"] .trail__stage {
   position: sticky;
   top: var(--g-header-h, 4.5rem);
-  height: calc(100svh - var(--g-header-h, 4.5rem) - var(--g-space-lg));
+  height: calc(100svh - var(--g-header-h, 4.5rem));
   justify-content: center;
   overflow: clip;
 }
