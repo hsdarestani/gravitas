@@ -6,6 +6,7 @@ on:
       - 'backend/core/layer_*.py'
       - 'backend/core/lms_*.py'
       - 'backend/core/member_api.py'
+      - 'backend/core/core_links_api.py'
       - 'backend/core/research_*.py'
       - 'backend/core/platform_admin_extended.py'
       - 'backend/core/nextcloud_deck.py'
@@ -17,6 +18,7 @@ on:
       - 'backend/core/migrations/0015_research_experiments_discussions.py'
       - 'backend/core/test_five_layer_*.py'
       - 'backend/core/test_research_project_tools.py'
+      - 'backend/core/test_core_task_links.py'
       - 'backend/core/test_auth_logout_flow.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
@@ -24,6 +26,7 @@ on:
       - 'assets/ws/ws-five-layer.js'
       - 'assets/ws/ws-member-lms.js'
       - 'assets/ws/ws-member-progress.js'
+      - 'assets/ws/ws-core-links.js'
       - 'assets/ws/ws-admin.js'
       - 'assets/ws/ws-project.js'
       - 'assets/ws/ws-five-layer.css'
@@ -36,6 +39,7 @@ on:
       - 'backend/core/layer_*.py'
       - 'backend/core/lms_*.py'
       - 'backend/core/member_api.py'
+      - 'backend/core/core_links_api.py'
       - 'backend/core/research_*.py'
       - 'backend/core/platform_admin_extended.py'
       - 'backend/core/nextcloud_deck.py'
@@ -47,6 +51,7 @@ on:
       - 'backend/core/migrations/0015_research_experiments_discussions.py'
       - 'backend/core/test_five_layer_*.py'
       - 'backend/core/test_research_project_tools.py'
+      - 'backend/core/test_core_task_links.py'
       - 'backend/core/test_auth_logout_flow.py'
       - 'backend/core/test_site_layer_admin.py'
       - 'backend/core/test_platform_v3_roles.py'
@@ -54,6 +59,7 @@ on:
       - 'assets/ws/ws-five-layer.js'
       - 'assets/ws/ws-member-lms.js'
       - 'assets/ws/ws-member-progress.js'
+      - 'assets/ws/ws-core-links.js'
       - 'assets/ws/ws-admin.js'
       - 'assets/ws/ws-project.js'
       - 'assets/ws/ws-five-layer.css'
@@ -79,6 +85,7 @@ jobs:
           node --check assets/ws/ws-five-layer.js
           node --check assets/ws/ws-member-lms.js
           node --check assets/ws/ws-member-progress.js
+          node --check assets/ws/ws-core-links.js
           node --check assets/ws/ws-admin.js
           node --check assets/ws/ws-project.js
 
@@ -110,6 +117,7 @@ jobs:
             core.test_five_layer_platform \
             core.test_five_layer_completion \
             core.test_research_project_tools \
+            core.test_core_task_links \
             core.test_auth_logout_flow \
             core.test_site_layer_admin \
             core.test_platform_v3_roles
