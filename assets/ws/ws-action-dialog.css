@@ -1,0 +1,112 @@
+/* Theme-safe action dialogs used by Research project/task creation.
+   The dialog markup is created at runtime, outside #ws, so it must use the
+   public Gravitas tokens directly instead of inheriting workspace pane paint. */
+
+body > .ws-action-dialog-layer {
+  background: color-mix(in srgb, var(--g-bg) 78%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+html .ws-action-dialog {
+  width: min(580px, calc(100vw - 32px));
+  max-height: min(88dvh, 780px);
+  border-color: var(--g-border);
+  border-radius: var(--ws-r-panel, 10px);
+  background: var(--g-surface-raised);
+  color: var(--g-text);
+  box-shadow: 0 28px 90px rgb(0 0 0 / .42), 0 0 0 1px rgb(255 255 255 / .02) inset;
+}
+
+:root[data-theme="light"] .ws-action-dialog { color-scheme: light; }
+:root:not([data-theme="light"]) .ws-action-dialog { color-scheme: dark; }
+
+html .ws-action-dialog__body {
+  padding: 22px;
+  gap: 16px;
+}
+
+html .ws-action-dialog__head {
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--g-hairline);
+}
+
+html .ws-action-dialog__head h2 {
+  color: var(--g-text);
+  font-size: 1.12rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+html .ws-action-dialog__head .ws-btn {
+  min-height: 30px;
+  padding: 4px 10px;
+}
+
+html .ws-action-dialog__grid {
+  gap: 13px;
+}
+
+html .ws-action-dialog__field {
+  gap: 7px;
+  color: var(--g-text);
+}
+
+html .ws-action-dialog__field > span {
+  color: var(--g-text-subtle);
+  font-size: var(--ws-fs-xs, 11px);
+  font-weight: var(--g-w-medium, 600);
+  letter-spacing: .02em;
+}
+
+html .ws-action-dialog .v-input {
+  width: 100%;
+  min-height: 38px;
+  border-color: var(--g-border);
+  background: var(--g-bg);
+  color: var(--g-text);
+  box-shadow: none;
+}
+
+html .ws-action-dialog .v-input::placeholder {
+  color: var(--g-text-subtle);
+  opacity: .82;
+}
+
+html .ws-action-dialog .v-input:focus {
+  border-color: var(--g-accent);
+  outline: 2px solid color-mix(in srgb, var(--g-accent) 24%, transparent);
+  outline-offset: 1px;
+}
+
+html .ws-action-dialog textarea.v-input {
+  min-height: 82px;
+  line-height: 1.45;
+}
+
+html .ws-action-dialog__actions {
+  padding-top: 14px;
+  border-top: 1px solid var(--g-hairline);
+}
+
+html .ws-action-dialog__error {
+  color: var(--g-danger, #d95454);
+}
+
+@media (max-width: 640px) {
+  body > .ws-action-dialog-layer {
+    place-items: end center;
+    padding: 10px;
+  }
+
+  html .ws-action-dialog {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: var(--ws-r-panel, 10px);
+  }
+
+  html .ws-action-dialog__body {
+    padding: 18px;
+  }
+}
