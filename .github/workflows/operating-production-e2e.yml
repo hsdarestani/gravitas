@@ -19,7 +19,6 @@ jobs:
     env:
       BASE_URL: https://gravitasplus.com
       TEST_EMAIL: operating-e2e-${{ github.run_id }}-${{ github.run_attempt }}@example.com
-      TEST_PASSWORD: Operating-E2E-Password-2026!
     steps:
       - name: Prepare SSH for controlled Core access grant
         shell: bash
@@ -45,6 +44,13 @@ jobs:
           fi
           echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
           echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Generate one-run Operating E2E credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_PASSWORD="$(python3 -c 'import secrets; print("Operating-E2E-" + secrets.token_urlsafe(24) + "Aa1!")')"
+          printf 'TEST_PASSWORD=%s\n' "$TEST_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Register production Operating E2E account
         shell: bash
@@ -215,18 +221,40 @@ jobs:
           _, updated = request(f"/api/operating/tasks/{task_data['id']}/", 'PATCH', {'status': 'done'})
           assert updated['task']['status'] == 'done', updated
 
-          # Production contains real Gravitas OKRs. Never assert global counts are
-          # exactly one; verify the exact objects created by this E2E run instead.
+          # Dashboard lists are intentionally bounded summaries. Verify their
+          # aggregate contract here, then verify the exact objects created by
+          # this run against the unbounded collection endpoints below.
           _, final_dashboard = request('/api/operating/dashboard/')
+          assert final_dashboard['counts']['initiatives'] >= 1, final_dashboard
+          assert final_dashboard['counts']['milestones'] >= 1, final_dashboard
+          assert final_dashboard['counts']['risks'] >= 1, final_dashboard
+          recent_ids = [item['id'] for item in final_dashboard.get('recent_initiatives', [])]
+          assert recent_ids and recent_ids[0] == initiative_id, final_dashboard
+
+          _, initiative_list = request('/api/operating/initiatives/')
           final_initiative = next(
-              item for item in final_dashboard.get('recent_initiatives', [])
+              item for item in initiative_list.get('initiatives', [])
               if item['id'] == initiative_id
           )
           assert final_initiative['objective']['id'] == objective_id, final_initiative
           assert final_initiative['key_result']['id'] == kr_id, final_initiative
           assert final_initiative['process']['key'] == 'research', final_initiative
           assert final_initiative['task_count'] >= 1, final_initiative
-          assert any(item['id'] == milestone_id for item in final_dashboard.get('upcoming_milestones', [])), final_dashboard
-          assert any(item['id'] == risk_id for item in final_dashboard.get('risks', [])), final_dashboard
+
+          _, milestone_list = request('/api/operating/milestones/')
+          final_milestone = next(
+              item for item in milestone_list.get('milestones', [])
+              if item['id'] == milestone_id
+          )
+          assert final_milestone['initiative_id'] == initiative_id, final_milestone
+          assert final_milestone['due_date'] == due, final_milestone
+
+          _, risk_list = request('/api/operating/risks/')
+          final_risk = next(
+              item for item in risk_list.get('risks', [])
+              if item['id'] == risk_id
+          )
+          assert final_risk['initiative_id'] == initiative_id, final_risk
+          assert final_risk['health'] == 'yellow', final_risk
           print('operating-production-e2e-passed')
           PY
