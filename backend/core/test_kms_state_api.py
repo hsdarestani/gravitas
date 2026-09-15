@@ -13,12 +13,12 @@ class KMSStateApiTests(TestCase):
         )
 
     def test_requires_authentication(self):
-        response = self.client.get('/api/platform/kms/state/')
+        response = self.client.get('/api/platform/kms/state/', secure=True)
         self.assertEqual(response.status_code, 401)
 
     def test_fresh_account_has_no_demo_material(self):
         self.client.force_login(self.user)
-        response = self.client.get('/api/platform/kms/state/')
+        response = self.client.get('/api/platform/kms/state/', secure=True)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['state'], {
             'sources': [], 'cards': [], 'paths': [], 'skills': [], 'log': [],
@@ -41,18 +41,19 @@ class KMSStateApiTests(TestCase):
             '/api/platform/kms/state/',
             data={'state': state},
             content_type='application/json',
+            secure=True,
         )
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['state'], state)
 
-        response = self.client.get('/api/platform/kms/state/')
+        response = self.client.get('/api/platform/kms/state/', secure=True)
         self.assertEqual(response.json()['state'], state)
 
         other = get_user_model().objects.create_user(
             username='other-kms@example.com', email='other-kms@example.com', password='Other-pass-123!',
         )
         self.client.force_login(other)
-        response = self.client.get('/api/platform/kms/state/')
+        response = self.client.get('/api/platform/kms/state/', secure=True)
         self.assertEqual(response.json()['state']['cards'], [])
 
     def test_rejects_invalid_or_oversized_collections(self):
@@ -61,6 +62,7 @@ class KMSStateApiTests(TestCase):
             '/api/platform/kms/state/',
             data={'state': {'sources': {}, 'cards': [], 'paths': [], 'skills': [], 'log': []}},
             content_type='application/json',
+            secure=True,
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['error'], 'invalid_sources')
@@ -69,6 +71,7 @@ class KMSStateApiTests(TestCase):
             '/api/platform/kms/state/',
             data={'state': {'sources': [], 'cards': [{}] * 5001, 'paths': [], 'skills': [], 'log': []}},
             content_type='application/json',
+            secure=True,
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['error'], 'cards_limit_exceeded')
