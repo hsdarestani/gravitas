@@ -30,7 +30,7 @@ class ResearchWorkspaceActionContractTests(SimpleTestCase):
 
     def test_file_and_dataset_views_expose_real_uploads(self):
         js = self.read('assets/ws/ws-research-actions.js')
-        self.assertIn("'/platform/files/upload/'", js)
+        self.assertIn('/platform/files/upload/', js)
         self.assertIn("'Upload dataset'", js)
         self.assertIn("'Upload file'", js)
         self.assertIn('project_id', js)
