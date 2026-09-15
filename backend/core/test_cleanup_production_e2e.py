@@ -1,3 +1,4 @@
+from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
 
@@ -5,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
+from django.utils import timezone
 
 from core import cloud
 from core.models import NextcloudIdentity, Organization, Workspace
@@ -84,6 +86,37 @@ class CleanupProductionE2EUsersTests(TestCase):
         self.assertFalse(Workspace.objects.filter(pk=personal.pk).exists())
         self.assertFalse(StrategicObjective.objects.filter(pk=objective.pk).exists())
         self.assertTrue(Workspace.objects.filter(pk=team.pk).exists())
+
+    def test_min_age_only_deletes_stale_operating_accounts(self):
+        User = get_user_model()
+        fresh = User.objects.create_user(
+            username='operating-e2e-654321-1@example.com',
+            email='operating-e2e-654321-1@example.com',
+            first_name='Operating Production E2E',
+        )
+        stale_joined = timezone.now() - timedelta(minutes=15)
+        User.objects.filter(pk=self.operating_user.pk).update(date_joined=stale_joined)
+
+        out = StringIO()
+        call_command(
+            'cleanup_production_e2e_users',
+            scope='operating',
+            min_age_minutes=10,
+            stdout=out,
+        )
+
+        self.assertFalse(User.objects.filter(pk=self.operating_user.pk).exists())
+        self.assertTrue(User.objects.filter(pk=fresh.pk).exists())
+        self.assertIn('deleted=1', out.getvalue())
+
+    def test_negative_min_age_is_rejected(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                'cleanup_production_e2e_users',
+                scope='operating',
+                min_age_minutes=-1,
+                stdout=StringIO(),
+            )
 
     def test_nextcloud_identity_is_deleted_before_test_user(self):
         identity = NextcloudIdentity.objects.create(
