@@ -229,8 +229,10 @@ function ensureResearchActions() {
   const bar = el('div', 'v-toolbar');
   bar.dataset.researchCreateActions = 'true';
 
-  const existingProjectButton = [...doc.querySelectorAll('button')].some((node) => node.textContent.trim() === 'New project');
-  if (!existingProjectButton || path !== '/workspace/research/projects') {
+  // The Projects page already owns the full project form (visibility, secure
+  // data room, etc.). Add the quick New project action only on the Research
+  // home/task surfaces so that route never receives two competing buttons.
+  if (path !== '/workspace/research/projects') {
     bar.append(button('New project', openProjectCreator, true));
   }
   bar.append(button('New task', () => {
