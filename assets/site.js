@@ -310,6 +310,7 @@
       fetch('/api/auth/me/', {
         credentials: 'same-origin',
         cache: 'no-store',
+        keepalive: true,
         headers: { 'Accept': 'application/json' }
       }).then(function (response) {
         return response.ok ? response.json() : null;
