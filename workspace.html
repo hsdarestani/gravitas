@@ -117,6 +117,7 @@
     import { installResearchWorkspaceActions } from '/assets/ws/ws-research-actions.js?v=20260915-1';
     import { installCoreContentActions } from '/assets/ws/ws-core-content-actions.js?v=20260915-1';
     import { installWorkspaceTaskDeckFixes } from '/assets/ws/ws-task-deck-fixes.js?v=20260915-1';
+    import { installTaskDeckMirror } from '/assets/ws/ws-task-deck-mirror.js?v=20260915-1';
 
     function waitForPlatform() {
       if (platform.settled) return Promise.resolve();
@@ -152,6 +153,7 @@
       installResearchWorkspaceActions();
       installCoreContentActions();
       installWorkspaceTaskDeckFixes();
+      installTaskDeckMirror();
       await workspaceReady;
       // start() may finish by rendering a legacy route after an overlay was
       // installed. Re-run route owners once with the fully hydrated tree.
