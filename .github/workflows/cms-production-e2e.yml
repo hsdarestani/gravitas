@@ -63,10 +63,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          PAGE="$(curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/content/$PUB_SLUG/")"
-          printf '%s' "$PAGE" | grep -Fq 'Gravitas E2E published'
-          printf '%s' "$PAGE" | grep -Fq 'E2E published body marker.'
-          printf '%s' "$PAGE" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+          PAGE_FILE="$RUNNER_TEMP/gravitas-cms-page.html"
+          curl -4 -fsSL --retry 5 --retry-delay 2 \
+            "https://$DOMAIN/content/$PUB_SLUG/" -o "$PAGE_FILE"
+          grep -Fq 'Gravitas E2E published' "$PAGE_FILE"
+          grep -Fq 'E2E published body marker.' "$PAGE_FILE"
+          grep -Fq '<meta name="robots" content="noindex, nofollow">' "$PAGE_FILE"
 
           CODE="$(curl -4 -sS -o /tmp/draft-page -w '%{http_code}' "https://$DOMAIN/content/$DRAFT_SLUG/")"
           test "$CODE" = "404"
