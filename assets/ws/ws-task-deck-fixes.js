@@ -303,7 +303,7 @@ async function renderCoreDeckSurface() {
       status.textContent = 'Nextcloud Deck is not configured yet.';
     }
 
-    actions.append(button('Planning & Projects', () => go('/workspace/core/planning')));
+    actions.append(button('Planning & Projects', () => go('/workspace/operating')));
 
     if (adminState) {
       const sync = button('Reconcile Deck now', async () => {
