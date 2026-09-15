@@ -104,8 +104,32 @@ try {
   if (saved && typeof saved === 'object') platform.remembered = saved;
 } catch { /* storage denied or corrupt */ }
 
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function bootstrapWithRetry() {
+  const delays = [0, 250, 750];
+  let lastError = null;
+
+  for (const delay of delays) {
+    if (delay) await sleep(delay);
+    try {
+      return await call('/platform/bootstrap/');
+    } catch (err) {
+      lastError = err;
+      if (err instanceof AuthRequired) throw err;
+      // Retry only transport/5xx failures. A real 4xx entitlement response is
+      // authoritative and must not be hidden behind repeated requests.
+      if (err?.status && err.status < 500) throw err;
+    }
+  }
+
+  throw lastError || new Error('bootstrap_unreachable');
+}
+
 export async function loadBootstrap() {
-  const [me, boot] = await Promise.allSettled([call('/auth/me/'), call('/platform/bootstrap/')]);
+  const [me, boot] = await Promise.allSettled([call('/auth/me/'), bootstrapWithRetry()]);
   platform.user = me.status === 'fulfilled' ? me.value : null;
 
   try {
@@ -132,10 +156,18 @@ export async function signOut() {
   rememberAccess(null);
 }
 
+function accessSource() {
+  if (platform.boot) return platform.boot.access || null;
+  if (platform.error === 'signed-out') return null;
+  // A cached entitlement only controls which navigation entry is rendered;
+  // every API request is still authorized server-side. Keeping the last known
+  // access during a transient outage avoids making whole product layers vanish
+  // from the rail while the backend is recovering.
+  return platform.remembered;
+}
+
 function accessValue(key) {
-  if (platform.boot) return !!platform.boot.access?.[key];
-  if (platform.settled) return false;
-  return !!platform.remembered?.[key];
+  return !!accessSource()?.[key];
 }
 
 export const canOpenDashboard = () => accessValue('dashboard');
@@ -144,13 +176,11 @@ export const canOpenResearch = () => accessValue('research');
 export const canOpenCore = () => accessValue('core');
 
 export function communityRole() {
-  const source = platform.boot?.access || (platform.settled ? null : platform.remembered);
-  return source?.community_role || 'member';
+  return accessSource()?.community_role || 'member';
 }
 
 export function isCoreAdmin() {
-  const source = platform.boot?.access || (platform.settled ? null : platform.remembered);
-  const role = source?.core_role;
+  const role = accessSource()?.core_role;
   return role === 'owner' || role === 'admin';
 }
 
