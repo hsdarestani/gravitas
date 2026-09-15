@@ -114,6 +114,7 @@
     import { loadBootstrap } from '/assets/ws/ws-platform.js?v=20260914-7';
     import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260914-3';
     import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20260914-2';
+    import { installResearchWorkspaceActions } from '/assets/ws/ws-research-actions.js?v=20260915-1';
 
     async function bootWorkspace() {
       await start();
@@ -123,6 +124,7 @@
       await loadBootstrap();
       installFiveLayer();
       installNextcloudNativeRouter();
+      installResearchWorkspaceActions();
     }
 
     if (window.GravitasIcons) bootWorkspace();
