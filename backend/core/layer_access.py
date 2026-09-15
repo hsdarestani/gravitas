@@ -97,8 +97,14 @@ def module_access(user, module):
 
     An explicit ModuleGrant wins for LMS/Research. This means an administrator
     can deliberately suspend one layer even if historical project/enrollment
-    records still exist. When there is no explicit grant, legitimate existing
-    participation implies the corresponding layer.
+    records still exist.
+
+    Internal Core membership represents Layer 5 and therefore inherits the
+    lower LMS and Research product layers when there is no explicit grant for
+    that layer. This keeps the product hierarchy coherent: an internal team
+    member cannot have the Core control plane while Learning disappears from
+    navigation. Ordinary community accounts still need enrollment/project
+    participation (or an explicit grant) for those layers.
 
     Core additionally requires Core WorkspaceMembership. A Core grant can
     explicitly disable a membership but can never create one by itself.
@@ -130,6 +136,12 @@ def module_access(user, module):
 
     if grant is not None:
         return bool(grant_is_effective(grant))
+
+    # Layer 5 is the internal control plane for all lower product layers.
+    # Preserve explicit per-layer suspensions above, but otherwise make Core
+    # membership sufficient to open both Learning and Research.
+    if module in {ModuleGrant.Module.LMS, ModuleGrant.Module.RESEARCH} and _core_membership(user):
+        return True
 
     if module == ModuleGrant.Module.LMS:
         return _lms_participation(user)

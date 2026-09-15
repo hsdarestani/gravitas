@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.db import transaction
 from django.db.models import Q
@@ -18,6 +19,9 @@ from .operating_models import OperatingTask
 from .platform_access import can_view
 from .platform_models import ResearchRequest, WorkspaceProfile
 from .workspace_api import provision_personal_workspace
+
+
+logger = logging.getLogger(__name__)
 
 
 def _canonical_workspace(purpose, organization=None):
@@ -47,6 +51,12 @@ def ensure_platform_workspaces(user):
     Layer access is intentionally resolved elsewhere. Provisioning a shared
     Research workspace must never imply that this account is allowed to open
     Research; project participation or a module grant decides that.
+
+    This helper may provision missing canonical rows, but it must not perform
+    global membership cleanup on a read request. Legacy broad Research
+    memberships are removed once by a data migration instead. Keeping that
+    cleanup out of bootstrap prevents concurrent workspace loads from mutating
+    shared authorization state or contending on the membership table.
     """
     personal = provision_personal_workspace(user)
     WorkspaceProfile.objects.get_or_create(
@@ -97,10 +107,6 @@ def ensure_platform_workspaces(user):
             nextcloud_root='Gravitas/Research',
         )
 
-    # Research deliberately has no broad WorkspaceMembership. Project/object
-    # ACLs decide what each researcher sees. The signal also removes legacy
-    # memberships that would widen a private project boundary.
-    WorkspaceMembership.objects.filter(workspace=research).delete()
     return {'personal': personal, 'core': core, 'research': research}
 
 
@@ -171,16 +177,29 @@ def platform_bootstrap_v3(request):
     task_qs = OperatingTask.objects.filter(workspace=core, owner=request.user).exclude(status__in=['done', 'archived']) if has_core else OperatingTask.objects.none()
     my_tasks = list(task_qs.select_related('initiative')[:8])
 
+    # Bootstrap is the navigation/access contract for every workspace route.
+    # Optional dashboard summaries must never make that contract unavailable.
+    # Older accounts can contain legacy project/request rows that need repair;
+    # log those rows for operators, but still return workspaces and layer
+    # entitlements so the user can navigate to the dedicated Research APIs.
+    bootstrap_warnings = []
     if has_research:
-        research_qs = ResearchProject.objects.filter(workspace=research, archived=False).select_related('owner', 'workspace')
-        visible_research = [item for item in research_qs if can_view(request.user, item)]
-        my_research = [item for item in visible_research if item.owner_id == request.user.pk or item.memberships.filter(user=request.user).exists()][:8]
-        visible_requests = [
-            item for item in ResearchRequest.objects.filter(
-                Q(project__workspace=research) | Q(requested_by=request.user) | Q(assignee=request.user)
-            ).select_related('project', 'assignee')[:100]
-            if can_view(request.user, item)
-        ]
+        try:
+            research_qs = ResearchProject.objects.filter(workspace=research, archived=False).select_related('owner', 'workspace')
+            visible_research = [item for item in research_qs if can_view(request.user, item)]
+            my_research = [item for item in visible_research if item.owner_id == request.user.pk or item.memberships.filter(user=request.user).exists()][:8]
+            visible_requests = [
+                item for item in ResearchRequest.objects.filter(
+                    Q(project__workspace=research) | Q(requested_by=request.user) | Q(assignee=request.user)
+                ).select_related('project', 'assignee')[:100]
+                if can_view(request.user, item)
+            ]
+        except Exception:
+            logger.exception('Research bootstrap summary failed for user_id=%s', request.user.pk)
+            visible_research = []
+            my_research = []
+            visible_requests = []
+            bootstrap_warnings.append('research_summary_unavailable')
     else:
         visible_research = []
         my_research = []
@@ -230,6 +249,7 @@ def platform_bootstrap_v3(request):
             'research_projects': len(visible_research),
             'open_research_requests': sum(1 for item in visible_requests if item.status not in {'done', 'cancelled'}),
         },
+        'warnings': bootstrap_warnings,
     })
 
 
