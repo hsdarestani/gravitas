@@ -149,7 +149,14 @@ jobs:
           page.on('requestfailed', request => {
             try {
               const target = new URL(request.url());
-              if (target.origin === base) failedSameOriginRequests.push(`${request.method()} ${target.pathname}: ${request.failure()?.errorText || 'failed'}`);
+              if (target.origin !== base) return;
+              const failure = request.failure()?.errorText || 'failed';
+              // Chromium legitimately cancels optional font downloads when a
+              // successful auth navigation replaces the document. Ignore only
+              // that browser-level cancellation; API and all other same-origin
+              // failures remain fatal production signals.
+              if (request.resourceType() === 'font' && failure === 'net::ERR_ABORTED') return;
+              failedSameOriginRequests.push(`${request.method()} ${target.pathname}: ${failure}`);
             } catch (_) {}
           });
 
