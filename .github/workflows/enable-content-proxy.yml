@@ -41,14 +41,16 @@ jobs:
           set -euo pipefail
           sleep 2
 
-          code="$(curl -4 -sS -o /tmp/content-check -w '%{http_code}' https://gravitasplus.com/content/definitely-not-published/)"
+          code="$(curl -4 -sS --retry 12 --retry-delay 2 --retry-all-errors --connect-timeout 5 --max-time 15 -o /tmp/content-check -w '%{http_code}' https://gravitasplus.com/content/definitely-not-published/)"
           test "$code" = "404"
           ! grep -q '<title>Gravitas+ — Science' /tmp/content-check
 
-          CMS_JSON="$(curl -4 -fsSL 'https://gravitasplus.com/api/content/?limit=1')"
+          CMS_JSON="$(curl -4 -fsSL --retry 12 --retry-delay 2 --retry-all-errors --connect-timeout 5 --max-time 15 'https://gravitasplus.com/api/content/?limit=1')"
           SLUG="$(printf '%s' "$CMS_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); items=d.get("items") or []; print(items[0].get("slug", "") if items else "")')"
           if [ -n "$SLUG" ]; then
-            curl -4 -fsSL "https://gravitasplus.com/content/$SLUG/" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+            curl -4 -fsSL --retry 12 --retry-delay 2 --retry-all-errors --connect-timeout 5 --max-time 15 \
+              -o /tmp/content-published-check "https://gravitasplus.com/content/$SLUG/"
+            grep -Fq '<meta name="robots" content="noindex, nofollow">' /tmp/content-published-check
             echo "Verified published SSR page: $SLUG"
           else
             echo 'No published CMS content yet; 404 route behavior verified.'
