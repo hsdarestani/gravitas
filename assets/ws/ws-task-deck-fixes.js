@@ -36,8 +36,8 @@ function installDialogStyle() {
   const style = document.createElement('style');
   style.id = 'ws-task-deck-dialog-style';
   style.textContent = `
-    .ws-action-dialog { width:min(620px,calc(100vw - 32px)); border:1px solid var(--line,#d5d9df); border-radius:14px; padding:0; background:var(--panel,#fff); color:inherit; }
-    .ws-action-dialog::backdrop { background:rgba(0,0,0,.42); }
+    .ws-action-dialog-layer { position:fixed; inset:0; z-index:1200; display:grid; place-items:center; padding:16px; overflow:auto; background:rgba(0,0,0,.42); }
+    .ws-action-dialog { width:min(620px,calc(100vw - 32px)); max-height:min(90vh,820px); overflow:auto; border:1px solid var(--line,#d5d9df); border-radius:14px; padding:0; background:var(--panel,#fff); color:inherit; box-shadow:0 24px 80px rgba(0,0,0,.28); }
     .ws-action-dialog__body { padding:20px; display:grid; gap:14px; }
     .ws-action-dialog__head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
     .ws-action-dialog__head h2 { margin:0; font-size:1.15rem; }
@@ -92,25 +92,43 @@ function textarea(name, placeholder = '') {
 
 function modal(title, build, submitLabel, onSubmit) {
   installDialogStyle();
-  const dialog = el('dialog', 'ws-action-dialog');
+  const layer = el('div', 'ws-action-dialog-layer');
+  const dialog = el('section', 'ws-action-dialog');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-label', title);
   const form = el('form', 'ws-action-dialog__body');
-  form.method = 'dialog';
+
+  const onKeydown = (event) => {
+    if (event.key === 'Escape') dismiss();
+  };
+  const dismiss = () => {
+    document.removeEventListener('keydown', onKeydown);
+    layer.remove();
+  };
+
   const head = el('div', 'ws-action-dialog__head');
   head.append(el('h2', '', title));
-  const close = button('Close', () => dialog.close());
+  const close = button('Close', dismiss);
   close.setAttribute('aria-label', 'Close');
   head.append(close);
   const grid = el('div', 'ws-action-dialog__grid');
   const fields = build(grid) || {};
   const error = el('p', 'ws-action-dialog__error');
   const actions = el('div', 'ws-action-dialog__actions');
-  const cancel = button('Cancel', () => dialog.close());
+  const cancel = button('Cancel', dismiss);
   const submit = button(submitLabel, () => {}, true);
   submit.type = 'submit';
   actions.append(cancel, submit);
   form.append(head, grid, error, actions);
   dialog.append(form);
-  document.body.append(dialog);
+  layer.append(dialog);
+  document.body.append(layer);
+
+  layer.addEventListener('pointerdown', (event) => {
+    if (event.target === layer) dismiss();
+  });
+  document.addEventListener('keydown', onKeydown);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -119,19 +137,17 @@ function modal(title, build, submitLabel, onSubmit) {
     cancel.disabled = true;
     try {
       await onSubmit(fields, new FormData(form));
-      dialog.close();
-      dialog.remove();
+      dismiss();
     } catch (err) {
       error.textContent = err?.data?.error || err?.message || 'The action could not be completed.';
       submit.disabled = false;
       cancel.disabled = false;
     }
   });
-  dialog.addEventListener('close', () => {
-    if (dialog.isConnected) dialog.remove();
-  }, { once: true });
-  dialog.showModal();
-  return dialog;
+
+  const firstField = form.querySelector('input:not([type="hidden"]), select, textarea, button');
+  if (firstField) queueMicrotask(() => firstField.focus());
+  return layer;
 }
 
 function openProjectCreator() {
@@ -170,14 +186,13 @@ async function openTaskCreator() {
   const data = await P.call('/platform/projects/');
   const projects = (data.projects || []).filter((project) => project.permissions?.can_edit);
   if (!projects.length) {
-    const box = modal('New research task', (grid) => {
+    return modal('New research task', (grid) => {
       const note = el('p', 'v-note', 'Create a Research project first, or ask for edit access to an existing project.');
       grid.append(note);
       return {};
     }, 'Open projects', async () => {
       go('/workspace/research/projects');
     });
-    return box;
   }
 
   modal('New research task', (grid) => {
