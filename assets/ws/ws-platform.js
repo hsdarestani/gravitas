@@ -72,13 +72,23 @@ export async function call(path, { method = 'GET', body } = {}) {
   return data;
 }
 
-export const platform = {
+// ws-app and the five-layer rail historically imported this file with
+// different query-string versions. Browsers correctly treat those URLs as
+// distinct ES modules, which used to create two independent entitlement
+// states: the shell could have a successful bootstrap while the rail still
+// believed LMS/Research/Core were unavailable. Keep one shared state object
+// on globalThis so every versioned import observes the same authoritative
+// bootstrap result.
+const PLATFORM_STATE_KEY = '__gravitasWorkspacePlatformStateV3';
+const sharedPlatform = globalThis[PLATFORM_STATE_KEY] || {
   boot: null,
   user: null,
   error: null,
   remembered: null,
   settled: false,
 };
+globalThis[PLATFORM_STATE_KEY] = sharedPlatform;
+export const platform = sharedPlatform;
 
 const ACCESS_MEMO = 'gravitas.ws.access.v2';
 
@@ -101,7 +111,7 @@ function rememberAccess(access) {
 
 try {
   const saved = JSON.parse(localStorage.getItem(ACCESS_MEMO) || 'null');
-  if (saved && typeof saved === 'object') platform.remembered = saved;
+  if (saved && typeof saved === 'object' && !platform.remembered) platform.remembered = saved;
 } catch { /* storage denied or corrupt */ }
 
 function sleep(ms) {
