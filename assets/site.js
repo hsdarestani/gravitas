@@ -277,44 +277,70 @@
   });
 
   /* ---- auth completion safety -------------------------------------------
-     production-bridge owns the real signup/login work and normally opens the
-     workspace after it has handed any guest library to the authenticated
-     account. That handover is useful but non-essential: a slow auxiliary
-     request must never leave a successfully authenticated person parked on
-     the account form forever.
+     production-bridge owns the real signup/login request and reader-library
+     adoption. Authentication itself must not depend on that auxiliary work,
+     and the bridge deliberately stops propagation at document level while it
+     owns the form. A document-level fallback can therefore be starved by
+     listener ordering even after the backend has created a valid session.
 
-     This listener is registered before the deferred production bridge. It
-     does not submit, mutate or compete with the auth flow. Four seconds after
-     an auth form was submitted it asks the authoritative session endpoint;
-     if the session is already valid and the bridge has not navigated yet, it
-     opens the workspace. The bridge is loaded there too, so a guest library
-     that was still pending is retried on the next page without losing data. */
+     Capture the submit one level earlier on window. Once an auth form starts,
+     poll only the authoritative session endpoint for a short bounded window.
+     As soon as Django confirms the session, navigation is guaranteed. The
+     production bridge can still finish library adoption first in the normal
+     fast path; if it stalls, the workspace loads and retries adoption there. */
   if (document.getElementById('p-up') || document.getElementById('p-in')) {
-    document.addEventListener('submit', function (event) {
-      var form = event.target;
-      if (!form || (form.id !== 'p-up' && form.id !== 'p-in')) return;
+    var authWatchTimer = null;
+    var authWatchDeadline = 0;
+    var authWatchBusy = false;
 
-      var attempts = 0;
-      function checkSession() {
-        if (location.pathname !== '/signup' && location.pathname !== '/login') return;
-        attempts += 1;
-        fetch('/api/auth/me/', {
-          credentials: 'same-origin',
-          headers: { 'Accept': 'application/json' }
-        }).then(function (response) {
-          return response.ok ? response.json() : null;
-        }).then(function (data) {
-          if (data && data.authenticated) {
-            location.href = '/workspace';
-            return;
-          }
-          if (attempts < 8) window.setTimeout(checkSession, 1000);
-        }).catch(function () {
-          if (attempts < 8) window.setTimeout(checkSession, 1000);
-        });
+    function onAuthRoute() {
+      return location.pathname === '/signup' ||
+        location.pathname === '/login' ||
+        location.pathname === '/account.html';
+    }
+
+    function checkAuthenticatedSession() {
+      if (!onAuthRoute() || Date.now() > authWatchDeadline) return;
+      if (authWatchBusy) {
+        authWatchTimer = window.setTimeout(checkAuthenticatedSession, 250);
+        return;
       }
 
-      window.setTimeout(checkSession, 4000);
+      authWatchBusy = true;
+      fetch('/api/auth/me/', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      }).then(function (response) {
+        return response.ok ? response.json() : null;
+      }).then(function (data) {
+        if (data && data.authenticated) {
+          location.replace('/workspace');
+          return true;
+        }
+        return false;
+      }).catch(function () {
+        return false;
+      }).then(function (done) {
+        authWatchBusy = false;
+        if (!done && onAuthRoute() && Date.now() <= authWatchDeadline) {
+          authWatchTimer = window.setTimeout(checkAuthenticatedSession, 500);
+        }
+      });
+    }
+
+    function armAuthWatchdog() {
+      authWatchDeadline = Date.now() + 30000;
+      if (authWatchTimer) window.clearTimeout(authWatchTimer);
+      authWatchTimer = window.setTimeout(checkAuthenticatedSession, 100);
+    }
+
+    // Window capture always runs before the bridge's document capture handler,
+    // so stopImmediatePropagation() there cannot suppress this safety path.
+    window.addEventListener('submit', function (event) {
+      var form = event.target;
+      if (!form || (form.id !== 'p-up' && form.id !== 'p-in')) return;
+      armAuthWatchdog();
     }, true);
   }
 
