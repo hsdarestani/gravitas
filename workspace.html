@@ -109,24 +109,45 @@
 
   <script type="module">
     import { start } from '/assets/ws/ws-app.js?v=20260914-1';
-    // Keep this URL exactly aligned with ws-five-layer.js and native app
-    // integrations so every surface shares one access/bootstrap state.
-    import { loadBootstrap } from '/assets/ws/ws-platform.js?v=20260914-7';
+    import { platform } from '/assets/ws/ws-platform.js?v=20260914-7';
     import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260914-3';
     import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20260914-2';
+    import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20260915-1';
+    import { installLiveKms } from '/assets/ws/ws-kms-live.js?v=20260915-1';
     import { installResearchWorkspaceActions } from '/assets/ws/ws-research-actions.js?v=20260915-1';
     import { installCoreContentActions } from '/assets/ws/ws-core-content-actions.js?v=20260915-1';
 
+    function waitForPlatform() {
+      if (platform.settled) return Promise.resolve();
+      return new Promise((resolve) => {
+        const started = performance.now();
+        const tick = () => {
+          if (platform.settled || performance.now() - started > 15000) resolve();
+          else setTimeout(tick, 16);
+        };
+        tick();
+      });
+    }
+
     async function bootWorkspace() {
-      await start();
-      // ws-app keeps its backwards-compatible data client while the five-layer
-      // shell uses the new access contract. Prime that module before drawing
-      // the rail so entitlements are never guessed in the browser.
-      await loadBootstrap();
+      // start() paints the shell synchronously and then waits on account
+      // bootstrap before fetching the heavier page tree. Install the layered
+      // navigation as soon as that entitlement bootstrap settles instead of
+      // making menus wait for every page to hydrate. The old boot path also
+      // called loadBootstrap() a second time here; that redundant request is
+      // intentionally gone.
+      const workspaceReady = start();
+      await waitForPlatform();
       installFiveLayer();
+      installNextcloudSsoBridge();
       installNextcloudNativeRouter();
+      installLiveKms();
       installResearchWorkspaceActions();
       installCoreContentActions();
+      await workspaceReady;
+      // start() may finish by rendering the legacy route after an overlay was
+      // installed. Re-run the route owners once with the fully hydrated tree.
+      dispatchEvent(new CustomEvent('ws:navigate'));
     }
 
     if (window.GravitasIcons) bootWorkspace();
