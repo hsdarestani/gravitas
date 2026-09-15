@@ -91,6 +91,14 @@ def _parent(user, raw):
 
 
 def _sync(resource, *, category=None, parent_note=None):
+    """Perform a conflict-aware placement only when the request needs it.
+
+    Ordinary create/edit saves are mirrored by space_signals' bounded worker
+    after the database commit. Keeping them off this path is intentional: a
+    user's keystroke or New note click must never wait for WebDAV. Explicit
+    parent moves still use this synchronous helper because moving a remote
+    path has conflict semantics that the request must report immediately.
+    """
     try:
         if category is not None or parent_note is not None or not NoteSpaceLink.objects.filter(resource=resource).exists():
             return place_note(resource, category=category, parent_note=parent_note, attachments=True)
@@ -152,7 +160,11 @@ def workspace_pages(request):
         workspace=workspace, actor=request.user, resource=resource,
         action='note_created', detail={'title': title},
     )
-    link = _sync(resource, category=category, parent_note=parent_note)
+    # Creation is durable as soon as the DB commit succeeds. The post-save
+    # worker mirrors it to Space/Nextcloud without extending this request.
+    # A requested parent/category remains in metadata and is resolved by that
+    # worker; no WebDAV call is allowed on the New note path.
+    link = NoteSpaceLink.objects.filter(resource=resource).first()
     payload = _page_json(resource)
     if link:
         payload['sync_state'], payload['sync_error'] = link.sync_state, link.sync_error
@@ -181,7 +193,8 @@ def workspace_page_detail(request, page_id):
         metadata['ws_blocks'] = data['blocks']
         resource.body = _plain_text(data['blocks'])
     category = parent_note = None
-    if 'parent' in data:
+    parent_changed = 'parent' in data
+    if parent_changed:
         try:
             parent, category, parent_note = _parent(request.user, data.get('parent'))
         except ValueError as exc:
@@ -195,7 +208,10 @@ def workspace_page_detail(request, page_id):
         workspace=resource.workspace, actor=request.user, resource=resource,
         project=resource.project, action='note_edited', detail={'title': resource.title},
     )
-    link = _sync(resource, category=category, parent_note=parent_note)
+    # Body/title/bookmark saves return immediately; the post-save worker keeps
+    # Nextcloud in sync. Parent moves remain synchronous so remote-path
+    # conflicts are handled before we claim the move succeeded.
+    link = _sync(resource, category=category, parent_note=parent_note) if parent_changed else NoteSpaceLink.objects.filter(resource=resource).first()
     payload = _page_json(resource)
     if link:
         payload['sync_state'], payload['sync_error'] = link.sync_state, link.sync_error
