@@ -1,0 +1,11 @@
+status=live
+url=https://cloud.gravitasplus.com/
+version=34.0.3
+team_folders=enabled
+notes=mirrored
+deck=mirrored
+mirror_cadence=2m
+assistant=optional
+sso=enabled
+nginx_guard=enabled
+verified_at=2026-09-15T17:46:23Z
