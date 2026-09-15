@@ -1,10 +1,12 @@
 import re
+from datetime import timedelta
 from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models.deletion import ProtectedError
+from django.utils import timezone
 
 from core import cloud
 from core.models import Workspace
@@ -123,10 +125,24 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--scope', choices=['auth', 'workspace', 'operating', 'all'], default='all')
         parser.add_argument('--dry-run', action='store_true')
+        parser.add_argument(
+            '--min-age-minutes',
+            type=int,
+            default=0,
+            help='Only delete matching E2E accounts at least this many minutes old.',
+        )
 
     def handle(self, *args, **options):
+        min_age_minutes = options['min_age_minutes']
+        if min_age_minutes < 0:
+            raise CommandError('--min-age-minutes must be zero or greater')
+
         scopes = list(SCOPES) if options['scope'] == 'all' else [options['scope']]
-        candidates = User.objects.filter(email__iendswith='@example.com', is_superuser=False, is_staff=False).order_by('pk')
+        candidates = User.objects.filter(email__iendswith='@example.com', is_superuser=False, is_staff=False)
+        if min_age_minutes:
+            cutoff = timezone.now() - timedelta(minutes=min_age_minutes)
+            candidates = candidates.filter(date_joined__lte=cutoff)
+        candidates = candidates.order_by('pk')
         matched = [user for user in candidates if any(matches_scope(user, scope) for scope in scopes)]
 
         if options['dry_run']:

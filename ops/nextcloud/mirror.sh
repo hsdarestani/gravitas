@@ -159,6 +159,72 @@ Persistent=true
 WantedBy=timers.target
 EOF
 
+# Operating production E2E is a workflow_run descendant of Auth, so GitHub's
+# workflow chaining depth can prevent a fourth workflow_run cleanup from ever
+# being scheduled. Keep that cleanup on the host instead of relying on another
+# Actions hop. The janitor only targets strict Operating E2E identities older
+# than five minutes, never real users or a test that has just registered.
+cat > /usr/local/sbin/gravitas-operating-e2e-janitor <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+BACKEND_PATH=/opt/gravitas-backend
+ENV_FILE=/etc/gravitas/backend.env
+
+TIMER_WAS_ENABLED=0
+if systemctl is-enabled --quiet gravitas-nextcloud-mirror.timer 2>/dev/null; then
+  TIMER_WAS_ENABLED=1
+fi
+restore_mirror() {
+  if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
+    systemctl start gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+  fi
+}
+trap restore_mirror EXIT
+
+# Quiesce native reconciliation during account/Nextcloud deletion so DAV
+# traffic cannot race the provisioning API cleanup.
+systemctl stop gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+systemctl stop gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
+
+runuser -u gravitas -- bash -c '
+  set -a
+  . /etc/gravitas/backend.env
+  set +a
+  export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+  export PYTHONPATH=/opt/gravitas-backend
+  cd /opt/gravitas-backend
+  exec .venv/bin/django-admin cleanup_production_e2e_users --scope operating --min-age-minutes 5
+'
+EOF
+chmod 750 /usr/local/sbin/gravitas-operating-e2e-janitor
+
+cat > /etc/systemd/system/gravitas-operating-e2e-janitor.service <<'EOF'
+[Unit]
+Description=Remove stale Gravitas Operating production E2E accounts
+After=network-online.target gravitas-backend.service docker.service
+Wants=network-online.target
+Requires=gravitas-backend.service docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/gravitas-operating-e2e-janitor
+Nice=10
+EOF
+
+cat > /etc/systemd/system/gravitas-operating-e2e-janitor.timer <<'EOF'
+[Unit]
+Description=Periodically remove stale Gravitas Operating production E2E accounts
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
 systemctl daemon-reload
 
 # Legacy identities may contain a valid decryptable secret that no longer
@@ -193,6 +259,20 @@ fi
 # repaired per-user request.
 reset_internal_bruteforce
 
+# Remove any stale Operating E2E account left by an earlier workflow chain while
+# reconciliation is already quiesced. This also proves the age-gated command on
+# every Nextcloud installation/repair before its periodic timer takes over.
+runuser -u gravitas -- bash -c '
+  set -a
+  . /etc/gravitas/backend.env
+  set +a
+  export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+  export PYTHONPATH=/opt/gravitas-backend
+  cd /opt/gravitas-backend
+  exec .venv/bin/django-admin cleanup_production_e2e_users --scope operating --min-age-minutes 5
+'
+
+systemctl enable --now gravitas-operating-e2e-janitor.timer
 systemctl enable --now gravitas-nextcloud-mirror.timer
 systemctl reset-failed gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
 
@@ -206,5 +286,8 @@ if ! systemctl start gravitas-nextcloud-mirror.service; then
 fi
 systemctl is-enabled gravitas-nextcloud-mirror.timer >/dev/null
 systemctl is-active gravitas-nextcloud-mirror.timer >/dev/null
+systemctl is-enabled gravitas-operating-e2e-janitor.timer >/dev/null
+systemctl is-active gravitas-operating-e2e-janitor.timer >/dev/null
 
 echo "Gravitas Nextcloud mirror timer installed (2 minute cadence)."
+echo "Gravitas Operating E2E janitor installed (2 minute cadence, 5 minute age guard)."
