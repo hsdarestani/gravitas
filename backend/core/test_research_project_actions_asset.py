@@ -40,7 +40,7 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         source = (root / 'assets/ws/ws-project-actions.js').read_text(encoding='utf-8')
         for endpoint in (
             '/platform/projects/${projectId}/tasks/',
-            '/platform/tasks/${fields.task.value}/',
+            '/platform/tasks/${fields.picker.value}/',
             '/platform/resources/',
             '/platform/files/upload/',
             '/platform/share/',
