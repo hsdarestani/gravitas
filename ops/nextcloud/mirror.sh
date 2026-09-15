@@ -6,6 +6,7 @@ ENV_FILE=/etc/gravitas/backend.env
 NC_CONTAINER="${NC_CONTAINER:-gravitas-nextcloud}"
 NC_DB_CONTAINER="${NC_DB_CONTAINER:-gravitas-nextcloud-db}"
 NC_NETWORK="${NC_NETWORK:-gravitas-nextcloud}"
+IDENTITY_LOCK=/run/gravitas-nextcloud-identity.lock
 
 if [ ! -x "$BACKEND_PATH/.venv/bin/django-admin" ]; then
   echo "Gravitas backend virtualenv is not ready at $BACKEND_PATH" >&2
@@ -141,7 +142,7 @@ WorkingDirectory=$BACKEND_PATH
 EnvironmentFile=$ENV_FILE
 Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
 Environment=PYTHONPATH=$BACKEND_PATH
-ExecStart=$BACKEND_PATH/.venv/bin/django-admin reconcile_nextcloud_native
+ExecStart=/usr/bin/flock -w 300 $IDENTITY_LOCK $BACKEND_PATH/.venv/bin/django-admin reconcile_nextcloud_native
 Nice=5
 EOF
 
@@ -164,37 +165,24 @@ EOF
 # being scheduled. Keep that cleanup on the host instead of relying on another
 # Actions hop. The janitor only targets strict Operating E2E identities older
 # than five minutes, never real users or a test that has just registered.
+#
+# Reconciliation and deletion share one flock instead of stopping each other's
+# systemd units. A verification-triggered mirror run therefore waits for cleanup
+# (or vice versa) and can never be canceled by the janitor.
 cat > /usr/local/sbin/gravitas-operating-e2e-janitor <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-BACKEND_PATH=/opt/gravitas-backend
-ENV_FILE=/etc/gravitas/backend.env
 
-TIMER_WAS_ENABLED=0
-if systemctl is-enabled --quiet gravitas-nextcloud-mirror.timer 2>/dev/null; then
-  TIMER_WAS_ENABLED=1
-fi
-restore_mirror() {
-  if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
-    systemctl start gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
-  fi
-}
-trap restore_mirror EXIT
-
-# Quiesce native reconciliation during account/Nextcloud deletion so DAV
-# traffic cannot race the provisioning API cleanup.
-systemctl stop gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
-systemctl stop gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
-
-runuser -u gravitas -- bash -c '
-  set -a
-  . /etc/gravitas/backend.env
-  set +a
-  export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
-  export PYTHONPATH=/opt/gravitas-backend
-  cd /opt/gravitas-backend
-  exec .venv/bin/django-admin cleanup_production_e2e_users --scope operating --min-age-minutes 5
-'
+exec /usr/bin/flock -w 300 /run/gravitas-nextcloud-identity.lock \
+  /usr/sbin/runuser -u gravitas -- bash -c '
+    set -a
+    . /etc/gravitas/backend.env
+    set +a
+    export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+    export PYTHONPATH=/opt/gravitas-backend
+    cd /opt/gravitas-backend
+    exec .venv/bin/django-admin cleanup_production_e2e_users --scope operating --min-age-minutes 5
+  '
 EOF
 chmod 750 /usr/local/sbin/gravitas-operating-e2e-janitor
 
@@ -262,7 +250,7 @@ reset_internal_bruteforce
 # Remove any stale Operating E2E account left by an earlier workflow chain while
 # reconciliation is already quiesced. This also proves the age-gated command on
 # every Nextcloud installation/repair before its periodic timer takes over.
-runuser -u gravitas -- bash -c '
+/usr/bin/flock -w 300 "$IDENTITY_LOCK" /usr/sbin/runuser -u gravitas -- bash -c '
   set -a
   . /etc/gravitas/backend.env
   set +a
@@ -290,4 +278,4 @@ systemctl is-enabled gravitas-operating-e2e-janitor.timer >/dev/null
 systemctl is-active gravitas-operating-e2e-janitor.timer >/dev/null
 
 echo "Gravitas Nextcloud mirror timer installed (2 minute cadence)."
-echo "Gravitas Operating E2E janitor installed (2 minute cadence, 5 minute age guard)."
+echo "Gravitas Operating E2E janitor installed (2 minute cadence, 5 minute age guard, shared identity lock)."
