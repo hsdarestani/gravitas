@@ -164,7 +164,9 @@ function normalizeRail() {
 
   const area = topArea();
   rail.append(railButton('overview', 'Dashboard', area === 'dashboard', '/workspace/dashboard'));
-  rail.append(document.createElement('div')).className = 'ws-rail__rule';
+  const rule = document.createElement('div');
+  rule.className = 'ws-rail__rule';
+  rail.append(rule);
 
   if (P.canOpenLms() || area === 'learning') rail.append(railButton('space-knowledge', 'Learning', area === 'learning', '/workspace/learning'));
   if (P.canOpenResearch() || area === 'research') rail.append(railButton('space-research', 'Research', area === 'research', '/workspace/research'));
