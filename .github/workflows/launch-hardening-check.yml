@@ -95,6 +95,7 @@ jobs:
           core.test_core_task_links
           core.test_kms_state_api
           core.test_kms_live_contract
+          core.test_workspace_note_latency
           core.test_oidc_sso
           core.test_nextcloud_credential_repair
           --noinput
