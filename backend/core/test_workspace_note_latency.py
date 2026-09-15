@@ -20,6 +20,7 @@ class WorkspaceNoteLatencyTests(TestCase):
             '/api/workspace/pages/',
             json.dumps({'title': 'Fast note', 'kind': 'note', 'space': 'kms'}),
             content_type='application/json',
+            secure=True,
         )
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(response.json()['page']['space'], 'kms')
@@ -32,6 +33,7 @@ class WorkspaceNoteLatencyTests(TestCase):
             '/api/workspace/pages/',
             json.dumps({'title': 'Draft', 'kind': 'note', 'space': 'kms'}),
             content_type='application/json',
+            secure=True,
         ).json()['page']
         response = self.client.patch(
             f"/api/workspace/pages/{created['id']}/",
@@ -40,6 +42,7 @@ class WorkspaceNoteLatencyTests(TestCase):
                 'blocks': [{'id': 'b-1', 'type': 'p', 'text': 'Saved locally first.'}],
             }),
             content_type='application/json',
+            secure=True,
         )
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['page']['title'], 'Draft renamed')
