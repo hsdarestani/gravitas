@@ -5,6 +5,7 @@ from core.ai_mindmap import generate_mindmap_ai
 from core.assistant_api import assistant_ask
 from core.ai_provider_api import ai_provider_detail, ai_providers
 from core.content_api import content_page
+from core.kms_api import kms_state
 from core.legacy_folder_cleanup import project_legacy_folders
 from core.nextcloud_public_api import nextcloud_client_credentials_canonical, nextcloud_status_canonical
 from core.oidc_provider import (
@@ -52,6 +53,7 @@ urlpatterns = [
     path('api/platform/space/reconcile/', reconcile_space_complete),
     path('api/platform/pages/', workspace_pages),
     path('api/platform/pages/<str:page_id>/', workspace_page_detail),
+    path('api/platform/kms/state/', kms_state),
     # Safe cleanup for the six fixed folders created by older Gravitas builds.
     # This route precedes core.urls so it remains canonical even as the legacy
     # project API surface evolves.
