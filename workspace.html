@@ -130,6 +130,14 @@
     }
 
     async function bootWorkspace() {
+      // Own the two legacy KMS routes before ws-app gets its first chance to
+      // draw the old local/sample renderer. installLiveKms schedules its live
+      // account-backed render in the same task, so seeded content never makes
+      // it to a browser paint. The SSO wrapper is also installed before any
+      // native-app launcher can open a raw Nextcloud URL.
+      installLiveKms();
+      installNextcloudSsoBridge();
+
       // start() paints the shell synchronously and then waits on account
       // bootstrap before fetching the heavier page tree. Install the layered
       // navigation as soon as that entitlement bootstrap settles instead of
@@ -139,14 +147,12 @@
       const workspaceReady = start();
       await waitForPlatform();
       installFiveLayer();
-      installNextcloudSsoBridge();
       installNextcloudNativeRouter();
-      installLiveKms();
       installResearchWorkspaceActions();
       installCoreContentActions();
       await workspaceReady;
-      // start() may finish by rendering the legacy route after an overlay was
-      // installed. Re-run the route owners once with the fully hydrated tree.
+      // start() may finish by rendering a legacy route after an overlay was
+      // installed. Re-run route owners once with the fully hydrated tree.
       dispatchEvent(new CustomEvent('ws:navigate'));
     }
 
