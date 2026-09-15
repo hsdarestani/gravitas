@@ -60,6 +60,8 @@ jobs:
           node --check assets/ws/ws-home.js
           node --check assets/ws/ws-kms.js
           node --check assets/ws/ws-kms-views.js
+          node --check assets/ws/ws-kms-live.js
+          node --check assets/ws/ws-nextcloud-sso.js
           node --check assets/ws/ws-core-assets.js
           node --check assets/ws/ws-five-layer.js
           node --check assets/ws/ws-member-lms.js
@@ -82,7 +84,7 @@ jobs:
         run: django-admin migrate --noinput
       - name: Check Django configuration
         run: django-admin check
-      - name: Run Gravitas workspace role team five-layer and credential-repair regression tests
+      - name: Run Gravitas workspace role team five-layer KMS SSO and credential-repair regression tests
         run: >-
           django-admin test
           core.test_operating
@@ -91,6 +93,9 @@ jobs:
           core.test_team_api
           core.test_auth_logout_flow
           core.test_core_task_links
+          core.test_kms_state_api
+          core.test_kms_live_contract
+          core.test_oidc_sso
           core.test_nextcloud_credential_repair
           --noinput
       - name: Verify CMS translations Community and Lab schema
