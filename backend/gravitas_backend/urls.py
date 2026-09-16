@@ -18,6 +18,7 @@ from core.oidc_provider import (
 )
 from core.operating_api_v4 import operating_dashboard, milestones, risks, tasks, work_packages
 from core.project_cockpit_v2 import project_cockpit
+from core.research_deliverable_api import project_deliverable_detail
 from core.research_milestone_api import project_milestone_detail, project_milestones
 from core.roadmap_okr import roadmap_okr_sync
 from core.space_api import space_tree
@@ -71,6 +72,7 @@ urlpatterns = [
     # Research surface owns their project ACL and mutation controls.
     path('api/platform/projects/<int:project_id>/milestones/', project_milestones),
     path('api/platform/projects/<int:project_id>/milestones/<int:milestone_id>/', project_milestone_detail),
+    path('api/platform/projects/<int:project_id>/deliverables/<int:deliverable_id>/', project_deliverable_detail),
     # Bridge Core planning to the separate canonical Research workspace. These
     # routes intentionally shadow the legacy operating endpoints in core.urls.
     path('api/operating/dashboard/', operating_dashboard),
