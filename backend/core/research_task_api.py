@@ -10,6 +10,7 @@ from .models import ResearchProject
 from .operating_models import (
     Initiative,
     KeyResult,
+    OperatingMilestone,
     OperatingProcess,
     OperatingTask,
     Priority,
@@ -49,24 +50,35 @@ def _project(request, project_id, minimum='view'):
 def _execution_initiative(project, actor):
     """Return the canonical Core execution initiative for a Research project.
 
-    Research and Core deliberately share one task object. A task created from
-    the Research surface therefore still belongs to the Core operating model
-    (and consequently to the Nextcloud Deck mirror), while its project ACL is
-    inherited from the Research project.
+    Research and Core deliberately share one task object. A task or milestone
+    created from Research therefore still belongs to the Core operating model
+    while inheriting its project ACL from the Research project.
     """
     spaces = ensure_platform_workspaces(actor)
     core = spaces['core']
     operating_base._ensure_processes(core)
     process = OperatingProcess.objects.get(workspace=core, key=OperatingProcess.Key.RESEARCH)
 
-    existing = (
+    existing_task = (
         OperatingTask.objects.filter(project=project, workspace=core)
         .select_related('initiative')
         .order_by('id')
         .first()
     )
-    if existing:
-        return core, existing.initiative
+    if existing_task:
+        return core, existing_task.initiative
+
+    # A milestone may be the first execution object created for a project. Reuse
+    # its initiative so a later task does not fork the Core execution hierarchy
+    # if the Research project title has changed meanwhile.
+    existing_milestone = (
+        OperatingMilestone.objects.filter(project=project, workspace=core)
+        .select_related('initiative')
+        .order_by('id')
+        .first()
+    )
+    if existing_milestone:
+        return core, existing_milestone.initiative
 
     objective = StrategicObjective.objects.filter(
         workspace=core,
