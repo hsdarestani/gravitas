@@ -1,5 +1,6 @@
 import json
 
+from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
@@ -89,10 +90,25 @@ def _workspace_write_error(user, raw, *, project_id=None):
     return None
 
 
+def _add_native_project_user(project, user):
+    """Mirror membership when Nextcloud is enabled; local-only installs stay usable.
+
+    Test/development deployments intentionally leave the Nextcloud service
+    credentials empty. That is a disabled integration, not a failed sync. Once
+    credentials exist, transport/API failures still propagate and the caller's
+    database transaction is rolled back.
+    """
+    try:
+        nextcloud_bridge.add_project_user(project, user)
+    except ImproperlyConfigured:
+        return False
+    return True
+
+
 def _grant_project_editor(project, user, granted_by):
     """Ensure one Research collaborator can actually work in both systems."""
     if user.pk == project.owner_id:
-        nextcloud_bridge.add_project_user(project, user)
+        _add_native_project_user(project, user)
         return
 
     membership = ProjectMembership.objects.filter(project=project, user=user).first()
@@ -111,7 +127,7 @@ def _grant_project_editor(project, user, granted_by):
     if not grant or ROLE_RANK.get(grant.role, 0) < ROLE_RANK['edit']:
         grant_role(project, user, 'edit', granted_by=granted_by)
 
-    nextcloud_bridge.add_project_user(project, user)
+    _add_native_project_user(project, user)
 
 
 @require_http_methods(['GET'])
@@ -193,13 +209,7 @@ def platform_file_upload_strict(request):
 
 @require_http_methods(['GET', 'POST', 'DELETE'])
 def entity_links_safe(request):
-    """Delete GenericForeignKey links only when the exact pair matches.
-
-    Object primary keys are not globally unique across models. The legacy
-    DELETE path matched only source_object_id/target_object_id, so an editor of
-    Project(id=7) could delete an unrelated Resource(id=7) link by guessing its
-    link id. ContentType is part of generic-object identity and must be included.
-    """
+    """Delete GenericForeignKey links only when the exact pair matches."""
     if request.method != 'DELETE':
         return base_entity_links(request)
     if response := _auth(request):
