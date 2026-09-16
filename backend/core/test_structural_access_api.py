@@ -11,7 +11,13 @@ from django.utils import timezone
 from . import cloud, nextcloud_bridge
 from .layer_access import set_module_grant
 from .layer_models import ModuleGrant
-from .models import Collection, KnowledgeResource, ProjectMembership, ResearchProject
+from .models import (
+    Collection,
+    KnowledgeResource,
+    ProjectMembership,
+    ResearchProject,
+    WorkspaceMembership,
+)
 from .platform_access import content_type_for, policy_for
 from .platform_models import AccessGrant, ObjectPolicy, ProjectApplication, ResearchRequest
 from .platform_runtime_v3 import ensure_platform_workspaces
@@ -89,6 +95,49 @@ class StructuralAccessApiTests(TestCase):
         resources = self.client.get('/api/platform/resources/?workspace=typo')
         self.assertEqual(resources.status_code, 400, resources.content)
         self.assertEqual(resources.json()['error'], 'invalid_workspace')
+
+    def test_non_core_user_cannot_create_resource_in_canonical_core(self):
+        self.assertFalse(WorkspaceMembership.objects.filter(
+            workspace=self.spaces['core'],
+            user=self.other,
+        ).exists())
+        self.client.force_login(self.other)
+        response = self.post_json('/api/platform/resources/', {
+            'workspace_id': self.spaces['core'].pk,
+            'kind': 'note',
+            'title': 'Core contamination attempt',
+            'body': 'Must stay out of Core.',
+        })
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.json()['error'], 'core_workspace_for_internal_team_only')
+        self.assertFalse(KnowledgeResource.objects.filter(title='Core contamination attempt').exists())
+        self.assertFalse(WorkspaceMembership.objects.filter(
+            workspace=self.spaces['core'],
+            user=self.other,
+        ).exists())
+
+    def test_research_suspension_blocks_project_scoped_resource_create(self):
+        ProjectMembership.objects.create(
+            project=self.project,
+            user=self.collaborator,
+            role=ProjectMembership.Role.EDITOR,
+        )
+        set_module_grant(
+            self.collaborator,
+            ModuleGrant.Module.RESEARCH,
+            enabled=False,
+            access_level=ModuleGrant.AccessLevel.EDIT,
+        )
+        self.client.force_login(self.collaborator)
+        response = self.post_json('/api/platform/resources/', {
+            'project_id': self.project.pk,
+            'kind': 'note',
+            'title': 'Suspended project mutation',
+            'body': 'Must be blocked by the layer suspension.',
+        })
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.json()['error'], 'research_access_required')
+        self.assertFalse(KnowledgeResource.objects.filter(title='Suspended project mutation').exists())
 
     def test_research_dashboard_does_not_leak_requests_from_other_private_projects(self):
         ProjectMembership.objects.create(
