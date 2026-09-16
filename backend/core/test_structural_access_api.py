@@ -11,9 +11,9 @@ from django.utils import timezone
 from . import cloud, nextcloud_bridge
 from .layer_access import set_module_grant
 from .layer_models import ModuleGrant
-from .models import KnowledgeResource, ProjectMembership, ResearchProject
-from .platform_access import content_type_for
-from .platform_models import AccessGrant, ProjectApplication, ResearchRequest
+from .models import Collection, KnowledgeResource, ProjectMembership, ResearchProject
+from .platform_access import content_type_for, policy_for
+from .platform_models import AccessGrant, ObjectPolicy, ProjectApplication, ResearchRequest
 from .platform_runtime_v3 import ensure_platform_workspaces
 
 
@@ -80,6 +80,79 @@ class StructuralAccessApiTests(TestCase):
         self.assertEqual(response.status_code, 404, response.content)
         self.assertEqual(response.json()['error'], 'workspace_not_found')
         self.assertFalse(KnowledgeResource.objects.filter(original_name='contract.txt').exists())
+
+    def test_invalid_named_workspace_selectors_are_rejected(self):
+        dashboard = self.client.get('/api/platform/dashboard/?workspace=typo')
+        self.assertEqual(dashboard.status_code, 400, dashboard.content)
+        self.assertEqual(dashboard.json()['error'], 'invalid_workspace')
+
+        resources = self.client.get('/api/platform/resources/?workspace=typo')
+        self.assertEqual(resources.status_code, 400, resources.content)
+        self.assertEqual(resources.json()['error'], 'invalid_workspace')
+
+    def test_research_dashboard_does_not_leak_requests_from_other_private_projects(self):
+        ProjectMembership.objects.create(
+            project=self.project,
+            user=self.collaborator,
+            role=ProjectMembership.Role.VIEWER,
+        )
+        visible_request = ResearchRequest.objects.create(
+            workspace=self.project.workspace,
+            project=self.project,
+            requested_by=self.owner,
+            title='Visible request',
+        )
+        hidden_project = ResearchProject.objects.create(
+            workspace=self.spaces['research'],
+            owner=self.other,
+            title='Other private project',
+        )
+        hidden_request = ResearchRequest.objects.create(
+            workspace=hidden_project.workspace,
+            project=hidden_project,
+            requested_by=self.other,
+            title='Hidden request',
+        )
+
+        self.client.force_login(self.collaborator)
+        response = self.client.get('/api/platform/dashboard/?workspace=research')
+        self.assertEqual(response.status_code, 200, response.content)
+        ids = {item['id'] for item in response.json()['research_requests']}
+        self.assertIn(visible_request.pk, ids)
+        self.assertNotIn(hidden_request.pk, ids)
+        self.assertEqual(response.json()['counts']['research_requests'], 1)
+
+    def test_project_detail_hides_folder_names_outside_object_acl(self):
+        ProjectMembership.objects.create(
+            project=self.project,
+            user=self.collaborator,
+            role=ProjectMembership.Role.VIEWER,
+        )
+        visible = Collection.objects.create(
+            workspace=self.project.workspace,
+            project=self.project,
+            name='Shared evidence',
+            created_by=self.owner,
+        )
+        hidden = Collection.objects.create(
+            workspace=self.project.workspace,
+            project=self.project,
+            name='Restricted analysis',
+            created_by=self.owner,
+        )
+        policy_for(
+            hidden,
+            create=True,
+            created_by=self.owner,
+            default_visibility=ObjectPolicy.Visibility.PRIVATE,
+        )
+
+        self.client.force_login(self.collaborator)
+        response = self.client.get(f'/api/platform/projects/{self.project.pk}/')
+        self.assertEqual(response.status_code, 200, response.content)
+        folder_ids = {item['id'] for item in response.json()['folders']}
+        self.assertIn(visible.pk, folder_ids)
+        self.assertNotIn(hidden.pk, folder_ids)
 
     @patch('core.structural_access_api.base_project_nextcloud_sync')
     def test_acl_reconcile_requires_project_manager_not_viewer(self, base_sync):
