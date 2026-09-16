@@ -3,6 +3,8 @@ from pathlib import PurePosixPath
 from urllib.parse import quote
 
 from django.conf import settings
+from django.db.models import Q
+from django.utils import timezone
 
 from . import cloud
 from .models import Collection, KnowledgeResource, ProjectMembership, StoragePlan, WorkspaceMembership
@@ -192,9 +194,12 @@ def _manager_users(project):
 
 def _explicit_roles(obj):
     roles = {}
+    now = timezone.now()
     grants = AccessGrant.objects.filter(
         content_type=content_type_for(obj),
         object_id=obj.pk,
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
     ).select_related('user')
     for grant in grants:
         roles[grant.user_id] = (grant.user, grant.role)
@@ -296,7 +301,7 @@ def create_native_client_credentials(user):
         headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'},
         params={'format': 'json'},
     )
-    data = cloud._ocs_data(response, 'Could not create a Nextcloud app password')
+    data = cloud._ocs_data(response, 'Could not create Nextcloud app password')
     app_password = data.get('apppassword') if isinstance(data, dict) else data
     if not app_password:
         raise cloud.CloudError('Nextcloud did not return an app password')

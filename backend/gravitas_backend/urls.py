@@ -32,6 +32,16 @@ from core.space_full_api import (
     space_sync_full,
 )
 from core.space_reconcile_full import reconcile_space_complete
+from core.structural_access_api import (
+    entity_links_safe,
+    platform_dashboard_acl_safe,
+    platform_file_upload_strict,
+    platform_project_detail_acl_safe,
+    platform_resources_strict,
+    project_application_detail_synced,
+    project_nextcloud_sync_manage,
+    research_request_detail_synced,
+)
 from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
 urlpatterns = [
@@ -67,12 +77,23 @@ urlpatterns = [
     path('api/platform/nextcloud/', nextcloud_status_canonical),
     path('api/platform/nextcloud/client-credentials/', nextcloud_client_credentials_canonical),
     path('api/platform/nextcloud/sso/', nextcloud_sso),
+    path('api/platform/dashboard/', platform_dashboard_acl_safe),
+    path('api/platform/projects/<int:project_id>/', platform_project_detail_acl_safe),
+    path('api/platform/links/', entity_links_safe),
     path('api/platform/projects/<int:project_id>/cockpit/', project_cockpit),
     # Research milestones share the canonical Core operating objects, but the
     # Research surface owns their project ACL and mutation controls.
     path('api/platform/projects/<int:project_id>/milestones/', project_milestones),
     path('api/platform/projects/<int:project_id>/milestones/<int:milestone_id>/', project_milestone_detail),
     path('api/platform/projects/<int:project_id>/deliverables/<int:deliverable_id>/', project_deliverable_detail),
+    # Structural access guards: explicit invalid workspace ids must not fall
+    # back to Personal, ACL reconciliation is manager-only, and project access
+    # changes must stay synchronized with native Nextcloud membership.
+    path('api/platform/resources/', platform_resources_strict),
+    path('api/platform/files/upload/', platform_file_upload_strict),
+    path('api/platform/projects/<int:project_id>/nextcloud/sync/', project_nextcloud_sync_manage),
+    path('api/platform/research-requests/<int:request_id>/', research_request_detail_synced),
+    path('api/platform/projects/<int:project_id>/applications/<int:application_id>/', project_application_detail_synced),
     # Bridge Core planning to the separate canonical Research workspace. These
     # routes intentionally shadow the legacy operating endpoints in core.urls.
     path('api/operating/dashboard/', operating_dashboard),
