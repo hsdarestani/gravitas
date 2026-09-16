@@ -9,12 +9,18 @@ from .layer_guards import require_research_or_core
 from .models import ProjectMembership, ResearchProject
 from .nextcloud_api import project_nextcloud_sync as base_project_nextcloud_sync
 from .platform_access import ROLE_RANK, can_manage, can_view, content_type_for, grant_role
-from .platform_api import _audit, ensure_dual_workspaces
+from .platform_api import (
+    _audit,
+    _request_json,
+    ensure_dual_workspaces,
+    platform_project_detail as base_platform_project_detail,
+)
 from .platform_models import AccessGrant, ProjectApplication, ResearchRequest
 from .platform_resources_api import (
     platform_file_upload as base_platform_file_upload,
     platform_resources as base_platform_resources,
 )
+from .platform_runtime_v3 import platform_dashboard_v3 as base_platform_dashboard
 
 
 def _body(request):
@@ -70,6 +76,52 @@ def _grant_project_editor(project, user, granted_by):
         grant_role(project, user, 'edit', granted_by=granted_by)
 
     nextcloud_bridge.add_project_user(project, user)
+
+
+@require_http_methods(['GET'])
+def platform_dashboard_acl_safe(request):
+    """Keep Research dashboard summaries inside the same object ACL boundary.
+
+    The legacy Research dashboard filtered projects and resources, but returned
+    research requests from every project in the shared Research workspace. A
+    participant in project A could therefore see request metadata from private
+    project B. Rebuild only that summary from objects the caller can view.
+    """
+    response = base_platform_dashboard(request)
+    if response.status_code != 200 or request.GET.get('workspace', 'core').strip().lower() != 'research':
+        return response
+
+    data = json.loads(response.content.decode('utf-8'))
+    spaces = ensure_dual_workspaces(request.user)
+    qs = ResearchRequest.objects.filter(project__workspace=spaces['research']).select_related(
+        'project', 'assignee', 'content_work_item'
+    )
+    visible = [item for item in qs if can_view(request.user, item)]
+    data['research_requests'] = [_request_json(item) for item in visible[:12]]
+    data.setdefault('counts', {})['research_requests'] = sum(
+        1 for item in visible if item.status not in {'done', 'cancelled'}
+    )
+    return JsonResponse(data)
+
+
+@require_research_or_core
+@require_http_methods(['GET', 'PATCH', 'DELETE'])
+def platform_project_detail_acl_safe(request, project_id):
+    """Do not expose names of project folders the caller cannot view."""
+    response = base_platform_project_detail(request, project_id)
+    if request.method != 'GET' or response.status_code != 200:
+        return response
+
+    project = ResearchProject.objects.filter(pk=project_id, archived=False).first()
+    if not project:
+        return response
+    data = json.loads(response.content.decode('utf-8'))
+    data['folders'] = [
+        {'id': item.pk, 'name': item.name, 'parent_id': item.parent_id}
+        for item in project.collections.select_related('parent')
+        if can_view(request.user, item)
+    ]
+    return JsonResponse(data)
 
 
 @require_http_methods(['GET', 'POST'])
@@ -173,7 +225,6 @@ def research_request_detail_synced(request, request_id):
     except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError):
         return _error('cloud_membership_sync_failed', 503)
 
-    from .platform_api import _request_json
     return JsonResponse({'ok': True, 'item': _request_json(item)})
 
 
