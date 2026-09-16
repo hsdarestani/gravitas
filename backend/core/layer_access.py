@@ -70,14 +70,16 @@ def _research_participation(user):
     if ProjectMembership.objects.filter(user=user, project__archived=False).exists():
         return True
 
-    # Direct project grants are also legitimate participation. Only project
-    # grants count here; a shared note must not silently unlock an entire
-    # workspace.
+    # Direct project grants are also legitimate participation. Only active
+    # project grants count here; a stale grant to an archived project must not
+    # reopen the whole Research product layer.
     project_ct = ContentType.objects.get_for_model(ResearchProject, for_concrete_model=False)
+    active_project_ids = ResearchProject.objects.filter(archived=False).values_list('pk', flat=True)
     now = timezone.now()
     return AccessGrant.objects.filter(
         user=user,
         content_type=project_ct,
+        object_id__in=active_project_ids,
     ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now)).exists()
 
 
