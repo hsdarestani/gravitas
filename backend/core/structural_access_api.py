@@ -5,7 +5,9 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from . import cloud, nextcloud_bridge
+from .layer_access import module_access
 from .layer_guards import require_research_or_core
+from .layer_models import ModuleGrant
 from .models import ProjectMembership, ResearchProject
 from .nextcloud_api import project_nextcloud_sync as base_project_nextcloud_sync
 from .platform_access import ROLE_RANK, can_manage, can_view, content_type_for, grant_role
@@ -20,7 +22,7 @@ from .platform_resources_api import (
     platform_file_upload as base_platform_file_upload,
     platform_resources as base_platform_resources,
 )
-from .platform_runtime_v3 import platform_dashboard_v3 as base_platform_dashboard
+from .platform_runtime_v3 import core_access, platform_dashboard_v3 as base_platform_dashboard
 
 
 def _body(request):
@@ -39,22 +41,38 @@ def _auth(request):
     return _error('authentication_required', 401) if not request.user.is_authenticated else None
 
 
-def _workspace_id_is_valid(user, raw):
-    if raw in (None, ''):
-        return True
+def _workspace_context(user, raw):
     spaces = ensure_dual_workspaces(user)
-    return any(str(workspace.pk) == str(raw).strip() for workspace in spaces.values())
+    if raw in (None, ''):
+        return spaces, None
+    raw = str(raw).strip()
+    key = next((name for name, workspace in spaces.items() if str(workspace.pk) == raw), None)
+    return spaces, key
+
+
+def _workspace_write_error(user, raw, *, project_id=None):
+    """Validate an explicit write target without widening shared-service access."""
+    spaces, key = _workspace_context(user, raw)
+    if raw not in (None, '') and key is None:
+        return _error('workspace_not_found', 404)
+
+    # A project-scoped create is a Research mutation even though files/notes
+    # live behind a shared service. Explicit Research suspension must therefore
+    # still win; Core remains the Layer 5 control plane.
+    if project_id not in (None, ''):
+        if not module_access(user, ModuleGrant.Module.RESEARCH) and not core_access(user, spaces['core']):
+            return _error('research_access_required', 403)
+
+    if key == 'core' and not core_access(user, spaces['core']):
+        return _error('core_workspace_for_internal_team_only', 403)
+    if key == 'research':
+        if not module_access(user, ModuleGrant.Module.RESEARCH) and not core_access(user, spaces['core']):
+            return _error('research_access_required', 403)
+    return None
 
 
 def _grant_project_editor(project, user, granted_by):
-    """Ensure one Research collaborator can actually work in both systems.
-
-    Gravitas project ACL and the native Nextcloud Team Folder are one access
-    contract. Older call sites sometimes created only an AccessGrant, or only
-    a ProjectMembership, which made the UI say someone had access while the
-    data room still rejected them. Preserve stronger existing roles and make
-    the native membership part of the same transaction boundary.
-    """
+    """Ensure one Research collaborator can actually work in both systems."""
     if user.pk == project.owner_id:
         nextcloud_bridge.add_project_user(project, user)
         return
@@ -124,7 +142,7 @@ def platform_project_detail_acl_safe(request, project_id):
 
 @require_http_methods(['GET', 'POST'])
 def platform_resources_strict(request):
-    """Reject explicit invalid workspace selectors instead of broad fallback."""
+    """Reject invalid selectors and product-layer write boundary bypasses."""
     if response := _auth(request):
         return response
     if request.method == 'GET':
@@ -133,8 +151,12 @@ def platform_resources_strict(request):
             return _error('invalid_workspace')
     else:
         data = _body(request)
-        if not _workspace_id_is_valid(request.user, data.get('workspace_id')):
-            return _error('workspace_not_found', 404)
+        if error := _workspace_write_error(
+            request.user,
+            data.get('workspace_id'),
+            project_id=data.get('project_id'),
+        ):
+            return error
     return base_platform_resources(request)
 
 
@@ -142,8 +164,12 @@ def platform_resources_strict(request):
 def platform_file_upload_strict(request):
     if response := _auth(request):
         return response
-    if not _workspace_id_is_valid(request.user, request.POST.get('workspace_id')):
-        return _error('workspace_not_found', 404)
+    if error := _workspace_write_error(
+        request.user,
+        request.POST.get('workspace_id'),
+        project_id=request.POST.get('project_id'),
+    ):
+        return error
     return base_platform_file_upload(request)
 
 
