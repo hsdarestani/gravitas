@@ -13,6 +13,7 @@ from .operating_models import (
     OperatingProcess,
     OperatingRisk,
     OperatingTask,
+    OperatingWorkPackage,
     Priority,
     StrategicObjective,
     WorkStatus,
@@ -106,6 +107,18 @@ class OperatingResearchBridgeTests(TestCase):
         milestone_id = milestone.json()['milestone']['id']
         self.assertEqual(milestone.json()['milestone']['project_id'], self.project.pk)
         self.assertEqual(OperatingMilestone.objects.get(pk=milestone_id).project_id, self.project.pk)
+
+        work_package = self.post_json('/api/operating/work-packages/', {
+            'milestone_id': milestone_id,
+            'owner_id': self.user.pk,
+            'project_id': self.project.pk,
+            'title': 'Cross-workspace package',
+            'due_date': (date.today() + timedelta(days=8)).isoformat(),
+        })
+        self.assertEqual(work_package.status_code, 201, work_package.content)
+        work_package_id = work_package.json()['work_package']['id']
+        self.assertEqual(work_package.json()['work_package']['project_id'], self.project.pk)
+        self.assertEqual(OperatingWorkPackage.objects.get(pk=work_package_id).project_id, self.project.pk)
 
         risk = self.post_json('/api/operating/risks/', {
             'initiative_id': self.initiative.pk,
