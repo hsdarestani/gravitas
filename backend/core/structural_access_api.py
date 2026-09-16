@@ -9,12 +9,24 @@ from .layer_access import module_access
 from .layer_guards import require_research_or_core
 from .layer_models import ModuleGrant
 from .models import ProjectMembership, ResearchProject
+from .platform_runtime_v3 import (
+    core_access,
+    ensure_platform_workspaces,
+    install_runtime,
+    platform_dashboard_v3 as base_platform_dashboard,
+)
+
+# This module is imported by the root URLconf before core.urls. Install the
+# canonical five-layer runtime here first so modules imported below never
+# capture the legacy ensure_dual_workspaces helper, which provisions per-user
+# Core/Research workspaces and memberships.
+install_runtime()
+
 from .nextcloud_api import project_nextcloud_sync as base_project_nextcloud_sync
 from .platform_access import ROLE_RANK, can_manage, can_view, content_type_for, grant_role
 from .platform_api import (
     _audit,
     _request_json,
-    ensure_dual_workspaces,
     platform_project_detail as base_platform_project_detail,
 )
 from .platform_models import AccessGrant, ProjectApplication, ResearchRequest
@@ -22,7 +34,6 @@ from .platform_resources_api import (
     platform_file_upload as base_platform_file_upload,
     platform_resources as base_platform_resources,
 )
-from .platform_runtime_v3 import core_access, platform_dashboard_v3 as base_platform_dashboard
 
 
 def _body(request):
@@ -42,7 +53,7 @@ def _auth(request):
 
 
 def _workspace_context(user, raw):
-    spaces = ensure_dual_workspaces(user)
+    spaces = ensure_platform_workspaces(user)
     if raw in (None, ''):
         return spaces, None
     raw = str(raw).strip()
@@ -56,9 +67,6 @@ def _workspace_write_error(user, raw, *, project_id=None):
     if raw not in (None, '') and key is None:
         return _error('workspace_not_found', 404)
 
-    # A project-scoped create is a Research mutation even though files/notes
-    # live behind a shared service. Explicit Research suspension must therefore
-    # still win; Core remains the Layer 5 control plane.
     if project_id not in (None, ''):
         if not module_access(user, ModuleGrant.Module.RESEARCH) and not core_access(user, spaces['core']):
             return _error('research_access_required', 403)
@@ -108,7 +116,7 @@ def platform_dashboard_acl_safe(request):
         return response
 
     data = json.loads(response.content.decode('utf-8'))
-    spaces = ensure_dual_workspaces(request.user)
+    spaces = ensure_platform_workspaces(request.user)
     qs = ResearchRequest.objects.filter(project__workspace=spaces['research']).select_related(
         'project', 'assignee', 'content_work_item'
     )
@@ -147,7 +155,7 @@ def platform_resources_strict(request):
         return response
     if request.method == 'GET':
         selector = request.GET.get('workspace', '').strip().lower()
-        if selector and selector not in ensure_dual_workspaces(request.user):
+        if selector and selector not in ensure_platform_workspaces(request.user):
             return _error('invalid_workspace')
     else:
         data = _body(request)
