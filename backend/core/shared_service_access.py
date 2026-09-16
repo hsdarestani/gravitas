@@ -10,7 +10,11 @@ from .layer_models import ModuleGrant
 from .models import KnowledgeResource
 from .operating_models import OperatingTask
 from .platform_access import can_edit, can_view, content_type_for, resolve_target
-from .platform_api import shared_link as base_shared_link, shared_with_me as base_shared_with_me
+from .platform_api import (
+    _resource_json,
+    shared_link as base_shared_link,
+    shared_with_me as base_shared_with_me,
+)
 from .platform_models import EntityLink, ShareLink
 from .platform_objects_api import shared_task_detail as base_shared_task_detail
 from .platform_resources_api import (
@@ -18,7 +22,11 @@ from .platform_resources_api import (
     platform_resource_detail as base_platform_resource_detail,
     shared_file_download as base_shared_file_download,
 )
-from .structural_access_api import entity_links_safe as base_entity_links_safe
+from .platform_runtime_v3 import ensure_platform_workspaces
+from .structural_access_api import (
+    entity_links_safe as base_entity_links_safe,
+    platform_resources_strict as base_platform_resources_strict,
+)
 
 
 def _error(code, status=400):
@@ -56,6 +64,56 @@ def _public_core_link(token):
     ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now)).first()
     obj = link.content_object if link else None
     return bool(obj and object_product_layer(obj) == ModuleGrant.Module.CORE)
+
+
+@require_http_methods(['GET', 'POST'])
+def platform_resources_layer_safe(request):
+    """Keep list/create on one route while applying both layer and object ACLs.
+
+    The legacy shared-resource list looked in Personal, Research and Core for
+    every account, then filtered only with can_view(). A stale direct grant
+    could therefore make a Core item appear in list results even though detail
+    routes correctly denied Layer 5. Filter before the output limit so hidden
+    Core/Research rows cannot crowd valid Personal results out of the page.
+    """
+    if request.method == 'POST':
+        return base_platform_resources_strict(request)
+    if response := _auth(request):
+        return response
+
+    spaces = ensure_platform_workspaces(request.user)
+    selector = request.GET.get('workspace', '').strip().lower()
+    if selector and selector not in spaces:
+        return _error('invalid_workspace')
+
+    qs = KnowledgeResource.objects.select_related(
+        'workspace', 'project', 'collection', 'owner'
+    ).filter(workspace__in=list(spaces.values()))
+    if selector:
+        qs = qs.filter(workspace=spaces[selector])
+    if request.GET.get('project'):
+        qs = qs.filter(project_id=request.GET['project'])
+    if request.GET.get('kind') in KnowledgeResource.Kind.values:
+        qs = qs.filter(kind=request.GET['kind'])
+    query = request.GET.get('q', '').strip()[:200]
+    if query:
+        qs = qs.filter(
+            Q(title__icontains=query)
+            | Q(description__icontains=query)
+            | Q(body__icontains=query)
+            | Q(original_name__icontains=query)
+            | Q(source_url__icontains=query)
+        ).distinct()
+
+    visible = []
+    # Preserve the legacy scan bound but apply the product gate before the
+    # response limit so denied rows never occupy one of the 300 visible slots.
+    for item in qs[:800]:
+        if can_view(request.user, item) and object_layer_access(request.user, item):
+            visible.append(item)
+            if len(visible) >= 300:
+                break
+    return JsonResponse({'ok': True, 'items': [_resource_json(item) for item in visible]})
 
 
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
