@@ -74,6 +74,21 @@ def _layer_error(user, obj):
     return None
 
 
+def _recipient_layer_error(user, product_layer):
+    """Prevent a share mutation from promising access the product gate denies."""
+    if product_layer == ModuleGrant.Module.CORE and not module_access(user, ModuleGrant.Module.CORE):
+        return _error('core_membership_required', 409)
+    if product_layer == ModuleGrant.Module.RESEARCH:
+        explicit = ModuleGrant.objects.filter(user=user, module=ModuleGrant.Module.RESEARCH).first()
+        if explicit is not None and not explicit.is_effective():
+            # ProjectMembership would not override an explicit suspension, so
+            # provisioning Team Folder membership here would create a split
+            # state where native access exists but Gravitas intentionally says
+            # Research is disabled.
+            return _error('research_access_suspended', 409)
+    return None
+
+
 def _sync_acl(obj):
     return nextcloud_bridge.sync_object_acl(obj)
 
@@ -235,12 +250,8 @@ def sharing_v5(request):
         user = get_user_model().objects.filter(email__iexact=email, is_active=True).first()
         if not user:
             return _error('user_not_found', 404)
-        if product_layer == ModuleGrant.Module.CORE and not module_access(user, ModuleGrant.Module.CORE):
-            # A direct ACL grant is not a substitute for internal Core team
-            # membership. Otherwise can_view() could make a stale shared-service
-            # endpoint appear to grant Layer 5 access without the control-plane
-            # entitlement ever being enabled.
-            return _error('core_membership_required', 409)
+        if error := _recipient_layer_error(user, product_layer):
+            return error
         try:
             expires_at = _parse_datetime(data.get('expires_at'))
         except ValueError as exc:
