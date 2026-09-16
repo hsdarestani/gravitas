@@ -33,14 +33,22 @@ from core.space_full_api import (
 )
 from core.space_reconcile_full import reconcile_space_complete
 from core.structural_access_api import (
-    entity_links_safe,
     platform_dashboard_acl_safe,
     platform_file_upload_strict,
     platform_project_detail_acl_safe,
-    platform_resources_strict,
     project_application_detail_synced,
     project_nextcloud_sync_manage,
     research_request_detail_synced,
+)
+from core.shared_service_access import (
+    entity_links_layer_safe,
+    platform_file_download_layer_safe,
+    platform_resource_detail_layer_safe,
+    platform_resources_layer_safe,
+    shared_file_download_core_safe,
+    shared_link_core_safe,
+    shared_task_detail_layer_safe,
+    shared_with_me_layer_safe,
 )
 from core.sharing_consistency_api import sharing_v5
 from core.workspace_pages_api import workspace_page_detail, workspace_pages
@@ -80,8 +88,21 @@ urlpatterns = [
     path('api/platform/nextcloud/sso/', nextcloud_sso),
     path('api/platform/dashboard/', platform_dashboard_acl_safe),
     path('api/platform/projects/<int:project_id>/', platform_project_detail_acl_safe),
-    path('api/platform/links/', entity_links_safe),
+    path('api/platform/links/', entity_links_layer_safe),
     path('api/platform/share/', sharing_v5),
+    # Shared-service routes need both object ACL and product-layer entitlement.
+    # A stale direct grant must not manufacture Core access, while a task that
+    # physically lives in Core but belongs to a Research project stays a
+    # Research object for entitlement purposes.
+    path('api/platform/resources/', platform_resources_layer_safe),
+    path('api/platform/resources/<int:resource_id>/', platform_resource_detail_layer_safe),
+    path('api/platform/files/<int:resource_id>/download/', platform_file_download_layer_safe),
+    path('api/platform/tasks/<int:task_id>/', shared_task_detail_layer_safe),
+    path('api/platform/shared-with-me/', shared_with_me_layer_safe),
+    # Close historical Layer-5 public links without breaking legitimate
+    # Research/client share links.
+    path('api/platform/shared/<uuid:token>/', shared_link_core_safe),
+    path('api/platform/shared/<uuid:token>/download/', shared_file_download_core_safe),
     path('api/platform/projects/<int:project_id>/cockpit/', project_cockpit),
     # Research milestones share the canonical Core operating objects, but the
     # Research surface owns their project ACL and mutation controls.
@@ -91,7 +112,6 @@ urlpatterns = [
     # Structural access guards: explicit invalid workspace ids must not fall
     # back to Personal, ACL reconciliation is manager-only, and project access
     # changes must stay synchronized with native Nextcloud membership.
-    path('api/platform/resources/', platform_resources_strict),
     path('api/platform/files/upload/', platform_file_upload_strict),
     path('api/platform/projects/<int:project_id>/nextcloud/sync/', project_nextcloud_sync_manage),
     path('api/platform/research-requests/<int:request_id>/', research_request_detail_synced),

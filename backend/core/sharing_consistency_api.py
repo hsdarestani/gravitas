@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from . import cloud, nextcloud_bridge
-from .layer_access import module_access
+from .layer_access import module_access, object_product_layer
 from .layer_models import ModuleGrant
 from .models import ProjectMembership, ResearchProject
 from .platform_access import (
@@ -71,6 +71,21 @@ def _layer_error(user, obj):
     if workspace and workspace.pk == spaces['research'].pk:
         if not module_access(user, ModuleGrant.Module.RESEARCH) and not core_access(user, spaces['core']):
             return _error('research_access_required', 403)
+    return None
+
+
+def _recipient_layer_error(user, product_layer):
+    """Prevent a share mutation from promising access the product gate denies."""
+    if product_layer == ModuleGrant.Module.CORE and not module_access(user, ModuleGrant.Module.CORE):
+        return _error('core_membership_required', 409)
+    if product_layer == ModuleGrant.Module.RESEARCH:
+        explicit = ModuleGrant.objects.filter(user=user, module=ModuleGrant.Module.RESEARCH).first()
+        if explicit is not None and not explicit.is_effective():
+            # ProjectMembership would not override an explicit suspension, so
+            # provisioning Team Folder membership here would create a split
+            # state where native access exists but Gravitas intentionally says
+            # Research is disabled.
+            return _error('research_access_suspended', 409)
     return None
 
 
@@ -156,6 +171,7 @@ def sharing_v5(request):
 
     ct = content_type_for(obj)
     project = _project_from_object(obj)
+    product_layer = object_product_layer(obj)
 
     if request.method == 'GET':
         policy = policy_for(obj, create=True, created_by=request.user)
@@ -204,6 +220,10 @@ def sharing_v5(request):
             return _error('invalid_visibility')
         if isinstance(obj, ResearchProject) and visibility == INHERIT_VISIBILITY:
             return _error('project_cannot_inherit')
+        if product_layer == ModuleGrant.Module.CORE and visibility in {'link', 'public'}:
+            # Layer 5 is an internal control plane. ObjectPolicy must never turn
+            # a Core-only note/task/workspace into an unauthenticated surface.
+            return _error('core_objects_cannot_be_public', 409)
         if visibility in {'link', 'public'} and not link_allowed_for_project(obj):
             return _error('secure_data_room_blocks_public_sharing', 409)
         try:
@@ -230,6 +250,8 @@ def sharing_v5(request):
         user = get_user_model().objects.filter(email__iexact=email, is_active=True).first()
         if not user:
             return _error('user_not_found', 404)
+        if error := _recipient_layer_error(user, product_layer):
+            return error
         try:
             expires_at = _parse_datetime(data.get('expires_at'))
         except ValueError as exc:
@@ -273,6 +295,8 @@ def sharing_v5(request):
         }, status=201)
 
     if action == 'link':
+        if product_layer == ModuleGrant.Module.CORE:
+            return _error('core_objects_cannot_be_public', 409)
         if not link_allowed_for_project(obj):
             return _error('secure_data_room_blocks_public_sharing', 409)
         role = str(data.get('role', 'view')).strip()
