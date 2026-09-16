@@ -42,6 +42,7 @@ from core.structural_access_api import (
     project_nextcloud_sync_manage,
     research_request_detail_synced,
 )
+from core.sharing_consistency_api import sharing_v5
 from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
 urlpatterns = [
@@ -80,6 +81,7 @@ urlpatterns = [
     path('api/platform/dashboard/', platform_dashboard_acl_safe),
     path('api/platform/projects/<int:project_id>/', platform_project_detail_acl_safe),
     path('api/platform/links/', entity_links_safe),
+    path('api/platform/share/', sharing_v5),
     path('api/platform/projects/<int:project_id>/cockpit/', project_cockpit),
     # Research milestones share the canonical Core operating objects, but the
     # Research surface owns their project ACL and mutation controls.
