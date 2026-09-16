@@ -3,7 +3,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .layer_models import ActivityEvent, CommunityProfile, ModuleGrant
-from .models import ProjectMembership, ResearchProject, WorkspaceMembership
+from .models import ProjectMembership, ResearchProject, Workspace, WorkspaceMembership
 from .platform_models import AccessGrant, WorkspaceProfile
 
 
@@ -148,6 +148,42 @@ def module_access(user, module):
     if module == ModuleGrant.Module.RESEARCH:
         return _research_participation(user)
     return False
+
+
+def object_product_layer(obj):
+    """Return the product-layer gate that owns an object, if any.
+
+    Cross-layer execution objects such as Research tasks intentionally live in
+    the canonical Core workspace. Their ResearchProject relationship takes
+    precedence over the physical workspace so a legitimate Research
+    participant does not accidentally need Core membership to open the shared
+    task/resource endpoint.
+    """
+    if obj is None:
+        return None
+
+    project = obj if isinstance(obj, ResearchProject) else (
+        getattr(obj, 'project', None) or getattr(obj, 'research_project', None)
+    )
+    if project is not None:
+        return ModuleGrant.Module.RESEARCH
+
+    workspace = obj if isinstance(obj, Workspace) else getattr(obj, 'workspace', None)
+    if workspace is None:
+        return None
+    profile = getattr(workspace, 'platform_profile', None)
+    purpose = getattr(profile, 'purpose', None)
+    if purpose == WorkspaceProfile.Purpose.CORE:
+        return ModuleGrant.Module.CORE
+    if purpose == WorkspaceProfile.Purpose.RESEARCH:
+        return ModuleGrant.Module.RESEARCH
+    return None
+
+
+def object_layer_access(user, obj):
+    """Apply the product entitlement before object ACLs are treated as usable."""
+    layer = object_product_layer(obj)
+    return True if layer is None else module_access(user, layer)
 
 
 def module_access_level(user, module):
