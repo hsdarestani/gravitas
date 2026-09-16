@@ -1,12 +1,15 @@
 import json
+import logging
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 
+from . import cloud, nextcloud_bridge
 from .layer_access import effective_modules, module_access, record_activity, set_module_grant
 from .layer_models import ActivityEvent, CommunityProfile, ModuleGrant
 from .lms_models import Course, CourseEnrollment
@@ -14,6 +17,7 @@ from .models import Comment, ContentItem, ResearchProject, WorkspaceMembership
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
 
 
+logger = logging.getLogger(__name__)
 MAX_USERS = 250
 MAX_EVENTS = 250
 
@@ -240,6 +244,21 @@ def _apply_core_access(actor, target, config):
     )
 
 
+def _restore_native_research_after_rollback(target):
+    """Best-effort compensation using the database state restored by rollback."""
+    try:
+        target.refresh_from_db(fields=['is_active'])
+        nextcloud_bridge.reconcile_user_research_access(target)
+    except ImproperlyConfigured:
+        # Local-only installations intentionally have no native state to repair.
+        return
+    except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError):
+        logger.exception(
+            'Could not compensate native Research access for user=%s after DB rollback',
+            target.pk,
+        )
+
+
 @require_http_methods(['GET', 'PATCH'])
 def platform_admin_user_detail(request, user_id):
     if not _core_admin(request):
@@ -263,6 +282,7 @@ def platform_admin_user_detail(request, user_id):
         return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
     profile = _profile(target)
     changes = {}
+    research_native_sync_needed = False
 
     try:
         with transaction.atomic():
@@ -282,6 +302,7 @@ def platform_admin_user_detail(request, user_id):
                 if profile.status != value:
                     changes['community_status'] = {'from': profile.status, 'to': value}
                     profile.status = value
+                    research_native_sync_needed = True
             profile.save()
 
             if 'account_active' in data:
@@ -292,6 +313,7 @@ def platform_admin_user_detail(request, user_id):
                     changes['account_active'] = {'from': target.is_active, 'to': active}
                     target.is_active = active
                     target.save(update_fields=['is_active'])
+                    research_native_sync_needed = True
 
             modules = data.get('modules')
             if modules is not None:
@@ -323,12 +345,29 @@ def platform_admin_user_detail(request, user_id):
                             expires_at=_parse_optional_datetime(config.get('expires_at')),
                             metadata={'admin_user_id': request.user.pk},
                         )
+                        if module == ModuleGrant.Module.RESEARCH:
+                            research_native_sync_needed = True
                     changes.setdefault('modules', {})[module] = {
                         'enabled': grant.enabled,
                         'access_level': grant.access_level,
                     }
+
+            if research_native_sync_needed:
+                try:
+                    nextcloud_bridge.reconcile_user_research_access(target)
+                except ImproperlyConfigured:
+                    # The platform deliberately supports local-only deployments.
+                    # Missing native configuration is not a failed access change.
+                    pass
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=409 if str(exc).startswith('cannot_') else 400)
+    except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError):
+        logger.exception('Native Research access synchronization failed for user=%s', target.pk)
+        # transaction.atomic() has restored the old Gravitas state at this
+        # point. Converge any remote project already touched before the failure
+        # back to that restored state as a best-effort compensation pass.
+        _restore_native_research_after_rollback(target)
+        return JsonResponse({'ok': False, 'error': 'nextcloud_research_sync_failed'}, status=503)
 
     if changes:
         record_activity(
