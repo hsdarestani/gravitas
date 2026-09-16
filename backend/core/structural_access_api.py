@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from . import cloud, nextcloud_bridge
-from .models import KnowledgeResource, ProjectMembership, ResearchProject
+from .models import ProjectMembership, ResearchProject
 from .nextcloud_api import project_nextcloud_sync as base_project_nextcloud_sync
 from .platform_access import ROLE_RANK, can_manage, can_view, content_type_for, grant_role
 from .platform_api import _audit, ensure_dual_workspaces
@@ -139,6 +139,14 @@ def research_request_detail_synced(request, request_id):
         else:
             assignee = None
 
+    from .platform_api import _parse_date
+    due_date = item.due_date
+    try:
+        if 'due_date' in data:
+            due_date = _parse_date(data['due_date'])
+    except ValueError as exc:
+        return _error(str(exc))
+
     try:
         with transaction.atomic():
             if assignee and item.project:
@@ -154,13 +162,8 @@ def research_request_detail_synced(request, request_id):
                 item.priority = str(data['priority'])[:8]
             if 'assignee_id' in data:
                 item.assignee = assignee
-
-            from .platform_api import _parse_date
-            try:
-                if 'due_date' in data:
-                    item.due_date = _parse_date(data['due_date'])
-            except ValueError as exc:
-                return _error(str(exc))
+            if 'due_date' in data:
+                item.due_date = due_date
 
             item.save()
             _audit(item.project, request.user, 'research_request_updated', item, status=item.status)
