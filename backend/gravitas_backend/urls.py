@@ -33,6 +33,7 @@ from core.space_full_api import (
 )
 from core.space_reconcile_full import reconcile_space_complete
 from core.structural_access_api import (
+    entity_links_safe,
     platform_dashboard_acl_safe,
     platform_file_upload_strict,
     platform_project_detail_acl_safe,
@@ -78,6 +79,7 @@ urlpatterns = [
     path('api/platform/nextcloud/sso/', nextcloud_sso),
     path('api/platform/dashboard/', platform_dashboard_acl_safe),
     path('api/platform/projects/<int:project_id>/', platform_project_detail_acl_safe),
+    path('api/platform/links/', entity_links_safe),
     path('api/platform/projects/<int:project_id>/cockpit/', project_cockpit),
     # Research milestones share the canonical Core operating objects, but the
     # Research surface owns their project ACL and mutation controls.
