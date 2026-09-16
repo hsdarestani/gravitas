@@ -1,6 +1,7 @@
 import json
 
 from django.db import transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
@@ -23,13 +24,22 @@ from .platform_runtime_v3 import (
 install_runtime()
 
 from .nextcloud_api import project_nextcloud_sync as base_project_nextcloud_sync
-from .platform_access import ROLE_RANK, can_manage, can_view, content_type_for, grant_role
+from .platform_access import (
+    ROLE_RANK,
+    can_edit,
+    can_manage,
+    can_view,
+    content_type_for,
+    grant_role,
+    resolve_target,
+)
 from .platform_api import (
     _audit,
     _request_json,
+    entity_links as base_entity_links,
     platform_project_detail as base_platform_project_detail,
 )
-from .platform_models import AccessGrant, ProjectApplication, ResearchRequest
+from .platform_models import AccessGrant, EntityLink, ProjectApplication, ResearchRequest
 from .platform_resources_api import (
     platform_file_upload as base_platform_file_upload,
     platform_resources as base_platform_resources,
@@ -181,6 +191,46 @@ def platform_file_upload_strict(request):
     return base_platform_file_upload(request)
 
 
+@require_http_methods(['GET', 'POST', 'DELETE'])
+def entity_links_safe(request):
+    """Delete GenericForeignKey links only when the exact pair matches.
+
+    Object primary keys are not globally unique across models. The legacy
+    DELETE path matched only source_object_id/target_object_id, so an editor of
+    Project(id=7) could delete an unrelated Resource(id=7) link by guessing its
+    link id. ContentType is part of generic-object identity and must be included.
+    """
+    if request.method != 'DELETE':
+        return base_entity_links(request)
+    if response := _auth(request):
+        return response
+
+    data = _body(request)
+    source = resolve_target(data.get('source_type'), data.get('source_id'))
+    target = resolve_target(data.get('target_type'), data.get('target_id'))
+    if not source or not target or not can_edit(request.user, source) or not can_view(request.user, target):
+        return _error('permission_denied', 403)
+
+    source_ct = content_type_for(source)
+    target_ct = content_type_for(target)
+    pair = Q(
+        source_content_type=source_ct,
+        source_object_id=source.pk,
+        target_content_type=target_ct,
+        target_object_id=target.pk,
+    ) | Q(
+        source_content_type=target_ct,
+        source_object_id=target.pk,
+        target_content_type=source_ct,
+        target_object_id=source.pk,
+    )
+    link = EntityLink.objects.filter(pk=data.get('link_id')).filter(pair).first()
+    if not link:
+        return _error('link_not_found', 404)
+    link.delete()
+    return JsonResponse({'ok': True})
+
+
 @require_research_or_core
 @require_http_methods(['POST'])
 def project_nextcloud_sync_manage(request, project_id):
@@ -208,7 +258,6 @@ def research_request_detail_synced(request, request_id):
         from .platform_api import research_request_detail
         return research_request_detail(request, request_id)
 
-    from .platform_access import can_edit
     if not can_edit(request.user, item):
         return _error('permission_denied', 403)
 
