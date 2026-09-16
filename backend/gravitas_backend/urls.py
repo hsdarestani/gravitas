@@ -36,7 +36,6 @@ from core.structural_access_api import (
     platform_dashboard_acl_safe,
     platform_file_upload_strict,
     platform_project_detail_acl_safe,
-    platform_resources_strict,
     project_application_detail_synced,
     project_nextcloud_sync_manage,
     research_request_detail_synced,
@@ -45,6 +44,7 @@ from core.shared_service_access import (
     entity_links_layer_safe,
     platform_file_download_layer_safe,
     platform_resource_detail_layer_safe,
+    platform_resources_layer_safe,
     shared_file_download_core_safe,
     shared_link_core_safe,
     shared_task_detail_layer_safe,
@@ -94,6 +94,7 @@ urlpatterns = [
     # A stale direct grant must not manufacture Core access, while a task that
     # physically lives in Core but belongs to a Research project stays a
     # Research object for entitlement purposes.
+    path('api/platform/resources/', platform_resources_layer_safe),
     path('api/platform/resources/<int:resource_id>/', platform_resource_detail_layer_safe),
     path('api/platform/files/<int:resource_id>/download/', platform_file_download_layer_safe),
     path('api/platform/tasks/<int:task_id>/', shared_task_detail_layer_safe),
@@ -111,7 +112,6 @@ urlpatterns = [
     # Structural access guards: explicit invalid workspace ids must not fall
     # back to Personal, ACL reconciliation is manager-only, and project access
     # changes must stay synchronized with native Nextcloud membership.
-    path('api/platform/resources/', platform_resources_strict),
     path('api/platform/files/upload/', platform_file_upload_strict),
     path('api/platform/projects/<int:project_id>/nextcloud/sync/', project_nextcloud_sync_manage),
     path('api/platform/research-requests/<int:request_id>/', research_request_detail_synced),
