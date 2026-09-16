@@ -9,6 +9,8 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from . import cloud, nextcloud_bridge
+from .layer_access import set_module_grant
+from .layer_models import ModuleGrant
 from .models import KnowledgeResource, ProjectMembership, ResearchProject
 from .platform_access import content_type_for
 from .platform_models import AccessGrant, ProjectApplication, ResearchRequest
@@ -96,6 +98,35 @@ class StructuralAccessApiTests(TestCase):
         allowed = self.client.post(f'/api/platform/projects/{self.project.pk}/nextcloud/sync/')
         self.assertEqual(allowed.status_code, 200, allowed.content)
         base_sync.assert_called_once()
+
+    def test_explicit_research_suspension_still_blocks_canonical_shadow_route(self):
+        ProjectMembership.objects.create(
+            project=self.project,
+            user=self.collaborator,
+            role=ProjectMembership.Role.EDITOR,
+        )
+        request_item = ResearchRequest.objects.create(
+            workspace=self.project.workspace,
+            project=self.project,
+            requested_by=self.owner,
+            title='Suspended participant request',
+        )
+        set_module_grant(
+            self.collaborator,
+            ModuleGrant.Module.RESEARCH,
+            enabled=False,
+            access_level=ModuleGrant.AccessLevel.EDIT,
+        )
+        self.client.force_login(self.collaborator)
+
+        response = self.patch_json(
+            f'/api/platform/research-requests/{request_item.pk}/',
+            {'brief': 'This mutation must remain blocked.'},
+        )
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.json()['error'], 'research_access_required')
+        request_item.refresh_from_db()
+        self.assertEqual(request_item.brief, '')
 
     @patch('core.structural_access_api.nextcloud_bridge.add_project_user')
     def test_assigning_research_request_upgrades_viewer_and_native_membership(self, add_project_user):
