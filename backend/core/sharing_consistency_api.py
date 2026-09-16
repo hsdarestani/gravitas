@@ -225,6 +225,8 @@ def sharing_v5(request):
     if action == 'grant':
         email = str(data.get('email', '')).strip().lower()
         role = str(data.get('role', 'view')).strip()
+        if role not in {'view', 'comment', 'edit', 'manage'}:
+            return _error('invalid_role')
         user = get_user_model().objects.filter(email__iexact=email, is_active=True).first()
         if not user:
             return _error('user_not_found', 404)
