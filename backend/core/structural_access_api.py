@@ -80,15 +80,13 @@ def _grant_project_editor(project, user, granted_by):
 
 @require_http_methods(['GET'])
 def platform_dashboard_acl_safe(request):
-    """Keep Research dashboard summaries inside the same object ACL boundary.
+    """Keep Research dashboard summaries inside the same object ACL boundary."""
+    purpose = request.GET.get('workspace', 'core').strip().lower()
+    if purpose not in {'core', 'research'}:
+        return _error('invalid_workspace')
 
-    The legacy Research dashboard filtered projects and resources, but returned
-    research requests from every project in the shared Research workspace. A
-    participant in project A could therefore see request metadata from private
-    project B. Rebuild only that summary from objects the caller can view.
-    """
     response = base_platform_dashboard(request)
-    if response.status_code != 200 or request.GET.get('workspace', 'core').strip().lower() != 'research':
+    if response.status_code != 200 or purpose != 'research':
         return response
 
     data = json.loads(response.content.decode('utf-8'))
@@ -126,16 +124,14 @@ def platform_project_detail_acl_safe(request, project_id):
 
 @require_http_methods(['GET', 'POST'])
 def platform_resources_strict(request):
-    """Reject an explicitly invalid workspace instead of falling back personal.
-
-    The legacy resolver intentionally defaults a missing workspace to Personal.
-    It also treated an *unknown supplied id* as if it were missing, which can
-    silently put a Research/Core note in the user's private space. Missing and
-    invalid are different states; only the former may default.
-    """
+    """Reject explicit invalid workspace selectors instead of broad fallback."""
     if response := _auth(request):
         return response
-    if request.method == 'POST':
+    if request.method == 'GET':
+        selector = request.GET.get('workspace', '').strip().lower()
+        if selector and selector not in ensure_dual_workspaces(request.user):
+            return _error('invalid_workspace')
+    else:
         data = _body(request)
         if not _workspace_id_is_valid(request.user, data.get('workspace_id')):
             return _error('workspace_not_found', 404)
@@ -174,7 +170,6 @@ def research_request_detail_synced(request, request_id):
     if not item or not can_view(request.user, item):
         return _error('not_found', 404)
 
-    # Delegate reads to the canonical serializer in the existing API.
     if request.method == 'GET':
         from .platform_api import research_request_detail
         return research_request_detail(request, request_id)
