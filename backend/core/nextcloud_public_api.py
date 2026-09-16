@@ -5,6 +5,8 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from . import nextcloud_api
+from .layer_access import module_access
+from .layer_models import ModuleGrant
 
 
 def _public_base():
@@ -34,6 +36,18 @@ def nextcloud_status_canonical(request):
     except (ValueError, UnicodeDecodeError):
         return response
     payload = _rewrite(payload)
+
+    # Object ACLs and the product-layer entitlement are separate contracts.
+    # A lingering ProjectMembership/direct grant must not advertise native Team
+    # Folder URLs to an account whose Research layer was explicitly suspended.
+    # Core members retain the control-plane view of projects they can otherwise
+    # see, even when their own Research layer is intentionally disabled.
+    if not (
+        module_access(request.user, ModuleGrant.Module.RESEARCH)
+        or module_access(request.user, ModuleGrant.Module.CORE)
+    ):
+        payload['projects'] = []
+
     nextcloud = payload.get('nextcloud') or {}
     nextcloud['sso_url'] = '/api/platform/nextcloud/sso/'
     nextcloud['sso_ready'] = str(getattr(settings, 'NEXTCLOUD_OIDC_PROVIDER_ID', '') or '').isdigit()
