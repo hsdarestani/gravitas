@@ -1,17 +1,17 @@
 import * as P from './ws-platform.js?v=20260914-7';
 
 const state = { installed: false, scheduled: false, loading: new Set(), observer: null };
-const PROJECT_STATUS = [
-  ['intake', 'Intake'], ['active', 'Active'], ['review', 'Review'],
-  ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['closed', 'Closed'],
-];
+const PROJECT_STATUS = [['intake', 'Intake'], ['active', 'Active'], ['review', 'Review'], ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['closed', 'Closed']];
 const PROJECT_VISIBILITY = [['private', 'Private'], ['invite', 'Invite only'], ['community', 'Community'], ['public', 'Public']];
 const PROJECT_CATEGORY = [['internal', 'Internal'], ['client', 'Client'], ['community', 'Community']];
 const CONFIDENTIALITY = [['internal', 'Internal'], ['confidential', 'Confidential'], ['restricted', 'Restricted'], ['public', 'Public']];
 const PRIORITY = [['p0', 'P0 · Critical'], ['p1', 'P1 · High'], ['p2', 'P2 · Normal'], ['p3', 'P3 · Low']];
 const TASK_STATUS = [['draft', 'Draft'], ['active', 'Active'], ['blocked', 'Blocked'], ['done', 'Done'], ['archived', 'Archived']];
 const REQUEST_STATUS = [['draft', 'Draft'], ['open', 'Open'], ['in_progress', 'In progress'], ['review', 'Review'], ['done', 'Done'], ['cancelled', 'Cancelled']];
+const MILESTONE_STATUS = TASK_STATUS;
+const HEALTH = [['green', 'Green'], ['yellow', 'Yellow'], ['red', 'Red']];
 const EXPERIMENT_STATUS = [['planned', 'Planned'], ['running', 'Running'], ['review', 'Under review'], ['complete', 'Complete'], ['abandoned', 'Abandoned']];
+const DELIVERABLE_STATUS = [['draft', 'Draft'], ['review', 'Review'], ['approved', 'Approved'], ['delivered', 'Delivered']];
 
 const el = (tag, cls = '', text = '') => {
   const node = document.createElement(tag);
@@ -221,7 +221,7 @@ async function manageAccess(projectId) {
   const current = await P.call(`/platform/share/?type=project&id=${projectId}`);
   modal('Project access', (grid) => {
     grid.append(
-      el('p', 'fl-muted', 'Grant or update access by email. Use the same email again to change a direct role.'),
+      el('p', 'fl-muted', 'Grant, change or revoke direct project access.'),
       field('Email', input('email', '', 'email', 'person@example.com')),
       field('Role', select('role', [['view', 'Viewer'], ['comment', 'Commenter'], ['edit', 'Editor'], ['manage', 'Manager']], 'edit')),
     );
@@ -232,6 +232,16 @@ async function manageAccess(projectId) {
       const main = el('div', 'fl-row__main');
       main.append(el('strong', '', grant.name || grant.email), el('small', 'fl-muted', `${grant.email} · ${grant.role}`));
       row.append(main);
+      if (grant.id) {
+        const tools = el('div', 'fl-row__actions');
+        tools.append(button('Revoke', async () => {
+          if (!window.confirm(`Revoke access for ${grant.email}?`)) return;
+          await P.call('/platform/share/', { method: 'POST', body: { type: 'project', id: projectId, action: 'revoke', grant_id: grant.id } });
+          document.querySelector('[data-project-action-modal]')?.remove();
+          refreshProject();
+        }, { tiny: true, danger: true }));
+        row.append(tools);
+      }
       grants.append(row);
     }
     grid.append(grants);
@@ -240,6 +250,67 @@ async function manageAccess(projectId) {
     const email = String(data.get('email') || '').trim();
     if (!email) throw new Error('Email is required.');
     await P.call('/platform/share/', { method: 'POST', body: { type: 'project', id: projectId, action: 'grant', email, role: data.get('role') || 'edit' } });
+    refreshProject();
+  });
+}
+
+function createMilestone(projectId) {
+  modal('New milestone', (grid) => {
+    grid.append(
+      field('Title', input('title', '', 'text', 'Milestone title')),
+      field('Due date', input('due_date', '', 'date')),
+      field('Status', select('status', MILESTONE_STATUS, 'active')),
+      field('Health', select('health', HEALTH, 'green')),
+      field('Definition of done', textarea('definition_of_done', '', 4)),
+    );
+    return {};
+  }, 'Create milestone', async (_fields, data) => {
+    await P.call(`/platform/projects/${projectId}/milestones/`, { method: 'POST', body: {
+      title: String(data.get('title') || '').trim(),
+      due_date: data.get('due_date') || '',
+      status: data.get('status') || 'active',
+      health: data.get('health') || 'green',
+      definition_of_done: String(data.get('definition_of_done') || '').trim(),
+    }});
+    refreshProject();
+  });
+}
+
+async function editMilestone(projectId) {
+  const result = await P.projectMilestones(projectId);
+  const items = (result.milestones || []).filter((item) => item.can_edit);
+  if (!items.length) return modal('Edit milestone', (grid) => { grid.append(el('p', 'fl-muted', 'There are no editable milestones in this project.')); });
+  modal('Edit milestone', (grid) => {
+    const picker = select('milestone_id', items.map((item) => [String(item.id), item.title]), String(items[0].id));
+    const title = input('title');
+    const due = input('due_date', '', 'date');
+    const status = select('status', MILESTONE_STATUS, 'active');
+    const health = select('health', HEALTH, 'green');
+    const done = textarea('definition_of_done', '', 4);
+    const load = () => {
+      const item = items.find((row) => String(row.id) === picker.value) || items[0];
+      title.value = item.title || ''; due.value = item.due_date || ''; status.value = item.status || 'active'; health.value = item.health || 'green'; done.value = item.definition_of_done || '';
+    };
+    const remove = button('Delete milestone', async () => {
+      if (!window.confirm('Delete this milestone?')) return;
+      remove.disabled = true;
+      try {
+        await P.call(`/platform/projects/${projectId}/milestones/${picker.value}/`, { method: 'DELETE' });
+        document.querySelector('[data-project-action-modal]')?.remove();
+        refreshProject();
+      } catch (error) {
+        remove.disabled = false;
+        window.alert(error?.data?.error || error.message || 'Delete failed.');
+      }
+    }, { danger: true });
+    picker.addEventListener('change', load); load();
+    const destructive = el('div', 'v-toolbar'); destructive.append(remove);
+    grid.append(field('Milestone', picker), field('Title', title), field('Due date', due), field('Status', status), field('Health', health), field('Definition of done', done), destructive);
+    return { picker };
+  }, 'Save milestone', async (fields, data) => {
+    await P.call(`/platform/projects/${projectId}/milestones/${fields.picker.value}/`, { method: 'PATCH', body: {
+      title: String(data.get('title') || '').trim(), due_date: data.get('due_date') || '', status: data.get('status'), health: data.get('health'), definition_of_done: String(data.get('definition_of_done') || '').trim(),
+    }});
     refreshProject();
   });
 }
@@ -268,17 +339,11 @@ function editTask(cockpit) {
   if (!items.length) return modal('Edit task', (grid) => { grid.append(el('p', 'fl-muted', 'There are no editable tasks in this project.')); });
   modal('Edit task', (grid) => {
     const picker = select('task_id', items.map((item) => [String(item.id), item.title]), String(items[0].id));
-    const title = input('title');
-    const due = input('due_date', '', 'date');
-    const priority = select('priority', PRIORITY, 'p2');
-    const status = select('status', TASK_STATUS, 'active');
-    const done = textarea('definition_of_done', '', 3);
-    const description = textarea('description', '', 3);
-    const blocked = textarea('blocked_reason', '', 2, 'Why is this blocked?');
+    const title = input('title'); const due = input('due_date', '', 'date'); const priority = select('priority', PRIORITY, 'p2'); const status = select('status', TASK_STATUS, 'active');
+    const done = textarea('definition_of_done', '', 3); const description = textarea('description', '', 3); const blocked = textarea('blocked_reason', '', 2, 'Why is this blocked?');
     const load = () => {
       const item = items.find((row) => String(row.id) === picker.value) || items[0];
-      title.value = item.title || ''; due.value = item.due_date || ''; priority.value = item.priority || 'p2'; status.value = item.status || 'active';
-      done.value = item.definition_of_done || ''; description.value = item.description || ''; blocked.value = item.blocked_reason || '';
+      title.value = item.title || ''; due.value = item.due_date || ''; priority.value = item.priority || 'p2'; status.value = item.status || 'active'; done.value = item.definition_of_done || ''; description.value = item.description || ''; blocked.value = item.blocked_reason || '';
     };
     picker.addEventListener('change', load); load();
     grid.append(field('Task', picker), field('Title', title), field('Due date', due), field('Priority', priority), field('Status', status), field('Definition of done', done), field('Description', description), field('Blocked reason', blocked));
@@ -297,11 +362,7 @@ function editResearchRequest(cockpit) {
   if (!items.length) return modal('Edit request', (grid) => { grid.append(el('p', 'fl-muted', 'There are no editable research requests in this project.')); });
   modal('Edit research request', (grid) => {
     const picker = select('request_id', items.map((item) => [String(item.id), item.title]), String(items[0].id));
-    const status = select('status', REQUEST_STATUS, items[0].status || 'open');
-    const priority = select('priority', PRIORITY, items[0].priority || 'p2');
-    const due = input('due_date', '', 'date');
-    const brief = textarea('brief', '', 4);
-    const output = textarea('output_summary', '', 4);
+    const status = select('status', REQUEST_STATUS, items[0].status || 'open'); const priority = select('priority', PRIORITY, items[0].priority || 'p2'); const due = input('due_date', '', 'date'); const brief = textarea('brief', '', 4); const output = textarea('output_summary', '', 4);
     const load = () => {
       const item = items.find((row) => String(row.id) === picker.value) || items[0];
       status.value = item.status || 'open'; priority.value = item.priority || 'p2'; due.value = item.due_date || ''; brief.value = item.brief || ''; output.value = item.output_summary || '';
@@ -310,9 +371,7 @@ function editResearchRequest(cockpit) {
     grid.append(field('Request', picker), field('Status', status), field('Priority', priority), field('Due date', due), field('Brief', brief), field('Output summary', output));
     return { picker };
   }, 'Save request', async (fields, data) => {
-    await P.call(`/platform/research-requests/${fields.picker.value}/`, { method: 'PATCH', body: {
-      status: data.get('status'), priority: data.get('priority'), due_date: data.get('due_date') || '', brief: String(data.get('brief') || ''), output_summary: String(data.get('output_summary') || ''),
-    }});
+    await P.call(`/platform/research-requests/${fields.picker.value}/`, { method: 'PATCH', body: { status: data.get('status'), priority: data.get('priority'), due_date: data.get('due_date') || '', brief: String(data.get('brief') || ''), output_summary: String(data.get('output_summary') || '') } });
     refreshProject();
   });
 }
@@ -322,25 +381,19 @@ function createNote(projectId) {
     grid.append(field('Title', input('title', '', 'text', 'Note title')), field('Body', textarea('body', '', 10, 'Write the note…')), field('Description', textarea('description', '', 3)));
     return {};
   }, 'Create note', async (_fields, data) => {
-    await P.call('/platform/resources/', { method: 'POST', body: {
-      kind: 'note', project_id: projectId, title: String(data.get('title') || '').trim(), body: String(data.get('body') || ''), description: String(data.get('description') || '').trim(),
-    }});
+    await P.call('/platform/resources/', { method: 'POST', body: { kind: 'note', project_id: projectId, title: String(data.get('title') || '').trim(), body: String(data.get('body') || ''), description: String(data.get('description') || '').trim() } });
     refreshProject();
   });
 }
 
 function manageResource(cockpit, kinds, title) {
-  const items = (cockpit.resources || []).filter((item) => kinds.includes(item.kind));
-  if (!items.length) return modal(title, (grid) => { grid.append(el('p', 'fl-muted', 'There are no items in this view yet.')); });
+  const items = (cockpit.resources || []).filter((item) => kinds.includes(item.kind) && item.can_edit);
+  if (!items.length) return modal(title, (grid) => { grid.append(el('p', 'fl-muted', 'There are no editable items in this view.')); });
   const cache = new Map();
   modal(title, (grid) => {
     const picker = select('resource_id', items.map((item) => [String(item.id), item.title || item.original_name || `Item ${item.id}`]), String(items[0].id));
-    const itemTitle = input('title');
-    const description = textarea('description', '', 3);
-    const body = textarea('body', '', 8);
-    const source = input('source_url', '', 'url', 'https://…');
-    const bodyField = field('Body', body);
-    const sourceField = field('Source URL', source);
+    const itemTitle = input('title'); const description = textarea('description', '', 3); const body = textarea('body', '', 8); const source = input('source_url', '', 'url', 'https://…');
+    const bodyField = field('Body', body); const sourceField = field('Source URL', source);
     const remove = button('Delete', async () => {
       if (!window.confirm('Delete this project item?')) return;
       remove.disabled = true;
@@ -354,8 +407,8 @@ function manageResource(cockpit, kinds, title) {
       bodyField.hidden = item.kind !== 'note'; sourceField.hidden = item.kind !== 'paper';
     };
     picker.addEventListener('change', () => load().catch(() => {}));
-    grid.append(field('Item', picker), field('Title', itemTitle), field('Description', description), bodyField, sourceField, el('div', 'v-toolbar'));
-    grid.lastElementChild.append(remove);
+    const destructive = el('div', 'v-toolbar'); destructive.append(remove);
+    grid.append(field('Item', picker), field('Title', itemTitle), field('Description', description), bodyField, sourceField, destructive);
     queueMicrotask(() => load().catch(() => {}));
     return { picker, cache };
   }, 'Save changes', async (fields, data) => {
@@ -374,9 +427,7 @@ function addSource(projectId) {
     grid.append(field('Title', input('title', '', 'text', 'Paper / source title')), field('Source URL', input('source_url', '', 'url', 'https://…')), field('Description', textarea('description', '', 4)));
     return {};
   }, 'Add source', async (_fields, data) => {
-    await P.call('/platform/resources/', { method: 'POST', body: {
-      kind: 'paper', project_id: projectId, title: String(data.get('title') || '').trim(), source_url: String(data.get('source_url') || '').trim(), description: String(data.get('description') || '').trim(),
-    }});
+    await P.call('/platform/resources/', { method: 'POST', body: { kind: 'paper', project_id: projectId, title: String(data.get('title') || '').trim(), source_url: String(data.get('source_url') || '').trim(), description: String(data.get('description') || '').trim() } });
     refreshProject();
   });
 }
@@ -419,8 +470,7 @@ async function manageDiscussions(projectId) {
   if (!items.length) return modal('Manage discussions', (grid) => { grid.append(el('p', 'fl-muted', 'There are no messages you can edit.')); });
   modal('Manage discussions', (grid) => {
     const picker = select('message_id', items.map((item) => [String(item.id), `${item.author?.name || 'Message'} · ${(item.body || '').slice(0, 70)}`]), String(items[0].id));
-    const body = textarea('body', '', 7);
-    const resolved = checkbox('resolved', false, 'Resolved');
+    const body = textarea('body', '', 7); const resolved = checkbox('resolved', false, 'Resolved');
     const remove = button('Delete message', async () => {
       if (!window.confirm('Delete this discussion message?')) return;
       remove.disabled = true;
@@ -472,14 +522,43 @@ async function editExperiment(projectId) {
   });
 }
 
+function deliverableResources(cockpit) {
+  return [['', 'No linked resource'], ...(cockpit.resources || []).filter((item) => item.can_edit || item.can_manage).map((item) => [String(item.id), item.title || item.original_name || `Resource ${item.id}`])];
+}
+
 function createDeliverable(projectId, cockpit) {
-  const resources = [['', 'No linked resource'], ...(cockpit.resources || []).map((item) => [String(item.id), item.title || item.original_name || `Resource ${item.id}`])];
   modal('New deliverable', (grid) => {
     const visible = checkbox('client_visible', false, 'Client visible');
-    grid.append(field('Title', input('title', '', 'text', 'Deliverable title')), field('Description', textarea('description', '', 4)), field('Linked resource', select('resource_id', resources, '')), field('Status', select('status', [['draft', 'Draft'], ['review', 'Review'], ['approved', 'Approved'], ['delivered', 'Delivered']], 'draft')), visible.wrap);
+    grid.append(field('Title', input('title', '', 'text', 'Deliverable title')), field('Description', textarea('description', '', 4)), field('Linked resource', select('resource_id', deliverableResources(cockpit), '')), field('Status', select('status', DELIVERABLE_STATUS, 'draft')), visible.wrap);
     return { visible: visible.node };
   }, 'Create deliverable', async (fields, data) => {
     await P.call(`/platform/projects/${projectId}/deliverables/`, { method: 'POST', body: { title: String(data.get('title') || '').trim(), description: String(data.get('description') || '').trim(), resource_id: data.get('resource_id') || null, status: data.get('status') || 'draft', client_visible: fields.visible.checked } });
+    refreshProject();
+  });
+}
+
+function editDeliverable(projectId, cockpit) {
+  const items = (cockpit.deliverables || []).filter((item) => item.can_edit);
+  if (!items.length) return modal('Edit deliverable', (grid) => { grid.append(el('p', 'fl-muted', 'There are no editable deliverables yet.')); });
+  modal('Edit deliverable', (grid) => {
+    const picker = select('deliverable_id', items.map((item) => [String(item.id), item.title]), String(items[0].id));
+    const title = input('title'); const description = textarea('description', '', 4); const resource = select('resource_id', deliverableResources(cockpit), ''); const status = select('status', DELIVERABLE_STATUS, 'draft'); const visible = checkbox('client_visible', false, 'Client visible');
+    const load = () => {
+      const item = items.find((row) => String(row.id) === picker.value) || items[0];
+      title.value = item.title || ''; description.value = item.description || ''; resource.value = item.resource_id ? String(item.resource_id) : ''; status.value = item.status || 'draft'; visible.node.checked = !!item.client_visible;
+    };
+    const remove = button('Delete deliverable', async () => {
+      if (!window.confirm('Delete this deliverable?')) return;
+      remove.disabled = true;
+      try { await P.call(`/platform/projects/${projectId}/deliverables/${picker.value}/`, { method: 'DELETE' }); document.querySelector('[data-project-action-modal]')?.remove(); refreshProject(); }
+      catch (error) { remove.disabled = false; window.alert(error?.data?.error || error.message || 'Delete failed.'); }
+    }, { danger: true });
+    picker.addEventListener('change', load); load();
+    const destructive = el('div', 'v-toolbar'); destructive.append(remove);
+    grid.append(field('Deliverable', picker), field('Title', title), field('Description', description), field('Linked resource', resource), field('Status', status), visible.wrap, destructive);
+    return { picker, visible: visible.node };
+  }, 'Save deliverable', async (fields, data) => {
+    await P.call(`/platform/projects/${projectId}/deliverables/${fields.picker.value}/`, { method: 'PATCH', body: { title: String(data.get('title') || '').trim(), description: String(data.get('description') || '').trim(), resource_id: data.get('resource_id') || null, status: data.get('status') || 'draft', client_visible: fields.visible.checked } });
     refreshProject();
   });
 }
@@ -497,7 +576,6 @@ function actionSet(info, cockpit, project) {
   const actions = [];
   const add = (label, handler, solid = false) => actions.push(button(label, handler, { solid }));
 
-  // Project-level controls are available from every project tab.
   if (canManage) add('Edit project', () => editProject(info.projectId, project), info.tab === 'overview');
   if (canManage) add('Access', () => manageAccess(info.projectId).catch(console.error));
 
@@ -506,30 +584,33 @@ function actionSet(info, cockpit, project) {
     if (canEdit) add('New note', () => createNote(info.projectId));
     if (canEdit) add('Upload', () => uploadFile(info.projectId, 'file'));
   } else if (info.tab === 'milestones') {
-    if (P.canOpenCore()) add('Open planning', () => go('/workspace/operating'), true);
+    if (canEdit) add('New milestone', () => createMilestone(info.projectId), true);
+    if (canEdit) add('Edit milestone', () => editMilestone(info.projectId).catch(console.error));
+    if (P.canOpenCore()) add('Open planning', () => go('/workspace/operating'));
   } else if (info.tab === 'tasks') {
     if (canEdit) add('New task', () => createTask(info.projectId), true);
     if ((cockpit.tasks || []).some((item) => item.can_edit)) add('Edit task', () => editTask(cockpit));
     if ((cockpit.research_requests || []).some((item) => item.can_edit)) add('Edit request', () => editResearchRequest(cockpit));
   } else if (info.tab === 'notes') {
     if (canEdit) add('New note', () => createNote(info.projectId), true);
-    if ((cockpit.resources || []).some((item) => item.kind === 'note')) add('Edit note', () => manageResource(cockpit, ['note'], 'Edit note'));
+    if ((cockpit.resources || []).some((item) => item.kind === 'note' && item.can_edit)) add('Edit note', () => manageResource(cockpit, ['note'], 'Edit note'));
   } else if (info.tab === 'sources') {
     if (canEdit) add('Add source', () => addSource(info.projectId), true);
     if (canEdit) add('Upload dataset', () => uploadFile(info.projectId, 'dataset'));
     if (canEdit) add('New map', () => createMindMap(info.projectId));
-    if ((cockpit.resources || []).some((item) => ['paper', 'dataset'].includes(item.kind))) add('Edit source', () => manageResource(cockpit, ['paper', 'dataset'], 'Edit source'));
+    if ((cockpit.resources || []).some((item) => ['paper', 'dataset'].includes(item.kind) && item.can_edit)) add('Edit source', () => manageResource(cockpit, ['paper', 'dataset'], 'Edit source'));
   } else if (info.tab === 'files') {
     if (canEdit) add('Upload file', () => uploadFile(info.projectId, 'file'), true);
-    if ((cockpit.resources || []).some((item) => item.kind === 'file')) add('Edit file', () => manageResource(cockpit, ['file'], 'Edit file'));
+    if ((cockpit.resources || []).some((item) => item.kind === 'file' && item.can_edit)) add('Edit file', () => manageResource(cockpit, ['file'], 'Edit file'));
     add('Data room', () => openDataRoom().catch((error) => window.alert(error.message)));
   } else if (info.tab === 'discussions') {
     if (canEdit) add('New message', () => createDiscussion(info.projectId), true);
-    add('Manage', () => manageDiscussions(info.projectId).catch(console.error));
+    if (canEdit) add('Manage', () => manageDiscussions(info.projectId).catch(console.error));
   } else if (info.tab === 'experiments') {
     if (canEdit) add('New experiment', () => createExperiment(info.projectId), true);
-    add('Edit experiment', () => editExperiment(info.projectId).catch(console.error));
+    if (canEdit) add('Edit experiment', () => editExperiment(info.projectId).catch(console.error));
     if (canEdit) add('New deliverable', () => createDeliverable(info.projectId, cockpit));
+    if ((cockpit.deliverables || []).some((item) => item.can_edit)) add('Edit deliverable', () => editDeliverable(info.projectId, cockpit));
   }
   add('Refresh', refreshProject);
   return actions;
@@ -553,13 +634,8 @@ function wireOverviewMetrics(info, cockpit, project) {
   const destinations = ['tasks', 'notes', 'files', 'experiments'];
   destinations.forEach((tab, index) => activateNode(topMetrics[index], () => go(`/workspace/research/projects/${info.projectId}/${tab}`)));
   if (topMetrics[4] && canManageProject(project)) activateNode(topMetrics[4], () => manageAccess(info.projectId).catch(console.error));
-  if (topMetrics[5]) {
-    activateNode(topMetrics[5], () => {
-      const headings = [...doc.querySelectorAll('.fl-panel__title')];
-      headings.find((node) => node.textContent.trim() === 'Knowledge graph')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  }
-  for (const metric of doc.querySelectorAll('.fl-metrics--compact .fl-metric')) activateNode(metric, () => go(`/workspace/research/projects/${info.projectId}/tasks`));
+  if (topMetrics[5]) activateNode(topMetrics[5], () => [...doc.querySelectorAll('.fl-panel__title')].find((node) => node.textContent.trim() === 'Knowledge graph')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  for (const item of doc.querySelectorAll('.fl-metrics--compact .fl-metric')) activateNode(item, () => go(`/workspace/research/projects/${info.projectId}/tasks`));
 }
 
 async function mountForCurrentRoute() {
@@ -580,7 +656,6 @@ async function mountForCurrentRoute() {
     for (const actionNode of actionSet(info, cockpit, project)) toolbar.append(actionNode);
     const tabs = head.querySelector('.fl-tabs');
     if (tabs) head.insertBefore(toolbar, tabs); else head.append(toolbar);
-    for (const tab of head.querySelectorAll('.fl-tab')) if (tab.textContent.trim() === 'Experiments & Deliverables') tab.textContent = 'Outputs';
     wireOverviewMetrics(info, cockpit, project);
   } catch (error) {
     console.error('Research project actions could not load', error);
