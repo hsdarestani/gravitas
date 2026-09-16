@@ -67,6 +67,7 @@ class EntityLinkStructuralContractTests(TestCase):
             title='Resource with colliding id',
         )
         target_resource = KnowledgeResource.objects.create(
+            pk=self.project.pk + 1000,
             workspace=self.project.workspace,
             project=self.project,
             owner=self.user,
