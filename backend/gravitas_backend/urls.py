@@ -16,6 +16,8 @@ from core.oidc_provider import (
     oidc_token,
     oidc_userinfo,
 )
+from core.operating_api_v4 import operating_dashboard, milestones, risks, tasks, work_packages
+from core.research_milestone_api import project_milestone_detail, project_milestones
 from core.roadmap_okr import roadmap_okr_sync
 from core.space_api import space_tree
 from core.space_full_api import (
@@ -63,6 +65,17 @@ urlpatterns = [
     path('api/platform/nextcloud/', nextcloud_status_canonical),
     path('api/platform/nextcloud/client-credentials/', nextcloud_client_credentials_canonical),
     path('api/platform/nextcloud/sso/', nextcloud_sso),
+    # Research milestones share the canonical Core operating objects, but the
+    # Research surface owns their project ACL and mutation controls.
+    path('api/platform/projects/<int:project_id>/milestones/', project_milestones),
+    path('api/platform/projects/<int:project_id>/milestones/<int:milestone_id>/', project_milestone_detail),
+    # Bridge Core planning to the separate canonical Research workspace. These
+    # routes intentionally shadow the legacy operating endpoints in core.urls.
+    path('api/operating/dashboard/', operating_dashboard),
+    path('api/operating/milestones/', milestones),
+    path('api/operating/work-packages/', work_packages),
+    path('api/operating/tasks/', tasks),
+    path('api/operating/risks/', risks),
     path('api/', include('core.urls')),
     path('content/<slug:slug>/', content_page),
 ]
