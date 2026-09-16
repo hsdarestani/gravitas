@@ -7,7 +7,15 @@ from django.db.models import Q
 from django.utils import timezone
 
 from . import cloud
-from .models import Collection, KnowledgeResource, ProjectMembership, StoragePlan, WorkspaceMembership
+from .layer_models import CommunityProfile, ModuleGrant
+from .models import (
+    Collection,
+    KnowledgeResource,
+    ProjectMembership,
+    ResearchProject,
+    StoragePlan,
+    WorkspaceMembership,
+)
 from .platform_access import INHERIT_VISIBILITY, content_type_for, policy_for
 from .platform_models import AccessGrant
 
@@ -30,10 +38,39 @@ def ensure_user(user):
     return cloud.ensure_identity(user, _plan(user).quota_bytes)
 
 
+def _native_project_user_enabled(user):
+    """Return whether a Research participant may exist in native project ACLs.
+
+    ProjectMembership is the object relationship, while ModuleGrant/account and
+    community state are the product-level gate. Native Nextcloud membership has
+    to respect both; otherwise a user suspended in Gravitas can keep accessing
+    Team Folders directly from a Nextcloud client.
+    """
+    if not user or not getattr(user, 'is_active', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+
+    profile = CommunityProfile.objects.filter(user=user).only('status').first()
+    if profile is not None and profile.status != CommunityProfile.Status.ACTIVE:
+        return False
+
+    grant = ModuleGrant.objects.filter(
+        user=user,
+        module=ModuleGrant.Module.RESEARCH,
+    ).first()
+    if grant is not None and not grant.is_effective():
+        return False
+    return True
+
+
 def project_users(project):
-    users = {project.owner_id: project.owner}
+    users = {}
+    if _native_project_user_enabled(project.owner):
+        users[project.owner_id] = project.owner
     for membership in ProjectMembership.objects.filter(project=project).select_related('user'):
-        users[membership.user_id] = membership.user
+        if _native_project_user_enabled(membership.user):
+            users[membership.user_id] = membership.user
     return list(users.values())
 
 
@@ -121,21 +158,37 @@ def _write_team_acl(mountpoint, relative_path, group_id, user_roles, visibility)
 
 
 def _project_root_roles(project):
-    roles = {ensure_user(project.owner).username: 'manage'}
-    for membership in ProjectMembership.objects.filter(project=project).select_related('user'):
-        role = {'owner': 'manage', 'editor': 'edit', 'viewer': 'view'}.get(membership.role, 'view')
-        roles[ensure_user(membership.user).username] = role
+    memberships = {
+        item.user_id: item.role
+        for item in ProjectMembership.objects.filter(project=project)
+    }
+    roles = {}
+    for user in project_users(project):
+        if user.pk == project.owner_id:
+            role = 'manage'
+        else:
+            role = {
+                'owner': 'manage',
+                'editor': 'edit',
+                'viewer': 'view',
+            }.get(memberships.get(user.pk), 'view')
+        roles[ensure_user(user).username] = role
+
+    # Workspace administrators only receive native project management when they
+    # are also legitimate project participants. Product-layer suspension above
+    # therefore remains authoritative even for historical workspace members.
+    eligible_ids = {user.pk for user in project_users(project)}
     for membership in WorkspaceMembership.objects.filter(
         workspace=project.workspace,
         role__in=['owner', 'admin'],
+        user_id__in=eligible_ids,
     ).select_related('user'):
-        if ProjectMembership.objects.filter(project=project, user=membership.user).exists() or membership.user_id == project.owner_id:
-            roles[ensure_user(membership.user).username] = 'manage'
+        roles[ensure_user(membership.user).username] = 'manage'
     return roles
 
 
 def ensure_project_space(project):
-    """Provision a native Team Folder and reconcile project membership/roles."""
+    """Provision a native Team Folder and reconcile eligible membership/roles."""
     mountpoint = cloud.project_mountpoint(project)
     group_id = cloud.project_group_id(project)
     team = cloud.ensure_team_folder(mountpoint, group_id)
@@ -149,9 +202,14 @@ def ensure_project_space(project):
     _set_project_group_read_only(team['id'], group_id)
     _write_team_acl(mountpoint, '', group_id, _project_root_roles(project), 'project')
 
-    owner_identity = identities.get(project.owner_id) or ensure_user(project.owner)
-    for collection in Collection.objects.filter(project=project).select_related('parent').order_by('id'):
-        _ensure_collection_folder(project, collection, owner_identity)
+    # A suspended/inactive owner must not be silently re-enabled merely because
+    # collection folders need maintenance. Use any eligible project identity;
+    # with no eligible project user, preserve existing folders and let a future
+    # reconciliation create missing folders once someone is entitled again.
+    writer_identity = identities.get(project.owner_id) or next(iter(identities.values()), None)
+    if writer_identity is not None:
+        for collection in Collection.objects.filter(project=project).select_related('parent').order_by('id'):
+            _ensure_collection_folder(project, collection, writer_identity)
 
     return {
         'folder_id': team['id'],
@@ -163,6 +221,8 @@ def ensure_project_space(project):
 
 
 def add_project_user(project, user):
+    if not _native_project_user_enabled(user):
+        raise NextcloudBridgeError('research_access_disabled')
     team = ensure_project_space(project)
     identity = ensure_user(user)
     cloud.add_user_to_group(identity.username, team['group_id'])
@@ -171,7 +231,9 @@ def add_project_user(project, user):
 
 
 def remove_project_user(project, user):
-    if user.pk == project.owner_id:
+    # Owners cannot be removed while they are entitled, but an account/module
+    # suspension must be able to deprovision an owner from native access too.
+    if user.pk == project.owner_id and _native_project_user_enabled(user):
         return
     identity = getattr(user, 'gravitas_nextcloud', None)
     if identity:
@@ -179,16 +241,38 @@ def remove_project_user(project, user):
     ensure_project_space(project)
 
 
+def reconcile_user_research_access(user):
+    """Converge all native Research project groups for one account.
+
+    This is intentionally idempotent and queries current database state, which
+    also makes it usable as compensation after a surrounding DB transaction is
+    rolled back because a native synchronization failed.
+    """
+    projects = ResearchProject.objects.filter(archived=False).filter(
+        Q(owner=user) | Q(memberships__user=user)
+    ).select_related('owner', 'workspace').distinct().order_by('id')
+    enabled = _native_project_user_enabled(user)
+    identity = getattr(user, 'gravitas_nextcloud', None)
+    reconciled = 0
+    for project in projects:
+        if not enabled and identity is not None:
+            cloud.remove_user_from_group(identity.username, cloud.project_group_id(project))
+        ensure_project_space(project)
+        reconciled += 1
+    return {'enabled': enabled, 'projects': reconciled}
+
+
 def _manager_users(project):
-    users = {project.owner_id: project.owner}
-    workspace_admins = WorkspaceMembership.objects.filter(
+    eligible = {user.pk: user for user in project_users(project)}
+    users = {}
+    if project.owner_id in eligible:
+        users[project.owner_id] = eligible[project.owner_id]
+    for membership in WorkspaceMembership.objects.filter(
         workspace=project.workspace,
         role__in=['owner', 'admin'],
-    ).select_related('user')
-    project_user_ids = {item.pk for item in project_users(project)}
-    for membership in workspace_admins:
-        if membership.user_id in project_user_ids:
-            users[membership.user_id] = membership.user
+        user_id__in=eligible.keys(),
+    ).select_related('user'):
+        users[membership.user_id] = membership.user
     return list(users.values())
 
 
@@ -213,7 +297,7 @@ def _acl_user_roles(obj, project, visibility):
             roles[user.pk] = (user, 'manage')
         for attr in ('owner', 'created_by'):
             user = getattr(obj, attr, None)
-            if user is not None:
+            if user is not None and _native_project_user_enabled(user):
                 roles[user.pk] = (user, 'manage')
     project_user_ids = {item.pk for item in project_users(project)}
     result = {}
@@ -236,8 +320,11 @@ def sync_collection_acl(collection):
         return None
     project = collection.project
     team = ensure_project_space(project)
-    owner_identity = ensure_user(project.owner)
-    _ensure_collection_folder(project, collection, owner_identity)
+    eligible = project_users(project)
+    writer = next((user for user in eligible if user.pk == project.owner_id), None)
+    writer = writer or (eligible[0] if eligible else None)
+    if writer is not None:
+        _ensure_collection_folder(project, collection, ensure_user(writer))
     visibility = _visibility(collection)
     _write_team_acl(
         team['mount_point'],
