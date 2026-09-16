@@ -8,7 +8,7 @@ const TABS = [
   ['sources', 'Sources'],
   ['files', 'Files'],
   ['discussions', 'Discussions'],
-  ['experiments', 'Experiments & Deliverables'],
+  ['experiments', 'Outputs'],
   ['activity', 'Activity'],
 ];
 
@@ -94,7 +94,7 @@ function projectShell(host, project, projectId, tab, go) {
   text.append(el('p', 'ws-doc__meta', P.meta([label(project.category), project.client_name, label(project.status), label(project.visibility)])));
   const tags = el('div', 'fl-badges');
   if (project.secure_data_room) tags.append(badge('Secure data room'));
-  if (project.role) tags.append(badge(label(project.role)));
+  if (project.permissions?.role) tags.append(badge(label(project.permissions.role)));
   top.append(text, tags);
   head.append(top);
 
@@ -196,8 +196,8 @@ function overviewView(doc, cockpit) {
 }
 
 function milestonesView(doc, milestones) {
-  const box = section('Milestones', 'Project milestones are linked from the Core operating plan and visible inside Research.');
-  if (!milestones.length) box.body.append(empty('No milestones linked', 'Core planning milestones linked to this research project appear here.'));
+  const box = section('Milestones', 'Project milestones share the canonical Core operating plan and remain actionable inside Research.');
+  if (!milestones.length) box.body.append(empty('No milestones linked', 'Create a milestone here or link one from Core planning.'));
   for (const item of milestones) {
     box.body.append(row({
       title: item.title,
@@ -336,7 +336,7 @@ function discussionView(doc, projectId, messages, project, rerender) {
     if (message.resolved) head.append(badge('Resolved'));
     node.append(head, el('p', 'fl-prose', message.body));
     const tools = el('div', 'fl-row__actions');
-    if (project.can_edit) {
+    if (project.permissions?.can_edit) {
       const reply = action('Reply', () => {
         if (node.querySelector('.fl-reply-form')) return;
         const form = el('form', 'fl-inline-form fl-reply-form');
@@ -365,7 +365,7 @@ function discussionView(doc, projectId, messages, project, rerender) {
   };
   roots.forEach((message) => box.body.append(drawMessage(message)));
 
-  if (project.can_edit) {
+  if (project.permissions?.can_edit) {
     const form = el('form', 'fl-form fl-discussion-compose');
     const body = textarea('', 4, 'Start a project discussion');
     const status = el('p', 'fl-muted');
@@ -400,7 +400,7 @@ function experimentsView(doc, projectId, experiments, cockpit, rerender) {
     box.body.append(details);
   }
 
-  if (cockpit.project.can_edit) {
+  if (cockpit.project.permissions?.can_edit) {
     const form = el('form', 'fl-form fl-experiment-form');
     const title = input('', 'text', 'Experiment title');
     const hypothesis = textarea('', 3, 'Hypothesis');
