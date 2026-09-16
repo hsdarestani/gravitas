@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from . import cloud, nextcloud_bridge
+from .layer_guards import require_research_or_core
 from .models import ProjectMembership, ResearchProject
 from .nextcloud_api import project_nextcloud_sync as base_project_nextcloud_sync
 from .platform_access import ROLE_RANK, can_manage, can_view, content_type_for, grant_role
@@ -98,6 +99,7 @@ def platform_file_upload_strict(request):
     return base_platform_file_upload(request)
 
 
+@require_research_or_core
 @require_http_methods(['POST'])
 def project_nextcloud_sync_manage(request, project_id):
     """ACL reconciliation is a management mutation, not a read operation."""
@@ -111,6 +113,7 @@ def project_nextcloud_sync_manage(request, project_id):
     return base_project_nextcloud_sync(request, project_id)
 
 
+@require_research_or_core
 @require_http_methods(['GET', 'PATCH'])
 def research_request_detail_synced(request, request_id):
     if response := _auth(request):
@@ -174,6 +177,7 @@ def research_request_detail_synced(request, request_id):
     return JsonResponse({'ok': True, 'item': _request_json(item)})
 
 
+@require_research_or_core
 @require_http_methods(['PATCH'])
 def project_application_detail_synced(request, project_id, application_id):
     if response := _auth(request):
