@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="/assets/ws/ws.css?v=20260913-3">
   <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20260914-1">
   <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20260914-1">
+  <link rel="stylesheet" href="/assets/ws/ws-space-integration.css?v=20260917-1">
   <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20260915-1">
   <script src="/assets/gravitas-icons.js" defer></script>
   <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
@@ -120,6 +121,7 @@
     import { installCoreContentActions } from '/assets/ws/ws-core-content-actions.js?v=20260915-1';
     import { installWorkspaceTaskDeckFixes } from '/assets/ws/ws-task-deck-fixes.js?v=20260915-1';
     import { installTaskDeckMirror } from '/assets/ws/ws-task-deck-mirror.js?v=20260915-1';
+    import { installSpaceWorkspaceIntegration } from '/assets/ws/ws-space-integration.js?v=20260917-1';
 
     function waitForPlatform() {
       if (platform.settled) return Promise.resolve();
@@ -157,6 +159,7 @@
       installCoreContentActions();
       installWorkspaceTaskDeckFixes();
       installTaskDeckMirror();
+      installSpaceWorkspaceIntegration();
       await workspaceReady;
       // start() may finish by rendering a legacy route after an overlay was
       // installed. Re-run route owners once with the fully hydrated tree.
