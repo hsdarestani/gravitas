@@ -91,18 +91,31 @@ jobs:
           echo 'Research purge dry run:'
           run_django purge_research_test_data
 
+          echo 'Personal placeholder-note dry run:'
+          run_django purge_personal_test_notes
+
           echo 'Purging Research test/demo data...'
           run_django purge_research_test_data --apply --confirm PURGE-RESEARCH-TEST-DATA
+
+          echo 'Purging personal placeholder/test notes...'
+          run_django purge_personal_test_notes --apply --confirm PURGE-PERSONAL-TEST-NOTES
 
           echo 'Removing strict-pattern production E2E accounts...'
           run_django cleanup_production_e2e_users --scope all
 
-          echo 'Post-purge verification:'
+          echo 'Post-purge Research verification:'
           VERIFY_OUTPUT="$(run_django purge_research_test_data)"
           printf '%s\n' "$VERIFY_OUTPUT"
           SUMMARY_JSON="$(printf '%s\n' "$VERIFY_OUTPUT" | grep -m1 '^{')"
-          test -n "$SUMMARY_JSON" || { echo 'Could not read purge verification summary.'; exit 1; }
+          test -n "$SUMMARY_JSON" || { echo 'Could not read Research purge verification summary.'; exit 1; }
           python3 -c 'import json,sys; d=json.loads(sys.argv[1]); keys=("projects","resources_total","research_editor_notes","mind_maps","research_requests","research_linked_content_items","collections","tags"); bad={k:d.get(k) for k in keys if int(d.get(k,0) or 0)!=0}; print("Verified empty Research content counts:", {k:d.get(k,0) for k in keys}); sys.exit(1 if bad else 0)' "$SUMMARY_JSON"
+
+          echo 'Post-purge personal placeholder-note verification:'
+          PERSONAL_VERIFY_OUTPUT="$(run_django purge_personal_test_notes)"
+          printf '%s\n' "$PERSONAL_VERIFY_OUTPUT"
+          PERSONAL_SUMMARY_JSON="$(printf '%s\n' "$PERSONAL_VERIFY_OUTPUT" | grep -m1 '^{')"
+          test -n "$PERSONAL_SUMMARY_JSON" || { echo 'Could not read personal note verification summary.'; exit 1; }
+          python3 -c 'import json,sys; d=json.loads(sys.argv[1]); n=int(d.get("personal_test_notes",0) or 0); print("Verified personal placeholder notes:", n); sys.exit(1 if n else 0)' "$PERSONAL_SUMMARY_JSON"
           REMOTE
 
       - name: Record successful purge
