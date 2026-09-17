@@ -114,6 +114,7 @@
     import { platform } from '/assets/ws/ws-platform.js?v=20260914-7';
     import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260914-3';
     import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20260914-2';
+    import { installNotesPerformance } from '/assets/ws/ws-notes-performance.js?v=20260917-1';
     import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20260915-1';
     import { installLiveKms } from '/assets/ws/ws-kms-live.js?v=20260915-1';
     import { installResearchWorkspaceActions } from '/assets/ws/ws-research-actions.js?v=20260915-1';
@@ -136,6 +137,11 @@
     }
 
     async function bootWorkspace() {
+      // Normalize the legacy Research/Editor alias before any route owner paints
+      // it. The Notes performance layer then keeps remote reconciliation off
+      // the critical first-paint path.
+      installNotesPerformance();
+
       // Own the two legacy KMS routes before ws-app gets its first chance to
       // draw the old local/sample renderer. installLiveKms schedules its live
       // account-backed render in the same task, so seeded content never makes

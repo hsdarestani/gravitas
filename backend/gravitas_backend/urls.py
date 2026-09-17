@@ -9,6 +9,7 @@ from core.content_api import content_page
 from core.kms_api import kms_state
 from core.layer_guards import require_research_or_core
 from core.legacy_folder_cleanup import project_legacy_folders
+from core.nextcloud_notes_fast_api import native_notes_fast
 from core.nextcloud_public_api import nextcloud_client_credentials_canonical, nextcloud_status_canonical
 from core.oidc_provider import (
     nextcloud_sso,
@@ -97,6 +98,9 @@ urlpatterns = [
     path('api/platform/nextcloud/', nextcloud_status_canonical),
     path('api/platform/nextcloud/client-credentials/', nextcloud_client_credentials_canonical),
     path('api/platform/nextcloud/sso/', nextcloud_sso),
+    # Notes first paint is local-only. The existing sync endpoint still performs
+    # the full conflict-safe reconciliation after the page has rendered.
+    path('api/platform/nextcloud/notes/', native_notes_fast),
     path('api/platform/dashboard/', platform_dashboard_acl_safe),
     path('api/platform/projects/<int:project_id>/', platform_project_detail_acl_safe),
     path('api/platform/links/', entity_links_layer_safe),
