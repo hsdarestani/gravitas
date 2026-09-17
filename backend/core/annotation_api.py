@@ -131,7 +131,7 @@ def annotations(request):
 def annotation_detail(request, annotation_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    item = DocumentAnnotation.objects.select_related('author', 'project', 'resource').filter(pk=annotation_id).first()
+    item = DocumentAnnotation.objects.select_related('author', 'project', 'resource', 'parent').filter(pk=annotation_id).first()
     if not item or not can_view(request.user, item.project) or not can_view(request.user, item.resource):
         return _error('not_found', 404)
     if item.author_id != request.user.pk and not can_manage(request.user, item.project):
@@ -163,7 +163,9 @@ def annotation_detail(request, annotation_id):
         if len(body) > 10000:
             return _error('body_too_long')
         item.body = body
+        item.save(update_fields=['body', 'updated_at'])
         changed.append('body')
+
     if 'resolved' in data:
         # Replies cannot resolve the thread independently; resolving a root is
         # reflected to its replies so both list and thread views stay coherent.
@@ -174,8 +176,6 @@ def annotation_detail(request, annotation_id):
         root.replies.update(resolved=value)
         item = root
         changed.append('resolved')
-    elif changed:
-        item.save(update_fields=['body', 'updated_at'])
 
     platform_api._audit(
         item.project,
