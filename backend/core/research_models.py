@@ -78,3 +78,51 @@ class ProjectDiscussionMessage(models.Model):
 
     def __str__(self):
         return f'{self.project_id} · {self.author_id} · {self.created_at:%Y-%m-%d}'
+
+
+class DocumentAnnotation(models.Model):
+    """Threadable comments anchored to a project note/document.
+
+    The first iteration intentionally stores anchors as JSON instead of tying
+    them to one editor implementation. Today an anchor can describe a text
+    quote/range or simply the whole document; richer highlight semantics can be
+    added without migrating the collaboration model again.
+    """
+
+    project = models.ForeignKey(
+        'core.ResearchProject',
+        on_delete=models.CASCADE,
+        related_name='document_annotations',
+    )
+    resource = models.ForeignKey(
+        'core.KnowledgeResource',
+        on_delete=models.CASCADE,
+        related_name='annotations',
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_document_annotations',
+    )
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        related_name='replies',
+        blank=True,
+        null=True,
+    )
+    body = models.TextField(max_length=10000)
+    anchor = models.JSONField(default=dict, blank=True)
+    resolved = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [
+            models.Index(fields=['resource', 'resolved', 'created_at'], name='grav_annotation_resource_state'),
+            models.Index(fields=['project', 'resolved'], name='grav_annotation_project_state'),
+        ]
+
+    def __str__(self):
+        return f'{self.resource_id} · {self.author_id} · {self.created_at:%Y-%m-%d}'

@@ -2,10 +2,12 @@ from django.contrib import admin
 from django.urls import include, path
 
 from core.ai_mindmap import generate_mindmap_ai
+from core.annotation_api import annotation_detail, annotations
 from core.assistant_api import assistant_ask
 from core.ai_provider_api import ai_provider_detail, ai_providers
 from core.content_api import content_page
 from core.kms_api import kms_state
+from core.layer_guards import require_research_or_core
 from core.legacy_folder_cleanup import project_legacy_folders
 from core.nextcloud_public_api import nextcloud_client_credentials_canonical, nextcloud_status_canonical
 from core.oidc_provider import (
@@ -18,6 +20,7 @@ from core.oidc_provider import (
 )
 from core.operating_api_v4 import operating_dashboard, milestones, risks, tasks, work_packages
 from core.project_cockpit_v2 import project_cockpit
+from core.project_space_api import platform_projects_with_space
 from core.research_deliverable_api import project_deliverable_detail
 from core.research_milestone_api import project_milestone_detail, project_milestones
 from core.roadmap_okr import roadmap_okr_sync
@@ -77,6 +80,14 @@ urlpatterns = [
     path('api/platform/pages/', workspace_pages),
     path('api/platform/pages/<str:page_id>/', workspace_page_detail),
     path('api/platform/kms/state/', kms_state),
+    # Space-aware project creation is canonical for the workspace UI. Existing
+    # integrations that omit space_category_id are delegated unchanged to the
+    # legacy platform creator.
+    path('api/platform/projects/', require_research_or_core(platform_projects_with_space)),
+    # Threaded document annotations are separate from general project
+    # discussion and inherit the project's Research/Core product gate.
+    path('api/platform/annotations/', require_research_or_core(annotations)),
+    path('api/platform/annotations/<int:annotation_id>/', require_research_or_core(annotation_detail)),
     # Safe cleanup for the six fixed folders created by older Gravitas builds.
     # This route precedes core.urls so it remains canonical even as the legacy
     # project API surface evolves.

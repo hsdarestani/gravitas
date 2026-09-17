@@ -1,9 +1,14 @@
+from . import cloud
+
+
 def project_markdown(project, space_user):
     """Render the project sidecar with the complete Gravitas project-form state.
 
-    Filesystem placement (the user's parent Space Category) deliberately lives
-    in ProjectSpaceLink rather than this shared project metadata, because every
-    project member can place the same project in a different personal Category.
+    ``ProjectSpaceLink`` is the user's personal filing/index location. Shared
+    project payloads keep using the stable Nextcloud Team Folder so ACLs,
+    desktop sync and the access-hardening contract do not depend on a mutable
+    title/category path. The sidecar records both surfaces explicitly instead
+    of pretending that they are competing canonical paths.
     """
     from .space_fs import _meta_lines
 
@@ -13,6 +18,11 @@ def project_markdown(project, space_user):
         workspace_id=project.workspace_id,
         owner_id=project.owner_id,
         space_user_id=space_user.pk,
+        storage_contract='space-index+team-folder-data',
+        space_role='personal-index',
+        collaborative_storage='nextcloud-team-folder',
+        team_folder_mount=cloud.project_mountpoint(project),
+        legacy_nextcloud_root=getattr(profile, 'nextcloud_root', ''),
         project_type=getattr(profile, 'category', ''),
         visibility=getattr(profile, 'visibility', ''),
         status=getattr(profile, 'status', ''),
