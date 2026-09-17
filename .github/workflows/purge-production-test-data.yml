@@ -1,0 +1,104 @@
+name: Purge Gravitas Production Test Data
+
+on:
+  workflow_run:
+    workflows: ['Deploy Gravitas to Strato']
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  purge:
+    # One-shot guard: this workflow only mutates production after the explicit
+    # purge commit has deployed successfully to main.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_commit.message == 'Purge production test data'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}" || { echo 'Missing DEPLOY_HOST'; exit 1; }
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo 'Missing DEPLOY_SSH_KEY'; exit 1; }
+          USERNAME="${{ secrets.DEPLOY_USER }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$USERNAME" ] || USERNAME=deploy
+          [ -n "$PORT" ] || PORT=22
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/gravitas_deploy -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${OPTS[@]}" "$USERNAME@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER="$USERNAME"
+          elif [ "$USERNAME" != root ] && ssh "${OPTS[@]}" "root@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER=root
+          else
+            echo 'SSH authentication failed'; exit 1
+          fi
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Backup and purge production test data
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s <<'REMOTE'
+          set -euo pipefail
+
+          if [ "$(id -u)" -eq 0 ]; then
+            SUDO=""
+          elif sudo -n true 2>/dev/null; then
+            SUDO="sudo"
+          else
+            echo 'Deployment user must be root or have passwordless sudo.'
+            exit 1
+          fi
+
+          echo 'Creating a recovery backup before destructive cleanup...'
+          $SUDO /usr/local/sbin/gravitas-backup
+
+          TIMER_WAS_ENABLED=0
+          if systemctl is-enabled --quiet gravitas-nextcloud-mirror.timer 2>/dev/null; then
+            TIMER_WAS_ENABLED=1
+          fi
+          restore_mirror() {
+            if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
+              $SUDO systemctl start gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+            fi
+          }
+          trap restore_mirror EXIT
+          $SUDO systemctl stop gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+          $SUDO systemctl stop gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
+
+          run_django() {
+            $SUDO -u gravitas bash -c '
+              set -a
+              . /etc/gravitas/backend.env
+              set +a
+              export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+              export PYTHONPATH=/opt/gravitas-backend
+              cd /opt/gravitas-backend
+              exec .venv/bin/django-admin "$@"
+            ' _ "$@"
+          }
+
+          echo 'Research purge dry run:'
+          run_django purge_research_test_data
+
+          echo 'Purging Research test/demo data...'
+          run_django purge_research_test_data --apply --confirm PURGE-RESEARCH-TEST-DATA
+
+          echo 'Removing strict-pattern production E2E accounts...'
+          run_django cleanup_production_e2e_users --scope all
+
+          echo 'Post-purge verification:'
+          run_django purge_research_test_data
+          REMOTE
