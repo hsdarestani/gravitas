@@ -1,6 +1,6 @@
 from django.urls import path
 
-from core.content_api import content_detail, content_list
+from core.content_api import content_detail, content_list, topic_media, topic_poll
 from core.core_links_api import task_cross_layer_links
 from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
@@ -120,6 +120,7 @@ from core.site_admin_api import (
     admin_site_comments,
     admin_site_content,
     admin_site_content_detail,
+    admin_site_media_upload,
 )
 from core.platform_objects_api import shared_task_detail
 from core.platform_resources_api import (
@@ -155,6 +156,7 @@ from core.views import (
     auth_logout,
     auth_me,
     auth_signup,
+    comment_like,
     comments,
     health,
     lab_progress,
@@ -169,6 +171,8 @@ urlpatterns = [
     path('health/', health),
     path('content/', content_list),
     path('content/<slug:slug>/', content_detail),
+    path('content/<slug:slug>/poll/', topic_poll),
+    path('content/media/<str:name>/', topic_media),
     path('newsletter/subscribe/', newsletter_subscribe),
     path('newsletter/confirm/', newsletter_confirm),
     path('auth/csrf/', auth_csrf),
@@ -184,6 +188,7 @@ urlpatterns = [
     path('auth/password-reset/', password_reset_request),
     path('auth/password-reset/confirm/', password_reset_confirm),
     path('community/comments/<slug:content_key>/', comments),
+    path('community/comments/<slug:content_key>/<int:comment_id>/like/', comment_like),
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
     path('reader/library/', reader_library),
@@ -202,6 +207,7 @@ urlpatterns = [
     path('platform/admin/activity/', platform_admin_activity),
     path('platform/admin/site/content/', admin_site_content),
     path('platform/admin/site/content/<int:item_id>/', admin_site_content_detail),
+    path('platform/admin/site/media/', admin_site_media_upload),
     path('platform/admin/site/comments/', admin_site_comments),
     path('platform/admin/site/comments/<int:comment_id>/', admin_site_comment_detail),
     path('platform/admin/research/projects/', admin_research_projects),

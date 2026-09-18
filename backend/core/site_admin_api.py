@@ -1,5 +1,9 @@
 import json
+import mimetypes
+import uuid
+from pathlib import Path
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
@@ -61,6 +65,8 @@ def _content_json(item, include_body=False):
         'slug': item.slug,
         'title': item.title,
         'summary': item.summary,
+        'topic_data': item.topic_data if isinstance(item.topic_data, dict) else {},
+        'poll_results': _topic_poll_results(item),
         'published_at': _iso(item.published_at),
         'created_at': _iso(item.created_at),
         'updated_at': _iso(item.updated_at),
@@ -69,6 +75,32 @@ def _content_json(item, include_body=False):
     if include_body:
         data['body'] = item.body
     return data
+
+
+def _topic_poll_results(item):
+    if item.kind != ContentItem.Kind.TOPIC:
+        return None
+    data = item.topic_data if isinstance(item.topic_data, dict) else {}
+    viewpoints = data.get('viewpoints') if isinstance(data.get('viewpoints'), dict) else {}
+    raw = viewpoints.get('poll_options') if isinstance(viewpoints.get('poll_options'), list) else []
+    labels = {}
+    for index, option in enumerate(raw[:20]):
+        if isinstance(option, dict):
+            option_id = str(option.get('id') or f'option-{index + 1}').strip()[:80]
+            label = str(option.get('label') or '').strip()[:300]
+        else:
+            option_id = f'option-{index + 1}'
+            label = str(option).strip()[:300]
+        if option_id and label:
+            labels[option_id] = label
+    counts = {key: 0 for key in labels}
+    for option_id in item.poll_votes.values_list('option_id', flat=True):
+        if option_id in counts:
+            counts[option_id] += 1
+    return {
+        'total_votes': sum(counts.values()),
+        'options': [{'id': key, 'label': labels[key], 'votes': counts[key]} for key in labels],
+    }
 
 
 def _apply_translation(content, raw):
@@ -122,6 +154,13 @@ def _apply_content(item, data, *, creating=False):
     for field in ('summary', 'body'):
         if field in data:
             setattr(item, field, str(data.get(field) or ''))
+    if 'topic_data' in data:
+        topic_data = data.get('topic_data')
+        if not isinstance(topic_data, dict):
+            raise ValueError('invalid_topic_data')
+        if len(json.dumps(topic_data, ensure_ascii=False).encode('utf-8')) > 2 * 1024 * 1024:
+            raise ValueError('topic_data_too_large')
+        item.topic_data = topic_data
     if item.status == ContentItem.Status.PUBLISHED and not item.published_at:
         item.published_at = timezone.now()
     if item.status != ContentItem.Status.PUBLISHED:
@@ -175,7 +214,7 @@ def admin_site_content(request):
     return JsonResponse({'ok': True, 'item': _content_json(item, include_body=True)}, status=201)
 
 
-@require_http_methods(['GET', 'PATCH'])
+@require_http_methods(['GET', 'PATCH', 'DELETE'])
 def admin_site_content_detail(request, item_id):
     if not _is_admin(request):
         return _denied(request)
@@ -185,6 +224,18 @@ def admin_site_content_detail(request, item_id):
         return JsonResponse({'ok': False, 'error': 'content_not_found'}, status=404)
     if request.method == 'GET':
         return JsonResponse({'ok': True, 'item': _content_json(item, include_body=True)})
+    if request.method == 'DELETE':
+        slug = item.slug
+        item.delete()
+        record_activity(
+            layer=ActivityEvent.Layer.SHELL,
+            action='content.deleted',
+            actor=request.user,
+            object_type='content',
+            object_id=item_id,
+            detail={'slug': slug},
+        )
+        return JsonResponse({'ok': True, 'deleted': True})
     data = _payload(request)
     if data is None:
         return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
@@ -205,6 +256,39 @@ def admin_site_content_detail(request, item_id):
         detail={'fields': sorted(data.keys()), 'slug': item.slug, 'status': item.status},
     )
     return JsonResponse({'ok': True, 'item': _content_json(item, include_body=True)})
+
+
+@require_http_methods(['POST'])
+def admin_site_media_upload(request):
+    if not _is_admin(request):
+        return _denied(request)
+    upload = request.FILES.get('file')
+    if upload is None:
+        return JsonResponse({'ok': False, 'error': 'file_required'}, status=400)
+    if upload.size > settings.GRAVITAS_MAX_UPLOAD_BYTES:
+        return JsonResponse({'ok': False, 'error': 'file_too_large'}, status=413)
+    content_type = str(getattr(upload, 'content_type', '') or '').lower()
+    if not (content_type.startswith('image/') or content_type.startswith('video/')):
+        return JsonResponse({'ok': False, 'error': 'unsupported_media_type'}, status=415)
+    suffix = Path(upload.name or '').suffix.lower()
+    if not suffix or len(suffix) > 11 or not suffix[1:].isalnum():
+        suffix = mimetypes.guess_extension(content_type) or ''
+    if not suffix or len(suffix) > 11:
+        return JsonResponse({'ok': False, 'error': 'unsupported_file_extension'}, status=415)
+    root = Path(settings.TOPIC_MEDIA_ROOT)
+    root.mkdir(parents=True, exist_ok=True)
+    name = f'{uuid.uuid4().hex}{suffix}'
+    target = root / name
+    with target.open('wb') as handle:
+        for chunk in upload.chunks():
+            handle.write(chunk)
+    return JsonResponse({
+        'ok': True,
+        'name': name,
+        'url': f'/api/content/media/{name}/',
+        'content_type': content_type,
+        'size': upload.size,
+    }, status=201)
 
 
 def _comment_json(comment):

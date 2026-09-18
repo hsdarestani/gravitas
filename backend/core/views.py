@@ -17,7 +17,7 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
 from . import cloud
-from .models import Comment, LabProgress, NewsletterSubscriber
+from .models import Comment, CommentLike, LabProgress, NewsletterSubscriber
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -41,14 +41,17 @@ def _user_json(user):
     }
 
 
-def _comment_json(comment):
+def _comment_json(comment, user=None):
+    liked = bool(user and getattr(user, 'is_authenticated', False) and CommentLike.objects.filter(comment=comment, user=user).exists())
     return {
         'id': comment.pk,
         'content_key': comment.content_key,
         'parent_id': comment.parent_id,
         'body': comment.body,
-        'author': comment.author.first_name or 'Member',
+        'author': comment.author.first_name or comment.author.get_username() or 'Member',
         'created_at': comment.created_at.isoformat(),
+        'like_count': comment.likes.count(),
+        'viewer_liked': liked,
     }
 
 
@@ -412,7 +415,7 @@ def comments(request, content_key):
             .select_related('author')
             .order_by('created_at')[:200]
         )
-        return JsonResponse({'ok': True, 'comments': [_comment_json(item) for item in queryset]})
+        return JsonResponse({'ok': True, 'comments': [_comment_json(item, request.user) for item in queryset]})
 
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
@@ -450,6 +453,23 @@ def comments(request, content_key):
         },
         status=201,
     )
+
+
+def comment_like(request, content_key, comment_id):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+    comment = Comment.objects.filter(pk=comment_id, content_key=content_key, status=Comment.Status.PUBLISHED).first()
+    if comment is None:
+        return JsonResponse({'ok': False, 'error': 'comment_not_found'}, status=404)
+    like, created = CommentLike.objects.get_or_create(comment=comment, user=request.user)
+    if created:
+        liked = True
+    else:
+        like.delete()
+        liked = False
+    return JsonResponse({'ok': True, 'liked': liked, 'like_count': comment.likes.count()})
 
 
 def lab_progress(request, lab_key):

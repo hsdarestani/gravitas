@@ -21,6 +21,7 @@ class ContentItem(models.Model):
     class Kind(models.TextChoices):
         ARTICLE = 'article', 'Article'
         DOSSIER = 'dossier', 'Dossier'
+        TOPIC = 'topic', 'Topic'
         LEARNING = 'learning', 'Learning path'
         LAB = 'lab', 'Lab / Interactive'
 
@@ -34,6 +35,7 @@ class ContentItem(models.Model):
     title = models.CharField(max_length=220)
     summary = models.TextField(blank=True)
     body = models.TextField(blank=True)
+    topic_data = models.JSONField(default=dict, blank=True)
     published_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -121,6 +123,27 @@ class Comment(models.Model):
 
     def __str__(self):
         return f'{self.author} · {self.content_key} · {self.status}'
+
+
+class CommentLike(models.Model):
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_comment_likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['comment', 'user'], name='unique_gravitas_comment_like')]
+
+
+class TopicPollVote(models.Model):
+    topic = models.ForeignKey(ContentItem, on_delete=models.CASCADE, related_name='poll_votes')
+    voter_key = models.CharField(max_length=64)
+    option_id = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['topic', 'voter_key'], name='unique_gravitas_topic_poll_voter')]
+        indexes = [models.Index(fields=['topic', 'option_id'], name='grav_topic_poll_option')]
 
 
 class ReaderSavedItem(models.Model):
