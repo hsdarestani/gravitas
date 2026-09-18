@@ -20,8 +20,8 @@
    ========================================================================== */
 
 import * as api from './ws-api.js?v=20260913-3';
-import * as P from './ws-platform.js?v=20260913-1';
-import * as views from './ws-views.js?v=20260913-4';
+import * as P from './ws-platform.js?v=20260918-taskboard1';
+import * as views from './ws-views.js?v=20260918-taskboard1';
 import * as assets from './ws-core-assets.js';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js';

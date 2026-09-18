@@ -2350,3 +2350,147 @@
 .ws[data-member-only][data-dock="off"] .ws__body {
   grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0;
 }
+
+
+/* ---- Core task Trello board -------------------------------------------- */
+.task-board__toolbar { position: sticky; top: 0; z-index: 4; padding: 8px 0; background: var(--g-bg); }
+.task-board__toolbar .task-board__input[type="search"] { min-width: min(360px, 52vw); }
+.task-trello-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(235px, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+  align-items: start;
+  padding: 2px 0 14px;
+  scrollbar-width: thin;
+}
+.task-trello-column {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(110px, auto);
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-r-panel);
+  background: color-mix(in srgb, var(--g-surface) 72%, transparent);
+}
+.task-trello-column__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+.task-trello-column__head strong {
+  flex: 1;
+  font-size: var(--ws-fs-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--g-track-eyebrow);
+  color: var(--g-text-subtle);
+}
+.task-trello-column__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 96px;
+  border-radius: var(--ws-r-panel);
+  transition: background var(--g-dur-fast) var(--ws-ease), outline-color var(--g-dur-fast) var(--ws-ease);
+}
+.task-trello-column__body.is-over {
+  background: color-mix(in srgb, var(--g-accent) 7%, transparent);
+  outline: 1px dashed var(--g-border-strong);
+  outline-offset: 3px;
+}
+.task-trello-column__empty { flex: 1; min-height: 86px; }
+.task-trello-card {
+  display: grid;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-r-panel);
+  background: var(--g-surface);
+  cursor: grab;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--g-text) 4%, transparent);
+  transition: transform var(--g-dur-fast) var(--ws-ease), border-color var(--g-dur-fast) var(--ws-ease);
+}
+.task-trello-card:hover,
+.task-trello-card:focus-visible { border-color: var(--g-border-strong); transform: translateY(-1px); outline: none; }
+.task-trello-card.is-dragging { opacity: .45; cursor: grabbing; }
+.task-trello-card__top,
+.task-trello-card__foot,
+.task-trello-card__counts,
+.task-card-dialog__actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.task-trello-card__top { justify-content: space-between; }
+.task-trello-card__priority[data-priority="p0"] { font-weight: 700; }
+.task-trello-card__due { font: var(--ws-fs-xs)/1.2 var(--g-font-mono); color: var(--g-text-subtle); }
+.task-trello-card h3 { margin: 0; font-size: var(--ws-fs); line-height: 1.35; }
+.task-trello-card__description { margin: 0; color: var(--g-text-muted); font-size: var(--ws-fs-sm); line-height: 1.45; }
+.task-trello-card__context { display: flex; flex-wrap: wrap; gap: 5px; }
+.task-trello-card__context span {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--g-text) 5%, transparent);
+  font-size: var(--ws-fs-xs);
+  color: var(--g-text-subtle);
+}
+.task-trello-card__foot { justify-content: space-between; margin-top: 2px; }
+.task-trello-card__owner {
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--g-text);
+  color: var(--g-bg);
+  font-size: var(--ws-fs-xs);
+  font-weight: 700;
+}
+.task-trello-card__counts { color: var(--g-text-subtle); font-size: var(--ws-fs-xs); }
+
+.task-card-dialog {
+  width: min(1120px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--g-hairline);
+  border-radius: 14px;
+  background: var(--g-bg);
+  color: var(--g-text);
+  box-shadow: 0 24px 80px rgba(0,0,0,.35);
+}
+.task-card-dialog::backdrop { background: rgba(0, 18, 30, .68); backdrop-filter: blur(3px); }
+.task-card-dialog__frame { display: grid; grid-template-rows: auto minmax(0, 1fr); max-height: calc(100vh - 30px); }
+.task-card-dialog__head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--g-hairline);
+}
+.task-card-dialog__head h2 { flex: 1; margin: 0; font-size: 1.1rem; }
+.task-card-dialog__body { overflow: auto; padding: 16px; }
+.task-card-dialog__grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .8fr); gap: 16px; align-items: start; }
+.task-card-dialog__main,
+.task-card-dialog__side,
+.task-board__form { display: grid; gap: 12px; }
+.task-board__two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.task-board__field { display: grid; gap: 5px; min-width: 0; }
+.task-board__label { font-size: var(--ws-fs-xs); font-weight: 600; color: var(--g-text-subtle); }
+.task-board__input { width: 100%; min-width: 0 !important; }
+.task-board__textarea { width: 100%; height: auto; min-height: 78px; padding: 9px 10px; resize: vertical; }
+.task-card-dialog__trace { display: flex; flex-wrap: wrap; gap: 6px; }
+.task-card-dialog__message {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--g-hairline);
+}
+.task-card-dialog__message p { margin: 5px 0; white-space: pre-wrap; }
+.task-card-dialog__attachment {
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px solid var(--g-hairline);
+}
+.task-card-dialog__attachment > div:first-child { display: grid; gap: 3px; min-width: 0; }
+@media (max-width: 820px) {
+  .task-trello-board { grid-auto-columns: min(82vw, 300px); }
+  .task-card-dialog__grid { grid-template-columns: 1fr; }
+  .task-board__two { grid-template-columns: 1fr; }
+}

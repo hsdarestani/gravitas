@@ -1,5 +1,5 @@
-import * as P from './ws-platform.js?v=20260914-7';
-import { renderCoreTasks } from './ws-views.js?v=20260913-4';
+import * as P from './ws-platform.js?v=20260918-taskboard1';
+import { renderCoreTasks } from './ws-views.js?v=20260918-taskboard1';
 
 const state = {
   observer: null,

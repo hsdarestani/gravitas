@@ -230,6 +230,7 @@ class OperatingTask(models.Model):
     dependency = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='dependants', blank=True, null=True)
     blocked_reason = models.TextField(blank=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+    board_order = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -249,3 +250,36 @@ class OperatingTask(models.Model):
                 name='grav_meeting_action_due',
             ),
         ]
+
+
+
+class OperatingTaskComment(models.Model):
+    task = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='board_comments')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_operating_task_comments',
+    )
+    body = models.TextField(max_length=10000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
+class OperatingTaskAttachment(models.Model):
+    task = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='board_attachments')
+    uploader = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_operating_task_attachments',
+    )
+    name = models.CharField(max_length=255)
+    storage_path = models.CharField(max_length=1000)
+    mime_type = models.CharField(max_length=160, blank=True)
+    size = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']

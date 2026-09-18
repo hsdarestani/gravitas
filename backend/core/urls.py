@@ -15,6 +15,16 @@ from core.research_calendar_api import research_calendar
 from core.member_api import member_dashboard
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
+from core.task_board_api import (
+    task_attachment_delete,
+    task_attachment_download,
+    task_attachments,
+    task_board,
+    task_board_detail,
+    task_board_move,
+    task_comments,
+    task_history,
+)
 from core.workspace_pages_api import (
     workspace_page_attachment,
     workspace_page_backlinks,
@@ -328,6 +338,14 @@ urlpatterns = [
     path('operating/work-packages/', require_core(work_packages)),
     path('operating/work-packages/<int:work_package_id>/', require_core(work_package_detail)),
     path('operating/tasks/', require_core(tasks)),
+    path('operating/task-board/', require_core(task_board)),
+    path('operating/task-board/move/', require_core(task_board_move)),
+    path('operating/task-board/<int:task_id>/', require_core(task_board_detail)),
+    path('operating/tasks/<int:task_id>/comments/', require_core(task_comments)),
+    path('operating/tasks/<int:task_id>/attachments/', require_core(task_attachments)),
+    path('operating/tasks/<int:task_id>/attachments/<int:attachment_id>/', require_core(task_attachment_delete)),
+    path('operating/tasks/<int:task_id>/attachments/<int:attachment_id>/download/', require_core(task_attachment_download)),
+    path('operating/tasks/<int:task_id>/history/', require_core(task_history)),
     path('operating/tasks/reorder/', require_core(reorder_tasks)),
     path('operating/tasks/<int:task_id>/links/', require_core(task_cross_layer_links)),
     path('operating/tasks/<int:task_id>/', require_core(task_detail)),

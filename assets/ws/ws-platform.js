@@ -277,6 +277,25 @@ export const researchRequests = () => call('/platform/research-requests/');
 export const operatingDashboard = () => call('/operating/dashboard/');
 export const operatingInitiatives = () => call('/operating/initiatives/');
 export const operatingTasks = () => call('/operating/tasks/');
+export const operatingTaskBoard = () => call('/operating/task-board/');
+export const createOperatingTask = (body) => call('/operating/task-board/', { method: 'POST', body });
+export const operatingTaskCard = (id) => call(`/operating/task-board/${id}/`);
+export const updateOperatingTaskCard = (id, body) => call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
+export const deleteOperatingTaskCard = (id) => call(`/operating/task-board/${id}/`, { method: 'DELETE' });
+export const moveOperatingTask = (taskId, status, orderedIds) => call('/operating/task-board/move/', {
+  method: 'POST', body: { task_id: taskId, status, ordered_ids: orderedIds },
+});
+export const operatingTaskComments = (id) => call(`/operating/tasks/${id}/comments/`);
+export const addOperatingTaskComment = (id, body) => call(`/operating/tasks/${id}/comments/`, { method: 'POST', body: { body } });
+export const operatingTaskAttachments = (id) => call(`/operating/tasks/${id}/attachments/`);
+export const uploadOperatingTaskAttachment = (id, file) => {
+  const form = new FormData(); form.append('file', file);
+  return upload(`/operating/tasks/${id}/attachments/`, form);
+};
+export const deleteOperatingTaskAttachment = (taskId, attachmentId) => call(
+  `/operating/tasks/${taskId}/attachments/${attachmentId}/`, { method: 'DELETE' }
+);
+export const operatingTaskHistory = (id) => call(`/operating/tasks/${id}/history/`);
 export const operatingCycles = () => call('/operating/cycles/');
 
 /* ---- Layer 3 / LMS ------------------------------------------------------ */

@@ -156,45 +156,574 @@ function docShell(host, title, subtitle) {
    ========================================================================== */
 
 export function renderCoreTasks(host, { go }) {
-  const doc = docShell(host, 'Tasks & Execution', 'Daily execution, connected to initiative, milestone, cycle and project.');
+  const doc = docShell(host, 'Tasks & Execution', 'Trello-style Core execution, synchronized with Nextcloud Deck.');
   const holder = el('div');
   doc.append(holder);
   skeleton(8, holder);
 
-  return guard(holder, 'Core tasks', async () => {
-    const board = await P.dashboard('core');
-    holder.innerHTML = '';
+  const STATUS_COLUMNS = [
+    ['draft', 'Backlog'],
+    ['active', 'Active'],
+    ['blocked', 'Blocked'],
+    ['done', 'Done'],
+    ['archived', 'Archived'],
+  ];
 
-    holder.append(stats([
-      ['Open tasks', board.counts.tasks],
-      ['Initiatives', board.counts.initiatives],
-      ['Content', board.counts.content],
-      ['Research handoffs', board.counts.research_waiting],
-    ]));
+  const makeButton = (label, handler, solid = false) => {
+    const node = el('button', solid ? 'ws-btn ws-btn--solid' : 'ws-btn', label);
+    node.type = 'button';
+    node.addEventListener('click', handler);
+    return node;
+  };
 
-    const columns = el('div', 'v-columns');
+  const input = (type = 'text', value = '') => {
+    const node = el('input', 'v-input task-board__input');
+    node.type = type;
+    node.value = value == null ? '' : value;
+    return node;
+  };
 
-    const tasks = panel('Current execution', linkButton('Planning', '/workspace/operating', go));
-    if (board.tasks.length) {
-      for (const task of board.tasks) tasks.body.append(taskRow(task));
-    } else {
-      tasks.body.append(empty('No current tasks', 'Structured tasks are created in Planning & Projects.'));
+  const textarea = (value = '', rows = 4) => {
+    const node = el('textarea', 'v-input task-board__textarea');
+    node.rows = rows;
+    node.value = value || '';
+    return node;
+  };
+
+  const select = (rows, current = '') => {
+    const node = el('select', 'v-input task-board__input');
+    for (const [value, labelText] of rows) {
+      const option = el('option', null, labelText);
+      option.value = value == null ? '' : String(value);
+      node.append(option);
+    }
+    node.value = current == null ? '' : String(current);
+    return node;
+  };
+
+  const field = (labelText, control, help = '') => {
+    const wrap = el('label', 'task-board__field');
+    wrap.append(el('span', 'task-board__label', labelText), control);
+    if (help) wrap.append(el('small', 'fl-muted', help));
+    return wrap;
+  };
+
+  const formatActor = (actor) => actor?.name || actor?.email || 'Gravitas+';
+
+  function closeDialog(dialog) {
+    if (dialog?.open) dialog.close();
+    dialog?.remove();
+  }
+
+  function makeDialog(title) {
+    const dialog = el('dialog', 'task-card-dialog');
+    const frame = el('div', 'task-card-dialog__frame');
+    const head = el('header', 'task-card-dialog__head');
+    head.append(el('h2', null, title));
+    const close = makeButton('Close', () => closeDialog(dialog));
+    head.append(close);
+    const body = el('div', 'task-card-dialog__body');
+    frame.append(head, body);
+    dialog.append(frame);
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) closeDialog(dialog);
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+    return { dialog, body, head };
+  }
+
+  function optionRows(items, emptyLabel, titleKey = 'title') {
+    return [['', emptyLabel], ...(items || []).map((item) => [item.id, item[titleKey] || item.name || item.email])];
+  }
+
+  function taskSearchText(task) {
+    return [
+      task.title, task.description, task.owner?.name, task.owner?.email,
+      task.initiative_title, task.milestone_title, task.work_package_title,
+      task.cycle_title, task.project_title, task.priority, task.status,
+    ].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  function taskCard(task, openCard) {
+    const card = el('article', 'task-trello-card');
+    card.draggable = true;
+    card.dataset.taskId = task.id;
+    card.dataset.status = task.status;
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `Open task: ${task.title}`);
+
+    const top = el('div', 'task-trello-card__top');
+    const priority = el('span', 'v-badge task-trello-card__priority', P.label(task.priority));
+    priority.dataset.priority = task.priority;
+    top.append(priority);
+    if (task.due_date) {
+      const due = el('time', 'task-trello-card__due', P.formatDate(task.due_date));
+      due.dateTime = task.due_date;
+      top.append(due);
+    }
+    card.append(top, el('h3', null, task.title));
+
+    if (task.description) {
+      card.append(el('p', 'task-trello-card__description', task.description.slice(0, 145)));
     }
 
-    const initiatives = panel('Active initiatives', linkButton('All initiatives', '/workspace/operating/initiatives', go));
-    if (board.initiatives.length) {
-      for (const item of board.initiatives) {
-        initiatives.body.append(row({
-          title: item.title,
-          sub: P.meta([P.label(item.priority), P.label(item.status), P.label(item.stage)]),
-        }));
+    const context = el('div', 'task-trello-card__context');
+    if (task.initiative_title) context.append(el('span', null, task.initiative_title));
+    if (task.project_title) context.append(el('span', null, task.project_title));
+    card.append(context);
+
+    const foot = el('div', 'task-trello-card__foot');
+    const owner = el('span', 'task-trello-card__owner', (task.owner?.name || task.owner?.email || '?').slice(0, 1).toUpperCase());
+    owner.title = task.owner?.name || task.owner?.email || 'Owner';
+    foot.append(owner);
+    const counts = el('span', 'task-trello-card__counts');
+    if (task.comment_count) counts.append(el('span', null, `💬 ${task.comment_count}`));
+    if (task.attachment_count) counts.append(el('span', null, `📎 ${task.attachment_count}`));
+    foot.append(counts);
+    card.append(foot);
+
+    let dragging = false;
+    card.addEventListener('dragstart', (event) => {
+      dragging = true;
+      card.classList.add('is-dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(task.id));
+    });
+    card.addEventListener('dragend', () => {
+      window.setTimeout(() => { dragging = false; }, 0);
+      card.classList.remove('is-dragging');
+    });
+    card.addEventListener('click', () => { if (!dragging) openCard(task.id); });
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openCard(task.id);
       }
-    } else {
-      initiatives.body.append(empty('No active initiatives', 'Initiatives are defined in Planning & Projects.'));
-    }
+    });
+    return card;
+  }
 
-    columns.append(tasks, initiatives);
-    holder.append(columns);
+  function getDropBefore(container, y) {
+    const cards = [...container.querySelectorAll('.task-trello-card:not(.is-dragging)')];
+    let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+    for (const card of cards) {
+      const box = card.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) closest = { offset, element: card };
+    }
+    return closest.element;
+  }
+
+  async function openTaskDialog(taskId, state, reloadBoard) {
+    const { dialog, body, head } = makeDialog('Loading task…');
+    body.append(skeleton(6));
+
+    try {
+      const detailData = await P.operatingTaskCard(taskId);
+      const task = detailData.task;
+      head.querySelector('h2').textContent = task.title;
+      body.innerHTML = '';
+
+      const layout = el('div', 'task-card-dialog__grid');
+      const main = el('div', 'task-card-dialog__main');
+      const side = el('aside', 'task-card-dialog__side');
+      layout.append(main, side);
+      body.append(layout);
+
+      const form = el('form', 'task-board__form');
+      const title = input('text', task.title);
+      const description = textarea(task.description, 5);
+      const priority = select((detailData.priorities || state.priorities).map((item) => [item.value, item.label]), task.priority);
+      const status = select((detailData.statuses || state.statuses).map((item) => [item.value, item.label]), task.status);
+      const owner = select(optionRows(detailData.members || state.members, 'Choose owner', 'name'), task.owner?.id);
+      const initiative = select(optionRows(detailData.initiatives || state.initiatives, 'Choose initiative'), task.initiative_id);
+      const milestone = select(optionRows(detailData.milestones || state.milestones, 'No milestone'), task.milestone_id);
+      const workPackage = select(optionRows(detailData.work_packages || state.work_packages, 'No work package'), task.work_package_id);
+      const cycle = select(optionRows(detailData.cycles || state.cycles, 'No cycle'), task.cycle_id);
+      const project = select(optionRows(detailData.projects || state.projects, 'No Research project'), task.project_id);
+      const meeting = select(optionRows(detailData.meetings || state.meetings, 'No meeting'), task.meeting_id);
+      const dependency = select(
+        [['', 'No dependency'], ...state.tasks.filter((row) => row.id !== task.id).map((row) => [row.id, row.title])],
+        task.dependency_id,
+      );
+      const due = input('date', task.due_date || '');
+      const done = textarea(task.definition_of_done, 4);
+      const blocked = textarea(task.blocked_reason, 3);
+
+      const two = el('div', 'task-board__two');
+      two.append(field('Priority', priority), field('Status', status), field('Owner', owner), field('Due date', due));
+      const links = el('div', 'task-board__two');
+      links.append(
+        field('Initiative', initiative), field('Milestone', milestone),
+        field('Work package', workPackage), field('Cycle', cycle),
+        field('Research project', project), field('Meeting', meeting),
+        field('Dependency', dependency),
+      );
+
+      const trace = el('div', 'task-card-dialog__trace');
+      trace.append(
+        el('span', 'v-badge', task.trace?.process?.name || 'Process'),
+        el('span', 'v-badge', task.trace?.objective?.title || 'Objective'),
+        el('span', 'v-badge', task.trace?.key_result?.title || 'Key result'),
+      );
+
+      const actions = el('div', 'task-card-dialog__actions');
+      const save = makeButton('Save changes', () => {}, true);
+      save.type = 'submit';
+      const remove = makeButton('Delete task', async () => {
+        if (!confirm(`Delete “${task.title}”?`)) return;
+        remove.disabled = true;
+        try {
+          await P.deleteOperatingTaskCard(task.id);
+          closeDialog(dialog);
+          await reloadBoard();
+        } catch (error) {
+          remove.disabled = false;
+          alert(error?.message || 'Task could not be deleted.');
+        }
+      });
+      actions.append(save, remove);
+      const note = el('p', 'v-note');
+
+      form.append(
+        field('Title', title),
+        field('Description', description),
+        two,
+        links,
+        field('Definition of done', done),
+        field('Blocked reason', blocked),
+        trace,
+        actions,
+        note,
+      );
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        save.disabled = true;
+        note.textContent = 'Saving…';
+        const payload = {
+          title: title.value.trim(),
+          description: description.value.trim(),
+          priority: priority.value,
+          status: status.value,
+          owner_id: Number(owner.value),
+          initiative_id: Number(initiative.value),
+          milestone_id: milestone.value ? Number(milestone.value) : null,
+          work_package_id: workPackage.value ? Number(workPackage.value) : null,
+          cycle_id: cycle.value ? Number(cycle.value) : null,
+          project_id: project.value ? Number(project.value) : null,
+          meeting_id: meeting.value ? Number(meeting.value) : null,
+          dependency_id: dependency.value ? Number(dependency.value) : null,
+          due_date: due.value || null,
+          definition_of_done: done.value.trim(),
+          blocked_reason: blocked.value.trim(),
+        };
+        try {
+          const result = await P.updateOperatingTaskCard(task.id, payload);
+          note.textContent = 'Saved.';
+          head.querySelector('h2').textContent = result.task.title;
+          await reloadBoard({ keepDialog: true });
+        } catch (error) {
+          note.textContent = error?.data?.error || error?.message || 'Save failed.';
+        } finally {
+          save.disabled = false;
+        }
+      });
+      main.append(form);
+
+      const commentsPanel = panel('Comments');
+      const attachmentsPanel = panel('Attachments');
+      const historyPanel = panel('Activity');
+      side.append(commentsPanel, attachmentsPanel, historyPanel);
+
+      const loadComments = async () => {
+        commentsPanel.body.innerHTML = '';
+        try {
+          const data = await P.operatingTaskComments(task.id);
+          for (const comment of data.comments || []) {
+            const item = el('article', 'task-card-dialog__message');
+            item.append(
+              el('strong', null, formatActor(comment.author)),
+              el('p', null, comment.body),
+              el('small', 'fl-muted', P.formatDate(comment.created_at)),
+            );
+            commentsPanel.body.append(item);
+          }
+          if (!(data.comments || []).length) commentsPanel.body.append(el('p', 'fl-muted', 'No comments yet.'));
+
+          const commentForm = el('form', 'task-board__form');
+          const comment = textarea('', 3);
+          comment.placeholder = 'Add a comment…';
+          const send = makeButton('Comment', () => {}, true);
+          send.type = 'submit';
+          const commentNote = el('p', 'v-note');
+          commentForm.append(comment, send, commentNote);
+          commentForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!comment.value.trim()) return;
+            send.disabled = true;
+            try {
+              await P.addOperatingTaskComment(task.id, comment.value.trim());
+              comment.value = '';
+              await loadComments();
+              await reloadBoard({ keepDialog: true });
+            } catch (error) {
+              commentNote.textContent = error?.message || 'Comment failed.';
+              send.disabled = false;
+            }
+          });
+          commentsPanel.body.append(commentForm);
+        } catch (error) {
+          commentsPanel.body.append(el('p', 'fl-muted', error?.message || 'Comments unavailable.'));
+        }
+      };
+
+      const loadAttachments = async () => {
+        attachmentsPanel.body.innerHTML = '';
+        try {
+          const data = await P.operatingTaskAttachments(task.id);
+          for (const attachment of data.attachments || []) {
+            const line = el('div', 'task-card-dialog__attachment');
+            const meta = el('div');
+            meta.append(
+              el('strong', null, attachment.name),
+              el('small', 'fl-muted', P.meta([P.formatBytes(attachment.size), formatActor(attachment.uploader)])),
+            );
+            const buttons = el('div', 'task-card-dialog__actions');
+            const download = el('a', 'ws-btn ws-btn--tiny', 'Download');
+            download.href = attachment.download_url;
+            const del = makeButton('Delete', async () => {
+              if (!confirm(`Delete attachment “${attachment.name}”?`)) return;
+              del.disabled = true;
+              try {
+                await P.deleteOperatingTaskAttachment(task.id, attachment.id);
+                await loadAttachments();
+                await reloadBoard({ keepDialog: true });
+              } catch { del.disabled = false; }
+            });
+            del.classList.add('ws-btn--tiny');
+            buttons.append(download, del);
+            line.append(meta, buttons);
+            attachmentsPanel.body.append(line);
+          }
+          if (!(data.attachments || []).length) attachmentsPanel.body.append(el('p', 'fl-muted', 'No attachments yet.'));
+
+          const uploadForm = el('form', 'task-board__form');
+          const file = input('file');
+          const uploadButton = makeButton('Upload · max 10 MB', () => {}, true);
+          uploadButton.type = 'submit';
+          const uploadNote = el('p', 'v-note');
+          uploadForm.append(file, uploadButton, uploadNote);
+          uploadForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const chosen = file.files?.[0];
+            if (!chosen) return;
+            if (chosen.size > 10 * 1024 * 1024) {
+              uploadNote.textContent = 'Maximum attachment size is 10 MB.';
+              return;
+            }
+            uploadButton.disabled = true;
+            uploadNote.textContent = 'Uploading…';
+            try {
+              await P.uploadOperatingTaskAttachment(task.id, chosen);
+              file.value = '';
+              await loadAttachments();
+              await reloadBoard({ keepDialog: true });
+            } catch (error) {
+              uploadNote.textContent = error?.data?.error || error?.message || 'Upload failed.';
+              uploadButton.disabled = false;
+            }
+          });
+          attachmentsPanel.body.append(uploadForm);
+        } catch (error) {
+          attachmentsPanel.body.append(el('p', 'fl-muted', error?.message || 'Attachments unavailable.'));
+        }
+      };
+
+      const loadHistory = async () => {
+        historyPanel.body.innerHTML = '';
+        try {
+          const data = await P.operatingTaskHistory(task.id);
+          for (const event of data.events || []) {
+            historyPanel.body.append(row({
+              title: P.label(event.action.replace(/^task\./, '')),
+              sub: P.meta([formatActor(event.actor), P.formatDate(event.created_at)]),
+            }));
+          }
+          if (!(data.events || []).length) historyPanel.body.append(el('p', 'fl-muted', 'No board activity logged yet.'));
+        } catch (error) {
+          historyPanel.body.append(el('p', 'fl-muted', error?.message || 'Activity unavailable.'));
+        }
+      };
+
+      await Promise.all([loadComments(), loadAttachments(), loadHistory()]);
+    } catch (error) {
+      body.innerHTML = '';
+      body.append(failure('task card', error, () => {
+        closeDialog(dialog);
+        openTaskDialog(taskId, state, reloadBoard);
+      }));
+    }
+  }
+
+  async function openCreateDialog(state, reloadBoard) {
+    const { dialog, body } = makeDialog('New task');
+    const form = el('form', 'task-board__form');
+    const title = input('text');
+    title.placeholder = 'Task title';
+    const description = textarea('', 4);
+    const owner = select(optionRows(state.members, 'Choose owner', 'name'), state.members?.[0]?.id || '');
+    const initiative = select(optionRows(state.initiatives, 'Choose initiative'));
+    const priority = select((state.priorities || []).map((item) => [item.value, item.label]), 'p2');
+    const status = select((state.statuses || []).map((item) => [item.value, item.label]), 'draft');
+    const due = input('date');
+    const cycle = select(optionRows(state.cycles, 'No cycle'));
+    const done = textarea('', 3);
+    done.placeholder = 'What has to be true for this task to be done?';
+    const note = el('p', 'v-note');
+    const create = makeButton('Create task', () => {}, true);
+    create.type = 'submit';
+
+    const two = el('div', 'task-board__two');
+    two.append(field('Owner', owner), field('Initiative', initiative), field('Priority', priority), field('Status', status), field('Due date', due), field('Cycle', cycle));
+    form.append(field('Title', title), field('Description', description), two, field('Definition of done', done), create, note);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!title.value.trim() || !owner.value || !initiative.value || !done.value.trim()) {
+        note.textContent = 'Title, owner, initiative and definition of done are required.';
+        return;
+      }
+      if (!due.value && !cycle.value) {
+        note.textContent = 'Choose a due date or cycle.';
+        return;
+      }
+      create.disabled = true;
+      note.textContent = 'Creating…';
+      try {
+        const result = await P.createOperatingTask({
+          title: title.value.trim(),
+          description: description.value.trim(),
+          owner_id: Number(owner.value),
+          initiative_id: Number(initiative.value),
+          priority: priority.value,
+          status: status.value,
+          due_date: due.value || null,
+          cycle_id: cycle.value ? Number(cycle.value) : null,
+          definition_of_done: done.value.trim(),
+        });
+        closeDialog(dialog);
+        await reloadBoard();
+        if (result.task?.id) openTaskDialog(result.task.id, state, reloadBoard);
+      } catch (error) {
+        note.textContent = error?.data?.error || error?.message || 'Task could not be created.';
+        create.disabled = false;
+      }
+    });
+    body.append(form);
+  }
+
+  return guard(holder, 'Core tasks', async () => {
+    let state = null;
+    let filters = { q: '', owner: '', priority: '' };
+
+    const load = async ({ keepDialog = false } = {}) => {
+      const data = await P.operatingTaskBoard();
+      state = data;
+      holder.innerHTML = '';
+
+      const openTasks = data.tasks.filter((task) => !['done', 'archived'].includes(task.status)).length;
+      holder.append(stats([
+        ['Open tasks', openTasks],
+        ['Backlog', data.tasks.filter((task) => task.status === 'draft').length],
+        ['Blocked', data.tasks.filter((task) => task.status === 'blocked').length],
+        ['Done', data.tasks.filter((task) => task.status === 'done').length],
+      ]));
+
+      const toolbar = el('div', 'v-toolbar task-board__toolbar');
+      const search = input('search', filters.q);
+      search.placeholder = 'Search tasks, owner, initiative or project';
+      search.setAttribute('aria-label', 'Search tasks');
+      const ownerFilter = select([['', 'All owners'], ...(data.members || []).map((member) => [member.id, member.name || member.email])], filters.owner);
+      const priorityFilter = select([['', 'All priorities'], ...(data.priorities || []).map((item) => [item.value, item.label])], filters.priority);
+      const count = el('span', 'v-toolbar__count');
+      const add = makeButton('New task', () => openCreateDialog(state, load), true);
+      if (!data.can_edit) add.disabled = true;
+      toolbar.append(search, ownerFilter, priorityFilter, count, add);
+      holder.append(toolbar);
+
+      const board = el('div', 'task-trello-board');
+      board.tabIndex = 0;
+      board.setAttribute('role', 'group');
+      board.setAttribute('aria-label', 'Core task board by status');
+      holder.append(board);
+
+      const draw = () => {
+        filters = { q: search.value.trim(), owner: ownerFilter.value, priority: priorityFilter.value };
+        const q = filters.q.toLowerCase();
+        const visible = data.tasks.filter((task) => {
+          if (filters.owner && String(task.owner?.id) !== filters.owner) return false;
+          if (filters.priority && task.priority !== filters.priority) return false;
+          if (q && !taskSearchText(task).includes(q)) return false;
+          return true;
+        });
+        count.textContent = `${visible.length} of ${data.tasks.length}`;
+        board.innerHTML = '';
+
+        for (const [statusValue, statusLabel] of STATUS_COLUMNS) {
+          const column = el('section', 'task-trello-column');
+          column.dataset.status = statusValue;
+          const matches = visible.filter((task) => task.status === statusValue)
+            .sort((a, b) => (a.board_order || 0) - (b.board_order || 0) || a.id - b.id);
+          const head = el('div', 'task-trello-column__head');
+          head.append(el('strong', null, statusLabel), el('span', 'v-column__count', String(matches.length)));
+          const body = el('div', 'task-trello-column__body');
+          body.dataset.status = statusValue;
+          if (!matches.length) body.append(el('div', 'v-column__empty task-trello-column__empty'));
+          for (const task of matches) body.append(taskCard(task, (id) => openTaskDialog(id, state, load)));
+
+          body.addEventListener('dragover', (event) => {
+            if (!data.can_edit) return;
+            event.preventDefault();
+            body.classList.add('is-over');
+            const id = Number(event.dataTransfer.getData('text/plain'));
+            const dragged = board.querySelector(`.task-trello-card[data-task-id="${id}"]`);
+            if (!dragged) return;
+            const before = getDropBefore(body, event.clientY);
+            if (before) body.insertBefore(dragged, before);
+            else body.append(dragged);
+          });
+          body.addEventListener('dragleave', (event) => {
+            if (!body.contains(event.relatedTarget)) body.classList.remove('is-over');
+          });
+          body.addEventListener('drop', async (event) => {
+            if (!data.can_edit) return;
+            event.preventDefault();
+            body.classList.remove('is-over');
+            const taskId = Number(event.dataTransfer.getData('text/plain'));
+            if (!taskId) return;
+            const orderedIds = [...body.querySelectorAll('.task-trello-card')].map((node) => Number(node.dataset.taskId));
+            try {
+              await P.moveOperatingTask(taskId, statusValue, orderedIds);
+              await load();
+            } catch (error) {
+              alert(error?.data?.error || error?.message || 'Task could not be moved.');
+              await load();
+            }
+          });
+          column.append(head, body);
+          board.append(column);
+        }
+      };
+
+      search.addEventListener('input', draw);
+      ownerFilter.addEventListener('change', draw);
+      priorityFilter.addEventListener('change', draw);
+      draw();
+    };
+
+    await load();
   });
 }
 
