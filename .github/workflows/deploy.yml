@@ -146,9 +146,9 @@ jobs:
           $SUDO systemctl enable --now fail2ban
           $SUDO fail2ban-client reload
 
-          $SUDO mkdir -p "$DEPLOY_PATH" "$BACKEND_PATH" /etc/gravitas /var/lib/gravitas/topic-media
+          $SUDO mkdir -p "$DEPLOY_PATH" "$BACKEND_PATH" /etc/gravitas /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads
           $SUDO chown -R "$(id -un):$(id -gn)" "$DEPLOY_PATH"
-          $SUDO chown -R gravitas:gravitas "$BACKEND_PATH" /var/lib/gravitas/topic-media
+          $SUDO chown -R gravitas:gravitas "$BACKEND_PATH" /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads
 
           if ! $SUDO test -f /etc/gravitas/backend.env; then
             SECRET="$($SUDO openssl rand -hex 32)"

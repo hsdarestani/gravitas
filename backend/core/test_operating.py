@@ -121,7 +121,7 @@ class OperatingWorkspaceTests(TestCase):
 
         self.client.force_login(self.other)
         response = self.patch_json(f'/api/operating/tasks/{task.pk}/', {'status': 'done'})
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 403)
 
     def test_capacity_gate_allows_three_main_priorities_and_rejects_fourth(self):
         _, process, _, kr = self.operating_seed('operations')

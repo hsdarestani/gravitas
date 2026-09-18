@@ -6,6 +6,8 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
+from .layer_access import set_module_grant
+from .layer_models import ModuleGrant
 from .models import KnowledgeResource, Workspace
 
 
@@ -14,6 +16,7 @@ class WorkspacePagesApiTests(TestCase):
         self.user = get_user_model().objects.create_user(
             'pages@example.com', 'pages@example.com', 'A-secure-password-123!'
         )
+        set_module_grant(self.user, ModuleGrant.Module.RESEARCH, enabled=True)
         self.client.force_login(self.user)
 
     @patch('core.workspace_pages_api._sync', return_value=None)
@@ -133,6 +136,7 @@ class WorkspacePagesApiTests(TestCase):
             'title': 'Private note', 'blocks': [],
         }), content_type='application/json').json()['page']
         other = get_user_model().objects.create_user('other-pages@example.com', password='A-secure-password-123!')
+        set_module_grant(other, ModuleGrant.Module.RESEARCH, enabled=True)
         self.client.force_login(other)
         response = self.client.post(
             f"/api/workspace/pages/{page['id']}/attachments/",

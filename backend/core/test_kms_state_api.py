@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .kms_models import KMSState
+from .layer_access import set_module_grant
+from .layer_models import ModuleGrant
 
 
 class KMSStateApiTests(TestCase):
@@ -11,6 +13,7 @@ class KMSStateApiTests(TestCase):
             email='kms@example.com',
             password='A-secure-password-123!',
         )
+        set_module_grant(self.user, ModuleGrant.Module.LMS, enabled=True)
 
     def test_requires_authentication(self):
         response = self.client.get('/api/platform/kms/state/', secure=True)
@@ -52,6 +55,7 @@ class KMSStateApiTests(TestCase):
         other = get_user_model().objects.create_user(
             username='other-kms@example.com', email='other-kms@example.com', password='Other-pass-123!',
         )
+        set_module_grant(other, ModuleGrant.Module.LMS, enabled=True)
         self.client.force_login(other)
         response = self.client.get('/api/platform/kms/state/', secure=True)
         self.assertEqual(response.json()['state']['cards'], [])

@@ -42,6 +42,8 @@ class PlatformV2Tests(TestCase):
             first_name='Researcher',
         )
         self.client.force_login(self.owner)
+        bootstrap = self.client.get('/api/platform/bootstrap/')
+        self.assertEqual(bootstrap.status_code, 200, bootstrap.content)
 
     def post_json(self, path, payload):
         return self.client.post(path, data=json.dumps(payload), content_type='application/json')

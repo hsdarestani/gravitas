@@ -46,7 +46,7 @@ class PlatformV3RoleTests(TestCase):
         self.assertFalse(WorkspaceMembership.objects.filter(workspace_id=self.core_id, user=self.researcher).exists())
         self.assertFalse(WorkspaceMembership.objects.filter(workspace_id=self.research_id, user=self.researcher).exists())
 
-    def test_project_participation_unlocks_research_without_lms_or_core(self):
+    def test_project_participation_unlocks_research_and_inherited_lms_without_core(self):
         spaces = ensure_platform_workspaces(self.internal)
         project = ResearchProject.objects.create(
             workspace=spaces['research'],
@@ -57,7 +57,7 @@ class PlatformV3RoleTests(TestCase):
         self.client.force_login(self.researcher)
         boot = self.client.get('/api/platform/bootstrap/').json()
         self.assertTrue(boot['access']['research'])
-        self.assertFalse(boot['access']['lms'])
+        self.assertTrue(boot['access']['lms'])
         self.assertFalse(boot['access']['core'])
         self.assertTrue(any(item['id'] == project.pk for item in boot['my_work']['research']))
 

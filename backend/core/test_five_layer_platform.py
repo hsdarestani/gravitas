@@ -66,7 +66,7 @@ class FiveLayerPlatformTests(TestCase):
             granted_by=self.admin,
         )
         self.assertTrue(module_access(self.member, ModuleGrant.Module.RESEARCH))
-        self.assertFalse(module_access(self.member, ModuleGrant.Module.LMS))
+        self.assertTrue(module_access(self.member, ModuleGrant.Module.LMS))
         self.assertEqual(
             CommunityProfile.objects.get(user=self.member).role,
             CommunityProfile.Role.LEARNER,
@@ -102,7 +102,7 @@ class FiveLayerPlatformTests(TestCase):
         data = response.json()['user']
         self.assertEqual(data['community_role'], 'researcher')
         self.assertTrue(data['modules']['research']['enabled'])
-        self.assertFalse(data['modules']['lms']['enabled'])
+        self.assertTrue(data['modules']['lms']['enabled'])
         self.assertFalse(data['modules']['core']['enabled'])
         self.assertTrue(
             ActivityEvent.objects.filter(

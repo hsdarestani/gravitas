@@ -239,8 +239,8 @@ class ResearchNextcloudEntitlementSyncTests(TestCase):
             return_value=JsonResponse(base_payload),
         ):
             response = self.client.get('/api/platform/nextcloud/')
-        self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.json()['projects'], [])
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertEqual(response.json()['error'], 'research_access_required')
 
     def test_nextcloud_status_preserves_projects_for_core_control_plane(self):
         self.client.force_login(self.admin)

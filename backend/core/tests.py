@@ -7,6 +7,8 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from . import cloud
+from .layer_access import set_module_grant
+from .layer_models import ModuleGrant
 from .models import (
     Collection, KnowledgeLink, KnowledgeResource, Organization,
     ProjectMembership, ResearchProject, StoragePlan, Workspace,
@@ -20,6 +22,8 @@ class WorkspaceApiTests(TestCase):
         password = 'A-secure-password-123!'
         self.user = user_model.objects.create_user('one@example.com', 'one@example.com', password, first_name='Ada')
         self.other = user_model.objects.create_user('two@example.com', 'two@example.com', password)
+        set_module_grant(self.user, ModuleGrant.Module.RESEARCH, enabled=True)
+        set_module_grant(self.other, ModuleGrant.Module.RESEARCH, enabled=True)
 
     def _login(self, user=None):
         self.client.force_login(user or self.user)

@@ -119,7 +119,7 @@ class CoreBlueprintContractTests(SimpleTestCase):
 
     def test_core_is_refused_to_non_members(self):
         app = self.read('assets/ws/ws-app.js')
-        self.assertIn("go('/workspace/research', { replace: true })", app)
+        self.assertIn("go('/workspace/dashboard', { replace: true })", app)
 
 
 class KnowledgeWorkspaceContractTests(SimpleTestCase):
@@ -130,7 +130,8 @@ class KnowledgeWorkspaceContractTests(SimpleTestCase):
         nav = self.read('assets/ws/ws-nav.js')
         self.assertIn("id: 'kms'", nav)
         self.assertIn("home: '/workspace/kms'", nav)
-        self.assertIn('WORKSPACES.research, WORKSPACES.kms', nav)
+        self.assertIn('if (canOpenResearch()) out.push(WORKSPACES.research)', nav)
+        self.assertIn('if (canOpenLms()) out.push(WORKSPACES.kms)', nav)
 
     def test_the_learning_loop_has_a_section_each(self):
         nav = self.read('assets/ws/ws-nav.js')
