@@ -347,6 +347,30 @@ def _replace_structure(course, modules_payload, assessments_payload=None):
     if assessments_payload is not None and not isinstance(assessments_payload, list):
         raise ValueError('invalid_assessments')
 
+    # Backward compatibility for the original V1 course editor/API: before
+    # stable object IDs were exposed, a PATCH represented a full replacement
+    # and every row arrived without an id. For an unenrolled course there is
+    # no learner history to preserve, so keep that exact replacement contract.
+    # Mixed payloads (existing rows with ids plus new rows without ids) still
+    # use the stable-ID synchronizer below.
+    existing_structure = course.modules.exists() or course.assessments.exists()
+    legacy_modules = bool(modules_payload) and all(
+        isinstance(item, dict) and not item.get('id')
+        for item in modules_payload
+    )
+    legacy_assessments = all(
+        isinstance(item, dict) and not item.get('id')
+        for item in (assessments_payload or [])
+    )
+    if (
+        existing_structure
+        and not course.enrollments.exists()
+        and legacy_modules
+        and legacy_assessments
+    ):
+        course.assessments.all().delete()
+        course.modules.all().delete()
+
     keep_modules = set()
     keep_assessments = set()
 
