@@ -147,4 +147,3 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(restore_topic, migrations.RunPython.noop),
     ]
-}

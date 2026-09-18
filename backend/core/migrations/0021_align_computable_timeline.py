@@ -27,4 +27,3 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(align_timeline, migrations.RunPython.noop),
     ]
-}
