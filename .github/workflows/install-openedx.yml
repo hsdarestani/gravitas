@@ -138,10 +138,12 @@ jobs:
           export TUTOR_ROOT=/var/lib/openedx/tutor
 
           tutor_local() {
+            # The installer itself arrives over SSH stdin. Never let a Tutor/
+            # docker subcommand consume the remaining installer heredoc.
             if [ "$(id -u)" -eq 0 ]; then
-              "$TUTOR" local "$@"
+              "$TUTOR" local "$@" </dev/null
             else
-              sudo env TUTOR_ROOT="$TUTOR_ROOT" "$TUTOR" local "$@"
+              sudo env TUTOR_ROOT="$TUTOR_ROOT" "$TUTOR" local "$@" </dev/null
             fi
           }
 
