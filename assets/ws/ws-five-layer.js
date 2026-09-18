@@ -12,8 +12,6 @@ import {
 import { renderMemberProgress } from './ws-member-progress.js?v=20260914-1';
 import {
   renderAdminActivity,
-  renderAdminContent,
-  renderAdminContentEditor,
   renderAdminCourseEditor,
   renderAdminDeck,
   renderAdminLms,
@@ -23,7 +21,8 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20260914-3';
+} from './ws-admin.js?v=20260918-topic1';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260918-topic1';
 import { renderCoreLinks } from './ws-core-links.js?v=20260914-1';
 import { renderResearchProject } from './ws-project.js?v=20260914-2';
 
@@ -50,7 +49,7 @@ const LEARNING_INDEX = [
 const ADMIN_INDEX = [
   ['Admin overview', '/workspace/core/admin', 'overview'],
   ['Users & Access', '/workspace/core/admin/users', 'team'],
-  ['Public Content', '/workspace/core/admin/content', 'content'],
+  ['Topics', '/workspace/core/admin/content', 'content'],
   ['Moderation', '/workspace/core/admin/moderation', 'collaboration'],
   ['LMS Admin', '/workspace/core/admin/lms', 'planning'],
   ['Research Admin', '/workspace/core/admin/research', 'projects'],
@@ -336,7 +335,7 @@ function labelRole(value) {
 
 function adminTitle(page) {
   return {
-    users: 'Users & Access', user: 'Account', content: 'Public Content', 'content-editor': 'Content', moderation: 'Moderation',
+    users: 'Users & Access', user: 'Account', content: 'Topics', 'content-editor': 'Topic', moderation: 'Moderation',
     lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck', nextcloud: 'Nextcloud Mirror',
   }[page] || 'Admin';
 }

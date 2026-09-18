@@ -1,161 +1,44 @@
 (function () {
   'use strict';
-
   if (location.pathname !== '/' && location.pathname !== '/index.html') return;
+  var section = document.getElementById('current-topic');
+  if (!section) return;
 
   function esc(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+    return String(value == null ? '' : value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
   }
-
-  function contentUrl(item) {
-    return '/content/' + encodeURIComponent(item.slug) + '/';
+  function strip(html) {
+    var d=document.createElement('div'); d.innerHTML=String(html||''); return (d.textContent||'').trim();
   }
+  function url(item) { return '/topic.html?slug=' + encodeURIComponent(item.slug); }
 
-  function findSection(title) {
-    var found = null;
-    document.querySelectorAll('main section').forEach(function (section) {
-      var heading = section.querySelector('h2');
-      if (heading && (heading.textContent || '').trim().toLowerCase() === title.toLowerCase()) {
-        found = section;
-      }
-    });
-    return found;
-  }
+  section.innerHTML='<div class="g-container"><div class="g-section-head"><p class="g-eyebrow">Start Here</p><h2>The Current Topic</h2></div><p class="g-muted">Loading the current topic…</p></div>';
 
-  function bodyHtml(value) {
-    var text = String(value || '').trim();
-    if (!text) return '<p class="g-subtle">No full text yet.</p>';
-    return text.split(/\n\s*\n/).map(function (paragraph) {
-      return '<p>' + esc(paragraph).replace(/\n/g, '<br>') + '</p>';
-    }).join('');
-  }
-
-  function lazyBody(item, details) {
-    if (details.dataset.loaded || details.dataset.loading) return;
-    details.dataset.loading = '1';
-    var box = details.querySelector('.g-cms-body');
-    box.innerHTML = '<p class="g-subtle">Loading…</p>';
-
-    fetch('/api/content/' + encodeURIComponent(item.slug) + '/', {
-      credentials: 'same-origin',
-      cache: 'no-store'
+  fetch('/api/content/?kind=topic&limit=1',{credentials:'same-origin',cache:'no-store'})
+    .then(function(r){if(!r.ok) throw new Error('topic_list'); return r.json();})
+    .then(function(data){
+      var item=(data.items||[])[0];
+      if(!item){ section.remove(); return; }
+      var topic=item.topic_data||{};
+      var essay=topic.essay||{};
+      var tags=Array.isArray(topic.tags)?topic.tags:[];
+      var video=topic.video||{};
+      var meta=[];
+      if(video.duration) meta.push(video.duration+' video');
+      if((topic.timeline||[]).length) meta.push((topic.timeline||[]).length+' timeline nodes');
+      if((topic.sources||[]).length) meta.push((topic.sources||[]).length+' sources');
+      section.removeAttribute('data-rail');
+      section.innerHTML='<div class="g-container">' +
+        '<div class="lp-head"><div class="g-section-head" style="margin-bottom:0"><p class="g-eyebrow">Start Here</p><h2>The Current Topic</h2></div>' +
+        '<a class="lp-head__link" href="topics.html">All Topics →</a></div>' +
+        '<article class="g-mt-lg topic-home-card"><div>' +
+        '<p class="g-eyebrow g-eyebrow--bare">' + (topic.number?'Topic '+esc(topic.number):'Topic') + '</p>' +
+        '<h3 style="font-size:var(--g-fs-h2);margin:.25rem 0 .75rem">' + esc(item.title) + '</h3>' +
+        '<p class="g-muted">' + esc(item.summary||'') + '</p>' +
+        (tags.length?'<div class="pill-row g-mt-sm">'+tags.map(function(t){return '<span class="g-tag">'+esc(t)+'</span>';}).join('')+'</div>':'') +
+        (meta.length?'<p class="g-subtle g-mt-sm">'+esc(meta.join(' · '))+'</p>':'') +
+        '<div class="g-cluster g-mt-md"><a class="g-btn g-btn--primary" href="'+url(item)+'">Open Topic</a><a class="g-btn g-btn--secondary" href="'+url(item)+'#essay">Read the Essay</a></div></div>' +
+        '<div class="topic-home-card__preview"><p class="g-eyebrow">Overview</p><p>'+esc(strip(essay.overview_html).slice(0,520))+(strip(essay.overview_html).length>520?'…':'')+'</p></div></article></div>';
     })
-      .then(function (response) {
-        if (!response.ok) throw new Error('cms_detail_unavailable');
-        return response.json();
-      })
-      .then(function (data) {
-        box.innerHTML = bodyHtml(data.item && data.item.body);
-        details.dataset.loaded = '1';
-      })
-      .catch(function () {
-        box.innerHTML = '<p class="g-subtle">Could not load this content.</p>';
-      })
-      .finally(function () {
-        details.dataset.loading = '';
-      });
-  }
-
-  function renderHero(dossier) {
-    var button = document.querySelector('.lp-hero a[href="dossier-computable-universe.html"], .lp-hero a[href^="/content/"]');
-    if (!button) return;
-
-    if (dossier) {
-      button.href = contentUrl(dossier);
-      button.lastChild.textContent = ' Open the current dossier';
-    } else {
-      button.href = 'dossiers.html';
-      button.lastChild.textContent = ' Explore dossiers';
-    }
-  }
-
-  function renderCurrent(items) {
-    var section = findSection('The current dossier');
-    var item = items.find(function (candidate) { return candidate.kind === 'dossier'; });
-    renderHero(item || null);
-
-    if (!section) return;
-    if (!item) {
-      section.remove();
-      return;
-    }
-
-    section.id = 'current-dossier';
-    var split = section.querySelector('.split');
-    if (!split) return;
-
-    split.innerHTML =
-      '<article class="g-cms-card" data-cms-slug="' + esc(item.slug) + '" style="grid-column:1/-1">' +
-      '<p class="g-eyebrow g-eyebrow--bare">Dossier</p>' +
-      '<h3 style="font-size:var(--g-fs-h2);margin:.25rem 0 .75rem">' + esc(item.title) + '</h3>' +
-      (item.summary ? '<p class="g-muted">' + esc(item.summary) + '</p>' : '') +
-      '<p><a class="g-btn g-btn--primary" href="' + contentUrl(item) + '">Open the dossier</a></p>' +
-      '<details class="g-cms-details"><summary>Quick read</summary><div class="g-cms-body"></div></details>' +
-      '</article>';
-
-    var details = split.querySelector('details');
-    details.addEventListener('toggle', function () {
-      if (details.open) lazyBody(item, details);
-    });
-  }
-
-  function renderLatest(items) {
-    var section = findSection('Across everything');
-    if (!section) return;
-    if (!items.length) {
-      section.remove();
-      return;
-    }
-
-    var list = section.querySelector('.rv');
-    if (!list) {
-      section.remove();
-      return;
-    }
-
-    list.innerHTML = '';
-    items.slice(0, 8).forEach(function (item) {
-      var article = document.createElement('article');
-      article.className = 'entry';
-      article.setAttribute('data-cms-slug', item.slug);
-      article.innerHTML =
-        '<span class="entry__type">' + esc(item.kind) + '</span>' +
-        '<div><h3>' + esc(item.title) + '</h3>' +
-        (item.summary ? '<p>' + esc(item.summary) + '</p>' : '') +
-        '<p><a class="g-btn g-btn--ghost g-btn--sm" href="' + contentUrl(item) + '">Open</a></p>' +
-        '<details class="g-cms-details"><summary>Quick read</summary><div class="g-cms-body"></div></details></div>';
-
-      var details = article.querySelector('details');
-      details.addEventListener('toggle', function () {
-        if (details.open) lazyBody(item, details);
-      });
-      list.appendChild(article);
-    });
-  }
-
-  fetch('/api/content/?limit=8', {
-    credentials: 'same-origin',
-    cache: 'no-store'
-  })
-    .then(function (response) {
-      if (!response.ok) throw new Error('cms_list_unavailable');
-      return response.json();
-    })
-    .then(function (data) {
-      var items = Array.isArray(data.items) ? data.items : [];
-      renderCurrent(items);
-      renderLatest(items);
-    })
-    .catch(function () {
-      renderHero(null);
-      var current = findSection('The current dossier');
-      if (current) current.remove();
-      var latest = findSection('Across everything');
-      if (latest) latest.remove();
-    });
+    .catch(function(){ section.remove(); });
 })();

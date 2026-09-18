@@ -1,0 +1,4 @@
+.topic-home-card{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:clamp(1.25rem,4vw,3rem);padding:clamp(1.2rem,3vw,2rem);border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:18px;align-items:start}
+.topic-home-card__preview{padding:1rem 1.1rem;border-radius:14px;background:color-mix(in srgb,currentColor 5%,transparent);line-height:1.65}
+.topic-home-card__preview p:last-child{margin-bottom:0}
+@media(max-width:760px){.topic-home-card{grid-template-columns:1fr}.topic-home-card__preview{order:2}}

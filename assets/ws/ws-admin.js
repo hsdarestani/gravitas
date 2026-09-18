@@ -166,7 +166,7 @@ export async function renderAdminOverview(host, { go }) {
   loading(host, 'Platform Admin');
   try {
     const [overview, deck] = await Promise.all([P.adminOverview(), P.adminDeck().catch(() => null)]);
-    const wrap = doc(host, 'Platform Admin', 'Control access, public content, learning, research and Core execution from one place.');
+    const wrap = doc(host, 'Platform Admin', 'Control access, Topics, learning, research and Core execution from one place.');
 
     const metrics = el('div', 'fl-metrics');
     metrics.append(
@@ -182,7 +182,7 @@ export async function renderAdminOverview(host, { go }) {
     const grid = el('div', 'fl-admin-grid');
     const surfaces = [
       ['Users & Access', 'Community identity, account status and independent Dashboard/LMS/Research/Core entitlements.', '/workspace/core/admin/users', `${overview.users.total} accounts`],
-      ['Public Content', 'Articles, dossiers, learning paths, labs and translations published through Layer 1.', '/workspace/core/admin/content', `${overview.shell.content_draft} drafts`],
+      ['Topics', 'Create and manage the Topic pages published across the public site.', '/workspace/core/admin/content', `${overview.shell.content_draft} drafts`],
       ['Moderation', 'Review public comments without mixing them with private research discussions.', '/workspace/core/admin/moderation', `${overview.shell.comments_pending} pending`],
       ['LMS Admin', 'Course authoring, enrollment state, completion overrides and certificates.', '/workspace/core/admin/lms', `${overview.lms.courses_total} courses`],
       ['Research Admin', 'Project metadata, secure-room policy, membership and Nextcloud project access.', '/workspace/core/admin/research', `${overview.research.projects_total} projects`],
