@@ -268,18 +268,33 @@ jobs:
           $SUDO nginx -t
           $SUDO systemctl reload nginx
 
-          # Certbot is attempted only when all Open edX hostnames resolve publicly.
-          # Tutor's MFE plugin serves catalog/learning/account/etc. from MFE_HOST.
-          # A DNS-pending installation remains healthy internally and does not
-          # take gravitasplus.com down.
-          if getent ahostsv4 "$LMS_HOST" >/dev/null 2>&1 && getent ahostsv4 "$CMS_HOST" >/dev/null 2>&1 && getent ahostsv4 "$MFE_HOST" >/dev/null 2>&1; then
-            if $SUDO certbot --nginx -d "$LMS_HOST" -d "$CMS_HOST" -d "$MFE_HOST"               --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
-              echo "Open edX TLS configured."
+          # Keep LMS/Studio TLS healthy even while the separate MFE hostname
+          # is still waiting on DNS. A missing MFE record must never strip the
+          # already-working LMS/CMS HTTPS vhosts on a later idempotent run.
+          if getent ahostsv4 "$LMS_HOST" >/dev/null 2>&1 && getent ahostsv4 "$CMS_HOST" >/dev/null 2>&1; then
+            if $SUDO certbot --nginx -d "$LMS_HOST" -d "$CMS_HOST" \
+              --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
+              echo "LMS/Studio TLS configured."
             else
-              echo "Open edX is installed, but public TLS is pending DNS/routing." >&2
+              echo "LMS/Studio TLS configuration failed." >&2
+              exit 1
             fi
           else
-            echo "Open edX is installed; add DNS for $LMS_HOST, $CMS_HOST, and $MFE_HOST to finish public TLS."
+            echo "DNS missing for $LMS_HOST or $CMS_HOST." >&2
+            exit 1
+          fi
+
+          # Tutor's MFE plugin serves catalog/learning/account/etc. from MFE_HOST.
+          if getent ahostsv4 "$MFE_HOST" >/dev/null 2>&1; then
+            if $SUDO certbot --nginx -d "$LMS_HOST" -d "$CMS_HOST" -d "$MFE_HOST" \
+              --non-interactive --agree-tos --register-unsafely-without-email --redirect --expand; then
+              echo "MFE TLS configured."
+            else
+              echo "MFE DNS resolves, but TLS issuance/routing failed for $MFE_HOST." >&2
+              exit 1
+            fi
+          else
+            echo "MFE DNS missing: $MFE_HOST" >&2
           fi
           $SUDO nginx -t
           $SUDO systemctl reload nginx
@@ -339,9 +354,17 @@ jobs:
 
           if $SUDO test -f "/etc/letsencrypt/live/$LMS_HOST/fullchain.pem"; then
             curl -fsS "https://$LMS_HOST/heartbeat" >/dev/null
-            curl -fsS "https://$MFE_HOST/catalog/" >/dev/null
-            echo "Public Open edX HTTPS heartbeat and MFE catalog are healthy."
+            echo "Public LMS HTTPS heartbeat is healthy."
           else
-            echo "Public HTTPS verification skipped until DNS/TLS is available."
+            echo "LMS certificate is missing after Certbot." >&2
+            exit 1
+          fi
+
+          if getent ahostsv4 "$MFE_HOST" >/dev/null 2>&1; then
+            curl -fsS "https://$MFE_HOST/catalog/" >/dev/null
+            echo "Public Open edX MFE catalog is healthy."
+          else
+            echo "Public MFE blocked only by DNS: create $MFE_HOST pointing to the Gravitas production server." >&2
+            exit 2
           fi
           REMOTE
