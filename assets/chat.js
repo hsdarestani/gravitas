@@ -22,6 +22,7 @@
   'use strict';
 
   var CFG = window.GRAVITAS_CHAT || {};
+  if (!CFG.endpoint) CFG.endpoint = '/api/pulsar/ask/';
 
   /* ---- What this site actually contains ---------------------------------
      Keys are matched loosely against the question. Keeping this as data
@@ -61,7 +62,7 @@
     {
       k: 'account sign in log in register password profile free cost price pay subscription paywall',
       a: 'Everything on the site is free to read and free to play, and there is no paywall planned. An account is optional. It follows Topics, keeps your place in a path, and lets you put your name to an argument.',
-      l: [['Create an account', 'account.html'], ['Sign in', 'account.html#in']]
+      l: [['Create an account', '/signup'], ['Sign in', 'account.html#in']]
     },
     {
       k: 'about who what is gravitas team behind contact mission why',

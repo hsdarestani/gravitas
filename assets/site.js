@@ -340,10 +340,24 @@
     // so stopImmediatePropagation() there cannot suppress this safety path.
     window.addEventListener('submit', function (event) {
       var form = event.target;
-      if (!form || (form.id !== 'p-up' && form.id !== 'p-in')) return;
+      // Email signup now requires confirmation and intentionally does not
+      // create a session. Only a real sign-in should arm the session watchdog.
+      if (!form || form.id !== 'p-in') return;
       armAuthWatchdog();
     }, true);
   }
+
+  /* ---- signup destinations ----------------------------------------------
+     Public pages were authored over time with account.html, community#join
+     and /signup mixed together. A link whose visible action is creating an
+     account should always open the create-account tab. */
+  [].forEach.call(document.querySelectorAll('a'), function (link) {
+    var label = (link.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (label === 'create account' || label === 'create an account' ||
+        label.indexOf('create a free account') === 0 || label === 'sign up') {
+      link.href = '/signup';
+    }
+  });
 
   /* ---- newsletter / forms ------------------------------------------------
      Removed with the polls, for the same reason. This caught every form the

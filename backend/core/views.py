@@ -1,6 +1,9 @@
 import json
 import logging
-from urllib.parse import quote
+import secrets
+from urllib.parse import quote, urlencode
+
+import requests
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
@@ -17,7 +20,10 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
 from . import cloud
+from .email_verification import is_email_verified, mark_email_verified, send_account_verification
+from .layer_models import CommunityProfile
 from .models import Comment, CommentLike, LabProgress, NewsletterSubscriber
+from .platform_models import ResearcherProfile
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -33,10 +39,13 @@ def _payload(request):
 
 
 def _user_json(user):
+    profile = getattr(user, 'gravitas_researcher_profile', None)
     return {
         'id': user.pk,
         'email': user.email,
         'name': user.first_name or user.username,
+        'phone': getattr(profile, 'phone', '') if profile else '',
+        'email_verified': is_email_verified(user),
         'is_staff': user.is_staff,
     }
 
@@ -171,6 +180,7 @@ def auth_signup(request):
     payload = _payload(request)
     name = str(payload.get('name', '')).strip()[:150]
     email = str(payload.get('email', '')).strip().lower()
+    phone = str(payload.get('phone', '')).strip()[:40]
     password = str(payload.get('password', ''))
     wants_newsletter = bool(payload.get('newsletter'))
 
@@ -191,15 +201,27 @@ def auth_signup(request):
             status=400,
         )
 
-    user = User.objects.create_user(
-        username=email,
-        email=email,
-        password=password,
-        first_name=name,
+    user = User(username=email, email=email, first_name=name)
+    user.set_password(password)
+    # Public signup owns delivery synchronously, so the post_save fallback must
+    # not send a second verification email for the same account.
+    user._verification_handled = True
+    user.save()
+    CommunityProfile.objects.update_or_create(
+        user=user,
+        defaults={'email_verification_required': True},
     )
+    ResearcherProfile.objects.update_or_create(user=user, defaults={'phone': phone})
+
+    try:
+        send_account_verification(user)
+    except Exception:
+        logger.exception('Could not deliver signup verification for user_id=%s', user.pk)
+        user.delete()
+        return JsonResponse({'ok': False, 'error': 'email_delivery_failed'}, status=502)
+
     from core.workspace_api import provision_personal_workspace
     provision_personal_workspace(user)
-    login(request, user)
 
     newsletter_pending = False
     if wants_newsletter:
@@ -221,10 +243,16 @@ def auth_signup(request):
         {
             'ok': True,
             'user': _user_json(user),
+            'pending_confirmation': True,
             'newsletter_pending': newsletter_pending,
         },
         status=201,
     )
+
+
+def _verification_required(user):
+    profile = getattr(user, 'gravitas_community_profile', None)
+    return bool(profile and profile.email_verification_required)
 
 
 def auth_login(request):
@@ -239,12 +267,94 @@ def auth_login(request):
     user = authenticate(request, username=email, password=password)
     if user is None:
         return JsonResponse({'ok': False, 'error': 'invalid_credentials'}, status=401)
+    if _verification_required(user) and not is_email_verified(user):
+        return JsonResponse(
+            {'ok': False, 'error': 'email_not_verified', 'email': user.email},
+            status=403,
+        )
 
     login(request, user)
     if not keep:
         request.session.set_expiry(0)
 
     return JsonResponse({'ok': True, 'user': _user_json(user)})
+
+
+def auth_google_start(request):
+    client_id = str(getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '') or '').strip()
+    if not client_id:
+        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=not_configured#in')
+    state = secrets.token_urlsafe(32)
+    request.session['google_oauth_state'] = state
+    params = {
+        'client_id': client_id,
+        'redirect_uri': settings.GOOGLE_OAUTH_REDIRECT_URI,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'state': state,
+        'prompt': 'select_account',
+    }
+    return HttpResponseRedirect('https://accounts.google.com/o/oauth2/v2/auth?' + urlencode(params))
+
+
+def auth_google_callback(request):
+    code = str(request.GET.get('code') or '').strip()
+    state = str(request.GET.get('state') or '').strip()
+    expected = str(request.session.pop('google_oauth_state', '') or '')
+    if not code or not state or not expected or not secrets.compare_digest(state, expected):
+        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=state#in')
+
+    try:
+        token_response = requests.post(
+            'https://oauth2.googleapis.com/token',
+            data={
+                'code': code,
+                'client_id': settings.GOOGLE_OAUTH_CLIENT_ID,
+                'client_secret': settings.GOOGLE_OAUTH_CLIENT_SECRET,
+                'redirect_uri': settings.GOOGLE_OAUTH_REDIRECT_URI,
+                'grant_type': 'authorization_code',
+            },
+            timeout=(5, 20),
+        )
+        token_response.raise_for_status()
+        access_token = str(token_response.json().get('access_token') or '')
+        if not access_token:
+            raise ValueError('missing_access_token')
+        info_response = requests.get(
+            'https://openidconnect.googleapis.com/v1/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=(5, 20),
+        )
+        info_response.raise_for_status()
+        info = info_response.json()
+    except (requests.RequestException, ValueError, TypeError):
+        logger.exception('Google OAuth exchange failed')
+        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=provider#in')
+
+    email = str(info.get('email') or '').strip().lower()
+    if not email or not bool(info.get('email_verified')):
+        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=email#in')
+
+    user = User.objects.filter(email__iexact=email).first()
+    created = user is None
+    if created:
+        user = User(username=email, email=email, first_name=str(info.get('name') or '').strip()[:150])
+        user.set_unusable_password()
+        user._verification_handled = True
+        user.save()
+        from core.workspace_api import provision_personal_workspace
+        provision_personal_workspace(user)
+    elif not user.is_active:
+        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=account#in')
+
+    profile, _ = CommunityProfile.objects.get_or_create(user=user)
+    if not profile.email_verification_required:
+        profile.email_verification_required = True
+        profile.save(update_fields=['email_verification_required', 'updated_at'])
+    mark_email_verified(user)
+    ResearcherProfile.objects.get_or_create(user=user)
+    login(request, user)
+    return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/workspace')
 
 
 def auth_logout(request):
@@ -364,10 +474,14 @@ def password_reset_request(request):
             'If you did not request this, you can ignore this email.'
         )
         html = (
-            '<h2>Reset your Gravitas+ password</h2>'
-            '<p>Use the link below within one hour to choose a new password.</p>'
-            f'<p><a href="{link}">Choose a new password</a></p>'
-            '<p>If you did not request this, you can ignore this email.</p>'
+            '<div style="margin:0;padding:32px 16px;background:#eef2f4;font-family:Arial,sans-serif;color:#15303d">'
+            '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:18px;padding:32px;border:1px solid #d9e1e5">'
+            '<div style="font-size:24px;font-weight:800;margin-bottom:22px">Gravitas+</div>'
+            '<h2 style="margin:0 0 12px">Reset your password</h2>'
+            '<p style="line-height:1.6;color:#52636c">Use the button below within one hour to choose a new password.</p>'
+            f'<p style="margin:22px 0"><a href="{link}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#003049;color:#fff;text-decoration:none;font-weight:700">Choose a new password</a></p>'
+            '<p style="font-size:13px;line-height:1.6;color:#718089">If you did not request this, you can safely ignore this email.</p>'
+            '</div></div>'
         )
         try:
             _send_system_email('Reset your Gravitas+ password', email, text, html)

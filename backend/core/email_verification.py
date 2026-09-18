@@ -1,3 +1,4 @@
+import json
 import logging
 from urllib.parse import quote
 
@@ -53,10 +54,14 @@ def send_account_verification(user):
         'If you did not create a Gravitas+ account, you can ignore this email.'
     )
     html = (
-        '<h2>Confirm your Gravitas+ email</h2>'
-        '<p>Confirm your account email address within 48 hours.</p>'
-        f'<p><a href="{link}">Confirm email address</a></p>'
-        '<p>If you did not create a Gravitas+ account, you can ignore this email.</p>'
+        '<div style="margin:0;padding:32px 16px;background:#eef2f4;font-family:Arial,sans-serif;color:#15303d">'
+        '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:18px;padding:32px;border:1px solid #d9e1e5">'
+        '<div style="font-size:24px;font-weight:800;letter-spacing:.02em;margin-bottom:22px">Gravitas+</div>'
+        '<h2 style="margin:0 0 12px;font-size:24px">Confirm your email address</h2>'
+        '<p style="margin:0 0 22px;line-height:1.6;color:#52636c">One click confirms your account and protects your research workspace. This link is valid for 48 hours.</p>'
+        f'<p style="margin:0 0 24px"><a href="{link}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#003049;color:#fff;text-decoration:none;font-weight:700">Confirm email address</a></p>'
+        '<p style="margin:0;font-size:13px;line-height:1.6;color:#718089">If you did not create a Gravitas+ account, you can safely ignore this message.</p>'
+        '</div></div>'
     )
     message = EmailMultiAlternatives(
         subject='Confirm your Gravitas+ email',
@@ -81,6 +86,8 @@ def _send_new_account_verification(user_id):
 @receiver(post_save, sender=User, dispatch_uid='gravitas_account_verification_on_create')
 def account_verification_on_create(sender, instance, created, **kwargs):
     if not created or not instance.is_active or not instance.email:
+        return
+    if getattr(instance, '_verification_handled', False):
         return
     # System/E2E identities and admin-created unusable-password invites have their
     # own setup flows. Normal public signup accounts get a real confirmation mail.
@@ -113,13 +120,29 @@ def account_email_confirm(request):
 
 @require_http_methods(['POST'])
 def account_email_resend(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
-    if is_email_verified(request.user):
+    user = request.user if request.user.is_authenticated else None
+    if user is None:
+        try:
+            data = json.loads(request.body or '{}')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            data = {}
+        email = str(data.get('email') or '').strip().lower()
+        if email:
+            candidate = User.objects.filter(email__iexact=email, is_active=True).first()
+            if candidate is not None:
+                profile = getattr(candidate, 'gravitas_community_profile', None)
+                if profile is not None and profile.email_verification_required:
+                    user = candidate
+
+    # Signed-out callers always receive a generic success response so this
+    # endpoint cannot be used to discover which email addresses have accounts.
+    if user is None:
+        return JsonResponse({'ok': True, 'pending_confirmation': True})
+    if is_email_verified(user):
         return JsonResponse({'ok': True, 'already_verified': True})
     try:
-        sent = send_account_verification(request.user)
+        sent = send_account_verification(user)
     except Exception:
-        logger.exception('Could not resend account verification for user_id=%s', request.user.pk)
+        logger.exception('Could not resend account verification for user_id=%s', user.pk)
         return JsonResponse({'ok': False, 'error': 'email_delivery_failed'}, status=502)
     return JsonResponse({'ok': True, 'sent': sent, 'pending_confirmation': True})

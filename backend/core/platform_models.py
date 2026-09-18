@@ -90,6 +90,7 @@ class ResearcherProfile(models.Model):
     fields = models.JSONField(default=list, blank=True)
     skills = models.JSONField(default=list, blank=True)
     institution = models.CharField(max_length=240, blank=True)
+    phone = models.CharField(max_length=40, blank=True)
     orcid = models.CharField(max_length=40, blank=True)
     google_scholar_url = models.URLField(max_length=1000, blank=True)
     github_url = models.URLField(max_length=1000, blank=True)

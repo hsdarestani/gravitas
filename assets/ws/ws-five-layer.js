@@ -39,11 +39,10 @@ const DASHBOARD_INDEX = [
 
 const LEARNING_INDEX = [
   ['Overview', '/workspace/learning', 'overview'],
+  ['Library', '/workspace/learning/library', 'files'],
   ['Course catalog', '/workspace/learning/catalog', 'planning'],
   ['My learning', '/workspace/learning/my', 'notes'],
   ['Certificates', '/workspace/learning/certificates', 'target'],
-  ['Personal learning notes', '/workspace/kms/base', 'notes'],
-  ['Recall & review', '/workspace/kms/recall', 'cycle'],
 ];
 
 const ADMIN_INDEX = [
@@ -69,10 +68,16 @@ function navigate(path, { replace = false } = {}) {
   }
   if (path === location.pathname && !location.search && !location.hash) return;
   history[replace ? 'replaceState' : 'pushState']({}, '', path);
-  // ws-app owns the legacy routes and listens to popstate. Dispatching a
-  // synthetic event lets it keep its page/tree state in sync while this
-  // module replaces only the new five-layer routes.
-  dispatchEvent(new PopStateEvent('popstate'));
+  var owned = pathKind(path);
+  // Five-layer pages have their own renderer. Sending a synthetic popstate
+  // here also woke the legacy router, which treats unknown routes as Home and
+  // could repaint Research/Home over the requested page. Only legacy routes
+  // need the old router; five-layer routes emit the lightweight navigation
+  // event and render once.
+  dispatchEvent(new CustomEvent('ws:navigate'));
+  if (!owned || owned.kind === 'learning-legacy') {
+    dispatchEvent(new PopStateEvent('popstate'));
+  }
   schedule();
 }
 
@@ -88,6 +93,7 @@ function pathKind(path = location.pathname) {
   if (path === '/workspace/dashboard/progress' || path === '/workspace/dashboard/progress/') return { kind: 'dashboard', page: 'progress' };
 
   if (path === '/workspace/learning' || path === '/workspace/learning/') return { kind: 'learning', page: 'overview' };
+  if (path === '/workspace/learning/library' || path === '/workspace/learning/library/') return { kind: 'learning', page: 'library' };
   if (path === '/workspace/learning/catalog' || path === '/workspace/learning/catalog/') return { kind: 'learning', page: 'catalog' };
   if (path === '/workspace/learning/my' || path === '/workspace/learning/my/') return { kind: 'learning', page: 'my' };
   if (path === '/workspace/learning/certificates' || path === '/workspace/learning/certificates/') return { kind: 'learning', page: 'certificates' };
@@ -288,6 +294,7 @@ async function renderCustom() {
     renderIndex('Learning', LEARNING_INDEX, P.canOpenLms() ? 'LMS access enabled' : 'Catalog access');
     setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, ...(route.page === 'overview' ? [] : [{ label: route.page === 'course' ? 'Course' : route.page }])]);
     if (route.page === 'overview') await renderLearningOverview(host, ctx);
+    if (route.page === 'library') await renderMemberLibrary(host, ctx);
     if (route.page === 'catalog') await renderLearningCatalog(host, ctx);
     if (route.page === 'my') await renderMyLearning(host, ctx);
     if (route.page === 'certificates') await renderCertificates(host, ctx);

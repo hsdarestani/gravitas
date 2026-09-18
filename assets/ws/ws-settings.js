@@ -201,6 +201,9 @@ function profilePanel(profile, onSaved) {
   const headline = field({ label: 'Headline', value: profile.headline, help: 'One line. It appears beside your name in the research network.' });
   const bio = field({ label: 'About', type: 'textarea', value: profile.bio });
   const institution = field({ label: 'Institution', value: profile.institution });
+  const phone = field({ label: 'Mobile', value: profile.phone, help: 'Optional. You can add or update it at any time.' });
+  phone.input.type = 'tel';
+  phone.input.autocomplete = 'tel';
   const orcid = field({ label: 'ORCID', value: profile.orcid, help: 'Optional. The identifier only, not the full address.' });
 
   const visible = el('label', 'v-check-row');
@@ -225,6 +228,7 @@ function profilePanel(profile, onSaved) {
           headline: headline.input.value,
           bio: bio.input.value,
           institution: institution.input.value,
+          phone: phone.input.value,
           orcid: orcid.input.value,
           is_public: box2.checked,
         },
@@ -240,7 +244,7 @@ function profilePanel(profile, onSaved) {
     }
   });
 
-  form.append(headline, bio, institution, orcid, visible, foot(save, status));
+  form.append(headline, bio, institution, phone, orcid, visible, foot(save, status));
   box.body.append(form);
   return box;
 }

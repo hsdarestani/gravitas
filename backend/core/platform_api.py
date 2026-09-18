@@ -1192,7 +1192,7 @@ def researcher_me(request):
     profile, _ = ResearcherProfile.objects.get_or_create(user=request.user)
     if request.method == 'PATCH':
         data = _body(request)
-        for field in ('headline', 'bio', 'institution', 'orcid', 'google_scholar_url', 'github_url', 'availability'):
+        for field in ('headline', 'bio', 'institution', 'phone', 'orcid', 'google_scholar_url', 'github_url', 'availability'):
             if field in data:
                 setattr(profile, field, str(data[field]).strip())
         for field in ('fields', 'skills', 'languages'):
@@ -1212,6 +1212,7 @@ def researcher_me(request):
         'fields': profile.fields,
         'skills': profile.skills,
         'institution': profile.institution,
+        'phone': profile.phone,
         'orcid': profile.orcid,
         'google_scholar_url': profile.google_scholar_url,
         'github_url': profile.github_url,

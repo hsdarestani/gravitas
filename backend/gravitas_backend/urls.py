@@ -21,6 +21,7 @@ from core.oidc_provider import (
 )
 from core.operating_api_v4 import operating_dashboard, milestones, risks, tasks, work_packages
 from core.project_cockpit_v2 import project_cockpit
+from core.pulsar_api import public_pulsar_ask
 from core.project_space_api import platform_projects_with_space
 from core.research_deliverable_api import project_deliverable_detail
 from core.research_milestone_api import project_milestone_detail, project_milestones
@@ -68,6 +69,7 @@ urlpatterns = [
     path('api/platform/mindmaps/<int:map_id>/ai/', generate_mindmap_ai),
     path('api/platform/ai/providers/', ai_providers),
     path('api/platform/ai/ask/', assistant_ask),
+    path('api/pulsar/ask/', public_pulsar_ask),
     path('api/platform/ai/providers/<int:provider_id>/', ai_provider_detail),
     path('api/platform/space/tree/', space_tree),
     path('api/platform/space/nodes/<int:node_id>/', space_node_detail),

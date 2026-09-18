@@ -29,6 +29,7 @@ class CommunityProfile(models.Model):
     )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER, db_index=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, db_index=True)
+    email_verification_required = models.BooleanField(default=False)
     joined_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

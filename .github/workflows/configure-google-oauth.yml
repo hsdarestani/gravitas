@@ -1,14 +1,10 @@
-name: Configure Gravitas Cloudflare AI
+name: Configure Gravitas Google OAuth
 
 on:
   push:
     branches: [main]
     paths:
-      - '.github/workflows/configure-cloudflare-ai.yml'
-      - 'backend/core/pulsar.py'
-      - 'backend/core/pulsar_api.py'
-      - 'backend/core/assistant_api.py'
-      - 'assets/chat.js'
+      - '.github/workflows/configure-google-oauth.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,18 +19,18 @@ jobs:
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       CONFIGURED_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CF_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 
     steps:
-      - name: Check Cloudflare AI secrets
-        id: ai
+      - name: Check Google OAuth secrets
+        id: oauth
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${CF_ACCOUNT_ID:-}" ] || [ -z "${CF_AI_TOKEN:-}" ]; then
+          if [ -z "${GOOGLE_CLIENT_ID:-}" ] || [ -z "${GOOGLE_CLIENT_SECRET:-}" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "Cloudflare AI secrets are not configured. Add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AI_API_TOKEN (or CLOUDFLARE_API_TOKEN), then run this workflow again."
+            echo "Add GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, then run this workflow again."
             exit 0
           fi
           test -n "${DEPLOY_HOST:-}" || { echo "Missing DEPLOY_HOST"; exit 1; }
@@ -42,7 +38,7 @@ jobs:
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Configure production backend
-        if: steps.ai.outputs.configured == 'true'
+        if: steps.oauth.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -63,21 +59,20 @@ jobs:
             exit 1
           fi
 
-          ACCOUNT_B64="$(printf '%s' "$CF_ACCOUNT_ID" | base64 -w0)"
-          TOKEN_B64="$(printf '%s' "$CF_AI_TOKEN" | base64 -w0)"
-          ssh "${SSH_OPTS[@]}" "$EFFECTIVE_USER@$DEPLOY_HOST" bash -s -- "$ACCOUNT_B64" "$TOKEN_B64" <<'REMOTE'
+          ID_B64="$(printf '%s' "$GOOGLE_CLIENT_ID" | base64 -w0)"
+          SECRET_B64="$(printf '%s' "$GOOGLE_CLIENT_SECRET" | base64 -w0)"
+          ssh "${SSH_OPTS[@]}" "$EFFECTIVE_USER@$DEPLOY_HOST" bash -s -- "$ID_B64" "$SECRET_B64" <<'REMOTE'
           set -euo pipefail
-          ACCOUNT_ID="$(printf '%s' "$1" | base64 -d)"
-          API_TOKEN="$(printf '%s' "$2" | base64 -d)"
+          CLIENT_ID="$(printf '%s' "$1" | base64 -d)"
+          CLIENT_SECRET="$(printf '%s' "$2" | base64 -d)"
           if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
           ENV_FILE=/etc/gravitas/backend.env
           TMP="$(mktemp)"
           $SUDO touch "$ENV_FILE"
-          $SUDO grep -vE '^CLOUDFLARE_AI_(ACCOUNT_ID|API_TOKEN|MODEL|TIMEOUT)=' "$ENV_FILE" > "$TMP" || true
-          printf 'CLOUDFLARE_AI_ACCOUNT_ID=%s\n' "$ACCOUNT_ID" >> "$TMP"
-          printf 'CLOUDFLARE_AI_API_TOKEN=%s\n' "$API_TOKEN" >> "$TMP"
-          printf 'CLOUDFLARE_AI_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast\n' >> "$TMP"
-          printf 'CLOUDFLARE_AI_TIMEOUT=45\n' >> "$TMP"
+          $SUDO grep -vE '^GOOGLE_OAUTH_(CLIENT_ID|CLIENT_SECRET|REDIRECT_URI)=' "$ENV_FILE" > "$TMP" || true
+          printf 'GOOGLE_OAUTH_CLIENT_ID=%s\n' "$CLIENT_ID" >> "$TMP"
+          printf 'GOOGLE_OAUTH_CLIENT_SECRET=%s\n' "$CLIENT_SECRET" >> "$TMP"
+          printf 'GOOGLE_OAUTH_REDIRECT_URI=https://gravitasplus.com/api/auth/google/callback/\n' >> "$TMP"
           $SUDO install -o root -g gravitas -m 640 "$TMP" "$ENV_FILE"
           rm -f "$TMP"
           $SUDO systemctl restart gravitas-backend
@@ -87,9 +82,10 @@ jobs:
       - name: Summary
         shell: bash
         run: |
-          if [ "${{ steps.ai.outputs.configured }}" = "true" ]; then
-            echo "### Cloudflare Workers AI connected to Gravitas" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.oauth.outputs.configured }}" = "true" ]; then
+            echo "### Google OAuth connected to Gravitas+" >> "$GITHUB_STEP_SUMMARY"
+            echo "Authorized redirect URI: https://gravitasplus.com/api/auth/google/callback/" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "### Cloudflare Workers AI code is ready, but credentials are still missing" >> "$GITHUB_STEP_SUMMARY"
-            echo "Add repository secrets \`CLOUDFLARE_ACCOUNT_ID\` and \`CLOUDFLARE_AI_API_TOKEN\`, then run this workflow manually." >> "$GITHUB_STEP_SUMMARY"
+            echo "### Google OAuth code is ready, credentials are missing" >> "$GITHUB_STEP_SUMMARY"
+            echo "Add repository secrets GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, then run this workflow manually." >> "$GITHUB_STEP_SUMMARY"
           fi

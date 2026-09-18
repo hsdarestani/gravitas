@@ -71,6 +71,7 @@
     if (err.error === 'invalid_email') return 'Please enter a valid email address.';
     if (err.error === 'account_exists') return 'An account with this email already exists.';
     if (err.error === 'invalid_credentials') return 'Email or password is incorrect.';
+    if (err.error === 'email_not_verified') return 'Confirm your email before signing in. We can resend the confirmation below.';
     if (err.error === 'invalid_or_expired_link') return 'This reset link is invalid or has expired.';
     if (err.error === 'password_invalid' && Array.isArray(err.messages) && err.messages.length) {
       return err.messages.join(' ');
@@ -151,6 +152,38 @@
     resetForm.hidden = false;
   }
 
+  document.addEventListener('click', function (e) {
+    var resend = e.target && e.target.closest && e.target.closest('[data-resend-verification]');
+    if (!resend) return;
+    e.preventDefault();
+    var email = resend.getAttribute('data-email') || '';
+    resend.disabled = true;
+    var original = resend.textContent;
+    resend.textContent = 'Sending…';
+    apiPost('/api/auth/email-confirm/resend/', { email: email })
+      .then(function () { resend.textContent = 'Sent — check your inbox'; })
+      .catch(function () { resend.textContent = 'Could not send — try again'; resend.disabled = false; })
+      .finally(function () {
+        if (!resend.disabled) window.setTimeout(function () { resend.textContent = original; }, 1800);
+      });
+  });
+
+  var authStatus = document.getElementById('auth-status');
+  if (authStatus) {
+    if (params.get('email_verified') === '1') {
+      authStatus.hidden = false;
+      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3><p>Your email is verified. You can sign in now.</p>';
+      if (history.replaceState) history.replaceState({}, '', '/login');
+      window.setTimeout(function () { location.hash = 'in'; }, 0);
+    } else if (params.get('email_verified') === '0') {
+      authStatus.hidden = false;
+      authStatus.innerHTML = '<h3 style="margin-top:0">Confirmation link expired</h3><p>Sign in with Google or resend the verification email from your pending account screen.</p>';
+    } else if (params.get('google_error')) {
+      authStatus.hidden = false;
+      authStatus.innerHTML = '<h3 style="margin-top:0">Google sign-in did not finish</h3><p>Please try again or use email and password.</p>';
+    }
+  }
+
   document.addEventListener('submit', function (e) {
     var form = e.target;
     if (!form || form.nodeType !== 1) return;
@@ -177,22 +210,23 @@
       job = apiPost('/api/auth/signup/', {
         name: (form.elements.name && form.elements.name.value || '').trim(),
         email: (form.elements.email && form.elements.email.value || '').trim(),
+        phone: (form.elements.phone && form.elements.phone.value || '').trim(),
         password: form.elements.password && form.elements.password.value || '',
         newsletter: !!(form.elements.news && form.elements.news.checked)
       }).then(function (data) {
-        markAccount(data.user && data.user.email);
+        var email = data.user && data.user.email || (form.elements.email && form.elements.email.value || '').trim();
+        form.innerHTML =
+          '<div class="callout auth__verification">' +
+            '<h2 style="margin-top:0">Check your inbox</h2>' +
+            '<p>We sent a confirmation link to <strong>' + email.replace(/[&<>"']/g, '') + '</strong>. Confirm it before signing in.</p>' +
+            '<div class="g-cluster g-mt-sm">' +
+              '<button class="g-btn g-btn--secondary" type="button" data-resend-verification data-email="' + email.replace(/["&<>]/g, '') + '">Resend email</button>' +
+              '<a class="g-btn g-btn--primary" href="/login">Go to sign in</a>' +
+            '</div>' +
+          '</div>';
         setNote(form, data.newsletter_pending
-          ? 'Account created. Check your inbox to confirm your account email and newsletter subscription.'
-          : 'Account created. Check your inbox to confirm your email. Opening your workspace…');
-        // The basket moves to the till before the page navigates. A reader who
-        // signed up *because* they had a pile should land on the pile, not on
-        // an empty workspace they then have to go looking through.
-        return adoptReaderLibrary().then(function (adopted) {
-          if (adopted) setNote(form, 'Account created. Your saved items came with you — opening your library…');
-          window.setTimeout(function () {
-            location.href = adopted ? '/workspace/kms/library' : '/workspace';
-          }, 650);
-        });
+          ? 'Your account and newsletter both need email confirmation.'
+          : 'Your account is ready once you confirm your email.');
       });
     } else if (isLogin) {
       setNote(form, 'Signing in…');

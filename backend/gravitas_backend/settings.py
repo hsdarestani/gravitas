@@ -114,6 +114,12 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Gravitas+ <webmaster@
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'https://gravitasplus.com').rstrip('/')
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', '3600'))
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
+GOOGLE_OAUTH_REDIRECT_URI = os.environ.get(
+    'GOOGLE_OAUTH_REDIRECT_URI',
+    f'{PUBLIC_BASE_URL}/api/auth/google/callback/',
+)
 
 GRAVITAS_DEFAULT_QUOTA_BYTES = int(os.environ.get('GRAVITAS_DEFAULT_QUOTA_BYTES', str(5 * 1024 ** 3)))
 GRAVITAS_MAX_UPLOAD_BYTES = int(os.environ.get('GRAVITAS_MAX_UPLOAD_BYTES', str(250 * 1024 ** 2)))

@@ -42,7 +42,10 @@ class WorkspaceApiTests(TestCase):
         user = get_user_model().objects.get(email='new@example.com')
         self.assertTrue(Workspace.objects.filter(owner=user, kind='personal').exists())
         self.assertTrue(StoragePlan.objects.filter(user=user).exists())
-        self.assertTrue(response.wsgi_request.user.is_authenticated)
+        # Public signup is intentionally pending until the email link is
+        # confirmed; the account exists, but no authenticated session does.
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+        self.assertTrue(response.json()['pending_confirmation'])
 
     def test_project_note_search_and_item_detail(self):
         self._login()

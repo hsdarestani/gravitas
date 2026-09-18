@@ -45,7 +45,10 @@
 
       if (isAuthWrite) {
         return nativeFetch.call(window, input, init).then(function (response) {
-          if (response.ok && authFlowActive) {
+          // Signup succeeds before email confirmation and deliberately does not
+          // create a session. Only the login endpoint may tell the watchdog
+          // that it can navigate to the workspace.
+          if (response.ok && authFlowActive && target.pathname === '/api/auth/login/') {
             authFlowAuthenticated = true;
             authFlowAuthenticatedAt = Date.now();
           }
@@ -77,7 +80,7 @@
   };
 
   var core = document.createElement('script');
-  core.src = '/assets/production-bridge-core.js?v=auth-session-race-2';
+  core.src = '/assets/production-bridge-core.js?v=20260918-auth2';
   core.async = false;
   core.onerror = function () {
     console.error('Gravitas production bridge failed to load.');

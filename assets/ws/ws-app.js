@@ -31,7 +31,7 @@ import {
   WORKSPACES, availableWorkspaces, spaceOf,
 } from './ws-nav.js?v=20260913-3';
 import { renderDashboard, stopClock } from './ws-home.js';
-import { renderSettings } from './ws-settings.js';
+import { renderSettings } from './ws-settings.js?v=20260918-auth2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260913-2';
 
@@ -1442,16 +1442,20 @@ function viewContext() {
   };
 }
 
-function render() {
+function paintPaneState() {
   const shell = $('#ws');
+  if (!shell) return;
   shell.dataset.dock = ui.dock ? 'on' : 'off';
-  // Settings has nothing to navigate, so the index closes for it rather
-  // than showing a workspace tree beside preferences that belong to neither.
-  // The reader owns the index state. Route changes must never silently undo
-  // the toggle (the reference keeps panes stable while switching modules).
   shell.dataset.index = ui.index && ui.route?.view !== 'settings' ? 'on' : 'off';
-  $('#ws-toggle-index').setAttribute('aria-pressed', String(ui.index));
+  const indexToggle = $('#ws-toggle-index');
+  const dockToggle = $('#ws-toggle-dock');
+  if (indexToggle) indexToggle.setAttribute('aria-pressed', String(ui.index));
+  if (dockToggle) dockToggle.setAttribute('aria-pressed', String(ui.dock));
   shell.dataset.area = ui.area;
+}
+
+function render() {
+  paintPaneState();
 
   renderRail();
   renderCrumbs();
@@ -1672,7 +1676,8 @@ export async function start() {
   const applyWidth = () => {
     ui.index = NARROW.matches ? false : readPrefs().index !== false;
     ui.dock = DOCK_FLOATS.matches ? false : readPrefs().dock !== false;
-    render();
+    paintPaneState();
+    renderDock();
   };
   NARROW.addEventListener('change', applyWidth);
   DOCK_FLOATS.addEventListener('change', applyWidth);
@@ -1690,20 +1695,24 @@ export async function start() {
     ui.index = !ui.index;
     if (ui.index && NARROW.matches) ui.dock = false;
     if (!NARROW.matches) writePrefs({ index: ui.index });
-    render();
+    paintPaneState();
   });
   $('#ws-toggle-dock').addEventListener('click', () => {
     ui.dock = !ui.dock;
     if (ui.dock && NARROW.matches) ui.index = false;
     if (!DOCK_FLOATS.matches) writePrefs({ dock: ui.dock });
-    render();
+    paintPaneState();
+    renderDock();
   });
   $('#ws-open-palette').addEventListener('click', () => openPalette());
 
   // The scrim is a pseudo-element on the shell, so a tap landing on the shell
   // itself rather than on a pane is a tap on the scrim.
   $('#ws').addEventListener('click', (event) => {
-    if (event.target === $('#ws') && closeOverlays()) render();
+    if (event.target === $('#ws') && closeOverlays()) {
+      paintPaneState();
+      renderDock();
+    }
   });
 
   /* Escape dismisses a floating pane, which is what every overlay on the web
@@ -1713,7 +1722,10 @@ export async function start() {
   addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (document.querySelector('.ws-palette:not([hidden])')) return;
-    if (closeOverlays()) render();
+    if (closeOverlays()) {
+      paintPaneState();
+      renderDock();
+    }
   });
 
   /* Navigating is the reader saying they are done with the panel they
@@ -1721,7 +1733,18 @@ export async function start() {
      only has to set the state. */
   addEventListener('ws:navigate', closeOverlays);
 
-  addEventListener('popstate', () => apply(location.pathname));
+  const fiveLayerOwns = (path) =>
+    /^\/workspace\/dashboard(?:\/|$)/.test(path)
+    || /^\/workspace\/learning(?:\/|$)/.test(path)
+    || /^\/workspace\/core\/admin(?:\/|$)/.test(path)
+    || /^\/workspace\/research\/projects\/\d+(?:\/[a-z-]+)?\/?$/.test(path);
+  addEventListener('popstate', () => {
+    // ws-five-layer owns these routes and also listens to popstate. Letting
+    // the legacy router parse them first caused stale/Home/Research content to
+    // flash or remain in the center pane.
+    if (fiveLayerOwns(location.pathname)) return;
+    apply(location.pathname);
+  });
 
   ui.index = !NARROW.matches && prefs.index !== false;
   ui.dock = !DOCK_FLOATS.matches && prefs.dock !== false;
