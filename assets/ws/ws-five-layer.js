@@ -22,7 +22,7 @@ import {
   renderAdminUser,
   renderAdminUsers,
 } from './ws-admin.js?v=20260918-topic1';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260918-topic1';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260918-fix1';
 import { renderCoreLinks } from './ws-core-links.js?v=20260914-1';
 import { renderResearchProject } from './ws-project.js?v=20260914-2';
 

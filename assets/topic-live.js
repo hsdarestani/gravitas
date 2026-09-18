@@ -101,7 +101,8 @@
 
   function renderVideo(data) {
     var video = data.video || {};
-    var media = '<div class="topic-media topic-media--empty"><span>Video will appear here when it is published.</span></div>';
+    var media = '<div class="video topic-video-placeholder" aria-label="Video not published yet">' +
+      '<span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>';
     if (video.source_type === 'youtube' && safeUrl(video.youtube_url)) {
       var id = youtubeId(video.youtube_url);
       if (id) {
@@ -113,10 +114,18 @@
     }
     var meta = [];
     if (video.duration) meta.push('<dt>Runtime</dt><dd>' + esc(video.duration) + '</dd>');
+    if (video.companion_label) {
+      var companion = safeUrl(video.companion_url);
+      meta.push('<dt>Companion</dt><dd>' + (companion ? '<a href="' + esc(companion) + '">' + esc(video.companion_label) + '</a>' : esc(video.companion_label)) + '</dd>');
+    }
+    if (video.transcript_label) {
+      var transcript = safeUrl(video.transcript_url);
+      meta.push('<dt>Transcript</dt><dd>' + (transcript ? '<a href="' + esc(transcript) + '">' + esc(video.transcript_label) + '</a>' : '<span class="g-subtle">' + esc(video.transcript_label) + '</span>') + '</dd>');
+    }
     if (video.info) meta.push('<dt>Info</dt><dd>' + esc(video.info) + '</dd>');
     return section('01', 'video', 'The Video',
       '<div class="split">' + media + '<div>' +
-      (video.description ? '<p class="g-muted">' + esc(video.description) + '</p>' : '') +
+      (video.description ? '<p class="g-muted" style="font-size:var(--g-fs-small)">' + esc(video.description) + '</p>' : '') +
       (meta.length ? '<dl class="kv g-mt-md">' + meta.join('') + '</dl>' : '') +
       '</div></div>');
   }
@@ -124,15 +133,20 @@
   function renderEssay(data) {
     var essay = data.essay || {};
     var image = safeUrl(essay.image_url);
+    var aside = '';
+    if (essay.aside_title || essay.aside_text) {
+      aside = '<aside class="aside"><div class="callout"><h4>' + esc(essay.aside_title || 'Try It Yourself') + '</h4><p>' +
+        (essay.aside_text ? esc(essay.aside_text) : '') + '</p></div></aside>';
+    }
     var article = '<div class="depthbar"><p class="depthbar__note">This essay reads two ways. Pick one.</p>' +
       '<div class="depth" role="group" aria-label="Reading depth">' +
       '<button type="button" data-topic-depth="overview" aria-pressed="true">Overview</button>' +
       '<button type="button" data-topic-depth="indepth" aria-pressed="false">In depth</button></div></div>' +
       (image ? '<figure class="topic-essay-image"><img src="' + esc(image) + '" alt="' + esc(essay.image_alt || '') + '"></figure>' : '') +
-      '<article class="g-prose topic-essay-copy">' +
+      '<div class="' + (aside ? 'split' : '') + '"><article class="g-prose topic-essay-copy">' +
       '<div data-topic-level="overview">' + safeRichHtml(essay.overview_html || '<p>No overview has been published yet.</p>') + '</div>' +
       '<div data-topic-level="indepth" hidden>' + safeRichHtml(essay.indepth_html || '<p>No in-depth version has been published yet.</p>') + '</div>' +
-      '</article>';
+      '</article>' + aside + '</div>';
     return section('02', 'essay', 'The Essay', article);
   }
 
@@ -143,7 +157,10 @@
       ['further', 'Go further', 'Some Maths Expected'],
       ['primary', 'Primary', 'The Papers Themselves']
     ];
-    var html = '<div class="levels">';
+    var html = data.sources_intro
+      ? '<p class="g-muted topic-section-intro" style="font-size:var(--g-fs-small);margin-bottom:var(--g-space-md)">' + esc(data.sources_intro) + '</p>'
+      : '';
+    html += '<div class="levels">';
     groups.forEach(function (group) {
       var rows = sourceRows.filter(function (row) { return (row.level || 'start') === group[0]; });
       html += '<div class="level"><p class="level__tag">' + esc(group[1]) + '</p><h4>' + esc(group[2]) + '</h4><ul>';
@@ -189,6 +206,20 @@
 
   function renderSimulation(data) {
     var sim = data.simulation || {};
+    if (sim.builtin === 'lorenz' && !String(sim.code || '').trim()) {
+      return section('05', 'sim', sim.title || 'The Simulation',
+        (sim.description ? '<p class="g-muted topic-section-intro" style="font-size:var(--g-fs-small);margin-bottom:var(--g-space-md)">' + esc(sim.description) + '</p>' : '') +
+        '<div class="play" data-native-simulation="lorenz">' +
+          '<div class="play__bar">' +
+            '<label for="eps" style="display:flex;align-items:center;gap:.6rem">Initial difference ' +
+              '<input id="eps" type="range" min="-12" max="-1" value="-6" step="1" style="width:11rem"> ' +
+              '<b id="epsv" class="g-mono">1e-6</b></label>' +
+            '<span>Divergence at <b id="tdiv" class="g-mono">–</b></span>' +
+            '<button class="g-btn g-btn--ghost g-btn--sm" id="simreset" type="button">Restart</button>' +
+          '</div>' +
+          '<div class="play__body play__body--fig"><canvas id="lorenz" style="width:100%;height:340px;display:block"></canvas></div>' +
+        '</div>');
+    }
     var doc = simulationDocument(sim.code);
     var frame = doc
       ? '<iframe class="topic-simulation__frame" sandbox="allow-scripts" title="Topic simulation"></iframe>'
@@ -198,12 +229,106 @@
       '<div class="topic-simulation" data-simulation-src="' + esc(doc) + '">' + frame + '</div>');
   }
 
+  function initLorenzSimulation() {
+    var cv = document.getElementById('lorenz');
+    if (!cv || cv.dataset.ready === '1') return;
+    cv.dataset.ready = '1';
+    var ctx = cv.getContext('2d'), W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var eps = document.getElementById('eps'), epsv = document.getElementById('epsv'),
+      tdiv = document.getElementById('tdiv'), reset = document.getElementById('simreset');
+    if (!eps || !epsv || !tdiv || !reset) return;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var EXT = {x0:-21, x1:21, z0:3, z1:48};
+    var VIEW = {sc:1, ox:0, oy:0};
+
+    function fitView() {
+      var pad = 16;
+      var sc = Math.min((W - pad * 2) / (EXT.x1 - EXT.x0), (H - pad * 2) / (EXT.z1 - EXT.z0));
+      VIEW.sc = sc;
+      VIEW.ox = W / 2 - ((EXT.x0 + EXT.x1) / 2) * sc;
+      VIEW.oy = H / 2 + ((EXT.z0 + EXT.z1) / 2) * sc;
+    }
+    function size() {
+      var rect = cv.getBoundingClientRect();
+      W = rect.width; H = rect.height;
+      cv.width = Math.max(1, Math.round(W * dpr));
+      cv.height = Math.max(1, Math.round(H * dpr));
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      fitView();
+    }
+    size();
+    window.addEventListener('resize', size);
+
+    var A, B, trailA, trailB, t, diverged;
+    function init() {
+      var e = Math.pow(10, +eps.value);
+      epsv.textContent = '1e' + eps.value;
+      A = [1,1,20]; B = [1+e,1,20]; trailA = []; trailB = []; t = 0; diverged = null;
+      tdiv.textContent = '–';
+    }
+    function step(s, dt) {
+      var x=s[0], y=s[1], z=s[2], S=10, R=28, Bq=8/3;
+      var k1=[S*(y-x), x*(R-z)-y, x*y-Bq*z];
+      var x2=x+k1[0]*dt/2, y2=y+k1[1]*dt/2, z2=z+k1[2]*dt/2;
+      var k2=[S*(y2-x2), x2*(R-z2)-y2, x2*y2-Bq*z2];
+      return [x+k2[0]*dt, y+k2[1]*dt, z+k2[2]*dt];
+    }
+    function draw() {
+      ctx.clearRect(0,0,W,H);
+      var sc=VIEW.sc, cx=VIEW.ox, cy=VIEW.oy;
+      function path(tr,col) {
+        ctx.beginPath();
+        for(var i=0;i<tr.length;i+=1) {
+          var p=tr[i], X=cx+p[0]*sc, Y=cy-p[2]*sc;
+          if(i) ctx.lineTo(X,Y); else ctx.moveTo(X,Y);
+        }
+        ctx.strokeStyle=col; ctx.lineWidth=1.2; ctx.stroke();
+      }
+      var inkA=window.gravitasInk?window.gravitasInk('body-a','241,239,236'):'241,239,236';
+      var inkB=window.gravitasInk?window.gravitasInk('body-b','212,201,190'):'212,201,190';
+      path(trailA,'rgba('+inkA+',.72)');
+      path(trailB,'rgba('+inkB+',.62)');
+      if(trailA.length) {
+        var p=trailA[trailA.length-1], q=trailB[trailB.length-1];
+        ctx.fillStyle='rgb('+inkA+')'; ctx.beginPath(); ctx.arc(cx+p[0]*sc,cy-p[2]*sc,2.6,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgb('+inkB+')'; ctx.beginPath(); ctx.arc(cx+q[0]*sc,cy-q[2]*sc,2.6,0,Math.PI*2); ctx.fill();
+      }
+    }
+    function tick() {
+      if(!document.body.contains(cv)) return;
+      if(!reduce) {
+        for(var i=0;i<6;i+=1) {
+          A=step(A,.005); B=step(B,.005); t+=.005;
+          trailA.push(A.slice()); trailB.push(B.slice());
+          if(trailA.length>1400){trailA.shift();trailB.shift();}
+          if(diverged===null) {
+            var d=Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]);
+            if(d>1){diverged=t;tdiv.textContent='t = '+t.toFixed(1);}
+          }
+        }
+      }
+      draw();
+      window.requestAnimationFrame(tick);
+    }
+    eps.addEventListener('input', init);
+    reset.addEventListener('click', init);
+    init();
+    window.requestAnimationFrame(tick);
+  }
+
   function renderViewpoints(data) {
     var v = data.viewpoints || {};
-    var html = '<div class="views">' +
-      '<div class="view view--for"><p class="view__tag">' + esc(v.left_label || 'Viewpoint A') + '</p><p>' + esc(v.left_text || '') + '</p></div>' +
-      '<div class="view view--against"><p class="view__tag">' + esc(v.right_label || 'Viewpoint B') + '</p><p>' + esc(v.right_text || '') + '</p></div></div>' +
-      '<div class="topic-poll g-mt-lg" data-topic-poll><p class="g-eyebrow">' + esc(v.poll_question || 'Where do you land?') + '</p><div class="topic-poll__options"></div><p class="g-hint" data-poll-note></p></div>';
+    var intro = data.viewpoints_intro
+      ? '<p class="g-muted topic-section-intro" style="font-size:var(--g-fs-small);margin-bottom:var(--g-space-md)">' + esc(data.viewpoints_intro) + '</p>'
+      : '';
+    var html = intro + '<div class="views">' +
+      '<div class="view view--for"><p class="view__tag">' + esc(v.left_label || 'Viewpoint A') + '</p><p>' + esc(v.left_text || '') + '</p>' +
+        (v.left_cite ? '<cite>' + esc(v.left_cite) + '</cite>' : '') + '</div>' +
+      '<div class="view view--against"><p class="view__tag">' + esc(v.right_label || 'Viewpoint B') + '</p><p>' + esc(v.right_text || '') + '</p>' +
+        (v.right_cite ? '<cite>' + esc(v.right_cite) + '</cite>' : '') + '</div></div>' +
+      '<div class="topic-poll g-mt-lg" data-topic-poll><p class="g-eyebrow">' + esc(v.poll_question || 'Where do you land?') + '</p><div class="topic-poll__options"></div>' +
+      (v.poll_note ? '<p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">' + esc(v.poll_note) + '</p>' : '') +
+      '<p class="g-hint" data-poll-note></p></div>';
     return section('06', 'views', 'Viewpoints', html);
   }
 
@@ -220,7 +345,7 @@
       '<section class="page-head"><div class="g-container">' +
       '<p class="crumb"><a href="index.html">Home</a> / <a href="topics.html">Topics</a>' +
       (data.number ? ' / ' + esc(data.number) : '') + '</p>' +
-      '<h1>' + esc(item.title) + '</h1><p class="g-lead">' + esc(item.summary || '') + '</p>' +
+      '<h1>' + esc(item.title) + '</h1><p class="g-lead">' + esc(data.hero_lead || item.summary || '') + '</p>' +
       (tags.length ? '<div class="pill-row g-mt-md">' + tags.map(function (tag) { return '<span class="g-tag">' + esc(tag) + '</span>'; }).join('') + '</div>' : '') +
       '</div></section>' +
       '<div class="topic-nav"><div class="g-container"><nav class="topic-nav__row" aria-label="In this topic">' +
@@ -243,6 +368,7 @@
       if (frame) frame.srcdoc = host.getAttribute('data-simulation-src') || '';
       host.removeAttribute('data-simulation-src');
     });
+    initLorenzSimulation();
   }
 
   function paintPoll(slug, poll) {

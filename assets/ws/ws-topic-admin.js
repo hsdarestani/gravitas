@@ -167,10 +167,11 @@ export async function renderAdminContentEditor(host,id,{go}){
   const slug=input(current?.slug||'','','topic-slug');
   const status=select([['draft','Draft'],['published','Published']],current?.status||'draft');
   const number=input(data.number||'','','e.g. 04');
-  const summary=textarea(current?.summary||'',4,'Short public summary');
+  const summary=textarea(current?.summary||'',4,'Short summary used on cards and the main landing page');
+  const heroLead=textarea(data.hero_lead||current?.summary||'',3,'Lead paragraph on the Topic page');
   const tags=input(Array.isArray(data.tags)?data.tags.join(', '):'','','Comma-separated tags');
   const grid=el('div','topic-admin__grid');grid.append(field('Title',title),field('Slug',slug),field('Status',status),field('Topic number',number));
-  basics.body.append(grid,field('Summary',summary),field('Tags',tags,'Comma-separated'));
+  basics.body.append(grid,field('Summary',summary),field('Topic page lead',heroLead),field('Tags',tags,'Comma-separated'));
   let touched=!!current;slug.addEventListener('input',()=>{touched=true;});title.addEventListener('input',()=>{if(!touched)slug.value=slugify(title.value);});
   form.append(basics.section);
 
@@ -182,7 +183,15 @@ export async function renderAdminContentEditor(host,id,{go}){
   const duration=input(videoData.duration||'','','e.g. 28 minutes');
   const description=textarea(videoData.description||'',4,'Video description');
   const info=input(videoData.info||'','','Additional information');
-  const vg=el('div','topic-admin__grid');vg.append(field('Source type',videoType),field('YouTube URL',youtube),field('Runtime',duration),field('Info',info));
+  const companionLabel=input(videoData.companion_label||'','','Companion label');
+  const companionUrl=input(videoData.companion_url||'','url','Companion URL');
+  const transcriptLabel=input(videoData.transcript_label||'','','Transcript label');
+  const transcriptUrl=input(videoData.transcript_url||'','url','Transcript URL');
+  const vg=el('div','topic-admin__grid');vg.append(
+    field('Source type',videoType),field('YouTube URL',youtube),field('Runtime',duration),field('Info',info),
+    field('Companion label',companionLabel),field('Companion URL',companionUrl),
+    field('Transcript label',transcriptLabel),field('Transcript URL',transcriptUrl)
+  );
   video.body.append(vg,self.holder,field('Description',description));form.append(video.section);
 
   const essayData=data.essay||{};
@@ -191,9 +200,13 @@ export async function renderAdminContentEditor(host,id,{go}){
   const indepth=richEditor('In depth',essayData.indepth_html||'');
   const essayImage=mediaField('Essay image',essayData.image_url||'','image/*');
   const essayAlt=input(essayData.image_alt||'','','Image alt text');
-  essay.body.append(overview.outer,indepth.outer,essayImage.holder,field('Image alt text',essayAlt));form.append(essay.section);
+  const essayAsideTitle=input(essayData.aside_title||'Try It Yourself','','Aside title');
+  const essayAsideText=textarea(essayData.aside_text||'',3,'Aside text');
+  essay.body.append(overview.outer,indepth.outer,essayImage.holder,field('Image alt text',essayAlt),field('Aside title',essayAsideTitle),field('Aside text',essayAsideText));form.append(essay.section);
 
   const sources=makePanel('Sources','Each link belongs to one of the three reading levels.');
+  const sourcesIntro=textarea(data.sources_intro||'',3,'Intro text above the three source levels');
+  sources.body.append(field('Intro',sourcesIntro));
   const sourceList=el('div','topic-admin__list');sources.body.append(sourceList);
   (Array.isArray(data.sources)?data.sources:[]).forEach(v=>sourceList.append(sourceRow(v).row));
   const addSource=button('Add source');addSource.addEventListener('click',()=>sourceList.append(sourceRow().row));sources.body.append(addSource);form.append(sources.section);
@@ -216,13 +229,20 @@ export async function renderAdminContentEditor(host,id,{go}){
 
   const vpData=data.viewpoints||{};
   const viewpoints=makePanel('Viewpoints & Poll','Two opposing text boxes plus a configurable poll. Results below are live database totals.');
+  const viewpointsIntro=textarea(data.viewpoints_intro||'',3,'Intro above viewpoints');
   const leftLabel=input(vpData.left_label||'Viewpoint A'),rightLabel=input(vpData.right_label||'Viewpoint B');
   const leftText=textarea(vpData.left_text||'',6),rightText=textarea(vpData.right_text||'',6);
-  const vgrid=el('div','topic-admin__grid');vgrid.append(field('Left label',leftLabel),field('Right label',rightLabel),field('Left text',leftText),field('Right text',rightText));
+  const leftCite=input(vpData.left_cite||'','','Left citation / note'),rightCite=input(vpData.right_cite||'','','Right citation / note');
+  const vgrid=el('div','topic-admin__grid');vgrid.append(
+    field('Left label',leftLabel),field('Right label',rightLabel),
+    field('Left text',leftText),field('Right text',rightText),
+    field('Left citation',leftCite),field('Right citation',rightCite)
+  );
   const pollQuestion=input(vpData.poll_question||'Where do you land?');
+  const pollNote=input(vpData.poll_note||'','','Text below poll');
   const optionList=el('div','topic-admin__list');(Array.isArray(vpData.poll_options)?vpData.poll_options:[]).forEach(v=>optionList.append(optionRow(v).row));
   const addOption=button('Add poll option');addOption.addEventListener('click',()=>optionList.append(optionRow().row));
-  viewpoints.body.append(vgrid,field('Poll question',pollQuestion),optionList,addOption);
+  viewpoints.body.append(field('Intro',viewpointsIntro),vgrid,field('Poll question',pollQuestion),field('Poll note',pollNote),optionList,addOption);
   if(current?.poll_results){
     const results=el('div');results.append(el('h3',null,'Live results'));
     (current.poll_results.options||[]).forEach(r=>{const x=el('div','topic-admin__result');x.append(el('span',null,r.label),el('strong',null,String(r.votes)+' votes'));results.append(x);});
@@ -265,13 +285,29 @@ export async function renderAdminContentEditor(host,id,{go}){
     }).filter(x=>x.label&&x.id);
     const topicData={
       number:number.value.trim(),
+      hero_lead:heroLead.value,
       tags:tags.value.split(',').map(v=>v.trim()).filter(Boolean),
-      video:{source_type:videoType.value,youtube_url:youtube.value.trim(),self_hosted_url:self.url.value.trim(),description:description.value,duration:duration.value.trim(),info:info.value.trim()},
-      essay:{overview_html:overview.value(),indepth_html:indepth.value(),image_url:essayImage.url.value.trim(),image_alt:essayAlt.value.trim()},
+      video:{
+        source_type:videoType.value,youtube_url:youtube.value.trim(),self_hosted_url:self.url.value.trim(),
+        description:description.value,duration:duration.value.trim(),info:info.value.trim(),
+        companion_label:companionLabel.value.trim(),companion_url:companionUrl.value.trim(),
+        transcript_label:transcriptLabel.value.trim(),transcript_url:transcriptUrl.value.trim()
+      },
+      essay:{
+        overview_html:overview.value(),indepth_html:indepth.value(),image_url:essayImage.url.value.trim(),image_alt:essayAlt.value.trim(),
+        aside_title:essayAsideTitle.value.trim(),aside_text:essayAsideText.value
+      },
+      sources_intro:sourcesIntro.value,
       sources:sourceRows,
       timeline:timelineRows,
-      simulation:{title:simTitle.value.trim()||'The Simulation',description:simDescription.value,code:simCode.value},
-      viewpoints:{left_label:leftLabel.value.trim(),left_text:leftText.value,right_label:rightLabel.value.trim(),right_text:rightText.value,poll_question:pollQuestion.value.trim(),poll_options:pollOptions}
+      simulation:{title:simTitle.value.trim()||'The Simulation',description:simDescription.value,builtin:simData.builtin||'',code:simCode.value},
+      viewpoints_intro:viewpointsIntro.value,
+      viewpoints:{
+        left_label:leftLabel.value.trim(),left_text:leftText.value,left_cite:leftCite.value.trim(),
+        right_label:rightLabel.value.trim(),right_text:rightText.value,right_cite:rightCite.value.trim(),
+        poll_question:pollQuestion.value.trim(),poll_options:pollOptions,poll_note:pollNote.value.trim()
+      },
+      landing:data.landing||{}
     };
     const payload={title:title.value.trim(),slug:slug.value.trim(),kind:'topic',status:status.value,summary:summary.value,body:'',topic_data:topicData,translations:[]};
     try{
