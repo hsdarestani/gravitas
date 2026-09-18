@@ -1,5 +1,7 @@
 name: Install Gravitas Open edX
 
+# Tutor v22 / Open edX Verawood production installer. Kept idempotent so a
+# validated Gravitas deploy can safely resume a previously interrupted setup.
 on:
   push:
     paths:
