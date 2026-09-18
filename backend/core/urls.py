@@ -334,7 +334,7 @@ urlpatterns = [
     path('operating/risks/', require_core(risks)),
     path('operating/risks/<int:risk_id>/', require_core(risk_detail)),
     path('operating/meetings/', require_core(meetings)),
-    path('operating/meetings/<int:meeting_id>/', require_core(meeting_detail),
+    path('operating/meetings/<int:meeting_id>/', require_core(meeting_detail)),
 
     # Legacy private KMS storage remains for note/learning internals and URL
     # compatibility. It is no longer presented as a sixth product surface.
