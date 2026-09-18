@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20260914-5';
+import * as P from './ws-platform.js?v=20260919-lms1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -437,26 +437,100 @@ function lessonCard(lesson, course, host, go) {
   const summary = el('summary', 'fl-lesson__summary');
   const main = el('span');
   main.append(el('strong', null, lesson.title));
-  main.append(el('small', 'fl-muted', P.meta([label(lesson.kind), lesson.duration_seconds ? `${Math.ceil(lesson.duration_seconds / 60)} min` : '', lesson.is_preview ? 'Preview' : ''])));
+  main.append(el('small', 'fl-muted', P.meta([
+    label(lesson.kind),
+    lesson.duration_seconds ? `${Math.ceil(lesson.duration_seconds / 60)} min` : '',
+    lesson.is_preview ? 'Preview' : '',
+  ])));
   summary.append(main, badge(lesson.locked ? 'Locked' : 'Available'));
   details.append(summary);
   const body = el('div', 'fl-lesson__body');
+  let openedAt = 0;
+  let viewSent = false;
+
+  const sendDwell = () => {
+    if (!openedAt || !course.enrolled) return;
+    const seconds = Math.max(1, Math.round((Date.now() - openedAt) / 1000));
+    openedAt = 0;
+    P.lmsCourseEvent(course.id, {
+      kind: 'lesson.dwell',
+      lesson_id: lesson.id,
+      duration_seconds: seconds,
+    }).catch(() => {});
+  };
+
+  details.addEventListener('toggle', () => {
+    if (details.open) {
+      openedAt = Date.now();
+      if (!viewSent && course.enrolled && !lesson.locked) {
+        viewSent = true;
+        P.lmsCourseEvent(course.id, { kind: 'lesson.view', lesson_id: lesson.id }).catch(() => {});
+      }
+    } else {
+      sendDwell();
+    }
+  });
+
   if (lesson.locked) {
-    body.append(empty('Lesson locked', 'Enroll in the course or ask an administrator for access.'));
+    const lockCopy = {
+      prerequisite_lessons: 'Complete the prerequisite lessons first.',
+      minimum_progress: 'Reach the required course progress before opening this lesson.',
+      scheduled_release: 'This lesson is scheduled for a later release.',
+      course_profile_required: 'Complete the required course profile first.',
+      course_enrollment_required: 'Enroll in the course or ask an administrator for access.',
+      invalid_access_rule: 'This lesson has an invalid access rule. Ask the course team to review it.',
+    };
+    body.append(empty('Lesson locked', lockCopy[lesson.lock_reason] || 'Complete the required access steps or ask the course team for access.'));
   } else {
     if (lesson.summary) body.append(el('p', 'fl-muted', lesson.summary));
     if (lesson.body) body.append(el('div', 'fl-prose', lesson.body));
-    if (lesson.content_url) {
-      const media = el('a', 'ws-btn', 'Open lesson resource');
+
+    if (lesson.kind === 'lab' && lesson.lab_slug && course.learning_config?.lab_enabled !== false) {
+      const frame = el('iframe', 'fl-course-embed');
+      frame.src = `/lab-run/${encodeURIComponent(lesson.lab_slug)}/`;
+      frame.title = lesson.title;
+      frame.loading = 'lazy';
+      frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups');
+      body.append(frame);
+      const labOpen = action('Start Lab activity', () => {
+        if (course.enrolled) P.lmsCourseEvent(course.id, { kind: 'lab.use', lesson_id: lesson.id }).catch(() => {});
+        frame.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, true);
+      body.prepend(labOpen);
+    } else if (lesson.kind === 'embed' && lesson.content_url) {
+      const frame = el('iframe', 'fl-course-embed');
+      frame.src = lesson.content_url;
+      frame.title = lesson.title;
+      frame.loading = 'lazy';
+      frame.referrerPolicy = 'no-referrer';
+      frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+      body.append(frame);
+    } else if (lesson.kind === 'video' && lesson.content_url) {
+      const media = el('video', 'fl-course-media');
+      media.controls = true;
+      media.preload = 'metadata';
+      media.src = lesson.content_url;
+      body.append(media);
+    } else if (lesson.kind === 'audio' && lesson.content_url) {
+      const media = el('audio', 'fl-course-media');
+      media.controls = true;
+      media.preload = 'metadata';
+      media.src = lesson.content_url;
+      body.append(media);
+    } else if (lesson.content_url) {
+      const media = el('a', 'ws-btn', ['file', 'pdf', 'document', 'dataset'].includes(lesson.kind) ? 'Open / download resource' : 'Open lesson resource');
       media.href = lesson.content_url;
       media.target = '_blank';
       media.rel = 'noopener';
       body.append(media);
     }
+
     if (course.enrolled) {
+      const actions = el('div', 'fl-form-actions');
       const done = action('Mark complete', async () => {
         done.disabled = true;
         done.textContent = 'Saving…';
+        sendDwell();
         try {
           await P.lmsLessonProgress(lesson.id, { completed: true, progress_seconds: lesson.duration_seconds || 0 });
           await renderCourse(host, course.id, { go });
@@ -465,7 +539,18 @@ function lessonCard(lesson, course, host, go) {
           done.textContent = error?.message || 'Try again';
         }
       }, true);
-      body.append(done);
+      const skip = action('Skip for now', async () => {
+        skip.disabled = true;
+        sendDwell();
+        try {
+          await P.lmsCourseEvent(course.id, { kind: 'lesson.skip', lesson_id: lesson.id });
+          skip.textContent = 'Skipped';
+        } catch {
+          skip.disabled = false;
+        }
+      });
+      actions.append(done, skip);
+      body.append(actions);
     }
   }
   details.append(body);
@@ -527,18 +612,275 @@ function assessmentCard(assessment, course, host, go) {
   return box.box;
 }
 
+function courseRegistrationPanel(course, profile, host, go) {
+  if (!course.enrolled || !course.registration_schema?.length || profile?.completed) return null;
+  const box = section('Complete your course profile', 'The course team requires these fields before protected lessons unlock.');
+  const form = el('form', 'fl-form');
+  const controls = new Map();
+  for (const spec of course.registration_schema) {
+    if (!spec || !spec.key || !spec.label) continue;
+    let control;
+    if (spec.type === 'select') {
+      control = el('select', 'v-input fl-input');
+      control.append(el('option', null, 'Choose…'));
+      control.firstElementChild.value = '';
+      for (const value of spec.options || []) {
+        const option = el('option', null, String(value));
+        option.value = String(value);
+        control.append(option);
+      }
+    } else if (spec.type === 'textarea') {
+      control = el('textarea', 'v-input fl-input fl-textarea');
+      control.rows = 4;
+    } else if (spec.type === 'checkbox') {
+      control = el('input');
+      control.type = 'checkbox';
+    } else {
+      control = el('input', 'v-input fl-input');
+      control.type = spec.type === 'number' ? 'number' : 'text';
+    }
+    if (spec.required) control.required = true;
+    controls.set(spec.key, { control, spec });
+    const labelWrap = el('label', 'task-board__field');
+    labelWrap.append(el('span', 'task-board__label', spec.label + (spec.required ? ' *' : '')), control);
+    if (spec.help) labelWrap.append(el('small', 'fl-muted', spec.help));
+    form.append(labelWrap);
+  }
+  const status = el('p', 'v-note');
+  const save = action('Save and continue', () => {}, true);
+  save.type = 'submit';
+  form.append(save, status);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const answers = {};
+    for (const [key, item] of controls) answers[key] = item.spec.type === 'checkbox' ? item.control.checked : item.control.value;
+    save.disabled = true;
+    status.textContent = 'Saving…';
+    try {
+      await P.lmsSaveRegistrationProfile(course.id, answers);
+      await renderCourse(host, course.id, { go });
+    } catch (error) {
+      status.textContent = error?.data?.fields?.length
+        ? `Required: ${error.data.fields.join(', ')}`
+        : (error?.message || 'Profile could not be saved.');
+      save.disabled = false;
+    }
+  });
+  box.body.append(form);
+  return box.box;
+}
+
+function courseAssetsPanel(course) {
+  if (!course.enrolled || !(course.assets || []).length) return null;
+  const box = section('Course files & embeds', 'Course media is managed like a shared learning asset library.');
+  for (const item of course.assets) {
+    const tools = [];
+    const href = item.kind === 'file' ? item.download_url : item.source_url;
+    if (href) {
+      const open = el('a', 'ws-btn ws-btn--tiny', item.kind === 'file' ? 'Download' : 'Open');
+      open.href = href;
+      open.target = item.kind === 'file' ? '_self' : '_blank';
+      if (item.kind !== 'file') open.rel = 'noopener';
+      tools.push(open);
+    }
+    box.body.append(row({
+      title: item.title,
+      meta: P.meta([label(item.kind), item.size ? P.formatBytes(item.size) : '', item.mime_type || '']),
+      actions: tools,
+    }));
+  }
+  return box.box;
+}
+
+async function courseTutorPanel(course) {
+  if (!course.enrolled) return null;
+  const box = section('AI Tutor', 'Ask Plusar in the context of this course, a lesson and optionally selected Zotero sources.');
+  const controls = el('div', 'fl-form-grid');
+  const lessonSelect = el('select', 'v-input fl-input');
+  const rootOption = el('option', null, 'Whole course');
+  rootOption.value = '';
+  lessonSelect.append(rootOption);
+  for (const module of course.modules || []) {
+    for (const lesson of module.lessons || []) {
+      const option = el('option', null, `${module.title} · ${lesson.title}`);
+      option.value = lesson.id;
+      lessonSelect.append(option);
+    }
+  }
+  const sourceSelect = el('select', 'v-input fl-input');
+  const noSource = el('option', null, 'No Zotero library');
+  noSource.value = '';
+  sourceSelect.append(noSource);
+  let connections = [];
+  try {
+    connections = (await P.lmsZotero()).connections || [];
+    for (const connection of connections) {
+      const option = el('option', null, connection.label || `Zotero ${connection.library_id}`);
+      option.value = connection.id;
+      sourceSelect.append(option);
+    }
+  } catch {}
+  controls.append(lessonSelect, sourceSelect);
+  box.body.append(controls);
+
+  const sourceSearch = el('div', 'fl-form');
+  sourceSearch.hidden = true;
+  const query = el('input', 'v-input fl-input');
+  query.type = 'search';
+  query.placeholder = 'Search Zotero sources';
+  const sourceResults = el('div', 'fl-stack');
+  const selected = new Set();
+  sourceSearch.append(query, sourceResults);
+  box.body.append(sourceSearch);
+
+  let searchTimer = null;
+  const searchSources = () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+      sourceResults.innerHTML = '';
+      if (!sourceSelect.value) return;
+      try {
+        const data = await P.lmsZoteroItems({ connectionId: sourceSelect.value, q: query.value.trim(), limit: 12 });
+        for (const item of data.items || []) {
+          const line = el('label', 'v-check-row');
+          const check = el('input');
+          check.type = 'checkbox';
+          check.checked = selected.has(item.key);
+          check.addEventListener('change', () => check.checked ? selected.add(item.key) : selected.delete(item.key));
+          line.append(check, el('span', null, `${item.title}${item.date ? ' · ' + item.date : ''}`));
+          sourceResults.append(line);
+        }
+      } catch (error) {
+        sourceResults.append(el('p', 'fl-muted', error?.message || 'Zotero search failed.'));
+      }
+    }, 200);
+  };
+  sourceSelect.addEventListener('change', () => {
+    selected.clear();
+    sourceSearch.hidden = !sourceSelect.value;
+    if (sourceSelect.value) searchSources();
+  });
+  query.addEventListener('input', searchSources);
+
+  const chat = el('div', 'fl-ai-tutor');
+  const log = el('div', 'fl-ai-tutor__log');
+  const form = el('form', 'fl-form');
+  const question = el('textarea', 'v-input fl-input fl-textarea');
+  question.rows = 3;
+  question.placeholder = 'Ask a question, request a hint, or test your understanding…';
+  const send = action('Ask Plusar', () => {}, true);
+  send.type = 'submit';
+  const note = el('p', 'v-note');
+  const history = [];
+  form.append(question, send, note);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const value = question.value.trim();
+    if (!value) return;
+    const yours = el('article', 'fl-ai-tutor__turn');
+    yours.dataset.who = 'you';
+    yours.append(el('strong', null, 'You'), el('p', null, value));
+    log.append(yours);
+    question.value = '';
+    send.disabled = true;
+    note.textContent = 'Plusar is thinking…';
+    try {
+      const data = await P.lmsAiTutor(course.id, {
+        question: value,
+        lesson_id: lessonSelect.value ? Number(lessonSelect.value) : null,
+        source_connection_id: sourceSelect.value ? Number(sourceSelect.value) : null,
+        source_keys: [...selected],
+        history,
+      });
+      history.push({ role: 'user', content: value }, { role: 'assistant', content: data.answer });
+      const reply = el('article', 'fl-ai-tutor__turn');
+      reply.dataset.who = 'assistant';
+      reply.append(el('strong', null, 'Plusar'), el('p', null, data.answer));
+      if (data.sources?.length) {
+        const sources = el('div', 'fl-badges');
+        data.sources.forEach((item) => sources.append(badge(item.title)));
+        reply.append(sources);
+      }
+      log.append(reply);
+      note.textContent = '';
+    } catch (error) {
+      note.textContent = error?.message || 'AI Tutor is temporarily unavailable.';
+    } finally {
+      send.disabled = false;
+      log.scrollTop = log.scrollHeight;
+    }
+  });
+  chat.append(log, form);
+  box.body.append(chat);
+  return box.box;
+}
+
+function zoteroConnectionPanel() {
+  const box = section('Source management · Zotero', 'Connect a personal Zotero user or group library. The API key is encrypted and never shown again.');
+  const form = el('form', 'fl-form');
+  const labelInput = el('input', 'v-input fl-input');
+  labelInput.placeholder = 'Library label';
+  const type = el('select', 'v-input fl-input');
+  [['user','User library'],['group','Group library']].forEach(([value,text]) => {
+    const option = el('option', null, text); option.value = value; type.append(option);
+  });
+  const id = el('input', 'v-input fl-input'); id.placeholder = 'Zotero library ID';
+  const key = el('input', 'v-input fl-input'); key.type = 'password'; key.placeholder = 'Zotero API key';
+  const save = action('Connect Zotero', () => {}, true); save.type = 'submit';
+  const note = el('p', 'v-note');
+  const list = el('div', 'fl-stack');
+  const reload = async () => {
+    list.innerHTML = '';
+    try {
+      const data = await P.lmsZotero();
+      for (const item of data.connections || []) {
+        const remove = action('Disconnect', async () => {
+          remove.disabled = true;
+          try { await P.lmsDeleteZotero(item.id); await reload(); } catch { remove.disabled = false; }
+        });
+        remove.classList.add('ws-btn--tiny');
+        list.append(row({ title: item.label, meta: P.meta([label(item.library_type), item.library_id]), badges: ['Connected'], actions: [remove] }));
+      }
+      if (!(data.connections || []).length) list.append(empty('No source manager connected', 'Connect Zotero to work with your own research library inside AI exercises.'));
+    } catch (error) {
+      list.append(el('p', 'fl-muted', error?.message || 'Source connections unavailable.'));
+    }
+  };
+  form.append(labelInput, type, id, key, save, note);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    save.disabled = true; note.textContent = 'Checking Zotero…';
+    try {
+      await P.lmsConnectZotero({ label: labelInput.value.trim() || 'Zotero', library_type: type.value, library_id: id.value.trim(), api_key: key.value });
+      key.value = ''; note.textContent = 'Connected.'; await reload();
+    } catch (error) {
+      note.textContent = error?.message || 'Connection failed.'; save.disabled = false;
+    } finally {
+      save.disabled = false;
+    }
+  });
+  box.body.append(form, list);
+  reload();
+  return box.box;
+}
+
 export async function renderCourse(host, id, { go }) {
   loading(host, 'Course');
   try {
     const data = await P.lmsCourse(id);
     const course = data.course;
+    if (course.enrolled) P.lmsCourseEvent(course.id, { kind: 'course.open' }).catch(() => {});
     const wrap = doc(host, course.title, course.summary || 'Gravitas+ course');
     const hero = el('div', 'fl-course-hero');
     const info = el('div');
     const tags = el('div', 'fl-badges');
     tags.append(badge(label(course.access_type)), badge(label(course.status)));
-    if (course.certificate_enabled) tags.append(badge('Certificate'));
+    if (course.provider === 'openedx') tags.append(badge('Open edX'));
+    if (course.category?.name) tags.append(badge(course.category.name));
+    (course.tags || []).forEach((item) => tags.append(badge(item.name)));
+    if (course.certificate_enabled) tags.append(badge('Gravitas+ Certificate'));
     info.append(tags);
+    if (course.instructors?.length) info.append(el('p', 'fl-muted', `Instructors · ${course.instructors.map((item) => item.name).join(', ')}`));
     if (course.description) info.append(el('p', 'fl-prose', course.description));
     if (course.enrolled) info.append(percent(course.progress_percent));
     hero.append(info);
@@ -561,20 +903,42 @@ export async function renderCourse(host, id, { go }) {
         actions.append(enroll);
       } else if (course.access_type === 'paid') {
         actions.append(badge(`${course.price || '—'} ${course.currency || 'EUR'}`));
-        actions.append(el('p', 'fl-muted', 'Paid enrollment is not activated until a verified payment provider is connected. No payment is fabricated.'));
+        actions.append(el('p', 'fl-muted', course.payment?.enabled
+          ? 'Payment is configured for this course.'
+          : 'Payment-ready course. Checkout stays disabled until the payment provider is activated.'));
       } else {
         actions.append(el('p', 'fl-muted', 'This course is invite-only. A Core administrator can grant enrollment.'));
       }
     } else {
       actions.append(badge(label(course.enrollment_status), 'ok'));
+      if (course.provider === 'openedx' && course.openedx_launch_url) {
+        const openedx = el('a', 'ws-btn', 'Open learning engine');
+        openedx.href = course.openedx_launch_url;
+        openedx.target = '_blank';
+        openedx.rel = 'noopener';
+        actions.append(openedx);
+      }
       if (course.certificate?.valid) actions.append(link(go, 'View certificate', '/workspace/learning/certificates'));
+      for (const [fmt, title] of [['md','Markdown'],['tex','LaTeX'],['docx','DOCX']]) {
+        const download = el('a', 'ws-btn ws-btn--tiny', title);
+        download.href = `/api/lms/courses/${course.id}/export/${fmt}/`;
+        download.download = '';
+        actions.append(download);
+      }
     }
     hero.append(actions);
     wrap.append(hero);
 
+    let profile = null;
+    if (course.enrolled && course.registration_schema?.length) {
+      try { profile = await P.lmsRegistrationProfile(course.id); } catch {}
+      const registration = courseRegistrationPanel(course, profile, host, go);
+      if (registration) wrap.append(registration);
+    }
+
     const curriculum = section('Curriculum');
     const modules = course.modules || [];
-    if (!modules.length) curriculum.body.append(empty('No lessons published yet', 'The course structure has not been published.'));
+    if (!modules.length) curriculum.body.append(empty('No lessons published yet', course.provider === 'openedx' ? 'This course is delivered by Open edX. Use Open learning engine when it becomes available.' : 'The course structure has not been published.'));
     for (const module of modules) {
       const moduleBox = el('section', 'fl-module');
       moduleBox.append(el('h3', null, module.title));
@@ -592,8 +956,21 @@ export async function renderCourse(host, id, { go }) {
       wrap.append(assessments);
     }
 
+    const assets = courseAssetsPanel(course);
+    if (assets) wrap.append(assets);
+
+    if (course.enrolled) {
+      if (course.learning_config?.ai_enabled !== false) {
+        const tutor = await courseTutorPanel(course);
+        if (tutor) wrap.append(tutor);
+      }
+      if (course.learning_config?.zotero_enabled !== false) {
+        wrap.append(zoteroConnectionPanel());
+      }
+    }
+
     if (course.certificate) {
-      const cert = section('Certificate');
+      const cert = section('Gravitas+ Certificate');
       cert.body.append(row({
         title: course.certificate.valid ? 'Certificate issued' : 'Certificate revoked',
         meta: P.meta([course.certificate.code, date(course.certificate.issued_at)]),

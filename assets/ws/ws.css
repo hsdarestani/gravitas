@@ -2575,3 +2575,114 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* ---- Open edX / Gravitas+ learning experience -------------------------- */
+.fl-course-embed {
+  display: block;
+  width: 100%;
+  min-height: 440px;
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-r-panel);
+  background: var(--g-surface-sunken);
+}
+.fl-course-media {
+  display: block;
+  width: 100%;
+  max-height: 62vh;
+  border-radius: var(--ws-r-panel);
+  background: var(--g-surface-sunken);
+}
+.fl-ai-tutor {
+  display: grid;
+  gap: 12px;
+}
+.fl-ai-tutor__log {
+  display: grid;
+  gap: 10px;
+  min-height: 120px;
+  max-height: 460px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-r-panel);
+  background: var(--g-surface-sunken);
+}
+.fl-ai-tutor__turn {
+  display: grid;
+  gap: 5px;
+  max-width: 88%;
+  padding: 10px 12px;
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-r-panel);
+  background: var(--g-surface);
+}
+.fl-ai-tutor__turn[data-who="you"] {
+  justify-self: end;
+  background: var(--g-surface-raised);
+}
+.fl-ai-tutor__turn[data-who="assistant"] {
+  justify-self: start;
+}
+.fl-ai-tutor__turn p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: var(--g-lh-body);
+}
+.fl-course-hero__actions {
+  flex-wrap: wrap;
+}
+.fl-form select[multiple] {
+  min-height: 7.5rem;
+}
+.fl-lesson iframe {
+  margin-top: 10px;
+}
+@media (max-width: 760px) {
+  .fl-course-embed { min-height: 340px; }
+  .fl-ai-tutor__turn { max-width: 96%; }
+}
+
+
+.fl-analytics-bars {
+  display: grid;
+  gap: 12px;
+}
+.fl-analytics-bar {
+  display: grid;
+  gap: 7px;
+}
+.fl-analytics-bar__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+.fl-analytics-bar__head strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.fl-analytics-bar__track {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--g-hairline);
+  border-radius: 999px;
+  background: var(--g-surface-sunken);
+}
+.fl-analytics-bar__fill {
+  display: block;
+  width: var(--analytics-value, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--g-text-muted);
+  transition: width .2s ease;
+}
+@media (max-width: 760px) {
+  .fl-analytics-bar__head {
+    display: grid;
+    gap: 2px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fl-analytics-bar__fill { transition: none; }
+}

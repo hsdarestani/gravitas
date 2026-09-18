@@ -4,6 +4,31 @@ from django.conf import settings
 from django.db import models
 
 
+class CourseCategory(models.Model):
+    slug = models.SlugField(max_length=160, unique=True)
+    name = models.CharField(max_length=180, unique=True)
+    description = models.TextField(blank=True)
+    position = models.PositiveIntegerField(default=0)
+    active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        ordering = ['position', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+class CourseTag(models.Model):
+    slug = models.SlugField(max_length=160, unique=True)
+    name = models.CharField(max_length=180, unique=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Course(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
@@ -15,6 +40,10 @@ class Course(models.Model):
         LOCKED = 'locked', 'Locked / invite only'
         PAID = 'paid', 'Paid'
 
+    class Provider(models.TextChoices):
+        NATIVE = 'native', 'Gravitas native'
+        OPENEDX = 'openedx', 'Open edX'
+
     slug = models.SlugField(max_length=190, unique=True)
     title = models.CharField(max_length=240)
     summary = models.TextField(blank=True)
@@ -24,10 +53,31 @@ class Course(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     currency = models.CharField(max_length=8, default='EUR')
     certificate_enabled = models.BooleanField(default=True)
+    provider = models.CharField(max_length=20, choices=Provider.choices, default=Provider.NATIVE, db_index=True)
+    openedx_course_key = models.CharField(max_length=255, blank=True, db_index=True)
+    openedx_course_url = models.URLField(max_length=1200, blank=True)
+    openedx_studio_url = models.URLField(max_length=1200, blank=True)
+    category = models.ForeignKey(
+        CourseCategory,
+        on_delete=models.SET_NULL,
+        related_name='courses',
+        blank=True,
+        null=True,
+    )
+    tags = models.ManyToManyField(CourseTag, related_name='courses', blank=True)
+    registration_schema = models.JSONField(default=list, blank=True)
+    payment_config = models.JSONField(default=dict, blank=True)
+    learning_config = models.JSONField(default=dict, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name='gravitas_courses_created',
+    )
+    instructors = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through='CourseInstructor',
+        related_name='gravitas_courses_taught',
+        blank=True,
     )
     published_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -39,6 +89,28 @@ class Course(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class CourseInstructor(models.Model):
+    class Role(models.TextChoices):
+        LEAD = 'lead', 'Lead instructor'
+        INSTRUCTOR = 'instructor', 'Instructor'
+        ASSISTANT = 'assistant', 'Teaching assistant'
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='instructor_links')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_course_instructor_links',
+    )
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.INSTRUCTOR)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['position', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['course', 'user'], name='unique_gravitas_course_instructor'),
+        ]
 
 
 class CourseModule(models.Model):
@@ -64,6 +136,12 @@ class Lesson(models.Model):
         VIDEO = 'video', 'Video'
         ARTICLE = 'article', 'Article'
         FILE = 'file', 'File / download'
+        PDF = 'pdf', 'PDF'
+        AUDIO = 'audio', 'Audio'
+        DOCUMENT = 'document', 'Document'
+        DATASET = 'dataset', 'Dataset'
+        EMBED = 'embed', 'Embedded content'
+        LAB = 'lab', 'Interactive Lab'
         INTERACTIVE = 'interactive', 'Interactive'
         LIVE = 'live', 'Live session'
 
@@ -79,6 +157,9 @@ class Lesson(models.Model):
     is_required = models.BooleanField(default=True)
     published = models.BooleanField(default=True, db_index=True)
     metadata = models.JSONField(default=dict, blank=True)
+    access_rule = models.JSONField(default=dict, blank=True)
+    provider_key = models.CharField(max_length=255, blank=True)
+    lab_slug = models.CharField(max_length=190, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -114,6 +195,7 @@ class CourseEnrollment(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, db_index=True)
     access_source = models.CharField(max_length=20, choices=AccessSource.choices, default=AccessSource.OPEN)
     progress_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    provider_state = models.JSONField(default=dict, blank=True)
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -224,3 +306,142 @@ class Certificate(models.Model):
 
     def __str__(self):
         return f'{self.enrollment.course} · {self.enrollment.user} · {self.code}'
+
+
+
+class CourseRegistrationProfile(models.Model):
+    enrollment = models.OneToOneField(
+        CourseEnrollment,
+        on_delete=models.CASCADE,
+        related_name='registration_profile',
+    )
+    answers = models.JSONField(default=dict, blank=True)
+    completed = models.BooleanField(default=False, db_index=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class LearningAsset(models.Model):
+    class Kind(models.TextChoices):
+        FILE = 'file', 'File'
+        URL = 'url', 'URL'
+        EMBED = 'embed', 'Embed'
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='assets')
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.SET_NULL,
+        related_name='assets',
+        blank=True,
+        null=True,
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.FILE, db_index=True)
+    title = models.CharField(max_length=240)
+    original_name = models.CharField(max_length=255, blank=True)
+    storage_path = models.CharField(max_length=1000, blank=True)
+    source_url = models.URLField(max_length=1800, blank=True)
+    mime_type = models.CharField(max_length=180, blank=True)
+    size = models.PositiveBigIntegerField(default=0)
+    metadata = models.JSONField(default=dict, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_learning_assets',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class LearningPath(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PUBLISHED = 'published', 'Published'
+        ARCHIVED = 'archived', 'Archived'
+
+    slug = models.SlugField(max_length=190, unique=True)
+    title = models.CharField(max_length=240)
+    summary = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    nodes = models.JSONField(default=list, blank=True)
+    edges = models.JSONField(default=list, blank=True)
+    payment_config = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_learning_paths_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+
+class SourceConnection(models.Model):
+    class Provider(models.TextChoices):
+        ZOTERO = 'zotero', 'Zotero'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_source_connections',
+    )
+    provider = models.CharField(max_length=30, choices=Provider.choices, default=Provider.ZOTERO)
+    label = models.CharField(max_length=120, default='Zotero')
+    library_type = models.CharField(max_length=20, default='user')
+    library_id = models.CharField(max_length=120)
+    encrypted_token = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'provider', 'library_type', 'library_id'], name='unique_gravitas_source_connection'),
+        ]
+
+
+class CourseEvent(models.Model):
+    class Kind(models.TextChoices):
+        COURSE_OPEN = 'course.open', 'Course open'
+        LESSON_VIEW = 'lesson.view', 'Lesson view'
+        LESSON_SKIP = 'lesson.skip', 'Lesson skip'
+        LESSON_DWELL = 'lesson.dwell', 'Lesson dwell'
+        AI_USE = 'ai.use', 'AI use'
+        LAB_USE = 'lab.use', 'Lab use'
+        EXPORT = 'export', 'Export'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_course_events',
+    )
+    enrollment = models.ForeignKey(
+        CourseEnrollment,
+        on_delete=models.SET_NULL,
+        related_name='events',
+        blank=True,
+        null=True,
+    )
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='events')
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.SET_NULL,
+        related_name='events',
+        blank=True,
+        null=True,
+    )
+    kind = models.CharField(max_length=40, choices=Kind.choices, db_index=True)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['course', 'kind', '-created_at'], name='grav_lms_event_course_kind'),
+            models.Index(fields=['user', 'kind', '-created_at'], name='grav_lms_event_user_kind'),
+        ]

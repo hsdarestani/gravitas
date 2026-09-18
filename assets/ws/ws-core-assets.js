@@ -4,9 +4,9 @@
 
    What an asset is here. Not a file and not a document: a reusable operating
    system for one part of the company, versioned, owned, and upstream of the
-   work it produces. The Content Studio Blueprint is the first one. Its whole
-   purpose is to be cut into tasks, which is why every section on this screen
-   ends in a way to do exactly that rather than in a download button.
+   work it produces. The Content Studio Blueprint is the first one. It is an
+   approval and reference asset; execution stays in Tasks & Execution rather
+   than being created directly from this screen.
 
    Why this replaces assets/core-blueprints.js. That file painted the same
    material into the pre-v4 shell with its own zoom control, its own
@@ -371,9 +371,9 @@ function sideEl(section, select) {
   return node;
 }
 
-/* The inspector is where the blueprint stops being a diagram. Everything a
-   reader can do with a section is here: read what it covers, argue with it,
-   or turn it into work. */
+/* The inspector is where the blueprint stops being a diagram. It explains
+   scope and ownership and can hand the question to Plusar; task creation
+   deliberately stays in Tasks & Execution. */
 function drawInspector(host, section, ctx) {
   host.innerHTML = '';
 
@@ -400,38 +400,14 @@ function drawInspector(host, section, ctx) {
 
   const actions = el('div', 'v-inspector__actions');
 
-  /* Cutting a section into tasks is the point of the whole asset, so it is
-     the primary action on every section rather than a menu item somewhere.
-     It writes a real task through the operating API; if that fails the
-     reader is told, and nothing local pretends otherwise. */
-  const cut = el('button', 'ws-btn ws-btn--solid', 'Cut into a task');
-  cut.type = 'button';
-  cut.addEventListener('click', async () => {
-    cut.disabled = true;
-    cut.textContent = 'Creating…';
-    try {
-      await P.call('/operating/tasks/', {
-        method: 'POST',
-        body: { title: `${section.title} — define and own`, description: section.desc },
-      });
-      ctx.go('/workspace/core/tasks');
-    } catch {
-      cut.disabled = false;
-      cut.textContent = 'Cut into a task';
-      const failed = el('p', 'v-note');
-      failed.dataset.tone = 'bad';
-      failed.textContent = 'The task was not created. The server did not accept it, and nothing was changed.';
-      actions.after(failed);
-    }
-  });
-
+  /* Task creation intentionally does not live in the blueprint. */
   const discuss = el('button', 'ws-btn', 'Ask about this section');
   discuss.type = 'button';
   discuss.addEventListener('click', () => {
     ctx.openAssistant(`In the Content Studio Blueprint, what should section ${section.n}, ${section.title}, cover, and what is the risk if ${section.owner} leaves it vague?`);
   });
 
-  actions.append(cut, discuss);
+  actions.append(discuss);
   host.append(actions);
 }
 

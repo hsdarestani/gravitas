@@ -1,12 +1,15 @@
 import json
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 
+from . import openedx_bridge
 from .layer_access import module_access, record_activity, set_module_grant
 from .layer_models import ActivityEvent, ModuleGrant
 from .lms_models import (
@@ -14,8 +17,12 @@ from .lms_models import (
     AssessmentAttempt,
     Certificate,
     Course,
+    CourseCategory,
     CourseEnrollment,
+    CourseInstructor,
     CourseModule,
+    CourseRegistrationProfile,
+    CourseTag,
     Lesson,
     LessonProgress,
 )
@@ -52,6 +59,16 @@ def _as_decimal(value, default=None):
         return Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         raise ValueError('invalid_decimal')
+
+
+def _safe_http_url(value, *, allow_blank=True):
+    raw = str(value or '').strip()
+    if not raw and allow_blank:
+        return ''
+    parsed = urlparse(raw)
+    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+        raise ValueError('invalid_url')
+    return raw
 
 
 def _iso(value):
@@ -92,6 +109,55 @@ def _certificate_json(enrollment):
     }
 
 
+def _lesson_access(lesson, enrollment):
+    rule = lesson.access_rule if isinstance(lesson.access_rule, dict) else {}
+    if not rule:
+        return True, ''
+
+    requires = rule.get('requires_lesson_ids')
+    if isinstance(requires, list):
+        ids = []
+        for value in requires:
+            try:
+                ids.append(int(value))
+            except (TypeError, ValueError):
+                continue
+        if ids:
+            valid_ids = set(
+                Lesson.objects.filter(pk__in=ids, module__course=lesson.module.course)
+                .values_list('pk', flat=True)
+            )
+            completed_ids = set(
+                LessonProgress.objects.filter(
+                    enrollment=enrollment,
+                    lesson_id__in=valid_ids,
+                    completed=True,
+                ).values_list('lesson_id', flat=True)
+            )
+            if valid_ids - completed_ids:
+                return False, 'prerequisite_lessons'
+
+    minimum = rule.get('min_progress_percent')
+    if minimum not in (None, ''):
+        try:
+            if Decimal(str(enrollment.progress_percent)) < Decimal(str(minimum)):
+                return False, 'minimum_progress'
+        except (InvalidOperation, TypeError, ValueError):
+            return False, 'invalid_access_rule'
+
+    available_after = str(rule.get('available_after') or '').strip()
+    if available_after:
+        parsed = parse_datetime(available_after)
+        if parsed is None:
+            return False, 'invalid_access_rule'
+        if timezone.is_naive(parsed):
+            parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+        if timezone.now() < parsed:
+            return False, 'scheduled_release'
+
+    return True, ''
+
+
 def _course_json(course, user=None, *, include_structure=False):
     enrollment = _enrollment_for(user, course)
     admin = _is_core_admin(user)
@@ -107,6 +173,12 @@ def _course_json(course, user=None, *, include_structure=False):
             }
         )
     )
+    registration_complete = True
+    if enrollment and course.registration_schema:
+        try:
+            registration_complete = bool(enrollment.registration_profile.completed)
+        except CourseRegistrationProfile.DoesNotExist:
+            registration_complete = False
 
     data = {
         'id': course.pk,
@@ -119,11 +191,42 @@ def _course_json(course, user=None, *, include_structure=False):
         'price': str(course.price) if course.price is not None else None,
         'currency': course.currency,
         'certificate_enabled': course.certificate_enabled,
+        'provider': course.provider,
+        'openedx_course_key': course.openedx_course_key if admin else '',
+        'openedx_launch_url': (
+            course.openedx_course_url
+            or (
+                f"{openedx_bridge.settings.OPENEDX_LMS_URL}/courses/{course.openedx_course_key}/course/"
+                if course.provider == Course.Provider.OPENEDX and course.openedx_course_key
+                else ''
+            )
+        ) if entitled or admin else '',
+        'openedx_studio_url': course.openedx_studio_url if admin else '',
+        'category': (
+            {'id': course.category_id, 'slug': course.category.slug, 'name': course.category.name}
+            if course.category_id else None
+        ),
+        'tags': [{'id': tag.pk, 'slug': tag.slug, 'name': tag.name} for tag in course.tags.all()],
+        'instructors': [{
+            'user_id': link.user_id,
+            'name': link.user.get_full_name() or link.user.email,
+            'email': link.user.email,
+            'role': link.role,
+        } for link in course.instructor_links.select_related('user').all()],
+        'registration_schema': course.registration_schema if isinstance(course.registration_schema, list) else [],
+        'payment': {
+            'configured': bool(course.payment_config),
+            'enabled': bool((course.payment_config or {}).get('enabled')),
+            'provider': str((course.payment_config or {}).get('provider') or ''),
+        },
+        'payment_config': course.payment_config if admin else {},
+        'learning_config': course.learning_config if admin or entitled else {},
         'published_at': _iso(course.published_at),
         'updated_at': _iso(course.updated_at),
         'enrolled': bool(enrollment and enrollment.status != CourseEnrollment.Status.REVOKED),
         'progress_percent': str(enrollment.progress_percent) if enrollment else '0.00',
         'enrollment_status': enrollment.status if enrollment else None,
+        'registration_complete': registration_complete,
         'certificate': _certificate_json(enrollment) if enrollment else None,
     }
 
@@ -138,7 +241,13 @@ def _course_json(course, user=None, *, include_structure=False):
         for lesson in module.lessons.all():
             if not lesson.published and not admin:
                 continue
-            can_open = admin or entitled or lesson.is_preview
+            rule_open, lock_reason = (True, '') if admin or not enrollment else _lesson_access(lesson, enrollment)
+            can_open = admin or lesson.is_preview or (entitled and registration_complete and rule_open)
+            if not can_open and not lock_reason:
+                if entitled and not registration_complete:
+                    lock_reason = 'course_profile_required'
+                elif not entitled:
+                    lock_reason = 'course_enrollment_required'
             lessons.append({
                 'id': lesson.pk,
                 'position': lesson.position,
@@ -150,9 +259,13 @@ def _course_json(course, user=None, *, include_structure=False):
                 'is_required': lesson.is_required,
                 'published': lesson.published,
                 'locked': not can_open,
+                'lock_reason': lock_reason if not can_open else '',
                 'body': lesson.body if can_open else '',
                 'content_url': lesson.content_url if can_open else '',
                 'metadata': lesson.metadata if can_open else {},
+                'access_rule': lesson.access_rule if can_open or admin else {},
+                'provider_key': lesson.provider_key if admin else '',
+                'lab_slug': lesson.lab_slug if can_open else '',
             })
         modules.append({
             'id': module.pk,
@@ -162,6 +275,16 @@ def _course_json(course, user=None, *, include_structure=False):
             'lessons': lessons,
         })
     data['modules'] = modules
+    data['assets'] = [{
+        'id': asset.pk,
+        'lesson_id': asset.lesson_id,
+        'kind': asset.kind,
+        'title': asset.title,
+        'source_url': asset.source_url if entitled or admin else '',
+        'mime_type': asset.mime_type,
+        'size': asset.size,
+        'download_url': f'/api/lms/assets/{asset.pk}/download/' if entitled or admin else '',
+    } for asset in course.assets.all()]
     data['assessments'] = [
         {
             'id': assessment.pk,
@@ -180,67 +303,271 @@ def _course_json(course, user=None, *, include_structure=False):
     return data
 
 
-def _replace_structure(course, modules_payload, assessments_payload=None):
-    if course.enrollments.exists():
-        raise ValueError('course_structure_locked_after_enrollment')
-    # Course-level assessments do not cascade from CourseModule, so deleting
-    # only the modules used to leave old final exams behind on every edit.
-    # Replace the complete authored structure atomically instead.
-    course.assessments.all().delete()
-    course.modules.all().delete()
-    for m_index, raw_module in enumerate(modules_payload or [], start=1):
-        if not isinstance(raw_module, dict) or not str(raw_module.get('title', '')).strip():
-            raise ValueError('invalid_module')
-        module = CourseModule.objects.create(
-            course=course,
-            position=int(raw_module.get('position') or m_index),
-            title=str(raw_module['title']).strip(),
-            summary=str(raw_module.get('summary') or ''),
-        )
-        for l_index, raw_lesson in enumerate(raw_module.get('lessons') or [], start=1):
-            if not isinstance(raw_lesson, dict) or not str(raw_lesson.get('title', '')).strip():
-                raise ValueError('invalid_lesson')
-            kind = str(raw_lesson.get('kind') or Lesson.Kind.ARTICLE)
-            if kind not in Lesson.Kind.values:
-                raise ValueError('invalid_lesson_kind')
-            Lesson.objects.create(
-                module=module,
-                position=int(raw_lesson.get('position') or l_index),
-                title=str(raw_lesson['title']).strip(),
-                kind=kind,
-                summary=str(raw_lesson.get('summary') or ''),
-                body=str(raw_lesson.get('body') or ''),
-                content_url=str(raw_lesson.get('content_url') or ''),
-                duration_seconds=max(0, int(raw_lesson.get('duration_seconds') or 0)),
-                is_preview=bool(raw_lesson.get('is_preview', False)),
-                is_required=bool(raw_lesson.get('is_required', True)),
-                published=bool(raw_lesson.get('published', True)),
-                metadata=raw_lesson.get('metadata') if isinstance(raw_lesson.get('metadata'), dict) else {},
-            )
-        for raw_assessment in raw_module.get('assessments') or []:
-            _create_assessment(course, raw_assessment, module=module)
-
-    for raw_assessment in assessments_payload or []:
-        _create_assessment(course, raw_assessment, module=None)
-
-
-def _create_assessment(course, raw, module=None):
+def _assessment_values(raw):
     if not isinstance(raw, dict) or not str(raw.get('title', '')).strip():
         raise ValueError('invalid_assessment')
     questions = raw.get('questions') or []
     if not isinstance(questions, list):
         raise ValueError('invalid_assessment_questions')
-    Assessment.objects.create(
-        course=course,
-        module=module,
-        title=str(raw['title']).strip(),
-        instructions=str(raw.get('instructions') or ''),
-        questions=questions,
-        passing_score=_as_decimal(raw.get('passing_score'), Decimal('70')),
-        max_attempts=max(1, int(raw.get('max_attempts') or 3)),
-        required_for_completion=bool(raw.get('required_for_completion', True)),
-        published=bool(raw.get('published', True)),
-    )
+    return {
+        'title': str(raw['title']).strip(),
+        'instructions': str(raw.get('instructions') or ''),
+        'questions': questions,
+        'passing_score': _as_decimal(raw.get('passing_score'), Decimal('70')),
+        'max_attempts': max(1, int(raw.get('max_attempts') or 3)),
+        'required_for_completion': bool(raw.get('required_for_completion', True)),
+        'published': bool(raw.get('published', True)),
+    }
+
+
+def _sync_assessment(course, raw, module=None):
+    values = _assessment_values(raw)
+    raw_id = raw.get('id') if isinstance(raw, dict) else None
+    if raw_id:
+        item = Assessment.objects.filter(pk=raw_id, course=course).first()
+        if not item:
+            raise ValueError('assessment_not_found')
+        item.module = module
+        for field, value in values.items():
+            setattr(item, field, value)
+        item.save()
+        return item
+    return Assessment.objects.create(course=course, module=module, **values)
+
+
+def _replace_structure(course, modules_payload, assessments_payload=None):
+    """Synchronize authored structure without destroying learner progress.
+
+    Existing objects keep stable IDs. Removed lessons/assessments that already
+    have learner records are retired (unpublished and non-required) instead of
+    deleted, so historical progress and reports remain valid.
+    """
+    if not isinstance(modules_payload, list):
+        raise ValueError('invalid_modules')
+    if assessments_payload is not None and not isinstance(assessments_payload, list):
+        raise ValueError('invalid_assessments')
+
+    keep_modules = set()
+    keep_assessments = set()
+
+    for m_index, raw_module in enumerate(modules_payload, start=1):
+        if not isinstance(raw_module, dict) or not str(raw_module.get('title', '')).strip():
+            raise ValueError('invalid_module')
+        raw_module_id = raw_module.get('id')
+        if raw_module_id:
+            module = CourseModule.objects.filter(pk=raw_module_id, course=course).first()
+            if not module:
+                raise ValueError('module_not_found')
+            module.position = int(raw_module.get('position') or m_index)
+            module.title = str(raw_module['title']).strip()
+            module.summary = str(raw_module.get('summary') or '')
+            module.save()
+        else:
+            module = CourseModule.objects.create(
+                course=course,
+                position=int(raw_module.get('position') or m_index),
+                title=str(raw_module['title']).strip(),
+                summary=str(raw_module.get('summary') or ''),
+            )
+        keep_modules.add(module.pk)
+
+        keep_lessons = set()
+        lessons_payload = raw_module.get('lessons') or []
+        if not isinstance(lessons_payload, list):
+            raise ValueError('invalid_lessons')
+        for l_index, raw_lesson in enumerate(lessons_payload, start=1):
+            if not isinstance(raw_lesson, dict) or not str(raw_lesson.get('title', '')).strip():
+                raise ValueError('invalid_lesson')
+            kind = str(raw_lesson.get('kind') or Lesson.Kind.ARTICLE)
+            if kind not in Lesson.Kind.values:
+                raise ValueError('invalid_lesson_kind')
+            values = {
+                'module': module,
+                'position': int(raw_lesson.get('position') or l_index),
+                'title': str(raw_lesson['title']).strip(),
+                'kind': kind,
+                'summary': str(raw_lesson.get('summary') or ''),
+                'body': str(raw_lesson.get('body') or ''),
+                'content_url': _safe_http_url(raw_lesson.get('content_url')),
+                'duration_seconds': max(0, int(raw_lesson.get('duration_seconds') or 0)),
+                'is_preview': bool(raw_lesson.get('is_preview', False)),
+                'is_required': bool(raw_lesson.get('is_required', True)),
+                'published': bool(raw_lesson.get('published', True)),
+                'metadata': raw_lesson.get('metadata') if isinstance(raw_lesson.get('metadata'), dict) else {},
+                'access_rule': raw_lesson.get('access_rule') if isinstance(raw_lesson.get('access_rule'), dict) else {},
+                'provider_key': str(raw_lesson.get('provider_key') or '')[:255],
+                'lab_slug': str(raw_lesson.get('lab_slug') or '')[:190],
+            }
+            raw_lesson_id = raw_lesson.get('id')
+            if raw_lesson_id:
+                lesson = Lesson.objects.filter(pk=raw_lesson_id, module__course=course).first()
+                if not lesson:
+                    raise ValueError('lesson_not_found')
+                for field, value in values.items():
+                    setattr(lesson, field, value)
+                lesson.save()
+            else:
+                lesson = Lesson.objects.create(**values)
+            keep_lessons.add(lesson.pk)
+
+        retired = Lesson.objects.filter(module=module).exclude(pk__in=keep_lessons)
+        for lesson in retired:
+            if lesson.progress_rows.exists() or lesson.events.exists():
+                lesson.published = False
+                lesson.is_required = False
+                lesson.save(update_fields=['published', 'is_required', 'updated_at'])
+            else:
+                lesson.delete()
+
+        module_assessments = raw_module.get('assessments') or []
+        if not isinstance(module_assessments, list):
+            raise ValueError('invalid_assessments')
+        for raw_assessment in module_assessments:
+            item = _sync_assessment(course, raw_assessment, module=module)
+            keep_assessments.add(item.pk)
+
+    for raw_assessment in assessments_payload or []:
+        item = _sync_assessment(course, raw_assessment, module=None)
+        keep_assessments.add(item.pk)
+
+    for assessment in course.assessments.exclude(pk__in=keep_assessments):
+        if assessment.attempts.exists():
+            assessment.published = False
+            assessment.required_for_completion = False
+            assessment.save(update_fields=['published', 'required_for_completion', 'updated_at'])
+        else:
+            assessment.delete()
+
+    for module in course.modules.exclude(pk__in=keep_modules):
+        has_history = (
+            LessonProgress.objects.filter(lesson__module=module).exists()
+            or AssessmentAttempt.objects.filter(assessment__module=module).exists()
+        )
+        if has_history:
+            module.lessons.update(published=False, is_required=False)
+            module.assessments.update(published=False, required_for_completion=False)
+        else:
+            module.delete()
+
+
+def _course_relation_fields(course, data):
+    if 'category_id' in data:
+        category_id = data.get('category_id')
+        if category_id in (None, ''):
+            course.category = None
+        else:
+            category = CourseCategory.objects.filter(pk=category_id).first()
+            if not category:
+                raise ValueError('category_not_found')
+            course.category = category
+
+    if 'provider' in data:
+        provider = str(data.get('provider') or Course.Provider.NATIVE)
+        if provider not in Course.Provider.values:
+            raise ValueError('invalid_course_provider')
+        course.provider = provider
+
+    if 'openedx_course_key' in data:
+        course.openedx_course_key = str(data.get('openedx_course_key') or '').strip()
+    if 'openedx_course_url' in data:
+        course.openedx_course_url = _safe_http_url(data.get('openedx_course_url'))
+    if 'openedx_studio_url' in data:
+        course.openedx_studio_url = _safe_http_url(data.get('openedx_studio_url'))
+
+    for field, expected in (
+        ('registration_schema', list),
+        ('payment_config', dict),
+        ('learning_config', dict),
+    ):
+        if field in data:
+            value = data.get(field)
+            if not isinstance(value, expected):
+                raise ValueError(f'invalid_{field}')
+            setattr(course, field, value)
+
+
+def _save_course_relations(course, data):
+    if 'tag_ids' in data:
+        values = data.get('tag_ids')
+        if not isinstance(values, list):
+            raise ValueError('invalid_tag_ids')
+        tags = list(CourseTag.objects.filter(pk__in=values))
+        if len({tag.pk for tag in tags}) != len({int(value) for value in values if str(value).isdigit()}):
+            raise ValueError('tag_not_found')
+        course.tags.set(tags)
+
+    if 'instructors' in data:
+        rows = data.get('instructors')
+        if not isinstance(rows, list):
+            raise ValueError('invalid_instructors')
+        User = get_user_model()
+        clean = []
+        seen = set()
+        for position, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise ValueError('invalid_instructor')
+            try:
+                user = User.objects.get(pk=int(row.get('user_id')))
+            except (User.DoesNotExist, TypeError, ValueError):
+                raise ValueError('instructor_not_found')
+            role = str(row.get('role') or CourseInstructor.Role.INSTRUCTOR)
+            if role not in CourseInstructor.Role.values:
+                raise ValueError('invalid_instructor_role')
+            if user.pk in seen:
+                continue
+            seen.add(user.pk)
+            clean.append((user, role, position))
+        course.instructor_links.exclude(user_id__in=seen).delete()
+        for user, role, position in clean:
+            CourseInstructor.objects.update_or_create(
+                course=course,
+                user=user,
+                defaults={'role': role, 'position': position},
+            )
+
+
+def _openedx_sync_enrollment(enrollment):
+    course = enrollment.course
+    if (
+        course.provider != Course.Provider.OPENEDX
+        or not course.openedx_course_key
+        or not openedx_bridge.configured()
+    ):
+        return
+    state = dict(enrollment.provider_state or {})
+    try:
+        openedx_bridge.allow_enrollment(
+            email=enrollment.user.email,
+            course_key=course.openedx_course_key,
+        )
+        try:
+            openedx_bridge.enroll_by_email(
+                email=enrollment.user.email,
+                course_key=course.openedx_course_key,
+            )
+            sync_state = 'enrolled'
+            sync_error = ''
+        except openedx_bridge.OpenEdXError as exc:
+            if str(exc) == 'openedx_account_pending':
+                sync_state = 'allowed_pending_account'
+                sync_error = str(exc)
+            else:
+                raise
+        state['openedx'] = {
+            'state': sync_state,
+            'course_key': course.openedx_course_key,
+            'error': sync_error,
+            'synced_at': timezone.now().isoformat(),
+        }
+    except openedx_bridge.OpenEdXError as exc:
+        state['openedx'] = {
+            'state': 'pending',
+            'course_key': course.openedx_course_key,
+            'error': str(exc),
+            'synced_at': timezone.now().isoformat(),
+        }
+    enrollment.provider_state = state
+    enrollment.save(update_fields=['provider_state', 'updated_at'])
 
 
 @require_http_methods(['GET', 'POST'])
@@ -280,7 +607,7 @@ def lms_courses(request):
 
     try:
         with transaction.atomic():
-            course = Course.objects.create(
+            course = Course(
                 slug=slug,
                 title=title,
                 summary=str(data.get('summary') or ''),
@@ -293,6 +620,11 @@ def lms_courses(request):
                 created_by=request.user,
                 published_at=timezone.now() if status == Course.Status.PUBLISHED else None,
             )
+            _course_relation_fields(course, data)
+            if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
+                raise ValueError('openedx_course_key_required')
+            course.save()
+            _save_course_relations(course, data)
             _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
@@ -356,10 +688,18 @@ def lms_course_detail(request, course_id):
                 course.price = _as_decimal(data.get('price'))
             if 'certificate_enabled' in data:
                 course.certificate_enabled = bool(data['certificate_enabled'])
+            _course_relation_fields(course, data)
+            if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
+                raise ValueError('openedx_course_key_required')
             if course.access_type == Course.AccessType.PAID and (course.price is None or course.price <= 0):
                 raise ValueError('paid_course_price_required')
             course.save()
-            if 'modules' in data or 'assessments' in data:
+            _save_course_relations(course, data)
+            has_modules = 'modules' in data
+            has_assessments = 'assessments' in data
+            if has_modules != has_assessments:
+                raise ValueError('complete_structure_payload_required')
+            if has_modules and has_assessments:
                 _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=409 if str(exc) == 'course_structure_locked_after_enrollment' else 400)
@@ -421,6 +761,13 @@ def lms_course_enroll(request, course_id):
             'granted_by': request.user if admin and target.pk != request.user.pk else None,
         },
     )
+    _openedx_sync_enrollment(enrollment)
+    profile, _ = CourseRegistrationProfile.objects.get_or_create(enrollment=enrollment)
+    if not course.registration_schema and not profile.completed:
+        profile.completed = True
+        profile.completed_at = timezone.now()
+        profile.save(update_fields=['completed', 'completed_at', 'updated_at'])
+
     set_module_grant(
         target,
         ModuleGrant.Module.LMS,
@@ -443,6 +790,10 @@ def lms_course_enroll(request, course_id):
 
 
 def _enrollment_json(enrollment):
+    try:
+        registration_complete = bool(enrollment.registration_profile.completed)
+    except CourseRegistrationProfile.DoesNotExist:
+        registration_complete = not bool(enrollment.course.registration_schema)
     return {
         'id': enrollment.pk,
         'course_id': enrollment.course_id,
@@ -450,6 +801,8 @@ def _enrollment_json(enrollment):
         'status': enrollment.status,
         'access_source': enrollment.access_source,
         'progress_percent': str(enrollment.progress_percent),
+        'provider_state': enrollment.provider_state,
+        'registration_complete': registration_complete,
         'enrolled_at': _iso(enrollment.enrolled_at),
         'completed_at': _iso(enrollment.completed_at),
         'certificate': _certificate_json(enrollment),
@@ -526,6 +879,16 @@ def lms_lesson_progress(request, lesson_id):
     ).first()
     if not enrollment:
         return JsonResponse({'ok': False, 'error': 'course_enrollment_required'}, status=403)
+    if lesson.module.course.registration_schema:
+        try:
+            profile_complete = bool(enrollment.registration_profile.completed)
+        except CourseRegistrationProfile.DoesNotExist:
+            profile_complete = False
+        if not profile_complete:
+            return JsonResponse({'ok': False, 'error': 'course_profile_required'}, status=409)
+    rule_open, lock_reason = _lesson_access(lesson, enrollment)
+    if not rule_open:
+        return JsonResponse({'ok': False, 'error': 'lesson_locked', 'reason': lock_reason}, status=409)
     data = _payload(request)
     if data is None:
         return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
@@ -597,6 +960,13 @@ def lms_assessment_attempt(request, assessment_id):
     ).first()
     if not enrollment:
         return JsonResponse({'ok': False, 'error': 'course_enrollment_required'}, status=403)
+    if assessment.course.registration_schema:
+        try:
+            profile_complete = bool(enrollment.registration_profile.completed)
+        except CourseRegistrationProfile.DoesNotExist:
+            profile_complete = False
+        if not profile_complete:
+            return JsonResponse({'ok': False, 'error': 'course_profile_required'}, status=409)
     data = _payload(request)
     if data is None or not isinstance(data.get('answers'), dict):
         return JsonResponse({'ok': False, 'error': 'answers_required'}, status=400)

@@ -309,6 +309,34 @@ export const lmsAssessmentAttempt = (id, answers) => call(`/lms/assessments/${id
 });
 export const lmsCreateCourse = (body) => call('/lms/courses/', { method: 'POST', body });
 export const lmsUpdateCourse = (id, body) => call(`/lms/courses/${id}/`, { method: 'PATCH', body });
+export const lmsCourseEvent = (id, body) => call(`/lms/courses/${id}/events/`, { method: 'POST', body });
+export const lmsRegistrationProfile = (id) => call(`/lms/courses/${id}/registration-profile/`);
+export const lmsSaveRegistrationProfile = (id, answers) => call(`/lms/courses/${id}/registration-profile/`, { method: 'POST', body: { answers } });
+export const lmsAiTutor = (id, body) => call(`/lms/courses/${id}/ai/`, { method: 'POST', body });
+export const lmsZotero = () => call('/lms/sources/zotero/');
+export const lmsConnectZotero = (body) => call('/lms/sources/zotero/', { method: 'POST', body });
+export const lmsDeleteZotero = (id) => call(`/lms/sources/zotero/?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const lmsZoteroItems = ({ connectionId, q = '', limit = 20 }) => {
+  const params = new URLSearchParams({ connection_id: connectionId, limit: String(limit) });
+  if (q) params.set('q', q);
+  return call(`/lms/sources/zotero/items/?${params.toString()}`);
+};
+export const lmsLearningPaths = ({ all = false } = {}) => call(`/lms/paths/${all ? '?all=1' : ''}`);
+export const lmsCreateLearningPath = (body) => call('/lms/paths/', { method: 'POST', body });
+export const lmsUpdateLearningPath = (id, body) => call(`/lms/paths/${id}/`, { method: 'PATCH', body });
+export const lmsDeleteLearningPath = (id) => call(`/lms/paths/${id}/`, { method: 'DELETE' });
+export const adminLmsMeta = () => call('/platform/admin/lms/meta/');
+export const adminSaveLmsMeta = (body) => call('/platform/admin/lms/meta/', { method: 'POST', body });
+export const adminDeleteLmsMeta = (kind, id) => call('/platform/admin/lms/meta/', { method: 'DELETE', body: { kind, id } });
+export const adminLmsAnalytics = (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== '')).toString();
+  return call(`/platform/admin/lms/analytics/${query ? `?${query}` : ''}`);
+};
+export const adminOpenEdxStatus = () => call('/platform/admin/lms/openedx/');
+export const adminValidateOpenEdxCourse = (courseId) => call('/platform/admin/lms/openedx/', { method: 'POST', body: { course_id: courseId } });
+export const adminLearningAssets = (courseId) => call(`/platform/admin/lms/courses/${courseId}/assets/`);
+export const adminUploadLearningAsset = (courseId, formData) => upload(`/platform/admin/lms/courses/${courseId}/assets/`, formData);
+export const adminDeleteLearningAsset = (assetId) => call(`/lms/assets/${assetId}/`, { method: 'DELETE' });
 
 /* ---- Layer 5 administration -------------------------------------------- */
 export const adminOverview = () => call('/platform/admin/overview/');

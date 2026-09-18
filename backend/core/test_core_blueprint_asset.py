@@ -11,8 +11,8 @@ that now provides them:
   * Core's navigation offers Assets & Blueprints, and the blueprint under it.
   * All sixteen sections are present, with their owners unchanged.
   * The eleven-stage lifecycle keeps its order.
-  * The one-owner-per-task rule survives, because it is the rule the whole
-    approval step exists to establish.
+  * The one-owner-per-task rule remains documented in the approval flow.
+  * Blueprint inspection itself does not create execution tasks.
   * Core is refused to non-members rather than merely hidden from them.
 """
 
@@ -112,10 +112,11 @@ class CoreBlueprintContractTests(SimpleTestCase):
             js,
         )
 
-    def test_a_section_can_be_cut_into_a_real_task(self):
+    def test_blueprint_does_not_offer_direct_task_creation(self):
         js = self.read('assets/ws/ws-core-assets.js')
-        self.assertIn("/operating/tasks/", js)
-        self.assertIn("method: 'POST'", js)
+        self.assertNotIn('Cut into a task', js)
+        self.assertNotIn("/operating/tasks/", js)
+        self.assertIn('Ask about this section', js)
 
     def test_core_is_refused_to_non_members(self):
         app = self.read('assets/ws/ws-app.js')

@@ -132,6 +132,22 @@ from core.lms_api import (
     lms_lesson_progress,
     lms_me,
 )
+from core.lms_extended_api import (
+    admin_learning_assets,
+    admin_lms_analytics,
+    admin_lms_meta,
+    admin_openedx_status,
+    learning_asset_detail,
+    learning_asset_download,
+    learning_path_detail,
+    learning_paths,
+    lms_ai_tutor,
+    lms_course_export,
+    lms_event,
+    lms_registration_profile,
+    zotero_connection,
+    zotero_items,
+)
 from core.site_admin_api import (
     admin_site_comment_detail,
     admin_site_comments,
@@ -318,6 +334,20 @@ urlpatterns = [
     path('lms/me/', lms_me),
     path('lms/lessons/<int:lesson_id>/progress/', lms_lesson_progress),
     path('lms/assessments/<int:assessment_id>/attempt/', lms_assessment_attempt),
+    path('lms/courses/<int:course_id>/events/', lms_event),
+    path('lms/courses/<int:course_id>/registration-profile/', lms_registration_profile),
+    path('lms/courses/<int:course_id>/ai/', lms_ai_tutor),
+    path('lms/courses/<int:course_id>/export/<str:fmt>/', lms_course_export),
+    path('lms/sources/zotero/', zotero_connection),
+    path('lms/sources/zotero/items/', zotero_items),
+    path('lms/assets/<int:asset_id>/', learning_asset_detail),
+    path('lms/assets/<int:asset_id>/download/', learning_asset_download),
+    path('lms/paths/', learning_paths),
+    path('lms/paths/<int:path_id>/', learning_path_detail),
+    path('platform/admin/lms/meta/', admin_lms_meta),
+    path('platform/admin/lms/analytics/', admin_lms_analytics),
+    path('platform/admin/lms/openedx/', admin_openedx_status),
+    path('platform/admin/lms/courses/<int:course_id>/assets/', admin_learning_assets),
 
     # Layer 5 operating system: internal Gravitas team only. Existing runtime
     # resolution pins every call to the canonical Core workspace.

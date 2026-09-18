@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20260914-5';
+import * as P from './ws-platform.js?v=20260919-lms1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -485,6 +485,7 @@ function questionEditor(question = {}) {
 
 function assessmentEditor(assessment = {}) {
   const wrap = el('div', 'fl-assessment-editor');
+  wrap.dataset.originalId = assessment.id || '';
   const title = input(assessment.title || 'Final assessment');
   const passing = input(assessment.passing_score ?? 70, 'number');
   const attempts = input(assessment.max_attempts ?? 3, 'number');
@@ -501,20 +502,40 @@ function assessmentEditor(assessment = {}) {
 
 function lessonEditor(lesson = {}) {
   const wrap = el('div', 'fl-lesson-editor');
+  wrap.dataset.originalId = lesson.id || '';
   const title = input(lesson.title || '');
-  const kind = select([['article', 'Article'], ['video', 'Video'], ['file', 'File / download'], ['interactive', 'Interactive'], ['live', 'Live session']], lesson.kind || 'article');
+  const kind = select([
+    ['article', 'Article'], ['video', 'Video'], ['audio', 'Audio'],
+    ['file', 'File / download'], ['pdf', 'PDF'], ['document', 'Document'],
+    ['dataset', 'Dataset'], ['embed', 'Embedded content'], ['lab', 'Interactive Lab'],
+    ['interactive', 'Interactive'], ['live', 'Live session'],
+  ], lesson.kind || 'article');
   const summary = textarea(lesson.summary || '', 2);
   const body = textarea(lesson.body || '', 5);
   const url = input(lesson.content_url || '', 'url');
   const duration = input(lesson.duration_seconds || 0, 'number');
+  const labSlug = input(lesson.lab_slug || '');
+  const providerKey = input(lesson.provider_key || '');
+  const accessRule = textarea(JSON.stringify(lesson.access_rule || {}, null, 2), 3);
   const preview = checkbox(lesson.is_preview, 'Preview available before enrollment');
   const required = checkbox(lesson.is_required !== false, 'Required for completion');
   const published = checkbox(lesson.published !== false, 'Published lesson');
   const remove = action('Remove lesson', () => wrap.remove(), false, true);
   const grid = el('div', 'fl-form-grid');
-  grid.append(field('Lesson title', title), field('Type', kind), field('Duration seconds', duration), field('Resource URL', url));
-  wrap.append(grid, field('Summary', summary), field('Body', body), preview.wrap, required.wrap, published.wrap, remove);
-  wrap._controls = { title, kind, summary, body, url, duration, preview: preview.input, required: required.input, published: published.input };
+  grid.append(field('Lesson title', title), field('Type', kind), field('Duration seconds', duration), field('Resource / embed URL', url));
+  wrap.append(
+    grid,
+    field('Summary', summary),
+    field('Body', body),
+    field('Lab slug', labSlug, 'For Lab lessons, reference an Interactive Lab slug.'),
+    field('Provider key', providerKey, 'Optional Open edX/XBlock content key.'),
+    field('Access rule', accessRule, 'JSON for prerequisites/locks; {} means normal enrollment access.'),
+    preview.wrap, required.wrap, published.wrap, remove,
+  );
+  wrap._controls = {
+    title, kind, summary, body, url, duration, labSlug, providerKey, accessRule,
+    preview: preview.input, required: required.input, published: published.input,
+  };
   return wrap;
 }
 
@@ -551,6 +572,7 @@ function serializeAssessment(node) {
     return { id: `q${index + 1}`, prompt, choices, correct_answer: correct };
   }).filter((q) => q.prompt);
   return {
+    id: node.dataset.originalId ? Number(node.dataset.originalId) : undefined,
     title: c.title.value.trim(),
     passing_score: Number(c.passing.value || 70),
     max_attempts: Number(c.attempts.value || 3),
@@ -563,15 +585,20 @@ function serializeAssessment(node) {
 function serializeModule(node, position) {
   const c = node._controls;
   return {
+    id: node.dataset.originalId ? Number(node.dataset.originalId) : undefined,
     position,
     title: c.title.value.trim(),
     summary: c.summary.value,
     lessons: [...c.lessons.children].map((lessonNode, index) => {
       const lc = lessonNode._controls;
+      let accessRule = {};
+      try { accessRule = JSON.parse(lc.accessRule.value || '{}'); } catch {}
       return {
+        id: lessonNode.dataset.originalId ? Number(lessonNode.dataset.originalId) : undefined,
         position: index + 1,
         title: lc.title.value.trim(), kind: lc.kind.value, summary: lc.summary.value, body: lc.body.value,
         content_url: lc.url.value.trim(), duration_seconds: Number(lc.duration.value || 0),
+        lab_slug: lc.labSlug.value.trim(), provider_key: lc.providerKey.value.trim(), access_rule: accessRule,
         is_preview: lc.preview.checked, is_required: lc.required.checked, published: lc.published.checked,
       };
     }).filter((lesson) => lesson.title),
@@ -590,30 +617,406 @@ function populateStructure(modulesHost, finalsHost, course) {
   assessments.filter((item) => !item.module_id).forEach((item) => finalsHost.append(assessmentEditor(item)));
 }
 
+function safeJson(value, fallback) {
+  try {
+    const parsed = JSON.parse(String(value || ''));
+    return parsed == null ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+}
+
+function registrationFieldEditor(spec = {}) {
+  const wrap = el('div', 'fl-question-editor');
+  const key = input(spec.key || '');
+  const labelInput = input(spec.label || '');
+  const type = select([
+    ['text', 'Text'], ['number', 'Number'], ['textarea', 'Long text'],
+    ['select', 'Select'], ['checkbox', 'Checkbox'],
+  ], spec.type || 'text');
+  const options = textarea(Array.isArray(spec.options) ? spec.options.join('\n') : '', 3);
+  const help = input(spec.help || '');
+  const required = checkbox(!!spec.required, 'Required');
+  const remove = action('Remove field', () => wrap.remove(), false, true);
+  const grid = el('div', 'fl-form-grid');
+  grid.append(field('Key', key), field('Label', labelInput), field('Type', type), field('Help text', help));
+  wrap.append(grid, field('Options', options, 'One option per line for Select fields.'), required.wrap, remove);
+  wrap._controls = { key, label: labelInput, type, options, help, required: required.input };
+  return wrap;
+}
+
+function serializeRegistrationFields(host) {
+  return [...host.children].map((node) => {
+    const c = node._controls;
+    if (!c) return null;
+    return {
+      key: c.key.value.trim(),
+      label: c.label.value.trim(),
+      type: c.type.value,
+      options: c.options.value.split('\n').map((item) => item.trim()).filter(Boolean),
+      help: c.help.value.trim(),
+      required: c.required.checked,
+    };
+  }).filter((item) => item?.key && item?.label);
+}
+
+function adminAnalyticsLessonRow(item) {
+  const dwell = Number(item.dwell_seconds || 0);
+  return row({
+    title: item.lesson__title || 'Lesson',
+    meta: P.meta([item.course__title, `${item.views || 0} views`, `${item.skips || 0} skips`, `${Math.round(dwell / 60)} min dwell`]),
+    badges: [`${item.ai_uses || 0} AI`, `${item.lab_uses || 0} Lab`],
+  });
+}
+
+function adminAnalyticsVisual(items = []) {
+  const wrap = el('div', 'fl-analytics-bars');
+  const rows = [...items]
+    .sort((a, b) => Number(b.views || 0) - Number(a.views || 0))
+    .slice(0, 10);
+  const max = Math.max(1, ...rows.map((item) => Number(item.views || 0)));
+  if (!rows.length) {
+    wrap.append(empty('No visual activity yet', 'The chart appears after lesson views are tracked.'));
+    return wrap;
+  }
+  for (const item of rows) {
+    const line = el('div', 'fl-analytics-bar');
+    const head = el('div', 'fl-analytics-bar__head');
+    head.append(
+      el('strong', null, item.lesson__title || 'Lesson'),
+      el('span', 'fl-muted', `${item.views || 0} views · ${Math.round(Number(item.dwell_seconds || 0) / 60)} min · ${item.ai_uses || 0} AI · ${item.lab_uses || 0} Lab`),
+    );
+    const track = el('div', 'fl-analytics-bar__track');
+    const fill = el('span', 'fl-analytics-bar__fill');
+    fill.style.setProperty('--analytics-value', `${Math.max(3, Math.round((Number(item.views || 0) / max) * 100))}%`);
+    track.append(fill);
+    line.append(head, track);
+    wrap.append(line);
+  }
+  return wrap;
+}
+
+async function renderLmsMetaAdmin(host, meta, refresh) {
+  const box = section('Categories & tags', 'Taxonomy shared by the catalog, learning paths and Open edX mappings.');
+  const cols = el('div', 'fl-columns');
+  const categories = el('div', 'fl-stack');
+  const tags = el('div', 'fl-stack');
+
+  for (const item of meta.categories || []) {
+    const remove = action('Delete', async () => {
+      remove.disabled = true;
+      try { await P.adminDeleteLmsMeta('category', item.id); await refresh(); } catch { remove.disabled = false; }
+    }, false, true);
+    categories.append(row({
+      title: item.name,
+      meta: P.meta([item.slug, item.active ? 'Active' : 'Inactive']),
+      body: item.description,
+      actions: [remove],
+    }));
+  }
+  const categoryForm = el('form', 'fl-form');
+  const catName = input('', 'text', 'Category name');
+  const catSlug = input('', 'text', 'category-slug');
+  const catAdd = action('Add category', () => {}, true); catAdd.type = 'submit';
+  categoryForm.append(catName, catSlug, catAdd);
+  categoryForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    catAdd.disabled = true;
+    try {
+      await P.adminSaveLmsMeta({ kind: 'category', name: catName.value.trim(), slug: catSlug.value.trim() || slugify(catName.value) });
+      await refresh();
+    } catch { catAdd.disabled = false; }
+  });
+  categories.append(categoryForm);
+
+  for (const item of meta.tags || []) {
+    const remove = action('Delete', async () => {
+      remove.disabled = true;
+      try { await P.adminDeleteLmsMeta('tag', item.id); await refresh(); } catch { remove.disabled = false; }
+    }, false, true);
+    tags.append(row({ title: item.name, meta: item.slug, actions: [remove] }));
+  }
+  const tagForm = el('form', 'fl-form');
+  const tagName = input('', 'text', 'Tag name');
+  const tagSlug = input('', 'text', 'tag-slug');
+  const tagAdd = action('Add tag', () => {}, true); tagAdd.type = 'submit';
+  tagForm.append(tagName, tagSlug, tagAdd);
+  tagForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    tagAdd.disabled = true;
+    try {
+      await P.adminSaveLmsMeta({ kind: 'tag', name: tagName.value.trim(), slug: tagSlug.value.trim() || slugify(tagName.value) });
+      await refresh();
+    } catch { tagAdd.disabled = false; }
+  });
+  tags.append(tagForm);
+
+  const categoryPanel = section('Categories');
+  categoryPanel.body.append(categories);
+  const tagPanel = section('Tags');
+  tagPanel.body.append(tags);
+  cols.append(categoryPanel.box, tagPanel.box);
+  box.body.append(cols);
+  host.append(box.box);
+}
+
+async function renderLearningPathsAdmin(host, paths, refresh) {
+  const box = section('Learning paths', 'Graph objects can branch, converge and reuse courses. Payment rules are stored now but checkout can stay disabled.');
+  const form = el('form', 'fl-form');
+  const title = input('', 'text', 'Path title');
+  const slug = input('', 'text', 'path-slug');
+  const summary = textarea('', 2);
+  const status = select([['draft','Draft'],['published','Published']], 'draft');
+  const nodes = textarea('[]', 5);
+  const edges = textarea('[]', 5);
+  const add = action('Create learning path', () => {}, true); add.type = 'submit';
+  const note = statusLine();
+  const grid = el('div', 'fl-form-grid');
+  grid.append(field('Title', title), field('Slug', slug), field('Status', status));
+  form.append(grid, field('Summary', summary), field('Nodes (JSON)', nodes, 'Example: [{"id":"a","course_id":1}]'), field('Edges (JSON)', edges, 'Example: [{"from":"a","to":"b","rule":"complete"}]'), add, note);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    add.disabled = true;
+    const parsedNodes = safeJson(nodes.value, null);
+    const parsedEdges = safeJson(edges.value, null);
+    if (!Array.isArray(parsedNodes) || !Array.isArray(parsedEdges)) {
+      setStatus(note, 'Nodes and edges must be JSON arrays.', 'bad');
+      add.disabled = false;
+      return;
+    }
+    try {
+      await P.lmsCreateLearningPath({
+        title: title.value.trim(),
+        slug: slug.value.trim() || slugify(title.value),
+        summary: summary.value,
+        status: status.value,
+        nodes: parsedNodes,
+        edges: parsedEdges,
+        payment_config: { enabled: false, provider: 'future' },
+      });
+      await refresh();
+    } catch (error) {
+      setStatus(note, error?.message || 'Path could not be created.', 'bad');
+      add.disabled = false;
+    }
+  });
+  box.body.append(form);
+
+  for (const item of paths || []) {
+    const edit = action('Edit graph', () => {
+      const editor = el('form', 'fl-form');
+      const n = textarea(JSON.stringify(item.nodes || [], null, 2), 6);
+      const e = textarea(JSON.stringify(item.edges || [], null, 2), 6);
+      const s = textarea(item.summary || '', 2);
+      const st = select([['draft','Draft'],['published','Published'],['archived','Archived']], item.status);
+      const save = action('Save path', () => {}, true); save.type = 'submit';
+      const line = statusLine();
+      editor.append(field('Summary', s), field('Status', st), field('Nodes', n), field('Edges', e), save, line);
+      editor.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const parsedNodes = safeJson(n.value, null);
+        const parsedEdges = safeJson(e.value, null);
+        if (!Array.isArray(parsedNodes) || !Array.isArray(parsedEdges)) {
+          setStatus(line, 'Nodes and edges must be arrays.', 'bad');
+          return;
+        }
+        save.disabled = true;
+        try {
+          await P.lmsUpdateLearningPath(item.id, { summary: s.value, status: st.value, nodes: parsedNodes, edges: parsedEdges });
+          await refresh();
+        } catch (error) {
+          setStatus(line, error?.message || 'Save failed.', 'bad');
+          save.disabled = false;
+        }
+      });
+      const rowNode = edit.closest('.fl-row');
+      rowNode?.insertAdjacentElement('afterend', editor);
+      edit.disabled = true;
+    }, false, true);
+    const remove = action('Delete', async () => {
+      if (!confirm(`Delete learning path “${item.title}”?`)) return;
+      remove.disabled = true;
+      try { await P.lmsDeleteLearningPath(item.id); await refresh(); } catch { remove.disabled = false; }
+    }, false, true);
+    box.body.append(row({
+      title: item.title,
+      meta: P.meta([label(item.status), item.slug, `${(item.nodes || []).length} nodes`, `${(item.edges || []).length} edges`]),
+      body: item.summary,
+      actions: [edit, remove],
+    }));
+  }
+  host.append(box.box);
+}
+
 export async function renderAdminLms(host, { go }) {
   loading(host, 'LMS Admin');
   try {
-    const [courses, enrollments] = await Promise.all([P.lmsCourses({ all: true }), P.adminLmsEnrollments()]);
-    const wrap = doc(host, 'LMS Admin', 'Author courses and operate enrollment/completion/certificate state without changing Research access.');
+    const [courses, enrollments, meta, analytics, openedx, paths] = await Promise.all([
+      P.lmsCourses({ all: true }),
+      P.adminLmsEnrollments(),
+      P.adminLmsMeta(),
+      P.adminLmsAnalytics(),
+      P.adminOpenEdxStatus().catch(() => ({ openedx: { configured: false, reachable: false } })),
+      P.lmsLearningPaths({ all: true }),
+    ]);
+    const wrap = doc(host, 'LMS Admin', 'Open edX-backed learning with Gravitas+ AI, Lab, source management, exports and analytics.');
     const metrics = el('div', 'fl-metrics');
-    metrics.append(metric(courses.courses.length, 'Courses'), metric(enrollments.enrollments.filter((item) => item.status === 'active').length, 'Active enrollments'), metric(enrollments.enrollments.filter((item) => item.status === 'completed').length, 'Completed'));
+    metrics.append(
+      metric(courses.courses.length, 'Courses'),
+      metric(enrollments.enrollments.filter((item) => item.status === 'active').length, 'Active enrollments'),
+      metric(enrollments.enrollments.filter((item) => item.status === 'completed').length, 'Completed'),
+      metric(analytics.summary?.by_kind?.['ai.use']?.count || 0, 'AI tutor uses'),
+      metric(analytics.summary?.by_kind?.['lab.use']?.count || 0, 'Lab uses'),
+    );
     wrap.append(metrics);
+
     const toolbar = el('div', 'fl-toolbar');
     toolbar.append(link(go, 'New course', '/workspace/core/admin/lms/courses/new', true));
     wrap.append(toolbar);
 
+    const engine = section('Open edX engine', 'Tutor/Open edX runs as the standards-based learning engine; Gravitas+ remains the learner and admin experience.');
+    const engineState = openedx.openedx || {};
+    engine.body.append(row({
+      title: engineState.reachable ? 'Open edX reachable' : 'Open edX not reachable yet',
+      meta: P.meta([
+        engineState.configured ? 'OAuth configured' : 'OAuth pending',
+        openedx.lms_url || 'learn.gravitasplus.com',
+        openedx.cms_url || 'studio.gravitasplus.com',
+      ]),
+      badges: [engineState.reachable ? 'Online' : 'Pending', engineState.oauth ? 'OAuth OK' : ''],
+    }));
+    const engineLinks = el('div', 'fl-form-actions');
+    const lmsLink = el('a', 'ws-btn', 'Open learner LMS');
+    lmsLink.href = openedx.lms_url || 'https://learn.gravitasplus.com';
+    lmsLink.target = '_blank'; lmsLink.rel = 'noopener';
+    const studioLink = el('a', 'ws-btn', 'Open Studio');
+    studioLink.href = openedx.cms_url || 'https://studio.gravitasplus.com';
+    studioLink.target = '_blank'; studioLink.rel = 'noopener';
+    engineLinks.append(lmsLink, studioLink);
+    engine.body.append(engineLinks);
+    wrap.append(engine.box);
+
     const courseBox = section('Courses');
     for (const course of courses.courses) courseBox.body.append(row({
       title: course.title,
-      meta: P.meta([label(course.status), label(course.access_type), `${course.lesson_count} lessons`]),
-      badges: [course.price ? `${course.price} ${course.currency}` : '', course.certificate_enabled ? 'Certificate' : ''],
+      meta: P.meta([
+        label(course.status),
+        label(course.access_type),
+        label(course.provider || 'native'),
+        course.category?.name || '',
+        `${course.lesson_count} lessons`,
+      ]),
+      badges: [
+        course.price ? `${course.price} ${course.currency}` : '',
+        course.certificate_enabled ? 'Certificate' : '',
+        ...(course.tags || []).slice(0, 3).map((item) => item.name),
+      ],
       onClick: () => go(`/workspace/core/admin/lms/courses/${course.id}`),
     }));
     if (!courses.courses.length) courseBox.body.append(empty('No courses yet', 'Create the first course.'));
     wrap.append(courseBox.box);
 
+    const analyticsBox = section('Learning analytics', 'Filter by course and learner. Views, skips, dwell, AI and Lab usage remain attributable down to the lesson.');
+    const analyticsFilters = el('div', 'fl-toolbar');
+    const courseFilter = select([
+      ['', 'All courses'],
+      ...courses.courses.map((item) => [item.id, item.title]),
+    ], '');
+    const learnerSearch = input('', 'search', 'Filter learner');
+    const clearLearner = action('Clear learner', () => {}, false, true);
+    const selectedLearner = el('span', 'v-toolbar__count', 'All learners');
+    const learnerResults = el('div', 'fl-stack');
+    let learnerId = '';
+    let learnerTimer = null;
+    analyticsFilters.append(courseFilter, learnerSearch, clearLearner, selectedLearner);
+    analyticsBox.body.append(analyticsFilters, learnerResults);
+
+    const analyticsContent = el('div', 'fl-stack');
+    analyticsBox.body.append(analyticsContent);
+    const drawAnalytics = (payload) => {
+      analyticsContent.innerHTML = '';
+      const summaryMetrics = el('div', 'fl-metrics');
+      summaryMetrics.append(
+        metric(payload.summary?.enrollments || 0, 'Enrollments'),
+        metric(payload.summary?.average_progress || 0, 'Average progress', '%'),
+        metric(payload.summary?.by_kind?.['lesson.view']?.count || 0, 'Lesson views'),
+        metric(payload.summary?.by_kind?.['lesson.skip']?.count || 0, 'Skips'),
+        metric(Math.round((payload.summary?.by_kind?.['lesson.dwell']?.duration_seconds || 0) / 60), 'Dwell', 'minutes'),
+        metric(payload.summary?.by_kind?.['ai.use']?.count || 0, 'AI uses'),
+        metric(payload.summary?.by_kind?.['lab.use']?.count || 0, 'Lab uses'),
+      );
+      analyticsContent.append(summaryMetrics);
+
+      const visual = section('Activity overview', 'Top lessons by views; dwell, AI and Lab usage stay visible beside each bar.');
+      visual.body.append(adminAnalyticsVisual(payload.lessons || []));
+      analyticsContent.append(visual.box);
+
+      const learnerRows = section('Learner activity');
+      for (const item of (payload.learners || []).slice(0, 100)) {
+        learnerRows.body.append(row({
+          title: `${item.name} · ${item.course}`,
+          meta: P.meta([`${item.progress_percent}% progress`, `${item.views} views`, `${item.skips} skips`, `${Math.round(Number(item.dwell_seconds || 0) / 60)} min dwell`]),
+          badges: [`${item.ai_uses} AI`, `${item.lab_uses} Lab`, label(item.status)],
+        }));
+      }
+      if (!(payload.learners || []).length) learnerRows.body.append(empty('No learners in this filter', 'Change the course or learner filter.'));
+      analyticsContent.append(learnerRows.box);
+
+      const topLessons = section('Lesson activity');
+      (payload.lessons || []).slice(0, 60).forEach((item) => topLessons.body.append(adminAnalyticsLessonRow(item)));
+      if (!(payload.lessons || []).length) topLessons.body.append(empty('No tracked lesson activity yet', 'Views, dwell, skips, AI and Lab events will appear as learners use courses.'));
+      analyticsContent.append(topLessons.box);
+    };
+
+    const reloadAnalytics = async () => {
+      analyticsContent.innerHTML = '<div class="fl-skeleton"></div>';
+      try {
+        const payload = await P.adminLmsAnalytics({
+          course_id: courseFilter.value,
+          user_id: learnerId,
+        });
+        drawAnalytics(payload);
+      } catch (error) {
+        analyticsContent.innerHTML = '';
+        analyticsContent.append(empty('Analytics unavailable', error?.message || 'Try again.'));
+      }
+    };
+    courseFilter.addEventListener('change', reloadAnalytics);
+    clearLearner.addEventListener('click', () => {
+      learnerId = '';
+      learnerSearch.value = '';
+      selectedLearner.textContent = 'All learners';
+      learnerResults.innerHTML = '';
+      reloadAnalytics();
+    });
+    learnerSearch.addEventListener('input', () => {
+      clearTimeout(learnerTimer);
+      learnerTimer = setTimeout(async () => {
+        learnerResults.innerHTML = '';
+        const q = learnerSearch.value.trim();
+        if (q.length < 2) return;
+        try {
+          const result = await P.adminUsers(q);
+          for (const user of (result.users || []).slice(0, 8)) {
+            const choose = action('Filter', () => {
+              learnerId = String(user.id);
+              selectedLearner.textContent = user.name || user.email;
+              learnerResults.innerHTML = '';
+              reloadAnalytics();
+            }, false, true);
+            learnerResults.append(row({ title: user.name, meta: user.email, actions: [choose] }));
+          }
+        } catch {}
+      }, 180);
+    });
+    drawAnalytics(analytics);
+    wrap.append(analyticsBox.box);
+
+    await renderLmsMetaAdmin(wrap, meta, () => renderAdminLms(host, { go }));
+    await renderLearningPathsAdmin(wrap, paths.paths || [], () => renderAdminLms(host, { go }));
+
     const enrollmentBox = section('Recent enrollments');
-    for (const enrollment of enrollments.enrollments.slice(0, 20)) enrollmentBox.body.append(enrollmentAdminRow(enrollment, () => renderAdminLms(host, { go })));
+    for (const enrollment of enrollments.enrollments.slice(0, 30)) enrollmentBox.body.append(enrollmentAdminRow(enrollment, () => renderAdminLms(host, { go })));
     if (!enrollments.enrollments.length) enrollmentBox.body.append(empty('No enrollments yet', 'Learner enrollments and admin grants appear here.'));
     wrap.append(enrollmentBox.box);
   } catch (error) {
@@ -646,10 +1049,19 @@ function enrollmentAdminRow(enrollment, refresh) {
 export async function renderAdminCourseEditor(host, id, { go }) {
   loading(host, id === 'new' ? 'New course' : 'Edit course');
   try {
-    const course = id === 'new' ? null : (await P.lmsCourse(id)).course;
+    const [courseResult, meta] = await Promise.all([
+      id === 'new' ? Promise.resolve({ course: null }) : P.lmsCourse(id),
+      P.adminLmsMeta(),
+    ]);
+    const course = courseResult.course;
     const enrolled = course ? (await P.adminLmsEnrollments({ course_id: course.id })).enrollments : [];
-    const locked = enrolled.length > 0;
-    const wrap = doc(host, course?.title || 'New course', locked ? 'Course structure is locked after the first enrollment; metadata remains editable.' : 'Build modules, lessons and assessments in the same editor.');
+    const assets = course ? (await P.adminLearningAssets(course.id)).assets : [];
+
+    const wrap = doc(
+      host,
+      course?.title || 'New course',
+      'Course Builder · safe live editing, Open edX mapping, media, access, instructors, forms, assessments and future payment policy.',
+    );
     const form = el('form', 'fl-form');
     const title = input(course?.title || '');
     const slug = input(course?.slug || '');
@@ -660,26 +1072,238 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     const price = input(course?.price || '', 'number');
     price.step = '0.01';
     const currency = input(course?.currency || 'EUR');
-    const certEnabled = checkbox(course?.certificate_enabled !== false, 'Issue certificate on completion');
+    const certEnabled = checkbox(course?.certificate_enabled !== false, 'Issue Gravitas+ certificate on completion');
+
+    const provider = select([['native', 'Gravitas native'], ['openedx', 'Open edX']], course?.provider || 'native');
+    const openedxKey = input(course?.openedx_course_key || '');
+    const openedxUrl = input(course?.openedx_launch_url || '', 'url');
+    const openedxStudio = input(course?.openedx_studio_url || '', 'url');
+
+    const category = select([
+      ['', 'No category'],
+      ...(meta.categories || []).map((item) => [item.id, item.name]),
+    ], course?.category?.id || '');
+
+    const tagSelect = el('select', 'v-input fl-input');
+    tagSelect.multiple = true;
+    tagSelect.size = Math.min(7, Math.max(3, (meta.tags || []).length || 3));
+    const selectedTags = new Set((course?.tags || []).map((item) => String(item.id)));
+    for (const item of meta.tags || []) {
+      const option = el('option', null, item.name);
+      option.value = item.id;
+      option.selected = selectedTags.has(String(item.id));
+      tagSelect.append(option);
+    }
+
     const grid = el('div', 'fl-form-grid');
-    grid.append(field('Title', title), field('Slug', slug), field('Access', accessType), field('Status', status), field('Price', price), field('Currency', currency));
-    form.append(grid, field('Summary', summary), field('Description', description), certEnabled.wrap);
+    grid.append(
+      field('Title', title),
+      field('Slug', slug),
+      field('Access', accessType),
+      field('Status', status),
+      field('Price', price),
+      field('Currency', currency),
+      field('Provider', provider),
+      field('Category', category),
+    );
+    form.append(grid, field('Summary', summary), field('Description', description), field('Tags', tagSelect), certEnabled.wrap);
+
     let slugTouched = !!course;
     slug.addEventListener('input', () => { slugTouched = true; });
     title.addEventListener('input', () => { if (!slugTouched) slug.value = slugify(title.value); });
 
-    const structure = section('Course structure', locked ? `${enrolled.length} enrollment(s) exist. Structural edits are disabled to protect learner progress.` : 'Modules contain lessons and optional assessments.');
+    const openedx = section('Open edX mapping', 'Map this Gravitas+ course to an Open edX course run while keeping the Gravitas+ learner experience.');
+    const openedxGrid = el('div', 'fl-form-grid');
+    openedxGrid.append(
+      field('Course key', openedxKey, 'Example: course-v1:Gravitas+Research101+2026'),
+      field('Learner URL', openedxUrl),
+      field('Studio URL', openedxStudio),
+    );
+    openedx.body.append(openedxGrid);
+    if (course) {
+      const validate = action('Validate Open edX mapping', async () => {
+        validate.disabled = true;
+        openedxStatus.textContent = 'Checking…';
+        try {
+          const result = await P.adminValidateOpenEdxCourse(course.id);
+          openedxStatus.textContent = result.course_details?.course_name
+            ? `Connected · ${result.course_details.course_name}`
+            : 'Connected.';
+          openedxStatus.dataset.tone = 'ok';
+        } catch (error) {
+          openedxStatus.textContent = error?.message || 'Open edX mapping is not reachable yet.';
+          openedxStatus.dataset.tone = 'bad';
+        } finally { validate.disabled = false; }
+      });
+      const openedxStatus = statusLine();
+      openedx.body.append(validate, openedxStatus);
+    }
+    form.append(openedx.box);
+
+    const instructorsBox = section('Instructors', 'Add multiple course instructors without changing their Research/Core access.');
+    const instructorState = (course?.instructors || []).map((item) => ({
+      user_id: item.user_id,
+      name: item.name,
+      email: item.email,
+      role: item.role || 'instructor',
+    }));
+    const instructorList = el('div', 'fl-stack');
+    const drawInstructors = () => {
+      instructorList.innerHTML = '';
+      for (const item of instructorState) {
+        const role = select([['lead','Lead'],['instructor','Instructor'],['assistant','Teaching assistant']], item.role);
+        role.addEventListener('change', () => { item.role = role.value; });
+        const remove = action('Remove', () => {
+          const index = instructorState.indexOf(item);
+          if (index >= 0) instructorState.splice(index, 1);
+          drawInstructors();
+        }, false, true);
+        instructorList.append(row({
+          title: item.name || item.email,
+          meta: item.email,
+          actions: [role, remove],
+        }));
+      }
+      if (!instructorState.length) instructorList.append(empty('No instructors assigned', 'Search registered accounts below.'));
+    };
+    drawInstructors();
+
+    const instructorSearch = input('', 'search', 'Search instructor account');
+    const instructorRole = select([['lead','Lead'],['instructor','Instructor'],['assistant','Teaching assistant']], 'instructor');
+    const instructorResults = el('div', 'fl-stack');
+    let instructorTimer = null;
+    instructorSearch.addEventListener('input', () => {
+      clearTimeout(instructorTimer);
+      instructorTimer = setTimeout(async () => {
+        instructorResults.innerHTML = '';
+        const q = instructorSearch.value.trim();
+        if (q.length < 2) return;
+        try {
+          const data = await P.adminUsers(q);
+          for (const user of (data.users || []).slice(0, 8)) {
+            const add = action('Add', () => {
+              if (!instructorState.some((row) => String(row.user_id) === String(user.id))) {
+                instructorState.push({
+                  user_id: user.id,
+                  name: user.name,
+                  email: user.email,
+                  role: instructorRole.value,
+                });
+                drawInstructors();
+              }
+            }, false, true);
+            instructorResults.append(row({ title: user.name, meta: user.email, actions: [add] }));
+          }
+        } catch {}
+      }, 180);
+    });
+    const instructorSearchRow = el('div', 'fl-form-grid');
+    instructorSearchRow.append(instructorSearch, instructorRole);
+    instructorsBox.body.append(instructorList, instructorSearchRow, instructorResults);
+    form.append(instructorsBox.box);
+
+    const profileBox = section('Enrollment & profile form', 'Define fields learners complete after enrollment. Required fields lock protected lessons until completed.');
+    const registrationHost = el('div', 'fl-stack');
+    for (const fieldSpec of course?.registration_schema || []) registrationHost.append(registrationFieldEditor(fieldSpec));
+    const addRegistrationField = action('Add profile field', () => registrationHost.append(registrationFieldEditor()), false, true);
+    profileBox.body.append(registrationHost, addRegistrationField);
+    form.append(profileBox.box);
+
+    const payment = section('Payment readiness', 'Commerce is intentionally future-ready. Price/SKU/provider policy can be authored before checkout is activated.');
+    const paymentConfig = course?.payment_config || {};
+    const paymentEnabled = checkbox(!!paymentConfig.enabled, 'Checkout enabled');
+    paymentEnabled.input.disabled = true;
+    const paymentProvider = select([['future','Future provider'],['stripe','Stripe'],['sumup','SumUp']], paymentConfig.provider || 'future');
+    const paymentSku = input(paymentConfig.sku || '');
+    payment.body.append(
+      paymentEnabled.wrap,
+      field('Provider', paymentProvider),
+      field('SKU / product key', paymentSku),
+      el('p', 'fl-muted', 'Activation stays disabled until a verified provider flow is implemented; no fake payment state is created.'),
+    );
+    form.append(payment.box);
+
+    const learningConfig = course?.learning_config || {};
+    const behavior = section('Learning behavior');
+    const aiEnabled = checkbox(learningConfig.ai_enabled !== false, 'AI Tutor enabled');
+    const zoteroEnabled = checkbox(learningConfig.zotero_enabled !== false, 'Zotero/source management enabled');
+    const labEnabled = checkbox(learningConfig.lab_enabled !== false, 'Interactive Lab enabled');
+    const profileRequired = checkbox(learningConfig.require_profile_before_content !== false, 'Require profile form before protected content');
+    behavior.body.append(aiEnabled.wrap, zoteroEnabled.wrap, labEnabled.wrap, profileRequired.wrap);
+    form.append(behavior.box);
+
+    const structure = section(
+      'Course structure',
+      enrolled.length
+        ? `${enrolled.length} enrollment(s) exist. Stable IDs preserve learner progress while lessons and assessments are edited.`
+        : 'Modules contain lessons, course media, Labs and optional assessments.',
+    );
     const modulesHost = el('div', 'fl-stack');
     const finalsHost = el('div', 'fl-stack');
     populateStructure(modulesHost, finalsHost, course);
     const addModule = action('Add module', () => modulesHost.append(moduleEditor()), false, true);
     const addFinal = action('Add final assessment', () => finalsHost.append(assessmentEditor()), false, true);
     structure.body.append(modulesHost, addModule, el('h3', null, 'Course assessments'), finalsHost, addFinal);
-    if (locked) structure.body.querySelectorAll('input, textarea, select, button').forEach((control) => { control.disabled = true; });
     form.append(structure.box);
 
     if (course) {
-      const access = section('Enrollment management', 'Grant a locked/open course directly to a registered account.');
+      const media = section('Course media library', `Any file type up to the configured upload limit, plus URLs and embeds. ${assets.length} asset(s) stored.`);
+      const assetList = el('div', 'fl-stack');
+      for (const item of assets) {
+        const remove = action('Delete', async () => {
+          if (!confirm(`Delete asset “${item.title}”?`)) return;
+          remove.disabled = true;
+          try { await P.adminDeleteLearningAsset(item.id); await renderAdminCourseEditor(host, id, { go }); } catch { remove.disabled = false; }
+        }, false, true);
+        const open = el('a', 'ws-btn ws-btn--tiny', item.kind === 'file' ? 'Download' : 'Open');
+        open.href = item.kind === 'file' ? item.download_url : item.source_url;
+        if (item.kind !== 'file') { open.target = '_blank'; open.rel = 'noopener'; }
+        assetList.append(row({
+          title: item.title,
+          meta: P.meta([label(item.kind), item.mime_type, item.size ? P.formatBytes(item.size) : '']),
+          actions: [open, remove],
+        }));
+      }
+      if (!assets.length) assetList.append(empty('No course assets yet', 'Upload a file or register an external URL/embed.'));
+
+      const assetForm = el('form', 'fl-form');
+      const assetTitle = input('', 'text', 'Asset title');
+      const assetKind = select([['file','File'],['url','URL'],['embed','Embed']], 'file');
+      const assetFile = input('', 'file');
+      const assetUrl = input('', 'url', 'https://…');
+      const lessonOptions = [['','Whole course']];
+      for (const module of course.modules || []) for (const lesson of module.lessons || []) lessonOptions.push([lesson.id, `${module.title} · ${lesson.title}`]);
+      const assetLesson = select(lessonOptions, '');
+      const assetSave = action('Add asset', () => {}, true); assetSave.type = 'submit';
+      const assetStatus = statusLine();
+      assetForm.append(assetTitle, assetKind, assetFile, assetUrl, field('Attach to', assetLesson), assetSave, assetStatus);
+      assetForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const body = new FormData();
+        body.append('title', assetTitle.value.trim());
+        body.append('kind', assetKind.value);
+        if (assetLesson.value) body.append('lesson_id', assetLesson.value);
+        if (assetKind.value === 'file') {
+          if (!assetFile.files?.[0]) { setStatus(assetStatus, 'Choose a file.', 'bad'); return; }
+          body.append('file', assetFile.files[0]);
+        } else {
+          if (!assetUrl.value.trim()) { setStatus(assetStatus, 'Add a URL.', 'bad'); return; }
+          body.append('source_url', assetUrl.value.trim());
+        }
+        assetSave.disabled = true;
+        setStatus(assetStatus, 'Saving…');
+        try {
+          await P.adminUploadLearningAsset(course.id, body);
+          await renderAdminCourseEditor(host, id, { go });
+        } catch (error) {
+          setStatus(assetStatus, error?.message || 'Asset could not be saved.', 'bad');
+          assetSave.disabled = false;
+        }
+      });
+      media.body.append(assetList, assetForm);
+      form.append(media.box);
+
+      const access = section('Enrollment management', 'Grant a course directly to a registered account.');
       const userSearch = input('', 'search', 'Search account');
       const resultList = el('div', 'fl-stack');
       let timer = null;
@@ -714,24 +1338,51 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       event.preventDefault();
       save.disabled = true;
       setStatus(line, 'Saving…');
+
+      const tagIds = [...tagSelect.selectedOptions].map((option) => Number(option.value));
       const payload = {
-        title: title.value.trim(), slug: slug.value.trim(), summary: summary.value, description: description.value,
-        access_type: accessType.value, status: status.value, currency: currency.value.trim() || 'EUR',
+        title: title.value.trim(),
+        slug: slug.value.trim(),
+        summary: summary.value,
+        description: description.value,
+        access_type: accessType.value,
+        status: status.value,
+        currency: currency.value.trim() || 'EUR',
         certificate_enabled: certEnabled.input.checked,
+        provider: provider.value,
+        openedx_course_key: openedxKey.value.trim(),
+        openedx_course_url: openedxUrl.value.trim(),
+        openedx_studio_url: openedxStudio.value.trim(),
+        category_id: category.value ? Number(category.value) : null,
+        tag_ids: tagIds,
+        instructors: instructorState.map((item) => ({ user_id: item.user_id, role: item.role })),
+        registration_schema: serializeRegistrationFields(registrationHost),
+        payment_config: {
+          enabled: false,
+          provider: paymentProvider.value,
+          sku: paymentSku.value.trim(),
+          prepared: true,
+        },
+        learning_config: {
+          ai_enabled: aiEnabled.input.checked,
+          zotero_enabled: zoteroEnabled.input.checked,
+          lab_enabled: labEnabled.input.checked,
+          require_profile_before_content: profileRequired.input.checked,
+        },
+        modules: [...modulesHost.children].map((node, index) => serializeModule(node, index + 1)).filter((item) => item.title),
+        assessments: [...finalsHost.children].map(serializeAssessment).filter((item) => item.title),
       };
       if (accessType.value === 'paid') payload.price = price.value;
       else payload.price = price.value || null;
-      if (!locked) {
-        payload.modules = [...modulesHost.children].map((node, index) => serializeModule(node, index + 1)).filter((item) => item.title);
-        payload.assessments = [...finalsHost.children].map(serializeAssessment).filter((item) => item.title);
-      }
+
       try {
         const result = course ? await P.lmsUpdateCourse(course.id, payload) : await P.lmsCreateCourse(payload);
         setStatus(line, 'Course saved.', 'ok');
         save.disabled = false;
         if (!course) go(`/workspace/core/admin/lms/courses/${result.course.id}`, { replace: true });
+        else await renderAdminCourseEditor(host, id, { go });
       } catch (error) {
-        setStatus(line, error?.message || 'Course was not saved.', 'bad');
+        setStatus(line, error?.data?.error || error?.message || 'Course was not saved.', 'bad');
         save.disabled = false;
       }
     });

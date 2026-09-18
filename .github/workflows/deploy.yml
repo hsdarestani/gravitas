@@ -146,7 +146,7 @@ jobs:
           $SUDO systemctl enable --now fail2ban
           $SUDO fail2ban-client reload
 
-          $SUDO mkdir -p "$DEPLOY_PATH" "$BACKEND_PATH" /etc/gravitas /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads
+          $SUDO mkdir -p "$DEPLOY_PATH" "$BACKEND_PATH" /etc/gravitas /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads /var/lib/gravitas/lms-media /var/lib/gravitas/lms-media
           $SUDO chown -R "$(id -un):$(id -gn)" "$DEPLOY_PATH"
           $SUDO chown -R gravitas:gravitas "$BACKEND_PATH" /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads
 
@@ -169,6 +169,7 @@ jobs:
           Group=gravitas
           WorkingDirectory=$BACKEND_PATH
           EnvironmentFile=/etc/gravitas/backend.env
+          EnvironmentFile=-/etc/gravitas/openedx.env
           Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
           ExecStart=$BACKEND_PATH/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 django.core.wsgi:get_wsgi_application()
           Restart=on-failure
