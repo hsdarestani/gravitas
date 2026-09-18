@@ -62,7 +62,7 @@ class AccessHierarchyCompletionTests(TestCase):
         self.assertFalse(module_access(self.member, ModuleGrant.Module.CORE))
 
         self.client.force_login(self.member)
-        self.assertEqual(self.client.get('/api/lms/enrollments/').status_code, 200)
+        self.assertEqual(self.client.get('/api/lms/me/').status_code, 200)
         self.assertEqual(self.client.get('/api/platform/projects/').status_code, 200)
         self.assertEqual(self.client.get('/api/operating/dashboard/').status_code, 403)
 
