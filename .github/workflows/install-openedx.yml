@@ -285,6 +285,43 @@ jobs:
           $SUDO systemctl restart gravitas-backend
           $SUDO systemctl is-active gravitas-backend
           curl -fsS -H "Host: $LMS_HOST" http://127.0.0.1:8181/heartbeat >/dev/null
+
+          # End-to-end bridge verification: load exactly the same env files as
+          # the systemd backend and require a real OAuth client-credentials JWT.
+          # No credential values are printed to the workflow log.
+          $SUDO /opt/gravitas-backend/.venv/bin/python - <<'PY'
+import os
+from pathlib import Path
+
+def load_env(path):
+    for raw in Path(path).read_text(encoding='utf-8').splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        os.environ[key.strip()] = value
+
+load_env('/etc/gravitas/backend.env')
+load_env('/etc/gravitas/openedx.env')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+os.environ['PYTHONPATH'] = '/opt/gravitas-backend'
+import sys
+sys.path.insert(0, '/opt/gravitas-backend')
+import django
+django.setup()
+from core import openedx_bridge
+state = openedx_bridge.health()
+safe = {k: bool(state.get(k)) for k in ('configured', 'reachable', 'oauth')}
+print('Gravitas/Open edX bridge:', safe)
+assert all(safe.values()), state
+# Also hit an authenticated collection endpoint. An empty list is valid.
+openedx_bridge.enrollment_rows()
+print('Authenticated enrollment API: healthy')
+PY
+
           if $SUDO test -f "/etc/letsencrypt/live/$LMS_HOST/fullchain.pem"; then
             curl -fsS "https://$LMS_HOST/heartbeat" >/dev/null
             echo "Public Open edX HTTPS heartbeat is healthy."
