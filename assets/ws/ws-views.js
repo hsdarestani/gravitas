@@ -211,12 +211,14 @@ export function renderCoreTasks(host, { go }) {
   const formatActor = (actor) => actor?.name || actor?.email || 'Gravitas+';
 
   function closeDialog(dialog) {
-    if (dialog?.open) dialog.close();
     dialog?.remove();
   }
 
   function makeDialog(title) {
-    const dialog = el('dialog', 'task-card-dialog');
+    const dialog = el('div', 'task-card-dialog');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.tabIndex = -1;
     const frame = el('div', 'task-card-dialog__frame');
     const head = el('header', 'task-card-dialog__head');
     head.append(el('h2', null, title));
@@ -229,7 +231,7 @@ export function renderCoreTasks(host, { go }) {
       if (event.target === dialog) closeDialog(dialog);
     });
     document.body.append(dialog);
-    dialog.showModal();
+    window.requestAnimationFrame(() => dialog.focus());
     return { dialog, body, head };
   }
 
