@@ -137,6 +137,14 @@ jobs:
 
           export TUTOR_ROOT=/var/lib/openedx/tutor
 
+          tutor_local() {
+            if [ "$(id -u)" -eq 0 ]; then
+              "$TUTOR" local "$@"
+            else
+              sudo env TUTOR_ROOT="$TUTOR_ROOT" "$TUTOR" local "$@"
+            fi
+          }
+
           # Initialise core Tutor state before enabling plugins. Plugin enable
           # persists into config.yml and therefore requires the project root
           # to exist already.
@@ -161,13 +169,13 @@ jobs:
             --set 'INDIGO_ENABLE_DARK_TOGGLE=true' \
             --set 'INDIGO_FOOTER_NAV_LINKS=[{"title":"Gravitas+","url":"https://gravitasplus.com"},{"title":"Learning","url":"https://gravitasplus.com/learn.html"},{"title":"Community","url":"https://gravitasplus.com/community.html"}]'
 
-          $TUTOR local launch -I -p
-          $TUTOR local do settheme indigo || true
-          $TUTOR local status
+          tutor_local launch -I -p
+          tutor_local do settheme indigo || true
+          tutor_local status
 
           # A dedicated non-password service identity owns the OAuth client.
-          $TUTOR local run lms ./manage.py lms manage_user gravitas_bridge bridge@gravitasplus.com --unusable-password
-          $TUTOR local run lms ./manage.py lms shell -c             "from django.contrib.auth import get_user_model; u=get_user_model().objects.get(username='gravitas_bridge'); u.is_staff=True; u.save(update_fields=['is_staff']); print('bridge-staff-ready')"
+          tutor_local run lms ./manage.py lms manage_user gravitas_bridge bridge@gravitasplus.com --unusable-password
+          tutor_local run lms ./manage.py lms shell -c             "from django.contrib.auth import get_user_model; u=get_user_model().objects.get(username='gravitas_bridge'); u.is_staff=True; u.save(update_fields=['is_staff']); print('bridge-staff-ready')"
 
           ENV_FILE=/etc/gravitas/openedx.env
           if $SUDO test -f "$ENV_FILE"; then
@@ -178,17 +186,17 @@ jobs:
             OPENEDX_CLIENT_SECRET="$(openssl rand -hex 48)"
             # If a partial prior install exists but the secret file does not,
             # replace that application so the secret we persist is authoritative.
-            $TUTOR local run lms ./manage.py lms shell -c               "from oauth2_provider.models import Application; Application.objects.filter(name='gravitas-bridge').delete(); print('old-app-cleared')"
+            tutor_local run lms ./manage.py lms shell -c               "from oauth2_provider.models import Application; Application.objects.filter(name='gravitas-bridge').delete(); print('old-app-cleared')"
           fi
 
-          APP_EXISTS="$($TUTOR local run lms ./manage.py lms shell -c             "from oauth2_provider.models import Application; print('YES' if Application.objects.filter(name='gravitas-bridge').exists() else 'NO')"             | tail -n 1 | tr -d '\r')"
+          APP_EXISTS="$(tutor_local run lms ./manage.py lms shell -c             "from oauth2_provider.models import Application; print('YES' if Application.objects.filter(name='gravitas-bridge').exists() else 'NO')"             | tail -n 1 | tr -d '\r')"
           if [ "$APP_EXISTS" != "YES" ]; then
-            HELP="$($TUTOR local run lms ./manage.py lms create_dot_application --help)"
+            HELP="$(tutor_local run lms ./manage.py lms create_dot_application --help)"
             if ! grep -q -- '--client-secret' <<<"$HELP"; then
               echo "Open edX create_dot_application command does not expose --client-secret"
               exit 1
             fi
-            $TUTOR local run lms ./manage.py lms create_dot_application               gravitas-bridge gravitas_bridge               --grant-type client-credentials               --skip-authorization               --scopes 'read,write,email,profile,user_id'               --client-id "$OPENEDX_CLIENT_ID"               --client-secret "$OPENEDX_CLIENT_SECRET"
+            tutor_local run lms ./manage.py lms create_dot_application               gravitas-bridge gravitas_bridge               --grant-type client-credentials               --skip-authorization               --scopes 'read,write,email,profile,user_id'               --client-id "$OPENEDX_CLIENT_ID"               --client-secret "$OPENEDX_CLIENT_SECRET"
           fi
 
           umask 027
