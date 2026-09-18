@@ -193,11 +193,6 @@ jobs:
 
           APP_EXISTS="$(tutor_local run lms ./manage.py lms shell -c             "from oauth2_provider.models import Application; print('YES' if Application.objects.filter(name='gravitas-bridge').exists() else 'NO')"             | tail -n 1 | tr -d '\r')"
           if [ "$APP_EXISTS" != "YES" ]; then
-            HELP="$(tutor_local run lms ./manage.py lms create_dot_application --help)"
-            if ! grep -q -- '--client-secret' <<<"$HELP"; then
-              echo "Open edX create_dot_application command does not expose --client-secret"
-              exit 1
-            fi
             tutor_local run lms ./manage.py lms create_dot_application               gravitas-bridge gravitas_bridge               --grant-type client-credentials               --skip-authorization               --scopes 'read,write,email,profile,user_id'               --client-id "$OPENEDX_CLIENT_ID"               --client-secret "$OPENEDX_CLIENT_SECRET"
           fi
 
