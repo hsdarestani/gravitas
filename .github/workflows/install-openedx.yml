@@ -26,6 +26,7 @@ jobs:
       CONFIGURED_USER: ${{ secrets.DEPLOY_USER || 'root' }}
       LMS_HOST: learn.gravitasplus.com
       CMS_HOST: studio.gravitasplus.com
+      MFE_HOST: apps.learn.gravitasplus.com
     steps:
       - uses: actions/checkout@v4
 
@@ -85,10 +86,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" "$CMS_HOST" <<'REMOTE'
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" "$CMS_HOST" "$MFE_HOST" <<'REMOTE'
           set -euo pipefail
           LMS_HOST="$1"
           CMS_HOST="$2"
+          MFE_HOST="$3"
           if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
 
           export DEBIAN_FRONTEND=noninteractive
@@ -153,6 +155,7 @@ jobs:
           $TUTOR config save \
             --set "LMS_HOST=$LMS_HOST" \
             --set "CMS_HOST=$CMS_HOST" \
+            --set "MFE_HOST=$MFE_HOST" \
             --set 'PLATFORM_NAME=Gravitas+' \
             --set 'CONTACT_EMAIL=webmaster@gravitasplus.com' \
             --set ENABLE_HTTPS=true \
@@ -230,17 +233,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" "$CMS_HOST" <<'REMOTE'
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" "$CMS_HOST" "$MFE_HOST" <<'REMOTE'
           set -euo pipefail
           LMS_HOST="$1"
           CMS_HOST="$2"
+          MFE_HOST="$3"
           if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
 
           cat > /tmp/gravitas-openedx.conf <<NGINX
           server {
               listen 80;
               listen [::]:80;
-              server_name $LMS_HOST $CMS_HOST;
+              server_name $LMS_HOST $CMS_HOST $MFE_HOST;
 
               client_max_body_size 500m;
               proxy_read_timeout 300s;
@@ -264,17 +268,18 @@ jobs:
           $SUDO nginx -t
           $SUDO systemctl reload nginx
 
-          # Certbot is attempted only when both hostnames resolve publicly.
+          # Certbot is attempted only when all Open edX hostnames resolve publicly.
+          # Tutor's MFE plugin serves catalog/learning/account/etc. from MFE_HOST.
           # A DNS-pending installation remains healthy internally and does not
           # take gravitasplus.com down.
-          if getent ahostsv4 "$LMS_HOST" >/dev/null 2>&1 && getent ahostsv4 "$CMS_HOST" >/dev/null 2>&1; then
-            if $SUDO certbot --nginx -d "$LMS_HOST" -d "$CMS_HOST"               --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
+          if getent ahostsv4 "$LMS_HOST" >/dev/null 2>&1 && getent ahostsv4 "$CMS_HOST" >/dev/null 2>&1 && getent ahostsv4 "$MFE_HOST" >/dev/null 2>&1; then
+            if $SUDO certbot --nginx -d "$LMS_HOST" -d "$CMS_HOST" -d "$MFE_HOST"               --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
               echo "Open edX TLS configured."
             else
               echo "Open edX is installed, but public TLS is pending DNS/routing." >&2
             fi
           else
-            echo "Open edX is installed; add DNS for $LMS_HOST and $CMS_HOST to finish public TLS."
+            echo "Open edX is installed; add DNS for $LMS_HOST, $CMS_HOST, and $MFE_HOST to finish public TLS."
           fi
           $SUDO nginx -t
           $SUDO systemctl reload nginx
@@ -284,14 +289,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" <<'REMOTE'
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" "$MFE_HOST" <<'REMOTE'
           set -euo pipefail
           LMS_HOST="$1"
+          MFE_HOST="$2"
           if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
           $SUDO systemctl daemon-reload
           $SUDO systemctl restart gravitas-backend
           $SUDO systemctl is-active gravitas-backend
           curl -fsS -H "Host: $LMS_HOST" http://127.0.0.1:8181/heartbeat >/dev/null
+          curl -fsS -H "Host: $MFE_HOST" http://127.0.0.1:8181/catalog/ >/dev/null
+          echo "Internal Open edX MFE catalog is healthy."
 
           # End-to-end bridge verification: load exactly the same env files as
           # the systemd backend and require a real OAuth client-credentials JWT.
@@ -331,7 +339,8 @@ jobs:
 
           if $SUDO test -f "/etc/letsencrypt/live/$LMS_HOST/fullchain.pem"; then
             curl -fsS "https://$LMS_HOST/heartbeat" >/dev/null
-            echo "Public Open edX HTTPS heartbeat is healthy."
+            curl -fsS "https://$MFE_HOST/catalog/" >/dev/null
+            echo "Public Open edX HTTPS heartbeat and MFE catalog are healthy."
           else
             echo "Public HTTPS verification skipped until DNS/TLS is available."
           fi
