@@ -113,32 +113,53 @@ jobs:
           fi
 
           TUTOR_VERSION="22.0.2"
-          NEED_TUTOR=1
-          if [ -x /usr/local/bin/tutor ]; then
-            CURRENT="$(/usr/local/bin/tutor --version 2>/dev/null | awk '{print $NF}' | tr -d 'v' || true)"
-            [ "$CURRENT" = "$TUTOR_VERSION" ] && NEED_TUTOR=0
+          INDIGO_VERSION="22.0.0"
+          MFE_VERSION="22.1.0"
+          TUTOR_VENV="/opt/gravitas-tutor"
+
+          # Use the Python distribution instead of the standalone binary so
+          # Tutor can discover/install Python plugins through normal entry
+          # points. This also makes plugin versions reproducible.
+          if [ ! -x "$TUTOR_VENV/bin/python" ]; then
+            $SUDO python3 -m venv "$TUTOR_VENV"
           fi
-          if [ "$NEED_TUTOR" -eq 1 ]; then
-            $SUDO curl -fsSL "https://github.com/overhangio/tutor/releases/download/v$TUTOR_VERSION/tutor-$(uname -s)_$(uname -m)" -o /usr/local/bin/tutor
-            $SUDO chmod 0755 /usr/local/bin/tutor
-          fi
-          /usr/local/bin/tutor --version
+          $SUDO "$TUTOR_VENV/bin/python" -m pip install --disable-pip-version-check -q --upgrade pip
+          $SUDO "$TUTOR_VENV/bin/python" -m pip install --disable-pip-version-check -q \
+            "tutor==$TUTOR_VERSION" \
+            "tutor-indigo==$INDIGO_VERSION" \
+            "tutor-mfe==$MFE_VERSION"
+          TUTOR="$TUTOR_VENV/bin/tutor"
+          $TUTOR --version
 
           $SUDO mkdir -p /var/lib/openedx/tutor /etc/gravitas /var/lib/gravitas/lms-media
           $SUDO chown -R "$(id -un):$(id -gn)" /var/lib/openedx/tutor
           $SUDO chown -R gravitas:gravitas /var/lib/gravitas/lms-media
 
           export TUTOR_ROOT=/var/lib/openedx/tutor
-          TUTOR="/usr/local/bin/tutor"
 
-          # Indigo v22 is the Verawood-compatible theme. The platform stays
-          # recognisably Gravitas+ without maintaining a fork of edx-platform.
-          $TUTOR plugins install indigo
-          $TUTOR plugins install mfe
-          $TUTOR plugins enable indigo
-          $TUTOR plugins enable mfe
+          # Initialise core Tutor state before enabling plugins. Plugin enable
+          # persists into config.yml and therefore requires the project root
+          # to exist already.
+          $TUTOR config save \
+            --set "LMS_HOST=$LMS_HOST" \
+            --set "CMS_HOST=$CMS_HOST" \
+            --set 'PLATFORM_NAME=Gravitas+' \
+            --set 'CONTACT_EMAIL=webmaster@gravitasplus.com' \
+            --set ENABLE_HTTPS=true \
+            --set ENABLE_WEB_PROXY=false \
+            --set 'CADDY_HTTP_PORT=127.0.0.1:8181' \
+            --set 'LOCAL_PROJECT_NAME=gravitas_openedx_local' \
+            --set 'OPENEDX_COMMON_VERSION=release/verawood.1'
 
-          $TUTOR config save             --set "LMS_HOST=$LMS_HOST"             --set "CMS_HOST=$CMS_HOST"             --set 'PLATFORM_NAME=Gravitas+'             --set 'CONTACT_EMAIL=webmaster@gravitasplus.com'             --set ENABLE_HTTPS=true             --set ENABLE_WEB_PROXY=false             --set 'CADDY_HTTP_PORT=127.0.0.1:8181'             --set 'LOCAL_PROJECT_NAME=gravitas_openedx_local'             --set 'OPENEDX_COMMON_VERSION=release/verawood.1'             --set 'INDIGO_WELCOME_MESSAGE=Research starts connected.'             --set 'INDIGO_PRIMARY_COLOR="#003049"'             --set 'INDIGO_ENABLE_DARK_TOGGLE=true'             --set 'INDIGO_FOOTER_NAV_LINKS=[{"title":"Gravitas+","url":"https://gravitasplus.com"},{"title":"Learning","url":"https://gravitasplus.com/learn.html"},{"title":"Community","url":"https://gravitasplus.com/community.html"}]'
+          $TUTOR plugins enable indigo mfe
+
+          # Plugin-specific brand configuration is applied only after the
+          # corresponding config schema has been loaded.
+          $TUTOR config save \
+            --set 'INDIGO_WELCOME_MESSAGE=Research starts connected.' \
+            --set 'INDIGO_PRIMARY_COLOR="#003049"' \
+            --set 'INDIGO_ENABLE_DARK_TOGGLE=true' \
+            --set 'INDIGO_FOOTER_NAV_LINKS=[{"title":"Gravitas+","url":"https://gravitasplus.com"},{"title":"Learning","url":"https://gravitasplus.com/learn.html"},{"title":"Community","url":"https://gravitasplus.com/community.html"}]'
 
           $TUTOR local launch -I -p
           $TUTOR local do settheme indigo || true
