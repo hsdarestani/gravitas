@@ -180,25 +180,35 @@ jobs:
           tutor_local run lms ./manage.py lms shell -c             "from django.contrib.auth import get_user_model; u=get_user_model().objects.get(username='gravitas_bridge'); u.is_staff=True; u.save(update_fields=['is_staff']); print('bridge-staff-ready')"
 
           ENV_FILE=/etc/gravitas/openedx.env
+          CREDENTIAL_VERSION=2
+          ROTATE_CREDENTIALS=1
           if $SUDO test -f "$ENV_FILE"; then
+            EXISTING_VERSION="$($SUDO awk -F= '$1=="OPENEDX_CREDENTIAL_VERSION"{print substr($0,index($0,"=")+1)}' "$ENV_FILE")"
             OPENEDX_CLIENT_ID="$($SUDO awk -F= '$1=="OPENEDX_CLIENT_ID"{print substr($0,index($0,"=")+1)}' "$ENV_FILE")"
             OPENEDX_CLIENT_SECRET="$($SUDO awk -F= '$1=="OPENEDX_CLIENT_SECRET"{print substr($0,index($0,"=")+1)}' "$ENV_FILE")"
-          else
+            if [ "$EXISTING_VERSION" = "$CREDENTIAL_VERSION" ] && [ -n "$OPENEDX_CLIENT_ID" ] && [ -n "$OPENEDX_CLIENT_SECRET" ]; then
+              ROTATE_CREDENTIALS=0
+            fi
+          fi
+
+          if [ "$ROTATE_CREDENTIALS" -eq 1 ]; then
             OPENEDX_CLIENT_ID="gravitas-$(openssl rand -hex 16)"
             OPENEDX_CLIENT_SECRET="$(openssl rand -hex 48)"
-            # If a partial prior install exists but the secret file does not,
-            # replace that application so the secret we persist is authoritative.
-            tutor_local run lms ./manage.py lms shell -c               "from oauth2_provider.models import Application; Application.objects.filter(name='gravitas-bridge').delete(); print('old-app-cleared')"
+            # Rotate any pre-hardening credential and recreate the bridge app.
+            tutor_local run lms ./manage.py lms shell -c               "from oauth2_provider.models import Application; Application.objects.filter(name='gravitas-bridge').delete(); print('bridge-app-rotated')" >/dev/null 2>&1
           fi
 
           APP_EXISTS="$(tutor_local run lms ./manage.py lms shell -c             "from oauth2_provider.models import Application; print('YES' if Application.objects.filter(name='gravitas-bridge').exists() else 'NO')"             | tail -n 1 | tr -d '\r')"
           if [ "$APP_EXISTS" != "YES" ]; then
-            tutor_local run lms ./manage.py lms create_dot_application               gravitas-bridge gravitas_bridge               --grant-type client-credentials               --skip-authorization               --scopes 'read,write,email,profile,user_id'               --client-id "$OPENEDX_CLIENT_ID"               --client-secret "$OPENEDX_CLIENT_SECRET"
+            # Suppress Tutor/docker command echoing so the generated client
+            # secret can never be written to CI logs.
+            tutor_local run lms ./manage.py lms create_dot_application               gravitas-bridge gravitas_bridge               --grant-type client-credentials               --skip-authorization               --scopes 'read,write,email,profile,user_id'               --client-id "$OPENEDX_CLIENT_ID"               --client-secret "$OPENEDX_CLIENT_SECRET" >/dev/null 2>&1
           fi
 
           umask 027
           cat > /tmp/openedx.env <<EOF
           OPENEDX_ENABLED=1
+          OPENEDX_CREDENTIAL_VERSION=$CREDENTIAL_VERSION
           OPENEDX_LMS_URL=https://$LMS_HOST
           OPENEDX_CMS_URL=https://$CMS_HOST
           OPENEDX_INTERNAL_URL=http://127.0.0.1:8181
