@@ -47,3 +47,13 @@ class CoreContentPipelineAssetTests(SimpleTestCase):
         js = self.read('assets/ws/ws-core-content-actions.js').lower()
         self.assertNotIn('demo fallback', js)
         self.assertNotIn('fake content', js)
+
+
+    def test_open_card_uses_overlay_modal_and_keeps_board_mounted(self):
+        js = self.read('assets/ws/ws-core-content-actions.js')
+        css = self.read('assets/ws/ws.css')
+        self.assertIn("openContentModal(item, redraw)", js)
+        self.assertIn("el('div', 'core-content-modal')", js)
+        self.assertNotIn("const view = await detailItemPanel(item, redraw, () => openForm(null))", js)
+        self.assertIn(".core-content-modal {", css)
+        self.assertIn("position: fixed", css)

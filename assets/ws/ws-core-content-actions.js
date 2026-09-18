@@ -275,9 +275,57 @@ function researchForm(item, onSaved, onCancel) {
   return p.box;
 }
 
+function closeContentModal(modal) {
+  if (!modal) return;
+  modal.remove();
+}
+
+async function openContentModal(item, redraw) {
+  const modal = el('div', 'core-content-modal');
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', `Content card · ${item.title}`);
+  modal.tabIndex = -1;
+
+  const frame = el('div', 'core-content-modal__frame');
+  const head = el('header', 'core-content-modal__head');
+  head.append(el('div', 'core-content-modal__heading', 'Content card'));
+  const close = action('Close', () => closeContentModal(modal));
+  close.classList.add('core-content-modal__close');
+  head.append(close);
+
+  const body = el('div', 'core-content-modal__body');
+  body.append(el('div', 'ws-skel'));
+  frame.append(head, body);
+  modal.append(frame);
+
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) closeContentModal(modal);
+  });
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeContentModal(modal);
+  });
+
+  document.body.append(modal);
+  window.requestAnimationFrame(() => modal.focus());
+
+  try {
+    const view = await detailItemPanel(item, redraw, () => closeContentModal(modal));
+    body.innerHTML = '';
+    body.append(view);
+  } catch (error) {
+    body.innerHTML = '';
+    const alert = el('div', 'ws-alert');
+    alert.append(el('strong', 'ws-alert__title', 'Content card unavailable'));
+    alert.append(el('p', '', error?.message || 'The card could not be opened.'));
+    alert.append(action('Close', () => closeContentModal(modal), true));
+    body.append(alert);
+  }
+}
+
 async function detailItemPanel(item, redraw, onClose) {
   const p = panel(item.title, 'Content card · production details, discussion and attachments.');
-  const close = action('Back to board', onClose);
+  const close = action('Close', onClose);
   p.head.append(close);
 
   const facts = el('div', 'fl-metrics');
@@ -399,10 +447,7 @@ function card(item, redraw, openForm) {
   node.append(stage);
 
   const actions = el('div', 'fl-form-actions core-content-card__actions');
-  actions.append(action('Open card', async () => {
-    const view = await detailItemPanel(item, redraw, () => openForm(null));
-    openForm(view);
-  }, true, true));
+  actions.append(action('Open card', () => openContentModal(item, redraw), true, true));
   actions.append(action('Edit', () => openForm(editItemForm(item, redraw, () => openForm(null))), false, true));
   if (!item.research_project_id && !['published', 'archived'].includes(item.status)) {
     actions.append(action('Request research', () => openForm(researchForm(item, redraw, () => openForm(null))), false, true));
