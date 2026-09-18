@@ -2334,3 +2334,19 @@
     .ws-editor-outline { display: none; }
   }
 }
+
+
+/* Layer-2 member accounts do not need the editor/index pane. */
+.ws[data-member-only] #ws-toggle-index,
+.ws[data-member-only] .ws__index,
+.ws[data-member-only] #ws-grip-index {
+  display: none !important;
+}
+.ws[data-member-only] .ws__body,
+.ws[data-member-only][data-dock="off"] .ws__body,
+.ws[data-member-only][data-index="off"] .ws__body {
+  grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) var(--ws-dock-w);
+}
+.ws[data-member-only][data-dock="off"] .ws__body {
+  grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0;
+}

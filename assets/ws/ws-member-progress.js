@@ -81,13 +81,34 @@ export async function renderMemberProgress(host, { go }) {
 
     const metrics = el('div', 'fl-metrics');
     metrics.append(
+      metric(data.topic_progress?.total || 0, 'Topics tracked'),
+      metric(data.topic_progress?.completed || 0, 'Topics completed'),
       metric(data.public_paths?.in_progress || 0, 'Public paths in progress'),
-      metric(data.public_paths?.completed || 0, 'Public paths completed'),
-      metric(data.learning?.active || 0, 'LMS courses active'),
-      metric(data.learning?.completed || 0, 'LMS courses completed'),
-      metric(data.research?.projects || 0, 'Research projects'),
     );
+    if (data.learning?.access) {
+      metrics.append(metric(data.learning?.active || 0, 'LMS courses active'), metric(data.learning?.completed || 0, 'LMS courses completed'));
+    }
+    if (data.research?.access) metrics.append(metric(data.research?.projects || 0, 'Research projects'));
     doc.append(metrics);
+
+    const topics = panel('Topic progress', 'Only activities that actually exist in a Topic count: video, discussion comment, vote and simulation.');
+    const topicItems = data.topic_progress?.items || [];
+    if (!topicItems.length) topics.body.append(empty('No topic progress yet', 'Open a Topic and interact with its published components.'));
+    for (const item of topicItems) {
+      const completed = Object.entries(item.applicable || {}).filter(([, enabled]) => enabled).map(([key]) => {
+        const labels = { video: 'Video', comment: 'Discussion', vote: 'Vote', simulation: 'Simulation' };
+        return `${item.done?.[key] ? '✓' : '○'} ${labels[key] || key}`;
+      });
+      const node = row({
+        title: item.title,
+        meta: `${item.done_count} of ${item.total} activities`,
+        tags: [...completed, item.completed ? 'Completed' : 'In progress'],
+        onClick: () => { if (item.url) location.href = item.url; },
+      });
+      node.querySelector('.fl-row__main').append(progress(item.progress_percent));
+      topics.body.append(node);
+    }
+    doc.append(topics.box);
 
     const publicPaths = panel('Public learning paths', 'Progress started on the public Gravitas+ site follows your account here.');
     const paths = data.public_paths?.items || [];
@@ -106,34 +127,38 @@ export async function renderMemberProgress(host, { go }) {
     }
     doc.append(publicPaths.box);
 
-    const learning = panel('LMS learning', data.learning?.access ? 'Course access enabled.' : 'No LMS entitlement is currently enabled.');
-    const enrollments = data.learning?.enrollments || [];
-    if (!enrollments.length) learning.body.append(empty('No course progress yet', 'Course enrollments are independent from Research access.'));
-    for (const item of enrollments) {
-      const node = row({
-        title: item.course_title,
-        meta: P.meta([P.label(item.status), item.completed_at ? `Completed ${P.formatDate(item.completed_at)}` : '']),
-        tags: [item.certificate?.valid ? 'Certificate' : ''],
-        onClick: () => go(`/workspace/learning/courses/${item.course_id}`),
-      });
-      node.querySelector('.fl-row__main').append(progress(item.progress_percent));
-      learning.body.append(node);
+    if (data.learning?.access) {
+      const learning = panel('LMS learning', 'Course access enabled.');
+      const enrollments = data.learning?.enrollments || [];
+      if (!enrollments.length) learning.body.append(empty('No course progress yet', 'Enroll in a course to start tracking it.'));
+      for (const item of enrollments) {
+        const node = row({
+          title: item.course_title,
+          meta: P.meta([P.label(item.status), item.completed_at ? `Completed ${P.formatDate(item.completed_at)}` : '']),
+          tags: [item.certificate?.valid ? 'Certificate' : ''],
+          onClick: () => go(`/workspace/learning/courses/${item.course_id}`),
+        });
+        node.querySelector('.fl-row__main').append(progress(item.progress_percent));
+        learning.body.append(node);
+      }
+      doc.append(learning.box);
     }
-    doc.append(learning.box);
 
-    const research = panel('Research participation', data.research?.access ? 'Project-level access stays authoritative.' : 'No Research entitlement is currently enabled.');
-    const projects = data.research?.recent || [];
-    if (!projects.length) research.body.append(empty('No research projects yet', 'Research access does not depend on course enrollment.'));
-    for (const item of projects) {
-      research.body.append(row({
-        title: item.title,
-        meta: P.meta([P.label(item.role), P.label(item.status), item.deadline ? `Due ${P.formatDate(item.deadline)}` : '']),
-        body: item.description,
-        tags: [item.secure_data_room ? 'Secure data room' : ''],
-        onClick: () => go(`/workspace/research/projects/${item.id}`),
-      }));
+    if (data.research?.access) {
+      const research = panel('Research participation', 'Project-level access stays authoritative.');
+      const projects = data.research?.recent || [];
+      if (!projects.length) research.body.append(empty('No research projects yet', 'Projects you join will appear here.'));
+      for (const item of projects) {
+        research.body.append(row({
+          title: item.title,
+          meta: P.meta([P.label(item.role), P.label(item.status), item.deadline ? `Due ${P.formatDate(item.deadline)}` : '']),
+          body: item.description,
+          tags: [item.secure_data_room ? 'Secure data room' : ''],
+          onClick: () => go(`/workspace/research/projects/${item.id}`),
+        }));
+      }
+      doc.append(research.box);
     }
-    doc.append(research.box);
   } catch (error) {
     skeleton.remove();
     doc.append(empty('Progress could not be loaded', error?.message || 'The platform did not return a usable response.'));

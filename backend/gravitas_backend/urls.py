@@ -7,7 +7,7 @@ from core.assistant_api import assistant_ask
 from core.ai_provider_api import ai_provider_detail, ai_providers
 from core.content_api import content_page
 from core.kms_api import kms_state
-from core.layer_guards import require_research_or_core
+from core.layer_guards import require_core, require_lms, require_research_or_core
 from core.legacy_folder_cleanup import project_legacy_folders
 from core.nextcloud_notes_fast_api import native_notes_fast
 from core.nextcloud_public_api import nextcloud_client_credentials_canonical, nextcloud_status_canonical
@@ -22,6 +22,7 @@ from core.oidc_provider import (
 from core.operating_api_v4 import operating_dashboard, milestones, risks, tasks, work_packages
 from core.project_cockpit_v2 import project_cockpit
 from core.pulsar_api import public_pulsar_ask
+from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
 from core.research_deliverable_api import project_deliverable_detail
 from core.research_milestone_api import project_milestone_detail, project_milestones
@@ -66,23 +67,27 @@ urlpatterns = [
     path('api/oidc/jwks/', oidc_jwks),
     path('api/oidc/userinfo/', oidc_userinfo),
     path('api/operating/roadmap-sync/', roadmap_okr_sync),
-    path('api/platform/mindmaps/<int:map_id>/ai/', generate_mindmap_ai),
+    path('api/platform/mindmaps/<int:map_id>/ai/', require_research_or_core(generate_mindmap_ai)),
+    path('api/labs/', public_labs),
+    path('api/labs/<slug:slug>/', public_lab_detail),
+    path('lab-run/<slug:slug>/', run_lab_file),
+    path('lab-run/<slug:slug>/<path:file_path>', run_lab_file),
     path('api/platform/ai/providers/', ai_providers),
     path('api/platform/ai/ask/', assistant_ask),
     path('api/pulsar/ask/', public_pulsar_ask),
     path('api/platform/ai/providers/<int:provider_id>/', ai_provider_detail),
-    path('api/platform/space/tree/', space_tree),
-    path('api/platform/space/nodes/<int:node_id>/', space_node_detail),
-    path('api/platform/space/projects/<int:project_id>/', space_project_full),
-    path('api/platform/space/notes/', space_notes_full),
-    path('api/platform/space/notes/<int:resource_id>/', space_note_full),
-    path('api/platform/space/items/', space_items),
-    path('api/platform/space/items/<int:item_id>/', space_item_detail),
-    path('api/platform/space/sync/', space_sync_full),
-    path('api/platform/space/reconcile/', reconcile_space_complete),
-    path('api/platform/pages/', workspace_pages),
-    path('api/platform/pages/<str:page_id>/', workspace_page_detail),
-    path('api/platform/kms/state/', kms_state),
+    path('api/platform/space/tree/', require_research_or_core(space_tree)),
+    path('api/platform/space/nodes/<int:node_id>/', require_research_or_core(space_node_detail)),
+    path('api/platform/space/projects/<int:project_id>/', require_research_or_core(space_project_full)),
+    path('api/platform/space/notes/', require_research_or_core(space_notes_full)),
+    path('api/platform/space/notes/<int:resource_id>/', require_research_or_core(space_note_full)),
+    path('api/platform/space/items/', require_research_or_core(space_items)),
+    path('api/platform/space/items/<int:item_id>/', require_research_or_core(space_item_detail)),
+    path('api/platform/space/sync/', require_research_or_core(space_sync_full)),
+    path('api/platform/space/reconcile/', require_research_or_core(reconcile_space_complete)),
+    path('api/platform/pages/', require_research_or_core(workspace_pages)),
+    path('api/platform/pages/<str:page_id>/', require_research_or_core(workspace_page_detail)),
+    path('api/platform/kms/state/', require_lms(kms_state)),
     # Space-aware project creation is canonical for the workspace UI. Existing
     # integrations that omit space_category_id are delegated unchanged to the
     # legacy platform creator.
@@ -97,12 +102,12 @@ urlpatterns = [
     path('api/platform/projects/<int:project_id>/legacy-folders/', project_legacy_folders),
     # These canonical wrappers intentionally precede the legacy core.urls
     # routes with the same URLs.
-    path('api/platform/nextcloud/', nextcloud_status_canonical),
-    path('api/platform/nextcloud/client-credentials/', nextcloud_client_credentials_canonical),
-    path('api/platform/nextcloud/sso/', nextcloud_sso),
+    path('api/platform/nextcloud/', require_research_or_core(nextcloud_status_canonical)),
+    path('api/platform/nextcloud/client-credentials/', require_research_or_core(nextcloud_client_credentials_canonical)),
+    path('api/platform/nextcloud/sso/', require_research_or_core(nextcloud_sso)),
     # Notes first paint is local-only. The existing sync endpoint still performs
     # the full conflict-safe reconciliation after the page has rendered.
-    path('api/platform/nextcloud/notes/', native_notes_fast),
+    path('api/platform/nextcloud/notes/', require_research_or_core(native_notes_fast)),
     path('api/platform/dashboard/', platform_dashboard_acl_safe),
     path('api/platform/projects/<int:project_id>/', platform_project_detail_acl_safe),
     path('api/platform/links/', entity_links_layer_safe),
@@ -120,12 +125,12 @@ urlpatterns = [
     # Research/client share links.
     path('api/platform/shared/<uuid:token>/', shared_link_core_safe),
     path('api/platform/shared/<uuid:token>/download/', shared_file_download_core_safe),
-    path('api/platform/projects/<int:project_id>/cockpit/', project_cockpit),
+    path('api/platform/projects/<int:project_id>/cockpit/', require_research_or_core(project_cockpit)),
     # Research milestones share the canonical Core operating objects, but the
     # Research surface owns their project ACL and mutation controls.
-    path('api/platform/projects/<int:project_id>/milestones/', project_milestones),
-    path('api/platform/projects/<int:project_id>/milestones/<int:milestone_id>/', project_milestone_detail),
-    path('api/platform/projects/<int:project_id>/deliverables/<int:deliverable_id>/', project_deliverable_detail),
+    path('api/platform/projects/<int:project_id>/milestones/', require_research_or_core(project_milestones)),
+    path('api/platform/projects/<int:project_id>/milestones/<int:milestone_id>/', require_research_or_core(project_milestone_detail)),
+    path('api/platform/projects/<int:project_id>/deliverables/<int:deliverable_id>/', require_research_or_core(project_deliverable_detail)),
     # Structural access guards: explicit invalid workspace ids must not fall
     # back to Personal, ACL reconciliation is manager-only, and project access
     # changes must stay synchronized with native Nextcloud membership.
@@ -135,11 +140,11 @@ urlpatterns = [
     path('api/platform/projects/<int:project_id>/applications/<int:application_id>/', project_application_detail_synced),
     # Bridge Core planning to the separate canonical Research workspace. These
     # routes intentionally shadow the legacy operating endpoints in core.urls.
-    path('api/operating/dashboard/', operating_dashboard),
-    path('api/operating/milestones/', milestones),
-    path('api/operating/work-packages/', work_packages),
-    path('api/operating/tasks/', tasks),
-    path('api/operating/risks/', risks),
+    path('api/operating/dashboard/', require_core(operating_dashboard)),
+    path('api/operating/milestones/', require_core(milestones)),
+    path('api/operating/work-packages/', require_core(work_packages)),
+    path('api/operating/tasks/', require_core(tasks)),
+    path('api/operating/risks/', require_core(risks)),
     path('api/', include('core.urls')),
     path('content/<slug:slug>/', content_page),
 ]

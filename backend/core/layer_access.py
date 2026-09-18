@@ -146,6 +146,11 @@ def module_access(user, module):
         return True
 
     if module == ModuleGrant.Module.LMS:
+        research_grant = _grant(user, ModuleGrant.Module.RESEARCH)
+        if research_grant is not None and grant_is_effective(research_grant):
+            return True
+        if _research_participation(user):
+            return True
         return _lms_participation(user)
     if module == ModuleGrant.Module.RESEARCH:
         return _research_participation(user)

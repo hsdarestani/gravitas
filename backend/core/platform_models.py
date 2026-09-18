@@ -157,6 +157,79 @@ class ContentWorkItem(models.Model):
         indexes = [models.Index(fields=['workspace', 'status', 'kind'], name='grav_content_pipeline')]
 
 
+class ContentWorkComment(models.Model):
+    item = models.ForeignKey(ContentWorkItem, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_content_work_comments',
+    )
+    body = models.TextField(max_length=10000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
+class ContentWorkAttachment(models.Model):
+    item = models.ForeignKey(ContentWorkItem, on_delete=models.CASCADE, related_name='attachments')
+    uploader = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_content_work_attachments',
+    )
+    name = models.CharField(max_length=255)
+    storage_path = models.CharField(max_length=1000)
+    mime_type = models.CharField(max_length=160, blank=True)
+    size = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
+class CoreAsset(models.Model):
+    class Kind(models.TextChoices):
+        FILE = 'file', 'File'
+        URL = 'url', 'URL'
+
+    title = models.CharField(max_length=240)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.FILE, db_index=True)
+    description = models.TextField(blank=True)
+    source_url = models.URLField(max_length=1600, blank=True)
+    storage_path = models.CharField(max_length=1000, blank=True)
+    original_name = models.CharField(max_length=255, blank=True)
+    mime_type = models.CharField(max_length=160, blank=True)
+    file_size = models.PositiveBigIntegerField(default=0)
+    visible_to_all_core = models.BooleanField(default=True, db_index=True)
+    uploader = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_core_assets_uploaded',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+
+class CoreAssetAccess(models.Model):
+    asset = models.ForeignKey(CoreAsset, on_delete=models.CASCADE, related_name='access_grants')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_core_asset_access',
+    )
+    can_edit = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['asset', 'user'], name='unique_gravitas_core_asset_access'),
+        ]
+
+
 class ResearchRequest(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'

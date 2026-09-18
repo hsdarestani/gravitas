@@ -8,7 +8,7 @@
    all write through /api/platform/content/.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20260914-7';
+import * as P from './ws-platform.js?v=20260918-access3';
 
 const STATUS = [
   ['idea', 'Idea'],
@@ -275,6 +275,98 @@ function researchForm(item, onSaved, onCancel) {
   return p.box;
 }
 
+async function detailItemPanel(item, redraw, onClose) {
+  const p = panel(item.title, 'Content card · production details, discussion and attachments.');
+  const close = action('Back to board', onClose);
+  p.head.append(close);
+
+  const facts = el('div', 'fl-metrics');
+  for (const [labelText, value] of [
+    ['Stage', stageLabel(item.status)],
+    ['Type', kindLabel(item.kind)],
+    ['Owner', item.owner || 'Unassigned'],
+    ['Due', item.due_date ? formatDate(item.due_date) : '—'],
+  ]) {
+    const cell = el('div', 'fl-metric');
+    cell.append(el('strong', 'fl-metric__value', String(value)), el('span', 'fl-metric__title', labelText));
+    facts.append(cell);
+  }
+  p.body.append(facts);
+  if (item.description) p.body.append(el('p', 'fl-row__body', item.description));
+
+  const comments = panel('Discussion');
+  const attachments = panel('Attachments', 'Maximum 10 MB per attachment.');
+  p.body.append(comments.box, attachments.box);
+
+  const loadComments = async () => {
+    comments.body.innerHTML = '<div class="fl-skeleton"></div>';
+    try {
+      const data = await P.contentComments(item.id);
+      comments.body.innerHTML = '';
+      for (const row of data.comments || []) {
+        const line = el('div', 'fl-row');
+        const main = el('div', 'fl-row__main');
+        main.append(el('strong', '', row.author), el('small', 'fl-muted', formatDate(row.created_at)), el('p', 'fl-row__body', row.body));
+        line.append(main); comments.body.append(line);
+      }
+      if (!(data.comments || []).length) comments.body.append(el('p', 'fl-muted', 'No comments yet.'));
+      const form = el('form', 'fl-form');
+      const body = textarea('', 3, 'Add a comment to this card…');
+      const send = action('Comment', null, true); send.type = 'submit';
+      const line = statusLine();
+      form.append(body, send, line);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault(); if (!body.value.trim()) return;
+        send.disabled = true; setStatus(line, 'Posting…');
+        try { await P.addContentComment(item.id, body.value.trim()); await loadComments(); }
+        catch (error) { setStatus(line, error?.message || 'Comment could not be posted.', 'bad'); send.disabled = false; }
+      });
+      comments.body.append(form);
+    } catch (error) {
+      comments.body.innerHTML = ''; comments.body.append(el('p', 'fl-muted', error?.message || 'Comments unavailable.'));
+    }
+  };
+
+  const loadAttachments = async () => {
+    attachments.body.innerHTML = '<div class="fl-skeleton"></div>';
+    try {
+      const data = await P.contentAttachments(item.id);
+      attachments.body.innerHTML = '';
+      for (const row of data.attachments || []) {
+        const open = el('a', 'ws-btn ws-btn--tiny', 'Download');
+        open.href = row.download_url;
+        attachments.body.append((() => {
+          const line = el('div', 'fl-row');
+          const main = el('div', 'fl-row__main');
+          main.append(el('strong', '', row.name), el('small', 'fl-muted', P.meta([P.formatBytes(row.size), row.uploader, formatDate(row.created_at)])));
+          line.append(main, open); return line;
+        })());
+      }
+      if (!(data.attachments || []).length) attachments.body.append(el('p', 'fl-muted', 'No attachments yet.'));
+      const form = el('form', 'fl-form');
+      const file = input('', 'file');
+      const upload = action('Upload attachment', null, true); upload.type = 'submit';
+      const line = statusLine();
+      form.append(file, upload, line);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const chosen = file.files?.[0];
+        if (!chosen) return;
+        if (chosen.size > 10 * 1024 * 1024) { setStatus(line, 'Maximum attachment size is 10 MB.', 'bad'); return; }
+        upload.disabled = true; setStatus(line, 'Uploading…');
+        try { await P.uploadContentAttachment(item.id, chosen); await loadAttachments(); }
+        catch (error) { setStatus(line, error?.message || 'Upload failed.', 'bad'); upload.disabled = false; }
+      });
+      attachments.body.append(form);
+    } catch (error) {
+      attachments.body.innerHTML = ''; attachments.body.append(el('p', 'fl-muted', error?.message || 'Attachments unavailable.'));
+    }
+  };
+
+  await Promise.all([loadComments(), loadAttachments()]);
+  return p.box;
+}
+
 function card(item, redraw, openForm) {
   const node = el('article', 'v-card core-content-card');
   node.dataset.contentId = String(item.id);
@@ -307,6 +399,10 @@ function card(item, redraw, openForm) {
   node.append(stage);
 
   const actions = el('div', 'fl-form-actions core-content-card__actions');
+  actions.append(action('Open card', async () => {
+    const view = await detailItemPanel(item, redraw, () => openForm(null));
+    openForm(view);
+  }, true, true));
   actions.append(action('Edit', () => openForm(editItemForm(item, redraw, () => openForm(null))), false, true));
   if (!item.research_project_id && !['published', 'archived'].includes(item.status)) {
     actions.append(action('Request research', () => openForm(researchForm(item, redraw, () => openForm(null))), false, true));

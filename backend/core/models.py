@@ -17,6 +17,21 @@ class NewsletterSubscriber(models.Model):
         return self.email
 
 
+class NewsletterCampaign(models.Model):
+    subject = models.CharField(max_length=240)
+    body = models.TextField()
+    sent_count = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_newsletter_campaigns',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
 class ContentItem(models.Model):
     class Kind(models.TextChoices):
         ARTICLE = 'article', 'Article'
@@ -144,6 +159,98 @@ class TopicPollVote(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=['topic', 'voter_key'], name='unique_gravitas_topic_poll_voter')]
         indexes = [models.Index(fields=['topic', 'option_id'], name='grav_topic_poll_option')]
+
+
+class TopicProgress(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_topic_progress',
+    )
+    topic = models.ForeignKey(
+        ContentItem,
+        on_delete=models.CASCADE,
+        related_name='member_progress',
+    )
+    video_viewed = models.BooleanField(default=False)
+    commented = models.BooleanField(default=False)
+    voted = models.BooleanField(default=False)
+    simulation_played = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'topic'], name='unique_gravitas_topic_progress'),
+        ]
+
+
+class SupportTicket(models.Model):
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        WAITING_MEMBER = 'waiting_member', 'Waiting for member'
+        WAITING_TEAM = 'waiting_team', 'Waiting for Gravitas+'
+        RESOLVED = 'resolved', 'Resolved'
+        CLOSED = 'closed', 'Closed'
+
+    class Priority(models.TextChoices):
+        NORMAL = 'normal', 'Normal'
+        HIGH = 'high', 'High'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_support_tickets',
+    )
+    subject = models.CharField(max_length=240)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.OPEN, db_index=True)
+    priority = models.CharField(max_length=16, choices=Priority.choices, default=Priority.NORMAL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        indexes = [models.Index(fields=['status', '-updated_at'], name='grav_ticket_status_recent')]
+
+
+class SupportMessage(models.Model):
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name='messages')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_support_messages',
+    )
+    body = models.TextField(max_length=10000)
+    is_team_reply = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
+class InteractiveLab(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PUBLISHED = 'published', 'Published'
+
+    slug = models.SlugField(max_length=180, unique=True)
+    title = models.CharField(max_length=240)
+    summary = models.TextField(blank=True)
+    description = models.TextField(blank=True)
+    duration_text = models.CharField(max_length=80, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    files = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_interactive_labs',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
 
 
 class ReaderSavedItem(models.Model):

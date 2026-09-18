@@ -8,7 +8,7 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js';
+import * as P from './ws-platform.js?v=20260918-access3';
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
@@ -545,20 +545,150 @@ export function renderMindMaps(host) {
   doc.append(holder);
   skeleton(5, holder);
 
-  return guard(holder, 'mind maps', async () => {
-    const data = await P.mindmaps();
-    holder.innerHTML = '';
-    const maps = data.mindmaps || data.items || [];
-    if (!maps.length) {
-      holder.append(empty('No mind maps', 'Maps you create or that are shared with you appear here.'));
-      return;
+  const button = (label, handler, solid = false) => {
+    const node = el('button', solid ? 'ws-btn ws-btn--solid' : 'ws-btn', label);
+    node.type = 'button'; node.addEventListener('click', handler); return node;
+  };
+
+  const drawEditor = async (id) => {
+    holder.innerHTML = '<div class="ws-skel"><i></i><i></i><i></i></div>';
+    try {
+      const data = await P.mindmap(id);
+      const map = data.item;
+      holder.innerHTML = '';
+      const back = button('Back to maps', drawList);
+      holder.append(back);
+
+      const meta = panel(map.title);
+      const title = el('input', 'v-input'); title.value = map.title || '';
+      const description = el('textarea', 'v-input'); description.rows = 3; description.value = map.description || '';
+      const save = button('Save map', async () => {
+        save.disabled = true;
+        try { await P.updateMindmap(id, {title:title.value.trim(), description:description.value.trim()}); save.textContent = 'Saved'; }
+        finally { save.disabled = false; }
+      }, true);
+      meta.body.append(title, description, save);
+      holder.append(meta);
+
+      const nodes = panel('Nodes');
+      const redrawNodes = async () => drawEditor(id);
+      for (const node of map.nodes || []) {
+        const actions = el('div', 'v-row__actions');
+        const edit = button('Edit', () => {
+          actions.innerHTML = '';
+          const t = el('input', 'v-input'); t.value = node.title || '';
+          const b = el('textarea', 'v-input'); b.rows = 3; b.value = node.body || '';
+          const saveNode = button('Save', async () => {
+            await P.mindmapAction(id, {action:'node.update', node_id:node.id, title:t.value.trim(), body:b.value.trim()});
+            await redrawNodes();
+          }, true);
+          const remove = button('Delete', async () => {
+            if (!confirm(`Delete “${node.title}”?`)) return;
+            await P.mindmapAction(id, {action:'node.delete', node_id:node.id});
+            await redrawNodes();
+          });
+          actions.append(t,b,saveNode,remove);
+        });
+        actions.append(edit);
+        nodes.body.append(row({
+          title: node.title,
+          sub: node.body || P.label(node.kind),
+          badges: [P.label(node.kind)],
+          action: actions,
+        }));
+      }
+      const addForm = el('form', 'fl-form');
+      const newTitle = el('input', 'v-input'); newTitle.placeholder = 'New node';
+      const newBody = el('textarea', 'v-input'); newBody.rows = 2; newBody.placeholder = 'Note or evidence';
+      const add = button('Add node', () => {}, true); add.type = 'submit';
+      addForm.append(newTitle,newBody,add);
+      addForm.addEventListener('submit', async (event) => {
+        event.preventDefault(); if (!newTitle.value.trim()) return;
+        add.disabled = true;
+        await P.mindmapAction(id, {action:'node.create', title:newTitle.value.trim(), body:newBody.value.trim(), kind:'concept'});
+        await redrawNodes();
+      });
+      nodes.body.append(addForm);
+      holder.append(nodes);
+
+      const edges = panel('Connections');
+      for (const edge of map.edges || []) {
+        const source = (map.nodes || []).find((n) => n.id === edge.source_id);
+        const target = (map.nodes || []).find((n) => n.id === edge.target_id);
+        const remove = button('Remove', async () => {
+          await P.mindmapAction(id, {action:'edge.delete', edge_id:edge.id});
+          await redrawNodes();
+        });
+        edges.body.append(row({
+          title: `${source?.title || edge.source_id} → ${target?.title || edge.target_id}`,
+          sub: edge.label || P.label(edge.relation),
+          action: remove,
+        }));
+      }
+      if ((map.nodes || []).length >= 2) {
+        const form = el('form', 'fl-form');
+        const from = el('select', 'v-input');
+        const to = el('select', 'v-input');
+        for (const node of map.nodes) {
+          const a = el('option', null, node.title); a.value = node.id; from.append(a);
+          const b = el('option', null, node.title); b.value = node.id; to.append(b);
+        }
+        if (to.options[1]) to.selectedIndex = 1;
+        const labelInput = el('input', 'v-input'); labelInput.placeholder = 'Relationship label';
+        const connect = button('Connect nodes', () => {}, true); connect.type = 'submit';
+        form.append(from,to,labelInput,connect);
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (from.value === to.value) return;
+          connect.disabled = true;
+          await P.mindmapAction(id, {action:'edge.create', source_id:Number(from.value), target_id:Number(to.value), relation:'related', label:labelInput.value.trim()});
+          await redrawNodes();
+        });
+        edges.body.append(form);
+      }
+      holder.append(edges);
+    } catch (error) {
+      holder.innerHTML = '';
+      holder.append(failure('mind map', error, () => drawEditor(id)));
     }
-    const list = panel('Mind maps');
-    for (const map of maps) {
-      list.body.append(row({ title: map.title, sub: P.meta([map.project_title, P.formatDate(map.updated_at)]) }));
+  };
+
+  const drawList = async () => {
+    holder.innerHTML = '<div class="ws-skel"><i></i><i></i><i></i></div>';
+    try {
+      const data = await P.mindmaps();
+      holder.innerHTML = '';
+      const create = panel('New mind map');
+      const form = el('form', 'fl-form');
+      const title = el('input', 'v-input'); title.placeholder = 'Mind map title';
+      const description = el('textarea', 'v-input'); description.rows = 2; description.placeholder = 'Question or purpose';
+      const add = button('Create map', () => {}, true); add.type = 'submit';
+      form.append(title,description,add); create.body.append(form); holder.append(create);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault(); if (!title.value.trim()) return;
+        add.disabled = true;
+        const created = await P.createMindmap({title:title.value.trim(), description:description.value.trim()});
+        await drawEditor(created.item.id);
+      });
+
+      const maps = data.mindmaps || data.items || [];
+      const list = panel('Mind maps');
+      if (!maps.length) list.body.append(empty('No mind maps', 'Create one above.'));
+      for (const map of maps) {
+        list.body.append(row({
+          title: map.title,
+          sub: P.meta([map.project_title, P.formatDate(map.updated_at)]),
+          onClick: () => drawEditor(map.id),
+        }));
+      }
+      holder.append(list);
+    } catch (error) {
+      holder.innerHTML = '';
+      holder.append(failure('mind maps', error, drawList));
     }
-    holder.append(list);
-  });
+  };
+
+  drawList();
 }
 
 export function renderShared(host) {

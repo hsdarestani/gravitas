@@ -10,6 +10,7 @@ from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 
 from .models import ContentItem, ContentTranslation, TopicPollVote
+from .topic_progress import mark_topic_progress
 
 
 SUPPORTED_LOCALES = {'en', 'de', 'fa'}
@@ -157,8 +158,39 @@ def topic_poll(request, slug):
     if option_id not in {item['id'] for item in _poll_options(topic)}:
         return JsonResponse({'ok': False, 'error': 'invalid_option'}, status=400)
     TopicPollVote.objects.update_or_create(topic=topic, voter_key=_voter_key(request), defaults={'option_id': option_id})
+    if request.user.is_authenticated:
+        mark_topic_progress(request.user, topic, 'vote')
     return JsonResponse({'ok': True, 'poll': _poll_json(request, topic)})
 
+
+
+def community_polls(request):
+    if request.method != 'GET':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+    topics = ContentItem.objects.filter(
+        kind=ContentItem.Kind.TOPIC,
+        status=ContentItem.Status.PUBLISHED,
+    ).order_by('-published_at', '-created_at')
+    result = []
+    for topic in topics[:100]:
+        poll = _poll_json(request, topic)
+        if not poll.get('options'):
+            continue
+        data = topic.topic_data if isinstance(topic.topic_data, dict) else {}
+        viewpoints = data.get('viewpoints') if isinstance(data.get('viewpoints'), dict) else {}
+        result.append({
+            'topic_id': topic.pk,
+            'slug': topic.slug,
+            'title': topic.title,
+            'summary': topic.summary,
+            'url': f'/topic.html?slug={topic.slug}#views',
+            'question': poll.get('question') or 'Where do you land?',
+            'explanation': str(viewpoints.get('poll_note') or topic.summary or ''),
+            'options': poll.get('options', []),
+            'total_votes': poll.get('total_votes', 0),
+            'selected': poll.get('selected'),
+        })
+    return JsonResponse({'ok': True, 'polls': result})
 
 def topic_media(request, name):
     if request.method != 'GET':

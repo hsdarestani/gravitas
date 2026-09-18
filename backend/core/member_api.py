@@ -3,9 +3,18 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from .layer_access import effective_modules, module_access
-from .layer_models import ActivityEvent, CommunityProfile, ModuleGrant
+from .layer_models import CommunityProfile, ModuleGrant
 from .lms_models import CourseEnrollment
-from .models import Comment, LabProgress, ProjectMembership, ReaderSavedItem, ResearchProject
+from .models import (
+    Comment,
+    LabProgress,
+    ProjectMembership,
+    ReaderSavedItem,
+    ResearchProject,
+    SupportTicket,
+    TopicProgress,
+)
+from .topic_progress import progress_json
 
 
 MAX_RECENT = 12
@@ -81,6 +90,7 @@ def _enrollment_json(enrollment):
         'progress_percent': str(enrollment.progress_percent),
         'enrolled_at': _iso(enrollment.enrolled_at),
         'completed_at': _iso(enrollment.completed_at),
+        'updated_at': _iso(enrollment.updated_at),
         'certificate': certificate,
     }
 
@@ -102,28 +112,56 @@ def _project_json(project, user):
     }
 
 
-def _event_json(event):
-    return {
-        'id': event.pk,
-        'layer': event.layer,
-        'action': event.action,
-        'object_type': event.object_type,
-        'object_id': event.object_id,
-        'detail': event.detail,
-        'created_at': _iso(event.created_at),
-    }
+def _recent_activity(user, comments, enrollments, projects, topic_progress, *, lms_access, research_access):
+    """Member-facing history is personal product activity, never audit/security logs."""
+    events = []
+    for item in comments[:MAX_RECENT]:
+        events.append({
+            '_at': item.created_at,
+            'kind': 'comment',
+            'title': 'Discussion comment',
+            'meta': item.content_key.replace('-', ' ').title(),
+            'href': f'/topic.html?slug={item.content_key}#talk',
+        })
+    for item in topic_progress[:MAX_RECENT]:
+        p = progress_json(item.topic, item)
+        events.append({
+            '_at': item.updated_at,
+            'kind': 'topic',
+            'title': item.topic.title,
+            'meta': f"{p['done_count']} of {p['total']} topic activities",
+            'href': p['url'],
+        })
+    if lms_access:
+        for item in enrollments[:MAX_RECENT]:
+            events.append({
+                '_at': item.updated_at,
+                'kind': 'learning',
+                'title': item.course.title,
+                'meta': f'{item.progress_percent}% complete',
+                'href': f'/workspace/learning/courses/{item.course_id}',
+            })
+    if research_access:
+        for item in projects[:MAX_RECENT]:
+            events.append({
+                '_at': item.updated_at,
+                'kind': 'research',
+                'title': item.title,
+                'meta': 'Research project',
+                'href': f'/workspace/research/projects/{item.pk}',
+            })
+    events.sort(key=lambda event: event['_at'], reverse=True)
+    return [{
+        'kind': event['kind'],
+        'title': event['title'],
+        'meta': event['meta'],
+        'href': event['href'],
+        'created_at': _iso(event['_at']),
+    } for event in events[:MAX_RECENT]]
 
 
 @require_http_methods(['GET'])
 def member_dashboard(request):
-    """Layer 2 account home.
-
-    This endpoint intentionally aggregates references from the other layers
-    instead of copying their records. A member sees one account-level picture
-    of saved material, public learning paths, discussions, LMS learning and
-    research, while the LMS and project ACLs remain authoritative when they
-    follow a link into those layers.
-    """
     if not request.user.is_authenticated:
         return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
     if not module_access(request.user, ModuleGrant.Module.DASHBOARD):
@@ -132,50 +170,60 @@ def member_dashboard(request):
     user = request.user
     profile, _ = CommunityProfile.objects.get_or_create(user=user)
     access = effective_modules(user)
+    lms_access = bool(access.get(ModuleGrant.Module.LMS, {}).get('enabled'))
+    research_access = bool(access.get(ModuleGrant.Module.RESEARCH, {}).get('enabled'))
 
     saved_qs = ReaderSavedItem.objects.filter(user=user, relation=ReaderSavedItem.Relation.SAVED)
     following_qs = ReaderSavedItem.objects.filter(user=user, relation=ReaderSavedItem.Relation.FOLLOWING)
     path_qs = LabProgress.objects.filter(user=user, lab_key__startswith=PATH_KEY_PREFIX).order_by('-updated_at')
     comments_qs = Comment.objects.filter(author=user).order_by('-updated_at')
+    topic_qs = TopicProgress.objects.filter(user=user).select_related('topic').order_by('-updated_at')
 
-    enrollments = CourseEnrollment.objects.filter(user=user).select_related('course').order_by('-updated_at')
-    active_enrollments = enrollments.filter(
-        status__in=[CourseEnrollment.Status.ACTIVE, CourseEnrollment.Status.PAUSED]
-    )
-    completed_enrollments = enrollments.filter(status=CourseEnrollment.Status.COMPLETED)
+    if lms_access:
+        enrollments = CourseEnrollment.objects.filter(user=user).select_related('course').order_by('-updated_at')
+        active_enrollments = enrollments.filter(
+            status__in=[CourseEnrollment.Status.ACTIVE, CourseEnrollment.Status.PAUSED]
+        )
+        completed_enrollments = enrollments.filter(status=CourseEnrollment.Status.COMPLETED)
+    else:
+        enrollments = CourseEnrollment.objects.none()
+        active_enrollments = CourseEnrollment.objects.none()
+        completed_enrollments = CourseEnrollment.objects.none()
 
-    projects = ResearchProject.objects.filter(
-        Q(owner=user) | Q(memberships__user=user), archived=False
-    ).select_related('platform_profile').distinct().order_by('-updated_at')
-
-    events = ActivityEvent.objects.filter(
-        Q(subject_user=user) | Q(actor=user)
-    ).order_by('-created_at')[:MAX_RECENT]
+    if research_access:
+        projects = ResearchProject.objects.filter(
+            Q(owner=user) | Q(memberships__user=user), archived=False
+        ).select_related('platform_profile').distinct().order_by('-updated_at')
+    else:
+        projects = ResearchProject.objects.none()
 
     next_actions = []
     for progress in path_qs.filter(completed=False)[:3]:
         item = _path_json(progress)
         next_actions.append({
-            'kind': 'path',
-            'title': item['title'],
-            'meta': f"{item['progress_percent']}% complete",
-            'href': item['url'],
+            'kind': 'path', 'title': item['title'],
+            'meta': f"{item['progress_percent']}% complete", 'href': item['url'],
         })
-    for enrollment in active_enrollments[:4]:
-        next_actions.append({
-            'kind': 'learning',
-            'title': enrollment.course.title,
-            'meta': f'{enrollment.progress_percent}% complete',
-            'href': f'/workspace/learning/courses/{enrollment.course_id}',
-        })
-    if access.get(ModuleGrant.Module.RESEARCH, {}).get('enabled'):
+    if lms_access:
+        for enrollment in active_enrollments[:4]:
+            next_actions.append({
+                'kind': 'learning', 'title': enrollment.course.title,
+                'meta': f'{enrollment.progress_percent}% complete',
+                'href': f'/workspace/learning/courses/{enrollment.course_id}',
+            })
+    if research_access:
         for project in projects[:4]:
             next_actions.append({
-                'kind': 'research',
-                'title': project.title,
+                'kind': 'research', 'title': project.title,
                 'meta': getattr(getattr(project, 'platform_profile', None), 'status', '') or 'Project',
                 'href': f'/workspace/research/projects/{project.pk}',
             })
+
+    topic_items = [progress_json(item.topic, item) for item in topic_qs[:MAX_RECENT]]
+    activity = _recent_activity(
+        user, comments_qs, enrollments, projects, topic_qs,
+        lms_access=lms_access, research_access=research_access,
+    )
 
     return JsonResponse({
         'ok': True,
@@ -199,6 +247,11 @@ def member_dashboard(request):
             'in_progress': path_qs.filter(completed=False).count(),
             'items': [_path_json(item) for item in path_qs[:MAX_RECENT]],
         },
+        'topic_progress': {
+            'total': topic_qs.count(),
+            'completed': sum(1 for item in topic_items if item['completed']),
+            'items': topic_items,
+        },
         'discussions': {
             'total': comments_qs.count(),
             'pending': comments_qs.filter(status=Comment.Status.PENDING).count(),
@@ -206,16 +259,26 @@ def member_dashboard(request):
             'recent': [_comment_json(item) for item in comments_qs[:MAX_RECENT]],
         },
         'learning': {
-            'access': bool(access.get(ModuleGrant.Module.LMS, {}).get('enabled')),
-            'active': active_enrollments.count(),
-            'completed': completed_enrollments.count(),
-            'enrollments': [_enrollment_json(item) for item in enrollments[:MAX_RECENT]],
+            'access': lms_access,
+            'active': active_enrollments.count() if lms_access else 0,
+            'completed': completed_enrollments.count() if lms_access else 0,
+            'enrollments': [_enrollment_json(item) for item in enrollments[:MAX_RECENT]] if lms_access else [],
         },
         'research': {
-            'access': bool(access.get(ModuleGrant.Module.RESEARCH, {}).get('enabled')),
-            'projects': projects.count(),
-            'recent': [_project_json(item, user) for item in projects[:MAX_RECENT]],
+            'access': research_access,
+            'projects': projects.count() if research_access else 0,
+            'recent': [_project_json(item, user) for item in projects[:MAX_RECENT]] if research_access else [],
+        },
+        'support': {
+            'open': SupportTicket.objects.filter(
+                user=user,
+                status__in=[
+                    SupportTicket.Status.OPEN,
+                    SupportTicket.Status.WAITING_MEMBER,
+                    SupportTicket.Status.WAITING_TEAM,
+                ],
+            ).count(),
         },
         'next_actions': next_actions[:8],
-        'activity': [_event_json(item) for item in events],
+        'activity': activity,
     })

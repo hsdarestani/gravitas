@@ -197,7 +197,15 @@ async function apply(path) {
      the honest answer is to send them to the workspace they can open, not
      to render an empty Core screen. */
   if (areaOf(path).startsWith('core') && !P.canOpenCore() && P.platform.boot) {
-    go('/workspace/research', { replace: true });
+    go('/workspace/dashboard', { replace: true });
+    return;
+  }
+  if (areaOf(path) === 'research' && !P.canOpenResearch() && P.platform.boot) {
+    go('/workspace/dashboard', { replace: true });
+    return;
+  }
+  if (areaOf(path) === 'kms' && !P.canOpenLms() && P.platform.boot) {
+    go('/workspace/dashboard', { replace: true });
     return;
   }
 
@@ -419,14 +427,15 @@ function renderIndex() {
 
   for (const section of sectionsFor(ui.area)) {
     const isOpen = ui.openSections.has(section.id);
-    const hasChildren = !!(section.children?.length || section.tree);
+    const visibleChildren = (section.children || []).filter((child) => !child.when || child.when());
+    const hasChildren = !!(visibleChildren.length || section.tree);
     const active = section.match(location.pathname);
 
     const row = sectionRow({
       label: section.label,
       mark: section.icon,
       depth: 0,
-      active: active && !(section.children || []).some((c) => c.match(location.pathname)),
+      active: active && !visibleChildren.some((c) => c.match(location.pathname)),
       expandable: hasChildren,
       expanded: isOpen,
       onToggle: () => {
@@ -444,7 +453,7 @@ function renderIndex() {
     group.className = 'ws-node__kids';
     group.style.setProperty('--depth', 0);
 
-    for (const child of section.children || []) {
+    for (const child of visibleChildren) {
       group.append(sectionRow({
         label: child.label,
         mark: child.icon,
@@ -1761,6 +1770,14 @@ export async function start() {
   await P.loadBootstrap();
   ui.booting = false;
 
+  const memberOnly = !P.canOpenLms() && !P.canOpenResearch() && !P.canOpenCore();
+  const shell = $('#ws');
+  if (shell) shell.toggleAttribute('data-member-only', memberOnly);
+  if (memberOnly) {
+    ui.index = false;
+    paintPaneState();
+  }
+
   // The rail shows the profile picture, so it needs the profile. Fired
   // without awaiting: the shell must not wait on a decoration.
   P.myProfile().then((data) => { ui.profile = data.profile; renderRail(); }).catch(() => {});
@@ -1768,6 +1785,18 @@ export async function start() {
   if (P.platform.error === 'signed-out') {
     // Deliberately not a redirect. The old shell bounced to /login from
     // inside its fetch wrapper, which threw away whatever was open.
+    render();
+    return;
+  }
+
+  // Dashboard/LMS-only accounts do not use the editor tree. Avoid hydrating
+  // Research/Space entirely for them: this both enforces the layer boundary
+  // in the client and removes a large unnecessary startup request.
+  if (!P.canOpenResearch() && !P.canOpenCore()) {
+    const here = location.pathname;
+    if (here.startsWith('/workspace/research') || here.startsWith('/workspace/operating') || here.startsWith('/workspace/core')) {
+      history.replaceState({}, '', '/workspace/dashboard');
+    }
     render();
     return;
   }

@@ -9,10 +9,14 @@ import {
   renderMemberOverview,
   renderMyLearning,
 } from './ws-member-lms.js?v=20260914-3';
-import { renderMemberProgress } from './ws-member-progress.js?v=20260914-1';
+import { renderMemberProgress } from './ws-member-progress.js?v=20260918-progress3';
+import { renderMemberSupport } from './ws-support.js?v=20260918-support1';
 import {
   renderAdminActivity,
   renderAdminCourseEditor,
+  renderAdminLabs,
+  renderAdminNewsletter,
+  renderAdminTickets,
   renderAdminDeck,
   renderAdminLms,
   renderAdminModeration,
@@ -35,6 +39,7 @@ const DASHBOARD_INDEX = [
   ['Library', '/workspace/dashboard/library', 'files'],
   ['Discussions', '/workspace/dashboard/discussions', 'collaboration'],
   ['Progress', '/workspace/dashboard/progress', 'target'],
+  ['Support', '/workspace/dashboard/support', 'collaboration'],
 ];
 
 const LEARNING_INDEX = [
@@ -50,6 +55,9 @@ const ADMIN_INDEX = [
   ['Users & Access', '/workspace/core/admin/users', 'team'],
   ['Topics', '/workspace/core/admin/content', 'content'],
   ['Moderation', '/workspace/core/admin/moderation', 'collaboration'],
+  ['Newsletter', '/workspace/core/admin/newsletter', 'mail'],
+  ['Support tickets', '/workspace/core/admin/tickets', 'collaboration'],
+  ['Interactive Lab', '/workspace/core/admin/labs', 'lab'],
   ['LMS Admin', '/workspace/core/admin/lms', 'planning'],
   ['Research Admin', '/workspace/core/admin/research', 'projects'],
   ['Cross-layer Links', '/workspace/core/admin/links', 'link'],
@@ -91,6 +99,7 @@ function pathKind(path = location.pathname) {
   if (path === '/workspace/dashboard/library' || path === '/workspace/dashboard/library/') return { kind: 'dashboard', page: 'library' };
   if (path === '/workspace/dashboard/discussions' || path === '/workspace/dashboard/discussions/') return { kind: 'dashboard', page: 'discussions' };
   if (path === '/workspace/dashboard/progress' || path === '/workspace/dashboard/progress/') return { kind: 'dashboard', page: 'progress' };
+  if (path === '/workspace/dashboard/support' || path === '/workspace/dashboard/support/') return { kind: 'dashboard', page: 'support' };
 
   if (path === '/workspace/learning' || path === '/workspace/learning/') return { kind: 'learning', page: 'overview' };
   if (path === '/workspace/learning/library' || path === '/workspace/learning/library/') return { kind: 'learning', page: 'library' };
@@ -120,6 +129,9 @@ function pathKind(path = location.pathname) {
   match = path.match(/^\/workspace\/core\/admin\/content\/(\d+)\/?$/);
   if (match) return { kind: 'admin', page: 'content-editor', id: match[1] };
   if (path === '/workspace/core/admin/moderation' || path === '/workspace/core/admin/moderation/') return { kind: 'admin', page: 'moderation' };
+  if (path === '/workspace/core/admin/newsletter' || path === '/workspace/core/admin/newsletter/') return { kind: 'admin', page: 'newsletter' };
+  if (path === '/workspace/core/admin/tickets' || path === '/workspace/core/admin/tickets/') return { kind: 'admin', page: 'tickets' };
+  if (path === '/workspace/core/admin/labs' || path === '/workspace/core/admin/labs/') return { kind: 'admin', page: 'labs' };
   if (path === '/workspace/core/admin/lms' || path === '/workspace/core/admin/lms/') return { kind: 'admin', page: 'lms' };
   if (path === '/workspace/core/admin/lms/courses/new' || path === '/workspace/core/admin/lms/courses/new/') return { kind: 'admin', page: 'course-editor', id: 'new' };
   match = path.match(/^\/workspace\/core\/admin\/lms\/courses\/(\d+)\/?$/);
@@ -269,6 +281,18 @@ async function renderCustom() {
     navigate(route.to, { replace: true });
     return true;
   }
+  if (route.kind === 'learning' && !P.canOpenLms()) {
+    navigate('/workspace/dashboard', { replace: true });
+    return true;
+  }
+  if (route.kind === 'learning-legacy' && !P.canOpenLms()) {
+    navigate('/workspace/dashboard', { replace: true });
+    return true;
+  }
+  if (route.kind === 'research-project' && !P.canOpenResearch() && !P.canOpenCore()) {
+    navigate('/workspace/dashboard', { replace: true });
+    return true;
+  }
   if (route.kind === 'learning-legacy') {
     renderIndex('Learning', LEARNING_INDEX, 'Learning tools');
     setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, { label: 'Personal knowledge' }]);
@@ -281,12 +305,13 @@ async function renderCustom() {
 
   if (route.kind === 'dashboard') {
     renderIndex('Dashboard', DASHBOARD_INDEX, P.communityRole() ? labelRole(P.communityRole()) : 'Member');
-    const titles = { overview: 'Dashboard', library: 'Library', discussions: 'Discussions', progress: 'Progress' };
+    const titles = { overview: 'Dashboard', library: 'Library', discussions: 'Discussions', progress: 'Progress', support: 'Support' };
     setCrumbs([{ label: 'Dashboard', path: '/workspace/dashboard' }, ...(route.page === 'overview' ? [] : [{ label: titles[route.page] }])]);
     if (route.page === 'overview') await renderMemberOverview(host, ctx);
     if (route.page === 'library') await renderMemberLibrary(host, ctx);
     if (route.page === 'discussions') await renderMemberDiscussions(host, ctx);
     if (route.page === 'progress') await renderMemberProgress(host, ctx);
+    if (route.page === 'support') await renderMemberSupport(host, ctx);
     return true;
   }
 
@@ -321,6 +346,9 @@ async function renderCustom() {
     if (route.page === 'content') await renderAdminContent(host, ctx);
     if (route.page === 'content-editor') await renderAdminContentEditor(host, route.id, ctx);
     if (route.page === 'moderation') await renderAdminModeration(host, ctx);
+    if (route.page === 'newsletter') await renderAdminNewsletter(host, ctx);
+    if (route.page === 'tickets') await renderAdminTickets(host, ctx);
+    if (route.page === 'labs') await renderAdminLabs(host, ctx);
     if (route.page === 'lms') await renderAdminLms(host, ctx);
     if (route.page === 'course-editor') await renderAdminCourseEditor(host, route.id, ctx);
     if (route.page === 'research') await renderAdminResearch(host, ctx);
@@ -343,6 +371,7 @@ function labelRole(value) {
 function adminTitle(page) {
   return {
     users: 'Users & Access', user: 'Account', content: 'Topics', 'content-editor': 'Topic', moderation: 'Moderation',
+    newsletter: 'Newsletter', tickets: 'Support tickets', labs: 'Interactive Lab',
     lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck', nextcloud: 'Nextcloud Mirror',
   }[page] || 'Admin';
 }

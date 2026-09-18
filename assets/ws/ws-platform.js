@@ -39,6 +39,26 @@ async function csrfToken() {
 
 export class AuthRequired extends Error {}
 
+export async function upload(path, formData, { method = 'POST' } = {}) {
+  const token = await csrfToken();
+  const res = await fetch(API + path, {
+    method,
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { Accept: 'application/json', 'X-CSRFToken': token },
+    body: formData,
+  });
+  if (res.status === 401) throw new AuthRequired('authentication_required');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const error = new Error(data.error || `http_${res.status}`);
+    error.status = res.status;
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+
 export async function call(path, { method = 'GET', body } = {}) {
   const verb = String(method || 'GET').toUpperCase();
   const unsafe = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(verb);
@@ -197,8 +217,17 @@ export function isCoreAdmin() {
 /* ---- Shared platform endpoints ----------------------------------------- */
 export const memberDashboard = () => call('/member/dashboard/');
 export const readerLibrary = () => call('/reader/library/');
+export const removeLibraryItem = (relation, itemKey) => call('/reader/library/', {
+  method: 'DELETE', body: { relation, item_key: itemKey },
+});
+export const memberTickets = () => call('/member/tickets/');
+export const createMemberTicket = (body) => call('/member/tickets/', { method: 'POST', body });
+export const memberTicket = (id) => call(`/member/tickets/${id}/`);
+export const replyMemberTicket = (id, message) => call(`/member/tickets/${id}/`, { method: 'POST', body: { message } });
+export const updateMemberTicket = (id, body) => call(`/member/tickets/${id}/`, { method: 'PATCH', body });
 export const dashboard = (workspace) => call(`/platform/dashboard/?workspace=${workspace}`);
 export const projects = () => call('/platform/projects/');
+export const researchCalendar = () => call('/platform/research-calendar/');
 export const project = (id) => call(`/platform/projects/${id}/`);
 export const projectCockpit = (id) => call(`/platform/projects/${id}/cockpit/`);
 export const projectMilestones = (id) => call(`/platform/projects/${id}/milestones/`);
@@ -234,6 +263,10 @@ export const content = () => call('/platform/content/');
 export const resources = (kind) => call(`/platform/resources/?kind=${encodeURIComponent(kind)}`);
 export const searchResources = (query) => call(`/platform/resources/?workspace=research&q=${encodeURIComponent(query)}`);
 export const mindmaps = () => call('/platform/mindmaps/');
+export const createMindmap = (body) => call('/platform/mindmaps/', { method: 'POST', body });
+export const mindmap = (id) => call(`/platform/mindmaps/${id}/`);
+export const mindmapAction = (id, body) => call(`/platform/mindmaps/${id}/`, { method: 'POST', body });
+export const updateMindmap = (id, body) => call(`/platform/mindmaps/${id}/`, { method: 'PATCH', body });
 export const researchers = () => call('/platform/researchers/');
 export const myProfile = () => call('/platform/researchers/me/');
 export const sharedWithMe = () => call('/platform/shared-with-me/');
@@ -302,6 +335,28 @@ export const adminLmsEnrollments = (params = {}) => {
 export const adminUpdateLmsEnrollment = (id, body) => call(`/platform/admin/lms/enrollments/${id}/`, {
   method: 'PATCH', body,
 });
+export const adminNewsletter = () => call('/platform/admin/newsletter/');
+export const adminSendNewsletter = (body) => call('/platform/admin/newsletter/', { method: 'POST', body });
+export const adminUpdateNewsletterSubscriber = (id, active) => call(`/platform/admin/newsletter/subscribers/${id}/`, { method: 'PATCH', body: { active } });
+export const adminTickets = (status = '') => call(`/platform/admin/tickets/${status ? `?status=${encodeURIComponent(status)}` : ''}`);
+export const adminTicket = (id) => call(`/platform/admin/tickets/${id}/`);
+export const adminReplyTicket = (id, message) => call(`/platform/admin/tickets/${id}/`, { method: 'POST', body: { message } });
+export const adminUpdateTicket = (id, body) => call(`/platform/admin/tickets/${id}/`, { method: 'PATCH', body });
+export const adminLabs = () => call('/platform/admin/labs/');
+export const adminCreateLab = (body) => call('/platform/admin/labs/', { method: 'POST', body });
+export const adminUpdateLab = (id, body) => call(`/platform/admin/labs/${id}/`, { method: 'PATCH', body });
+export const adminDeleteLab = (id) => call(`/platform/admin/labs/${id}/`, { method: 'DELETE' });
+export const contentComments = (id) => call(`/platform/content/${id}/comments/`);
+export const addContentComment = (id, body) => call(`/platform/content/${id}/comments/`, { method: 'POST', body: { body } });
+export const contentAttachments = (id) => call(`/platform/content/${id}/attachments/`);
+export const uploadContentAttachment = (id, file) => {
+  const form = new FormData(); form.append('file', file);
+  return upload(`/platform/content/${id}/attachments/`, form);
+};
+export const coreAssets = () => call('/platform/core-assets/');
+export const uploadCoreAsset = (form) => upload('/platform/core-assets/', form);
+export const updateCoreAsset = (id, body) => call(`/platform/core-assets/${id}/`, { method: 'PATCH', body });
+export const deleteCoreAsset = (id) => call(`/platform/core-assets/${id}/`, { method: 'DELETE' });
 export const adminDeck = () => call('/platform/admin/deck/');
 export const adminDeckSync = () => call('/platform/admin/deck/sync/', { method: 'POST', body: {} });
 

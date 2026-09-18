@@ -1,5 +1,6 @@
 import json
 
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
@@ -319,43 +320,88 @@ def space_sync_full(request):
         return response
     data = _body(request)
     force = bool(data.get('force'))
+    full = bool(data.get('full'))
     if force and not data.get('confirmed'):
         return _error('confirmation_required', 409)
+
     conflicts = []
     errors = []
+    touched = {'nodes': 0, 'projects': 0, 'notes': 0, 'items': 0}
     try:
         ensure_defaults(request.user, sync=False)
     except cloud.CloudError:
         return _error('cloud_unavailable', 503)
-    for node in SpaceNode.objects.filter(owner=request.user):
+
+    nodes = SpaceNode.objects.filter(owner=request.user)
+    if not full:
+        nodes = nodes.exclude(sync_state='synced')
+    for node in nodes:
         try:
             sync_node(node, force=force)
+            touched['nodes'] += 1
         except SpaceConflict as exc:
             conflicts.append(exc.path)
         except cloud.CloudError as exc:
             errors.append(str(exc))
-    projects = ResearchProject.objects.filter(owner=request.user, archived=False)
-    projects = projects | ResearchProject.objects.filter(memberships__user=request.user, archived=False)
-    for project in projects.distinct():
+
+    projects = (
+        ResearchProject.objects.filter(
+            Q(owner=request.user) | Q(memberships__user=request.user),
+            archived=False,
+        )
+        .distinct()
+        .prefetch_related('space_links')
+    )
+    for project in projects:
+        existing = next((link for link in project.space_links.all() if link.user_id == request.user.pk), None)
+        if not full and existing and existing.sync_state == 'synced':
+            continue
         try:
             sync_project_moveaware(project, request.user, force=force)
+            touched['projects'] += 1
         except SpaceConflict as exc:
             conflicts.append(exc.path)
         except (ValueError, cloud.CloudError) as exc:
             errors.append(str(exc))
-    for note in KnowledgeResource.objects.filter(owner=request.user, kind=KnowledgeResource.Kind.NOTE).select_related('project'):
+
+    notes = (
+        KnowledgeResource.objects
+        .filter(owner=request.user, kind=KnowledgeResource.Kind.NOTE)
+        .select_related('project', 'space_link')
+    )
+    for note in notes:
+        try:
+            link = note.space_link
+        except NoteSpaceLink.DoesNotExist:
+            link = None
+        if not full and link and link.sync_state == 'synced':
+            continue
         try:
             sync_note_moveaware(note, force=force)
+            touched['notes'] += 1
         except SpaceConflict as exc:
             conflicts.append(exc.path)
         except (ValueError, cloud.CloudError) as exc:
             errors.append(str(exc))
-    for item in SpaceManagedItem.objects.filter(owner=request.user):
+
+    items = SpaceManagedItem.objects.filter(owner=request.user)
+    if not full:
+        items = items.exclude(sync_state='synced')
+    for item in items:
         try:
             sync_item(item, force=force)
+            touched['items'] += 1
         except SpaceConflict as exc:
             conflicts.append(exc.path)
         except cloud.CloudError as exc:
             errors.append(str(exc))
+
     status = 409 if conflicts and not force else (503 if errors else 200)
-    return JsonResponse({'ok': not conflicts and not errors, 'conflicts': conflicts, 'errors': errors}, status=status)
+    return JsonResponse({
+        'ok': not conflicts and not errors,
+        'mode': 'full' if full else 'fast',
+        'touched': touched,
+        'conflicts': conflicts,
+        'errors': errors,
+    }, status=status)
+

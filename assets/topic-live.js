@@ -501,6 +501,74 @@
     form.querySelector('textarea').focus();
   }
 
+  function markProgress(slug, action) {
+    return post('/api/content/' + encodeURIComponent(slug) + '/progress/', {action: action}).catch(function () { return null; });
+  }
+
+  function setupTopicProgress(slug) {
+    fetch('/api/content/' + encodeURIComponent(slug) + '/progress/', {credentials: 'same-origin', cache: 'no-store'})
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.authenticated || !data.progress) return;
+        var applicable = data.progress.applicable || {};
+        var done = data.progress.done || {};
+
+        if (applicable.video && !done.video) {
+          var video = document.querySelector('#video video');
+          var videoHost = document.querySelector('#video .topic-media, #video .video');
+          var markedVideo = false;
+          var finishVideo = function () {
+            if (markedVideo) return;
+            markedVideo = true;
+            markProgress(slug, 'video');
+          };
+          if (video) {
+            video.addEventListener('timeupdate', function () {
+              if (video.currentTime >= Math.min(10, Math.max(3, (video.duration || 30) * .2))) finishVideo();
+            });
+          } else if (videoHost && 'IntersectionObserver' in window) {
+            var timer = 0;
+            var observer = new IntersectionObserver(function (entries) {
+              entries.forEach(function (entry) {
+                if (entry.isIntersecting && entry.intersectionRatio >= .55) {
+                  if (!timer) timer = window.setTimeout(function () { finishVideo(); observer.disconnect(); }, 10000);
+                } else if (timer) {
+                  window.clearTimeout(timer); timer = 0;
+                }
+              });
+            }, {threshold: [.55]});
+            observer.observe(videoHost);
+          }
+        }
+
+        if (applicable.simulation && !done.simulation) {
+          var sim = document.getElementById('sim');
+          if (sim) {
+            var markedSim = false;
+            var finishSim = function () {
+              if (markedSim) return;
+              markedSim = true;
+              markProgress(slug, 'simulation');
+            };
+            sim.addEventListener('change', finishSim, {once: true, capture: true});
+            sim.addEventListener('pointerdown', function (event) {
+              if (event.target.closest('input,button,select,canvas,iframe')) finishSim();
+            }, {once: true, capture: true});
+            var frame = sim.querySelector('iframe');
+            if (frame) {
+              window.addEventListener('blur', function onBlur() {
+                if (document.activeElement === frame) {
+                  finishSim();
+                  window.removeEventListener('blur', onBlur);
+                }
+              });
+            }
+          }
+        }
+      })
+      .catch(function () {});
+  }
+
   function loadCommunity(slug) {
     return Promise.all([
       fetch('/api/auth/me/', {credentials: 'same-origin', cache: 'no-store'}).then(function (r) { return r.ok ? r.json() : {authenticated: false}; }).catch(function () { return {authenticated: false}; }),
@@ -525,6 +593,7 @@
       var item = data.item;
       if (!item || item.kind !== 'topic') throw new Error('topic_not_found');
       renderTopic(item);
+      setupTopicProgress(slug);
       return Promise.all([
         fetch('/api/content/' + encodeURIComponent(slug) + '/poll/', {credentials: 'same-origin', cache: 'no-store'})
           .then(function (r) { return r.ok ? r.json() : null; })

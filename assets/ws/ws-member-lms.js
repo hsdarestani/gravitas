@@ -136,9 +136,11 @@ export async function renderMemberOverview(host, { go }) {
     metrics.append(
       metric(data.library.saved_count, 'Saved'),
       metric(data.discussions.total, 'Discussions'),
-      metric(data.learning.active, 'Active courses'),
-      metric(data.research.projects, 'Research projects'),
+      metric(data.topic_progress?.total || 0, 'Topics in progress'),
+      metric(data.support?.open || 0, 'Open tickets'),
     );
+    if (data.learning?.access) metrics.append(metric(data.learning.active, 'Active courses'));
+    if (data.research?.access) metrics.append(metric(data.research.projects, 'Research projects'));
     wrap.append(metrics);
 
     const next = section('Next', 'The most useful unfinished work across your enabled layers.');
@@ -162,11 +164,13 @@ export async function renderMemberOverview(host, { go }) {
     saved.head.append(link(go, 'Open library', '/workspace/dashboard/library'));
 
     const activity = section('Recent activity');
-    if (!data.activity.length) activity.body.append(empty('No activity yet', 'Layer activity appears here as you use Gravitas+.'));
+    if (!data.activity.length) activity.body.append(empty('No activity yet', 'Your comments, topic progress, learning and research activity will appear here.'));
     for (const item of data.activity.slice(0, 7)) {
       activity.body.append(row({
-        title: label(item.action),
-        meta: P.meta([label(item.layer), date(item.created_at)]),
+        title: item.title,
+        meta: P.meta([item.meta, date(item.created_at)]),
+        badges: [label(item.kind)],
+        onClick: item.href ? () => go(item.href) : null,
       }));
     }
     cols.append(saved.box, activity.box);
@@ -194,6 +198,13 @@ export async function renderMemberLibrary(host, { go }) {
         open.href = item.url;
         tools.push(open);
       }
+      const remove = action('Remove', async () => {
+        remove.disabled = true;
+        try { await P.removeLibraryItem('saved', item.item_key); await renderMemberLibrary(host, { go }); }
+        catch { remove.disabled = false; }
+      });
+      remove.classList.add('ws-btn--tiny');
+      tools.push(remove);
       saved.body.append(row({
         title: item.title,
         meta: P.meta([label(item.kind), date(item.saved_at)]),
@@ -206,7 +217,17 @@ export async function renderMemberLibrary(host, { go }) {
     const following = section('Following');
     if (!data.library.following.length) following.body.append(empty('Not following anything yet', 'Follow a topic on the public site to keep it in your account.'));
     for (const item of data.library.following) {
-      following.body.append(row({ title: item.title, meta: label(item.kind), body: item.summary }));
+      const tools = [];
+      if (item.url) {
+        const open = el('a', 'ws-btn ws-btn--tiny', 'Open'); open.href = item.url; tools.push(open);
+      }
+      const unfollow = action('Unfollow', async () => {
+        unfollow.disabled = true;
+        try { await P.removeLibraryItem('following', item.item_key); await renderMemberLibrary(host, { go }); }
+        catch { unfollow.disabled = false; }
+      });
+      unfollow.classList.add('ws-btn--tiny'); tools.push(unfollow);
+      following.body.append(row({ title: item.title, meta: label(item.kind), body: item.summary, actions: tools }));
     }
     wrap.append(following.box);
   } catch (error) {

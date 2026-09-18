@@ -20,7 +20,7 @@
    links and bookmarks keep working.
    ========================================================================== */
 
-import { canOpenCore, isCoreAdmin } from './ws-platform.js';
+import { canOpenCore, canOpenLms, canOpenResearch, isCoreAdmin } from './ws-platform.js';
 
 /* The workspaces, in the order the rail offers them. Core comes first for
    the people who can open it, because they are the ones who live in it. */
@@ -120,7 +120,7 @@ export const CORE_SECTIONS = [
     path: '/workspace/operating',
     match: under('/workspace/operating'),
     children: [
-      { id: 'op-initiatives', label: 'Initiatives', icon: 'target', path: '/workspace/operating/initiatives', match: under('/workspace/operating/initiatives') },
+      { id: 'op-initiatives', label: 'Initiatives', icon: 'target', path: '/workspace/operating/initiatives', match: under('/workspace/operating/initiatives'), when: isCoreAdmin },
       { id: 'op-cycles',      label: 'Cycles',      icon: 'cycle',  path: '/workspace/operating/cycles',      match: under('/workspace/operating/cycles') },
     ],
   },
@@ -323,7 +323,7 @@ export function sectionsFor(area) {
 export function activeSection(area, path) {
   for (const section of sectionsFor(area)) {
     for (const child of section.children || []) {
-      if (child.match(path)) return { section, child };
+      if ((!child.when || child.when()) && child.match(path)) return { section, child };
     }
     if (section.match(path)) return { section, child: null };
   }
@@ -343,7 +343,8 @@ export function titleFor(area, path) {
 export function availableWorkspaces() {
   const out = [];
   if (canOpenCore()) out.push(WORKSPACES.core);
-  out.push(WORKSPACES.research, WORKSPACES.kms);
+  if (canOpenResearch()) out.push(WORKSPACES.research);
+  if (canOpenLms()) out.push(WORKSPACES.kms);
   return out;
 }
 

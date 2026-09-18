@@ -7,7 +7,7 @@
    service is named as unavailable and a successful mutation is read back.
    ========================================================================== */
 
-import * as P from './ws-platform.js';
+import * as P from './ws-platform.js?v=20260918-access3';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -53,27 +53,56 @@ async function projectData() {
 export function renderCalendar(host, ctx) {
   const doc = shell(host, 'Journal', 'Daily research notes with project deadlines in the same calendar.');
   const body = el('div', 'rkms-calendar'); doc.append(body);
-  body.append(notice('Loading calendar', 'Reading live project deadlines…'));
+  let cursor = new Date();
+  cursor.setDate(1);
+  let payload = null;
 
-  Promise.all([projectData(), Promise.resolve(ctx.pages('research'))]).then(([rows, pages]) => {
+  const load = async () => {
+    body.innerHTML = '';
+    body.append(notice('Loading calendar', 'Reading your journal index and dated Research work…'));
+    try {
+      const pages = ctx.pages('research');
+      if (!payload) payload = await P.researchCalendar();
+      const journalDays = new Set(
+        pages.filter((page) => page.kind === 'journal' && page.journal_date).map((page) => page.journal_date)
+      );
+      const events = payload.events || [];
+      draw(journalDays, events);
+    } catch (error) {
+      body.innerHTML = '';
+      body.append(notice('Calendar unavailable', 'The Research calendar could not be loaded. No placeholder deadlines were shown.', true));
+    }
+  };
+
+  const draw = (journalDays, events) => {
     body.innerHTML = '';
     const now = new Date();
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const journalDays = new Set(pages.filter((page) => page.kind === 'journal').map((page) => page.journal_date));
+    const year = cursor.getFullYear();
+    const monthIndex = cursor.getMonth();
+    const first = new Date(year, monthIndex, 1);
+    const last = new Date(year, monthIndex + 1, 0);
+
     const month = el('section', 'v-panel rkms-month');
     const monthHead = el('div', 'v-toolbar');
-    monthHead.append(el('h2', 'v-panel__title', now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })));
-    const todayButton = button('Today', () => ctx.openJournal(new Date()), true);
-    monthHead.append(todayButton); month.append(monthHead);
+    const previous = button('←', () => { cursor = new Date(year, monthIndex - 1, 1); draw(journalDays, events); });
+    previous.setAttribute('aria-label', 'Previous month');
+    const title = el('h2', 'v-panel__title', cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
+    const next = button('→', () => { cursor = new Date(year, monthIndex + 1, 1); draw(journalDays, events); });
+    next.setAttribute('aria-label', 'Next month');
+    const todayButton = button('Today', () => {
+      cursor = new Date(); cursor.setDate(1); draw(journalDays, events);
+    }, true);
+    monthHead.append(previous, title, next, todayButton);
+    month.append(monthHead);
+
     const grid = el('div', 'rkms-month__grid');
     for (const label of ['S', 'M', 'T', 'W', 'T', 'F', 'S']) grid.append(el('span', 'rkms-month__dayname', label));
     for (let pad = 0; pad < first.getDay(); pad += 1) grid.append(el('span'));
+
     for (let day = 1; day <= last.getDate(); day += 1) {
-      const date = new Date(now.getFullYear(), now.getMonth(), day);
+      const date = new Date(year, monthIndex, day);
       const key = dayKey(date);
-      let cell;
-      cell = button(String(day), async () => {
+      const cell = button(String(day), async () => {
         if (cell.disabled) return;
         const oldTitle = cell.title;
         cell.disabled = true;
@@ -96,26 +125,29 @@ export function renderCalendar(host, ctx) {
       cell.className = 'rkms-month__day';
       if (key === dayKey(now)) cell.dataset.today = '';
       if (journalDays.has(key)) cell.dataset.journal = '';
+      if (events.some((event) => event.due_date === key)) cell.dataset.deadline = '';
       cell.title = journalDays.has(key) ? 'Open journal entry' : 'Create journal entry';
       grid.append(cell);
     }
     month.append(grid); body.append(month);
-    const events = [];
-    for (const { project, cockpit } of rows) {
-      for (const task of cockpit?.tasks || []) if (task.due_date) events.push({ ...task, project: project.title, kind: 'Task' });
-      for (const request of cockpit?.research_requests || []) if (request.due_date) events.push({ ...request, project: project.title, kind: 'Request' });
-    }
-    events.sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+
     const toolbar = el('div', 'v-toolbar');
-    const upcoming = button('Upcoming', () => draw(false), true);
-    const all = button('All deadlines', () => draw(true));
-    toolbar.append(upcoming, all, el('span', 'v-toolbar__count', `${events.length} deadlines`));
+    const upcoming = button('Upcoming', () => drawEvents(false), true);
+    const all = button('All deadlines', () => drawEvents(true));
+    const count = el('span', 'v-toolbar__count', `${events.length} deadlines`);
+    toolbar.append(upcoming, all, count);
     const list = el('div', 'v-panel'); body.append(toolbar, list);
-    const draw = (includePast) => {
+
+    const drawEvents = (includePast) => {
       list.innerHTML = '';
+      upcoming.classList.toggle('ws-btn--solid', !includePast);
+      all.classList.toggle('ws-btn--solid', includePast);
       const today = dayKey(new Date());
       const visible = events.filter((event) => includePast || event.due_date >= today);
-      if (!visible.length) { list.append(notice('No deadlines', 'No dated research tasks or requests in this view.')); return; }
+      if (!visible.length) {
+        list.append(notice('No deadlines', 'No dated Research tasks or requests in this view.'));
+        return;
+      }
       for (const event of visible) {
         const row = el('div', 'v-row rkms-event');
         row.append(el('time', 'rkms-event__date', P.formatDate(event.due_date)));
@@ -124,8 +156,10 @@ export function renderCalendar(host, ctx) {
         row.append(main); list.append(row);
       }
     };
-    draw(false);
-  }).catch(() => { body.innerHTML = ''; body.append(notice('Calendar unavailable', 'The project service did not answer. No placeholder deadlines were shown.', true)); });
+    drawEvents(false);
+  };
+
+  load();
 }
 
 export function renderProjects(host, { go }) {

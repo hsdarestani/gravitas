@@ -46,16 +46,20 @@ def _plain_text(blocks):
     return '\n\n'.join(str(block.get('text') or '') for block in blocks if isinstance(block, dict)).strip()
 
 
-def _page_json(resource):
+def _page_json(resource, *, include_blocks=True):
     metadata = resource.metadata or {}
-    link = NoteSpaceLink.objects.filter(resource=resource).first()
+    try:
+        link = resource.space_link
+    except NoteSpaceLink.DoesNotExist:
+        link = None
     parent = metadata.get('ws_parent')
     if not parent and link:
         parent = str(link.parent_note_id) if link.parent_note_id else (f's-{link.category_id}' if link.category_id else None)
     return {
         'id': str(resource.pk), 'title': resource.title,
         'kind': metadata.get('ws_kind') or 'note', 'parent': parent,
-        'space': metadata.get('ws_space') or 'research', 'blocks': _blocks(resource),
+        'space': metadata.get('ws_space') or 'research',
+        'blocks': _blocks(resource) if include_blocks else [],
         'created': resource.created_at.isoformat(), 'updated': resource.updated_at.isoformat(),
         'bookmarked': bool(metadata.get('ws_bookmarked')),
         'journal_date': metadata.get('ws_journal_date'),
@@ -121,8 +125,9 @@ def workspace_pages(request):
             })
         notes = KnowledgeResource.objects.filter(
             owner=request.user, kind=KnowledgeResource.Kind.NOTE,
-        )
-        pages = [_page_json(item) for item in notes]
+        ).select_related('space_link')
+        summary = request.GET.get('summary') in {'1', 'true', 'yes'}
+        pages = [_page_json(item, include_blocks=not summary) for item in notes]
         nodes = folders + [{key: page.get(key) for key in ('id', 'title', 'kind', 'parent', 'space')} | {'phantom': False} for page in pages]
         return JsonResponse({'ok': True, 'nodes': nodes, 'pages': pages})
 

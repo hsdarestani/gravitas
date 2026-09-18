@@ -1,10 +1,17 @@
 from django.urls import path
 
-from core.content_api import content_detail, content_list, topic_media, topic_poll
+from core.content_api import community_polls, content_detail, content_list, topic_media, topic_poll
 from core.core_links_api import task_cross_layer_links
 from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
 from core.reader_library import reader_library
+from core.topic_progress import topic_progress
+from core.support_api import admin_ticket_detail, admin_tickets, member_ticket_detail, member_tickets
+from core.newsletter_admin_api import admin_newsletter, admin_newsletter_subscriber
+from core.lab_api import admin_lab_detail, admin_labs
+from core.content_collab_api import content_attachment_download, content_attachments, content_comments
+from core.core_assets_api import core_asset_detail, core_asset_download, core_assets
+from core.research_calendar_api import research_calendar
 from core.member_api import member_dashboard
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
@@ -106,7 +113,7 @@ from core.platform_admin_extended import (
     admin_research_project_detail,
     admin_research_projects,
 )
-from core.layer_guards import require_research_or_core
+from core.layer_guards import require_core, require_core_admin, require_lms, require_research_or_core
 from core.lms_api import (
     lms_assessment_attempt,
     lms_course_detail,
@@ -174,6 +181,8 @@ urlpatterns = [
     path('content/', content_list),
     path('content/<slug:slug>/', content_detail),
     path('content/<slug:slug>/poll/', topic_poll),
+    path('content/<slug:slug>/progress/', topic_progress),
+    path('community/polls/', community_polls),
     path('content/media/<str:name>/', topic_media),
     path('newsletter/subscribe/', newsletter_subscribe),
     path('newsletter/confirm/', newsletter_confirm),
@@ -220,6 +229,12 @@ urlpatterns = [
     path('platform/admin/lms/enrollments/<int:enrollment_id>/', admin_lms_enrollment_detail),
     path('platform/admin/deck/', deck_status),
     path('platform/admin/deck/sync/', deck_sync_with_access),
+    path('platform/admin/newsletter/', admin_newsletter),
+    path('platform/admin/newsletter/subscribers/<int:subscriber_id>/', admin_newsletter_subscriber),
+    path('platform/admin/tickets/', admin_tickets),
+    path('platform/admin/tickets/<int:ticket_id>/', admin_ticket_detail),
+    path('platform/admin/labs/', admin_labs),
+    path('platform/admin/labs/<int:lab_id>/', admin_lab_detail),
     path('platform/team/', core_team),
     path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),
@@ -254,26 +269,36 @@ urlpatterns = [
     # Shared platform services. Their own ACL checks decide which object is
     # visible because the same resource/file can be linked from more than one
     # product layer.
-    path('platform/nextcloud/', nextcloud_status),
-    path('platform/nextcloud/client-credentials/', nextcloud_client_credentials),
-    path('platform/nextcloud/notes/', native_notes),
-    path('platform/nextcloud/notes/sync/', native_notes_sync),
-    path('platform/nextcloud/notes/<int:resource_id>/resolve/', native_note_resolve),
-    path('platform/nextcloud/notes/<int:resource_id>/', native_note_detail),
-    path('platform/content/', content_work_items_v3),
-    path('platform/content/<int:item_id>/', content_work_detail_v3),
-    path('platform/tasks/<int:task_id>/', shared_task_detail),
-    path('platform/resources/', platform_resources),
-    path('platform/resources/<int:resource_id>/', platform_resource_detail),
-    path('platform/files/upload/', platform_file_upload),
-    path('platform/files/<int:resource_id>/download/', platform_file_download),
-    path('platform/share/', sharing_v4),
-    path('platform/shared-with-me/', shared_with_me),
+    path('platform/nextcloud/', require_research_or_core(nextcloud_status)),
+    path('platform/nextcloud/client-credentials/', require_research_or_core(nextcloud_client_credentials)),
+    path('platform/nextcloud/notes/', require_research_or_core(native_notes)),
+    path('platform/nextcloud/notes/sync/', require_research_or_core(native_notes_sync)),
+    path('platform/nextcloud/notes/<int:resource_id>/resolve/', require_research_or_core(native_note_resolve)),
+    path('platform/nextcloud/notes/<int:resource_id>/', require_research_or_core(native_note_detail)),
+    path('platform/content/', require_core(content_work_items_v3)),
+    path('platform/content/<int:item_id>/', require_core(content_work_detail_v3)),
+    path('platform/content/<int:item_id>/comments/', content_comments),
+    path('platform/content/<int:item_id>/attachments/', content_attachments),
+    path('platform/content/<int:item_id>/attachments/<int:attachment_id>/download/', content_attachment_download),
+    path('platform/core-assets/', core_assets),
+    path('platform/core-assets/<int:asset_id>/', core_asset_detail),
+    path('platform/core-assets/<int:asset_id>/download/', core_asset_download),
+    path('platform/research-calendar/', require_research_or_core(research_calendar)),
+    path('platform/tasks/<int:task_id>/', require_research_or_core(shared_task_detail)),
+    path('platform/resources/', require_research_or_core(platform_resources)),
+    path('platform/resources/<int:resource_id>/', require_research_or_core(platform_resource_detail)),
+    path('platform/files/upload/', require_research_or_core(platform_file_upload)),
+    path('platform/files/<int:resource_id>/download/', require_research_or_core(platform_file_download)),
+    path('platform/share/', require_research_or_core(sharing_v4)),
+    path('platform/shared-with-me/', require_research_or_core(shared_with_me)),
     path('platform/shared/<uuid:token>/', shared_link),
     path('platform/shared/<uuid:token>/download/', shared_file_download),
     path('platform/community/projects/', community_projects),
     path('platform/community/projects/<slug:public_slug>/', community_project_detail),
-    path('platform/links/', entity_links),
+    path('platform/links/', require_research_or_core(entity_links)),
+
+    path('member/tickets/', member_tickets),
+    path('member/tickets/<int:ticket_id>/', member_ticket_detail),
 
     # Layer 3 — LMS. Catalog reads are public; enrollment/progress APIs enforce
     # learner access and authoring is limited to Core owner/admin accounts.
@@ -286,49 +311,49 @@ urlpatterns = [
 
     # Layer 5 operating system: internal Gravitas team only. Existing runtime
     # resolution pins every call to the canonical Core workspace.
-    path('operating/dashboard/', operating_dashboard),
-    path('operating/initiative-planner/', initiative_planner),
-    path('operating/processes/', processes),
-    path('operating/processes/<int:process_id>/', process_detail),
-    path('operating/objectives/', objectives),
-    path('operating/objectives/<int:objective_id>/', objective_detail),
-    path('operating/key-results/', key_results),
-    path('operating/key-results/<int:kr_id>/', key_result_detail),
-    path('operating/initiatives/', initiatives),
-    path('operating/initiatives/<int:initiative_id>/', initiative_detail),
-    path('operating/cycles/', cycles),
-    path('operating/cycles/<int:cycle_id>/', cycle_detail),
-    path('operating/milestones/', milestones),
-    path('operating/milestones/<int:milestone_id>/', milestone_detail),
-    path('operating/work-packages/', work_packages),
-    path('operating/work-packages/<int:work_package_id>/', work_package_detail),
-    path('operating/tasks/', tasks),
-    path('operating/tasks/reorder/', reorder_tasks),
-    path('operating/tasks/<int:task_id>/links/', task_cross_layer_links),
-    path('operating/tasks/<int:task_id>/', task_detail),
-    path('operating/risks/', risks),
-    path('operating/risks/<int:risk_id>/', risk_detail),
-    path('operating/meetings/', meetings),
-    path('operating/meetings/<int:meeting_id>/', meeting_detail),
+    path('operating/dashboard/', require_core(operating_dashboard)),
+    path('operating/initiative-planner/', require_core_admin(initiative_planner)),
+    path('operating/processes/', require_core(processes)),
+    path('operating/processes/<int:process_id>/', require_core(process_detail)),
+    path('operating/objectives/', require_core(objectives)),
+    path('operating/objectives/<int:objective_id>/', require_core(objective_detail)),
+    path('operating/key-results/', require_core(key_results)),
+    path('operating/key-results/<int:kr_id>/', require_core(key_result_detail)),
+    path('operating/initiatives/', require_core_admin(initiatives)),
+    path('operating/initiatives/<int:initiative_id>/', require_core_admin(initiative_detail)),
+    path('operating/cycles/', require_core(cycles)),
+    path('operating/cycles/<int:cycle_id>/', require_core(cycle_detail)),
+    path('operating/milestones/', require_core(milestones)),
+    path('operating/milestones/<int:milestone_id>/', require_core(milestone_detail)),
+    path('operating/work-packages/', require_core(work_packages)),
+    path('operating/work-packages/<int:work_package_id>/', require_core(work_package_detail)),
+    path('operating/tasks/', require_core(tasks)),
+    path('operating/tasks/reorder/', require_core(reorder_tasks)),
+    path('operating/tasks/<int:task_id>/links/', require_core(task_cross_layer_links)),
+    path('operating/tasks/<int:task_id>/', require_core(task_detail)),
+    path('operating/risks/', require_core(risks)),
+    path('operating/risks/<int:risk_id>/', require_core(risk_detail)),
+    path('operating/meetings/', require_core(meetings)),
+    path('operating/meetings/<int:meeting_id>/', require_core(meeting_detail),
 
     # Legacy private KMS storage remains for note/learning internals and URL
     # compatibility. It is no longer presented as a sixth product surface.
-    path('workspace/dashboard/', workspace_dashboard),
-    path('workspace/pages/', workspace_pages),
-    path('workspace/pages/<str:page_id>/', workspace_page_detail),
-    path('workspace/pages/<str:page_id>/backlinks/', workspace_page_backlinks),
-    path('workspace/pages/<str:page_id>/attachments/', workspace_page_attachment),
-    path('workspace/projects/', projects),
-    path('workspace/projects/<int:project_id>/', project_detail),
-    path('workspace/knowledge/', resources),
-    path('workspace/knowledge/<int:resource_id>/', resource_detail),
-    path('workspace/knowledge/<int:resource_id>/links/', knowledge_links),
-    path('workspace/knowledge/<int:resource_id>/links/<int:link_id>/', knowledge_link_detail),
-    path('workspace/files/upload/', file_upload),
-    path('workspace/files/<int:resource_id>/download/', file_download),
-    path('workspace/collections/', collections),
-    path('workspace/collections/<int:collection_id>/', collection_detail),
-    path('workspace/tags/', tags),
-    path('workspace/tags/<int:tag_id>/', tag_detail),
-    path('workspace/storage/', storage_status),
+    path('workspace/dashboard/', require_lms(workspace_dashboard)),
+    path('workspace/pages/', require_research_or_core(workspace_pages)),
+    path('workspace/pages/<str:page_id>/', require_research_or_core(workspace_page_detail)),
+    path('workspace/pages/<str:page_id>/backlinks/', require_research_or_core(workspace_page_backlinks)),
+    path('workspace/pages/<str:page_id>/attachments/', require_research_or_core(workspace_page_attachment)),
+    path('workspace/projects/', require_research_or_core(projects)),
+    path('workspace/projects/<int:project_id>/', require_research_or_core(project_detail)),
+    path('workspace/knowledge/', require_research_or_core(resources)),
+    path('workspace/knowledge/<int:resource_id>/', require_research_or_core(resource_detail)),
+    path('workspace/knowledge/<int:resource_id>/links/', require_research_or_core(knowledge_links)),
+    path('workspace/knowledge/<int:resource_id>/links/<int:link_id>/', require_research_or_core(knowledge_link_detail)),
+    path('workspace/files/upload/', require_research_or_core(file_upload)),
+    path('workspace/files/<int:resource_id>/download/', require_research_or_core(file_download)),
+    path('workspace/collections/', require_research_or_core(collections)),
+    path('workspace/collections/<int:collection_id>/', require_research_or_core(collection_detail)),
+    path('workspace/tags/', require_research_or_core(tags)),
+    path('workspace/tags/<int:tag_id>/', require_research_or_core(tag_detail)),
+    path('workspace/storage/', require_research_or_core(storage_status)),
 ]

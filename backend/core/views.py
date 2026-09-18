@@ -24,6 +24,7 @@ from .email_verification import is_email_verified, mark_email_verified, send_acc
 from .layer_models import CommunityProfile
 from .models import Comment, CommentLike, LabProgress, NewsletterSubscriber
 from .platform_models import ResearcherProfile
+from .topic_progress import mark_topic_progress_by_slug
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -559,6 +560,7 @@ def comments(request, content_key):
         body=body,
         status=Comment.Status.PENDING,
     )
+    mark_topic_progress_by_slug(request.user, content_key, 'comment')
     return JsonResponse(
         {
             'ok': True,

@@ -948,3 +948,214 @@ export async function renderAdminDeck(host) {
     fail(host, 'Nextcloud Deck', error, () => renderAdminDeck(host));
   }
 }
+
+
+/* ---- Support / Newsletter / Interactive Lab administration ------------- */
+
+export async function renderAdminTickets(host) {
+  loading(host, 'Support tickets');
+  try {
+    const data = await P.adminTickets();
+    const wrap = doc(host, 'Support tickets', 'Member conversations with the Gravitas+ team. Only Core administrators can read or reply.');
+    const layout = el('div', 'fl-columns');
+    const list = section('Tickets');
+    const detail = section('Conversation');
+    layout.append(list.box, detail.box); wrap.append(layout);
+
+    const openTicket = async (id) => {
+      detail.body.innerHTML = '<div class="fl-skeleton"></div>';
+      try {
+        const result = await P.adminTicket(id);
+        const ticket = result.ticket;
+        detail.head.querySelector('.fl-panel__title').textContent = ticket.subject;
+        detail.body.innerHTML = '';
+        detail.body.append(row({
+          title: ticket.member.name,
+          meta: P.meta([ticket.member.email, label(ticket.status), label(ticket.priority), date(ticket.updated_at)]),
+        }));
+        for (const message of ticket.messages || []) {
+          detail.body.append(row({
+            title: message.is_team_reply ? 'Gravitas+ Team' : message.author,
+            meta: date(message.created_at),
+            body: message.body,
+            badges: [message.is_team_reply ? 'Team reply' : 'Member'],
+          }));
+        }
+        const form = el('form', 'fl-form');
+        const reply = textarea('', 4); reply.placeholder = 'Reply to this ticket…';
+        const status = select([
+          ['open','Open'], ['waiting_member','Waiting for member'], ['waiting_team','Waiting for Gravitas+'],
+          ['resolved','Resolved'], ['closed','Closed'],
+        ], ticket.status);
+        const send = action('Send reply', () => {}, true); send.type = 'submit';
+        const saveStatus = action('Update status', async () => {
+          saveStatus.disabled = true;
+          try { await P.adminUpdateTicket(id, {status: status.value}); await openTicket(id); await reload(); }
+          finally { saveStatus.disabled = false; }
+        });
+        const line = statusLine();
+        form.append(field('Reply', reply), field('Status', status), el('div', 'fl-form-actions'), line);
+        form.querySelector('.fl-form-actions').append(send, saveStatus);
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!reply.value.trim()) { setStatus(line, 'Write a reply first.', 'bad'); return; }
+          send.disabled = true; setStatus(line, 'Sending…');
+          try { await P.adminReplyTicket(id, reply.value.trim()); await openTicket(id); await reload(); }
+          catch (error) { setStatus(line, error?.message || 'Reply failed.', 'bad'); send.disabled = false; }
+        });
+        detail.body.append(form);
+      } catch (error) {
+        detail.body.innerHTML = '';
+        detail.body.append(empty('Ticket could not be loaded', error?.message || 'Request failed.'));
+      }
+    };
+
+    const reload = async () => {
+      const fresh = await P.adminTickets();
+      list.body.innerHTML = '';
+      if (!(fresh.tickets || []).length) list.body.append(empty('No tickets', 'New member tickets will appear here.'));
+      for (const ticket of fresh.tickets || []) {
+        list.body.append(row({
+          title: ticket.subject,
+          meta: P.meta([ticket.member.name, label(ticket.status), date(ticket.updated_at)]),
+          badges: [label(ticket.priority), String(ticket.message_count) + ' messages'],
+          onClick: () => openTicket(ticket.id),
+        }));
+      }
+    };
+    await reload();
+    if (data.tickets?.[0]) await openTicket(data.tickets[0].id);
+  } catch (error) {
+    fail(host, 'Support tickets', error, () => renderAdminTickets(host));
+  }
+}
+
+export async function renderAdminNewsletter(host) {
+  loading(host, 'Newsletter');
+  try {
+    const data = await P.adminNewsletter();
+    const wrap = doc(host, 'Newsletter', 'Confirmed subscribers, delivery history and direct campaign sending.');
+    const metrics = el('div', 'fl-metrics');
+    metrics.append(metric(data.active_count, 'Active subscribers'), metric((data.campaigns || []).length, 'Recent campaigns'));
+    wrap.append(metrics);
+
+    const composer = section('Send newsletter', 'Each active subscriber receives a separate email; addresses are never exposed to other recipients.');
+    const form = el('form', 'fl-form');
+    const subject = input('', 'text', 'Email subject');
+    const body = textarea('', 10); body.placeholder = 'Newsletter body…';
+    const line = statusLine();
+    const send = action('Send to active subscribers', () => {}, true); send.type = 'submit';
+    form.append(field('Subject', subject), field('Message', body), send, line);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!subject.value.trim() || !body.value.trim()) { setStatus(line, 'Subject and message are required.', 'bad'); return; }
+      if (!confirm(`Send this email to ${data.active_count} active subscribers?`)) return;
+      send.disabled = true; setStatus(line, 'Sending…');
+      try {
+        const result = await P.adminSendNewsletter({subject: subject.value.trim(), body: body.value.trim()});
+        setStatus(line, `Sent to ${result.sent_count} subscribers.`, 'ok');
+        subject.value = ''; body.value = '';
+      } catch (error) {
+        setStatus(line, error?.message || 'Newsletter could not be sent.', 'bad'); send.disabled = false;
+      }
+    });
+    composer.body.append(form); wrap.append(composer.box);
+
+    const subscribers = section('Subscribers');
+    if (!(data.subscribers || []).length) subscribers.body.append(empty('No subscribers yet', 'Confirmed website subscriptions appear here.'));
+    for (const item of data.subscribers || []) {
+      const toggle = action(item.active ? 'Deactivate' : 'Activate', async () => {
+        toggle.disabled = true;
+        try { await P.adminUpdateNewsletterSubscriber(item.id, !item.active); renderAdminNewsletter(host); }
+        catch { toggle.disabled = false; }
+      }, false, true);
+      subscribers.body.append(row({
+        title: item.email,
+        meta: P.meta([item.source, date(item.created_at)]),
+        badges: [item.active ? 'Active' : 'Inactive'],
+        actions: [toggle],
+      }));
+    }
+    wrap.append(subscribers.box);
+
+    const campaigns = section('Recent campaigns');
+    for (const item of data.campaigns || []) campaigns.body.append(row({
+      title: item.subject, meta: P.meta([`${item.sent_count} sent`, item.created_by, date(item.created_at)]),
+    }));
+    if (!(data.campaigns || []).length) campaigns.body.append(empty('No campaigns sent yet', 'Sent newsletters will be logged here.'));
+    wrap.append(campaigns.box);
+  } catch (error) {
+    fail(host, 'Newsletter', error, () => renderAdminNewsletter(host));
+  }
+}
+
+export async function renderAdminLabs(host) {
+  loading(host, 'Interactive Lab');
+  try {
+    const data = await P.adminLabs();
+    const wrap = doc(host, 'Interactive Lab', 'Create sandboxed interactive experiments from one or more HTML/CSS/JavaScript files.');
+    const editor = section('Lab editor', 'Published labs require index.html. Code runs in a sandbox on the public Lab page.');
+    const list = section('Labs');
+    wrap.append(editor.box, list.box);
+
+    const drawEditor = (lab = null) => {
+      editor.body.innerHTML = '';
+      const form = el('form', 'fl-form');
+      const title = input(lab?.title || '', 'text', 'Lab title');
+      const slug = input(lab?.slug || '', 'text', 'my-lab');
+      slug.disabled = !!lab;
+      const summary = textarea(lab?.summary || '', 3);
+      const duration = input(lab?.duration_text || '', 'text', '10 min');
+      const state = select([['draft','Draft'],['published','Published']], lab?.status || 'draft');
+      const existing = Object.fromEntries((lab?.files || []).map((file) => [file.name, file.content || '']));
+      const index = textarea(existing['index.html'] || '<!doctype html>\n<html><head><meta charset="utf-8"><link rel="stylesheet" href="styles.css"></head><body>\n<h1>Interactive Lab</h1>\n<script src="app.js"><\/script></body></html>', 12);
+      const css = textarea(existing['styles.css'] || '', 7);
+      const js = textarea(existing['app.js'] || '', 10);
+      const line = statusLine();
+      const save = action(lab ? 'Save lab' : 'Create lab', () => {}, true); save.type = 'submit';
+      const remove = lab ? action('Delete', async () => {
+        if (!confirm(`Delete “${lab.title}”?`)) return;
+        await P.adminDeleteLab(lab.id); await renderAdminLabs(host);
+      }) : null;
+      form.append(
+        field('Title', title), field('Slug', slug, 'Lowercase letters, numbers and hyphens.'),
+        field('Summary', summary), field('Duration', duration), field('Status', state),
+        field('index.html', index), field('styles.css', css), field('app.js', js),
+        el('div', 'fl-form-actions'), line,
+      );
+      form.querySelector('.fl-form-actions').append(save, ...(remove ? [remove] : []));
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault(); save.disabled = true; setStatus(line, 'Saving…');
+        const files = [{name:'index.html',content:index.value}];
+        if (css.value.trim()) files.push({name:'styles.css',content:css.value});
+        if (js.value.trim()) files.push({name:'app.js',content:js.value});
+        const payload = {title:title.value.trim(), slug:slug.value.trim(), summary:summary.value.trim(), duration_text:duration.value.trim(), status:state.value, files};
+        try {
+          if (lab) await P.adminUpdateLab(lab.id, payload); else await P.adminCreateLab(payload);
+          await renderAdminLabs(host);
+        } catch (error) {
+          setStatus(line, error?.message || 'Lab could not be saved.', 'bad'); save.disabled = false;
+        }
+      });
+      editor.body.append(form);
+    };
+
+    const labs = data.labs || [];
+    const newLab = action('New lab', () => drawEditor(null), true);
+    list.head.append(newLab);
+    if (!labs.length) list.body.append(empty('No managed labs yet', 'Create the first interactive object above.'));
+    for (const lab of labs) {
+      const open = el('a', 'ws-btn ws-btn--tiny', 'Open public');
+      open.href = `/lab.html?lab=${encodeURIComponent(lab.slug)}`; open.target = '_blank';
+      list.body.append(row({
+        title: lab.title,
+        meta: P.meta([lab.slug, label(lab.status), lab.duration_text, date(lab.updated_at)]),
+        body: lab.summary,
+        actions: [action('Edit', () => drawEditor(lab), false, true), open],
+      }));
+    }
+    drawEditor(labs[0] || null);
+  } catch (error) {
+    fail(host, 'Interactive Lab', error, () => renderAdminLabs(host));
+  }
+}

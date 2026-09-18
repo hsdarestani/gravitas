@@ -75,3 +75,17 @@ require_dashboard = require_module(ModuleGrant.Module.DASHBOARD)
 require_lms = require_module(ModuleGrant.Module.LMS)
 require_research = require_module(ModuleGrant.Module.RESEARCH)
 require_core = require_module(ModuleGrant.Module.CORE)
+
+
+def require_core_admin(view):
+    """Require an actual Core owner/admin, not merely Layer-5 membership."""
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+        from .platform_runtime_v3 import core_role, ensure_platform_workspaces
+        spaces = ensure_platform_workspaces(request.user)
+        if core_role(request.user, spaces['core']) not in {'owner', 'admin'}:
+            return JsonResponse({'ok': False, 'error': 'core_admin_required'}, status=403)
+        return view(request, *args, **kwargs)
+    return wrapped

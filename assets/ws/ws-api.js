@@ -232,7 +232,7 @@ async function withFallback(fn, local) {
 export function tree() {
   return withFallback(
     async () => {
-      const data = await request('/workspace/pages/');
+      const data = await request('/workspace/pages/?summary=1');
       serverPages = Object.fromEntries((data.pages || []).map((page) => [String(page.id), page]));
       serverNodes = decoratedServerNodes(data.nodes || [], serverPages);
       // The one call that proves the page service is live, so it is the one

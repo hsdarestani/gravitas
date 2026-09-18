@@ -17,7 +17,7 @@
    exactly; the navigation is a list and an inspector.
    ========================================================================== */
 
-import * as P from './ws-platform.js';
+import * as P from './ws-platform.js?v=20260918-access3';
 import { el, panel, row, stats } from './ws-views.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
@@ -85,8 +85,9 @@ export function renderCoreAssets(host, ctx) {
   const columns = el('div', 'v-columns v-columns--top');
 
   const library = panel('Asset library');
-  library.body.append(assetCard(ctx));
+  library.body.append(el('div', 'fl-skeleton'));
   columns.append(library);
+  renderLiveAssetLibrary(library.body, ctx);
 
   /* What "in approval" means, said once, on the screen where somebody first
      meets the word. A blueprint that is approved binds work; one that is not
@@ -104,6 +105,95 @@ export function renderCoreAssets(host, ctx) {
   columns.append(phase);
 
   doc.append(columns);
+}
+
+async function renderLiveAssetLibrary(host, ctx) {
+  try {
+    const data = await P.coreAssets();
+    host.innerHTML = '';
+
+    const form = el('form', 'fl-form');
+    const title = el('input', 'v-input fl-input'); title.placeholder = 'Asset title';
+    const description = el('textarea', 'v-input fl-input fl-textarea'); description.rows = 3; description.placeholder = 'What is this and when should the team use it?';
+    const file = el('input', 'v-input fl-input'); file.type = 'file';
+    const url = el('input', 'v-input fl-input'); url.type = 'url'; url.placeholder = 'https://… (instead of a file)';
+    const all = el('input'); all.type = 'checkbox'; all.checked = true;
+    const allRow = el('label', 'v-check-row'); allRow.append(all, el('span', '', 'Visible to all Core team members'));
+    const team = el('div', 'g-stack g-stack--xs');
+    const checks = [];
+    for (const member of data.team || []) {
+      const check = el('input'); check.type = 'checkbox'; check.value = member.id;
+      const line = el('label', 'v-check-row'); line.append(check, el('span', '', `${member.name} · ${P.label(member.role)}`));
+      team.append(line); checks.push(check);
+    }
+    team.hidden = true;
+    all.addEventListener('change', () => { team.hidden = all.checked; });
+    const submit = el('button', 'ws-btn ws-btn--solid', 'Add asset'); submit.type = 'submit';
+    const note = el('p', 'v-note');
+    form.append(title, description, file, url, allRow, team, submit, note);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!title.value.trim() || (!file.files?.[0] && !url.value.trim())) {
+        note.textContent = 'Add a title and either a file or URL.'; note.dataset.tone = 'bad'; return;
+      }
+      submit.disabled = true; note.textContent = 'Uploading…'; note.dataset.tone = '';
+      const body = new FormData();
+      body.append('title', title.value.trim());
+      body.append('description', description.value.trim());
+      body.append('visible_to_all_core', all.checked ? '1' : '0');
+      body.append('allowed_user_ids', JSON.stringify(checks.filter((check) => check.checked).map((check) => Number(check.value))));
+      if (file.files?.[0]) body.append('file', file.files[0]);
+      else body.append('source_url', url.value.trim());
+      try {
+        await P.uploadCoreAsset(body);
+        await renderLiveAssetLibrary(host, ctx);
+      } catch (error) {
+        note.textContent = error?.message === 'file_size_invalid' ? 'The file is too large.' : (error?.message || 'Asset could not be added.');
+        note.dataset.tone = 'bad'; submit.disabled = false;
+      }
+    });
+    host.append(form);
+
+    const list = el('div', 'g-stack g-stack--sm');
+    for (const item of data.assets || []) {
+      const actions = el('div', 'v-row__actions');
+      const open = el('a', 'ws-btn ws-btn--tiny', item.kind === 'url' ? 'Open URL' : 'Download');
+      open.href = item.kind === 'url' ? item.source_url : item.download_url;
+      if (item.kind === 'url') { open.target = '_blank'; open.rel = 'noopener'; }
+      actions.append(open);
+      if (item.can_edit) {
+        const remove = el('button', 'ws-btn ws-btn--tiny', 'Delete'); remove.type = 'button';
+        remove.addEventListener('click', async () => {
+          if (!confirm(`Delete “${item.title}”?`)) return;
+          remove.disabled = true;
+          try { await P.deleteCoreAsset(item.id); await renderLiveAssetLibrary(host, ctx); }
+          catch { remove.disabled = false; }
+        });
+        actions.append(remove);
+      }
+      list.append(row({
+        title: item.title,
+        sub: item.description || (item.kind === 'url' ? item.source_url : item.original_name),
+        badges: [
+          item.kind === 'url' ? 'URL' : P.formatBytes(item.file_size),
+          item.visible_to_all_core ? 'All Core team' : `${item.access.length} selected people`,
+          item.uploader,
+        ],
+        action: actions,
+      }));
+    }
+    if (!(data.assets || []).length) list.append(el('p', 'v-note', 'No uploaded assets yet.'));
+    host.append(list);
+
+    const builtIn = el('div', 'g-stack g-stack--xs');
+    builtIn.append(el('h3', '', 'Built-in blueprints'), assetCard(ctx));
+    host.append(builtIn);
+  } catch (error) {
+    host.innerHTML = '';
+    const note = el('div', 'ws-alert');
+    note.append(el('strong', 'ws-alert__title', 'Asset library unavailable'), el('p', '', error?.message || 'Could not load assets.'));
+    host.append(note);
+  }
 }
 
 function assetCard(ctx) {
