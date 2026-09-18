@@ -56,7 +56,6 @@
         if (meta) meta.textContent = landing.essay_meta || 'Essay · Video · Sources · Simulation';
         var links = panels[0].querySelectorAll('.trail__act a');
         if (links[0]) { links[0].href = topicUrl(item, '#essay'); links[0].textContent = 'Read the essay'; }
-        if (links[1]) links[1].href = topicUrl(item, '#sim');
         var video = panels[0].querySelector('.video');
         if (video) {
           video.href = topicUrl(item, '#video');
@@ -76,7 +75,12 @@
           gallery.innerHTML = '';
           timeline.filter(function (row) { return row.image_url; }).slice(0, 4).forEach(function (row, index) {
             var figure = document.createElement('figure');
-            figure.className = 'trail__fig' + (index === 0 ? ' trail__fig--face' : '') + (index === 3 ? ' trail__fig--wide' : '');
+            var source = String(row.image_url || '').toLowerCase();
+            var variant = source.indexOf('turing') >= 0 ? ' trail__fig--face'
+              : source.indexOf('eniac') >= 0 ? ' trail__fig--wide'
+              : source.indexOf('glider') >= 0 || source.indexOf('.gif') >= 0 ? ' trail__fig--pixel'
+              : '';
+            figure.className = 'trail__fig' + variant;
             figure.innerHTML =
               '<img src="' + esc(row.image_url) + '" alt="' + esc(row.image_alt || '') + '" loading="lazy" decoding="async">' +
               '<figcaption><b>' + esc((row.title || '') + (row.date ? ', ' + row.date : '')) + '</b>' +
