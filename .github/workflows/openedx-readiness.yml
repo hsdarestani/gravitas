@@ -1,0 +1,70 @@
+name: Open edX Readiness
+
+on:
+  push:
+    paths:
+      - '.github/workflows/openedx-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      CONFIGURED_USER: ${{ secrets.DEPLOY_USER || 'root' }}
+    steps:
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}"
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${SSH_OPTS[@]}" "$CONFIGURED_USER@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            echo "DEPLOY_USER=$CONFIGURED_USER" >> "$GITHUB_ENV"
+          elif [ "$CONFIGURED_USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            echo "DEPLOY_USER=root" >> "$GITHUB_ENV"
+          else
+            echo "SSH authentication failed"
+            exit 1
+          fi
+
+      - name: Inspect Open edX host capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo '=== OS ==='
+          . /etc/os-release
+          echo "$PRETTY_NAME"
+          echo '=== CPU ==='
+          nproc
+          echo '=== RAM_MB ==='
+          awk '/MemTotal/ {printf "%.0f\n", $2/1024}' /proc/meminfo
+          echo '=== ROOT_DISK ==='
+          df -BG / | awk 'NR==2 {print "size="$2,"used="$3,"avail="$4,"use="$5}'
+          echo '=== LOAD ==='
+          uptime
+          echo '=== DOCKER ==='
+          if command -v docker >/dev/null 2>&1; then
+            docker --version
+            docker compose version || true
+          else
+            echo 'docker:not-installed'
+          fi
+          echo '=== SERVICES ==='
+          systemctl is-active nginx || true
+          systemctl is-active postgresql || true
+          systemctl is-active gravitas-backend || true
+          echo '=== PORTS ==='
+          ss -lnt | awk 'NR==1 || /:80 |:443 |:8000 |:5432 /'
+          REMOTE
