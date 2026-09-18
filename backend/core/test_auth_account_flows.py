@@ -1,9 +1,10 @@
 import json
+from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth import authenticate, get_user_model
 from django.core import mail
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from .email_verification import EMAIL_VERIFIED_GROUP
 from .layer_models import CommunityProfile
@@ -150,3 +151,117 @@ class PasswordResetEmailTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(
+    GOOGLE_OAUTH_CLIENT_ID='test-client.apps.googleusercontent.com',
+    GOOGLE_OAUTH_CLIENT_SECRET='test-secret',
+    GOOGLE_OAUTH_REDIRECT_URI='https://gravitasplus.com/api/auth/google/callback/',
+    PUBLIC_BASE_URL='https://gravitasplus.com',
+)
+class GoogleOAuthFlowTests(TestCase):
+    def test_google_start_uses_configured_client_and_secure_state(self):
+        response = self.client.get('/api/auth/google/start/')
+        self.assertEqual(response.status_code, 302)
+        parsed = urlparse(response['Location'])
+        self.assertEqual(parsed.scheme, 'https')
+        self.assertEqual(parsed.netloc, 'accounts.google.com')
+        query = parse_qs(parsed.query)
+        self.assertEqual(query['client_id'], ['test-client.apps.googleusercontent.com'])
+        self.assertEqual(
+            query['redirect_uri'],
+            ['https://gravitasplus.com/api/auth/google/callback/'],
+        )
+        self.assertEqual(query['scope'], ['openid email profile'])
+        self.assertTrue(query['state'][0])
+        self.assertEqual(
+            self.client.session['google_oauth_state'],
+            query['state'][0],
+        )
+
+    @patch('core.views.requests.get')
+    @patch('core.views.requests.post')
+    def test_verified_google_account_creates_member_and_logs_in(self, token_post, userinfo_get):
+        token_response = Mock()
+        token_response.raise_for_status.return_value = None
+        token_response.json.return_value = {'access_token': 'google-access-token'}
+        token_post.return_value = token_response
+
+        info_response = Mock()
+        info_response.raise_for_status.return_value = None
+        info_response.json.return_value = {
+            'email': 'google-new@gravitas.test',
+            'email_verified': True,
+            'name': 'Google Member',
+        }
+        userinfo_get.return_value = info_response
+
+        started = self.client.get('/api/auth/google/start/')
+        state = parse_qs(urlparse(started['Location']).query)['state'][0]
+        callback = self.client.get(
+            '/api/auth/google/callback/',
+            {'code': 'authorization-code', 'state': state},
+        )
+        self.assertEqual(callback.status_code, 302)
+        self.assertEqual(callback['Location'], 'https://gravitasplus.com/workspace')
+
+        user = User.objects.get(email='google-new@gravitas.test')
+        self.assertFalse(user.has_usable_password())
+        self.assertTrue(
+            CommunityProfile.objects.get(user=user).email_verification_required
+        )
+        self.assertTrue(
+            user.groups.model.objects.filter(
+                name=EMAIL_VERIFIED_GROUP,
+                user=user,
+            ).exists()
+        )
+        self.assertTrue(self.client.get('/api/auth/me/').json()['authenticated'])
+        self.assertEqual(
+            token_post.call_args.kwargs['data']['redirect_uri'],
+            'https://gravitasplus.com/api/auth/google/callback/',
+        )
+
+    @patch('core.views.requests.get')
+    @patch('core.views.requests.post')
+    def test_google_login_reuses_existing_account_by_verified_email(self, token_post, userinfo_get):
+        user = User.objects.create_user(
+            username='existing-google@gravitas.test',
+            email='existing-google@gravitas.test',
+            password='Existing-secure-password-123!',
+        )
+        CommunityProfile.objects.update_or_create(
+            user=user,
+            defaults={'email_verification_required': True},
+        )
+
+        token_response = Mock()
+        token_response.raise_for_status.return_value = None
+        token_response.json.return_value = {'access_token': 'google-access-token'}
+        token_post.return_value = token_response
+        info_response = Mock()
+        info_response.raise_for_status.return_value = None
+        info_response.json.return_value = {
+            'email': user.email,
+            'email_verified': True,
+            'name': 'Ignored Provider Name',
+        }
+        userinfo_get.return_value = info_response
+
+        started = self.client.get('/api/auth/google/start/')
+        state = parse_qs(urlparse(started['Location']).query)['state'][0]
+        callback = self.client.get(
+            '/api/auth/google/callback/',
+            {'code': 'authorization-code', 'state': state},
+        )
+        self.assertEqual(callback.status_code, 302)
+        self.assertEqual(User.objects.filter(email=user.email).count(), 1)
+        self.assertTrue(self.client.get('/api/auth/me/').json()['authenticated'])
+
+    def test_google_callback_rejects_invalid_state_before_provider_exchange(self):
+        response = self.client.get(
+            '/api/auth/google/callback/',
+            {'code': 'authorization-code', 'state': 'forged-state'},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('google_error=state', response['Location'])
