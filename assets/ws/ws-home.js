@@ -11,9 +11,9 @@
    trust in the rest of the numbers on it.
    ========================================================================== */
 
-import * as P from './ws-platform.js';
-import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js';
-import { availableWorkspaces } from './ws-nav.js';
+import * as P from './ws-platform.js?v=20260919-planning1';
+import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20260919-planning1';
+import { availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
 import * as K from './ws-kms.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
