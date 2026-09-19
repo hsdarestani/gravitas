@@ -1,0 +1,111 @@
+name: Purge Open Tasks Once
+
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  purge:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}" || { echo "Missing DEPLOY_HOST"; exit 1; }
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo "Missing DEPLOY_SSH_KEY"; exit 1; }
+          USER="${{ secrets.DEPLOY_USER }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$USER" ] || USER="deploy"
+          [ -n "$PORT" ] || PORT="22"
+          echo "CONFIGURED_USER=$USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          if ssh "${SSH_OPTS[@]}" "$CONFIGURED_USER@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="$CONFIGURED_USER"
+          elif [ "$CONFIGURED_USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="root"
+          else
+            echo "SSH authentication failed."
+            exit 1
+          fi
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+
+      - name: Backup and purge exactly 159 open tasks
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" 'bash -s' > purge-output.txt <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH=/opt/gravitas-backend
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{print $2}' /etc/gravitas/backend.env)"
+          DJANGO=(sudo -u gravitas env
+            DJANGO_SECRET_KEY="$SECRET"
+            DJANGO_DEBUG=0
+            DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+            PYTHONPATH="$BACKEND_PATH"
+            "$BACKEND_PATH/.venv/bin/django-admin")
+          cd "$BACKEND_PATH"
+
+          echo "=== BACKUP BEFORE PURGE ==="
+          "${DJANGO[@]}" export_open_tasks > /tmp/gravitas-open-tasks-before-purge.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/gravitas-open-tasks-before-purge.json'))
+          count=p.get('count')
+          print(f'Open tasks before purge: {count}')
+          if count != 159:
+              raise SystemExit(f'Expected exactly 159 open tasks; found {count}. Nothing deleted.')
+          PY
+
+          echo "=== PURGE ==="
+          "${DJANGO[@]}" purge_open_tasks --confirm PURGE-OPEN-TASKS --expected-count 159
+
+          echo "=== VERIFY ==="
+          "${DJANGO[@]}" export_open_tasks > /tmp/gravitas-open-tasks-after-purge.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/gravitas-open-tasks-after-purge.json'))
+          count=p.get('count')
+          print(f'Open tasks after purge: {count}')
+          if count != 0:
+              raise SystemExit(f'Expected 0 open tasks after purge; found {count}.')
+          PY
+          REMOTE
+
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT"             "$DEPLOY_USER@$HOST:/tmp/gravitas-open-tasks-before-purge.json" ./open-tasks-before-purge.json
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT"             "$DEPLOY_USER@$HOST:/tmp/gravitas-open-tasks-after-purge.json" ./open-tasks-after-purge.json
+
+      - name: Show purge result
+        run: cat purge-output.txt
+
+      - name: Upload purge backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-tasks-purge-backup
+          path: |
+            open-tasks-before-purge.json
+            open-tasks-after-purge.json
+            purge-output.txt
+          if-no-files-found: error
+          retention-days: 30
