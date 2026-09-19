@@ -1034,6 +1034,81 @@ def admin_lms_meta(request):
     return JsonResponse({'ok': True, **_meta_json()})
 
 
+def _normalize_learning_graph(nodes, edges):
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        raise ValueError('invalid_learning_graph')
+
+    clean_nodes = []
+    node_ids = set()
+    allowed_types = {'course', 'gate', 'milestone', 'choice'}
+    course_ids = set()
+
+    for index, raw in enumerate(nodes[:250]):
+        if not isinstance(raw, dict):
+            raise ValueError('invalid_learning_path_node')
+        node_id = str(raw.get('id') or '').strip()[:120]
+        if not node_id:
+            node_id = f'node-{index + 1}'
+        if node_id in node_ids:
+            raise ValueError('duplicate_learning_path_node')
+        node_ids.add(node_id)
+
+        node_type = str(raw.get('type') or ('course' if raw.get('course_id') else 'milestone')).strip().lower()
+        if node_type not in allowed_types:
+            raise ValueError('invalid_learning_path_node_type')
+
+        item = {
+            'id': node_id,
+            'type': node_type,
+            'title': str(raw.get('title') or '').strip()[:240],
+            'description': str(raw.get('description') or '').strip()[:2000],
+        }
+        if node_type == 'course':
+            try:
+                course_id = int(raw.get('course_id'))
+            except (TypeError, ValueError):
+                raise ValueError('learning_path_course_required')
+            course_ids.add(course_id)
+            item['course_id'] = course_id
+        if isinstance(raw.get('metadata'), dict):
+            item['metadata'] = raw['metadata']
+        clean_nodes.append(item)
+
+    existing_courses = set(Course.objects.filter(pk__in=course_ids).values_list('pk', flat=True))
+    if existing_courses != course_ids:
+        raise ValueError('learning_path_course_not_found')
+
+    clean_edges = []
+    seen_edges = set()
+    allowed_rules = {'complete', 'pass', 'manual', 'any'}
+    for raw in edges[:500]:
+        if not isinstance(raw, dict):
+            raise ValueError('invalid_learning_path_edge')
+        source = str(raw.get('from') or '').strip()[:120]
+        target = str(raw.get('to') or '').strip()[:120]
+        if not source or not target or source not in node_ids or target not in node_ids or source == target:
+            raise ValueError('invalid_learning_path_edge')
+        key = (source, target)
+        if key in seen_edges:
+            continue
+        seen_edges.add(key)
+        rule = str(raw.get('rule') or 'complete').strip().lower()
+        if rule not in allowed_rules:
+            raise ValueError('invalid_learning_path_edge_rule')
+        edge = {
+            'from': source,
+            'to': target,
+            'rule': rule,
+            'label': str(raw.get('label') or '').strip()[:240],
+        }
+        condition = raw.get('condition')
+        if isinstance(condition, dict):
+            edge['condition'] = condition
+        clean_edges.append(edge)
+
+    return clean_nodes, clean_edges
+
+
 def _path_json(item):
     return {
         'id': item.pk,
@@ -1066,8 +1141,13 @@ def learning_paths(request):
     status = str(data.get('status') or LearningPath.Status.DRAFT)
     if status not in LearningPath.Status.values:
         return _error('invalid_status')
-    nodes = data.get('nodes') if isinstance(data.get('nodes'), list) else []
-    edges = data.get('edges') if isinstance(data.get('edges'), list) else []
+    try:
+        nodes, edges = _normalize_learning_graph(
+            data.get('nodes') if isinstance(data.get('nodes'), list) else [],
+            data.get('edges') if isinstance(data.get('edges'), list) else [],
+        )
+    except ValueError as exc:
+        return _error(str(exc))
     item = LearningPath.objects.create(
         slug=slug,
         title=title,
@@ -1104,11 +1184,16 @@ def learning_path_detail(request, path_id):
         if data['status'] not in LearningPath.Status.values:
             return _error('invalid_status')
         item.status = data['status']
-    for field in ('nodes', 'edges'):
-        if field in data:
-            if not isinstance(data[field], list):
-                return _error(f'invalid_{field}')
-            setattr(item, field, data[field])
+    if 'nodes' in data or 'edges' in data:
+        try:
+            nodes, edges = _normalize_learning_graph(
+                data.get('nodes', item.nodes),
+                data.get('edges', item.edges),
+            )
+        except ValueError as exc:
+            return _error(str(exc))
+        item.nodes = nodes
+        item.edges = edges
     if 'payment_config' in data:
         if not isinstance(data['payment_config'], dict):
             return _error('invalid_payment_config')
