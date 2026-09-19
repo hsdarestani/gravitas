@@ -10,6 +10,7 @@ import requests
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from . import cloud
@@ -236,6 +237,7 @@ def course_checkout(request, course_id):
     return JsonResponse({'ok': True, 'payment': _payment_json(payment)}, status=201)
 
 
+@csrf_exempt
 @require_http_methods(['POST'])
 def course_payment_webhook(request, course_id):
     course = _course(course_id)
