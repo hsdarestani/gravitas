@@ -516,7 +516,24 @@ function lessonEditor(lesson = {}) {
   const duration = input(lesson.duration_seconds || 0, 'number');
   const labSlug = input(lesson.lab_slug || '');
   const providerKey = input(lesson.provider_key || '');
-  const accessRule = textarea(JSON.stringify(lesson.access_rule || {}, null, 2), 3);
+  const rule = lesson.access_rule && typeof lesson.access_rule === 'object' ? lesson.access_rule : {};
+  const prerequisiteIds = input(
+    Array.isArray(rule.requires_lesson_ids) ? rule.requires_lesson_ids.join(', ') : '',
+    'text',
+    'Lesson IDs, comma-separated',
+  );
+  const minimumProgress = input(rule.min_progress_percent ?? '', 'number', '0–100');
+  minimumProgress.min = '0';
+  minimumProgress.max = '100';
+  const availableAfter = input(rule.available_after || '', 'text', '2026-10-01T09:00:00+02:00');
+  const advancedRule = { ...rule };
+  delete advancedRule.requires_lesson_ids;
+  delete advancedRule.min_progress_percent;
+  delete advancedRule.available_after;
+  const accessRule = textarea(
+    Object.keys(advancedRule).length ? JSON.stringify(advancedRule, null, 2) : '{}',
+    3,
+  );
   const preview = checkbox(lesson.is_preview, 'Preview available before enrollment');
   const required = checkbox(lesson.is_required !== false, 'Required for completion');
   const published = checkbox(lesson.published !== false, 'Published lesson');
@@ -529,11 +546,16 @@ function lessonEditor(lesson = {}) {
     field('Body', body),
     field('Lab slug', labSlug, 'For Lab lessons, reference an Interactive Lab slug.'),
     field('Provider key', providerKey, 'Optional Open edX/XBlock content key.'),
-    field('Access rule', accessRule, 'JSON for prerequisites/locks; {} means normal enrollment access.'),
+    el('h4', null, 'Content access & locks'),
+    field('Prerequisite lesson IDs', prerequisiteIds, 'Learner must complete all listed lesson IDs first.'),
+    field('Minimum course progress %', minimumProgress, 'Optional progress threshold before this lesson unlocks.'),
+    field('Available after', availableAfter, 'Optional ISO date/time for scheduled release.'),
+    field('Advanced access rule JSON', accessRule, 'Optional extra rule metadata; standard lock fields above are merged automatically.'),
     preview.wrap, required.wrap, published.wrap, remove,
   );
   wrap._controls = {
-    title, kind, summary, body, url, duration, labSlug, providerKey, accessRule,
+    title, kind, summary, body, url, duration, labSlug, providerKey,
+    accessRule, prerequisiteIds, minimumProgress, availableAfter,
     preview: preview.input, required: required.input, published: published.input,
   };
   return wrap;
@@ -593,6 +615,16 @@ function serializeModule(node, position) {
       const lc = lessonNode._controls;
       let accessRule = {};
       try { accessRule = JSON.parse(lc.accessRule.value || '{}'); } catch {}
+      const prerequisiteIds = lc.prerequisiteIds.value
+        .split(',')
+        .map((value) => Number(value.trim()))
+        .filter((value) => Number.isInteger(value) && value > 0);
+      if (prerequisiteIds.length) accessRule.requires_lesson_ids = prerequisiteIds;
+      else delete accessRule.requires_lesson_ids;
+      if (lc.minimumProgress.value !== '') accessRule.min_progress_percent = Number(lc.minimumProgress.value);
+      else delete accessRule.min_progress_percent;
+      if (lc.availableAfter.value.trim()) accessRule.available_after = lc.availableAfter.value.trim();
+      else delete accessRule.available_after;
       return {
         id: lessonNode.dataset.originalId ? Number(lessonNode.dataset.originalId) : undefined,
         position: index + 1,
