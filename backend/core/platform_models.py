@@ -193,7 +193,12 @@ class CoreAsset(models.Model):
         FILE = 'file', 'File'
         URL = 'url', 'URL'
 
+    logical_id = models.UUIDField(default=uuid.uuid4, db_index=True)
     title = models.CharField(max_length=240)
+    folder_path = models.CharField(max_length=700, blank=True, db_index=True)
+    version = models.PositiveIntegerField(default=1)
+    version_note = models.CharField(max_length=500, blank=True)
+    is_current = models.BooleanField(default=True, db_index=True)
     kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.FILE, db_index=True)
     description = models.TextField(blank=True)
     source_url = models.URLField(max_length=1600, blank=True)
@@ -211,7 +216,10 @@ class CoreAsset(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-updated_at']
+        ordering = ['folder_path', 'title', '-version', '-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['logical_id', 'version'], name='unique_gravitas_core_asset_version'),
+        ]
 
 
 class CoreAssetAccess(models.Model):
