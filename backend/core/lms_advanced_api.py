@@ -603,6 +603,11 @@ def personalized_learning_paths(request):
 
 
 def _notebook_json(item):
+    learning_config = (
+        item.enrollment.course.learning_config
+        if isinstance(item.enrollment.course.learning_config, dict)
+        else {}
+    )
     return {
         'id': item.pk,
         'course_id': item.enrollment.course_id,
@@ -612,8 +617,8 @@ def _notebook_json(item):
         'code': item.code,
         'environment': item.environment,
         'revision': item.revision,
-        'jupyter_url': settings.LMS_JUPYTER_PUBLIC_URL,
-        'mathematica_url': settings.LMS_MATHEMATICA_PUBLIC_URL,
+        'jupyter_url': str(learning_config.get('jupyter_url') or settings.LMS_JUPYTER_PUBLIC_URL),
+        'mathematica_url': str(learning_config.get('mathematica_url') or settings.LMS_MATHEMATICA_PUBLIC_URL),
         'browser_python': item.runtime in {NotebookWorkspace.Runtime.PYTHON, NotebookWorkspace.Runtime.JUPYTER},
         'updated_at': item.updated_at.isoformat(),
     }
@@ -633,7 +638,7 @@ def course_notebooks(request, course_id):
         return _error('notebook_disabled', 403)
 
     if request.method == 'GET':
-        rows = enrollment.notebooks.select_related('lesson').all()
+        rows = enrollment.notebooks.select_related('lesson', 'enrollment__course').all()
         return JsonResponse({'ok': True, 'notebooks': [_notebook_json(item) for item in rows]})
 
     data = _json_body(request)
