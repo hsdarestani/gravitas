@@ -533,6 +533,11 @@ class LearningIntegration(models.Model):
 
 
 class LearningRepository(models.Model):
+    class ReviewStatus(models.TextChoices):
+        PENDING = 'pending', 'Pending review'
+        NEEDS_CHANGES = 'needs_changes', 'Needs changes'
+        APPROVED = 'approved', 'Approved'
+
     enrollment = models.ForeignKey(
         CourseEnrollment,
         on_delete=models.CASCADE,
@@ -552,6 +557,16 @@ class LearningRepository(models.Model):
     path_prefix = models.CharField(max_length=600, blank=True)
     html_url = models.URLField(max_length=1600, blank=True)
     last_commit_sha = models.CharField(max_length=160, blank=True)
+    review_status = models.CharField(max_length=24, choices=ReviewStatus.choices, default=ReviewStatus.PENDING, db_index=True)
+    review_note = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='gravitas_learning_repository_reviews',
+        blank=True,
+        null=True,
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
