@@ -675,7 +675,7 @@ export function renderCoreTasks(host, { go }) {
       const ownerFilter = select([['', 'All owners'], ...(data.members || []).map((member) => [member.id, member.name || member.email])], filters.owner);
       const priorityFilter = select([['', 'All priorities'], ...(data.priorities || []).map((item) => [item.value, item.label])], filters.priority);
       const count = el('span', 'v-toolbar__count');
-      const add = makeButton('New task', () => openCreateDialog(state, load), true);
+      const add = makeButton('New task from KR', () => openCreateDialog(state, load), true);
       if (!data.can_edit) add.disabled = true;
       toolbar.append(search, ownerFilter, priorityFilter, count, add);
       holder.append(toolbar);
