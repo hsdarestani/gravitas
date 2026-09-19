@@ -1141,7 +1141,7 @@ function renderDockTasks(body) {
   for (const task of tasks) {
     list.append(views.row({
       title: task.title,
-      sub: P.meta([P.label(task.priority), P.formatDate(task.due_date), task.initiative]),
+      sub: P.meta([P.label(task.priority), P.formatDate(task.due_date)]),
       onClick: () => go('/workspace/core/tasks'),
     }));
   }
