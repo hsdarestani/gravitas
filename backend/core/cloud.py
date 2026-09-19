@@ -268,8 +268,24 @@ def download(identity, path):
     return _request('GET', _dav_url(identity, path), auth=_auth(identity), expected={200}, stream=True)
 
 
+def admin_make_folder(path):
+    clean = safe_relative_path(path)
+    current = []
+    for part in clean.split('/'):
+        current.append(part)
+        _request(
+            'MKCOL',
+            _admin_dav_url('/'.join(current)),
+            auth=_admin_auth(),
+            expected={201, 405},
+        )
+
+
 def admin_upload(path, file_obj, content_type=None):
     clean = safe_relative_path(path)
+    parent = str(PurePosixPath(clean).parent)
+    if parent and parent != '.':
+        admin_make_folder(parent)
     if hasattr(file_obj, 'seek'):
         file_obj.seek(0)
     return _request(
@@ -288,6 +304,35 @@ def admin_download(path):
 
 def admin_delete(path):
     _request('DELETE', _admin_dav_url(path), auth=_admin_auth(), expected={200, 204, 404})
+
+
+def admin_move(old_path, new_path):
+    clean_old = safe_relative_path(old_path)
+    clean_new = safe_relative_path(new_path)
+    if clean_old == clean_new:
+        return
+    parent = str(PurePosixPath(clean_new).parent)
+    if parent and parent != '.':
+        admin_make_folder(parent)
+    response = admin_download(clean_old)
+    try:
+        with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as copied:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    copied.write(chunk)
+            copied.seek(0)
+            copied.content_type = response.headers.get('Content-Type', 'application/octet-stream')
+            admin_upload(clean_new, copied, content_type=copied.content_type)
+    finally:
+        response.close()
+    try:
+        admin_delete(clean_old)
+    except CloudError:
+        try:
+            admin_delete(clean_new)
+        except CloudError:
+            pass
+        raise
 
 
 def delete(identity, path):
