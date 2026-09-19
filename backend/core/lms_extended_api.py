@@ -1216,7 +1216,9 @@ def learning_path_detail(request, path_id):
         if data['status'] not in LearningPath.Status.values:
             return _error('invalid_status')
         item.status = data['status']
-    if 'nodes' in data or 'edges' in data:
+    if 'nodes' in data or 'edges' in data or (
+        'status' in data and item.status == LearningPath.Status.PUBLISHED
+    ):
         try:
             nodes, edges = _normalize_learning_graph(
                 data.get('nodes', item.nodes),
