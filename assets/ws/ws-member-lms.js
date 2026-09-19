@@ -1736,9 +1736,18 @@ export async function renderCourse(host, id, { go }) {
         actions.append(enroll);
       } else if (course.access_type === 'paid') {
         actions.append(badge(`${course.price || '—'} ${course.currency || 'EUR'}`));
-        actions.append(el('p', 'fl-muted', course.payment?.enabled
-          ? 'Payment is configured for this course.'
-          : 'Payment-ready course. Checkout stays disabled until the payment provider is activated.'));
+        if (course.payment?.enabled && course.payment?.checkout_url) {
+          const checkout = el('a', 'ws-btn ws-btn--solid', 'Continue to checkout');
+          checkout.href = course.payment.checkout_url;
+          checkout.target = '_blank';
+          checkout.rel = 'noopener';
+          actions.append(checkout);
+          actions.append(el('p', 'fl-muted', 'Access activates only after payment is verified and the enrollment is granted.'));
+        } else {
+          actions.append(el('p', 'fl-muted', course.payment?.enabled
+            ? 'Payment is configured, but the checkout URL is not available yet.'
+            : 'Checkout is not enabled for this course.'));
+        }
       } else {
         actions.append(el('p', 'fl-muted', 'This course is invite-only. A Core administrator can grant enrollment.'));
       }
