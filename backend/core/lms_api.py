@@ -218,6 +218,8 @@ def _course_json(course, user=None, *, include_structure=False):
             'configured': bool(course.payment_config),
             'enabled': bool((course.payment_config or {}).get('enabled')),
             'provider': str((course.payment_config or {}).get('provider') or ''),
+            'checkout_url': str((course.payment_config or {}).get('checkout_url') or ''),
+            'sku': str((course.payment_config or {}).get('sku') or ''),
         },
         'payment_config': course.payment_config if admin else {},
         'learning_config': course.learning_config if admin or entitled else {},
