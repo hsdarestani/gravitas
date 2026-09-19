@@ -1081,9 +1081,12 @@ def _normalize_learning_graph(nodes, edges):
             item['metadata'] = raw['metadata']
         clean_nodes.append(item)
 
-    existing_courses = set(Course.objects.filter(pk__in=course_ids).values_list('pk', flat=True))
-    if existing_courses != course_ids:
+    course_titles = dict(Course.objects.filter(pk__in=course_ids).values_list('pk', 'title'))
+    if set(course_titles) != course_ids:
         raise ValueError('learning_path_course_not_found')
+    for item in clean_nodes:
+        if item.get('type') == 'course' and not item.get('title'):
+            item['title'] = course_titles.get(item.get('course_id'), '')
 
     clean_edges = []
     seen_edges = set()
