@@ -25,7 +25,7 @@ function ensureKatex() {
 }
 
 function parseMath(text) {
-  const pattern = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\]|\$[^$\n]+?\$)/g;
+  const pattern = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$)/g;
   const parts = [];
   let last = 0;
   let match;
