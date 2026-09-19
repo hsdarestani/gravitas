@@ -184,7 +184,21 @@ def _cycle_json(obj):
 
 
 def _milestone_json(obj):
-    return {'id': obj.pk, 'title': obj.title, 'initiative_id': obj.initiative_id, 'initiative_title': obj.initiative.title, 'owner': _person(obj.owner), 'cycle_id': obj.cycle_id, 'project_id': obj.project_id, 'due_date': obj.due_date.isoformat() if obj.due_date else None, 'definition_of_done': obj.definition_of_done, 'health': obj.health, 'status': obj.status}
+    kr = obj.initiative.key_result
+    return {
+        'id': obj.pk,
+        'title': obj.title,
+        'owner': _person(obj.owner),
+        'objective_id': kr.objective_id,
+        'objective_title': kr.objective.title,
+        'key_result_id': kr.pk,
+        'key_result_title': kr.title,
+        'project_id': obj.project_id,
+        'due_date': obj.due_date.isoformat() if obj.due_date else None,
+        'definition_of_done': obj.definition_of_done,
+        'health': obj.health,
+        'status': obj.status,
+    }
 
 
 def _meeting_json(obj):
@@ -205,6 +219,47 @@ def _task_json(obj):
         'dependency_id': obj.dependency_id, 'milestone_id': obj.milestone_id, 'cycle_id': obj.cycle_id,
         'project_id': obj.project_id, 'meeting_id': obj.meeting_id, 'trace': trace,
     }
+
+
+def _execution_initiative_for_kr(workspace, key_result, owner=None):
+    """Internal compatibility container for task/milestone records.
+
+    Initiatives are no longer part of the product planning surface. Existing
+    database relations are kept so historical tasks remain intact while new
+    work is attached directly to an OKR/KR in the UI.
+    """
+    existing = (
+        Initiative.objects
+        .filter(workspace=workspace, key_result=key_result)
+        .exclude(status=WorkStatus.ARCHIVED)
+        .order_by('id')
+        .first()
+    )
+    if existing:
+        return existing
+
+    _ensure_processes(workspace)
+    process = (
+        OperatingProcess.objects
+        .filter(workspace=workspace, key=OperatingProcess.Key.OPERATIONS, active=True)
+        .first()
+        or OperatingProcess.objects.filter(workspace=workspace, active=True).order_by('id').first()
+    )
+    if not process:
+        raise ValueError('operating_process_missing')
+
+    return Initiative.objects.create(
+        workspace=workspace,
+        key_result=key_result,
+        process=process,
+        title=f'Execution · {key_result.title}'[:240],
+        description='Internal execution container; hidden from the simplified Planning surface.',
+        owner=owner or key_result.owner,
+        priority=Priority.P2,
+        health=key_result.health,
+        status=WorkStatus.ACTIVE,
+        due_date=key_result.due_date or key_result.objective.due_date,
+    )
 
 
 def _editable(request, workspace):
@@ -436,22 +491,48 @@ def milestones(request):
     workspace = _workspace(request, p)
     if not workspace: return _error('workspace_not_found', 404)
     if request.method == 'GET':
-        qs = OperatingMilestone.objects.filter(workspace=workspace).select_related('initiative', 'owner')
+        qs = OperatingMilestone.objects.filter(workspace=workspace).select_related(
+            'initiative__key_result__objective', 'owner'
+        )
         return JsonResponse({'ok': True, 'milestones': [_milestone_json(x) for x in qs]})
     if not _editable(request, workspace): return _error('permission_denied', 403)
-    initiative = Initiative.objects.filter(pk=p.get('initiative_id'), workspace=workspace).first()
+
+    key_result = KeyResult.objects.select_related('objective', 'owner').filter(
+        pk=p.get('key_result_id'), objective__workspace=workspace
+    ).first()
+    legacy_initiative = Initiative.objects.select_related('key_result__objective').filter(
+        pk=p.get('initiative_id'), workspace=workspace
+    ).first() if p.get('initiative_id') else None
+    if not key_result and legacy_initiative:
+        key_result = legacy_initiative.key_result
+
     owner = _owner(request.user, workspace, p.get('owner_id'))
-    cycle = OperatingCycle.objects.filter(pk=p.get('cycle_id'), workspace=workspace).first() if p.get('cycle_id') else None
     project = ResearchProject.objects.filter(pk=p.get('project_id'), workspace=workspace).first() if p.get('project_id') else None
-    if not initiative or not owner or not p.get('title'): return _error('initiative_title_and_owner_required')
-    obj = OperatingMilestone.objects.create(workspace=workspace, initiative=initiative, cycle=cycle, project=project, title=p['title'].strip(), owner=owner, due_date=_date(p.get('due_date')), definition_of_done=p.get('definition_of_done', ''), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE))
+    if not key_result or not owner or not p.get('title'):
+        return _error('key_result_title_and_owner_required')
+
+    initiative = legacy_initiative or _execution_initiative_for_kr(workspace, key_result, owner)
+    obj = OperatingMilestone.objects.create(
+        workspace=workspace,
+        initiative=initiative,
+        cycle=None,
+        project=project,
+        title=p['title'].strip(),
+        owner=owner,
+        due_date=_date(p.get('due_date')),
+        definition_of_done=p.get('definition_of_done', ''),
+        health=p.get('health', Health.GREEN),
+        status=p.get('status', WorkStatus.ACTIVE),
+    )
     return JsonResponse({'ok': True, 'milestone': _milestone_json(obj)}, status=201)
 
 
 @require_http_methods(['PATCH', 'DELETE'])
 def milestone_detail(request, milestone_id):
     if (auth := _auth(request)): return auth
-    obj = OperatingMilestone.objects.select_related('workspace', 'initiative', 'owner').filter(pk=milestone_id, workspace__in=_accessible_workspaces(request.user)).first()
+    obj = OperatingMilestone.objects.select_related(
+        'workspace', 'initiative__key_result__objective', 'owner'
+    ).filter(pk=milestone_id, workspace__in=_accessible_workspaces(request.user)).first()
     if not obj: return _error('milestone_not_found', 404)
     if not _editable(request, obj.workspace): return _error('permission_denied', 403)
     if request.method == 'DELETE':
@@ -461,6 +542,19 @@ def milestone_detail(request, milestone_id):
     for field in ['title', 'definition_of_done', 'health', 'status']:
         if field in p: setattr(obj, field, p[field])
     if 'due_date' in p: obj.due_date = _date(p['due_date'])
+    if 'owner_id' in p:
+        owner = _owner(request.user, obj.workspace, p['owner_id'])
+        if not owner:
+            return _error('invalid_owner')
+        obj.owner = owner
+    if 'key_result_id' in p:
+        key_result = KeyResult.objects.select_related('objective', 'owner').filter(
+            pk=p.get('key_result_id'), objective__workspace=obj.workspace
+        ).first()
+        if not key_result:
+            return _error('key_result_not_found')
+        obj.initiative = _execution_initiative_for_kr(obj.workspace, key_result, obj.owner)
+        obj.cycle = None
     obj.save(); return JsonResponse({'ok': True, 'milestone': _milestone_json(obj)})
 
 
