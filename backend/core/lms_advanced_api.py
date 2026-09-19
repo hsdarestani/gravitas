@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import re
+import secrets
 import zipfile
 from urllib.parse import quote
 
@@ -119,6 +120,20 @@ def _payment_json(item):
     }
 
 
+def _render_checkout_url(template, payment):
+    url = str(template or '')
+    replacements = {
+        '{payment_id}': str(payment.pk),
+        '{course_id}': str(payment.course_id),
+        '{user_email}': quote(payment.user.email, safe=''),
+        '{amount}': quote(str(payment.amount), safe=''),
+        '{currency}': quote(payment.currency, safe=''),
+    }
+    for token, value in replacements.items():
+        url = url.replace(token, value)
+    return url
+
+
 def _grant_paid_enrollment(payment, actor):
     enrollment, _created = CourseEnrollment.objects.update_or_create(
         user=payment.user,
@@ -197,10 +212,10 @@ def course_checkout(request, course_id):
 
     pending = rows.filter(status=CoursePayment.Status.PENDING).first()
     if pending:
-        pending.checkout_url = checkout_url
         pending.provider = provider
         pending.amount = course.price
         pending.currency = course.currency
+        pending.checkout_url = _render_checkout_url(checkout_url, pending)
         pending.save(update_fields=['checkout_url', 'provider', 'amount', 'currency', 'updated_at'])
         return JsonResponse({'ok': True, 'payment': _payment_json(pending)})
 
@@ -210,13 +225,76 @@ def course_checkout(request, course_id):
         provider=provider,
         amount=course.price,
         currency=course.currency,
-        checkout_url=checkout_url,
+        checkout_url='',
         metadata={
             'sku': str(config.get('sku') or ''),
             'created_from': 'learner_checkout',
         },
     )
+    payment.checkout_url = _render_checkout_url(checkout_url, payment)
+    payment.save(update_fields=['checkout_url', 'updated_at'])
     return JsonResponse({'ok': True, 'payment': _payment_json(payment)}, status=201)
+
+
+@require_http_methods(['POST'])
+def course_payment_webhook(request, course_id):
+    course = _course(course_id)
+    if not course:
+        return _error('course_not_found', 404)
+    config = course.payment_config if isinstance(course.payment_config, dict) else {}
+    secret = str(config.get('webhook_secret') or '')
+    supplied = str(request.headers.get('X-Gravitas-Payment-Secret') or '')
+    if not secret or not supplied or not secrets.compare_digest(secret, supplied):
+        return _error('payment_webhook_unauthorized', 403)
+
+    data = _json_body(request)
+    try:
+        payment_id = int(data.get('payment_id'))
+    except (TypeError, ValueError):
+        return _error('payment_id_required')
+    payment = (
+        CoursePayment.objects
+        .select_related('course', 'user', 'verified_by')
+        .filter(pk=payment_id, course=course)
+        .first()
+    )
+    if not payment:
+        return _error('payment_not_found', 404)
+
+    status = str(data.get('status') or '').strip().lower()
+    if status not in CoursePayment.Status.values:
+        return _error('invalid_payment_status')
+    if 'external_reference' in data:
+        payment.external_reference = str(data.get('external_reference') or '').strip()[:240]
+    payment.status = status
+    metadata = dict(payment.metadata or {})
+    metadata['verified_via'] = 'webhook'
+    if isinstance(data.get('metadata'), dict):
+        metadata['provider_payload'] = data['metadata']
+    payment.metadata = metadata
+    if status == CoursePayment.Status.PAID:
+        payment.verified_by = None
+        payment.verified_at = timezone.now()
+    elif status in {CoursePayment.Status.PENDING, CoursePayment.Status.FAILED, CoursePayment.Status.CANCELLED}:
+        payment.verified_by = None
+        payment.verified_at = None
+    payment.save()
+
+    enrollment = None
+    if status == CoursePayment.Status.PAID:
+        enrollment = _grant_paid_enrollment(payment, None)
+    elif status == CoursePayment.Status.REFUNDED:
+        enrollment = CourseEnrollment.objects.filter(user=payment.user, course=payment.course).first()
+        if enrollment and enrollment.access_source == CourseEnrollment.AccessSource.PURCHASE:
+            enrollment.status = CourseEnrollment.Status.REVOKED
+            enrollment.save(update_fields=['status', 'updated_at'])
+
+    return JsonResponse({
+        'ok': True,
+        'payment': _payment_json(payment),
+        'enrollment_id': enrollment.pk if enrollment else None,
+        'enrollment_status': enrollment.status if enrollment else None,
+    })
 
 
 @require_http_methods(['GET', 'PATCH'])
