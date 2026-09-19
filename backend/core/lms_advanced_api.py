@@ -731,6 +731,33 @@ def _github_headers(token):
     }
 
 
+def _repository_json(item):
+    return {
+        'id': item.pk,
+        'course_id': item.enrollment.course_id,
+        'course_title': item.enrollment.course.title,
+        'user_id': item.enrollment.user_id,
+        'learner': item.enrollment.user.get_full_name() or item.enrollment.user.email,
+        'learner_email': item.enrollment.user.email,
+        'lesson_id': item.lesson_id,
+        'lesson_title': item.lesson.title if item.lesson_id else '',
+        'owner': item.owner,
+        'repository': item.repository,
+        'branch': item.branch,
+        'path_prefix': item.path_prefix,
+        'html_url': item.html_url,
+        'last_commit_sha': item.last_commit_sha,
+        'review_status': item.review_status,
+        'review_note': item.review_note,
+        'reviewed_by': (
+            item.reviewed_by.get_full_name() or item.reviewed_by.email
+            if item.reviewed_by_id else ''
+        ),
+        'reviewed_at': item.reviewed_at.isoformat() if item.reviewed_at else None,
+        'updated_at': item.updated_at.isoformat(),
+    }
+
+
 @require_http_methods(['GET', 'POST'])
 def course_git(request, course_id):
     if not request.user.is_authenticated:
@@ -745,18 +772,8 @@ def course_git(request, course_id):
         return _error('git_disabled', 403)
 
     if request.method == 'GET':
-        rows = enrollment.repositories.select_related('lesson').all()
-        return JsonResponse({'ok': True, 'repositories': [{
-            'id': item.pk,
-            'lesson_id': item.lesson_id,
-            'owner': item.owner,
-            'repository': item.repository,
-            'branch': item.branch,
-            'path_prefix': item.path_prefix,
-            'html_url': item.html_url,
-            'last_commit_sha': item.last_commit_sha,
-            'updated_at': item.updated_at.isoformat(),
-        } for item in rows]})
+        rows = enrollment.repositories.select_related('lesson', 'reviewed_by').all()
+        return JsonResponse({'ok': True, 'repositories': [_repository_json(item) for item in rows]})
 
     integration = LearningIntegration.objects.filter(
         user=request.user,
@@ -818,6 +835,10 @@ def course_git(request, course_id):
             'branch': branch,
             'html_url': html_url,
             'last_commit_sha': commit_sha,
+            'review_status': LearningRepository.ReviewStatus.PENDING,
+            'review_note': '',
+            'reviewed_by': None,
+            'reviewed_at': None,
         },
     )
     _event(
@@ -836,6 +857,54 @@ def course_git(request, course_id):
             'last_commit_sha': repo.last_commit_sha,
         },
     }, status=201)
+
+
+@require_http_methods(['GET', 'PATCH'])
+def admin_learning_repositories(request):
+    if not _admin(request.user):
+        return _error('core_admin_required', 403)
+
+    if request.method == 'GET':
+        rows = (
+            LearningRepository.objects
+            .select_related('enrollment__course', 'enrollment__user', 'lesson', 'reviewed_by')
+            .order_by('-updated_at')
+        )
+        course_id = request.GET.get('course_id')
+        user_id = request.GET.get('user_id')
+        status = str(request.GET.get('status') or '').strip()
+        if course_id:
+            rows = rows.filter(enrollment__course_id=course_id)
+        if user_id:
+            rows = rows.filter(enrollment__user_id=user_id)
+        if status:
+            if status not in LearningRepository.ReviewStatus.values:
+                return _error('invalid_review_status')
+            rows = rows.filter(review_status=status)
+        return JsonResponse({'ok': True, 'repositories': [_repository_json(item) for item in rows[:500]]})
+
+    data = _json_body(request)
+    try:
+        repository_id = int(data.get('repository_id'))
+    except (TypeError, ValueError):
+        return _error('repository_id_required')
+    item = (
+        LearningRepository.objects
+        .select_related('enrollment__course', 'enrollment__user', 'lesson', 'reviewed_by')
+        .filter(pk=repository_id)
+        .first()
+    )
+    if not item:
+        return _error('repository_not_found', 404)
+    status = str(data.get('review_status') or '').strip()
+    if status not in LearningRepository.ReviewStatus.values:
+        return _error('invalid_review_status')
+    item.review_status = status
+    item.review_note = str(data.get('review_note') or '').strip()[:12000]
+    item.reviewed_by = request.user
+    item.reviewed_at = timezone.now()
+    item.save(update_fields=['review_status', 'review_note', 'reviewed_by', 'reviewed_at', 'updated_at'])
+    return JsonResponse({'ok': True, 'repository': _repository_json(item)})
 
 
 @require_http_methods(['POST'])
