@@ -9,7 +9,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from core import cloud
-from core.models import NextcloudIdentity, Organization, Workspace
+from core.models import NewsletterSubscriber, NextcloudIdentity, Organization, Workspace
 from core.operating_models import StrategicObjective
 from core.workspace_api import provision_personal_workspace
 
@@ -47,6 +47,27 @@ class CleanupProductionE2EUsersTests(TestCase):
             email='person@example.com',
             first_name='Production E2E',
         )
+        NewsletterSubscriber.objects.create(
+            email=self.auth_user.email,
+            source='account-signup',
+            is_active=False,
+        )
+        NewsletterSubscriber.objects.create(
+            email=self.browser_user.email,
+            source='account-signup',
+            is_active=False,
+        )
+        NewsletterSubscriber.objects.create(
+            email=self.real.email,
+            source='website',
+            is_active=True,
+        )
+        # Simulate historical orphan left after an older E2E account deletion.
+        NewsletterSubscriber.objects.create(
+            email='auth-e2e-777777@example.com',
+            source='account-signup',
+            is_active=False,
+        )
 
     def test_scope_only_deletes_matching_test_family(self):
         out = StringIO()
@@ -58,7 +79,12 @@ class CleanupProductionE2EUsersTests(TestCase):
         self.assertTrue(User.objects.filter(pk=self.operating_user.pk).exists())
         self.assertTrue(User.objects.filter(pk=self.lookalike.pk).exists())
         self.assertTrue(User.objects.filter(pk=self.real.pk).exists())
+        self.assertFalse(NewsletterSubscriber.objects.filter(email=self.auth_user.email).exists())
+        self.assertFalse(NewsletterSubscriber.objects.filter(email=self.browser_user.email).exists())
+        self.assertFalse(NewsletterSubscriber.objects.filter(email='auth-e2e-777777@example.com').exists())
+        self.assertTrue(NewsletterSubscriber.objects.filter(email=self.real.email).exists())
         self.assertIn('deleted=2', out.getvalue())
+        self.assertIn('newsletter_rows_deleted=', out.getvalue())
 
     def test_all_scope_deletes_only_strict_e2e_patterns(self):
         call_command('cleanup_production_e2e_users', scope='all', stdout=StringIO())
