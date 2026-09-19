@@ -8,7 +8,7 @@ shell was rewritten, so every test in it failed on a missing file rather than
 on a broken contract. The guarantees are the same ones, moved to the code
 that now provides them:
 
-  * Core's navigation offers Assets & Blueprints, and the blueprint under it.
+  * Core's navigation offers a simple shared Assets folder.
   * All sixteen sections are present, with their owners unchanged.
   * The eleven-stage lifecycle keeps its order.
   * The one-owner-per-task rule remains documented in the approval flow.
@@ -60,12 +60,12 @@ class CoreBlueprintContractTests(SimpleTestCase):
     def read(self, relative_path):
         return (ROOT / relative_path).read_text(encoding='utf-8')
 
-    def test_core_navigation_exposes_assets_and_blueprints(self):
+    def test_core_navigation_exposes_assets_folder(self):
         nav = self.read('assets/ws/ws-nav.js')
-        self.assertIn("label: 'Assets & Blueprints'", nav)
+        self.assertIn("label: 'Assets'", nav)
         self.assertIn("path: '/workspace/core/assets'", nav)
-        self.assertIn("label: 'Content Studio Blueprint'", nav)
-        self.assertIn("path: '/workspace/core/assets/content-studio-blueprint'", nav)
+        self.assertNotIn("label: 'Assets & Blueprints'", nav)
+        self.assertNotIn("label: 'Content Studio Blueprint'", nav)
 
     def test_both_asset_routes_resolve_to_their_own_view(self):
         app = self.read('assets/ws/ws-app.js')
@@ -100,17 +100,14 @@ class CoreBlueprintContractTests(SimpleTestCase):
         )
         self.assertIn(expected, js)
 
-    def test_approval_precedes_task_breakdown(self):
+    def test_assets_screen_is_only_a_nextcloud_backed_team_folder(self):
         js = self.read('assets/ws/ws-core-assets.js')
-        self.assertIn('GSA-001', js)
-        self.assertIn('Approve scope and ownership', js)
-        self.assertIn('Cut sections into tasks', js)
-        self.assertIn('Commit deadlines', js)
-        self.assertIn('Every task names exactly one owner.', js)
-        self.assertIn(
-            'Each task created inside Production must have exactly one named owner.',
-            js,
-        )
+        self.assertIn("el('h1', 'ws-doc__title', 'Assets')", js)
+        self.assertIn('Nextcloud sync active', js)
+        self.assertIn("'Upload files'", js)
+        self.assertNotIn("'What happens next'", js)
+        self.assertNotIn("'Built-in blueprints'", js)
+        self.assertNotIn("'Cut sections into tasks'", js)
 
     def test_blueprint_does_not_offer_direct_task_creation(self):
         js = self.read('assets/ws/ws-core-assets.js')
