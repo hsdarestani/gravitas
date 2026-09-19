@@ -10,8 +10,11 @@ from urllib.parse import quote, urlparse
 
 import requests
 from django.conf import settings
-from django.db.models import Avg, Count, Q, Sum
-from django.http import FileResponse, HttpResponse, JsonResponse
+from django.core.exceptions import ImproperlyConfigured
+from django.db import transaction
+from django.db.models import Avg, Count, Max, Q, Sum
+from django.http import FileResponse, HttpResponse, JsonResponse, StreamingHttpResponse
+from django.utils.http import content_disposition_header
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.html import strip_tags
@@ -39,6 +42,7 @@ from .pulsar import PulsarError, complete
 ZOTERO_ROOT = 'https://api.zotero.org'
 SAFE_NAME = re.compile(r'[^A-Za-z0-9._ -]+')
 MAX_EVENT_METADATA = 20000
+LMS_NEXTCLOUD_STORAGE_PREFIX = 'nextcloud:'
 
 
 def _json_body(request):
@@ -89,6 +93,85 @@ def _safe_filename(value):
     return SAFE_NAME.sub('_', name)[:255] or 'file'
 
 
+def _safe_folder(value):
+    raw = str(value or '').replace('\\', '/').strip('/')
+    if not raw:
+        return ''
+    parts = []
+    for part in raw.split('/')[:16]:
+        part = part.strip()
+        if part in {'', '.', '..'}:
+            continue
+        clean = SAFE_NAME.sub('_', part).strip(' .')
+        if clean:
+            parts.append(clean[:120])
+    return '/'.join(parts)[:700]
+
+
+def _lms_cloud_path(item):
+    value = str(item.storage_path or '')
+    return value[len(LMS_NEXTCLOUD_STORAGE_PREFIX):] if value.startswith(LMS_NEXTCLOUD_STORAGE_PREFIX) else ''
+
+
+def _lms_asset_path(item, filename):
+    course_dir = f'{item.course_id}-{_safe_filename(item.course.slug)[:80]}'
+    logical_dir = f'{_safe_filename(item.title)[:100]}__{str(item.logical_id)[:8]}'
+    parts = [
+        settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT,
+        'Courses',
+        course_dir,
+    ]
+    if item.folder_path:
+        parts.append(item.folder_path)
+    parts.extend([logical_dir, f'v{int(item.version):03d}', _safe_filename(filename)])
+    return '/'.join(part.strip('/') for part in parts if part)
+
+
+def _prepare_lms_nextcloud():
+    try:
+        cloud.ensure_team_folder(
+            settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT,
+            settings.LMS_ASSET_NEXTCLOUD_GROUP,
+        )
+        return 'live'
+    except (cloud.CloudError, ImproperlyConfigured):
+        return 'unavailable'
+
+
+def _migrate_legacy_lms_assets(course=None):
+    if _prepare_lms_nextcloud() != 'live':
+        return 0, 1
+    migrated = 0
+    failed = 0
+    qs = LearningAsset.objects.filter(kind=LearningAsset.Kind.FILE).exclude(storage_path='')
+    if course is not None:
+        qs = qs.filter(course=course)
+    for item in qs.iterator():
+        if _lms_cloud_path(item):
+            continue
+        local_path = str(item.storage_path or '')
+        if not local_path or not os.path.isfile(local_path):
+            continue
+        remote_path = _lms_asset_path(item, item.original_name or item.title)
+        try:
+            with open(local_path, 'rb') as source:
+                cloud.admin_upload(
+                    remote_path,
+                    source,
+                    content_type=item.mime_type or 'application/octet-stream',
+                )
+            item.storage_path = LMS_NEXTCLOUD_STORAGE_PREFIX + remote_path
+            item.save(update_fields=['storage_path', 'updated_at'])
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
+            migrated += 1
+        except (cloud.CloudError, ImproperlyConfigured):
+            failed += 1
+    return migrated, failed
+
+
 def _metadata(value):
     clean = value if isinstance(value, dict) else {}
     encoded = json.dumps(clean, ensure_ascii=False)
@@ -108,19 +191,28 @@ def _event(user, course, kind, *, enrollment=None, lesson=None, duration_seconds
 
 
 def _asset_json(item):
+    cloud_path = _lms_cloud_path(item)
     return {
         'id': item.pk,
+        'logical_id': str(item.logical_id),
         'course_id': item.course_id,
         'lesson_id': item.lesson_id,
         'kind': item.kind,
         'title': item.title,
+        'folder_path': item.folder_path,
+        'version': item.version,
+        'version_note': item.version_note,
+        'is_current': item.is_current,
+        'version_count': LearningAsset.objects.filter(logical_id=item.logical_id).count(),
         'original_name': item.original_name,
         'source_url': item.source_url,
         'mime_type': item.mime_type,
         'size': item.size,
         'metadata': item.metadata,
+        'storage_backend': 'nextcloud' if cloud_path else ('local' if item.storage_path else ''),
         'download_url': f'/api/lms/assets/{item.pk}/download/' if item.kind == LearningAsset.Kind.FILE else '',
         'created_at': item.created_at.isoformat(),
+        'updated_at': item.updated_at.isoformat(),
     }
 
 
@@ -535,17 +627,73 @@ def admin_learning_assets(request, course_id):
         return _error('course_not_found', 404)
 
     if request.method == 'GET':
-        return JsonResponse({'ok': True, 'assets': [_asset_json(item) for item in course.assets.select_related('lesson').all()]})
+        _migrated, failed = _migrate_legacy_lms_assets(course)
+        assets = list(course.assets.select_related('lesson').all()[:1500])
+        folders = sorted({item.folder_path for item in assets if item.folder_path}, key=str.casefold)
+        groups = {}
+        for item in assets:
+            key = str(item.logical_id)
+            group = groups.setdefault(key, {
+                'logical_id': key,
+                'title': item.title,
+                'folder_path': item.folder_path,
+                'current_id': None,
+                'versions': [],
+            })
+            payload = _asset_json(item)
+            group['versions'].append(payload)
+            if item.is_current:
+                group['current_id'] = item.pk
+                group['title'] = item.title
+                group['folder_path'] = item.folder_path
+        for group in groups.values():
+            group['versions'].sort(key=lambda row: row['version'], reverse=True)
+            if group['current_id'] is None and group['versions']:
+                group['current_id'] = group['versions'][0]['id']
+        return JsonResponse({
+            'ok': True,
+            'assets': [_asset_json(item) for item in assets],
+            'groups': list(groups.values()),
+            'folders': folders,
+            'max_file_bytes': settings.LMS_ASSET_MAX_BYTES,
+            'nextcloud': {
+                'state': 'partial' if failed else _prepare_lms_nextcloud(),
+                'mountpoint': settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT,
+                'files_url': cloud.native_files_url(settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT),
+            },
+        })
 
     title = str(request.POST.get('title') or '').strip()[:240]
     source_url = str(request.POST.get('source_url') or '').strip()[:1800]
+    folder_path = _safe_folder(request.POST.get('folder_path'))
+    version_note = str(request.POST.get('version_note') or '').strip()[:500]
     kind = str(request.POST.get('kind') or LearningAsset.Kind.FILE)
     uploaded = request.FILES.get('file')
+
+    base = None
+    version_of_id = request.POST.get('version_of_id')
+    if version_of_id:
+        try:
+            base = LearningAsset.objects.get(pk=int(version_of_id), course=course)
+        except (ValueError, TypeError, LearningAsset.DoesNotExist):
+            return _error('version_base_not_found', 404)
+        if base.kind != LearningAsset.Kind.FILE:
+            return _error('versioning_requires_file')
+        if not uploaded:
+            return _error('file_required')
+        kind = LearningAsset.Kind.FILE
+        title = title or base.title
+        folder_path = folder_path or base.folder_path
+
     lesson = None
-    if request.POST.get('lesson_id'):
-        lesson = Lesson.objects.filter(pk=request.POST['lesson_id'], module__course=course).first()
+    lesson_id = request.POST.get('lesson_id')
+    if lesson_id:
+        lesson = Lesson.objects.filter(pk=lesson_id, module__course=course).first()
         if not lesson:
             return _error('lesson_not_found', 404)
+    elif base:
+        lesson = base.lesson
+
     if kind not in LearningAsset.Kind.values:
         return _error('invalid_asset_kind')
     if kind == LearningAsset.Kind.FILE and not uploaded:
@@ -559,27 +707,54 @@ def admin_learning_assets(request, course_id):
     if uploaded and (uploaded.size <= 0 or uploaded.size > settings.LMS_ASSET_MAX_BYTES):
         return _error('file_size_invalid', 413, max_bytes=settings.LMS_ASSET_MAX_BYTES)
 
+    version = 1
+    logical_id = uuid.uuid4()
+    if base:
+        logical_id = base.logical_id
+        version = (LearningAsset.objects.filter(logical_id=base.logical_id).aggregate(v=Max('version'))['v'] or 0) + 1
+
     item = LearningAsset(
+        logical_id=logical_id,
         course=course,
         lesson=lesson,
         kind=kind,
         title=title or (uploaded.name if uploaded else source_url),
+        folder_path=folder_path,
+        version=version,
+        version_note=version_note,
+        is_current=True,
         source_url=source_url,
+        metadata=dict(base.metadata) if base and isinstance(base.metadata, dict) else {},
         uploaded_by=request.user,
     )
+
     if uploaded:
-        root = Path(settings.LMS_MEDIA_ROOT) / str(course.pk)
-        root.mkdir(parents=True, exist_ok=True)
+        if _prepare_lms_nextcloud() != 'live':
+            return _error('nextcloud_unavailable', 503)
         name = _safe_filename(uploaded.name)
-        path = root / f'{uuid.uuid4().hex}-{name}'
-        with path.open('wb') as handle:
-            for chunk in uploaded.chunks():
-                handle.write(chunk)
         item.original_name = name
-        item.storage_path = str(path)
         item.mime_type = (uploaded.content_type or mimetypes.guess_type(name)[0] or '')[:180]
         item.size = uploaded.size
-    item.save()
+        remote_path = _lms_asset_path(item, name)
+        try:
+            cloud.admin_upload(remote_path, uploaded, content_type=item.mime_type or 'application/octet-stream')
+        except (cloud.CloudError, ImproperlyConfigured):
+            return _error('nextcloud_unavailable', 503)
+        item.storage_path = LMS_NEXTCLOUD_STORAGE_PREFIX + remote_path
+        try:
+            with transaction.atomic():
+                if base:
+                    LearningAsset.objects.filter(logical_id=base.logical_id, is_current=True).update(is_current=False)
+                item.save()
+        except Exception:
+            try:
+                cloud.admin_delete(remote_path)
+            except Exception:
+                pass
+            raise
+    else:
+        item.save()
+
     return JsonResponse({'ok': True, 'asset': _asset_json(item)}, status=201)
 
 
@@ -590,48 +765,119 @@ def learning_asset_detail(request, asset_id):
     item = LearningAsset.objects.select_related('course', 'lesson').filter(pk=asset_id).first()
     if not item:
         return _error('asset_not_found', 404)
+
+    if request.method == 'GET':
+        if not _can_access(request.user, item.course):
+            return _error('course_enrollment_required', 403)
+        versions = []
+        if _admin(request.user):
+            versions = [
+                _asset_json(row)
+                for row in LearningAsset.objects.filter(logical_id=item.logical_id).select_related('lesson')
+            ]
+        return JsonResponse({'ok': True, 'asset': _asset_json(item), 'versions': versions})
+
+    if not _admin(request.user):
+        return _error('core_admin_required', 403)
+
     if request.method == 'DELETE':
-        if not _admin(request.user):
-            return _error('core_admin_required', 403)
-        path = item.storage_path
-        item.delete()
-        if path:
+        logical_id = item.logical_id
+        was_current = item.is_current
+        cloud_path = _lms_cloud_path(item)
+        if cloud_path:
             try:
-                os.remove(path)
+                cloud.admin_delete(cloud_path)
+            except (cloud.CloudError, ImproperlyConfigured):
+                return _error('nextcloud_unavailable', 503)
+        elif item.storage_path:
+            try:
+                os.remove(item.storage_path)
             except FileNotFoundError:
                 pass
+        item.delete()
+        if was_current:
+            replacement = LearningAsset.objects.filter(logical_id=logical_id).order_by('-version').first()
+            if replacement:
+                replacement.is_current = True
+                replacement.save(update_fields=['is_current', 'updated_at'])
         return JsonResponse({'ok': True})
-    if request.method == 'PATCH':
-        if not _admin(request.user):
-            return _error('core_admin_required', 403)
-        data = _json_body(request)
-        if 'title' in data:
-            title = str(data.get('title') or '').strip()[:240]
-            if not title:
-                return _error('title_required')
-            item.title = title
-        if 'lesson_id' in data:
-            if data.get('lesson_id') in (None, ''):
-                item.lesson = None
-            else:
-                lesson = Lesson.objects.filter(pk=data['lesson_id'], module__course=item.course).first()
-                if not lesson:
-                    return _error('lesson_not_found', 404)
-                item.lesson = lesson
-        if 'source_url' in data and item.kind != LearningAsset.Kind.FILE:
-            source_url = str(data.get('source_url') or '').strip()[:1800]
-            parsed = urlparse(source_url)
-            if not source_url or parsed.scheme not in {'http', 'https'} or not parsed.netloc:
-                return _error('invalid_source_url')
-            item.source_url = source_url
-        if 'metadata' in data:
-            if not isinstance(data['metadata'], dict):
-                return _error('invalid_metadata')
-            item.metadata = data['metadata']
-        item.save()
-        return JsonResponse({'ok': True, 'asset': _asset_json(item)})
-    if not _can_access(request.user, item.course):
-        return _error('course_enrollment_required', 403)
+
+    data = _json_body(request)
+    versions = list(LearningAsset.objects.filter(logical_id=item.logical_id).select_related('course').order_by('version'))
+    update = {}
+
+    if 'title' in data:
+        title = str(data.get('title') or '').strip()[:240]
+        if not title:
+            return _error('title_required')
+        update['title'] = title
+    if 'folder_path' in data:
+        update['folder_path'] = _safe_folder(data.get('folder_path'))
+    if 'description' in data:
+        # Kept in metadata because LearningAsset has no dedicated description column.
+        metadata = dict(item.metadata or {})
+        metadata['description'] = str(data.get('description') or '')
+        update['metadata'] = metadata
+
+    storage_moves = []
+    if 'title' in update or 'folder_path' in update:
+        try:
+            for revision in versions:
+                old_path = _lms_cloud_path(revision)
+                if not old_path or revision.kind != LearningAsset.Kind.FILE:
+                    continue
+                original_title = revision.title
+                original_folder = revision.folder_path
+                revision.title = update.get('title', revision.title)
+                revision.folder_path = update.get('folder_path', revision.folder_path)
+                new_path = _lms_asset_path(revision, revision.original_name or revision.title)
+                revision.title = original_title
+                revision.folder_path = original_folder
+                if old_path == new_path:
+                    continue
+                cloud.admin_move(old_path, new_path)
+                storage_moves.append((revision.pk, old_path, new_path))
+        except (cloud.CloudError, ImproperlyConfigured):
+            for _pk, old_path, new_path in reversed(storage_moves):
+                try:
+                    cloud.admin_move(new_path, old_path)
+                except Exception:
+                    pass
+            return _error('nextcloud_unavailable', 503)
+
+    if update:
+        with transaction.atomic():
+            LearningAsset.objects.filter(logical_id=item.logical_id).update(**update)
+            for revision_id, _old_path, new_path in storage_moves:
+                LearningAsset.objects.filter(pk=revision_id).update(
+                    storage_path=LMS_NEXTCLOUD_STORAGE_PREFIX + new_path,
+                )
+
+    item.refresh_from_db()
+
+    if 'lesson_id' in data:
+        lesson = None
+        if data.get('lesson_id') not in (None, ''):
+            lesson = Lesson.objects.filter(pk=data['lesson_id'], module__course=item.course).first()
+            if not lesson:
+                return _error('lesson_not_found', 404)
+        LearningAsset.objects.filter(logical_id=item.logical_id).update(lesson=lesson)
+        item.lesson = lesson
+
+    if 'source_url' in data and item.kind != LearningAsset.Kind.FILE:
+        source_url = str(data.get('source_url') or '').strip()[:1800]
+        parsed = urlparse(source_url)
+        if not source_url or parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            return _error('invalid_source_url')
+        LearningAsset.objects.filter(logical_id=item.logical_id).update(source_url=source_url)
+        item.source_url = source_url
+
+    if 'metadata' in data:
+        if not isinstance(data['metadata'], dict):
+            return _error('invalid_metadata')
+        LearningAsset.objects.filter(logical_id=item.logical_id).update(metadata=data['metadata'])
+        item.metadata = data['metadata']
+
     return JsonResponse({'ok': True, 'asset': _asset_json(item)})
 
 
@@ -640,10 +886,37 @@ def learning_asset_download(request, asset_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
     item = LearningAsset.objects.select_related('course').filter(pk=asset_id, kind=LearningAsset.Kind.FILE).first()
-    if not item or not item.storage_path or not os.path.isfile(item.storage_path):
+    if not item or not item.storage_path:
         return _error('asset_not_found', 404)
     if not _can_access(request.user, item.course):
         return _error('course_enrollment_required', 403)
+
+    cloud_path = _lms_cloud_path(item)
+    if cloud_path:
+        try:
+            upstream = cloud.admin_download(cloud_path)
+        except (cloud.CloudError, ImproperlyConfigured):
+            return _error('nextcloud_unavailable', 503)
+
+        def stream():
+            try:
+                for chunk in upstream.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        yield chunk
+            finally:
+                upstream.close()
+
+        response = StreamingHttpResponse(
+            stream(),
+            content_type=item.mime_type or upstream.headers.get('Content-Type') or 'application/octet-stream',
+        )
+        response['Content-Disposition'] = content_disposition_header(True, item.original_name or item.title)
+        if item.size:
+            response['Content-Length'] = str(item.size)
+        return response
+
+    if not os.path.isfile(item.storage_path):
+        return _error('asset_not_found', 404)
     return FileResponse(open(item.storage_path, 'rb'), as_attachment=True, filename=item.original_name or item.title)
 
 
