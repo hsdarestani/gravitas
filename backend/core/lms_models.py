@@ -327,6 +327,7 @@ class LearningAsset(models.Model):
         URL = 'url', 'URL'
         EMBED = 'embed', 'Embed'
 
+    logical_id = models.UUIDField(default=uuid.uuid4, db_index=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='assets')
     lesson = models.ForeignKey(
         Lesson,
@@ -337,6 +338,10 @@ class LearningAsset(models.Model):
     )
     kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.FILE, db_index=True)
     title = models.CharField(max_length=240)
+    folder_path = models.CharField(max_length=700, blank=True, db_index=True)
+    version = models.PositiveIntegerField(default=1)
+    version_note = models.CharField(max_length=500, blank=True)
+    is_current = models.BooleanField(default=True, db_index=True)
     original_name = models.CharField(max_length=255, blank=True)
     storage_path = models.CharField(max_length=1000, blank=True)
     source_url = models.URLField(max_length=1800, blank=True)
@@ -349,9 +354,13 @@ class LearningAsset(models.Model):
         related_name='gravitas_learning_assets',
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['folder_path', 'title', '-version', '-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['logical_id', 'version'], name='unique_gravitas_learning_asset_version'),
+        ]
 
 
 class LearningPath(models.Model):
