@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20260919-advanced3';
+import * as P from './ws-platform.js?v=20260919-advanced4';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
