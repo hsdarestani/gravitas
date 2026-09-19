@@ -1250,17 +1250,21 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     profileBox.body.append(registrationHost, addRegistrationField);
     form.append(profileBox.box);
 
-    const payment = section('Payment readiness', 'Commerce is intentionally future-ready. Price/SKU/provider policy can be authored before checkout is activated.');
+    const payment = section('Payment', 'Define the paid-course checkout policy. Enrollment is still granted only after a verified payment or an admin grant; a checkout link never creates a fake purchase.');
     const paymentConfig = course?.payment_config || {};
     const paymentEnabled = checkbox(!!paymentConfig.enabled, 'Checkout enabled');
-    paymentEnabled.input.disabled = true;
-    const paymentProvider = select([['future','Future provider'],['stripe','Stripe'],['sumup','SumUp']], paymentConfig.provider || 'future');
+    const paymentProvider = select([
+      ['external','External checkout'],
+      ['stripe','Stripe'],
+      ['sumup','SumUp'],
+    ], paymentConfig.provider || 'external');
     const paymentSku = input(paymentConfig.sku || '');
+    const paymentCheckoutUrl = input(paymentConfig.checkout_url || '', 'url', 'https://checkout.example/…');
     payment.body.append(
       paymentEnabled.wrap,
       field('Provider', paymentProvider),
       field('SKU / product key', paymentSku),
-      el('p', 'fl-muted', 'Activation stays disabled until a verified provider flow is implemented; no fake payment state is created.'),
+      field('Checkout URL', paymentCheckoutUrl, 'Shown to learners for paid courses. Payment verification must still grant the enrollment.'),
     );
     form.append(payment.box);
 
@@ -1441,9 +1445,10 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         instructors: instructorState.map((item) => ({ user_id: item.user_id, role: item.role })),
         registration_schema: serializeRegistrationFields(registrationHost),
         payment_config: {
-          enabled: false,
+          enabled: paymentEnabled.input.checked,
           provider: paymentProvider.value,
           sku: paymentSku.value.trim(),
+          checkout_url: paymentCheckoutUrl.value.trim(),
           prepared: true,
         },
         learning_config: {
