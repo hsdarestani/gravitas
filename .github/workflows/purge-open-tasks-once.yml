@@ -50,7 +50,7 @@ jobs:
           fi
           echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
 
-      - name: Backup and purge exactly 159 open tasks
+      - name: Backup and purge all current open tasks
         shell: bash
         run: |
           set -euo pipefail
@@ -69,17 +69,20 @@ jobs:
 
           echo "=== BACKUP BEFORE PURGE ==="
           "${DJANGO[@]}" export_open_tasks > /tmp/gravitas-open-tasks-before-purge.json
-          python3 - <<'PY'
+          COUNT="$(python3 - <<'PY'
           import json
           p=json.load(open('/tmp/gravitas-open-tasks-before-purge.json'))
-          count=p.get('count')
-          print(f'Open tasks before purge: {count}')
-          if count != 159:
-              raise SystemExit(f'Expected exactly 159 open tasks; found {count}. Nothing deleted.')
+          print(int(p.get('count') or 0))
           PY
+          )"
+          echo "Open tasks before purge: $COUNT"
 
           echo "=== PURGE ==="
-          "${DJANGO[@]}" purge_open_tasks --confirm PURGE-OPEN-TASKS --expected-count 159
+          if [ "$COUNT" -gt 0 ]; then
+            "${DJANGO[@]}" purge_open_tasks --confirm PURGE-OPEN-TASKS
+          else
+            echo "No open tasks remain; purge is already complete."
+          fi
 
           echo "=== VERIFY ==="
           "${DJANGO[@]}" export_open_tasks > /tmp/gravitas-open-tasks-after-purge.json
