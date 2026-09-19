@@ -100,14 +100,10 @@ export const CORE_SECTIONS = [
   },
   {
     id: 'core-planning',
-    label: 'Planning & Projects',
+    label: 'Planning',
     icon: 'planning',
     path: '/workspace/operating',
     match: under('/workspace/operating'),
-    children: [
-      { id: 'op-initiatives', label: 'Initiatives', icon: 'target', path: '/workspace/operating/initiatives', match: under('/workspace/operating/initiatives'), when: isCoreAdmin },
-      { id: 'op-cycles',      label: 'Cycles',      icon: 'cycle',  path: '/workspace/operating/cycles',      match: under('/workspace/operating/cycles') },
-    ],
   },
   {
     /* Core's own pages: meeting notes, decisions, and the draft of a
