@@ -1512,15 +1512,36 @@ function notebookPanel(course) {
   });
 
   run.addEventListener('click', async () => {
-    if (runtime.value === 'mathematica') {
-      output.textContent = 'Mathematica execution uses the configured external Wolfram/Mathematica runner.';
-      return;
-    }
     run.disabled = true;
-    output.textContent = 'Loading Python runtime…';
+    const packages = Array.isArray(course.learning_config?.notebook_packages) ? course.learning_config.notebook_packages : [];
     try {
+      if (runtime.value !== 'python') {
+        output.textContent = 'Saving reproducible environment…';
+        const saved = await P.lmsSaveNotebook(course.id, {
+          id: currentId,
+          title: title.value.trim() || course.title + ' notebook',
+          runtime: runtime.value,
+          code: code.value,
+          environment: { packages, course_id: course.id },
+        });
+        currentId = saved.notebook.id;
+        output.textContent = 'Running ' + label(runtime.value) + '…';
+        const executed = await P.lmsExecuteNotebook(currentId);
+        const parts = [];
+        if (executed.output) parts.push(executed.output);
+        if (executed.result != null) {
+          parts.push(typeof executed.result === 'string' ? executed.result : JSON.stringify(executed.result, null, 2));
+        }
+        if (executed.artifacts?.length) {
+          parts.push('Artifacts:\n' + executed.artifacts.map((item) => typeof item === 'string' ? item : JSON.stringify(item)).join('\n'));
+        }
+        output.textContent = parts.join('\n\n') || 'Execution completed.';
+        await refresh();
+        return;
+      }
+
+      output.textContent = 'Loading Python runtime…';
       const pyodide = await loadBrowserPython();
-      const packages = Array.isArray(course.learning_config?.notebook_packages) ? course.learning_config.notebook_packages : [];
       if (packages.length) {
         try {
           await pyodide.loadPackage('micropip');
@@ -1537,7 +1558,9 @@ function notebookPanel(course) {
       const value = await pyodide.runPythonAsync(code.value || '');
       output.textContent = stdout + (value == null ? '' : String(value));
     } catch (error) {
-      output.textContent = error?.message || 'Python execution failed.';
+      output.textContent = error?.message === 'notebook_runner_not_configured'
+        ? label(runtime.value) + ' runner is not configured on this deployment.'
+        : (error?.message || 'Notebook execution failed.');
     } finally {
       run.disabled = false;
     }
