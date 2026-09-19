@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote, urlparse
+from xml.sax.saxutils import escape
 
 import requests
 from django.conf import settings
@@ -23,6 +24,7 @@ from docx import Document
 
 from . import cloud, openedx_bridge
 from .lms_models import (
+    Certificate,
     Course,
     CourseCategory,
     CourseEnrollment,
@@ -918,6 +920,55 @@ def learning_asset_download(request, asset_id):
     if not os.path.isfile(item.storage_path):
         return _error('asset_not_found', 404)
     return FileResponse(open(item.storage_path, 'rb'), as_attachment=True, filename=item.original_name or item.title)
+
+
+
+@require_http_methods(['GET'])
+def lms_certificate_download(request, code):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    certificate = (
+        Certificate.objects
+        .select_related('enrollment__course', 'enrollment__user')
+        .filter(code=code)
+        .first()
+    )
+    if not certificate:
+        return _error('certificate_not_found', 404)
+    enrollment = certificate.enrollment
+    if enrollment.user_id != request.user.pk and not _admin(request.user):
+        return _error('certificate_not_found', 404)
+
+    learner = enrollment.user.get_full_name() or enrollment.user.email
+    course = enrollment.course.title
+    issued = certificate.issued_at.date().isoformat()
+    status = 'REVOKED' if certificate.revoked_at else 'CERTIFICATE OF COMPLETION'
+    status_note = (
+        'This certificate has been revoked.'
+        if certificate.revoked_at
+        else 'This certifies successful completion of the Gravitas+ course.'
+    )
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="990" viewBox="0 0 1400 990">
+      <rect width="1400" height="990" fill="#f7f4ec"/>
+      <rect x="46" y="46" width="1308" height="898" rx="18" fill="none" stroke="#123f56" stroke-width="4"/>
+      <rect x="72" y="72" width="1256" height="846" rx="12" fill="none" stroke="#9a7b43" stroke-width="1.5"/>
+      <text x="700" y="170" text-anchor="middle" font-family="Georgia, serif" font-size="44" fill="#123f56">GRAVITAS+</text>
+      <text x="700" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" letter-spacing="7" fill="#6d6251">{escape(status)}</text>
+      <text x="700" y="345" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#4b4b4b">{escape(status_note)}</text>
+      <text x="700" y="445" text-anchor="middle" font-family="Georgia, serif" font-size="50" fill="#111111">{escape(learner)}</text>
+      <line x1="360" y1="472" x2="1040" y2="472" stroke="#9a7b43" stroke-width="1"/>
+      <text x="700" y="555" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#595959">Course</text>
+      <text x="700" y="615" text-anchor="middle" font-family="Georgia, serif" font-size="38" fill="#123f56">{escape(course)}</text>
+      <text x="700" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" fill="#595959">Issued {escape(issued)}</text>
+      <text x="700" y="790" text-anchor="middle" font-family="monospace" font-size="18" fill="#595959">Credential {escape(str(certificate.code))}</text>
+      <text x="700" y="875" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#756b5c">gravitasplus.com</text>
+    </svg>'''
+    response = HttpResponse(svg, content_type='image/svg+xml; charset=utf-8')
+    response['Content-Disposition'] = content_disposition_header(
+        True,
+        f'gravitas-certificate-{certificate.code}.svg',
+    )
+    return response
 
 
 def _meta_json():
