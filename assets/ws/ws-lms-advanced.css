@@ -75,3 +75,32 @@
   .fl-path-edge { margin-inline-start: 0; }
 }
 
+.fl-learning-path {
+  position: relative;
+  display: grid;
+  gap: .7rem;
+  padding-inline-start: 1.4rem;
+}
+.fl-learning-path::before {
+  content: "";
+  position: absolute;
+  inset-block: .85rem;
+  inset-inline-start: .42rem;
+  width: 2px;
+  background: var(--g-line);
+}
+.fl-learning-path > .fl-row {
+  position: relative;
+}
+.fl-learning-path > .fl-row::before {
+  content: "";
+  position: absolute;
+  top: 1.05rem;
+  inset-inline-start: -1.25rem;
+  width: .62rem;
+  height: .62rem;
+  border: 2px solid var(--g-bg);
+  border-radius: 50%;
+  background: currentColor;
+}
+
