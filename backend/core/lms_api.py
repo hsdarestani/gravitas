@@ -509,6 +509,20 @@ def _course_relation_fields(course, data):
             value = data.get(field)
             if not isinstance(value, expected):
                 raise ValueError(f'invalid_{field}')
+            if field == 'payment_config':
+                value = dict(value)
+                provider = str(value.get('provider') or 'external').strip().lower()
+                if provider not in {'external', 'stripe', 'sumup', 'future'}:
+                    raise ValueError('invalid_payment_provider')
+                value['provider'] = provider
+                value['enabled'] = bool(value.get('enabled'))
+                if value.get('checkout_url'):
+                    value['checkout_url'] = _safe_http_url(value.get('checkout_url'))
+            elif field == 'learning_config':
+                value = dict(value)
+                for url_key in ('jupyter_url', 'mathematica_url'):
+                    if value.get(url_key):
+                        value[url_key] = _safe_http_url(value.get(url_key))
             setattr(course, field, value)
 
 
