@@ -409,11 +409,10 @@ def core_asset_detail(request, asset_id):
     except (json.JSONDecodeError, UnicodeDecodeError):
         data = {}
 
-    # Renaming is logical metadata and applies to all revisions so history stays
-    # grouped under one human-readable file name. Existing revision bytes are
-    # intentionally left where they are in Nextcloud; new revisions use the
-    # current title/folder and remain in the same logical history group.
-    versions = CoreAsset.objects.filter(logical_id=asset.logical_id)
+    # Renaming or moving a logical file must also move every stored revision
+    # in Nextcloud. Database metadata is updated only after the DAV moves
+    # succeed, and completed moves are rolled back if one revision fails.
+    versions = list(CoreAsset.objects.filter(logical_id=asset.logical_id).order_by('version'))
     update = {}
     if 'title' in data:
         title = str(data['title'] or '').strip()[:240]
@@ -424,8 +423,47 @@ def core_asset_detail(request, asset_id):
         update['folder_path'] = _safe_folder(data.get('folder_path'))
     if 'description' in data:
         update['description'] = str(data['description'] or '')
+
+    storage_moves = []
+    if 'title' in update or 'folder_path' in update:
+        try:
+            for revision in versions:
+                old_path = _cloud_path(revision)
+                if not old_path or revision.kind != CoreAsset.Kind.FILE:
+                    continue
+                original_title = revision.title
+                original_folder = revision.folder_path
+                revision.title = update.get('title', revision.title)
+                revision.folder_path = update.get('folder_path', revision.folder_path)
+                new_path = _asset_cloud_path(revision, revision.original_name or revision.title)
+                revision.title = original_title
+                revision.folder_path = original_folder
+                if old_path == new_path:
+                    continue
+                cloud.admin_move(old_path, new_path)
+                storage_moves.append((old_path, new_path))
+        except (cloud.CloudError, ImproperlyConfigured):
+            logger.exception('Could not move Core asset history %s in Nextcloud', asset.logical_id)
+            for old_path, new_path in reversed(storage_moves):
+                try:
+                    cloud.admin_move(new_path, old_path)
+                except Exception:
+                    logger.exception('Could not rollback Core asset move %s -> %s', new_path, old_path)
+            return JsonResponse({'ok': False, 'error': 'nextcloud_unavailable'}, status=503)
+
     if update:
-        versions.update(**update)
+        with transaction.atomic():
+            CoreAsset.objects.filter(logical_id=asset.logical_id).update(**update)
+            for revision in versions:
+                old_path = _cloud_path(revision)
+                if not old_path:
+                    continue
+                for previous, current in storage_moves:
+                    if previous == old_path:
+                        CoreAsset.objects.filter(pk=revision.pk).update(
+                            storage_path=NEXTCLOUD_STORAGE_PREFIX + current,
+                        )
+                        break
 
     asset.refresh_from_db()
     if 'source_url' in data and asset.kind == CoreAsset.Kind.URL:
