@@ -9,7 +9,7 @@ from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 
 from core import cloud
-from core.models import Workspace
+from core.models import NewsletterSubscriber, Workspace
 from core.operating_models import (
     Initiative,
     KeyResult,
@@ -47,6 +47,11 @@ def matches_scope(user, scope):
         if pattern.fullmatch(email) and name in allowed_names:
             return True
     return False
+
+
+def email_matches_scope(email, scope):
+    value = (email or '').strip().lower()
+    return any(pattern.fullmatch(value) for pattern, _allowed_names in SCOPES[scope])
 
 
 def matching_scopes(user):
@@ -190,6 +195,10 @@ class Command(BaseCommand):
             delete_e2e_owned_data(user, user_scopes)
             email = user.email
             pk = user.pk
+            # Newsletter subscription is keyed by email rather than FK'd to
+            # the account, so deleting the User alone would leave E2E rows in
+            # Platform Admin. Remove the strictly matched test subscriber first.
+            NewsletterSubscriber.objects.filter(email__iexact=email).delete()
             try:
                 user.delete()
             except ProtectedError as exc:
@@ -208,10 +217,27 @@ class Command(BaseCommand):
             deleted += 1
             self.stdout.write(f'Deleted E2E user {pk} {email}')
 
+        # Sweep orphaned E2E newsletter rows from older runs where the User
+        # was already deleted before this cleanup learned about email-keyed
+        # subscribers. The regexes are intentionally strict @example.com test
+        # families; real subscribers can never match this sweep.
+        subscriber_ids = [
+            item.pk
+            for item in NewsletterSubscriber.objects.filter(email__iendswith='@example.com').only('pk', 'email')
+            if any(email_matches_scope(item.email, scope) for scope in scopes)
+        ]
+        orphan_newsletters_deleted = 0
+        if subscriber_ids:
+            orphan_newsletters_deleted, _ = NewsletterSubscriber.objects.filter(pk__in=subscriber_ids).delete()
+
         if failures:
             raise CommandError(
-                f'cleanup incomplete scope={options["scope"]} deleted={deleted} failures={len(failures)}; '
+                f'cleanup incomplete scope={options["scope"]} deleted={deleted} '
+                f'newsletter_rows_deleted={orphan_newsletters_deleted} failures={len(failures)}; '
                 + ' | '.join(failures[:10])
             )
 
-        self.stdout.write(self.style.SUCCESS(f'cleanup complete scope={options["scope"]} deleted={deleted}'))
+        self.stdout.write(self.style.SUCCESS(
+            f'cleanup complete scope={options["scope"]} deleted={deleted} '
+            f'newsletter_rows_deleted={orphan_newsletters_deleted}'
+        ))
