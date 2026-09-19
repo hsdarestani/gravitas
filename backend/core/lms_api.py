@@ -279,14 +279,18 @@ def _course_json(course, user=None, *, include_structure=False):
     data['modules'] = modules
     data['assets'] = [{
         'id': asset.pk,
+        'logical_id': str(asset.logical_id),
         'lesson_id': asset.lesson_id,
         'kind': asset.kind,
         'title': asset.title,
+        'folder_path': asset.folder_path,
+        'version': asset.version,
+        'version_note': asset.version_note,
         'source_url': asset.source_url if entitled or admin else '',
         'mime_type': asset.mime_type,
         'size': asset.size,
         'download_url': f'/api/lms/assets/{asset.pk}/download/' if entitled or admin else '',
-    } for asset in course.assets.all()]
+    } for asset in course.assets.filter(is_current=True)]
     data['assessments'] = [
         {
             'id': assessment.pk,
