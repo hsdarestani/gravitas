@@ -1450,7 +1450,8 @@ function notebookPanel(course) {
   output.textContent = '';
   const controls = el('div', 'fl-form-actions');
   const save = action('Save notebook', () => {}, true);
-  const run = action('Run Python', () => {});
+  const run = action('Run ' + label(runtime.value), () => {});
+  runtime.addEventListener('change', () => { run.textContent = 'Run ' + label(runtime.value); });
   controls.append(save, run);
   editor.append(title, runtime, code, controls, output);
 
