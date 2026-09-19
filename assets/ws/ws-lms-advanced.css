@@ -49,3 +49,29 @@
   .fl-course-chat__message { width: 92%; }
   .fl-course-chat__composer { grid-template-columns: 1fr; }
 }
+
+.fl-path-node,
+.fl-path-edge {
+  position: relative;
+  padding: .9rem;
+}
+.fl-path-node::before,
+.fl-path-edge::before {
+  display: inline-block;
+  margin-bottom: .55rem;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--g-text-muted);
+}
+.fl-path-node::before { content: "Node"; }
+.fl-path-edge::before { content: "Connection"; }
+.fl-path-edge {
+  margin-inline-start: 1.2rem;
+  border-inline-start: 2px solid var(--g-line);
+}
+@media (max-width: 720px) {
+  .fl-path-edge { margin-inline-start: 0; }
+}
+
