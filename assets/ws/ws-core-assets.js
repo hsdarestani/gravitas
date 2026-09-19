@@ -233,7 +233,7 @@ async function renderLiveAssetLibrary(host) {
         edit.addEventListener('click', async () => {
           const nextTitle = prompt('Display name:', current.title);
           if (nextTitle == null || !nextTitle.trim()) return;
-          const nextFolder = prompt('Folder path:', current.folder_path || '') ?? current.folder_path || '';
+          const nextFolder = prompt('Folder path:', current.folder_path || '') ?? (current.folder_path || '');
           try {
             await P.updateCoreAsset(current.id, { title: nextTitle.trim(), folder_path: nextFolder.trim() });
             await renderLiveAssetLibrary(host);
