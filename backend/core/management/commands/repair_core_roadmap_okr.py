@@ -2,7 +2,6 @@ from django.core.management.base import BaseCommand, CommandError
 
 from core.operating_models import KeyResult, StrategicObjective, WorkStatus
 from core.platform_models import WorkspaceProfile
-from core.roadmap_assignment import reconcile_workspace_roadmap_assignments
 from core.roadmap_execution import ROADMAP_EXECUTION_PLANS
 from core.roadmap_models import RoadmapOKRSyncState
 from core.roadmap_okr import ROADMAP_PERIOD, sync_workspace_okr
@@ -65,22 +64,14 @@ class Command(BaseCommand):
                 f'expected={len(ROADMAP_EXECUTION_PLANS)}'
             )
 
-        execution = reconcile_workspace_roadmap_assignments(workspace)
-
+        # Planning is intentionally manager-driven now. This repair command
+        # keeps canonical Objectives/KRs healthy but must never materialize
+        # Initiatives, Cycles or Tasks behind the project manager's back.
         self.stdout.write(
             self.style.SUCCESS(
                 f'core roadmap ready objectives={objective_count} '
                 f'key_results={kr_count} repaired={str(repaired).lower()} '
-                f'execution_planned={execution["planned"]} '
-                f'initiatives_created={execution["initiatives_created"]} '
-                f'tasks_created={execution["tasks_created"]} '
-                f'cycles_created={execution["cycles_created"]} '
-                f'milestones_created={execution["milestones_created"]} '
-                f'work_packages_created={execution["work_packages_created"]} '
-                f'task_links_updated={execution["task_links_updated"]} '
-                f'assignment_updates={execution["assignment_updates"]} '
-                f'blocked_role_tasks={execution["blocked_role_tasks"]} '
-                f'missing_bindings={execution["missing_bindings"]} '
-                f'unresolved_roles={",".join(execution["unresolved_roles"]) or "none"}'
+                f'execution_mode=manual_kr_tasks '
+                f'tasks_created=0 initiatives_created=0 cycles_created=0'
             )
         )
