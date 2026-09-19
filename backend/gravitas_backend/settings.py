@@ -127,6 +127,8 @@ TOPIC_MEDIA_ROOT = Path(os.environ.get('TOPIC_MEDIA_ROOT', '/var/lib/gravitas/to
 CORE_UPLOAD_ROOT = Path(os.environ.get('CORE_UPLOAD_ROOT', '/var/lib/gravitas/core-uploads'))
 CONTENT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
 CORE_ASSET_MAX_BYTES = int(os.environ.get('CORE_ASSET_MAX_BYTES', str(250 * 1024 ** 2)))
+CORE_ASSET_NEXTCLOUD_MOUNTPOINT = os.environ.get('CORE_ASSET_NEXTCLOUD_MOUNTPOINT', 'Gravitas Assets')
+CORE_ASSET_NEXTCLOUD_GROUP = os.environ.get('CORE_ASSET_NEXTCLOUD_GROUP', 'gravitas-core-assets')
 LMS_MEDIA_ROOT = Path(os.environ.get('LMS_MEDIA_ROOT', '/var/lib/gravitas/lms-media'))
 LMS_ASSET_MAX_BYTES = int(os.environ.get('LMS_ASSET_MAX_BYTES', str(500 * 1024 ** 2)))
 OPENEDX_ENABLED = os.environ.get('OPENEDX_ENABLED', '0') == '1'
