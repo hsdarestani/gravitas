@@ -682,6 +682,7 @@ export async function renderLearningOverview(host, { go }) {
     if (!(catalog.courses || []).length) discover.body.append(empty('No published courses', 'Published courses will appear here.'));
     discover.head.append(link(go, 'View catalog', '/workspace/learning/catalog'));
     wrap.append(discover.box);
+    wrap.append(personalizedPathPanel(go));
   } catch (error) {
     errorView(host, 'Learning', error, () => renderLearningOverview(host, { go }));
   }
@@ -1729,6 +1730,25 @@ export async function renderCourse(host, id, { go }) {
       }
       if (course.learning_config?.zotero_enabled !== false) {
         wrap.append(zoteroConnectionPanel());
+      }
+      wrap.append(learningIntegrationsPanel());
+      if (course.learning_config?.discussions_enabled !== false) {
+        wrap.append(courseDiscussionPanel(course));
+      }
+      if (course.learning_config?.literature_enabled !== false) {
+        wrap.append(literaturePanel(course));
+      }
+      if (course.learning_config?.notebook_enabled !== false) {
+        wrap.append(notebookPanel(course));
+      }
+      if (course.learning_config?.git_enabled !== false) {
+        wrap.append(gitPanel(course));
+      }
+      if (course.learning_config?.social_publish_enabled !== false) {
+        wrap.append(publishingPanel(course));
+      }
+      if (course.learning_config?.pkm_enabled !== false) {
+        wrap.append(pkmExportPanel(course));
       }
     }
 
