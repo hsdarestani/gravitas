@@ -1342,13 +1342,36 @@ export async function renderAdminCourseEditor(host, id, { go }) {
           remove.disabled = true;
           try { await P.adminDeleteLearningAsset(item.id); await renderAdminCourseEditor(host, id, { go }); } catch { remove.disabled = false; }
         }, false, true);
+        const edit = action('Edit', async () => {
+          const nextTitle = prompt('Asset title:', item.title);
+          if (nextTitle == null || !nextTitle.trim()) return;
+          let sourceUrl = item.source_url || '';
+          if (item.kind !== 'file') {
+            const nextUrl = prompt('Source / embed URL:', sourceUrl);
+            if (nextUrl == null || !nextUrl.trim()) return;
+            sourceUrl = nextUrl.trim();
+          }
+          edit.disabled = true;
+          try {
+            await P.adminUpdateLearningAsset(item.id, {
+              title: nextTitle.trim(),
+              source_url: sourceUrl,
+              lesson_id: item.lesson_id || null,
+              metadata: item.metadata || {},
+            });
+            await renderAdminCourseEditor(host, id, { go });
+          } catch (error) {
+            edit.disabled = false;
+            alert(error?.message || 'Asset could not be updated.');
+          }
+        }, false, true);
         const open = el('a', 'ws-btn ws-btn--tiny', item.kind === 'file' ? 'Download' : 'Open');
         open.href = item.kind === 'file' ? item.download_url : item.source_url;
         if (item.kind !== 'file') { open.target = '_blank'; open.rel = 'noopener'; }
         assetList.append(row({
           title: item.title,
           meta: P.meta([label(item.kind), item.mime_type, item.size ? P.formatBytes(item.size) : '']),
-          actions: [open, remove],
+          actions: [open, edit, remove],
         }));
       }
       if (!assets.length) assetList.append(empty('No course assets yet', 'Upload a file or register an external URL/embed.'));
