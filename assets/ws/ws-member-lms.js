@@ -654,17 +654,28 @@ export async function renderMemberProgress(host, { go }) {
 export async function renderLearningOverview(host, { go }) {
   loading(host, 'Learning');
   try {
-    const [mine, catalog] = await Promise.all([P.lmsMe(), P.lmsCourses()]);
-    const wrap = doc(host, 'Learning', 'Courses, assessments and certificates. Learning access is independent from Research.');
+    const [mine, catalog, publishedPaths, personalPaths] = await Promise.all([
+      P.lmsMe(),
+      P.lmsCourses(),
+      P.lmsLearningPaths().catch(() => ({ paths: [] })),
+      P.lmsPersonalizedPaths().catch(() => ({ assignments: [] })),
+    ]);
+    const wrap = doc(host, 'Learning', 'Courses, research-goal learning paths, assessments and certificates. Learning access is independent from Research.');
     const active = (mine.enrollments || []).filter((item) => item.status === 'active' || item.status === 'paused');
     const completed = (mine.enrollments || []).filter((item) => item.status === 'completed');
     const certs = completed.filter((item) => item.certificate?.valid);
+    const activePath = (personalPaths.assignments || [])[0] || null;
     const metrics = el('div', 'fl-metrics');
-    metrics.append(metric(active.length, 'In progress'), metric(completed.length, 'Completed'), metric(certs.length, 'Certificates'), metric((catalog.courses || []).length, 'Catalog'));
+    metrics.append(
+      metric(active.length, 'In progress'),
+      metric(completed.length, 'Completed'),
+      metric(certs.length, 'Certificates'),
+      metric((publishedPaths.paths || []).length, 'Learning paths'),
+    );
     wrap.append(metrics);
 
     const current = section('Continue learning');
-    if (!active.length) current.body.append(empty('Nothing in progress', 'Choose a published course from the catalog.'));
+    if (!active.length) current.body.append(empty('Nothing in progress', 'Choose a published course or start a learning path.'));
     for (const enrollment of active) {
       const node = row({
         title: enrollment.course_title,
@@ -677,11 +688,75 @@ export async function renderLearningOverview(host, { go }) {
     current.head.append(link(go, 'My learning', '/workspace/learning/my'));
     wrap.append(current.box);
 
+    if (activePath) {
+      const pathBox = section(
+        'Your active learning path',
+        activePath.learning_path_title
+          ? 'Following published path · ' + activePath.learning_path_title
+          : 'Personalized around your research goal.',
+      );
+      if (activePath.goal) pathBox.body.append(el('p', 'fl-prose', activePath.goal));
+      if (activePath.rationale) pathBox.body.append(el('p', 'fl-muted', activePath.rationale));
+      const pathNodes = el('div', 'fl-learning-path');
+      const courseProgress = new Map((mine.enrollments || []).map((item) => [String(item.course_id), item]));
+      for (const node of activePath.nodes || []) {
+        const nodeType = node.type || (node.course_id ? 'course' : 'milestone');
+        const enrollment = node.course_id ? courseProgress.get(String(node.course_id)) : null;
+        const badges = [
+          label(nodeType),
+          enrollment ? label(enrollment.status) : '',
+          enrollment ? enrollment.progress_percent + '% complete' : '',
+        ].filter(Boolean);
+        pathNodes.append(row({
+          title: node.title || (node.course_id ? 'Course ' + node.course_id : node.id),
+          body: node.description || '',
+          badges,
+          onClick: node.course_id ? () => go('/workspace/learning/courses/' + node.course_id) : null,
+        }));
+      }
+      if (!(activePath.nodes || []).length) pathNodes.append(empty('Path has no nodes', 'Ask the course team to review this learning path.'));
+      pathBox.body.append(pathNodes);
+      wrap.append(pathBox.box);
+    }
+
+    const pathsBox = section('Published learning paths', 'Start a curated multi-course path with gates, milestones and branches defined by the course team.');
+    for (const path of publishedPaths.paths || []) {
+      const startPath = action('Start path', async () => {
+        startPath.disabled = true;
+        startPath.textContent = 'Starting…';
+        try {
+          await P.lmsPersonalizePath({
+            goal: path.title,
+            learning_path_id: path.id,
+            use_template: true,
+          });
+          await renderLearningOverview(host, { go });
+        } catch (error) {
+          startPath.disabled = false;
+          startPath.textContent = error?.message || 'Try again';
+        }
+      }, true);
+      pathsBox.body.append(row({
+        title: path.title,
+        body: path.summary || '',
+        badges: [
+          (path.nodes || []).length + ' nodes',
+          (path.edges || []).length + ' connections',
+        ],
+        actions: [startPath],
+      }));
+    }
+    if (!(publishedPaths.paths || []).length) {
+      pathsBox.body.append(empty('No published paths yet', 'The course team can publish complex multi-course paths from LMS Admin.'));
+    }
+    wrap.append(pathsBox.box);
+
     const discover = section('Catalog');
     for (const course of (catalog.courses || []).slice(0, 6)) discover.body.append(courseRow(course, go));
     if (!(catalog.courses || []).length) discover.body.append(empty('No published courses', 'Published courses will appear here.'));
     discover.head.append(link(go, 'View catalog', '/workspace/learning/catalog'));
     wrap.append(discover.box);
+
     wrap.append(personalizedPathPanel(go));
   } catch (error) {
     errorView(host, 'Learning', error, () => renderLearningOverview(host, { go }));
