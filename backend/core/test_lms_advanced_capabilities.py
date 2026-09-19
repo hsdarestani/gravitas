@@ -58,6 +58,9 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             "Continue to checkout",
             "Download certificate",
             "Publish to ",
+            "Published learning paths",
+            "Start path",
+            "use_template: true",
         ):
             self.assertIn(marker, js)
 
