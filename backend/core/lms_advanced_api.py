@@ -696,10 +696,28 @@ def literature_recommendations(request, course_id):
     if (course.learning_config or {}).get('literature_enabled', True) is False and not _admin(request.user):
         return _error('literature_disabled', 403)
 
+    lesson = None
+    lesson_id = request.GET.get('lesson_id')
+    if lesson_id:
+        lesson = Lesson.objects.filter(pk=lesson_id, module__course=course).first()
+        if not lesson:
+            return _error('lesson_not_found', 404)
+
     query = str(request.GET.get('q') or '').strip()[:500]
     if not query:
         tag_text = ' '.join(tag.name for tag in course.tags.all()[:4])
-        query = f'{course.title} {tag_text}'.strip()
+        if lesson:
+            lesson_context = ' '.join(
+                part for part in [
+                    lesson.title,
+                    lesson.summary,
+                    re.sub(r'<[^>]+>', ' ', lesson.body or '')[:500],
+                    tag_text,
+                ] if part
+            )
+            query = lesson_context[:500].strip()
+        else:
+            query = f'{course.title} {tag_text}'.strip()
     try:
         limit = max(1, min(12, int(request.GET.get('limit') or 6)))
     except ValueError:
@@ -740,6 +758,7 @@ def literature_recommendations(request, course_id):
         course,
         CourseEvent.Kind.LITERATURE_SEARCH,
         enrollment=enrollment,
+        lesson=lesson,
         metadata={'query': query[:240], 'providers': sorted(requested), 'result_count': len(deduped)},
     )
     return JsonResponse({'ok': True, 'query': query, 'papers': deduped[: max(limit * 3, 12)], 'errors': errors})
