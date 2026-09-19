@@ -851,13 +851,14 @@ async function renderLearningPathsAdmin(host, paths, refresh) {
 export async function renderAdminLms(host, { go }) {
   loading(host, 'LMS Admin');
   try {
-    const [courses, enrollments, meta, analytics, openedx, paths] = await Promise.all([
+    const [courses, enrollments, meta, analytics, openedx, paths, repositories] = await Promise.all([
       P.lmsCourses({ all: true }),
       P.adminLmsEnrollments(),
       P.adminLmsMeta(),
       P.adminLmsAnalytics(),
       P.adminOpenEdxStatus().catch(() => ({ openedx: { configured: false, reachable: false } })),
       P.lmsLearningPaths({ all: true }),
+      P.adminLearningRepositories().catch(() => ({ repositories: [] })),
     ]);
     const wrap = doc(host, 'LMS Admin', 'Open edX-backed learning with Gravitas+ AI, Lab, source management, exports and analytics.');
     const metrics = el('div', 'fl-metrics');
@@ -915,6 +916,46 @@ export async function renderAdminLms(host, { go }) {
     }));
     if (!courses.courses.length) courseBox.body.append(empty('No courses yet', 'Create the first course.'));
     wrap.append(courseBox.box);
+
+    const reviewBox = section('Exercise repository review', 'Learner Git pushes appear here for instructor review. A new push automatically returns the item to Pending review.');
+    for (const item of repositories.repositories || []) {
+      const open = el('a', 'ws-btn ws-btn--tiny', 'Open repository');
+      open.href = item.html_url || ('https://github.com/' + item.owner + '/' + item.repository);
+      open.target = '_blank';
+      open.rel = 'noopener';
+      const reviewState = select([
+        ['pending', 'Pending review'],
+        ['needs_changes', 'Needs changes'],
+        ['approved', 'Approved'],
+      ], item.review_status || 'pending');
+      const reviewNote = input(item.review_note || '', 'text', 'Review note');
+      const apply = action('Save review', async () => {
+        apply.disabled = true;
+        try {
+          await P.adminReviewLearningRepository(item.id, reviewState.value, reviewNote.value.trim());
+          await renderAdminLms(host, { go });
+        } catch (error) {
+          apply.disabled = false;
+          alert(error?.message || 'Review could not be saved.');
+        }
+      }, false, true);
+      reviewBox.body.append(row({
+        title: item.learner + ' · ' + item.course_title,
+        meta: P.meta([
+          item.lesson_title || 'Course exercise',
+          item.owner + '/' + item.repository,
+          item.branch,
+          item.last_commit_sha ? item.last_commit_sha.slice(0, 10) : '',
+        ]),
+        body: item.review_note || '',
+        badges: [label(item.review_status), item.reviewed_by ? 'Reviewed by ' + item.reviewed_by : ''],
+        actions: [open, reviewState, reviewNote, apply],
+      }));
+    }
+    if (!(repositories.repositories || []).length) {
+      reviewBox.body.append(empty('No exercise repositories yet', 'Learner Git pushes will appear here for review.'));
+    }
+    wrap.append(reviewBox.box);
 
     const analyticsBox = section('Learning analytics', 'Filter by course and learner. Views, skips, dwell, AI and Lab usage remain attributable down to the lesson.');
     const analyticsFilters = el('div', 'fl-toolbar');
