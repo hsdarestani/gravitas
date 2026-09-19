@@ -1096,7 +1096,10 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     ]);
     const course = courseResult.course;
     const enrolled = course ? (await P.adminLmsEnrollments({ course_id: course.id })).enrollments : [];
-    const assets = course ? (await P.adminLearningAssets(course.id)).assets : [];
+    const mediaData = course
+      ? await P.adminLearningAssets(course.id)
+      : { assets: [], groups: [], folders: [], nextcloud: { state: 'unavailable' } };
+    const assets = mediaData.assets || [];
 
     const wrap = doc(
       host,
@@ -1338,17 +1341,93 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     form.append(structure.box);
 
     if (course) {
-      const media = section('Course media library', `Any file type up to the configured upload limit, plus URLs and embeds. ${assets.length} asset(s) stored.`);
+      const currentGroups = (mediaData.groups || []).map((group) => {
+        const current = (group.versions || []).find((item) => item.id === group.current_id) || (group.versions || [])[0];
+        return { ...group, current };
+      }).filter((group) => group.current);
+      const maxUpload = mediaData.max_file_bytes ? P.formatBytes(mediaData.max_file_bytes) : 'configured server limit';
+      const media = section(
+        'Course media library',
+        'Nextcloud-backed media with folders and version history. File types are unrestricted; each upload may be up to ' + maxUpload + '.',
+      );
+
+      const cloudState = mediaData.nextcloud?.state || 'unavailable';
+      const cloudBar = el('div', 'v-note');
+      cloudBar.dataset.tone = cloudState === 'live' ? 'good' : cloudState === 'partial' ? 'warn' : 'bad';
+      cloudBar.append(document.createTextNode(
+        cloudState === 'live'
+          ? 'Nextcloud storage active · ' + (mediaData.nextcloud?.mountpoint || 'Gravitas Learning')
+          : cloudState === 'partial'
+            ? 'Nextcloud is active, but at least one older local file still needs migration.'
+            : 'Nextcloud course-media storage is currently unavailable.',
+      ));
+      if (mediaData.nextcloud?.files_url) {
+        const openCloud = el('a', 'ws-btn ws-btn--tiny', 'Open media in Nextcloud');
+        openCloud.href = mediaData.nextcloud.files_url;
+        openCloud.target = '_blank';
+        openCloud.rel = 'noopener';
+        openCloud.style.marginInlineStart = '10px';
+        cloudBar.append(openCloud);
+      }
+      media.body.append(cloudBar);
+
       const assetList = el('div', 'fl-stack');
-      for (const item of assets) {
-        const remove = action('Delete', async () => {
-          if (!confirm(`Delete asset “${item.title}”?`)) return;
-          remove.disabled = true;
-          try { await P.adminDeleteLearningAsset(item.id); await renderAdminCourseEditor(host, id, { go }); } catch { remove.disabled = false; }
-        }, false, true);
-        const edit = action('Edit', async () => {
+      const sortedGroups = [...currentGroups].sort((a, b) => {
+        const folderCompare = String(a.folder_path || '').localeCompare(String(b.folder_path || ''));
+        return folderCompare || String(a.title || '').localeCompare(String(b.title || ''));
+      });
+      let activeFolder = null;
+      let folderHost = null;
+
+      for (const group of sortedGroups) {
+        const item = group.current;
+        const folderKey = item.folder_path || '';
+        if (folderKey !== activeFolder) {
+          activeFolder = folderKey;
+          const folderSection = el('section', 'fl-stack');
+          folderSection.append(el('h3', null, folderKey || 'Root'));
+          folderHost = el('div', 'fl-stack');
+          folderSection.append(folderHost);
+          assetList.append(folderSection);
+        }
+
+        const actions = [];
+        const open = el('a', 'ws-btn ws-btn--tiny', item.kind === 'file' ? 'Download' : 'Open');
+        open.href = item.kind === 'file' ? item.download_url : item.source_url;
+        if (item.kind !== 'file') { open.target = '_blank'; open.rel = 'noopener'; }
+        actions.push(open);
+
+        if (item.kind === 'file') {
+          const picker = input('', 'file');
+          picker.hidden = true;
+          picker.addEventListener('change', async () => {
+            const picked = picker.files?.[0];
+            if (!picked) return;
+            const versionNote = prompt('Version note (optional):', '') || '';
+            const body = new FormData();
+            body.append('version_of_id', String(item.id));
+            body.append('title', item.title);
+            body.append('folder_path', item.folder_path || '');
+            body.append('version_note', versionNote);
+            body.append('file', picked);
+            if (item.lesson_id) body.append('lesson_id', String(item.lesson_id));
+            try {
+              await P.adminUploadLearningAsset(course.id, body);
+              await renderAdminCourseEditor(host, id, { go });
+            } catch (error) {
+              alert(error?.message || 'New version could not be uploaded.');
+            }
+          });
+          media.body.append(picker);
+          const newVersion = action('New version', () => picker.click(), false, true);
+          actions.push(newVersion);
+        }
+
+        const edit = action('Rename / move', async () => {
           const nextTitle = prompt('Asset title:', item.title);
           if (nextTitle == null || !nextTitle.trim()) return;
+          const nextFolder = prompt('Folder path:', item.folder_path || '');
+          if (nextFolder == null) return;
           let sourceUrl = item.source_url || '';
           if (item.kind !== 'file') {
             const nextUrl = prompt('Source / embed URL:', sourceUrl);
@@ -1359,6 +1438,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
           try {
             await P.adminUpdateLearningAsset(item.id, {
               title: nextTitle.trim(),
+              folder_path: nextFolder.trim(),
               source_url: sourceUrl,
               lesson_id: item.lesson_id || null,
               metadata: item.metadata || {},
@@ -1369,32 +1449,93 @@ export async function renderAdminCourseEditor(host, id, { go }) {
             alert(error?.message || 'Asset could not be updated.');
           }
         }, false, true);
-        const open = el('a', 'ws-btn ws-btn--tiny', item.kind === 'file' ? 'Download' : 'Open');
-        open.href = item.kind === 'file' ? item.download_url : item.source_url;
-        if (item.kind !== 'file') { open.target = '_blank'; open.rel = 'noopener'; }
-        assetList.append(row({
+        actions.push(edit);
+
+        const remove = action('Delete current', async () => {
+          if (!confirm('Delete current version of “' + item.title + '”? Older versions stay available.')) return;
+          remove.disabled = true;
+          try {
+            await P.adminDeleteLearningAsset(item.id);
+            await renderAdminCourseEditor(host, id, { go });
+          } catch (error) {
+            remove.disabled = false;
+            alert(error?.message || 'Version could not be deleted.');
+          }
+        }, false, true);
+        actions.push(remove);
+
+        folderHost.append(row({
           title: item.title,
-          meta: P.meta([label(item.kind), item.mime_type, item.size ? P.formatBytes(item.size) : '']),
-          actions: [open, edit, remove],
+          meta: P.meta([
+            label(item.kind),
+            'v' + item.version,
+            item.version_count + ' ' + (item.version_count === 1 ? 'version' : 'versions'),
+            item.mime_type,
+            item.size ? P.formatBytes(item.size) : '',
+          ]),
+          body: item.version_note || '',
+          actions,
         }));
+
+        if ((group.versions || []).length > 1) {
+          const history = el('details', 'v-panel');
+          const summary = el('summary', null, 'Version history · ' + group.versions.length);
+          history.append(summary);
+          const historyList = el('div', 'fl-stack');
+          for (const version of group.versions) {
+            const versionActions = [];
+            if (version.kind === 'file') {
+              const get = el('a', 'ws-btn ws-btn--tiny', 'Download v' + version.version);
+              get.href = version.download_url;
+              versionActions.push(get);
+            }
+            historyList.append(row({
+              title: 'v' + version.version + ' · ' + (version.original_name || version.title),
+              meta: P.meta([
+                new Date(version.created_at).toLocaleString(),
+                version.is_current ? 'Current' : '',
+                version.size ? P.formatBytes(version.size) : '',
+              ]),
+              body: version.version_note || '',
+              actions: versionActions,
+            }));
+          }
+          history.append(historyList);
+          folderHost.append(history);
+        }
       }
-      if (!assets.length) assetList.append(empty('No course assets yet', 'Upload a file or register an external URL/embed.'));
+      if (!currentGroups.length) assetList.append(empty('No course assets yet', 'Upload a file or register an external URL/embed.'));
+      media.body.append(assetList);
 
       const assetForm = el('form', 'fl-form');
       const assetTitle = input('', 'text', 'Asset title');
       const assetKind = select([['file','File'],['url','URL'],['embed','Embed']], 'file');
+      const assetFolder = input('', 'text', 'Folder, e.g. Week 1/Datasets');
+      assetFolder.setAttribute('list', 'course-media-folders-' + course.id);
+      const folderOptions = el('datalist');
+      folderOptions.id = 'course-media-folders-' + course.id;
+      for (const value of mediaData.folders || []) {
+        const option = el('option');
+        option.value = value;
+        folderOptions.append(option);
+      }
+      const assetVersionNote = input('', 'text', 'Version note (optional)');
       const assetFile = input('', 'file');
       const assetUrl = input('', 'url', 'https://…');
       const lessonOptions = [['','Whole course']];
-      for (const module of course.modules || []) for (const lesson of module.lessons || []) lessonOptions.push([lesson.id, `${module.title} · ${lesson.title}`]);
+      for (const module of course.modules || []) for (const lesson of module.lessons || []) lessonOptions.push([lesson.id, module.title + ' · ' + lesson.title]);
       const assetLesson = select(lessonOptions, '');
       const assetSave = action('Add asset', () => {}, true); assetSave.type = 'submit';
       const assetStatus = statusLine();
-      assetForm.append(assetTitle, assetKind, assetFile, assetUrl, field('Attach to', assetLesson), assetSave, assetStatus);
+      const mediaGrid = el('div', 'fl-form-grid');
+      mediaGrid.append(assetTitle, assetFolder, assetKind, assetLesson);
+      assetForm.append(mediaGrid, folderOptions, assetVersionNote, assetFile, assetUrl, assetSave, assetStatus);
       assetForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const body = new FormData();
         body.append('title', assetTitle.value.trim());
+        body.append('folder_path', assetFolder.value.trim());
+        body.append('version_note', assetVersionNote.value.trim());
         body.append('kind', assetKind.value);
         if (assetLesson.value) body.append('lesson_id', assetLesson.value);
         if (assetKind.value === 'file') {
@@ -1414,7 +1555,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
           assetSave.disabled = false;
         }
       });
-      media.body.append(assetList, assetForm);
+      media.body.append(assetForm);
       form.append(media.box);
 
       const access = section('Enrollment management', 'Grant a course directly to a registered account.');
