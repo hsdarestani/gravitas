@@ -61,13 +61,28 @@ export function renderCoreAssets(host) {
 
   const head = el('header', 'ws-doc__head');
   head.append(el('h1', 'ws-doc__title', 'Assets'));
-  head.append(el('p', 'ws-doc__meta', 'Shared Core team asset folder. Files uploaded here are stored directly in the team Nextcloud folder and stay available from both surfaces.'));
+  head.append(el('p', 'ws-doc__meta', 'Shared Core team files with folders and explicit version history, synchronized to the team Nextcloud folder.'));
   doc.append(head);
 
   const library = panel('Team assets');
   library.body.append(el('div', 'fl-skeleton'));
   doc.append(library);
   renderLiveAssetLibrary(library.body);
+}
+
+function assetFolderLabel(value) {
+  return value || 'Root';
+}
+
+async function uploadAssetVersion(base, file, note = '') {
+  const body = new FormData();
+  body.append('title', base.title);
+  body.append('folder_path', base.folder_path || '');
+  body.append('version_of_id', String(base.id));
+  body.append('version_note', note);
+  body.append('visible_to_all_core', '1');
+  body.append('file', file);
+  return P.uploadCoreAsset(body);
 }
 
 async function renderLiveAssetLibrary(host) {
@@ -95,6 +110,20 @@ async function renderLiveAssetLibrary(host) {
     host.append(cloudBar);
 
     const form = el('form', 'fl-form');
+    const uploadGrid = el('div', 'fl-form-grid');
+    const title = el('input', 'v-input fl-input');
+    title.placeholder = 'Display name (optional for one file)';
+    const folder = el('input', 'v-input fl-input');
+    folder.placeholder = 'Folder, e.g. Brand/Logos';
+    folder.setAttribute('list', 'core-asset-folders');
+    const folderOptions = el('datalist');
+    folderOptions.id = 'core-asset-folders';
+    for (const value of data.folders || []) {
+      const option = document.createElement('option');
+      option.value = value;
+      folderOptions.append(option);
+    }
+    uploadGrid.append(title, folder);
     const file = el('input', 'v-input fl-input');
     file.type = 'file';
     file.multiple = true;
@@ -102,7 +131,7 @@ async function renderLiveAssetLibrary(host) {
     submit.type = 'submit';
     submit.disabled = cloudState === 'unavailable';
     const note = el('p', 'v-note');
-    form.append(file, submit, note);
+    form.append(uploadGrid, folderOptions, file, submit, note);
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -119,7 +148,9 @@ async function renderLiveAssetLibrary(host) {
           const current = files[index];
           note.textContent = 'Uploading ' + (index + 1) + ' of ' + files.length + '…';
           const body = new FormData();
-          body.append('title', current.name);
+          const displayTitle = files.length === 1 && title.value.trim() ? title.value.trim() : current.name;
+          body.append('title', displayTitle);
+          body.append('folder_path', folder.value.trim());
           body.append('visible_to_all_core', '1');
           body.append('file', current);
           await P.uploadCoreAsset(body);
@@ -129,7 +160,7 @@ async function renderLiveAssetLibrary(host) {
         note.textContent = error?.message === 'file_size_invalid'
           ? 'One of the files is too large.'
           : error?.message === 'nextcloud_unavailable'
-            ? 'Nextcloud is temporarily unavailable. Nothing else was uploaded.'
+            ? 'Nextcloud is temporarily unavailable. Upload is paused.'
             : (error?.message || 'Upload failed.');
         note.dataset.tone = 'bad';
         submit.disabled = false;
@@ -137,57 +168,136 @@ async function renderLiveAssetLibrary(host) {
     });
     host.append(form);
 
-    const list = el('div', 'g-stack g-stack--sm');
-    for (const item of data.assets || []) {
+    const groups = [...(data.groups || [])].sort((a, b) => {
+      const folderCompare = String(a.folder_path || '').localeCompare(String(b.folder_path || ''));
+      return folderCompare || String(a.title || '').localeCompare(String(b.title || ''));
+    });
+    if (!groups.length) {
+      host.append(el('p', 'v-note', 'This folder is empty.'));
+      return;
+    }
+
+    let activeFolder = null;
+    let folderHost = null;
+    for (const group of groups) {
+      const current = group.versions.find((item) => item.id === group.current_id) || group.versions[0];
+      if (!current) continue;
+      const folderKey = group.folder_path || '';
+      if (folderKey !== activeFolder) {
+        activeFolder = folderKey;
+        const section = el('section', 'g-stack g-stack--sm');
+        section.append(el('h3', null, assetFolderLabel(folderKey)));
+        folderHost = el('div', 'g-stack g-stack--sm');
+        section.append(folderHost);
+        host.append(section);
+      }
+
       const actions = el('div', 'v-row__actions');
-      if (item.kind === 'file') {
-        const open = el('a', 'ws-btn ws-btn--tiny', 'Download');
-        open.href = item.download_url;
-        actions.append(open);
-      } else if (item.source_url) {
+      if (current.kind === 'file') {
+        const download = el('a', 'ws-btn ws-btn--tiny', 'Download');
+        download.href = current.download_url;
+        actions.append(download);
+
+        if (current.can_edit) {
+          const versionInput = document.createElement('input');
+          versionInput.type = 'file';
+          versionInput.hidden = true;
+          versionInput.addEventListener('change', async () => {
+            const picked = versionInput.files?.[0];
+            if (!picked) return;
+            const versionNote = prompt('Version note (optional):', '') || '';
+            try {
+              await uploadAssetVersion(current, picked, versionNote);
+              await renderLiveAssetLibrary(host);
+            } catch (error) {
+              alert(error?.message || 'New version could not be uploaded.');
+            }
+          });
+          host.append(versionInput);
+          const newVersion = el('button', 'ws-btn ws-btn--tiny', 'New version');
+          newVersion.type = 'button';
+          newVersion.addEventListener('click', () => versionInput.click());
+          actions.append(newVersion);
+        }
+      } else if (current.source_url) {
         const open = el('a', 'ws-btn ws-btn--tiny', 'Open URL');
-        open.href = item.source_url;
+        open.href = current.source_url;
         open.target = '_blank';
         open.rel = 'noopener';
         actions.append(open);
       }
 
-      if (item.can_edit) {
-        const remove = el('button', 'ws-btn ws-btn--tiny', 'Delete');
+      if (current.can_edit) {
+        const edit = el('button', 'ws-btn ws-btn--tiny', 'Rename / move');
+        edit.type = 'button';
+        edit.addEventListener('click', async () => {
+          const nextTitle = prompt('Display name:', current.title);
+          if (nextTitle == null || !nextTitle.trim()) return;
+          const nextFolder = prompt('Folder path:', current.folder_path || '') ?? current.folder_path || '';
+          try {
+            await P.updateCoreAsset(current.id, { title: nextTitle.trim(), folder_path: nextFolder.trim() });
+            await renderLiveAssetLibrary(host);
+          } catch (error) {
+            alert(error?.message || 'Asset could not be updated.');
+          }
+        });
+        actions.append(edit);
+
+        const remove = el('button', 'ws-btn ws-btn--tiny', 'Delete current');
         remove.type = 'button';
         remove.addEventListener('click', async () => {
-          if (!confirm('Delete “' + item.title + '”?')) return;
+          if (!confirm('Delete current version of “' + current.title + '”? Older versions stay available.')) return;
           remove.disabled = true;
           try {
-            await P.deleteCoreAsset(item.id);
+            await P.deleteCoreAsset(current.id);
             await renderLiveAssetLibrary(host);
           } catch (error) {
             remove.disabled = false;
-            if (error?.message === 'nextcloud_unavailable') {
-              alert('Nextcloud is temporarily unavailable, so the file was not deleted.');
-            }
+            alert(error?.message || 'Version could not be deleted.');
           }
         });
         actions.append(remove);
       }
 
-      const badges = [];
-      if (item.kind === 'url') badges.push('URL');
-      else if (item.file_size) badges.push(P.formatBytes(item.file_size));
-      if (item.storage_backend === 'nextcloud') badges.push('Nextcloud');
-      badges.push(item.uploader);
+      const badges = [
+        'v' + current.version,
+        current.version_count + (current.version_count === 1 ? ' version' : ' versions'),
+        current.file_size ? P.formatBytes(current.file_size) : '',
+        current.storage_backend === 'nextcloud' ? 'Nextcloud' : '',
+        current.uploader,
+      ].filter(Boolean);
 
-      list.append(row({
-        title: item.title,
-        sub: item.kind === 'url' ? item.source_url : (item.original_name || ''),
+      folderHost.append(row({
+        title: current.title,
+        sub: current.version_note || current.original_name || current.source_url || '',
         badges,
         action: actions,
       }));
+
+      if (group.versions.length > 1) {
+        const history = el('details', 'v-panel');
+        const historySummary = document.createElement('summary');
+        historySummary.textContent = 'Version history · ' + group.versions.length;
+        history.append(historySummary);
+        const historyList = el('div', 'g-stack g-stack--xs');
+        for (const version of group.versions) {
+          const versionActions = el('div', 'v-row__actions');
+          if (version.kind === 'file') {
+            const get = el('a', 'ws-btn ws-btn--tiny', 'Download v' + version.version);
+            get.href = version.download_url;
+            versionActions.append(get);
+          }
+          historyList.append(row({
+            title: 'v' + version.version + ' · ' + version.original_name,
+            sub: version.version_note || '',
+            badges: [new Date(version.created_at).toLocaleString(), version.uploader, version.is_current ? 'Current' : ''].filter(Boolean),
+            action: versionActions,
+          }));
+        }
+        history.append(historyList);
+        folderHost.append(history);
+      }
     }
-    if (!(data.assets || []).length) {
-      list.append(el('p', 'v-note', 'This folder is empty.'));
-    }
-    host.append(list);
   } catch (error) {
     host.innerHTML = '';
     const note = el('div', 'ws-alert');
