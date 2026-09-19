@@ -781,15 +781,18 @@ def _path_assignment_json(item):
     }
 
 
-def _fallback_path(goal, courses):
+def _fallback_path(goal, courses, enrollment_state=None):
+    enrollment_state = enrollment_state or {}
     words = {part for part in re.findall(r'[a-z0-9]+', goal.lower()) if len(part) > 2}
     ranked = []
     for course in courses:
         haystack = f'{course.title} {course.summary} {course.description}'.lower()
         score = sum(1 for word in words if word in haystack)
-        ranked.append((score, course))
-    ranked.sort(key=lambda pair: (-pair[0], pair[1].title.lower()))
-    selected = [course for _score, course in ranked[: min(6, len(ranked))]]
+        state = enrollment_state.get(course.pk) or {}
+        completed = state.get('status') == CourseEnrollment.Status.COMPLETED
+        ranked.append((completed, -score, course.title.lower(), course))
+    ranked.sort(key=lambda pair: (pair[0], pair[1], pair[2]))
+    selected = [course for _completed, _score, _title, course in ranked[: min(6, len(ranked))]]
     nodes = [{'id': f'course-{course.pk}', 'course_id': course.pk, 'title': course.title} for course in selected]
     edges = [
         {'from': nodes[index]['id'], 'to': nodes[index + 1]['id'], 'rule': 'complete'}
@@ -836,13 +839,21 @@ def personalized_learning_paths(request):
     if not courses:
         return _error('no_published_courses', 409)
 
+    enrollment_state = {
+        row.course_id: {
+            'status': row.status,
+            'progress_percent': str(row.progress_percent),
+        }
+        for row in CourseEnrollment.objects.filter(user=request.user, course__in=courses)
+    }
+
     if use_template:
         nodes = list(template.nodes or [])
         edges = list(template.edges or [])
         rationale = template.summary or f'Following the published Gravitas+ path “{template.title}”.'
         generated_by_ai = False
     else:
-        nodes, edges, rationale = _fallback_path(goal, courses)
+        nodes, edges, rationale = _fallback_path(goal, courses, enrollment_state)
         generated_by_ai = False
         catalog = [
             {
@@ -850,6 +861,8 @@ def personalized_learning_paths(request):
                 'title': course.title,
                 'summary': course.summary,
                 'tags': [tag.name for tag in course.tags.all()],
+                'learner_status': (enrollment_state.get(course.pk) or {}).get('status', 'not_started'),
+                'learner_progress_percent': (enrollment_state.get(course.pk) or {}).get('progress_percent', '0'),
             }
             for course in courses
         ]
@@ -858,7 +871,8 @@ def personalized_learning_paths(request):
                 system=(
                     'You design research learning paths. Return strict JSON only with keys '
                     '"course_ids" (ordered array of integers) and "rationale" (short string). '
-                    'Use only course IDs supplied by the catalog. Choose at most 6 courses.'
+                    'Use only course IDs supplied by the catalog. Choose at most 6 courses. '
+                    'Use the learner progress/status in the catalog: avoid already-completed courses unless they are genuinely needed as prerequisites.'
                 ),
                 user=f'Learner research goal:\n{goal}\n\nCatalog:\n{json.dumps(catalog, ensure_ascii=False)}',
                 max_tokens=900,
