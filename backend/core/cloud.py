@@ -223,7 +223,8 @@ def project_group_id(project):
 def native_files_url(path=''):
     clean = str(path or '').strip('/')
     query = urlencode({'dir': '/' + clean}) if clean else ''
-    return f'{settings.PUBLIC_BASE_URL}/nextcloud/index.php/apps/files/files' + (f'?{query}' if query else '')
+    base = settings.NEXTCLOUD_PUBLIC_URL.rstrip('/')
+    return f'{base}/index.php/apps/files/files' + (f'?{query}' if query else '')
 
 
 def _dav_url(identity, path):
@@ -265,6 +266,28 @@ def upload(identity, path, uploaded_file):
 
 def download(identity, path):
     return _request('GET', _dav_url(identity, path), auth=_auth(identity), expected={200}, stream=True)
+
+
+def admin_upload(path, file_obj, content_type=None):
+    clean = safe_relative_path(path)
+    if hasattr(file_obj, 'seek'):
+        file_obj.seek(0)
+    return _request(
+        'PUT',
+        _admin_dav_url(clean),
+        auth=_admin_auth(),
+        expected={200, 201, 204},
+        data=file_obj,
+        headers={'Content-Type': content_type or getattr(file_obj, 'content_type', None) or 'application/octet-stream'},
+    )
+
+
+def admin_download(path):
+    return _request('GET', _admin_dav_url(path), auth=_admin_auth(), expected={200}, stream=True)
+
+
+def admin_delete(path):
+    _request('DELETE', _admin_dav_url(path), auth=_admin_auth(), expected={200, 204, 404})
 
 
 def delete(identity, path):
