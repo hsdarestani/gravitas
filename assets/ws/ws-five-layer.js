@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20260919-advanced4';
+import * as P from './ws-platform.js?v=20260919-advanced6';
 import {
   renderCertificates,
   renderCourse,
@@ -8,7 +8,7 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20260919-advanced4';
+} from './ws-member-lms.js?v=20260919-advanced6';
 import { renderMemberProgress } from './ws-member-progress.js?v=20260918-progress3';
 import { renderMemberSupport } from './ws-support.js?v=20260918-support1';
 import {
@@ -25,7 +25,7 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20260919-advanced4';
+} from './ws-admin.js?v=20260919-advanced6';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260918-fix1';
 import { renderCoreLinks } from './ws-core-links.js?v=20260914-1';
 import { renderResearchProject } from './ws-project.js?v=20260914-2';
