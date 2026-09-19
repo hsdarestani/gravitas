@@ -1,6 +1,15 @@
 import uuid
 
 from django.db import migrations, models
+from django.utils import timezone
+
+
+def backfill_learning_asset_versions(apps, schema_editor):
+    LearningAsset = apps.get_model('core', 'LearningAsset')
+    for item in LearningAsset.objects.all().iterator():
+        item.logical_id = uuid.uuid4()
+        item.updated_at = item.created_at or timezone.now()
+        item.save(update_fields=['logical_id', 'updated_at'])
 
 
 class Migration(migrations.Migration):
@@ -12,7 +21,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='learningasset',
             name='logical_id',
-            field=models.UUIDField(db_index=True, default=uuid.uuid4),
+            field=models.UUIDField(db_index=True, null=True),
         ),
         migrations.AddField(
             model_name='learningasset',
@@ -35,6 +44,17 @@ class Migration(migrations.Migration):
             field=models.BooleanField(db_index=True, default=True),
         ),
         migrations.AddField(
+            model_name='learningasset',
+            name='updated_at',
+            field=models.DateTimeField(null=True),
+        ),
+        migrations.RunPython(backfill_learning_asset_versions, migrations.RunPython.noop),
+        migrations.AlterField(
+            model_name='learningasset',
+            name='logical_id',
+            field=models.UUIDField(db_index=True, default=uuid.uuid4),
+        ),
+        migrations.AlterField(
             model_name='learningasset',
             name='updated_at',
             field=models.DateTimeField(auto_now=True),
