@@ -428,7 +428,11 @@ function renderIndex() {
   for (const section of sectionsFor(ui.area)) {
     const isOpen = ui.openSections.has(section.id);
     const visibleChildren = (section.children || []).filter((child) => !child.when || child.when());
-    const hasChildren = !!(visibleChildren.length || section.tree);
+    const hasTreeChildren = !!(section.tree && ui.nodes.some((node) => (
+      node.parent === null
+      && (!section.space || api.spaceOfNode(ui.nodes, node.id) === section.space)
+    )));
+    const hasChildren = !!(visibleChildren.length || hasTreeChildren);
     const active = section.match(location.pathname);
 
     const row = sectionRow({
