@@ -219,7 +219,7 @@ function focusEl(tasks, ctx) {
   card.append(el('p', 'v-focus__body', focusText(tasks)));
 
   const foot = el('div', 'v-focus__foot');
-  const ask = el('button', 'ws-btn', 'Ask Plusar');
+  const ask = el('button', 'ws-btn', 'Ask Pulsar');
   ask.type = 'button';
   ask.addEventListener('click', () => ctx.openAssistant?.('What should I do first today?'));
   foot.append(ask);

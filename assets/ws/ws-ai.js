@@ -1,11 +1,11 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  PLUSAR
+   GRAVITAS+ WORKSPACE  ·  PULSAR
    The workspace assistant. It answers questions about the pages in this
    workspace and cites which ones it read.
 
    It is named rather than labelled "Assistant" because it is one thing with
    one behaviour, not a generic slot, and because the rail is a column of
-   nouns: Home, Projects, Tasks, Plusar. The name is the plus in Gravitas+,
+   nouns: Home, Projects, Tasks, Pulsar. The name is the plus in Gravitas+,
    and its mark in assets/gravitas-icons.js is the diamond that name reads as,
    with the brand logo's inward bow on its edges, so the panel reads as
    Gravitas answering rather than as a third party bolted on.
@@ -38,7 +38,7 @@ export function mountAssistant(host, ctx) {
   log = document.createElement('div');
   log.className = 'ws-ai__log';
   log.setAttribute('role', 'log');
-  log.setAttribute('aria-label', 'Plusar conversation');
+  log.setAttribute('aria-label', 'Pulsar conversation');
 
   const compose = document.createElement('div');
   compose.className = 'ws-ai__compose';
@@ -46,8 +46,8 @@ export function mountAssistant(host, ctx) {
   input = document.createElement('textarea');
   input.className = 'ws-ai__input';
   input.rows = 1;
-  input.placeholder = 'Ask Plusar about these pages';
-  input.setAttribute('aria-label', 'Ask Plusar');
+  input.placeholder = 'Ask Pulsar about these pages';
+  input.setAttribute('aria-label', 'Ask Pulsar');
 
   // Grow with the text, to a ceiling. A fixed one-line box hides the end of
   // anything longer than a sentence, which is most real questions.
@@ -128,7 +128,7 @@ function turnEl(turn) {
 
   const who = document.createElement('p');
   who.className = 'ws-ai__who';
-  who.textContent = turn.who === 'you' ? 'You' : 'Plusar';
+  who.textContent = turn.who === 'you' ? 'You' : 'Pulsar';
 
   const text = document.createElement('div');
   text.className = 'ws-ai__text';
@@ -222,7 +222,7 @@ async function send() {
   } catch {
     Object.assign(pending, {
       pending: false,
-      text: 'That request did not go through. Plusar may be down; nothing was changed in your pages.',
+      text: 'That request did not go through. Pulsar may be down; nothing was changed in your pages.',
       sources: [],
     });
   }

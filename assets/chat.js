@@ -135,7 +135,7 @@
 
   /* ---- Markup ------------------------------------------------------------ */
   var ICON = {
-    // The Plusar mark, the assistant's own identity. An assistant that wears
+    // The Pulsar mark, the assistant's own identity. An assistant that wears
     // the brand reads as part of the site rather than as a bolted-on vendor
     // widget.
     spark: '<svg class="gchat__spark gchat__mark" viewBox="0 0 82.14 82.14" fill="currentColor" aria-hidden="true"><path d="M61.23,82.14L41.07,82.14C41.07,59.49,59.49,41.07,82.14,41.07L82.14,61.23C70.61,61.23,61.23,70.61,61.23,82.14Z"/><path d="M0,61.23L0,41.07C22.65,41.07,41.07,59.49,41.07,82.14L20.91,82.14C20.91,70.61,11.53,61.23,0,61.23Z"/><path d="M20.91,0L41.07,0C41.07,22.65,22.65,41.07,0,41.07L0,20.91C11.53,20.91,20.91,11.53,20.91,0Z"/><path d="M82.14,20.91L82.14,41.07C59.49,41.07,41.07,22.65,41.07,0L61.23,0C61.23,11.53,70.61,20.91,82.14,20.91Z"/></svg>',
@@ -146,7 +146,7 @@
   var root = document.createElement('div');
   root.className = 'gchat';
   root.innerHTML =
-    '<div class="gchat__panel" id="gchat-panel" role="dialog" aria-label="Ask Plusar" aria-modal="false">' +
+    '<div class="gchat__panel" id="gchat-panel" role="dialog" aria-label="Ask Pulsar" aria-modal="false">' +
       // A lockup and a close, nothing else. The old header put the mark in a
       // bordered circle (which reads as an avatar, this is a logo, not a
       // person) above a mono uppercase strapline that repeated the note at the
@@ -156,7 +156,7 @@
       '<div class="gchat__head">' +
         '<span class="gchat__brand">' +
           ICON.spark +
-          '<span class="gchat__title">Ask Plusar</span>' +
+          '<span class="gchat__title">Ask Pulsar</span>' +
         '</span>' +
         '<button class="gchat__close" type="button" aria-label="Close assistant">' + ICON.x + '</button>' +
       '</div>' +
@@ -168,8 +168,8 @@
       '</form>' +
       '<p class="gchat__foot"></p>' +
     '</div>' +
-    '<button class="gchat__btn" type="button" aria-expanded="false" aria-controls="gchat-panel" aria-label="Ask Plusar">' +
-      ICON.spark + '<span>Ask Plusar</span>' +
+    '<button class="gchat__btn" type="button" aria-expanded="false" aria-controls="gchat-panel" aria-label="Ask Pulsar">' +
+      ICON.spark + '<span>Ask Pulsar</span>' +
     '</button>';
   document.body.appendChild(root);
 

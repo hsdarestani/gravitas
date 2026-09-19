@@ -51,11 +51,11 @@ def complete(*, system, user, max_tokens=900, temperature=0.2):
         response.raise_for_status()
         payload = response.json()
     except (requests.RequestException, ValueError) as exc:
-        logger.warning('Plusar Cloudflare request failed: %s', exc)
+        logger.warning('Pulsar Cloudflare request failed: %s', exc)
         raise PulsarError('cloudflare_ai_failed') from exc
 
     if payload.get('success') is False:
-        logger.warning('Plusar Cloudflare error payload: %s', payload.get('errors'))
+        logger.warning('Pulsar Cloudflare error payload: %s', payload.get('errors'))
         raise PulsarError('cloudflare_ai_failed')
 
     result = payload.get('result')
@@ -76,4 +76,4 @@ Learning/LMS: course catalog, enrolled courses, certificates, progress and a sav
 Research: projects, milestones, tasks, notes, sources, datasets, files, mind maps, discussions, experiments, activity and search.
 Core: authorized team members coordinate operating work, content, research administration, tasks, links and activity.
 Knowledge/Space: research notes and files stay connected to projects and can synchronize with private cloud storage.
-Plusar is the Gravitas+ assistant. It should be concise, transparent about uncertainty and never invent private data or capabilities."""
+Pulsar is the Gravitas+ assistant. It should be concise, transparent about uncertainty and never invent private data or capabilities."""

@@ -22,7 +22,7 @@
 import * as api from './ws-api.js?v=20260913-3';
 import * as P from './ws-platform.js?v=20260919-planning1';
 import * as views from './ws-views.js?v=20260919-tasks-clean1';
-import * as assets from './ws-core-assets.js?v=20260919-assets3';
+import * as assets from './ws-core-assets.js?v=20260920-pulsar1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js';
 import * as research from './ws-research.js?v=20260913-4';
@@ -33,7 +33,7 @@ import {
 import { renderDashboard, stopClock } from './ws-home.js';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
-import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260913-2';
+import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260920-pulsar1';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -300,20 +300,20 @@ function renderRail() {
     rail.append(el('div', 'ws-rail__spacer'));
   }
 
-  /* Plusar, the workspace assistant. It keeps the dock tab id 'assistant',
+  /* Pulsar, the workspace assistant. It keeps the dock tab id 'assistant',
      which is written into saved preferences on every reader's machine; the
      name is what changed, not the slot.
 
-     The mark is 'plusar', not 'mindmap'. Those are two different things and
+     The mark is 'pulsar', not 'mindmap'. Those are two different things and
      mindmap is still the Mind Maps section's own icon in ws-nav.js?v=20260919-planning1, so
      pointing this button back at it puts one drawing on two unrelated rows. */
-  rail.append(railButton('plusar', 'Plusar', ui.dock && ui.dockTab === 'assistant', () => {
+  rail.append(railButton('pulsar', 'Pulsar', ui.dock && ui.dockTab === 'assistant', () => {
     openDock('assistant');
     render();
     focusAssistant();
   }));
 
-  /* Settings sits under Plusar, at the foot of the rail, which is
+  /* Settings sits under Pulsar, at the foot of the rail, which is
      where every desktop tool of this shape puts the account. It shows the
      profile picture rather than a gear when there is one: a face is easier
      to find than another 16px line drawing in a column of line drawings,
@@ -1090,7 +1090,7 @@ const DOCK_TABS = [
   { id: 'tasks',     label: 'Tasks' },
   { id: 'journal',   label: 'Journal' },
   { id: 'links',     label: 'Links' },
-  { id: 'assistant', label: 'Plusar' },
+  { id: 'assistant', label: 'Pulsar' },
 ];
 
 function renderDock() {

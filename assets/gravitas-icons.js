@@ -63,8 +63,8 @@
     'space-research': "<g transform=\"translate(0.067 0.881) scale(0.951412)\" stroke-width=\"1.787\"><path d=\"M19.4 12.86C18.58 14.14 17.36 15.38 15.93 16.37C14.49 17.37 12.84 18.12 11.22 18.52C9.61 18.91 8.05 18.95 6.77 18.62C5.48 18.29 4.49 17.6 3.95 16.65C3.4 15.7 3.29 14.5 3.65 13.22C4 11.95 4.82 10.61 5.97 9.41C7.12 8.21 8.59 7.16 10.18 6.41C11.76 5.67 13.44 5.23 14.96 5.16\"/><circle cx=\"20.05\" cy=\"7.35\" r=\"2.2\"/><circle cx=\"12\" cy=\"12\" r=\"1.629\" fill=\"currentColor\" stroke=\"none\"/></g>",
     'space-knowledge': "<g transform=\"translate(-2.735 -0.185) scale(1.118773)\" stroke-width=\"1.52\"><path d=\"M11.69 8.51C12.91 8.16 14.46 8.51 15.51 9.61C16.56 10.71 17.03 12.54 16.46 14.23C15.9 15.91 14.29 17.38 12.27 17.72C10.26 18.07 7.93 17.24 6.51 15.43C5.09 13.62 4.66 10.88 5.67 8.53C6.68 6.17 9.12 4.31 11.93 4.04C14.74 3.77 17.82 5.13 19.56 7.68C21.3 10.23 21.61 13.88 20.1 16.87\"/><circle cx=\"12\" cy=\"12\" r=\"1.385\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
-    /* ---- Plusar -----------------------------------------------------------
-       The workspace assistant is called Plusar, after the plus in Gravitas+,
+    /* ---- Pulsar -----------------------------------------------------------
+       The workspace assistant is called Pulsar, after the plus in Gravitas+,
        and the shape everyone already reads that name as is a diamond. So this
        is a diamond, not the brand logo traced: the first cut of this mark was
        the logo silhouette carried across literally, and axis-aligned with a
@@ -101,7 +101,7 @@
        down by the transform, the same way the marks above are, so the drawn
        path stays the one the curve rationale describes. Stroke is
        counter-scaled to land on a true 1.7. */
-    plusar: "<g transform=\"translate(1.029 1.029) scale(0.914286)\" stroke-width=\"1.859\"><path d=\"M12 1.5C14.54 5.96 18.04 9.46 22.5 12C18.04 14.54 14.54 18.04 12 22.5C9.46 18.04 5.96 14.54 1.5 12C5.96 9.46 9.46 5.96 12 1.5Z\"/><circle cx=\"12\" cy=\"12\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    pulsar: "<g transform=\"translate(1.029 1.029) scale(0.914286)\" stroke-width=\"1.859\"><path d=\"M12 1.5C14.54 5.96 18.04 9.46 22.5 12C18.04 14.54 14.54 18.04 12 22.5C9.46 18.04 5.96 14.54 1.5 12C5.96 9.46 9.46 5.96 12 1.5Z\"/><circle cx=\"12\" cy=\"12\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     plus: "<g transform=\"translate(-2.099 -2.094) scale(1.174958)\" stroke-width=\"1.447\"><path d=\"M12 4.4v15.2\"/><path d=\"M4.4 12h15.2\"/></g>",
     /* The one mark where the centroid rule had to give way. Fitting solves the

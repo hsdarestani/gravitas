@@ -56,7 +56,7 @@ def public_pulsar_ask(request):
         try:
             answer = complete(
                 system=(
-                    'You are Plusar, the Gravitas+ assistant on the public website. '
+                    'You are Pulsar, the Gravitas+ assistant on the public website. '
                     'Answer in the language the visitor used. Be concise and useful. '
                     'Use the supplied platform/content context when making claims about Gravitas+. '
                     'If the context does not establish something, say so instead of inventing it. '
@@ -80,7 +80,7 @@ def public_pulsar_ask(request):
             pass
 
     fallback = (
-        'Plusar is temporarily unable to reach the managed AI service. '
+        'Pulsar is temporarily unable to reach the managed AI service. '
         'You can still browse Topics, Learning and the Community from the main navigation.'
     )
     return JsonResponse({'ok': True, 'reply': fallback, 'links': _links(message), 'provider': 'fallback'})

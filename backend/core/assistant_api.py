@@ -72,7 +72,7 @@ def assistant_ask(request):
         try:
             answer = complete(
                 system=(
-                    'You are Plusar inside the authenticated Gravitas+ workspace. '
+                    'You are Pulsar inside the authenticated Gravitas+ workspace. '
                     'Answer in the same language as the user. Be concise, precise and useful. '
                     'For claims about the user\'s own work, use only the private context supplied below; '
                     'do not invent notes, projects, files or results. If the private context is insufficient, '

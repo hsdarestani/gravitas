@@ -8,7 +8,7 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20260919-advanced7';
+} from './ws-member-lms.js?v=20260920-pulsar1';
 import { renderMemberProgress } from './ws-member-progress.js?v=20260918-progress3';
 import { renderMemberSupport } from './ws-support.js?v=20260918-support1';
 import {
@@ -171,11 +171,11 @@ function normalizeRail() {
   const rail = $('#ws-rail');
   if (!rail || rail.querySelector('.fl-rail-button')) return;
 
-  // Keep ws-app's Plusar and account buttons because their closures own dock
+  // Keep ws-app's Pulsar and account buttons because their closures own dock
   // focus/profile state. Everything above them is the old top-level model.
-  const plusar = [...rail.querySelectorAll('button')].find((node) => node.getAttribute('aria-label') === 'Plusar');
+  const pulsar = [...rail.querySelectorAll('button')].find((node) => node.getAttribute('aria-label') === 'Pulsar');
   const settings = [...rail.querySelectorAll('button')].find((node) => node.getAttribute('aria-label') === 'Settings');
-  if (plusar) plusar.remove();
+  if (pulsar) pulsar.remove();
   if (settings) settings.remove();
   rail.innerHTML = '';
 
@@ -192,7 +192,7 @@ function normalizeRail() {
   const spacer = document.createElement('div');
   spacer.className = 'ws-rail__spacer';
   rail.append(spacer);
-  if (plusar) rail.append(plusar);
+  if (pulsar) rail.append(pulsar);
   if (settings) rail.append(settings);
 }
 

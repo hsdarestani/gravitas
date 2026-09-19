@@ -1151,7 +1151,7 @@ function courseAssetsPanel(course) {
 
 async function courseTutorPanel(course) {
   if (!course.enrolled) return null;
-  const box = section('AI Tutor', 'Ask Plusar in the context of this course, a lesson and optionally selected Zotero sources.');
+  const box = section('AI Tutor', 'Ask Pulsar in the context of this course, a lesson and optionally selected Zotero sources.');
   const controls = el('div', 'fl-form-grid');
   const lessonSelect = el('select', 'v-input fl-input');
   const rootOption = el('option', null, 'Whole course');
@@ -1225,7 +1225,7 @@ async function courseTutorPanel(course) {
   const question = el('textarea', 'v-input fl-input fl-textarea');
   question.rows = 3;
   question.placeholder = 'Ask a question, request a hint, or test your understanding…';
-  const send = action('Ask Plusar', () => {}, true);
+  const send = action('Ask Pulsar', () => {}, true);
   send.type = 'submit';
   const note = el('p', 'v-note');
   const history = [];
@@ -1240,7 +1240,7 @@ async function courseTutorPanel(course) {
     log.append(yours);
     question.value = '';
     send.disabled = true;
-    note.textContent = 'Plusar is thinking…';
+    note.textContent = 'Pulsar is thinking…';
     try {
       const data = await P.lmsAiTutor(course.id, {
         question: value,
@@ -1252,7 +1252,7 @@ async function courseTutorPanel(course) {
       history.push({ role: 'user', content: value }, { role: 'assistant', content: data.answer });
       const reply = el('article', 'fl-ai-tutor__turn');
       reply.dataset.who = 'assistant';
-      reply.append(el('strong', null, 'Plusar'), el('p', null, data.answer));
+      reply.append(el('strong', null, 'Pulsar'), el('p', null, data.answer));
       if (data.sources?.length) {
         const sources = el('div', 'fl-badges');
         data.sources.forEach((item) => sources.append(badge(item.title)));

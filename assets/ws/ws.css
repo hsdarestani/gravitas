@@ -567,7 +567,7 @@
   }
 
   /* ---- Dock tabs --------------------------------------------------------
-     Journal, Tasks, Links, Plusar. Underline rather than a filled pill,
+     Journal, Tasks, Links, Pulsar. Underline rather than a filled pill,
      to keep one shape language with the rail's active bar. */
   .ws-tabs {
     display: flex; gap: 2px; flex: 0 0 auto;
@@ -874,7 +874,7 @@
 }
 
 /* ==========================================================================
-   7. PLUSAR (the assistant panel)
+   7. PULSAR (the assistant panel)
    ========================================================================== */
 @layer ws-components {
   .ws-ai { display: flex; flex-direction: column; height: 100%; min-height: 0; }

@@ -99,7 +99,7 @@ The supplied Modern KMS reference is implemented as information architecture whi
 - Tasks
 - Search
 - Collaboration / researchers / opportunities
-- persistent Plusar/AI side panel
+- persistent Pulsar/AI side panel
 
 Project detail contains:
 

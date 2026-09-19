@@ -448,7 +448,7 @@ function sideEl(section, select) {
 }
 
 /* The inspector is where the blueprint stops being a diagram. It explains
-   scope and ownership and can hand the question to Plusar; task creation
+   scope and ownership and can hand the question to Pulsar; task creation
    deliberately stays in Tasks & Execution. */
 function drawInspector(host, section, ctx) {
   host.innerHTML = '';
