@@ -39,6 +39,7 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             "platform/admin/lms/repositories/",
             "platform/admin/lms/payments/",
             "lms/courses/<int:course_id>/checkout/",
+            "lms/courses/<int:course_id>/payment-webhook/",
             "lms/certificates/<uuid:code>/download/",
         ):
             self.assertIn(path, urls)
@@ -119,6 +120,8 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         learner = self.read('assets/ws/ws-member-lms.js')
         self.assertIn('def course_checkout', api)
         self.assertIn('def admin_course_payments', api)
+        self.assertIn('def course_payment_webhook', api)
+        self.assertIn('X-Gravitas-Payment-Secret', api)
         self.assertIn('CourseEnrollment.AccessSource.PURCHASE', api)
         self.assertIn("section('Course payments'", admin)
         self.assertIn('P.lmsStartCheckout(course.id)', learner)
