@@ -1131,25 +1131,43 @@ export async function renderAdminLms(host, { go }) {
     }
     wrap.append(reviewBox.box);
 
-    const analyticsBox = section('Learning analytics', 'Filter by course and learner. Views, skips, dwell, AI and Lab usage remain attributable down to the lesson.');
+    const analyticsBox = section('Learning analytics', 'Filter by course, lesson, learner and date. Views, skips, dwell, AI and Lab usage remain attributable down to the lesson.');
     const analyticsFilters = el('div', 'fl-toolbar');
     const courseFilter = select([
       ['', 'All courses'],
       ...courses.courses.map((item) => [item.id, item.title]),
     ], '');
+    const lessonFilter = select([['', 'All lessons']], '');
+    const dateFrom = input('', 'date');
+    dateFrom.title = 'From date';
+    const dateTo = input('', 'date');
+    dateTo.title = 'To date';
     const learnerSearch = input('', 'search', 'Filter learner');
     const clearLearner = action('Clear learner', () => {}, false, true);
     const selectedLearner = el('span', 'v-toolbar__count', 'All learners');
     const learnerResults = el('div', 'fl-stack');
     let learnerId = '';
     let learnerTimer = null;
-    analyticsFilters.append(courseFilter, learnerSearch, clearLearner, selectedLearner);
+    analyticsFilters.append(courseFilter, lessonFilter, dateFrom, dateTo, learnerSearch, clearLearner, selectedLearner);
     analyticsBox.body.append(analyticsFilters, learnerResults);
 
     const analyticsContent = el('div', 'fl-stack');
     analyticsBox.body.append(analyticsContent);
     const drawAnalytics = (payload) => {
       analyticsContent.innerHTML = '';
+      const selectedLesson = lessonFilter.value;
+      lessonFilter.innerHTML = '';
+      const allLessons = el('option', null, 'All lessons');
+      allLessons.value = '';
+      lessonFilter.append(allLessons);
+      for (const item of payload.lesson_options || []) {
+        const option = el('option', null, item.course + ' · ' + item.module + ' · ' + item.title);
+        option.value = item.id;
+        lessonFilter.append(option);
+      }
+      if ([...lessonFilter.options].some((option) => option.value === selectedLesson)) {
+        lessonFilter.value = selectedLesson;
+      }
       const summaryMetrics = el('div', 'fl-metrics');
       summaryMetrics.append(
         metric(payload.summary?.enrollments || 0, 'Enrollments'),
@@ -1188,7 +1206,10 @@ export async function renderAdminLms(host, { go }) {
       try {
         const payload = await P.adminLmsAnalytics({
           course_id: courseFilter.value,
+          lesson_id: lessonFilter.value,
           user_id: learnerId,
+          from: dateFrom.value ? dateFrom.value + 'T00:00:00' : '',
+          to: dateTo.value ? dateTo.value + 'T23:59:59' : '',
         });
         drawAnalytics(payload);
       } catch (error) {
@@ -1196,7 +1217,13 @@ export async function renderAdminLms(host, { go }) {
         analyticsContent.append(empty('Analytics unavailable', error?.message || 'Try again.'));
       }
     };
-    courseFilter.addEventListener('change', reloadAnalytics);
+    courseFilter.addEventListener('change', () => {
+      lessonFilter.value = '';
+      reloadAnalytics();
+    });
+    lessonFilter.addEventListener('change', reloadAnalytics);
+    dateFrom.addEventListener('change', reloadAnalytics);
+    dateTo.addEventListener('change', reloadAnalytics);
     clearLearner.addEventListener('click', () => {
       learnerId = '';
       learnerSearch.value = '';
