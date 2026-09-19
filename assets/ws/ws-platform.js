@@ -355,6 +355,14 @@ export const adminLmsAnalytics = (params = {}) => {
 };
 export const adminOpenEdxStatus = () => call('/platform/admin/lms/openedx/');
 export const adminValidateOpenEdxCourse = (courseId) => call('/platform/admin/lms/openedx/', { method: 'POST', body: { course_id: courseId } });
+export const adminLearningRepositories = (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== '' && value != null)).toString();
+  return call(`/platform/admin/lms/repositories/${query ? `?${query}` : ''}`);
+};
+export const adminReviewLearningRepository = (repositoryId, reviewStatus, reviewNote = '') => call('/platform/admin/lms/repositories/', {
+  method: 'PATCH',
+  body: { repository_id: repositoryId, review_status: reviewStatus, review_note: reviewNote },
+});
 export const adminLearningAssets = (courseId) => call(`/platform/admin/lms/courses/${courseId}/assets/`);
 export const adminUploadLearningAsset = (courseId, formData) => upload(`/platform/admin/lms/courses/${courseId}/assets/`, formData);
 export const adminDeleteLearningAsset = (assetId) => call(`/lms/assets/${assetId}/`, { method: 'DELETE' });
