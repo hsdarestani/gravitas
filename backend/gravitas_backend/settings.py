@@ -135,6 +135,10 @@ LMS_ASSET_NEXTCLOUD_MOUNTPOINT = os.environ.get('LMS_ASSET_NEXTCLOUD_MOUNTPOINT'
 LMS_ASSET_NEXTCLOUD_GROUP = os.environ.get('LMS_ASSET_NEXTCLOUD_GROUP', 'gravitas-lms-assets')
 LMS_JUPYTER_PUBLIC_URL = os.environ.get('LMS_JUPYTER_PUBLIC_URL', '').rstrip('/')
 LMS_MATHEMATICA_PUBLIC_URL = os.environ.get('LMS_MATHEMATICA_PUBLIC_URL', '').rstrip('/')
+LMS_JUPYTER_EXEC_URL = os.environ.get('LMS_JUPYTER_EXEC_URL', '').rstrip('/')
+LMS_JUPYTER_EXEC_TOKEN = os.environ.get('LMS_JUPYTER_EXEC_TOKEN', '')
+LMS_MATHEMATICA_EXEC_URL = os.environ.get('LMS_MATHEMATICA_EXEC_URL', '').rstrip('/')
+LMS_MATHEMATICA_EXEC_TOKEN = os.environ.get('LMS_MATHEMATICA_EXEC_TOKEN', '')
 LMS_LINKEDIN_API_VERSION = os.environ.get('LMS_LINKEDIN_API_VERSION', '202609')
 OPENEDX_ENABLED = os.environ.get('OPENEDX_ENABLED', '0') == '1'
 OPENEDX_LMS_URL = os.environ.get('OPENEDX_LMS_URL', 'https://learn.gravitasplus.com').rstrip('/')
