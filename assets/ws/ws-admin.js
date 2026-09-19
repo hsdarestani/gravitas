@@ -1296,10 +1296,14 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       Array.isArray(learningConfig.notebook_packages) ? learningConfig.notebook_packages.join('\n') : '',
       3,
     );
+    const jupyterUrl = input(learningConfig.jupyter_url || '', 'url', 'https://jupyter.example/…');
+    const mathematicaUrl = input(learningConfig.mathematica_url || '', 'url', 'https://wolfram.example/…');
     const behaviorGrid = el('div', 'fl-form-grid');
     behaviorGrid.append(
       field('AI guidance mode', guidanceMode),
       field('Default notebook runtime', notebookRuntime),
+      field('Jupyter runner URL', jupyterUrl),
+      field('Mathematica / Wolfram runner URL', mathematicaUrl),
     );
     behavior.body.append(
       aiEnabled.wrap,
@@ -1485,6 +1489,8 @@ export async function renderAdminCourseEditor(host, id, { go }) {
           notebook_enabled: notebookEnabled.input.checked,
           notebook_runtime: notebookRuntime.value,
           notebook_packages: notebookPackages.value.split('\n').map((item) => item.trim()).filter(Boolean),
+          jupyter_url: jupyterUrl.value.trim(),
+          mathematica_url: mathematicaUrl.value.trim(),
           git_enabled: gitEnabled.input.checked,
           social_publish_enabled: socialEnabled.input.checked,
           pkm_enabled: pkmEnabled.input.checked,
