@@ -345,6 +345,7 @@ export const lmsLiterature = (id, { q = '', providers = '', limit = 6 } = {}) =>
 };
 export const lmsNotebooks = (id) => call(`/lms/courses/${id}/notebooks/`);
 export const lmsSaveNotebook = (id, body) => call(`/lms/courses/${id}/notebooks/`, { method: 'POST', body });
+export const lmsExecuteNotebook = (notebookId) => call(`/lms/notebooks/${notebookId}/execute/`, { method: 'POST', body: {} });
 export const lmsGit = (id) => call(`/lms/courses/${id}/git/`);
 export const lmsGitPush = (id, body) => call(`/lms/courses/${id}/git/`, { method: 'POST', body });
 export const lmsPublishAchievement = (id, body) => call(`/lms/courses/${id}/publish/`, { method: 'POST', body });
