@@ -17,6 +17,8 @@ from .lms_models import (
     CourseDiscussionMessage,
     CourseEnrollment,
     CourseEvent,
+    CoursePayment,
+    CourseRegistrationProfile,
     LearnerPathAssignment,
     LearningIntegration,
     LearningPath,
@@ -24,6 +26,9 @@ from .lms_models import (
     Lesson,
     NotebookWorkspace,
 )
+from .layer_access import set_module_grant
+from .layer_models import ModuleGrant
+from .lms_api import _openedx_sync_enrollment
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
 from .pulsar import PulsarError, complete
 
@@ -89,6 +94,59 @@ def _event(user, course, kind, *, enrollment=None, lesson=None, metadata=None):
     )
 
 
+def _payment_json(item):
+    return {
+        'id': item.pk,
+        'course_id': item.course_id,
+        'course_title': item.course.title,
+        'user_id': item.user_id,
+        'user_name': item.user.get_full_name() or item.user.email,
+        'user_email': item.user.email,
+        'provider': item.provider,
+        'amount': str(item.amount),
+        'currency': item.currency,
+        'status': item.status,
+        'external_reference': item.external_reference,
+        'checkout_url': item.checkout_url,
+        'metadata': item.metadata,
+        'verified_by': (
+            item.verified_by.get_full_name() or item.verified_by.email
+            if item.verified_by_id else ''
+        ),
+        'verified_at': item.verified_at.isoformat() if item.verified_at else None,
+        'created_at': item.created_at.isoformat(),
+        'updated_at': item.updated_at.isoformat(),
+    }
+
+
+def _grant_paid_enrollment(payment, actor):
+    enrollment, _created = CourseEnrollment.objects.update_or_create(
+        user=payment.user,
+        course=payment.course,
+        defaults={
+            'status': CourseEnrollment.Status.ACTIVE,
+            'access_source': CourseEnrollment.AccessSource.PURCHASE,
+            'granted_by': actor,
+        },
+    )
+    profile, _ = CourseRegistrationProfile.objects.get_or_create(enrollment=enrollment)
+    if not payment.course.registration_schema and not profile.completed:
+        profile.completed = True
+        profile.completed_at = timezone.now()
+        profile.save(update_fields=['completed', 'completed_at', 'updated_at'])
+    set_module_grant(
+        payment.user,
+        ModuleGrant.Module.LMS,
+        enabled=True,
+        access_level=ModuleGrant.AccessLevel.PARTICIPATE,
+        source=ModuleGrant.Source.ENROLLMENT,
+        granted_by=actor,
+        metadata={'course_id': payment.course_id, 'enrollment_id': enrollment.pk, 'payment_id': payment.pk},
+    )
+    _openedx_sync_enrollment(enrollment)
+    return enrollment
+
+
 def _message_json(item):
     return {
         'id': item.pk,
@@ -104,6 +162,129 @@ def _message_json(item):
         'created_at': item.created_at.isoformat(),
         'updated_at': item.updated_at.isoformat(),
     }
+
+
+@require_http_methods(['GET', 'POST'])
+def course_checkout(request, course_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    course = _course(course_id)
+    if not course or course.status != Course.Status.PUBLISHED:
+        return _error('course_not_found', 404)
+    if course.access_type != Course.AccessType.PAID:
+        return _error('course_not_paid', 409)
+    if _enrollment(request.user, course):
+        return JsonResponse({'ok': True, 'enrolled': True, 'payments': []})
+
+    rows = (
+        CoursePayment.objects
+        .filter(user=request.user, course=course)
+        .select_related('course', 'user', 'verified_by')
+        .order_by('-created_at')
+    )
+    if request.method == 'GET':
+        return JsonResponse({'ok': True, 'enrolled': False, 'payments': [_payment_json(item) for item in rows[:20]]})
+
+    config = course.payment_config if isinstance(course.payment_config, dict) else {}
+    if not config.get('enabled'):
+        return _error('checkout_not_enabled', 409)
+    checkout_url = str(config.get('checkout_url') or '').strip()
+    if not checkout_url:
+        return _error('checkout_url_missing', 409)
+    provider = str(config.get('provider') or 'external').strip().lower()
+    if provider not in {'external', 'stripe', 'sumup'}:
+        return _error('invalid_payment_provider', 409)
+
+    pending = rows.filter(status=CoursePayment.Status.PENDING).first()
+    if pending:
+        pending.checkout_url = checkout_url
+        pending.provider = provider
+        pending.amount = course.price
+        pending.currency = course.currency
+        pending.save(update_fields=['checkout_url', 'provider', 'amount', 'currency', 'updated_at'])
+        return JsonResponse({'ok': True, 'payment': _payment_json(pending)})
+
+    payment = CoursePayment.objects.create(
+        user=request.user,
+        course=course,
+        provider=provider,
+        amount=course.price,
+        currency=course.currency,
+        checkout_url=checkout_url,
+        metadata={
+            'sku': str(config.get('sku') or ''),
+            'created_from': 'learner_checkout',
+        },
+    )
+    return JsonResponse({'ok': True, 'payment': _payment_json(payment)}, status=201)
+
+
+@require_http_methods(['GET', 'PATCH'])
+def admin_course_payments(request):
+    if not _admin(request.user):
+        return _error('core_admin_required', 403)
+
+    if request.method == 'GET':
+        qs = (
+            CoursePayment.objects
+            .select_related('course', 'user', 'verified_by')
+            .order_by('-created_at')
+        )
+        course_id = request.GET.get('course_id')
+        user_id = request.GET.get('user_id')
+        status = str(request.GET.get('status') or '').strip()
+        if course_id:
+            qs = qs.filter(course_id=course_id)
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        if status:
+            if status not in CoursePayment.Status.values:
+                return _error('invalid_payment_status')
+            qs = qs.filter(status=status)
+        return JsonResponse({'ok': True, 'payments': [_payment_json(item) for item in qs[:500]]})
+
+    data = _json_body(request)
+    try:
+        payment_id = int(data.get('payment_id'))
+    except (TypeError, ValueError):
+        return _error('payment_id_required')
+    payment = (
+        CoursePayment.objects
+        .select_related('course', 'user', 'verified_by')
+        .filter(pk=payment_id)
+        .first()
+    )
+    if not payment:
+        return _error('payment_not_found', 404)
+
+    status = str(data.get('status') or payment.status).strip()
+    if status not in CoursePayment.Status.values:
+        return _error('invalid_payment_status')
+    if 'external_reference' in data:
+        payment.external_reference = str(data.get('external_reference') or '').strip()[:240]
+
+    payment.status = status
+    if status == CoursePayment.Status.PAID:
+        payment.verified_by = request.user
+        payment.verified_at = timezone.now()
+    elif status in {CoursePayment.Status.PENDING, CoursePayment.Status.FAILED, CoursePayment.Status.CANCELLED}:
+        payment.verified_by = None
+        payment.verified_at = None
+    payment.save()
+
+    enrollment = None
+    if status == CoursePayment.Status.PAID:
+        enrollment = _grant_paid_enrollment(payment, request.user)
+    elif status == CoursePayment.Status.REFUNDED:
+        enrollment = CourseEnrollment.objects.filter(user=payment.user, course=payment.course).first()
+        if enrollment and enrollment.access_source == CourseEnrollment.AccessSource.PURCHASE:
+            enrollment.status = CourseEnrollment.Status.REVOKED
+            enrollment.save(update_fields=['status', 'updated_at'])
+
+    payload = _payment_json(payment)
+    payload['enrollment_id'] = enrollment.pk if enrollment else None
+    payload['enrollment_status'] = enrollment.status if enrollment else None
+    return JsonResponse({'ok': True, 'payment': payload})
 
 
 @require_http_methods(['GET', 'POST'])
