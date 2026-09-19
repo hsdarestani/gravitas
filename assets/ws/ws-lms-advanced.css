@@ -1,0 +1,51 @@
+.fl-course-chat {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  max-height: 32rem;
+  overflow: auto;
+  padding: .5rem .15rem .75rem;
+}
+.fl-course-chat__message {
+  align-self: flex-start;
+  width: min(82%, 44rem);
+  padding: .75rem .9rem;
+  border: 1px solid var(--g-line);
+  border-radius: 14px 14px 14px 4px;
+  background: var(--g-surface-2);
+}
+.fl-course-chat__message[data-mine="true"] {
+  align-self: flex-end;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--g-surface-3, var(--g-surface-2));
+}
+.fl-course-chat__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-bottom: .35rem;
+  font-size: .78rem;
+}
+.fl-course-chat__body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.fl-course-chat__composer {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .6rem;
+  align-items: end;
+  padding-top: .75rem;
+  background: var(--g-bg);
+}
+.fl-course-chat__composer textarea {
+  min-height: 3.3rem;
+  resize: vertical;
+}
+@media (max-width: 720px) {
+  .fl-course-chat__message { width: 92%; }
+  .fl-course-chat__composer { grid-template-columns: 1fr; }
+}
