@@ -1914,19 +1914,59 @@ function offlineCourseKey(id) {
   return 'gravitas.lms.offline.' + userId + '.' + id;
 }
 
-function saveOfflineCourseSnapshot(data) {
+function openOfflineCourseDb() {
+  if (!('indexedDB' in window)) return Promise.resolve(null);
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('gravitas-lms-offline-v1', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('courses')) db.createObjectStore('courses');
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('offline_db_unavailable'));
+  });
+}
+
+async function saveOfflineCourseSnapshot(data) {
+  const snapshot = {
+    saved_at: new Date().toISOString(),
+    data,
+  };
   try {
-    localStorage.setItem(offlineCourseKey(data.course.id), JSON.stringify({
-      saved_at: new Date().toISOString(),
-      data,
-    }));
+    const db = await openOfflineCourseDb();
+    if (db) {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('courses', 'readwrite');
+        tx.objectStore('courses').put(snapshot, offlineCourseKey(data.course.id));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('offline_save_failed'));
+      });
+      db.close();
+      return true;
+    }
+  } catch {}
+  try {
+    localStorage.setItem(offlineCourseKey(data.course.id), JSON.stringify(snapshot));
     return true;
   } catch {
     return false;
   }
 }
 
-function loadOfflineCourseSnapshot(id) {
+async function loadOfflineCourseSnapshot(id) {
+  try {
+    const db = await openOfflineCourseDb();
+    if (db) {
+      const stored = await new Promise((resolve, reject) => {
+        const tx = db.transaction('courses', 'readonly');
+        const request = tx.objectStore('courses').get(offlineCourseKey(id));
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error || new Error('offline_read_failed'));
+      });
+      db.close();
+      if (stored?.data?.course) return stored;
+    }
+  } catch {}
   try {
     const stored = JSON.parse(localStorage.getItem(offlineCourseKey(id)) || 'null');
     return stored?.data?.course ? stored : null;
@@ -1943,7 +1983,7 @@ export async function renderCourse(host, id, { go }) {
     try {
       data = await P.lmsCourse(id);
     } catch (networkError) {
-      offlineSnapshot = loadOfflineCourseSnapshot(id);
+      offlineSnapshot = await loadOfflineCourseSnapshot(id);
       if (!offlineSnapshot) throw networkError;
       data = offlineSnapshot.data;
     }
@@ -2040,9 +2080,12 @@ export async function renderCourse(host, id, { go }) {
       }
       if (course.certificate?.valid) actions.append(link(go, 'View certificate', '/workspace/learning/certificates'));
       if (!offlineSnapshot && course.learning_config?.offline_enabled !== false) {
-        const saveOffline = action('Save offline', () => {
-          const ok = saveOfflineCourseSnapshot(data);
+        const saveOffline = action('Save offline', async () => {
+          saveOffline.disabled = true;
+          saveOffline.textContent = 'Saving…';
+          const ok = await saveOfflineCourseSnapshot(data);
           saveOffline.textContent = ok ? 'Saved offline' : 'Offline save failed';
+          saveOffline.disabled = false;
         });
         actions.append(saveOffline);
       }
