@@ -1025,8 +1025,23 @@ function courseRegistrationPanel(course, profile, host, go) {
 
 function courseAssetsPanel(course) {
   if (!course.enrolled || !(course.assets || []).length) return null;
-  const box = section('Course files & embeds', 'Course media is managed like a shared learning asset library.');
-  for (const item of course.assets) {
+  const box = section('Course files & embeds', 'Current course media is organized in folders; file revisions are preserved by the course team.');
+  const items = [...course.assets].sort((a, b) => {
+    const folderCompare = String(a.folder_path || '').localeCompare(String(b.folder_path || ''));
+    return folderCompare || String(a.title || '').localeCompare(String(b.title || ''));
+  });
+  let activeFolder = null;
+  let folderHost = null;
+  for (const item of items) {
+    const folder = item.folder_path || '';
+    if (folder !== activeFolder) {
+      activeFolder = folder;
+      const group = el('section', 'fl-stack');
+      group.append(el('h3', null, folder || 'Root'));
+      folderHost = el('div', 'fl-stack');
+      group.append(folderHost);
+      box.body.append(group);
+    }
     const tools = [];
     const href = item.kind === 'file' ? item.download_url : item.source_url;
     if (href) {
@@ -1036,9 +1051,15 @@ function courseAssetsPanel(course) {
       if (item.kind !== 'file') open.rel = 'noopener';
       tools.push(open);
     }
-    box.body.append(row({
+    folderHost.append(row({
       title: item.title,
-      meta: P.meta([label(item.kind), item.size ? P.formatBytes(item.size) : '', item.mime_type || '']),
+      meta: P.meta([
+        label(item.kind),
+        item.version ? 'v' + item.version : '',
+        item.size ? P.formatBytes(item.size) : '',
+        item.mime_type || '',
+      ]),
+      body: item.version_note || '',
       actions: tools,
     }));
   }
