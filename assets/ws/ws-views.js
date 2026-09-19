@@ -661,7 +661,7 @@ export function renderCoreTasks(host, { go }) {
 
       const toolbar = el('div', 'v-toolbar task-board__toolbar');
       const search = input('search', filters.q);
-      search.placeholder = 'Search tasks, owner, initiative or project';
+      search.placeholder = 'Search tasks, owner, KR, milestone or project';
       search.setAttribute('aria-label', 'Search tasks');
       const ownerFilter = select([['', 'All owners'], ...(data.members || []).map((member) => [member.id, member.name || member.email])], filters.owner);
       const priorityFilter = select([['', 'All priorities'], ...(data.priorities || []).map((item) => [item.value, item.label])], filters.priority);
