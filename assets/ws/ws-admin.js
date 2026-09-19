@@ -1224,12 +1224,54 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     form.append(payment.box);
 
     const learningConfig = course?.learning_config || {};
-    const behavior = section('Learning behavior');
+    const behavior = section('Learning behavior', 'Configure tutoring, research tooling, collaboration, offline access and reproducible exercise workflows per course.');
     const aiEnabled = checkbox(learningConfig.ai_enabled !== false, 'AI Tutor enabled');
     const zoteroEnabled = checkbox(learningConfig.zotero_enabled !== false, 'Zotero/source management enabled');
     const labEnabled = checkbox(learningConfig.lab_enabled !== false, 'Interactive Lab enabled');
     const profileRequired = checkbox(learningConfig.require_profile_before_content !== false, 'Require profile form before protected content');
-    behavior.body.append(aiEnabled.wrap, zoteroEnabled.wrap, labEnabled.wrap, profileRequired.wrap);
+    const discussionsEnabled = checkbox(learningConfig.discussions_enabled !== false, 'Course discussion group enabled');
+    const literatureEnabled = checkbox(learningConfig.literature_enabled !== false, 'Paper recommendations enabled (ORCID / arXiv / INSPIRE / Semantic Scholar)');
+    const notebookEnabled = checkbox(learningConfig.notebook_enabled !== false, 'Notebook workspace enabled');
+    const gitEnabled = checkbox(learningConfig.git_enabled !== false, 'Git/GitHub exercise push enabled');
+    const socialEnabled = checkbox(learningConfig.social_publish_enabled !== false, 'Achievement publishing enabled');
+    const pkmEnabled = checkbox(learningConfig.pkm_enabled !== false, 'PKM exports enabled');
+    const offlineEnabled = checkbox(learningConfig.offline_enabled !== false, 'Limited offline read mode enabled');
+    const guidanceMode = select([
+      ['hint_only', 'Hints only · never reveal final answer'],
+      ['guided', 'Guided · hints first, full answer only after effort/request'],
+      ['full', 'Full explanations allowed'],
+    ], learningConfig.ai_guidance_mode || 'guided');
+    const instructorPrompt = textarea(learningConfig.ai_instructor_prompt || '', 4);
+    const notebookRuntime = select([
+      ['python', 'Python in browser + .ipynb export'],
+      ['jupyter', 'Jupyter / Python'],
+      ['mathematica', 'Mathematica / Wolfram kernel'],
+    ], learningConfig.notebook_runtime || 'python');
+    const notebookPackages = textarea(
+      Array.isArray(learningConfig.notebook_packages) ? learningConfig.notebook_packages.join('\n') : '',
+      3,
+    );
+    const behaviorGrid = el('div', 'fl-form-grid');
+    behaviorGrid.append(
+      field('AI guidance mode', guidanceMode),
+      field('Default notebook runtime', notebookRuntime),
+    );
+    behavior.body.append(
+      aiEnabled.wrap,
+      behaviorGrid,
+      field('Instructor AI guidance', instructorPrompt, 'Extra policy/instructions appended to the course tutor system prompt.'),
+      zoteroEnabled.wrap,
+      labEnabled.wrap,
+      discussionsEnabled.wrap,
+      literatureEnabled.wrap,
+      notebookEnabled.wrap,
+      field('Notebook packages', notebookPackages, 'One Python package per line. Stored in the reproducible environment spec.'),
+      gitEnabled.wrap,
+      socialEnabled.wrap,
+      pkmEnabled.wrap,
+      offlineEnabled.wrap,
+      profileRequired.wrap,
+    );
     form.append(behavior.box);
 
     const structure = section(
@@ -1365,8 +1407,19 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         },
         learning_config: {
           ai_enabled: aiEnabled.input.checked,
+          ai_guidance_mode: guidanceMode.value,
+          ai_instructor_prompt: instructorPrompt.value,
           zotero_enabled: zoteroEnabled.input.checked,
           lab_enabled: labEnabled.input.checked,
+          discussions_enabled: discussionsEnabled.input.checked,
+          literature_enabled: literatureEnabled.input.checked,
+          notebook_enabled: notebookEnabled.input.checked,
+          notebook_runtime: notebookRuntime.value,
+          notebook_packages: notebookPackages.value.split('\n').map((item) => item.trim()).filter(Boolean),
+          git_enabled: gitEnabled.input.checked,
+          social_publish_enabled: socialEnabled.input.checked,
+          pkm_enabled: pkmEnabled.input.checked,
+          offline_enabled: offlineEnabled.input.checked,
           require_profile_before_content: profileRequired.input.checked,
         },
         modules: [...modulesHost.children].map((node, index) => serializeModule(node, index + 1)).filter((item) => item.title),
