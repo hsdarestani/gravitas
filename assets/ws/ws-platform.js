@@ -325,6 +325,27 @@ export const lmsLearningPaths = ({ all = false } = {}) => call(`/lms/paths/${all
 export const lmsCreateLearningPath = (body) => call('/lms/paths/', { method: 'POST', body });
 export const lmsUpdateLearningPath = (id, body) => call(`/lms/paths/${id}/`, { method: 'PATCH', body });
 export const lmsDeleteLearningPath = (id) => call(`/lms/paths/${id}/`, { method: 'DELETE' });
+export const lmsPersonalizedPaths = () => call('/lms/paths/personalize/');
+export const lmsPersonalizePath = (body) => call('/lms/paths/personalize/', { method: 'POST', body });
+export const lmsIntegrations = () => call('/lms/integrations/');
+export const lmsSaveIntegration = (body) => call('/lms/integrations/', { method: 'POST', body });
+export const lmsDeleteIntegration = (provider) => call('/lms/integrations/', { method: 'DELETE', body: { provider } });
+export const lmsCourseDiscussion = (id) => call(`/lms/courses/${id}/discussion/`);
+export const lmsPostCourseDiscussion = (id, body) => call(`/lms/courses/${id}/discussion/`, { method: 'POST', body });
+export const lmsEditCourseDiscussion = (courseId, messageId, body) => call(`/lms/courses/${courseId}/discussion/${messageId}/`, { method: 'PATCH', body });
+export const lmsDeleteCourseDiscussion = (courseId, messageId) => call(`/lms/courses/${courseId}/discussion/${messageId}/`, { method: 'DELETE' });
+export const lmsLiterature = (id, { q = '', providers = '', limit = 6 } = {}) => {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (providers) params.set('providers', providers);
+  params.set('limit', String(limit));
+  return call(`/lms/courses/${id}/literature/?${params.toString()}`);
+};
+export const lmsNotebooks = (id) => call(`/lms/courses/${id}/notebooks/`);
+export const lmsSaveNotebook = (id, body) => call(`/lms/courses/${id}/notebooks/`, { method: 'POST', body });
+export const lmsGit = (id) => call(`/lms/courses/${id}/git/`);
+export const lmsGitPush = (id, body) => call(`/lms/courses/${id}/git/`, { method: 'POST', body });
+export const lmsPublishAchievement = (id, body) => call(`/lms/courses/${id}/publish/`, { method: 'POST', body });
 export const adminLmsMeta = () => call('/platform/admin/lms/meta/');
 export const adminSaveLmsMeta = (body) => call('/platform/admin/lms/meta/', { method: 'POST', body });
 export const adminDeleteLmsMeta = (kind, id) => call('/platform/admin/lms/meta/', { method: 'DELETE', body: { kind, id } });
