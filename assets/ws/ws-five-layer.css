@@ -353,3 +353,26 @@
     .fl-skeleton { animation: none; }
   }
 }
+
+/* Simplified Planning: Objectives -> Key Results -> Milestones. */
+.okr-objective {
+  margin: 0 0 12px;
+  border: 1px solid var(--g-line);
+  box-shadow: none;
+}
+.okr-objective:last-child { margin-bottom: 0; }
+.okr-progress {
+  width: min(280px, 100%);
+  height: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.okr-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: .72;
+}
