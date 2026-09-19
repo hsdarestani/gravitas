@@ -408,9 +408,17 @@ def tasks(request):
         not key_result or not owner or not payload.get('title')
         or not payload.get('definition_of_done') or priority not in Priority.values
     ):
-        return base._error('task_requires_title_owner_key_result_priority_and_done_definition')
+        return base._error(
+            'task_requires_title_owner_initiative_priority_and_done_definition'
+            if legacy_initiative else
+            'task_requires_title_owner_key_result_priority_and_done_definition'
+        )
     if not cycle and not due_date:
-        return base._error('task_requires_due_date')
+        return base._error(
+            'task_requires_cycle_or_due_date'
+            if legacy_initiative else
+            'task_requires_due_date'
+        )
     if meeting and not due_date:
         return base._error('meeting_action_requires_deadline')
 
