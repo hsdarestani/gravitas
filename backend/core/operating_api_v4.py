@@ -15,6 +15,8 @@ from .operating_models import (
     OperatingRisk,
     OperatingTask,
     OperatingWorkPackage,
+    StrategicObjective,
+    KeyResult,
     WorkStatus,
 )
 from .platform_runtime_v3 import ensure_platform_workspaces
@@ -107,6 +109,55 @@ def operating_dashboard(request):
     )
     data['initiatives'] = [v2._initiative_json(item) for item in initiatives]
     data['cycles'] = [base._cycle_json(item) for item in cycles]
+
+    planning_objectives = list(
+        StrategicObjective.objects.filter(workspace=core)
+        .exclude(status=WorkStatus.ARCHIVED)
+        .select_related('owner')
+        .order_by('due_date', '-updated_at', 'id')
+    )
+    planning_krs = list(
+        KeyResult.objects.filter(objective__workspace=core)
+        .exclude(status=WorkStatus.ARCHIVED)
+        .select_related('objective', 'owner')
+        .order_by('objective_id', 'due_date', 'id')
+    )
+    planning_milestones = list(
+        OperatingMilestone.objects.filter(workspace=core)
+        .exclude(status=WorkStatus.ARCHIVED)
+        .select_related('initiative__key_result__objective', 'owner', 'project')
+        .order_by('due_date', 'id')
+    )
+
+    krs_by_objective = {}
+    for kr in planning_krs:
+        krs_by_objective.setdefault(kr.objective_id, []).append(kr)
+
+    objective_rows = []
+    for objective in planning_objectives:
+        rows = krs_by_objective.get(objective.pk, [])
+        measurable = [base._kr_progress(item) for item in rows]
+        measurable = [value for value in measurable if value is not None]
+        objective_rows.append({
+            **base._objective_json(objective),
+            'progress': round(sum(measurable) / len(measurable), 1) if measurable else None,
+            'key_results': [base._kr_json(item) for item in rows],
+        })
+
+    data['planning'] = {
+        'objectives': objective_rows,
+        'key_results': [base._kr_json(item) for item in planning_krs],
+        'milestones': [base._milestone_json(item) for item in planning_milestones],
+        'counts': {
+            'objectives': len(planning_objectives),
+            'key_results': len(planning_krs),
+            'milestones_open': sum(
+                1 for item in planning_milestones
+                if item.status not in {WorkStatus.DONE, WorkStatus.ARCHIVED}
+            ),
+            'milestones_done': sum(1 for item in planning_milestones if item.status == WorkStatus.DONE),
+        },
+    }
     return JsonResponse(data)
 
 
