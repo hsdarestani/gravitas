@@ -22,7 +22,7 @@ from django.utils.html import strip_tags
 from django.views.decorators.http import require_http_methods
 from docx import Document
 
-from . import cloud, openedx_bridge
+from . import cloud, nextcloud_bridge, openedx_bridge
 from .lms_models import (
     Certificate,
     Course,
@@ -129,14 +129,19 @@ def _lms_asset_path(item, filename):
     return '/'.join(part.strip('/') for part in parts if part)
 
 
-def _prepare_lms_nextcloud():
+def _prepare_lms_nextcloud(users=None):
     try:
         cloud.ensure_team_folder(
             settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT,
             settings.LMS_ASSET_NEXTCLOUD_GROUP,
         )
+        for user in users or []:
+            if not user or not getattr(user, 'is_active', False):
+                continue
+            identity = nextcloud_bridge.ensure_user(user)
+            cloud.add_user_to_group(identity.username, settings.LMS_ASSET_NEXTCLOUD_GROUP)
         return 'live'
-    except (cloud.CloudError, ImproperlyConfigured):
+    except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError, ImproperlyConfigured):
         return 'unavailable'
 
 
@@ -629,7 +634,9 @@ def admin_learning_assets(request, course_id):
         return _error('course_not_found', 404)
 
     if request.method == 'GET':
-        _migrated, failed = _migrate_legacy_lms_assets(course)
+        nextcloud_users = [request.user, *list(course.instructors.all())]
+        cloud_state = _prepare_lms_nextcloud(nextcloud_users)
+        _migrated, failed = _migrate_legacy_lms_assets(course) if cloud_state == 'live' else (0, 1)
         assets = list(course.assets.select_related('lesson').all()[:1500])
         folders = sorted({item.folder_path for item in assets if item.folder_path}, key=str.casefold)
         groups = {}
@@ -659,7 +666,7 @@ def admin_learning_assets(request, course_id):
             'folders': folders,
             'max_file_bytes': settings.LMS_ASSET_MAX_BYTES,
             'nextcloud': {
-                'state': 'partial' if failed else _prepare_lms_nextcloud(),
+                'state': 'partial' if failed else cloud_state,
                 'mountpoint': settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT,
                 'files_url': cloud.native_files_url(settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT),
             },
@@ -731,7 +738,7 @@ def admin_learning_assets(request, course_id):
     )
 
     if uploaded:
-        if _prepare_lms_nextcloud() != 'live':
+        if _prepare_lms_nextcloud([request.user, *list(course.instructors.all())]) != 'live':
             return _error('nextcloud_unavailable', 503)
         name = _safe_filename(uploaded.name)
         item.original_name = name
