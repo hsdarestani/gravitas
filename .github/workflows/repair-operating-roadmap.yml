@@ -65,10 +65,8 @@ jobs:
           grep -q '/assets/ws/ws-five-layer.js' workspace.html
 
   production:
-    if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+    # Automatic roadmap execution repair is disabled. Planning is manager-driven now.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
