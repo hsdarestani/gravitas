@@ -359,6 +359,8 @@ def tasks(request):
         for key in ['status', 'priority', 'owner_id', 'initiative_id', 'cycle_id', 'work_package_id', 'meeting_id']:
             if request.GET.get(key):
                 qs = qs.filter(**{key: request.GET[key]})
+        if request.GET.get('key_result_id'):
+            qs = qs.filter(initiative__key_result_id=request.GET['key_result_id'])
         data = []
         for obj in qs:
             item = base._task_json(obj)
@@ -366,34 +368,76 @@ def tasks(request):
             item['work_package_title'] = obj.work_package.title if obj.work_package else None
             data.append(item)
         return JsonResponse({'ok': True, 'tasks': data})
+
     if not base._editable(request, workspace):
         return base._error('permission_denied', 403)
-    initiative = Initiative.objects.select_related('key_result__objective', 'process').filter(
-        pk=payload.get('initiative_id'), workspace=workspace
-    ).first()
+
     owner = base._owner(request.user, workspace, payload.get('owner_id'))
     priority = payload.get('priority')
     due_date = base._date(payload.get('due_date'))
-    cycle = base.OperatingCycle.objects.filter(pk=payload.get('cycle_id'), workspace=workspace).first() if payload.get('cycle_id') else None
-    meeting = base.OperatingMeeting.objects.filter(pk=payload.get('meeting_id'), workspace=workspace).first() if payload.get('meeting_id') else None
-    if not initiative or not owner or not payload.get('title') or not payload.get('definition_of_done') or priority not in Priority.values:
-        return base._error('task_requires_title_owner_initiative_priority_and_done_definition')
+    cycle = base.OperatingCycle.objects.filter(
+        pk=payload.get('cycle_id'), workspace=workspace
+    ).first() if payload.get('cycle_id') else None
+    meeting = base.OperatingMeeting.objects.filter(
+        pk=payload.get('meeting_id'), workspace=workspace
+    ).first() if payload.get('meeting_id') else None
+
+    legacy_initiative = Initiative.objects.select_related(
+        'key_result__objective', 'process'
+    ).filter(
+        pk=payload.get('initiative_id'), workspace=workspace
+    ).first() if payload.get('initiative_id') else None
+    key_result = base.KeyResult.objects.select_related('objective', 'owner').filter(
+        pk=payload.get('key_result_id'), objective__workspace=workspace
+    ).first() if payload.get('key_result_id') else None
+    if not key_result and legacy_initiative:
+        key_result = legacy_initiative.key_result
+
+    milestone = base.OperatingMilestone.objects.select_related(
+        'initiative__key_result'
+    ).filter(
+        pk=payload.get('milestone_id'), workspace=workspace
+    ).first() if payload.get('milestone_id') else None
+    if milestone:
+        milestone_kr = milestone.initiative.key_result
+        if key_result and milestone_kr.pk != key_result.pk:
+            return base._error('milestone_key_result_mismatch')
+        key_result = milestone_kr
+
+    if (
+        not key_result or not owner or not payload.get('title')
+        or not payload.get('definition_of_done') or priority not in Priority.values
+    ):
+        return base._error('task_requires_title_owner_key_result_priority_and_done_definition')
     if not cycle and not due_date:
-        return base._error('task_requires_cycle_or_due_date')
+        return base._error('task_requires_due_date')
     if meeting and not due_date:
         return base._error('meeting_action_requires_deadline')
-    milestone = base.OperatingMilestone.objects.filter(
-        pk=payload.get('milestone_id'), workspace=workspace, initiative=initiative
-    ).first() if payload.get('milestone_id') else None
-    work_package = OperatingWorkPackage.objects.select_related('milestone').filter(
-        pk=payload.get('work_package_id'), workspace=workspace, milestone__initiative=initiative
+
+    initiative = milestone.initiative if milestone else (
+        legacy_initiative or base._execution_initiative_for_kr(workspace, key_result, owner)
+    )
+
+    work_package = OperatingWorkPackage.objects.select_related(
+        'milestone__initiative__key_result'
+    ).filter(
+        pk=payload.get('work_package_id'), workspace=workspace
     ).first() if payload.get('work_package_id') else None
+    if work_package and work_package.milestone.initiative.key_result_id != key_result.pk:
+        return base._error('work_package_key_result_mismatch')
     if work_package and milestone and work_package.milestone_id != milestone.pk:
         return base._error('work_package_milestone_mismatch')
     if work_package and not milestone:
         milestone = work_package.milestone
-    project = ResearchProject.objects.filter(pk=payload.get('project_id'), workspace=workspace).first() if payload.get('project_id') else None
-    dependency = OperatingTask.objects.filter(pk=payload.get('dependency_id'), workspace=workspace).first() if payload.get('dependency_id') else None
+        initiative = milestone.initiative
+
+    project = ResearchProject.objects.filter(
+        pk=payload.get('project_id'), workspace=workspace
+    ).first() if payload.get('project_id') else None
+    dependency = OperatingTask.objects.filter(
+        pk=payload.get('dependency_id'), workspace=workspace
+    ).first() if payload.get('dependency_id') else None
+
     obj = OperatingTask.objects.create(
         workspace=workspace,
         initiative=initiative,
