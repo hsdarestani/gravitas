@@ -948,7 +948,7 @@ def _notebook_json(item):
         'revision': item.revision,
         'jupyter_url': str(learning_config.get('jupyter_url') or settings.LMS_JUPYTER_PUBLIC_URL),
         'mathematica_url': str(learning_config.get('mathematica_url') or settings.LMS_MATHEMATICA_PUBLIC_URL),
-        'browser_python': item.runtime == NotebookWorkspace.Runtime.PYTHON,
+        'browser_python': item.runtime in {NotebookWorkspace.Runtime.PYTHON, NotebookWorkspace.Runtime.JUPYTER},
         'remote_execution': (
             bool(settings.LMS_JUPYTER_EXEC_URL)
             if item.runtime == NotebookWorkspace.Runtime.JUPYTER
