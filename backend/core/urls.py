@@ -149,6 +149,7 @@ from core.lms_extended_api import (
     zotero_items,
 )
 from core.lms_advanced_api import (
+    admin_learning_repositories,
     course_discussion,
     course_discussion_detail,
     course_git,
@@ -369,6 +370,7 @@ urlpatterns = [
     path('platform/admin/lms/meta/', admin_lms_meta),
     path('platform/admin/lms/analytics/', admin_lms_analytics),
     path('platform/admin/lms/openedx/', admin_openedx_status),
+    path('platform/admin/lms/repositories/', admin_learning_repositories),
     path('platform/admin/lms/courses/<int:course_id>/assets/', admin_learning_assets),
 
     # Layer 5 operating system: internal Gravitas team only. Existing runtime
