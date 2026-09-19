@@ -1405,11 +1405,13 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     ], paymentConfig.provider || 'external');
     const paymentSku = input(paymentConfig.sku || '');
     const paymentCheckoutUrl = input(paymentConfig.checkout_url || '', 'url', 'https://checkout.example/…');
+    const paymentWebhookSecret = input(paymentConfig.webhook_secret || '', 'password', 'Webhook secret');
     payment.body.append(
       paymentEnabled.wrap,
       field('Provider', paymentProvider),
       field('SKU / product key', paymentSku),
-      field('Checkout URL', paymentCheckoutUrl, 'Shown to learners for paid courses. Payment verification must still grant the enrollment.'),
+      field('Checkout URL', paymentCheckoutUrl, 'Supports {payment_id}, {course_id}, {user_email}, {amount}, and {currency} placeholders.'),
+      field('Webhook secret', paymentWebhookSecret, course ? 'Provider/backend webhook: /api/lms/courses/' + course.id + '/payment-webhook/ · send X-Gravitas-Payment-Secret.' : 'Saved per course.'),
     );
     form.append(payment.box);
 
@@ -1759,6 +1761,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
           provider: paymentProvider.value,
           sku: paymentSku.value.trim(),
           checkout_url: paymentCheckoutUrl.value.trim(),
+          webhook_secret: paymentWebhookSecret.value.trim(),
           prepared: true,
         },
         learning_config: {
