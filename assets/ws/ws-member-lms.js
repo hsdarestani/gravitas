@@ -1505,7 +1505,8 @@ function notebookPanel(course) {
 }
 
 function gitPanel(course) {
-  const box = section('Versioning · GitHub', 'Push exercise or notebook work to a repository for review. Connect GitHub in Connected learning tools first.');
+  const box = section('Versioning · GitHub', 'Push exercise or notebook work to a repository for instructor review. Each new push returns the review state to Pending.');
+  const list = el('div', 'fl-stack');
   const form = el('form', 'fl-form');
   const repo = el('input', 'v-input fl-input'); repo.placeholder = 'owner/repository';
   const path = el('input', 'v-input fl-input'); path.placeholder = 'course/exercise.py';
@@ -1515,6 +1516,30 @@ function gitPanel(course) {
   const push = action('Push to GitHub', () => {}, true); push.type = 'submit';
   const state = el('p', 'fl-muted');
   form.append(repo, path, branch, content, message, push, state);
+
+  const reload = async () => {
+    list.innerHTML = '';
+    try {
+      const data = await P.lmsGit(course.id);
+      for (const item of data.repositories || []) {
+        const open = el('a', 'ws-btn ws-btn--tiny', 'Open repository');
+        open.href = item.html_url || ('https://github.com/' + item.owner + '/' + item.repository);
+        open.target = '_blank';
+        open.rel = 'noopener';
+        list.append(row({
+          title: item.owner + '/' + item.repository,
+          meta: P.meta([item.branch, item.last_commit_sha ? item.last_commit_sha.slice(0, 10) : '']),
+          body: item.review_note || '',
+          badges: [label(item.review_status || 'pending'), item.reviewed_by ? 'Reviewed by ' + item.reviewed_by : ''],
+          actions: [open],
+        }));
+      }
+      if (!(data.repositories || []).length) list.append(empty('No repository linked yet', 'Push an exercise below; it will appear in the instructor review queue.'));
+    } catch (error) {
+      list.append(empty('Repository status unavailable', error?.message || 'Try again.'));
+    }
+  };
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const [owner, repository] = repo.value.trim().split('/', 2);
@@ -1533,8 +1558,9 @@ function gitPanel(course) {
         content: content.value,
         message: message.value.trim() || 'Update Gravitas exercise',
       });
-      state.textContent = 'Pushed · ' + (result.repository?.last_commit_sha || '').slice(0, 10);
+      state.textContent = 'Pushed · ' + (result.repository?.last_commit_sha || '').slice(0, 10) + ' · pending review';
       state.dataset.tone = 'ok';
+      await reload();
     } catch (error) {
       state.textContent = error?.message || 'Git push failed.';
       state.dataset.tone = 'bad';
@@ -1542,7 +1568,8 @@ function gitPanel(course) {
       push.disabled = false;
     }
   });
-  box.body.append(form);
+  box.body.append(list, form);
+  reload();
   return box.box;
 }
 
