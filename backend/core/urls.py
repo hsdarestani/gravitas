@@ -150,7 +150,9 @@ from core.lms_extended_api import (
     zotero_items,
 )
 from core.lms_advanced_api import (
+    admin_course_payments,
     admin_learning_repositories,
+    course_checkout,
     course_discussion,
     course_discussion_detail,
     course_git,
@@ -361,6 +363,7 @@ urlpatterns = [
     path('lms/paths/<int:path_id>/', learning_path_detail),
     path('lms/paths/personalize/', personalized_learning_paths),
     path('lms/integrations/', learning_integrations),
+    path('lms/courses/<int:course_id>/checkout/', course_checkout),
     path('lms/courses/<int:course_id>/discussion/', course_discussion),
     path('lms/courses/<int:course_id>/discussion/<int:message_id>/', course_discussion_detail),
     path('lms/courses/<int:course_id>/literature/', literature_recommendations),
@@ -372,6 +375,7 @@ urlpatterns = [
     path('platform/admin/lms/meta/', admin_lms_meta),
     path('platform/admin/lms/analytics/', admin_lms_analytics),
     path('platform/admin/lms/openedx/', admin_openedx_status),
+    path('platform/admin/lms/payments/', admin_course_payments),
     path('platform/admin/lms/repositories/', admin_learning_repositories),
     path('platform/admin/lms/courses/<int:course_id>/assets/', admin_learning_assets),
 
