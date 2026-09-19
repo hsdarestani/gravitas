@@ -1232,11 +1232,29 @@ def admin_lms_analytics(request):
         return _error('core_admin_required', 403)
     course_id = request.GET.get('course_id')
     user_id = request.GET.get('user_id')
+    lesson_id = request.GET.get('lesson_id')
     enrollments = CourseEnrollment.objects.select_related('user', 'course')
     events = CourseEvent.objects.select_related('user', 'course', 'lesson')
+
+    lesson_options = Lesson.objects.select_related('module__course').order_by(
+        'module__course__title', 'module__position', 'position'
+    )
     if course_id:
         enrollments = enrollments.filter(course_id=course_id)
         events = events.filter(course_id=course_id)
+        lesson_options = lesson_options.filter(module__course_id=course_id)
+
+    if lesson_id:
+        lesson = Lesson.objects.select_related('module__course').filter(pk=lesson_id).first()
+        if not lesson:
+            return _error('lesson_not_found', 404)
+        if course_id and str(lesson.module.course_id) != str(course_id):
+            return _error('lesson_course_mismatch')
+        events = events.filter(lesson_id=lesson.pk)
+        if not course_id:
+            enrollments = enrollments.filter(course_id=lesson.module.course_id)
+            lesson_options = lesson_options.filter(module__course_id=lesson.module.course_id)
+
     if user_id:
         enrollments = enrollments.filter(user_id=user_id)
         events = events.filter(user_id=user_id)
@@ -1287,6 +1305,20 @@ def admin_lms_analytics(request):
         },
         'learners': learner_rows,
         'lessons': list(lesson_rows),
+        'lesson_options': [{
+            'id': item.pk,
+            'course_id': item.module.course_id,
+            'course': item.module.course.title,
+            'module': item.module.title,
+            'title': item.title,
+        } for item in lesson_options[:1000]],
+        'filters': {
+            'course_id': str(course_id or ''),
+            'user_id': str(user_id or ''),
+            'lesson_id': str(lesson_id or ''),
+            'from': str(request.GET.get('from') or ''),
+            'to': str(request.GET.get('to') or ''),
+        },
     })
 
 
