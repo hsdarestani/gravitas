@@ -1493,7 +1493,15 @@ function notebookPanel(course) {
       const pyodide = await loadBrowserPython();
       const packages = Array.isArray(course.learning_config?.notebook_packages) ? course.learning_config.notebook_packages : [];
       if (packages.length) {
-        try { await pyodide.loadPackage(packages); } catch {}
+        try {
+          await pyodide.loadPackage('micropip');
+          const micropip = pyodide.pyimport('micropip');
+          await micropip.install(packages);
+          micropip.destroy?.();
+        } catch (error) {
+          output.textContent = 'Environment setup failed: ' + (error?.message || 'package install error');
+          return;
+        }
       }
       let stdout = '';
       if (pyodide.setStdout) pyodide.setStdout({ batched: (text) => { stdout += text + '\n'; } });
