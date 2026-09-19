@@ -2056,14 +2056,28 @@ export async function renderCourse(host, id, { go }) {
             }
           }, true);
           actions.append(checkout, paymentState);
-          P.lmsCheckout(course.id).then((result) => {
-            const latest = (result.payments || [])[0];
-            paymentState.textContent = latest
-              ? 'Payment status · ' + label(latest.status) + (latest.external_reference ? ' · ' + latest.external_reference : '')
-              : 'Access activates after payment is verified.';
-          }).catch(() => {
-            paymentState.textContent = 'Access activates after payment is verified.';
-          });
+          const refreshPayment = async () => {
+            if (!actions.isConnected) return false;
+            try {
+              const result = await P.lmsCheckout(course.id);
+              if (result.enrolled) {
+                await P.loadBootstrap();
+                await renderCourse(host, id, { go });
+                return true;
+              }
+              const latest = (result.payments || [])[0];
+              paymentState.textContent = latest
+                ? 'Payment status · ' + label(latest.status) + (latest.external_reference ? ' · ' + latest.external_reference : '')
+                : 'Access activates after payment is verified.';
+            } catch {
+              paymentState.textContent = 'Access activates after payment is verified.';
+            }
+            return false;
+          };
+          refreshPayment();
+          const paymentTimer = window.setInterval(async () => {
+            if (!actions.isConnected || await refreshPayment()) window.clearInterval(paymentTimer);
+          }, 10000);
         } else {
           paymentState.textContent = course.payment?.enabled
             ? 'Payment is configured, but the checkout URL is not available yet.'
