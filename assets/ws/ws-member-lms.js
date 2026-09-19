@@ -771,7 +771,15 @@ export async function renderCertificates(host, { go }) {
       card.append(el('h2', null, item.course_title));
       card.append(el('p', 'fl-muted', `Issued ${date(item.certificate.issued_at)}`));
       card.append(el('code', 'fl-code', item.certificate.code));
-      card.append(link(go, 'Open course', `/workspace/learning/courses/${item.course_id}`));
+      const certificateActions = el('div', 'fl-form-actions');
+      certificateActions.append(link(go, 'Open course', `/workspace/learning/courses/${item.course_id}`));
+      if (item.certificate.download_url) {
+        const download = el('a', 'ws-btn ws-btn--tiny', 'Download certificate');
+        download.href = item.certificate.download_url;
+        download.download = '';
+        certificateActions.append(download);
+      }
+      card.append(certificateActions);
       if (!item.certificate.valid) card.dataset.revoked = '';
       grid.append(card);
     }
