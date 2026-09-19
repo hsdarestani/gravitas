@@ -156,7 +156,7 @@ function docShell(host, title, subtitle) {
    ========================================================================== */
 
 export function renderCoreTasks(host, { go }) {
-  const doc = docShell(host, 'Tasks & Execution', 'Trello-style Core execution, synchronized with Nextcloud Deck.');
+  const doc = docShell(host, 'Tasks & Execution', 'Manager-defined execution. Create tasks manually from existing Key Results and optional Milestones.');
   const holder = el('div');
   doc.append(holder);
   skeleton(8, holder);
@@ -658,6 +658,15 @@ export function renderCoreTasks(host, { go }) {
         ['Blocked', data.tasks.filter((task) => task.status === 'blocked').length],
         ['Done', data.tasks.filter((task) => task.status === 'done').length],
       ]));
+
+      if (!data.tasks.length) {
+        const note = el('div', 'v-note');
+        note.append(
+          el('strong', null, 'No tasks yet.'),
+          document.createTextNode(' Start clean and create only the tasks you want to run against the current KRs.'),
+        );
+        holder.append(note);
+      }
 
       const toolbar = el('div', 'v-toolbar task-board__toolbar');
       const search = input('search', filters.q);
