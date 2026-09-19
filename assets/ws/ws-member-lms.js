@@ -1,5 +1,5 @@
 import * as P from './ws-platform.js?v=20260919-lms1';
-import * as C from './ws-charts.js?v=20260919-charts1';
+import * as C from './ws-charts.js?v=20260919-charts2';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);

@@ -487,4 +487,161 @@
     .wc-stack__part, .wc-gauge__value, .wc-ring__value,
     .wc-tile--button, .wc-tile__go { transition: none; }
   }
+
+  /* ==========================================================================
+     ADOPTION
+     The workspace grew two surface vocabularies before this one: `v-` from
+     ws.css, used by the shell and the Core and Research dashboards, and
+     `fl-` from ws-five-layer.css, used by the member, learning, support,
+     project and admin screens. Both drew a box with a hairline, a sunken
+     header bar and rules between the rows; this sheet draws a card.
+
+     Rather than rewrite nineteen thousand lines of rendering code to emit
+     `wc-` markup, the two older families are re-pointed here at the same
+     measurements. One radius, one padding, one gutter, one row treatment,
+     across every screen. The markup each module emits is unchanged, which
+     is what makes this safe to apply everywhere at once.
+
+     Everything below sets shape and surface only. No rule here changes a
+     display type, a grid template that a screen computes, or anything a
+     module might be measuring — those stay where their own sheet put them.
+     ========================================================================== */
+
+  /* ---- Boxes ------------------------------------------------------------ */
+  .v-panel, .fl-panel {
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--wc-r);
+    background: var(--g-surface-raised);
+    margin-bottom: var(--ws-gutter);
+  }
+
+  /* The header bar goes. It was a second surface inside the first, and with
+     a card it reads as a title stuck to a lid. The title now sits in the
+     card's own padding, the way it does on every card in the kit. */
+  .v-panel__head, .fl-panel__head {
+    min-height: 0;
+    padding: 14px var(--wc-pad) 8px;
+    border-bottom: 0;
+    background: transparent;
+    align-items: baseline;
+  }
+  .v-panel__head h2, .fl-panel__title {
+    font-size: 14px;
+    font-weight: var(--g-w-semibold);
+    letter-spacing: var(--g-track-head);
+  }
+  /* Six here plus ten on the row equals the sixteen the title sits at, so
+     a row's text starts on the same line as the card's title. */
+  .v-panel__body, .fl-panel__body { padding: 0 6px 10px; }
+  .v-panel__body > .ws-empty,
+  .fl-panel__body > .fl-state { margin: 4px 8px 6px; }
+
+  /* ---- Rows -------------------------------------------------------------
+     The full-bleed rule between rows is what made every list read as a
+     table. The hairline stays — a list of forty rows needs it — but inset
+     to the card's padding, so it separates entries instead of slicing the
+     card in half. */
+  .fl-row, .v-row {
+    border-bottom: 0;
+    border-radius: 10px;
+    padding: 9px 10px;
+  }
+  .fl-row + .fl-row, .v-row + .v-row {
+    box-shadow: inset 0 1px 0 var(--g-hairline);
+  }
+  button.fl-row:hover, button.v-row:hover { box-shadow: none; }
+  button.fl-row:hover + .fl-row, button.v-row:hover + .v-row { box-shadow: none; }
+
+  /* ---- Counts -----------------------------------------------------------
+     Both families drew their figures as one hairline-divided strip. They are
+     tiles now, the same tiles the dashboard uses: separate cards, a gutter
+     between them, and the figure in the brand face with tabular figures,
+     which buys the column alignment the mono face was there for without
+     changing typeface halfway down the screen. */
+  .v-stats, .fl-metrics {
+    gap: var(--ws-gutter);
+    border: 0;
+    border-radius: 0;
+    background: none;
+    overflow: visible;
+    margin-bottom: var(--ws-gutter);
+  }
+  .v-stat, .fl-metric {
+    display: grid;
+    align-content: space-between;
+    gap: 8px;
+    min-height: 104px;
+    padding: var(--wc-pad);
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--wc-r);
+    background: var(--g-surface-raised);
+  }
+  .v-stat__value, .fl-metric__value {
+    font-family: var(--g-font);
+    font-size: 28px;
+    font-weight: var(--g-w-semibold);
+    line-height: 1.05;
+    letter-spacing: var(--g-track-head);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Label above the figure, as on the dashboard tiles. Both families emit
+     the figure first, so the order is corrected here rather than in a dozen
+     render functions — the reading order for a screen reader is the same
+     either way, and the two kinds of tile now look like one kind. */
+  .v-stat__label, .fl-metric__title {
+    order: -1;
+    margin: 0;
+    font-size: var(--ws-fs-sm);
+    font-weight: var(--g-w-medium);
+    color: var(--g-text-subtle);
+  }
+
+  /* ---- Grids ------------------------------------------------------------
+     One gutter everywhere, and columns that keep their own height so a
+     short panel beside a long one does not become an empty rectangle. */
+  .v-columns, .fl-columns, .fl-card-grid, .fl-admin-grid, .fl-skeleton-grid, .fl-stack {
+    gap: var(--ws-gutter);
+    align-items: start;
+  }
+  .v-columns, .fl-columns { margin-bottom: 0; }
+  .fl-doc, .ws-doc { gap: var(--ws-gutter); }
+
+  /* ---- The other cards --------------------------------------------------
+     Everything else in either family that is already a card in spirit: the
+     workspace pickers on Home, the admin entries, a certificate, the
+     identity strip, a course hero, the empty and error states. */
+  .v-workspace, .v-card, .v-asset, .fl-admin-card, .fl-certificate,
+  .fl-identity, .fl-course-hero, .fl-state, .fl-access-card, .fl-fieldset,
+  .fl-lesson, .fl-experiment, .fl-discussion-compose, .fl-experiment-form {
+    border-radius: var(--wc-r);
+  }
+  .v-workspace, .v-card, .v-asset, .fl-admin-card, .fl-certificate, .fl-course-hero {
+    padding: var(--wc-pad);
+    background: var(--g-surface-raised);
+  }
+  .fl-identity, .fl-access-card, .fl-discussion-compose, .fl-experiment-form {
+    padding: var(--wc-pad);
+  }
+  .fl-skeleton { border-radius: var(--wc-r); }
+
+  /* Home's focus card is the same object as the dashboard's Up next: the one
+     tinted card on the screen, holding the only instruction on it. */
+  .v-focus {
+    padding: var(--wc-pad);
+    margin-bottom: var(--ws-gutter);
+    border-radius: var(--wc-r);
+    border-color: color-mix(in srgb, var(--g-accent) 36%, transparent);
+    background:
+      radial-gradient(120% 130% at 100% 0%,
+        color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
+        transparent 60%),
+      var(--g-surface-raised);
+  }
+  .v-hero { margin-bottom: var(--ws-gutter); padding-bottom: var(--ws-gutter); }
+
+  @media (max-width: 620px) {
+    .v-panel__head, .fl-panel__head { padding: 12px 12px 6px; }
+    .v-stat, .fl-metric { min-height: 92px; padding: 13px; }
+    .v-stat__value, .fl-metric__value { font-size: 24px; }
+  }
 }
