@@ -771,6 +771,7 @@ def _path_assignment_json(item):
         'id': item.pk,
         'goal': item.goal,
         'learning_path_id': item.learning_path_id,
+        'learning_path_title': item.learning_path.title if item.learning_path_id else '',
         'nodes': item.nodes,
         'edges': item.edges,
         'rationale': item.rationale,
@@ -802,13 +803,31 @@ def personalized_learning_paths(request):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
     if request.method == 'GET':
-        rows = LearnerPathAssignment.objects.filter(user=request.user, active=True)[:20]
+        rows = (
+            LearnerPathAssignment.objects
+            .filter(user=request.user, active=True)
+            .select_related('learning_path')[:20]
+        )
         return JsonResponse({'ok': True, 'assignments': [_path_assignment_json(item) for item in rows]})
 
     data = _json_body(request)
+    template = None
+    template_id = data.get('learning_path_id')
+    if template_id:
+        template = LearningPath.objects.filter(
+            pk=template_id,
+            status=LearningPath.Status.PUBLISHED,
+        ).first()
+        if not template:
+            return _error('learning_path_not_found', 404)
+
+    use_template = bool(data.get('use_template')) and template is not None
     goal = str(data.get('goal') or '').strip()[:4000]
+    if use_template and not goal:
+        goal = template.title
     if not goal:
         return _error('goal_required')
+
     courses = list(
         Course.objects.filter(status=Course.Status.PUBLISHED)
         .prefetch_related('tags')
@@ -817,48 +836,53 @@ def personalized_learning_paths(request):
     if not courses:
         return _error('no_published_courses', 409)
 
-    nodes, edges, rationale = _fallback_path(goal, courses)
-    generated_by_ai = False
-    catalog = [
-        {
-            'id': course.pk,
-            'title': course.title,
-            'summary': course.summary,
-            'tags': [tag.name for tag in course.tags.all()],
-        }
-        for course in courses
-    ]
-    try:
-        answer = complete(
-            system=(
-                'You design research learning paths. Return strict JSON only with keys '
-                '"course_ids" (ordered array of integers) and "rationale" (short string). '
-                'Use only course IDs supplied by the catalog. Choose at most 6 courses.'
-            ),
-            user=f'Learner research goal:\n{goal}\n\nCatalog:\n{json.dumps(catalog, ensure_ascii=False)}',
-            max_tokens=900,
-            temperature=0.15,
-        )
-        match = re.search(r'\{.*\}', answer, flags=re.S)
-        payload = json.loads(match.group(0) if match else answer)
-        requested_ids = [int(value) for value in payload.get('course_ids') or []]
-        by_id = {course.pk: course for course in courses}
-        selected = [by_id[value] for value in requested_ids if value in by_id][:6]
-        if selected:
-            nodes = [{'id': f'course-{course.pk}', 'course_id': course.pk, 'title': course.title} for course in selected]
-            edges = [
-                {'from': nodes[index]['id'], 'to': nodes[index + 1]['id'], 'rule': 'complete'}
-                for index in range(len(nodes) - 1)
-            ]
-            rationale = str(payload.get('rationale') or rationale)[:4000]
-            generated_by_ai = True
-    except (PulsarError, ValueError, TypeError, json.JSONDecodeError):
-        pass
+    if use_template:
+        nodes = list(template.nodes or [])
+        edges = list(template.edges or [])
+        rationale = template.summary or f'Following the published Gravitas+ path “{template.title}”.'
+        generated_by_ai = False
+    else:
+        nodes, edges, rationale = _fallback_path(goal, courses)
+        generated_by_ai = False
+        catalog = [
+            {
+                'id': course.pk,
+                'title': course.title,
+                'summary': course.summary,
+                'tags': [tag.name for tag in course.tags.all()],
+            }
+            for course in courses
+        ]
+        try:
+            answer = complete(
+                system=(
+                    'You design research learning paths. Return strict JSON only with keys '
+                    '"course_ids" (ordered array of integers) and "rationale" (short string). '
+                    'Use only course IDs supplied by the catalog. Choose at most 6 courses.'
+                ),
+                user=f'Learner research goal:\n{goal}\n\nCatalog:\n{json.dumps(catalog, ensure_ascii=False)}',
+                max_tokens=900,
+                temperature=0.15,
+            )
+            match = re.search(r'\{.*\}', answer, flags=re.S)
+            payload = json.loads(match.group(0) if match else answer)
+            requested_ids = [int(value) for value in payload.get('course_ids') or []]
+            by_id = {course.pk: course for course in courses}
+            selected = [by_id[value] for value in requested_ids if value in by_id][:6]
+            if selected:
+                nodes = [
+                    {'id': f'course-{course.pk}', 'type': 'course', 'course_id': course.pk, 'title': course.title}
+                    for course in selected
+                ]
+                edges = [
+                    {'from': nodes[index]['id'], 'to': nodes[index + 1]['id'], 'rule': 'complete', 'label': ''}
+                    for index in range(len(nodes) - 1)
+                ]
+                rationale = str(payload.get('rationale') or rationale)[:4000]
+                generated_by_ai = True
+        except (PulsarError, ValueError, TypeError, json.JSONDecodeError):
+            pass
 
-    template = None
-    template_id = data.get('learning_path_id')
-    if template_id:
-        template = LearningPath.objects.filter(pk=template_id, status=LearningPath.Status.PUBLISHED).first()
     LearnerPathAssignment.objects.filter(user=request.user, active=True).update(active=False)
     item = LearnerPathAssignment.objects.create(
         user=request.user,
@@ -869,15 +893,26 @@ def personalized_learning_paths(request):
         rationale=rationale,
         generated_by_ai=generated_by_ai,
     )
+
     first_course = None
-    if nodes:
-        first_course = _course(nodes[0].get('course_id'))
+    for node in nodes:
+        if isinstance(node, dict) and node.get('course_id'):
+            first_course = _course(node.get('course_id'))
+            if first_course:
+                break
+
     _event(
         request.user,
         first_course or courses[0],
         CourseEvent.Kind.PATH_PERSONALIZE,
         enrollment=_enrollment(request.user, first_course) if first_course else None,
-        metadata={'course_count': len(nodes), 'generated_by_ai': generated_by_ai},
+        metadata={
+            'course_count': len([node for node in nodes if isinstance(node, dict) and node.get('course_id')]),
+            'node_count': len(nodes),
+            'edge_count': len(edges),
+            'generated_by_ai': generated_by_ai,
+            'template_id': template.pk if template else None,
+        },
     )
     return JsonResponse({'ok': True, 'assignment': _path_assignment_json(item)}, status=201)
 
