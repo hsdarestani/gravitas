@@ -1216,6 +1216,417 @@ function zoteroConnectionPanel() {
   return box.box;
 }
 
+
+let pyodideRuntimePromise = null;
+
+function loadBrowserPython() {
+  if (window.loadPyodide) {
+    if (!pyodideRuntimePromise) pyodideRuntimePromise = window.loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/' });
+    return pyodideRuntimePromise;
+  }
+  if (pyodideRuntimePromise) return pyodideRuntimePromise;
+  pyodideRuntimePromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js';
+    script.async = true;
+    script.onload = () => {
+      window.loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/' }).then(resolve, reject);
+    };
+    script.onerror = () => reject(new Error('Python runtime could not be loaded.'));
+    document.head.append(script);
+  });
+  return pyodideRuntimePromise;
+}
+
+function learningIntegrationsPanel() {
+  const box = section('Connected learning tools', 'Connect GitHub, LinkedIn, ORCID, or an existing Medium integration token. Tokens are encrypted server-side and are never returned.');
+  const status = el('p', 'fl-muted');
+  const list = el('div', 'fl-stack');
+  const form = el('form', 'fl-form');
+  const provider = el('select', 'v-input fl-input');
+  for (const [value, labelText] of [['github','GitHub'],['linkedin','LinkedIn'],['orcid','ORCID'],['medium','Medium (legacy API)']]) {
+    const option = el('option', null, labelText); option.value = value; provider.append(option);
+  }
+  const account = el('input', 'v-input fl-input');
+  account.placeholder = 'Account ID / author URN / ORCID';
+  const token = el('input', 'v-input fl-input');
+  token.type = 'password';
+  token.placeholder = 'Access token (not needed for ORCID)';
+  const save = action('Connect', () => {}, true); save.type = 'submit';
+  form.append(provider, account, token, save, status);
+
+  const reload = async () => {
+    list.innerHTML = '';
+    try {
+      const data = await P.lmsIntegrations();
+      for (const item of data.integrations || []) {
+        const remove = action('Disconnect', async () => {
+          remove.disabled = true;
+          try { await P.lmsDeleteIntegration(item.provider); await reload(); } catch { remove.disabled = false; }
+        });
+        const node = row({
+          title: item.label || label(item.provider),
+          meta: P.meta([label(item.provider), item.account_id || '', item.has_token ? 'Token stored' : '']),
+          actions: [remove],
+        });
+        list.append(node);
+      }
+      if (!(data.integrations || []).length) list.append(empty('No external learning tools connected', 'Connect a tool only when a course workflow needs it.'));
+    } catch (error) {
+      list.append(empty('Connections unavailable', error?.message || 'Try again.'));
+    }
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    save.disabled = true;
+    status.textContent = 'Connecting…';
+    const body = {
+      provider: provider.value,
+      account_id: account.value.trim(),
+      token: token.value,
+      validate: provider.value !== 'linkedin',
+    };
+    try {
+      const result = await P.lmsSaveIntegration(body);
+      status.textContent = 'Connected.';
+      status.dataset.tone = 'ok';
+      account.value = result.integration?.account_id || account.value;
+      token.value = '';
+      await reload();
+    } catch (error) {
+      status.textContent = error?.message || 'Connection failed.';
+      status.dataset.tone = 'bad';
+    } finally {
+      save.disabled = false;
+    }
+  });
+
+  box.body.append(form, list);
+  reload();
+  return box.box;
+}
+
+function courseDiscussionPanel(course) {
+  const box = section('Course group', 'A course-scoped discussion space for enrolled learners and instructors.');
+  const list = el('div', 'fl-stack');
+  const form = el('form', 'fl-form');
+  const input = el('textarea', 'v-input fl-input fl-textarea');
+  input.rows = 3;
+  input.placeholder = 'Write to the course group…';
+  const send = action('Send', () => {}, true); send.type = 'submit';
+  form.append(input, send);
+
+  const reload = async () => {
+    list.innerHTML = '<div class="fl-skeleton"></div>';
+    try {
+      const data = await P.lmsCourseDiscussion(course.id);
+      list.innerHTML = '';
+      for (const item of data.messages || []) {
+        list.append(row({
+          title: item.author?.name || 'Learner',
+          meta: new Date(item.created_at).toLocaleString(),
+          body: item.deleted ? 'Message deleted.' : item.body,
+          badges: [item.reply_to_id ? 'Reply' : ''],
+        }));
+      }
+      if (!(data.messages || []).length) list.append(empty('No messages yet', 'Start the course discussion.'));
+    } catch (error) {
+      list.innerHTML = '';
+      list.append(empty('Discussion unavailable', error?.message || 'Try again.'));
+    }
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const body = input.value.trim();
+    if (!body) return;
+    send.disabled = true;
+    try {
+      await P.lmsPostCourseDiscussion(course.id, { body });
+      input.value = '';
+      await reload();
+    } catch (error) {
+      alert(error?.message || 'Message could not be sent.');
+    } finally {
+      send.disabled = false;
+    }
+  });
+  box.body.append(list, form);
+  reload();
+  return box.box;
+}
+
+function literaturePanel(course) {
+  const box = section('Related papers', 'Search arXiv, INSPIRE, Semantic Scholar and your connected ORCID works from the lesson context.');
+  const form = el('form', 'fl-form');
+  const q = el('input', 'v-input fl-input');
+  q.type = 'search';
+  q.placeholder = 'Research topic or paper query';
+  const search = action('Find papers', () => {}, true); search.type = 'submit';
+  const list = el('div', 'fl-stack');
+  form.append(q, search);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    search.disabled = true;
+    list.innerHTML = '<div class="fl-skeleton"></div>';
+    try {
+      const data = await P.lmsLiterature(course.id, { q: q.value.trim(), limit: 6 });
+      list.innerHTML = '';
+      for (const paper of data.papers || []) {
+        const open = paper.url ? el('a', 'ws-btn ws-btn--tiny', 'Open') : null;
+        if (open) { open.href = paper.url; open.target = '_blank'; open.rel = 'noopener'; }
+        list.append(row({
+          title: paper.title,
+          meta: P.meta([label(paper.provider), paper.year, (paper.authors || []).slice(0, 3).join(', ')]),
+          body: paper.abstract,
+          actions: [open].filter(Boolean),
+        }));
+      }
+      if (!(data.papers || []).length) list.append(empty('No papers found', 'Try a broader research query.'));
+    } catch (error) {
+      list.innerHTML = '';
+      list.append(empty('Paper search unavailable', error?.message || 'Try again.'));
+    } finally {
+      search.disabled = false;
+    }
+  });
+  box.body.append(form, list);
+  return box.box;
+}
+
+function notebookPanel(course) {
+  const box = section('Reproducible notebook', 'Save a course notebook, run Python in the browser, export .ipynb, or open an external Jupyter/Mathematica runner when configured.');
+  const list = el('div', 'fl-stack');
+  const editor = el('div', 'fl-form');
+  const title = el('input', 'v-input fl-input'); title.placeholder = 'Notebook title';
+  const runtime = el('select', 'v-input fl-input');
+  for (const value of ['python','jupyter','mathematica']) {
+    const option = el('option', null, label(value)); option.value = value; runtime.append(option);
+  }
+  runtime.value = course.learning_config?.notebook_runtime || 'python';
+  const code = el('textarea', 'v-input fl-input fl-textarea');
+  code.rows = 12;
+  code.spellcheck = false;
+  code.placeholder = '# Python / notebook code';
+  const output = el('pre', 'fl-code');
+  output.textContent = '';
+  const controls = el('div', 'fl-form-actions');
+  const save = action('Save notebook', () => {}, true);
+  const run = action('Run Python', () => {});
+  controls.append(save, run);
+  editor.append(title, runtime, code, controls, output);
+
+  let currentId = null;
+  const refresh = async () => {
+    list.innerHTML = '';
+    try {
+      const data = await P.lmsNotebooks(course.id);
+      for (const item of data.notebooks || []) {
+        const open = action('Edit', () => {
+          currentId = item.id;
+          title.value = item.title;
+          runtime.value = item.runtime;
+          code.value = item.code || '';
+          output.textContent = '';
+        });
+        const download = el('a', 'ws-btn ws-btn--tiny', '.ipynb');
+        download.href = '/api/lms/notebooks/' + item.id + '/export/';
+        download.download = '';
+        const external = [];
+        if (item.jupyter_url) {
+          const a = el('a', 'ws-btn ws-btn--tiny', 'Open Jupyter'); a.href = item.jupyter_url; a.target = '_blank'; a.rel = 'noopener'; external.push(a);
+        }
+        if (item.mathematica_url) {
+          const a = el('a', 'ws-btn ws-btn--tiny', 'Open Mathematica'); a.href = item.mathematica_url; a.target = '_blank'; a.rel = 'noopener'; external.push(a);
+        }
+        list.append(row({
+          title: item.title,
+          meta: P.meta([label(item.runtime), 'revision ' + item.revision]),
+          badges: (item.environment?.packages || []).slice(0, 4),
+          actions: [open, download, ...external],
+        }));
+      }
+      if (!(data.notebooks || []).length) list.append(empty('No notebook yet', 'Create one below. Python can run locally in the browser.'));
+    } catch (error) {
+      list.append(empty('Notebooks unavailable', error?.message || 'Try again.'));
+    }
+  };
+
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    const packages = Array.isArray(course.learning_config?.notebook_packages) ? course.learning_config.notebook_packages : [];
+    try {
+      const result = await P.lmsSaveNotebook(course.id, {
+        id: currentId,
+        title: title.value.trim() || course.title + ' notebook',
+        runtime: runtime.value,
+        code: code.value,
+        environment: { packages, course_id: course.id },
+      });
+      currentId = result.notebook.id;
+      output.textContent = 'Saved revision ' + result.notebook.revision + '.';
+      await refresh();
+    } catch (error) {
+      output.textContent = error?.message || 'Save failed.';
+    } finally {
+      save.disabled = false;
+    }
+  });
+
+  run.addEventListener('click', async () => {
+    if (runtime.value === 'mathematica') {
+      output.textContent = 'Mathematica execution uses the configured external Wolfram/Mathematica runner.';
+      return;
+    }
+    run.disabled = true;
+    output.textContent = 'Loading Python runtime…';
+    try {
+      const pyodide = await loadBrowserPython();
+      const packages = Array.isArray(course.learning_config?.notebook_packages) ? course.learning_config.notebook_packages : [];
+      if (packages.length) {
+        try { await pyodide.loadPackage(packages); } catch {}
+      }
+      let stdout = '';
+      if (pyodide.setStdout) pyodide.setStdout({ batched: (text) => { stdout += text + '\n'; } });
+      const value = await pyodide.runPythonAsync(code.value || '');
+      output.textContent = stdout + (value == null ? '' : String(value));
+    } catch (error) {
+      output.textContent = error?.message || 'Python execution failed.';
+    } finally {
+      run.disabled = false;
+    }
+  });
+
+  box.body.append(list, editor);
+  refresh();
+  return box.box;
+}
+
+function gitPanel(course) {
+  const box = section('Versioning · GitHub', 'Push exercise or notebook work to a repository for review. Connect GitHub in Connected learning tools first.');
+  const form = el('form', 'fl-form');
+  const repo = el('input', 'v-input fl-input'); repo.placeholder = 'owner/repository';
+  const path = el('input', 'v-input fl-input'); path.placeholder = 'course/exercise.py';
+  const branch = el('input', 'v-input fl-input'); branch.placeholder = 'main'; branch.value = 'main';
+  const content = el('textarea', 'v-input fl-input fl-textarea'); content.rows = 8; content.placeholder = 'Exercise / notebook source';
+  const message = el('input', 'v-input fl-input'); message.placeholder = 'Commit message';
+  const push = action('Push to GitHub', () => {}, true); push.type = 'submit';
+  const state = el('p', 'fl-muted');
+  form.append(repo, path, branch, content, message, push, state);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const [owner, repository] = repo.value.trim().split('/', 2);
+    if (!owner || !repository || !path.value.trim()) {
+      state.textContent = 'Use owner/repository and a file path.';
+      state.dataset.tone = 'bad';
+      return;
+    }
+    push.disabled = true;
+    state.textContent = 'Pushing…';
+    try {
+      const result = await P.lmsGitPush(course.id, {
+        owner, repository,
+        branch: branch.value.trim() || 'main',
+        path: path.value.trim(),
+        content: content.value,
+        message: message.value.trim() || 'Update Gravitas exercise',
+      });
+      state.textContent = 'Pushed · ' + (result.repository?.last_commit_sha || '').slice(0, 10);
+      state.dataset.tone = 'ok';
+    } catch (error) {
+      state.textContent = error?.message || 'Git push failed.';
+      state.dataset.tone = 'bad';
+    } finally {
+      push.disabled = false;
+    }
+  });
+  box.body.append(form);
+  return box.box;
+}
+
+function publishingPanel(course) {
+  const box = section('Publish an achievement', 'Publish strong course work directly to a connected LinkedIn account or an existing Medium integration.');
+  const form = el('form', 'fl-form');
+  const provider = el('select', 'v-input fl-input');
+  for (const value of ['linkedin','medium']) {
+    const option = el('option', null, label(value)); option.value = value; provider.append(option);
+  }
+  const title = el('input', 'v-input fl-input'); title.placeholder = 'Post title';
+  const text = el('textarea', 'v-input fl-input fl-textarea'); text.rows = 6; text.placeholder = 'What did you learn or produce?';
+  const publish = action('Publish', () => {}, true); publish.type = 'submit';
+  const state = el('p', 'fl-muted');
+  form.append(provider, title, text, publish, state);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    publish.disabled = true;
+    state.textContent = 'Publishing…';
+    try {
+      const result = await P.lmsPublishAchievement(course.id, {
+        provider: provider.value,
+        title: title.value.trim() || course.title,
+        text: text.value.trim(),
+      });
+      state.textContent = result.url ? 'Published · ' + result.url : 'Published.';
+      state.dataset.tone = 'ok';
+    } catch (error) {
+      state.textContent = error?.message || 'Publish failed.';
+      state.dataset.tone = 'bad';
+    } finally {
+      publish.disabled = false;
+    }
+  });
+  box.body.append(form);
+  return box.box;
+}
+
+function pkmExportPanel(course) {
+  const box = section('Export to PKM', 'Package the course into common personal knowledge management formats.');
+  const actions = el('div', 'fl-form-actions');
+  for (const [target, title] of [['obsidian','Obsidian'],['logseq','Logseq'],['notion','Notion Markdown'],['roam','Roam JSON']]) {
+    const download = el('a', 'ws-btn ws-btn--tiny', title);
+    download.href = '/api/lms/courses/' + course.id + '/pkm/' + target + '/';
+    download.download = '';
+    actions.append(download);
+  }
+  box.body.append(actions);
+  return box.box;
+}
+
+function personalizedPathPanel(go) {
+  const box = section('Personal learning path', 'Describe a research goal and Gravitas+ builds an ordered multi-course route from the published catalog.');
+  const form = el('form', 'fl-form');
+  const goal = el('textarea', 'v-input fl-input fl-textarea'); goal.rows = 4; goal.placeholder = 'Example: I want to learn how to design and validate a reproducible causal-inference study.';
+  const build = action('Build my path', () => {}, true); build.type = 'submit';
+  const result = el('div', 'fl-stack');
+  form.append(goal, build);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!goal.value.trim()) return;
+    build.disabled = true;
+    result.innerHTML = '<div class="fl-skeleton"></div>';
+    try {
+      const data = await P.lmsPersonalizePath({ goal: goal.value.trim() });
+      result.innerHTML = '';
+      if (data.assignment?.rationale) result.append(el('p', 'fl-muted', data.assignment.rationale));
+      for (const node of data.assignment?.nodes || []) {
+        result.append(row({
+          title: node.title || ('Course ' + node.course_id),
+          badges: ['Course'],
+          onClick: () => go('/workspace/learning/courses/' + node.course_id),
+        }));
+      }
+    } catch (error) {
+      result.innerHTML = '';
+      result.append(empty('Path could not be built', error?.message || 'Try again.'));
+    } finally {
+      build.disabled = false;
+    }
+  });
+  box.body.append(form, result);
+  return box.box;
+}
+
 export async function renderCourse(host, id, { go }) {
   loading(host, 'Course');
   try {
