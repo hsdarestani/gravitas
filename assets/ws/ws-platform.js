@@ -365,6 +365,7 @@ export const adminReviewLearningRepository = (repositoryId, reviewStatus, review
 });
 export const adminLearningAssets = (courseId) => call(`/platform/admin/lms/courses/${courseId}/assets/`);
 export const adminUploadLearningAsset = (courseId, formData) => upload(`/platform/admin/lms/courses/${courseId}/assets/`, formData);
+export const adminUpdateLearningAsset = (assetId, body) => call(`/lms/assets/${assetId}/`, { method: 'PATCH', body });
 export const adminDeleteLearningAsset = (assetId) => call(`/lms/assets/${assetId}/`, { method: 'DELETE' });
 
 /* ---- Layer 5 administration -------------------------------------------- */
