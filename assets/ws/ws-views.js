@@ -242,8 +242,9 @@ export function renderCoreTasks(host, { go }) {
   function taskSearchText(task) {
     return [
       task.title, task.description, task.owner?.name, task.owner?.email,
-      task.initiative_title, task.milestone_title, task.work_package_title,
-      task.cycle_title, task.project_title, task.priority, task.status,
+      task.trace?.objective?.title, task.trace?.key_result?.title,
+      task.milestone_title, task.work_package_title,
+      task.project_title, task.priority, task.status,
     ].filter(Boolean).join(' ').toLowerCase();
   }
 
@@ -272,7 +273,8 @@ export function renderCoreTasks(host, { go }) {
     }
 
     const context = el('div', 'task-trello-card__context');
-    if (task.initiative_title) context.append(el('span', null, task.initiative_title));
+    if (task.trace?.key_result?.title) context.append(el('span', null, task.trace.key_result.title));
+    if (task.milestone_title) context.append(el('span', null, task.milestone_title));
     if (task.project_title) context.append(el('span', null, task.project_title));
     card.append(context);
 
@@ -340,10 +342,21 @@ export function renderCoreTasks(host, { go }) {
       const priority = select((detailData.priorities || state.priorities).map((item) => [item.value, item.label]), task.priority);
       const status = select((detailData.statuses || state.statuses).map((item) => [item.value, item.label]), task.status);
       const owner = select(optionRows(detailData.members || state.members, 'Choose owner', 'name'), task.owner?.id);
-      const initiative = select(optionRows(detailData.initiatives || state.initiatives, 'Choose initiative'), task.initiative_id);
-      const milestone = select(optionRows(detailData.milestones || state.milestones, 'No milestone'), task.milestone_id);
+      const keyResult = select(
+        [['', 'Choose key result'], ...(detailData.key_results || state.key_results || []).map((item) => [
+          item.id,
+          (item.objective_title ? item.objective_title + ' · ' : '') + item.title,
+        ])],
+        task.trace?.key_result?.id || '',
+      );
+      const milestone = select(
+        [['', 'No milestone'], ...(detailData.milestones || state.milestones || []).map((item) => [
+          item.id,
+          (item.key_result_title ? item.key_result_title + ' · ' : '') + item.title,
+        ])],
+        task.milestone_id,
+      );
       const workPackage = select(optionRows(detailData.work_packages || state.work_packages, 'No work package'), task.work_package_id);
-      const cycle = select(optionRows(detailData.cycles || state.cycles, 'No cycle'), task.cycle_id);
       const project = select(optionRows(detailData.projects || state.projects, 'No Research project'), task.project_id);
       const meeting = select(optionRows(detailData.meetings || state.meetings, 'No meeting'), task.meeting_id);
       const dependency = select(
@@ -358,17 +371,17 @@ export function renderCoreTasks(host, { go }) {
       two.append(field('Priority', priority), field('Status', status), field('Owner', owner), field('Due date', due));
       const links = el('div', 'task-board__two');
       links.append(
-        field('Initiative', initiative), field('Milestone', milestone),
-        field('Work package', workPackage), field('Cycle', cycle),
+        field('Key result', keyResult), field('Milestone', milestone),
+        field('Work package', workPackage),
         field('Research project', project), field('Meeting', meeting),
         field('Dependency', dependency),
       );
 
       const trace = el('div', 'task-card-dialog__trace');
       trace.append(
-        el('span', 'v-badge', task.trace?.process?.name || 'Process'),
         el('span', 'v-badge', task.trace?.objective?.title || 'Objective'),
         el('span', 'v-badge', task.trace?.key_result?.title || 'Key result'),
+        task.milestone_title ? el('span', 'v-badge', task.milestone_title) : el('span'),
       );
 
       const actions = el('div', 'task-card-dialog__actions');
@@ -411,10 +424,9 @@ export function renderCoreTasks(host, { go }) {
           priority: priority.value,
           status: status.value,
           owner_id: Number(owner.value),
-          initiative_id: Number(initiative.value),
+          key_result_id: Number(keyResult.value),
           milestone_id: milestone.value ? Number(milestone.value) : null,
           work_package_id: workPackage.value ? Number(workPackage.value) : null,
-          cycle_id: cycle.value ? Number(cycle.value) : null,
           project_id: project.value ? Number(project.value) : null,
           meeting_id: meeting.value ? Number(meeting.value) : null,
           dependency_id: dependency.value ? Number(dependency.value) : null,
@@ -577,11 +589,16 @@ export function renderCoreTasks(host, { go }) {
     title.placeholder = 'Task title';
     const description = textarea('', 4);
     const owner = select(optionRows(state.members, 'Choose owner', 'name'), state.members?.[0]?.id || '');
-    const initiative = select(optionRows(state.initiatives, 'Choose initiative'));
+    const keyResult = select([
+      ['', 'Choose key result'],
+      ...(state.key_results || []).map((item) => [
+        item.id,
+        (item.objective_title ? item.objective_title + ' · ' : '') + item.title,
+      ]),
+    ]);
     const priority = select((state.priorities || []).map((item) => [item.value, item.label]), 'p2');
     const status = select((state.statuses || []).map((item) => [item.value, item.label]), 'draft');
     const due = input('date');
-    const cycle = select(optionRows(state.cycles, 'No cycle'));
     const done = textarea('', 3);
     done.placeholder = 'What has to be true for this task to be done?';
     const note = el('p', 'v-note');
@@ -589,16 +606,16 @@ export function renderCoreTasks(host, { go }) {
     create.type = 'submit';
 
     const two = el('div', 'task-board__two');
-    two.append(field('Owner', owner), field('Initiative', initiative), field('Priority', priority), field('Status', status), field('Due date', due), field('Cycle', cycle));
+    two.append(field('Owner', owner), field('Key result', keyResult), field('Priority', priority), field('Status', status), field('Due date', due));
     form.append(field('Title', title), field('Description', description), two, field('Definition of done', done), create, note);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!title.value.trim() || !owner.value || !initiative.value || !done.value.trim()) {
-        note.textContent = 'Title, owner, initiative and definition of done are required.';
+      if (!title.value.trim() || !owner.value || !keyResult.value || !done.value.trim()) {
+        note.textContent = 'Title, owner, key result and definition of done are required.';
         return;
       }
-      if (!due.value && !cycle.value) {
-        note.textContent = 'Choose a due date or cycle.';
+      if (!due.value) {
+        note.textContent = 'Choose a due date.';
         return;
       }
       create.disabled = true;
@@ -608,11 +625,10 @@ export function renderCoreTasks(host, { go }) {
           title: title.value.trim(),
           description: description.value.trim(),
           owner_id: Number(owner.value),
-          initiative_id: Number(initiative.value),
+          key_result_id: Number(keyResult.value),
           priority: priority.value,
           status: status.value,
-          due_date: due.value || null,
-          cycle_id: cycle.value ? Number(cycle.value) : null,
+          due_date: due.value,
           definition_of_done: done.value.trim(),
         });
         closeDialog(dialog);
@@ -795,53 +811,239 @@ export function renderCoreContent(host) {
 }
 
 export function renderCorePlanning(host, { go }) {
-  const doc = docShell(host, 'Planning & Projects', 'Objectives, initiatives, cycles and the work packages under them.');
+  const doc = docShell(host, 'Planning', 'A simple manager view of Objectives, Key Results and Milestones.');
   const holder = el('div');
   doc.append(holder);
   skeleton(6, holder);
+
+  const miniButton = (labelText, handler, solid = false) => {
+    const button = el('button', solid ? 'ws-btn ws-btn--solid ws-btn--tiny' : 'ws-btn ws-btn--tiny', labelText);
+    button.type = 'button';
+    button.addEventListener('click', handler);
+    return button;
+  };
+
+  const actionStrip = (...nodes) => {
+    const strip = el('div', 'v-row__actions');
+    strip.append(...nodes.filter(Boolean));
+    return strip;
+  };
+
+  const progressBar = (value) => {
+    const wrap = el('div', 'okr-progress');
+    const bar = el('i');
+    const safe = Math.max(0, Math.min(100, Number(value) || 0));
+    bar.style.width = safe + '%';
+    wrap.append(bar);
+    wrap.title = safe + '%';
+    return wrap;
+  };
+
+  const currentUserId = () => P.platform?.user?.user?.id || null;
 
   return guard(holder, 'planning', async () => {
     const board = await P.operatingDashboard();
     holder.innerHTML = '';
 
-    const counts = board.counts || {};
+    const planning = board.planning || { objectives: [], key_results: [], milestones: [], counts: {} };
+    const counts = planning.counts || {};
     holder.append(stats([
-      ['Objectives', counts.objectives],
-      ['Initiatives', counts.initiatives],
-      ['Open tasks', counts.tasks],
-      ['Milestones', counts.milestones],
+      ['Objectives', counts.objectives || 0],
+      ['Key Results', counts.key_results || 0],
+      ['Open milestones', counts.milestones_open || 0],
+      ['Open tasks', board.counts?.tasks || 0],
     ]));
 
-    const columns = el('div', 'v-columns');
-
-    const initiatives = panel('Initiatives', linkButton('Open', '/workspace/operating/initiatives', go));
-    const list = board.initiatives || [];
-    if (list.length) {
-      for (const item of list.slice(0, 10)) {
-        initiatives.body.append(row({
-          title: item.title,
-          sub: P.meta([P.label(item.status), P.label(item.stage), P.formatDate(item.due_date)]),
-        }));
+    const toolbar = el('div', 'v-toolbar');
+    const addObjective = miniButton('New objective', async () => {
+      const title = prompt('Objective title:');
+      if (!title?.trim()) return;
+      const dueDate = prompt('Due date (YYYY-MM-DD, optional):', '');
+      const ownerId = currentUserId() || board.members?.[0]?.id;
+      if (!ownerId) return alert('No Core owner is available.');
+      try {
+        await P.createOperatingObjective({
+          title: title.trim(),
+          owner_id: ownerId,
+          due_date: dueDate?.trim() || null,
+          status: 'active',
+          health: 'green',
+        });
+        renderCorePlanning(host, { go });
+      } catch (error) {
+        alert(error?.data?.error || error?.message || 'Objective could not be created.');
       }
-    } else {
-      initiatives.body.append(empty('No initiatives', 'Initiatives group the work behind an objective.'));
-    }
+    }, true);
+    const openTasks = miniButton('Open task board', () => go('/workspace/core/tasks'));
+    toolbar.append(addObjective, openTasks);
+    holder.append(toolbar);
 
-    const cycles = panel('Cycles', linkButton('Open', '/workspace/operating/cycles', go));
-    const cycleList = board.cycles || [];
-    if (cycleList.length) {
-      for (const item of cycleList.slice(0, 10)) {
-        cycles.body.append(row({
-          title: item.title || item.name,
-          sub: P.meta([P.formatDate(item.starts_on), P.formatDate(item.ends_on), P.label(item.status)]),
-        }));
+    const objectivePanel = panel('OKRs');
+    for (const objective of planning.objectives || []) {
+      const objectiveBox = el('section', 'v-panel okr-objective');
+      const head = el('div', 'v-panel__head');
+      const heading = el('div');
+      heading.append(
+        el('h3', null, objective.title),
+        el('small', 'fl-muted', P.meta([
+          objective.owner?.name || objective.owner?.email,
+          P.formatDate(objective.due_date),
+          P.label(objective.health),
+          P.label(objective.status),
+        ])),
+      );
+      if (objective.progress != null) heading.append(progressBar(objective.progress));
+
+      const editObjective = miniButton('Edit', async () => {
+        const title = prompt('Objective title:', objective.title);
+        if (title == null || !title.trim()) return;
+        const dueDate = prompt('Due date (YYYY-MM-DD, optional):', objective.due_date || '');
+        const health = prompt('Health: green / yellow / red', objective.health || 'green');
+        try {
+          await P.updateOperatingObjective(objective.id, {
+            title: title.trim(),
+            due_date: dueDate?.trim() || null,
+            health: health?.trim() || objective.health,
+          });
+          renderCorePlanning(host, { go });
+        } catch (error) {
+          alert(error?.data?.error || error?.message || 'Objective could not be updated.');
+        }
+      });
+
+      const addKr = miniButton('Add KR', async () => {
+        const title = prompt('Key Result:');
+        if (!title?.trim()) return;
+        const metric = prompt('Metric name (optional):', '');
+        const target = prompt('Target value (optional):', '');
+        const dueDate = prompt('Due date (YYYY-MM-DD, optional):', objective.due_date || '');
+        try {
+          await P.createOperatingKeyResult({
+            objective_id: objective.id,
+            owner_id: objective.owner?.id || currentUserId(),
+            title: title.trim(),
+            metric_name: metric?.trim() || '',
+            baseline_value: 0,
+            current_value: 0,
+            target_value: target?.trim() === '' ? null : target,
+            due_date: dueDate?.trim() || null,
+            status: 'active',
+            health: 'green',
+          });
+          renderCorePlanning(host, { go });
+        } catch (error) {
+          alert(error?.data?.error || error?.message || 'Key Result could not be created.');
+        }
+      }, true);
+      head.append(heading, actionStrip(editObjective, addKr));
+      objectiveBox.append(head);
+
+      const body = el('div', 'v-panel__body');
+      const keyResults = objective.key_results || [];
+      for (const kr of keyResults) {
+        const metric = kr.target_value != null
+          ? (kr.current_value ?? '—') + ' / ' + kr.target_value + (kr.unit ? ' ' + kr.unit : '')
+          : (kr.current_value ?? kr.metric_name ?? '');
+        const update = miniButton('Update', async () => {
+          const current = prompt('Current value:', kr.current_value ?? '');
+          if (current == null) return;
+          const health = prompt('Health: green / yellow / red', kr.health || 'green');
+          try {
+            await P.updateOperatingKeyResult(kr.id, {
+              current_value: current.trim() === '' ? null : current,
+              health: health?.trim() || kr.health,
+            });
+            renderCorePlanning(host, { go });
+          } catch (error) {
+            alert(error?.data?.error || error?.message || 'Key Result could not be updated.');
+          }
+        });
+        const addMilestone = miniButton('Add milestone', async () => {
+          const title = prompt('Milestone title:');
+          if (!title?.trim()) return;
+          const dueDate = prompt('Due date (YYYY-MM-DD):', kr.due_date || objective.due_date || '');
+          if (!dueDate?.trim()) return;
+          try {
+            await P.createOperatingMilestone({
+              key_result_id: kr.id,
+              owner_id: kr.owner?.id || objective.owner?.id || currentUserId(),
+              title: title.trim(),
+              due_date: dueDate.trim(),
+              health: 'green',
+              status: 'active',
+            });
+            renderCorePlanning(host, { go });
+          } catch (error) {
+            alert(error?.data?.error || error?.message || 'Milestone could not be created.');
+          }
+        }, true);
+        const krRow = row({
+          title: kr.title,
+          sub: P.meta([
+            metric,
+            kr.progress == null ? '' : kr.progress + '%',
+            kr.owner?.name || kr.owner?.email,
+            P.formatDate(kr.due_date),
+          ]),
+          badges: [P.label(kr.health), P.label(kr.status)],
+          action: actionStrip(update, addMilestone),
+        });
+        if (kr.progress != null) krRow.querySelector('.v-row__main')?.append(progressBar(kr.progress));
+        body.append(krRow);
       }
-    } else {
-      cycles.body.append(empty('No cycles', 'A cycle is the time box the team plans inside.'));
+      if (!keyResults.length) body.append(empty('No Key Results', 'Add the first measurable result for this objective.'));
+      objectiveBox.append(body);
+      objectivePanel.body.append(objectiveBox);
     }
+    if (!(planning.objectives || []).length) {
+      objectivePanel.body.append(empty('No active OKRs', 'Create an Objective, then add measurable Key Results.'));
+    }
+    holder.append(objectivePanel);
 
-    columns.append(initiatives, cycles);
-    holder.append(columns);
+    const milestonePanel = panel('Milestones');
+    const milestones = planning.milestones || [];
+    for (const milestone of milestones) {
+      const done = milestone.status === 'done';
+      const markDone = done ? null : miniButton('Mark done', async () => {
+        try {
+          await P.updateOperatingMilestone(milestone.id, { status: 'done', health: 'green' });
+          renderCorePlanning(host, { go });
+        } catch (error) {
+          alert(error?.data?.error || error?.message || 'Milestone could not be updated.');
+        }
+      }, true);
+      const edit = miniButton('Edit', async () => {
+        const title = prompt('Milestone title:', milestone.title);
+        if (title == null || !title.trim()) return;
+        const dueDate = prompt('Due date (YYYY-MM-DD, optional):', milestone.due_date || '');
+        const health = prompt('Health: green / yellow / red', milestone.health || 'green');
+        try {
+          await P.updateOperatingMilestone(milestone.id, {
+            title: title.trim(),
+            due_date: dueDate?.trim() || null,
+            health: health?.trim() || milestone.health,
+          });
+          renderCorePlanning(host, { go });
+        } catch (error) {
+          alert(error?.data?.error || error?.message || 'Milestone could not be updated.');
+        }
+      });
+      milestonePanel.body.append(row({
+        title: milestone.title,
+        sub: P.meta([
+          milestone.objective_title,
+          milestone.key_result_title,
+          milestone.owner?.name || milestone.owner?.email,
+          P.formatDate(milestone.due_date),
+        ]),
+        badges: [P.label(milestone.health), P.label(milestone.status)],
+        action: actionStrip(edit, markDone),
+      }));
+    }
+    if (!milestones.length) {
+      milestonePanel.body.append(empty('No milestones', 'Add milestones directly under a Key Result.'));
+    }
+    holder.append(milestonePanel);
   });
 }
 
