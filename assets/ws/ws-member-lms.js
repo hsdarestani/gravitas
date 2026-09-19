@@ -1465,20 +1465,37 @@ function courseDiscussionPanel(course) {
 }
 
 function literaturePanel(course) {
-  const box = section('Related papers', 'Search arXiv, INSPIRE, Semantic Scholar and your connected ORCID works from the lesson context.');
+  const box = section('Related papers', 'Search arXiv, INSPIRE, Semantic Scholar and your connected ORCID works from the selected lesson context.');
   const form = el('form', 'fl-form');
+  const lesson = el('select', 'v-input fl-input');
+  const whole = el('option', null, 'Whole course');
+  whole.value = '';
+  lesson.append(whole);
+  for (const module of course.modules || []) {
+    for (const item of module.lessons || []) {
+      const option = el('option', null, module.title + ' · ' + item.title);
+      option.value = item.id;
+      lesson.append(option);
+    }
+  }
   const q = el('input', 'v-input fl-input');
   q.type = 'search';
-  q.placeholder = 'Research topic or paper query';
+  q.placeholder = 'Optional research topic; leave blank to use lesson context';
   const search = action('Find papers', () => {}, true); search.type = 'submit';
   const list = el('div', 'fl-stack');
-  form.append(q, search);
+  const controls = el('div', 'fl-form-grid');
+  controls.append(lesson, q);
+  form.append(controls, search);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     search.disabled = true;
     list.innerHTML = '<div class="fl-skeleton"></div>';
     try {
-      const data = await P.lmsLiterature(course.id, { q: q.value.trim(), limit: 6 });
+      const data = await P.lmsLiterature(course.id, {
+        q: q.value.trim(),
+        lessonId: lesson.value,
+        limit: 6,
+      });
       list.innerHTML = '';
       for (const paper of data.papers || []) {
         const open = paper.url ? el('a', 'ws-btn ws-btn--tiny', 'Open') : null;
