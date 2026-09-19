@@ -738,28 +738,49 @@ def admin_learning_assets(request, course_id):
     )
 
     if uploaded:
-        if _prepare_lms_nextcloud([request.user, *list(course.instructors.all())]) != 'live':
-            return _error('nextcloud_unavailable', 503)
         name = _safe_filename(uploaded.name)
         item.original_name = name
         item.mime_type = (uploaded.content_type or mimetypes.guess_type(name)[0] or '')[:180]
         item.size = uploaded.size
-        remote_path = _lms_asset_path(item, name)
-        try:
-            cloud.admin_upload(remote_path, uploaded, content_type=item.mime_type or 'application/octet-stream')
-        except (cloud.CloudError, ImproperlyConfigured):
-            return _error('nextcloud_unavailable', 503)
-        item.storage_path = LMS_NEXTCLOUD_STORAGE_PREFIX + remote_path
+
+        cloud_state = _prepare_lms_nextcloud([request.user, *list(course.instructors.all())])
+        remote_path = ''
+        local_path = None
+        if cloud_state == 'live':
+            remote_path = _lms_asset_path(item, name)
+            try:
+                cloud.admin_upload(remote_path, uploaded, content_type=item.mime_type or 'application/octet-stream')
+                item.storage_path = LMS_NEXTCLOUD_STORAGE_PREFIX + remote_path
+            except (cloud.CloudError, ImproperlyConfigured):
+                cloud_state = 'unavailable'
+
+        if cloud_state != 'live':
+            root = Path(settings.LMS_MEDIA_ROOT) / str(course.pk)
+            root.mkdir(parents=True, exist_ok=True)
+            local_path = root / f'{uuid.uuid4().hex}-{name}'
+            if hasattr(uploaded, 'seek'):
+                uploaded.seek(0)
+            with local_path.open('wb') as handle:
+                for chunk in uploaded.chunks():
+                    handle.write(chunk)
+            item.storage_path = str(local_path)
+
         try:
             with transaction.atomic():
                 if base:
                     LearningAsset.objects.filter(logical_id=base.logical_id, is_current=True).update(is_current=False)
                 item.save()
         except Exception:
-            try:
-                cloud.admin_delete(remote_path)
-            except Exception:
-                pass
+            if remote_path and item.storage_path.startswith(LMS_NEXTCLOUD_STORAGE_PREFIX):
+                try:
+                    cloud.admin_delete(remote_path)
+                except Exception:
+                    pass
+            if local_path:
+                try:
+                    os.remove(local_path)
+                except OSError:
+                    pass
             raise
     else:
         item.save()
@@ -1041,7 +1062,7 @@ def admin_lms_meta(request):
     return JsonResponse({'ok': True, **_meta_json()})
 
 
-def _normalize_learning_graph(nodes, edges):
+def _normalize_learning_graph(nodes, edges, *, validate_courses=True):
     if not isinstance(nodes, list) or not isinstance(edges, list):
         raise ValueError('invalid_learning_graph')
 
@@ -1082,7 +1103,7 @@ def _normalize_learning_graph(nodes, edges):
         clean_nodes.append(item)
 
     course_titles = dict(Course.objects.filter(pk__in=course_ids).values_list('pk', 'title'))
-    if set(course_titles) != course_ids:
+    if validate_courses and set(course_titles) != course_ids:
         raise ValueError('learning_path_course_not_found')
     for item in clean_nodes:
         if item.get('type') == 'course' and not item.get('title'):
@@ -1155,6 +1176,7 @@ def learning_paths(request):
         nodes, edges = _normalize_learning_graph(
             data.get('nodes') if isinstance(data.get('nodes'), list) else [],
             data.get('edges') if isinstance(data.get('edges'), list) else [],
+            validate_courses=status == LearningPath.Status.PUBLISHED,
         )
     except ValueError as exc:
         return _error(str(exc))
@@ -1199,6 +1221,7 @@ def learning_path_detail(request, path_id):
             nodes, edges = _normalize_learning_graph(
                 data.get('nodes', item.nodes),
                 data.get('edges', item.edges),
+                validate_courses=item.status == LearningPath.Status.PUBLISHED,
             )
         except ValueError as exc:
             return _error(str(exc))
