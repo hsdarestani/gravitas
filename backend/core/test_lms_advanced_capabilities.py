@@ -18,6 +18,7 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             'class LearningIntegration',
             'class LearningRepository',
             'class NotebookWorkspace',
+            'class CoursePayment',
             "PENDING = 'pending'",
             "NEEDS_CHANGES = 'needs_changes'",
             "APPROVED = 'approved'",
@@ -36,6 +37,9 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             "lms/courses/<int:course_id>/publish/",
             "lms/courses/<int:course_id>/pkm/<str:target>/",
             "platform/admin/lms/repositories/",
+            "platform/admin/lms/payments/",
+            "lms/courses/<int:course_id>/checkout/",
+            "lms/certificates/<uuid:code>/download/",
         ):
             self.assertIn(path, urls)
 
@@ -51,6 +55,8 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             "section('Export to PKM'",
             "Save offline",
             "Continue to checkout",
+            "Download certificate",
+            "Publish to ",
         ):
             self.assertIn(marker, js)
 
@@ -66,6 +72,9 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             "section('Exercise repository review'",
             "Checkout enabled",
             "Checkout URL",
+            "section('Course payments'",
+            "Path nodes",
+            "Path edges",
         ):
             self.assertIn(marker, js)
 
@@ -89,6 +98,45 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         self.assertIn("if (url.pathname.startsWith('/api/'))", sw)
         self.assertIn('saveOfflineCourseSnapshot', learner)
         self.assertIn('Offline read mode', learner)
+
+
+    def test_course_media_uses_nextcloud_folders_and_versions(self):
+        models = self.read('backend/core/lms_models.py')
+        api = self.read('backend/core/lms_extended_api.py')
+        admin = self.read('assets/ws/ws-admin.js')
+        settings = self.read('backend/gravitas_backend/settings.py')
+        for marker in ('logical_id', 'folder_path', 'version_note', 'is_current'):
+            self.assertIn(marker, models)
+        self.assertIn('LMS_ASSET_NEXTCLOUD_MOUNTPOINT', settings)
+        self.assertIn('version_of_id', api)
+        self.assertIn('_lms_asset_path', api)
+        self.assertIn('Nextcloud-backed media with folders and version history', admin)
+        self.assertIn("action('New version'", admin)
+
+    def test_paid_course_flow_tracks_verification_before_enrollment(self):
+        api = self.read('backend/core/lms_advanced_api.py')
+        admin = self.read('assets/ws/ws-admin.js')
+        learner = self.read('assets/ws/ws-member-lms.js')
+        self.assertIn('def course_checkout', api)
+        self.assertIn('def admin_course_payments', api)
+        self.assertIn('CourseEnrollment.AccessSource.PURCHASE', api)
+        self.assertIn("section('Course payments'", admin)
+        self.assertIn('P.lmsStartCheckout(course.id)', learner)
+
+    def test_certificate_has_downloadable_credential(self):
+        api = self.read('backend/core/lms_extended_api.py')
+        learner = self.read('assets/ws/ws-member-lms.js')
+        self.assertIn('def lms_certificate_download', api)
+        self.assertIn('GRAVITAS+', api)
+        self.assertIn('Download certificate', learner)
+
+    def test_learning_path_admin_edits_graph_objects_not_raw_json(self):
+        api = self.read('backend/core/lms_extended_api.py')
+        admin = self.read('assets/ws/ws-admin.js')
+        self.assertIn('def _normalize_learning_graph', api)
+        self.assertIn("['course', 'Course']", admin)
+        self.assertIn("['choice', 'Choice / branch']", admin)
+        self.assertIn("section('Path edges'", admin)
 
 
 class CoreAssetVersioningContractTests(SimpleTestCase):
