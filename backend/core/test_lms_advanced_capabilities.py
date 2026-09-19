@@ -79,6 +79,9 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             "section('Course payments'",
             "Path nodes",
             "Path edges",
+            "All lessons",
+            "dateFrom",
+            "dateTo",
         ):
             self.assertIn(marker, js)
 
@@ -102,6 +105,7 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         self.assertIn("if (url.pathname.startsWith('/api/'))", sw)
         self.assertIn('saveOfflineCourseSnapshot', learner)
         self.assertIn('Offline read mode', learner)
+        self.assertIn("indexedDB.open('gravitas-lms-offline-v1'", learner)
         self.assertIn('P.lmsExecuteNotebook(currentId)', learner)
         advanced = self.read('backend/core/lms_advanced_api.py')
         self.assertIn('def notebook_execute', advanced)
