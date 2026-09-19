@@ -6,6 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Workspace · Gravitas+</title>
   <link rel="icon" href="/assets/favicon.svg">
+  <link rel="manifest" href="/workspace.webmanifest">
 
   <!-- The theme is set before the first paint. Reading it from script after
        the stylesheet has applied shows one frame of the wrong theme. -->
@@ -26,6 +27,7 @@
   <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20260914-1">
   <link rel="stylesheet" href="/assets/ws/ws-space-integration.css?v=20260917-1">
   <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20260915-1">
+  <link rel="stylesheet" href="/assets/ws/ws-math.css?v=20260919-1">
   <script src="/assets/gravitas-icons.js" defer></script>
   <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
   <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
@@ -134,6 +136,7 @@
     import { installWorkspaceTaskDeckFixes } from '/assets/ws/ws-task-deck-fixes.js?v=20260915-1';
     import { installTaskDeckMirror } from '/assets/ws/ws-task-deck-mirror.js?v=20260918-taskboard1';
     import { installSpaceWorkspaceIntegration } from '/assets/ws/ws-space-integration.js?v=20260917-1';
+    import { installMathRendering } from '/assets/ws/ws-math.js?v=20260919-1';
 
     function isNodeRoute(path = location.pathname) {
       return path === '/workspace/folder' || path.startsWith('/workspace/folder/')
@@ -202,6 +205,10 @@
       installWorkspaceTaskDeckFixes();
       installTaskDeckMirror();
       installSpaceWorkspaceIntegration();
+      installMathRendering();
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/workspace-sw.js', { scope: '/workspace/' }).catch(() => {});
+      }
       await workspaceReady;
       // start() may finish by rendering a legacy route after an overlay was
       // installed. Re-run route owners once with the fully hydrated tree.
