@@ -1338,24 +1338,53 @@ function learningIntegrationsPanel() {
 }
 
 function courseDiscussionPanel(course) {
-  const box = section('Course group', 'A course-scoped chat for enrolled learners and instructors, with the conversation kept inside the course.');
+  const box = section('Course group', 'A course-scoped chat for enrolled learners and instructors, with replies, editing and lightweight live refresh.');
   const list = el('div', 'fl-course-chat');
   const form = el('form', 'fl-course-chat__composer');
+  const composer = el('div', 'fl-stack');
+  const replyState = el('div', 'fl-muted');
+  replyState.hidden = true;
   const input = el('textarea', 'v-input fl-input fl-textarea');
   input.rows = 2;
   input.placeholder = 'Message the course group…';
   const send = action('Send', () => {}, true); send.type = 'submit';
-  form.append(input, send);
+  let replyToId = null;
+  let replyToLabel = '';
 
-  const reload = async () => {
-    list.innerHTML = '<div class="fl-skeleton"></div>';
+  const clearReply = () => {
+    replyToId = null;
+    replyToLabel = '';
+    replyState.hidden = true;
+    replyState.innerHTML = '';
+  };
+
+  const setReply = (item) => {
+    replyToId = item.id;
+    replyToLabel = item.author?.name || 'message';
+    replyState.innerHTML = '';
+    replyState.hidden = false;
+    replyState.append(
+      document.createTextNode('Replying to ' + replyToLabel + ' · '),
+      action('Cancel', clearReply, false, true),
+    );
+    input.focus();
+  };
+
+  composer.append(replyState, input);
+  form.append(composer, send);
+
+  let loadingOnce = false;
+  const reload = async ({ quiet = false } = {}) => {
+    if (!quiet && !loadingOnce) list.innerHTML = '<div class="fl-skeleton"></div>';
     try {
       const data = await P.lmsCourseDiscussion(course.id);
+      const wasNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
       list.innerHTML = '';
       const viewerId = P.platform?.user?.user?.id;
       for (const item of data.messages || []) {
         const message = el('article', 'fl-course-chat__message');
-        if (viewerId && String(item.author?.id) === String(viewerId)) message.dataset.mine = 'true';
+        const mine = viewerId && String(item.author?.id) === String(viewerId);
+        if (mine) message.dataset.mine = 'true';
         const head = el('div', 'fl-course-chat__meta');
         head.append(
           el('strong', null, item.author?.name || 'Learner'),
@@ -1363,14 +1392,43 @@ function courseDiscussionPanel(course) {
         );
         if (item.reply_to_id) head.append(badge('Reply'));
         const body = el('div', 'fl-course-chat__body', item.deleted ? 'Message deleted.' : item.body);
+        const tools = el('div', 'fl-form-actions');
+        if (!item.deleted) {
+          tools.append(action('Reply', () => setReply(item), false, true));
+          if (mine) {
+            tools.append(action('Edit', async () => {
+              const nextBody = prompt('Edit message:', item.body);
+              if (nextBody == null || !nextBody.trim()) return;
+              try {
+                await P.lmsEditCourseDiscussion(course.id, item.id, { body: nextBody.trim() });
+                await reload({ quiet: true });
+              } catch (error) {
+                alert(error?.message || 'Message could not be edited.');
+              }
+            }, false, true));
+            tools.append(action('Delete', async () => {
+              if (!confirm('Delete this message?')) return;
+              try {
+                await P.lmsDeleteCourseDiscussion(course.id, item.id);
+                await reload({ quiet: true });
+              } catch (error) {
+                alert(error?.message || 'Message could not be deleted.');
+              }
+            }, false, true));
+          }
+        }
         message.append(head, body);
+        if (tools.children.length) message.append(tools);
         list.append(message);
       }
       if (!(data.messages || []).length) list.append(empty('No messages yet', 'Start the course discussion.'));
-      list.scrollTop = list.scrollHeight;
+      if (!loadingOnce || wasNearBottom) list.scrollTop = list.scrollHeight;
+      loadingOnce = true;
     } catch (error) {
-      list.innerHTML = '';
-      list.append(empty('Discussion unavailable', error?.message || 'Try again.'));
+      if (!quiet) {
+        list.innerHTML = '';
+        list.append(empty('Discussion unavailable', error?.message || 'Try again.'));
+      }
     }
   };
 
@@ -1380,17 +1438,29 @@ function courseDiscussionPanel(course) {
     if (!body) return;
     send.disabled = true;
     try {
-      await P.lmsPostCourseDiscussion(course.id, { body });
+      await P.lmsPostCourseDiscussion(course.id, {
+        body,
+        reply_to_id: replyToId,
+      });
       input.value = '';
-      await reload();
+      clearReply();
+      await reload({ quiet: true });
     } catch (error) {
       alert(error?.message || 'Message could not be sent.');
     } finally {
       send.disabled = false;
     }
   });
+
   box.body.append(list, form);
   reload();
+  const timer = window.setInterval(() => {
+    if (!box.box.isConnected) {
+      window.clearInterval(timer);
+      return;
+    }
+    reload({ quiet: true });
+  }, 15000);
   return box.box;
 }
 
