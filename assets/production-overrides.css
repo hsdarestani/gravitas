@@ -77,11 +77,26 @@
    deployment injects, and gravitas.css is the brand system, which should not
    carry rules for elements it does not know exist.
 
-   The whole visual argument is restraint. A save control is the second-most
-   important thing on a card and must never compete with the headline, so it
-   is a hairline ghost button that only fills in once it is holding something
-   — the filled state is the information, and an empty one should read as
-   available rather than as a call to action.
+   THE ONE RULE THESE HAVE TO OBEY: DO NOT LOOK LIKE A TAG.
+
+   The first version got this wrong. It was a pill with a hairline border,
+   caption text and muted colour — which is, to the pixel, the description of
+   `.g-tag`. On a topic page the save control landed directly beneath a row of
+   subject tags and read as a fourth tag: something the page was telling you,
+   rather than something you could press. Restraint was the right instinct
+   and the wrong execution, because a control that recedes past the point of
+   looking pressable has not been made quiet, it has been made invisible.
+
+   So the separation is by shape and weight rather than by colour, and it is
+   deliberately unambiguous:
+
+     tags    pill, hairline, 13px, muted, transparent  — metadata
+     control 10px corners, filled surface, 14px, full-strength text, an icon
+
+   Nothing else on these pages has square-ish corners and a raised surface, so
+   the shape alone carries it even in a screenshot with no hover. The pressed
+   state then goes solid in the accent, because "you are holding this" is the
+   one message here that has earned a filled button.
    ========================================================================== */
 
 .rl-toggle {
@@ -150,13 +165,52 @@
   .rl-toggle--card { opacity: 1; }
 }
 
-/* ---- Under a headline -------------------------------------------------- */
+/* ---- Under a headline --------------------------------------------------
+   Sat directly under the tag row at --g-space-md, which is the gap the tags
+   use between themselves, so the eye grouped it with them. A full step up
+   plus a hairline says "the heading block ended; this is the page offering
+   you something". */
 .rl-page-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--g-space-2xs) var(--g-space-xs);
-  margin-top: var(--g-space-md);
+  gap: var(--g-space-2xs) var(--g-space-sm);
+  margin-top: var(--g-space-lg);
+  padding-top: var(--g-space-sm);
+  border-top: 1px solid var(--g-hairline);
+}
+
+/* The size and shape that separate a control from a tag. Scoped to the bar
+   and the step so the 32px round icon button on a card keeps its own. */
+.rl-page-bar .rl-toggle {
+  padding: 0.55rem 0.9rem;
+  border-radius: 10px;
+  background: var(--g-surface-raised);
+  color: var(--g-text);
+  font-size: var(--g-fs-small);
+  font-weight: var(--g-w-medium);
+}
+.rl-page-bar .rl-toggle > svg { width: 1.05rem; height: 1.05rem; }
+.rl-page-bar .rl-toggle:hover {
+  background: var(--g-surface-hover);
+  border-color: var(--g-border-strong);
+}
+/* Solid, in the accent. Across a page of outlined chips this is the only
+   filled thing, which is what makes "saved" readable at a glance. */
+.rl-page-bar .rl-toggle[aria-pressed="true"] {
+  background: var(--g-accent);
+  border-color: transparent;
+  /* The page ground, not a fixed navy — the same correction the header badge
+     below carries. On dark the accent is Sisal and a navy label reads cleanly;
+     on light the accent is that warmth at ink weight, where a navy label
+     collapses to about 1.5:1. --g-bg inverts with the theme and clears 5:1 in
+     both. */
+  color: var(--g-bg);
+  font-weight: var(--g-w-semibold);
+}
+.rl-page-bar .rl-toggle[aria-pressed="true"]:hover {
+  background: var(--g-accent);
+  filter: brightness(1.08);
 }
 .rl-page-bar__note {
   margin: 0;
@@ -165,19 +219,24 @@
   max-width: 42ch;
 }
 
-/* ---- A learning-path step --------------------------------------------- */
+/* ---- A learning-path step ---------------------------------------------
+   This one sits inside .step__links, which is literally a row of .g-tag
+   chips ("Video · 14 min", "Essay"), so it had the same collision as the page
+   bar and takes the same answer: square-ish corners, a raised surface, and
+   full-strength text. */
 .rl-step {
   display: inline-flex;
   align-items: center;
   gap: var(--g-space-2xs);
   margin-top: var(--g-space-2xs);
-  padding: 0.35rem 0.65rem;
+  padding: 0.45rem 0.8rem;
   border: 1px solid var(--g-border);
-  border-radius: var(--g-radius-pill);
-  background: transparent;
-  color: var(--g-text-muted);
+  border-radius: 10px;
+  background: var(--g-surface-raised);
+  color: var(--g-text);
   font: inherit;
-  font-size: var(--g-fs-caption);
+  font-size: var(--g-fs-small);
+  font-weight: var(--g-w-medium);
   line-height: 1;
   cursor: pointer;
 }
@@ -188,8 +247,12 @@
   border: 1px solid var(--g-border-strong);
   border-radius: 4px;
 }
-.rl-step:hover { color: var(--g-text); border-color: var(--g-border-strong); }
-.rl-step[aria-pressed="true"] { color: var(--g-text); border-color: var(--g-signal-positive); }
+.rl-step:hover { background: var(--g-surface-hover); border-color: var(--g-border-strong); }
+.rl-step[aria-pressed="true"] {
+  color: var(--g-text);
+  border-color: var(--g-signal-positive);
+  background: rgb(var(--g-tint) / 0.06);
+}
 .rl-step[aria-pressed="true"] > i {
   border-color: var(--g-signal-positive);
   background: var(--g-signal-positive);

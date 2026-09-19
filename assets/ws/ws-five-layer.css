@@ -85,7 +85,20 @@
   }
   .fl-panel__title { margin: 0; font-size: 13px; font-weight: var(--g-w-semibold); }
   .fl-panel__head p { margin: 2px 0 0; font-size: var(--ws-fs-xs); }
+  .fl-panel__head > div:first-child { min-width: 0; }
   .fl-panel__body { display: grid; min-width: 0; }
+  /* A strip under a chart for its legend or its second reading. Hairline
+     above, so it reads as part of the same figure rather than as a row. */
+  .fl-panel__foot { padding: 10px 12px; border-top: 1px solid var(--g-hairline); }
+
+  /* The page head carries its own actions on screens that have them. */
+  .fl-head { align-items: end; }
+  .fl-head:has(.fl-form-actions) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+  }
+  .fl-head:has(.fl-form-actions) > * { grid-column: 1; }
+  .fl-head > .fl-form-actions { grid-column: 2; grid-row: 1 / -1; align-items: center; justify-content: flex-end; }
 
   .fl-row {
     display: grid;
@@ -112,7 +125,9 @@
   .fl-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
   .fl-badge[data-tone="ok"] { border-color: var(--g-accent); }
 
-  .fl-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ws-gutter); }
+  /* Panels sit at their own height. Stretching a three-row panel to match
+     a seven-row one beside it buys nothing but a tall empty rectangle. */
+  .fl-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ws-gutter); align-items: start; }
   .fl-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--ws-gutter); }
   .fl-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--ws-gutter); }
   .fl-admin-card {
@@ -323,7 +338,12 @@
 
   @media (max-width: 620px) {
     .fl-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .fl-head:has(.fl-form-actions) { grid-template-columns: 1fr; }
+    .fl-head > .fl-form-actions { grid-column: 1; grid-row: auto; justify-content: flex-start; }
     .fl-row { grid-template-columns: 1fr; }
+    /* A ring is a reading of the row it sits in, so it keeps its column
+       even here; dropped onto its own line it reads as a stray figure. */
+    .fl-row:has(.wc-ring) { grid-template-columns: minmax(0, 1fr) auto; }
     .fl-row__actions { justify-content: flex-start; }
     .fl-form-grid { grid-template-columns: 1fr; }
     .fl-admin-grid, .fl-card-grid { grid-template-columns: 1fr; }

@@ -1,4 +1,5 @@
 import * as P from './ws-platform.js?v=20260919-lms1';
+import * as C from './ws-charts.js?v=20260919-charts1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -62,11 +63,15 @@ function metric(value, title, note = '') {
   return node;
 }
 
+/* Title and note are one block inside the head, so an action button added
+   later lands opposite the pair rather than between them. */
 function section(title, note = '') {
   const box = el('section', 'fl-panel');
   const head = el('div', 'fl-panel__head');
-  head.append(el('h2', 'fl-panel__title', title));
-  if (note) head.append(el('p', 'fl-muted', note));
+  const heading = el('div');
+  heading.append(el('h2', 'fl-panel__title', title));
+  if (note) heading.append(el('p', 'fl-muted', note));
+  head.append(heading);
   const body = el('div', 'fl-panel__body');
   box.append(head, body);
   return { box, body, head };
@@ -116,65 +121,368 @@ function link(go, text, href, solid = false) {
   return action(text, () => go(href), solid);
 }
 
+/* ==========================================================================
+   THE MEMBER DASHBOARD
+   This is the first screen of the product, and for a reader who has not yet
+   joined a project or enrolled in a course it is very nearly the only one.
+   It used to be six numbers in boxes above three lists of sentences, which
+   told a new member nothing they could not have guessed and gave a long-
+   standing one no sense of where their account actually stood.
+
+   It now leads with shape rather than prose: an arc gauge over everything
+   that carries a real denominator, stat tiles whose meters show the
+   finished part of each count, a ranked bar chart of the layers, and a
+   seven-day column chart of recent events.
+
+   Every figure still comes from /member/dashboard/. The charts changed how
+   the payload is read, not what is in it, and the kit refuses to draw a
+   proportion without a denominator — which is why research projects get a
+   count and a status and never a bar. The project payload has no percentage
+   in it, and a bar drawn from a status enum would be a false report on
+   somebody's real work.
+   ========================================================================== */
+
+const count = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
+
+/* One letter, from the name if there is one and the address if there is
+   not. An avatar that says "?" is worse than an avatar that says nothing. */
+function initial(member) {
+  const source = (member?.name || member?.email || '').trim();
+  return source ? source.charAt(0).toUpperCase() : '';
+}
+
+/* What the gauge is allowed to average over: the three things the payload
+   counts completions for. Courses are counted as active plus completed
+   rather than as every enrollment row, because a dropped enrollment is not
+   unfinished work and counting it as such would drag the figure down
+   forever. */
+function trackedWork(data) {
+  const paths = data.public_paths || {};
+  const topics = data.topic_progress || {};
+  const learning = data.learning || {};
+  const courses = learning.access ? count(learning.active) + count(learning.completed) : 0;
+  return {
+    total: count(paths.total) + count(topics.total) + courses,
+    done: count(paths.completed) + count(topics.completed) + (learning.access ? count(learning.completed) : 0),
+  };
+}
+
+/* next_actions carries its progress inside a human string ("40% complete"),
+   which is the right shape for the row's own subtitle and the wrong one for
+   a ring. Pulling the number back out is only done where it is actually
+   there; a row without one gets no ring rather than a ring at zero. */
+function metaPercent(meta) {
+  const found = /(\d+(?:\.\d+)?)\s*%/.exec(meta || '');
+  return found ? Number(found[1]) : null;
+}
+
+const DAY = 86400000;
+
+/* The last seven days of events, oldest first, from the activity feed.
+   The feed is capped server-side at twelve events, so when it comes back
+   full the week may be undercounted — the caller says which case it is in
+   rather than presenting a possibly-short week as a complete one. */
+function eventsByDay(activity = []) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = [];
+  for (let back = 6; back >= 0; back -= 1) {
+    const at = new Date(today.getTime() - back * DAY);
+    days.push({
+      label: at.toLocaleDateString('en-GB', { weekday: 'narrow' }),
+      key: at.toDateString(),
+      value: 0,
+      series: '1',
+    });
+  }
+  const index = new Map(days.map((day) => [day.key, day]));
+  for (const item of activity) {
+    if (!item.created_at) continue;
+    const day = index.get(new Date(item.created_at).toDateString());
+    if (day) day.value += 1;
+  }
+  return days;
+}
+
+const ACTIVITY_SERIES = { comment: '1', topic: '3', learning: '2', research: '4' };
+
+function activityMix(activity = []) {
+  const tally = new Map();
+  for (const item of activity) {
+    const kind = item.kind || 'other';
+    tally.set(kind, (tally.get(kind) || 0) + 1);
+  }
+  return [...tally.entries()].map(([kind, value]) => ({
+    label: label(kind), value, series: ACTIVITY_SERIES[kind] || '5',
+  }));
+}
+
+/* The identity is a line under the page title, not a card of its own. As a
+   card it was two hundred pixels of empty surface above an account that had
+   nothing in it yet. */
+function identity(member) {
+  const strip = el('div', 'wc-ident');
+  strip.append(el('span', 'wc-ident__avatar', initial(member)));
+  const names = el('div');
+  names.append(el('span', 'wc-ident__name', member.name));
+  names.append(el('span', 'wc-ident__meta', P.meta([member.email, label(member.community_role), label(member.community_status)])));
+  strip.append(names);
+  return strip;
+}
+
+function memberTiles(data, go) {
+  const library = data.library || {};
+  const discussions = data.discussions || {};
+  const topics = data.topic_progress || {};
+  const learning = data.learning || {};
+  const research = data.research || {};
+
+  const tiles = [
+    C.statTile({
+      value: count(library.saved_count), label: 'Saved', icon: 'files', featured: true,
+      note: count(library.following_count) ? `${count(library.following_count)} followed` : 'From the public site',
+      onClick: () => go('/workspace/dashboard/library'),
+    }),
+    C.statTile({
+      value: count(discussions.total), label: 'Discussions', icon: 'collaboration',
+      part: count(discussions.published), total: count(discussions.total),
+      note: 'On published material',
+      onClick: () => go('/workspace/dashboard/discussions'),
+    }),
+    C.statTile({
+      value: count(topics.total), label: 'Topics', icon: 'target',
+      part: count(topics.completed), total: count(topics.total),
+      note: 'Started',
+      onClick: () => go('/workspace/dashboard/progress'),
+    }),
+  ];
+
+  /* Six tiles is the ceiling the kit is laid out for, so public learning
+     paths do not get one: the gauge already counts their completions and
+     the bar chart carries the count. */
+  if (learning.access) {
+    tiles.push(C.statTile({
+      value: count(learning.active), label: 'Courses', icon: 'content',
+      note: count(learning.completed) ? `${count(learning.completed)} completed` : 'In progress',
+      onClick: () => go('/workspace/learning'),
+    }));
+  }
+  if (research.access) {
+    tiles.push(C.statTile({
+      value: count(research.projects), label: 'Projects', icon: 'projects',
+      note: 'Owned or joined',
+      onClick: () => go('/workspace/research'),
+    }));
+  }
+  tiles.push(C.statTile({
+    value: count(data.support?.open), label: 'Open tickets', icon: 'activity',
+    note: count(data.support?.open) ? 'Waiting on a reply' : 'Nothing open',
+    onClick: () => go('/workspace/dashboard/support'),
+  }));
+
+  /* Marked in series order so a layer keeps one colour across the tiles,
+     the bar chart and the activity strip. Two charts that disagree about
+     what blue means are worse than one chart. */
+  tiles.forEach((tile, position) => { tile.dataset.series = String((position % 5) + 1); });
+  return C.statGrid(tiles);
+}
+
+/* ---- The cards ---------------------------------------------------------- */
+
+function rhythmCard(data, go) {
+  const events = data.activity || [];
+  /* The feed is capped server-side at twelve, so a full one may not cover
+     the whole week. The note says which of the two readings this is rather
+     than letting a truncated week pass as a quiet one. */
+  const capped = events.length >= 12;
+  const box = C.card({
+    title: 'Activity',
+    note: capped ? 'Your twelve most recent events, by day' : 'The last seven days',
+    span: 7,
+    action: linkButton(go, 'History', '/workspace/dashboard/progress'),
+  });
+
+  box.body.append(C.columns(eventsByDay(events), { scaffold: true }));
+  if (events.length) {
+    box.body.append(C.stackedMeter(activityMix(events)));
+  } else {
+    box.body.append(C.note('Nothing yet this week. Comments, topic progress and course activity land here as you go.'));
+  }
+  return box.box;
+}
+
+/* The one tinted card, because it is the only thing on the screen that is an
+   instruction rather than a report. When there is nothing waiting it offers
+   the three places the work actually starts, instead of a paragraph saying
+   that there is nothing waiting. */
+function nextCard(data, go) {
+  const box = C.card({ title: 'Up next', note: 'Unfinished work across your layers', span: 5, tone: 'accent' });
+  const items = data.next_actions || [];
+
+  if (!items.length) {
+    box.body.append(C.note('Nothing waiting. Pick something up:'));
+    box.body.append(C.actions([
+      action('Browse the library', () => go('/workspace/dashboard/library'), true),
+      action('Topics', () => go('/workspace/dashboard/progress')),
+      data.learning?.access ? action('Courses', () => go('/workspace/learning')) : null,
+    ].filter(Boolean)));
+    return box.box;
+  }
+
+  const rows = items.slice(0, 4).map((item) => {
+    const share = metaPercent(item.meta);
+    return C.listItem({
+      title: item.title,
+      meta: P.meta([label(item.kind), item.meta]),
+      series: ACTIVITY_SERIES[item.kind] || '1',
+      icon: NEXT_ICONS[item.kind] || 'target',
+      right: share == null ? null : C.ring(share, { label: `${item.title}: ${item.meta}` }),
+      onClick: () => go(item.href),
+    });
+  });
+  box.body.append(C.list(rows));
+  return box.box;
+}
+
+function layerCard(data, go) {
+  const library = data.library || {};
+  const learning = data.learning || {};
+  const research = data.research || {};
+
+  const rows = [
+    { label: 'Saved', value: count(library.saved_count), series: '1', onClick: () => go('/workspace/dashboard/library') },
+    { label: 'Following', value: count(library.following_count), series: '1', onClick: () => go('/workspace/dashboard/library') },
+    { label: 'Discussions', value: count(data.discussions?.total), series: '2', onClick: () => go('/workspace/dashboard/discussions') },
+    { label: 'Topics', value: count(data.topic_progress?.total), series: '3', onClick: () => go('/workspace/dashboard/progress') },
+    { label: 'Paths', value: count(data.public_paths?.total), series: '3' },
+  ];
+  if (learning.access) {
+    rows.push({ label: 'Courses', value: count(learning.active) + count(learning.completed), series: '4', onClick: () => go('/workspace/learning') });
+  }
+  if (research.access) {
+    rows.push({ label: 'Projects', value: count(research.projects), series: '5', onClick: () => go('/workspace/research') });
+  }
+
+  const box = C.card({ title: 'Across your account', note: 'Items in the layers you can open', span: 5 });
+  box.body.append(C.barRows(rows, { scaffold: true }));
+  return box.box;
+}
+
+/* The gauge, with the three counts it averages listed beneath it. A single
+   percentage with no breakdown is a number nobody can check. */
+function completionCard(data) {
+  const paths = data.public_paths || {};
+  const topics = data.topic_progress || {};
+  const learning = data.learning || {};
+  const tracked = trackedWork(data);
+
+  const box = C.card({ title: 'Completion', note: 'Topics, paths and courses', span: 3 });
+  box.body.append(C.gauge({
+    value: tracked.done,
+    total: tracked.total,
+    label: 'Finished',
+    caption: `${tracked.done} of ${tracked.total} finished`,
+    empty: 'Nothing tracked yet',
+  }));
+
+  const parts = [
+    { label: 'Topics', value: count(topics.completed), series: '3' },
+    { label: 'Paths', value: count(paths.completed), series: '1' },
+  ];
+  if (learning.access) parts.push({ label: 'Courses', value: count(learning.completed), series: '4' });
+  box.body.append(C.legend(parts));
+  return box.box;
+}
+
+function savedCard(data, go) {
+  const items = data.library?.recent_saved || [];
+  const box = C.card({
+    title: 'Recently saved',
+    note: 'Kept from the public site',
+    span: 4,
+    action: linkButton(go, 'Library', '/workspace/dashboard/library'),
+  });
+
+  if (!items.length) {
+    box.body.append(C.note('Nothing saved yet. Use Save on any article, dossier or lab.'));
+    return box.box;
+  }
+  box.body.append(C.list(items.slice(0, 4).map((item) => C.listItem({
+    title: item.title,
+    meta: P.meta([label(item.kind), date(item.saved_at)]),
+    icon: SAVED_ICONS[item.kind] || 'notes',
+    series: '1',
+    onClick: item.url ? () => { window.location.href = item.url; } : null,
+  }))));
+  return box.box;
+}
+
+function activityCard(data, go) {
+  const items = data.activity || [];
+  const box = C.card({ title: 'Recent activity', note: 'Newest first', span: 8 });
+
+  if (!items.length) {
+    box.body.append(C.note('No activity yet. Comments, topic progress, learning and research activity appear here.'));
+    return box.box;
+  }
+  box.body.append(C.list(items.slice(0, 6).map((item) => C.listItem({
+    title: item.title,
+    meta: P.meta([item.meta, date(item.created_at)]),
+    icon: NEXT_ICONS[item.kind] || 'activity',
+    series: ACTIVITY_SERIES[item.kind] || '1',
+    onClick: item.href ? () => go(item.href) : null,
+  }))));
+  return box.box;
+}
+
+/* Published against pending, which is the whole of what the payload says
+   about a member's comments and needs no second chart to say it. */
+function discussionCard(data, go) {
+  const talk = data.discussions || {};
+  const box = C.card({
+    title: 'Discussions',
+    note: 'Published against pending review',
+    span: 4,
+    action: linkButton(go, 'All', '/workspace/dashboard/discussions'),
+  });
+
+  if (!count(talk.total)) {
+    box.body.append(C.note('No comments yet. Discussion opens under every published topic.'));
+    return box.box;
+  }
+  box.body.append(C.stackedMeter([
+    { label: 'Published', value: count(talk.published), series: '2' },
+    { label: 'Pending', value: count(talk.pending), series: '4' },
+  ]));
+  return box.box;
+}
+
+const NEXT_ICONS = { path: 'planning', learning: 'content', research: 'projects', comment: 'collaboration', topic: 'target' };
+const SAVED_ICONS = { article: 'notes', topic: 'target', lab: 'datasets', path: 'planning', dossier: 'files' };
+
+function linkButton(go, text, href) {
+  const button = action(text, () => go(href));
+  button.classList.add('ws-btn--tiny');
+  return button;
+}
+
 export async function renderMemberOverview(host, { go }) {
   loading(host, 'Dashboard');
   try {
     const data = await P.memberDashboard();
     const wrap = doc(host, 'Dashboard', 'One account view across reading, discussion, learning and research.');
 
-    const identity = el('div', 'fl-identity');
-    const identityMain = el('div');
-    identityMain.append(el('span', 'fl-eyebrow', 'MEMBER'));
-    identityMain.append(el('strong', 'fl-identity__name', data.member.name));
-    identityMain.append(el('span', 'fl-muted', data.member.email));
-    const identityBadges = el('div', 'fl-badges');
-    identityBadges.append(badge(label(data.member.community_role)), badge(label(data.member.community_status)));
-    identity.append(identityMain, identityBadges);
-    wrap.append(identity);
+    const head = wrap.querySelector('.fl-head');
+    head?.append(identity(data.member));
+    const tools = el('div', 'fl-form-actions');
+    tools.append(link(go, 'Open library', '/workspace/dashboard/library'));
+    tools.append(link(go, 'Progress', '/workspace/dashboard/progress', true));
+    head?.append(tools);
 
-    const metrics = el('div', 'fl-metrics');
-    metrics.append(
-      metric(data.library.saved_count, 'Saved'),
-      metric(data.discussions.total, 'Discussions'),
-      metric(data.topic_progress?.total || 0, 'Topics in progress'),
-      metric(data.support?.open || 0, 'Open tickets'),
-    );
-    if (data.learning?.access) metrics.append(metric(data.learning.active, 'Active courses'));
-    if (data.research?.access) metrics.append(metric(data.research.projects, 'Research projects'));
-    wrap.append(metrics);
-
-    const next = section('Next', 'The most useful unfinished work across your enabled layers.');
-    if (!data.next_actions.length) next.body.append(empty('Nothing waiting', 'Save something, enroll in a course or join a research project and it will appear here.'));
-    for (const item of data.next_actions) {
-      next.body.append(row({
-        title: item.title,
-        meta: item.meta,
-        badges: [label(item.kind)],
-        onClick: () => go(item.href),
-      }));
-    }
-    wrap.append(next.box);
-
-    const cols = el('div', 'fl-columns');
-    const saved = section('Recently saved');
-    if (!data.library.recent_saved.length) saved.body.append(empty('No saved material yet', 'Save an article, dossier or path from the public site.'));
-    for (const item of data.library.recent_saved.slice(0, 5)) {
-      saved.body.append(row({ title: item.title, meta: P.meta([label(item.kind), date(item.saved_at)]), body: item.summary }));
-    }
-    saved.head.append(link(go, 'Open library', '/workspace/dashboard/library'));
-
-    const activity = section('Recent activity');
-    if (!data.activity.length) activity.body.append(empty('No activity yet', 'Your comments, topic progress, learning and research activity will appear here.'));
-    for (const item of data.activity.slice(0, 7)) {
-      activity.body.append(row({
-        title: item.title,
-        meta: P.meta([item.meta, date(item.created_at)]),
-        badges: [label(item.kind)],
-        onClick: item.href ? () => go(item.href) : null,
-      }));
-    }
-    cols.append(saved.box, activity.box);
-    wrap.append(cols);
+    wrap.append(memberTiles(data, go));
+    wrap.append(C.bento([rhythmCard(data, go), nextCard(data, go)]));
+    wrap.append(C.bento([layerCard(data, go), completionCard(data), savedCard(data, go)]));
+    wrap.append(C.bento([activityCard(data, go), discussionCard(data, go)]));
   } catch (error) {
     errorView(host, 'Dashboard', error, () => renderMemberOverview(host, { go }));
   }

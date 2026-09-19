@@ -506,17 +506,49 @@
   }
 
   /* ---- Identifying a thing ------------------------------------------------
-     The slug of its page, which is the one identifier the static site and the
-     database can both agree on. Query strings and hashes are dropped: the
-     depth switch and the section anchors are ways of reading one item, not
-     different items. */
-  function libSlug(href) {
-    if (!href) return '';
+     The page slug, which is the one identifier the static site and the
+     database can both agree on. Hashes are dropped: the depth switch and the
+     section anchors are ways of reading one item, not different items.
+
+     Query strings are dropped too, with one exception that matters. A topic is
+     now served two ways - the standalone topic-computable-universe.html, and
+     the shell topic.html?slug=computable-universe, which is what cms-live.js
+     links to once the CMS holds rows. Reading only the last path segment gives
+     every CMS topic the key "topic", which matches no recognised prefix, so
+     the save control silently stopped appearing on exactly the pages the CMS
+     had taken over.
+
+     So a shell resolves through its query parameter, and it resolves to the
+     same key the standalone page produces. That equality is the point: a
+     reader who saved a topic from the old URL and meets it again under the new
+     one sees it already saved, and the account holds one row rather than two.
+
+     The address is carried separately from the key, because the key is an
+     identity and the address is the route that is known to work in this
+     build. */
+  var LIB_SHELLS = { topic: 'topic-' };
+  var LIB_KEY_RE = /^[-a-zA-Z0-9_]{1,190}$/;
+
+  function libIdentify(href) {
+    if (!href) return null;
     var url;
-    try { url = new URL(href, location.origin); } catch (err) { return ''; }
-    if (url.origin !== location.origin) return '';
-    var last = url.pathname.replace(/\/+$/, '').split('/').pop() || '';
-    return last.replace(/\.html$/, '');
+    try { url = new URL(href, location.href); } catch (err) { return null; }
+    if (url.origin !== location.origin) return null;
+
+    var last = (url.pathname.replace(/\/+$/, '').split('/').pop() || '')
+      .replace(/\.html$/, '');
+
+    var prefix = LIB_SHELLS[last];
+    if (prefix) {
+      var param = (url.searchParams.get('slug') || '').trim();
+      if (!param) return null;
+      // The API slug carries no prefix of its own, but tolerate one anyway so
+      // a future payload that includes it cannot end up doubling it.
+      var key = param.indexOf(prefix) === 0 ? param : prefix + param;
+      return LIB_KEY_RE.test(key) ? { key: key, url: url.pathname + url.search } : null;
+    }
+
+    return LIB_KEY_RE.test(last) ? { key: last, url: url.pathname } : null;
   }
 
   function libKind(slug) {
@@ -536,9 +568,9 @@
      it. So the title, the summary and the small meta bag are lifted out of
      the card itself rather than fetched. */
   function libItemFromCard(card) {
-    var slug = libSlug(card.getAttribute('href'));
-    var kind = libKind(slug);
-    if (!slug || !kind) return null;
+    var id = libIdentify(card.getAttribute('href'));
+    var kind = id && libKind(id.key);
+    if (!kind) return null;
 
     var heading = card.querySelector('h2, h3, h4');
     var title = libText(heading);
@@ -560,17 +592,19 @@
     if (detail && detail !== eyebrow) meta.detail = detail;
 
     return {
-      item_key: slug, kind: kind, title: title,
-      url: '/' + slug + '.html', summary: summary, meta: meta,
+      item_key: id.key, kind: kind, title: title,
+      url: id.url, summary: summary, meta: meta,
     };
   }
 
   /* The page you are on, read the same way. Used by the control under the
      headline on an article, topic, dossier, path or lab page. */
   function libItemFromPage() {
-    var slug = libSlug(location.pathname);
-    var kind = libKind(slug);
-    if (!slug || !kind) return null;
+    // pathname + search, not pathname alone: on a shell page the subject lives
+    // in the query string, and dropping it identifies the shell, not the topic.
+    var id = libIdentify(location.pathname + location.search);
+    var kind = id && libKind(id.key);
+    if (!kind) return null;
 
     var heading = document.querySelector('#main h1, main h1');
     var title = libText(heading) || document.title.split('·')[0].trim();
@@ -585,8 +619,8 @@
     if (eyebrow) meta.eyebrow = eyebrow;
 
     return {
-      item_key: slug, kind: kind, title: title,
-      url: '/' + slug + '.html', summary: summary.slice(0, 400), meta: meta,
+      item_key: id.key, kind: kind, title: title,
+      url: id.url, summary: summary.slice(0, 400), meta: meta,
     };
   }
 
@@ -797,13 +831,22 @@
     });
   }
 
+  /* A page that has not finished loading. The topic pages are live shells:
+     their checked-in markup is a "Loading Topic…" heading and topic-live.js
+     replaces the whole section once the API answers. Mounting against that
+     would put the placeholder title into somebody's library, so the bar waits
+     for the real headline — the observer below brings it back afterwards. */
+  var LIB_PLACEHOLDER = /^(loading|topic not found|topic unavailable)/i;
+
   /* ---- The page itself ---------------------------------------------------
      Placed after the last element of the heading block rather than after the
      <h1>, so it reads as part of the page's own furniture and does not
      interrupt the headline and its standfirst. */
   function libMountPage() {
     var item = libItemFromPage();
-    if (!item || document.querySelector('.rl-page-bar')) return;
+    if (!item || LIB_PLACEHOLDER.test(item.title)) return;
+    var existing = document.querySelector('.rl-page-bar');
+    if (existing) return;
 
     var heading = document.querySelector('#main h1, main h1');
     if (!heading) return;
@@ -848,8 +891,12 @@
 
   /* ---- Learning-path steps ---------------------------------------------- */
   function libMountSteps() {
-    var slug = libSlug(location.pathname);
-    if (libKind(slug) !== 'path') return;
+    // Not `id`: the per-step loop below binds its own `id` for the step, and
+    // two different identities under one name in one function is how the wrong
+    // one eventually gets read.
+    var pathId = libIdentify(location.pathname + location.search);
+    if (!pathId || libKind(pathId.key) !== 'path') return;
+    var slug = pathId.key;
     var steps = document.querySelectorAll('#main .step, main .step');
     if (!steps.length) return;
 
@@ -863,8 +910,12 @@
     [].forEach.call(steps, function (step, index) {
       if (step.dataset.rlMounted) return;
       step.dataset.rlMounted = '1';
-      var id = 'step-' + libText(step.querySelector('.step__n')).replace(/[^0-9a-z]/gi, '')
-        || 'step-' + (index + 1);
+      /* Bracketed deliberately: "a" + b || c parses as ("a" + b) || c, which
+         is always truthy, so an unbracketed fallback here is dead code and a
+         step with no printed number would take the id "step-" — shared with
+         every other such step on the page, ticking them all at once. */
+      var numbered = libText(step.querySelector('.step__n')).replace(/[^0-9a-z]/gi, '');
+      var id = 'step-' + (numbered || (index + 1));
 
       var button = libButton('rl-step', '', 'Mark this step done');
       button.append(document.createElement('i'));
@@ -887,10 +938,17 @@
       holder.append(button);
     });
 
-    var summary = document.createElement('p');
-    summary.className = 'rl-path-summary';
-    steps[steps.length - 1].after(summary);
-    libPathSummary = { node: summary, key: slug, total: steps.length };
+    /* Appended once. A detached node means the page was redrawn underneath
+       us, so the record is dropped and a fresh paragraph takes its place;
+       without this check every re-mount would append another one, and since
+       appending is itself a mutation the observer would wake to do it again. */
+    if (libPathSummary && !libPathSummary.node.isConnected) libPathSummary = null;
+    if (!libPathSummary) {
+      var summary = document.createElement('p');
+      summary.className = 'rl-path-summary';
+      steps[steps.length - 1].after(summary);
+      libPathSummary = { node: summary, key: slug, total: steps.length };
+    }
   }
 
   var libPathSummary = null;
@@ -901,9 +959,9 @@
      "Not started" rather than a figure they did not earn. */
   function libPaintPathProgress() {
     [].forEach.call(document.querySelectorAll('a.path-card[href]'), function (card) {
-      var slug = libSlug(card.getAttribute('href'));
-      if (libKind(slug) !== 'path') return;
-      var percent = libPathPercent(slug);
+      var id = libIdentify(card.getAttribute('href'));
+      if (!id || libKind(id.key) !== 'path') return;
+      var percent = libPathPercent(id.key);
       var fill = card.querySelector('.progress > i');
       if (fill) fill.style.width = percent + '%';
       var caption = card.querySelector('.progress ~ p');
@@ -923,7 +981,13 @@
         : 'Tick a step as you finish it. No account needed — progress follows you to one.';
     }
 
-    libNotes.forEach(libPaintNote);
+    /* Pruned the same way the buttons are. A live re-render detaches the old
+       bar, and without this the list grows by one note per redraw, each one
+       repainted for ever into a node nobody can see. */
+    for (var n = libNotes.length - 1; n >= 0; n--) {
+      if (!libNotes[n].isConnected) libNotes.splice(n, 1);
+      else libPaintNote(libNotes[n]);
+    }
   }
 
   /* ==========================================================================
@@ -1264,17 +1328,21 @@
 
   libMount();
 
-  /* The magazine and topic filters hide and show cards rather than replacing
-     them, so nothing needs re-mounting there. This is for anything the site
-     adds later — the CMS-backed lists on the home page arrive after first
-     paint. */
+  /* Half this site draws itself after the first paint, so mounting once is
+     not enough. cms-live.js swaps the card lists on the index pages, and
+     topic-live.js replaces the entire topic page — heading, tags and all —
+     with what the API returned, which takes the save bar with it. Nothing is
+     wrong with that; it just means the controls have to be re-mounted rather
+     than mounted, and every mount function below is written to be idempotent
+     so re-running them costs a few selector lookups and changes nothing when
+     there is nothing to do. */
   if (window.MutationObserver) {
     /* Guarded and deferred on purpose. Mounting a control is itself a DOM
        change, so an observer that reacted to its own work would never
-       settle; the flag collapses a burst into one pass, and because
-       libMountCards is idempotent the pass after that one finds nothing to
-       do and the cascade stops. Only cards are rescanned — repainting the
-       drawer from here would put the same loop back. */
+       settle; the flag collapses a burst into one pass, and because every
+       mount here is idempotent the pass after that one finds nothing to do
+       and the cascade stops. The drawer is deliberately not repainted from
+       here — that would put an unbounded loop back. */
     var libScanning = false;
     var libWatcher = new MutationObserver(function () {
       if (libScanning) return;
@@ -1282,6 +1350,8 @@
       requestAnimationFrame(function () {
         libScanning = false;
         libMountCards();
+        libMountPage();
+        libMountSteps();
       });
     });
     libWatcher.observe(document.body, { childList: true, subtree: true });

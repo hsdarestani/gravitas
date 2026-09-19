@@ -178,14 +178,19 @@
   }
 
   function renderTimeline(data) {
-    var rows = Array.isArray(data.timeline) ? data.timeline : [];
+    // A node without a picture used to render an empty grey placeholder, which reads as a failed
+    // load rather than a deliberate entry. Imageless rows are dropped instead, and the left/right
+    // alternation is counted over what survives so the zig-zag stays regular.
+    var rows = (Array.isArray(data.timeline) ? data.timeline : []).map(function (row) {
+      return { row: row, image: safeUrl(row.image_url) };
+    }).filter(function (entry) { return !!entry.image; });
     var html = '<div class="topic-timeline">';
-    rows.forEach(function (row, index) {
-      var image = safeUrl(row.image_url);
+    rows.forEach(function (entry, index) {
+      var row = entry.row;
       html += '<article class="topic-timeline__node' + (index % 2 ? ' is-right' : ' is-left') + '">' +
         '<div class="topic-timeline__dot" aria-hidden="true"></div>' +
         '<div class="topic-timeline__media">' +
-          (image ? '<img src="' + esc(image) + '" alt="' + esc(row.image_alt || '') + '" loading="lazy">' : '<div class="topic-timeline__placeholder"></div>') +
+          '<img src="' + esc(entry.image) + '" alt="' + esc(row.image_alt || '') + '" loading="lazy">' +
         '</div>' +
         '<div class="topic-timeline__copy"><span class="topic-timeline__date">' + esc(row.date || '') + '</span>' +
           '<h3>' + esc(row.title || '') + '</h3><p>' + esc(row.description || '') + '</p></div>' +
