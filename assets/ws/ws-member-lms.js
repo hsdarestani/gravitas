@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20260919-advanced4';
+import * as P from './ws-platform.js?v=20260919-advanced6';
 import * as C from './ws-charts.js?v=20260919-charts2';
 
 const el = (tag, cls, text) => {
