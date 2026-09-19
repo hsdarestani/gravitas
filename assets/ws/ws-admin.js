@@ -760,43 +760,138 @@ async function renderLmsMetaAdmin(host, meta, refresh) {
   host.append(box.box);
 }
 
-async function renderLearningPathsAdmin(host, paths, refresh) {
-  const box = section('Learning paths', 'Graph objects can branch, converge and reuse courses. Payment rules are stored now but checkout can stay disabled.');
+async function renderLearningPathsAdmin(host, paths, courses, refresh) {
+  const box = section(
+    'Learning paths',
+    'Build learning paths as graph objects. Nodes may be courses, gates, milestones or choices; edges define completion and branching rules.',
+  );
+
+  const courseOptions = [['', 'Choose course'], ...(courses || []).map((item) => [item.id, item.title])];
+  let nodeCounter = 0;
+
+  const nodeEditor = (initial = {}) => {
+    nodeCounter += 1;
+    const card = el('div', 'v-panel fl-path-node');
+    const nodeId = input(initial.id || ('node-' + nodeCounter), 'text', 'node-id');
+    const nodeType = select([
+      ['course', 'Course'],
+      ['gate', 'Gate'],
+      ['milestone', 'Milestone'],
+      ['choice', 'Choice / branch'],
+    ], initial.type || (initial.course_id ? 'course' : 'milestone'));
+    const nodeTitle = input(initial.title || '', 'text', 'Node title');
+    const nodeCourse = select(courseOptions, initial.course_id || '');
+    const nodeDescription = textarea(initial.description || '', 2);
+    const remove = action('Remove node', () => card.remove(), false, true);
+    const grid = el('div', 'fl-form-grid');
+    grid.append(
+      field('Node ID', nodeId),
+      field('Type', nodeType),
+      field('Title', nodeTitle),
+      field('Course', nodeCourse),
+    );
+    card.append(grid, field('Description', nodeDescription), remove);
+    card._fields = { nodeId, nodeType, nodeTitle, nodeCourse, nodeDescription };
+    return card;
+  };
+
+  const edgeEditor = (initial = {}) => {
+    const card = el('div', 'v-panel fl-path-edge');
+    const from = input(initial.from || '', 'text', 'from node ID');
+    const to = input(initial.to || '', 'text', 'to node ID');
+    const rule = select([
+      ['complete', 'Complete source'],
+      ['pass', 'Pass source assessment'],
+      ['manual', 'Manual approval'],
+      ['any', 'Any / informational'],
+    ], initial.rule || 'complete');
+    const edgeLabel = input(initial.label || '', 'text', 'Edge label / branch condition');
+    const remove = action('Remove edge', () => card.remove(), false, true);
+    const grid = el('div', 'fl-form-grid');
+    grid.append(
+      field('From', from),
+      field('To', to),
+      field('Rule', rule),
+      field('Label', edgeLabel),
+    );
+    card.append(grid, remove);
+    card._fields = { from, to, rule, edgeLabel };
+    return card;
+  };
+
+  const serializeNodes = (hostNode) => [...hostNode.children].map((card) => {
+    const f = card._fields;
+    const type = f.nodeType.value;
+    const payload = {
+      id: f.nodeId.value.trim(),
+      type,
+      title: f.nodeTitle.value.trim(),
+      description: f.nodeDescription.value,
+    };
+    if (type === 'course') payload.course_id = Number(f.nodeCourse.value || 0);
+    return payload;
+  });
+
+  const serializeEdges = (hostNode) => [...hostNode.children].map((card) => {
+    const f = card._fields;
+    return {
+      from: f.from.value.trim(),
+      to: f.to.value.trim(),
+      rule: f.rule.value,
+      label: f.edgeLabel.value.trim(),
+    };
+  });
+
+  const graphEditor = ({ initialNodes = [], initialEdges = [] } = {}) => {
+    const wrapper = el('div', 'fl-stack');
+    const nodesBox = section('Path nodes', 'Course nodes link to actual courses; gate, milestone and choice nodes model complex branching.');
+    const nodeHost = el('div', 'fl-stack');
+    for (const item of initialNodes) nodeHost.append(nodeEditor(item));
+    if (!initialNodes.length) nodeHost.append(nodeEditor({ type: 'course' }));
+    const addNode = action('Add node', () => nodeHost.append(nodeEditor()), false, true);
+    nodesBox.body.append(nodeHost, addNode);
+
+    const edgesBox = section('Path edges', 'Connect any nodes by ID. Multiple outgoing/incoming edges allow branching and convergence.');
+    const edgeHost = el('div', 'fl-stack');
+    for (const item of initialEdges) edgeHost.append(edgeEditor(item));
+    const addEdge = action('Add edge', () => edgeHost.append(edgeEditor()), false, true);
+    edgesBox.body.append(edgeHost, addEdge);
+
+    wrapper.append(nodesBox.box, edgesBox.box);
+    wrapper._graph = {
+      nodes: () => serializeNodes(nodeHost),
+      edges: () => serializeEdges(edgeHost),
+    };
+    return wrapper;
+  };
+
   const form = el('form', 'fl-form');
   const title = input('', 'text', 'Path title');
   const slug = input('', 'text', 'path-slug');
   const summary = textarea('', 2);
   const status = select([['draft','Draft'],['published','Published']], 'draft');
-  const nodes = textarea('[]', 5);
-  const edges = textarea('[]', 5);
+  const graph = graphEditor();
   const add = action('Create learning path', () => {}, true); add.type = 'submit';
   const note = statusLine();
   const grid = el('div', 'fl-form-grid');
   grid.append(field('Title', title), field('Slug', slug), field('Status', status));
-  form.append(grid, field('Summary', summary), field('Nodes (JSON)', nodes, 'Example: [{"id":"a","course_id":1}]'), field('Edges (JSON)', edges, 'Example: [{"from":"a","to":"b","rule":"complete"}]'), add, note);
+  form.append(grid, field('Summary', summary), graph, add, note);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     add.disabled = true;
-    const parsedNodes = safeJson(nodes.value, null);
-    const parsedEdges = safeJson(edges.value, null);
-    if (!Array.isArray(parsedNodes) || !Array.isArray(parsedEdges)) {
-      setStatus(note, 'Nodes and edges must be JSON arrays.', 'bad');
-      add.disabled = false;
-      return;
-    }
     try {
       await P.lmsCreateLearningPath({
         title: title.value.trim(),
         slug: slug.value.trim() || slugify(title.value),
         summary: summary.value,
         status: status.value,
-        nodes: parsedNodes,
-        edges: parsedEdges,
-        payment_config: { enabled: false, provider: 'future' },
+        nodes: graph._graph.nodes(),
+        edges: graph._graph.edges(),
+        payment_config: { enabled: false, provider: 'external' },
       });
       await refresh();
     } catch (error) {
-      setStatus(note, error?.message || 'Path could not be created.', 'bad');
+      setStatus(note, error?.data?.error || error?.message || 'Path could not be created.', 'bad');
       add.disabled = false;
     }
   });
@@ -805,27 +900,25 @@ async function renderLearningPathsAdmin(host, paths, refresh) {
   for (const item of paths || []) {
     const edit = action('Edit graph', () => {
       const editor = el('form', 'fl-form');
-      const n = textarea(JSON.stringify(item.nodes || [], null, 2), 6);
-      const e = textarea(JSON.stringify(item.edges || [], null, 2), 6);
       const s = textarea(item.summary || '', 2);
       const st = select([['draft','Draft'],['published','Published'],['archived','Archived']], item.status);
+      const existingGraph = graphEditor({ initialNodes: item.nodes || [], initialEdges: item.edges || [] });
       const save = action('Save path', () => {}, true); save.type = 'submit';
       const line = statusLine();
-      editor.append(field('Summary', s), field('Status', st), field('Nodes', n), field('Edges', e), save, line);
+      editor.append(field('Summary', s), field('Status', st), existingGraph, save, line);
       editor.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const parsedNodes = safeJson(n.value, null);
-        const parsedEdges = safeJson(e.value, null);
-        if (!Array.isArray(parsedNodes) || !Array.isArray(parsedEdges)) {
-          setStatus(line, 'Nodes and edges must be arrays.', 'bad');
-          return;
-        }
         save.disabled = true;
         try {
-          await P.lmsUpdateLearningPath(item.id, { summary: s.value, status: st.value, nodes: parsedNodes, edges: parsedEdges });
+          await P.lmsUpdateLearningPath(item.id, {
+            summary: s.value,
+            status: st.value,
+            nodes: existingGraph._graph.nodes(),
+            edges: existingGraph._graph.edges(),
+          });
           await refresh();
         } catch (error) {
-          setStatus(line, error?.message || 'Save failed.', 'bad');
+          setStatus(line, error?.data?.error || error?.message || 'Save failed.', 'bad');
           save.disabled = false;
         }
       });
@@ -833,14 +926,21 @@ async function renderLearningPathsAdmin(host, paths, refresh) {
       rowNode?.insertAdjacentElement('afterend', editor);
       edit.disabled = true;
     }, false, true);
+
     const remove = action('Delete', async () => {
-      if (!confirm(`Delete learning path “${item.title}”?`)) return;
+      if (!confirm('Delete learning path “' + item.title + '”?')) return;
       remove.disabled = true;
       try { await P.lmsDeleteLearningPath(item.id); await refresh(); } catch { remove.disabled = false; }
     }, false, true);
+
     box.body.append(row({
       title: item.title,
-      meta: P.meta([label(item.status), item.slug, `${(item.nodes || []).length} nodes`, `${(item.edges || []).length} edges`]),
+      meta: P.meta([
+        label(item.status),
+        item.slug,
+        (item.nodes || []).length + ' nodes',
+        (item.edges || []).length + ' edges',
+      ]),
       body: item.summary,
       actions: [edit, remove],
     }));
@@ -1096,7 +1196,7 @@ export async function renderAdminLms(host, { go }) {
     wrap.append(analyticsBox.box);
 
     await renderLmsMetaAdmin(wrap, meta, () => renderAdminLms(host, { go }));
-    await renderLearningPathsAdmin(wrap, paths.paths || [], () => renderAdminLms(host, { go }));
+    await renderLearningPathsAdmin(wrap, paths.paths || [], courses.courses || [], () => renderAdminLms(host, { go }));
 
     const enrollmentBox = section('Recent enrollments');
     for (const enrollment of enrollments.enrollments.slice(0, 30)) enrollmentBox.body.append(enrollmentAdminRow(enrollment, () => renderAdminLms(host, { go })));
