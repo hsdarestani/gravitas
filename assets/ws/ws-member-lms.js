@@ -1677,49 +1677,78 @@ function notebookPanel(course) {
   run.addEventListener('click', async () => {
     run.disabled = true;
     const packages = Array.isArray(course.learning_config?.notebook_packages) ? course.learning_config.notebook_packages : [];
-    try {
-      if (runtime.value !== 'python') {
-        output.textContent = 'Saving reproducible environment…';
-        const saved = await P.lmsSaveNotebook(course.id, {
-          id: currentId,
-          title: title.value.trim() || course.title + ' notebook',
-          runtime: runtime.value,
-          code: code.value,
-          environment: { packages, course_id: course.id },
-        });
-        currentId = saved.notebook.id;
-        output.textContent = 'Running ' + label(runtime.value) + '…';
-        const executed = await P.lmsExecuteNotebook(currentId);
-        const parts = [];
-        if (executed.output) parts.push(executed.output);
-        if (executed.result != null) {
-          parts.push(typeof executed.result === 'string' ? executed.result : JSON.stringify(executed.result, null, 2));
-        }
-        if (executed.artifacts?.length) {
-          parts.push('Artifacts:\n' + executed.artifacts.map((item) => typeof item === 'string' ? item : JSON.stringify(item)).join('\n'));
-        }
-        output.textContent = parts.join('\n\n') || 'Execution completed.';
-        await refresh();
-        return;
-      }
 
-      output.textContent = 'Loading Python runtime…';
+    const saveCurrentNotebook = async () => {
+      const saved = await P.lmsSaveNotebook(course.id, {
+        id: currentId,
+        title: title.value.trim() || course.title + ' notebook',
+        runtime: runtime.value,
+        code: code.value,
+        environment: { packages, course_id: course.id },
+      });
+      currentId = saved.notebook.id;
+      return saved.notebook;
+    };
+
+    const renderRemoteResult = (executed) => {
+      const parts = [];
+      if (executed.output) parts.push(executed.output);
+      if (executed.result != null) {
+        parts.push(typeof executed.result === 'string' ? executed.result : JSON.stringify(executed.result, null, 2));
+      }
+      if (executed.artifacts?.length) {
+        parts.push('Artifacts:\n' + executed.artifacts.map((item) => typeof item === 'string' ? item : JSON.stringify(item)).join('\n'));
+      }
+      output.textContent = parts.join('\n\n') || 'Execution completed.';
+    };
+
+    const runBrowserPython = async () => {
+      output.textContent = runtime.value === 'jupyter'
+        ? 'Loading browser Jupyter/Python kernel…'
+        : 'Loading Python runtime…';
       const pyodide = await loadBrowserPython();
       if (packages.length) {
+        await pyodide.loadPackage('micropip');
+        const micropip = pyodide.pyimport('micropip');
         try {
-          await pyodide.loadPackage('micropip');
-          const micropip = pyodide.pyimport('micropip');
           await micropip.install(packages);
+        } finally {
           micropip.destroy?.();
-        } catch (error) {
-          output.textContent = 'Environment setup failed: ' + (error?.message || 'package install error');
-          return;
         }
       }
       let stdout = '';
       if (pyodide.setStdout) pyodide.setStdout({ batched: (text) => { stdout += text + '\n'; } });
       const value = await pyodide.runPythonAsync(code.value || '');
       output.textContent = stdout + (value == null ? '' : String(value));
+    };
+
+    try {
+      if (runtime.value === 'mathematica') {
+        output.textContent = 'Saving reproducible environment…';
+        await saveCurrentNotebook();
+        output.textContent = 'Running Mathematica…';
+        const executed = await P.lmsExecuteNotebook(currentId);
+        renderRemoteResult(executed);
+        await refresh();
+        return;
+      }
+
+      if (runtime.value === 'jupyter') {
+        output.textContent = 'Saving reproducible notebook…';
+        await saveCurrentNotebook();
+        try {
+          output.textContent = 'Trying configured Jupyter runner…';
+          const executed = await P.lmsExecuteNotebook(currentId);
+          renderRemoteResult(executed);
+          await refresh();
+          return;
+        } catch (error) {
+          if (error?.message !== 'notebook_runner_not_configured') throw error;
+          output.textContent = 'No server Jupyter runner configured; using the reproducible browser Python kernel…';
+        }
+      }
+
+      await runBrowserPython();
     } catch (error) {
       output.textContent = error?.message === 'notebook_runner_not_configured'
         ? label(runtime.value) + ' runner is not configured on this deployment.'
