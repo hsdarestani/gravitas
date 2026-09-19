@@ -330,6 +330,8 @@ export const lmsPersonalizePath = (body) => call('/lms/paths/personalize/', { me
 export const lmsIntegrations = () => call('/lms/integrations/');
 export const lmsSaveIntegration = (body) => call('/lms/integrations/', { method: 'POST', body });
 export const lmsDeleteIntegration = (provider) => call('/lms/integrations/', { method: 'DELETE', body: { provider } });
+export const lmsCheckout = (id) => call(`/lms/courses/${id}/checkout/`);
+export const lmsStartCheckout = (id) => call(`/lms/courses/${id}/checkout/`, { method: 'POST', body: {} });
 export const lmsCourseDiscussion = (id) => call(`/lms/courses/${id}/discussion/`);
 export const lmsPostCourseDiscussion = (id, body) => call(`/lms/courses/${id}/discussion/`, { method: 'POST', body });
 export const lmsEditCourseDiscussion = (courseId, messageId, body) => call(`/lms/courses/${courseId}/discussion/${messageId}/`, { method: 'PATCH', body });
@@ -355,6 +357,15 @@ export const adminLmsAnalytics = (params = {}) => {
 };
 export const adminOpenEdxStatus = () => call('/platform/admin/lms/openedx/');
 export const adminValidateOpenEdxCourse = (courseId) => call('/platform/admin/lms/openedx/', { method: 'POST', body: { course_id: courseId } });
+export const adminCoursePayments = (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== '' && value != null)).toString();
+  return call(`/platform/admin/lms/payments/${query ? `?${query}` : ''}`);
+};
+export const adminUpdateCoursePayment = (paymentId, body) => call('/platform/admin/lms/payments/', {
+  method: 'PATCH',
+  body: { payment_id: paymentId, ...body },
+});
+
 export const adminLearningRepositories = (params = {}) => {
   const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== '' && value != null)).toString();
   return call(`/platform/admin/lms/repositories/${query ? `?${query}` : ''}`);
