@@ -264,7 +264,7 @@ function taskRow(task, ctx) {
 
   const node = row({
     title: task.title,
-    sub: P.meta([P.label(task.priority), task.initiative]),
+    sub: P.meta([P.label(task.priority), P.formatDate(task.due_date)]),
     onClick: () => ctx.go('/workspace/core/tasks'),
   });
 
@@ -493,7 +493,7 @@ function renderCoreBody(doc, ctx, boot) {
 
       holder.append(stats([
         ['Open tasks', board.counts.tasks],
-        ['Initiatives', board.counts.initiatives],
+        ['Projects', board.counts.projects || 0],
         ['Content pipeline', board.counts.content],
         ['Waiting on research', board.counts.research_waiting],
       ]));
@@ -517,18 +517,15 @@ function renderCoreBody(doc, ctx, boot) {
         content.body.append(empty('Nothing in the pipeline', 'Content items appear here once created.'));
       }
 
-      const initiatives = panel('Initiatives', linkBtn('Planning', '/workspace/operating', ctx));
-      const list = board.initiatives || [];
-      if (list.length) {
-        collapsible(initiatives.body, list, 5, (item) => row({
-          title: item.title,
-          sub: P.meta([P.label(item.status), P.label(item.stage)]),
-        }));
-      } else {
-        initiatives.body.append(empty('No initiatives', 'Initiatives group the work behind an objective.'));
-      }
+      const planning = panel('Planning', linkBtn('Open planning', '/workspace/operating', ctx));
+      planning.body.append(row({
+        title: 'OKRs & Milestones',
+        sub: 'Simple manager dashboard for Objectives, Key Results, progress and delivery milestones.',
+        badges: ['OKR', 'Milestones'],
+        onClick: () => ctx.go('/workspace/operating'),
+      }));
 
-      second.append(content, initiatives);
+      second.append(content, planning);
       holder.append(second);
 
       /* Operating assets, on the Overview rather than only in the index.
