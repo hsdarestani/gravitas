@@ -2035,15 +2035,19 @@ export async function renderCourse(host, id, { go }) {
           const checkout = action('Continue to checkout', async () => {
             checkout.disabled = true;
             checkout.textContent = 'Preparing checkout…';
+            const checkoutWindow = window.open('about:blank', '_blank', 'noopener');
             try {
               const result = await P.lmsStartCheckout(course.id);
               const url = result.payment?.checkout_url;
               paymentState.textContent = result.payment
                 ? 'Payment status · ' + label(result.payment.status)
                 : '';
-              if (url) window.open(url, '_blank', 'noopener');
+              if (url && checkoutWindow) checkoutWindow.location.href = url;
+              else if (url) location.href = url;
+              else checkoutWindow?.close();
               checkout.textContent = 'Open checkout';
             } catch (error) {
+              checkoutWindow?.close();
               paymentState.textContent = error?.message || 'Checkout could not be prepared.';
               paymentState.dataset.tone = 'bad';
               checkout.textContent = 'Continue to checkout';
