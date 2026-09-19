@@ -619,3 +619,46 @@ class NotebookWorkspace(models.Model):
     class Meta:
         ordering = ['-updated_at']
 
+class CoursePayment(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        PAID = 'paid', 'Paid'
+        FAILED = 'failed', 'Failed'
+        CANCELLED = 'cancelled', 'Cancelled'
+        REFUNDED = 'refunded', 'Refunded'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_course_payments',
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name='payments',
+    )
+    provider = models.CharField(max_length=40, default='external', db_index=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=8, default='EUR')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    external_reference = models.CharField(max_length=240, blank=True, db_index=True)
+    checkout_url = models.URLField(max_length=1800, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='gravitas_course_payments_verified',
+        blank=True,
+        null=True,
+    )
+    verified_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['course', 'status', '-created_at'], name='grav_lms_pay_course_state'),
+            models.Index(fields=['user', 'status', '-created_at'], name='grav_lms_pay_user_state'),
+        ]
+
