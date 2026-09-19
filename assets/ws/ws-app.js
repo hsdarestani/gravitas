@@ -20,8 +20,8 @@
    ========================================================================== */
 
 import * as api from './ws-api.js?v=20260913-3';
-import * as P from './ws-platform.js?v=20260919-advanced6';
-import * as views from './ws-views.js?v=20260918-taskboard1';
+import * as P from './ws-platform.js?v=20260919-planning1';
+import * as views from './ws-views.js?v=20260919-planning1';
 import * as assets from './ws-core-assets.js?v=20260919-assets3';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js';
@@ -29,7 +29,7 @@ import * as research from './ws-research.js?v=20260913-4';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20260913-3';
+} from './ws-nav.js?v=20260919-planning1';
 import { renderDashboard, stopClock } from './ws-home.js';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
@@ -305,7 +305,7 @@ function renderRail() {
      name is what changed, not the slot.
 
      The mark is 'plusar', not 'mindmap'. Those are two different things and
-     mindmap is still the Mind Maps section's own icon in ws-nav.js, so
+     mindmap is still the Mind Maps section's own icon in ws-nav.js?v=20260919-planning1, so
      pointing this button back at it puts one drawing on two unrelated rows. */
   rail.append(railButton('plusar', 'Plusar', ui.dock && ui.dockTab === 'assistant', () => {
     openDock('assistant');
