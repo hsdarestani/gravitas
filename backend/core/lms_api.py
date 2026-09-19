@@ -106,6 +106,7 @@ def _certificate_json(enrollment):
         'issued_at': _iso(cert.issued_at),
         'revoked_at': _iso(cert.revoked_at),
         'valid': cert.revoked_at is None,
+        'download_url': f'/api/lms/certificates/{cert.code}/download/',
     }
 
 
