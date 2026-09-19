@@ -583,11 +583,11 @@ def admin_learning_assets(request, course_id):
     return JsonResponse({'ok': True, 'asset': _asset_json(item)}, status=201)
 
 
-@require_http_methods(['GET', 'DELETE'])
+@require_http_methods(['GET', 'PATCH', 'DELETE'])
 def learning_asset_detail(request, asset_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    item = LearningAsset.objects.select_related('course').filter(pk=asset_id).first()
+    item = LearningAsset.objects.select_related('course', 'lesson').filter(pk=asset_id).first()
     if not item:
         return _error('asset_not_found', 404)
     if request.method == 'DELETE':
@@ -601,6 +601,35 @@ def learning_asset_detail(request, asset_id):
             except FileNotFoundError:
                 pass
         return JsonResponse({'ok': True})
+    if request.method == 'PATCH':
+        if not _admin(request.user):
+            return _error('core_admin_required', 403)
+        data = _json_body(request)
+        if 'title' in data:
+            title = str(data.get('title') or '').strip()[:240]
+            if not title:
+                return _error('title_required')
+            item.title = title
+        if 'lesson_id' in data:
+            if data.get('lesson_id') in (None, ''):
+                item.lesson = None
+            else:
+                lesson = Lesson.objects.filter(pk=data['lesson_id'], module__course=item.course).first()
+                if not lesson:
+                    return _error('lesson_not_found', 404)
+                item.lesson = lesson
+        if 'source_url' in data and item.kind != LearningAsset.Kind.FILE:
+            source_url = str(data.get('source_url') or '').strip()[:1800]
+            parsed = urlparse(source_url)
+            if not source_url or parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+                return _error('invalid_source_url')
+            item.source_url = source_url
+        if 'metadata' in data:
+            if not isinstance(data['metadata'], dict):
+                return _error('invalid_metadata')
+            item.metadata = data['metadata']
+        item.save()
+        return JsonResponse({'ok': True, 'asset': _asset_json(item)})
     if not _can_access(request.user, item.course):
         return _error('course_enrollment_required', 403)
     return JsonResponse({'ok': True, 'asset': _asset_json(item)})
