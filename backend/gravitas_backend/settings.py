@@ -131,6 +131,9 @@ CORE_ASSET_NEXTCLOUD_MOUNTPOINT = os.environ.get('CORE_ASSET_NEXTCLOUD_MOUNTPOIN
 CORE_ASSET_NEXTCLOUD_GROUP = os.environ.get('CORE_ASSET_NEXTCLOUD_GROUP', 'gravitas-core-assets')
 LMS_MEDIA_ROOT = Path(os.environ.get('LMS_MEDIA_ROOT', '/var/lib/gravitas/lms-media'))
 LMS_ASSET_MAX_BYTES = int(os.environ.get('LMS_ASSET_MAX_BYTES', str(500 * 1024 ** 2)))
+LMS_JUPYTER_PUBLIC_URL = os.environ.get('LMS_JUPYTER_PUBLIC_URL', '').rstrip('/')
+LMS_MATHEMATICA_PUBLIC_URL = os.environ.get('LMS_MATHEMATICA_PUBLIC_URL', '').rstrip('/')
+LMS_LINKEDIN_API_VERSION = os.environ.get('LMS_LINKEDIN_API_VERSION', '202601')
 OPENEDX_ENABLED = os.environ.get('OPENEDX_ENABLED', '0') == '1'
 OPENEDX_LMS_URL = os.environ.get('OPENEDX_LMS_URL', 'https://learn.gravitasplus.com').rstrip('/')
 OPENEDX_CMS_URL = os.environ.get('OPENEDX_CMS_URL', 'https://studio.gravitasplus.com').rstrip('/')
