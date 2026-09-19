@@ -99,6 +99,11 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         self.assertIn("if (url.pathname.startsWith('/api/'))", sw)
         self.assertIn('saveOfflineCourseSnapshot', learner)
         self.assertIn('Offline read mode', learner)
+        self.assertIn('P.lmsExecuteNotebook(currentId)', learner)
+        advanced = self.read('backend/core/lms_advanced_api.py')
+        self.assertIn('def notebook_execute', advanced)
+        self.assertIn('LMS_JUPYTER_EXEC_URL', advanced)
+        self.assertIn('LMS_MATHEMATICA_EXEC_URL', advanced)
 
 
     def test_course_media_uses_nextcloud_folders_and_versions(self):
