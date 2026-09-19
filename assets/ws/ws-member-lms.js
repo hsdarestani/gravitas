@@ -1309,12 +1309,12 @@ function learningIntegrationsPanel() {
 }
 
 function courseDiscussionPanel(course) {
-  const box = section('Course group', 'A course-scoped discussion space for enrolled learners and instructors.');
-  const list = el('div', 'fl-stack');
-  const form = el('form', 'fl-form');
+  const box = section('Course group', 'A course-scoped chat for enrolled learners and instructors, with the conversation kept inside the course.');
+  const list = el('div', 'fl-course-chat');
+  const form = el('form', 'fl-course-chat__composer');
   const input = el('textarea', 'v-input fl-input fl-textarea');
-  input.rows = 3;
-  input.placeholder = 'Write to the course group…';
+  input.rows = 2;
+  input.placeholder = 'Message the course group…';
   const send = action('Send', () => {}, true); send.type = 'submit';
   form.append(input, send);
 
@@ -1323,15 +1323,22 @@ function courseDiscussionPanel(course) {
     try {
       const data = await P.lmsCourseDiscussion(course.id);
       list.innerHTML = '';
+      const viewerId = P.platform?.user?.user?.id;
       for (const item of data.messages || []) {
-        list.append(row({
-          title: item.author?.name || 'Learner',
-          meta: new Date(item.created_at).toLocaleString(),
-          body: item.deleted ? 'Message deleted.' : item.body,
-          badges: [item.reply_to_id ? 'Reply' : ''],
-        }));
+        const message = el('article', 'fl-course-chat__message');
+        if (viewerId && String(item.author?.id) === String(viewerId)) message.dataset.mine = 'true';
+        const head = el('div', 'fl-course-chat__meta');
+        head.append(
+          el('strong', null, item.author?.name || 'Learner'),
+          el('span', 'fl-muted', new Date(item.created_at).toLocaleString()),
+        );
+        if (item.reply_to_id) head.append(badge('Reply'));
+        const body = el('div', 'fl-course-chat__body', item.deleted ? 'Message deleted.' : item.body);
+        message.append(head, body);
+        list.append(message);
       }
       if (!(data.messages || []).length) list.append(empty('No messages yet', 'Start the course discussion.'));
+      list.scrollTop = list.scrollHeight;
     } catch (error) {
       list.innerHTML = '';
       list.append(empty('Discussion unavailable', error?.message || 'Try again.'));
