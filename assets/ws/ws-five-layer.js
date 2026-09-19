@@ -8,7 +8,7 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20260919-advanced6';
+} from './ws-member-lms.js?v=20260919-advanced7';
 import { renderMemberProgress } from './ws-member-progress.js?v=20260918-progress3';
 import { renderMemberSupport } from './ws-support.js?v=20260918-support1';
 import {
