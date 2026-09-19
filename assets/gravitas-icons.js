@@ -104,7 +104,17 @@
     plusar: "<g transform=\"translate(1.029 1.029) scale(0.914286)\" stroke-width=\"1.859\"><path d=\"M12 1.5C14.54 5.96 18.04 9.46 22.5 12C18.04 14.54 14.54 18.04 12 22.5C9.46 18.04 5.96 14.54 1.5 12C5.96 9.46 9.46 5.96 12 1.5Z\"/><circle cx=\"12\" cy=\"12\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     plus: "<g transform=\"translate(-2.099 -2.094) scale(1.174958)\" stroke-width=\"1.447\"><path d=\"M12 4.4v15.2\"/><path d=\"M4.4 12h15.2\"/></g>",
-    arrow: "<g transform=\"translate(-2.850 -0.453) scale(1.033855)\" stroke-width=\"1.644\"><path d=\"M3.4 12h17.2\"/><path d=\"m14.2 5.6 6.4 6.4-6.4 6.4\"/></g>",
+    /* The one mark where the centroid rule had to give way. Fitting solves the
+       ink centroid onto (12, 12), and an arrow carries almost all of its ink in
+       the head: solving the centroid centres the weight and leaves the drawing
+       itself sitting 2.4 units left of frame centre. That is invisible on a bare
+       glyph in a row of text and unmissable the moment the mark is dropped into a
+       circular plate, which is what the dashboard does with it — the shaft runs
+       out of the disc on one side and leaves a crescent of ground on the other. So this
+       one is fitted on its bounding box instead. Scale and stroke are untouched:
+       the extent is still the common 19.6 cap and the stroke still draws at 1.7.
+       Only the translate moved, to put the tip-to-tail span symmetric about 12. */
+    arrow: "<g transform=\"translate(-0.406 -0.406) scale(1.033855)\" stroke-width=\"1.644\"><path d=\"M3.4 12h17.2\"/><path d=\"m14.2 5.6 6.4 6.4-6.4 6.4\"/></g>",
     external: "<g transform=\"translate(-8.982 -3.969) scale(1.533503)\" stroke-width=\"1.109\"><path d=\"M6.2 17.8 17.8 6.2\"/><path d=\"M8.6 6.2h9.2v9.2\"/></g>",
     close: "<g transform=\"translate(-3.700 -3.704) scale(1.313744)\" stroke-width=\"1.294\"><path d=\"m5.2 5.2 13.6 13.6\"/><path d=\"m18.8 5.2-13.6 13.6\"/></g>",
     chevron: "<g transform=\"translate(-3.054 -2.465) scale(1.209200)\" stroke-width=\"1.406\"><path d=\"m9 4.6 7.4 7.4L9 19.4\"/></g>",

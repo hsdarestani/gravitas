@@ -21,7 +21,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/hero.css?v=up-f706806e3a02-g1df6ff09">
-<link rel="stylesheet" href="assets/topic-rail.css?v=up-f706806e3a02-g1df6ff09-tr2">
+<link rel="stylesheet" href="assets/topic-rail.css?v=up-f706806e3a02-g1df6ff09-tr5">
 <link rel="stylesheet" href="assets/chat.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
 </head>
@@ -122,16 +122,19 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      announced that a Topic existed and gave no evidence that anything stood
      behind it, so the only way to find out was to leave the page.
 
-     It is now a four-panel horizontal pass through the Topic itself. The
-     section pins under the header, the rail moves sideways as you scroll, and
-     at the end it releases and the page carries on down. Layout and behaviour
-     are in assets/topic-rail.css and assets/topic-rail.js; .video, .view and
+     It is now a four-panel horizontal pass through the Topic itself. With the
+     pointer over the rail a wheel gesture pages it sideways; with the pointer
+     anywhere else the page scrolls down as usual, and while nobody is pointing
+     at it the rail pages itself on a timer so the reader can see there is more
+     than one panel. It used to pin under the header and take the page's own
+     scrolling for four screens; it does not any more. Layout and behaviour are
+     in assets/topic-rail.css and assets/topic-rail.js; .video, .view and
      .comment come from site.css so the rail looks like the rest of the site
      rather than a widget dropped into it.
 
-     Without JavaScript, or on a phone, or with prefers-reduced-motion, this is
-     a plain horizontal scroller with snap points. Nothing below depends on the
-     script running. -->
+     Without JavaScript, on a phone, or with prefers-reduced-motion, this is a
+     plain horizontal scroller with snap points and no timer. Nothing below
+     depends on the script running. -->
 <section class="g-section trail" id="current-topic" data-rail="native"><div class="g-container">
   <div class="trail__track">
     <div class="trail__stage">
@@ -253,7 +256,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       </div>
 
       <div class="trail__line" aria-hidden="true"><span></span></div>
-      <p class="trail__hint">Scroll sideways, or use the dots.</p>
+      <p class="trail__hint">Scroll over the rail to page sideways, or use the dots.</p>
     </div>
   </div>
 </div></section>
@@ -376,8 +379,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </footer>
 <script src="assets/site.js?v=20260918-auth2"></script>
 <script src="assets/hero.js?v=up-f706806e3a02-g1df6ff09"></script>
-<script src="assets/cms-home.js?v=20260918-fix2" defer></script>
-<script src="assets/topic-rail.js?v=up-f706806e3a02-g1df6ff09-tr2" defer></script>
+<script src="assets/cms-home.js?v=20260918-fix3" defer></script>
+<script src="assets/topic-rail.js?v=up-f706806e3a02-g1df6ff09-tr5" defer></script>
 <script src="assets/chat.js?v=20260918-ai2" defer></script>
 <script src="assets/production-bridge.js?v=20260918-auth2" defer></script>
 </body>

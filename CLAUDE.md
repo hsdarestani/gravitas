@@ -55,7 +55,10 @@ node scripts/check-api-coverage.mjs            # --strict also fails on orphan r
 
 `scripts/audit-live-content.js` is not a CLI script. Paste it into the browser
 console on `/workspace.html` while signed in to see which routes actually hold
-rows.
+rows. `scripts/probe-avatar-save.js` is pasted the same way and walks the size
+of a profile-picture PATCH upwards to find where the serving chain starts
+returning 502; unlike the audit, it writes, and restores the original picture
+when it finishes.
 
 Seed or remove the private workspace demo for an existing account:
 

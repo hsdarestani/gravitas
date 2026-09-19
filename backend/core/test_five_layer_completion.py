@@ -8,7 +8,7 @@ from .layer_access import module_access
 from .layer_models import ActivityEvent, ModuleGrant
 from .lms_models import Certificate, Course, CourseEnrollment
 from .models import Comment, ProjectMembership, ReaderSavedItem, ResearchProject
-from .platform_models import ResearchProjectProfile
+from .platform_models import ResearcherProfile, ResearchProjectProfile
 from .platform_runtime_v3 import ensure_platform_workspaces
 
 
@@ -85,6 +85,20 @@ class FiveLayerCompletionTests(TestCase):
         self.assertEqual(data['research']['projects'], 1)
         self.assertTrue(any(item['kind'] == 'learning' for item in data['next_actions']))
         self.assertTrue(any(item['kind'] == 'research' for item in data['next_actions']))
+
+    def test_member_dashboard_carries_the_saved_profile_picture(self):
+        """The dashboard shows the picture set in Settings, and reading the
+        dashboard never creates the row that holds it."""
+        picture = 'data:image/webp;base64,UklGRhYAAABXRUJQVlA4TAoAAAAvAAAAAAfQ//73v/+BiOh/AAA='
+
+        self.client.force_login(self.member)
+        data = self.client.get('/api/member/dashboard/').json()
+        self.assertEqual(data['member']['avatar'], '')
+        self.assertFalse(ResearcherProfile.objects.filter(user=self.member).exists())
+
+        ResearcherProfile.objects.create(user=self.member, avatar=picture)
+        data = self.client.get('/api/member/dashboard/').json()
+        self.assertEqual(data['member']['avatar'], picture)
 
     @patch('core.platform_admin_extended.nextcloud_bridge.add_project_user')
     def test_core_admin_can_operate_research_metadata_and_membership(self, add_project_user):

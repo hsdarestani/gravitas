@@ -31,7 +31,7 @@ import {
   WORKSPACES, availableWorkspaces, spaceOf,
 } from './ws-nav.js?v=20260913-3';
 import { renderDashboard, stopClock } from './ws-home.js';
-import { renderSettings } from './ws-settings.js?v=20260918-auth2';
+import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260913-2';
 

@@ -29,15 +29,14 @@
  * video, the pictures, the two positions, the comments. Four kinds of content
  * read as one sequence because the frame never moves.
  *
- * Two modes, and the fallback is the honest one:
- *
- *   [data-rail="native"]  a real overflow-x scroller with snap points. What
- *                         the markup renders as before any script runs, what a
- *                         phone gets, and what a reader with
- *                         prefers-reduced-motion keeps. Nothing is hijacked.
- *   [data-rail="pinned"]  assets/topic-rail.js measures the rail, gives the
- *                         track the height that overflow needs, and drives
- *                         --rail-x from scroll position. Desktop only.
+ * One mode, and it is the honest one: a real overflow-x scroller with snap
+ * points, which is what the markup renders as before any script runs. There
+ * used to be a second, pinned mode that held the section under the header and
+ * drove the rail sideways from vertical scroll; it made everything below the
+ * section reachable only by paging through the rail, so it is gone.
+ * assets/topic-rail.js now only pages the scroller — sideways under the
+ * pointer, on a timer when nobody is pointing at it — and never takes the
+ * page's own scrolling away.
  *
  * .video, .view and .comment come from site.css. The rail owns layout, not
  * appearance — that is why this file is mostly grid.
@@ -45,7 +44,6 @@
 
 .trail {
   --rail-gap: var(--g-space-md);
-  --rail-x: 0px;
   --rail-p: 0;
   /* Phones first: tall enough to hold a panel, short enough to sit inside the
      viewport with the section head above it. */
@@ -57,14 +55,13 @@
   }
 }
 
-/* The section head lives INSIDE the stage, so it pins together with the bar
-   and the rail instead of scrolling away above them. It used to sit above the
-   track, and that forced the stage to start at the very top of the pinned
-   area: centring it there would have opened a dead gap between the heading and
-   the bar on the way in. The cost was that the panels sat high under the
-   header with the bottom of the screen empty. As one pinned group the whole
-   composition can be centred in the space under the header, and the heading
-   stays readable for the length of the horizontal pass. */
+/* The section head lives INSIDE the stage, with the bar and the rail, because
+   the three are one composition: the heading names the Topic, the bar says
+   which of its four panels you are on, and the rail moves under both. The
+   pinned build needed them grouped so they could be centred under the header
+   together; that reason is gone, but the grouping is still the right one and
+   the stage is now what the pointer- and timer-driven paging treats as "the
+   section" — hovering anywhere in it pauses the slideshow. */
 .trail .lp-head { margin-bottom: var(--g-space-md); }
 .trail__stage {
   position: relative;
@@ -74,7 +71,8 @@
 }
 
 /* Stage bar: what you are looking at, and how far through it you are. It sits
-   inside the stage rather than above it so it stays put while the rail moves. */
+   above the rail and outside the scroller, so it stays put while the rail
+   moves — under the pointer, under the dots, or on its own timer. */
 .trail__bar {
   display: flex;
   align-items: baseline;
@@ -130,8 +128,15 @@
   scroll-padding-inline: var(--g-space-2xs);
   padding-bottom: var(--g-space-2xs);
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  /* The rail used to show a thin native scrollbar, which was the only progress
+     indicator it had outside pinned mode. Now that the progress line under the
+     rail is always on, the scrollbar is a second bar saying the same thing one
+     pixel row away from it — so it goes, the way .topic-nav__row and
+     .fields__ticker already hide theirs. The line, the dots and the count say
+     where you are; the wheel, a drag and a swipe all still move the rail. */
+  scrollbar-width: none;
 }
+.trail__rail::-webkit-scrollbar { width: 0; height: 0; }
 
 .trail__panel {
   flex: 0 0 auto;
@@ -308,46 +313,22 @@
   .trail__talk .comment p { -webkit-line-clamp: 4; }
 }
 
-/* Pinned mode ------------------------------------------------------------ */
-
-.trail[data-rail="pinned"] .trail__track { position: relative; }
-/* The stage takes the whole height under the header and centres the group in
-   it, so the panels land in the middle of the screen rather than hanging from
-   the top with the lower half of the viewport empty. This is only safe because
-   the section head moved inside the stage: the earlier version centred a
-   full-height stage whose head was outside it, and the centring then showed up
-   as a hundred-odd pixels of nothing between the heading and the bar on the way
-   in. --panel-h is clamped against the same viewport height, 14rem of which is
-   reserved for the head, the bar and the progress line, so the group fits the
-   box instead of being clipped by it. topic-rail.js measures this element for
-   the track's height, so the rail still ends on its last panel. */
-.trail[data-rail="pinned"] .trail__stage {
-  position: sticky;
-  top: var(--g-header-h, 4.5rem);
-  height: calc(100svh - var(--g-header-h, 4.5rem));
-  justify-content: center;
-  overflow: clip;
-}
-.trail[data-rail="pinned"] .trail__rail {
-  overflow: visible;
-  scroll-snap-type: none;
-  padding-bottom: 0;
-  transform: translate3d(calc(var(--rail-x) * -1), 0, 0);
-  will-change: transform;
-}
-
-/* The progress line only means anything while the section is pinned. */
-.trail__line { display: none; height: 2px; background: var(--g-hairline); border-radius: 2px; overflow: hidden; }
-.trail[data-rail="pinned"] .trail__line { display: block; }
+/* The bar's progress line ------------------------------------------------
+   It used to appear only in pinned mode, because only there did the section
+   have a progress to report. Now that the rail pages under the pointer and on
+   its own timer, it is the one element that says "there is more to the right"
+   without asking the reader to have already found the dots, so it is always
+   on. topic-rail.js keeps --rail-p in step with the rail's own scrollLeft,
+   including after a swipe that never went through the script. */
+.trail__line { display: block; height: 2px; background: var(--g-hairline); border-radius: 2px; overflow: hidden; }
 .trail__line span {
   display: block; height: 100%; width: 100%;
   background: var(--g-accent);
   transform: scaleX(var(--rail-p)); transform-origin: left center;
+  transition: transform var(--g-dur) var(--g-ease-orbit);
 }
 
-/* Native mode gets a swipe hint instead of a progress line, once and quietly. */
 .trail__hint { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0; }
-.trail[data-rail="pinned"] .trail__hint { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .trail__dot::before { transition: none; }

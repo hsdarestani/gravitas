@@ -14,6 +14,7 @@ from .models import (
     SupportTicket,
     TopicProgress,
 )
+from .platform_models import ResearcherProfile
 from .topic_progress import progress_json
 
 
@@ -169,6 +170,7 @@ def member_dashboard(request):
 
     user = request.user
     profile, _ = CommunityProfile.objects.get_or_create(user=user)
+    avatar = ResearcherProfile.objects.filter(user=user).values_list('avatar', flat=True).first() or ''
     access = effective_modules(user)
     lms_access = bool(access.get(ModuleGrant.Module.LMS, {}).get('enabled'))
     research_access = bool(access.get(ModuleGrant.Module.RESEARCH, {}).get('enabled'))
@@ -233,6 +235,12 @@ def member_dashboard(request):
             'name': user.get_full_name() or user.get_username() or user.email,
             'community_role': profile.role,
             'community_status': profile.status,
+            # The same picture the settings panel writes, so the dashboard
+            # shows a face rather than an initial. Read, never created: a GET
+            # of a dashboard has no business writing a profile row, and an
+            # account with no picture is an empty string here, which is the
+            # signal the client already falls back on.
+            'avatar': avatar,
             'access': access,
         },
         'library': {

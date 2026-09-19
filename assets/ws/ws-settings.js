@@ -13,6 +13,7 @@
 import * as P from './ws-platform.js';
 import { el, panel, empty, skeleton, failure } from './ws-views.js';
 import { WEATHER_PLACES, weatherPlace, weatherEnabled } from './ws-home.js';
+import { cropAvatar } from './ws-avatar-crop.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -58,46 +59,11 @@ function note(text, tone) {
    AVATAR
    ========================================================================== */
 
-const AVATAR_PX = 256;
-
-/* Resized and re-encoded in the browser before it is sent.
-
-   Three reasons, in order of how much they matter. A phone photo is several
-   megabytes and the column that stores this is capped well below that. The
-   re-encode drops the EXIF block, which on a phone photo carries the GPS
-   coordinates of wherever it was taken, and nobody uploading a headshot
-   intends to publish their home address. And a square is what every place
-   that shows it wants, so cropping once here beats CSS cropping it
-   differently in four places. */
-function toSquareDataURI(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('unreadable'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('not_an_image'));
-      img.onload = () => {
-        const side = Math.min(img.width, img.height);
-        const canvas = document.createElement('canvas');
-        canvas.width = AVATAR_PX;
-        canvas.height = AVATAR_PX;
-
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingQuality = 'high';
-        // Centre crop, then scale. Cropping from the middle is right far more
-        // often than any corner for a picture of a person.
-        ctx.drawImage(
-          img,
-          (img.width - side) / 2, (img.height - side) / 2, side, side,
-          0, 0, AVATAR_PX, AVATAR_PX,
-        );
-        resolve(canvas.toDataURL('image/webp', 0.86));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
+/* The picture is framed, resized and re-encoded in the browser before it is
+   sent; ws-avatar-crop.js owns that and explains why at length. What matters
+   here is that this panel never sends the file it was handed — it sends a
+   256px square the account holder confirmed, and sends nothing at all if
+   they dismissed the dialog. */
 
 function avatarPanel(profile, onSaved) {
   const box = panel('Profile picture');
@@ -126,7 +92,7 @@ function avatarPanel(profile, onSaved) {
   picker.accept = 'image/png,image/jpeg,image/webp,image/gif';
   picker.hidden = true;
 
-  const choose = el('button', 'ws-btn ws-btn--solid', 'Choose a picture');
+  const choose = el('button', 'ws-btn ws-btn--solid', profile.avatar ? 'Change picture' : 'Choose a picture');
   choose.type = 'button';
   choose.addEventListener('click', () => picker.click());
 
@@ -134,21 +100,44 @@ function avatarPanel(profile, onSaved) {
   clear.type = 'button';
   clear.hidden = !profile.avatar;
 
-  const status = note('PNG, JPEG, WebP or GIF. It is cropped square and resized to 256 pixels here, before it is sent.');
+  const status = note('PNG, JPEG, WebP or GIF. You frame it here, and it is resized to a 256 pixel square before it is sent.');
 
   const save = async (uri) => {
     status.textContent = 'Saving…';
     status.dataset.tone = '';
+
+    let data;
     try {
-      const data = await P.call('/platform/researchers/me/', { method: 'PATCH', body: { avatar: uri } });
-      paint(data.profile.avatar);
-      clear.hidden = !data.profile.avatar;
-      status.textContent = uri ? 'Picture saved.' : 'Picture removed.';
-      status.dataset.tone = 'ok';
+      data = await P.call('/platform/researchers/me/', { method: 'PATCH', body: { avatar: uri } });
+    } catch (err) {
+      /* Named when the server named a reason, and carrying the bare code
+         when it did not. "The picture was not saved" on its own was a dead
+         end for anybody trying to report the problem: a 403 from the layer
+         guard, a CSRF rejection and a 500 all read identically. The code is
+         ugly in the interface and it is the only thing that tells the two
+         apart, so it goes in — after the sentence, in brackets. */
+      console.error('avatar save failed', err);
+      const known = MESSAGES[err.message];
+      const code = err.status ? `HTTP ${err.status}` : err.message;
+      status.textContent = known || `The picture was not saved (${code}).`;
+      status.dataset.tone = 'bad';
+      return;
+    }
+
+    paint(data.profile.avatar);
+    clear.hidden = !data.profile.avatar;
+    choose.textContent = data.profile.avatar ? 'Change picture' : 'Choose a picture';
+    status.textContent = uri ? 'Picture saved.' : 'Picture removed.';
+    status.dataset.tone = 'ok';
+
+    /* Outside the request's own error handling, and defended separately.
+       This repaints the rail, and when it was inside the try a failure
+       anywhere in that redraw was reported as "the picture was not saved"
+       — about a picture that was, in fact, already saved. */
+    try {
       onSaved?.(data.profile);
     } catch (err) {
-      status.textContent = MESSAGES[err.message] || 'The picture was not saved.';
-      status.dataset.tone = 'bad';
+      console.error('profile change handler failed', err);
     }
   };
 
@@ -156,10 +145,18 @@ function avatarPanel(profile, onSaved) {
     const file = picker.files?.[0];
     picker.value = '';   // so choosing the same file twice fires again
     if (!file) return;
-    status.textContent = 'Preparing…';
+    status.textContent = 'Opening…';
     status.dataset.tone = '';
     try {
-      save(await toSquareDataURI(file));
+      const uri = await cropAvatar(file);
+      /* Dismissed. Nothing was sent and nothing changed, so the panel says
+         so rather than leaving "Opening…" standing as if it were working. */
+      if (!uri) {
+        status.textContent = 'No change. The picture was not sent.';
+        status.dataset.tone = '';
+        return;
+      }
+      save(uri);
     } catch {
       status.textContent = 'That file could not be read as an image.';
       status.dataset.tone = 'bad';
@@ -185,6 +182,7 @@ const MESSAGES = {
   avatar_unsupported_type: 'Use a PNG, JPEG, WebP or GIF.',
   avatar_not_base64: 'That file could not be read as an image.',
   avatar_too_large: 'That picture is still too large after resizing. Try a smaller one.',
+  research_access_required: 'This account cannot edit a profile yet. Ask a Gravitas+ administrator for research access.',
   current_password_incorrect: 'That is not your current password.',
   password_rejected: 'That password was rejected. Use something longer and less common.',
   authentication_required: 'Your session has ended. Sign in again.',

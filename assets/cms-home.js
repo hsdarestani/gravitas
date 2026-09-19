@@ -54,12 +54,22 @@
         if (say) say.textContent = item.summary || topic.hero_lead || '';
         var meta = panels[0].querySelector('.trail__meta');
         if (meta) meta.textContent = landing.essay_meta || 'Essay · Video · Sources · Simulation';
+        /* No fragment on the two general ways in. A reader who clicks the
+           first panel is entering the Topic, not asking for one section of it,
+           and a fragment means the browser drops them partway down a page they
+           have not seen the top of — #essay lands about a fifth of the way in,
+           and the discussion panel's #talk lands at the very bottom. The
+           static hrefs in index.html never carried a fragment here; this
+           script was adding one only once live content arrived, so the same
+           button behaved differently depending on whether the API answered.
+           The buttons that name a section below still keep their anchors:
+           there the jump is the thing that was promised. */
         var links = panels[0].querySelectorAll('.trail__act a');
-        if (links[0]) { links[0].href = topicUrl(item, '#essay'); links[0].textContent = 'Read the essay'; }
+        if (links[0]) { links[0].href = topicUrl(item, ''); links[0].textContent = 'Read the essay'; }
         var video = panels[0].querySelector('.video');
         if (video) {
-          video.href = topicUrl(item, '#video');
-          video.setAttribute('aria-label', 'Open video: ' + item.title);
+          video.href = topicUrl(item, '');
+          video.setAttribute('aria-label', 'Open topic: ' + item.title);
         }
       }
 

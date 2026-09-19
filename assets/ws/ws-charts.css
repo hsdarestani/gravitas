@@ -68,7 +68,7 @@
   }
   .wc-tile--button { cursor: pointer; transition: border-color var(--g-dur) var(--ws-ease), background var(--g-dur) var(--ws-ease); }
   .wc-tile--button:hover { border-color: var(--g-border); background: var(--g-surface-hover); }
-  .wc-tile--button:hover .wc-tile__go { opacity: 1; transform: none; }
+  .wc-tile--button:hover .wc-tile__go { opacity: 1; }
 
   /* The featured tile carries the one number the screen is actually about,
      and it is the only filled object in the row. One filled card gives the
@@ -111,8 +111,13 @@
     border: 1px solid var(--g-hairline);
     color: var(--g-text-subtle);
     opacity: .5;
-    transform: translateX(-2px);
-    transition: opacity var(--g-dur) var(--ws-ease), transform var(--g-dur) var(--ws-ease);
+    /* The affordance is opacity alone. This used to park the disc 2px left and
+       slide it home on hover, which read as motion on one tile and as a
+       misalignment on the other five: six discs in a row, five of them off
+       their own centre line, and the hovered one the only one true. A row of
+       tiles is a ruler — the eye reads the discs against each other, not
+       against the tile they sit in — so nothing here moves. */
+    transition: opacity var(--g-dur) var(--ws-ease);
   }
   .wc-tile__go .g-wi { width: 11px; height: 11px; }
   .wc-tile__value {
@@ -260,7 +265,7 @@
     grid-auto-columns: minmax(0, 1fr);
     align-items: end;
     gap: 8px;
-    min-height: 150px;
+    min-height: 132px;
   }
   .wc-column { display: grid; gap: 7px; justify-items: center; }
   .wc-column__track {
@@ -269,7 +274,7 @@
     justify-content: center;
     width: 100%;
     max-width: 44px;
-    height: 118px;
+    height: 104px;
     border-radius: var(--g-radius);
     /* The unfilled part is hatched rather than flat, which reads as "no
        value here" instead of as a second, paler series. */
@@ -332,6 +337,9 @@
     border-radius: var(--wc-r);
     background: var(--g-surface-raised);
   }
+  /* The body takes whatever height the row hands the card, so a sparse body
+     can centre itself in it instead of hanging from the title. */
+  .wc-card:has(> .wc-card__head) { align-content: stretch; grid-template-rows: auto minmax(0, 1fr); }
   .wc-card--quiet { background: var(--g-surface-sunken); }
   /* The one tinted card. It holds whatever the member should do next, which
      is the only thing on a dashboard that is an instruction rather than a
@@ -340,7 +348,7 @@
     border-color: color-mix(in srgb, var(--g-accent) 36%, transparent);
     background:
       radial-gradient(120% 130% at 100% 0%,
-        color-mix(in srgb, var(--g-accent) 16%, transparent) 0%,
+        color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
         transparent 60%),
       var(--g-surface-raised);
   }
@@ -353,7 +361,12 @@
   }
   .wc-card__title { margin: 0; font-size: 14px; font-weight: var(--g-w-semibold); letter-spacing: var(--g-track-head); }
   .wc-card__note { margin: 2px 0 0; color: var(--g-text-subtle); font-size: var(--ws-fs-xs); }
-  .wc-card__body { display: grid; gap: 10px; min-width: 0; }
+  .wc-card__body { display: grid; align-content: start; gap: 10px; min-width: 0; }
+  /* A card holding only a line (and perhaps its buttons) sits in the middle
+     of whatever height the row gives it. Pinned to the top it reads as a
+     card that failed to finish loading. */
+  .wc-card__body:has(> .wc-note:only-child),
+  .wc-card__body:has(> .wc-note:first-child + .wc-actions:last-child) { align-content: center; }
   /* Charts inside a card have no padding of their own; the card is the box. */
   .wc-card .wc-bars, .wc-card .wc-columns, .wc-card .wc-empty { padding: 0; }
 
@@ -400,27 +413,44 @@
   .wc-item__mark .g-wi { width: 15px; height: 15px; }
   .wc-item--marked { grid-template-columns: auto minmax(0, 1fr) auto; }
 
-  /* The bento. Twelve columns so a card can take a half, a third or a
-     quarter of the row without a new class per arrangement. */
-  .wc-bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--ws-gutter); }
+  /* THE BENTO.
+     One grid for the whole screen, never a stack of separate row grids.
+     That was the mistake in the first layout: each row was its own grid,
+     so a 7/5 row sat above a 5/3/4 row and none of the vertical edges
+     lined up. Twelve columns, every span a multiple of four at desk width,
+     and the two gridlines at 4 and 8 run unbroken from the top of the
+     screen to the bottom.
+
+     Rows stretch. A short card beside a tall one leaves space at its
+     bottom, and that is the right trade: a ragged staircase of cards reads
+     as breakage, an aligned grid with air in it reads as layout. Cards are
+     given enough to say that the air stays small. */
+  .wc-bento {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: minmax(min-content, auto);
+    gap: var(--ws-gutter);
+    align-items: stretch;
+  }
   .wc-bento > * { grid-column: span 12; }
   @media (min-width: 900px) {
-    .wc-bento > [data-span="3"] { grid-column: span 3; }
+    /* Tiles take two columns, six to a row, and their edges fall on the
+       same lines the cards below them use. */
+    .wc-bento > [data-span="2"] { grid-column: span 2; }
     .wc-bento > [data-span="4"] { grid-column: span 4; }
-    .wc-bento > [data-span="5"] { grid-column: span 5; }
     .wc-bento > [data-span="6"] { grid-column: span 6; }
-    .wc-bento > [data-span="7"] { grid-column: span 7; }
     .wc-bento > [data-span="8"] { grid-column: span 8; }
   }
   @media (min-width: 620px) and (max-width: 899px) {
     .wc-bento > [data-span] { grid-column: span 6; }
+    .wc-bento > [data-span="2"] { grid-column: span 4; }
+  }
+  @media (max-width: 619px) {
+    .wc-bento > [data-span="2"] { grid-column: span 6; }
   }
 
-  /* ---- Dashboard composition -------------------------------------------
-     Layout classes used by the screens that assemble the kit. They live
-     here rather than in each screen's sheet because the proportions are a
-     property of the charts, not of any one dashboard. */
-  /* The member's identity is a line, not a card. It was a card in the first
+  /* ---- The member line ---------------------------------------------------
+     The member's identity is a line, not a card. It was a card in the first
      draft, and on an account with nothing in it that card was two hundred
      pixels of empty surface at the top of the screen. */
   .wc-ident { display: flex; align-items: center; gap: 10px; min-width: 0; margin-top: 2px; }
@@ -439,18 +469,12 @@
     font-size: 15px;
     font-weight: var(--g-w-semibold);
     color: var(--g-accent);
+    overflow: hidden;
   }
-  .wc-split {
-    display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-    gap: var(--ws-gutter);
-    align-items: start;
-  }
-  .wc-split--wide { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
-
-  @media (max-width: 980px) {
-    .wc-split, .wc-split--wide { grid-template-columns: 1fr; }
-  }
+  /* With a picture the slot is the picture: the raised fill would show as a
+     ring around a photo that already has its own hairline. */
+  .wc-ident__avatar[data-picture] { background: none; padding: 0; }
+  .wc-ident__avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
   @media (max-width: 620px) {
     .wc-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .wc-bar { grid-template-columns: minmax(70px, 34%) minmax(0, 1fr) 30px; }

@@ -81,6 +81,11 @@
   /* The panel whose start the rail is closest to having reached. The 48px of
      slack keeps the count from flicking back a panel while a snap settles. */
   function nearest(x) {
+    /* The rail runs out of scroll before the last panel's own start reaches
+       the left edge, so measuring by start alone leaves the count stuck on the
+       second-to-last panel for the whole end of the rail. At the end, the end
+       is the answer. */
+    if (x >= maxScroll() - 1) return panels.length - 1;
     var best = 0;
     for (var i = 0; i < panels.length; i++) {
       if (offsetOf(panels[i]) <= x + 48) best = i;
@@ -185,10 +190,17 @@
   stage.addEventListener('focusout', function (e) {
     if (!stage.contains(e.relatedTarget)) release();
   });
-  rail.addEventListener('touchstart', engage, { passive: true });
+  /* A swipe leaves no pointer behind, so on touch nothing would ever release
+     the rail again. One timer, restarted by each swipe, hands it back after a
+     quiet spell rather than the instant the finger lifts. */
+  var touchRelease = 0;
+  rail.addEventListener('touchstart', function () {
+    window.clearTimeout(touchRelease);
+    engage();
+  }, { passive: true });
   rail.addEventListener('touchend', function () {
-    /* A swipe leaves no pointer behind, so nothing would ever release it. */
-    window.setTimeout(release, AUTO_EVERY);
+    window.clearTimeout(touchRelease);
+    touchRelease = window.setTimeout(release, AUTO_EVERY);
   }, { passive: true });
 
   document.addEventListener('visibilitychange', restartAuto);

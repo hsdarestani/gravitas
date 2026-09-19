@@ -151,6 +151,24 @@ function initial(member) {
   return source ? source.charAt(0).toUpperCase() : '';
 }
 
+/* The picture from Settings when the account has one, the initial when it
+   does not. The slot is the same size either way, so setting a picture does
+   not shift the line it sits on. The image is decorative here — the name is
+   right beside it — so its alt is empty rather than a repeat of the name. */
+function avatarNode(member) {
+  const slot = el('span', 'wc-ident__avatar');
+  if (member?.avatar) {
+    const img = el('img');
+    img.src = member.avatar;
+    img.alt = '';
+    slot.append(img);
+    slot.dataset.picture = 'true';
+  } else {
+    slot.textContent = initial(member);
+  }
+  return slot;
+}
+
 /* What the gauge is allowed to average over: the three things the payload
    counts completions for. Courses are counted as active plus completed
    rather than as every enrollment row, because a dropped enrollment is not
@@ -222,7 +240,7 @@ function activityMix(activity = []) {
    nothing in it yet. */
 function identity(member) {
   const strip = el('div', 'wc-ident');
-  strip.append(el('span', 'wc-ident__avatar', initial(member)));
+  strip.append(avatarNode(member));
   const names = el('div');
   names.append(el('span', 'wc-ident__name', member.name));
   names.append(el('span', 'wc-ident__meta', P.meta([member.email, label(member.community_role), label(member.community_status)])));
@@ -283,8 +301,15 @@ function memberTiles(data, go) {
   /* Marked in series order so a layer keeps one colour across the tiles,
      the bar chart and the activity strip. Two charts that disagree about
      what blue means are worse than one chart. */
-  tiles.forEach((tile, position) => { tile.dataset.series = String((position % 5) + 1); });
-  return C.statGrid(tiles);
+  tiles.forEach((tile, position) => {
+    tile.dataset.series = String((position % 5) + 1);
+    /* Two of twelve columns each, so six tiles fill a row and their edges
+       land on the same gridlines the cards below them use. The tiles are
+       returned loose rather than in a grid of their own: the dashboard is
+       one grid, and a nested one would break that alignment. */
+    tile.dataset.span = '2';
+  });
+  return tiles;
 }
 
 /* ---- The cards ---------------------------------------------------------- */
@@ -298,7 +323,7 @@ function rhythmCard(data, go) {
   const box = C.card({
     title: 'Activity',
     note: capped ? 'Your twelve most recent events, by day' : 'The last seven days',
-    span: 7,
+    span: 8,
     action: linkButton(go, 'History', '/workspace/dashboard/progress'),
   });
 
@@ -316,7 +341,7 @@ function rhythmCard(data, go) {
    the three places the work actually starts, instead of a paragraph saying
    that there is nothing waiting. */
 function nextCard(data, go) {
-  const box = C.card({ title: 'Up next', note: 'Unfinished work across your layers', span: 5, tone: 'accent' });
+  const box = C.card({ title: 'Up next', note: 'Unfinished work across your layers', span: 4, tone: 'accent' });
   const items = data.next_actions || [];
 
   if (!items.length) {
@@ -363,7 +388,7 @@ function layerCard(data, go) {
     rows.push({ label: 'Projects', value: count(research.projects), series: '5', onClick: () => go('/workspace/research') });
   }
 
-  const box = C.card({ title: 'Across your account', note: 'Items in the layers you can open', span: 5 });
+  const box = C.card({ title: 'Across your account', note: 'Items in the layers you can open', span: 4 });
   box.body.append(C.barRows(rows, { scaffold: true }));
   return box.box;
 }
@@ -376,7 +401,7 @@ function completionCard(data) {
   const learning = data.learning || {};
   const tracked = trackedWork(data);
 
-  const box = C.card({ title: 'Completion', note: 'Topics, paths and courses', span: 3 });
+  const box = C.card({ title: 'Completion', note: 'Topics, paths and courses', span: 4 });
   box.body.append(C.gauge({
     value: tracked.done,
     total: tracked.total,
@@ -425,7 +450,7 @@ function activityCard(data, go) {
     box.body.append(C.note('No activity yet. Comments, topic progress, learning and research activity appear here.'));
     return box.box;
   }
-  box.body.append(C.list(items.slice(0, 6).map((item) => C.listItem({
+  box.body.append(C.list(items.slice(0, 4).map((item) => C.listItem({
     title: item.title,
     meta: P.meta([item.meta, date(item.created_at)]),
     icon: NEXT_ICONS[item.kind] || 'activity',
@@ -454,6 +479,20 @@ function discussionCard(data, go) {
     { label: 'Published', value: count(talk.published), series: '2' },
     { label: 'Pending', value: count(talk.pending), series: '4' },
   ]));
+
+  /* The three most recent comments under the split. The payload already
+     carries them, and without them this card is one bar beside a list six
+     rows tall, which is the shape that made the row look broken. */
+  const recent = talk.recent || [];
+  if (recent.length) {
+    box.body.append(C.list(recent.slice(0, 3).map((item) => C.listItem({
+      title: item.content_key.replace(/-/g, ' '),
+      meta: P.meta([label(item.status), date(item.updated_at)]),
+      series: item.status === 'published' ? '2' : '4',
+      icon: 'collaboration',
+      onClick: () => go('/workspace/dashboard/discussions'),
+    }))));
+  }
   return box.box;
 }
 
@@ -479,10 +518,15 @@ export async function renderMemberOverview(host, { go }) {
     tools.append(link(go, 'Progress', '/workspace/dashboard/progress', true));
     head?.append(tools);
 
-    wrap.append(memberTiles(data, go));
-    wrap.append(C.bento([rhythmCard(data, go), nextCard(data, go)]));
-    wrap.append(C.bento([layerCard(data, go), completionCard(data), savedCard(data, go)]));
-    wrap.append(C.bento([activityCard(data, go), discussionCard(data, go)]));
+    /* One grid for the whole screen. The spans read 2·6 / 8·4 / 4·4·4 /
+       8·4, so every card edge falls on the gridline at 4 or 8 and the
+       columns run straight down the page. */
+    wrap.append(C.bento([
+      ...memberTiles(data, go),
+      rhythmCard(data, go), nextCard(data, go),
+      layerCard(data, go), completionCard(data), savedCard(data, go),
+      activityCard(data, go), discussionCard(data, go),
+    ]));
   } catch (error) {
     errorView(host, 'Dashboard', error, () => renderMemberOverview(host, { go }));
   }

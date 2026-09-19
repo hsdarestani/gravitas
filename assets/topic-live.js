@@ -451,7 +451,7 @@
           reply.type = 'button';
           reply.className = 'topic-comment__action';
           reply.textContent = 'Reply';
-          reply.addEventListener('click', function () { showComposer(slug, compose, comment.id, comment.author, authenticated); });
+          reply.addEventListener('click', function () { showComposer(slug, compose, comment.id, comment.author, authenticated, true); });
           actions.append(like, reply);
         }
         host.appendChild(article);
@@ -464,10 +464,16 @@
     } else {
       appendRows(0, list, 0);
     }
-    showComposer(slug, compose, null, '', authenticated);
+    showComposer(slug, compose, null, '', authenticated, false);
   }
 
-  function showComposer(slug, host, parentId, parentName, authenticated) {
+  /* takeFocus is false on the first render and true every time the reader
+     opened the composer themselves. Focusing an element scrolls the page to
+     it, and this form sits at the very bottom of the Topic: focusing it while
+     the page was still assembling threw a signed-in reader straight past the
+     essay and into the discussion, the moment they opened the Topic. Anonymous
+     readers never saw it, because they get the sign-in callout instead. */
+  function showComposer(slug, host, parentId, parentName, authenticated, takeFocus) {
     host.innerHTML = '';
     if (!authenticated) {
       host.innerHTML = '<div class="topic-login-callout"><h3>Join the discussion</h3><p>Sign in or create an account to comment, reply or like.</p>' +
@@ -483,7 +489,7 @@
       '<div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Post</button><span class="g-hint" data-comment-note>Comments are reviewed before publication.</span></div>';
     host.appendChild(form);
     var cancel = form.querySelector('[data-cancel-reply]');
-    if (cancel) cancel.addEventListener('click', function () { showComposer(slug, host, null, '', true); });
+    if (cancel) cancel.addEventListener('click', function () { showComposer(slug, host, null, '', true, true); });
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       var body = form.elements.body.value.trim();
@@ -496,14 +502,14 @@
         .then(function () {
           form.reset();
           note.textContent = 'Posted. A moderator will review it before it appears.';
-          if (parentId) window.setTimeout(function () { showComposer(slug, host, null, '', true); }, 900);
+          if (parentId) window.setTimeout(function () { showComposer(slug, host, null, '', true, true); }, 900);
         })
         .catch(function (err) {
           note.textContent = err && err.error === 'authentication_required' ? 'Please sign in again.' : 'Comment could not be posted.';
         })
         .finally(function () { submit.disabled = false; });
     });
-    form.querySelector('textarea').focus();
+    if (takeFocus) form.querySelector('textarea').focus();
   }
 
   function markProgress(slug, action) {
