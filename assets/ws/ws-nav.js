@@ -92,26 +92,11 @@ export const CORE_SECTIONS = [
     match: under('/workspace/core/content'),
   },
   {
-    /* The backend has carried this section since the first Core build and
-       the frontend never drew it, so the one operating asset the team has
-       actually written was reachable only by typing its URL. It is a
-       section rather than a page: a blueprint is the thing tasks and
-       standards get cut from, which puts it upstream of both boards above
-       it rather than beside them. */
     id: 'core-assets',
-    label: 'Assets & Blueprints',
+    label: 'Assets',
     icon: 'storage',
     path: '/workspace/core/assets',
     match: under('/workspace/core/assets'),
-    children: [
-      {
-        id: 'core-asset-content-studio',
-        label: 'Content Studio Blueprint',
-        icon: 'content',
-        path: '/workspace/core/assets/content-studio-blueprint',
-        match: under('/workspace/core/assets/content-studio-blueprint'),
-      },
-    ],
   },
   {
     id: 'core-planning',
