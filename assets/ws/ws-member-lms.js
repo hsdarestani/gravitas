@@ -1779,18 +1779,42 @@ export async function renderCourse(host, id, { go }) {
         }, true);
         actions.append(enroll);
       } else if (course.access_type === 'paid') {
-        actions.append(badge(`${course.price || '—'} ${course.currency || 'EUR'}`));
+        actions.append(badge((course.price || '—') + ' ' + (course.currency || 'EUR')));
+        const paymentState = el('p', 'fl-muted');
         if (course.payment?.enabled && course.payment?.checkout_url) {
-          const checkout = el('a', 'ws-btn ws-btn--solid', 'Continue to checkout');
-          checkout.href = course.payment.checkout_url;
-          checkout.target = '_blank';
-          checkout.rel = 'noopener';
-          actions.append(checkout);
-          actions.append(el('p', 'fl-muted', 'Access activates only after payment is verified and the enrollment is granted.'));
+          const checkout = action('Continue to checkout', async () => {
+            checkout.disabled = true;
+            checkout.textContent = 'Preparing checkout…';
+            try {
+              const result = await P.lmsStartCheckout(course.id);
+              const url = result.payment?.checkout_url;
+              paymentState.textContent = result.payment
+                ? 'Payment status · ' + label(result.payment.status)
+                : '';
+              if (url) window.open(url, '_blank', 'noopener');
+              checkout.textContent = 'Open checkout';
+            } catch (error) {
+              paymentState.textContent = error?.message || 'Checkout could not be prepared.';
+              paymentState.dataset.tone = 'bad';
+              checkout.textContent = 'Continue to checkout';
+            } finally {
+              checkout.disabled = false;
+            }
+          }, true);
+          actions.append(checkout, paymentState);
+          P.lmsCheckout(course.id).then((result) => {
+            const latest = (result.payments || [])[0];
+            paymentState.textContent = latest
+              ? 'Payment status · ' + label(latest.status) + (latest.external_reference ? ' · ' + latest.external_reference : '')
+              : 'Access activates after payment is verified.';
+          }).catch(() => {
+            paymentState.textContent = 'Access activates after payment is verified.';
+          });
         } else {
-          actions.append(el('p', 'fl-muted', course.payment?.enabled
+          paymentState.textContent = course.payment?.enabled
             ? 'Payment is configured, but the checkout URL is not available yet.'
-            : 'Checkout is not enabled for this course.'));
+            : 'Checkout is not enabled for this course.';
+          actions.append(paymentState);
         }
       } else {
         actions.append(el('p', 'fl-muted', 'This course is invite-only. A Core administrator can grant enrollment.'));
