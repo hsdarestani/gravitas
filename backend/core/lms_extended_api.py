@@ -389,12 +389,31 @@ def lms_ai_tutor(request, course_id):
             if role and text:
                 history.append(f'{role}: {text}')
 
+    learning_config = course.learning_config if isinstance(course.learning_config, dict) else {}
+    guidance_mode = str(learning_config.get('ai_guidance_mode') or 'guided').strip().lower()
+    if guidance_mode not in {'hint_only', 'guided', 'full'}:
+        guidance_mode = 'guided'
+    instructor_prompt = str(learning_config.get('ai_instructor_prompt') or '').strip()[:4000]
+    guidance_rule = {
+        'hint_only': (
+            'Do not provide the final answer, finished derivation, or ready-to-submit solution. '
+            'Give the smallest useful hint, ask a diagnostic question, and let the learner do the next step.'
+        ),
+        'guided': (
+            'Prefer hints, Socratic questions and partial scaffolding. '
+            'Give a direct answer only after the learner has shown meaningful work or explicitly asks for a final explanation.'
+        ),
+        'full': (
+            'You may provide complete explanations and worked solutions, while still explaining the reasoning and checking understanding.'
+        ),
+    }[guidance_mode]
     system = (
         'You are the Gravitas+ course tutor. Teach rather than merely answer. '
         'Use the language of the learner. Base factual claims on the supplied course and source context. '
         'When context is insufficient, say so and suggest what to inspect next. '
-        'Use questions, hints and short checks for understanding when useful. '
-        'Never invent a Zotero source or claim the learner completed work they did not complete.'
+        + guidance_rule + ' '
+        'Never invent a Zotero source or claim the learner completed work they did not complete. '
+        + (f'Instructor-specific guidance: {instructor_prompt}' if instructor_prompt else '')
     )
     prompt = (
         f'Course: {course.title}\nCourse summary: {course.summary}\n'
@@ -419,6 +438,7 @@ def lms_ai_tutor(request, course_id):
             'source_count': len(sources),
             'question_chars': len(question),
             'answer_chars': len(answer),
+            'guidance_mode': guidance_mode,
         },
     )
     return JsonResponse({'ok': True, 'answer': answer, 'sources': sources, 'provider': 'cloudflare-workers-ai'})
