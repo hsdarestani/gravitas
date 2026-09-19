@@ -150,6 +150,12 @@ def _members(workspace):
 
 
 def _choices(request, workspace):
+    key_results = (
+        base.KeyResult.objects.filter(objective__workspace=workspace)
+        .exclude(status=WorkStatus.ARCHIVED)
+        .select_related('objective', 'owner')
+        .order_by('objective__due_date', 'objective__title', 'due_date', 'title')
+    )
     initiatives = (
         Initiative.objects.filter(workspace=workspace)
         .exclude(status=WorkStatus.ARCHIVED)
@@ -159,6 +165,7 @@ def _choices(request, workspace):
     milestones = (
         OperatingMilestone.objects.filter(workspace=workspace)
         .exclude(status=WorkStatus.ARCHIVED)
+        .select_related('initiative__key_result__objective')
         .order_by('due_date', 'title')
     )
     packages = (
@@ -179,6 +186,19 @@ def _choices(request, workspace):
     projects = v4._research_projects_for_core(request, workspace).order_by('title', 'id')
     return {
         'members': _members(workspace),
+        'key_results': [{
+            'id': row.pk,
+            'title': row.title,
+            'objective_id': row.objective_id,
+            'objective_title': row.objective.title,
+            'owner': _person(row.owner),
+            'progress': base._kr_progress(row),
+            'health': row.health,
+            'status': row.status,
+            'due_date': row.due_date.isoformat() if row.due_date else None,
+        } for row in key_results],
+        # Kept for older clients only; the current product UI no longer exposes
+        # initiatives or cycles.
         'initiatives': [{
             'id': row.pk,
             'title': row.title,
@@ -187,12 +207,19 @@ def _choices(request, workspace):
             'process': row.process.name,
         } for row in initiatives],
         'milestones': [{
-            'id': row.pk, 'title': row.title, 'initiative_id': row.initiative_id,
+            'id': row.pk,
+            'title': row.title,
+            'key_result_id': row.initiative.key_result_id,
+            'key_result_title': row.initiative.key_result.title,
+            'objective_id': row.initiative.key_result.objective_id,
+            'objective_title': row.initiative.key_result.objective.title,
         } for row in milestones],
         'work_packages': [{
-            'id': row.pk, 'title': row.title, 'initiative_id': row.milestone.initiative_id,
+            'id': row.pk,
+            'title': row.title,
+            'key_result_id': row.milestone.initiative.key_result_id,
             'milestone_id': row.milestone_id,
-        } for row in packages.select_related('milestone')],
+        } for row in packages.select_related('milestone__initiative__key_result')],
         'cycles': [{'id': row.pk, 'title': row.name} for row in cycles],
         'projects': [{'id': row.pk, 'title': row.title} for row in projects],
         'meetings': [{'id': row.pk, 'title': row.title} for row in meetings],
@@ -290,6 +317,18 @@ def task_board_detail(request, task_id):
     if 'due_date' in payload:
         task.due_date = base._date(payload.get('due_date'))
 
+    # New product contract: tasks are planned against a KR, not an Initiative
+    # or Cycle. Legacy relation IDs are still accepted to avoid breaking older
+    # API clients and historical records.
+    if 'key_result_id' in payload:
+        key_result = base.KeyResult.objects.select_related('objective', 'owner').filter(
+            pk=payload.get('key_result_id'), objective__workspace=workspace
+        ).first()
+        if not key_result:
+            return _error('key_result_not_found')
+        task.initiative = base._execution_initiative_for_kr(workspace, key_result, task.owner)
+        task.cycle = None
+
     if 'initiative_id' in payload:
         initiative = Initiative.objects.filter(pk=payload.get('initiative_id'), workspace=workspace).first()
         if not initiative:
@@ -297,25 +336,32 @@ def task_board_detail(request, task_id):
         task.initiative = initiative
 
     if 'milestone_id' in payload:
-        task.milestone = (
-            OperatingMilestone.objects.filter(
-                pk=payload.get('milestone_id'), workspace=workspace, initiative=task.initiative,
+        milestone = (
+            OperatingMilestone.objects.select_related('initiative__key_result').filter(
+                pk=payload.get('milestone_id'), workspace=workspace,
             ).first() if payload.get('milestone_id') else None
         )
-        if payload.get('milestone_id') and not task.milestone:
+        if payload.get('milestone_id') and not milestone:
             return _error('invalid_milestone')
+        if milestone and milestone.initiative.key_result_id != task.initiative.key_result_id:
+            return _error('milestone_key_result_mismatch')
+        task.milestone = milestone
+        if milestone:
+            task.initiative = milestone.initiative
 
     if 'work_package_id' in payload:
         task.work_package = (
-            OperatingWorkPackage.objects.filter(
+            OperatingWorkPackage.objects.select_related('milestone__initiative__key_result').filter(
                 pk=payload.get('work_package_id'), workspace=workspace,
-                milestone__initiative=task.initiative,
             ).first() if payload.get('work_package_id') else None
         )
         if payload.get('work_package_id') and not task.work_package:
             return _error('invalid_work_package')
+        if task.work_package and task.work_package.milestone.initiative.key_result_id != task.initiative.key_result_id:
+            return _error('work_package_key_result_mismatch')
         if task.work_package and not task.milestone:
             task.milestone = task.work_package.milestone
+            task.initiative = task.milestone.initiative
 
     if 'cycle_id' in payload:
         task.cycle = (
@@ -348,7 +394,7 @@ def task_board_detail(request, task_id):
             return _error('invalid_dependency')
 
     if not task.cycle and not task.due_date:
-        return _error('task_requires_cycle_or_due_date')
+        return _error('task_requires_due_date')
     if task.meeting and not task.due_date:
         return _error('meeting_action_requires_deadline')
     if not str(task.title or '').strip() or not str(task.definition_of_done or '').strip():
@@ -365,8 +411,8 @@ def task_board_detail(request, task_id):
     changed = {
         key: {'from': before.get(key), 'to': after.get(key)}
         for key in [
-            'title', 'owner', 'priority', 'status', 'due_date', 'initiative_id',
-            'milestone_id', 'work_package_id', 'cycle_id', 'project_id',
+            'title', 'owner', 'priority', 'status', 'due_date',
+            'milestone_id', 'work_package_id', 'project_id',
             'meeting_id', 'dependency_id',
         ]
         if before.get(key) != after.get(key)
