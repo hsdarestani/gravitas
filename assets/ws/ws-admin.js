@@ -851,7 +851,7 @@ async function renderLearningPathsAdmin(host, paths, refresh) {
 export async function renderAdminLms(host, { go }) {
   loading(host, 'LMS Admin');
   try {
-    const [courses, enrollments, meta, analytics, openedx, paths, repositories] = await Promise.all([
+    const [courses, enrollments, meta, analytics, openedx, paths, repositories, payments] = await Promise.all([
       P.lmsCourses({ all: true }),
       P.adminLmsEnrollments(),
       P.adminLmsMeta(),
@@ -859,6 +859,7 @@ export async function renderAdminLms(host, { go }) {
       P.adminOpenEdxStatus().catch(() => ({ openedx: { configured: false, reachable: false } })),
       P.lmsLearningPaths({ all: true }),
       P.adminLearningRepositories().catch(() => ({ repositories: [] })),
+      P.adminCoursePayments().catch(() => ({ payments: [] })),
     ]);
     const wrap = doc(host, 'LMS Admin', 'Open edX-backed learning with Gravitas+ AI, Lab, source management, exports and analytics.');
     const metrics = el('div', 'fl-metrics');
@@ -916,6 +917,47 @@ export async function renderAdminLms(host, { go }) {
     }));
     if (!courses.courses.length) courseBox.body.append(empty('No courses yet', 'Create the first course.'));
     wrap.append(courseBox.box);
+
+    const paymentBox = section('Course payments', 'Track paid-course checkout attempts and grant access only after a payment is verified.');
+    for (const item of payments.payments || []) {
+      const state = select([
+        ['pending', 'Pending'],
+        ['paid', 'Paid / verified'],
+        ['failed', 'Failed'],
+        ['cancelled', 'Cancelled'],
+        ['refunded', 'Refunded'],
+      ], item.status || 'pending');
+      const reference = input(item.external_reference || '', 'text', 'Provider reference');
+      const applyPayment = action('Apply', async () => {
+        applyPayment.disabled = true;
+        try {
+          await P.adminUpdateCoursePayment(item.id, {
+            status: state.value,
+            external_reference: reference.value.trim(),
+          });
+          await renderAdminLms(host, { go });
+        } catch (error) {
+          applyPayment.disabled = false;
+          alert(error?.message || 'Payment status could not be updated.');
+        }
+      }, false, true);
+      paymentBox.body.append(row({
+        title: item.user_name + ' · ' + item.course_title,
+        meta: P.meta([
+          item.user_email,
+          item.amount + ' ' + item.currency,
+          label(item.provider),
+          new Date(item.created_at).toLocaleString(),
+        ]),
+        body: item.verified_by ? 'Verified by ' + item.verified_by : '',
+        badges: [label(item.status), item.external_reference || ''],
+        actions: [state, reference, applyPayment],
+      }));
+    }
+    if (!(payments.payments || []).length) {
+      paymentBox.body.append(empty('No checkout attempts yet', 'Paid-course checkout attempts will appear here.'));
+    }
+    wrap.append(paymentBox.box);
 
     const reviewBox = section('Exercise repository review', 'Learner Git pushes appear here for instructor review. A new push automatically returns the item to Pending review.');
     for (const item of repositories.repositories || []) {
