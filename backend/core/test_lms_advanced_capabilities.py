@@ -1,0 +1,108 @@
+from pathlib import Path
+
+from django.test import SimpleTestCase
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class AdvancedLmsCapabilityContractTests(SimpleTestCase):
+    def read(self, path):
+        return (ROOT / path).read_text(encoding='utf-8')
+
+    def test_advanced_learning_models_exist(self):
+        models = self.read('backend/core/lms_models.py')
+        for marker in (
+            'class LearnerPathAssignment',
+            'class CourseDiscussionMessage',
+            'class LearningIntegration',
+            'class LearningRepository',
+            'class NotebookWorkspace',
+            "PENDING = 'pending'",
+            "NEEDS_CHANGES = 'needs_changes'",
+            "APPROVED = 'approved'",
+        ):
+            self.assertIn(marker, models)
+
+    def test_advanced_lms_routes_are_publicly_wired(self):
+        urls = self.read('backend/core/urls.py')
+        for path in (
+            "lms/paths/personalize/",
+            "lms/integrations/",
+            "lms/courses/<int:course_id>/discussion/",
+            "lms/courses/<int:course_id>/literature/",
+            "lms/courses/<int:course_id>/notebooks/",
+            "lms/courses/<int:course_id>/git/",
+            "lms/courses/<int:course_id>/publish/",
+            "lms/courses/<int:course_id>/pkm/<str:target>/",
+            "platform/admin/lms/repositories/",
+        ):
+            self.assertIn(path, urls)
+
+    def test_learner_surface_contains_requested_research_learning_tools(self):
+        js = self.read('assets/ws/ws-member-lms.js')
+        for marker in (
+            "section('Personal learning path'",
+            "section('Course group'",
+            "section('Related papers'",
+            "section('Reproducible notebook'",
+            "section('Versioning · GitHub'",
+            "section('Publish an achievement'",
+            "section('Export to PKM'",
+            "Save offline",
+            "Continue to checkout",
+        ):
+            self.assertIn(marker, js)
+
+    def test_admin_can_configure_learning_policy_and_git_review(self):
+        js = self.read('assets/ws/ws-admin.js')
+        for marker in (
+            "Hints only · never reveal final answer",
+            "Course discussion group enabled",
+            "Paper recommendations enabled",
+            "Notebook workspace enabled",
+            "Git/GitHub exercise push enabled",
+            "Limited offline read mode enabled",
+            "section('Exercise repository review'",
+            "Checkout enabled",
+            "Checkout URL",
+        ):
+            self.assertIn(marker, js)
+
+    def test_tutor_policy_supports_hint_only_guidance(self):
+        api = self.read('backend/core/lms_extended_api.py')
+        self.assertIn("'hint_only'", api)
+        self.assertIn('Do not provide the final answer', api)
+        self.assertIn('ai_instructor_prompt', api)
+
+    def test_math_renderer_covers_workspace_and_copies_latex(self):
+        html = self.read('workspace.html')
+        math = self.read('assets/ws/ws-math.js')
+        self.assertIn('installMathRendering()', html)
+        self.assertIn("button.textContent = 'LaTeX'", math)
+        self.assertIn('navigator.clipboard.writeText(latex)', math)
+        self.assertIn('window.katex', math)
+
+    def test_offline_shell_does_not_cache_authenticated_api_responses(self):
+        sw = self.read('workspace-sw.js')
+        learner = self.read('assets/ws/ws-member-lms.js')
+        self.assertIn("if (url.pathname.startsWith('/api/'))", sw)
+        self.assertIn('saveOfflineCourseSnapshot', learner)
+        self.assertIn('Offline read mode', learner)
+
+
+class CoreAssetVersioningContractTests(SimpleTestCase):
+    def read(self, path):
+        return (ROOT / path).read_text(encoding='utf-8')
+
+    def test_core_assets_have_folders_and_explicit_versions(self):
+        models = self.read('backend/core/platform_models.py')
+        api = self.read('backend/core/core_assets_api.py')
+        ui = self.read('assets/ws/ws-core-assets.js')
+        for marker in ('logical_id', 'folder_path', 'version_note', 'is_current'):
+            self.assertIn(marker, models)
+        self.assertIn('version_of_id', api)
+        self.assertIn("f'v{int(asset.version):03d}'", api)
+        self.assertIn("'New version'", ui)
+        self.assertIn("'Rename / move'", ui)
+        self.assertIn("'Version history · '", ui)
