@@ -413,6 +413,13 @@ class CourseEvent(models.Model):
         AI_USE = 'ai.use', 'AI use'
         LAB_USE = 'lab.use', 'Lab use'
         EXPORT = 'export', 'Export'
+        DISCUSSION_POST = 'discussion.post', 'Discussion post'
+        LITERATURE_SEARCH = 'literature.search', 'Literature search'
+        NOTEBOOK_OPEN = 'notebook.open', 'Notebook open'
+        GIT_PUSH = 'git.push', 'Git push'
+        SOCIAL_PUBLISH = 'social.publish', 'Social publish'
+        PKM_EXPORT = 'pkm.export', 'PKM export'
+        PATH_PERSONALIZE = 'path.personalize', 'Path personalize'
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -445,3 +452,146 @@ class CourseEvent(models.Model):
             models.Index(fields=['course', 'kind', '-created_at'], name='grav_lms_event_course_kind'),
             models.Index(fields=['user', 'kind', '-created_at'], name='grav_lms_event_user_kind'),
         ]
+
+class LearnerPathAssignment(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_learning_path_assignments',
+    )
+    learning_path = models.ForeignKey(
+        LearningPath,
+        on_delete=models.SET_NULL,
+        related_name='learner_assignments',
+        blank=True,
+        null=True,
+    )
+    goal = models.TextField()
+    nodes = models.JSONField(default=list, blank=True)
+    edges = models.JSONField(default=list, blank=True)
+    rationale = models.TextField(blank=True)
+    active = models.BooleanField(default=True, db_index=True)
+    generated_by_ai = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+
+class CourseDiscussionMessage(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='discussion_messages')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_course_discussion_messages',
+    )
+    reply_to = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        related_name='replies',
+        blank=True,
+        null=True,
+    )
+    body = models.TextField(max_length=12000)
+    deleted = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [
+            models.Index(fields=['course', 'created_at'], name='grav_lms_chat_course_time'),
+        ]
+
+
+class LearningIntegration(models.Model):
+    class Provider(models.TextChoices):
+        GITHUB = 'github', 'GitHub'
+        LINKEDIN = 'linkedin', 'LinkedIn'
+        MEDIUM = 'medium', 'Medium'
+        ORCID = 'orcid', 'ORCID'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_learning_integrations',
+    )
+    provider = models.CharField(max_length=30, choices=Provider.choices, db_index=True)
+    label = models.CharField(max_length=160, blank=True)
+    account_id = models.CharField(max_length=320, blank=True)
+    encrypted_token = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['provider', '-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'provider'], name='unique_gravitas_learning_integration'),
+        ]
+
+
+class LearningRepository(models.Model):
+    enrollment = models.ForeignKey(
+        CourseEnrollment,
+        on_delete=models.CASCADE,
+        related_name='repositories',
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.SET_NULL,
+        related_name='learning_repositories',
+        blank=True,
+        null=True,
+    )
+    provider = models.CharField(max_length=30, default='github')
+    owner = models.CharField(max_length=160)
+    repository = models.CharField(max_length=220)
+    branch = models.CharField(max_length=160, default='main')
+    path_prefix = models.CharField(max_length=600, blank=True)
+    html_url = models.URLField(max_length=1600, blank=True)
+    last_commit_sha = models.CharField(max_length=160, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['enrollment', 'lesson', 'provider', 'owner', 'repository', 'path_prefix'],
+                name='unique_gravitas_learning_repository',
+            ),
+        ]
+
+
+class NotebookWorkspace(models.Model):
+    class Runtime(models.TextChoices):
+        PYTHON = 'python', 'Python'
+        JUPYTER = 'jupyter', 'Jupyter'
+        MATHEMATICA = 'mathematica', 'Mathematica'
+
+    enrollment = models.ForeignKey(
+        CourseEnrollment,
+        on_delete=models.CASCADE,
+        related_name='notebooks',
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.SET_NULL,
+        related_name='notebook_workspaces',
+        blank=True,
+        null=True,
+    )
+    title = models.CharField(max_length=240)
+    runtime = models.CharField(max_length=20, choices=Runtime.choices, default=Runtime.PYTHON)
+    code = models.TextField(blank=True)
+    environment = models.JSONField(default=dict, blank=True)
+    revision = models.PositiveIntegerField(default=1)
+    last_run_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
