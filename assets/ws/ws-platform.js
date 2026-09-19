@@ -336,10 +336,11 @@ export const lmsCourseDiscussion = (id) => call(`/lms/courses/${id}/discussion/`
 export const lmsPostCourseDiscussion = (id, body) => call(`/lms/courses/${id}/discussion/`, { method: 'POST', body });
 export const lmsEditCourseDiscussion = (courseId, messageId, body) => call(`/lms/courses/${courseId}/discussion/${messageId}/`, { method: 'PATCH', body });
 export const lmsDeleteCourseDiscussion = (courseId, messageId) => call(`/lms/courses/${courseId}/discussion/${messageId}/`, { method: 'DELETE' });
-export const lmsLiterature = (id, { q = '', providers = '', limit = 6 } = {}) => {
+export const lmsLiterature = (id, { q = '', providers = '', limit = 6, lessonId = '' } = {}) => {
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (providers) params.set('providers', providers);
+  if (lessonId) params.set('lesson_id', String(lessonId));
   params.set('limit', String(limit));
   return call(`/lms/courses/${id}/literature/?${params.toString()}`);
 };
