@@ -318,31 +318,51 @@ def core_assets(request):
     )
 
     if uploaded:
-        if _prepare_nextcloud(core) != 'live':
-            return JsonResponse({'ok': False, 'error': 'nextcloud_unavailable'}, status=503)
         asset.kind = CoreAsset.Kind.FILE
         name = _safe_filename(uploaded.name)
-        remote_path = _asset_cloud_path(asset, name)
-        try:
-            cloud.admin_upload(remote_path, uploaded, content_type=(uploaded.content_type or '')[:160])
-        except (cloud.CloudError, ImproperlyConfigured):
-            logger.exception('Core asset upload to Nextcloud failed')
-            return JsonResponse({'ok': False, 'error': 'nextcloud_unavailable'}, status=503)
-
         asset.original_name = name
-        asset.storage_path = NEXTCLOUD_STORAGE_PREFIX + remote_path
         asset.mime_type = (uploaded.content_type or '')[:160]
         asset.file_size = uploaded.size
+
+        cloud_state = _prepare_nextcloud(core)
+        remote_path = ''
+        local_path = None
+        if cloud_state == 'live':
+            remote_path = _asset_cloud_path(asset, name)
+            try:
+                cloud.admin_upload(remote_path, uploaded, content_type=asset.mime_type)
+                asset.storage_path = NEXTCLOUD_STORAGE_PREFIX + remote_path
+            except (cloud.CloudError, ImproperlyConfigured):
+                logger.exception('Core asset upload to Nextcloud failed; keeping a local staging copy')
+                cloud_state = 'unavailable'
+
+        if cloud_state != 'live':
+            root = Path(settings.CORE_UPLOAD_ROOT) / 'assets'
+            root.mkdir(parents=True, exist_ok=True)
+            local_path = root / f'{uuid.uuid4().hex}-{name}'
+            if hasattr(uploaded, 'seek'):
+                uploaded.seek(0)
+            with local_path.open('wb') as handle:
+                for chunk in uploaded.chunks():
+                    handle.write(chunk)
+            asset.storage_path = str(local_path)
+
         try:
             with transaction.atomic():
                 if base:
                     CoreAsset.objects.filter(logical_id=base.logical_id, is_current=True).update(is_current=False)
                 asset.save()
         except Exception:
-            try:
-                cloud.admin_delete(remote_path)
-            except Exception:
-                logger.exception('Could not rollback orphaned Nextcloud Core asset')
+            if remote_path and asset.storage_path.startswith(NEXTCLOUD_STORAGE_PREFIX):
+                try:
+                    cloud.admin_delete(remote_path)
+                except Exception:
+                    logger.exception('Could not rollback orphaned Nextcloud Core asset')
+            if local_path:
+                try:
+                    os.remove(local_path)
+                except OSError:
+                    pass
             raise
     else:
         asset.kind = CoreAsset.Kind.URL
