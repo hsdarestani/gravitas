@@ -193,6 +193,11 @@ def _milestone_json(obj):
         'objective_title': kr.objective.title,
         'key_result_id': kr.pk,
         'key_result_title': kr.title,
+        # Legacy relation fields remain API-compatible while the current UI
+        # deliberately does not expose Initiatives or Cycles.
+        'initiative_id': obj.initiative_id,
+        'initiative_title': obj.initiative.title,
+        'cycle_id': obj.cycle_id,
         'project_id': obj.project_id,
         'due_date': obj.due_date.isoformat() if obj.due_date else None,
         'definition_of_done': obj.definition_of_done,
