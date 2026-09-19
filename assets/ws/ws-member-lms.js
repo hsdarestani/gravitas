@@ -1628,13 +1628,55 @@ function personalizedPathPanel(go) {
   return box.box;
 }
 
+function offlineCourseKey(id) {
+  const userId = P.platform?.user?.user?.id || 'current';
+  return 'gravitas.lms.offline.' + userId + '.' + id;
+}
+
+function saveOfflineCourseSnapshot(data) {
+  try {
+    localStorage.setItem(offlineCourseKey(data.course.id), JSON.stringify({
+      saved_at: new Date().toISOString(),
+      data,
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function loadOfflineCourseSnapshot(id) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(offlineCourseKey(id)) || 'null');
+    return stored?.data?.course ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function renderCourse(host, id, { go }) {
   loading(host, 'Course');
   try {
-    const data = await P.lmsCourse(id);
+    let data;
+    let offlineSnapshot = null;
+    try {
+      data = await P.lmsCourse(id);
+    } catch (networkError) {
+      offlineSnapshot = loadOfflineCourseSnapshot(id);
+      if (!offlineSnapshot) throw networkError;
+      data = offlineSnapshot.data;
+    }
     const course = data.course;
-    if (course.enrolled) P.lmsCourseEvent(course.id, { kind: 'course.open' }).catch(() => {});
+    if (!offlineSnapshot && course.enrolled) P.lmsCourseEvent(course.id, { kind: 'course.open' }).catch(() => {});
     const wrap = doc(host, course.title, course.summary || 'Gravitas+ course');
+    if (offlineSnapshot) {
+      const offline = el('div', 'ws-alert');
+      offline.append(
+        el('strong', 'ws-alert__title', 'Offline read mode'),
+        el('p', '', 'Showing the course snapshot saved ' + new Date(offlineSnapshot.saved_at).toLocaleString() + '. Progress updates, AI, Lab, discussions and external tools need a connection.'),
+      );
+      wrap.append(offline);
+    }
     const hero = el('div', 'fl-course-hero');
     const info = el('div');
     const tags = el('div', 'fl-badges');
@@ -1683,6 +1725,13 @@ export async function renderCourse(host, id, { go }) {
         actions.append(openedx);
       }
       if (course.certificate?.valid) actions.append(link(go, 'View certificate', '/workspace/learning/certificates'));
+      if (!offlineSnapshot && course.learning_config?.offline_enabled !== false) {
+        const saveOffline = action('Save offline', () => {
+          const ok = saveOfflineCourseSnapshot(data);
+          saveOffline.textContent = ok ? 'Saved offline' : 'Offline save failed';
+        });
+        actions.append(saveOffline);
+      }
       for (const [fmt, title] of [['md','Markdown'],['tex','LaTeX'],['docx','DOCX']]) {
         const download = el('a', 'ws-btn ws-btn--tiny', title);
         download.href = `/api/lms/courses/${course.id}/export/${fmt}/`;
@@ -1723,7 +1772,7 @@ export async function renderCourse(host, id, { go }) {
     const assets = courseAssetsPanel(course);
     if (assets) wrap.append(assets);
 
-    if (course.enrolled) {
+    if (course.enrolled && !offlineSnapshot) {
       if (course.learning_config?.ai_enabled !== false) {
         const tutor = await courseTutorPanel(course);
         if (tutor) wrap.append(tutor);
