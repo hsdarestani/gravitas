@@ -1570,12 +1570,36 @@ function gitPanel(course) {
         open.href = item.html_url || ('https://github.com/' + item.owner + '/' + item.repository);
         open.target = '_blank';
         open.rel = 'noopener';
+        const actions = [open];
+        if (item.review_status === 'approved' && course.learning_config?.social_publish_enabled !== false) {
+          for (const provider of ['linkedin', 'medium']) {
+            const publish = action('Publish to ' + label(provider), async () => {
+              const draft = 'I completed an approved Gravitas+ exercise in “' + course.title + '”. Repository: ' + (item.html_url || (item.owner + '/' + item.repository));
+              const text = prompt('Post text:', draft);
+              if (text == null || !text.trim()) return;
+              publish.disabled = true;
+              try {
+                const result = await P.lmsPublishAchievement(course.id, {
+                  provider,
+                  title: course.title + ' · approved exercise',
+                  text: text.trim(),
+                });
+                alert(result.url ? 'Published: ' + result.url : 'Published successfully.');
+              } catch (error) {
+                alert(error?.message || 'Publishing failed.');
+              } finally {
+                publish.disabled = false;
+              }
+            }, false, true);
+            actions.push(publish);
+          }
+        }
         list.append(row({
           title: item.owner + '/' + item.repository,
           meta: P.meta([item.branch, item.last_commit_sha ? item.last_commit_sha.slice(0, 10) : '']),
           body: item.review_note || '',
           badges: [label(item.review_status || 'pending'), item.reviewed_by ? 'Reviewed by ' + item.reviewed_by : ''],
-          actions: [open],
+          actions,
         }));
       }
       if (!(data.repositories || []).length) list.append(empty('No repository linked yet', 'Push an exercise below; it will appear in the instructor review queue.'));
