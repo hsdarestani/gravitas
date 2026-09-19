@@ -114,7 +114,7 @@ function scan(root) {
 }
 
 export function installMathRendering() {
-  const host = document.getElementById('ws-view');
+  const host = document.getElementById('ws') || document.body;
   if (!host) return;
   scan(host);
   const observer = new MutationObserver((mutations) => {
