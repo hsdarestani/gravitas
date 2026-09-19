@@ -878,7 +878,15 @@ def _notebook_json(item):
         'revision': item.revision,
         'jupyter_url': str(learning_config.get('jupyter_url') or settings.LMS_JUPYTER_PUBLIC_URL),
         'mathematica_url': str(learning_config.get('mathematica_url') or settings.LMS_MATHEMATICA_PUBLIC_URL),
-        'browser_python': item.runtime in {NotebookWorkspace.Runtime.PYTHON, NotebookWorkspace.Runtime.JUPYTER},
+        'browser_python': item.runtime == NotebookWorkspace.Runtime.PYTHON,
+        'remote_execution': (
+            bool(settings.LMS_JUPYTER_EXEC_URL)
+            if item.runtime == NotebookWorkspace.Runtime.JUPYTER
+            else bool(settings.LMS_MATHEMATICA_EXEC_URL)
+            if item.runtime == NotebookWorkspace.Runtime.MATHEMATICA
+            else False
+        ),
+        'last_run_at': item.last_run_at.isoformat() if item.last_run_at else None,
         'updated_at': item.updated_at.isoformat(),
     }
 
@@ -941,6 +949,87 @@ def course_notebooks(request, course_id):
         metadata={'runtime': item.runtime, 'revision': item.revision},
     )
     return JsonResponse({'ok': True, 'notebook': _notebook_json(item)}, status=201)
+
+
+@require_http_methods(['POST'])
+def notebook_execute(request, notebook_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    item = (
+        NotebookWorkspace.objects
+        .select_related('enrollment__course', 'lesson')
+        .filter(pk=notebook_id, enrollment__user=request.user)
+        .first()
+    )
+    if not item:
+        return _error('notebook_not_found', 404)
+
+    if item.runtime == NotebookWorkspace.Runtime.PYTHON:
+        return _error('browser_execution_required', 409)
+
+    if item.runtime == NotebookWorkspace.Runtime.JUPYTER:
+        runner_url = settings.LMS_JUPYTER_EXEC_URL
+        token = settings.LMS_JUPYTER_EXEC_TOKEN
+    else:
+        runner_url = settings.LMS_MATHEMATICA_EXEC_URL
+        token = settings.LMS_MATHEMATICA_EXEC_TOKEN
+
+    if not runner_url:
+        return _error('notebook_runner_not_configured', 409, runtime=item.runtime)
+
+    headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    payload = {
+        'runtime': item.runtime,
+        'code': item.code,
+        'environment': item.environment,
+        'notebook_id': item.pk,
+        'course_id': item.enrollment.course_id,
+        'lesson_id': item.lesson_id,
+        'revision': item.revision,
+    }
+    try:
+        response = requests.post(
+            runner_url,
+            headers=headers,
+            json=payload,
+            timeout=(5, 120),
+        )
+    except requests.RequestException:
+        return _error('notebook_runner_unavailable', 503, runtime=item.runtime)
+    if response.status_code < 200 or response.status_code >= 300:
+        return _error(
+            'notebook_execution_failed',
+            502,
+            runtime=item.runtime,
+            status_code=response.status_code,
+        )
+    try:
+        result = response.json()
+    except ValueError:
+        result = {'output': response.text[:20000]}
+    if not isinstance(result, dict):
+        result = {'result': result}
+
+    item.last_run_at = timezone.now()
+    item.save(update_fields=['last_run_at', 'updated_at'])
+    _event(
+        request.user,
+        item.enrollment.course,
+        CourseEvent.Kind.NOTEBOOK_OPEN,
+        enrollment=item.enrollment,
+        lesson=item.lesson,
+        metadata={'runtime': item.runtime, 'revision': item.revision, 'executed': True},
+    )
+    return JsonResponse({
+        'ok': True,
+        'runtime': item.runtime,
+        'output': str(result.get('output') or '')[:50000],
+        'result': result.get('result'),
+        'artifacts': result.get('artifacts') if isinstance(result.get('artifacts'), list) else [],
+        'last_run_at': item.last_run_at.isoformat(),
+    })
 
 
 @require_http_methods(['GET'])
