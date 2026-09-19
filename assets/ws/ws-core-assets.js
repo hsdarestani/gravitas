@@ -1,20 +1,10 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  CORE · ASSETS & BLUEPRINTS
-   The section the backend has always exposed and the frontend never drew.
+   GRAVITAS+ WORKSPACE  ·  CORE · ASSETS
+   Shared team files live here. The visible Assets page is deliberately a
+   simple upload folder backed by the Core team's Nextcloud Team Folder.
 
-   What an asset is here. Not a file and not a document: a reusable operating
-   system for one part of the company, versioned, owned, and upstream of the
-   work it produces. The Content Studio Blueprint is the first one. It is an
-   approval and reference asset; execution stays in Tasks & Execution rather
-   than being created directly from this screen.
-
-   Why this replaces assets/core-blueprints.js. That file painted the same
-   material into the pre-v4 shell with its own zoom control, its own
-   fullscreen mode and a pannable canvas. The canvas was the problem: it made
-   a sixteen-item list into a map you had to navigate, and the one question
-   anybody actually arrives with — which section is mine, and what do I do
-   with it — needed three gestures to answer. The content is preserved
-   exactly; the navigation is a list and an inspector.
+   The legacy Content Studio Blueprint detail view is kept below so old direct
+   links continue to resolve, but it is no longer presented as part of Assets.
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20260918-access3';
@@ -222,7 +212,7 @@ export function renderContentStudioBlueprint(host, ctx) {
   const doc = el('div', 'ws-doc ws-doc--wide');
   host.append(doc);
 
-  const back = el('button', 'v-back', 'Assets & Blueprints');
+  const back = el('button', 'v-back', 'Assets');
   back.type = 'button';
   back.addEventListener('click', () => ctx.go('/workspace/core/assets'));
   doc.append(back);
