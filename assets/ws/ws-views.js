@@ -8,8 +8,8 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20260918-access3';
-import { WORKSPACES, availableWorkspaces } from './ws-nav.js';
+import * as P from './ws-platform.js?v=20260919-planning1';
+import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
