@@ -275,6 +275,20 @@ export const teamStorage = () => call('/platform/team/storage/');
 export const nextcloud = () => call('/platform/nextcloud/');
 export const researchRequests = () => call('/platform/research-requests/');
 export const operatingDashboard = () => call('/operating/dashboard/');
+export const operatingObjectives = () => call('/operating/objectives/');
+export const createOperatingObjective = (body) => call('/operating/objectives/', { method: 'POST', body });
+export const updateOperatingObjective = (id, body) => call(`/operating/objectives/${id}/`, { method: 'PATCH', body });
+export const deleteOperatingObjective = (id) => call(`/operating/objectives/${id}/`, { method: 'DELETE' });
+export const operatingKeyResults = (objectiveId = '') => call(
+  '/operating/key-results/' + (objectiveId ? '?objective_id=' + encodeURIComponent(objectiveId) : '')
+);
+export const createOperatingKeyResult = (body) => call('/operating/key-results/', { method: 'POST', body });
+export const updateOperatingKeyResult = (id, body) => call(`/operating/key-results/${id}/`, { method: 'PATCH', body });
+export const deleteOperatingKeyResult = (id) => call(`/operating/key-results/${id}/`, { method: 'DELETE' });
+export const operatingMilestones = () => call('/operating/milestones/');
+export const createOperatingMilestone = (body) => call('/operating/milestones/', { method: 'POST', body });
+export const updateOperatingMilestone = (id, body) => call(`/operating/milestones/${id}/`, { method: 'PATCH', body });
+export const deleteOperatingMilestone = (id) => call(`/operating/milestones/${id}/`, { method: 'DELETE' });
 export const operatingInitiatives = () => call('/operating/initiatives/');
 export const operatingTasks = () => call('/operating/tasks/');
 export const operatingTaskBoard = () => call('/operating/task-board/');
