@@ -1,0 +1,553 @@
+/* ==========================================================================
+   GRAVITAS+ WORKSPACE · COHESIVE SURFACE SYSTEM
+   Final visual adoption layer.
+
+   The member Dashboard is the visual reference for the workspace: raised
+   16px cards, one 12px gutter, quiet inset rows, compact actions, and plain
+   page headers. Older modules keep their markup and behavior; this file only
+   normalizes surface, spacing, radius and interaction treatment.
+   ========================================================================== */
+
+:root {
+  --ws-cohesion-r: var(--wc-r, 16px);
+  --ws-cohesion-pad: var(--wc-pad, 16px);
+  --ws-cohesion-gap: var(--ws-gutter, 12px);
+  --ws-cohesion-row-r: 10px;
+  --ws-cohesion-control-r: 8px;
+  --ws-cohesion-page: 1120px;
+}
+
+/* ---- Page rhythm ------------------------------------------------------- */
+#ws-view .ws-doc--wide,
+#ws-view .fl-doc,
+#ws-view .nc-notes {
+  width: min(100%, var(--ws-cohesion-page));
+  max-width: var(--ws-cohesion-page);
+  margin-inline: auto;
+}
+
+#ws-view .ws-doc--wide,
+#ws-view .fl-doc {
+  padding-top: 28px;
+}
+
+#ws-view .fl-doc,
+#ws-view .nc-notes {
+  gap: var(--ws-cohesion-gap);
+}
+
+#ws-view .ws-doc__head,
+#ws-view .fl-head {
+  margin-bottom: 4px;
+}
+
+#ws-view .ws-doc__title {
+  font-weight: var(--g-w-semibold);
+}
+
+#ws-view .ws-doc__meta,
+#ws-view .fl-muted {
+  color: var(--g-text-subtle);
+}
+
+/* ---- One card language ------------------------------------------------ */
+#ws-view :is(
+  .v-panel,
+  .fl-panel,
+  .v-card,
+  .v-project,
+  .v-workspace,
+  .v-asset,
+  .fl-admin-card,
+  .fl-course-hero,
+  .fl-certificate,
+  .fl-identity,
+  .fl-access-card,
+  .fl-fieldset,
+  .nc-notes__list,
+  .nc-notes__editor,
+  .nc-mirror-card,
+  .rkms-lane,
+  .rkms-table-wrap,
+  .rkms-timeline,
+  .rkms-graph,
+  .space-category-maker,
+  .space-md-list
+) {
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-cohesion-r);
+  background: var(--g-surface-raised);
+  box-shadow: none;
+}
+
+#ws-view :is(
+  .v-panel,
+  .fl-panel,
+  .fl-admin-card,
+  .fl-course-hero,
+  .fl-certificate,
+  .nc-mirror-card,
+  .rkms-lane,
+  .space-category-maker,
+  .space-md-list
+) {
+  overflow: hidden;
+}
+
+/* Card headers live in the same surface as their content, like Dashboard. */
+#ws-view :is(.v-panel__head, .fl-panel__head) {
+  min-height: 0;
+  padding: 14px var(--ws-cohesion-pad) 8px;
+  border-bottom: 0;
+  background: transparent;
+  align-items: baseline;
+}
+
+#ws-view :is(.v-panel__head h2, .fl-panel__title) {
+  font-size: 14px;
+  font-weight: var(--g-w-semibold);
+  letter-spacing: var(--g-track-head);
+}
+
+#ws-view :is(.v-panel__body, .fl-panel__body) {
+  padding: 0 6px 10px;
+}
+
+#ws-view .fl-panel__foot {
+  margin: 0 10px;
+  padding: 10px 6px 6px;
+  border-top: 1px solid var(--g-hairline);
+}
+
+/* ---- Metrics: dashboard tile proportions everywhere ------------------- */
+#ws-view :is(.v-stats, .fl-metrics, .ri__metrics) {
+  gap: var(--ws-cohesion-gap);
+  border: 0;
+  background: none;
+  overflow: visible;
+}
+
+#ws-view :is(.v-stat, .fl-metric, .ri__metric) {
+  min-height: 104px;
+  padding: var(--ws-cohesion-pad);
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-cohesion-r);
+  background: var(--g-surface-raised);
+  align-content: space-between;
+  gap: 8px;
+}
+
+#ws-view .ri__metric {
+  display: grid;
+}
+
+#ws-view :is(.v-stat__value, .fl-metric__value, .ri__metric strong) {
+  font-family: var(--g-font);
+  font-size: 28px;
+  font-weight: var(--g-w-semibold);
+  line-height: 1.05;
+  letter-spacing: var(--g-track-head);
+  font-variant-numeric: tabular-nums;
+}
+
+#ws-view :is(.v-stat__label, .fl-metric__title, .ri__metric span) {
+  order: -1;
+  margin: 0;
+  color: var(--g-text-subtle);
+  font-size: var(--ws-fs-sm);
+  font-weight: var(--g-w-medium);
+}
+
+/* ---- Lists: inset rhythm instead of full-width table slicing ---------- */
+#ws-view :is(.v-row, .fl-row, .nc-note-row, .space-md-row) {
+  border: 0;
+  border-radius: var(--ws-cohesion-row-r);
+  background: transparent;
+}
+
+#ws-view :is(.v-row, .fl-row) {
+  padding: 9px 10px;
+}
+
+#ws-view .nc-note-row {
+  margin: 0 6px;
+  width: calc(100% - 12px);
+  padding: 10px;
+}
+
+#ws-view .space-md-row {
+  margin: 0 6px;
+  width: calc(100% - 12px);
+  padding: 10px;
+}
+
+#ws-view :is(.v-row + .v-row, .fl-row + .fl-row, .nc-note-row + .nc-note-row, .space-md-row + .space-md-row) {
+  box-shadow: inset 0 1px 0 var(--g-hairline);
+}
+
+#ws-view :is(button.v-row, button.fl-row, .nc-note-row, button.space-md-row):hover {
+  background: var(--g-surface-hover);
+}
+
+/* Selected rows use the same quiet active treatment as the workspace index. */
+#ws-view .nc-note-row[aria-current="page"],
+#ws-view .rkms-tree__row[data-selected] {
+  background: var(--g-surface-hover);
+  box-shadow: inset 2px 0 var(--g-accent);
+}
+
+/* ---- Grids ------------------------------------------------------------- */
+#ws-view :is(
+  .v-columns,
+  .v-grid,
+  .fl-columns,
+  .fl-card-grid,
+  .fl-admin-grid,
+  .fl-stack,
+  .nc-notes__layout,
+  .nc-mirror-grid,
+  .rkms-board,
+  .ri__grid,
+  .ri__loading
+) {
+  gap: var(--ws-cohesion-gap);
+}
+
+/* ---- Forms and toolbars ------------------------------------------------ */
+#ws-view :is(.v-toolbar, .fl-toolbar, .fl-form-actions, .fl-inline-form, .space-md-controls) {
+  gap: 8px;
+}
+
+#ws-view :is(.v-input, .fl-input, .fl-textarea, .nc-note-content),
+html .ws-action-dialog .v-input {
+  border: 1px solid var(--g-border);
+  border-radius: var(--ws-cohesion-control-r);
+  background: var(--g-bg);
+  color: var(--g-text);
+  box-shadow: none;
+}
+
+#ws-view :is(.v-input, .fl-input):not(textarea) {
+  min-height: 34px;
+}
+
+#ws-view :is(.v-input, .fl-input, .fl-textarea, .nc-note-content):focus,
+html .ws-action-dialog .v-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--g-accent) 24%, transparent);
+  outline-offset: 1px;
+  border-color: var(--g-accent);
+}
+
+#ws-view :is(.ws-btn, .v-mini-btn, .ri__refresh, .ri-card__open) {
+  border-radius: var(--ws-cohesion-control-r);
+}
+
+#ws-view :is(.fl-badge, .v-badge, .ri-chip, .nc-note-badge, .nc-mirror-state) {
+  border-radius: var(--g-radius-pill);
+}
+
+/* ---- Research Intelligence: same bento/card hierarchy ----------------- */
+#ws-view .ri {
+  gap: var(--ws-cohesion-gap);
+  margin-top: var(--ws-cohesion-gap);
+  padding: var(--ws-cohesion-pad);
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-cohesion-r);
+  background:
+    radial-gradient(120% 130% at 100% 0%,
+      color-mix(in srgb, var(--g-accent) 12%, transparent) 0%,
+      transparent 60%),
+    var(--g-surface-raised);
+}
+
+#ws-view .ri::before {
+  display: none;
+}
+
+#ws-view .ri__title {
+  font-size: 20px;
+}
+
+#ws-view .ri__metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#ws-view .ri-card,
+#ws-view .ri__skeleton,
+#ws-view :is(.ri__empty, .ri__error) {
+  border-radius: var(--ws-cohesion-r);
+}
+
+#ws-view .ri-card {
+  padding: var(--ws-cohesion-pad);
+  background: var(--g-surface-raised);
+}
+
+#ws-view .ri-card:hover {
+  transform: none;
+  background: var(--g-surface-hover);
+}
+
+#ws-view .ri__tabs {
+  padding: 3px;
+  border-radius: var(--ws-cohesion-control-r);
+  background: var(--g-surface-sunken);
+}
+
+#ws-view .ri__tab {
+  border-radius: calc(var(--ws-cohesion-control-r) - 2px);
+}
+
+/* ---- Research board, timeline and table ------------------------------- */
+#ws-view .rkms-lane {
+  padding: 14px;
+  background: var(--g-surface-raised);
+}
+
+#ws-view .rkms-task {
+  margin-bottom: 8px;
+  padding: 11px;
+  border-radius: var(--ws-cohesion-row-r);
+  background: var(--g-bg);
+}
+
+#ws-view .rkms-table-wrap {
+  background: var(--g-surface-raised);
+}
+
+#ws-view .rkms-table th {
+  background: var(--g-surface-sunken);
+  color: var(--g-text-subtle);
+}
+
+#ws-view .rkms-table th,
+#ws-view .rkms-table td {
+  padding: 10px 12px;
+}
+
+#ws-view .rkms-timeline__row:last-child,
+#ws-view .nc-mirror-contract__row:last-child {
+  border-bottom: 0;
+}
+
+#ws-view .rkms-graph {
+  padding: var(--ws-cohesion-pad);
+  background: var(--g-surface-raised);
+}
+
+/* ---- Native Notes ------------------------------------------------------ */
+#ws-view .nc-notes__layout {
+  min-height: min(680px, calc(100vh - 190px));
+}
+
+#ws-view .nc-notes__list,
+#ws-view .nc-notes__editor {
+  overflow: hidden;
+}
+
+#ws-view .nc-notes__editor-body {
+  padding: 12px 16px 16px;
+}
+
+#ws-view .nc-note-content {
+  padding: 14px;
+  border-color: var(--g-hairline);
+  border-radius: 12px;
+}
+
+#ws-view .nc-notes__empty-editor,
+#ws-view .nc-notes__skeleton-editor {
+  border-radius: var(--ws-cohesion-r);
+}
+
+/* ---- Space / synced Markdown ------------------------------------------ */
+#ws-view .space-category-maker {
+  margin-top: 0;
+  padding: var(--ws-cohesion-pad);
+}
+
+#ws-view .space-md-list {
+  display: grid;
+  gap: 0;
+  padding-block: 6px;
+}
+
+#ws-view .space-md-index__head {
+  margin-bottom: 10px;
+}
+
+#ws-view .space-annotation {
+  border-radius: var(--ws-cohesion-row-r);
+  background: var(--g-bg);
+}
+
+#ws-view .space-annotation__anchor {
+  border-radius: var(--ws-cohesion-control-r);
+  background: var(--g-surface-sunken);
+}
+
+/* ---- Five-layer editors / LMS ----------------------------------------- */
+#ws-view :is(
+  .fl-module-editor,
+  .fl-lesson-editor,
+  .fl-assessment-editor,
+  .fl-question-editor,
+  .fl-lesson,
+  .fl-experiment,
+  .fl-discussion-compose,
+  .fl-experiment-form,
+  .fl-course-chat,
+  .fl-learning-path
+) {
+  border-radius: var(--ws-cohesion-r);
+}
+
+#ws-view :is(.fl-module-editor, .fl-access-card) {
+  padding: var(--ws-cohesion-pad);
+  background: var(--g-surface-raised);
+}
+
+#ws-view :is(.fl-lesson-editor, .fl-question-editor, .fl-lesson, .fl-experiment) {
+  background: var(--g-bg);
+}
+
+#ws-view .fl-project-head {
+  gap: var(--ws-cohesion-gap);
+}
+
+#ws-view .fl-tabs {
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--ws-cohesion-control-r);
+  background: var(--g-surface-sunken);
+}
+
+#ws-view .fl-tab {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: calc(var(--ws-cohesion-control-r) - 2px);
+}
+
+#ws-view .fl-tab[aria-current="page"] {
+  border: 0;
+  background: var(--g-surface-raised);
+  box-shadow: 0 0 0 1px var(--g-hairline);
+}
+
+#ws-view .fl-message {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--ws-cohesion-row-r);
+}
+
+#ws-view .fl-message + .fl-message {
+  box-shadow: inset 0 1px 0 var(--g-hairline);
+}
+
+/* ---- Empty, error and loading surfaces -------------------------------- */
+#ws-view :is(.ws-empty, .fl-state, .ri__empty, .ri__error) {
+  border-radius: var(--ws-cohesion-r);
+}
+
+#ws-view .fl-skeleton {
+  border-radius: var(--ws-cohesion-r);
+}
+
+/* ---- Overlays ---------------------------------------------------------- */
+html .ws-action-dialog {
+  border-radius: var(--ws-cohesion-r);
+  background: var(--g-surface-raised);
+}
+
+html .ws-action-dialog__body {
+  padding: 20px;
+}
+
+html .ws-action-dialog__head {
+  padding-bottom: 8px;
+  border-bottom: 0;
+}
+
+html .ws-action-dialog__actions {
+  padding-top: 10px;
+  border-top: 1px solid var(--g-hairline);
+}
+
+.space-annotation-drawer {
+  background: var(--g-surface-raised);
+  border-left: 1px solid var(--g-hairline);
+  box-shadow: -18px 0 48px color-mix(in srgb, var(--g-bg) 60%, transparent);
+}
+
+.space-annotation-drawer__head {
+  padding: var(--ws-cohesion-pad);
+  border-bottom: 1px solid var(--g-hairline);
+}
+
+.space-annotation-drawer__body {
+  padding: var(--ws-cohesion-pad);
+  gap: var(--ws-cohesion-gap);
+}
+
+/* ---- Interaction polish ------------------------------------------------ */
+#ws-view :is(.v-project, .v-workspace, .fl-admin-card, .rkms-task, .ri-card) {
+  transition:
+    border-color var(--g-dur-fast) var(--ws-ease),
+    background-color var(--g-dur-fast) var(--ws-ease),
+    transform var(--g-dur-fast) var(--ws-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #ws-view :is(button.v-project, button.v-workspace, .fl-admin-card, button.rkms-task):hover {
+    border-color: var(--g-border);
+    background: var(--g-surface-hover);
+  }
+}
+
+#ws-view :is(button, a, input, textarea, select):focus-visible {
+  outline-color: var(--g-focus);
+}
+
+/* ---- Responsive -------------------------------------------------------- */
+@media (max-width: 980px) {
+  #ws-view .ri__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  #ws-view .ws-doc--wide,
+  #ws-view .fl-doc {
+    padding-inline: 14px;
+    padding-top: 20px;
+  }
+
+  #ws-view :is(.v-stat, .fl-metric, .ri__metric) {
+    min-height: 92px;
+    padding: 13px;
+  }
+
+  #ws-view :is(.v-stat__value, .fl-metric__value, .ri__metric strong) {
+    font-size: 24px;
+  }
+
+  #ws-view .ri__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  #ws-view :is(.v-panel__head, .fl-panel__head) {
+    padding: 12px 12px 6px;
+  }
+
+  html .ws-action-dialog {
+    border-radius: var(--ws-cohesion-r) var(--ws-cohesion-r) 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ws-view :is(.v-project, .v-workspace, .fl-admin-card, .rkms-task, .ri-card) {
+    transition: none;
+  }
+}
