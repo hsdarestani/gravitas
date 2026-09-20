@@ -8,6 +8,7 @@ per-source: one upstream outage never blanks the whole radar.
 from __future__ import annotations
 
 import html
+import json
 import logging
 import re
 import threading
@@ -15,7 +16,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from urllib.parse import urlencode
 from xml.etree import ElementTree
 
 import requests
@@ -33,6 +33,7 @@ GRANTS_SEARCH = "https://api.grants.gov/v1/api/search2"
 GRANTS_DETAIL = "https://api.grants.gov/v1/api/fetchOpportunity"
 ARXIV_QUERY = "https://export.arxiv.org/api/query"
 GITHUB_SEARCH = "https://api.github.com/search/repositories"
+EU_SEARCH = "https://api.tech.ec.europa.eu/search-api/prod/rest/search"
 OFFICIAL_FEEDS = (
     ("OpenAI", "https://openai.com/news/rss.xml"),
     ("Hugging Face", "https://huggingface.co/blog/feed.xml"),
@@ -291,6 +292,108 @@ def _funding_calls():
     return items[:10], errors
 
 
+def _eu_value(metadata, key):
+    value = (metadata or {}).get(key)
+    if isinstance(value, list):
+        return value[0] if value else ""
+    return value or ""
+
+
+def _eu_funding_calls():
+    """Open/forthcoming EU grant topics from the official Funding & Tenders API."""
+    session = _session()
+    query = {
+        "bool": {
+            "must": [
+                {"terms": {"type": ["1"]}},
+                {"terms": {"status": ["31094501", "31094502"]}},
+            ]
+        }
+    }
+    display_fields = [
+        "type", "identifier", "reference", "title", "status", "caName",
+        "callTitle", "startDate", "deadlineDate", "frameworkProgramme",
+        "typesOfAction", "descriptionByte",
+    ]
+    multipart = {
+        "query": (None, json.dumps(query), "application/json"),
+        "sort": (None, json.dumps({"order": "ASC", "field": "deadlineDate"}), "application/json"),
+        "languages": (None, json.dumps(["en"]), "application/json"),
+        "displayFields": (None, json.dumps(display_fields), "application/json"),
+    }
+    response = session.post(
+        EU_SEARCH,
+        params={
+            "apiKey": "SEDIA",
+            "text": "artificial intelligence research education",
+            "pageSize": 30,
+            "pageNumber": 1,
+        },
+        files=multipart,
+        timeout=REQUEST_TIMEOUT,
+        headers={
+            "Accept": "application/json, text/plain, */*",
+            "Origin": "https://ec.europa.eu",
+            "Referer": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/",
+        },
+    )
+    response.raise_for_status()
+    payload = response.json()
+    results = payload.get("results") or payload.get("result") or []
+    if isinstance(results, dict):
+        results = results.get("results") or results.get("documents") or results.get("items") or []
+
+    status_labels = {"31094501": "forthcoming", "31094502": "open", "31094503": "closed"}
+    today = datetime.now(timezone.utc).date().isoformat()
+    items = []
+    for row in results if isinstance(results, list) else []:
+        metadata = row.get("metadata") or row
+        identifier = _text(_eu_value(metadata, "identifier") or _eu_value(metadata, "reference"))
+        title = _text(_eu_value(metadata, "title") or _eu_value(metadata, "callTitle"), 220)
+        if not identifier or not title:
+            continue
+        summary = _text(_eu_value(metadata, "descriptionByte"), 360)
+        relevance = _score(title, summary, identifier)
+        if relevance < 43:
+            continue
+        deadline = _iso_date(_eu_value(metadata, "deadlineDate"))
+        if deadline and re.fullmatch(r"\d{4}-\d{2}-\d{2}", deadline) and deadline < today:
+            continue
+        raw_status = _text(_eu_value(metadata, "status"))
+        status = status_labels.get(raw_status, raw_status)
+        framework = _text(_eu_value(metadata, "frameworkProgramme"))
+        action = _text(_eu_value(metadata, "typesOfAction"))
+        call_title = _text(_eu_value(metadata, "callTitle"))
+        categories = [value for value in (framework, action, call_title) if value]
+
+        items.append(
+            {
+                "id": f"eu:{identifier}",
+                "kind": "funding",
+                "source": "EU Funding & Tenders",
+                "title": title,
+                "summary": summary,
+                "agency": "European Commission",
+                "status": status,
+                "open_date": _iso_date(_eu_value(metadata, "startDate")),
+                "close_date": deadline,
+                "opportunity_number": identifier,
+                "award_ceiling": "",
+                "award_floor": "",
+                "eligibility": [],
+                "categories": categories[:4],
+                "template_available": False,
+                "template_names": [],
+                "attachment_count": 0,
+                "url": f"https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/opportunities/topic-details/{identifier}",
+                "relevance": relevance,
+            }
+        )
+
+    items.sort(key=lambda item: (item["close_date"] in ("", None), item["close_date"] or "9999-99-99", -item["relevance"]))
+    return items[:10]
+
+
 def _arxiv_papers():
     session = _session()
     params = {
@@ -464,14 +567,16 @@ def _developments():
 
 def _build_payload():
     errors = []
-    funding = []
+    funding_us = []
+    funding_eu = []
     papers = []
     tools = []
     developments = []
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         jobs = {
-            pool.submit(_funding_calls): "funding",
+            pool.submit(_funding_calls): "funding_us",
+            pool.submit(_eu_funding_calls): "funding_eu",
             pool.submit(_arxiv_papers): "papers",
             pool.submit(_github_tools): "tools",
             pool.submit(_developments): "developments",
@@ -480,9 +585,11 @@ def _build_payload():
             kind = jobs[future]
             try:
                 result = future.result()
-                if kind == "funding":
-                    funding, source_errors = result
+                if kind == "funding_us":
+                    funding_us, source_errors = result
                     errors.extend(source_errors)
+                elif kind == "funding_eu":
+                    funding_eu = result
                 elif kind == "papers":
                     papers = result
                 elif kind == "tools":
@@ -493,6 +600,16 @@ def _build_payload():
                     errors.extend(source_errors)
             except Exception as exc:
                 errors.append(_source_error(kind, exc))
+
+    funding = [*funding_eu, *funding_us]
+    funding.sort(
+        key=lambda item: (
+            item.get("close_date") in ("", None),
+            item.get("close_date") or "9999-99-99",
+            -int(item.get("relevance") or 0),
+        )
+    )
+    funding = funding[:16]
 
     papers_tools = [*papers, *tools]
     papers_tools.sort(
@@ -508,7 +625,7 @@ def _build_payload():
         "papers_tools": papers_tools[:18],
         "developments": developments,
         "sources": {
-            "funding": ["Grants.gov"],
+            "funding": ["EU Funding & Tenders", "Grants.gov"],
             "papers_tools": ["arXiv", "GitHub"],
             "developments": [source for source, _url in OFFICIAL_FEEDS],
         },
