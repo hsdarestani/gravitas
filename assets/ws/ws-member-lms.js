@@ -671,6 +671,145 @@ export async function renderLearningOverview(host, { go }) {
 
     const layout = C.bento();
     const tiles = [
+      C.statTile({ value: active.length, label: 'In progress', icon: 'content', note: 'Active courses', featured: true }),
+      C.statTile({ value: completed.length, label: 'Completed', icon: 'target', note: 'Finished courses' }),
+      C.statTile({ value: certs.length, label: 'Certificates', icon: 'notes', note: 'Valid credentials' }),
+      C.statTile({ value: (publishedPaths.paths || []).length, label: 'Learning paths', icon: 'planning', note: 'Published paths' }),
+    ];
+    tiles.forEach((tile, index) => {
+      tile.dataset.span = '3';
+      tile.dataset.series = String((index % 5) + 1);
+    });
+    layout.append(...tiles);
+
+    const current = section('Continue learning');
+    current.box.dataset.span = '8';
+    current.box.classList.add('wc-card--accent');
+    if (!active.length) current.body.append(empty('Nothing in progress', 'Choose a published course or start a learning path.'));
+    for (const enrollment of active) {
+      const node = row({
+        title: enrollment.course_title,
+        meta: label(enrollment.status),
+        onClick: () => go(`/workspace/learning/courses/${enrollment.course_id}`),
+      });
+      node.querySelector('.fl-row__main')?.append(percent(enrollment.progress_percent));
+      current.body.append(node);
+    }
+    current.head.append(link(go, 'My learning', '/workspace/learning/my'));
+    layout.append(current.box);
+
+    const completion = C.card({
+      title: 'Completion',
+      note: 'Finished courses across all enrollments.',
+      span: 4,
+    });
+    completion.body.append(C.gauge({
+      value: completed.length,
+      total: (mine.enrollments || []).length,
+      label: 'completed',
+      caption: `${completed.length} of ${(mine.enrollments || []).length} courses complete`,
+      empty: 'No course progress yet',
+    }));
+    layout.append(completion.box);
+
+    const pathsBox = section('Published learning paths', 'Curated multi-course paths with gates, milestones and branches.');
+    pathsBox.box.dataset.span = '6';
+    for (const path of publishedPaths.paths || []) {
+      const startPath = action('Start path', async () => {
+        startPath.disabled = true;
+        startPath.textContent = 'Starting…';
+        try {
+          await P.lmsPersonalizePath({
+            goal: path.title,
+            learning_path_id: path.id,
+            use_template: true,
+          });
+          await renderLearningOverview(host, { go });
+        } catch (error) {
+          startPath.disabled = false;
+          startPath.textContent = error?.message || 'Try again';
+        }
+      }, true);
+      pathsBox.body.append(row({
+        title: path.title,
+        body: path.summary || '',
+        badges: [
+          (path.nodes || []).length + ' nodes',
+          (path.edges || []).length + ' connections',
+        ],
+        actions: [startPath],
+      }));
+    }
+    if (!(publishedPaths.paths || []).length) {
+      pathsBox.body.append(empty('No published paths yet', 'The course team can publish complex multi-course paths from LMS Admin.'));
+    }
+    layout.append(pathsBox.box);
+
+    const discover = section('Catalog', 'Published courses ready to open or enroll in.');
+    discover.box.dataset.span = '6';
+    for (const course of (catalog.courses || []).slice(0, 6)) discover.body.append(courseRow(course, go));
+    if (!(catalog.courses || []).length) discover.body.append(empty('No published courses', 'Published courses will appear here.'));
+    discover.head.append(link(go, 'View catalog', '/workspace/learning/catalog'));
+    layout.append(discover.box);
+
+    if (activePath) {
+      const pathBox = section(
+        'Your active learning path',
+        activePath.learning_path_title
+          ? 'Following published path · ' + activePath.learning_path_title
+          : 'Personalized around your research goal.',
+      );
+      pathBox.box.dataset.span = '8';
+      if (activePath.goal) pathBox.body.append(el('p', 'fl-prose', activePath.goal));
+      if (activePath.rationale) pathBox.body.append(el('p', 'fl-muted', activePath.rationale));
+      const pathNodes = el('div', 'fl-learning-path');
+      const courseProgress = new Map((mine.enrollments || []).map((item) => [String(item.course_id), item]));
+      for (const node of activePath.nodes || []) {
+        const nodeType = node.type || (node.course_id ? 'course' : 'milestone');
+        const enrollment = node.course_id ? courseProgress.get(String(node.course_id)) : null;
+        const badges = [
+          label(nodeType),
+          enrollment ? label(enrollment.status) : '',
+          enrollment ? enrollment.progress_percent + '% complete' : '',
+        ].filter(Boolean);
+        pathNodes.append(row({
+          title: node.title || (node.course_id ? 'Course ' + node.course_id : node.id),
+          body: node.description || '',
+          badges,
+          onClick: node.course_id ? () => go('/workspace/learning/courses/' + node.course_id) : null,
+        }));
+      }
+      if (!(activePath.nodes || []).length) pathNodes.append(empty('Path has no nodes', 'Ask the course team to review this learning path.'));
+      pathBox.body.append(pathNodes);
+      layout.append(pathBox.box);
+    }
+
+    const personal = personalizedPathPanel(go);
+    personal.dataset.span = activePath ? '4' : '12';
+    if (!activePath) personal.classList.add('wc-card--accent');
+    layout.append(personal);
+
+    wrap.append(layout);
+  } catch (error) {
+    errorView(host, 'Learning', error, () => renderLearningOverview(host, { go }));
+  }
+}) {
+  loading(host, 'Learning');
+  try {
+    const [mine, catalog, publishedPaths, personalPaths] = await Promise.all([
+      P.lmsMe(),
+      P.lmsCourses(),
+      P.lmsLearningPaths().catch(() => ({ paths: [] })),
+      P.lmsPersonalizedPaths().catch(() => ({ assignments: [] })),
+    ]);
+    const wrap = doc(host, 'Learning', 'Courses, research-goal learning paths, assessments and certificates. Learning access is independent from Research.');
+    const active = (mine.enrollments || []).filter((item) => item.status === 'active' || item.status === 'paused');
+    const completed = (mine.enrollments || []).filter((item) => item.status === 'completed');
+    const certs = completed.filter((item) => item.certificate?.valid);
+    const activePath = (personalPaths.assignments || [])[0] || null;
+
+    const layout = C.bento();
+    const tiles = [
       C.statTile({ value: active.length, label: 'In progress', icon: 'content', note: 'Active courses' }),
       C.statTile({ value: completed.length, label: 'Completed', icon: 'target', note: 'Finished courses' }),
       C.statTile({ value: certs.length, label: 'Certificates', icon: 'notes', note: 'Valid credentials' }),
