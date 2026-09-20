@@ -83,7 +83,13 @@ function enhance() {
   // per-space guard still prevents duplicate syncs.
   scheduleIdle(state, 'syncScheduled', () => {
     const current = routeInfo();
-    if (!current || current.space !== info.space || editorIsBusy()) return;
+    if (!current || current.space !== info.space) return;
+    if (editorIsBusy()) {
+      // Keep sync guaranteed without competing with an active editor.
+      clearTimeout(state.timer);
+      state.timer = setTimeout(enhance, 1200);
+      return;
+    }
     backgroundSync(info, status);
   }, 1200);
 }
