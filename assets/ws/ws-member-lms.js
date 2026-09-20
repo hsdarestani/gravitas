@@ -680,7 +680,7 @@ export async function renderLearningOverview(host, { go }) {
     layout.append(...tiles);
 
     const current = section('Continue learning');
-    current.box.dataset.span = '7';
+    current.box.dataset.span = '8';
     if (!active.length) current.body.append(empty('Nothing in progress', 'Choose a published course or start a learning path.'));
     for (const enrollment of active) {
       const node = row({
@@ -695,7 +695,7 @@ export async function renderLearningOverview(host, { go }) {
     layout.append(current.box);
 
     const pathsBox = section('Published learning paths', 'Curated multi-course paths with gates, milestones and branches.');
-    pathsBox.box.dataset.span = '5';
+    pathsBox.box.dataset.span = '4';
     for (const path of publishedPaths.paths || []) {
       const startPath = action('Start path', async () => {
         startPath.disabled = true;
