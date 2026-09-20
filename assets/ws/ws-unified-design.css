@@ -951,3 +951,90 @@ html .au-modal {
     gap: 10px !important;
   }
 }
+
+
+/* ==========================================================================
+   VISUAL DASHBOARD PARITY · 2026-09-20
+   The overview screens now use the same information hierarchy as the member
+   Dashboard: one featured tile, series-coloured icons/marks and real charts.
+   These rules also keep the simplified Research index readable at a glance.
+   ========================================================================== */
+
+/* The Dashboard's featured tile must stay featured even when a legacy class
+   such as ri__metric/fl-metric is present on the same node. */
+#ws-view .wc-tile[data-featured] {
+  background: var(--g-accent) !important;
+  border-color: transparent !important;
+  color: var(--g-text-inverse) !important;
+}
+#ws-view .wc-tile[data-featured] :is(
+  .wc-tile__label,
+  .wc-tile__note,
+  .wc-tile__icon,
+  .wc-tile__go,
+  .fl-metric__title,
+  .ri__metric
+) {
+  color: inherit !important;
+}
+#ws-view .wc-tile.ri__metric {
+  min-height: 118px !important;
+  padding: var(--wc-pad, 16px) !important;
+}
+
+/* Accent cards are the "do this next" surface. Legacy panel rules used to
+   flatten them back to the same blue as everything else. */
+#ws-view .wc-card--accent:is(.v-panel, .fl-panel),
+#ws-view .wc-card.wc-card--accent {
+  border-color: color-mix(in srgb, var(--g-accent) 36%, transparent) !important;
+  background:
+    radial-gradient(120% 130% at 100% 0%,
+      color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
+      transparent 60%),
+    var(--g-surface-raised) !important;
+}
+
+/* Research index: two mental buckets instead of nested Editor/Folder trees. */
+#ws-index-body .ws-index-group {
+  padding: 14px 12px 6px;
+  color: var(--g-text-subtle);
+  font-size: 10px;
+  font-weight: var(--g-w-semibold);
+  letter-spacing: var(--g-track-eyebrow);
+  text-transform: uppercase;
+}
+#ws-index-body .ws-index-group:first-child {
+  padding-top: 6px;
+}
+#ws-index-body .ws-node__row[data-series] .ws-node__icon {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wc-series, var(--g-accent)) 16%, transparent);
+  color: var(--wc-series, var(--g-accent));
+}
+#ws-index-body .ws-node__row[data-series][aria-current="page"] .ws-node__icon {
+  background: color-mix(in srgb, var(--wc-series, var(--g-accent)) 26%, transparent);
+}
+#ws-index-body .ws-node__row[data-series] {
+  min-height: 38px;
+}
+#ws-index-body .ws-node__row[data-series][aria-current="page"] {
+  box-shadow: inset 2px 0 var(--wc-series, var(--g-accent));
+}
+
+/* Notes now starts with a Dashboard summary before the editor, so the page
+   has the same visual rhythm as the rest of the product. */
+#ws-view .nc-notes > .wc-bento {
+  margin-bottom: var(--ws-gutter, 12px);
+}
+#ws-view .nc-notes__list.wc-card,
+#ws-view .nc-notes__editor.wc-card {
+  box-shadow: none;
+}
+#ws-view .nc-note-row.wc-item {
+  margin-inline: -10px;
+  width: calc(100% + 20px);
+}
