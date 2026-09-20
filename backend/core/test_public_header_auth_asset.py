@@ -30,7 +30,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             if 'production-bridge.js' not in source:
                 continue
             referenced.append(path.name)
-            if 'production-bridge.js?v=20260920-auth4' not in source:
+            if 'production-bridge.js?v=20260920-auth5' not in source:
                 stale.append(path.name)
 
         self.assertTrue(referenced)
