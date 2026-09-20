@@ -93,6 +93,37 @@ function heroEl(user) {
   return hero;
 }
 
+function workspaceOverviewHead(scope, user) {
+  const head = el('header', 'ws-doc__head fl-head wc-workspace-head');
+  const copy = el('div');
+  const isCore = scope === 'core';
+  copy.append(
+    el('h1', 'ws-doc__title', isCore ? 'Core Workspace' : 'Research'),
+    el(
+      'p',
+      'ws-doc__meta',
+      isCore
+        ? 'Execution, content, planning and operating work in one view.'
+        : 'Projects, knowledge, collaboration and research intelligence in one view.',
+    ),
+  );
+
+  const context = el('div', 'wc-ident wc-workspace-context');
+  const mark = el('span', 'wc-ident__avatar');
+  mark.innerHTML = icon(isCore ? 'space-core' : 'research');
+  const text = el('div');
+  const now = new Date();
+  text.append(
+    el('span', 'wc-ident__name', greeting(now.getHours())),
+    el('span', 'wc-ident__meta', now.toLocaleDateString('en-GB', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    })),
+  );
+  context.append(mark, text);
+  head.append(copy, context);
+  return head;
+}
+
 /* ---- Weather ------------------------------------------------------------
    Open-Meteo, which needs no key and no account. It is the one request the
    workspace makes to anything outside Gravitas, so it is worth being precise
@@ -212,7 +243,8 @@ function focusText(tasks) {
 }
 
 function focusEl(tasks, ctx) {
-  const card = el('section', 'v-focus');
+  const card = el('section', 'v-focus wc-card');
+  card.dataset.span = '12';
 
   const head = el('div', 'v-focus__head');
   const mark = el('span', 'v-focus__mark');
@@ -396,7 +428,11 @@ export function renderDashboard(host, ctx, scope) {
     return;
   }
 
-  doc.append(heroEl(P.platform.user));
+  if (scope === 'home') {
+    doc.append(heroEl(P.platform.user));
+  } else {
+    doc.append(workspaceOverviewHead(scope, P.platform.user));
+  }
   doc.append(focusEl(boot.my_work.tasks || [], ctx));
 
   if (scope === 'home') return renderHomeBody(doc, ctx, boot);
