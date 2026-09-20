@@ -125,11 +125,26 @@
     if (link.hasAttribute('title')) link.setAttribute('title', label);
   }
 
+  function setJoinVisibility(visible) {
+    /* "Join Us" is an acquisition CTA for visitors who do not have an
+       account yet. Once Django confirms a session it competes with the real
+       next action (Workspace) and makes a signed-in member look signed out.
+       Keep this scoped to the two header CTA shapes only; the Community page
+       content can still explain membership without losing its structure. */
+    [].forEach.call(document.querySelectorAll('.gh-nav-join, .lp-header__cta'), function (join) {
+      join.hidden = !visible;
+      join.setAttribute('aria-hidden', String(!visible));
+      if (!visible) join.setAttribute('tabindex', '-1');
+      else join.removeAttribute('tabindex');
+    });
+  }
+
   function markAccount(email) {
     [].forEach.call(document.querySelectorAll('.gh-signin, .gh-nav-signin'), function (signIn) {
       setLinkLabel(signIn, 'Workspace');
       signIn.href = '/workspace';
     });
+    setJoinVisibility(false);
     var note = document.querySelector('.auth__note[data-form-note]');
     if (note && email) note.textContent = 'Signed in as ' + email + '.';
   }
@@ -1267,6 +1282,7 @@
      authenticated-as-nobody answer drops the mirror and falls back to whatever
      guest pile this browser has of its own. */
   function readerSignedOut() {
+    setJoinVisibility(true);
     libAuthed = false;
     libAuthKnown = true;
     var mirror = false;
