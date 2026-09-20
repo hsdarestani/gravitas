@@ -538,6 +538,7 @@ function renderCoreBody(doc, ctx, boot) {
           label: 'Open tasks',
           icon: 'tasks',
           note: 'Manager-defined execution',
+          featured: true,
           onClick: () => ctx.go('/workspace/core/tasks'),
         }),
         C.statTile({
@@ -572,7 +573,21 @@ function renderCoreBody(doc, ctx, boot) {
       today.dataset.span = '8';
       const next = upNextPanel(calendar.meetings || calendar.results || [], ctx);
       next.dataset.span = '4';
+      next.classList.add('wc-card--accent');
       layout.append(today, next);
+
+      const mix = C.card({
+        title: 'Work mix',
+        note: 'Live volume across the Core operating system.',
+        span: 6,
+      });
+      mix.body.append(C.barRows([
+        { label: 'Open tasks', value: board.counts.tasks || 0, series: '1' },
+        { label: 'Projects', value: board.counts.projects || 0, series: '2' },
+        { label: 'Content', value: board.counts.content || 0, series: '3' },
+        { label: 'Research wait', value: board.counts.research_waiting || 0, series: '4' },
+      ], { scaffold: true }));
+      layout.append(mix.box);
 
       const content = panel('Content pipeline', linkBtn('View pipeline', '/workspace/core/content', ctx));
       content.dataset.span = '6';
@@ -586,26 +601,26 @@ function renderCoreBody(doc, ctx, boot) {
       } else {
         content.body.append(C.note('Nothing in the pipeline yet.'));
       }
+      layout.append(content);
 
       const planning = panel('Planning', linkBtn('Open planning', '/workspace/operating', ctx));
-      planning.dataset.span = '6';
+      planning.dataset.span = '4';
       planning.body.append(row({
         title: 'OKRs & Milestones',
         sub: 'Objectives, Key Results, progress and delivery milestones.',
         badges: ['OKR', 'Milestones'],
         onClick: () => ctx.go('/workspace/operating'),
       }));
-      layout.append(content, planning);
 
       const assets = panel('Operating assets', linkBtn('Assets & Blueprints', '/workspace/core/assets', ctx));
-      assets.dataset.span = '12';
+      assets.dataset.span = '8';
       assets.body.append(row({
         title: 'Content Studio Blueprint',
         sub: 'The content operating system, from strategy through governance.',
         badges: ['v0.2', 'Team approval', '16 sections'],
         onClick: () => ctx.go('/workspace/core/assets/content-studio-blueprint'),
       }));
-      layout.append(assets);
+      layout.append(planning, assets);
 
       holder.append(layout);
     })
@@ -639,9 +654,16 @@ function intelligenceRelative(value) {
   return `updated ${hours} h ago`;
 }
 
-function intelligenceMetric(value, label) {
-  const node = el('div', 'ri__metric');
-  node.append(el('strong', null, String(value || 0)), el('span', null, label));
+function intelligenceMetric(value, label, index = 0) {
+  const icons = ['planning', 'research', 'activity', 'cycle'];
+  const node = C.statTile({
+    value: value || 0,
+    label,
+    icon: icons[index] || 'activity',
+    featured: index === 0,
+  });
+  node.classList.add('ri__metric');
+  node.dataset.series = String((index % 5) + 1);
   return node;
 }
 
@@ -739,10 +761,10 @@ function renderResearchIntelligence(host) {
 
   const metrics = el('div', 'ri__metrics');
   metrics.append(
-    intelligenceMetric(0, 'Funding calls'),
-    intelligenceMetric(0, 'Papers & tools'),
-    intelligenceMetric(0, 'AI developments'),
-    intelligenceMetric(0, 'History events'),
+    intelligenceMetric(0, 'Funding calls', 0),
+    intelligenceMetric(0, 'Papers & tools', 1),
+    intelligenceMetric(0, 'AI developments', 2),
+    intelligenceMetric(0, 'History events', 3),
   );
 
   const tabs = el('div', 'ri__tabs');
@@ -813,10 +835,10 @@ function renderResearchIntelligence(host) {
       payload = await P.call(`/platform/research-intelligence/${force ? '?refresh=1' : ''}`);
       metrics.innerHTML = '';
       metrics.append(
-        intelligenceMetric((payload.funding || []).length, 'Funding calls'),
-        intelligenceMetric((payload.papers_tools || []).length, 'Papers & tools'),
-        intelligenceMetric((payload.developments || []).length, 'AI developments'),
-        intelligenceMetric((payload.history || []).length, 'History events'),
+        intelligenceMetric((payload.funding || []).length, 'Funding calls', 0),
+        intelligenceMetric((payload.papers_tools || []).length, 'Papers & tools', 1),
+        intelligenceMetric((payload.developments || []).length, 'AI developments', 2),
+        intelligenceMetric((payload.history || []).length, 'History events', 3),
       );
       const automatic = payload.automation || {};
       const lastAutomatic = automatic.completed_at || automatic.started_at;
@@ -867,6 +889,7 @@ function renderResearchBody(doc, ctx, boot) {
           label: 'Active projects',
           icon: 'projects',
           note: 'Research workspace',
+          featured: true,
           onClick: () => ctx.go('/workspace/research/projects'),
         }),
         C.statTile({
@@ -897,14 +920,33 @@ function renderResearchBody(doc, ctx, boot) {
       });
       layout.append(...tiles);
 
-      if (ctx.canCore) renderResearchIntelligence(layout);
-
       const projects = projectsPanel(board.projects || [], ctx);
       projects.dataset.span = '8';
+      layout.append(projects);
 
-      const recent = panel('Recent knowledge', linkBtn('Notes', '/workspace/research/notes', ctx));
-      recent.dataset.span = '4';
+      const otherProjects = Math.max(
+        0,
+        Number(board.counts.projects || 0)
+          - Number(board.counts.client_projects || 0)
+          - Number(board.counts.community_projects || 0),
+      );
+      const portfolio = C.card({
+        title: 'Portfolio mix',
+        note: 'Current research projects by collaboration type.',
+        span: 4,
+      });
+      portfolio.body.append(C.barRows([
+        { label: 'Client', value: board.counts.client_projects || 0, series: '1' },
+        { label: 'Community', value: board.counts.community_projects || 0, series: '2' },
+        { label: 'Other', value: otherProjects, series: '4' },
+      ], { scaffold: true }));
+      layout.append(portfolio.box);
+
+      if (ctx.canCore) renderResearchIntelligence(layout);
+
       const resources = board.recent_resources || [];
+      const recent = panel('Recent knowledge', linkBtn('Notes', '/workspace/research/notes', ctx));
+      recent.dataset.span = (board.research_requests || []).length ? '6' : '12';
       if (resources.length) {
         collapsible(recent.body, resources, 5, (item) => row({
           title: item.title || item.original_name,
@@ -913,12 +955,12 @@ function renderResearchBody(doc, ctx, boot) {
       } else {
         recent.body.append(C.note('Notes, files and datasets will appear here as they are added.'));
       }
-      layout.append(projects, recent);
+      layout.append(recent);
 
       const requests = board.research_requests || [];
       if (requests.length) {
         const box = panel('Research requests');
-        box.dataset.span = '12';
+        box.dataset.span = '6';
         collapsible(box.body, requests, 5, (item) => row({
           title: item.title,
           sub: P.meta([P.label(item.status), item.assignee, P.formatDate(item.due_date)]),
