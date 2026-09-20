@@ -110,7 +110,7 @@ function workspaceOverviewHead(scope, user) {
 
   const context = el('div', 'wc-ident wc-workspace-context');
   const mark = el('span', 'wc-ident__avatar');
-  mark.innerHTML = icon(isCore ? 'space-core' : 'research');
+  mark.innerHTML = icon(isCore ? 'space-core' : 'space-research');
   const text = el('div');
   const now = new Date();
   text.append(
@@ -557,7 +557,7 @@ function renderCoreBody(doc, ctx, boot) {
         C.statTile({
           value: board.counts.research_waiting,
           label: 'Waiting on research',
-          icon: 'research',
+          icon: 'space-research',
           note: 'Research handoffs',
           onClick: () => ctx.go('/workspace/research'),
         }),
@@ -569,9 +569,9 @@ function renderCoreBody(doc, ctx, boot) {
       layout.append(...tiles);
 
       const today = todayPanel(board.tasks || [], ctx);
-      today.dataset.span = '7';
+      today.dataset.span = '8';
       const next = upNextPanel(calendar.meetings || calendar.results || [], ctx);
-      next.dataset.span = '5';
+      next.dataset.span = '4';
       layout.append(today, next);
 
       const content = panel('Content pipeline', linkBtn('View pipeline', '/workspace/core/content', ctx));
@@ -900,10 +900,10 @@ function renderResearchBody(doc, ctx, boot) {
       if (ctx.canCore) renderResearchIntelligence(layout);
 
       const projects = projectsPanel(board.projects || [], ctx);
-      projects.dataset.span = '7';
+      projects.dataset.span = '8';
 
       const recent = panel('Recent knowledge', linkBtn('Notes', '/workspace/research/notes', ctx));
-      recent.dataset.span = '5';
+      recent.dataset.span = '4';
       const resources = board.recent_resources || [];
       if (resources.length) {
         collapsible(recent.body, resources, 5, (item) => row({
