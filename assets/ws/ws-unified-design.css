@@ -551,3 +551,326 @@ html .ws-action-dialog__actions {
     transition: none;
   }
 }
+
+
+/* ==========================================================================
+   DASHBOARD PARITY · authoritative final surface treatment
+   This section intentionally has higher specificity than module-local styles.
+   It mirrors the member Dashboard's wc-* language instead of merely sharing
+   colours/radii with it.
+   ========================================================================== */
+
+#ws-view {
+  --ws-r-panel: var(--wc-r, 16px);
+  --ws-gutter: 12px;
+}
+
+/* Dashboard page composition: one centered reading width and compact vertical
+   rhythm. */
+#ws-view :is(.ws-doc--wide, .fl-doc, .nc-notes, .au-team) {
+  width: min(100%, 1120px);
+  max-width: 1120px;
+  margin-inline: auto;
+}
+
+#ws-view :is(.ws-doc__head, .fl-head, .nc-notes__head) {
+  padding: 0 0 4px;
+  border: 0;
+  background: transparent;
+}
+
+#ws-view :is(.ws-doc__title, .fl-head h1, .nc-notes__head h1) {
+  font-size: clamp(22px, 1.8vw, 28px);
+  line-height: 1.12;
+  font-weight: var(--g-w-semibold);
+  letter-spacing: var(--g-track-head);
+}
+
+#ws-view :is(.ws-doc__meta, .fl-head p, .nc-notes__head p) {
+  max-width: 74ch;
+  color: var(--g-text-subtle);
+}
+
+/* Every substantial box reads as the same object as a Dashboard wc-card. */
+#ws-view :is(
+  .v-panel,
+  .fl-panel,
+  .au-panel,
+  .v-card,
+  .v-project,
+  .v-workspace,
+  .v-asset,
+  .fl-admin-card,
+  .fl-course-hero,
+  .fl-certificate,
+  .fl-identity,
+  .fl-access-card,
+  .fl-fieldset,
+  .nc-notes__list,
+  .nc-notes__editor,
+  .nc-mirror-card,
+  .rkms-lane,
+  .rkms-table-wrap,
+  .rkms-timeline,
+  .rkms-graph,
+  .space-category-maker,
+  .space-md-list
+) {
+  border: 1px solid var(--g-hairline) !important;
+  border-radius: var(--wc-r, 16px) !important;
+  background: var(--g-surface-raised) !important;
+  box-shadow: none !important;
+}
+
+/* Card titles are inside the card, never on a separate sunken header strip. */
+#ws-view :is(.v-panel__head, .fl-panel__head, .au-panel__head) {
+  min-height: 0 !important;
+  padding: 14px 16px 8px !important;
+  border-bottom: 0 !important;
+  background: transparent !important;
+}
+
+#ws-view :is(.v-panel__head h2, .fl-panel__title, .au-panel__head h2) {
+  margin: 0;
+  font-size: 14px !important;
+  line-height: 1.25;
+  font-weight: var(--g-w-semibold) !important;
+  letter-spacing: var(--g-track-head);
+}
+
+#ws-view :is(.v-panel__body, .fl-panel__body, .au-panel__body) {
+  padding: 0 6px 10px;
+}
+
+/* Metric tiles are now the exact Dashboard proportion. */
+#ws-view :is(.v-stats, .fl-metrics, .au-team__stats, .ri__metrics) {
+  display: grid;
+  gap: 12px !important;
+  border: 0 !important;
+  background: none !important;
+  overflow: visible !important;
+}
+
+#ws-view :is(.v-stat, .fl-metric, .au-team__stat, .ri__metric) {
+  position: relative;
+  display: grid !important;
+  align-content: space-between !important;
+  gap: 10px !important;
+  min-height: 118px !important;
+  padding: 16px !important;
+  border: 1px solid var(--g-hairline) !important;
+  border-radius: var(--wc-r, 16px) !important;
+  background: var(--g-surface-raised) !important;
+  color: inherit !important;
+  text-align: left;
+}
+
+#ws-view :is(.v-stat__value, .fl-metric__value, .au-team__stat strong, .ri__metric strong) {
+  font-family: var(--g-font) !important;
+  font-size: 28px !important;
+  font-weight: var(--g-w-semibold) !important;
+  line-height: 1.05 !important;
+  letter-spacing: var(--g-track-head);
+  font-variant-numeric: tabular-nums;
+}
+
+#ws-view :is(.v-stat__label, .fl-metric__title, .au-team__stat span, .ri__metric span) {
+  order: -1;
+  color: var(--g-text-subtle) !important;
+  font-size: var(--ws-fs-sm) !important;
+  font-weight: var(--g-w-medium) !important;
+}
+
+/* Dashboard rows: whitespace and a quiet hover instead of table bands. */
+#ws-view :is(.v-row, .fl-row, .au-row, .nc-note-row, .space-md-row) {
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+}
+
+#ws-view :is(.v-row, .fl-row, .au-row) {
+  padding: 9px 10px !important;
+}
+
+#ws-view .au-row,
+#ws-view .nc-note-row,
+#ws-view .space-md-row {
+  margin-inline: 6px !important;
+  width: calc(100% - 12px) !important;
+}
+
+#ws-view :is(.v-row + .v-row, .fl-row + .fl-row, .au-row + .au-row, .nc-note-row + .nc-note-row, .space-md-row + .space-md-row) {
+  box-shadow: inset 0 1px 0 var(--g-hairline) !important;
+}
+
+#ws-view :is(button.v-row, button.fl-row, .au-row, .nc-note-row, .space-md-row):hover {
+  background: var(--g-surface-hover) !important;
+}
+
+/* Same 12px bento gutter everywhere. */
+#ws-view :is(
+  .v-columns,
+  .v-grid,
+  .fl-columns,
+  .fl-card-grid,
+  .fl-admin-grid,
+  .fl-stack,
+  .au-team,
+  .nc-notes__layout,
+  .nc-mirror-grid,
+  .rkms-board,
+  .ri__grid,
+  .ri__loading
+) {
+  gap: 12px !important;
+}
+
+/* Focus / "Up next" surfaces use the Dashboard's single accented-card rule. */
+#ws-view :is(.v-focus, .au-focus-panel) {
+  border: 1px solid color-mix(in srgb, var(--g-accent) 36%, transparent) !important;
+  border-radius: var(--wc-r, 16px) !important;
+  background:
+    radial-gradient(120% 130% at 100% 0%,
+      color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
+      transparent 60%),
+    var(--g-surface-raised) !important;
+}
+
+/* Research Intelligence is a Dashboard card, with its internal result cards
+   behaving like the Dashboard's list/content objects. */
+#ws-view .ri {
+  padding: 16px !important;
+  border: 1px solid var(--g-hairline) !important;
+  border-radius: var(--wc-r, 16px) !important;
+  background: var(--g-surface-raised) !important;
+}
+#ws-view .ri::before { display: none !important; }
+#ws-view .ri-card {
+  min-height: 190px;
+  padding: 16px !important;
+  border-radius: var(--wc-r, 16px) !important;
+  background: var(--g-bg) !important;
+}
+#ws-view .ri-card:hover {
+  transform: none !important;
+  background: var(--g-surface-hover) !important;
+}
+
+/* Native Notes: two Dashboard cards with a real editor surface inside, rather
+   than a nested collection of unrelated panels. */
+#ws-view .nc-notes__layout {
+  gap: 12px !important;
+}
+#ws-view .nc-notes__list,
+#ws-view .nc-notes__editor {
+  overflow: hidden;
+}
+#ws-view .nc-notes__editor-body {
+  padding: 12px 16px 16px !important;
+}
+#ws-view .nc-note-content {
+  padding: 14px !important;
+  border: 1px solid var(--g-hairline) !important;
+  border-radius: 12px !important;
+  background: var(--g-bg) !important;
+}
+
+/* Research/KMS boards and tables should look like Dashboard cards, not admin
+   tables pasted into the product. */
+#ws-view .rkms-lane {
+  padding: 14px !important;
+}
+#ws-view .rkms-task {
+  padding: 11px !important;
+  margin-bottom: 8px !important;
+  border: 1px solid var(--g-hairline) !important;
+  border-radius: 10px !important;
+  background: var(--g-bg) !important;
+}
+#ws-view .rkms-table th {
+  padding: 10px 12px !important;
+  background: var(--g-surface-sunken) !important;
+  color: var(--g-text-subtle) !important;
+}
+#ws-view .rkms-table td {
+  padding: 10px 12px !important;
+}
+
+/* Forms/controls share the compact Dashboard control language. */
+#ws-view :is(.v-input, .fl-input, .fl-textarea, .nc-note-content),
+html .ws-action-dialog .v-input,
+html .au-modal :is(input, textarea, select) {
+  border: 1px solid var(--g-border) !important;
+  border-radius: 8px !important;
+  background: var(--g-bg) !important;
+  color: var(--g-text) !important;
+  box-shadow: none !important;
+}
+
+#ws-view :is(.v-input, .fl-input):focus,
+html .ws-action-dialog .v-input:focus,
+html .au-modal :is(input, textarea, select):focus {
+  border-color: var(--g-accent) !important;
+  outline: 2px solid color-mix(in srgb, var(--g-accent) 24%, transparent) !important;
+  outline-offset: 1px;
+}
+
+#ws-view :is(.ws-btn, .v-mini-btn, .ri__refresh, .ri-card__open),
+html .au-modal button {
+  border-radius: 8px !important;
+}
+
+/* Tabs become the same compact segmented control used by the radar. */
+#ws-view :is(.fl-tabs, .ri__tabs) {
+  gap: 3px !important;
+  padding: 3px !important;
+  border: 1px solid var(--g-hairline) !important;
+  border-radius: 8px !important;
+  background: var(--g-surface-sunken) !important;
+}
+#ws-view :is(.fl-tab, .ri__tab) {
+  border: 0 !important;
+  border-radius: 6px !important;
+}
+#ws-view .fl-tab[aria-current="page"],
+#ws-view .ri__tab[aria-selected="true"] {
+  background: var(--g-surface-raised) !important;
+  box-shadow: 0 0 0 1px var(--g-hairline) !important;
+}
+
+/* Team/admin screens were runtime-styled and previously escaped the design
+   system; explicitly adopt them here. */
+#ws-view .au-team { gap: 12px !important; }
+#ws-view .au-team__toolbar { margin-bottom: 0; }
+#ws-view .au-team__stat::after { top: 14px !important; right: 14px !important; }
+#ws-view .au-badge {
+  border-color: var(--g-hairline) !important;
+  color: var(--g-text-subtle) !important;
+}
+html .au-modal {
+  border: 1px solid var(--g-border) !important;
+  border-radius: var(--wc-r, 16px) !important;
+  background: var(--g-surface-raised) !important;
+  color: var(--g-text) !important;
+  box-shadow: 0 28px 90px rgb(0 0 0 / .42) !important;
+}
+
+/* Responsive behavior matches the Dashboard: tiles collapse before content
+   becomes cramped, while editor/forms retain usable touch targets. */
+@media (max-width: 900px) {
+  #ws-view :is(.v-stats, .fl-metrics, .au-team__stats, .ri__metrics) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 620px) {
+  #ws-view :is(.ws-doc--wide, .fl-doc, .nc-notes, .au-team) {
+    padding-inline: 12px;
+  }
+  #ws-view :is(.v-stats, .fl-metrics, .au-team__stats, .ri__metrics) {
+    grid-template-columns: 1fr !important;
+  }
+  #ws-view :is(.v-stat, .fl-metric, .au-team__stat, .ri__metric) {
+    min-height: 92px !important;
+    padding: 13px !important;
+  }
+}
