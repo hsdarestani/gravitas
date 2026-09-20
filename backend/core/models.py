@@ -584,3 +584,74 @@ class KnowledgeActivity(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class ResearchIntelligenceRun(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = 'running', 'Running'
+        SUCCESS = 'success', 'Success'
+        PARTIAL = 'partial', 'Partial'
+        FAILED = 'failed', 'Failed'
+
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.RUNNING, db_index=True)
+    counts = models.JSONField(default=dict, blank=True)
+    errors = models.JSONField(default=list, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['status', '-started_at'], name='ri_run_status_time'),
+        ]
+
+
+class ResearchIntelligenceItem(models.Model):
+    key = models.CharField(max_length=64, unique=True)
+    kind = models.CharField(max_length=32, db_index=True)
+    source = models.CharField(max_length=120, db_index=True)
+    external_id = models.CharField(max_length=320, blank=True)
+    title = models.CharField(max_length=500)
+    summary = models.TextField(blank=True)
+    url = models.URLField(max_length=1200, blank=True)
+    payload = models.JSONField(default=dict, blank=True)
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        ordering = ['-last_seen_at']
+        indexes = [
+            models.Index(fields=['kind', '-last_seen_at'], name='ri_item_kind_seen'),
+            models.Index(fields=['source', '-last_seen_at'], name='ri_item_src_seen'),
+        ]
+
+
+class ResearchIntelligenceEvent(models.Model):
+    class EventType(models.TextChoices):
+        NEW = 'new', 'New'
+        UPDATED = 'updated', 'Updated'
+
+    item = models.ForeignKey(
+        ResearchIntelligenceItem,
+        on_delete=models.CASCADE,
+        related_name='history_events',
+    )
+    run = models.ForeignKey(
+        ResearchIntelligenceRun,
+        on_delete=models.SET_NULL,
+        related_name='events',
+        blank=True,
+        null=True,
+    )
+    event_type = models.CharField(max_length=16, choices=EventType.choices, db_index=True)
+    changed_fields = models.JSONField(default=list, blank=True)
+    snapshot = models.JSONField(default=dict, blank=True)
+    observed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-observed_at']
+        indexes = [
+            models.Index(fields=['event_type', '-observed_at'], name='ri_event_type_time'),
+            models.Index(fields=['item', '-observed_at'], name='ri_event_item_time'),
+        ]

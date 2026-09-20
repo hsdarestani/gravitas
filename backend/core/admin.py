@@ -134,3 +134,32 @@ class ReaderSavedItemAdmin(admin.ModelAdmin):
     search_fields = ('title', 'item_key', 'user__username', 'user__email')
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')
+
+
+from .models import ResearchIntelligenceEvent, ResearchIntelligenceItem, ResearchIntelligenceRun
+
+
+@admin.register(ResearchIntelligenceRun)
+class ResearchIntelligenceRunAdmin(admin.ModelAdmin):
+    list_display = ('started_at', 'status', 'completed_at')
+    list_filter = ('status',)
+    ordering = ('-started_at',)
+    readonly_fields = ('started_at', 'completed_at', 'counts', 'errors')
+
+
+@admin.register(ResearchIntelligenceItem)
+class ResearchIntelligenceItemAdmin(admin.ModelAdmin):
+    list_display = ('title', 'kind', 'source', 'first_seen_at', 'last_seen_at', 'active')
+    list_filter = ('kind', 'source', 'active')
+    search_fields = ('title', 'summary', 'external_id', 'url')
+    ordering = ('-last_seen_at',)
+    readonly_fields = ('key', 'first_seen_at', 'last_seen_at', 'payload')
+
+
+@admin.register(ResearchIntelligenceEvent)
+class ResearchIntelligenceEventAdmin(admin.ModelAdmin):
+    list_display = ('item', 'event_type', 'observed_at')
+    list_filter = ('event_type', 'item__kind', 'item__source')
+    search_fields = ('item__title', 'item__external_id')
+    ordering = ('-observed_at',)
+    readonly_fields = ('item', 'run', 'event_type', 'changed_fields', 'snapshot', 'observed_at')

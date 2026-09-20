@@ -202,6 +202,44 @@ jobs:
           EOF
           $SUDO mv /tmp/gravitas-backend.service /etc/systemd/system/gravitas-backend.service
 
+          cat > /tmp/gravitas-research-radar.service <<EOF
+          [Unit]
+          Description=Gravitas automatic Research Intelligence collector
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+          Requires=postgresql.service
+
+          [Service]
+          Type=oneshot
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          EnvironmentFile=-/etc/gravitas/openedx.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          Environment=PYTHONPATH=$BACKEND_PATH
+          ExecStart=$BACKEND_PATH/.venv/bin/django-admin refresh_research_intelligence
+          Nice=10
+          TimeoutStartSec=8min
+          EOF
+          $SUDO mv /tmp/gravitas-research-radar.service /etc/systemd/system/gravitas-research-radar.service
+
+          cat > /tmp/gravitas-research-radar.timer <<'EOF'
+          [Unit]
+          Description=Run Gravitas Research Intelligence every 30 minutes
+
+          [Timer]
+          OnBootSec=3min
+          OnUnitActiveSec=30min
+          Persistent=true
+          RandomizedDelaySec=90s
+          Unit=gravitas-research-radar.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-research-radar.timer /etc/systemd/system/gravitas-research-radar.timer
+
           cat > /tmp/gravitas-backup.sh <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -446,6 +484,13 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl enable --now gravitas-backend
           sudo systemctl restart gravitas-backend
+
+          # Seed the first history snapshot immediately after migrations, then
+          # let systemd continue collecting even when nobody opens Research.
+          if ! sudo systemctl start gravitas-research-radar.service; then
+            echo "Initial Research Intelligence collection failed; timer will retry automatically."
+          fi
+          sudo systemctl enable --now gravitas-research-radar.timer
           REMOTE
 
       - name: Ensure SSL and reload Nginx
@@ -474,6 +519,7 @@ jobs:
           sudo systemctl is-active postgresql
           sudo systemctl is-active fail2ban
           sudo systemctl is-active gravitas-backup.timer
+          sudo systemctl is-active gravitas-research-radar.timer
           sudo systemctl is-active gravitas-backend
           sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
           curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'

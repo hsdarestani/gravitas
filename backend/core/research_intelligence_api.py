@@ -22,6 +22,8 @@ import requests
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from .research_intelligence_history import history_payload, persist_payload, run_status_payload
+
 
 logger = logging.getLogger(__name__)
 
@@ -633,6 +635,25 @@ def _build_payload():
     }
 
 
+def _with_history(payload):
+    try:
+        history = history_payload(60)
+        automation = run_status_payload()
+    except Exception as exc:
+        logger.warning("research_intelligence history unavailable: %s", exc)
+        history = []
+        automation = {}
+    return {
+        **payload,
+        "history": history,
+        "automation": {
+            "enabled": True,
+            "interval_seconds": CACHE_TTL_SECONDS,
+            **automation,
+        },
+    }
+
+
 @require_http_methods(["GET"])
 def research_intelligence(request):
     force = request.GET.get("refresh") == "1"
@@ -642,11 +663,19 @@ def research_intelligence(request):
         cached = _CACHE["payload"]
         fresh = cached is not None and (now - _CACHE["at"]) < CACHE_TTL_SECONDS
         if fresh and not force:
-            return JsonResponse({**cached, "cached": True})
+            return JsonResponse({**_with_history(cached), "cached": True})
 
     payload = _build_payload()
+    try:
+        persist_payload(payload)
+    except Exception:
+        # History storage must never take the live radar down. Deployment
+        # migrations and the background collector make persistence durable,
+        # while this path keeps source visibility resilient.
+        logger.exception("research_intelligence persistence failed")
+
     with _CACHE_LOCK:
         _CACHE["payload"] = payload
         _CACHE["at"] = time.monotonic()
 
-    return JsonResponse({**payload, "cached": False})
+    return JsonResponse({**_with_history(payload), "cached": False})
