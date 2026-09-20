@@ -158,10 +158,13 @@ class KnowledgeWorkspaceContractTests(SimpleTestCase):
     def test_pages_are_scoped_by_workspace(self):
         nav = self.read('assets/ws/ws-nav.js')
         api = self.read('assets/ws/ws-api.js')
-        # Each notes section declares which branch of the page store it opens.
+        # Core and Knowledge still expose page trees. Research intentionally
+        # keeps its page tree out of the sidebar, but new pages are still
+        # assigned to the Research space by the shared space resolver.
         self.assertIn("space: 'core'", nav)
-        self.assertIn("space: 'research'", nav)
         self.assertIn("space: 'kms'", nav)
+        self.assertIn("if (area === 'research') return 'research';", nav)
+        self.assertIn("under('/workspace/page')", nav)
         # And a page with no declared space stays where it always was.
         self.assertIn('export function spaceOfNode', api)
         self.assertIn("return 'research';", api)
