@@ -793,6 +793,8 @@ export async function renderLearningOverview(host, { go }) {
   } catch (error) {
     errorView(host, 'Learning', error, () => renderLearningOverview(host, { go }));
   }
+}
+
 function courseMeta(course) {
   const access = course.access_type === 'paid'
     ? `${course.price || '—'} ${course.currency || 'EUR'}`
