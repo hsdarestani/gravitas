@@ -47,21 +47,21 @@ function badge(text, tone = '') {
 }
 
 function metric(value, title, note = '') {
-  const node = el('div', 'fl-metric');
-  node.append(el('strong', 'fl-metric__value', String(value ?? 0)));
-  node.append(el('span', 'fl-metric__title', title));
+  const node = el('div', 'fl-metric wc-tile');
+  node.append(el('strong', 'fl-metric__value wc-tile__value', String(value ?? 0)));
+  node.append(el('span', 'fl-metric__title wc-tile__label', title));
   if (note) node.append(el('small', 'fl-muted', note));
   return node;
 }
 
 function section(title, note = '') {
-  const box = el('section', 'fl-panel');
-  const head = el('div', 'fl-panel__head');
+  const box = el('section', 'fl-panel wc-card');
+  const head = el('div', 'fl-panel__head wc-card__head');
   const text = el('div');
-  text.append(el('h2', 'fl-panel__title', title));
+  text.append(el('h2', 'fl-panel__title wc-card__title', title));
   if (note) text.append(el('p', 'fl-muted', note));
   head.append(text);
-  const body = el('div', 'fl-panel__body');
+  const body = el('div', 'fl-panel__body wc-card__body');
   box.append(head, body);
   return { box, body, head };
 }
@@ -80,14 +80,14 @@ function fail(host, title, error, retry) {
 }
 
 function row({ title, meta = '', body = '', badges = [], onClick = null, actions = [] }) {
-  const node = el(onClick ? 'button' : 'div', `fl-row${onClick ? ' fl-row--button' : ''}`);
+  const node = el(onClick ? 'button' : 'div', `fl-row wc-item${onClick ? ' fl-row--button wc-item--button' : ''}`);
   if (onClick) {
     node.type = 'button';
     node.addEventListener('click', onClick);
   }
-  const main = el('div', 'fl-row__main');
-  main.append(el('strong', null, title || 'Untitled'));
-  if (meta) main.append(el('small', 'fl-muted', meta));
+  const main = el('div', 'fl-row__main wc-item__main');
+  main.append(el('strong', 'wc-item__title', title || 'Untitled'));
+  if (meta) main.append(el('small', 'fl-muted wc-item__meta', meta));
   if (body) main.append(el('p', 'fl-row__body', body));
   if (badges.length) {
     const strip = el('div', 'fl-badges');
