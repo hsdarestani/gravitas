@@ -27,7 +27,7 @@ function shell(host,title,subtitle=''){
 }
 
 function makePanel(title,note=''){
-  const s=el('section','topic-admin__section');
+  const s=el('section','topic-admin__section wc-card');
   s.append(el('h2',null,title));
   if(note)s.append(el('p','fl-muted',note));
   const body=el('div','topic-admin__list');s.append(body);return {section:s,body};
