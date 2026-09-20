@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/ws/ws.css?v=20260920-pulsar1">
   <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20260919-planning1">
-  <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20260920-dashboard3">
+  <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20260920-visual4">
   <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20260914-1">
   <link rel="stylesheet" href="/assets/ws/ws-space-integration.css?v=20260917-1">
   <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20260915-1">
@@ -33,11 +33,11 @@
   <script src="/assets/gravitas-icons.js" defer></script>
   <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
   <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
-  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20260920-cohesion3">
+  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20260920-visual4">
   <style>
     /* A selected page/folder node is the active destination. Do not also
        paint its top-level module row as selected. */
-    .ws[data-node-route] .ws-tree > .ws-node > .ws-node__row[aria-current="page"] {
+    .ws[data-node-route]:not([data-area="research"]) .ws-tree > .ws-node > .ws-node__row[aria-current="page"] {
       background: transparent;
       color: var(--g-text-muted);
       font-weight: inherit;
@@ -125,11 +125,10 @@
   </noscript>
 
   <script type="module">
-    import { start } from '/assets/ws/ws-app.js?v=20260920-dashboard3';
+    import { start } from '/assets/ws/ws-app.js?v=20260920-visual4';
     import { platform } from '/assets/ws/ws-platform.js?v=20260919-planning1';
-    import { RESEARCH_SECTIONS } from '/assets/ws/ws-nav.js?v=20260919-planning1';
-    import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260920-dashboard3';
-    import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20260914-2';
+    import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260920-visual4';
+    import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20260920-visual4';
     import { installNotesPerformance } from '/assets/ws/ws-notes-performance.js?v=20260920-perf1';
     import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20260915-1';
     import { installLiveKms } from '/assets/ws/ws-kms-live.js?v=20260915-1';
@@ -144,18 +143,6 @@
     function isNodeRoute(path = location.pathname) {
       return path === '/workspace/folder' || path.startsWith('/workspace/folder/')
         || path === '/workspace/page' || path.startsWith('/workspace/page/');
-    }
-
-    // Generic page/folder routes are editor tree nodes, not the Research
-    // Folder module. Both ws-app and this shell import the same module URL,
-    // so mutating these section matchers fixes index + breadcrumbs together.
-    const editorSection = RESEARCH_SECTIONS.find((section) => section.id === 'res-editor');
-    const folderSection = RESEARCH_SECTIONS.find((section) => section.id === 'res-folders');
-    if (editorSection && folderSection) {
-      const editorMatch = editorSection.match;
-      const folderMatch = folderSection.match;
-      editorSection.match = (path) => isNodeRoute(path) || editorMatch(path);
-      folderSection.match = (path) => !isNodeRoute(path) && folderMatch(path);
     }
 
     function syncNodeRouteState() {
@@ -222,7 +209,7 @@
     else addEventListener('load', bootWorkspace, { once: true });
   </script>
   <script type="module" src="/assets/ws/ws-actionable-ui.js?v=20260920-perf1"></script>
-  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20260920-cohesion3"></script>
+  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20260920-visual4"></script>
   <script src="/assets/production-bridge.js?v=20260920-auth5" defer></script>
 </body>
 </html>
