@@ -655,7 +655,7 @@ function intelligenceRelative(value) {
 }
 
 function intelligenceMetric(value, label, index = 0) {
-  const icons = ['planning', 'research', 'activity', 'cycle'];
+  const icons = ['planning', 'space-research', 'activity', 'cycle'];
   const node = C.statTile({
     value: value || 0,
     label,
