@@ -518,6 +518,7 @@ export function renderTasks(host, { go }) {
   const doc = shell(host, 'Research Tasks', 'One board aggregated from tasks in every accessible research project.');
   const body = el('div'); doc.append(body); body.append(notice('Loading tasks', 'Reading project cockpits…'));
   projectData().then((rows) => {
+    body.innerHTML = '';
     const records = rows.flatMap(({ project, cockpit }) => (cockpit?.tasks || []).map((task) => ({ task, project })));
     const statusCounts = {
       draft: records.filter(({ task }) => (task.status || 'draft') === 'draft').length,
@@ -553,7 +554,7 @@ export function renderTasks(host, { go }) {
       const option = el('option', null, label); option.value = value; sort.append(option);
     }
     const count = el('span', 'v-toolbar__count'); bar.append(query, board, list, filter, sort, count);
-    const content = el('div'); body.innerHTML = ''; body.append(bar, content);
+    const content = el('div'); body.append(bar, content);
     const draw = () => {
       const q = query.value.trim().toLowerCase();
       const visible = records.filter(({ task, project }) =>
