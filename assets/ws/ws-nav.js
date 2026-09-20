@@ -133,6 +133,7 @@ export const CORE_SECTIONS = [
 export const RESEARCH_SECTIONS = [
   {
     id: 'res-overview',
+    group: 'Work',
     label: 'Overview',
     icon: 'overview',
     path: '/workspace/research',
@@ -140,6 +141,7 @@ export const RESEARCH_SECTIONS = [
   },
   {
     id: 'res-projects',
+    group: 'Work',
     label: 'Projects',
     icon: 'projects',
     path: '/workspace/research/projects',
@@ -147,6 +149,7 @@ export const RESEARCH_SECTIONS = [
   },
   {
     id: 'res-notes',
+    group: 'Work',
     label: 'Notes',
     icon: 'notes',
     path: '/workspace/research/notes',
@@ -162,6 +165,7 @@ export const RESEARCH_SECTIONS = [
   },
   {
     id: 'res-files',
+    group: 'Work',
     label: 'Files & Data',
     icon: 'files',
     path: '/workspace/research/folders',
@@ -176,6 +180,7 @@ export const RESEARCH_SECTIONS = [
   },
   {
     id: 'res-tasks',
+    group: 'Work',
     label: 'Tasks',
     icon: 'tasks',
     path: '/workspace/research/tasks',
@@ -183,6 +188,7 @@ export const RESEARCH_SECTIONS = [
   },
   {
     id: 'res-people',
+    group: 'Connect',
     label: 'Researchers',
     icon: 'team',
     path: '/workspace/people',
@@ -190,6 +196,7 @@ export const RESEARCH_SECTIONS = [
   },
   {
     id: 'res-opportunities',
+    group: 'Connect',
     label: 'Opportunities',
     icon: 'planning',
     path: '/workspace/community',
