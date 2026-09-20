@@ -7,8 +7,17 @@
  *   into the native Nextcloud Notes app.
  */
 
+import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
+
 const API = '/api';
 const state = { observer: null, timer: null };
+
+function activeRoute() {
+  const path = location.pathname.replace(/\/$/, '');
+  return path === '/workspace/research/projects'
+    || path === '/workspace/research/notes'
+    || path === '/workspace/core/notes';
+}
 
 function el(tag, cls = '', text = '') {
   const node = document.createElement(tag);
@@ -642,14 +651,21 @@ async function enhance() {
 }
 
 function schedule() {
+  if (!activeRoute()) return;
   clearTimeout(state.timer);
   state.timer = setTimeout(enhance, 30);
 }
 
 export function installSpaceWorkspaceIntegration() {
   if (state.observer) return;
-  state.observer = new MutationObserver(schedule);
-  state.observer.observe(document.getElementById('ws-view') || document.body, { childList: true, subtree: true });
+  state.observer = observeSurface({
+    target: document.getElementById('ws-view') || document.body,
+    active: activeRoute,
+    callback: schedule,
+    // The renderer swaps the top-level document. Watching every nested edit
+    // caused Space enhancement work to run while typing in Notes.
+    subtree: false,
+  });
   addEventListener('popstate', schedule);
   addEventListener('ws:navigate', schedule);
   schedule();
