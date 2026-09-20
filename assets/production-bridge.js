@@ -80,7 +80,7 @@
   };
 
   var core = document.createElement('script');
-  core.src = '/assets/production-bridge-core.js?v=20260920-auth3';
+  core.src = '/assets/production-bridge-core.js?v=20260920-auth4';
   core.async = false;
   core.onerror = function () {
     console.error('Gravitas production bridge failed to load.');
