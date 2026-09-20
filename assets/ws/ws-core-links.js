@@ -8,13 +8,13 @@ const el = (tag, cls, text) => {
 };
 
 function panel(title, note = '') {
-  const box = el('section', 'fl-panel');
-  const head = el('div', 'fl-panel__head');
+  const box = el('section', 'fl-panel wc-card');
+  const head = el('div', 'fl-panel__head wc-card__head');
   const text = el('div');
-  text.append(el('h2', 'fl-panel__title', title));
+  text.append(el('h2', 'fl-panel__title wc-card__title', title));
   if (note) text.append(el('p', 'fl-muted', note));
   head.append(text);
-  const body = el('div', 'fl-panel__body');
+  const body = el('div', 'fl-panel__body wc-card__body');
   box.append(head, body);
   return { box, body, head };
 }
@@ -50,10 +50,10 @@ function empty(title, body) {
 }
 
 function row(link, onRemove) {
-  const node = el('div', 'fl-row');
-  const main = el('div', 'fl-row__main');
-  main.append(el('strong', null, link.title));
-  main.append(el('small', 'fl-muted', `${P.label(link.target_type)} · ${P.label(link.relation)}`));
+  const node = el('div', 'fl-row wc-item');
+  const main = el('div', 'fl-row__main wc-item__main');
+  main.append(el('strong', 'wc-item__title', link.title));
+  main.append(el('small', 'fl-muted wc-item__meta', `${P.label(link.target_type)} · ${P.label(link.relation)}`));
   const tools = el('div', 'fl-row__actions');
   tools.append(button('Remove link', onRemove));
   node.append(main, tools);
