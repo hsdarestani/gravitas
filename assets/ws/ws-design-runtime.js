@@ -1,5 +1,6 @@
 const DESIGN_ID = 'ws-unified-design';
-const DESIGN_HREF = '/assets/ws/ws-unified-design.css?v=20260920-cohesion3';
+const DESIGN_VERSION = '20260920-visual4';
+const DESIGN_HREF = `/assets/ws/ws-unified-design.css?v=${DESIGN_VERSION}`;
 
 function ensureDesignLast() {
   let link = document.getElementById(DESIGN_ID);
@@ -8,7 +9,7 @@ function ensureDesignLast() {
     link.id = DESIGN_ID;
     link.rel = 'stylesheet';
     link.href = DESIGN_HREF;
-  } else if (!link.href.includes('20260920-cohesion2')) {
+  } else if (!link.href.includes(DESIGN_VERSION)) {
     link.href = DESIGN_HREF;
   }
 
