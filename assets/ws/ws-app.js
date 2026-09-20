@@ -30,7 +30,7 @@ import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
 } from './ws-nav.js?v=20260919-planning1';
-import { renderDashboard, stopClock } from './ws-home.js';
+import { renderDashboard, stopClock } from './ws-home.js?v=20260920-radar1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260920-pulsar1';
