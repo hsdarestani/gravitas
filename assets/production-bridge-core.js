@@ -133,6 +133,7 @@
        content can still explain membership without losing its structure. */
     [].forEach.call(document.querySelectorAll('.gh-nav-join, .lp-header__cta'), function (join) {
       join.hidden = !visible;
+      join.classList.toggle('is-hidden', !visible);
       join.setAttribute('aria-hidden', String(!visible));
       if (!visible) join.setAttribute('tabindex', '-1');
       else join.removeAttribute('tabindex');
