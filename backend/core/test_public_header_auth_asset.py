@@ -15,10 +15,11 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
         self.assertIn("document.querySelectorAll('.gh-nav-join, .lp-header__cta')", source)
         self.assertIn("setJoinVisibility(false);", source)
         self.assertIn("setJoinVisibility(true);", source)
+        self.assertIn("join.classList.toggle('is-hidden', !visible);", source)
 
     def test_public_auth_bridge_loader_is_cache_busted(self):
         source = LOADER.read_text(encoding='utf-8')
-        self.assertIn('/assets/production-bridge-core.js?v=20260920-auth4', source)
+        self.assertIn('/assets/production-bridge-core.js?v=20260920-auth5', source)
 
 
     def test_public_pages_reference_current_auth_loader_version(self):
