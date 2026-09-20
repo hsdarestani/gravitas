@@ -56,23 +56,26 @@ function badge(text, tone = '') {
 }
 
 function metric(value, title, note = '') {
-  const node = el('div', 'fl-metric');
-  node.append(el('strong', 'fl-metric__value', String(value ?? 0)));
-  node.append(el('span', 'fl-metric__title', title));
-  if (note) node.append(el('small', 'fl-muted', note));
+  const node = el('div', 'fl-metric wc-tile');
+  const head = el('div', 'wc-tile__head');
+  head.append(el('span', 'fl-metric__title wc-tile__label', title));
+  node.append(head);
+  node.append(el('strong', 'fl-metric__value wc-tile__value', String(value ?? 0)));
+  if (note) node.append(el('small', 'fl-muted wc-tile__note', note));
   return node;
 }
 
 /* Title and note are one block inside the head, so an action button added
    later lands opposite the pair rather than between them. */
 function section(title, note = '') {
-  const box = el('section', 'fl-panel');
-  const head = el('div', 'fl-panel__head');
+  const box = el('section', 'fl-panel wc-card');
+  box.dataset.span = '12';
+  const head = el('div', 'fl-panel__head wc-card__head');
   const heading = el('div');
-  heading.append(el('h2', 'fl-panel__title', title));
-  if (note) heading.append(el('p', 'fl-muted', note));
+  heading.append(el('h2', 'fl-panel__title wc-card__title', title));
+  if (note) heading.append(el('p', 'fl-muted wc-card__note', note));
   head.append(heading);
-  const body = el('div', 'fl-panel__body');
+  const body = el('div', 'fl-panel__body wc-card__body');
   box.append(head, body);
   return { box, body, head };
 }
@@ -85,14 +88,14 @@ function empty(title, copy) {
 }
 
 function row({ title, meta = '', body = '', badges = [], onClick = null, actions = [] }) {
-  const node = el(onClick ? 'button' : 'div', `fl-row${onClick ? ' fl-row--button' : ''}`);
+  const node = el(onClick ? 'button' : 'div', `fl-row wc-item${onClick ? ' fl-row--button wc-item--button' : ''}`);
   if (onClick) {
     node.type = 'button';
     node.addEventListener('click', onClick);
   }
-  const main = el('div', 'fl-row__main');
-  main.append(el('strong', null, title || 'Untitled'));
-  if (meta) main.append(el('small', 'fl-muted', meta));
+  const main = el('div', 'fl-row__main wc-item__main');
+  main.append(el('strong', 'wc-item__title', title || 'Untitled'));
+  if (meta) main.append(el('small', 'fl-muted wc-item__meta', meta));
   if (body) main.append(el('p', 'fl-row__body', body));
   if (badges.length) {
     const strip = el('div', 'fl-badges');
