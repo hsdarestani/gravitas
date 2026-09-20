@@ -8,7 +8,7 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         root = Path(__file__).resolve().parents[2]
         workspace = (root / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('installResearchProjectActions', workspace)
-        self.assertIn('/assets/ws/ws-project-actions.js?v=20260916-1', workspace)
+        self.assertIn('/assets/ws/ws-project-actions.js?v=20260920-perf1', workspace)
 
     def test_project_tabs_expose_mutations_without_native_dialog(self):
         root = Path(__file__).resolve().parents[2]
