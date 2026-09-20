@@ -8,9 +8,9 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20260920-pulsar1';
-import { renderMemberProgress } from './ws-member-progress.js?v=20260918-progress3';
-import { renderMemberSupport } from './ws-support.js?v=20260918-support1';
+} from './ws-member-lms.js?v=20260920-dashboard3';
+import { renderMemberProgress } from './ws-member-progress.js?v=20260920-dashboard3';
+import { renderMemberSupport } from './ws-support.js?v=20260920-dashboard3';
 import {
   renderAdminActivity,
   renderAdminCourseEditor,
@@ -25,10 +25,10 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20260919-advanced6';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260918-fix1';
-import { renderCoreLinks } from './ws-core-links.js?v=20260914-1';
-import { renderResearchProject } from './ws-project.js?v=20260914-2';
+} from './ws-admin.js?v=20260920-dashboard3';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260920-dashboard3';
+import { renderCoreLinks } from './ws-core-links.js?v=20260920-dashboard3';
+import { renderResearchProject } from './ws-project.js?v=20260920-dashboard3';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
