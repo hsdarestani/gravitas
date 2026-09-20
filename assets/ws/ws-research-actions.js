@@ -17,6 +17,7 @@
    ========================================================================== */
 
 import { platform } from './ws-platform.js?v=20260914-7';
+import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
 
 const API = '/api';
 const DATASET_ACCEPT = '.csv,.tsv,.xlsx,.xls,.json,.jsonl,.zip,.parquet,.xml';
@@ -165,6 +166,15 @@ function route() {
 
 function researchActive() {
   return document.getElementById('ws')?.dataset.area === 'research';
+}
+
+function enhancerActive() {
+  const path = route();
+  return researchActive()
+    || path.startsWith('/workspace/research')
+    || path.startsWith('/workspace/page/')
+    || path === '/workspace/people'
+    || path === '/workspace/shared';
 }
 
 function pageTitle() {
@@ -627,7 +637,7 @@ function annotateReadOnlySurfaces() {
 
 let scheduled = false;
 function reconcile() {
-  if (scheduled) return;
+  if (!enhancerActive() || scheduled) return;
   scheduled = true;
   requestAnimationFrame(() => {
     scheduled = false;
@@ -645,10 +655,11 @@ export function installResearchWorkspaceActions() {
   if (window.__gravitasResearchActionsInstalled) return;
   window.__gravitasResearchActionsInstalled = true;
 
-  const target = document.getElementById('ws');
-  if (!target) return;
-  const observer = new MutationObserver(reconcile);
-  observer.observe(target, { childList: true, subtree: true });
+  const view = document.getElementById('ws-view');
+  const index = document.getElementById('ws-index-body');
+  if (!view) return;
+  observeSurface({ target: view, active: enhancerActive, callback: reconcile, subtree: false });
+  observeSurface({ target: index, active: enhancerActive, callback: reconcile, subtree: false });
   addEventListener('popstate', reconcile);
   addEventListener('ws:navigate', reconcile);
   reconcile();
