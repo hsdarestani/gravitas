@@ -44,10 +44,13 @@ function firstName(user) {
 }
 
 let clockTimer = 0;
+let intelligenceTimer = 0;
 
 export function stopClock() {
   clearInterval(clockTimer);
   clockTimer = 0;
+  clearInterval(intelligenceTimer);
+  intelligenceTimer = 0;
 }
 
 function heroEl(user) {
@@ -547,6 +550,229 @@ function renderCoreBody(doc, ctx, boot) {
     });
 }
 
+/* ---- Research Intelligence ----------------------------------------------
+   Core members get an extra operational radar inside Research. The gate is
+   duplicated by design: ctx.canCore keeps the surface invisible, while the
+   endpoint itself is wrapped in require_core so a copied URL cannot bypass
+   the product boundary. */
+
+function intelligenceDate(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function intelligenceRelative(value) {
+  if (!value) return 'not updated yet';
+  const stamp = new Date(value).getTime();
+  if (Number.isNaN(stamp)) return 'updated recently';
+  const mins = Math.max(0, Math.round((Date.now() - stamp) / 60000));
+  if (mins < 2) return 'updated just now';
+  if (mins < 60) return `updated ${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  return `updated ${hours} h ago`;
+}
+
+function intelligenceMetric(value, label) {
+  const node = el('div', 'ri__metric');
+  node.append(el('strong', null, String(value || 0)), el('span', null, label));
+  return node;
+}
+
+function intelligenceChip(text, tone = '') {
+  const chip = el('span', 'ri-chip', text);
+  if (tone) chip.dataset.tone = tone;
+  return chip;
+}
+
+function intelligenceCard(item, tab) {
+  const card = el('article', 'ri-card');
+
+  const meta = el('div', 'ri-card__meta');
+  meta.append(intelligenceChip(item.source || 'Source'));
+  if (item.kind === 'paper') meta.append(intelligenceChip('Paper'));
+  if (item.kind === 'tool') meta.append(intelligenceChip('Tool'));
+  if (item.kind === 'development') meta.append(intelligenceChip('Development'));
+  if (item.kind === 'funding' && item.status) meta.append(intelligenceChip(P.label(item.status)));
+
+  const stamp = item.close_date || item.date || item.updated_at || item.open_date;
+  if (stamp) meta.append(el('time', 'ri-card__date', intelligenceDate(stamp)));
+  card.append(meta);
+
+  card.append(el('h3', 'ri-card__title', item.title || 'Untitled'));
+  if (item.summary) card.append(el('p', 'ri-card__summary', item.summary));
+
+  const facts = el('div', 'ri-card__facts');
+  if (tab === 'funding') {
+    if (item.agency) {
+      const fact = el('span'); fact.append(el('strong', null, 'Agency '), document.createTextNode(item.agency)); facts.append(fact);
+    }
+    if (item.close_date) {
+      const fact = el('span'); fact.append(el('strong', null, 'Deadline '), document.createTextNode(intelligenceDate(item.close_date))); facts.append(fact);
+    }
+    if (item.award_ceiling) {
+      const fact = el('span'); fact.append(el('strong', null, 'Up to '), document.createTextNode(item.award_ceiling)); facts.append(fact);
+    }
+    if (item.opportunity_number) facts.append(el('span', null, item.opportunity_number));
+  } else if (item.kind === 'tool') {
+    if (Number.isFinite(Number(item.stars))) {
+      const fact = el('span'); fact.append(el('strong', null, '★ '), document.createTextNode(Number(item.stars).toLocaleString())); facts.append(fact);
+    }
+    if (item.language) facts.append(el('span', null, item.language));
+  } else if (item.authors?.length) {
+    facts.append(el('span', null, item.authors.join(', ')));
+  }
+  if (facts.childNodes.length) card.append(facts);
+
+  if (tab === 'funding' && item.template_available) {
+    const templates = el('div', 'ri-card__templates');
+    templates.append(el('strong', null, 'Application template / form found'));
+    for (const name of item.template_names || []) templates.append(el('span', null, name));
+    card.append(templates);
+  } else if (tab === 'funding' && item.attachment_count) {
+    card.append(intelligenceChip(`${item.attachment_count} announcement attachment${item.attachment_count === 1 ? '' : 's'}`, 'caution'));
+  }
+
+  const foot = el('div', 'ri-card__foot');
+  if (item.url) {
+    const link = el('a', 'ri-card__open', tab === 'funding' ? 'Open call ↗' : 'Open source ↗');
+    link.href = item.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    foot.append(link);
+  }
+  const relevance = Number(item.relevance || 0);
+  if (relevance) foot.append(el('span', 'ri__source-note', `Relevance ${relevance}%`));
+  card.append(foot);
+  return card;
+}
+
+function renderResearchIntelligence(host) {
+  const section = el('section', 'ri');
+  section.setAttribute('aria-labelledby', 'research-intelligence-title');
+
+  const head = el('div', 'ri__head');
+  const intro = el('div', 'ri__intro');
+  intro.append(
+    el('p', 'ri__eyebrow', 'Core intelligence'),
+    el('h2', 'ri__title', 'Research Intelligence'),
+    el('p', 'ri__subtitle', 'Automatic radar for funding calls, new AI research tools and papers, and important developments in AI for research and education.'),
+  );
+  intro.querySelector('.ri__title').id = 'research-intelligence-title';
+
+  const actions = el('div', 'ri__head-actions');
+  const live = el('span', 'ri__live', 'Live sources');
+  const refresh = el('button', 'ri__refresh', 'Refresh');
+  refresh.type = 'button';
+  actions.append(live, refresh);
+  head.append(intro, actions);
+
+  const metrics = el('div', 'ri__metrics');
+  metrics.append(
+    intelligenceMetric(0, 'Funding calls'),
+    intelligenceMetric(0, 'Papers & tools'),
+    intelligenceMetric(0, 'AI developments'),
+  );
+
+  const tabs = el('div', 'ri__tabs');
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Research Intelligence feeds');
+  const content = el('div', 'ri__content');
+  const foot = el('div', 'ri__foot');
+  const updated = el('span', null, 'Connecting to sources…');
+  const errors = el('span'); errors.dataset.errors = '';
+  foot.append(updated, errors);
+  section.append(head, metrics, tabs, content, foot);
+  host.append(section);
+
+  let payload = null;
+  let active = sessionStorage.getItem('gravitas.research.intelligenceTab') || 'funding';
+  const choices = [
+    ['funding', 'Funding Calls'],
+    ['papers_tools', 'Papers & Tools'],
+    ['developments', 'AI Developments'],
+  ];
+  const buttons = new Map();
+
+  const drawLoading = () => {
+    content.innerHTML = '';
+    const loading = el('div', 'ri__loading');
+    for (let i = 0; i < 3; i += 1) loading.append(el('div', 'ri__skeleton'));
+    content.append(loading);
+  };
+
+  const draw = () => {
+    if (!payload) return;
+    content.innerHTML = '';
+    for (const [key, button] of buttons) button.setAttribute('aria-selected', String(key === active));
+
+    const items = payload[active] || [];
+    if (!items.length) {
+      content.append(el('div', 'ri__empty', 'No matching items are available from the connected sources right now.'));
+      return;
+    }
+
+    const grid = el('div', 'ri__grid');
+    for (const item of items) grid.append(intelligenceCard(item, active));
+    content.append(grid);
+  };
+
+  for (const [key, label] of choices) {
+    const button = el('button', 'ri__tab', label);
+    button.type = 'button';
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(key === active));
+    button.addEventListener('click', () => {
+      active = key;
+      sessionStorage.setItem('gravitas.research.intelligenceTab', active);
+      draw();
+    });
+    buttons.set(key, button);
+    tabs.append(button);
+  }
+
+  const load = async (force = false) => {
+    const first = !payload;
+    refresh.disabled = true;
+    refresh.textContent = force ? 'Refreshing…' : 'Loading…';
+    if (first) drawLoading();
+
+    try {
+      payload = await P.call(`/platform/research-intelligence/${force ? '?refresh=1' : ''}`);
+      metrics.innerHTML = '';
+      metrics.append(
+        intelligenceMetric((payload.funding || []).length, 'Funding calls'),
+        intelligenceMetric((payload.papers_tools || []).length, 'Papers & tools'),
+        intelligenceMetric((payload.developments || []).length, 'AI developments'),
+      );
+      updated.textContent = `${intelligenceRelative(payload.generated_at)} · auto-refresh every 30 min`;
+      const unavailable = payload.errors || [];
+      errors.textContent = unavailable.length ? `${unavailable.length} source check${unavailable.length === 1 ? '' : 's'} unavailable` : '';
+      live.textContent = unavailable.length ? 'Partial live' : 'Live sources';
+      draw();
+
+      clearInterval(intelligenceTimer);
+      const interval = Math.max(5 * 60, Number(payload.refresh_seconds || 1800)) * 1000 + 5000;
+      intelligenceTimer = setInterval(() => load(false), interval);
+    } catch (error) {
+      content.innerHTML = '';
+      const box = el('div', 'ri__error');
+      box.append(el('strong', null, 'Research Intelligence is temporarily unavailable'));
+      box.append(el('span', null, 'The rest of the Research dashboard is unaffected. Retry when the source connection is available.'));
+      content.append(box);
+      updated.textContent = 'Could not refresh sources';
+      live.textContent = 'Source connection issue';
+    } finally {
+      refresh.disabled = false;
+      refresh.textContent = 'Refresh';
+    }
+  };
+
+  refresh.addEventListener('click', () => load(true));
+  load(false);
+}
+
 /* ---- Research ----------------------------------------------------------- */
 
 function renderResearchBody(doc, ctx, boot) {
@@ -564,6 +790,10 @@ function renderResearchBody(doc, ctx, boot) {
         ['Community projects', board.counts.community_projects],
         ['Research requests', board.counts.research_requests],
       ]));
+
+      // Internal intelligence is an operational Core capability embedded in
+      // Research, never a general Research-member surface.
+      if (ctx.canCore) renderResearchIntelligence(holder);
 
       const columns = el('div', 'v-columns');
       columns.append(projectsPanel(board.projects || [], ctx));
