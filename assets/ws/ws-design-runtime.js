@@ -1,5 +1,5 @@
 const DESIGN_ID = 'ws-unified-design';
-const DESIGN_HREF = '/assets/ws/ws-unified-design.css?v=20260920-cohesion2';
+const DESIGN_HREF = '/assets/ws/ws-unified-design.css?v=20260920-cohesion3';
 
 function ensureDesignLast() {
   let link = document.getElementById(DESIGN_ID);
