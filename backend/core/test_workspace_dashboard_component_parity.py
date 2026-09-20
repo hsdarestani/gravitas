@@ -24,7 +24,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         self.assertIn('const layout = C.bento()', source)
         self.assertIn("label: 'In progress'", source)
         self.assertIn("current.box.dataset.span = '8'", source)
-        self.assertIn("pathsBox.box.dataset.span = '4'", source)
+        self.assertIn("pathsBox.box.dataset.span = '6'", source)
 
     def test_core_and_research_overviews_use_dashboard_bento(self):
         source = self.read('ws-home.js')
