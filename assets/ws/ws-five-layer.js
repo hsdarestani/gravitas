@@ -8,8 +8,8 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20260920-dashboard3';
-import { renderMemberProgress } from './ws-member-progress.js?v=20260920-dashboard3';
+} from './ws-member-lms.js?v=20260920-visual4';
+import { renderMemberProgress } from './ws-member-progress.js?v=20260920-visual4';
 import { renderMemberSupport } from './ws-support.js?v=20260920-dashboard3';
 import {
   renderAdminActivity,
