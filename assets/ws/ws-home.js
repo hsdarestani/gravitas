@@ -595,6 +595,9 @@ function intelligenceCard(item, tab) {
   if (item.kind === 'tool') meta.append(intelligenceChip('Tool'));
   if (item.kind === 'development') meta.append(intelligenceChip('Development'));
   if (item.kind === 'funding' && item.status) meta.append(intelligenceChip(P.label(item.status)));
+  if (tab === 'history' && item.event_type) {
+    meta.append(intelligenceChip(item.event_type === 'new' ? 'New' : 'Updated', item.event_type === 'new' ? 'positive' : 'caution'));
+  }
 
   const stamp = item.close_date || item.date || item.updated_at || item.open_date;
   if (stamp) meta.append(el('time', 'ri-card__date', intelligenceDate(stamp)));
@@ -657,7 +660,7 @@ function renderResearchIntelligence(host) {
   intro.append(
     el('p', 'ri__eyebrow', 'Core intelligence'),
     el('h2', 'ri__title', 'Research Intelligence'),
-    el('p', 'ri__subtitle', 'Automatic radar for funding calls, new AI research tools and papers, and important developments in AI for research and education.'),
+    el('p', 'ri__subtitle', 'Continuous background radar for funding calls, new AI research tools and papers, and important developments in AI for research and education — with persistent change history.'),
   );
   intro.querySelector('.ri__title').id = 'research-intelligence-title';
 
@@ -673,6 +676,7 @@ function renderResearchIntelligence(host) {
     intelligenceMetric(0, 'Funding calls'),
     intelligenceMetric(0, 'Papers & tools'),
     intelligenceMetric(0, 'AI developments'),
+    intelligenceMetric(0, 'History events'),
   );
 
   const tabs = el('div', 'ri__tabs');
@@ -692,6 +696,7 @@ function renderResearchIntelligence(host) {
     ['funding', 'Funding Calls'],
     ['papers_tools', 'Papers & Tools'],
     ['developments', 'AI Developments'],
+    ['history', 'History'],
   ];
   const buttons = new Map();
 
@@ -745,8 +750,13 @@ function renderResearchIntelligence(host) {
         intelligenceMetric((payload.funding || []).length, 'Funding calls'),
         intelligenceMetric((payload.papers_tools || []).length, 'Papers & tools'),
         intelligenceMetric((payload.developments || []).length, 'AI developments'),
+        intelligenceMetric((payload.history || []).length, 'History events'),
       );
-      updated.textContent = `${intelligenceRelative(payload.generated_at)} · auto-refresh every 30 min`;
+      const automatic = payload.automation || {};
+      const lastAutomatic = automatic.completed_at || automatic.started_at;
+      updated.textContent = lastAutomatic
+        ? `background radar ${intelligenceRelative(lastAutomatic)} · runs every 30 min`
+        : `${intelligenceRelative(payload.generated_at)} · background radar enabled`;
       const unavailable = payload.errors || [];
       errors.textContent = unavailable.length ? `${unavailable.length} source check${unavailable.length === 1 ? '' : 's'} unavailable` : '';
       live.textContent = unavailable.length ? 'Partial live' : 'Live sources';
