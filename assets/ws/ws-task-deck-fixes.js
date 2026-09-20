@@ -1,4 +1,5 @@
 import * as P from './ws-platform.js?v=20260914-7';
+import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
 
 const state = {
   observer: null,
@@ -363,9 +364,12 @@ function schedule() {
 export function installWorkspaceTaskDeckFixes() {
   installDialogStyle();
   if (!state.observer) {
-    state.observer = new MutationObserver(schedule);
-    state.observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-current'] });
+    const view = document.getElementById('ws-view');
+    const index = document.getElementById('ws-index-body');
+    state.observer = observeSurface({ target: view, callback: schedule, subtree: false });
+    observeSurface({ target: index, callback: schedule, subtree: false });
     addEventListener('popstate', schedule);
+    addEventListener('ws:navigate', schedule);
   }
   schedule();
 }

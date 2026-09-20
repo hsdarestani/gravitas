@@ -1,4 +1,5 @@
 import * as P from './ws-platform.js?v=20260914-7';
+import { observeSurface, scheduleIdle } from './ws-runtime-performance.js?v=20260920-perf1';
 
 const state = {
   installed: false,
@@ -6,6 +7,7 @@ const state = {
   timer: null,
   lastSync: new Map(),
   inFlight: new Map(),
+  syncScheduled: false,
 };
 
 function routeInfo() {
@@ -76,12 +78,26 @@ function enhance() {
     doc.dataset.fastNotesReady = '1';
     if (status) status.textContent = 'Local notes ready';
   }
-  backgroundSync(info, status);
+  // Remote reconciliation is useful, but it must not compete with the first
+  // paint or with typing. Run it when the browser is idle; the same 45-second
+  // per-space guard still prevents duplicate syncs.
+  scheduleIdle(state, 'syncScheduled', () => {
+    const current = routeInfo();
+    if (!current || current.space !== info.space) return;
+    if (editorIsBusy()) {
+      // Keep sync guaranteed without competing with an active editor.
+      clearTimeout(state.timer);
+      state.timer = setTimeout(enhance, 1200);
+      return;
+    }
+    backgroundSync(info, status);
+  }, 1200);
 }
 
 function schedule() {
+  if (!routeInfo()) return;
   clearTimeout(state.timer);
-  state.timer = setTimeout(enhance, 40);
+  state.timer = setTimeout(enhance, 32);
 }
 
 export function installNotesPerformance() {
@@ -91,8 +107,14 @@ export function installNotesPerformance() {
   // which enhancements own the page. This also makes the Markdown index from
   // the Space integration available on the route shown in older navigation.
   canonicalizeResearchNotes();
-  state.observer = new MutationObserver(schedule);
-  state.observer.observe(document.getElementById('ws-view') || document.body, { childList: true, subtree: true });
+  state.observer = observeSurface({
+    target: document.getElementById('ws-view') || document.body,
+    active: () => !!routeInfo(),
+    callback: schedule,
+    // Notes render as one top-level document. Nested save-state and textarea
+    // updates must not wake the page enhancer.
+    subtree: false,
+  });
   addEventListener('popstate', schedule);
   addEventListener('ws:navigate', schedule);
   schedule();

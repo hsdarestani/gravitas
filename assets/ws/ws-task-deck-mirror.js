@@ -1,5 +1,6 @@
 import * as P from './ws-platform.js?v=20260918-taskboard1';
 import { renderCoreTasks } from './ws-views.js?v=20260918-taskboard1';
+import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
 
 const state = {
   observer: null,
@@ -193,7 +194,7 @@ function mountMirror() {
 }
 
 function schedule() {
-  if (state.scheduled) return;
+  if (route() !== '/workspace/core/tasks' || state.scheduled) return;
   state.scheduled = true;
   queueMicrotask(() => {
     state.scheduled = false;
@@ -204,9 +205,12 @@ function schedule() {
 export function installTaskDeckMirror() {
   installStyle();
   if (!state.observer) {
-    const target = document.getElementById('ws') || document.documentElement;
-    state.observer = new MutationObserver(schedule);
-    state.observer.observe(target, { childList: true, subtree: true });
+    state.observer = observeSurface({
+      target: document.getElementById('ws-view'),
+      active: () => route() === '/workspace/core/tasks',
+      callback: schedule,
+      subtree: false,
+    });
     addEventListener('popstate', schedule);
     addEventListener('ws:navigate', schedule);
   }

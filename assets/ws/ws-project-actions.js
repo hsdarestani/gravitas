@@ -1,4 +1,5 @@
 import * as P from './ws-platform.js?v=20260914-7';
+import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
 
 const state = { installed: false, scheduled: false, loading: new Set(), observer: null };
 const PROJECT_STATUS = [['intake', 'Intake'], ['active', 'Active'], ['review', 'Review'], ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['closed', 'Closed']];
@@ -665,7 +666,7 @@ async function mountForCurrentRoute() {
 }
 
 function schedule() {
-  if (state.scheduled) return;
+  if (!routeInfo() || state.scheduled) return;
   state.scheduled = true;
   queueMicrotask(() => {
     state.scheduled = false;
@@ -678,8 +679,12 @@ export function installResearchProjectActions() {
   state.installed = true;
   addEventListener('popstate', schedule);
   addEventListener('ws:navigate', schedule);
-  state.observer = new MutationObserver(schedule);
   const view = document.getElementById('ws-view');
-  if (view) state.observer.observe(view, { childList: true, subtree: true });
+  state.observer = observeSurface({
+    target: view,
+    active: () => !!routeInfo(),
+    callback: schedule,
+    subtree: false,
+  });
   schedule();
 }

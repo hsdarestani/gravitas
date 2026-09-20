@@ -1,4 +1,5 @@
 import * as P from './ws-platform.js?v=20260914-7';
+import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
 
 const VERSION = '20260915-1';
 const MENU_LABELS = new Map([
@@ -842,8 +843,13 @@ export function installActionableUi() {
   injectStyles();
   addEventListener('ws:navigate', schedule);
   addEventListener('popstate', schedule);
-  const root = document.getElementById('ws') || document.body;
-  new MutationObserver(schedule).observe(root, { childList: true, subtree: true });
+  const view = document.getElementById('ws-view');
+  const index = document.getElementById('ws-index-body');
+  // Route renderers replace top-level workspace surfaces. Watching every
+  // nested mutation made typing, autosave labels and list updates trigger a
+  // full actionable-UI rescan.
+  observeSurface({ target: view, callback: schedule, subtree: false });
+  observeSurface({ target: index, callback: schedule, subtree: false });
   schedule();
 }
 

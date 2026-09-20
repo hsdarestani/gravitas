@@ -11,12 +11,13 @@ COHESION = ROOT / 'assets' / 'ws' / 'ws-unified-design.css'
 class WorkspaceDesignCohesionAssetTests(SimpleTestCase):
     def test_workspace_loads_cohesion_layer_last(self):
         html = WORKSPACE.read_text(encoding='utf-8')
-        marker = '/assets/ws/ws-unified-design.css?v=20260920-cohesion1'
+        marker = '/assets/ws/ws-unified-design.css?v=20260920-cohesion2'
         self.assertIn(marker, html)
         self.assertGreater(
             html.index(marker),
             html.index('/assets/production-overrides.css'),
         )
+        self.assertIn('/assets/ws/ws-design-runtime.js?v=20260920-cohesion2', html)
 
     def test_cohesion_layer_adopts_all_workspace_surface_families(self):
         source = COHESION.read_text(encoding='utf-8')
@@ -24,6 +25,8 @@ class WorkspaceDesignCohesionAssetTests(SimpleTestCase):
             '--ws-cohesion-r: var(--wc-r, 16px)',
             '.v-panel',
             '.fl-panel',
+            '.au-panel',
+            '.au-team__stat',
             '.ri__metric',
             '.ri-card',
             '.nc-notes__list',
