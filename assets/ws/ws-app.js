@@ -21,16 +21,16 @@
 
 import * as api from './ws-api.js?v=20260913-3';
 import * as P from './ws-platform.js?v=20260919-planning1';
-import * as views from './ws-views.js?v=20260920-dashboard3';
+import * as views from './ws-views.js?v=20260920-visual4';
 import * as assets from './ws-core-assets.js?v=20260920-pulsar1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js';
-import * as research from './ws-research.js?v=20260913-4';
+import * as research from './ws-research.js?v=20260920-visual4';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20260919-planning1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20260920-dashboard3';
+} from './ws-nav.js?v=20260920-visual4';
+import { renderDashboard, stopClock } from './ws-home.js?v=20260920-visual4';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260920-pulsar1';
@@ -414,7 +414,7 @@ function renderIndex() {
     return;
   }
 
-  title.textContent = WORKSPACES[ui.area]?.name || 'Workspace';
+  title.textContent = ui.area === 'research' ? 'Research' : (WORKSPACES[ui.area]?.name || 'Workspace');
 
   /* Deliberately not role="tree". That role carries a full keyboard
      contract: up and down across the whole flattened tree, home and end,
@@ -425,7 +425,13 @@ function renderIndex() {
   const tree = document.createElement('div');
   tree.className = 'ws-tree';
 
-  for (const section of sectionsFor(ui.area)) {
+  let lastGroup = '';
+  for (const [sectionIndex, section] of sectionsFor(ui.area).entries()) {
+    if (section.group && section.group !== lastGroup) {
+      const groupLabel = el('div', 'ws-index-group', section.group);
+      tree.append(groupLabel);
+      lastGroup = section.group;
+    }
     const isOpen = ui.openSections.has(section.id);
     const visibleChildren = (section.children || []).filter((child) => !child.when || child.when());
     const hasTreeChildren = !!(section.tree && ui.nodes.some((node) => (
@@ -448,6 +454,7 @@ function renderIndex() {
         renderIndex();
       },
       onClick: () => go(section.path),
+      series: String((sectionIndex % 5) + 1),
     });
     tree.append(row);
 
@@ -517,7 +524,7 @@ function workspaceChoice(workspace) {
   return row;
 }
 
-function sectionRow({ label, mark, depth, active, expandable, expanded, onToggle, onClick }) {
+function sectionRow({ label, mark, depth, active, expandable, expanded, onToggle, onClick, series = '' }) {
   const wrap = document.createElement('div');
   wrap.className = 'ws-node';
   if (expanded) wrap.setAttribute('data-open', '');
@@ -527,6 +534,7 @@ function sectionRow({ label, mark, depth, active, expandable, expanded, onToggle
   row.type = 'button';
   row.style.setProperty('--depth', depth);
   if (active) row.setAttribute('aria-current', 'page');
+  if (series) row.dataset.series = series;
 
   /* The twist expands, the row navigates. A row that only expands costs two
      clicks to reach anything you actually wanted to read.

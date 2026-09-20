@@ -1,4 +1,5 @@
 import * as P from './ws-platform.js?v=20260914-7';
+import * as C from './ws-charts.js?v=20260920-visual4';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {
@@ -67,7 +68,7 @@ function shell(host, info) {
   const doc = el('div', 'ws-doc ws-doc--wide fl-doc nc-notes');
   const head = el('header', 'ws-doc__head fl-head nc-notes__head');
   const copy = el('div');
-  copy.append(el('span', 'fl-eyebrow', info.kind === 'admin' ? 'CORE / NATIVE APPS' : `${info.area.toUpperCase()} / NEXTCLOUD NOTES`));
+  copy.append(el('span', 'fl-eyebrow', info.kind === 'admin' ? 'CORE / NATIVE APPS' : `${info.area.toUpperCase()} / NOTES`));
   copy.append(el('h1', 'ws-doc__title', info.title));
   copy.append(el('p', 'ws-doc__meta', info.kind === 'admin'
     ? 'Gravitas and Nextcloud are two synchronized surfaces of the same workspace: Files/Team Folders for storage, Notes for writing, and Deck for execution.'
@@ -97,7 +98,7 @@ function errorView(host, info, error, retry) {
 }
 
 function noteRow(item, active, choose) {
-  const row = el('button', 'nc-note-row');
+  const row = el('button', 'nc-note-row wc-item wc-item--button');
   row.type = 'button';
   if (active) row.setAttribute('aria-current', 'page');
   const title = el('strong', 'nc-note-row__title', item.title || 'Untitled');
@@ -333,11 +334,32 @@ async function renderNativeNotes(host, info) {
     }
   });
   const native = action('Open Nextcloud Notes', () => openNative(data.native_url), { solid: true });
-  headActions.append(status, sync, native);
+  headActions.append(status, sync);
+  if (info.space === 'research') {
+    headActions.append(action('Journal', () => navTo('/workspace/research/calendar')));
+  }
+  headActions.append(native);
   head.append(headActions);
 
+  const mirroredCount = items.filter((item) => item.sync_state === 'synced').length;
+  const favoriteCount = items.filter((item) => item.favorite).length;
+  const attentionCount = items.filter((item) => ['pending', 'error', 'conflict', 'blocked'].includes(item.sync_state || 'pending')).length;
+  const summary = C.bento();
+  const summaryTiles = [
+    C.statTile({ value: items.length, label: 'Notes', icon: 'notes', note: `In ${info.area}`, featured: true }),
+    C.statTile({ value: mirroredCount, label: 'Mirrored', icon: 'cycle', note: 'Synced with Nextcloud' }),
+    C.statTile({ value: favoriteCount, label: 'Favorites', icon: 'target', note: 'Pinned for quick access' }),
+    C.statTile({ value: attentionCount, label: 'Needs attention', icon: 'activity', note: attentionCount ? 'Pending or conflict' : 'All clear' }),
+  ];
+  summaryTiles.forEach((tile, index) => {
+    tile.dataset.span = '3';
+    tile.dataset.series = String((index % 5) + 1);
+  });
+  summary.append(...summaryTiles);
+  doc.append(summary);
+
   const layout = el('div', 'nc-notes__layout');
-  const sidebar = el('section', 'fl-panel nc-notes__list');
+  const sidebar = el('section', 'fl-panel wc-card nc-notes__list');
   const sidebarHead = el('div', 'fl-panel__head');
   const sidebarTitle = el('div');
   sidebarTitle.append(el('h2', 'fl-panel__title', 'Notes'));
@@ -360,7 +382,7 @@ async function renderNativeNotes(host, info) {
   const listBody = el('div', 'fl-panel__body nc-notes__list-body');
   sidebar.append(sidebarHead, listBody);
 
-  const editor = el('section', 'fl-panel nc-notes__editor');
+  const editor = el('section', 'fl-panel wc-card nc-notes__editor');
   layout.append(sidebar, editor);
   doc.append(layout);
 

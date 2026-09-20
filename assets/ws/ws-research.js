@@ -8,6 +8,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20260918-access3';
+import * as C from './ws-charts.js?v=20260920-visual4';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -50,6 +51,24 @@ async function projectData() {
   }));
 }
 
+function dashboardSummary(specs = []) {
+  const grid = C.bento();
+  const span = specs.length >= 6 ? '2' : specs.length === 4 ? '3' : specs.length === 3 ? '4' : '6';
+  specs.forEach((spec, index) => {
+    const tile = C.statTile({ ...spec, featured: index === 0 });
+    tile.dataset.span = span;
+    tile.dataset.series = String((index % 5) + 1);
+    grid.append(tile);
+  });
+  return grid;
+}
+
+function dashboardBars(title, note, rows, span = 12) {
+  const card = C.card({ title, note, span });
+  card.body.append(C.barRows(rows, { scaffold: true }));
+  return card.box;
+}
+
 export function renderCalendar(host, ctx) {
   const doc = shell(host, 'Journal', 'Daily research notes with project deadlines in the same calendar.');
   const body = el('div', 'rkms-calendar'); doc.append(body);
@@ -82,7 +101,18 @@ export function renderCalendar(host, ctx) {
     const first = new Date(year, monthIndex, 1);
     const last = new Date(year, monthIndex + 1, 0);
 
-    const month = el('section', 'v-panel rkms-month');
+    const todayKey = dayKey(now);
+    const monthPrefix = `${year}-${String(monthIndex + 1).padStart(2, '0')}-`;
+    const upcomingCount = events.filter((event) => event.due_date && event.due_date >= todayKey).length;
+    const monthDeadlineCount = events.filter((event) => String(event.due_date || '').startsWith(monthPrefix)).length;
+    body.append(dashboardSummary([
+      { value: events.length, label: 'Deadlines', icon: 'activity', note: 'Research schedule' },
+      { value: upcomingCount, label: 'Upcoming', icon: 'planning', note: 'From today forward' },
+      { value: journalDays.size, label: 'Journal days', icon: 'notes', note: 'Entries with a date' },
+      { value: monthDeadlineCount, label: 'This month', icon: 'target', note: 'Deadlines in view' },
+    ]));
+
+    const month = el('section', 'v-panel wc-card rkms-month');
     const monthHead = el('div', 'v-toolbar');
     const previous = button('←', () => { cursor = new Date(year, monthIndex - 1, 1); draw(journalDays, events); });
     previous.setAttribute('aria-label', 'Previous month');
@@ -167,6 +197,29 @@ export function renderProjects(host, { go }) {
   const body = el('div'); doc.append(body); body.append(notice('Loading projects', 'Reading accessible projects and their cockpits…'));
   projectData().then((records) => {
     body.innerHTML = '';
+    const totals = records.reduce((acc, { cockpit }) => {
+      acc.tasks += Number(cockpit?.counts?.tasks || 0);
+      acc.notes += Number(cockpit?.counts?.notes || 0);
+      acc.files += Number(cockpit?.counts?.files || 0) + Number(cockpit?.counts?.datasets || 0);
+      acc.links += Number(cockpit?.counts?.connections || 0);
+      return acc;
+    }, { tasks: 0, notes: 0, files: 0, links: 0 });
+
+    body.append(dashboardSummary([
+      { value: records.length, label: 'Projects', icon: 'projects', note: 'Accessible portfolio' },
+      { value: totals.tasks, label: 'Tasks', icon: 'tasks', note: 'Across all projects' },
+      { value: totals.notes, label: 'Notes', icon: 'notes', note: 'Project knowledge' },
+      { value: totals.links, label: 'Connections', icon: 'link', note: 'Cross-project links' },
+    ]));
+    body.append(C.bento([
+      dashboardBars('Research activity', 'Live object counts across the accessible portfolio.', [
+        { label: 'Tasks', value: totals.tasks, series: '1' },
+        { label: 'Notes', value: totals.notes, series: '2' },
+        { label: 'Files & data', value: totals.files, series: '3' },
+        { label: 'Links', value: totals.links, series: '4' },
+      ], 12),
+    ]));
+
     const bar = el('div', 'v-toolbar rkms-switcher');
     const content = el('div');
     let active = sessionStorage.getItem('gravitas.research.projectView') || 'cards';
@@ -285,7 +338,7 @@ function flatten(nodes, depth = 0, out = []) {
   return out;
 }
 
-export function renderFolders(host) {
+export function renderFolders(host, { go }) {
   const doc = shell(host, 'Research Folder', 'The live Gravitas Space tree, synchronised with Nextcloud.');
   const body = el('div'); doc.append(body);
   let selectedFolder = null;
@@ -353,6 +406,19 @@ export function renderFolders(host) {
       // Those are already returned by spaceItems(), so keep only note/link rows
       // here to avoid rendering the same synced file twice.
       const notes = (noteData.items || []).filter((item) => item.source !== 'managed');
+      body.append(dashboardSummary([
+        { value: folders.length, label: 'Folders', icon: 'files', note: 'Space structure' },
+        { value: items.length, label: 'Managed items', icon: 'projects', note: 'Tasks & repositories' },
+        { value: notes.length, label: 'Notes', icon: 'notes', note: 'Synced knowledge' },
+        { value: noteData.cloud_unavailable ? 0 : 1, label: 'Cloud link', icon: 'cycle', note: noteData.cloud_unavailable ? 'Unavailable' : 'Connected' },
+      ]));
+      body.append(C.bento([
+        dashboardBars('Content mix', 'What currently lives in the Research Space.', [
+          { label: 'Folders', value: folders.length, series: '1' },
+          { label: 'Managed items', value: items.length, series: '2' },
+          { label: 'Notes', value: notes.length, series: '4' },
+        ], 12),
+      ]));
       if (!folders.length && !items.length && !notes.length) panel.append(notice('Space is empty', 'Create a folder to start the research structure.'));
       for (const folder of folders) {
         const row = el('div', 'rkms-tree__row'); row.style.setProperty('--tree-depth', folder.depth);
@@ -378,8 +444,8 @@ export function renderFolders(host) {
         const state = el('span', 'rkms-tree__meta', P.label(item.sync_state)); row.append(main, state);
         if ((item.type || item.kind) === 'note' && item.id) {
           row.tabIndex = 0; row.setAttribute('role', 'link');
-          row.addEventListener('click', () => ctx.go(`/workspace/page/${item.id}`));
-          row.addEventListener('keydown', (event) => { if (event.key === 'Enter') ctx.go(`/workspace/page/${item.id}`); });
+          row.addEventListener('click', () => go(`/workspace/page/${item.id}`));
+          row.addEventListener('keydown', (event) => { if (event.key === 'Enter') go(`/workspace/page/${item.id}`); });
         }
         if (item.source === 'managed' || item.file_path) {
           const move = button('Move', async () => {
@@ -452,7 +518,28 @@ export function renderTasks(host, { go }) {
   const doc = shell(host, 'Research Tasks', 'One board aggregated from tasks in every accessible research project.');
   const body = el('div'); doc.append(body); body.append(notice('Loading tasks', 'Reading project cockpits…'));
   projectData().then((rows) => {
+    body.innerHTML = '';
     const records = rows.flatMap(({ project, cockpit }) => (cockpit?.tasks || []).map((task) => ({ task, project })));
+    const statusCounts = {
+      draft: records.filter(({ task }) => (task.status || 'draft') === 'draft').length,
+      active: records.filter(({ task }) => task.status === 'active').length,
+      blocked: records.filter(({ task }) => task.status === 'blocked').length,
+      done: records.filter(({ task }) => task.status === 'done').length,
+    };
+    body.append(dashboardSummary([
+      { value: records.filter(({ task }) => !['done', 'archived'].includes(task.status)).length, label: 'Open tasks', icon: 'tasks', note: 'Research execution' },
+      { value: statusCounts.active, label: 'Active', icon: 'activity', note: 'In progress' },
+      { value: statusCounts.blocked, label: 'Blocked', icon: 'target', note: 'Needs attention' },
+      { value: statusCounts.done, label: 'Done', icon: 'cycle', note: 'Completed' },
+    ]));
+    body.append(C.bento([
+      dashboardBars('Task status', 'Distribution across all accessible research projects.', [
+        { label: 'Draft', value: statusCounts.draft, series: '1' },
+        { label: 'Active', value: statusCounts.active, series: '2' },
+        { label: 'Blocked', value: statusCounts.blocked, series: '5' },
+        { label: 'Done', value: statusCounts.done, series: '3' },
+      ], 12),
+    ]));
     const bar = el('div', 'v-toolbar');
     const query = el('input', 'v-input'); query.type = 'search'; query.placeholder = 'Search tasks';
     let mode = sessionStorage.getItem('gravitas.research.taskView') || 'board';
@@ -467,7 +554,7 @@ export function renderTasks(host, { go }) {
       const option = el('option', null, label); option.value = value; sort.append(option);
     }
     const count = el('span', 'v-toolbar__count'); bar.append(query, board, list, filter, sort, count);
-    const content = el('div'); body.innerHTML = ''; body.append(bar, content);
+    const content = el('div'); body.append(bar, content);
     const draw = () => {
       const q = query.value.trim().toLowerCase();
       const visible = records.filter(({ task, project }) =>

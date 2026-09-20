@@ -79,6 +79,7 @@ export async function renderMemberProgress(host, { go }) {
         label: 'Topics tracked',
         icon: 'target',
         note: data.topic_progress?.completed ? `${data.topic_progress.completed} completed` : 'Public topics',
+        featured: true,
       }),
       C.statTile({
         value: data.topic_progress?.completed || 0,
@@ -129,6 +130,33 @@ export async function renderMemberProgress(host, { go }) {
       tile.dataset.series = String((index % 5) + 1);
     });
     layout.append(...tiles);
+
+    const topicGauge = C.card({
+      title: 'Topic completion',
+      note: 'Completion across the public Topics you started.',
+      span: 4,
+    });
+    topicGauge.body.append(C.gauge({
+      value: data.topic_progress?.completed || 0,
+      total: data.topic_progress?.total || 0,
+      label: 'complete',
+      caption: `${data.topic_progress?.completed || 0} of ${data.topic_progress?.total || 0} Topics completed`,
+      empty: 'No Topic progress yet',
+    }));
+    layout.append(topicGauge.box);
+
+    const mix = C.card({
+      title: 'Account activity mix',
+      note: 'A quick view of what is currently active across your layers.',
+      span: 8,
+    });
+    mix.body.append(C.barRows([
+      { label: 'Topics', value: data.topic_progress?.total || 0, series: '1' },
+      { label: 'Public paths', value: data.public_paths?.in_progress || 0, series: '2' },
+      { label: 'Courses', value: data.learning?.active || 0, series: '3' },
+      { label: 'Research', value: data.research?.projects || 0, series: '4' },
+    ], { scaffold: true }));
+    layout.append(mix.box);
 
     const topics = dashboardCard(
       'Topic progress',

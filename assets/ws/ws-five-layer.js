@@ -8,8 +8,8 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20260920-dashboard3';
-import { renderMemberProgress } from './ws-member-progress.js?v=20260920-dashboard3';
+} from './ws-member-lms.js?v=20260920-visual4';
+import { renderMemberProgress } from './ws-member-progress.js?v=20260920-visual4';
 import { renderMemberSupport } from './ws-support.js?v=20260920-dashboard3';
 import {
   renderAdminActivity,
@@ -25,10 +25,10 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20260920-dashboard3';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260920-dashboard3';
-import { renderCoreLinks } from './ws-core-links.js?v=20260920-dashboard3';
-import { renderResearchProject } from './ws-project.js?v=20260920-dashboard3';
+} from './ws-admin.js?v=20260920-visual4';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260920-visual4';
+import { renderCoreLinks } from './ws-core-links.js?v=20260920-visual4';
+import { renderResearchProject } from './ws-project.js?v=20260920-visual4';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);

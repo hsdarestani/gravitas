@@ -671,16 +671,20 @@ export async function renderLearningOverview(host, { go }) {
 
     const layout = C.bento();
     const tiles = [
-      C.statTile({ value: active.length, label: 'In progress', icon: 'content', note: 'Active courses' }),
+      C.statTile({ value: active.length, label: 'In progress', icon: 'content', note: 'Active courses', featured: true }),
       C.statTile({ value: completed.length, label: 'Completed', icon: 'target', note: 'Finished courses' }),
       C.statTile({ value: certs.length, label: 'Certificates', icon: 'notes', note: 'Valid credentials' }),
       C.statTile({ value: (publishedPaths.paths || []).length, label: 'Learning paths', icon: 'planning', note: 'Published paths' }),
     ];
-    tiles.forEach((tile) => { tile.dataset.span = '3'; });
+    tiles.forEach((tile, index) => {
+      tile.dataset.span = '3';
+      tile.dataset.series = String((index % 5) + 1);
+    });
     layout.append(...tiles);
 
     const current = section('Continue learning');
     current.box.dataset.span = '8';
+    current.box.classList.add('wc-card--accent');
     if (!active.length) current.body.append(empty('Nothing in progress', 'Choose a published course or start a learning path.'));
     for (const enrollment of active) {
       const node = row({
@@ -694,8 +698,22 @@ export async function renderLearningOverview(host, { go }) {
     current.head.append(link(go, 'My learning', '/workspace/learning/my'));
     layout.append(current.box);
 
+    const completion = C.card({
+      title: 'Completion',
+      note: 'Finished courses across all enrollments.',
+      span: 4,
+    });
+    completion.body.append(C.gauge({
+      value: completed.length,
+      total: (mine.enrollments || []).length,
+      label: 'completed',
+      caption: `${completed.length} of ${(mine.enrollments || []).length} courses complete`,
+      empty: 'No course progress yet',
+    }));
+    layout.append(completion.box);
+
     const pathsBox = section('Published learning paths', 'Curated multi-course paths with gates, milestones and branches.');
-    pathsBox.box.dataset.span = '4';
+    pathsBox.box.dataset.span = '6';
     for (const path of publishedPaths.paths || []) {
       const startPath = action('Start path', async () => {
         startPath.disabled = true;
@@ -727,6 +745,13 @@ export async function renderLearningOverview(host, { go }) {
     }
     layout.append(pathsBox.box);
 
+    const discover = section('Catalog', 'Published courses ready to open or enroll in.');
+    discover.box.dataset.span = '6';
+    for (const course of (catalog.courses || []).slice(0, 6)) discover.body.append(courseRow(course, go));
+    if (!(catalog.courses || []).length) discover.body.append(empty('No published courses', 'Published courses will appear here.'));
+    discover.head.append(link(go, 'View catalog', '/workspace/learning/catalog'));
+    layout.append(discover.box);
+
     if (activePath) {
       const pathBox = section(
         'Your active learning path',
@@ -734,7 +759,7 @@ export async function renderLearningOverview(host, { go }) {
           ? 'Following published path · ' + activePath.learning_path_title
           : 'Personalized around your research goal.',
       );
-      pathBox.box.dataset.span = '12';
+      pathBox.box.dataset.span = '8';
       if (activePath.goal) pathBox.body.append(el('p', 'fl-prose', activePath.goal));
       if (activePath.rationale) pathBox.body.append(el('p', 'fl-muted', activePath.rationale));
       const pathNodes = el('div', 'fl-learning-path');
@@ -759,15 +784,9 @@ export async function renderLearningOverview(host, { go }) {
       layout.append(pathBox.box);
     }
 
-    const discover = section('Catalog', 'Published courses ready to open or enroll in.');
-    discover.box.dataset.span = '6';
-    for (const course of (catalog.courses || []).slice(0, 6)) discover.body.append(courseRow(course, go));
-    if (!(catalog.courses || []).length) discover.body.append(empty('No published courses', 'Published courses will appear here.'));
-    discover.head.append(link(go, 'View catalog', '/workspace/learning/catalog'));
-    layout.append(discover.box);
-
     const personal = personalizedPathPanel(go);
-    personal.dataset.span = '6';
+    personal.dataset.span = activePath ? '4' : '12';
+    if (!activePath) personal.classList.add('wc-card--accent');
     layout.append(personal);
 
     wrap.append(layout);
