@@ -12,6 +12,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20260919-planning1';
+import * as C from './ws-charts.js?v=20260919-charts2';
 import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20260919-planning1';
 import { availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
 import * as K from './ws-kms.js';
@@ -493,22 +494,52 @@ function renderCoreBody(doc, ctx, boot) {
   return Promise.all([P.dashboard('core'), P.content(), P.call('/operating/meetings/').catch(() => ({}))])
     .then(([board, pipeline, calendar]) => {
       holder.innerHTML = '';
+      const layout = C.bento();
 
-      holder.append(stats([
-        ['Open tasks', board.counts.tasks],
-        ['Projects', board.counts.projects || 0],
-        ['Content pipeline', board.counts.content],
-        ['Waiting on research', board.counts.research_waiting],
-      ]));
+      const tiles = [
+        C.statTile({
+          value: board.counts.tasks,
+          label: 'Open tasks',
+          icon: 'tasks',
+          note: 'Manager-defined execution',
+          onClick: () => ctx.go('/workspace/core/tasks'),
+        }),
+        C.statTile({
+          value: board.counts.projects || 0,
+          label: 'Projects',
+          icon: 'projects',
+          note: 'Core projects',
+          onClick: () => ctx.go('/workspace/operating'),
+        }),
+        C.statTile({
+          value: board.counts.content,
+          label: 'Content pipeline',
+          icon: 'content',
+          note: 'Items in production',
+          onClick: () => ctx.go('/workspace/core/content'),
+        }),
+        C.statTile({
+          value: board.counts.research_waiting,
+          label: 'Waiting on research',
+          icon: 'research',
+          note: 'Research handoffs',
+          onClick: () => ctx.go('/workspace/research'),
+        }),
+      ];
+      tiles.forEach((tile, index) => {
+        tile.dataset.span = '3';
+        tile.dataset.series = String((index % 5) + 1);
+      });
+      layout.append(...tiles);
 
-      const columns = el('div', 'v-columns');
-      columns.append(todayPanel(board.tasks || [], ctx));
-      columns.append(upNextPanel(calendar.meetings || calendar.results || [], ctx));
-      holder.append(columns);
-
-      const second = el('div', 'v-columns');
+      const today = todayPanel(board.tasks || [], ctx);
+      today.dataset.span = '7';
+      const next = upNextPanel(calendar.meetings || calendar.results || [], ctx);
+      next.dataset.span = '5';
+      layout.append(today, next);
 
       const content = panel('Content pipeline', linkBtn('View pipeline', '/workspace/core/content', ctx));
+      content.dataset.span = '6';
       const items = pipeline.items || [];
       if (items.length) {
         collapsible(content.body, items, 5, (item) => row({
@@ -517,32 +548,30 @@ function renderCoreBody(doc, ctx, boot) {
           badges: [P.label(item.status)],
         }));
       } else {
-        content.body.append(empty('Nothing in the pipeline', 'Content items appear here once created.'));
+        content.body.append(C.note('Nothing in the pipeline yet.'));
       }
 
       const planning = panel('Planning', linkBtn('Open planning', '/workspace/operating', ctx));
+      planning.dataset.span = '6';
       planning.body.append(row({
         title: 'OKRs & Milestones',
-        sub: 'Simple manager dashboard for Objectives, Key Results, progress and delivery milestones.',
+        sub: 'Objectives, Key Results, progress and delivery milestones.',
         badges: ['OKR', 'Milestones'],
         onClick: () => ctx.go('/workspace/operating'),
       }));
+      layout.append(content, planning);
 
-      second.append(content, planning);
-      holder.append(second);
-
-      /* Operating assets, on the Overview rather than only in the index.
-         A blueprint that nobody opens is a blueprint the team is not
-         actually running on, and the boards above it are downstream of this
-         one: the tasks in them are supposed to have been cut from here. */
       const assets = panel('Operating assets', linkBtn('Assets & Blueprints', '/workspace/core/assets', ctx));
+      assets.dataset.span = '12';
       assets.body.append(row({
         title: 'Content Studio Blueprint',
-        sub: 'The content operating system, from strategy through governance. Awaiting team approval of scope and ownership.',
+        sub: 'The content operating system, from strategy through governance.',
         badges: ['v0.2', 'Team approval', '16 sections'],
         onClick: () => ctx.go('/workspace/core/assets/content-studio-blueprint'),
       }));
-      holder.append(assets);
+      layout.append(assets);
+
+      holder.append(layout);
     })
     .catch((err) => {
       holder.innerHTML = '';
@@ -652,7 +681,8 @@ function intelligenceCard(item, tab) {
 }
 
 function renderResearchIntelligence(host) {
-  const section = el('section', 'ri');
+  const section = el('section', 'ri wc-card');
+  section.dataset.span = '12';
   section.setAttribute('aria-labelledby', 'research-intelligence-title');
 
   const head = el('div', 'ri__head');
@@ -793,22 +823,51 @@ function renderResearchBody(doc, ctx, boot) {
   return P.dashboard('research')
     .then((board) => {
       holder.innerHTML = '';
+      const layout = C.bento();
 
-      holder.append(stats([
-        ['Active projects', board.counts.projects],
-        ['Client projects', board.counts.client_projects],
-        ['Community projects', board.counts.community_projects],
-        ['Research requests', board.counts.research_requests],
-      ]));
+      const tiles = [
+        C.statTile({
+          value: board.counts.projects,
+          label: 'Active projects',
+          icon: 'projects',
+          note: 'Research workspace',
+          onClick: () => ctx.go('/workspace/research/projects'),
+        }),
+        C.statTile({
+          value: board.counts.client_projects,
+          label: 'Client projects',
+          icon: 'files',
+          note: 'Client work',
+          onClick: () => ctx.go('/workspace/research/projects?category=client'),
+        }),
+        C.statTile({
+          value: board.counts.community_projects,
+          label: 'Community projects',
+          icon: 'collaboration',
+          note: 'Open collaboration',
+          onClick: () => ctx.go('/workspace/research/projects?category=community'),
+        }),
+        C.statTile({
+          value: board.counts.research_requests,
+          label: 'Research requests',
+          icon: 'activity',
+          note: 'Requests and handoffs',
+          onClick: () => ctx.go('/workspace/research/tasks?show=requests'),
+        }),
+      ];
+      tiles.forEach((tile, index) => {
+        tile.dataset.span = '3';
+        tile.dataset.series = String((index % 5) + 1);
+      });
+      layout.append(...tiles);
 
-      // Internal intelligence is an operational Core capability embedded in
-      // Research, never a general Research-member surface.
-      if (ctx.canCore) renderResearchIntelligence(holder);
+      if (ctx.canCore) renderResearchIntelligence(layout);
 
-      const columns = el('div', 'v-columns');
-      columns.append(projectsPanel(board.projects || [], ctx));
+      const projects = projectsPanel(board.projects || [], ctx);
+      projects.dataset.span = '7';
 
       const recent = panel('Recent knowledge', linkBtn('Notes', '/workspace/research/notes', ctx));
+      recent.dataset.span = '5';
       const resources = board.recent_resources || [];
       if (resources.length) {
         collapsible(recent.body, resources, 5, (item) => row({
@@ -816,20 +875,22 @@ function renderResearchBody(doc, ctx, boot) {
           sub: P.meta([P.label(item.kind), item.project_title, P.formatDate(item.updated_at)]),
         }));
       } else {
-        recent.body.append(empty('Nothing recent', 'Notes, files and datasets appear here as they are added.'));
+        recent.body.append(C.note('Notes, files and datasets will appear here as they are added.'));
       }
-      columns.append(recent);
-      holder.append(columns);
+      layout.append(projects, recent);
 
       const requests = board.research_requests || [];
       if (requests.length) {
         const box = panel('Research requests');
+        box.dataset.span = '12';
         collapsible(box.body, requests, 5, (item) => row({
           title: item.title,
           sub: P.meta([P.label(item.status), item.assignee, P.formatDate(item.due_date)]),
         }));
-        holder.append(box);
+        layout.append(box);
       }
+
+      holder.append(layout);
     })
     .catch((err) => {
       holder.innerHTML = '';
