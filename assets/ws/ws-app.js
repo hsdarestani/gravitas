@@ -25,12 +25,12 @@ import * as views from './ws-views.js?v=20260920-dashboard3';
 import * as assets from './ws-core-assets.js?v=20260920-pulsar1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js';
-import * as research from './ws-research.js?v=20260913-4';
+import * as research from './ws-research.js?v=20260920-visual4';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20260919-planning1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20260920-dashboard3';
+} from './ws-nav.js?v=20260920-visual4';
+import { renderDashboard, stopClock } from './ws-home.js?v=20260920-visual4';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260920-pulsar1';
