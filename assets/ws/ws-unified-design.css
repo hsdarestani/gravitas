@@ -874,3 +874,80 @@ html .au-modal {
     padding: 13px !important;
   }
 }
+
+
+/* ---- REAL DASHBOARD COMPONENT PARITY -----------------------------------
+   When a renderer now emits wc-* directly, legacy fl-/v- compatibility
+   selectors must step aside. These rules restore the exact chart-kit card
+   geometry instead of double-padding a Dashboard component. */
+#ws-view .wc-card:is(.fl-panel, .v-panel) {
+  display: grid !important;
+  align-content: start !important;
+  gap: 14px !important;
+  padding: var(--wc-pad, 16px) !important;
+}
+#ws-view .wc-card:is(.fl-panel, .v-panel):has(> .wc-card__head) {
+  align-content: stretch !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+#ws-view .wc-card > :is(.fl-panel__head, .v-panel__head).wc-card__head {
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+#ws-view .wc-card > :is(.fl-panel__body, .v-panel__body).wc-card__body {
+  padding: 0 !important;
+}
+#ws-view .wc-item:is(.fl-row, .v-row) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: calc(100% + 20px) !important;
+  margin: 0 -10px !important;
+  padding: 9px 10px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+#ws-view .wc-item:is(.fl-row, .v-row):hover {
+  background: var(--g-surface-hover) !important;
+}
+#ws-view .wc-tile:is(.fl-metric, .v-stat) {
+  min-height: 118px !important;
+  padding: var(--wc-pad, 16px) !important;
+  border-radius: var(--wc-r, 16px) !important;
+}
+#ws-view .wc-workspace-head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 24px !important;
+  margin-bottom: 12px !important;
+}
+#ws-view .wc-workspace-context {
+  flex: 0 0 auto;
+  margin-top: 0 !important;
+}
+#ws-view .v-focus.wc-card {
+  margin-bottom: 12px !important;
+  padding: var(--wc-pad, 16px) !important;
+  border-color: color-mix(in srgb, var(--g-accent) 36%, transparent) !important;
+  background:
+    radial-gradient(120% 130% at 100% 0%,
+      color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
+      transparent 60%),
+    var(--g-surface-raised) !important;
+}
+#ws-view .v-focus.wc-card .v-focus__head,
+#ws-view .v-focus.wc-card .v-focus__foot {
+  padding: 0 !important;
+}
+@media (max-width: 700px) {
+  #ws-view .wc-workspace-head {
+    display: grid !important;
+    gap: 10px !important;
+  }
+}

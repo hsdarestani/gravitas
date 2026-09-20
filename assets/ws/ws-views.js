@@ -25,12 +25,13 @@ export function el(tag, className, text) {
 }
 
 export function panel(title, action) {
-  const section = el('section', 'v-panel');
-  const head = el('div', 'v-panel__head');
-  head.append(el('h2', null, title));
+  const section = el('section', 'v-panel wc-card');
+  section.dataset.span = '12';
+  const head = el('div', 'v-panel__head wc-card__head');
+  head.append(el('h2', 'wc-card__title', title));
   if (action) head.append(action);
   section.append(head);
-  const body = el('div', 'v-panel__body');
+  const body = el('div', 'v-panel__body wc-card__body');
   section.append(body);
   section.body = body;
   return section;
@@ -48,26 +49,28 @@ export function linkButton(text, path, go) {
    in the proportional face "1" and "8" are different sizes and the eye reads
    the wrong one as smaller. */
 export function stats(pairs) {
-  const wrap = el('div', 'v-stats');
+  const wrap = el('div', 'v-stats wc-tiles');
   for (const [label, value] of pairs) {
-    const cell = el('div', 'v-stat');
-    cell.append(el('b', 'v-stat__value', value == null ? '0' : String(value)));
-    cell.append(el('span', 'v-stat__label', label));
+    const cell = el('div', 'v-stat wc-tile');
+    const head = el('div', 'wc-tile__head');
+    head.append(el('span', 'v-stat__label wc-tile__label', label));
+    cell.append(head);
+    cell.append(el('b', 'v-stat__value wc-tile__value', value == null ? '0' : String(value)));
     wrap.append(cell);
   }
   return wrap;
 }
 
 export function row({ title, sub, badges, onClick, action }) {
-  const node = el(onClick ? 'button' : 'div', 'v-row');
+  const node = el(onClick ? 'button' : 'div', `v-row wc-item${onClick ? ' wc-item--button' : ''}`);
   if (onClick) {
     node.type = 'button';
     node.addEventListener('click', onClick);
   }
 
-  const main = el('div', 'v-row__main');
-  main.append(el('strong', null, title));
-  if (sub) main.append(el('small', null, sub));
+  const main = el('div', 'v-row__main wc-item__main');
+  main.append(el('strong', 'wc-item__title', title));
+  if (sub) main.append(el('small', 'wc-item__meta', sub));
   if (badges?.length) {
     const strip = el('div', 'v-badges');
     for (const text of badges.filter(Boolean)) strip.append(el('span', 'v-badge', text));

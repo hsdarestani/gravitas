@@ -27,11 +27,11 @@ function statusBadge(value) {
 }
 
 function ticketRow(ticket, open) {
-  const row = el('button', 'fl-row fl-row--button');
+  const row = el('button', 'fl-row fl-row--button wc-item wc-item--button');
   row.type = 'button';
-  const main = el('div', 'fl-row__main');
-  main.append(el('strong', '', ticket.subject));
-  main.append(el('small', 'fl-muted', P.meta([P.label(ticket.status), P.label(ticket.priority), P.formatDate(ticket.updated_at)])));
+  const main = el('div', 'fl-row__main wc-item__main');
+  main.append(el('strong', 'wc-item__title', ticket.subject));
+  main.append(el('small', 'fl-muted wc-item__meta', P.meta([P.label(ticket.status), P.label(ticket.priority), P.formatDate(ticket.updated_at)])));
   row.append(main, statusBadge(ticket.status));
   row.addEventListener('click', () => open(ticket.id));
   return row;
@@ -40,16 +40,16 @@ function ticketRow(ticket, open) {
 export async function renderMemberSupport(host) {
   const doc = shell(host, 'Support', 'Talk directly with the Gravitas+ team. Replies stay attached to one ticket.');
   const layout = el('div', 'fl-columns');
-  const list = el('section', 'fl-panel');
-  const listHead = el('div', 'fl-panel__head');
-  listHead.append(el('h2', 'fl-panel__title', 'Your tickets'));
-  const listBody = el('div', 'fl-panel__body');
+  const list = el('section', 'fl-panel wc-card');
+  const listHead = el('div', 'fl-panel__head wc-card__head');
+  listHead.append(el('h2', 'fl-panel__title wc-card__title', 'Your tickets'));
+  const listBody = el('div', 'fl-panel__body wc-card__body');
   list.append(listHead, listBody);
 
-  const detail = el('section', 'fl-panel');
-  const detailHead = el('div', 'fl-panel__head');
-  detailHead.append(el('h2', 'fl-panel__title', 'New ticket'));
-  const detailBody = el('div', 'fl-panel__body');
+  const detail = el('section', 'fl-panel wc-card');
+  const detailHead = el('div', 'fl-panel__head wc-card__head');
+  detailHead.append(el('h2', 'fl-panel__title wc-card__title', 'New ticket'));
+  const detailBody = el('div', 'fl-panel__body wc-card__body');
   detail.append(detailHead, detailBody);
   layout.append(list, detail); doc.append(layout);
 

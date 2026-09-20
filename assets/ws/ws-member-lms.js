@@ -56,23 +56,26 @@ function badge(text, tone = '') {
 }
 
 function metric(value, title, note = '') {
-  const node = el('div', 'fl-metric');
-  node.append(el('strong', 'fl-metric__value', String(value ?? 0)));
-  node.append(el('span', 'fl-metric__title', title));
-  if (note) node.append(el('small', 'fl-muted', note));
+  const node = el('div', 'fl-metric wc-tile');
+  const head = el('div', 'wc-tile__head');
+  head.append(el('span', 'fl-metric__title wc-tile__label', title));
+  node.append(head);
+  node.append(el('strong', 'fl-metric__value wc-tile__value', String(value ?? 0)));
+  if (note) node.append(el('small', 'fl-muted wc-tile__note', note));
   return node;
 }
 
 /* Title and note are one block inside the head, so an action button added
    later lands opposite the pair rather than between them. */
 function section(title, note = '') {
-  const box = el('section', 'fl-panel');
-  const head = el('div', 'fl-panel__head');
+  const box = el('section', 'fl-panel wc-card');
+  box.dataset.span = '12';
+  const head = el('div', 'fl-panel__head wc-card__head');
   const heading = el('div');
-  heading.append(el('h2', 'fl-panel__title', title));
-  if (note) heading.append(el('p', 'fl-muted', note));
+  heading.append(el('h2', 'fl-panel__title wc-card__title', title));
+  if (note) heading.append(el('p', 'fl-muted wc-card__note', note));
   head.append(heading);
-  const body = el('div', 'fl-panel__body');
+  const body = el('div', 'fl-panel__body wc-card__body');
   box.append(head, body);
   return { box, body, head };
 }
@@ -85,14 +88,14 @@ function empty(title, copy) {
 }
 
 function row({ title, meta = '', body = '', badges = [], onClick = null, actions = [] }) {
-  const node = el(onClick ? 'button' : 'div', `fl-row${onClick ? ' fl-row--button' : ''}`);
+  const node = el(onClick ? 'button' : 'div', `fl-row wc-item${onClick ? ' fl-row--button wc-item--button' : ''}`);
   if (onClick) {
     node.type = 'button';
     node.addEventListener('click', onClick);
   }
-  const main = el('div', 'fl-row__main');
-  main.append(el('strong', null, title || 'Untitled'));
-  if (meta) main.append(el('small', 'fl-muted', meta));
+  const main = el('div', 'fl-row__main wc-item__main');
+  main.append(el('strong', 'wc-item__title', title || 'Untitled'));
+  if (meta) main.append(el('small', 'fl-muted wc-item__meta', meta));
   if (body) main.append(el('p', 'fl-row__body', body));
   if (badges.length) {
     const strip = el('div', 'fl-badges');
@@ -665,16 +668,19 @@ export async function renderLearningOverview(host, { go }) {
     const completed = (mine.enrollments || []).filter((item) => item.status === 'completed');
     const certs = completed.filter((item) => item.certificate?.valid);
     const activePath = (personalPaths.assignments || [])[0] || null;
-    const metrics = el('div', 'fl-metrics');
-    metrics.append(
-      metric(active.length, 'In progress'),
-      metric(completed.length, 'Completed'),
-      metric(certs.length, 'Certificates'),
-      metric((publishedPaths.paths || []).length, 'Learning paths'),
-    );
-    wrap.append(metrics);
+
+    const layout = C.bento();
+    const tiles = [
+      C.statTile({ value: active.length, label: 'In progress', icon: 'content', note: 'Active courses' }),
+      C.statTile({ value: completed.length, label: 'Completed', icon: 'target', note: 'Finished courses' }),
+      C.statTile({ value: certs.length, label: 'Certificates', icon: 'notes', note: 'Valid credentials' }),
+      C.statTile({ value: (publishedPaths.paths || []).length, label: 'Learning paths', icon: 'planning', note: 'Published paths' }),
+    ];
+    tiles.forEach((tile) => { tile.dataset.span = '3'; });
+    layout.append(...tiles);
 
     const current = section('Continue learning');
+    current.box.dataset.span = '8';
     if (!active.length) current.body.append(empty('Nothing in progress', 'Choose a published course or start a learning path.'));
     for (const enrollment of active) {
       const node = row({
@@ -682,44 +688,14 @@ export async function renderLearningOverview(host, { go }) {
         meta: label(enrollment.status),
         onClick: () => go(`/workspace/learning/courses/${enrollment.course_id}`),
       });
-      node.querySelector('.fl-row__main').append(percent(enrollment.progress_percent));
+      node.querySelector('.fl-row__main')?.append(percent(enrollment.progress_percent));
       current.body.append(node);
     }
     current.head.append(link(go, 'My learning', '/workspace/learning/my'));
-    wrap.append(current.box);
+    layout.append(current.box);
 
-    if (activePath) {
-      const pathBox = section(
-        'Your active learning path',
-        activePath.learning_path_title
-          ? 'Following published path · ' + activePath.learning_path_title
-          : 'Personalized around your research goal.',
-      );
-      if (activePath.goal) pathBox.body.append(el('p', 'fl-prose', activePath.goal));
-      if (activePath.rationale) pathBox.body.append(el('p', 'fl-muted', activePath.rationale));
-      const pathNodes = el('div', 'fl-learning-path');
-      const courseProgress = new Map((mine.enrollments || []).map((item) => [String(item.course_id), item]));
-      for (const node of activePath.nodes || []) {
-        const nodeType = node.type || (node.course_id ? 'course' : 'milestone');
-        const enrollment = node.course_id ? courseProgress.get(String(node.course_id)) : null;
-        const badges = [
-          label(nodeType),
-          enrollment ? label(enrollment.status) : '',
-          enrollment ? enrollment.progress_percent + '% complete' : '',
-        ].filter(Boolean);
-        pathNodes.append(row({
-          title: node.title || (node.course_id ? 'Course ' + node.course_id : node.id),
-          body: node.description || '',
-          badges,
-          onClick: node.course_id ? () => go('/workspace/learning/courses/' + node.course_id) : null,
-        }));
-      }
-      if (!(activePath.nodes || []).length) pathNodes.append(empty('Path has no nodes', 'Ask the course team to review this learning path.'));
-      pathBox.body.append(pathNodes);
-      wrap.append(pathBox.box);
-    }
-
-    const pathsBox = section('Published learning paths', 'Start a curated multi-course path with gates, milestones and branches defined by the course team.');
+    const pathsBox = section('Published learning paths', 'Curated multi-course paths with gates, milestones and branches.');
+    pathsBox.box.dataset.span = '4';
     for (const path of publishedPaths.paths || []) {
       const startPath = action('Start path', async () => {
         startPath.disabled = true;
@@ -749,15 +725,52 @@ export async function renderLearningOverview(host, { go }) {
     if (!(publishedPaths.paths || []).length) {
       pathsBox.body.append(empty('No published paths yet', 'The course team can publish complex multi-course paths from LMS Admin.'));
     }
-    wrap.append(pathsBox.box);
+    layout.append(pathsBox.box);
 
-    const discover = section('Catalog');
+    if (activePath) {
+      const pathBox = section(
+        'Your active learning path',
+        activePath.learning_path_title
+          ? 'Following published path · ' + activePath.learning_path_title
+          : 'Personalized around your research goal.',
+      );
+      pathBox.box.dataset.span = '12';
+      if (activePath.goal) pathBox.body.append(el('p', 'fl-prose', activePath.goal));
+      if (activePath.rationale) pathBox.body.append(el('p', 'fl-muted', activePath.rationale));
+      const pathNodes = el('div', 'fl-learning-path');
+      const courseProgress = new Map((mine.enrollments || []).map((item) => [String(item.course_id), item]));
+      for (const node of activePath.nodes || []) {
+        const nodeType = node.type || (node.course_id ? 'course' : 'milestone');
+        const enrollment = node.course_id ? courseProgress.get(String(node.course_id)) : null;
+        const badges = [
+          label(nodeType),
+          enrollment ? label(enrollment.status) : '',
+          enrollment ? enrollment.progress_percent + '% complete' : '',
+        ].filter(Boolean);
+        pathNodes.append(row({
+          title: node.title || (node.course_id ? 'Course ' + node.course_id : node.id),
+          body: node.description || '',
+          badges,
+          onClick: node.course_id ? () => go('/workspace/learning/courses/' + node.course_id) : null,
+        }));
+      }
+      if (!(activePath.nodes || []).length) pathNodes.append(empty('Path has no nodes', 'Ask the course team to review this learning path.'));
+      pathBox.body.append(pathNodes);
+      layout.append(pathBox.box);
+    }
+
+    const discover = section('Catalog', 'Published courses ready to open or enroll in.');
+    discover.box.dataset.span = '6';
     for (const course of (catalog.courses || []).slice(0, 6)) discover.body.append(courseRow(course, go));
     if (!(catalog.courses || []).length) discover.body.append(empty('No published courses', 'Published courses will appear here.'));
     discover.head.append(link(go, 'View catalog', '/workspace/learning/catalog'));
-    wrap.append(discover.box);
+    layout.append(discover.box);
 
-    wrap.append(personalizedPathPanel(go));
+    const personal = personalizedPathPanel(go);
+    personal.dataset.span = '6';
+    layout.append(personal);
+
+    wrap.append(layout);
   } catch (error) {
     errorView(host, 'Learning', error, () => renderLearningOverview(host, { go }));
   }

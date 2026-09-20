@@ -437,6 +437,7 @@
     /* Tiles take two columns, six to a row, and their edges fall on the
        same lines the cards below them use. */
     .wc-bento > [data-span="2"] { grid-column: span 2; }
+    .wc-bento > [data-span="3"] { grid-column: span 3; }
     .wc-bento > [data-span="4"] { grid-column: span 4; }
     .wc-bento > [data-span="6"] { grid-column: span 6; }
     .wc-bento > [data-span="8"] { grid-column: span 8; }
@@ -446,7 +447,8 @@
     .wc-bento > [data-span="2"] { grid-column: span 4; }
   }
   @media (max-width: 619px) {
-    .wc-bento > [data-span="2"] { grid-column: span 6; }
+    .wc-bento > [data-span="2"],
+    .wc-bento > [data-span="3"] { grid-column: span 6; }
   }
 
   /* ---- The member line ---------------------------------------------------

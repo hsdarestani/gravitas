@@ -21,7 +21,7 @@
 
 import * as api from './ws-api.js?v=20260913-3';
 import * as P from './ws-platform.js?v=20260919-planning1';
-import * as views from './ws-views.js?v=20260919-tasks-clean1';
+import * as views from './ws-views.js?v=20260920-dashboard3';
 import * as assets from './ws-core-assets.js?v=20260920-pulsar1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js';
@@ -30,7 +30,7 @@ import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
 } from './ws-nav.js?v=20260919-planning1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20260920-radar2';
+import { renderDashboard, stopClock } from './ws-home.js?v=20260920-dashboard3';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260920-pulsar1';
