@@ -55,7 +55,6 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
             '/workspace/core/team',
             '/workspace/research',
             '/workspace/research/projects',
-            '/workspace/research/search',
             '/workspace/research/notes',
             '/workspace/research/files',
             '/workspace/kms',
@@ -63,6 +62,10 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         ):
             self.assertIn(route, nav)
         self.assertIn("from './ws-nav.js", app)
+        # Search stays routable for old links but is intentionally not a
+        # sidebar destination; the global workspace search owns discovery.
+        self.assertNotIn("path: '/workspace/research/search'", nav)
+        self.assertIn("view: 'research-search'", app)
 
     def test_research_search_uses_permission_filtered_platform_data(self):
         app = self.read('assets/ws/ws-app.js')
@@ -104,7 +107,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         self.assertIn('decoratedServerNodes', api)
         self.assertIn("id: 'journal'", api)
         self.assertIn('phantom-', api)
-        self.assertIn("ctx.go(`/workspace/page/${item.id}`)", research)
+        self.assertIn("go(`/workspace/page/${item.id}`)", research)
         self.assertIn("Sort: due date", research)
         self.assertIn("rkms-timeline__bar", research)
         self.assertIn("tree: true", nav)
