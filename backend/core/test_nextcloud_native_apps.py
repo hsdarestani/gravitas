@@ -299,7 +299,7 @@ class DeckBidirectionalMirrorTests(TestCase):
         self.assertIsNotNone(task.completed_at)
         task.save.assert_called_once()
 
-    def test_concurrent_deck_and_gravitas_edits_are_not_overwritten(self):
+    def test_newer_deck_edit_wins_when_both_sides_changed(self):
         changed_at = datetime(2026, 9, 14, 12, 5, tzinfo=dt_timezone.utc)
         task = self.task(updated_at=changed_at, title='Changed in Gravitas')
         previous_push = changed_at.timestamp() - 60
@@ -312,7 +312,24 @@ class DeckBidirectionalMirrorTests(TestCase):
 
         result = _pull_card(task, current)
 
-        self.assertEqual(result, 'conflict')
+        self.assertEqual(result, 'pulled')
+        self.assertEqual(task.title, 'Changed in Deck')
+        task.save.assert_called_once()
+
+    def test_newer_gravitas_edit_wins_when_both_sides_changed(self):
+        changed_at = datetime(2026, 9, 14, 12, 5, tzinfo=dt_timezone.utc)
+        task = self.task(updated_at=changed_at, title='Changed in Gravitas')
+        previous_push = changed_at.timestamp() - 60
+        current = self.current(
+            task,
+            title='Changed in Deck',
+            marker=previous_push,
+            modified=changed_at.timestamp() - 30,
+        )
+
+        result = _pull_card(task, current)
+
+        self.assertEqual(result, 'local_newer')
         self.assertEqual(task.title, 'Changed in Gravitas')
         task.save.assert_not_called()
 
