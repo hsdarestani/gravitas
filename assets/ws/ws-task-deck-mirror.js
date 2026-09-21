@@ -79,7 +79,7 @@ function describeSync(result) {
   const changes = result?.changes || {};
   const bits = [
     `${result?.tasks || 0} tasks`,
-    `${changes.created || 0} pushed`,
+    `${changes.pushed ?? changes.created ?? 0} pushed`,
     `${changes.pulled || 0} pulled`,
   ];
   if (changes.moved) bits.push(`${changes.moved} moved`);
