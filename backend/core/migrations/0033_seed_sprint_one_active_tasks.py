@@ -156,6 +156,7 @@ def seed_sprint_one_active_tasks(apps, schema_editor):
     db_alias = schema_editor.connection.alias
     RoadmapOKRSyncState = apps.get_model('core', 'RoadmapOKRSyncState')
     WorkspaceMembership = apps.get_model('core', 'WorkspaceMembership')
+    User = apps.get_model('auth', 'User')
     KeyResult = apps.get_model('core', 'KeyResult')
     OperatingProcess = apps.get_model('core', 'OperatingProcess')
     Initiative = apps.get_model('core', 'Initiative')
@@ -187,6 +188,7 @@ def seed_sprint_one_active_tasks(apps, schema_editor):
     )
 
     owners = {}
+    all_users = list(User.objects.using(db_alias).all().order_by('id'))
     for owner_key, aliases in OWNER_ALIASES.items():
         match = None
         for membership in memberships:
@@ -194,8 +196,24 @@ def seed_sprint_one_active_tasks(apps, schema_editor):
             if any(alias.lower() in text for alias in aliases):
                 match = membership.user
                 break
+
+        # Some internal collaborators can exist as Gravitas accounts before
+        # they are added to the Core workspace. Keep the requested task owner
+        # without silently changing workspace access.
         if match is None:
-            raise RuntimeError(f'Sprint 01 seed: required owner "{owner_key}" is not a member of the roadmap workspace.')
+            for user in all_users:
+                text = ' '.join(filter(None, [
+                    getattr(user, 'first_name', ''),
+                    getattr(user, 'last_name', ''),
+                    getattr(user, 'username', ''),
+                    getattr(user, 'email', ''),
+                ])).lower()
+                if any(alias.lower() in text for alias in aliases):
+                    match = user
+                    break
+
+        if match is None:
+            raise RuntimeError(f'Sprint 01 seed: required owner "{owner_key}" has no Gravitas account.')
         owners[owner_key] = match
 
     krs = {}
