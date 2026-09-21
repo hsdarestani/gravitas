@@ -290,29 +290,25 @@ def _safe_remote_diff(task, current):
 
 
 def _pull_card(task, current):
-    """Import a safe Deck edit or report a concurrent-edit conflict.
+    """Apply last-write-wins for Deck execution fields.
 
-    Returns ``pulled`` / ``conflict`` / ``unchanged``. The generated card
-    description is never imported, so Gravitas relations and definition of done
-    cannot be destroyed by a native Deck edit.
+    Title, status/lane and due date are synchronized bidirectionally. When both
+    Gravitas and Deck changed, the side with the newest modification timestamp
+    wins automatically. Gravitas-only metadata such as relations, owner,
+    priority and definition of done is never imported from Deck.
     """
     diff = _safe_remote_diff(task, current)
     if not diff:
         return 'unchanged'
 
     card = current['card']
-    sync_marker = _sync_marker(card)
     local_modified = task.updated_at.timestamp()
-    if sync_marker is not None:
-        local_changed_since_push = local_modified > sync_marker + 0.001
-        if local_changed_since_push:
-            return 'conflict'
-    else:
-        # Upgrade path for cards produced before sync markers existed. Prefer
-        # the side with the later modification time; if Deck cannot report one,
-        # Gravitas remains authoritative for this first reconciliation.
-        if _card_modified(card) <= local_modified:
-            return 'conflict'
+    remote_modified = _card_modified(card)
+
+    # Last-write-wins. If Deck cannot provide a useful timestamp, or both sides
+    # are effectively tied, keep Gravitas as the deterministic tie-breaker.
+    if remote_modified <= local_modified + 0.001:
+        return 'local_newer'
 
     for field, value in diff.items():
         setattr(task, field, value)
@@ -351,12 +347,9 @@ def sync_tasks_to_deck():
     for task in tasks:
         live_ids.add(task.pk)
         current = existing.get(task.pk)
+        inbound = None
         if current is not None:
             inbound = _pull_card(task, current)
-            if inbound == 'conflict':
-                counts['conflicts'] += 1
-                conflict_task_ids.append(task.pk)
-                continue
             if inbound == 'pulled':
                 counts['pulled'] += 1
                 task.refresh_from_db()
@@ -372,8 +365,17 @@ def sync_tasks_to_deck():
             _archive_card(board_id, current['stack_id'], current['card']['id'])
             counts['moved'] += 1
             continue
-        _update_card(board_id, current['stack_id'], current['card'], task)
-        counts['updated'] += 1
+
+        # Push only when Gravitas is newer or when Gravitas metadata changed
+        # since the last successful push. A remote winner is normalized back to
+        # Deck to refresh the sync marker, but that bookkeeping is not counted
+        # as a user-visible push.
+        marker = _sync_marker(current['card'])
+        local_changed_since_push = marker is None or task.updated_at.timestamp() > marker + 0.001
+        if inbound == 'local_newer' or local_changed_since_push:
+            _update_card(board_id, current['stack_id'], current['card'], task)
+            if inbound != 'pulled':
+                counts['updated'] += 1
 
     # If a task was deleted in Gravitas, the adapter must not leave a live
     # card that looks authoritative in Deck. Archive it rather than delete it
@@ -391,7 +393,7 @@ def sync_tasks_to_deck():
         },
         'stacks': {title: int(stack['id']) for title, stack in stacks.items()},
         'tasks': tasks.count(),
-        'changes': counts,
+        'changes': {**counts, 'pushed': counts['created'] + counts['updated'] + counts['moved']},
         'conflict_task_ids': conflict_task_ids,
     }
 
