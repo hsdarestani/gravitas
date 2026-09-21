@@ -80,12 +80,12 @@ TASKS = [
         'done': 'Stable Diffusion is tested on at least 3 real Gravitas assets or use cases, with outputs and evaluation results recorded for review.',
     },
     {
-        'title': 'Test narrator using Sajjad's voice for Video #1',
+        "title": "Test narrator using Sajjad's voice for Video #1",
         'owner': 'ahmad',
         'kr': 'O1-KR1',
         'due': date(2026, 9, 26),
         'priority': 'p0',
-        'done': 'A narrator sample using Sajjad's voice is produced from part of the Video #1 script and uploaded for review.',
+        "done": "A narrator sample using Sajjad's voice is produced from part of the Video #1 script and uploaded for review.",
     },
     {
         'title': 'Deliver final SVG character files',
