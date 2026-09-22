@@ -37,5 +37,7 @@ class CoreConfig(AppConfig):
 
         from . import platform_signals  # noqa: F401
         from . import space_signals  # noqa: F401
-        from . import roadmap_assignment_signals  # noqa: F401
+        # Roadmap execution is manager-driven. Do not register the legacy
+        # membership/user signals that auto-materialized Roadmap tasks whenever
+        # team identities changed.
         from . import operating_admin  # noqa: F401
