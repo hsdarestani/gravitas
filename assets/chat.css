@@ -65,8 +65,8 @@
   position: absolute; right: 0; bottom: 0;
   display: flex; flex-direction: column; line-height: var(--g-lh-body);
   width: min(23.5rem, calc(100vw - 2rem));
-  height: min(32rem, calc(100vh - 4rem));
-  height: min(32rem, calc(100dvh - 4rem));
+  height: min(34rem, calc(100vh - 4rem));
+  height: min(34rem, calc(100dvh - 4rem));
   background: var(--g-surface-raised);
   border: 1px solid var(--g-border);
   border-radius: var(--g-radius-lg);
@@ -96,11 +96,10 @@
    same thing as the note at the foot of the panel, one line below the name and
    in the loudest treatment in the widget. A logo does not need a container to
    be a logo, and the honesty line only needs saying once. What is left is a
-   lockup and a close. */
+   lockup and a minimize. The rule under it is the tab strip's, not its own. */
 .gchat__head {
   display: flex; align-items: center; gap: 0.6rem;
-  padding: 0.85rem var(--g-space-md);
-  border-bottom: 1px solid var(--g-hairline);
+  padding: 0.75rem var(--g-space-md) 0.4rem;
   background: var(--g-surface);
   flex: none;
 }
@@ -113,7 +112,7 @@
 }
 /* The + is part of the name, and the brand sets it apart everywhere else. */
 .gchat__plus { color: var(--g-accent); }
-.gchat__close {
+.gchat__min {
   margin-left: auto; flex: none;
   width: 1.9rem; height: 1.9rem; border-radius: 50%;
   display: grid; place-items: center;
@@ -123,11 +122,94 @@
               background-color var(--g-dur) var(--g-ease-orbit),
               border-color var(--g-dur) var(--g-ease-orbit);
 }
-.gchat__close:hover {
+.gchat__min:hover {
   color: var(--g-text); border-color: var(--g-border);
   background: rgb(var(--g-tint) / 0.08);
 }
-.gchat__close svg { width: 1rem; height: 1rem; display: block; }
+.gchat__min svg { width: 1rem; height: 1rem; display: block; }
+
+/* ---- Conversation tabs --------------------------------------------------
+   Underlined rather than filled, like the workspace dock's tabs, so the strip
+   reads as navigation inside the panel and not as a row of more buttons. The
+   strip scrolls sideways instead of wrapping: a second row of tabs would take
+   the height the conversation needs. The close on a tab only shows on the
+   active one or under the pointer, because eight crosses in a row are noise. */
+.gchat__tabbar {
+  display: flex; align-items: stretch; flex: none;
+  border-bottom: 1px solid var(--g-hairline);
+  background: var(--g-surface);
+}
+.gchat__tabs {
+  position: relative; flex: 1; min-width: 0;
+  display: flex; overflow-x: auto; scrollbar-width: none;
+  padding-left: calc(var(--g-space-md) - 0.8rem);
+}
+.gchat__tabs::-webkit-scrollbar { display: none; }
+/* The strip is draggable once it overflows (chat.js). The fades mark the
+   side that has more tabs past it; a mask rather than an overlay, so it
+   works on any surface colour and never sits over a tab's close button. */
+.gchat__tabs.has-before, .gchat__tabs.has-after { cursor: grab; }
+.gchat__tabs.is-dragging { cursor: grabbing; user-select: none; }
+.gchat__tabs.is-dragging .gchat__tab-btn { cursor: grabbing; }
+.gchat__tabs.has-after {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+          mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+.gchat__tabs.has-before {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2rem), transparent);
+          mask-image: linear-gradient(to left, #000 calc(100% - 2rem), transparent);
+}
+.gchat__tabs.has-before.has-after {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+          mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+}
+.gchat__tab {
+  display: flex; align-items: center; flex: none; max-width: 10.5rem;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: border-color var(--g-dur) var(--g-ease-orbit);
+}
+.gchat__tab.is-active { border-bottom-color: var(--g-accent); }
+.gchat__tab-btn {
+  display: flex; align-items: center; gap: 0.4rem; min-width: 0;
+  font: inherit; font-size: var(--g-fs-caption); line-height: 1.2;
+  color: var(--g-text-subtle); background: none; border: 0; cursor: pointer;
+  padding: 0.6rem 0.3rem 0.55rem 0.8rem;
+  transition: color var(--g-dur) var(--g-ease-orbit);
+}
+.gchat__tab-btn:last-child { padding-right: 0.8rem; }
+.gchat__tab-btn:hover, .gchat__tab.is-active .gchat__tab-btn { color: var(--g-text); }
+.gchat__tab-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A reply that landed in a tab the reader was not looking at. */
+.gchat__dot {
+  flex: none; width: 0.4rem; height: 0.4rem; border-radius: 50%;
+  background: var(--g-accent);
+}
+.gchat__tab-x {
+  flex: none; width: 1.3rem; height: 1.3rem; margin-right: 0.35rem;
+  display: grid; place-items: center; border-radius: 50%;
+  background: none; border: 0; cursor: pointer; color: var(--g-text-subtle);
+  opacity: 0;
+  transition: opacity var(--g-dur) var(--g-ease-orbit),
+              color var(--g-dur) var(--g-ease-orbit),
+              background-color var(--g-dur) var(--g-ease-orbit);
+}
+.gchat__tab:hover .gchat__tab-x,
+.gchat__tab.is-active .gchat__tab-x,
+.gchat__tab-x:focus-visible { opacity: 1; }
+@media (hover: none) { .gchat__tab-x { opacity: 1; } }
+.gchat__tab-x:hover { color: var(--g-text); background: rgb(var(--g-tint) / 0.08); }
+.gchat__tab-x svg { width: 0.65rem; height: 0.65rem; display: block; }
+.gchat__new {
+  flex: none; width: 2.5rem;
+  display: grid; place-items: center;
+  background: none; border: 0; border-left: 1px solid var(--g-hairline);
+  color: var(--g-text-subtle); cursor: pointer;
+  transition: color var(--g-dur) var(--g-ease-orbit),
+              background-color var(--g-dur) var(--g-ease-orbit);
+}
+.gchat__new:hover { color: var(--g-text); background: rgb(var(--g-tint) / 0.06); }
+.gchat__new[disabled] { opacity: 0.35; cursor: default; background: none; }
+.gchat__new svg { width: 1rem; height: 1rem; display: block; }
 
 .gchat__log {
   flex: 1; overflow-y: auto; overscroll-behavior: contain;
@@ -167,6 +249,10 @@
               background-color var(--g-dur) var(--g-ease-orbit);
 }
 .gchat__link:hover { border-color: var(--g-border-strong); background: rgb(var(--g-tint) / .08); }
+/* Actions (the workspace's "Save as task") sit in the same row and look the
+   same, minus the underline a link would get from a button reset. */
+.gchat__action { font-family: inherit; background: none; cursor: pointer; line-height: inherit; }
+.gchat__action[disabled] { cursor: default; opacity: .6; }
 
 .gchat__typing { display: flex; gap: .25rem; padding: .8rem .85rem; }
 .gchat__typing i {

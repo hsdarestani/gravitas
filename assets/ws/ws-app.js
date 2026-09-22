@@ -33,7 +33,7 @@ import {
 import { renderDashboard, stopClock } from './ws-home.js?v=20260920-visual4';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
-import { mountAssistant, focusAssistant, askAssistant } from './ws-ai.js?v=20260920-pulsar1';
+import { installAssistant, askAssistant } from './ws-ai.js?v=20260923-pulsar2';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -100,21 +100,10 @@ function rememberPage(page) {
    pane the stylesheet had already made unreachable, so the button did
    nothing at every laptop width.
 
-   Module scope rather than inside start(), because the rail and the views
-   open the dock too and they need the same answer. */
+   Module scope rather than inside start(), because the rail and the dock
+   read them too and they need the same answer. */
 const NARROW = matchMedia('(max-width: 860px)');
 const DOCK_FLOATS = matchMedia('(max-width: 1100px)');
-
-/* Opening the assistant, from the rail or from a view. On a width where the
-   dock floats it is an overlay, so the index gets out of its way and the
-   open state is not written back: a panel somebody opened once on a phone
-   should not be waiting for them on the machine they actually work on. */
-function openDock(tab) {
-  ui.dock = true;
-  ui.dockTab = tab;
-  if (NARROW.matches) ui.index = false;
-  writePrefs(DOCK_FLOATS.matches ? { dockTab: tab } : { dock: true, dockTab: tab });
-}
 
 /* ==========================================================================
    ROUTING
@@ -299,19 +288,6 @@ function renderRail() {
 
     rail.append(el('div', 'ws-rail__spacer'));
   }
-
-  /* Pulsar, the workspace assistant. It keeps the dock tab id 'assistant',
-     which is written into saved preferences on every reader's machine; the
-     name is what changed, not the slot.
-
-     The mark is 'pulsar', not 'mindmap'. Those are two different things and
-     mindmap is still the Mind Maps section's own icon in ws-nav.js?v=20260919-planning1, so
-     pointing this button back at it puts one drawing on two unrelated rows. */
-  rail.append(railButton('pulsar', 'Pulsar', ui.dock && ui.dockTab === 'assistant', () => {
-    openDock('assistant');
-    render();
-    focusAssistant();
-  }));
 
   /* Settings sits under Pulsar, at the foot of the rail, which is
      where every desktop tool of this shape puts the account. It shows the
@@ -1098,7 +1074,6 @@ const DOCK_TABS = [
   { id: 'tasks',     label: 'Tasks' },
   { id: 'journal',   label: 'Journal' },
   { id: 'links',     label: 'Links' },
-  { id: 'assistant', label: 'Pulsar' },
 ];
 
 function renderDock() {
@@ -1123,10 +1098,11 @@ function renderDock() {
   const body = $('#ws-dock-body');
   body.innerHTML = '';
 
-  if (ui.dockTab === 'tasks') renderDockTasks(body);
-  else if (ui.dockTab === 'journal') renderDockJournal(body);
+  if (ui.dockTab === 'journal') renderDockJournal(body);
   else if (ui.dockTab === 'links') renderDockLinks(body);
-  else mountAssistant(body, { go, currentPage: () => ui.page });
+  // Anything else, including 'assistant' saved by the dock that used to
+  // hold Pulsar, falls back to Tasks.
+  else renderDockTasks(body);
 }
 
 /* Tasks in the dock are the real ones assigned to this reader, from
@@ -1395,11 +1371,9 @@ function viewContext() {
     canCore: P.canOpenCore(),
     reload: () => start(),
 
-    openAssistant: (question) => {
-      openDock('assistant');
-      render();
-      askAssistant(question);
-    },
+    // Pulsar is the floating widget now, not a dock tab; this opens a new
+    // conversation on the question there.
+    openAssistant: (question) => askAssistant(question),
 
     // Notes
     area: ui.area,
@@ -1670,11 +1644,12 @@ function initTheme() {
 
 export async function start() {
   initTheme();
+  installAssistant({ go });
 
   const prefs = readPrefs();
   if (Array.isArray(prefs.openSections)) ui.openSections = new Set(prefs.openSections);
   if (Array.isArray(prefs.openNodes)) ui.openNodes = new Set(prefs.openNodes);
-  if (typeof prefs.dockTab === 'string') ui.dockTab = prefs.dockTab;
+  if (DOCK_TABS.some((tab) => tab.id === prefs.dockTab)) ui.dockTab = prefs.dockTab;
   if (typeof prefs.dock === 'boolean') ui.dock = prefs.dock;
   if (prefs['--ws-index-w']) document.documentElement.style.setProperty('--ws-index-w', prefs['--ws-index-w']);
   if (prefs['--ws-dock-w']) document.documentElement.style.setProperty('--ws-dock-w', prefs['--ws-dock-w']);

@@ -940,6 +940,15 @@
   }
 }
 
+/* Pulsar itself is no longer drawn by the rules above. It is the site's
+   floating widget (assets/chat.css), in the same bottom-right corner as on
+   every public page; the .ws-ai rules stay for the citation row views still
+   use. The one thing the workspace changes is the height of that corner: the
+   status bar runs along the bottom here, and the launcher sits above it rather
+   than on it. Unlayered on purpose, since chat.css is unlayered and a layered
+   rule loses to it whatever its specificity. */
+body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25rem)); }
+
 /* ==========================================================================
    8. STATE VIEWS
    Empty, loading and error are built here rather than improvised at the

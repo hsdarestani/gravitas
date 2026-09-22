@@ -171,11 +171,10 @@ function normalizeRail() {
   const rail = $('#ws-rail');
   if (!rail || rail.querySelector('.fl-rail-button')) return;
 
-  // Keep ws-app's Pulsar and account buttons because their closures own dock
-  // focus/profile state. Everything above them is the old top-level model.
-  const pulsar = [...rail.querySelectorAll('button')].find((node) => node.getAttribute('aria-label') === 'Pulsar');
+  // Keep ws-app's account button because its closure owns profile state.
+  // Everything above it is the old top-level model. Pulsar used to have a
+  // rail button here too; it is the floating widget now (assets/chat.js).
   const settings = [...rail.querySelectorAll('button')].find((node) => node.getAttribute('aria-label') === 'Settings');
-  if (pulsar) pulsar.remove();
   if (settings) settings.remove();
   rail.innerHTML = '';
 
@@ -192,7 +191,6 @@ function normalizeRail() {
   const spacer = document.createElement('div');
   spacer.className = 'ws-rail__spacer';
   rail.append(spacer);
-  if (pulsar) rail.append(pulsar);
   if (settings) rail.append(settings);
 }
 
