@@ -22,7 +22,8 @@ def fix_ehsan_assignment(apps, schema_editor):
         .first()
     )
     if profile is None:
-        raise RuntimeError('Canonical Core workspace not found.')
+        # Fresh/test databases do not have the production Core workspace yet.
+        return
 
     core_workspace_id = profile.workspace_id
 
