@@ -253,6 +253,30 @@ class OperatingTask(models.Model):
 
 
 
+class OperatingTaskChecklistItem(models.Model):
+    task = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='checklist_items')
+    title = models.CharField(max_length=500)
+    is_completed = models.BooleanField(default=False, db_index=True)
+    position = models.PositiveIntegerField(default=0, db_index=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_operating_task_checklist_items',
+    )
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['position', 'id']
+        indexes = [
+            models.Index(
+                fields=['task', 'is_completed', 'position'],
+                name='grav_check_task_done_pos',
+            ),
+        ]
+
+
 class OperatingTaskComment(models.Model):
     task = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='board_comments')
     author = models.ForeignKey(

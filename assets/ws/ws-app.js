@@ -20,8 +20,8 @@
    ========================================================================== */
 
 import * as api from './ws-api.js?v=20260913-3';
-import * as P from './ws-platform.js?v=20260919-planning1';
-import * as views from './ws-views.js?v=20260920-visual4';
+import * as P from './ws-platform.js?v=20260923-checklist1';
+import * as views from './ws-views.js?v=20260923-checklist1';
 import * as assets from './ws-core-assets.js?v=20260920-pulsar1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js';

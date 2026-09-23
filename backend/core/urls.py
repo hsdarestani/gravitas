@@ -22,6 +22,8 @@ from core.task_board_api import (
     task_board,
     task_board_detail,
     task_board_move,
+    task_checklist,
+    task_checklist_item,
     task_comments,
     task_history,
 )
@@ -405,6 +407,8 @@ urlpatterns = [
     path('operating/task-board/', require_core(task_board)),
     path('operating/task-board/move/', require_core(task_board_move)),
     path('operating/task-board/<int:task_id>/', require_core(task_board_detail)),
+    path('operating/tasks/<int:task_id>/checklist/', require_core(task_checklist)),
+    path('operating/tasks/<int:task_id>/checklist/<int:item_id>/', require_core(task_checklist_item)),
     path('operating/tasks/<int:task_id>/comments/', require_core(task_comments)),
     path('operating/tasks/<int:task_id>/attachments/', require_core(task_attachments)),
     path('operating/tasks/<int:task_id>/attachments/<int:attachment_id>/', require_core(task_attachment_delete)),

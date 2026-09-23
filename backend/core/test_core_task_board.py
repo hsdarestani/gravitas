@@ -13,6 +13,7 @@ from .operating_models import (
     OperatingProcess,
     OperatingTask,
     OperatingTaskAttachment,
+    OperatingTaskChecklistItem,
     OperatingTaskComment,
     StrategicObjective,
 )
@@ -165,6 +166,59 @@ class CoreTaskBoardTests(TestCase):
         self.assertIn('task.comment_added', actions)
         self.assertIn('task.attachment_added', actions)
 
+
+    def test_checklist_crud_updates_board_progress_and_history(self):
+        task_id = self.create_task()
+
+        first = self.post_json(f'/api/operating/tasks/{task_id}/checklist/', {
+            'title': 'Collect source pack',
+        })
+        self.assertEqual(first.status_code, 201, first.content)
+        first_id = first.json()['item']['id']
+
+        second = self.post_json(f'/api/operating/tasks/{task_id}/checklist/', {
+            'title': 'Review evidence map',
+        })
+        self.assertEqual(second.status_code, 201, second.content)
+        second_id = second.json()['item']['id']
+        self.assertEqual(OperatingTaskChecklistItem.objects.filter(task_id=task_id).count(), 2)
+
+        completed = self.patch_json(
+            f'/api/operating/tasks/{task_id}/checklist/{first_id}/',
+            {'is_completed': True},
+        )
+        self.assertEqual(completed.status_code, 200, completed.content)
+        self.assertTrue(completed.json()['item']['is_completed'])
+        self.assertIsNotNone(completed.json()['item']['completed_at'])
+
+        renamed = self.patch_json(
+            f'/api/operating/tasks/{task_id}/checklist/{second_id}/',
+            {'title': 'Approve evidence map'},
+        )
+        self.assertEqual(renamed.status_code, 200, renamed.content)
+        self.assertEqual(renamed.json()['item']['title'], 'Approve evidence map')
+
+        listing = self.client.get(f'/api/operating/tasks/{task_id}/checklist/')
+        self.assertEqual(listing.status_code, 200, listing.content)
+        self.assertEqual([row['id'] for row in listing.json()['items']], [first_id, second_id])
+
+        board = self.client.get('/api/operating/task-board/')
+        self.assertEqual(board.status_code, 200, board.content)
+        row = next(item for item in board.json()['tasks'] if item['id'] == task_id)
+        self.assertEqual(row['checklist_count'], 2)
+        self.assertEqual(row['checklist_completed_count'], 1)
+
+        deleted = self.client.delete(f'/api/operating/tasks/{task_id}/checklist/{second_id}/')
+        self.assertEqual(deleted.status_code, 200, deleted.content)
+        self.assertFalse(OperatingTaskChecklistItem.objects.filter(pk=second_id).exists())
+
+        history = self.client.get(f'/api/operating/tasks/{task_id}/history/')
+        actions = {row['action'] for row in history.json()['events']}
+        self.assertIn('task.checklist_item_added', actions)
+        self.assertIn('task.checklist_item_completed', actions)
+        self.assertIn('task.checklist_item_updated', actions)
+        self.assertIn('task.checklist_item_deleted', actions)
+
     def test_attachment_download_and_delete_are_scoped_to_task(self):
         task_id = self.create_task()
         uploaded = self.client.post(
@@ -195,6 +249,11 @@ class CoreTaskBoardFrontendContractTests(TestCase):
         self.assertIn('uploadOperatingTaskAttachment', views)
         self.assertIn('addOperatingTaskComment', views)
         self.assertIn('operatingTaskHistory', views)
+        self.assertIn('operatingTaskChecklist', views)
+        self.assertIn('addOperatingTaskChecklistItem', views)
+        self.assertIn('task-checklist__item', views)
         self.assertIn('moveOperatingTask', views)
         self.assertIn('.task-card-dialog', css)
+        self.assertIn('.task-checklist__item', css)
         self.assertIn("export const operatingTaskBoard", platform)
+        self.assertIn("export const operatingTaskChecklist", platform)

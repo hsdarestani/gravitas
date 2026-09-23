@@ -299,6 +299,16 @@ export const deleteOperatingTaskCard = (id) => call(`/operating/task-board/${id}
 export const moveOperatingTask = (taskId, status, orderedIds) => call('/operating/task-board/move/', {
   method: 'POST', body: { task_id: taskId, status, ordered_ids: orderedIds },
 });
+export const operatingTaskChecklist = (id) => call(`/operating/tasks/${id}/checklist/`);
+export const addOperatingTaskChecklistItem = (id, title) => call(`/operating/tasks/${id}/checklist/`, {
+  method: 'POST', body: { title },
+});
+export const updateOperatingTaskChecklistItem = (taskId, itemId, body) => call(
+  `/operating/tasks/${taskId}/checklist/${itemId}/`, { method: 'PATCH', body }
+);
+export const deleteOperatingTaskChecklistItem = (taskId, itemId) => call(
+  `/operating/tasks/${taskId}/checklist/${itemId}/`, { method: 'DELETE' }
+);
 export const operatingTaskComments = (id) => call(`/operating/tasks/${id}/comments/`);
 export const addOperatingTaskComment = (id, body) => call(`/operating/tasks/${id}/comments/`, { method: 'POST', body: { body } });
 export const operatingTaskAttachments = (id) => call(`/operating/tasks/${id}/attachments/`);
