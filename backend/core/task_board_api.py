@@ -6,7 +6,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import FileResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -23,6 +23,7 @@ from .operating_models import (
     OperatingMilestone,
     OperatingTask,
     OperatingTaskAttachment,
+    OperatingTaskChecklistItem,
     OperatingTaskComment,
     OperatingWorkPackage,
     Priority,
@@ -59,7 +60,16 @@ def _task_for(request, task_id):
             'workspace', 'owner', 'initiative__process', 'initiative__key_result__objective',
             'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
         )
-        .annotate(comment_count=Count('board_comments', distinct=True), attachment_count=Count('board_attachments', distinct=True))
+        .annotate(
+            comment_count=Count('board_comments', distinct=True),
+            attachment_count=Count('board_attachments', distinct=True),
+            checklist_count=Count('checklist_items', distinct=True),
+            checklist_completed_count=Count(
+                'checklist_items',
+                filter=Q(checklist_items__is_completed=True),
+                distinct=True,
+            ),
+        )
         .filter(pk=task_id, workspace=workspace)
         .first()
     )
@@ -118,6 +128,8 @@ def _task_json(task):
         'dependency_title': task.dependency.title if task.dependency else '',
         'comment_count': getattr(task, 'comment_count', 0),
         'attachment_count': getattr(task, 'attachment_count', 0),
+        'checklist_count': getattr(task, 'checklist_count', 0),
+        'checklist_completed_count': getattr(task, 'checklist_completed_count', 0),
         'completed_at': task.completed_at.isoformat() if task.completed_at else None,
         'created_at': task.created_at.isoformat(),
         'updated_at': task.updated_at.isoformat(),
@@ -261,7 +273,16 @@ def task_board(request):
             'owner', 'initiative__process', 'initiative__key_result__objective',
             'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
         )
-        .annotate(comment_count=Count('board_comments', distinct=True), attachment_count=Count('board_attachments', distinct=True))
+        .annotate(
+            comment_count=Count('board_comments', distinct=True),
+            attachment_count=Count('board_attachments', distinct=True),
+            checklist_count=Count('checklist_items', distinct=True),
+            checklist_completed_count=Count(
+                'checklist_items',
+                filter=Q(checklist_items__is_completed=True),
+                distinct=True,
+            ),
+        )
         .order_by('status', 'board_order', 'priority', 'due_date', 'id')
     )
     return JsonResponse({
@@ -474,6 +495,132 @@ def task_board_move(request):
 
     _log(request, task, 'task.moved', {'from_status': previous_status, 'to_status': status})
     return JsonResponse({'ok': True, 'task_id': task.pk, 'status': status, 'ordered_ids': ordered_ids})
+
+
+def _checklist_item_json(row):
+    return {
+        'id': row.pk,
+        'title': row.title,
+        'is_completed': row.is_completed,
+        'position': row.position,
+        'created_by': _person(row.created_by),
+        'completed_at': row.completed_at.isoformat() if row.completed_at else None,
+        'created_at': row.created_at.isoformat(),
+        'updated_at': row.updated_at.isoformat(),
+    }
+
+
+@require_http_methods(['GET', 'POST'])
+def task_checklist(request, task_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    workspace, task = _task_for(request, task_id)
+    if not workspace:
+        return _error('core_workspace_required', 403)
+    if not task:
+        return _error('task_not_found', 404)
+
+    if request.method == 'GET':
+        rows = task.checklist_items.select_related('created_by').all()[:500]
+        return JsonResponse({
+            'ok': True,
+            'items': [_checklist_item_json(row) for row in rows],
+        })
+
+    if not base._editable(request, workspace):
+        return _error('permission_denied', 403)
+    payload = base._body(request)
+    title = str(payload.get('title') or '').strip()
+    if not title or len(title) > 500:
+        return _error('invalid_checklist_title')
+
+    last_position = (
+        task.checklist_items.order_by('-position', '-id')
+        .values_list('position', flat=True)
+        .first()
+    ) or 0
+    row = OperatingTaskChecklistItem.objects.create(
+        task=task,
+        title=title,
+        position=last_position + 100,
+        created_by=request.user,
+    )
+    _log(request, task, 'task.checklist_item_added', {
+        'checklist_item_id': row.pk,
+        'checklist_item_title': row.title,
+    })
+    return JsonResponse({'ok': True, 'item': _checklist_item_json(row)}, status=201)
+
+
+@require_http_methods(['PATCH', 'DELETE'])
+def task_checklist_item(request, task_id, item_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    workspace, task = _task_for(request, task_id)
+    if not workspace:
+        return _error('core_workspace_required', 403)
+    if not task:
+        return _error('task_not_found', 404)
+    if not base._editable(request, workspace):
+        return _error('permission_denied', 403)
+
+    row = (
+        OperatingTaskChecklistItem.objects
+        .select_related('created_by')
+        .filter(pk=item_id, task=task)
+        .first()
+    )
+    if not row:
+        return _error('checklist_item_not_found', 404)
+
+    if request.method == 'DELETE':
+        item_title = row.title
+        item_id_value = row.pk
+        row.delete()
+        _log(request, task, 'task.checklist_item_deleted', {
+            'checklist_item_id': item_id_value,
+            'checklist_item_title': item_title,
+        })
+        return JsonResponse({'ok': True})
+
+    payload = base._body(request)
+    update_fields = ['updated_at']
+    changed = {}
+
+    if 'title' in payload:
+        title = str(payload.get('title') or '').strip()
+        if not title or len(title) > 500:
+            return _error('invalid_checklist_title')
+        if title != row.title:
+            changed['title'] = {'from': row.title, 'to': title}
+            row.title = title
+            update_fields.append('title')
+
+    if 'is_completed' in payload:
+        is_completed = payload.get('is_completed')
+        if not isinstance(is_completed, bool):
+            return _error('invalid_checklist_state')
+        if is_completed != row.is_completed:
+            changed['is_completed'] = {'from': row.is_completed, 'to': is_completed}
+            row.is_completed = is_completed
+            row.completed_at = timezone.now() if is_completed else None
+            update_fields.extend(['is_completed', 'completed_at'])
+
+    if len(update_fields) > 1:
+        row.save(update_fields=list(dict.fromkeys(update_fields)))
+        action = (
+            'task.checklist_item_completed'
+            if changed.get('is_completed', {}).get('to') is True
+            else 'task.checklist_item_reopened'
+            if changed.get('is_completed', {}).get('to') is False
+            else 'task.checklist_item_updated'
+        )
+        _log(request, task, action, {
+            'checklist_item_id': row.pk,
+            'changes': changed,
+        })
+
+    return JsonResponse({'ok': True, 'item': _checklist_item_json(row)})
 
 
 def _comment_json(row):
