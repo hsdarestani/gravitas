@@ -8,7 +8,7 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20260919-planning1';
+import * as P from './ws-platform.js?v=20260923-checklist1';
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
@@ -286,6 +286,13 @@ export function renderCoreTasks(host, { go }) {
     owner.title = task.owner?.name || task.owner?.email || 'Owner';
     foot.append(owner);
     const counts = el('span', 'task-trello-card__counts');
+    if (task.checklist_count) {
+      counts.append(el(
+        'span',
+        'task-trello-card__checklist-count',
+        `Checklist ${task.checklist_completed_count || 0}/${task.checklist_count}`,
+      ));
+    }
     if (task.comment_count) counts.append(el('span', null, `💬 ${task.comment_count}`));
     if (task.attachment_count) counts.append(el('span', null, `📎 ${task.attachment_count}`));
     foot.append(counts);
@@ -450,6 +457,130 @@ export function renderCoreTasks(host, { go }) {
       });
       main.append(form);
 
+      const checklistPanel = panel('Checklist');
+      main.append(checklistPanel);
+
+      const loadChecklist = async () => {
+        checklistPanel.body.innerHTML = '';
+        try {
+          const data = await P.operatingTaskChecklist(task.id);
+          const items = data.items || [];
+          const completed = items.filter((item) => item.is_completed).length;
+
+          const summary = el('div', 'task-checklist__summary');
+          summary.append(
+            el('strong', null, items.length ? `${completed}/${items.length} complete` : 'No checklist items yet'),
+            items.length ? el('span', 'fl-muted', `${Math.round((completed / items.length) * 100)}%`) : el('span'),
+          );
+          checklistPanel.body.append(summary);
+
+          const list = el('div', 'task-checklist__list');
+          for (const item of items) {
+            const line = el('div', 'task-checklist__item');
+            if (item.is_completed) line.classList.add('is-complete');
+
+            const checkbox = input('checkbox');
+            checkbox.checked = !!item.is_completed;
+            checkbox.setAttribute('aria-label', `Mark “${item.title}” complete`);
+
+            const itemTitle = input('text', item.title);
+            itemTitle.classList.add('task-checklist__title');
+            itemTitle.setAttribute('aria-label', 'Checklist item');
+
+            const removeItem = makeButton('Delete', async () => {
+              removeItem.disabled = true;
+              try {
+                await P.deleteOperatingTaskChecklistItem(task.id, item.id);
+                await loadChecklist();
+                await reloadBoard({ keepDialog: true });
+              } catch (error) {
+                removeItem.disabled = false;
+                alert(error?.data?.error || error?.message || 'Checklist item could not be deleted.');
+              }
+            });
+            removeItem.classList.add('ws-btn--tiny');
+
+            checkbox.addEventListener('change', async () => {
+              checkbox.disabled = true;
+              itemTitle.disabled = true;
+              removeItem.disabled = true;
+              try {
+                await P.updateOperatingTaskChecklistItem(task.id, item.id, {
+                  is_completed: checkbox.checked,
+                });
+                await loadChecklist();
+                await reloadBoard({ keepDialog: true });
+              } catch (error) {
+                checkbox.checked = !checkbox.checked;
+                checkbox.disabled = false;
+                itemTitle.disabled = false;
+                removeItem.disabled = false;
+                alert(error?.data?.error || error?.message || 'Checklist state could not be saved.');
+              }
+            });
+
+            itemTitle.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                itemTitle.blur();
+              }
+            });
+            itemTitle.addEventListener('change', async () => {
+              const nextTitle = itemTitle.value.trim();
+              if (!nextTitle) {
+                itemTitle.value = item.title;
+                return;
+              }
+              if (nextTitle === item.title) return;
+              itemTitle.disabled = true;
+              try {
+                await P.updateOperatingTaskChecklistItem(task.id, item.id, { title: nextTitle });
+                await loadChecklist();
+                await reloadBoard({ keepDialog: true });
+              } catch (error) {
+                itemTitle.value = item.title;
+                itemTitle.disabled = false;
+                alert(error?.data?.error || error?.message || 'Checklist item could not be saved.');
+              }
+            });
+
+            line.append(checkbox, itemTitle, removeItem);
+            list.append(line);
+          }
+          checklistPanel.body.append(list);
+
+          const addForm = el('form', 'task-checklist__add');
+          const newItem = input('text');
+          newItem.placeholder = 'Add a checklist item…';
+          newItem.maxLength = 500;
+          const addButton = makeButton('Add item', () => {}, true);
+          addButton.type = 'submit';
+          const addNote = el('p', 'v-note');
+          addForm.append(newItem, addButton, addNote);
+          addForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const itemTitle = newItem.value.trim();
+            if (!itemTitle) return;
+            addButton.disabled = true;
+            newItem.disabled = true;
+            addNote.textContent = 'Adding…';
+            try {
+              await P.addOperatingTaskChecklistItem(task.id, itemTitle);
+              newItem.value = '';
+              await loadChecklist();
+              await reloadBoard({ keepDialog: true });
+            } catch (error) {
+              addNote.textContent = error?.data?.error || error?.message || 'Checklist item could not be added.';
+              addButton.disabled = false;
+              newItem.disabled = false;
+            }
+          });
+          checklistPanel.body.append(addForm);
+        } catch (error) {
+          checklistPanel.body.append(el('p', 'fl-muted', error?.message || 'Checklist unavailable.'));
+        }
+      };
+
       const commentsPanel = panel('Comments');
       const attachmentsPanel = panel('Attachments');
       const historyPanel = panel('Activity');
@@ -575,7 +706,7 @@ export function renderCoreTasks(host, { go }) {
         }
       };
 
-      await Promise.all([loadComments(), loadAttachments(), loadHistory()]);
+      await Promise.all([loadChecklist(), loadComments(), loadAttachments(), loadHistory()]);
     } catch (error) {
       body.innerHTML = '';
       body.append(failure('task card', error, () => {
