@@ -1,5 +1,5 @@
-import * as P from './ws-platform.js?v=20260918-taskboard1';
-import { renderCoreTasks } from './ws-views.js?v=20260918-taskboard1';
+import * as P from './ws-platform.js?v=20260923-checklist1';
+import { renderCoreTasks } from './ws-views.js?v=20260923-checklist1';
 import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
 
 const state = {
