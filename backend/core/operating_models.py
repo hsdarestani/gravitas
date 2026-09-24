@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 class Health(models.TextChoices):
@@ -273,6 +274,77 @@ class OperatingTaskChecklistItem(models.Model):
             models.Index(
                 fields=['task', 'is_completed', 'position'],
                 name='grav_check_task_done_pos',
+            ),
+        ]
+
+
+class TaskNotificationPreference(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_task_notification_preference',
+    )
+    email_enabled = models.BooleanField(default=True)
+    telegram_enabled = models.BooleanField(default=True)
+    task_changes_enabled = models.BooleanField(default=True)
+    due_reminders_enabled = models.BooleanField(default=True)
+    telegram_chat_id = models.BigIntegerField(blank=True, null=True, unique=True)
+    telegram_username = models.CharField(max_length=64, blank=True)
+    telegram_link_code = models.CharField(max_length=64, blank=True, unique=True, null=True)
+    telegram_link_expires_at = models.DateTimeField(blank=True, null=True)
+    telegram_connected_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class TaskNotificationOutbox(models.Model):
+    class Channel(models.TextChoices):
+        EMAIL = 'email', 'Email'
+        TELEGRAM = 'telegram', 'Telegram'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        SENT = 'sent', 'Sent'
+        FAILED = 'failed', 'Failed'
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_task_notification_outbox',
+    )
+    task = models.ForeignKey(
+        OperatingTask,
+        on_delete=models.SET_NULL,
+        related_name='notification_outbox',
+        blank=True,
+        null=True,
+    )
+    channel = models.CharField(max_length=16, choices=Channel.choices)
+    event_key = models.CharField(max_length=120)
+    event_type = models.CharField(max_length=80)
+    subject = models.CharField(max_length=300)
+    body = models.TextField()
+    payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    available_at = models.DateTimeField(default=timezone.now, db_index=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['recipient', 'channel', 'event_key'],
+                name='unique_task_notification_delivery',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['status', 'available_at', 'created_at'],
+                name='grav_task_notif_queue',
             ),
         ]
 
