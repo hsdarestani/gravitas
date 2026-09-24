@@ -151,6 +151,17 @@ def _funding_relevance(item):
 def _funding_metadata(item, *, geography_scope, geographies, region):
     score, factors, archived, days_to_deadline = _funding_relevance(item)
     eligibility = item.get("eligibility") or []
+    eligibility_text = " ".join(_text(value).lower() for value in eligibility)
+    explicit_global = any(phrase in eligibility_text for phrase in (
+        "applicants worldwide",
+        "applicants from any country",
+        "international applicants",
+        "open to applicants worldwide",
+        "eligible worldwide",
+    ))
+    resolved_scope = "international" if explicit_global else geography_scope
+    resolved_geographies = ["International"] if explicit_global else list(geographies)
+    resolved_region = "International" if explicit_global else region
     return {
         "relevance": score,
         "relevance_factors": factors,
@@ -161,9 +172,9 @@ def _funding_metadata(item, *, geography_scope, geographies, region):
             " ".join(eligibility),
             " ".join(item.get("categories") or []),
         ),
-        "geography_scope": geography_scope,
-        "geographies": list(geographies),
-        "region": region,
+        "geography_scope": resolved_scope,
+        "geographies": resolved_geographies,
+        "region": resolved_region,
         "archived": archived,
         "days_to_deadline": days_to_deadline,
     }
@@ -298,6 +309,8 @@ def _iso_date(value):
         "%b %d, %Y %I:%M:%S %p %Z",
         "%b %d, %Y %I:%M:%S %p",
         "%m/%d/%Y",
+        "%d %B %Y",
+        "%d %b %Y",
         "%Y-%m-%d-%H-%M-%S",
         "%Y-%m-%d",
     ):
@@ -827,7 +840,10 @@ def _build_payload():
             except Exception as exc:
                 errors.append(_source_error(kind, exc))
 
-    funding = [*funding_eu, *funding_uk, *funding_us]
+    funding = [
+        item for item in [*funding_eu, *funding_uk, *funding_us]
+        if not item.get("archived")
+    ]
     funding.sort(
         key=lambda item: (
             item.get("close_date") in ("", None),
