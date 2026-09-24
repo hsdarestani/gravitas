@@ -80,6 +80,39 @@ def history_payload(limit: int = 60) -> list[dict]:
     return out
 
 
+
+def archived_funding_payload(limit: int = 120) -> list[dict]:
+    """Return persisted funding calls whose ISO deadline has passed."""
+    limit = max(1, min(int(limit or 120), 300))
+    today = timezone.localdate().isoformat()
+    rows = (
+        ResearchIntelligenceItem.objects
+        .filter(kind='funding')
+        .order_by('-last_seen_at')[: max(limit * 4, 200)]
+    )
+    out = []
+    seen = set()
+    for row in rows:
+        snapshot = dict(row.payload or {})
+        close_date = str(snapshot.get('close_date') or '').strip()
+        if not close_date or len(close_date) != 10 or close_date >= today:
+            continue
+        identity = f"{row.source}|{row.external_id or row.url or row.key}"
+        if identity in seen:
+            continue
+        seen.add(identity)
+        snapshot['archived'] = True
+        snapshot['source'] = snapshot.get('source') or row.source
+        snapshot['id'] = snapshot.get('id') or row.external_id
+        snapshot['title'] = snapshot.get('title') or row.title
+        snapshot['summary'] = snapshot.get('summary') or row.summary
+        snapshot['url'] = snapshot.get('url') or row.url
+        out.append(snapshot)
+        if len(out) >= limit:
+            break
+    out.sort(key=lambda item: item.get('close_date') or '', reverse=True)
+    return out
+
 def run_status_payload() -> dict:
     run = ResearchIntelligenceRun.objects.order_by('-started_at').first()
     if not run:
