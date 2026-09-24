@@ -9,6 +9,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
+from .content_api import _poll_definitions
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .models import Comment, ContentItem, ContentTranslation
@@ -66,7 +67,8 @@ def _content_json(item, include_body=False):
         'title': item.title,
         'summary': item.summary,
         'topic_data': item.topic_data if isinstance(item.topic_data, dict) else {},
-        'poll_results': _topic_poll_results(item),
+        'poll_results': (_topic_poll_results(item) or [None])[0],
+        'poll_results_list': _topic_poll_results(item),
         'published_at': _iso(item.published_at),
         'created_at': _iso(item.created_at),
         'updated_at': _iso(item.updated_at),
@@ -79,28 +81,21 @@ def _content_json(item, include_body=False):
 
 def _topic_poll_results(item):
     if item.kind != ContentItem.Kind.TOPIC:
-        return None
-    data = item.topic_data if isinstance(item.topic_data, dict) else {}
-    viewpoints = data.get('viewpoints') if isinstance(data.get('viewpoints'), dict) else {}
-    raw = viewpoints.get('poll_options') if isinstance(viewpoints.get('poll_options'), list) else []
-    labels = {}
-    for index, option in enumerate(raw[:20]):
-        if isinstance(option, dict):
-            option_id = str(option.get('id') or f'option-{index + 1}').strip()[:80]
-            label = str(option.get('label') or '').strip()[:300]
-        else:
-            option_id = f'option-{index + 1}'
-            label = str(option).strip()[:300]
-        if option_id and label:
-            labels[option_id] = label
-    counts = {key: 0 for key in labels}
-    for option_id in item.poll_votes.values_list('option_id', flat=True):
-        if option_id in counts:
-            counts[option_id] += 1
-    return {
-        'total_votes': sum(counts.values()),
-        'options': [{'id': key, 'label': labels[key], 'votes': counts[key]} for key in labels],
-    }
+        return []
+    results = []
+    for poll in _poll_definitions(item):
+        labels = {option['id']: option['label'] for option in poll['options']}
+        counts = {key: 0 for key in labels}
+        for option_id in item.poll_votes.filter(poll_id=poll['id']).values_list('option_id', flat=True):
+            if option_id in counts:
+                counts[option_id] += 1
+        results.append({
+            'id': poll['id'],
+            'question': poll['question'],
+            'total_votes': sum(counts.values()),
+            'options': [{'id': key, 'label': labels[key], 'votes': counts[key]} for key in labels],
+        })
+    return results
 
 
 def _apply_translation(content, raw):
