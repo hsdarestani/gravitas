@@ -16,26 +16,37 @@ ACTIONS = {
 }
 
 
+def _topic_objects(data, plural_key, singular_key):
+    rows = data.get(plural_key)
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    row = data.get(singular_key)
+    return [row] if isinstance(row, dict) else []
+
+
 def topic_applicability(topic):
     data = topic.topic_data if isinstance(topic.topic_data, dict) else {}
-    video = data.get('video') if isinstance(data.get('video'), dict) else {}
-    simulation = data.get('simulation') if isinstance(data.get('simulation'), dict) else {}
+    videos = _topic_objects(data, 'videos', 'video')
+    simulations = _topic_objects(data, 'simulations', 'simulation')
     viewpoints = data.get('viewpoints') if isinstance(data.get('viewpoints'), dict) else {}
     poll_options = viewpoints.get('poll_options') if isinstance(viewpoints.get('poll_options'), list) else []
     discussion = data.get('discussion_enabled')
     return {
-        'video': bool(
+        'video': any(
             video.get('youtube_url')
             or video.get('self_hosted_url')
             or video.get('source_type') in {'youtube', 'self_hosted'}
+            for video in videos
         ),
         'comment': discussion is not False,
         'vote': bool([item for item in poll_options if item]),
-        'simulation': bool(
+        'simulation': any(
             simulation.get('code')
+            or simulation.get('builtin')
             or simulation.get('native')
             or simulation.get('type')
             or simulation.get('enabled')
+            for simulation in simulations
         ),
     }
 
