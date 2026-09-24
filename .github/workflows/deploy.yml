@@ -108,16 +108,23 @@ jobs:
 
       - name: Bootstrap production server
         shell: bash
+        env:
+          GRAVITAS_TELEGRAM_BOT_TOKEN: ${{ secrets.GRAVITAS_TELEGRAM_BOT_TOKEN }}
+          GRAVITAS_TELEGRAM_BOT_USERNAME: ${{ secrets.GRAVITAS_TELEGRAM_BOT_USERNAME }}
         run: |
           set -euo pipefail
+          TELEGRAM_TOKEN_B64="$(printf '%s' "$GRAVITAS_TELEGRAM_BOT_TOKEN" | base64 -w0)"
+          TELEGRAM_USERNAME_B64="$(printf '%s' "$GRAVITAS_TELEGRAM_BOT_USERNAME" | base64 -w0)"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
-            bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" "$BACKEND_PATH" <<'REMOTE'
+            bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" "$BACKEND_PATH" "$TELEGRAM_TOKEN_B64" "$TELEGRAM_USERNAME_B64" <<'REMOTE'
           set -euo pipefail
 
           DOMAIN="$1"
           DEPLOY_PATH="$2"
           SSH_PORT="$3"
           BACKEND_PATH="$4"
+          TELEGRAM_TOKEN_B64="${5:-}"
+          TELEGRAM_USERNAME_B64="${6:-}"
 
           if [ "$(id -u)" -eq 0 ]; then
             SUDO=""
@@ -176,6 +183,33 @@ jobs:
             SECRET="$($SUDO openssl rand -hex 32)"
             printf 'DJANGO_SECRET_KEY=%s\nDJANGO_DEBUG=0\n' "$SECRET" | $SUDO tee /etc/gravitas/backend.env >/dev/null
           fi
+
+          if ! $SUDO grep -q '^GRAVITAS_TELEGRAM_WEBHOOK_SECRET=' /etc/gravitas/backend.env; then
+            TELEGRAM_WEBHOOK_SECRET="$($SUDO openssl rand -hex 32)"
+            printf 'GRAVITAS_TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET" | $SUDO tee -a /etc/gravitas/backend.env >/dev/null
+          fi
+
+          upsert_secret_env() {
+            KEY="$1"
+            VALUE="$2"
+            [ -n "$VALUE" ] || return 0
+            TMP_FILE="$(mktemp)"
+            $SUDO awk -v key="$KEY" -F= '$1 != key { print }' /etc/gravitas/backend.env > "$TMP_FILE"
+            printf '%s=%s\n' "$KEY" "$VALUE" >> "$TMP_FILE"
+            $SUDO mv "$TMP_FILE" /etc/gravitas/backend.env
+          }
+
+          if [ -n "$TELEGRAM_TOKEN_B64" ]; then
+            TELEGRAM_TOKEN="$(printf '%s' "$TELEGRAM_TOKEN_B64" | base64 -d)"
+            upsert_secret_env GRAVITAS_TELEGRAM_BOT_TOKEN "$TELEGRAM_TOKEN"
+            unset TELEGRAM_TOKEN
+          fi
+          if [ -n "$TELEGRAM_USERNAME_B64" ]; then
+            TELEGRAM_USERNAME="$(printf '%s' "$TELEGRAM_USERNAME_B64" | base64 -d)"
+            upsert_secret_env GRAVITAS_TELEGRAM_BOT_USERNAME "$TELEGRAM_USERNAME"
+            unset TELEGRAM_USERNAME
+          fi
+
           $SUDO chown root:gravitas /etc/gravitas/backend.env
           $SUDO chmod 640 /etc/gravitas/backend.env
 
@@ -239,6 +273,43 @@ jobs:
           WantedBy=timers.target
           EOF
           $SUDO mv /tmp/gravitas-research-radar.timer /etc/systemd/system/gravitas-research-radar.timer
+
+          cat > /tmp/gravitas-task-notifications.service <<EOF
+          [Unit]
+          Description=Gravitas task email and Telegram notification worker
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+          Requires=postgresql.service
+
+          [Service]
+          Type=oneshot
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          EnvironmentFile=-/etc/gravitas/openedx.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          Environment=PYTHONPATH=$BACKEND_PATH
+          ExecStart=$BACKEND_PATH/.venv/bin/django-admin process_task_notifications --limit 200
+          Nice=10
+          TimeoutStartSec=50s
+          EOF
+          $SUDO mv /tmp/gravitas-task-notifications.service /etc/systemd/system/gravitas-task-notifications.service
+
+          cat > /tmp/gravitas-task-notifications.timer <<'EOF'
+          [Unit]
+          Description=Deliver Gravitas task notifications every minute
+
+          [Timer]
+          OnBootSec=45s
+          OnUnitActiveSec=1min
+          Persistent=true
+          Unit=gravitas-task-notifications.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-task-notifications.timer /etc/systemd/system/gravitas-task-notifications.timer
 
           cat > /tmp/gravitas-backup.sh <<'EOF'
           #!/usr/bin/env bash
@@ -470,6 +541,15 @@ jobs:
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" migrate --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" collectstatic --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" check --deploy
+          sudo -u gravitas bash -c '
+            set -a
+            . /etc/gravitas/backend.env
+            if [ -f /etc/gravitas/openedx.env ]; then . /etc/gravitas/openedx.env; fi
+            set +a
+            export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+            export PYTHONPATH="'"$BACKEND_PATH"'"
+            exec "'"$BACKEND_PATH"'/.venv/bin/django-admin" configure_telegram_notifications
+          ' || true
 
           if [ ! -f /etc/gravitas/admin-credentials ]; then
             ADMIN_PASS="$(openssl rand -base64 24 | tr -d '\n')"
@@ -491,6 +571,8 @@ jobs:
             echo "Initial Research Intelligence collection failed; timer will retry automatically."
           fi
           sudo systemctl enable --now gravitas-research-radar.timer
+          sudo systemctl enable --now gravitas-task-notifications.timer
+          sudo systemctl start gravitas-task-notifications.service || true
           REMOTE
 
       - name: Ensure SSL and reload Nginx
@@ -520,6 +602,7 @@ jobs:
           sudo systemctl is-active fail2ban
           sudo systemctl is-active gravitas-backup.timer
           sudo systemctl is-active gravitas-research-radar.timer
+          sudo systemctl is-active gravitas-task-notifications.timer
           sudo systemctl is-active gravitas-backend
           sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
           curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'

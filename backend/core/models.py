@@ -668,3 +668,34 @@ class ResearchIntelligenceEvent(models.Model):
             models.Index(fields=['event_type', '-observed_at'], name='ri_event_type_time'),
             models.Index(fields=['item', '-observed_at'], name='ri_event_item_time'),
         ]
+
+
+
+class ResearchIntelligenceSavedItem(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_research_intelligence_saves',
+    )
+    item_key = models.CharField(max_length=400)
+    snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'item_key'],
+                name='unique_research_intelligence_save',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', '-updated_at'],
+                name='ri_saved_user_recent',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.user} · {self.item_key}'

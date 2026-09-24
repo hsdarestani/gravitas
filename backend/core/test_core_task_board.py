@@ -15,8 +15,10 @@ from .operating_models import (
     OperatingTaskAttachment,
     OperatingTaskChecklistItem,
     OperatingTaskComment,
+    TaskNotificationOutbox,
     StrategicObjective,
 )
+from .models import WorkspaceMembership
 from .platform_runtime_v3 import ensure_platform_workspaces
 
 
@@ -87,6 +89,31 @@ class CoreTaskBoardTests(TestCase):
         })
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
+
+    def test_task_change_by_teammate_enqueues_owner_email_notification(self):
+        task_id = self.create_task()
+        teammate = User.objects.create_user(
+            username='task-editor@example.test',
+            email='task-editor@example.test',
+            password='Strong-pass-123!',
+        )
+        WorkspaceMembership.objects.create(
+            workspace=self.workspace,
+            user=teammate,
+            role=WorkspaceMembership.Role.MEMBER,
+        )
+        self.client.force_login(teammate)
+        response = self.patch_json(f'/api/operating/task-board/{task_id}/', {
+            'title': 'Changed by teammate',
+        })
+        self.assertEqual(response.status_code, 200, response.content)
+        delivery = TaskNotificationOutbox.objects.get(
+            recipient=self.user,
+            channel=TaskNotificationOutbox.Channel.EMAIL,
+        )
+        self.assertEqual(delivery.task_id, task_id)
+        self.assertEqual(delivery.event_type, 'task.updated')
+        self.assertIn('Title:', delivery.body)
 
     def test_board_lists_real_operating_tasks_and_context(self):
         task_id = self.create_task()

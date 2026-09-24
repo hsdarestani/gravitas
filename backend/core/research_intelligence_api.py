@@ -22,7 +22,8 @@ import requests
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from .research_intelligence_history import history_payload, persist_payload, run_status_payload
+from .models import ResearchIntelligenceSavedItem
+from .research_intelligence_history import archived_funding_payload, history_payload, persist_payload, run_status_payload
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ GRANTS_DETAIL = "https://api.grants.gov/v1/api/fetchOpportunity"
 ARXIV_QUERY = "https://export.arxiv.org/api/query"
 GITHUB_SEARCH = "https://api.github.com/search/repositories"
 EU_SEARCH = "https://api.tech.ec.europa.eu/search-api/prod/rest/search"
+UKRI_FEED = "https://www.ukri.org/opportunity/feed/"
 OFFICIAL_FEEDS = (
     ("OpenAI", "https://openai.com/news/rss.xml"),
     ("Hugging Face", "https://huggingface.co/blog/feed.xml"),
@@ -59,6 +61,219 @@ AI_TERMS = (
     "artificial intelligence", " ai ", "llm", "large language model", "agent",
     "machine learning", "generative", "transformer", "language model",
 )
+
+
+FUNDING_RELEVANCE_DEFAULT_WEIGHTS = {
+    "topic": 45,
+    "ai": 35,
+    "deadline": 20,
+}
+
+
+def _valid_iso_day(value):
+    value = _text(value)
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return None
+    try:
+        return datetime.fromisoformat(value).date()
+    except ValueError:
+        return None
+
+
+def _deadline_details(close_date):
+    deadline = _valid_iso_day(close_date)
+    if deadline is None:
+        return False, None, 20
+    today = datetime.now(timezone.utc).date()
+    days = (deadline - today).days
+    if days < 0:
+        return True, days, 0
+    if days <= 30:
+        urgency = 100
+    elif days <= 90:
+        urgency = 80
+    elif days <= 180:
+        urgency = 55
+    else:
+        urgency = 30
+    return False, days, urgency
+
+
+def _classify_applicant_scope(*parts):
+    text = " ".join(_text(part).lower() for part in parts if part)
+    scopes = []
+    individual_terms = (
+        "individual", "researcher", "scientist", "investigator", "fellow",
+        "fellowship", "doctoral", "postdoctoral", "postdoc",
+    )
+    team_terms = (
+        "team", "consortium", "collaborative", "partnership", "joint call",
+        "multi-institution", "multidisciplinary",
+    )
+    organisation_terms = (
+        "organisation", "organization", "institution", "university", "college",
+        "company", "business", "nonprofit", "non-profit", "agency", "charity",
+        "research organisation", "research organization",
+    )
+    if any(term in text for term in individual_terms):
+        scopes.append("individual")
+    if any(term in text for term in team_terms):
+        scopes.append("team")
+    if any(term in text for term in organisation_terms):
+        scopes.append("company_institution")
+    return scopes or ["unspecified"]
+
+
+def _funding_relevance(item):
+    title = _text(item.get("title")).lower()
+    summary = _text(item.get("summary")).lower()
+    categories = " ".join(_text(value).lower() for value in item.get("categories") or [])
+    eligibility = " ".join(_text(value).lower() for value in item.get("eligibility") or [])
+    haystack = f" {title} {summary} {categories} {eligibility} "
+
+    topic_hits = sum(1 for term in RELEVANCE_TERMS if term in haystack)
+    ai_hits = sum(1 for term in AI_TERMS if term in haystack)
+    topic = min(100, 18 + topic_hits * 10)
+    ai = min(100, ai_hits * 24)
+    archived, days_to_deadline, deadline = _deadline_details(item.get("close_date"))
+
+    factors = {
+        "topic": topic,
+        "ai": ai,
+        "deadline": deadline,
+    }
+    weights = FUNDING_RELEVANCE_DEFAULT_WEIGHTS
+    total_weight = sum(weights.values()) or 1
+    score = round(sum(factors[name] * weights[name] for name in factors) / total_weight)
+    return min(100, max(0, score)), factors, archived, days_to_deadline
+
+
+def _funding_metadata(item, *, geography_scope, geographies, region):
+    score, factors, archived, days_to_deadline = _funding_relevance(item)
+    eligibility = item.get("eligibility") or []
+    eligibility_text = " ".join(_text(value).lower() for value in eligibility)
+    explicit_global = any(phrase in eligibility_text for phrase in (
+        "applicants worldwide",
+        "applicants from any country",
+        "international applicants",
+        "open to applicants worldwide",
+        "eligible worldwide",
+        "foreign organizations",
+        "foreign organisations",
+        "foreign applicants",
+        "non-us applicants",
+        "non-u.s. applicants",
+    ))
+    resolved_scope = "international" if explicit_global else geography_scope
+    resolved_geographies = ["International"] if explicit_global else list(geographies)
+    resolved_region = "International" if explicit_global else region
+    return {
+        "relevance": score,
+        "relevance_factors": factors,
+        "relevance_weights": FUNDING_RELEVANCE_DEFAULT_WEIGHTS,
+        "applicant_scope": _classify_applicant_scope(
+            item.get("title"),
+            item.get("summary"),
+            " ".join(eligibility),
+            " ".join(item.get("categories") or []),
+        ),
+        "geography_scope": resolved_scope,
+        "geographies": resolved_geographies,
+        "region": resolved_region,
+        "archived": archived,
+        "days_to_deadline": days_to_deadline,
+    }
+
+
+def _match_text(pattern, value, flags=re.IGNORECASE):
+    match = re.search(pattern, value or "", flags)
+    return _text(match.group(1)) if match else ""
+
+
+def _ukri_funding_calls():
+    """Open and upcoming UKRI opportunities from the official Funding Finder RSS feed."""
+    session = _session()
+    response = session.get(UKRI_FEED, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
+    root = ElementTree.fromstring(response.content)
+
+    items = []
+    errors = []
+    feed_items = root.findall(".//item")[:24]
+    for node in feed_items:
+        title = _text(node.findtext("title"), 220)
+        summary = _text(node.findtext("description"), 360)
+        link = _text(node.findtext("link"))
+        if not title or not link:
+            continue
+
+        preliminary = _score(title, summary)
+        if preliminary < 43:
+            continue
+
+        detail_text = ""
+        try:
+            detail_response = session.get(link, timeout=REQUEST_TIMEOUT)
+            detail_response.raise_for_status()
+            detail_text = _text(detail_response.text)
+        except Exception as exc:
+            errors.append(_source_error("UKRI detail", exc))
+
+        status = _match_text(r"Opportunity status:\s*(Open|Upcoming|Closed)", detail_text)
+        open_raw = _match_text(r"Opening date:\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})", detail_text)
+        close_raw = _match_text(r"Closing date:\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})", detail_text)
+        funder = _match_text(
+            r"Funders:\s*(.{1,180}?)\s+(?:Co-funders:|Funding type:|Total fund:|Maximum award:|Award range:|Publication date:)",
+            detail_text,
+        )
+        funding_type = _match_text(r"Funding type:\s*([A-Za-z][A-Za-z /&-]{1,80})\s+(?:Total fund:|Maximum award:|Minimum award:|Award range:|Publication date:)", detail_text)
+        max_award = _match_text(r"Maximum award:\s*([£€$][0-9,]+)", detail_text)
+        award_range = _match_text(r"Award range:\s*([£€$][0-9,]+\s*(?:-|to)\s*[£€$]?[0-9,]+)", detail_text)
+        eligibility_text = _match_text(r"(You must[^.]{0,320}\.)", detail_text)
+        if not eligibility_text:
+            eligibility_text = _match_text(r"(Applicants? must[^.]{0,320}\.)", detail_text)
+
+        identifier = link.rstrip("/").rsplit("/", 1)[-1]
+        item = {
+            "id": f"ukri:{identifier}",
+            "kind": "funding",
+            "source": "UKRI Funding Finder",
+            "title": title,
+            "summary": summary,
+            "agency": funder or "UK Research and Innovation",
+            "status": status or "open",
+            "open_date": _iso_date(open_raw or node.findtext("pubDate")),
+            "close_date": _iso_date(close_raw),
+            "opportunity_number": identifier,
+            "award_ceiling": max_award or award_range,
+            "award_floor": "",
+            "eligibility": [eligibility_text] if eligibility_text else [],
+            "categories": [value for value in ("UKRI", funding_type) if value],
+            "template_available": False,
+            "template_names": [],
+            "attachment_count": 0,
+            "url": link,
+            "relevance": preliminary,
+        }
+        item.update(
+            _funding_metadata(
+                item,
+                geography_scope="country",
+                geographies=["United Kingdom"],
+                region="Europe",
+            )
+        )
+        items.append(item)
+
+    items.sort(
+        key=lambda item: (
+            item.get("archived", False),
+            item.get("close_date") in ("", None),
+            item.get("close_date") or "9999-99-99",
+            -int(item.get("relevance") or 0),
+        )
+    )
+    return items[:10], errors
 
 
 def _session():
@@ -99,6 +314,8 @@ def _iso_date(value):
         "%b %d, %Y %I:%M:%S %p %Z",
         "%b %d, %Y %I:%M:%S %p",
         "%m/%d/%Y",
+        "%d %B %Y",
+        "%d %b %Y",
         "%Y-%m-%d-%H-%M-%S",
         "%Y-%m-%d",
     ):
@@ -290,7 +507,17 @@ def _funding_calls():
             }
         )
 
-    items.sort(key=lambda item: (item["close_date"] in ("", None), item["close_date"] or "9999-99-99", -item["relevance"]))
+    for item in items:
+        item.update(
+            _funding_metadata(
+                item,
+                geography_scope="country",
+                geographies=["United States"],
+                region="North America",
+            )
+        )
+
+    items.sort(key=lambda item: (item["archived"], item["close_date"] in ("", None), item["close_date"] or "9999-99-99", -item["relevance"]))
     return items[:10], errors
 
 
@@ -392,7 +619,17 @@ def _eu_funding_calls():
             }
         )
 
-    items.sort(key=lambda item: (item["close_date"] in ("", None), item["close_date"] or "9999-99-99", -item["relevance"]))
+    for item in items:
+        item.update(
+            _funding_metadata(
+                item,
+                geography_scope="continent",
+                geographies=["Europe"],
+                region="Europe",
+            )
+        )
+
+    items.sort(key=lambda item: (item["archived"], item["close_date"] in ("", None), item["close_date"] or "9999-99-99", -item["relevance"]))
     return items[:10]
 
 
@@ -571,14 +808,16 @@ def _build_payload():
     errors = []
     funding_us = []
     funding_eu = []
+    funding_uk = []
     papers = []
     tools = []
     developments = []
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=6) as pool:
         jobs = {
             pool.submit(_funding_calls): "funding_us",
             pool.submit(_eu_funding_calls): "funding_eu",
+            pool.submit(_ukri_funding_calls): "funding_uk",
             pool.submit(_arxiv_papers): "papers",
             pool.submit(_github_tools): "tools",
             pool.submit(_developments): "developments",
@@ -592,6 +831,9 @@ def _build_payload():
                     errors.extend(source_errors)
                 elif kind == "funding_eu":
                     funding_eu = result
+                elif kind == "funding_uk":
+                    funding_uk, source_errors = result
+                    errors.extend(source_errors)
                 elif kind == "papers":
                     papers = result
                 elif kind == "tools":
@@ -603,7 +845,10 @@ def _build_payload():
             except Exception as exc:
                 errors.append(_source_error(kind, exc))
 
-    funding = [*funding_eu, *funding_us]
+    funding = [
+        item for item in [*funding_eu, *funding_uk, *funding_us]
+        if not item.get("archived")
+    ]
     funding.sort(
         key=lambda item: (
             item.get("close_date") in ("", None),
@@ -627,7 +872,7 @@ def _build_payload():
         "papers_tools": papers_tools[:18],
         "developments": developments,
         "sources": {
-            "funding": ["EU Funding & Tenders", "Grants.gov"],
+            "funding": ["EU Funding & Tenders", "UKRI Funding Finder", "Grants.gov"],
             "papers_tools": ["arXiv", "GitHub"],
             "developments": [source for source, _url in OFFICIAL_FEEDS],
         },
@@ -638,14 +883,17 @@ def _build_payload():
 def _with_history(payload):
     try:
         history = history_payload(60)
+        funding_archive = archived_funding_payload(120)
         automation = run_status_payload()
     except Exception as exc:
         logger.warning("research_intelligence history unavailable: %s", exc)
         history = []
+        funding_archive = []
         automation = {}
     return {
         **payload,
         "history": history,
+        "funding_archive": funding_archive,
         "automation": {
             "enabled": True,
             "interval_seconds": CACHE_TTL_SECONDS,
@@ -679,3 +927,48 @@ def research_intelligence(request):
         _CACHE["at"] = time.monotonic()
 
     return JsonResponse({**_with_history(payload), "cached": False})
+
+
+
+def _saved_item_key(item):
+    source = _text((item or {}).get("source"))
+    external_id = _text((item or {}).get("id"))
+    url = _text((item or {}).get("url"))
+    return f"{source}|{external_id or url}"[:400]
+
+
+@require_http_methods(["GET", "POST", "DELETE"])
+def research_intelligence_saved(request):
+    if request.method == "GET":
+        rows = ResearchIntelligenceSavedItem.objects.filter(user=request.user).order_by("-updated_at")
+        return JsonResponse({
+            "saved_keys": [row.item_key for row in rows],
+            "items": [row.snapshot for row in rows if isinstance(row.snapshot, dict)],
+        })
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({"error": "invalid_json"}, status=400)
+
+    item = body.get("item") if isinstance(body, dict) else None
+    key = _text(body.get("key") if isinstance(body, dict) else "")
+    if not key and isinstance(item, dict):
+        key = _saved_item_key(item)
+    key = key[:400]
+    if not key:
+        return JsonResponse({"error": "item_key_required"}, status=400)
+
+    if request.method == "DELETE":
+        ResearchIntelligenceSavedItem.objects.filter(user=request.user, item_key=key).delete()
+        return JsonResponse({"ok": True, "saved": False, "key": key})
+
+    if not isinstance(item, dict):
+        return JsonResponse({"error": "item_required"}, status=400)
+
+    row, _created = ResearchIntelligenceSavedItem.objects.update_or_create(
+        user=request.user,
+        item_key=key,
+        defaults={"snapshot": item},
+    )
+    return JsonResponse({"ok": True, "saved": True, "key": row.item_key})

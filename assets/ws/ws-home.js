@@ -675,7 +675,7 @@ function intelligenceMetric(value, label, index = 0) {
     value: value || 0,
     label,
     icon: icons[index] || 'activity',
-    featured: index === 0,
+    featured: false,
   });
   node.classList.add('ri__metric');
   node.dataset.series = String((index % 5) + 1);
@@ -688,7 +688,37 @@ function intelligenceChip(text, tone = '') {
   return chip;
 }
 
-function intelligenceCard(item, tab) {
+function fundingKey(item) {
+  return `${item?.source || ''}|${item?.id || item?.url || ''}`.slice(0, 400);
+}
+
+function fundingWeightsLoad() {
+  const fallback = { topic: 45, ai: 35, deadline: 20 };
+  try {
+    const saved = JSON.parse(localStorage.getItem('gravitas.research.fundingWeights') || 'null');
+    if (!saved || typeof saved !== 'object') return fallback;
+    return {
+      topic: Number(saved.topic ?? fallback.topic),
+      ai: Number(saved.ai ?? fallback.ai),
+      deadline: Number(saved.deadline ?? fallback.deadline),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function fundingRelevance(item, weights) {
+  const factors = item?.relevance_factors;
+  if (!factors || typeof factors !== 'object') return Number(item?.relevance || 0);
+  const names = ['topic', 'ai', 'deadline'];
+  const total = names.reduce((sum, name) => sum + Math.max(0, Number(weights[name] || 0)), 0) || 1;
+  const score = names.reduce((sum, name) => {
+    return sum + Math.max(0, Number(factors[name] || 0)) * Math.max(0, Number(weights[name] || 0));
+  }, 0) / total;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function intelligenceCard(item, tab, options = {}) {
   const card = el('article', 'ri-card');
 
   const meta = el('div', 'ri-card__meta');
@@ -697,6 +727,7 @@ function intelligenceCard(item, tab) {
   if (item.kind === 'tool') meta.append(intelligenceChip('Tool'));
   if (item.kind === 'development') meta.append(intelligenceChip('Development'));
   if (item.kind === 'funding' && item.status) meta.append(intelligenceChip(P.label(item.status)));
+  if (item.kind === 'funding' && item.archived) meta.append(intelligenceChip('Archived', 'caution'));
   if (tab === 'history' && item.event_type) {
     meta.append(intelligenceChip(item.event_type === 'new' ? 'New' : 'Updated', item.event_type === 'new' ? 'positive' : 'caution'));
   }
@@ -715,6 +746,8 @@ function intelligenceCard(item, tab) {
     }
     if (item.close_date) {
       const fact = el('span'); fact.append(el('strong', null, 'Deadline '), document.createTextNode(intelligenceDate(item.close_date))); facts.append(fact);
+    } else {
+      facts.append(el('span', null, 'Open deadline'));
     }
     if (item.award_ceiling) {
       const fact = el('span'); fact.append(el('strong', null, 'Up to '), document.createTextNode(item.award_ceiling)); facts.append(fact);
@@ -730,6 +763,24 @@ function intelligenceCard(item, tab) {
   }
   if (facts.childNodes.length) card.append(facts);
 
+  if (tab === 'funding') {
+    const scope = el('div', 'ri-card__scope');
+    for (const value of item.applicant_scope || []) {
+      const labels = {
+        individual: 'Individual',
+        team: 'Team',
+        company_institution: 'Company / institution',
+        unspecified: 'Applicant type not specified',
+      };
+      scope.append(intelligenceChip(labels[value] || P.label(value)));
+    }
+    if (item.geography_scope) {
+      const geography = (item.geographies || []).join(', ') || P.label(item.geography_scope);
+      scope.append(intelligenceChip(`${P.label(item.geography_scope)} · ${geography}`));
+    }
+    if (scope.childNodes.length) card.append(scope);
+  }
+
   if (tab === 'funding' && item.template_available) {
     const templates = el('div', 'ri-card__templates');
     templates.append(el('strong', null, 'Application template / form found'));
@@ -740,6 +791,13 @@ function intelligenceCard(item, tab) {
   }
 
   const foot = el('div', 'ri-card__foot');
+  if (tab === 'funding' && typeof options.onSave === 'function') {
+    const save = el('button', 'ri-card__save', options.saved ? 'Saved' : 'Save');
+    save.type = 'button';
+    save.setAttribute('aria-pressed', String(!!options.saved));
+    save.addEventListener('click', () => options.onSave(item, save));
+    foot.append(save);
+  }
   if (item.url) {
     const link = el('a', 'ri-card__open', tab === 'funding' ? 'Open call ↗' : 'Open source ↗');
     link.href = item.url;
@@ -747,7 +805,7 @@ function intelligenceCard(item, tab) {
     link.rel = 'noopener noreferrer';
     foot.append(link);
   }
-  const relevance = Number(item.relevance || 0);
+  const relevance = Number(options.relevance ?? item.relevance ?? 0);
   if (relevance) foot.append(el('span', 'ri__source-note', `Relevance ${relevance}%`));
   card.append(foot);
   return card;
@@ -785,16 +843,145 @@ function renderResearchIntelligence(host) {
   const tabs = el('div', 'ri__tabs');
   tabs.setAttribute('role', 'tablist');
   tabs.setAttribute('aria-label', 'Research Intelligence feeds');
+
+  const fundingTools = el('div', 'ri__funding-tools');
+  const filters = el('div', 'ri__filters');
+  const queryWrap = el('label', 'ri-filter-wrap ri-filter-wrap--search');
+  queryWrap.append(el('span', 'ri-filter-label', 'Search'));
+  const query = el('input', 'ri-filter ri-filter--search');
+  query.type = 'search';
+  query.placeholder = 'Search title, agency or keyword';
+  query.setAttribute('aria-label', 'Search funding calls');
+  queryWrap.append(query);
+
+  const makeSelect = (label, values) => {
+    const wrap = el('label', 'ri-filter-wrap');
+    wrap.append(el('span', 'ri-filter-label', label));
+    const select = el('select', 'ri-filter');
+    for (const [value, text] of values) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = text;
+      select.append(option);
+    }
+    wrap.append(select);
+    return { wrap, select };
+  };
+
+  const sort = makeSelect('Sort', [
+    ['deadline', 'Deadline'],
+    ['relevance', 'Relevance'],
+    ['newest', 'Newest'],
+  ]);
+  const deadline = makeSelect('Deadline', [
+    ['any', 'Any deadline'],
+    ['30', 'Next 30 days'],
+    ['90', 'Next 90 days'],
+    ['180', 'Next 180 days'],
+    ['open', 'No fixed deadline'],
+  ]);
+  const applicant = makeSelect('Applicant', [
+    ['any', 'Any applicant'],
+    ['individual', 'Individual'],
+    ['team', 'Team'],
+    ['company_institution', 'Company / institution'],
+  ]);
+  const geography = makeSelect('Geography', [
+    ['any', 'Any geography'],
+    ['country', 'Country specific'],
+    ['continent', 'Continent / regional'],
+    ['international', 'International'],
+  ]);
+  const source = makeSelect('Source', [['any', 'All sources']]);
+  const status = makeSelect('Status', [
+    ['active', 'Active'],
+    ['archive', 'Archived'],
+    ['all', 'Active + archived'],
+  ]);
+  const minRelevance = makeSelect('Relevance', [
+    ['0', 'Any relevance'],
+    ['50', '50%+'],
+    ['70', '70%+'],
+    ['85', '85%+'],
+  ]);
+
+  const savedOnly = el('button', 'ri-filter ri-filter--toggle', 'Saved only');
+  savedOnly.type = 'button';
+  savedOnly.setAttribute('aria-pressed', 'false');
+  const savedWrap = el('div', 'ri-filter-wrap ri-filter-wrap--saved');
+  savedWrap.append(el('span', 'ri-filter-label', 'View'), savedOnly);
+
+  filters.append(
+    queryWrap,
+    sort.wrap,
+    deadline.wrap,
+    applicant.wrap,
+    savedWrap,
+    geography.wrap,
+    source.wrap,
+    status.wrap,
+    minRelevance.wrap,
+  );
+
+  const relevanceSettings = document.createElement('details');
+  relevanceSettings.className = 'ri__relevance-settings';
+  const relevanceSummary = document.createElement('summary');
+  relevanceSummary.textContent = 'Advanced relevance settings';
+  relevanceSettings.append(relevanceSummary);
+  const weightsBox = el('div', 'ri__weights');
+  const weights = fundingWeightsLoad();
+  const weightInputs = {};
+
+  const addWeight = (name, label) => {
+    const row = el('label', 'ri-weight');
+    const labelNode = el('span', null, label);
+    const valueNode = el('strong', null, String(weights[name]));
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '0';
+    input.max = '100';
+    input.step = '5';
+    input.value = String(weights[name]);
+    input.addEventListener('input', () => {
+      weights[name] = Number(input.value);
+      valueNode.textContent = input.value;
+      try { localStorage.setItem('gravitas.research.fundingWeights', JSON.stringify(weights)); } catch { /* optional persistence */ }
+      draw();
+    });
+    row.append(labelNode, input, valueNode);
+    weightsBox.append(row);
+    weightInputs[name] = input;
+  };
+  addWeight('topic', 'Research topic');
+  addWeight('ai', 'AI relevance');
+  addWeight('deadline', 'Deadline urgency');
+
+  const resetWeights = el('button', 'ri__weights-reset', 'Reset weights');
+  resetWeights.type = 'button';
+  resetWeights.addEventListener('click', () => {
+    Object.assign(weights, { topic: 45, ai: 35, deadline: 20 });
+    for (const [name, input] of Object.entries(weightInputs)) {
+      input.value = String(weights[name]);
+      input.dispatchEvent(new Event('input'));
+    }
+  });
+  weightsBox.append(resetWeights);
+  relevanceSettings.append(weightsBox);
+  fundingTools.append(filters, relevanceSettings);
+
   const content = el('div', 'ri__content');
   const foot = el('div', 'ri__foot');
   const updated = el('span', null, 'Connecting to sources…');
   const errors = el('span'); errors.dataset.errors = '';
   foot.append(updated, errors);
-  section.append(head, metrics, tabs, content, foot);
+  section.append(head, metrics, tabs, fundingTools, content, foot);
   host.append(section);
 
   let payload = null;
   let active = sessionStorage.getItem('gravitas.research.intelligenceTab') || 'funding';
+  let savedKeys = new Set();
+  let savedItems = new Map();
+  let savedFilter = false;
   const choices = [
     ['funding', 'Funding Calls'],
     ['papers_tools', 'Papers & Tools'],
@@ -810,21 +997,139 @@ function renderResearchIntelligence(host) {
     content.append(loading);
   };
 
+  const fundingPool = () => {
+    const current = payload?.funding || [];
+    const archived = payload?.funding_archive || [];
+    let items = status.select.value === 'archive'
+      ? archived
+      : status.select.value === 'all'
+        ? [...current, ...archived]
+        : current;
+
+    const byKey = new Map(items.map((item) => [fundingKey(item), item]));
+    if (savedFilter) {
+      for (const [key, item] of savedItems) {
+        if (!byKey.has(key)) byKey.set(key, item);
+      }
+    }
+    items = [...byKey.values()];
+
+    const needle = query.value.trim().toLowerCase();
+    const sourceValue = source.select.value;
+    const applicantValue = applicant.select.value;
+    const geographyValue = geography.select.value;
+    const deadlineValue = deadline.select.value;
+    const minRel = Number(minRelevance.select.value || 0);
+
+    items = items.filter((item) => {
+      const key = fundingKey(item);
+      if (savedFilter && !savedKeys.has(key)) return false;
+      if (sourceValue !== 'any' && item.source !== sourceValue) return false;
+      if (applicantValue !== 'any' && !(item.applicant_scope || []).includes(applicantValue)) return false;
+      if (geographyValue !== 'any' && item.geography_scope !== geographyValue) return false;
+
+      const rel = fundingRelevance(item, weights);
+      if (rel < minRel) return false;
+
+      if (deadlineValue === 'open') {
+        if (item.close_date) return false;
+      } else if (deadlineValue !== 'any') {
+        if (!item.close_date) return false;
+        const days = Number.isFinite(Number(item.days_to_deadline))
+          ? Number(item.days_to_deadline)
+          : Math.ceil((new Date(item.close_date).getTime() - Date.now()) / 86400000);
+        if (days < 0 || days > Number(deadlineValue)) return false;
+      }
+
+      if (needle) {
+        const haystack = [
+          item.title,
+          item.summary,
+          item.agency,
+          item.source,
+          ...(item.eligibility || []),
+          ...(item.categories || []),
+          ...(item.geographies || []),
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      return true;
+    });
+
+    if (sort.select.value === 'relevance') {
+      items.sort((a, b) => fundingRelevance(b, weights) - fundingRelevance(a, weights));
+    } else if (sort.select.value === 'newest') {
+      items.sort((a, b) => String(b.open_date || '').localeCompare(String(a.open_date || '')));
+    } else {
+      items.sort((a, b) => {
+        const ad = a.close_date || '9999-12-31';
+        const bd = b.close_date || '9999-12-31';
+        return ad.localeCompare(bd) || fundingRelevance(b, weights) - fundingRelevance(a, weights);
+      });
+    }
+    return items;
+  };
+
+  const toggleSave = async (item, button) => {
+    const key = fundingKey(item);
+    const wasSaved = savedKeys.has(key);
+    button.disabled = true;
+    try {
+      await P.call('/platform/research-intelligence/saved/', {
+        method: wasSaved ? 'DELETE' : 'POST',
+        body: wasSaved ? { key } : { key, item },
+      });
+      if (wasSaved) {
+        savedKeys.delete(key);
+        savedItems.delete(key);
+      } else {
+        savedKeys.add(key);
+        savedItems.set(key, item);
+      }
+      draw();
+    } catch {
+      button.disabled = false;
+      button.textContent = wasSaved ? 'Saved' : 'Save';
+    }
+  };
+
   const draw = () => {
     if (!payload) return;
     content.innerHTML = '';
     for (const [key, button] of buttons) button.setAttribute('aria-selected', String(key === active));
+    fundingTools.hidden = active !== 'funding';
 
-    const items = payload[active] || [];
+    const items = active === 'funding' ? fundingPool() : (payload[active] || []);
     if (!items.length) {
-      content.append(el('div', 'ri__empty', 'No matching items are available from the connected sources right now.'));
+      content.append(el('div', 'ri__empty', active === 'funding'
+        ? 'No funding calls match the current filters.'
+        : 'No matching items are available from the connected sources right now.'));
       return;
     }
 
     const grid = el('div', 'ri__grid');
-    for (const item of items) grid.append(intelligenceCard(item, active));
+    for (const item of items) {
+      const key = fundingKey(item);
+      grid.append(intelligenceCard(item, active, {
+        saved: savedKeys.has(key),
+        onSave: active === 'funding' ? toggleSave : null,
+        relevance: active === 'funding' ? fundingRelevance(item, weights) : undefined,
+      }));
+    }
     content.append(grid);
   };
+
+  const redrawFilters = () => draw();
+  query.addEventListener('input', redrawFilters);
+  for (const selectNode of [sort.select, deadline.select, applicant.select, geography.select, source.select, status.select, minRelevance.select]) {
+    selectNode.addEventListener('change', redrawFilters);
+  }
+  savedOnly.addEventListener('click', () => {
+    savedFilter = !savedFilter;
+    savedOnly.setAttribute('aria-pressed', String(savedFilter));
+    savedOnly.textContent = savedFilter ? 'Saved only ✓' : 'Saved only';
+    draw();
+  });
 
   for (const [key, label] of choices) {
     const button = el('button', 'ri__tab', label);
@@ -840,6 +1145,17 @@ function renderResearchIntelligence(host) {
     tabs.append(button);
   }
 
+  const loadSaved = async () => {
+    try {
+      const saved = await P.call('/platform/research-intelligence/saved/');
+      savedKeys = new Set(saved.saved_keys || []);
+      savedItems = new Map((saved.items || []).map((item) => [fundingKey(item), item]));
+    } catch {
+      savedKeys = new Set();
+      savedItems = new Map();
+    }
+  };
+
   const load = async (force = false) => {
     const first = !payload;
     refresh.disabled = true;
@@ -847,7 +1163,26 @@ function renderResearchIntelligence(host) {
     if (first) drawLoading();
 
     try {
-      payload = await P.call(`/platform/research-intelligence/${force ? '?refresh=1' : ''}`);
+      const [nextPayload] = await Promise.all([
+        P.call(`/platform/research-intelligence/${force ? '?refresh=1' : ''}`),
+        loadSaved(),
+      ]);
+      payload = nextPayload;
+
+      const knownSources = [...new Set([
+        ...(payload.sources?.funding || []),
+        ...(payload.funding || []).map((item) => item.source).filter(Boolean),
+      ])].sort();
+      const previousSource = source.select.value;
+      source.select.innerHTML = '';
+      for (const [value, text] of [['any', 'All sources'], ...knownSources.map((name) => [name, name])]) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = text;
+        source.select.append(option);
+      }
+      source.select.value = knownSources.includes(previousSource) ? previousSource : 'any';
+
       metrics.innerHTML = '';
       metrics.append(
         intelligenceMetric((payload.funding || []).length, 'Funding calls', 0),

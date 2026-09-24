@@ -167,6 +167,10 @@ CLOUDFLARE_AI_API_TOKEN = os.environ.get('CLOUDFLARE_AI_API_TOKEN', '')
 CLOUDFLARE_AI_MODEL = os.environ.get('CLOUDFLARE_AI_MODEL', '@cf/meta/llama-3.3-70b-instruct-fp8-fast')
 CLOUDFLARE_AI_TIMEOUT = int(os.environ.get('CLOUDFLARE_AI_TIMEOUT', '45'))
 
+GRAVITAS_TELEGRAM_BOT_TOKEN = os.environ.get('GRAVITAS_TELEGRAM_BOT_TOKEN', '')
+GRAVITAS_TELEGRAM_BOT_USERNAME = os.environ.get('GRAVITAS_TELEGRAM_BOT_USERNAME', '')
+GRAVITAS_TELEGRAM_WEBHOOK_SECRET = os.environ.get('GRAVITAS_TELEGRAM_WEBHOOK_SECRET', '')
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
