@@ -158,6 +158,11 @@ def _funding_metadata(item, *, geography_scope, geographies, region):
         "international applicants",
         "open to applicants worldwide",
         "eligible worldwide",
+        "foreign organizations",
+        "foreign organisations",
+        "foreign applicants",
+        "non-us applicants",
+        "non-u.s. applicants",
     ))
     resolved_scope = "international" if explicit_global else geography_scope
     resolved_geographies = ["International"] if explicit_global else list(geographies)
