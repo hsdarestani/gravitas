@@ -541,7 +541,15 @@ jobs:
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" migrate --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" collectstatic --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" check --deploy
-          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" configure_telegram_notifications || true
+          sudo -u gravitas bash -c '
+            set -a
+            . /etc/gravitas/backend.env
+            if [ -f /etc/gravitas/openedx.env ]; then . /etc/gravitas/openedx.env; fi
+            set +a
+            export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+            export PYTHONPATH="'"$BACKEND_PATH"'"
+            exec "'"$BACKEND_PATH"'/.venv/bin/django-admin" configure_telegram_notifications
+          ' || true
 
           if [ ! -f /etc/gravitas/admin-credentials ]; then
             ADMIN_PASS="$(openssl rand -base64 24 | tr -d '\n')"
