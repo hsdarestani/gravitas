@@ -254,6 +254,125 @@ function foot(...nodes) {
 }
 
 /* ==========================================================================
+   TASK NOTIFICATIONS
+   ========================================================================== */
+
+function notificationToggle(label, checked) {
+  const row = el('label', 'v-check-row');
+  const input = el('input', 'ws-check');
+  input.type = 'checkbox';
+  input.checked = !!checked;
+  row.append(input, el('span', null, label));
+  row.input = input;
+  return row;
+}
+
+async function taskNotificationsPanel() {
+  const box = panel('Task notifications');
+  const body = el('div', 'v-form');
+  const status = note('Loading notification settings…');
+  body.append(status);
+  box.body.append(body);
+
+  const draw = async () => {
+    body.innerHTML = '';
+    let data;
+    try {
+      data = await P.call('/task-notifications/settings/');
+    } catch (err) {
+      body.append(note('Task notification settings could not be loaded.', 'bad'));
+      return;
+    }
+
+    const settings = data.settings || {};
+    const email = notificationToggle('Email notifications', settings.email_enabled);
+    const telegram = notificationToggle('Telegram notifications', settings.telegram_enabled);
+    const changes = notificationToggle('Notify me when my tasks change', settings.task_changes_enabled);
+    const reminders = notificationToggle('Deadline reminders one day before and on the due date', settings.due_reminders_enabled);
+
+    body.append(
+      email,
+      telegram,
+      changes,
+      reminders,
+      el('p', 'v-field__help', 'Task changes are sent to the assigned person. Changes you make to your own task are not echoed back to you.')
+    );
+
+    const telegramBox = el('div', 'v-field');
+    telegramBox.append(el('span', 'v-field__label', 'Telegram connection'));
+    const tgStatus = settings.telegram_connected
+      ? ('Connected' + (settings.telegram_username ? ' as @' + settings.telegram_username : ''))
+      : settings.telegram_bot_configured
+        ? 'Not connected'
+        : 'Bot configuration is not active on the server yet';
+    telegramBox.append(el('p', 'v-note', tgStatus));
+
+    const telegramActions = el('div', 'v-form__foot');
+    if (!settings.telegram_connected && settings.telegram_connect_url) {
+      const connect = el('a', 'ws-btn ws-btn--solid', 'Connect Telegram');
+      connect.href = settings.telegram_connect_url;
+      connect.target = '_blank';
+      connect.rel = 'noopener';
+      telegramActions.append(connect);
+    }
+    if (settings.telegram_connected) {
+      const disconnect = el('button', 'ws-btn', 'Disconnect Telegram');
+      disconnect.type = 'button';
+      disconnect.addEventListener('click', async () => {
+        disconnect.disabled = true;
+        try {
+          await P.call('/task-notifications/settings/', {
+            method: 'PATCH',
+            body: { disconnect_telegram: true },
+          });
+          await draw();
+        } catch {
+          disconnect.disabled = false;
+        }
+      });
+      telegramActions.append(disconnect);
+    }
+    const refresh = el('button', 'ws-btn', 'Refresh status');
+    refresh.type = 'button';
+    refresh.addEventListener('click', draw);
+    telegramActions.append(refresh);
+    telegramBox.append(telegramActions);
+    body.append(telegramBox);
+
+    const save = el('button', 'ws-btn ws-btn--solid', 'Save notification settings');
+    save.type = 'button';
+    const saveStatus = note('');
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      saveStatus.textContent = 'Saving…';
+      saveStatus.dataset.tone = '';
+      try {
+        await P.call('/task-notifications/settings/', {
+          method: 'PATCH',
+          body: {
+            email_enabled: email.input.checked,
+            telegram_enabled: telegram.input.checked,
+            task_changes_enabled: changes.input.checked,
+            due_reminders_enabled: reminders.input.checked,
+          },
+        });
+        saveStatus.textContent = 'Notification settings saved.';
+        saveStatus.dataset.tone = 'ok';
+      } catch {
+        saveStatus.textContent = 'Notification settings were not saved.';
+        saveStatus.dataset.tone = 'bad';
+      } finally {
+        save.disabled = false;
+      }
+    });
+    body.append(foot(save, saveStatus));
+  };
+
+  await draw();
+  return box;
+}
+
+/* ==========================================================================
    PASSWORD
    ========================================================================== */
 
@@ -418,6 +537,7 @@ export function renderSettings(host, ctx) {
       holder.append(avatarPanel(profile, ctx.onProfileChange));
       holder.append(profilePanel(profile, ctx.onProfileChange));
       holder.append(passwordPanel());
+      holder.append(await taskNotificationsPanel());
       holder.append(preferencesPanel(ctx));
 
       const out = el('div', 'v-form__foot');
