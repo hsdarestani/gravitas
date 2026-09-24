@@ -48,9 +48,12 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
             'ws-notes-performance.js',
             'ws-research-actions.js',
             'ws-project-actions.js',
-            'ws-task-deck-fixes.js',
             'ws-task-deck-mirror.js',
-            'ws-space-integration.js',
             'ws-actionable-ui.js',
         ):
             self.assertIn(f'/assets/ws/{name}?v=20260920-perf1', html)
+        for name in (
+            'ws-task-deck-fixes.js',
+            'ws-space-integration.js',
+        ):
+            self.assertIn(f'/assets/ws/{name}?v=20260924-rhythm1', html)
