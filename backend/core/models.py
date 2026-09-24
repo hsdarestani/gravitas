@@ -152,13 +152,21 @@ class CommentLike(models.Model):
 class TopicPollVote(models.Model):
     topic = models.ForeignKey(ContentItem, on_delete=models.CASCADE, related_name='poll_votes')
     voter_key = models.CharField(max_length=64)
+    poll_id = models.CharField(max_length=80, default='main')
     option_id = models.CharField(max_length=80)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=['topic', 'voter_key'], name='unique_gravitas_topic_poll_voter')]
-        indexes = [models.Index(fields=['topic', 'option_id'], name='grav_topic_poll_option')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['topic', 'voter_key', 'poll_id'],
+                name='unique_gravitas_topic_poll_voter_key',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['topic', 'poll_id', 'option_id'], name='grav_topic_poll_key_option'),
+        ]
 
 
 class TopicProgress(models.Model):
