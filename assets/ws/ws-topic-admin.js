@@ -207,6 +207,31 @@ function viewpointRow(values={}){
   return row;
 }
 
+let pollSequence=0;
+function nextPollId(){
+  pollSequence+=1;
+  return 'poll-'+Date.now().toString(36)+'-'+pollSequence.toString(36);
+}
+
+function pollRow(values={},results=null){
+  const row=el('div','topic-admin__row topic-poll-row');
+  const id=input(values.id||nextPollId(),'','Stable poll ID');
+  const question=input(values.question||values.poll_question||'Where do you land?','','Poll question');
+  const note=input(values.note||values.poll_note||'','','Text below poll');
+  const optionList=el('div','topic-admin__list topic-poll-options');
+  const options=Array.isArray(values.options)?values.options:(Array.isArray(values.poll_options)?values.poll_options:[]);
+  options.forEach(v=>optionList.append(optionRow(v).row));
+  const addOption=button('Add poll option');addOption.addEventListener('click',()=>optionList.append(optionRow().row));
+  row.append(rowControls(row,'Poll'),field('Poll ID',id),field('Question',question),field('Note',note),optionList,addOption);
+  if(results){
+    const box=el('div');box.append(el('h3',null,'Live results'));
+    (results.options||[]).forEach(r=>{const x=el('div','topic-admin__result');x.append(el('span',null,r.label),el('strong',null,String(r.votes)+' votes'));box.append(x);});
+    box.append(el('p','fl-muted','Total: '+String(results.total_votes||0)+' votes'));row.append(box);
+  }
+  row._topicFields={id,question,note,optionList};
+  return row;
+}
+
 export async function renderAdminContent(host,{go}){
   injectStyle();
   const ui=shell(host,'Topics','Create, publish and manage the complete Topic experience from one place.');
@@ -282,7 +307,7 @@ export async function renderAdminContentEditor(host,id,{go}){
   simulation.body.append(addSimulation);form.append(simulation.section);
 
   const vpData=data.viewpoints&&typeof data.viewpoints==='object'?data.viewpoints:{};
-  const viewpoints=makePanel('Viewpoints & Poll','Viewpoint cards are unlimited. The Topic poll remains one shared poll with unlimited options.');
+  const viewpoints=makePanel('Viewpoints & Polls','Add as many viewpoint cards and independent polls as the Topic needs.');
   const viewpointsIntro=textarea(data.viewpoints_intro||'',3,'Intro above viewpoints');
   viewpoints.body.append(field('Intro',viewpointsIntro));
   const viewpointList=el('div','topic-admin__list');viewpoints.body.append(viewpointList);
@@ -294,16 +319,16 @@ export async function renderAdminContentEditor(host,id,{go}){
   viewpointValues.forEach(v=>viewpointList.append(viewpointRow(v)));
   const addViewpoint=button('Add viewpoint');addViewpoint.addEventListener('click',()=>viewpointList.append(viewpointRow()));
   viewpoints.body.append(addViewpoint);
-  const pollQuestion=input(vpData.poll_question||'Where do you land?');
-  const pollNote=input(vpData.poll_note||'','','Text below poll');
-  const optionList=el('div','topic-admin__list');(Array.isArray(vpData.poll_options)?vpData.poll_options:[]).forEach(v=>optionList.append(optionRow(v).row));
-  const addOption=button('Add poll option');addOption.addEventListener('click',()=>optionList.append(optionRow().row));
-  viewpoints.body.append(field('Poll question',pollQuestion),field('Poll note',pollNote),optionList,addOption);
-  if(current?.poll_results){
-    const results=el('div');results.append(el('h3',null,'Live results'));
-    (current.poll_results.options||[]).forEach(r=>{const x=el('div','topic-admin__result');x.append(el('span',null,r.label),el('strong',null,String(r.votes)+' votes'));results.append(x);});
-    results.append(el('p','fl-muted','Total: '+String(current.poll_results.total_votes||0)+' votes'));viewpoints.body.append(results);
+
+  const pollList=el('div','topic-admin__list');viewpoints.body.append(pollList);
+  let pollValues=Array.isArray(vpData.polls)?vpData.polls:[];
+  if(!Array.isArray(vpData.polls)&&(vpData.poll_question||(Array.isArray(vpData.poll_options)&&vpData.poll_options.length))){
+    pollValues=[{id:'main',question:vpData.poll_question||'Where do you land?',note:vpData.poll_note||'',options:vpData.poll_options||[]}];
   }
+  const pollResults=new Map((current?.poll_results_list||[]).map(result=>[String(result.id||''),result]));
+  pollValues.forEach(v=>pollList.append(pollRow(v,pollResults.get(String(v.id||'main'))||null)));
+  const addPoll=button('Add poll');addPoll.addEventListener('click',()=>pollList.append(pollRow()));
+  viewpoints.body.append(addPoll);
   form.append(viewpoints.section);
 
   const statusLine=line();
@@ -356,10 +381,15 @@ export async function renderAdminContentEditor(host,id,{go}){
       const f=row._topicFields;if(!f)return null;
       return {label:f.label.value.trim(),text:f.text.value,cite:f.cite.value.trim()};
     }).filter(x=>x.label||x.text||x.cite);
-    const pollOptions=collectRows(optionList,'.topic-poll-option',row=>{
-      const ins=row.querySelectorAll('input');return {label:ins[0]?.value.trim()||'',id:ins[1]?.value.trim()||slugify(ins[0]?.value||'')};
-    }).filter(x=>x.label&&x.id);
-    const firstView=viewpointRows[0]||{},secondView=viewpointRows[1]||{};
+    const pollRows=collectRows(pollList,'.topic-poll-row',row=>{
+      const f=row._topicFields;if(!f)return null;
+      const options=Array.from(f.optionList.children).filter(node=>node.classList.contains('topic-poll-option')).map(option=>{
+        const ins=option.querySelectorAll('input');
+        return {label:ins[0]?.value.trim()||'',id:ins[1]?.value.trim()||slugify(ins[0]?.value||'')};
+      }).filter(x=>x.label&&x.id);
+      return {id:f.id.value.trim()||nextPollId(),question:f.question.value.trim(),note:f.note.value.trim(),options};
+    }).filter(x=>x.question||x.options.length);
+    const firstView=viewpointRows[0]||{},secondView=viewpointRows[1]||{},firstPoll=pollRows[0]||{};
     const topicData={
       number:number.value.trim(),
       hero_lead:heroLead.value,
@@ -378,7 +408,10 @@ export async function renderAdminContentEditor(host,id,{go}){
         items:viewpointRows,
         left_label:firstView.label||'',left_text:firstView.text||'',left_cite:firstView.cite||'',
         right_label:secondView.label||'',right_text:secondView.text||'',right_cite:secondView.cite||'',
-        poll_question:pollQuestion.value.trim(),poll_options:pollOptions,poll_note:pollNote.value.trim()
+        polls:pollRows,
+        poll_question:firstPoll.question||'',
+        poll_options:firstPoll.options||[],
+        poll_note:firstPoll.note||''
       },
       landing:data.landing||{}
     };
