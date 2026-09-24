@@ -248,46 +248,35 @@ async function apply(path) {
    platform, so it is the top level of the interface.
    ========================================================================== */
 
+/* The rail holds the workspaces and nothing else. It used to grow Research's
+   own modules (Journal, Editor, Folder, Projects, Tasks, Search) when the
+   reader was inside Research; that model was retired, and ws-five-layer.js
+   rebuilds the rail as Dashboard · Learning · Research · Core. But it only
+   installs once the platform bootstrap settles, so this first paint is what
+   the reader sees for the seconds before that, and drawing the retired model
+   here flashed it on every refresh. This draws the same buttons, with the
+   same icons and in the same order, so the hand-over is invisible. */
+function railArea(path = location.pathname) {
+  if (path.startsWith('/workspace/core') || path.startsWith('/workspace/operating')) return 'core';
+  if (path.startsWith('/workspace/research') || path.startsWith('/workspace/people') || path.startsWith('/workspace/community') || path.startsWith('/workspace/shared')) return 'research';
+  if (path.startsWith('/workspace/learning') || path.startsWith('/workspace/kms')) return 'learning';
+  if (path.startsWith('/workspace/dashboard') || path === '/workspace' || path.startsWith('/workspace/my-work')) return 'dashboard';
+  return '';
+}
+
 function renderRail() {
   const rail = $('#ws-rail');
   rail.innerHTML = '';
 
-  const home = railButton('home', 'Home', ui.area === 'home', () => go('/workspace/my-work'));
-  rail.append(home);
-
+  const area = railArea();
+  rail.append(railButton('overview', 'Dashboard', area === 'dashboard', () => go('/workspace/dashboard')));
   rail.append(el('div', 'ws-rail__rule'));
 
-  if (ui.area === 'research') {
-    const modules = [
-      ['overview', 'Dashboard', '/workspace/research'],
-      ['meeting', 'Journal', '/workspace/research/calendar'],
-      ['notes', 'Editor', '/workspace/research/editor'],
-      ['files', 'Folder', '/workspace/research/folders'],
-      ['projects', 'Projects', '/workspace/research/projects'],
-      ['tasks', 'Tasks', '/workspace/research/tasks'],
-      ['search', 'Search', '/workspace/research/search'],
-    ];
-    for (const [mark, label, path] of modules) {
-      const active = path === '/workspace/research'
-        ? location.pathname === path || location.pathname === path + '/'
-        : location.pathname.startsWith(path);
-      rail.append(railButton(mark, label, active, () => go(path)));
-    }
-    rail.append(el('div', 'ws-rail__spacer'));
-    rail.append(railButton('collaboration', 'Switch workspace', false, () => go('/workspace/my-work')));
-  } else {
+  if (P.canOpenLms() || area === 'learning') rail.append(railButton('space-knowledge', 'Learning', area === 'learning', () => go('/workspace/learning')));
+  if (P.canOpenResearch() || area === 'research') rail.append(railButton('space-research', 'Research', area === 'research', () => go('/workspace/research')));
+  if (P.canOpenCore() || area === 'core') rail.append(railButton('space-core', 'Core', area === 'core', () => go('/workspace/core')));
 
-    for (const workspace of availableWorkspaces()) {
-      rail.append(railButton(
-        workspace.icon,
-        workspace.name,
-        ui.area === workspace.id,
-        () => go(workspace.home),
-      ));
-    }
-
-    rail.append(el('div', 'ws-rail__spacer'));
-  }
+  rail.append(el('div', 'ws-rail__spacer'));
 
   /* Settings sits under Pulsar, at the foot of the rail, which is
      where every desktop tool of this shape puts the account. It shows the
