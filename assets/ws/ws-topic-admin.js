@@ -131,6 +131,82 @@ function collectRows(host,selector,mapper){
   return Array.from(host.querySelectorAll(selector)).map(mapper).filter(Boolean);
 }
 
+function normalizeObjects(data,pluralKey,singularKey){
+  if(Array.isArray(data?.[pluralKey]))return data[pluralKey].filter(v=>v&&typeof v==='object');
+  const single=data?.[singularKey];
+  return single&&typeof single==='object'&&Object.keys(single).length?[single]:[];
+}
+
+function rowControls(row,label){
+  const head=el('div','topic-admin__row-head');head.append(el('strong',null,label));
+  const actions=el('div','topic-admin__actions');
+  const up=button('↑'),down=button('↓'),remove=button('Remove');remove.classList.add('topic-admin__danger');
+  up.addEventListener('click',()=>{const p=row.previousElementSibling;if(p)row.parentNode.insertBefore(row,p);});
+  down.addEventListener('click',()=>{const n=row.nextElementSibling;if(n)row.parentNode.insertBefore(n,row);});
+  remove.addEventListener('click',()=>row.remove());actions.append(up,down,remove);head.append(actions);
+  return head;
+}
+
+function videoRow(values={}){
+  const row=el('div','topic-admin__row topic-video-row');
+  const title=input(values.title||'','','Optional video title');
+  const sourceType=select([['none','Not published yet'],['youtube','YouTube'],['self_hosted','Self-hosted']],values.source_type||'none');
+  const youtube=input(values.youtube_url||'','url','YouTube URL');
+  const self=mediaField('Self-hosted video',values.self_hosted_url||'','video/*');
+  const duration=input(values.duration||'','','e.g. 28 minutes');
+  const description=textarea(values.description||'',4,'Video description');
+  const info=input(values.info||'','','Additional information');
+  const companionLabel=input(values.companion_label||'','','Companion label');
+  const companionUrl=input(values.companion_url||'','url','Companion URL');
+  const transcriptLabel=input(values.transcript_label||'','','Transcript label');
+  const transcriptUrl=input(values.transcript_url||'','url','Transcript URL');
+  const grid=el('div','topic-admin__grid');grid.append(
+    field('Title',title),field('Source type',sourceType),field('YouTube URL',youtube),field('Runtime',duration),
+    field('Info',info),field('Companion label',companionLabel),field('Companion URL',companionUrl),
+    field('Transcript label',transcriptLabel),field('Transcript URL',transcriptUrl)
+  );
+  row.append(rowControls(row,'Video'),grid,self.holder,field('Description',description));
+  row._topicFields={title,sourceType,youtube,selfUrl:self.url,duration,description,info,companionLabel,companionUrl,transcriptLabel,transcriptUrl};
+  return row;
+}
+
+function essayRow(values={}){
+  const row=el('div','topic-admin__row topic-essay-row');
+  const title=input(values.title||'','','Optional essay title');
+  const overview=richEditor('Overview',values.overview_html||'');
+  const indepth=richEditor('In depth',values.indepth_html||'');
+  const image=mediaField('Essay image',values.image_url||'','image/*');
+  const alt=input(values.image_alt||'','','Image alt text');
+  const asideTitle=input(values.aside_title||'Try It Yourself','','Aside title');
+  const asideText=textarea(values.aside_text||'',3,'Aside text');
+  row.append(rowControls(row,'Essay'),field('Title',title),overview.outer,indepth.outer,image.holder,field('Image alt text',alt),field('Aside title',asideTitle),field('Aside text',asideText));
+  row._topicFields={title,overview,indepth,imageUrl:image.url,alt,asideTitle,asideText};
+  return row;
+}
+
+function simulationRow(values={}){
+  const row=el('div','topic-admin__row topic-simulation-row');
+  const title=input(values.title||'The Simulation');
+  const description=textarea(values.description||'',3,'Simulation introduction');
+  const code=textarea(values.code||'',16,'Paste HTML/CSS/JavaScript or JavaScript code');code.classList.add('topic-admin__code');
+  const codeFile=input('','file');codeFile.accept='.html,.htm,.js,.txt,.css';
+  codeFile.addEventListener('change',async()=>{const file=codeFile.files&&codeFile.files[0];if(file)code.value=await file.text();});
+  const grid=el('div','topic-admin__grid');grid.append(field('Section title',title),field('Upload code file',codeFile));
+  row.append(rowControls(row,'Simulation'),grid,field('Description',description),field('Code',code,'Executed only inside the public sandboxed simulation frame.'));
+  row._topicFields={title,description,code,builtin:values.builtin||'',native:values.native||'',type:values.type||'',enabled:values.enabled};
+  return row;
+}
+
+function viewpointRow(values={}){
+  const row=el('div','topic-admin__row topic-viewpoint-row');
+  const label=input(values.label||'','','Viewpoint label');
+  const text=textarea(values.text||'',6,'Viewpoint text');
+  const cite=input(values.cite||'','','Citation / note');
+  row.append(rowControls(row,'Viewpoint'),field('Label',label),field('Text',text),field('Citation',cite));
+  row._topicFields={label,text,cite};
+  return row;
+}
+
 export async function renderAdminContent(host,{go}){
   injectStyle();
   const ui=shell(host,'Topics','Create, publish and manage the complete Topic experience from one place.');
@@ -175,74 +251,54 @@ export async function renderAdminContentEditor(host,id,{go}){
   let touched=!!current;slug.addEventListener('input',()=>{touched=true;});title.addEventListener('input',()=>{if(!touched)slug.value=slugify(title.value);});
   form.append(basics.section);
 
-  const videoData=data.video||{};
-  const video=makePanel('Video','Choose YouTube or a self-hosted upload, then add runtime and supporting information.');
-  const videoType=select([['none','Not published yet'],['youtube','YouTube'],['self_hosted','Self-hosted']],videoData.source_type||'none');
-  const youtube=input(videoData.youtube_url||'','url','YouTube URL');
-  const self=mediaField('Self-hosted video',videoData.self_hosted_url||'','video/*');
-  const duration=input(videoData.duration||'','','e.g. 28 minutes');
-  const description=textarea(videoData.description||'',4,'Video description');
-  const info=input(videoData.info||'','','Additional information');
-  const companionLabel=input(videoData.companion_label||'','','Companion label');
-  const companionUrl=input(videoData.companion_url||'','url','Companion URL');
-  const transcriptLabel=input(videoData.transcript_label||'','','Transcript label');
-  const transcriptUrl=input(videoData.transcript_url||'','url','Transcript URL');
-  const vg=el('div','topic-admin__grid');vg.append(
-    field('Source type',videoType),field('YouTube URL',youtube),field('Runtime',duration),field('Info',info),
-    field('Companion label',companionLabel),field('Companion URL',companionUrl),
-    field('Transcript label',transcriptLabel),field('Transcript URL',transcriptUrl)
-  );
-  video.body.append(vg,self.holder,field('Description',description));form.append(video.section);
+  const video=makePanel('Videos','Add as many video objects as the Topic needs. Reorder or remove them independently.');
+  const videoList=el('div','topic-admin__list');video.body.append(videoList);
+  normalizeObjects(data,'videos','video').forEach(v=>videoList.append(videoRow(v)));
+  const addVideo=button('Add video');addVideo.addEventListener('click',()=>videoList.append(videoRow()));
+  video.body.append(addVideo);form.append(video.section);
 
-  const essayData=data.essay||{};
-  const essay=makePanel('The Essay','Overview and In depth are edited independently with rich-text controls.');
-  const overview=richEditor('Overview',essayData.overview_html||'');
-  const indepth=richEditor('In depth',essayData.indepth_html||'');
-  const essayImage=mediaField('Essay image',essayData.image_url||'','image/*');
-  const essayAlt=input(essayData.image_alt||'','','Image alt text');
-  const essayAsideTitle=input(essayData.aside_title||'Try It Yourself','','Aside title');
-  const essayAsideText=textarea(essayData.aside_text||'',3,'Aside text');
-  essay.body.append(overview.outer,indepth.outer,essayImage.holder,field('Image alt text',essayAlt),field('Aside title',essayAsideTitle),field('Aside text',essayAsideText));form.append(essay.section);
+  const essay=makePanel('Essays','Each essay has its own Overview and In depth content and can be reordered independently.');
+  const essayList=el('div','topic-admin__list');essay.body.append(essayList);
+  normalizeObjects(data,'essays','essay').forEach(v=>essayList.append(essayRow(v)));
+  const addEssay=button('Add essay');addEssay.addEventListener('click',()=>essayList.append(essayRow()));
+  essay.body.append(addEssay);form.append(essay.section);
 
-  const sources=makePanel('Sources','Each link belongs to one of the three reading levels.');
+  const sources=makePanel('Sources','Each link belongs to one of the three reading levels. Add as many sources as needed.');
   const sourcesIntro=textarea(data.sources_intro||'',3,'Intro text above the three source levels');
   sources.body.append(field('Intro',sourcesIntro));
   const sourceList=el('div','topic-admin__list');sources.body.append(sourceList);
   (Array.isArray(data.sources)?data.sources:[]).forEach(v=>sourceList.append(sourceRow(v).row));
   const addSource=button('Add source');addSource.addEventListener('click',()=>sourceList.append(sourceRow().row));sources.body.append(addSource);form.append(sources.section);
 
-  const timeline=makePanel('Timeline','Nodes render as one vertical alternating timeline on the Topic page.');
+  const timeline=makePanel('Timeline','Add as many timeline nodes as needed. Nodes render as one vertical alternating timeline on the Topic page.');
   const timelineList=el('div','topic-admin__list');timeline.body.append(timelineList);
   (Array.isArray(data.timeline)?data.timeline:[]).forEach(v=>timelineList.append(timelineRow(v).row));
   const addNode=button('Add timeline node');addNode.addEventListener('click',()=>timelineList.append(timelineRow().row));timeline.body.append(addNode);form.append(timeline.section);
 
-  const simData=data.simulation||{};
-  const simulation=makePanel('The Simulation','HTML/CSS/JavaScript runs in a sandboxed iframe with scripts allowed but without same-origin access.');
-  const simTitle=input(simData.title||'The Simulation');
-  const simDescription=textarea(simData.description||'',3,'Simulation introduction');
-  const simCode=textarea(simData.code||'',16,'Paste HTML/CSS/JavaScript or JavaScript code');
-  simCode.classList.add('topic-admin__code');
-  const codeFile=input('','file');codeFile.accept='.html,.htm,.js,.txt,.css';
-  codeFile.addEventListener('change',async()=>{const file=codeFile.files&&codeFile.files[0];if(file)simCode.value=await file.text();});
-  const sg=el('div','topic-admin__grid');sg.append(field('Section title',simTitle),field('Upload code file',codeFile));
-  simulation.body.append(sg,field('Description',simDescription),field('Code',simCode,'Executed only inside the public sandboxed simulation frame.'));form.append(simulation.section);
+  const simulation=makePanel('Simulations','Add as many interactive simulations as the Topic needs. HTML/CSS/JavaScript runs in sandboxed iframes.');
+  const simulationList=el('div','topic-admin__list');simulation.body.append(simulationList);
+  normalizeObjects(data,'simulations','simulation').forEach(v=>simulationList.append(simulationRow(v)));
+  const addSimulation=button('Add simulation');addSimulation.addEventListener('click',()=>simulationList.append(simulationRow()));
+  simulation.body.append(addSimulation);form.append(simulation.section);
 
-  const vpData=data.viewpoints||{};
-  const viewpoints=makePanel('Viewpoints & Poll','Two opposing text boxes plus a configurable poll. Results below are live database totals.');
+  const vpData=data.viewpoints&&typeof data.viewpoints==='object'?data.viewpoints:{};
+  const viewpoints=makePanel('Viewpoints & Poll','Viewpoint cards are unlimited. The Topic poll remains one shared poll with unlimited options.');
   const viewpointsIntro=textarea(data.viewpoints_intro||'',3,'Intro above viewpoints');
-  const leftLabel=input(vpData.left_label||'Viewpoint A'),rightLabel=input(vpData.right_label||'Viewpoint B');
-  const leftText=textarea(vpData.left_text||'',6),rightText=textarea(vpData.right_text||'',6);
-  const leftCite=input(vpData.left_cite||'','','Left citation / note'),rightCite=input(vpData.right_cite||'','','Right citation / note');
-  const vgrid=el('div','topic-admin__grid');vgrid.append(
-    field('Left label',leftLabel),field('Right label',rightLabel),
-    field('Left text',leftText),field('Right text',rightText),
-    field('Left citation',leftCite),field('Right citation',rightCite)
-  );
+  viewpoints.body.append(field('Intro',viewpointsIntro));
+  const viewpointList=el('div','topic-admin__list');viewpoints.body.append(viewpointList);
+  let viewpointValues=Array.isArray(vpData.items)?vpData.items:[];
+  if(!viewpointValues.length){
+    if(vpData.left_label||vpData.left_text||vpData.left_cite)viewpointValues.push({label:vpData.left_label||'Viewpoint A',text:vpData.left_text||'',cite:vpData.left_cite||''});
+    if(vpData.right_label||vpData.right_text||vpData.right_cite)viewpointValues.push({label:vpData.right_label||'Viewpoint B',text:vpData.right_text||'',cite:vpData.right_cite||''});
+  }
+  viewpointValues.forEach(v=>viewpointList.append(viewpointRow(v)));
+  const addViewpoint=button('Add viewpoint');addViewpoint.addEventListener('click',()=>viewpointList.append(viewpointRow()));
+  viewpoints.body.append(addViewpoint);
   const pollQuestion=input(vpData.poll_question||'Where do you land?');
   const pollNote=input(vpData.poll_note||'','','Text below poll');
   const optionList=el('div','topic-admin__list');(Array.isArray(vpData.poll_options)?vpData.poll_options:[]).forEach(v=>optionList.append(optionRow(v).row));
   const addOption=button('Add poll option');addOption.addEventListener('click',()=>optionList.append(optionRow().row));
-  viewpoints.body.append(field('Intro',viewpointsIntro),vgrid,field('Poll question',pollQuestion),field('Poll note',pollNote),optionList,addOption);
+  viewpoints.body.append(field('Poll question',pollQuestion),field('Poll note',pollNote),optionList,addOption);
   if(current?.poll_results){
     const results=el('div');results.append(el('h3',null,'Live results'));
     (current.poll_results.options||[]).forEach(r=>{const x=el('div','topic-admin__result');x.append(el('span',null,r.label),el('strong',null,String(r.votes)+' votes'));results.append(x);});
@@ -269,6 +325,18 @@ export async function renderAdminContentEditor(host,id,{go}){
 
   form.addEventListener('submit',async event=>{
     event.preventDefault();save.disabled=true;setLine(statusLine,'Saving…');
+    const videoRows=collectRows(videoList,'.topic-video-row',row=>{
+      const f=row._topicFields;if(!f)return null;
+      return {title:f.title.value.trim(),source_type:f.sourceType.value,youtube_url:f.youtube.value.trim(),self_hosted_url:f.selfUrl.value.trim(),
+        description:f.description.value,duration:f.duration.value.trim(),info:f.info.value.trim(),
+        companion_label:f.companionLabel.value.trim(),companion_url:f.companionUrl.value.trim(),
+        transcript_label:f.transcriptLabel.value.trim(),transcript_url:f.transcriptUrl.value.trim()};
+    }).filter(x=>x.title||x.source_type!=='none'||x.youtube_url||x.self_hosted_url||x.description||x.duration||x.info||x.companion_label||x.transcript_label);
+    const essayRows=collectRows(essayList,'.topic-essay-row',row=>{
+      const f=row._topicFields;if(!f)return null;
+      return {title:f.title.value.trim(),overview_html:f.overview.value(),indepth_html:f.indepth.value(),image_url:f.imageUrl.value.trim(),image_alt:f.alt.value.trim(),
+        aside_title:f.asideTitle.value.trim(),aside_text:f.asideText.value};
+    }).filter(x=>x.title||x.overview_html||x.indepth_html||x.image_url||x.aside_text);
     const sourceRows=collectRows(sourceList,'.topic-source-row',row=>{
       const sels=row.querySelectorAll('select,input');return {
         level:sels[0]?.value||'start',level_label:sels[0]?.selectedOptions?.[0]?.textContent||'',label:sels[1]?.value.trim()||'',url:sels[2]?.value.trim()||''
@@ -280,31 +348,36 @@ export async function renderAdminContentEditor(host,id,{go}){
         image_url:ins[3]?.value.trim()||'',image_alt:ins[5]?.value.trim()||''
       };
     }).filter(x=>x.title||x.date);
+    const simulationRows=collectRows(simulationList,'.topic-simulation-row',row=>{
+      const f=row._topicFields;if(!f)return null;
+      return {title:f.title.value.trim()||'The Simulation',description:f.description.value,builtin:f.builtin||'',native:f.native||'',type:f.type||'',enabled:f.enabled,code:f.code.value};
+    }).filter(x=>x.description||x.builtin||x.native||x.type||x.enabled||x.code);
+    const viewpointRows=collectRows(viewpointList,'.topic-viewpoint-row',row=>{
+      const f=row._topicFields;if(!f)return null;
+      return {label:f.label.value.trim(),text:f.text.value,cite:f.cite.value.trim()};
+    }).filter(x=>x.label||x.text||x.cite);
     const pollOptions=collectRows(optionList,'.topic-poll-option',row=>{
       const ins=row.querySelectorAll('input');return {label:ins[0]?.value.trim()||'',id:ins[1]?.value.trim()||slugify(ins[0]?.value||'')};
     }).filter(x=>x.label&&x.id);
+    const firstView=viewpointRows[0]||{},secondView=viewpointRows[1]||{};
     const topicData={
       number:number.value.trim(),
       hero_lead:heroLead.value,
       tags:tags.value.split(',').map(v=>v.trim()).filter(Boolean),
-      video:{
-        source_type:videoType.value,youtube_url:youtube.value.trim(),self_hosted_url:self.url.value.trim(),
-        description:description.value,duration:duration.value.trim(),info:info.value.trim(),
-        companion_label:companionLabel.value.trim(),companion_url:companionUrl.value.trim(),
-        transcript_label:transcriptLabel.value.trim(),transcript_url:transcriptUrl.value.trim()
-      },
-      essay:{
-        overview_html:overview.value(),indepth_html:indepth.value(),image_url:essayImage.url.value.trim(),image_alt:essayAlt.value.trim(),
-        aside_title:essayAsideTitle.value.trim(),aside_text:essayAsideText.value
-      },
+      videos:videoRows,
+      video:videoRows[0]||{},
+      essays:essayRows,
+      essay:essayRows[0]||{},
       sources_intro:sourcesIntro.value,
       sources:sourceRows,
       timeline:timelineRows,
-      simulation:{title:simTitle.value.trim()||'The Simulation',description:simDescription.value,builtin:simData.builtin||'',code:simCode.value},
+      simulations:simulationRows,
+      simulation:simulationRows[0]||{},
       viewpoints_intro:viewpointsIntro.value,
       viewpoints:{
-        left_label:leftLabel.value.trim(),left_text:leftText.value,left_cite:leftCite.value.trim(),
-        right_label:rightLabel.value.trim(),right_text:rightText.value,right_cite:rightCite.value.trim(),
+        items:viewpointRows,
+        left_label:firstView.label||'',left_text:firstView.text||'',left_cite:firstView.cite||'',
+        right_label:secondView.label||'',right_text:secondView.text||'',right_cite:secondView.cite||'',
         poll_question:pollQuestion.value.trim(),poll_options:pollOptions,poll_note:pollNote.value.trim()
       },
       landing:data.landing||{}
