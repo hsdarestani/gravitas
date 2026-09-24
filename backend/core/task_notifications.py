@@ -226,6 +226,9 @@ def enqueue_task_event(task, action, actor=None, detail=None):
 
 
 def enqueue_due_reminders(today=None):
+    now = timezone.localtime()
+    if today is None and now.hour < 8:
+        return 0
     today = today or timezone.localdate()
     tomorrow = today + timedelta(days=1)
     tasks = (
@@ -292,15 +295,22 @@ def _telegram_api(method, payload):
     token = getattr(settings, 'GRAVITAS_TELEGRAM_BOT_TOKEN', '')
     if not token:
         raise RuntimeError('telegram_bot_not_configured')
-    response = requests.post(
-        f'https://api.telegram.org/bot{token}/{method}',
-        json=payload,
-        timeout=10,
-    )
-    response.raise_for_status()
-    data = response.json()
+    try:
+        response = requests.post(
+            f'https://api.telegram.org/bot{token}/{method}',
+            json=payload,
+            timeout=10,
+        )
+    except requests.RequestException:
+        raise RuntimeError('telegram_transport_error') from None
+    if not response.ok:
+        raise RuntimeError(f'telegram_http_{response.status_code}')
+    try:
+        data = response.json()
+    except ValueError:
+        raise RuntimeError('telegram_invalid_response') from None
     if not data.get('ok'):
-        raise RuntimeError(str(data.get('description') or 'telegram_api_error'))
+        raise RuntimeError(str(data.get('description') or 'telegram_api_error')[:300])
     return data
 
 
@@ -362,7 +372,8 @@ def _settings_json(pref):
     connected = bool(pref.telegram_chat_id)
     link = ''
     now = timezone.now()
-    if username and not connected:
+    bot_configured = bool(username and getattr(settings, 'GRAVITAS_TELEGRAM_BOT_TOKEN', ''))
+    if bot_configured and not connected:
         if not pref.telegram_link_code or not pref.telegram_link_expires_at or pref.telegram_link_expires_at <= now:
             pref.telegram_link_code = secrets.token_urlsafe(24)
             pref.telegram_link_expires_at = now + timedelta(minutes=30)
@@ -375,7 +386,7 @@ def _settings_json(pref):
         'due_reminders_enabled': pref.due_reminders_enabled,
         'telegram_connected': connected,
         'telegram_username': pref.telegram_username,
-        'telegram_bot_configured': bool(username and getattr(settings, 'GRAVITAS_TELEGRAM_BOT_TOKEN', '')),
+        'telegram_bot_configured': bot_configured,
         'telegram_connect_url': link,
     }
 
