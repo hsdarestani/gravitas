@@ -251,11 +251,24 @@ function ensureResearchActions() {
   if (path !== '/workspace/research/projects') {
     bar.append(button('New project', openProjectCreator, true));
   }
-  bar.append(button('New task', () => {
+  const newTask = button('New task', () => {
     openTaskCreator().catch((error) => {
       console.error('Research task creator failed', error);
     });
-  }));
+  });
+
+  // On Projects the Space module has already put New project in a toolbar of
+  // its own under the head. A second strip beneath it read as two unrelated
+  // rows of one button each; New task joins that row instead, and carries
+  // the marker itself so this function still sees it is done.
+  const projectTools = doc.querySelector('[data-space-project-actions], [data-research-project-actions]');
+  if (projectTools) {
+    newTask.dataset.researchCreateActions = 'true';
+    const status = projectTools.querySelector(':scope > .v-note');
+    if (status) status.before(newTask); else projectTools.append(newTask);
+    return;
+  }
+  bar.append(newTask);
 
   if (head?.nextSibling) head.parentNode.insertBefore(bar, head.nextSibling);
   else if (head) head.after(bar);

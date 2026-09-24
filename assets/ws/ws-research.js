@@ -26,7 +26,8 @@ function shell(host, title, subtitle) {
 
 function notice(title, detail, bad = false) {
   const node = el('div', 'ws-alert');
-  if (bad) node.dataset.tone = 'bad';
+  // Loading and empty are not failures; only a failure gets the red rule.
+  node.dataset.tone = bad ? 'bad' : 'quiet';
   node.append(el('strong', 'ws-alert__title', title), el('p', null, detail));
   return node;
 }
@@ -199,20 +200,23 @@ export function renderProjects(host, { go }) {
       return acc;
     }, { tasks: 0, notes: 0, files: 0, links: 0 });
 
-    body.append(dashboardSummary([
+    // One bento for the tiles and the activity card, so the space between
+    // them is the grid's own gap rather than two grids butted together.
+    const summary = dashboardSummary([
       { value: records.length, label: 'Projects', icon: 'projects', note: 'Accessible portfolio' },
       { value: totals.tasks, label: 'Tasks', icon: 'tasks', note: 'Across all projects' },
       { value: totals.notes, label: 'Notes', icon: 'notes', note: 'Project knowledge' },
       { value: totals.links, label: 'Connections', icon: 'link', note: 'Cross-project links' },
-    ]));
-    body.append(C.bento([
+    ]);
+    summary.append(
       dashboardBars('Research activity', 'Live object counts across the accessible portfolio.', [
         { label: 'Tasks', value: totals.tasks, series: '1' },
         { label: 'Notes', value: totals.notes, series: '2' },
         { label: 'Files & data', value: totals.files, series: '3' },
         { label: 'Links', value: totals.links, series: '4' },
       ], 12),
-    ]));
+    );
+    body.append(summary);
 
     const bar = el('div', 'v-toolbar rkms-switcher');
     const content = el('div');
@@ -520,20 +524,21 @@ export function renderTasks(host, { go }) {
       blocked: records.filter(({ task }) => task.status === 'blocked').length,
       done: records.filter(({ task }) => task.status === 'done').length,
     };
-    body.append(dashboardSummary([
+    const summary = dashboardSummary([
       { value: records.filter(({ task }) => !['done', 'archived'].includes(task.status)).length, label: 'Open tasks', icon: 'tasks', note: 'Research execution' },
       { value: statusCounts.active, label: 'Active', icon: 'activity', note: 'In progress' },
       { value: statusCounts.blocked, label: 'Blocked', icon: 'target', note: 'Needs attention' },
       { value: statusCounts.done, label: 'Done', icon: 'cycle', note: 'Completed' },
-    ]));
-    body.append(C.bento([
+    ]);
+    summary.append(
       dashboardBars('Task status', 'Distribution across all accessible research projects.', [
         { label: 'Draft', value: statusCounts.draft, series: '1' },
         { label: 'Active', value: statusCounts.active, series: '2' },
         { label: 'Blocked', value: statusCounts.blocked, series: '5' },
         { label: 'Done', value: statusCounts.done, series: '3' },
       ], 12),
-    ]));
+    );
+    body.append(summary);
     const bar = el('div', 'v-toolbar');
     const query = el('input', 'v-input'); query.type = 'search'; query.placeholder = 'Search tasks';
     let mode = sessionStorage.getItem('gravitas.research.taskView') || 'board';

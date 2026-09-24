@@ -34,7 +34,7 @@
   <script src="/assets/gravitas-icons.js" defer></script>
   <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
   <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
-  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20260924-unify1">
+  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20260924-rhythm1">
   <style>
     /* A selected page/folder node is the active destination. Do not also
        paint its top-level module row as selected. */
@@ -126,19 +126,19 @@
   </noscript>
 
   <script type="module">
-    import { start } from '/assets/ws/ws-app.js?v=20260924-unify2';
+    import { start } from '/assets/ws/ws-app.js?v=20260924-rhythm1';
     import { platform } from '/assets/ws/ws-platform.js?v=20260919-planning1';
     import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20260924-railsync1';
     import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20260924-unify1';
     import { installNotesPerformance } from '/assets/ws/ws-notes-performance.js?v=20260920-perf1';
     import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20260915-1';
-    import { installLiveKms } from '/assets/ws/ws-kms-live.js?v=20260915-1';
+    import { installLiveKms } from '/assets/ws/ws-kms-live.js?v=20260924-rhythm1';
     import { installResearchWorkspaceActions } from '/assets/ws/ws-research-actions.js?v=20260920-perf1';
     import { installResearchProjectActions } from '/assets/ws/ws-project-actions.js?v=20260920-perf1';
     import { installCoreContentActions } from '/assets/ws/ws-core-content-actions.js?v=20260918-modal1';
-    import { installWorkspaceTaskDeckFixes } from '/assets/ws/ws-task-deck-fixes.js?v=20260920-perf1';
+    import { installWorkspaceTaskDeckFixes } from '/assets/ws/ws-task-deck-fixes.js?v=20260924-rhythm1';
     import { installTaskDeckMirror } from '/assets/ws/ws-task-deck-mirror.js?v=20260920-perf1';
-    import { installSpaceWorkspaceIntegration } from '/assets/ws/ws-space-integration.js?v=20260920-perf1';
+    import { installSpaceWorkspaceIntegration } from '/assets/ws/ws-space-integration.js?v=20260924-rhythm1';
     import { installMathRendering } from '/assets/ws/ws-math.js?v=20260919-2';
 
     function isNodeRoute(path = location.pathname) {
@@ -210,7 +210,7 @@
     else addEventListener('load', bootWorkspace, { once: true });
   </script>
   <script type="module" src="/assets/ws/ws-actionable-ui.js?v=20260920-perf1"></script>
-  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20260924-unify1"></script>
+  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20260924-rhythm1"></script>
   <script src="/assets/production-bridge.js?v=20260924-seen1" defer></script>
   <!-- Pulsar: the same floating assistant as the rest of the site. ws-ai.js
        configures it for the workspace once both have loaded. -->

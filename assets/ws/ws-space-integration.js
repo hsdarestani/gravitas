@@ -168,13 +168,24 @@ async function enhanceProjectCreate() {
   // Replace the older project toolbar if it was painted first. This prevents
   // two competing creation flows and keeps Project type distinct from the
   // filesystem Parent category.
-  doc.querySelector('[data-research-project-actions]')?.remove();
+  const older = doc.querySelector('[data-research-project-actions]');
 
   const tools = el('div', 'v-toolbar research-action-toolbar space-project-toolbar');
   tools.dataset.spaceProjectActions = '1';
   const create = action('New project', null, true);
   const line = statusLine();
-  tools.append(create, line);
+  tools.append(create);
+  // ws-task-deck-fixes.js adds New task on this route. Whichever module paints
+  // first, the two buttons share this one row rather than stacking as two.
+  const strip = doc.querySelector('[data-research-create-actions]');
+  const newTask = strip?.matches('button') ? strip : strip?.querySelector('button');
+  if (newTask) {
+    newTask.dataset.researchCreateActions = 'true';
+    tools.append(newTask);
+    if (strip !== newTask) strip.remove();
+  }
+  older?.remove();
+  tools.append(line);
   head.insertAdjacentElement('afterend', tools);
 
   let formBox = null;

@@ -68,17 +68,17 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         runtime = (ROOT / 'assets' / 'ws' / 'ws-design-runtime.js').read_text(encoding='utf-8')
 
         for marker in (
-            '/assets/ws/ws-app.js?v=20260924-unify2',
+            '/assets/ws/ws-app.js?v=20260924-rhythm1',
             '/assets/ws/ws-five-layer.js?v=20260924-railsync1',
             '/assets/ws/ws-nextcloud-native.js?v=20260924-unify1',
-            '/assets/ws/ws-unified-design.css?v=20260924-unify1',
-            '/assets/ws/ws-design-runtime.js?v=20260924-unify1',
+            '/assets/ws/ws-unified-design.css?v=20260924-rhythm1',
+            '/assets/ws/ws-design-runtime.js?v=20260924-rhythm1',
         ):
             self.assertIn(marker, html)
 
-        self.assertIn("./ws-research.js?v=20260924-unify1", app)
+        self.assertIn("./ws-research.js?v=20260924-rhythm1", app)
         self.assertIn("./ws-nav.js?v=20260920-visual4", app)
         self.assertIn("./ws-home.js?v=20260924-unify1", app)
         self.assertIn("./ws-member-lms.js?v=20260924-unify1", five)
         self.assertIn("./ws-member-progress.js?v=20260924-unify1", five)
-        self.assertIn("DESIGN_VERSION = '20260924-unify1'", runtime)
+        self.assertIn("DESIGN_VERSION = '20260924-rhythm1'", runtime)

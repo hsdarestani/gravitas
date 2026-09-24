@@ -152,7 +152,8 @@ function shell(title, subtitle) {
 
 function notice(title, detail, bad = false) {
   const node = el('div', 'ws-alert');
-  if (bad) node.dataset.tone = 'bad';
+  // Loading and empty are not failures; only a failure gets the red rule.
+  node.dataset.tone = bad ? 'bad' : 'quiet';
   node.append(el('strong', 'ws-alert__title', title), el('p', null, detail));
   return node;
 }

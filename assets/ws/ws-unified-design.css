@@ -1093,3 +1093,45 @@ html .au-modal {
   margin-inline: -10px;
   width: calc(100% + 20px);
 }
+
+/* ==========================================================================
+   VERTICAL RHYTHM · 2026-09-24
+   ws-charts.css gives .ws-doc a gap, but .ws-doc is a plain block, so the
+   gap never applied: on Research Projects the tile row sat flush on the
+   activity card, the card flush on the view switcher, and every screen that
+   stacks a summary over a list looked broken the same way. Making the doc a
+   grid would add a gap on top of the margins dozens of rules already set,
+   so the rhythm is a top margin between siblings instead. In block flow it
+   collapses with a margin already there rather than adding to it, which
+   makes it a floor of one gutter, never a second one.
+
+   The classless wrapper most screens draw into (`el('div')` under the head)
+   gets the same rhythm, as does .rkms-stack for those that name it. */
+#ws-view :is(.ws-doc--wide, .rkms-stack, .ws-doc--wide > div:not([class])) > * + * {
+  margin-top: var(--ws-gutter, 12px);
+}
+#ws-view :is(.ws-doc--wide, .rkms-stack, .ws-doc--wide > div:not([class])) > :is(.ws-alert, .v-toolbar) {
+  margin-inline: 0;
+  margin-bottom: 0;
+}
+
+/* A loading or empty state is not a failure. The red rule stays for errors,
+   which is what every other .ws-alert in the workspace is; the notices that
+   say "No projects yet" or "Loading…" set data-tone="quiet". */
+#ws-view .ws-alert[data-tone="quiet"] {
+  border-color: var(--g-hairline);
+  background: var(--g-surface-raised);
+  color: var(--g-text-muted);
+}
+#ws-view .ws-alert[data-tone="quiet"] .ws-alert__title {
+  color: var(--g-text);
+}
+#ws-view .ws-alert p {
+  margin: 0;
+}
+
+/* The create actions under a head are one row: New project and New task,
+   then the status line pushed to the end. */
+#ws-view .research-action-toolbar > .v-note {
+  margin: 0 0 0 auto;
+}

@@ -1,5 +1,5 @@
 const DESIGN_ID = 'ws-unified-design';
-const DESIGN_VERSION = '20260924-unify1';
+const DESIGN_VERSION = '20260924-rhythm1';
 const DESIGN_HREF = `/assets/ws/ws-unified-design.css?v=${DESIGN_VERSION}`;
 
 function ensureDesignLast() {

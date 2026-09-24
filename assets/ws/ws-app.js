@@ -25,7 +25,7 @@ import * as views from './ws-views.js?v=20260923-checklist1';
 import * as assets from './ws-core-assets.js?v=20260920-pulsar1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js?v=20260924-seen1';
-import * as research from './ws-research.js?v=20260924-unify1';
+import * as research from './ws-research.js?v=20260924-rhythm1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
