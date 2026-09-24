@@ -240,6 +240,43 @@ jobs:
           EOF
           $SUDO mv /tmp/gravitas-research-radar.timer /etc/systemd/system/gravitas-research-radar.timer
 
+          cat > /tmp/gravitas-task-notifications.service <<EOF
+          [Unit]
+          Description=Gravitas task email and Telegram notification worker
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+          Requires=postgresql.service
+
+          [Service]
+          Type=oneshot
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          EnvironmentFile=-/etc/gravitas/openedx.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          Environment=PYTHONPATH=$BACKEND_PATH
+          ExecStart=$BACKEND_PATH/.venv/bin/django-admin process_task_notifications --limit 200
+          Nice=10
+          TimeoutStartSec=50s
+          EOF
+          $SUDO mv /tmp/gravitas-task-notifications.service /etc/systemd/system/gravitas-task-notifications.service
+
+          cat > /tmp/gravitas-task-notifications.timer <<'EOF'
+          [Unit]
+          Description=Deliver Gravitas task notifications every minute
+
+          [Timer]
+          OnBootSec=45s
+          OnUnitActiveSec=1min
+          Persistent=true
+          Unit=gravitas-task-notifications.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-task-notifications.timer /etc/systemd/system/gravitas-task-notifications.timer
+
           cat > /tmp/gravitas-backup.sh <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -470,6 +507,7 @@ jobs:
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" migrate --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" collectstatic --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" check --deploy
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" configure_telegram_notifications || true
 
           if [ ! -f /etc/gravitas/admin-credentials ]; then
             ADMIN_PASS="$(openssl rand -base64 24 | tr -d '\n')"
@@ -491,6 +529,8 @@ jobs:
             echo "Initial Research Intelligence collection failed; timer will retry automatically."
           fi
           sudo systemctl enable --now gravitas-research-radar.timer
+          sudo systemctl enable --now gravitas-task-notifications.timer
+          sudo systemctl start gravitas-task-notifications.service || true
           REMOTE
 
       - name: Ensure SSL and reload Nginx
@@ -520,6 +560,7 @@ jobs:
           sudo systemctl is-active fail2ban
           sudo systemctl is-active gravitas-backup.timer
           sudo systemctl is-active gravitas-research-radar.timer
+          sudo systemctl is-active gravitas-task-notifications.timer
           sudo systemctl is-active gravitas-backend
           sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
           curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'
