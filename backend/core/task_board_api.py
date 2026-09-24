@@ -16,6 +16,7 @@ from . import operating_api_v4 as v4
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .models import WorkspaceMembership
+from .task_notifications import enqueue_task_event
 from .operating_models import (
     Initiative,
     OperatingCycle,
@@ -138,6 +139,7 @@ def _task_json(task):
 
 
 def _log(request, task, action, detail=None):
+    event_detail = {'title': task.title, **(detail or {})}
     record_activity(
         layer=ActivityEvent.Layer.CORE,
         action=action,
@@ -145,8 +147,17 @@ def _log(request, task, action, detail=None):
         subject_user=request.user,
         object_type='operating_task',
         object_id=task.pk,
-        detail={'title': task.title, **(detail or {})},
+        detail=event_detail,
     )
+    try:
+        enqueue_task_event(task, action, actor=request.user, detail=event_detail)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            'Could not enqueue task notification task_id=%s action=%s',
+            task.pk,
+            action,
+        )
 
 
 def _members(workspace):
@@ -432,7 +443,8 @@ def task_board_detail(request, task_id):
     changed = {
         key: {'from': before.get(key), 'to': after.get(key)}
         for key in [
-            'title', 'owner', 'priority', 'status', 'due_date',
+            'title', 'description', 'owner', 'priority', 'status', 'due_date',
+            'definition_of_done', 'blocked_reason',
             'milestone_id', 'work_package_id', 'project_id',
             'meeting_id', 'dependency_id',
         ]
@@ -654,7 +666,7 @@ def task_comments(request, task_id):
     if not body or len(body) > 10000:
         return _error('invalid_comment')
     row = OperatingTaskComment.objects.create(task=task, author=request.user, body=body)
-    _log(request, task, 'task.comment_added', {'comment_id': row.pk})
+    _log(request, task, 'task.comment_added', {'comment_id': row.pk, 'comment_preview': body[:240]})
     return JsonResponse({'ok': True, 'comment': _comment_json(row)}, status=201)
 
 
