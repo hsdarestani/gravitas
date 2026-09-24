@@ -107,7 +107,7 @@ def _poll_options(topic):
     viewpoints = data.get('viewpoints') if isinstance(data.get('viewpoints'), dict) else {}
     raw = viewpoints.get('poll_options') if isinstance(viewpoints.get('poll_options'), list) else []
     options, seen = [], set()
-    for index, option in enumerate(raw[:20]):
+    for index, option in enumerate(raw):
         if isinstance(option, dict):
             option_id = str(option.get('id') or f'option-{index + 1}').strip()[:80]
             label = str(option.get('label') or '').strip()[:300]
