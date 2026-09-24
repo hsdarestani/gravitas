@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0042_topic_poll_vote_poll_id'),
+        ('core', '0044_research_intelligence_saved_items'),
     ]
 
     operations = [
