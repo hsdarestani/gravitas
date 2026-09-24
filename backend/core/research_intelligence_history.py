@@ -18,6 +18,7 @@ SIGNIFICANT_FIELDS = {
         'title', 'summary', 'status', 'open_date', 'close_date',
         'award_ceiling', 'award_floor', 'template_available',
         'template_names', 'attachment_count', 'eligibility', 'categories',
+        'applicant_scope', 'geography_scope', 'geographies', 'relevance',
     ),
     'paper': ('title', 'summary', 'updated_at', 'authors', 'categories'),
     'tool': ('title', 'summary', 'language', 'date', 'topics'),
