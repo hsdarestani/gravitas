@@ -176,6 +176,12 @@ jobs:
             SECRET="$($SUDO openssl rand -hex 32)"
             printf 'DJANGO_SECRET_KEY=%s\nDJANGO_DEBUG=0\n' "$SECRET" | $SUDO tee /etc/gravitas/backend.env >/dev/null
           fi
+
+          if ! $SUDO grep -q '^GRAVITAS_TELEGRAM_WEBHOOK_SECRET=' /etc/gravitas/backend.env; then
+            TELEGRAM_WEBHOOK_SECRET="$($SUDO openssl rand -hex 32)"
+            printf 'GRAVITAS_TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET" | $SUDO tee -a /etc/gravitas/backend.env >/dev/null
+          fi
+
           $SUDO chown root:gravitas /etc/gravitas/backend.env
           $SUDO chmod 640 /etc/gravitas/backend.env
 
