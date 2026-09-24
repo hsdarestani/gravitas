@@ -660,7 +660,7 @@ function intelligenceMetric(value, label, index = 0) {
     value: value || 0,
     label,
     icon: icons[index] || 'activity',
-    featured: index === 0,
+    featured: false,
   });
   node.classList.add('ri__metric');
   node.dataset.series = String((index % 5) + 1);
@@ -831,10 +831,13 @@ function renderResearchIntelligence(host) {
 
   const fundingTools = el('div', 'ri__funding-tools');
   const filters = el('div', 'ri__filters');
+  const queryWrap = el('label', 'ri-filter-wrap ri-filter-wrap--search');
+  queryWrap.append(el('span', 'ri-filter-label', 'Search'));
   const query = el('input', 'ri-filter ri-filter--search');
   query.type = 'search';
-  query.placeholder = 'Search funding calls';
+  query.placeholder = 'Search title, agency or keyword';
   query.setAttribute('aria-label', 'Search funding calls');
+  queryWrap.append(query);
 
   const makeSelect = (label, values) => {
     const wrap = el('label', 'ri-filter-wrap');
@@ -890,23 +893,25 @@ function renderResearchIntelligence(host) {
   const savedOnly = el('button', 'ri-filter ri-filter--toggle', 'Saved only');
   savedOnly.type = 'button';
   savedOnly.setAttribute('aria-pressed', 'false');
+  const savedWrap = el('div', 'ri-filter-wrap ri-filter-wrap--saved');
+  savedWrap.append(el('span', 'ri-filter-label', 'View'), savedOnly);
 
   filters.append(
-    query,
+    queryWrap,
     sort.wrap,
     deadline.wrap,
     applicant.wrap,
+    savedWrap,
     geography.wrap,
     source.wrap,
     status.wrap,
     minRelevance.wrap,
-    savedOnly,
   );
 
   const relevanceSettings = document.createElement('details');
   relevanceSettings.className = 'ri__relevance-settings';
   const relevanceSummary = document.createElement('summary');
-  relevanceSummary.textContent = 'Relevance weights';
+  relevanceSummary.textContent = 'Advanced relevance settings';
   relevanceSettings.append(relevanceSummary);
   const weightsBox = el('div', 'ri__weights');
   const weights = fundingWeightsLoad();
