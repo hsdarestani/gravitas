@@ -167,9 +167,29 @@ function railButton(mark, label, active, path) {
   return button;
 }
 
+/* Dashboard and Learning are drawn here, not by ws-app, so ws-app never
+   redraws the rail on the way into them. Built once and left alone, the
+   rail kept lighting whichever workspace the reader came from. Once built,
+   the rail is re-lit from the URL on every render instead. */
+function syncRail(rail) {
+  const area = topArea();
+  for (const button of rail.querySelectorAll('.fl-rail-button')) {
+    if (button.dataset.fiveLayer === area) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  }
+  if (area) {
+    const settings = [...rail.querySelectorAll('button')].find((node) => node.getAttribute('aria-label') === 'Settings');
+    if (settings) settings.removeAttribute('aria-current');
+  }
+}
+
 function normalizeRail() {
   const rail = $('#ws-rail');
-  if (!rail || rail.querySelector('.fl-rail-button')) return;
+  if (!rail) return;
+  if (rail.querySelector('.fl-rail-button')) {
+    syncRail(rail);
+    return;
+  }
 
   // Keep ws-app's account button because its closure owns profile state.
   // Everything above it is the old top-level model. Pulsar used to have a

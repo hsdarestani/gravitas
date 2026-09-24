@@ -69,7 +69,7 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
 
         for marker in (
             '/assets/ws/ws-app.js?v=20260924-unify1',
-            '/assets/ws/ws-five-layer.js?v=20260924-unify1',
+            '/assets/ws/ws-five-layer.js?v=20260924-railsync1',
             '/assets/ws/ws-nextcloud-native.js?v=20260924-unify1',
             '/assets/ws/ws-unified-design.css?v=20260924-unify1',
             '/assets/ws/ws-design-runtime.js?v=20260924-unify1',
