@@ -233,3 +233,80 @@ class ReaderLibraryTests(TestCase):
             '/api/reader/library/', json.dumps({}), content_type='application/json',
         )
         self.assertEqual(response.status_code, 405)
+
+    # ---- The header count, and what clears it -----------------------------
+
+    def test_new_rows_arrive_unseen(self):
+        self.client.force_login(self.user)
+        data = self.post(self.guest_pile()).json()
+        self.assertFalse(any(item['seen'] for item in data['saved'] + data['following']))
+
+    def test_the_library_screen_marks_only_the_rows_it_names(self):
+        """Something saved in another tab after the screen loaded stays new."""
+        self.client.force_login(self.user)
+        self.post(self.guest_pile())
+
+        data = self.post({'seen': {
+            'saved': ['article-hypothesis-or-sentence'],
+            'following': ['topic-machine-hypothesis'],
+        }}).json()
+
+        seen = {(item['item_key'], item['seen']) for item in data['saved'] + data['following']}
+        self.assertIn(('article-hypothesis-or-sentence', True), seen)
+        self.assertIn(('topic-machine-hypothesis', True), seen)
+        self.assertIn(('path-ai-in-research', False), seen)
+
+    def test_marking_seen_is_per_relation(self):
+        """Seeing a topic you saved does not also see the follow of it."""
+        self.client.force_login(self.user)
+        item = {'item_key': 'topic-machine-hypothesis', 'kind': 'topic', 'title': 'T'}
+        self.post({'saved': [item], 'following': [item]})
+
+        data = self.post({'seen': {'saved': ['topic-machine-hypothesis']}}).json()
+        self.assertTrue(data['saved'][0]['seen'])
+        self.assertFalse(data['following'][0]['seen'])
+
+    def test_seeing_twice_keeps_the_first_date_and_a_resave_keeps_it_seen(self):
+        self.client.force_login(self.user)
+        self.post(self.guest_pile())
+        self.post({'seen': {'saved': ['article-hypothesis-or-sentence']}})
+        row = ReaderSavedItem.objects.get(item_key='article-hypothesis-or-sentence')
+        first = row.seen_at
+
+        self.post({'seen': {'saved': ['article-hypothesis-or-sentence']}})
+        # A replayed guest adoption must not turn the count back on.
+        self.post(self.guest_pile())
+        row.refresh_from_db()
+        self.assertEqual(row.seen_at, first)
+
+    def test_removing_and_saving_again_counts_as_new(self):
+        self.client.force_login(self.user)
+        self.post(self.guest_pile())
+        self.post({'seen': {'saved': ['article-hypothesis-or-sentence']}})
+        self.client.generic(
+            'DELETE', '/api/reader/library/',
+            json.dumps({'relation': 'saved', 'item_key': 'article-hypothesis-or-sentence'}),
+            content_type='application/json',
+        )
+        data = self.post({'saved': [self.guest_pile()['saved'][0]]}).json()
+        row = next(item for item in data['saved'] if item['item_key'] == 'article-hypothesis-or-sentence')
+        self.assertFalse(row['seen'])
+
+    def test_one_reader_cannot_mark_anothers_rows_seen(self):
+        other = get_user_model().objects.create_user(
+            'other@example.com', 'other@example.com', 'A-secure-password-123!'
+        )
+        self.client.force_login(other)
+        self.post(self.guest_pile())
+
+        self.client.force_login(self.user)
+        self.post({'seen': {'saved': ['article-hypothesis-or-sentence']}})
+        self.assertFalse(ReaderSavedItem.objects.filter(user=other, seen_at__isnull=False).exists())
+
+    def test_a_malformed_seen_list_is_refused(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.post({'seen': ['article-x']}).status_code, 400)
+        self.assertEqual(self.post({'seen': {'saved': 'article-x'}}).status_code, 400)
+        response = self.post({'seen': {'saved': ['../../etc']}})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'invalid_item_key')

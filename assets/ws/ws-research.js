@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20260918-access3';
-import * as C from './ws-charts.js?v=20260920-visual4';
+import * as C from './ws-charts.js?v=20260924-unify1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -53,13 +53,7 @@ async function projectData() {
 
 function dashboardSummary(specs = []) {
   const grid = C.bento();
-  const span = specs.length >= 6 ? '2' : specs.length === 4 ? '3' : specs.length === 3 ? '4' : '6';
-  specs.forEach((spec, index) => {
-    const tile = C.statTile({ ...spec, featured: index === 0 });
-    tile.dataset.span = span;
-    tile.dataset.series = String((index % 5) + 1);
-    grid.append(tile);
-  });
+  grid.append(...C.tileRow(specs.map((spec, index) => C.statTile({ ...spec, featured: index === 0 }))));
   return grid;
 }
 

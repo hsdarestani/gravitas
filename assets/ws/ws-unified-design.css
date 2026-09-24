@@ -1006,23 +1006,78 @@ html .au-modal {
 #ws-index-body .ws-index-group:first-child {
   padding-top: 6px;
 }
-#ws-index-body .ws-node__row[data-series] .ws-node__icon {
+/* One index for all four workspaces. Research and Core draw theirs with
+   ws-app's tree rows, Dashboard, Learning and Platform Admin with the
+   five-layer nav links, and the two used to look like two products: tinted
+   marks against bare glyphs, 38px rows against 30px ones, a series-coloured
+   bar against an accent one. Both now share the row below.
+
+   The mark is a circle. It was a 25px square with 8px corners, but ws.css
+   sizes the icon slot with `flex: 0 0 16px`, which won over the width and
+   squeezed it to 16×25 — a capsule. The flex basis is set here as well, so
+   the slot is the size it says. */
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series] :is(.ws-node__icon, .fl-index-link__icon) {
   display: grid;
   place-items: center;
-  width: 25px;
-  height: 25px;
-  border-radius: 8px;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   background: color-mix(in srgb, var(--wc-series, var(--g-accent)) 16%, transparent);
   color: var(--wc-series, var(--g-accent));
+  opacity: 1;
 }
-#ws-index-body .ws-node__row[data-series][aria-current="page"] .ws-node__icon {
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series] :is(.ws-node__icon, .fl-index-link__icon) svg {
+  width: 14px;
+  height: 14px;
+}
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] :is(.ws-node__icon, .fl-index-link__icon) {
   background: color-mix(in srgb, var(--wc-series, var(--g-accent)) 26%, transparent);
 }
-#ws-index-body .ws-node__row[data-series] {
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series] {
   min-height: 38px;
+  gap: 10px;
 }
-#ws-index-body .ws-node__row[data-series][aria-current="page"] {
+/* The tree rows keep 24px on the left for the expand twist; the nav links
+   have no twist but take the same inset, so the marks sit in one column
+   and do not jump sideways when the reader changes workspace. */
+#ws-index-body .fl-index-nav {
+  padding: 2px 6px 12px;
+}
+#ws-index-body .fl-index-link[data-series] {
+  padding: 4px 6px 4px 24px;
+  color: var(--g-text-muted);
+  font-size: var(--ws-fs);
+}
+@media (hover: hover) and (pointer: fine) {
+  #ws-index-body .fl-index-link[data-series]:hover { color: var(--g-text); }
+}
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] {
+  background: var(--g-surface-raised);
+  color: var(--g-text);
+  font-weight: var(--g-w-medium);
   box-shadow: inset 2px 0 var(--wc-series, var(--g-accent));
+}
+#ws-index-body .fl-core-admin-entry {
+  margin: 2px 6px 6px;
+  padding-bottom: 6px;
+}
+
+/* The rail's buttons are round for the same reason. Their hover fill was a
+   rounded square, the only square-ish mark left beside the round avatar at
+   the foot of the same rail. */
+.ws-rail__btn {
+  border-radius: 50%;
+}
+
+/* The toolbar under an overview's head. Research got one injected by
+   ws-task-deck-fixes.js and the Dashboard kept its buttons inside the head;
+   pageHead() now gives every overview the Research arrangement. */
+#ws-view .wc-workspace-head + .v-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 12px;
 }
 
 /* Notes now starts with a Dashboard summary before the editor, so the page

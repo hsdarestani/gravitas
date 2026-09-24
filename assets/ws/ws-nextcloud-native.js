@@ -1,5 +1,5 @@
 import * as P from './ws-platform.js?v=20260914-7';
-import * as C from './ws-charts.js?v=20260920-visual4';
+import * as C from './ws-charts.js?v=20260924-unify1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {
@@ -351,11 +351,7 @@ async function renderNativeNotes(host, info) {
     C.statTile({ value: favoriteCount, label: 'Favorites', icon: 'target', note: 'Pinned for quick access' }),
     C.statTile({ value: attentionCount, label: 'Needs attention', icon: 'activity', note: attentionCount ? 'Pending or conflict' : 'All clear' }),
   ];
-  summaryTiles.forEach((tile, index) => {
-    tile.dataset.span = '3';
-    tile.dataset.series = String((index % 5) + 1);
-  });
-  summary.append(...summaryTiles);
+  summary.append(...C.tileRow(summaryTiles));
   doc.append(summary);
 
   const layout = el('div', 'nc-notes__layout');

@@ -12,7 +12,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20260919-planning1';
-import * as C from './ws-charts.js?v=20260919-charts2';
+import * as C from './ws-charts.js?v=20260924-unify1';
 import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20260920-dashboard3';
 import { availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
 import * as K from './ws-kms.js';
@@ -93,35 +93,23 @@ function heroEl(user) {
   return hero;
 }
 
+/* The shared overview head (C.pageHead), the one the Dashboard and Learning
+   use too. Research's New project / New task strip is injected under it by
+   ws-task-deck-fixes.js and lands where pageHead puts actions. */
 function workspaceOverviewHead(scope, user) {
-  const head = el('header', 'ws-doc__head fl-head wc-workspace-head');
-  const copy = el('div');
   const isCore = scope === 'core';
-  copy.append(
-    el('h1', 'ws-doc__title', isCore ? 'Core Workspace' : 'Research'),
-    el(
-      'p',
-      'ws-doc__meta',
-      isCore
-        ? 'Execution, content, planning and operating work in one view.'
-        : 'Projects, knowledge, collaboration and research intelligence in one view.',
-    ),
-  );
-
-  const context = el('div', 'wc-ident wc-workspace-context');
-  const mark = el('span', 'wc-ident__avatar');
-  mark.innerHTML = icon(isCore ? 'space-core' : 'space-research');
-  const text = el('div');
   const now = new Date();
-  text.append(
-    el('span', 'wc-ident__name', greeting(now.getHours())),
-    el('span', 'wc-ident__meta', now.toLocaleDateString('en-GB', {
+  return C.pageHead({
+    title: isCore ? 'Core' : 'Research',
+    meta: isCore
+      ? 'Execution, content, planning and operating work in one view.'
+      : 'Projects, knowledge, collaboration and research intelligence in one view.',
+    mark: C.markSlot(isCore ? 'space-core' : 'space-research'),
+    name: greeting(now.getHours()),
+    detail: now.toLocaleDateString('en-GB', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    })),
-  );
-  context.append(mark, text);
-  head.append(copy, context);
-  return head;
+    }),
+  });
 }
 
 /* ---- Weather ------------------------------------------------------------
@@ -275,19 +263,36 @@ function focusEl(tasks, ctx) {
 /* Shows the first few and offers the rest. The count is in the label, so
    the reader can decide whether it is worth the click before making it. */
 function collapsible(host, items, limit, draw) {
-  const shown = items.slice(0, limit);
-  for (const item of shown) host.append(draw(item));
+  // A wc-list, as on the Dashboard, so the rows get the same 2px rhythm.
+  const list = C.list();
+  host.append(list);
+  for (const item of items.slice(0, limit)) list.append(draw(item));
 
-  const rest = items.length - shown.length;
+  const rest = items.length - limit;
   if (rest <= 0) return;
 
   const more = el('button', 'v-more', `Show ${rest} more`);
   more.type = 'button';
   more.addEventListener('click', () => {
     more.remove();
-    for (const item of items.slice(limit)) host.append(draw(item));
+    for (const item of items.slice(limit)) list.append(draw(item));
   });
   host.append(more);
+}
+
+/* The rows below are the Dashboard's rows (C.listItem): a round, series-
+   tinted mark, the title and one line of meta, and the state on the right.
+   They were ws-views rows with no mark, so the Research and Core overviews
+   read as lists of text beside a Dashboard that reads as a list of things.
+   The series follow what the tiles and charts above them already use. */
+const KNOWLEDGE_ICONS = { note: 'notes', file: 'files', dataset: 'datasets', mindmap: 'mindmap', link: 'share' };
+const PROJECT_SERIES = { client: '1', community: '2' };
+
+function flagged(text, tone = '') {
+  if (!text) return null;
+  const flag = el('span', 'v-flag', text);
+  if (tone) flag.dataset.tone = tone;
+  return flag;
 }
 
 /* ==========================================================================
@@ -298,38 +303,50 @@ function taskRow(task, ctx) {
   const late = daysLate(task);
   const done = ['done', 'archived'].includes(task.status);
 
-  const node = row({
+  let flag = null;
+  let series = '3';
+  if (done) {
+    flag = flagged('Done', 'done');
+    series = '2';
+  } else if (late > 0) {
+    flag = flagged(`${late}d late`, 'late');
+    series = '5';
+  } else if (task.status === 'in_progress') {
+    flag = flagged('Doing', 'doing');
+    series = '1';
+  } else if (task.due_date) {
+    flag = flagged(P.formatDate(task.due_date).replace(/ \d{4}$/, ''));
+  }
+
+  return C.listItem({
     title: task.title,
-    sub: P.meta([P.label(task.priority), P.formatDate(task.due_date)]),
+    meta: P.meta([P.label(task.priority), P.formatDate(task.due_date)]),
+    icon: 'tasks',
+    series,
+    right: flag,
     onClick: () => ctx.go('/workspace/core/tasks'),
   });
+}
 
-  const flag = el('span', 'v-flag');
-  if (done) {
-    flag.textContent = 'Done';
-    flag.dataset.tone = 'done';
-  } else if (late > 0) {
-    flag.textContent = `${late}d late`;
-    flag.dataset.tone = 'late';
-  } else if (task.status === 'in_progress') {
-    flag.textContent = 'Doing';
-    flag.dataset.tone = 'doing';
-  } else if (task.due_date) {
-    flag.textContent = P.formatDate(task.due_date).replace(/ \d{4}$/, '');
-  }
-  if (flag.textContent) node.append(flag);
-  return node;
+/* A Dashboard card (C.card) that still answers to the panel interface the
+   screens below were written against: .body, .dataset.span, replaceWith.
+   ws-views' panel() has no note line, which is why these cards were the
+   only ones in the product with a bare title. */
+function card(title, note = '', action = null) {
+  const { box, body } = C.card({ title, note, action });
+  box.body = body;
+  return box;
 }
 
 function todayPanel(tasks, ctx) {
-  const box = panel('Today', ctx.canCore
+  const box = card('Today', 'Open tasks assigned to you, latest first', ctx.canCore
     ? linkBtn('Open board', '/workspace/core/tasks', ctx) : null);
 
   const open = tasks.filter((task) => !['done', 'archived'].includes(task.status));
   const ordered = [...open].sort((a, b) => daysLate(b) - daysLate(a));
 
   if (!ordered.length) {
-    box.body.append(empty('Nothing assigned', 'Tasks assigned to you appear here.'));
+    box.body.append(C.note('Nothing assigned. Tasks assigned to you appear here.'));
     return box;
   }
   collapsible(box.body, ordered, 4, (task) => taskRow(task, ctx));
@@ -337,7 +354,7 @@ function todayPanel(tasks, ctx) {
 }
 
 function linkBtn(text, path, ctx) {
-  const btn = el('button', 'v-mini-btn', text);
+  const btn = el('button', 'ws-btn ws-btn--tiny', text);
   btn.type = 'button';
   btn.addEventListener('click', () => ctx.go(path));
   return btn;
@@ -348,7 +365,7 @@ function linkBtn(text, path, ctx) {
    rendered at all rather than rendered empty: an empty panel implies you
    have no meetings, which is a different claim from not having a calendar. */
 function upNextPanel(meetings, ctx) {
-  const box = panel('Up next');
+  const box = card('Up next', 'On the operating calendar');
 
   const now = Date.now();
   const upcoming = meetings
@@ -356,24 +373,26 @@ function upNextPanel(meetings, ctx) {
     .sort((a, b) => a.scheduled_for.localeCompare(b.scheduled_for));
 
   if (!upcoming.length) {
-    box.body.append(empty('Nothing scheduled', 'Meetings on the operating calendar appear here.'));
+    box.body.append(C.note('Nothing scheduled. Meetings on the operating calendar appear here.'));
     return box;
   }
 
   collapsible(box.body, upcoming, 4, (meeting) => {
     const at = new Date(meeting.scheduled_for);
     const today = at.toDateString() === new Date().toDateString();
-    const node = row({
+    const node = C.listItem({
       title: meeting.title,
-      sub: P.meta([
+      meta: P.meta([
         today ? 'Today' : at.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
         meeting.duration_minutes ? `${meeting.duration_minutes} min` : '',
         P.label(meeting.kind),
       ]),
     });
     // The time leads, because on a schedule the time is the thing being
-    // scanned for and the title is what confirms it.
+    // scanned for and the title is what confirms it. It takes the column a
+    // mark takes on every other row.
     const when = el('span', 'v-when', at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }));
+    node.classList.add('wc-item--marked');
     node.prepend(when);
     return node;
   });
@@ -381,28 +400,24 @@ function upNextPanel(meetings, ctx) {
 }
 
 function projectsPanel(projects, ctx) {
-  const box = panel('Projects', linkBtn('All projects', '/workspace/research/projects', ctx));
+  const box = card('Projects', 'Owned or joined, by deadline', linkBtn('All projects', '/workspace/research/projects', ctx));
 
   if (!projects.length) {
-    box.body.append(empty('No projects', 'Projects you own or have been added to appear here.'));
+    box.body.append(C.note('No projects yet. Projects you own or have been added to appear here.'));
     return box;
   }
 
-  collapsible(box.body, projects, 4, (project) => {
-    const node = row({
-      title: project.title,
-      /* No progress bar. The project payload carries a status and a
-         deadline and no percentage, and a bar drawn from a status enum
-         would be a number this system does not actually have. */
-      sub: P.meta([P.label(project.category), project.client_name, project.deadline ? `Due ${P.formatDate(project.deadline)}` : '']),
-      onClick: () => ctx.go(`/workspace/research/projects/${project.id}`),
-    });
-    if (project.status) {
-      const flag = el('span', 'v-flag', P.label(project.status));
-      node.append(flag);
-    }
-    return node;
-  });
+  collapsible(box.body, projects, 4, (project) => C.listItem({
+    title: project.title,
+    /* No progress ring. The project payload carries a status and a
+       deadline and no percentage, and a ring drawn from a status enum
+       would be a number this system does not actually have. */
+    meta: P.meta([P.label(project.category), project.client_name, project.deadline ? `Due ${P.formatDate(project.deadline)}` : '']),
+    icon: 'projects',
+    series: PROJECT_SERIES[project.category] || '4',
+    right: flagged(project.status ? P.label(project.status) : ''),
+    onClick: () => ctx.go(`/workspace/research/projects/${project.id}`),
+  }));
   return box;
 }
 
@@ -468,7 +483,7 @@ function renderHomeBody(doc, ctx, boot) {
   columns.append(todayPanel(boot.my_work.tasks || [], ctx));
 
   if (ctx.canCore) {
-    const box = panel('Up next');
+    const box = card('Up next', 'On the operating calendar');
     box.body.append(skeleton(3));
     columns.append(box);
     P.call('/operating/meetings/')
@@ -478,7 +493,7 @@ function renderHomeBody(doc, ctx, boot) {
       })
       .catch(() => {
         box.body.innerHTML = '';
-        box.body.append(empty('Calendar unavailable', 'The operating calendar did not answer.'));
+        box.body.append(C.note('Calendar unavailable. The operating calendar did not answer.'));
       });
   }
   doc.append(columns);
@@ -563,11 +578,7 @@ function renderCoreBody(doc, ctx, boot) {
           onClick: () => ctx.go('/workspace/research'),
         }),
       ];
-      tiles.forEach((tile, index) => {
-        tile.dataset.span = '3';
-        tile.dataset.series = String((index % 5) + 1);
-      });
-      layout.append(...tiles);
+      layout.append(...C.tileRow(tiles));
 
       const today = todayPanel(board.tasks || [], ctx);
       today.dataset.span = '8';
@@ -589,37 +600,41 @@ function renderCoreBody(doc, ctx, boot) {
       ], { scaffold: true }));
       layout.append(mix.box);
 
-      const content = panel('Content pipeline', linkBtn('View pipeline', '/workspace/core/content', ctx));
+      const content = card('Content pipeline', 'Items in production', linkBtn('View pipeline', '/workspace/core/content', ctx));
       content.dataset.span = '6';
       const items = pipeline.items || [];
       if (items.length) {
-        collapsible(content.body, items, 5, (item) => row({
+        collapsible(content.body, items, 5, (item) => C.listItem({
           title: item.title,
-          sub: P.meta([P.label(item.kind), P.formatDate(item.due_date)]),
-          badges: [P.label(item.status)],
+          meta: P.meta([P.label(item.kind), P.formatDate(item.due_date)]),
+          icon: 'content',
+          series: '3',
+          right: flagged(P.label(item.status)),
         }));
       } else {
         content.body.append(C.note('Nothing in the pipeline yet.'));
       }
       layout.append(content);
 
-      const planning = panel('Planning', linkBtn('Open planning', '/workspace/operating', ctx));
+      const planning = card('Planning', 'Objectives and milestones', linkBtn('Open', '/workspace/operating', ctx));
       planning.dataset.span = '4';
-      planning.body.append(row({
+      planning.body.append(C.list([C.listItem({
         title: 'OKRs & Milestones',
-        sub: 'Objectives, Key Results, progress and delivery milestones.',
-        badges: ['OKR', 'Milestones'],
+        meta: 'Objectives, key results and delivery milestones',
+        icon: 'planning',
+        series: '2',
         onClick: () => ctx.go('/workspace/operating'),
-      }));
+      })]));
 
-      const assets = panel('Operating assets', linkBtn('Assets & Blueprints', '/workspace/core/assets', ctx));
+      const assets = card('Operating assets', 'Blueprints the team works from', linkBtn('All assets', '/workspace/core/assets', ctx));
       assets.dataset.span = '8';
-      assets.body.append(row({
+      assets.body.append(C.list([C.listItem({
         title: 'Content Studio Blueprint',
-        sub: 'The content operating system, from strategy through governance.',
-        badges: ['v0.2', 'Team approval', '16 sections'],
+        meta: P.meta(['v0.2', 'Team approval', '16 sections']),
+        icon: 'files',
+        series: '1',
         onClick: () => ctx.go('/workspace/core/assets/content-studio-blueprint'),
-      }));
+      })]));
       layout.append(planning, assets);
 
       holder.append(layout);
@@ -914,11 +929,7 @@ function renderResearchBody(doc, ctx, boot) {
           onClick: () => ctx.go('/workspace/research/tasks?show=requests'),
         }),
       ];
-      tiles.forEach((tile, index) => {
-        tile.dataset.span = '3';
-        tile.dataset.series = String((index % 5) + 1);
-      });
-      layout.append(...tiles);
+      layout.append(...C.tileRow(tiles));
 
       const projects = projectsPanel(board.projects || [], ctx);
       projects.dataset.span = '8';
@@ -945,12 +956,14 @@ function renderResearchBody(doc, ctx, boot) {
       if (ctx.canCore) renderResearchIntelligence(layout);
 
       const resources = board.recent_resources || [];
-      const recent = panel('Recent knowledge', linkBtn('Notes', '/workspace/research/notes', ctx));
+      const recent = card('Recent knowledge', 'Notes, files and datasets, newest first', linkBtn('Notes', '/workspace/research/notes', ctx));
       recent.dataset.span = (board.research_requests || []).length ? '6' : '12';
       if (resources.length) {
-        collapsible(recent.body, resources, 5, (item) => row({
+        collapsible(recent.body, resources, 5, (item) => C.listItem({
           title: item.title || item.original_name,
-          sub: P.meta([P.label(item.kind), item.project_title, P.formatDate(item.updated_at)]),
+          meta: P.meta([P.label(item.kind), item.project_title, P.formatDate(item.updated_at)]),
+          icon: KNOWLEDGE_ICONS[item.kind] || 'notes',
+          series: '3',
         }));
       } else {
         recent.body.append(C.note('Notes, files and datasets will appear here as they are added.'));
@@ -959,11 +972,14 @@ function renderResearchBody(doc, ctx, boot) {
 
       const requests = board.research_requests || [];
       if (requests.length) {
-        const box = panel('Research requests');
+        const box = card('Research requests', 'Requests and handoffs');
         box.dataset.span = '6';
-        collapsible(box.body, requests, 5, (item) => row({
+        collapsible(box.body, requests, 5, (item) => C.listItem({
           title: item.title,
-          sub: P.meta([P.label(item.status), item.assignee, P.formatDate(item.due_date)]),
+          meta: P.meta([item.assignee, P.formatDate(item.due_date)]),
+          icon: 'activity',
+          series: '4',
+          right: flagged(P.label(item.status)),
         }));
         layout.append(box);
       }

@@ -8,8 +8,8 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20260920-visual4';
-import { renderMemberProgress } from './ws-member-progress.js?v=20260920-visual4';
+} from './ws-member-lms.js?v=20260924-unify1';
+import { renderMemberProgress } from './ws-member-progress.js?v=20260924-unify1';
 import { renderMemberSupport } from './ws-support.js?v=20260920-dashboard3';
 import {
   renderAdminActivity,
@@ -39,7 +39,7 @@ const DASHBOARD_INDEX = [
   ['Library', '/workspace/dashboard/library', 'files'],
   ['Discussions', '/workspace/dashboard/discussions', 'collaboration'],
   ['Progress', '/workspace/dashboard/progress', 'target'],
-  ['Support', '/workspace/dashboard/support', 'collaboration'],
+  ['Support', '/workspace/dashboard/support', 'activity'],
 ];
 
 const LEARNING_INDEX = [
@@ -194,10 +194,14 @@ function normalizeRail() {
   if (settings) rail.append(settings);
 }
 
-function indexButton(title, path, mark = 'overview') {
+/* `series` gives the link the same tinted round mark the Research and Core
+   index rows carry (ws-app.js sectionRow), in the same position order, so
+   the index looks like one component whichever workspace drew it. */
+function indexButton(title, path, mark = 'overview', series = '1') {
   const node = document.createElement('button');
   node.className = 'fl-index-link';
   node.type = 'button';
+  node.dataset.series = series;
   const glyph = document.createElement('span');
   glyph.className = 'fl-index-link__icon';
   glyph.innerHTML = icon(mark);
@@ -220,7 +224,7 @@ function renderIndex(title, items, footer = '') {
   const nav = document.createElement('nav');
   nav.className = 'fl-index-nav';
   nav.setAttribute('aria-label', `${title} sections`);
-  items.forEach(([name, path, mark]) => nav.append(indexButton(name, path, mark)));
+  items.forEach(([name, path, mark], index) => nav.append(indexButton(name, path, mark, String((index % 5) + 1))));
   body.append(nav);
   foot.textContent = footer;
 }
@@ -234,7 +238,7 @@ function ensureCoreAdminEntry() {
   if (!body || body.querySelector('.fl-core-admin-entry')) return;
   const wrap = document.createElement('div');
   wrap.className = 'fl-core-admin-entry';
-  wrap.append(indexButton('Platform Admin', '/workspace/core/admin', 'team'));
+  wrap.append(indexButton('Platform Admin', '/workspace/core/admin', 'team', '5'));
   body.prepend(wrap);
 }
 

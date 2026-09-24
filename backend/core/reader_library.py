@@ -53,6 +53,7 @@ import re
 
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
+from django.utils import timezone
 
 from .models import LabProgress, ReaderSavedItem
 
@@ -93,6 +94,7 @@ def _item_json(item):
         'summary': item.summary,
         'meta': item.meta,
         'saved_at': item.created_at.isoformat(),
+        'seen': item.seen_at is not None,
     }
 
 
@@ -275,6 +277,34 @@ def _merge_paths(user, incoming):
         )
 
 
+def _mark_seen(user, seen):
+    """Stamp the rows the workspace Library screen actually drew as seen.
+
+    The client names the rows rather than asking for "everything", because
+    something saved in another tab between the screen's GET and this POST has
+    not been in front of the reader yet, and clearing it would swallow the one
+    item the header count exists to announce. Rows already stamped keep their
+    first date, so reopening the screen changes nothing.
+    """
+    if not isinstance(seen, dict):
+        raise _Invalid('invalid_payload')
+    keys = {}
+    for relation in RELATIONS:
+        listed = seen.get(relation) or []
+        if not isinstance(listed, list) or len(listed) > MAX_ROWS_PER_USER:
+            raise _Invalid('invalid_payload')
+        if any(not isinstance(key, str) or not KEY_RE.match(key) for key in listed):
+            raise _Invalid('invalid_item_key')
+        keys[relation] = listed
+
+    now = timezone.now()
+    for relation, listed in keys.items():
+        if listed:
+            ReaderSavedItem.objects.filter(
+                user=user, relation=relation, item_key__in=listed, seen_at__isnull=True,
+            ).update(seen_at=now)
+
+
 def reader_library(request):
     """GET the library, POST a merge into it, DELETE one entry.
 
@@ -322,6 +352,14 @@ def reader_library(request):
     payload = _payload(request)
     if payload is None:
         return JsonResponse({'ok': False, 'error': 'invalid_payload'}, status=400)
+
+    if 'seen' in payload:
+        # Sent by the workspace Library screen once it has drawn the rows. It
+        # is the only thing that clears the public header's count.
+        try:
+            _mark_seen(request.user, payload['seen'])
+        except _Invalid as invalid:
+            return JsonResponse({'ok': False, 'error': invalid.code}, status=400)
 
     saved = payload.get('saved') or []
     following = payload.get('following') or []

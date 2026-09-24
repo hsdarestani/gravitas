@@ -467,6 +467,13 @@
     path: 'Learning path', lab: 'Interactive', page: 'Page',
   };
 
+  /* True when the pile on screen came from the signed-in mirror rather than a
+     guest pile. The session answer lands a fetch after first paint, and until
+     then this is the only hint that the rows carry a `seen` flag worth
+     honouring — without it the header would flash the full total and then
+     drop to the unseen count, which is the very number readers asked to stop
+     seeing. Declared before `lib` because `libRead` sets it. */
+  var libFromMirror = false;
   var lib = libRead();
   var libAuthed = false;
   /* Tri-state, because `libAuthed` alone cannot tell "signed out" from "we
@@ -487,7 +494,9 @@
      somebody signs out and keeps browsing: those rows are the ones nobody
      else has a copy of. */
   function libRead() {
-    return libReadKey(LIB_KEY) || libReadKey(LIB_MIRROR) || libBlank();
+    var guest = libReadKey(LIB_KEY);
+    libFromMirror = !guest;
+    return guest || libReadKey(LIB_MIRROR) || libBlank();
   }
 
   function libReadKey(key) {
@@ -519,6 +528,30 @@
 
   function libCount() {
     return Object.keys(lib.saved).length + Object.keys(lib.following).length;
+  }
+
+  /* What the header badge shows. For a signed-in reader it is only what they
+     have not yet had in front of them on the workspace Library screen, which
+     stamps rows as seen on the server. Research with readers was blunt about
+     the alternative: a total that never goes down is a notification nobody
+     can clear, and it stops meaning anything within a week.
+
+     A row saved on this page has no `seen` yet and counts as new until the
+     server says otherwise. A guest has no Library screen to visit, so for a
+     guest the badge stays the size of the pile. */
+  function libTracksSeen() {
+    return libAuthKnown ? libAuthed : libFromMirror;
+  }
+
+  function libUnseenCount() {
+    if (!libTracksSeen()) return libCount();
+    var count = 0;
+    ['saved', 'following'].forEach(function (bucket) {
+      Object.keys(lib[bucket]).forEach(function (key) {
+        if (lib[bucket][key].seen !== true) count++;
+      });
+    });
+    return count;
   }
 
   /* ---- Identifying a thing ------------------------------------------------
@@ -1033,13 +1066,15 @@
 
   function libPaintTrigger() {
     if (!libTrigger) return;
-    var count = libCount();
+    var total = libCount();
+    var count = libUnseenCount();
     var badge = libTrigger.querySelector('b');
     badge.textContent = count > 99 ? '99+' : String(count);
     libTrigger.dataset.rlEmpty = count ? 'false' : 'true';
-    var label = count
-      ? 'Saved items (' + count + ')'
-      : 'Saved items — nothing kept yet';
+    var label = !total ? 'Saved items — nothing kept yet'
+      : !libTracksSeen() ? 'Saved items (' + total + ')'
+      : count ? 'Saved items (' + count + ' new of ' + total + ')'
+      : 'Saved items (' + total + ')';
     libTrigger.setAttribute('aria-label', label);
     libTrigger.title = label;
   }
@@ -1297,6 +1332,16 @@
     libPaint();
     libMountAuthNote();
   }
+
+  /* The workspace Library screen rewrites the mirror after it stamps rows as
+     seen. A public page still open in another tab hears that here and drops
+     its badge without waiting for its next load. Only the mirror, and only
+     for a signed-in reader: a guest pile is this tab's own business. */
+  window.addEventListener('storage', function (event) {
+    if (event.key !== LIB_MIRROR || !libAuthed) return;
+    lib = libRead();
+    libPaint();
+  });
 
   function libLoad() {
     return fetch(LIB_API, {

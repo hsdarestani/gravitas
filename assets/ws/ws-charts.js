@@ -99,6 +99,74 @@ export function bento(cards = []) {
   return grid;
 }
 
+/* Spans for a row of stat tiles, which every overview used to work out for
+   itself. There were three formulas, and two of them were wrong for five
+   tiles: four columns each is twenty of twelve, six each is thirty, and
+   either way the last tiles fell onto a half-empty second row. Whatever the
+   count, the row now closes on the twelve-column line, at every width:
+
+     wide    data-span     6 → 2·2·2·2·2·2   5 → 3·3·2·2·2   4 → 3   3 → 4
+     medium  data-span-md  6 → 4 (two rows of three)   5 → 6·6·4·4·4   4 → 3
+
+   and two to a row when narrow, where an odd last tile (data-tail) takes the
+   full row rather than leaving a hole beside it. Series are assigned here
+   too, in position order, so a tile keeps its colour across the overviews. */
+export function tileRow(tiles = []) {
+  const list = tiles.filter(Boolean);
+  const n = list.length;
+  const wide = n >= 6 ? 2 : n === 4 ? 3 : n === 3 ? 4 : n === 2 ? 6 : n === 1 ? 12 : 2;
+  const medium = n === 4 ? 3 : n === 2 ? 6 : n === 1 ? 12 : 4;
+  list.forEach((tile, index) => {
+    const lead = n === 5 && index < 2;
+    tile.dataset.span = String(lead ? 3 : wide);
+    tile.dataset.spanMd = String(lead ? 6 : medium);
+    tile.dataset.series = String((index % 5) + 1);
+    delete tile.dataset.tail;
+  });
+  if (n % 2) list[n - 1].dataset.tail = '';
+  return list;
+}
+
+/* The head of an overview. Every workspace opens the same way: the title and
+   one sentence on the left, a context line on the right (who is signed in,
+   or which workspace this is and when), and the screen's actions on a row of
+   their own underneath. Before this the Dashboard parked its buttons beside
+   the title and its identity under it, Research and Core put a greeting on
+   the right, and Learning had neither, so moving between the four read as
+   moving between four products. */
+export function pageHead({ title, meta = '', mark = null, name = '', detail = '', actions: buttons = [] }) {
+  const head = el('header', 'ws-doc__head fl-head wc-workspace-head');
+  const copy = el('div', 'wc-workspace-head__copy');
+  copy.append(el('h1', 'ws-doc__title', title));
+  if (meta) copy.append(el('p', 'ws-doc__meta', meta));
+  head.append(copy);
+
+  if (name) {
+    const context = el('div', 'wc-ident wc-workspace-context');
+    if (mark) context.append(mark);
+    const text = el('div');
+    text.append(el('span', 'wc-ident__name', name));
+    if (detail) text.append(el('span', 'wc-ident__meta', detail));
+    context.append(text);
+    head.append(context);
+  }
+
+  const strip = buttons.filter(Boolean);
+  if (!strip.length) return head;
+  const bar = el('div', 'v-toolbar wc-head-actions');
+  strip.forEach((button) => bar.append(button));
+  const wrap = document.createDocumentFragment();
+  wrap.append(head, bar);
+  return wrap;
+}
+
+/* The round, series-tinted slot a workspace or section mark sits in. */
+export function markSlot(name) {
+  const slot = el('span', 'wc-ident__avatar');
+  slot.innerHTML = mark(name);
+  return slot;
+}
+
 /* One line, where a whole empty panel used to be. */
 export function note(text) {
   return el('p', 'wc-note', text);

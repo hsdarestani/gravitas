@@ -1,5 +1,5 @@
 import * as P from './ws-platform.js?v=20260919-planning1';
-import * as C from './ws-charts.js?v=20260919-charts2';
+import * as C from './ws-charts.js?v=20260924-unify1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -238,17 +238,27 @@ function activityMix(activity = []) {
   }));
 }
 
-/* The identity is a line under the page title, not a card of its own. As a
-   card it was two hundred pixels of empty surface above an account that had
-   nothing in it yet. */
-function identity(member) {
-  const strip = el('div', 'wc-ident');
-  strip.append(avatarNode(member));
-  const names = el('div');
-  names.append(el('span', 'wc-ident__name', member.name));
-  names.append(el('span', 'wc-ident__meta', P.meta([member.email, label(member.community_role), label(member.community_status)])));
-  strip.append(names);
-  return strip;
+/* An overview page: the shared head (title, sentence, context line on the
+   right, actions beneath) over a bento. The Dashboard and Learning use the
+   same head Research and Core do, from C.pageHead, so all four workspaces
+   open the same way. */
+function overviewDoc(host, head) {
+  host.innerHTML = '';
+  const wrap = el('div', 'ws-doc ws-doc--wide fl-doc');
+  wrap.append(C.pageHead(head));
+  host.append(wrap);
+  return wrap;
+}
+
+function greeting(hour = new Date().getHours()) {
+  if (hour < 5) return 'Still up';
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function longDate() {
+  return new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function memberTiles(data, go) {
@@ -302,17 +312,13 @@ function memberTiles(data, go) {
   }));
 
   /* Marked in series order so a layer keeps one colour across the tiles,
-     the bar chart and the activity strip. Two charts that disagree about
-     what blue means are worse than one chart. */
-  tiles.forEach((tile, position) => {
-    tile.dataset.series = String((position % 5) + 1);
-    /* Two of twelve columns each, so six tiles fill a row and their edges
-       land on the same gridlines the cards below them use. The tiles are
-       returned loose rather than in a grid of their own: the dashboard is
-       one grid, and a nested one would break that alignment. */
-    tile.dataset.span = '2';
-  });
-  return tiles;
+     the bar chart and the activity strip. The tiles are returned loose
+     rather than in a grid of their own: the dashboard is one grid, and a
+     nested one would break that alignment. tileRow() closes the row on the
+     twelve-column line whatever the count — this used to be two columns
+     each regardless, so an account without LMS or Research showed four or
+     five tiles and a hole where the rest should have been. */
+  return C.tileRow(tiles);
 }
 
 /* ---- The cards ---------------------------------------------------------- */
@@ -512,14 +518,20 @@ export async function renderMemberOverview(host, { go }) {
   loading(host, 'Dashboard');
   try {
     const data = await P.memberDashboard();
-    const wrap = doc(host, 'Dashboard', 'One account view across reading, discussion, learning and research.');
-
-    const head = wrap.querySelector('.fl-head');
-    head?.append(identity(data.member));
-    const tools = el('div', 'fl-form-actions');
-    tools.append(link(go, 'Open library', '/workspace/dashboard/library'));
-    tools.append(link(go, 'Progress', '/workspace/dashboard/progress', true));
-    head?.append(tools);
+    /* The member is the context line here, where Research and Core show
+       their workspace mark: on the Dashboard the account is the subject. */
+    const member = data.member || {};
+    const wrap = overviewDoc(host, {
+      title: 'Dashboard',
+      meta: 'One account view across reading, discussion, learning and research.',
+      mark: avatarNode(member),
+      name: member.name || member.email || '',
+      detail: P.meta([member.email, label(member.community_role), label(member.community_status)]),
+      actions: [
+        link(go, 'Progress', '/workspace/dashboard/progress', true),
+        link(go, 'Open library', '/workspace/dashboard/library'),
+      ],
+    });
 
     /* One grid for the whole screen. The spans read 2·6 / 8·4 / 4·4·4 /
        8·4, so every card edge falls on the gridline at 4 or 8 and the
@@ -654,6 +666,43 @@ export async function renderMemberProgress(host, { go }) {
   }
 }
 
+/* ==========================================================================
+   THE LEARNING OVERVIEW
+   Built from the same pieces as the Dashboard, and on purpose. It used to be
+   assembled from the course pages' own parts — fl-row lines with a progress
+   bar under each title, pill badges for "3 nodes", a solid Start button in
+   the middle of a row, a dashed empty box where a sentence would do, and a
+   full-width submit bar — so it was the one workspace that read as a
+   different product. The course pages keep those parts, where they belong;
+   this screen is an overview and now looks like the other three: the shared
+   head, clickable tiles, and cards holding marked rows, with a ring where
+   the row has a real percentage and nothing where it does not.
+   ========================================================================== */
+
+const COURSE_SERIES = { active: '1', paused: '4', completed: '2' };
+
+function enrollmentItem(enrollment, go) {
+  const share = Number(enrollment.progress_percent);
+  return C.listItem({
+    title: enrollment.course_title,
+    meta: P.meta([label(enrollment.status), Number.isFinite(share) ? `${Math.round(share)}% complete` : '']),
+    icon: 'content',
+    series: COURSE_SERIES[enrollment.status] || '1',
+    right: Number.isFinite(share) ? C.ring(share, { label: `${enrollment.course_title}: ${Math.round(share)}%` }) : null,
+    onClick: () => go(`/workspace/learning/courses/${enrollment.course_id}`),
+  });
+}
+
+function catalogItem(course, go) {
+  return C.listItem({
+    title: course.title,
+    meta: courseMeta(course),
+    icon: course.enrolled ? 'content' : 'planning',
+    series: course.enrolled ? '1' : '3',
+    onClick: () => go(`/workspace/learning/courses/${course.id}`),
+  });
+}
+
 export async function renderLearningOverview(host, { go }) {
   loading(host, 'Learning');
   try {
@@ -663,130 +712,160 @@ export async function renderLearningOverview(host, { go }) {
       P.lmsLearningPaths().catch(() => ({ paths: [] })),
       P.lmsPersonalizedPaths().catch(() => ({ assignments: [] })),
     ]);
-    const wrap = doc(host, 'Learning', 'Courses, research-goal learning paths, assessments and certificates. Learning access is independent from Research.');
-    const active = (mine.enrollments || []).filter((item) => item.status === 'active' || item.status === 'paused');
-    const completed = (mine.enrollments || []).filter((item) => item.status === 'completed');
+    const enrollments = mine.enrollments || [];
+    const active = enrollments.filter((item) => item.status === 'active' || item.status === 'paused');
+    const completed = enrollments.filter((item) => item.status === 'completed');
     const certs = completed.filter((item) => item.certificate?.valid);
+    const paths = publishedPaths.paths || [];
+    const courses = catalog.courses || [];
     const activePath = (personalPaths.assignments || [])[0] || null;
 
-    const layout = C.bento();
-    const tiles = [
-      C.statTile({ value: active.length, label: 'In progress', icon: 'content', note: 'Active courses', featured: true }),
-      C.statTile({ value: completed.length, label: 'Completed', icon: 'target', note: 'Finished courses' }),
-      C.statTile({ value: certs.length, label: 'Certificates', icon: 'notes', note: 'Valid credentials' }),
-      C.statTile({ value: (publishedPaths.paths || []).length, label: 'Learning paths', icon: 'planning', note: 'Published paths' }),
-    ];
-    tiles.forEach((tile, index) => {
-      tile.dataset.span = '3';
-      tile.dataset.series = String((index % 5) + 1);
+    const wrap = overviewDoc(host, {
+      title: 'Learning',
+      meta: 'Courses, learning paths, assessments and certificates. Learning access is independent from Research.',
+      mark: C.markSlot('space-knowledge'),
+      name: greeting(),
+      detail: longDate(),
+      actions: [
+        link(go, 'My learning', '/workspace/learning/my', true),
+        link(go, 'Course catalog', '/workspace/learning/catalog'),
+      ],
     });
-    layout.append(...tiles);
 
-    const current = section('Continue learning');
+    const layout = C.bento();
+    layout.append(...C.tileRow([
+      C.statTile({
+        value: active.length, label: 'In progress', icon: 'content', note: 'Active courses', featured: true,
+        onClick: () => go('/workspace/learning/my'),
+      }),
+      C.statTile({
+        value: completed.length, label: 'Completed', icon: 'target',
+        part: completed.length, total: enrollments.length,
+        note: 'Finished courses',
+        onClick: () => go('/workspace/learning/my'),
+      }),
+      C.statTile({
+        value: certs.length, label: 'Certificates', icon: 'notes', note: 'Valid credentials',
+        onClick: () => go('/workspace/learning/certificates'),
+      }),
+      C.statTile({
+        value: paths.length, label: 'Learning paths', icon: 'planning', note: 'Published paths',
+        onClick: () => go('/workspace/learning/catalog'),
+      }),
+    ]));
+
+    /* The one accented card, as on the Dashboard: it is the instruction on
+       a screen that is otherwise a report. */
+    const current = C.card({
+      title: 'Continue learning',
+      note: 'Courses you are enrolled in',
+      span: 8,
+      tone: 'accent',
+      action: linkButton(go, 'My learning', '/workspace/learning/my'),
+    });
     current.box.dataset.span = '8';
-    current.box.classList.add('wc-card--accent');
-    if (!active.length) current.body.append(empty('Nothing in progress', 'Choose a published course or start a learning path.'));
-    for (const enrollment of active) {
-      const node = row({
-        title: enrollment.course_title,
-        meta: label(enrollment.status),
-        onClick: () => go(`/workspace/learning/courses/${enrollment.course_id}`),
-      });
-      node.querySelector('.fl-row__main')?.append(percent(enrollment.progress_percent));
-      current.body.append(node);
+    if (active.length) {
+      current.body.append(C.list(active.slice(0, 4).map((item) => enrollmentItem(item, go))));
+    } else {
+      current.body.append(C.note('Nothing in progress. Pick a published course or start a learning path.'));
+      current.body.append(C.actions([link(go, 'Browse the catalog', '/workspace/learning/catalog', true)]));
     }
-    current.head.append(link(go, 'My learning', '/workspace/learning/my'));
     layout.append(current.box);
 
-    const completion = C.card({
-      title: 'Completion',
-      note: 'Finished courses across all enrollments.',
-      span: 4,
-    });
+    /* The gauge with its three counts under it, the same shape as the
+       Dashboard's Completion card. */
+    const completion = C.card({ title: 'Completion', note: 'Finished courses across all enrollments', span: 4 });
     completion.body.append(C.gauge({
       value: completed.length,
-      total: (mine.enrollments || []).length,
+      total: enrollments.length,
       label: 'completed',
-      caption: `${completed.length} of ${(mine.enrollments || []).length} courses complete`,
+      caption: `${completed.length} of ${enrollments.length} courses complete`,
       empty: 'No course progress yet',
     }));
+    completion.body.append(C.legend([
+      { label: 'Active', value: active.length, series: '1' },
+      { label: 'Completed', value: completed.length, series: '2' },
+      { label: 'Certificates', value: certs.length, series: '3' },
+    ]));
     layout.append(completion.box);
 
-    const pathsBox = section('Published learning paths', 'Curated multi-course paths with gates, milestones and branches.');
+    const pathsBox = C.card({
+      title: 'Published learning paths',
+      note: 'Curated multi-course routes with gates and milestones',
+      span: 6,
+    });
     pathsBox.box.dataset.span = '6';
-    for (const path of publishedPaths.paths || []) {
-      const startPath = action('Start path', async () => {
-        startPath.disabled = true;
-        startPath.textContent = 'Starting…';
-        try {
-          await P.lmsPersonalizePath({
-            goal: path.title,
-            learning_path_id: path.id,
-            use_template: true,
-          });
-          await renderLearningOverview(host, { go });
-        } catch (error) {
-          startPath.disabled = false;
-          startPath.textContent = error?.message || 'Try again';
-        }
-      }, true);
-      pathsBox.body.append(row({
-        title: path.title,
-        body: path.summary || '',
-        badges: [
-          (path.nodes || []).length + ' nodes',
-          (path.edges || []).length + ' connections',
-        ],
-        actions: [startPath],
-      }));
-    }
-    if (!(publishedPaths.paths || []).length) {
-      pathsBox.body.append(empty('No published paths yet', 'The course team can publish complex multi-course paths from LMS Admin.'));
+    if (paths.length) {
+      pathsBox.body.append(C.list(paths.slice(0, 4).map((path) => {
+        const start = action('Start path', async () => {
+          start.disabled = true;
+          start.textContent = 'Starting…';
+          try {
+            await P.lmsPersonalizePath({ goal: path.title, learning_path_id: path.id, use_template: true });
+            await renderLearningOverview(host, { go });
+          } catch (error) {
+            start.disabled = false;
+            start.textContent = 'Try again';
+            start.title = error?.message || '';
+          }
+        });
+        start.classList.add('ws-btn--tiny');
+        return C.listItem({
+          title: path.title,
+          meta: P.meta([
+            `${(path.nodes || []).length} courses`,
+            `${(path.edges || []).length} connections`,
+          ]),
+          icon: 'planning',
+          series: '3',
+          right: start,
+        });
+      })));
+    } else {
+      pathsBox.body.append(C.note('No published paths yet. The course team publishes them from LMS Admin.'));
     }
     layout.append(pathsBox.box);
 
-    const discover = section('Catalog', 'Published courses ready to open or enroll in.');
-    discover.box.dataset.span = '6';
-    for (const course of (catalog.courses || []).slice(0, 6)) discover.body.append(courseRow(course, go));
-    if (!(catalog.courses || []).length) discover.body.append(empty('No published courses', 'Published courses will appear here.'));
-    discover.head.append(link(go, 'View catalog', '/workspace/learning/catalog'));
+    const discover = C.card({
+      title: 'Catalog',
+      note: 'Published courses ready to open or enroll in',
+      span: 6,
+      action: linkButton(go, 'View all', '/workspace/learning/catalog'),
+    });
+    if (courses.length) discover.body.append(C.list(courses.slice(0, 4).map((course) => catalogItem(course, go))));
+    else discover.body.append(C.note('No published courses yet.'));
     layout.append(discover.box);
 
     if (activePath) {
-      const pathBox = section(
-        'Your active learning path',
-        activePath.learning_path_title
-          ? 'Following published path · ' + activePath.learning_path_title
-          : 'Personalized around your research goal.',
-      );
-      pathBox.box.dataset.span = '8';
-      if (activePath.goal) pathBox.body.append(el('p', 'fl-prose', activePath.goal));
-      if (activePath.rationale) pathBox.body.append(el('p', 'fl-muted', activePath.rationale));
-      const pathNodes = el('div', 'fl-learning-path');
-      const courseProgress = new Map((mine.enrollments || []).map((item) => [String(item.course_id), item]));
-      for (const node of activePath.nodes || []) {
+      const pathBox = C.card({
+        title: 'Your learning path',
+        note: activePath.learning_path_title
+          ? `Following ${activePath.learning_path_title}`
+          : 'Personalised around your research goal',
+        span: 8,
+      });
+      if (activePath.goal) pathBox.body.append(C.note(activePath.goal));
+      const courseProgress = new Map(enrollments.map((item) => [String(item.course_id), item]));
+      const steps = (activePath.nodes || []).map((node) => {
         const nodeType = node.type || (node.course_id ? 'course' : 'milestone');
         const enrollment = node.course_id ? courseProgress.get(String(node.course_id)) : null;
-        const badges = [
-          label(nodeType),
-          enrollment ? label(enrollment.status) : '',
-          enrollment ? enrollment.progress_percent + '% complete' : '',
-        ].filter(Boolean);
-        pathNodes.append(row({
+        const share = enrollment ? Number(enrollment.progress_percent) : null;
+        return C.listItem({
           title: node.title || (node.course_id ? 'Course ' + node.course_id : node.id),
-          body: node.description || '',
-          badges,
+          meta: P.meta([label(nodeType), enrollment ? label(enrollment.status) : '']),
+          icon: node.course_id ? 'content' : 'target',
+          series: enrollment?.status === 'completed' ? '2' : '1',
+          right: Number.isFinite(share) ? C.ring(share, { label: `${Math.round(share)}%` }) : null,
           onClick: node.course_id ? () => go('/workspace/learning/courses/' + node.course_id) : null,
-        }));
-      }
-      if (!(activePath.nodes || []).length) pathNodes.append(empty('Path has no nodes', 'Ask the course team to review this learning path.'));
-      pathBox.body.append(pathNodes);
+        });
+      });
+      if (steps.length) pathBox.body.append(C.list(steps));
+      else pathBox.body.append(C.note('This path has no steps yet. Ask the course team to review it.'));
       layout.append(pathBox.box);
     }
 
     const personal = personalizedPathPanel(go);
     personal.dataset.span = activePath ? '4' : '12';
-    if (!activePath) personal.classList.add('wc-card--accent');
     layout.append(personal);
 
     wrap.append(layout);
@@ -1942,7 +2021,9 @@ function personalizedPathPanel(go) {
   const goal = el('textarea', 'v-input fl-input fl-textarea'); goal.rows = 4; goal.placeholder = 'Example: I want to learn how to design and validate a reproducible causal-inference study.';
   const build = action('Build my path', () => {}, true); build.type = 'submit';
   const result = el('div', 'fl-stack');
-  form.append(goal, build);
+  // In a strip of its own, so the form's grid does not stretch the button
+  // into a full-width bar that reads as a second text field.
+  form.append(goal, C.actions([build]));
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!goal.value.trim()) return;

@@ -42,6 +42,9 @@ import { el, panel, row, stats, empty, failure, skeleton } from './ws-views.js';
 
 /* The guest store, read-only. Same key as the public site's. */
 const GUEST_KEY = 'gravitas.reader.v1';
+/* The signed-in reader's cache on the public site, which paints the header
+   count before the network answers. Written here only to flip `seen`. */
+const MIRROR_KEY = 'gravitas.reader.mirror.v1';
 
 const KIND_LABEL = {
   topic: 'Topic',
@@ -73,6 +76,46 @@ export async function load() {
 
 async function remove(relation, itemKey) {
   return P.call('/reader/library/', { method: 'DELETE', body: { relation, item_key: itemKey } });
+}
+
+/* Seeing the rows here is what clears the count on the public header. That
+   count used to be the size of the whole pile and never went down, and
+   readers told us a number that cannot be cleared is just noise. So once the
+   screen has drawn, the rows it drew are stamped as seen on the server.
+
+   Only the rows this screen drew, by key: something saved in another tab
+   between the GET and this POST has not been looked at yet. A failure is
+   silent on purpose — the count simply stays until the next visit, and a
+   bookkeeping error is not worth an alert on a screen that otherwise worked.
+
+   The public site's mirror is patched too, so the header is already right on
+   the first frame of the next public page, and any public tab still open
+   hears the change through the `storage` event. */
+async function markSeen(saved, following) {
+  const fresh = {
+    saved: saved.filter((item) => !item.seen).map((item) => item.item_key),
+    following: following.filter((item) => !item.seen).map((item) => item.item_key),
+  };
+  if (!fresh.saved.length && !fresh.following.length) return;
+
+  try {
+    await P.call('/reader/library/', { method: 'POST', body: { seen: fresh } });
+  } catch {
+    return;
+  }
+
+  try {
+    const mirror = JSON.parse(localStorage.getItem(MIRROR_KEY) || 'null');
+    if (!mirror || typeof mirror !== 'object') return;
+    for (const bucket of ['saved', 'following']) {
+      for (const key of fresh[bucket]) {
+        if (mirror[bucket]?.[key]) mirror[bucket][key].seen = true;
+      }
+    }
+    localStorage.setItem(MIRROR_KEY, JSON.stringify(mirror));
+  } catch {
+    // Blocked storage. The public page corrects itself from the server anyway.
+  }
 }
 
 function guestPile() {
@@ -190,6 +233,8 @@ export function renderLibrary(host, ctx) {
       for (const path of paths) box.body.append(pathRow(path, draw));
       holder.append(box);
     }
+
+    markSeen(saved, following);
   };
 
   draw();
@@ -227,6 +272,7 @@ function savedRow(item, ctx, redraw) {
     title: item.title,
     sub: item.summary || '',
     badges: [
+      item.seen ? null : 'New',
       KIND_LABEL[item.kind] || item.kind,
       item.meta?.detail,
       item.saved_at ? `Saved ${P.formatDate(item.saved_at)}` : null,
@@ -247,6 +293,7 @@ function followRow(item, redraw) {
     title: item.title,
     sub: item.summary || '',
     badges: [
+      item.seen ? null : 'New',
       KIND_LABEL[item.kind] || item.kind,
       item.saved_at ? `Following since ${P.formatDate(item.saved_at)}` : null,
     ].filter(Boolean),

@@ -400,13 +400,15 @@
   .wc-item__main { display: grid; gap: 2px; min-width: 0; }
   .wc-item__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ws-fs); font-weight: var(--g-w-medium); }
   .wc-item__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--g-text-subtle); font-size: var(--ws-fs-xs); }
+  /* Round, like the index marks and the member avatar: one shape for every
+     tinted mark in the workspace. */
   .wc-item__mark {
     display: grid;
     place-items: center;
     width: 30px;
     height: 30px;
     flex: 0 0 auto;
-    border-radius: 9px;
+    border-radius: 50%;
     background: color-mix(in srgb, var(--wc-series, var(--wc-1)) 18%, transparent);
     color: var(--wc-series, var(--wc-1));
   }
@@ -425,7 +427,15 @@
      bottom, and that is the right trade: a ragged staircase of cards reads
      as breakage, an aligned grid with air in it reads as layout. Cards are
      given enough to say that the air stays small. */
+  /* The breakpoints measure the bento, not the window. They used to be
+     viewport media queries, and the workspace is three panes: at 1440px with
+     the index and the dock open the bento is about 720px wide, so six tiles
+     at two columns each truncated to "Sav…" and "Cour…", while at 800px with
+     both panes shut the 4·4·4 row turned into 6·6·6 and left its third card
+     alone on a half-empty row. The grid only knows its own width, so that is
+     what it asks about. */
   .wc-bento {
+    container: wc-bento / inline-size;
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     grid-auto-rows: minmax(min-content, auto);
@@ -433,7 +443,7 @@
     align-items: stretch;
   }
   .wc-bento > * { grid-column: span 12; }
-  @media (min-width: 900px) {
+  @container wc-bento (min-width: 640px) {
     /* Tiles take two columns, six to a row, and their edges fall on the
        same lines the cards below them use. */
     .wc-bento > [data-span="2"] { grid-column: span 2; }
@@ -442,13 +452,19 @@
     .wc-bento > [data-span="6"] { grid-column: span 6; }
     .wc-bento > [data-span="8"] { grid-column: span 8; }
   }
-  @media (min-width: 620px) and (max-width: 899px) {
-    .wc-bento > [data-span] { grid-column: span 6; }
-    .wc-bento > [data-span="2"] { grid-column: span 4; }
+  /* Medium: the cards keep their spans, which still hold a list or a gauge
+     at this width; only the tiles regroup, by the spans tileRow() chose. */
+  @container wc-bento (min-width: 640px) and (max-width: 959.98px) {
+    .wc-bento > [data-span-md="3"] { grid-column: span 3; }
+    .wc-bento > [data-span-md="4"] { grid-column: span 4; }
+    .wc-bento > [data-span-md="6"] { grid-column: span 6; }
+    .wc-bento > [data-span-md="12"] { grid-column: span 12; }
   }
-  @media (max-width: 619px) {
-    .wc-bento > [data-span="2"],
-    .wc-bento > [data-span="3"] { grid-column: span 6; }
+  /* Narrow: every card takes the row and tiles go two by two. A pair of
+     cards at half of 600px is two columns of ellipses. */
+  @container wc-bento (max-width: 639.98px) {
+    .wc-bento > .wc-tile { grid-column: span 6; }
+    .wc-bento > .wc-tile[data-tail] { grid-column: span 12; }
   }
 
   /* ---- The member line ---------------------------------------------------

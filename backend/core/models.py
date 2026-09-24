@@ -312,6 +312,11 @@ class ReaderSavedItem(models.Model):
     title = models.CharField(max_length=240)
     summary = models.TextField(blank=True)
     meta = models.JSONField(default=dict, blank=True)
+    # When the reader first had this row in front of them on the workspace
+    # Library screen. The public header counts only rows where this is empty:
+    # a number that stays up after the reader has already looked is a
+    # notification nobody can clear, which is what readers complained about.
+    seen_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

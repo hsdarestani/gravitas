@@ -100,6 +100,28 @@ on a laptop and 3 on a phone cannot have one device silently undo the other.
 The public page sends `replace: true`, because a reader unticking a step is an
 explicit correction and has to win.
 
+## The header count means "new", not "total"
+
+The badge on the header's Saved button used to show the size of the whole
+pile and never went down. Readers found it irritating: a number that cannot be
+cleared is a notification that stops meaning anything. So for a signed-in
+reader it now counts only rows they have not yet had in front of them on the
+workspace Library screen.
+
+- `ReaderSavedItem.seen_at` is empty until the Library screen has drawn the
+  row; every row in the API carries `seen: true|false`.
+- After drawing, `ws-library.js` POSTs `{"seen": {"saved": [...], "following":
+  [...]}}` naming exactly the rows it drew, so an item saved in another tab
+  in the meantime stays new. Rows already stamped keep their first date. The
+  rows it drew show a *New* badge for that one visit.
+- It then flips `seen` in `gravitas.reader.mirror.v1`, so the next public page
+  paints the right number on its first frame, and an open public tab hears the
+  change through the `storage` event.
+- Removing an item and saving it again makes a new row, which counts as new.
+  Replaying a guest adoption does not reset `seen_at`.
+- A guest has no Library screen, so a guest's badge is still the whole pile.
+- Learning-path progress is not counted in the badge and has no `seen`.
+
 ## Where Library sits in the Knowledge index
 
 Directly above **Sources**, at the mouth of the learning loop
