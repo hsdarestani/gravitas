@@ -360,6 +360,10 @@
       if (v.left_label || v.left_text || v.left_cite) items.push({label: v.left_label || 'Viewpoint A', text: v.left_text || '', cite: v.left_cite || ''});
       if (v.right_label || v.right_text || v.right_cite) items.push({label: v.right_label || 'Viewpoint B', text: v.right_text || '', cite: v.right_cite || ''});
     }
+    var polls = Array.isArray(v.polls) ? v.polls.filter(function (row) { return row && typeof row === 'object'; }) : [];
+    if (!Array.isArray(v.polls) && (v.poll_question || (Array.isArray(v.poll_options) && v.poll_options.length))) {
+      polls = [{id: 'main', question: v.poll_question || 'Where do you land?', note: v.poll_note || '', options: v.poll_options || []}];
+    }
     var intro = data.viewpoints_intro
       ? '<p class="g-muted topic-section-intro" style="font-size:var(--g-fs-small);margin-bottom:var(--g-space-md)">' + esc(data.viewpoints_intro) + '</p>'
       : '';
@@ -372,11 +376,20 @@
     });
     if (!items.length) cards += '<p class="g-muted">No viewpoints have been published yet.</p>';
     cards += '</div>';
-    var html = intro + cards +
-      '<div class="topic-poll g-mt-lg" data-topic-poll><p class="g-eyebrow">' + esc(v.poll_question || 'Where do you land?') + '</p><div class="topic-poll__options"></div>' +
-      (v.poll_note ? '<p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">' + esc(v.poll_note) + '</p>' : '') +
-      '<p class="g-hint" data-poll-note></p></div>';
-    return section('06', 'views', 'Viewpoints', html);
+
+    var pollHtml = '';
+    if (polls.length) {
+      pollHtml = '<div class="topic-live__collection topic-poll-list g-mt-lg">';
+      polls.forEach(function (poll, index) {
+        var pollId = String(poll.id || ('poll-' + (index + 1)));
+        pollHtml += '<div class="topic-poll topic-live__item" data-topic-poll data-poll-id="' + esc(pollId) + '">' +
+          '<p class="g-eyebrow">' + esc(poll.question || 'Where do you land?') + '</p><div class="topic-poll__options"></div>' +
+          (poll.note ? '<p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">' + esc(poll.note) + '</p>' : '') +
+          '<p class="g-hint" data-poll-note></p></div>';
+      });
+      pollHtml += '</div>';
+    }
+    return section('06', 'views', 'Viewpoints', intro + cards + pollHtml);
   }
 
   function renderDiscussion() {
@@ -421,7 +434,8 @@
   }
 
   function paintPoll(slug, poll) {
-    var host = document.querySelector('[data-topic-poll]');
+    var hosts = Array.prototype.slice.call(document.querySelectorAll('[data-topic-poll]'));
+    var host = hosts.find(function (node) { return node.getAttribute('data-poll-id') === String(poll.id || ''); });
     if (!host) return;
     var box = host.querySelector('.topic-poll__options');
     var note = host.querySelector('[data-poll-note]');
@@ -435,13 +449,27 @@
       button.innerHTML = '<span>' + esc(option.label) + '</span><strong>' + esc(option.votes || 0) + ' · ' + pct + '%</strong>';
       button.addEventListener('click', function () {
         button.disabled = true;
-        post('/api/content/' + encodeURIComponent(slug) + '/poll/', {option_id: option.id})
+        post('/api/content/' + encodeURIComponent(slug) + '/poll/', {poll_id: poll.id, option_id: option.id})
           .then(function (data) { paintPoll(slug, data.poll); })
           .catch(function () { note.textContent = 'Vote could not be saved.'; button.disabled = false; });
       });
       box.appendChild(button);
     });
     note.textContent = total + (total === 1 ? ' vote' : ' votes');
+  }
+
+  function loadPolls(slug) {
+    var hosts = Array.prototype.slice.call(document.querySelectorAll('[data-topic-poll]'));
+    return Promise.all(hosts.map(function (host) {
+      var pollId = host.getAttribute('data-poll-id') || '';
+      return fetch('/api/content/' + encodeURIComponent(slug) + '/poll/?poll_id=' + encodeURIComponent(pollId), {
+        credentials: 'same-origin',
+        cache: 'no-store'
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) { if (data && data.poll) paintPoll(slug, data.poll); })
+        .catch(function () { return null; });
+    }));
   }
 
   function initials(name) {
@@ -657,9 +685,7 @@
       renderTopic(item);
       setupTopicProgress(slug);
       return Promise.all([
-        fetch('/api/content/' + encodeURIComponent(slug) + '/poll/', {credentials: 'same-origin', cache: 'no-store'})
-          .then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (p) { if (p && p.poll) paintPoll(slug, p.poll); }),
+        loadPolls(slug),
         loadCommunity(slug)
       ]);
     })
