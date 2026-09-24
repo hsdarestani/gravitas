@@ -15,18 +15,25 @@ class Command(BaseCommand):
             return
 
         url = f"{settings.PUBLIC_BASE_URL}/api/task-notifications/telegram/webhook/"
-        response = requests.post(
-            f"https://api.telegram.org/bot{token}/setWebhook",
-            json={
-                'url': url,
-                'secret_token': secret,
-                'allowed_updates': ['message'],
-                'drop_pending_updates': False,
-            },
-            timeout=15,
-        )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            response = requests.post(
+                f"https://api.telegram.org/bot{token}/setWebhook",
+                json={
+                    'url': url,
+                    'secret_token': secret,
+                    'allowed_updates': ['message'],
+                    'drop_pending_updates': False,
+                },
+                timeout=15,
+            )
+        except requests.RequestException:
+            raise CommandError('Telegram webhook request failed') from None
+        if not response.ok:
+            raise CommandError(f'Telegram webhook HTTP {response.status_code}')
+        try:
+            data = response.json()
+        except ValueError:
+            raise CommandError('Telegram webhook returned invalid JSON') from None
         if not data.get('ok'):
-            raise CommandError(str(data.get('description') or 'Telegram webhook setup failed'))
+            raise CommandError(str(data.get('description') or 'Telegram webhook setup failed')[:300])
         self.stdout.write(self.style.SUCCESS(f'Telegram webhook configured: {url}'))
