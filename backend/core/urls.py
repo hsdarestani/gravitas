@@ -6,6 +6,7 @@ from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
 from core.reader_library import reader_library
 from core.topic_progress import topic_progress
+from core.task_notifications import task_notification_settings, telegram_notification_webhook
 from core.support_api import admin_ticket_detail, admin_tickets, member_ticket_detail, member_tickets
 from core.newsletter_admin_api import admin_newsletter, admin_newsletter_subscriber
 from core.lab_api import admin_lab_detail, admin_labs
@@ -251,6 +252,8 @@ urlpatterns = [
     path('lab/progress/<slug:lab_key>/', lab_progress),
     path('analytics/kpi/', kpi_summary),
     path('reader/library/', reader_library),
+    path('task-notifications/settings/', task_notification_settings),
+    path('task-notifications/telegram/webhook/', telegram_notification_webhook),
 
     # Five-layer bootstrap and Layer 2 account home.
     path('platform/bootstrap/', platform_bootstrap_v3),
