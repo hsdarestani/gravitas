@@ -123,12 +123,9 @@
    lockup and a minimize. The rule under it is the tab strip's, not its own. */
 .gchat__head {
   display: flex; align-items: center; gap: 0.6rem;
-  /* The right padding puts the minimize on the same vertical as the new-tab +
-     under it: that button is 2.5rem wide and flush right, so its icon centres
-     1.25rem from the edge, and the 1.9rem minimize needs 1.25 - 0.95 of gap to
-     centre there too. The page gutter it used to have left it floating inboard
-     of everything else on that edge. */
-  padding: 0.75rem 0.3rem 0.4rem var(--g-space-md);
+  /* Right padding only keeps a long title clear of the minimize, which is
+     positioned against the panel's corner rather than laid out in this row. */
+  padding: 0.75rem calc(var(--g-space-md) + 1.9rem) 0.4rem var(--g-space-md);
   background: var(--g-surface);
   flex: none;
 }
@@ -141,8 +138,19 @@
 }
 /* The + is part of the name, and the brand sets it apart everywhere else. */
 .gchat__plus { color: var(--g-accent); }
+/* Concentric with the panel's top-right corner. A circle this close to a
+   rounded corner reads as wrong unless the two curves are parallel, which
+   means one centre: the corner arc's centre sits radius-lg in from both outer
+   edges, so the circle's centre goes there too, and the gap between the two
+   outlines is the same all the way round the bend (outer radius = inner
+   radius + inset). As a flex item it was 12px from the top and 5px from the
+   side, two different insets against one curve. The -1px is the panel's
+   border, since the offsets are measured from inside it. The same centre also
+   lands within a pixel of the new-tab + under it. */
 .gchat__min {
-  margin-left: auto; flex: none;
+  position: absolute;
+  top: calc(var(--g-radius-lg) - 1px - 0.95rem);
+  right: calc(var(--g-radius-lg) - 1px - 0.95rem);
   width: 1.9rem; height: 1.9rem; border-radius: 50%;
   display: grid; place-items: center;
   background: none; border: 1px solid transparent; cursor: pointer;
