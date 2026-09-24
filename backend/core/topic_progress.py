@@ -29,7 +29,15 @@ def topic_applicability(topic):
     videos = _topic_objects(data, 'videos', 'video')
     simulations = _topic_objects(data, 'simulations', 'simulation')
     viewpoints = data.get('viewpoints') if isinstance(data.get('viewpoints'), dict) else {}
-    poll_options = viewpoints.get('poll_options') if isinstance(viewpoints.get('poll_options'), list) else []
+    polls = viewpoints.get('polls')
+    if isinstance(polls, list):
+        poll_options = [
+            option
+            for poll in polls if isinstance(poll, dict)
+            for option in (poll.get('options') if isinstance(poll.get('options'), list) else [])
+        ]
+    else:
+        poll_options = viewpoints.get('poll_options') if isinstance(viewpoints.get('poll_options'), list) else []
     discussion = data.get('discussion_enabled')
     return {
         'video': any(
