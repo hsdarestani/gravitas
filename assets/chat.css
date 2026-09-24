@@ -123,7 +123,12 @@
    lockup and a minimize. The rule under it is the tab strip's, not its own. */
 .gchat__head {
   display: flex; align-items: center; gap: 0.6rem;
-  padding: 0.75rem var(--g-space-md) 0.4rem;
+  /* The right padding puts the minimize on the same vertical as the new-tab +
+     under it: that button is 2.5rem wide and flush right, so its icon centres
+     1.25rem from the edge, and the 1.9rem minimize needs 1.25 - 0.95 of gap to
+     centre there too. The page gutter it used to have left it floating inboard
+     of everything else on that edge. */
+  padding: 0.75rem 0.3rem 0.4rem var(--g-space-md);
   background: var(--g-surface);
   flex: none;
 }
