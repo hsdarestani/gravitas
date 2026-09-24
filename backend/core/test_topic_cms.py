@@ -41,10 +41,23 @@ class TopicCmsTests(TestCase):
                 {'label': 'B', 'text': 'Second'},
                 {'label': 'C', 'text': 'Third'},
             ],
-            'poll_question': 'Choose',
-            'poll_options': [
-                {'id': f'option-{index}', 'label': f'Option {index}'}
-                for index in range(25)
+            'polls': [
+                {
+                    'id': 'poll-a',
+                    'question': 'Choose A',
+                    'options': [
+                        {'id': f'option-{index}', 'label': f'Option {index}'}
+                        for index in range(25)
+                    ],
+                },
+                {
+                    'id': 'poll-b',
+                    'question': 'Choose B',
+                    'options': [
+                        {'id': 'yes', 'label': 'Yes'},
+                        {'id': 'no', 'label': 'No'},
+                    ],
+                },
             ],
         }
         self.topic.topic_data = data
@@ -60,9 +73,13 @@ class TopicCmsTests(TestCase):
         self.assertTrue(topic_applicability(self.topic)['video'])
         self.assertTrue(topic_applicability(self.topic)['simulation'])
 
-        poll = self.client.get(f'/api/content/{self.topic.slug}/poll/')
-        self.assertEqual(poll.status_code, 200)
-        self.assertEqual(len(poll.json()['poll']['options']), 25)
+        first_poll = self.client.get(f'/api/content/{self.topic.slug}/poll/?poll_id=poll-a')
+        self.assertEqual(first_poll.status_code, 200)
+        self.assertEqual(len(first_poll.json()['poll']['options']), 25)
+        second_poll = self.client.get(f'/api/content/{self.topic.slug}/poll/?poll_id=poll-b')
+        self.assertEqual(second_poll.status_code, 200)
+        self.assertEqual(len(second_poll.json()['poll']['options']), 2)
+        self.assertTrue(topic_applicability(self.topic)['vote'])
 
     def test_anonymous_poll_vote_is_session_scoped(self):
         option = self.topic.topic_data['viewpoints']['poll_options'][0]['id']
@@ -74,6 +91,35 @@ class TopicCmsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['poll']['selected'], option)
         self.assertEqual(TopicPollVote.objects.filter(topic=self.topic).count(), 1)
+
+    def test_same_session_can_vote_in_multiple_polls(self):
+        data = dict(self.topic.topic_data)
+        data['viewpoints'] = {
+            'polls': [
+                {'id': 'first', 'question': 'First?', 'options': [{'id': 'a', 'label': 'A'}]},
+                {'id': 'second', 'question': 'Second?', 'options': [{'id': 'b', 'label': 'B'}]},
+            ],
+        }
+        self.topic.topic_data = data
+        self.topic.save(update_fields=['topic_data'])
+
+        one = self.client.post(
+            f'/api/content/{self.topic.slug}/poll/',
+            data=json.dumps({'poll_id': 'first', 'option_id': 'a'}),
+            content_type='application/json',
+        )
+        two = self.client.post(
+            f'/api/content/{self.topic.slug}/poll/',
+            data=json.dumps({'poll_id': 'second', 'option_id': 'b'}),
+            content_type='application/json',
+        )
+        self.assertEqual(one.status_code, 200)
+        self.assertEqual(two.status_code, 200)
+        self.assertEqual(TopicPollVote.objects.filter(topic=self.topic).count(), 2)
+        self.assertEqual(
+            set(TopicPollVote.objects.filter(topic=self.topic).values_list('poll_id', flat=True)),
+            {'first', 'second'},
+        )
 
     def test_reply_and_like(self):
         User = get_user_model()
