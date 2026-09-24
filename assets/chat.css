@@ -20,13 +20,15 @@
    six inches apart, which makes a reader stop and choose. Now the launcher
    simply gets out of the way, and the panel's own close is the only close.
    It stays in the layout while hidden, because the panel is anchored to it. */
-/* A circle holding the mark, no label. The pill with "Ask Pulsar" beside the
-   mark spent a strip of every page on a name the panel already carries in
-   its header, the moment it opens. */
+/* At rest a circle holding the mark. Under the pointer, or with keyboard
+   focus, the name unrolls to its left and the circle becomes the pill it
+   used to be all the time. The padding is what makes the resting shape a
+   circle: (3.25 - 1.5) / 2 either side of a 1.5rem mark and a zero-width
+   label. Only a click opens the panel (chat.js). */
 .gchat__btn {
-  display: inline-grid; place-items: center;
-  width: 3.25rem; height: 3.25rem; padding: 0;
-  border-radius: 50%;
+  display: inline-flex; align-items: center;
+  height: 3.25rem; padding: 0 0.875rem;
+  border-radius: var(--g-radius-pill);
   border: 1px solid var(--g-solid-bg);
   background: var(--g-solid-bg); color: var(--g-solid-fg);
   font-size: var(--g-fs-small); font-weight: var(--g-w-semibold); line-height: 1;
@@ -38,7 +40,32 @@
               visibility 0s linear 0s;
 }
 .gchat__btn:hover { transform: translateY(-2px); }
-.gchat__btn .gchat__spark { width: 1.5rem; height: 1.5rem; display: block; }
+.gchat__btn .gchat__spark { width: 1.5rem; height: 1.5rem; display: block; flex: none; }
+/* The width animates through a 0fr → 1fr grid track rather than max-width,
+   so it runs to the text's real width in any language and at any font size
+   instead of to a guessed ceiling. The text fades a beat behind the width on
+   the way out and a beat after it on the way in, so letters are never seen
+   being cut by the edge. */
+.gchat__label {
+  display: grid; grid-template-columns: 0fr; overflow: hidden;
+  transition: grid-template-columns 260ms var(--g-ease-orbit),
+              margin-left 260ms var(--g-ease-orbit);
+}
+.gchat__label > span {
+  min-width: 0; white-space: nowrap; opacity: 0;
+  transition: opacity 120ms var(--g-ease-orbit);
+}
+.gchat__btn:hover .gchat__label,
+.gchat__btn:focus-visible .gchat__label {
+  grid-template-columns: 1fr; margin-left: 0.55rem;
+}
+.gchat__btn:hover .gchat__label > span,
+.gchat__btn:focus-visible .gchat__label > span {
+  opacity: 1; transition: opacity 180ms var(--g-ease-orbit) 90ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gchat__label, .gchat__label > span { transition: none; }
+}
 /* visibility has to be named in the transition list, not just given a delay in
    `transition-delay`, a delay on a property that isn't being transitioned is
    ignored, and the button would snap out of existence mid-fade. */

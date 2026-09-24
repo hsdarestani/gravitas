@@ -23,7 +23,7 @@
    lived bottom-left there and bottom-right everywhere else and behaved
    differently in each. Now there is one: the workspace loads this file and
    hands it a different ask() through window.GravitasChat.configure(), and
-   the launcher, the hover, the tabs and the minimize are the same thing
+   the launcher, the tabs and the minimize are the same thing
    wherever the reader meets them.
    ========================================================================= */
 (function () {
@@ -201,10 +201,10 @@
       '</form>' +
       '<p class="gchat__foot"></p>' +
     '</div>' +
-    // Closed, the launcher is the mark in a circle and nothing else; the name
-    // is on the panel it opens, and on aria-label for anyone who cannot see it.
-    '<button class="gchat__btn" type="button" aria-expanded="false" aria-controls="gchat-panel" aria-label="Ask Pulsar" title="Ask Pulsar">' +
-      ICON.spark +
+    // At rest, the launcher is the mark in a circle; the name unrolls beside it
+    // under the pointer (chat.css). aria-label carries it the whole time.
+    '<button class="gchat__btn" type="button" aria-expanded="false" aria-controls="gchat-panel" aria-label="Ask Pulsar">' +
+      ICON.spark + '<span class="gchat__label" aria-hidden="true"><span>Ask Pulsar</span></span>' +
     '</button>';
   document.body.appendChild(root);
 
@@ -591,71 +591,36 @@
   }
 
   /* ---- Open / minimize ---------------------------------------------------
-     On a mouse, resting on the launcher opens the panel. Opened that way it is
-     a preview: moving the pointer away folds it back, unless the reader has
-     clicked or typed in it, at which point it is theirs and stays until they
-     minimize it. That keeps hover from ever throwing away something the
-     reader was in the middle of, and keeps a pointer that merely crossed the
-     corner from leaving a panel over the page. Touch has no hover, so there a
-     tap opens it, as before. */
-  var HOVER = window.matchMedia('(hover: hover) and (pointer: fine)');
-  var preview = false;
-  var armed = true;
-  var enterTimer = 0;
-  var leaveTimer = 0;
-
+     Only a click opens the panel. Resting the pointer on the launcher used to
+     open it as a preview that folded back when the pointer left; now hover only
+     unrolls the name beside the mark (chat.css), and the panel waits to be
+     asked for. A pointer crossing the corner on its way somewhere else never
+     puts a panel over the page. */
   function isOpen() { return root.classList.contains('is-open'); }
 
-  function setOpen(open, how) {
-    clearTimeout(enterTimer);
-    clearTimeout(leaveTimer);
+  function setOpen(open) {
     if (open) {
-      if (isOpen()) {
-        if (how !== 'hover') preview = false;
-      } else {
-        preview = how === 'hover';
+      if (!isOpen()) {
         root.classList.add('is-open');
         launcher.setAttribute('aria-expanded', 'true');
         current().unread = false;
         render();
       }
-      // A preview does not take focus: the reader has not asked to type, and
-      // taking focus from the page on a pointer pass would be theft. Not on
-      // touch either, where focusing summons the keyboard over the panel
+      // Not on touch, where focusing summons the keyboard over the panel
       // before the reader has seen what it says.
-      if (how !== 'hover' && window.matchMedia('(pointer: fine)').matches) input.focus();
+      if (window.matchMedia('(pointer: fine)').matches) input.focus();
       return;
     }
     if (!isOpen()) return;
     var hadFocus = root.contains(document.activeElement);
-    preview = false;
     root.classList.remove('is-open');
     launcher.setAttribute('aria-expanded', 'false');
-    // The launcher reappears under a pointer that is still in the corner;
-    // without this, the next twitch of the mouse would open it again.
-    armed = !root.matches(':hover');
     // The launcher fades back in over ~200ms; focusing it before it is
     // visible puts the focus ring on something the reader cannot see.
     if (hadFocus) setTimeout(function () { launcher.focus(); }, 210);
   }
 
-  function engage() { preview = false; clearTimeout(leaveTimer); }
-
-  launcher.addEventListener('click', function () { setOpen(true, 'click'); });
-  launcher.addEventListener('mouseenter', function () {
-    if (!HOVER.matches || !armed || isOpen()) return;
-    enterTimer = setTimeout(function () { setOpen(true, 'hover'); }, 140);
-  });
-  launcher.addEventListener('mouseleave', function () { clearTimeout(enterTimer); });
-  root.addEventListener('mouseenter', function () { clearTimeout(leaveTimer); });
-  root.addEventListener('mouseleave', function () {
-    armed = true;
-    clearTimeout(enterTimer);
-    if (!preview) return;
-    leaveTimer = setTimeout(function () { if (preview) setOpen(false); }, 450);
-  });
-  panel.addEventListener('pointerdown', engage);
-  panel.addEventListener('focusin', engage);
+  launcher.addEventListener('click', function () { setOpen(true); });
 
   root.querySelector('.gchat__min').addEventListener('click', function () { setOpen(false); });
   newBtn.addEventListener('click', addTab);
