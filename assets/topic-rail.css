@@ -137,6 +137,9 @@
   scrollbar-width: none;
 }
 .trail__rail::-webkit-scrollbar { width: 0; height: 0; }
+/* While topic-rail.js pages the rail, snapping is off so Firefox cannot
+   re-aim a smooth scroll mid-flight; the target is a snap point anyway. */
+.trail__rail.is-paging { scroll-snap-type: none; }
 
 .trail__panel {
   flex: 0 0 auto;

@@ -64,18 +64,30 @@
   var AUTO_EVERY = 5200;
 
   var index = -1;
+  var heading = -1;      /* the panel a programmatic scroll is bound for */
+  var settle = 0;
   var lockedUntil = 0;
   var queued = false;
   var engaged = false;   /* pointer over the stage, or focus inside it */
   var onScreen = false;
   var timer = 0;
 
-  function offsetOf(panel) {
-    return panel.offsetLeft - panels[0].offsetLeft;
-  }
-
   function maxScroll() {
     return Math.max(0, rail.scrollWidth - rail.clientWidth);
+  }
+
+  /* The scrollLeft at which the panel actually snaps: its start less the
+     rail's scroll-padding, clamped to what the rail can scroll. This used to
+     be the panel's bare offsetLeft, which is scroll-padding past the snap
+     point. Chrome settles that on the nearest snap point; Firefox resolves it
+     in the direction of travel, so a step overshot to the panel after or
+     bounced back, and the rail never moved one panel at a time. Asking for
+     the snap point itself leaves the snap engine nothing to decide. */
+  function snapLeft(panel) {
+    var pad = parseFloat(getComputedStyle(rail).scrollPaddingLeft) || 0;
+    var x = panel.getBoundingClientRect().left - rail.getBoundingClientRect().left
+      - rail.clientLeft + rail.scrollLeft - pad;
+    return Math.round(Math.min(maxScroll(), Math.max(0, x)));
   }
 
   /* The panel whose start the rail is closest to having reached. The 48px of
@@ -88,7 +100,7 @@
     if (x >= maxScroll() - 1) return panels.length - 1;
     var best = 0;
     for (var i = 0; i < panels.length; i++) {
-      if (offsetOf(panels[i]) <= x + 48) best = i;
+      if (snapLeft(panels[i]) <= x + 48) best = i;
     }
     return best;
   }
@@ -109,10 +121,28 @@
     setIndex(nearest(rail.scrollLeft));
   }
 
+  /* Snapping is off for the length of a programmatic scroll and back on once
+     it lands. Firefox re-evaluates mandatory snapping while a smooth scrollTo
+     is still running and can steer it to another snap point mid-flight; with
+     snapping off the rail goes exactly where it was sent, and since that is a
+     snap point, turning snapping back on moves nothing. */
+  function landed() {
+    window.clearTimeout(settle);
+    settle = 0;
+    heading = -1;
+    rail.classList.remove('is-paging');
+  }
+
   function goTo(i) {
     var panel = panels[i];
     if (!panel) return;
-    rail.scrollTo({ left: offsetOf(panel), behavior: reduce.matches ? 'auto' : 'smooth' });
+    heading = i;
+    rail.classList.add('is-paging');
+    rail.scrollTo({ left: snapLeft(panel), behavior: reduce.matches ? 'auto' : 'smooth' });
+    /* scrollend never fires when the rail was already there, or in a browser
+       without it; this is the backstop, and each new step pushes it out. */
+    window.clearTimeout(settle);
+    settle = window.setTimeout(landed, 1200);
   }
 
   /* Autoplay ------------------------------------------------------------- */
@@ -154,7 +184,12 @@
     var now = Date.now();
     if (now < lockedUntil) return;
     lockedUntil = now + STEP_LOCK;
-    goTo(Math.min(panels.length - 1, Math.max(0, index + (down ? 1 : -1))));
+    /* Count from where the rail is going, not where it is: Firefox's smooth
+       scroll outlasts the lock, and stepping from the panel still under the
+       edge sent the next notch to the panel the last one was already bound
+       for, so the rail stalled or went back. */
+    var from = heading >= 0 ? heading : index;
+    goTo(Math.min(panels.length - 1, Math.max(0, from + (down ? 1 : -1))));
     restartAuto();
   }
 
@@ -165,6 +200,8 @@
     queued = true;
     window.requestAnimationFrame(function () { queued = false; update(); });
   }, { passive: true });
+
+  rail.addEventListener('scrollend', function () { if (heading >= 0) landed(); });
 
   rail.addEventListener('wheel', onWheel, { passive: false });
 
