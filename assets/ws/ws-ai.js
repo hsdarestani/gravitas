@@ -46,7 +46,7 @@ export function installAssistant(ctx) {
   context = ctx;
   if (!first) return;
   withChat((chat) => chat.configure({
-    title: 'Pulsar',
+    title: 'Ask Pulsar',
     greeting: 'Ask across your pages. Answers cite the pages they came from, so you can check them. Try asking what is still open on a dossier.',
     openers: ['What is still open on my dossiers?', 'What should I do first today?'],
     placeholder: 'Ask Pulsar about these pages',

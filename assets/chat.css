@@ -20,10 +20,13 @@
    six inches apart, which makes a reader stop and choose. Now the launcher
    simply gets out of the way, and the panel's own close is the only close.
    It stays in the layout while hidden, because the panel is anchored to it. */
+/* A circle holding the mark, no label. The pill with "Ask Pulsar" beside the
+   mark spent a strip of every page on a name the panel already carries in
+   its header, the moment it opens. */
 .gchat__btn {
-  display: inline-flex; align-items: center; gap: 0.55rem;
-  height: 3.25rem; padding: 0 1.25rem 0 1.1rem;
-  border-radius: var(--g-radius-pill);
+  display: inline-grid; place-items: center;
+  width: 3.25rem; height: 3.25rem; padding: 0;
+  border-radius: 50%;
   border: 1px solid var(--g-solid-bg);
   background: var(--g-solid-bg); color: var(--g-solid-fg);
   font-size: var(--g-fs-small); font-weight: var(--g-w-semibold); line-height: 1;
@@ -35,7 +38,7 @@
               visibility 0s linear 0s;
 }
 .gchat__btn:hover { transform: translateY(-2px); }
-.gchat__btn .gchat__spark { width: 1.3rem; height: 1.3rem; flex: none; }
+.gchat__btn .gchat__spark { width: 1.5rem; height: 1.5rem; display: block; }
 /* visibility has to be named in the transition list, not just given a delay in
    `transition-delay`, a delay on a property that isn't being transitioned is
    ignored, and the button would snap out of existence mid-fade. */
@@ -44,12 +47,6 @@
   transition: transform 160ms var(--g-ease-orbit),
               opacity 160ms var(--g-ease-orbit),
               visibility 0s linear 160ms;
-}
-@media (max-width: 560px) {
-  /* On a phone the label costs a third of the thumb zone for no information -
-     the mark already reads as "the assistant". */
-  .gchat__btn { width: 3.25rem; padding: 0; justify-content: center; }
-  .gchat__btn span { display: none; }
 }
 
 /* ---- Panel --------------------------------------------------------------
