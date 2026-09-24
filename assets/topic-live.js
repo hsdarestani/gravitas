@@ -99,55 +99,76 @@
       body + '</section>';
   }
 
-  function renderVideo(data) {
-    var video = data.video || {};
-    var media = '<div class="video topic-video-placeholder" aria-label="Video not published yet">' +
-      '<span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>';
-    if (video.source_type === 'youtube' && safeUrl(video.youtube_url)) {
-      var id = youtubeId(video.youtube_url);
-      if (id) {
-        media = '<div class="topic-media"><iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) +
-          '" title="Topic video" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>';
-      }
-    } else if (video.source_type === 'self_hosted' && safeUrl(video.self_hosted_url)) {
-      media = '<div class="topic-media"><video controls preload="metadata" src="' + esc(safeUrl(video.self_hosted_url)) + '"></video></div>';
-    }
-    var meta = [];
-    if (video.duration) meta.push('<dt>Runtime</dt><dd>' + esc(video.duration) + '</dd>');
-    if (video.companion_label) {
-      var companion = safeUrl(video.companion_url);
-      meta.push('<dt>Companion</dt><dd>' + (companion ? '<a href="' + esc(companion) + '">' + esc(video.companion_label) + '</a>' : esc(video.companion_label)) + '</dd>');
-    }
-    if (video.transcript_label) {
-      var transcript = safeUrl(video.transcript_url);
-      meta.push('<dt>Transcript</dt><dd>' + (transcript ? '<a href="' + esc(transcript) + '">' + esc(video.transcript_label) + '</a>' : '<span class="g-subtle">' + esc(video.transcript_label) + '</span>') + '</dd>');
-    }
-    if (video.info) meta.push('<dt>Info</dt><dd>' + esc(video.info) + '</dd>');
-    return section('01', 'video', 'The Video',
-      '<div class="split">' + media + '<div>' +
-      (video.description ? '<p class="g-muted" style="font-size:var(--g-fs-small)">' + esc(video.description) + '</p>' : '') +
-      (meta.length ? '<dl class="kv g-mt-md">' + meta.join('') + '</dl>' : '') +
-      '</div></div>');
+  function topicObjects(data, pluralKey, singularKey) {
+    var rows = data && data[pluralKey];
+    if (Array.isArray(rows)) return rows.filter(function (row) { return row && typeof row === 'object'; });
+    var row = data && data[singularKey];
+    return row && typeof row === 'object' && Object.keys(row).length ? [row] : [];
   }
 
-  function renderEssay(data) {
-    var essay = data.essay || {};
-    var image = safeUrl(essay.image_url);
-    var aside = '';
-    if (essay.aside_title || essay.aside_text) {
-      aside = '<aside class="aside"><div class="callout"><h4>' + esc(essay.aside_title || 'Try It Yourself') + '</h4><p>' +
-        (essay.aside_text ? esc(essay.aside_text) : '') + '</p></div></aside>';
-    }
-    var article = '<div class="depthbar"><p class="depthbar__note">This essay reads two ways. Pick one.</p>' +
-      '<div class="depth" role="group" aria-label="Reading depth">' +
-      '<button type="button" data-topic-depth="overview" aria-pressed="true">Overview</button>' +
-      '<button type="button" data-topic-depth="indepth" aria-pressed="false">In depth</button></div></div>' +
-      (image ? '<figure class="topic-essay-image"><img src="' + esc(image) + '" alt="' + esc(essay.image_alt || '') + '"></figure>' : '') +
-      '<div class="' + (aside ? 'split' : '') + '"><article class="g-prose topic-essay-copy">' +
-      '<div data-topic-level="overview">' + safeRichHtml(essay.overview_html || '<p>No overview has been published yet.</p>') + '</div>' +
-      '<div data-topic-level="indepth" hidden>' + safeRichHtml(essay.indepth_html || '<p>No in-depth version has been published yet.</p>') + '</div>' +
-      '</article>' + aside + '</div>';
-    return section('02', 'essay', 'The Essay', article);
+  function renderVideos(data) {
+    var rows = topicObjects(data, 'videos', 'video');
+    if (!rows.length) rows = [{}];
+    var html = '<div class="topic-live__collection">';
+    rows.forEach(function (video, index) {
+      var media = '<div class="video topic-video-placeholder" aria-label="Video not published yet">' +
+        '<span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>';
+      if (video.source_type === 'youtube' && safeUrl(video.youtube_url)) {
+        var id = youtubeId(video.youtube_url);
+        if (id) {
+          media = '<div class="topic-media"><iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) +
+            '" title="' + esc(video.title || ('Topic video ' + (index + 1))) + '" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>';
+        }
+      } else if (video.source_type === 'self_hosted' && safeUrl(video.self_hosted_url)) {
+        media = '<div class="topic-media"><video controls preload="metadata" src="' + esc(safeUrl(video.self_hosted_url)) + '"></video></div>';
+      }
+      var meta = [];
+      if (video.duration) meta.push('<dt>Runtime</dt><dd>' + esc(video.duration) + '</dd>');
+      if (video.companion_label) {
+        var companion = safeUrl(video.companion_url);
+        meta.push('<dt>Companion</dt><dd>' + (companion ? '<a href="' + esc(companion) + '">' + esc(video.companion_label) + '</a>' : esc(video.companion_label)) + '</dd>');
+      }
+      if (video.transcript_label) {
+        var transcript = safeUrl(video.transcript_url);
+        meta.push('<dt>Transcript</dt><dd>' + (transcript ? '<a href="' + esc(transcript) + '">' + esc(video.transcript_label) + '</a>' : '<span class="g-subtle">' + esc(video.transcript_label) + '</span>') + '</dd>');
+      }
+      if (video.info) meta.push('<dt>Info</dt><dd>' + esc(video.info) + '</dd>');
+      html += '<article class="topic-live__item topic-video-item">' +
+        (video.title ? '<h3 class="topic-live__item-title">' + esc(video.title) + '</h3>' : '') +
+        '<div class="split">' + media + '<div>' +
+        (video.description ? '<p class="g-muted" style="font-size:var(--g-fs-small)">' + esc(video.description) + '</p>' : '') +
+        (meta.length ? '<dl class="kv g-mt-md">' + meta.join('') + '</dl>' : '') +
+        '</div></div></article>';
+    });
+    html += '</div>';
+    return section('01', 'video', rows.length === 1 ? 'The Video' : 'Videos', html);
+  }
+
+  function renderEssays(data) {
+    var rows = topicObjects(data, 'essays', 'essay');
+    if (!rows.length) rows = [{}];
+    var html = '<div class="topic-live__collection">';
+    rows.forEach(function (essay, index) {
+      var image = safeUrl(essay.image_url);
+      var aside = '';
+      if (essay.aside_title || essay.aside_text) {
+        aside = '<aside class="aside"><div class="callout"><h4>' + esc(essay.aside_title || 'Try It Yourself') + '</h4><p>' +
+          (essay.aside_text ? esc(essay.aside_text) : '') + '</p></div></aside>';
+      }
+      html += '<article class="topic-live__item topic-essay-item" data-topic-essay>' +
+        (essay.title ? '<h3 class="topic-live__item-title">' + esc(essay.title) + '</h3>' : '') +
+        '<div class="depthbar"><p class="depthbar__note">This essay reads two ways. Pick one.</p>' +
+        '<div class="depth" role="group" aria-label="Reading depth for essay ' + esc(index + 1) + '">' +
+        '<button type="button" data-topic-depth="overview" aria-pressed="true">Overview</button>' +
+        '<button type="button" data-topic-depth="indepth" aria-pressed="false">In depth</button></div></div>' +
+        (image ? '<figure class="topic-essay-image"><img src="' + esc(image) + '" alt="' + esc(essay.image_alt || '') + '"></figure>' : '') +
+        '<div class="' + (aside ? 'split' : '') + '"><div class="g-prose topic-essay-copy">' +
+        '<div data-topic-level="overview">' + safeRichHtml(essay.overview_html || '<p>No overview has been published yet.</p>') + '</div>' +
+        '<div data-topic-level="indepth" hidden>' + safeRichHtml(essay.indepth_html || '<p>No in-depth version has been published yet.</p>') + '</div>' +
+        '</div>' + aside + '</div></article>';
+    });
+    html += '</div>';
+    return section('02', 'essay', rows.length === 1 ? 'The Essay' : 'Essays', html);
   }
 
   function renderSources(data) {
@@ -209,128 +230,149 @@
       raw.replace(/<\/script/gi, '<\\/script') + '<\/script>';
   }
 
-  function renderSimulation(data) {
-    var sim = data.simulation || {};
-    if (sim.builtin === 'lorenz' && !String(sim.code || '').trim()) {
-      return section('05', 'sim', sim.title || 'The Simulation',
-        (sim.description ? '<p class="g-muted topic-section-intro" style="font-size:var(--g-fs-small);margin-bottom:var(--g-space-md)">' + esc(sim.description) + '</p>' : '') +
-        '<div class="play" data-native-simulation="lorenz">' +
-          '<div class="play__bar">' +
-            '<label for="eps" style="display:flex;align-items:center;gap:.6rem">Initial difference ' +
-              '<input id="eps" type="range" min="-12" max="-1" value="-6" step="1" style="width:11rem"> ' +
-              '<b id="epsv" class="g-mono">1e-6</b></label>' +
-            '<span>Divergence at <b id="tdiv" class="g-mono">–</b></span>' +
-            '<button class="g-btn g-btn--ghost g-btn--sm" id="simreset" type="button">Restart</button>' +
-          '</div>' +
-          '<div class="play__body play__body--fig"><canvas id="lorenz" style="width:100%;height:340px;display:block"></canvas></div>' +
-        '</div>');
-    }
-    var doc = simulationDocument(sim.code);
-    var frame = doc
-      ? '<iframe class="topic-simulation__frame" sandbox="allow-scripts" title="Topic simulation"></iframe>'
-      : '<div class="topic-simulation__empty">Simulation code has not been published yet.</div>';
-    return section('05', 'sim', sim.title || 'The Simulation',
-      (sim.description ? '<p class="g-muted topic-section-intro">' + esc(sim.description) + '</p>' : '') +
-      '<div class="topic-simulation" data-simulation-src="' + esc(doc) + '">' + frame + '</div>');
+  function renderSimulations(data) {
+    var rows = topicObjects(data, 'simulations', 'simulation');
+    if (!rows.length) rows = [{}];
+    var html = '<div class="topic-live__collection">';
+    rows.forEach(function (sim) {
+      var body = '';
+      if (sim.builtin === 'lorenz' && !String(sim.code || '').trim()) {
+        body =
+          '<div class="play" data-native-simulation="lorenz">' +
+            '<div class="play__bar">' +
+              '<label style="display:flex;align-items:center;gap:.6rem">Initial difference ' +
+                '<input data-lorenz-eps type="range" min="-12" max="-1" value="-6" step="1" style="width:11rem"> ' +
+                '<b data-lorenz-epsv class="g-mono">1e-6</b></label>' +
+              '<span>Divergence at <b data-lorenz-tdiv class="g-mono">–</b></span>' +
+              '<button class="g-btn g-btn--ghost g-btn--sm" data-lorenz-reset type="button">Restart</button>' +
+            '</div>' +
+            '<div class="play__body play__body--fig"><canvas data-lorenz-canvas style="width:100%;height:340px;display:block"></canvas></div>' +
+          '</div>';
+      } else {
+        var doc = simulationDocument(sim.code);
+        var frame = doc
+          ? '<iframe class="topic-simulation__frame" sandbox="allow-scripts" title="Topic simulation"></iframe>'
+          : '<div class="topic-simulation__empty">Simulation code has not been published yet.</div>';
+        body = '<div class="topic-simulation" data-simulation-src="' + esc(doc) + '">' + frame + '</div>';
+      }
+      html += '<article class="topic-live__item topic-simulation-item">' +
+        '<h3 class="topic-live__item-title">' + esc(sim.title || 'The Simulation') + '</h3>' +
+        (sim.description ? '<p class="g-muted topic-section-intro">' + esc(sim.description) + '</p>' : '') +
+        body + '</article>';
+    });
+    html += '</div>';
+    return section('05', 'sim', rows.length === 1 ? (rows[0].title || 'The Simulation') : 'Simulations', html);
   }
 
   function initLorenzSimulation() {
-    var cv = document.getElementById('lorenz');
-    if (!cv || cv.dataset.ready === '1') return;
-    cv.dataset.ready = '1';
-    var ctx = cv.getContext('2d'), W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var eps = document.getElementById('eps'), epsv = document.getElementById('epsv'),
-      tdiv = document.getElementById('tdiv'), reset = document.getElementById('simreset');
-    if (!eps || !epsv || !tdiv || !reset) return;
-    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var EXT = {x0:-21, x1:21, z0:3, z1:48};
-    var VIEW = {sc:1, ox:0, oy:0};
+    document.querySelectorAll('[data-native-simulation="lorenz"]').forEach(function (host) {
+      var cv = host.querySelector('[data-lorenz-canvas]');
+      if (!cv || cv.dataset.ready === '1') return;
+      cv.dataset.ready = '1';
+      var ctx = cv.getContext('2d'), W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var eps = host.querySelector('[data-lorenz-eps]'), epsv = host.querySelector('[data-lorenz-epsv]'),
+        tdiv = host.querySelector('[data-lorenz-tdiv]'), reset = host.querySelector('[data-lorenz-reset]');
+      if (!eps || !epsv || !tdiv || !reset) return;
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var EXT = {x0:-21, x1:21, z0:3, z1:48};
+      var VIEW = {sc:1, ox:0, oy:0};
 
-    function fitView() {
-      var pad = 16;
-      var sc = Math.min((W - pad * 2) / (EXT.x1 - EXT.x0), (H - pad * 2) / (EXT.z1 - EXT.z0));
-      VIEW.sc = sc;
-      VIEW.ox = W / 2 - ((EXT.x0 + EXT.x1) / 2) * sc;
-      VIEW.oy = H / 2 + ((EXT.z0 + EXT.z1) / 2) * sc;
-    }
-    function size() {
-      var rect = cv.getBoundingClientRect();
-      W = rect.width; H = rect.height;
-      cv.width = Math.max(1, Math.round(W * dpr));
-      cv.height = Math.max(1, Math.round(H * dpr));
-      ctx.setTransform(dpr,0,0,dpr,0,0);
-      fitView();
-    }
-    size();
-    window.addEventListener('resize', size);
+      function fitView() {
+        var pad = 16;
+        var sc = Math.min((W - pad * 2) / (EXT.x1 - EXT.x0), (H - pad * 2) / (EXT.z1 - EXT.z0));
+        VIEW.sc = sc;
+        VIEW.ox = W / 2 - ((EXT.x0 + EXT.x1) / 2) * sc;
+        VIEW.oy = H / 2 + ((EXT.z0 + EXT.z1) / 2) * sc;
+      }
+      function size() {
+        var rect = cv.getBoundingClientRect();
+        W = rect.width; H = rect.height;
+        cv.width = Math.max(1, Math.round(W * dpr));
+        cv.height = Math.max(1, Math.round(H * dpr));
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        fitView();
+      }
+      size();
+      window.addEventListener('resize', size);
 
-    var A, B, trailA, trailB, t, diverged;
-    function init() {
-      var e = Math.pow(10, +eps.value);
-      epsv.textContent = '1e' + eps.value;
-      A = [1,1,20]; B = [1+e,1,20]; trailA = []; trailB = []; t = 0; diverged = null;
-      tdiv.textContent = '–';
-    }
-    function step(s, dt) {
-      var x=s[0], y=s[1], z=s[2], S=10, R=28, Bq=8/3;
-      var k1=[S*(y-x), x*(R-z)-y, x*y-Bq*z];
-      var x2=x+k1[0]*dt/2, y2=y+k1[1]*dt/2, z2=z+k1[2]*dt/2;
-      var k2=[S*(y2-x2), x2*(R-z2)-y2, x2*y2-Bq*z2];
-      return [x+k2[0]*dt, y+k2[1]*dt, z+k2[2]*dt];
-    }
-    function draw() {
-      ctx.clearRect(0,0,W,H);
-      var sc=VIEW.sc, cx=VIEW.ox, cy=VIEW.oy;
-      function path(tr,col) {
-        ctx.beginPath();
-        for(var i=0;i<tr.length;i+=1) {
-          var p=tr[i], X=cx+p[0]*sc, Y=cy-p[2]*sc;
-          if(i) ctx.lineTo(X,Y); else ctx.moveTo(X,Y);
+      var A, B, trailA, trailB, t, diverged;
+      function init() {
+        var e = Math.pow(10, +eps.value);
+        epsv.textContent = '1e' + eps.value;
+        A = [1,1,20]; B = [1+e,1,20]; trailA = []; trailB = []; t = 0; diverged = null;
+        tdiv.textContent = '–';
+      }
+      function step(s, dt) {
+        var x=s[0], y=s[1], z=s[2], S=10, R=28, Bq=8/3;
+        var k1=[S*(y-x), x*(R-z)-y, x*y-Bq*z];
+        var x2=x+k1[0]*dt/2, y2=y+k1[1]*dt/2, z2=z+k1[2]*dt/2;
+        var k2=[S*(y2-x2), x2*(R-z2)-y2, x2*y2-Bq*z2];
+        return [x+k2[0]*dt, y+k2[1]*dt, z+k2[2]*dt];
+      }
+      function draw() {
+        ctx.clearRect(0,0,W,H);
+        var sc=VIEW.sc, cx=VIEW.ox, cy=VIEW.oy;
+        function path(tr,col) {
+          ctx.beginPath();
+          for(var i=0;i<tr.length;i+=1) {
+            var p=tr[i], X=cx+p[0]*sc, Y=cy-p[2]*sc;
+            if(i) ctx.lineTo(X,Y); else ctx.moveTo(X,Y);
+          }
+          ctx.strokeStyle=col; ctx.lineWidth=1.2; ctx.stroke();
         }
-        ctx.strokeStyle=col; ctx.lineWidth=1.2; ctx.stroke();
+        var inkA=window.gravitasInk?window.gravitasInk('body-a','241,239,236'):'241,239,236';
+        var inkB=window.gravitasInk?window.gravitasInk('body-b','212,201,190'):'212,201,190';
+        path(trailA,'rgba('+inkA+',.72)');
+        path(trailB,'rgba('+inkB+',.62)');
+        if(trailA.length) {
+          var p=trailA[trailA.length-1], q=trailB[trailB.length-1];
+          ctx.fillStyle='rgb('+inkA+')'; ctx.beginPath(); ctx.arc(cx+p[0]*sc,cy-p[2]*sc,2.6,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='rgb('+inkB+')'; ctx.beginPath(); ctx.arc(cx+q[0]*sc,cy-q[2]*sc,2.6,0,Math.PI*2); ctx.fill();
+        }
       }
-      var inkA=window.gravitasInk?window.gravitasInk('body-a','241,239,236'):'241,239,236';
-      var inkB=window.gravitasInk?window.gravitasInk('body-b','212,201,190'):'212,201,190';
-      path(trailA,'rgba('+inkA+',.72)');
-      path(trailB,'rgba('+inkB+',.62)');
-      if(trailA.length) {
-        var p=trailA[trailA.length-1], q=trailB[trailB.length-1];
-        ctx.fillStyle='rgb('+inkA+')'; ctx.beginPath(); ctx.arc(cx+p[0]*sc,cy-p[2]*sc,2.6,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='rgb('+inkB+')'; ctx.beginPath(); ctx.arc(cx+q[0]*sc,cy-q[2]*sc,2.6,0,Math.PI*2); ctx.fill();
-      }
-    }
-    function tick() {
-      if(!document.body.contains(cv)) return;
-      if(!reduce) {
-        for(var i=0;i<6;i+=1) {
-          A=step(A,.005); B=step(B,.005); t+=.005;
-          trailA.push(A.slice()); trailB.push(B.slice());
-          if(trailA.length>1400){trailA.shift();trailB.shift();}
-          if(diverged===null) {
-            var d=Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]);
-            if(d>1){diverged=t;tdiv.textContent='t = '+t.toFixed(1);}
+      function tick() {
+        if(!document.body.contains(cv)) return;
+        if(!reduce) {
+          for(var i=0;i<6;i+=1) {
+            A=step(A,.005); B=step(B,.005); t+=.005;
+            trailA.push(A.slice()); trailB.push(B.slice());
+            if(trailA.length>1400){trailA.shift();trailB.shift();}
+            if(diverged===null) {
+              var d=Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]);
+              if(d>1){diverged=t;tdiv.textContent='t = '+t.toFixed(1);}
+            }
           }
         }
+        draw();
+        window.requestAnimationFrame(tick);
       }
-      draw();
+      eps.addEventListener('input', init);
+      reset.addEventListener('click', init);
+      init();
       window.requestAnimationFrame(tick);
-    }
-    eps.addEventListener('input', init);
-    reset.addEventListener('click', init);
-    init();
-    window.requestAnimationFrame(tick);
+    });
   }
 
   function renderViewpoints(data) {
     var v = data.viewpoints || {};
+    var items = Array.isArray(v.items) ? v.items.filter(function (row) { return row && typeof row === 'object'; }) : [];
+    if (!items.length) {
+      if (v.left_label || v.left_text || v.left_cite) items.push({label: v.left_label || 'Viewpoint A', text: v.left_text || '', cite: v.left_cite || ''});
+      if (v.right_label || v.right_text || v.right_cite) items.push({label: v.right_label || 'Viewpoint B', text: v.right_text || '', cite: v.right_cite || ''});
+    }
     var intro = data.viewpoints_intro
       ? '<p class="g-muted topic-section-intro" style="font-size:var(--g-fs-small);margin-bottom:var(--g-space-md)">' + esc(data.viewpoints_intro) + '</p>'
       : '';
-    var html = intro + '<div class="views">' +
-      '<div class="view view--for"><p class="view__tag">' + esc(v.left_label || 'Viewpoint A') + '</p><p>' + esc(v.left_text || '') + '</p>' +
-        (v.left_cite ? '<cite>' + esc(v.left_cite) + '</cite>' : '') + '</div>' +
-      '<div class="view view--against"><p class="view__tag">' + esc(v.right_label || 'Viewpoint B') + '</p><p>' + esc(v.right_text || '') + '</p>' +
-        (v.right_cite ? '<cite>' + esc(v.right_cite) + '</cite>' : '') + '</div></div>' +
+    var cards = '<div class="views topic-viewpoints">';
+    items.forEach(function (item, index) {
+      cards += '<div class="view ' + (index % 2 ? 'view--against' : 'view--for') + '">' +
+        '<p class="view__tag">' + esc(item.label || ('Viewpoint ' + (index + 1))) + '</p>' +
+        '<p>' + esc(item.text || '') + '</p>' +
+        (item.cite ? '<cite>' + esc(item.cite) + '</cite>' : '') + '</div>';
+    });
+    if (!items.length) cards += '<p class="g-muted">No viewpoints have been published yet.</p>';
+    cards += '</div>';
+    var html = intro + cards +
       '<div class="topic-poll g-mt-lg" data-topic-poll><p class="g-eyebrow">' + esc(v.poll_question || 'Where do you land?') + '</p><div class="topic-poll__options"></div>' +
       (v.poll_note ? '<p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">' + esc(v.poll_note) + '</p>' : '') +
       '<p class="g-hint" data-poll-note></p></div>';
@@ -356,15 +398,17 @@
       '<div class="topic-nav"><div class="g-container"><nav class="topic-nav__row" aria-label="In this topic">' +
       '<a href="#video">Video</a><a href="#essay">Essay</a><a href="#sources">Sources</a><a href="#timeline">Timeline</a><a href="#sim">Simulation</a><a href="#views">Viewpoints</a><a href="#talk">Discussion</a>' +
       '</nav></div></div><div class="g-container">' +
-      renderVideo(data) + renderEssay(data) + renderSources(data) + renderTimeline(data) +
-      renderSimulation(data) + renderViewpoints(data) + renderDiscussion() + '</div>';
+      renderVideos(data) + renderEssays(data) + renderSources(data) + renderTimeline(data) +
+      renderSimulations(data) + renderViewpoints(data) + renderDiscussion() + '</div>';
 
     document.title = item.title + ' — Gravitas+';
     document.querySelectorAll('[data-topic-depth]').forEach(function (button) {
       button.addEventListener('click', function () {
         var depth = button.getAttribute('data-topic-depth');
-        document.querySelectorAll('[data-topic-depth]').forEach(function (b) { b.setAttribute('aria-pressed', b === button ? 'true' : 'false'); });
-        document.querySelectorAll('[data-topic-level]').forEach(function (node) { node.hidden = node.getAttribute('data-topic-level') !== depth; });
+        var essay = button.closest('[data-topic-essay]');
+        if (!essay) return;
+        essay.querySelectorAll('[data-topic-depth]').forEach(function (b) { b.setAttribute('aria-pressed', b === button ? 'true' : 'false'); });
+        essay.querySelectorAll('[data-topic-level]').forEach(function (node) { node.hidden = node.getAttribute('data-topic-level') !== depth; });
       });
     });
 
@@ -525,30 +569,37 @@
         var done = data.progress.done || {};
 
         if (applicable.video && !done.video) {
-          var video = document.querySelector('#video video');
-          var videoHost = document.querySelector('#video .topic-media, #video .video');
+          var videos = Array.prototype.slice.call(document.querySelectorAll('#video video'));
+          var videoHosts = Array.prototype.slice.call(document.querySelectorAll('#video .topic-media, #video .video'));
           var markedVideo = false;
           var finishVideo = function () {
             if (markedVideo) return;
             markedVideo = true;
             markProgress(slug, 'video');
           };
-          if (video) {
+          videos.forEach(function (video) {
             video.addEventListener('timeupdate', function () {
               if (video.currentTime >= Math.min(10, Math.max(3, (video.duration || 30) * .2))) finishVideo();
             });
-          } else if (videoHost && 'IntersectionObserver' in window) {
-            var timer = 0;
+          });
+          if (!videos.length && videoHosts.length && 'IntersectionObserver' in window) {
+            var timers = new Map();
             var observer = new IntersectionObserver(function (entries) {
               entries.forEach(function (entry) {
                 if (entry.isIntersecting && entry.intersectionRatio >= .55) {
-                  if (!timer) timer = window.setTimeout(function () { finishVideo(); observer.disconnect(); }, 10000);
-                } else if (timer) {
-                  window.clearTimeout(timer); timer = 0;
+                  if (!timers.has(entry.target)) {
+                    timers.set(entry.target, window.setTimeout(function () {
+                      finishVideo();
+                      observer.disconnect();
+                    }, 10000));
+                  }
+                } else if (timers.has(entry.target)) {
+                  window.clearTimeout(timers.get(entry.target));
+                  timers.delete(entry.target);
                 }
               });
             }, {threshold: [.55]});
-            observer.observe(videoHost);
+            videoHosts.forEach(function (host) { observer.observe(host); });
           }
         }
 
