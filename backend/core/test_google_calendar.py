@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from .google_calendar_api import (
     GOOGLE_CALENDAR_SCOPE,
+    GOOGLE_CALENDAR_LIST_SCOPE,
     GOOGLE_TASKS_SCOPE,
     decrypt_refresh_token,
     encrypt_refresh_token,
@@ -58,6 +59,7 @@ class GoogleCalendarIntegrationTests(TestCase):
         query = parse_qs(parsed.query)
         self.assertEqual(parsed.netloc, 'accounts.google.com')
         self.assertIn(GOOGLE_CALENDAR_SCOPE, query['scope'][0])
+        self.assertIn(GOOGLE_CALENDAR_LIST_SCOPE, query['scope'][0])
         self.assertIn(GOOGLE_TASKS_SCOPE, query['scope'][0])
         self.assertEqual(query['access_type'], ['offline'])
         self.assertEqual(query['prompt'], ['consent'])
@@ -84,7 +86,7 @@ class GoogleCalendarIntegrationTests(TestCase):
         token_response.json.return_value = {
             'access_token': 'access-token',
             'refresh_token': 'refresh-token',
-            'scope': f'{GOOGLE_CALENDAR_SCOPE} {GOOGLE_TASKS_SCOPE}',
+            'scope': f'{GOOGLE_CALENDAR_SCOPE} {GOOGLE_CALENDAR_LIST_SCOPE} {GOOGLE_TASKS_SCOPE}',
         }
         token_post.return_value = token_response
         info_response = Mock()
@@ -111,6 +113,7 @@ class GoogleCalendarIntegrationTests(TestCase):
             decrypt_refresh_token(connection.refresh_token_encrypted),
             'refresh-token',
         )
+        self.assertIn(GOOGLE_CALENDAR_LIST_SCOPE, connection.granted_scopes)
         self.assertIn(GOOGLE_TASKS_SCOPE, connection.granted_scopes)
 
     @patch('core.views.requests.get')
@@ -152,6 +155,7 @@ class GoogleCalendarIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         connection = GoogleCalendarConnection.objects.get(user=self.user)
         self.assertIn(GOOGLE_CALENDAR_SCOPE, connection.granted_scopes)
+        self.assertIn(GOOGLE_CALENDAR_LIST_SCOPE, connection.granted_scopes)
         self.assertIn(GOOGLE_TASKS_SCOPE, connection.granted_scopes)
 
     @patch('core.google_calendar_api.requests.post')
@@ -356,6 +360,36 @@ class GoogleCalendarIntegrationTests(TestCase):
 
     @patch('core.google_calendar_api.requests.get')
     @patch('core.google_calendar_api.requests.post')
+    def test_meetings_reject_other_calendars_when_gravitasplus_is_missing(self, post, get):
+        GoogleCalendarConnection.objects.create(
+            user=self.user,
+            google_email='calendar-owner@gmail.com',
+            refresh_token_encrypted=encrypt_refresh_token('refresh-token'),
+            granted_scopes=f'{GOOGLE_CALENDAR_SCOPE} {GOOGLE_CALENDAR_LIST_SCOPE} {GOOGLE_TASKS_SCOPE}',
+        )
+        token_response = Mock()
+        token_response.raise_for_status.return_value = None
+        token_response.json.return_value = {'access_token': 'fresh-access-token'}
+        post.return_value = token_response
+
+        calendar_list_response = Mock()
+        calendar_list_response.ok = True
+        calendar_list_response.status_code = 200
+        calendar_list_response.json.return_value = {
+            'items': [
+                {'id': 'primary-owner@gmail.com', 'summary': 'Hossein Darestani Farahani', 'primary': True},
+                {'id': 'personal@example.com', 'summary': 'Personal'},
+            ],
+        }
+        get.return_value = calendar_list_response
+
+        response = self.client.get('/api/calendar/google/events/', secure=True)
+        self.assertEqual(response.status_code, 502, response.content)
+        self.assertEqual(response.json()['error'], 'gravitas_calendar_not_found')
+        self.assertIn('GravitasPlus', response.json()['provider_message'])
+
+    @patch('core.google_calendar_api.requests.get')
+    @patch('core.google_calendar_api.requests.post')
     def test_google_calendar_events_can_store_shared_minutes(self, post, get):
         GoogleCalendarConnection.objects.create(
             user=self.user,
@@ -379,21 +413,41 @@ class GoogleCalendarIntegrationTests(TestCase):
             'end': {'dateTime': '2026-09-29T11:00:00+02:00'},
             'attendees': [{'email': 'one@example.com'}],
         }
+        calendar_list_response = Mock()
+        calendar_list_response.ok = True
+        calendar_list_response.status_code = 200
+        calendar_list_response.json.return_value = {
+            'items': [
+                {'id': 'primary-owner@gmail.com', 'summary': 'Hossein Darestani Farahani', 'primary': True},
+                {'id': 'gravitasplus@group.calendar.google.com', 'summary': 'GravitasPlus', 'accessRole': 'owner'},
+                {'id': 'personal@example.com', 'summary': 'Personal'},
+            ],
+        }
         event_response = Mock()
         event_response.ok = True
         event_response.status_code = 200
         event_response.json.return_value = {'items': [event]}
-        get.return_value = event_response
+        get.side_effect = [calendar_list_response, event_response]
 
         listing = self.client.get('/api/calendar/google/events/', secure=True)
         self.assertEqual(listing.status_code, 200, listing.content)
+        self.assertEqual(listing.json()['calendar_name'], 'GravitasPlus')
+        self.assertEqual(listing.json()['calendar_id'], 'gravitasplus@group.calendar.google.com')
         self.assertEqual(listing.json()['events'][0]['title'], 'Research review')
         self.assertIsNone(listing.json()['events'][0]['minute'])
+        connection = GoogleCalendarConnection.objects.get(user=self.user)
+        self.assertEqual(connection.calendar_id, 'gravitasplus@group.calendar.google.com')
+        event_list_call = get.call_args_list[1]
+        self.assertIn(
+            '/calendars/gravitasplus%40group.calendar.google.com/events',
+            event_list_call.args[0],
+        )
 
         single_response = Mock()
         single_response.ok = True
         single_response.status_code = 200
         single_response.json.return_value = event
+        get.side_effect = None
         get.return_value = single_response
 
         saved = self.client.post(
