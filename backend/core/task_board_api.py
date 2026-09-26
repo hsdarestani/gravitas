@@ -432,8 +432,6 @@ def task_board_detail(request, task_id):
         task.completed_at = None
 
     task.save()
-    from .google_calendar_api import sync_existing_task_links
-    sync_existing_task_links(task)
     task = _task_for(request, task.pk)[1]
     after = _task_json(task)
     changed = {
@@ -501,8 +499,6 @@ def task_board_move(request):
         for index, row_id in enumerate(ordered_ids, start=1):
             OperatingTask.objects.filter(pk=row_id, workspace=workspace, status=status).update(board_order=index * 100)
 
-    from .google_calendar_api import sync_existing_task_links
-    sync_existing_task_links(task)
     _log(request, task, 'task.moved', {'from_status': previous_status, 'to_status': status})
     return JsonResponse({'ok': True, 'task_id': task.pk, 'status': status, 'ordered_ids': ordered_ids})
 
