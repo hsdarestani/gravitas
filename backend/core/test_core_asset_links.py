@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -86,7 +88,8 @@ class CoreAssetLinkTests(TestCase):
 
 class CoreAssetLinkUiContractTests(TestCase):
     def test_assets_ui_exposes_file_and_link_actions(self):
-        source = open('assets/ws/ws-core-assets.js', encoding='utf-8').read()
+        root = Path(__file__).resolve().parents[2]
+        source = (root / 'assets' / 'ws' / 'ws-core-assets.js').read_text(encoding='utf-8')
         self.assertIn("'Upload files'", source)
         self.assertIn("'Add link'", source)
         self.assertIn("sourceUrl.type = 'url'", source)
