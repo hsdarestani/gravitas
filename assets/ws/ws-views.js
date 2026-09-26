@@ -394,9 +394,13 @@ export function renderCoreTasks(host, { go }) {
       const setTaskCalendarUi = () => {
         openCalendar.hidden = true;
         openCalendar.removeAttribute('href');
-        if (!taskCalendarState?.connected) {
-          calendarAction.textContent = 'Connect Google Calendar';
-          calendarNote.textContent = 'Connect your Google account once, then add this task to your own calendar.';
+        if (!taskCalendarState?.connected || !taskCalendarState?.tasks_scope_granted) {
+          calendarAction.textContent = taskCalendarState?.connected
+            ? 'Enable Google Tasks'
+            : 'Connect Google Calendar';
+          calendarNote.textContent = taskCalendarState?.connected
+            ? 'One reconnect is needed to grant Google Tasks access. The task will then appear in Google Calendar.'
+            : 'Connect your Google account once, then add this task as a native Google Task in your own calendar.';
           calendarAction.disabled = false;
           return;
         }
@@ -423,7 +427,7 @@ export function renderCoreTasks(host, { go }) {
         calendarNote.textContent = 'Checking Google Calendar…';
         try {
           taskCalendarState = await P.googleCalendarTaskStatus(task.id);
-          if (!taskCalendarState.connected) {
+          if (!taskCalendarState.connected || !taskCalendarState.tasks_scope_granted) {
             const next = `${location.pathname}?calendar_task=${encodeURIComponent(task.id)}`;
             location.href = `/api/calendar/google/connect/?next=${encodeURIComponent(next)}`;
             return;
@@ -436,9 +440,9 @@ export function renderCoreTasks(host, { go }) {
           const code = error?.data?.error || error?.message || '';
           calendarNote.textContent = code === 'calendar_reconnect_required'
             ? 'Google Calendar access expired. Connect again.'
-            : code === 'calendar_permission_denied'
-              ? 'Google Calendar permission was not granted.'
-              : code || 'Google Calendar sync failed.';
+            : code === 'calendar_permission_denied' || code === 'google_tasks_permission_required'
+              ? 'Google Tasks permission is required. Reconnect and approve Tasks access.'
+              : code || 'Google Task sync failed.';
           calendarAction.disabled = false;
         }
       });
