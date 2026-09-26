@@ -310,6 +310,52 @@ class GoogleCalendarIntegrationTests(TestCase):
 
     @patch('core.google_calendar_api.requests.get')
     @patch('core.google_calendar_api.requests.post')
+    def test_calendar_api_disabled_returns_project_and_enable_link(self, post, get):
+        GoogleCalendarConnection.objects.create(
+            user=self.user,
+            google_email='calendar-owner@gmail.com',
+            refresh_token_encrypted=encrypt_refresh_token('refresh-token'),
+            granted_scopes=f'{GOOGLE_CALENDAR_SCOPE} {GOOGLE_TASKS_SCOPE}',
+        )
+        token_response = Mock()
+        token_response.raise_for_status.return_value = None
+        token_response.json.return_value = {'access_token': 'fresh-access-token'}
+        post.return_value = token_response
+
+        disabled = Mock()
+        disabled.ok = False
+        disabled.status_code = 403
+        disabled.json.return_value = {
+            'error': {
+                'code': 403,
+                'message': (
+                    'Google Calendar API has not been used in project 123456789012 '
+                    'before or it is disabled.'
+                ),
+                'status': 'PERMISSION_DENIED',
+                'details': [{
+                    '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+                    'reason': 'SERVICE_DISABLED',
+                    'domain': 'googleapis.com',
+                    'metadata': {
+                        'consumer': 'projects/123456789012',
+                        'service': 'calendar-json.googleapis.com',
+                    },
+                }],
+            },
+        }
+        get.return_value = disabled
+
+        response = self.client.get('/api/calendar/google/events/', secure=True)
+        self.assertEqual(response.status_code, 502, response.content)
+        payload = response.json()
+        self.assertEqual(payload['error'], 'google_calendar_api_disabled')
+        self.assertEqual(payload['google_project_number'], '123456789012')
+        self.assertIn('calendar-json.googleapis.com', payload['setup_url'])
+        self.assertIn('project=123456789012', payload['setup_url'])
+
+    @patch('core.google_calendar_api.requests.get')
+    @patch('core.google_calendar_api.requests.post')
     def test_google_calendar_events_can_store_shared_minutes(self, post, get):
         GoogleCalendarConnection.objects.create(
             user=self.user,
