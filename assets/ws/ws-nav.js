@@ -85,6 +85,13 @@ export const CORE_SECTIONS = [
     match: under('/workspace/core/tasks'),
   },
   {
+    id: 'core-meetings',
+    label: 'Meetings',
+    icon: 'calendar',
+    path: '/workspace/core/meetings',
+    match: under('/workspace/core/meetings'),
+  },
+  {
     id: 'core-content',
     label: 'Content Pipeline',
     icon: 'content',
