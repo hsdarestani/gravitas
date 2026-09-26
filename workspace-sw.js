@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'gravitas-workspace-static-v9';
+const STATIC_CACHE = 'gravitas-workspace-static-v10';
 const SHELL = [
   '/workspace/',
   '/workspace.html',
@@ -9,6 +9,7 @@ const SHELL = [
   '/assets/ws/ws-member-lms.js',
   '/assets/ws/ws-platform.js',
   '/assets/ws/ws-meetings.js',
+  '/assets/ws/ws-core-assets.js',
   '/assets/ws/ws-math.js',
   '/assets/ws/ws-math.css',
   '/assets/gravitas-icons.js',

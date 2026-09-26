@@ -105,6 +105,8 @@ class CoreBlueprintContractTests(SimpleTestCase):
         self.assertIn("el('h1', 'ws-doc__title', 'Assets')", js)
         self.assertIn('Nextcloud sync active', js)
         self.assertIn("'Upload files'", js)
+        self.assertIn("'Add link'", js)
+        self.assertIn("sourceUrl.type = 'url'", js)
         self.assertNotIn("'What happens next'", js)
         self.assertNotIn("'Built-in blueprints'", js)
         self.assertNotIn("'Cut sections into tasks'", js)
