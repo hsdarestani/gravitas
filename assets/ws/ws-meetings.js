@@ -271,15 +271,32 @@ export async function renderCoreMeetings(host) {
       const alert = el('div', 'ws-alert');
       alert.append(el('p', 'ws-alert__title', 'Could not load Google Calendar'));
       const code = error?.data?.error || error?.message || '';
+      const project = error?.data?.google_project_number || '';
       const friendly = code === 'calendar_reconnect_required'
         ? 'Google Calendar access expired. Reconnect your account.'
-        : code === 'calendar_permission_denied'
-          ? 'Google did not allow Calendar access. Reconnect and approve Calendar permission.'
-          : 'The Calendar connection could not be read.';
+        : code === 'google_calendar_api_disabled'
+          ? 'Google Calendar API is disabled for the Google Cloud project used by Gravitas.'
+          : code === 'calendar_permission_required'
+            ? 'Calendar permission is missing. Reconnect Google and approve Calendar access.'
+            : code === 'calendar_permission_denied'
+              ? 'Google rejected the Calendar request.'
+              : 'The Calendar connection could not be read.';
       alert.append(el('p', null, friendly));
-      alert.append(button('Reconnect Google Calendar', () => {
+      if (project) {
+        alert.append(el('p', 'fl-muted', 'Google Cloud project number: ' + project));
+      }
+      const actions = el('div', 'task-card-dialog__actions');
+      if (error?.data?.setup_url) {
+        const enable = el('a', 'ws-btn ws-btn--solid', 'Enable Google Calendar API');
+        enable.href = error.data.setup_url;
+        enable.target = '_blank';
+        enable.rel = 'noopener noreferrer';
+        actions.append(enable);
+      }
+      actions.append(button('Reconnect Google Calendar', () => {
         location.href = '/api/calendar/google/connect/?next=' + encodeURIComponent('/workspace/core/meetings');
-      }, true));
+      }, !error?.data?.setup_url));
+      alert.append(actions);
       holder.append(alert);
       return;
     }
