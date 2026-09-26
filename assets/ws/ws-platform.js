@@ -299,6 +299,23 @@ export const googleCalendarStatus = (meetingId = '') => call(
 export const syncOperatingMeetingToGoogle = (meetingId) => call(
   `/calendar/google/meetings/${meetingId}/sync/`, { method: 'POST', body: {} }
 );
+export const googleCalendarEvents = () => call('/calendar/google/events/');
+export const googleCalendarTaskStatus = (taskId) => call(`/calendar/google/tasks/${taskId}/status/`);
+export const syncOperatingTaskToGoogle = (taskId) => call(
+  `/calendar/google/tasks/${taskId}/sync/`, { method: 'POST', body: {} }
+);
+export const saveGoogleCalendarMinute = (body) => call('/calendar/google/minutes/', { method: 'POST', body });
+export const googleCalendarMinuteAttachments = (minuteId) => call(
+  `/calendar/google/minutes/${minuteId}/attachments/`
+);
+export const uploadGoogleCalendarMinuteAttachment = (minuteId, file) => {
+  const form = new FormData();
+  form.append('file', file);
+  return upload(`/calendar/google/minutes/${minuteId}/attachments/`, form);
+};
+export const deleteGoogleCalendarMinuteAttachment = (minuteId, attachmentId) => call(
+  `/calendar/google/minutes/${minuteId}/attachments/${attachmentId}/`, { method: 'DELETE' }
+);
 export const disconnectGoogleCalendar = () => call('/calendar/google/disconnect/', { method: 'DELETE' });
 export const operatingTaskBoard = () => call('/operating/task-board/');
 export const createOperatingTask = (body) => call('/operating/task-board/', { method: 'POST', body });
