@@ -254,7 +254,7 @@ export async function renderCoreMeetings(host) {
   const head = el('header', 'ws-doc__head');
   head.append(
     el('h1', 'ws-doc__title', 'Meetings'),
-    el('p', 'ws-doc__meta', 'Meetings come from your Google Calendar. Keep shared minutes, files and reference links in Gravitas+.'),
+    el('p', 'ws-doc__meta', 'Only meetings from your GravitasPlus Google Calendar appear here. Keep shared minutes, files and reference links in Gravitas+.'),
   );
   doc.append(head);
   const holder = el('div');
@@ -277,10 +277,12 @@ export async function renderCoreMeetings(host) {
         : code === 'google_calendar_api_disabled'
           ? 'Google Calendar API is disabled for the Google Cloud project used by Gravitas.'
           : code === 'calendar_permission_required'
-            ? 'Calendar permission is missing. Reconnect Google and approve Calendar access.'
-            : code === 'calendar_permission_denied'
-              ? 'Google rejected the Calendar request.'
-              : 'The Calendar connection could not be read.';
+            ? 'Reconnect Google once so Gravitas can find the GravitasPlus calendar in your calendar list.'
+            : code === 'gravitas_calendar_not_found'
+              ? 'The connected Google account does not have a calendar named GravitasPlus. Add or subscribe to that calendar, then reload.'
+              : code === 'calendar_permission_denied'
+                ? 'Google rejected the Calendar request.'
+                : 'The Calendar connection could not be read.';
       alert.append(el('p', null, friendly));
       if (project) {
         alert.append(el('p', 'fl-muted', 'Google Cloud project number: ' + project));
@@ -305,7 +307,7 @@ export async function renderCoreMeetings(host) {
       const empty = el('div', 'ws-empty');
       empty.append(
         el('p', 'ws-empty__title', 'Connect Google Calendar'),
-        el('p', 'ws-empty__body', 'Connect once to see your Calendar meetings here and keep their minutes in Gravitas+.'),
+        el('p', 'ws-empty__body', 'Connect once to show only the meetings from your GravitasPlus calendar and keep their minutes in Gravitas+.'),
         button('Connect Google Calendar', () => {
           location.href = '/api/calendar/google/connect/?next=' + encodeURIComponent('/workspace/core/meetings');
         }, true),
@@ -337,7 +339,8 @@ export async function renderCoreMeetings(host) {
     const search = el('input', 'v-input');
     search.type = 'search';
     search.placeholder = 'Search meetings';
-    const account = el('span', 'fl-muted', data.google_email ? 'Google Calendar · ' + data.google_email : 'Google Calendar connected');
+    const accountLabel = data.calendar_name || 'GravitasPlus';
+    const account = el('span', 'fl-muted', data.google_email ? accountLabel + ' · ' + data.google_email : accountLabel + ' connected');
     const reconnect = button('Reconnect', () => {
       location.href = '/api/calendar/google/connect/?next=' + encodeURIComponent('/workspace/core/meetings');
     });
