@@ -4,6 +4,7 @@ import os
 import re
 import uuid
 from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -43,6 +44,19 @@ def _safe_folder(value):
         if clean:
             out.append(clean[:120])
     return '/'.join(out)[:700]
+
+
+def _safe_source_url(value):
+    raw = str(value or '').strip()[:1600]
+    if not raw:
+        return ''
+    try:
+        parsed = urlparse(raw)
+    except (TypeError, ValueError):
+        return ''
+    if parsed.scheme.lower() not in {'http', 'https'} or not parsed.netloc:
+        return ''
+    return raw
 
 
 def _deny(request):
@@ -273,7 +287,8 @@ def core_assets(request):
     description = str(request.POST.get('description') or '').strip()
     folder_path = _safe_folder(request.POST.get('folder_path'))
     version_note = str(request.POST.get('version_note') or '').strip()[:500]
-    source_url = str(request.POST.get('source_url') or '').strip()[:1600]
+    raw_source_url = str(request.POST.get('source_url') or '').strip()
+    source_url = _safe_source_url(raw_source_url)
     uploaded = request.FILES.get('file')
 
     base = None
@@ -295,8 +310,10 @@ def core_assets(request):
         title = _safe_filename(uploaded.name)
     if not title:
         return JsonResponse({'ok': False, 'error': 'title_required'}, status=400)
-    if not uploaded and not source_url:
+    if not uploaded and not raw_source_url:
         return JsonResponse({'ok': False, 'error': 'file_or_url_required'}, status=400)
+    if raw_source_url and not source_url:
+        return JsonResponse({'ok': False, 'error': 'invalid_source_url'}, status=400)
     if uploaded and (uploaded.size <= 0 or uploaded.size > settings.CORE_ASSET_MAX_BYTES):
         return JsonResponse(
             {'ok': False, 'error': 'file_size_invalid', 'max_bytes': settings.CORE_ASSET_MAX_BYTES},
@@ -487,7 +504,10 @@ def core_asset_detail(request, asset_id):
 
     asset.refresh_from_db()
     if 'source_url' in data and asset.kind == CoreAsset.Kind.URL:
-        asset.source_url = str(data['source_url'] or '').strip()[:1600]
+        source_url = _safe_source_url(data.get('source_url'))
+        if not source_url:
+            return JsonResponse({'ok': False, 'error': 'invalid_source_url'}, status=400)
+        asset.source_url = source_url
     if 'visible_to_all_core' in data and asset.kind == CoreAsset.Kind.URL:
         asset.visible_to_all_core = bool(data['visible_to_all_core'])
     asset.save()
