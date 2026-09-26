@@ -401,8 +401,8 @@ def _provider_failure(response, default='calendar_provider_error'):
 
     project_number = ''
     for pattern in (
-        r"projects/(\\d{6,})",
-        r"\\bproject(?: number)?\\s+(\\d{6,})\\b",
+        r"projects/(\d{6,})",
+        r"\bproject(?: number)?\s+(\d{6,})\b",
     ):
         match = re.search(pattern, detail_text, re.IGNORECASE)
         if match:
