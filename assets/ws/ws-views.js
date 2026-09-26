@@ -444,7 +444,14 @@ export function renderCoreTasks(host, { go }) {
           } else if (code === 'google_tasks_permission_required') {
             calendarNote.textContent = 'Google Tasks access was not granted. Reconnect Google and approve Tasks.';
           } else if (code === 'google_tasks_api_disabled') {
-            calendarNote.textContent = 'Google Tasks API is disabled for this Google project.';
+            calendarNote.textContent = error?.data?.google_project_number
+              ? `Google Tasks API is disabled for Google Cloud project ${error.data.google_project_number}.`
+              : 'Google Tasks API is disabled for this Google project.';
+            if (error?.data?.setup_url) {
+              openCalendar.textContent = 'Enable Google Tasks API';
+              openCalendar.href = error.data.setup_url;
+              openCalendar.hidden = false;
+            }
           } else if (code === 'calendar_permission_denied') {
             calendarNote.textContent = 'Google rejected the Tasks request. Reconnect Google and try again.';
           } else {
