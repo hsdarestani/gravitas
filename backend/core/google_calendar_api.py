@@ -100,11 +100,21 @@ def finish_calendar_oauth(user, info, token_data):
     if not refresh_token and not connection:
         raise GoogleCalendarError('calendar_refresh_token_missing')
 
-    granted_scopes = str((token_data or {}).get('scope') or '').strip()
+    token_data = token_data or {}
+    if 'scope' in token_data:
+        # Google may return the granted scope list when granular consent
+        # changes it. Trust that list when it is present.
+        granted_scopes = str(token_data.get('scope') or '').strip()
+    else:
+        # OAuth token responses are allowed to omit `scope` when it is
+        # unchanged from the authorization request. The previous code treated
+        # that omission as "Tasks was not granted" and kept stale metadata,
+        # which sent users through an endless reconnect loop.
+        granted_scopes = f'{GOOGLE_CALENDAR_SCOPE} {GOOGLE_TASKS_SCOPE}'
     defaults = {
         'google_email': email,
         'calendar_id': (connection.calendar_id if connection else 'primary'),
-        'granted_scopes': granted_scopes or (connection.granted_scopes if connection else ''),
+        'granted_scopes': granted_scopes,
     }
     if refresh_token:
         defaults['refresh_token_encrypted'] = encrypt_refresh_token(refresh_token)
@@ -367,6 +377,21 @@ def _provider_failure(response, default='calendar_provider_error'):
     if response.status_code == 401:
         raise GoogleCalendarError('calendar_reconnect_required')
     if response.status_code == 403:
+        detail_text = json.dumps(detail, sort_keys=True).lower()
+        if default.startswith('google_task'):
+            if (
+                'insufficient authentication scopes' in detail_text
+                or 'insufficient permission' in detail_text
+                or 'insufficientpermissions' in detail_text
+            ):
+                raise GoogleCalendarError('google_tasks_permission_required')
+            if (
+                'service_disabled' in detail_text
+                or 'accessnotconfigured' in detail_text
+                or 'has not been used' in detail_text
+                or 'api has not been used' in detail_text
+            ):
+                raise GoogleCalendarError('google_tasks_api_disabled')
         raise GoogleCalendarError('calendar_permission_denied')
     raise GoogleCalendarError(default)
 
@@ -490,11 +515,17 @@ def delete_existing_task_events(task):
             )
 
 
-def _task_link_json(link):
+def _tasks_calendar_url(connection=None):
+    base = 'https://calendar.google.com/calendar/u/0/r/tasks'
+    email = str(getattr(connection, 'google_email', '') or '').strip()
+    return f'{base}?authuser={quote(email, safe="@")}' if email else base
+
+
+def _task_link_json(link, connection=None):
     return {
         'google_task_id': link.google_task_id,
         'tasklist_id': link.tasklist_id,
-        'calendar_url': 'https://calendar.google.com/calendar/u/0/r/tasks',
+        'calendar_url': _tasks_calendar_url(connection),
         'synced_at': link.updated_at.isoformat(),
     } if link else None
 
@@ -511,9 +542,13 @@ def google_calendar_task_status(request, task_id):
     return JsonResponse({
         'ok': True,
         'connected': bool(connection),
+        # Scope metadata is informative only. Google may omit `scope` from
+        # a successful token response, so the sync endpoint verifies access
+        # against Google itself instead of blocking on this cached field.
         'tasks_scope_granted': _has_google_scope(connection, GOOGLE_TASKS_SCOPE),
         'google_email': connection.google_email if connection else '',
-        'google_task': _task_link_json(link),
+        'calendar_url': _tasks_calendar_url(connection) if connection else '',
+        'google_task': _task_link_json(link, connection),
     })
 
 
@@ -525,15 +560,13 @@ def google_calendar_task_sync(request, task_id):
     if not task:
         return JsonResponse({'ok': False, 'error': 'task_not_found'}, status=404)
     connection = GoogleCalendarConnection.objects.filter(user=request.user).first()
-    if connection and not _has_google_scope(connection, GOOGLE_TASKS_SCOPE):
-        return JsonResponse({'ok': False, 'error': 'google_tasks_permission_required'}, status=409)
     try:
         link = sync_task_to_google(request.user, task)
     except GoogleCalendarError as exc:
         error = str(exc)
         status = 409 if error in ('calendar_not_connected', 'task_due_date_required') else 502
         return JsonResponse({'ok': False, 'error': error}, status=status)
-    return JsonResponse({'ok': True, 'google_task': _task_link_json(link)})
+    return JsonResponse({'ok': True, 'google_task': _task_link_json(link, connection)})
 
 
 def _event_moment(value):
