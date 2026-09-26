@@ -21,7 +21,7 @@ from .operating_models import (
     GoogleCalendarEventLink,
     GoogleCalendarMeetingAttachment,
     GoogleCalendarMeetingMinute,
-    GoogleCalendarTaskEventLink,
+    GoogleTaskLink,
     OperatingMeeting,
     OperatingTask,
 )
@@ -30,8 +30,10 @@ from .workspace_api import _accessible_workspaces
 
 logger = logging.getLogger(__name__)
 GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
+GOOGLE_TASKS_SCOPE = 'https://www.googleapis.com/auth/tasks'
 TOKEN_URL = 'https://oauth2.googleapis.com/token'
 CALENDAR_API_ROOT = 'https://www.googleapis.com/calendar/v3'
+TASKS_API_ROOT = 'https://tasks.googleapis.com/tasks/v1'
 
 
 class GoogleCalendarError(RuntimeError):
@@ -78,7 +80,7 @@ def google_calendar_connect(request):
         'client_id': client_id,
         'redirect_uri': settings.GOOGLE_OAUTH_REDIRECT_URI,
         'response_type': 'code',
-        'scope': f'openid email profile {GOOGLE_CALENDAR_SCOPE}',
+        'scope': f'openid email profile {GOOGLE_CALENDAR_SCOPE} {GOOGLE_TASKS_SCOPE}',
         'state': state,
         'access_type': 'offline',
         'prompt': 'consent',
@@ -361,37 +363,35 @@ def _provider_failure(response, default='calendar_provider_error'):
     raise GoogleCalendarError(default)
 
 
-def _task_event_payload(task):
+def _google_task_payload(task):
     if not task.due_date:
         raise GoogleCalendarError('task_due_date_required')
     owner = task.owner.get_full_name() or task.owner.email
-    description = [
+    notes = [
         'Gravitas+ task',
         '',
         f'Owner: {owner}',
         f'Status: {task.status}',
     ]
     if task.description:
-        description.extend(['', task.description.strip()])
+        notes.extend(['', task.description.strip()])
     if task.definition_of_done:
-        description.extend(['', 'Definition of done', task.definition_of_done.strip()])
+        notes.extend(['', 'Definition of done', task.definition_of_done.strip()])
     task_url = f'{str(getattr(settings, "PUBLIC_BASE_URL", "") or "").rstrip("/")}/workspace/core/tasks?task={task.pk}'
     if task_url.startswith('http'):
-        description.extend(['', task_url])
-    start = task.due_date
-    end = start + timedelta(days=1)
-    return {
-        'summary': task.title,
-        'description': '\n'.join(description),
-        'start': {'date': start.isoformat()},
-        'end': {'date': end.isoformat()},
-        'extendedProperties': {
-            'private': {
-                'gravitas_task_id': str(task.pk),
-                'gravitas_workspace_id': str(task.workspace_id),
-            },
-        },
+        notes.extend(['', task_url])
+
+    payload = {
+        'title': task.title,
+        'notes': '\n'.join(notes),
+        # Google Tasks stores a due *date* even though its API uses RFC3339.
+        'due': f'{task.due_date.isoformat()}T00:00:00.000Z',
+        'status': 'completed' if task.status == 'done' else 'needsAction',
     }
+    if task.status == 'done':
+        completed = task.completed_at or timezone.now()
+        payload['completed'] = completed.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+    return payload
 
 
 def sync_task_to_google(user, task):
@@ -400,63 +400,63 @@ def sync_task_to_google(user, task):
         raise GoogleCalendarError('calendar_not_connected')
     token = _access_token(connection)
     headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
-    calendar_id = connection.calendar_id or 'primary'
-    link = GoogleCalendarTaskEventLink.objects.filter(user=user, task=task).first()
-    payload = _task_event_payload(task)
+    link = GoogleTaskLink.objects.filter(user=user, task=task).first()
+    tasklist_id = link.tasklist_id if link else '@default'
+    payload = _google_task_payload(task)
 
     response = None
     if link:
-        event_url = (
-            f'{CALENDAR_API_ROOT}/calendars/{quote(calendar_id, safe="")}/events/'
-            f'{quote(link.event_id, safe="")}'
+        task_url = (
+            f'{TASKS_API_ROOT}/lists/{quote(tasklist_id, safe="@")}/tasks/'
+            f'{quote(link.google_task_id, safe="")}'
         )
-        response = requests.put(event_url, headers=headers, json=payload, timeout=(5, 20))
+        response = requests.patch(task_url, headers=headers, json=payload, timeout=(5, 20))
         if response.status_code == 404:
             link.delete()
             link = None
         elif not response.ok:
-            _provider_failure(response, 'calendar_task_sync_failed')
+            _provider_failure(response, 'google_task_sync_failed')
 
     if not link:
-        event_url = f'{CALENDAR_API_ROOT}/calendars/{quote(calendar_id, safe="")}/events'
-        response = requests.post(event_url, headers=headers, json=payload, timeout=(5, 20))
+        tasklist_id = '@default'
+        task_url = f'{TASKS_API_ROOT}/lists/{quote(tasklist_id, safe="@")}/tasks'
+        response = requests.post(task_url, headers=headers, json=payload, timeout=(5, 20))
         if not response.ok:
-            _provider_failure(response, 'calendar_task_sync_failed')
+            _provider_failure(response, 'google_task_sync_failed')
 
     try:
-        event = response.json()
+        google_task = response.json()
     except (ValueError, TypeError) as exc:
-        raise GoogleCalendarError('calendar_task_sync_failed') from exc
+        raise GoogleCalendarError('google_task_sync_failed') from exc
 
-    event_id = str(event.get('id') or '')
-    if not event_id:
-        raise GoogleCalendarError('calendar_event_id_missing')
-    link, _ = GoogleCalendarTaskEventLink.objects.update_or_create(
+    google_task_id = str(google_task.get('id') or '')
+    if not google_task_id:
+        raise GoogleCalendarError('google_task_id_missing')
+    link, _ = GoogleTaskLink.objects.update_or_create(
         user=user,
         task=task,
         defaults={
-            'calendar_id': calendar_id,
-            'event_id': event_id,
-            'html_link': str(event.get('htmlLink') or ''),
+            'tasklist_id': tasklist_id,
+            'google_task_id': google_task_id,
         },
     )
     return link
 
 
 def sync_existing_task_links(task):
-    for link in list(task.google_calendar_links.select_related('user').all()):
+    for link in list(task.google_task_links.select_related('user').all()):
         try:
             sync_task_to_google(link.user, task)
         except Exception:
             logger.exception(
-                'Could not refresh linked Google Calendar task event task_id=%s user_id=%s',
+                'Could not refresh native Google Task task_id=%s user_id=%s',
                 task.pk,
                 link.user_id,
             )
 
 
 def delete_existing_task_events(task):
-    links = list(task.google_calendar_links.select_related('user').all())
+    links = list(task.google_task_links.select_related('user').all())
     for link in links:
         connection = GoogleCalendarConnection.objects.filter(user=link.user).first()
         if not connection:
@@ -464,23 +464,31 @@ def delete_existing_task_events(task):
         try:
             token = _access_token(connection)
             url = (
-                f'{CALENDAR_API_ROOT}/calendars/{quote(link.calendar_id or "primary", safe="")}/events/'
-                f'{quote(link.event_id, safe="")}'
+                f'{TASKS_API_ROOT}/lists/{quote(link.tasklist_id or "@default", safe="@")}/tasks/'
+                f'{quote(link.google_task_id, safe="")}'
             )
             response = requests.delete(
                 url,
                 headers={'Authorization': f'Bearer {token}'},
                 timeout=(5, 20),
             )
-            if response.status_code not in (204, 404):
-                if not response.ok:
-                    _provider_failure(response, 'calendar_task_delete_failed')
+            if response.status_code not in (204, 404) and not response.ok:
+                _provider_failure(response, 'google_task_delete_failed')
         except Exception:
             logger.exception(
-                'Could not remove linked Google Calendar task event task_id=%s user_id=%s',
+                'Could not remove native Google Task task_id=%s user_id=%s',
                 task.pk,
                 link.user_id,
             )
+
+
+def _task_link_json(link):
+    return {
+        'google_task_id': link.google_task_id,
+        'tasklist_id': link.tasklist_id,
+        'calendar_url': 'https://calendar.google.com/calendar/u/0/r/tasks',
+        'synced_at': link.updated_at.isoformat(),
+    } if link else None
 
 
 @require_http_methods(['GET'])
@@ -491,17 +499,12 @@ def google_calendar_task_status(request, task_id):
     if not task:
         return JsonResponse({'ok': False, 'error': 'task_not_found'}, status=404)
     connection = GoogleCalendarConnection.objects.filter(user=request.user).first()
-    link = GoogleCalendarTaskEventLink.objects.filter(user=request.user, task=task).first()
+    link = GoogleTaskLink.objects.filter(user=request.user, task=task).first()
     return JsonResponse({
         'ok': True,
         'connected': bool(connection),
         'google_email': connection.google_email if connection else '',
-        'calendar_id': connection.calendar_id if connection else '',
-        'event': {
-            'event_id': link.event_id,
-            'html_link': link.html_link,
-            'synced_at': link.updated_at.isoformat(),
-        } if link else None,
+        'google_task': _task_link_json(link),
     })
 
 
@@ -518,14 +521,7 @@ def google_calendar_task_sync(request, task_id):
         error = str(exc)
         status = 409 if error in ('calendar_not_connected', 'task_due_date_required') else 502
         return JsonResponse({'ok': False, 'error': error}, status=status)
-    return JsonResponse({
-        'ok': True,
-        'event': {
-            'event_id': link.event_id,
-            'html_link': link.html_link,
-            'synced_at': link.updated_at.isoformat(),
-        },
-    })
+    return JsonResponse({'ok': True, 'google_task': _task_link_json(link)})
 
 
 def _event_moment(value):
@@ -875,6 +871,6 @@ def google_calendar_disconnect(request):
     if not request.user.is_authenticated:
         return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
     GoogleCalendarEventLink.objects.filter(user=request.user).delete()
-    GoogleCalendarTaskEventLink.objects.filter(user=request.user).delete()
+    GoogleTaskLink.objects.filter(user=request.user).delete()
     GoogleCalendarConnection.objects.filter(user=request.user).delete()
     return JsonResponse({'ok': True})
