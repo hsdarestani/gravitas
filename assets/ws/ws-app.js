@@ -1542,8 +1542,18 @@ function updateStatus() {
    PANE RESIZE
    ========================================================================== */
 
-function wireGrip(grip, { variable, min, max, from }) {
+/* A grip also closes its pane: dragged well past the pane's minimum width,
+   the pane dims to say it will close on release, and dragging back out
+   cancels that. The threshold sits below the minimum rather than at it, so
+   somebody narrowing a pane to its smallest width does not lose it by
+   overshooting a few pixels. On close the width goes back to what it was
+   when the drag began, so the toggle reopens the pane the reader had, not
+   the sliver it was dragged down to. */
+const CLOSE_BELOW = 0.5;
+
+function wireGrip(grip, { variable, min, max, from, close }) {
   const read = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue(variable), 10);
+  const pane = grip.closest('.ws__index, .ws__dock');
 
   grip.tabIndex = 0;
   grip.setAttribute('role', 'separator');
@@ -1569,20 +1579,31 @@ function wireGrip(grip, { variable, min, max, from }) {
 
     const startX = event.clientX;
     const startWidth = read();
+    let closing = false;
 
     const move = (moveEvent) => {
       const delta = (moveEvent.clientX - startX) * (from === 'right' ? -1 : 1);
-      const width = Math.min(max, Math.max(min, startWidth + delta));
+      const raw = startWidth + delta;
+      closing = Boolean(close) && raw < min * CLOSE_BELOW;
+      pane?.toggleAttribute('data-closing', closing);
+      const width = Math.min(max, Math.max(min, raw));
       document.documentElement.style.setProperty(variable, width + 'px');
       publish();
     };
-    const up = () => {
+    const up = (upEvent) => {
       grip.releasePointerCapture(event.pointerId);
       grip.removeAttribute('data-active');
+      pane?.removeAttribute('data-closing');
       $('#ws').removeAttribute('data-resizing');
       grip.removeEventListener('pointermove', move);
       grip.removeEventListener('pointerup', up);
       grip.removeEventListener('pointercancel', up);
+      if (closing && upEvent.type === 'pointerup') {
+        document.documentElement.style.setProperty(variable, startWidth + 'px');
+        publish();
+        close();
+        return;
+      }
       writePrefs({ [variable]: read() + 'px' });
     };
 
@@ -1667,28 +1688,33 @@ export async function start() {
   NARROW.addEventListener('change', applyWidth);
   DOCK_FLOATS.addEventListener('change', applyWidth);
 
-  wireGrip($('#ws-grip-index'), { variable: '--ws-index-w', min: 200, max: 460, from: 'left' });
-  wireGrip($('#ws-grip-dock'), { variable: '--ws-dock-w', min: 260, max: 520, from: 'right' });
-
   /* Two overlays over one phone screen is one too many, so opening either
      closes the other. On a desktop both are columns and neither is in the
      other's way, which is why the exclusion is conditional rather than a
      rule of the shell. A width where a pane floats is also a width whose
      pane state is not worth remembering: the preference belongs to the
-     machine the reader works on, not to the phone they checked it from. */
-  $('#ws-toggle-index').addEventListener('click', () => {
-    ui.index = !ui.index;
+     machine the reader works on, not to the phone they checked it from.
+     The toggles and the drag-to-close grips share these two, so a pane
+     closed either way is remembered the same way. */
+  const setIndex = (open) => {
+    ui.index = open;
     if (ui.index && NARROW.matches) ui.dock = false;
     if (!NARROW.matches) writePrefs({ index: ui.index });
     paintPaneState();
-  });
-  $('#ws-toggle-dock').addEventListener('click', () => {
-    ui.dock = !ui.dock;
+  };
+  const setDock = (open) => {
+    ui.dock = open;
     if (ui.dock && NARROW.matches) ui.index = false;
     if (!DOCK_FLOATS.matches) writePrefs({ dock: ui.dock });
     paintPaneState();
     renderDock();
-  });
+  };
+
+  wireGrip($('#ws-grip-index'), { variable: '--ws-index-w', min: 200, max: 460, from: 'left', close: () => setIndex(false) });
+  wireGrip($('#ws-grip-dock'), { variable: '--ws-dock-w', min: 260, max: 520, from: 'right', close: () => setDock(false) });
+
+  $('#ws-toggle-index').addEventListener('click', () => setIndex(!ui.index));
+  $('#ws-toggle-dock').addEventListener('click', () => setDock(!ui.dock));
   $('#ws-open-palette').addEventListener('click', () => openPalette());
 
   // The scrim is a pseudo-element on the shell, so a tap landing on the shell

@@ -499,6 +499,12 @@
   }
   .ws[data-resizing] { cursor: col-resize; user-select: none; }
 
+  /* Dragged past its minimum, a pane dims to say release will close it. */
+  .ws__index > .ws-pane,
+  .ws__dock  > .ws-pane { transition: opacity var(--g-dur-fast) linear; }
+  .ws__index[data-closing] > .ws-pane,
+  .ws__dock[data-closing]  > .ws-pane { opacity: 0.35; }
+
   /* ---- Index tree -------------------------------------------------------
      Depth is drawn with a guide line rather than with padding alone, so a
      reader can follow a branch down a long list without counting pixels. */
