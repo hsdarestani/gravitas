@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone as dt_timezone
@@ -37,7 +38,33 @@ TASKS_API_ROOT = 'https://tasks.googleapis.com/tasks/v1'
 
 
 class GoogleCalendarError(RuntimeError):
-    pass
+    def __init__(self, code, *, provider_message='', project_number=''):
+        super().__init__(code)
+        self.code = str(code)
+        self.provider_message = str(provider_message or '')[:1200]
+        self.project_number = str(project_number or '')[:40]
+
+
+def _google_error_payload(exc):
+    code = getattr(exc, 'code', str(exc))
+    payload = {'ok': False, 'error': code}
+    provider_message = str(getattr(exc, 'provider_message', '') or '').strip()
+    project_number = str(getattr(exc, 'project_number', '') or '').strip()
+    if provider_message:
+        payload['provider_message'] = provider_message
+    if project_number:
+        payload['google_project_number'] = project_number
+        service = ''
+        if code == 'google_tasks_api_disabled':
+            service = 'tasks.googleapis.com'
+        elif code == 'google_calendar_api_disabled':
+            service = 'calendar-json.googleapis.com'
+        if service:
+            payload['setup_url'] = (
+                f'https://console.cloud.google.com/apis/library/{service}'
+                f'?project={quote(project_number, safe="")}'
+            )
+    return payload
 
 
 def _fernet():
@@ -369,32 +396,79 @@ def _provider_failure(response, default='calendar_provider_error'):
         or detail.get('error_description')
         or ''
     ).strip()
+    detail_text = json.dumps(detail, sort_keys=True)
+    detail_lower = detail_text.lower()
+
+    project_number = ''
+    for pattern in (
+        r"projects/(\\d{6,})",
+        r"\\bproject(?: number)?\\s+(\\d{6,})\\b",
+    ):
+        match = re.search(pattern, detail_text, re.IGNORECASE)
+        if match:
+            project_number = match.group(1)
+            break
+
     logger.warning(
-        'Google Calendar provider error status=%s message=%s',
+        'Google provider error status=%s message=%s project=%s',
         response.status_code,
         message[:500],
+        project_number,
     )
     if response.status_code == 401:
-        raise GoogleCalendarError('calendar_reconnect_required')
+        raise GoogleCalendarError(
+            'calendar_reconnect_required',
+            provider_message=message,
+            project_number=project_number,
+        )
     if response.status_code == 403:
-        detail_text = json.dumps(detail, sort_keys=True).lower()
+        insufficient_scope = (
+            'insufficient authentication scopes' in detail_lower
+            or 'insufficient permission' in detail_lower
+            or 'insufficientpermissions' in detail_lower
+        )
+        service_disabled = (
+            'service_disabled' in detail_lower
+            or 'accessnotconfigured' in detail_lower
+            or 'has not been used' in detail_lower
+            or 'api has not been used' in detail_lower
+        )
         if default.startswith('google_task'):
-            if (
-                'insufficient authentication scopes' in detail_text
-                or 'insufficient permission' in detail_text
-                or 'insufficientpermissions' in detail_text
-            ):
-                raise GoogleCalendarError('google_tasks_permission_required')
-            if (
-                'service_disabled' in detail_text
-                or 'accessnotconfigured' in detail_text
-                or 'has not been used' in detail_text
-                or 'api has not been used' in detail_text
-            ):
-                raise GoogleCalendarError('google_tasks_api_disabled')
-        raise GoogleCalendarError('calendar_permission_denied')
-    raise GoogleCalendarError(default)
-
+            if insufficient_scope:
+                raise GoogleCalendarError(
+                    'google_tasks_permission_required',
+                    provider_message=message,
+                    project_number=project_number,
+                )
+            if service_disabled:
+                raise GoogleCalendarError(
+                    'google_tasks_api_disabled',
+                    provider_message=message,
+                    project_number=project_number,
+                )
+        else:
+            if insufficient_scope:
+                raise GoogleCalendarError(
+                    'calendar_permission_required',
+                    provider_message=message,
+                    project_number=project_number,
+                )
+            if service_disabled:
+                raise GoogleCalendarError(
+                    'google_calendar_api_disabled',
+                    provider_message=message,
+                    project_number=project_number,
+                )
+        raise GoogleCalendarError(
+            'calendar_permission_denied',
+            provider_message=message,
+            project_number=project_number,
+        )
+    raise GoogleCalendarError(
+        default,
+        provider_message=message,
+        project_number=project_number,
+    )
 
 def _google_task_payload(task):
     if not task.due_date:
@@ -563,9 +637,9 @@ def google_calendar_task_sync(request, task_id):
     try:
         link = sync_task_to_google(request.user, task)
     except GoogleCalendarError as exc:
-        error = str(exc)
+        error = getattr(exc, 'code', str(exc))
         status = 409 if error in ('calendar_not_connected', 'task_due_date_required') else 502
-        return JsonResponse({'ok': False, 'error': error}, status=status)
+        return JsonResponse(_google_error_payload(exc), status=status)
     return JsonResponse({'ok': True, 'google_task': _task_link_json(link, connection)})
 
 
@@ -699,12 +773,12 @@ def google_calendar_events(request):
     try:
         events = _list_google_events(connection)
     except GoogleCalendarError as exc:
-        return JsonResponse({
-            'ok': False,
-            'error': str(exc),
+        payload = _google_error_payload(exc)
+        payload.update({
             'connected': True,
             'google_email': connection.google_email,
-        }, status=502)
+        })
+        return JsonResponse(payload, status=502)
 
     uids = [str(event.get('iCalUID') or event.get('id') or '') for event in events]
     minutes = {
@@ -777,7 +851,7 @@ def google_calendar_minutes(request):
     try:
         event = _google_event(connection, event_id)
     except GoogleCalendarError as exc:
-        return JsonResponse({'ok': False, 'error': str(exc)}, status=502)
+        return JsonResponse(_google_error_payload(exc), status=502)
 
     private = ((event.get('extendedProperties') or {}).get('private') or {})
     if private.get('gravitas_task_id'):
