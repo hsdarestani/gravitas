@@ -383,9 +383,9 @@ export function renderCoreTasks(host, { go }) {
       const calendarActions = el('div', 'task-card-dialog__actions task-board__calendar-actions');
       const calendarAction = makeButton('Add as Google Task', () => {});
       const calendarNote = el('small', 'fl-muted');
-      const openCalendar = el('a', 'ws-btn ws-btn--tiny', 'Open Calendar');
+      const openCalendar = el('a', 'ws-btn ws-btn--tiny', 'Open Google Tasks');
       openCalendar.target = '_blank';
-      openCalendar.rel = 'noopener';
+      openCalendar.rel = 'noopener noreferrer';
       openCalendar.hidden = true;
       calendarActions.append(calendarAction, openCalendar);
       calendarField.append(calendarActions, calendarNote);
@@ -394,16 +394,19 @@ export function renderCoreTasks(host, { go }) {
       const setTaskCalendarUi = () => {
         openCalendar.hidden = true;
         openCalendar.removeAttribute('href');
-        if (!taskCalendarState?.connected || !taskCalendarState?.tasks_scope_granted) {
-          calendarAction.textContent = taskCalendarState?.connected
-            ? 'Enable Google Tasks'
-            : 'Connect Google Calendar';
-          calendarNote.textContent = taskCalendarState?.connected
-            ? 'One reconnect is needed to grant Google Tasks access. The task will then appear in Google Calendar.'
-            : 'Connect your Google account once, then add this task as a native Google Task in your own calendar.';
+        if (!taskCalendarState?.connected) {
+          calendarAction.textContent = 'Connect Google Calendar';
+          calendarNote.textContent = 'Connect your Google account once, then add this task as a native Google Task.';
           calendarAction.disabled = false;
           return;
         }
+
+        const calendarUrl = taskCalendarState.calendar_url
+          || taskCalendarState.google_task?.calendar_url
+          || 'https://calendar.google.com/calendar/u/0/r/tasks';
+        openCalendar.href = calendarUrl;
+        openCalendar.hidden = false;
+
         calendarAction.textContent = taskCalendarState.google_task
           ? 'Sync Google Task'
           : 'Add as Google Task';
@@ -411,10 +414,6 @@ export function renderCoreTasks(host, { go }) {
           ? `Connected as ${taskCalendarState.google_email}`
           : 'Google Calendar connected';
         calendarAction.disabled = false;
-        if (taskCalendarState.google_task?.calendar_url) {
-          openCalendar.href = taskCalendarState.google_task.calendar_url;
-          openCalendar.hidden = false;
-        }
       };
 
       const refreshTaskCalendarState = async () => {
@@ -424,10 +423,10 @@ export function renderCoreTasks(host, { go }) {
 
       calendarAction.addEventListener('click', async () => {
         calendarAction.disabled = true;
-        calendarNote.textContent = 'Checking Google Calendar…';
+        calendarNote.textContent = 'Checking Google Tasks…';
         try {
           taskCalendarState = await P.googleCalendarTaskStatus(task.id);
-          if (!taskCalendarState.connected || !taskCalendarState.tasks_scope_granted) {
+          if (!taskCalendarState.connected) {
             const next = `${location.pathname}?calendar_task=${encodeURIComponent(task.id)}`;
             location.href = `/api/calendar/google/connect/?next=${encodeURIComponent(next)}`;
             return;
@@ -435,14 +434,22 @@ export function renderCoreTasks(host, { go }) {
           calendarNote.textContent = taskCalendarState.google_task ? 'Syncing Google Task…' : 'Adding Google Task…';
           const result = await P.syncOperatingTaskToGoogle(task.id);
           taskCalendarState.google_task = result.google_task;
+          taskCalendarState.tasks_scope_granted = true;
+          taskCalendarState.calendar_url = result.google_task?.calendar_url || taskCalendarState.calendar_url;
           setTaskCalendarUi();
         } catch (error) {
           const code = error?.data?.error || error?.message || '';
-          calendarNote.textContent = code === 'calendar_reconnect_required'
-            ? 'Google Calendar access expired. Connect again.'
-            : code === 'calendar_permission_denied' || code === 'google_tasks_permission_required'
-              ? 'Google Tasks permission is required. Reconnect and approve Tasks access.'
-              : code || 'Google Task sync failed.';
+          if (code === 'calendar_reconnect_required') {
+            calendarNote.textContent = 'Google access expired. Connect again.';
+          } else if (code === 'google_tasks_permission_required') {
+            calendarNote.textContent = 'Google Tasks access was not granted. Reconnect Google and approve Tasks.';
+          } else if (code === 'google_tasks_api_disabled') {
+            calendarNote.textContent = 'Google Tasks API is disabled for this Google project.';
+          } else if (code === 'calendar_permission_denied') {
+            calendarNote.textContent = 'Google rejected the Tasks request. Reconnect Google and try again.';
+          } else {
+            calendarNote.textContent = code || 'Google Task sync failed.';
+          }
           calendarAction.disabled = false;
         }
       });
