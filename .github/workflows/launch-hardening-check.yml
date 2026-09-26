@@ -57,6 +57,7 @@ jobs:
           node --check assets/ws/ws-nav.js
           node --check assets/ws/ws-platform.js
           node --check assets/ws/ws-views.js
+          node --check assets/ws/ws-meetings.js
           node --check assets/ws/ws-research.js
           node --check assets/ws/ws-home.js
           node --check assets/ws/ws-kms.js
