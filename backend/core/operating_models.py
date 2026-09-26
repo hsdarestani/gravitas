@@ -262,6 +262,7 @@ class GoogleCalendarConnection(models.Model):
     )
     google_email = models.EmailField(blank=True)
     refresh_token_encrypted = models.TextField()
+    granted_scopes = models.TextField(blank=True)
     calendar_id = models.CharField(max_length=255, default='primary')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
