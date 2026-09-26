@@ -571,7 +571,7 @@ def meetings(request):
     if not workspace: return _error('workspace_not_found', 404)
     if request.method == 'GET':
         qs = OperatingMeeting.objects.filter(workspace=workspace).select_related('owner', 'process').annotate(action_item_count=Count('action_items'))
-        return JsonResponse({'ok': True, 'meetings': [_meeting_json(x) for x in qs], 'calendar': MEETING_CALENDAR})
+        return JsonResponse({'ok': True, 'meetings': [_meeting_json(x) for x in qs], 'calendar': MEETING_CALENDAR, 'kinds': [{'value': value, 'label': label} for value, label in OperatingMeeting.Kind.choices]})
     if not _editable(request, workspace): return _error('permission_denied', 403)
     owner = _owner(request.user, workspace, p.get('owner_id'))
     scheduled = _datetime(p.get('scheduled_for'))
@@ -589,13 +589,18 @@ def meeting_detail(request, meeting_id):
     if not _editable(request, obj.workspace): return _error('permission_denied', 403)
     if request.method == 'DELETE':
         if obj.action_items.exists(): return _error('meeting_has_action_items', 409)
+        from .google_calendar_api import delete_existing_meeting_events
+        delete_existing_meeting_events(obj)
         obj.delete(); return JsonResponse({'ok': True})
     p = _body(request)
     for field in ['kind', 'title', 'decisions', 'notes', 'status']:
         if field in p: setattr(obj, field, p[field])
     if 'scheduled_for' in p: obj.scheduled_for = _datetime(p['scheduled_for'])
     if 'duration_minutes' in p: obj.duration_minutes = int(p['duration_minutes'])
-    obj.save(); return JsonResponse({'ok': True, 'meeting': _meeting_json(obj)})
+    obj.save()
+    from .google_calendar_api import sync_existing_meeting_links
+    sync_existing_meeting_links(obj)
+    return JsonResponse({'ok': True, 'meeting': _meeting_json(obj)})
 
 
 @require_http_methods(['GET', 'POST'])

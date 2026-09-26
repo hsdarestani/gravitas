@@ -245,7 +245,18 @@ def _choices(request, workspace):
         } for row in packages.select_related('milestone__initiative__key_result')],
         'cycles': [{'id': row.pk, 'title': row.name} for row in cycles],
         'projects': [{'id': row.pk, 'title': row.title} for row in projects],
-        'meetings': [{'id': row.pk, 'title': row.title} for row in meetings],
+        'meetings': [{
+            'id': row.pk,
+            'title': row.title,
+            'kind': row.kind,
+            'scheduled_for': row.scheduled_for.isoformat(),
+            'duration_minutes': row.duration_minutes,
+            'owner': _person(row.owner),
+        } for row in meetings.select_related('owner')],
+        'meeting_kinds': [
+            {'value': value, 'label': label}
+            for value, label in OperatingMeeting.Kind.choices
+        ],
     }
 
 

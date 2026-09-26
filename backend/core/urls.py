@@ -4,6 +4,12 @@ from core.content_api import community_polls, content_detail, content_list, topi
 from core.core_links_api import task_cross_layer_links
 from core.email_verification import account_email_confirm, account_email_resend
 from core.kpi import kpi_summary
+from core.google_calendar_api import (
+    google_calendar_connect,
+    google_calendar_disconnect,
+    google_calendar_meeting_sync,
+    google_calendar_status,
+)
 from core.reader_library import reader_library
 from core.topic_progress import topic_progress
 from core.task_notifications import task_notification_settings, telegram_notification_webhook
@@ -238,6 +244,10 @@ urlpatterns = [
     path('auth/login/', auth_login),
     path('auth/google/start/', auth_google_start),
     path('auth/google/callback/', auth_google_callback),
+    path('calendar/google/connect/', google_calendar_connect),
+    path('calendar/google/status/', google_calendar_status),
+    path('calendar/google/disconnect/', google_calendar_disconnect),
+    path('calendar/google/meetings/<int:meeting_id>/sync/', google_calendar_meeting_sync),
     path('auth/logout/', auth_logout),
     path('auth/me/', auth_me),
     path('auth/export/', auth_export),

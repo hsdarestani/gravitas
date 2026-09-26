@@ -291,6 +291,15 @@ export const updateOperatingMilestone = (id, body) => call(`/operating/milestone
 export const deleteOperatingMilestone = (id) => call(`/operating/milestones/${id}/`, { method: 'DELETE' });
 export const operatingInitiatives = () => call('/operating/initiatives/');
 export const operatingTasks = () => call('/operating/tasks/');
+export const operatingMeetings = () => call('/operating/meetings/');
+export const createOperatingMeeting = (body) => call('/operating/meetings/', { method: 'POST', body });
+export const googleCalendarStatus = (meetingId = '') => call(
+  '/calendar/google/status/' + (meetingId ? '?meeting_id=' + encodeURIComponent(meetingId) : '')
+);
+export const syncOperatingMeetingToGoogle = (meetingId) => call(
+  `/calendar/google/meetings/${meetingId}/sync/`, { method: 'POST', body: {} }
+);
+export const disconnectGoogleCalendar = () => call('/calendar/google/disconnect/', { method: 'DELETE' });
 export const operatingTaskBoard = () => call('/operating/task-board/');
 export const createOperatingTask = (body) => call('/operating/task-board/', { method: 'POST', body });
 export const operatingTaskCard = (id) => call(`/operating/task-board/${id}/`);
