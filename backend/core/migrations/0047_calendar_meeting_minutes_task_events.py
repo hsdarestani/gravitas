@@ -11,6 +11,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AddField(
+            model_name='googlecalendarconnection',
+            name='granted_scopes',
+            field=models.TextField(blank=True),
+        ),
         migrations.CreateModel(
             name='GoogleCalendarMeetingMinute',
             fields=[
