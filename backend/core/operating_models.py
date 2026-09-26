@@ -276,10 +276,11 @@ class GoogleCalendarEventLink(models.Model):
     meeting = models.ForeignKey(
         OperatingMeeting,
         on_delete=models.CASCADE,
-        related_name='google_task_links',
+        related_name='google_calendar_links',
     )
-    tasklist_id = models.CharField(max_length=255, default='@default')
-    google_task_id = models.CharField(max_length=1024)
+    calendar_id = models.CharField(max_length=255, default='primary')
+    event_id = models.CharField(max_length=1024)
+    html_link = models.URLField(max_length=1600, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -293,9 +294,6 @@ class GoogleCalendarEventLink(models.Model):
         ]
 
 
-
-
-
 class GoogleTaskLink(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -305,11 +303,10 @@ class GoogleTaskLink(models.Model):
     task = models.ForeignKey(
         OperatingTask,
         on_delete=models.CASCADE,
-        related_name='google_calendar_links',
+        related_name='google_task_links',
     )
-    calendar_id = models.CharField(max_length=255, default='primary')
-    event_id = models.CharField(max_length=1024)
-    html_link = models.URLField(max_length=1600, blank=True)
+    tasklist_id = models.CharField(max_length=255, default='@default')
+    google_task_id = models.CharField(max_length=1024)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
