@@ -295,6 +295,89 @@ class GoogleCalendarEventLink(models.Model):
 
 
 
+
+
+class GoogleCalendarTaskEventLink(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_google_calendar_task_events',
+    )
+    task = models.ForeignKey(
+        OperatingTask,
+        on_delete=models.CASCADE,
+        related_name='google_calendar_links',
+    )
+    calendar_id = models.CharField(max_length=255, default='primary')
+    event_id = models.CharField(max_length=1024)
+    html_link = models.URLField(max_length=1600, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'task'],
+                name='unique_google_calendar_task_user',
+            ),
+        ]
+
+
+class GoogleCalendarMeetingMinute(models.Model):
+    workspace = models.ForeignKey(
+        'core.Workspace',
+        on_delete=models.CASCADE,
+        related_name='google_calendar_meeting_minutes',
+    )
+    ical_uid = models.CharField(max_length=1024)
+    google_event_id = models.CharField(max_length=1024, blank=True)
+    title = models.CharField(max_length=500, blank=True)
+    start_at = models.DateTimeField(blank=True, null=True)
+    end_at = models.DateTimeField(blank=True, null=True)
+    notes = models.TextField(blank=True)
+    reference_url = models.URLField(max_length=1600, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='gravitas_meeting_minutes_updated',
+        blank=True,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-start_at', '-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['workspace', 'ical_uid'],
+                name='unique_google_calendar_minute_workspace_uid',
+            ),
+        ]
+
+
+class GoogleCalendarMeetingAttachment(models.Model):
+    minute = models.ForeignKey(
+        GoogleCalendarMeetingMinute,
+        on_delete=models.CASCADE,
+        related_name='attachments',
+    )
+    uploader = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_meeting_minute_attachments',
+    )
+    name = models.CharField(max_length=255)
+    storage_path = models.CharField(max_length=1000)
+    mime_type = models.CharField(max_length=160, blank=True)
+    size = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
 class OperatingTaskChecklistItem(models.Model):
     task = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='checklist_items')
     title = models.CharField(max_length=500)
