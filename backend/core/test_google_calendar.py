@@ -37,6 +37,7 @@ class GoogleCalendarIntegrationTests(TestCase):
         response = self.client.get(
             '/api/calendar/google/connect/',
             {'next': '/workspace/core/tasks?calendar_task=44'},
+            secure=True,
         )
         self.assertEqual(response.status_code, 302)
         parsed = urlparse(response['Location'])
@@ -79,11 +80,12 @@ class GoogleCalendarIntegrationTests(TestCase):
         }
         userinfo_get.return_value = info_response
 
-        started = self.client.get('/api/calendar/google/connect/')
+        started = self.client.get('/api/calendar/google/connect/', secure=True)
         state = parse_qs(urlparse(started['Location']).query)['state'][0]
         response = self.client.get(
             '/api/auth/google/callback/',
             {'code': 'code', 'state': state},
+            secure=True,
         )
         self.assertEqual(response.status_code, 302)
         self.assertIn('calendar_connected=1', response['Location'])
@@ -122,7 +124,10 @@ class GoogleCalendarIntegrationTests(TestCase):
         }
         post.side_effect = [token_response, event_response]
 
-        response = self.client.post(f'/api/calendar/google/meetings/{meeting.pk}/sync/')
+        response = self.client.post(
+            f'/api/calendar/google/meetings/{meeting.pk}/sync/',
+            secure=True,
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['event']['event_id'], 'event-123')
         link = GoogleCalendarEventLink.objects.get(user=self.user, meeting=meeting)
