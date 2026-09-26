@@ -381,7 +381,7 @@ export function renderCoreTasks(host, { go }) {
       const calendarField = el('div', 'task-board__field task-board__calendar-field');
       calendarField.append(el('span', 'task-board__label', 'Google Calendar'));
       const calendarActions = el('div', 'task-card-dialog__actions task-board__calendar-actions');
-      const calendarAction = makeButton('Add task to Google Calendar', () => {});
+      const calendarAction = makeButton('Add as Google Task', () => {});
       const calendarNote = el('small', 'fl-muted');
       const openCalendar = el('a', 'ws-btn ws-btn--tiny', 'Open Calendar');
       openCalendar.target = '_blank';
@@ -400,15 +400,15 @@ export function renderCoreTasks(host, { go }) {
           calendarAction.disabled = false;
           return;
         }
-        calendarAction.textContent = taskCalendarState.event
-          ? 'Sync task with Google Calendar'
+        calendarAction.textContent = taskCalendarState.google_task
+          ? 'Sync Google Task'
           : 'Add task to Google Calendar';
         calendarNote.textContent = taskCalendarState.google_email
           ? `Connected as ${taskCalendarState.google_email}`
           : 'Google Calendar connected';
         calendarAction.disabled = false;
-        if (taskCalendarState.event?.html_link) {
-          openCalendar.href = taskCalendarState.event.html_link;
+        if (taskCalendarState.google_task?.calendar_url) {
+          openCalendar.href = taskCalendarState.google_task.html_link;
           openCalendar.hidden = false;
         }
       };
@@ -428,9 +428,9 @@ export function renderCoreTasks(host, { go }) {
             location.href = `/api/calendar/google/connect/?next=${encodeURIComponent(next)}`;
             return;
           }
-          calendarNote.textContent = taskCalendarState.event ? 'Syncing task…' : 'Adding task…';
+          calendarNote.textContent = taskCalendarState.google_task ? 'Syncing Google Task…' : 'Adding Google Task…';
           const result = await P.syncOperatingTaskToGoogle(task.id);
-          taskCalendarState.event = result.event;
+          taskCalendarState.google_task = result.google_task;
           setTaskCalendarUi();
         } catch (error) {
           const code = error?.data?.error || error?.message || '';
