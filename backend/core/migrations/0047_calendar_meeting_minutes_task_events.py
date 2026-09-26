@@ -32,16 +32,15 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='GoogleCalendarTaskEventLink',
+            name='GoogleTaskLink',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('calendar_id', models.CharField(default='primary', max_length=255)),
-                ('event_id', models.CharField(max_length=1024)),
-                ('html_link', models.URLField(blank=True, max_length=1600)),
+                ('tasklist_id', models.CharField(default='@default', max_length=255)),
+                ('google_task_id', models.CharField(max_length=1024)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('task', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='google_calendar_links', to='core.operatingtask')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='gravitas_google_calendar_task_events', to=settings.AUTH_USER_MODEL)),
+                ('task', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='google_task_links', to='core.operatingtask')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='gravitas_google_task_links', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'ordering': ['-updated_at'],
@@ -68,7 +67,7 @@ class Migration(migrations.Migration):
             constraint=models.UniqueConstraint(fields=('workspace', 'ical_uid'), name='unique_google_calendar_minute_workspace_uid'),
         ),
         migrations.AddConstraint(
-            model_name='googlecalendartaskeventlink',
-            constraint=models.UniqueConstraint(fields=('user', 'task'), name='unique_google_calendar_task_user'),
+            model_name='googletasklink',
+            constraint=models.UniqueConstraint(fields=('user', 'task'), name='unique_google_task_user'),
         ),
     ]
