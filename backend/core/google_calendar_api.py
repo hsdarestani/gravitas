@@ -5,7 +5,7 @@ import logging
 import os
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 from urllib.parse import quote, urlencode
 
@@ -390,7 +390,7 @@ def _google_task_payload(task):
     }
     if task.status == 'done':
         completed = task.completed_at or timezone.now()
-        payload['completed'] = completed.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+        payload['completed'] = completed.astimezone(dt_timezone.utc).isoformat().replace('+00:00', 'Z')
     return payload
 
 
