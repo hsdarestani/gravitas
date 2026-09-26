@@ -2901,3 +2901,23 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
   .calendar-minute-upload { display: grid; }
   .calendar-minute-upload .ws-btn { width: 100%; }
 }
+
+
+/* ---- Core Assets file + link creation --------------------------------- */
+.core-assets-create__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.core-assets-create__row .v-input {
+  min-width: 0;
+}
+@media (max-width: 620px) {
+  .core-assets-create__row {
+    grid-template-columns: 1fr;
+  }
+  .core-assets-create__row .ws-btn {
+    width: 100%;
+  }
+}
