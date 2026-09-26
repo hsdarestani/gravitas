@@ -100,9 +100,11 @@ def finish_calendar_oauth(user, info, token_data):
     if not refresh_token and not connection:
         raise GoogleCalendarError('calendar_refresh_token_missing')
 
+    granted_scopes = str((token_data or {}).get('scope') or '').strip()
     defaults = {
         'google_email': email,
         'calendar_id': (connection.calendar_id if connection else 'primary'),
+        'granted_scopes': granted_scopes or (connection.granted_scopes if connection else ''),
     }
     if refresh_token:
         defaults['refresh_token_encrypted'] = encrypt_refresh_token(refresh_token)
@@ -332,6 +334,12 @@ def _can_edit_core(request, workspace):
     return bool(workspace and operating._editable(request, workspace))
 
 
+def _has_google_scope(connection, scope):
+    if not connection:
+        return False
+    return scope in set(str(connection.granted_scopes or '').split())
+
+
 def _task_for_user(user, task_id):
     return (
         OperatingTask.objects
@@ -503,6 +511,7 @@ def google_calendar_task_status(request, task_id):
     return JsonResponse({
         'ok': True,
         'connected': bool(connection),
+        'tasks_scope_granted': _has_google_scope(connection, GOOGLE_TASKS_SCOPE),
         'google_email': connection.google_email if connection else '',
         'google_task': _task_link_json(link),
     })
@@ -515,6 +524,9 @@ def google_calendar_task_sync(request, task_id):
     task = _task_for_user(request.user, task_id)
     if not task:
         return JsonResponse({'ok': False, 'error': 'task_not_found'}, status=404)
+    connection = GoogleCalendarConnection.objects.filter(user=request.user).first()
+    if connection and not _has_google_scope(connection, GOOGLE_TASKS_SCOPE):
+        return JsonResponse({'ok': False, 'error': 'google_tasks_permission_required'}, status=409)
     try:
         link = sync_task_to_google(request.user, task)
     except GoogleCalendarError as exc:
