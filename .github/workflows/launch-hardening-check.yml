@@ -95,6 +95,7 @@ jobs:
           core.test_team_api
           core.test_auth_logout_flow
           core.test_google_calendar
+          core.test_core_asset_links
           core.test_core_task_links
           core.test_kms_state_api
           core.test_kms_live_contract
