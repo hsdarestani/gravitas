@@ -2557,6 +2557,10 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
 .task-board__field { display: grid; gap: 5px; min-width: 0; }
 .task-board__label { font-size: var(--ws-fs-xs); font-weight: 600; color: var(--g-text-subtle); }
 .task-board__input { width: 100%; min-width: 0 !important; }
+.task-board__meeting-field { align-content: start; }
+.task-board__meeting-actions { flex-wrap: wrap; align-items: center; margin-top: 2px; }
+.task-board__meeting-field > .fl-muted { line-height: 1.35; }
+.task-board__meeting-actions .ws-btn { min-height: 30px; }
 .task-board__textarea { width: 100%; height: auto; min-height: 78px; padding: 9px 10px; resize: vertical; }
 .task-card-dialog__trace { display: flex; flex-wrap: wrap; gap: 6px; }
 .task-card-dialog__message {
