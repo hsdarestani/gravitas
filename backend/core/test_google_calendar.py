@@ -113,6 +113,47 @@ class GoogleCalendarIntegrationTests(TestCase):
         )
         self.assertIn(GOOGLE_TASKS_SCOPE, connection.granted_scopes)
 
+    @patch('core.views.requests.get')
+    @patch('core.views.requests.post')
+    def test_calendar_oauth_scope_omission_does_not_create_reconnect_loop(
+        self,
+        token_post,
+        userinfo_get,
+    ):
+        GoogleCalendarConnection.objects.create(
+            user=self.user,
+            google_email='calendar-owner@gmail.com',
+            refresh_token_encrypted=encrypt_refresh_token('old-refresh-token'),
+            granted_scopes=GOOGLE_CALENDAR_SCOPE,
+        )
+        token_response = Mock()
+        token_response.raise_for_status.return_value = None
+        token_response.json.return_value = {
+            'access_token': 'access-token',
+            'refresh_token': 'new-refresh-token',
+        }
+        token_post.return_value = token_response
+        info_response = Mock()
+        info_response.raise_for_status.return_value = None
+        info_response.json.return_value = {
+            'email': 'calendar-owner@gmail.com',
+            'email_verified': True,
+            'name': 'Calendar Owner',
+        }
+        userinfo_get.return_value = info_response
+
+        started = self.client.get('/api/calendar/google/connect/', secure=True)
+        state = parse_qs(urlparse(started['Location']).query)['state'][0]
+        response = self.client.get(
+            '/api/auth/google/callback/',
+            {'code': 'code', 'state': state},
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 302)
+        connection = GoogleCalendarConnection.objects.get(user=self.user)
+        self.assertIn(GOOGLE_CALENDAR_SCOPE, connection.granted_scopes)
+        self.assertIn(GOOGLE_TASKS_SCOPE, connection.granted_scopes)
+
     @patch('core.google_calendar_api.requests.post')
     def test_meeting_sync_creates_google_calendar_event(self, post):
         meeting = OperatingMeeting.objects.create(
@@ -222,7 +263,8 @@ class GoogleCalendarIntegrationTests(TestCase):
         self.assertEqual(payload['status'], 'needsAction')
         self.assertTrue(payload['due'].startswith(task.due_date.isoformat()))
 
-    def test_existing_calendar_connection_without_tasks_scope_prompts_permission_upgrade(self):
+    @patch('core.google_calendar_api.requests.post')
+    def test_stale_scope_metadata_does_not_block_google_task_sync(self, post):
         task = self._task()
         GoogleCalendarConnection.objects.create(
             user=self.user,
@@ -230,20 +272,41 @@ class GoogleCalendarIntegrationTests(TestCase):
             refresh_token_encrypted=encrypt_refresh_token('refresh-token'),
             granted_scopes=GOOGLE_CALENDAR_SCOPE,
         )
-        response = self.client.get(
+
+        status = self.client.get(
             f'/api/calendar/google/tasks/{task.pk}/status/',
             secure=True,
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()['connected'])
-        self.assertFalse(response.json()['tasks_scope_granted'])
+        self.assertEqual(status.status_code, 200)
+        self.assertTrue(status.json()['connected'])
+        self.assertFalse(status.json()['tasks_scope_granted'])
+        self.assertIn(
+            'authuser=calendar-owner@gmail.com',
+            status.json()['calendar_url'],
+        )
+
+        token_response = Mock()
+        token_response.raise_for_status.return_value = None
+        token_response.json.return_value = {'access_token': 'fresh-access-token'}
+        task_response = Mock()
+        task_response.ok = True
+        task_response.status_code = 200
+        task_response.json.return_value = {'id': 'google-task-stale-scope'}
+        post.side_effect = [token_response, task_response]
 
         sync = self.client.post(
             f'/api/calendar/google/tasks/{task.pk}/sync/',
             secure=True,
         )
-        self.assertEqual(sync.status_code, 409)
-        self.assertEqual(sync.json()['error'], 'google_tasks_permission_required')
+        self.assertEqual(sync.status_code, 200, sync.content)
+        self.assertEqual(
+            sync.json()['google_task']['google_task_id'],
+            'google-task-stale-scope',
+        )
+        self.assertIn(
+            'authuser=calendar-owner@gmail.com',
+            sync.json()['google_task']['calendar_url'],
+        )
 
     @patch('core.google_calendar_api.requests.get')
     @patch('core.google_calendar_api.requests.post')
