@@ -254,6 +254,47 @@ class OperatingTask(models.Model):
 
 
 
+class GoogleCalendarConnection(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_google_calendar',
+    )
+    google_email = models.EmailField(blank=True)
+    refresh_token_encrypted = models.TextField()
+    calendar_id = models.CharField(max_length=255, default='primary')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class GoogleCalendarEventLink(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_google_calendar_events',
+    )
+    meeting = models.ForeignKey(
+        OperatingMeeting,
+        on_delete=models.CASCADE,
+        related_name='google_calendar_links',
+    )
+    calendar_id = models.CharField(max_length=255, default='primary')
+    event_id = models.CharField(max_length=1024)
+    html_link = models.URLField(max_length=1600, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'meeting'],
+                name='unique_google_calendar_meeting_user',
+            ),
+        ]
+
+
+
 class OperatingTaskChecklistItem(models.Model):
     task = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='checklist_items')
     title = models.CharField(max_length=500)
