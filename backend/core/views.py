@@ -287,6 +287,8 @@ def auth_google_start(request):
         return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=not_configured#in')
     state = secrets.token_urlsafe(32)
     request.session['google_oauth_state'] = state
+    request.session['google_oauth_flow'] = 'login'
+    request.session.pop('google_calendar_next', None)
     params = {
         'client_id': client_id,
         'redirect_uri': settings.GOOGLE_OAUTH_REDIRECT_URI,
@@ -302,8 +304,28 @@ def auth_google_callback(request):
     code = str(request.GET.get('code') or '').strip()
     state = str(request.GET.get('state') or '').strip()
     expected = str(request.session.pop('google_oauth_state', '') or '')
+    flow = str(request.session.pop('google_oauth_flow', 'login') or 'login')
+    calendar_next = str(
+        request.session.pop('google_calendar_next', '/workspace/core/tasks')
+        or '/workspace/core/tasks'
+    )
+
+    def error_redirect(code_name):
+        if flow == 'calendar':
+            separator = '&' if '?' in calendar_next else '?'
+            return HttpResponseRedirect(
+                f'{settings.PUBLIC_BASE_URL}{calendar_next}{separator}calendar_error={quote(code_name)}'
+            )
+        return HttpResponseRedirect(
+            f'{settings.PUBLIC_BASE_URL}/account.html?google_error={quote(code_name)}#in'
+        )
+
     if not code or not state or not expected or not secrets.compare_digest(state, expected):
-        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=state#in')
+        return error_redirect('state')
+    if flow == 'calendar' and not request.user.is_authenticated:
+        return HttpResponseRedirect(
+            f'{settings.PUBLIC_BASE_URL}/login?next={quote(calendar_next)}'
+        )
 
     try:
         token_response = requests.post(
@@ -318,7 +340,8 @@ def auth_google_callback(request):
             timeout=(5, 20),
         )
         token_response.raise_for_status()
-        access_token = str(token_response.json().get('access_token') or '')
+        token_data = token_response.json()
+        access_token = str(token_data.get('access_token') or '')
         if not access_token:
             raise ValueError('missing_access_token')
         info_response = requests.get(
@@ -330,11 +353,23 @@ def auth_google_callback(request):
         info = info_response.json()
     except (requests.RequestException, ValueError, TypeError):
         logger.exception('Google OAuth exchange failed')
-        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=provider#in')
+        return error_redirect('provider')
 
     email = str(info.get('email') or '').strip().lower()
     if not email or not bool(info.get('email_verified')):
-        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=email#in')
+        return error_redirect('email')
+
+    if flow == 'calendar':
+        try:
+            from .google_calendar_api import finish_calendar_oauth
+            finish_calendar_oauth(request.user, info, token_data)
+        except Exception:
+            logger.exception('Google Calendar OAuth connection failed')
+            return error_redirect('calendar_connection')
+        separator = '&' if '?' in calendar_next else '?'
+        return HttpResponseRedirect(
+            f'{settings.PUBLIC_BASE_URL}{calendar_next}{separator}calendar_connected=1'
+        )
 
     user = User.objects.filter(email__iexact=email).first()
     created = user is None
@@ -346,7 +381,7 @@ def auth_google_callback(request):
         from core.workspace_api import provision_personal_workspace
         provision_personal_workspace(user)
     elif not user.is_active:
-        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/account.html?google_error=account#in')
+        return error_redirect('account')
 
     profile, _ = CommunityProfile.objects.get_or_create(user=user)
     if not profile.email_verification_required:
