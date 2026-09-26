@@ -123,8 +123,6 @@ def _task_json(task):
         'cycle_title': task.cycle.name if task.cycle else '',
         'project_id': task.project_id,
         'project_title': task.project.title if task.project else '',
-        'meeting_id': task.meeting_id,
-        'meeting_title': task.meeting.title if task.meeting else '',
         'dependency_id': task.dependency_id,
         'dependency_title': task.dependency.title if task.dependency else '',
         'comment_count': getattr(task, 'comment_count', 0),
@@ -201,11 +199,6 @@ def _choices(request, workspace):
         .exclude(status=WorkStatus.ARCHIVED)
         .order_by('end_date', 'name')
     )
-    meetings = (
-        OperatingMeeting.objects.filter(workspace=workspace)
-        .exclude(status=WorkStatus.ARCHIVED)
-        .order_by('-scheduled_for', 'title')[:100]
-    )
     projects = v4._research_projects_for_core(request, workspace).order_by('title', 'id')
     return {
         'members': _members(workspace),
@@ -245,18 +238,6 @@ def _choices(request, workspace):
         } for row in packages.select_related('milestone__initiative__key_result')],
         'cycles': [{'id': row.pk, 'title': row.name} for row in cycles],
         'projects': [{'id': row.pk, 'title': row.title} for row in projects],
-        'meetings': [{
-            'id': row.pk,
-            'title': row.title,
-            'kind': row.kind,
-            'scheduled_for': row.scheduled_for.isoformat(),
-            'duration_minutes': row.duration_minutes,
-            'owner': _person(row.owner),
-        } for row in meetings.select_related('owner')],
-        'meeting_kinds': [
-            {'value': value, 'label': label}
-            for value, label in OperatingMeeting.Kind.choices
-        ],
     }
 
 
@@ -335,6 +316,8 @@ def task_board_detail(request, task_id):
 
     if request.method == 'DELETE':
         title = task.title
+        from .google_calendar_api import delete_existing_task_events
+        delete_existing_task_events(task)
         _log(request, task, 'task.deleted', {'title': title})
         task.delete()
         return JsonResponse({'ok': True})
@@ -457,7 +440,7 @@ def task_board_detail(request, task_id):
             'title', 'description', 'owner', 'priority', 'status', 'due_date',
             'definition_of_done', 'blocked_reason',
             'milestone_id', 'work_package_id', 'project_id',
-            'meeting_id', 'dependency_id',
+            'dependency_id',
         ]
         if before.get(key) != after.get(key)
     }

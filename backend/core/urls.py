@@ -7,8 +7,15 @@ from core.kpi import kpi_summary
 from core.google_calendar_api import (
     google_calendar_connect,
     google_calendar_disconnect,
+    google_calendar_events,
     google_calendar_meeting_sync,
+    google_calendar_minute_attachment_delete,
+    google_calendar_minute_attachment_download,
+    google_calendar_minute_attachments,
+    google_calendar_minutes,
     google_calendar_status,
+    google_calendar_task_status,
+    google_calendar_task_sync,
 )
 from core.reader_library import reader_library
 from core.topic_progress import topic_progress
@@ -248,6 +255,13 @@ urlpatterns = [
     path('calendar/google/status/', google_calendar_status),
     path('calendar/google/disconnect/', google_calendar_disconnect),
     path('calendar/google/meetings/<int:meeting_id>/sync/', google_calendar_meeting_sync),
+    path('calendar/google/events/', require_core(google_calendar_events)),
+    path('calendar/google/minutes/', require_core(google_calendar_minutes)),
+    path('calendar/google/minutes/<int:minute_id>/attachments/', require_core(google_calendar_minute_attachments)),
+    path('calendar/google/minutes/<int:minute_id>/attachments/<int:attachment_id>/', require_core(google_calendar_minute_attachment_delete)),
+    path('calendar/google/minutes/<int:minute_id>/attachments/<int:attachment_id>/download/', require_core(google_calendar_minute_attachment_download)),
+    path('calendar/google/tasks/<int:task_id>/status/', require_core(google_calendar_task_status)),
+    path('calendar/google/tasks/<int:task_id>/sync/', require_core(google_calendar_task_sync)),
     path('auth/logout/', auth_logout),
     path('auth/me/', auth_me),
     path('auth/export/', auth_export),

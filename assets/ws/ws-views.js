@@ -8,8 +8,8 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20260926-calendar1';
-import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
+import * as P from './ws-platform.js?v=20260926-calendar2';
+import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20260926-meetings1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -242,22 +242,6 @@ export function renderCoreTasks(host, { go }) {
     return [['', emptyLabel], ...(items || []).map((item) => [item.id, item[titleKey] || item.name || item.email])];
   }
 
-  function meetingLabel(item) {
-    if (!item) return '';
-    if (!item.scheduled_for) return item.title || 'Meeting';
-    const when = new Date(item.scheduled_for);
-    const formatted = Number.isNaN(when.getTime())
-      ? ''
-      : new Intl.DateTimeFormat(undefined, {
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-      }).format(when);
-    return [item.title || 'Meeting', formatted].filter(Boolean).join(' · ');
-  }
-
-  function meetingOptionRows(items, emptyLabel = 'No meeting') {
-    return [['', emptyLabel], ...(items || []).map((item) => [item.id, meetingLabel(item)])];
-  }
-
   function taskSearchText(task) {
     return [
       task.title, task.description, task.owner?.name, task.owner?.email,
@@ -346,70 +330,6 @@ export function renderCoreTasks(host, { go }) {
     return closest.element;
   }
 
-  async function openMeetingDialog(state, options = {}) {
-    const { dialog, body } = makeDialog('New meeting');
-    const form = el('form', 'task-board__form');
-    const title = input('text');
-    title.placeholder = 'Meeting title';
-    const kinds = (state.meeting_kinds || []).map((item) => [item.value, item.label]);
-    const kind = select(kinds.length ? kinds : [['weekly_gravitas', 'Gravitas Weekly']], kinds[0]?.[0] || 'weekly_gravitas');
-    const scheduled = input('datetime-local');
-    if (options.dueDate) scheduled.value = `${options.dueDate}T10:00`;
-    const duration = input('number', '60');
-    duration.min = '15';
-    duration.step = '15';
-    const ownerId = options.ownerId || state.members?.[0]?.id || '';
-    const owner = select(optionRows(state.members, 'Choose owner', 'name'), ownerId);
-    const notes = textarea('', 4);
-    notes.placeholder = 'Agenda or meeting notes';
-    const note = el('p', 'v-note');
-    const create = makeButton('Create meeting', () => {}, true);
-    create.type = 'submit';
-
-    const two = el('div', 'task-board__two');
-    two.append(
-      field('Meeting type', kind),
-      field('Date & time', scheduled),
-      field('Duration · minutes', duration),
-      field('Owner', owner),
-    );
-    form.append(field('Title', title), two, field('Notes', notes), create, note);
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      if (!title.value.trim() || !scheduled.value || !owner.value) {
-        note.textContent = 'Title, date and owner are required.';
-        return;
-      }
-      const localDate = new Date(scheduled.value);
-      if (Number.isNaN(localDate.getTime())) {
-        note.textContent = 'Choose a valid date and time.';
-        return;
-      }
-      create.disabled = true;
-      note.textContent = 'Creating…';
-      try {
-        const result = await P.createOperatingMeeting({
-          title: title.value.trim(),
-          kind: kind.value,
-          scheduled_for: localDate.toISOString(),
-          duration_minutes: Number(duration.value || 60),
-          owner_id: Number(owner.value),
-          notes: notes.value.trim(),
-          status: 'active',
-        });
-        if (result.meeting) {
-          state.meetings = [result.meeting, ...(state.meetings || []).filter((row) => row.id !== result.meeting.id)];
-          if (options.onCreated) await options.onCreated(result.meeting);
-        }
-        closeDialog(dialog);
-      } catch (error) {
-        note.textContent = error?.data?.error || error?.message || 'Meeting could not be created.';
-        create.disabled = false;
-      }
-    });
-    body.append(form);
-  }
-
   async function openTaskDialog(taskId, state, reloadBoard) {
     const { dialog, body, head } = makeDialog('Loading task…');
     body.append(skeleton(6));
@@ -448,8 +368,6 @@ export function renderCoreTasks(host, { go }) {
       );
       const workPackage = select(optionRows(detailData.work_packages || state.work_packages, 'No work package'), task.work_package_id);
       const project = select(optionRows(detailData.projects || state.projects, 'No Research project'), task.project_id);
-      const meetingRows = detailData.meetings || state.meetings || [];
-      const meeting = select(meetingOptionRows(meetingRows), task.meeting_id);
       const dependency = select(
         [['', 'No dependency'], ...state.tasks.filter((row) => row.id !== task.id).map((row) => [row.id, row.title])],
         task.dependency_id,
@@ -460,112 +378,86 @@ export function renderCoreTasks(host, { go }) {
 
       const two = el('div', 'task-board__two');
       two.append(field('Priority', priority), field('Status', status), field('Owner', owner), field('Due date', due));
-      const meetingField = el('div', 'task-board__field task-board__meeting-field');
-      meetingField.append(el('span', 'task-board__label', 'Meeting'), meeting);
-      const meetingActions = el('div', 'task-card-dialog__actions task-board__meeting-actions');
-      const newMeeting = makeButton('New meeting', () => {});
-      const calendarAction = makeButton('Add to Google Calendar', () => {});
+      const calendarField = el('div', 'task-board__field task-board__calendar-field');
+      calendarField.append(el('span', 'task-board__label', 'Google Calendar'));
+      const calendarActions = el('div', 'task-card-dialog__actions task-board__calendar-actions');
+      const calendarAction = makeButton('Add as Google Task', () => {});
       const calendarNote = el('small', 'fl-muted');
       const openCalendar = el('a', 'ws-btn ws-btn--tiny', 'Open Calendar');
       openCalendar.target = '_blank';
       openCalendar.rel = 'noopener';
       openCalendar.hidden = true;
-      meetingActions.append(newMeeting, calendarAction, openCalendar);
-      meetingField.append(meetingActions, calendarNote);
+      calendarActions.append(calendarAction, openCalendar);
+      calendarField.append(calendarActions, calendarNote);
 
-      let calendarState = null;
-      const setCalendarUi = () => {
-        const meetingId = Number(meeting.value || 0);
+      let taskCalendarState = null;
+      const setTaskCalendarUi = () => {
         openCalendar.hidden = true;
         openCalendar.removeAttribute('href');
-        if (!meetingId) {
-          calendarAction.disabled = true;
-          calendarAction.textContent = 'Add to Google Calendar';
-          calendarNote.textContent = 'Choose or create a meeting first.';
+        if (!taskCalendarState?.connected || !taskCalendarState?.tasks_scope_granted) {
+          calendarAction.textContent = taskCalendarState?.connected
+            ? 'Enable Google Tasks'
+            : 'Connect Google Calendar';
+          calendarNote.textContent = taskCalendarState?.connected
+            ? 'One reconnect is needed to grant Google Tasks access. The task will then appear in Google Calendar.'
+            : 'Connect your Google account once, then add this task as a native Google Task in your own calendar.';
+          calendarAction.disabled = false;
           return;
         }
-        calendarAction.disabled = false;
-        if (!calendarState?.connected) {
-          calendarAction.textContent = 'Connect Google Calendar';
-          calendarNote.textContent = 'Connect once, then Gravitas can create and keep this meeting synced.';
-          return;
-        }
-        calendarAction.textContent = calendarState.event ? 'Sync Google Calendar' : 'Add to Google Calendar';
-        calendarNote.textContent = calendarState.google_email
-          ? `Connected as ${calendarState.google_email}`
+        calendarAction.textContent = taskCalendarState.google_task
+          ? 'Sync Google Task'
+          : 'Add as Google Task';
+        calendarNote.textContent = taskCalendarState.google_email
+          ? `Connected as ${taskCalendarState.google_email}`
           : 'Google Calendar connected';
-        if (calendarState.event?.html_link) {
-          openCalendar.href = calendarState.event.html_link;
+        calendarAction.disabled = false;
+        if (taskCalendarState.google_task?.calendar_url) {
+          openCalendar.href = taskCalendarState.google_task.calendar_url;
           openCalendar.hidden = false;
         }
       };
 
-      const refreshCalendarState = async () => {
-        const meetingId = Number(meeting.value || 0);
-        calendarState = meetingId ? await P.googleCalendarStatus(meetingId) : null;
-        setCalendarUi();
+      const refreshTaskCalendarState = async () => {
+        taskCalendarState = await P.googleCalendarTaskStatus(task.id);
+        setTaskCalendarUi();
       };
 
-      newMeeting.addEventListener('click', () => {
-        openMeetingDialog(state, {
-          ownerId: owner.value,
-          dueDate: due.value,
-          onCreated: async (created) => {
-            const option = el('option', null, meetingLabel(created));
-            option.value = String(created.id);
-            meeting.prepend(option);
-            meeting.value = String(created.id);
-            calendarState = null;
-            await refreshCalendarState();
-          },
-        });
-      });
-
-      meeting.addEventListener('change', () => {
-        calendarState = null;
-        refreshCalendarState().catch(() => {
-          calendarNote.textContent = 'Calendar status unavailable.';
-          setCalendarUi();
-        });
-      });
-
       calendarAction.addEventListener('click', async () => {
-        const meetingId = Number(meeting.value || 0);
-        if (!meetingId) return;
         calendarAction.disabled = true;
         calendarNote.textContent = 'Checking Google Calendar…';
         try {
-          calendarState = await P.googleCalendarStatus(meetingId);
-          if (!calendarState.connected) {
-            // Persist the selected meeting before leaving for Google OAuth so
-            // the same task re-opens with the association intact.
-            if (Number(task.meeting_id || 0) !== meetingId) {
-              await P.updateOperatingTaskCard(task.id, { meeting_id: meetingId });
-            }
+          taskCalendarState = await P.googleCalendarTaskStatus(task.id);
+          if (!taskCalendarState.connected || !taskCalendarState.tasks_scope_granted) {
             const next = `${location.pathname}?calendar_task=${encodeURIComponent(task.id)}`;
             location.href = `/api/calendar/google/connect/?next=${encodeURIComponent(next)}`;
             return;
           }
-          calendarNote.textContent = calendarState.event ? 'Syncing…' : 'Adding…';
-          const result = await P.syncOperatingMeetingToGoogle(meetingId);
-          calendarState.event = result.event;
-          setCalendarUi();
+          calendarNote.textContent = taskCalendarState.google_task ? 'Syncing Google Task…' : 'Adding Google Task…';
+          const result = await P.syncOperatingTaskToGoogle(task.id);
+          taskCalendarState.google_task = result.google_task;
+          setTaskCalendarUi();
         } catch (error) {
-          calendarNote.textContent = error?.data?.error || error?.message || 'Google Calendar sync failed.';
+          const code = error?.data?.error || error?.message || '';
+          calendarNote.textContent = code === 'calendar_reconnect_required'
+            ? 'Google Calendar access expired. Connect again.'
+            : code === 'calendar_permission_denied' || code === 'google_tasks_permission_required'
+              ? 'Google Tasks permission is required. Reconnect and approve Tasks access.'
+              : code || 'Google Task sync failed.';
           calendarAction.disabled = false;
         }
       });
 
-      refreshCalendarState().catch(() => {
-        calendarNote.textContent = 'Calendar status unavailable.';
-        setCalendarUi();
+      refreshTaskCalendarState().catch((error) => {
+        taskCalendarState = null;
+        calendarNote.textContent = error?.data?.error || 'Calendar status unavailable.';
+        setTaskCalendarUi();
       });
 
       const links = el('div', 'task-board__two');
       links.append(
         field('Key result', keyResult), field('Milestone', milestone),
         field('Work package', workPackage),
-        field('Research project', project), meetingField,
+        field('Research project', project),
         field('Dependency', dependency),
       );
 
@@ -599,6 +491,7 @@ export function renderCoreTasks(host, { go }) {
         field('Description', description),
         two,
         links,
+        calendarField,
         field('Definition of done', done),
         field('Blocked reason', blocked),
         trace,
@@ -620,7 +513,6 @@ export function renderCoreTasks(host, { go }) {
           milestone_id: milestone.value ? Number(milestone.value) : null,
           work_package_id: workPackage.value ? Number(workPackage.value) : null,
           project_id: project.value ? Number(project.value) : null,
-          meeting_id: meeting.value ? Number(meeting.value) : null,
           dependency_id: dependency.value ? Number(dependency.value) : null,
           due_date: due.value || null,
           definition_of_done: done.value.trim(),
@@ -992,17 +884,11 @@ export function renderCoreTasks(host, { go }) {
       const ownerFilter = select([['', 'All owners'], ...(data.members || []).map((member) => [member.id, member.name || member.email])], filters.owner);
       const priorityFilter = select([['', 'All priorities'], ...(data.priorities || []).map((item) => [item.value, item.label])], filters.priority);
       const count = el('span', 'v-toolbar__count');
-      const addMeeting = makeButton('New meeting', () => {
-        openMeetingDialog(state, {
-          onCreated: async () => { await load(); },
-        });
-      });
       const add = makeButton('New task from KR', () => openCreateDialog(state, load), true);
       if (!data.can_edit) {
-        addMeeting.disabled = true;
         add.disabled = true;
       }
-      toolbar.append(search, ownerFilter, priorityFilter, count, addMeeting, add);
+      toolbar.append(search, ownerFilter, priorityFilter, count, add);
       holder.append(toolbar);
 
       const board = el('div', 'task-trello-board');

@@ -20,8 +20,9 @@
    ========================================================================== */
 
 import * as api from './ws-api.js?v=20260913-3';
-import * as P from './ws-platform.js?v=20260926-calendar1';
-import * as views from './ws-views.js?v=20260926-calendar1';
+import * as P from './ws-platform.js?v=20260926-calendar2';
+import * as views from './ws-views.js?v=20260926-calendar2';
+import * as meetings from './ws-meetings.js?v=20260926-calendar2';
 import * as assets from './ws-core-assets.js?v=20260920-pulsar1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js?v=20260924-seen1';
@@ -29,7 +30,7 @@ import * as research from './ws-research.js?v=20260924-rhythm1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20260920-visual4';
+} from './ws-nav.js?v=20260926-meetings1';
 import { renderDashboard, stopClock } from './ws-home.js?v=20260924-unify1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
@@ -117,6 +118,7 @@ const ROUTES = [
 
   [/^\/workspace\/core\/?$/,                        () => ({ view: 'core' })],
   [/^\/workspace\/core\/tasks\/?$/,                 () => ({ view: 'core-tasks' })],
+  [/^\/workspace\/core\/meetings\/?$/,              () => ({ view: 'core-meetings' })],
   [/^\/workspace\/core\/content\/?$/,               () => ({ view: 'core-content' })],
   [/^\/workspace\/core\/notes\/?$/,                 () => ({ view: 'core-notes' })],
   [/^\/workspace\/core\/team\/?$/,                  () => ({ view: 'core-team' })],
@@ -1466,6 +1468,7 @@ function render() {
   else if (view === 'research-search') research.renderSearch(host, ctx);
   else if (view === 'kms') kms.renderKmsOverview(host, ctx);
   else if (view === 'core-tasks') views.renderCoreTasks(host, ctx);
+  else if (view === 'core-meetings') meetings.renderCoreMeetings(host, ctx);
   else if (view === 'core-content') views.renderCoreContent(host, ctx);
   else if (view === 'core-team') views.renderCoreTeam(host, ctx);
   else if (view === 'core-planning') views.renderCorePlanning(host, ctx);

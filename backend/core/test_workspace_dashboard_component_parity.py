@@ -48,14 +48,15 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
 
     def test_workspace_force_loads_rebuilt_renderers(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-app.js?v=20260926-calendar1', html)
+        self.assertIn('/assets/ws/ws-app.js?v=20260926-calendar2', html)
         self.assertIn('/assets/ws/ws-five-layer.js?v=20260924-railsync1', html)
         self.assertIn('/assets/ws/ws-charts.css?v=20260924-unify1', html)
         self.assertIn('/assets/ws/ws-unified-design.css?v=20260924-rhythm1', html)
 
         app = self.read('ws-app.js')
         self.assertIn("./ws-home.js?v=20260924-unify1", app)
-        self.assertIn("./ws-views.js?v=20260926-calendar1", app)
+        self.assertIn("./ws-views.js?v=20260926-calendar2", app)
+        self.assertIn("./ws-meetings.js?v=20260926-calendar2", app)
 
         five = self.read('ws-five-layer.js')
         for marker in (
