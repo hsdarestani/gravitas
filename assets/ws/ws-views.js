@@ -402,13 +402,13 @@ export function renderCoreTasks(host, { go }) {
         }
         calendarAction.textContent = taskCalendarState.google_task
           ? 'Sync Google Task'
-          : 'Add task to Google Calendar';
+          : 'Add as Google Task';
         calendarNote.textContent = taskCalendarState.google_email
           ? `Connected as ${taskCalendarState.google_email}`
           : 'Google Calendar connected';
         calendarAction.disabled = false;
         if (taskCalendarState.google_task?.calendar_url) {
-          openCalendar.href = taskCalendarState.google_task.html_link;
+          openCalendar.href = taskCalendarState.google_task.calendar_url;
           openCalendar.hidden = false;
         }
       };
