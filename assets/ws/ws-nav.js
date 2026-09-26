@@ -87,7 +87,7 @@ export const CORE_SECTIONS = [
   {
     id: 'core-meetings',
     label: 'Meetings',
-    icon: 'calendar',
+    icon: 'meeting',
     path: '/workspace/core/meetings',
     match: under('/workspace/core/meetings'),
   },
