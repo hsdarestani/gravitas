@@ -109,10 +109,10 @@ async function renderLiveAssetLibrary(host) {
     }
     host.append(cloudBar);
 
-    const form = el('form', 'fl-form');
+    const form = el('form', 'fl-form core-assets-create');
     const uploadGrid = el('div', 'fl-form-grid');
     const title = el('input', 'v-input fl-input');
-    title.placeholder = 'Display name (optional for one file)';
+    title.placeholder = 'Display name (required for links, optional for one file)';
     const folder = el('input', 'v-input fl-input');
     folder.placeholder = 'Folder, e.g. Brand/Logos';
     folder.setAttribute('list', 'core-asset-folders');
@@ -124,24 +124,37 @@ async function renderLiveAssetLibrary(host) {
       folderOptions.append(option);
     }
     uploadGrid.append(title, folder);
+
+    const fileRow = el('div', 'core-assets-create__row');
     const file = el('input', 'v-input fl-input');
     file.type = 'file';
     file.multiple = true;
-    const submit = el('button', 'ws-btn ws-btn--solid', 'Upload files');
-    submit.type = 'submit';
-    submit.disabled = cloudState === 'unavailable';
-    const note = el('p', 'v-note');
-    form.append(uploadGrid, folderOptions, file, submit, note);
+    const uploadFiles = el('button', 'ws-btn ws-btn--solid', 'Upload files');
+    uploadFiles.type = 'button';
+    uploadFiles.disabled = cloudState === 'unavailable';
+    fileRow.append(file, uploadFiles);
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
+    const linkRow = el('div', 'core-assets-create__row');
+    const sourceUrl = el('input', 'v-input fl-input');
+    sourceUrl.type = 'url';
+    sourceUrl.placeholder = 'https://…  Add a Google Doc, Drive file, website or other link';
+    sourceUrl.autocomplete = 'url';
+    const addLink = el('button', 'ws-btn', 'Add link');
+    addLink.type = 'button';
+    linkRow.append(sourceUrl, addLink);
+
+    const note = el('p', 'v-note');
+    form.append(uploadGrid, folderOptions, fileRow, linkRow, note);
+    form.addEventListener('submit', (event) => event.preventDefault());
+
+    uploadFiles.addEventListener('click', async () => {
       const files = [...(file.files || [])];
       if (!files.length) {
         note.textContent = 'Choose one or more files to upload.';
         note.dataset.tone = 'bad';
         return;
       }
-      submit.disabled = true;
+      uploadFiles.disabled = true;
       note.dataset.tone = '';
       try {
         for (let index = 0; index < files.length; index += 1) {
@@ -163,7 +176,42 @@ async function renderLiveAssetLibrary(host) {
             ? 'Nextcloud is temporarily unavailable. Upload is paused.'
             : (error?.message || 'Upload failed.');
         note.dataset.tone = 'bad';
-        submit.disabled = false;
+        uploadFiles.disabled = cloudState === 'unavailable';
+      }
+    });
+
+    addLink.addEventListener('click', async () => {
+      const rawUrl = sourceUrl.value.trim();
+      let parsed;
+      try {
+        parsed = new URL(rawUrl);
+      } catch {
+        parsed = null;
+      }
+      if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
+        note.textContent = 'Enter a valid http:// or https:// link.';
+        note.dataset.tone = 'bad';
+        sourceUrl.focus();
+        return;
+      }
+
+      addLink.disabled = true;
+      note.dataset.tone = '';
+      note.textContent = 'Adding link…';
+      try {
+        const body = new FormData();
+        body.append('title', title.value.trim() || parsed.hostname);
+        body.append('folder_path', folder.value.trim());
+        body.append('visible_to_all_core', '1');
+        body.append('source_url', rawUrl);
+        await P.uploadCoreAsset(body);
+        await renderLiveAssetLibrary(host);
+      } catch (error) {
+        note.textContent = error?.message === 'invalid_source_url'
+          ? 'Enter a valid http:// or https:// link.'
+          : (error?.message || 'Link could not be added.');
+        note.dataset.tone = 'bad';
+        addLink.disabled = false;
       }
     });
     host.append(form);
@@ -220,11 +268,29 @@ async function renderLiveAssetLibrary(host) {
           actions.append(newVersion);
         }
       } else if (current.source_url) {
-        const open = el('a', 'ws-btn ws-btn--tiny', 'Open URL');
+        const open = el('a', 'ws-btn ws-btn--tiny', 'Open link');
         open.href = current.source_url;
         open.target = '_blank';
-        open.rel = 'noopener';
+        open.rel = 'noopener noreferrer';
         actions.append(open);
+
+        if (current.can_edit) {
+          const editLink = el('button', 'ws-btn ws-btn--tiny', 'Edit link');
+          editLink.type = 'button';
+          editLink.addEventListener('click', async () => {
+            const nextUrl = prompt('Link URL:', current.source_url);
+            if (nextUrl == null || !nextUrl.trim()) return;
+            try {
+              await P.updateCoreAsset(current.id, { source_url: nextUrl.trim() });
+              await renderLiveAssetLibrary(host);
+            } catch (error) {
+              alert(error?.message === 'invalid_source_url'
+                ? 'Enter a valid http:// or https:// link.'
+                : (error?.message || 'Link could not be updated.'));
+            }
+          });
+          actions.append(editLink);
+        }
       }
 
       if (current.can_edit) {
@@ -262,6 +328,7 @@ async function renderLiveAssetLibrary(host) {
       const badges = [
         'v' + current.version,
         current.version_count + (current.version_count === 1 ? ' version' : ' versions'),
+        current.kind === 'url' ? 'Link' : '',
         current.file_size ? P.formatBytes(current.file_size) : '',
         current.storage_backend === 'nextcloud' ? 'Nextcloud' : '',
         current.uploader,
