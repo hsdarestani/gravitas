@@ -31,6 +31,7 @@ from .workspace_api import _accessible_workspaces
 
 logger = logging.getLogger(__name__)
 GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
+GOOGLE_CALENDAR_LIST_SCOPE = 'https://www.googleapis.com/auth/calendar.calendarlist.readonly'
 GOOGLE_TASKS_SCOPE = 'https://www.googleapis.com/auth/tasks'
 TOKEN_URL = 'https://oauth2.googleapis.com/token'
 CALENDAR_API_ROOT = 'https://www.googleapis.com/calendar/v3'
@@ -107,7 +108,7 @@ def google_calendar_connect(request):
         'client_id': client_id,
         'redirect_uri': settings.GOOGLE_OAUTH_REDIRECT_URI,
         'response_type': 'code',
-        'scope': f'openid email profile {GOOGLE_CALENDAR_SCOPE} {GOOGLE_TASKS_SCOPE}',
+        'scope': f'openid email profile {GOOGLE_CALENDAR_SCOPE} {GOOGLE_CALENDAR_LIST_SCOPE} {GOOGLE_TASKS_SCOPE}',
         'state': state,
         'access_type': 'offline',
         'prompt': 'consent',
@@ -137,7 +138,7 @@ def finish_calendar_oauth(user, info, token_data):
         # unchanged from the authorization request. The previous code treated
         # that omission as "Tasks was not granted" and kept stale metadata,
         # which sent users through an endless reconnect loop.
-        granted_scopes = f'{GOOGLE_CALENDAR_SCOPE} {GOOGLE_TASKS_SCOPE}'
+        granted_scopes = f'{GOOGLE_CALENDAR_SCOPE} {GOOGLE_CALENDAR_LIST_SCOPE} {GOOGLE_TASKS_SCOPE}'
     defaults = {
         'google_email': email,
         'calendar_id': (connection.calendar_id if connection else 'primary'),
@@ -718,8 +719,64 @@ def _event_json(event, minute=None):
     }
 
 
+def _meetings_calendar_name():
+    return str(
+        getattr(settings, 'GOOGLE_MEETINGS_CALENDAR_NAME', 'GravitasPlus')
+        or 'GravitasPlus'
+    ).strip()
+
+
+def _resolve_meetings_calendar(connection, token=None):
+    token = token or _access_token(connection)
+    headers = {'Authorization': f'Bearer {token}'}
+    target = _meetings_calendar_name()
+    url = f'{CALENDAR_API_ROOT}/users/me/calendarList'
+    params = {'maxResults': '250', 'showHidden': 'true'}
+    matches = []
+
+    for _ in range(4):
+        response = requests.get(url, headers=headers, params=params, timeout=(5, 20))
+        if not response.ok:
+            _provider_failure(response, 'calendar_list_failed')
+        try:
+            payload = response.json()
+        except (ValueError, TypeError) as exc:
+            raise GoogleCalendarError('calendar_list_failed') from exc
+
+        for row in payload.get('items') or []:
+            calendar_id = str(row.get('id') or '').strip()
+            summary = str(row.get('summary') or '').strip()
+            summary_override = str(row.get('summaryOverride') or '').strip()
+            names = {summary.casefold(), summary_override.casefold()}
+            if target.casefold() in names or calendar_id.casefold() == target.casefold():
+                matches.append({
+                    'id': calendar_id,
+                    'name': summary_override or summary or target,
+                    'access_role': str(row.get('accessRole') or ''),
+                    'primary': bool(row.get('primary')),
+                })
+
+        page_token = str(payload.get('nextPageToken') or '').strip()
+        if not page_token:
+            break
+        params['pageToken'] = page_token
+
+    if not matches:
+        raise GoogleCalendarError(
+            'gravitas_calendar_not_found',
+            provider_message=f'Calendar "{target}" was not found in the connected Google account.',
+        )
+
+    match = matches[0]
+    if connection.calendar_id != match['id']:
+        connection.calendar_id = match['id']
+        connection.save(update_fields=['calendar_id', 'updated_at'])
+    return match
+
+
 def _list_google_events(connection):
     token = _access_token(connection)
+    calendar = _resolve_meetings_calendar(connection, token=token)
     headers = {'Authorization': f'Bearer {token}'}
     now = timezone.now()
     params = {
@@ -730,7 +787,7 @@ def _list_google_events(connection):
         'timeMin': (now - timedelta(days=120)).isoformat(),
         'timeMax': (now + timedelta(days=240)).isoformat(),
     }
-    calendar_id = connection.calendar_id or 'primary'
+    calendar_id = calendar['id']
     url = f'{CALENDAR_API_ROOT}/calendars/{quote(calendar_id, safe="")}/events'
     events = []
     for _ in range(4):
@@ -752,7 +809,7 @@ def _list_google_events(connection):
         if not token_value:
             break
         params['pageToken'] = token_value
-    return events
+    return events, calendar
 
 
 @require_http_methods(['GET'])
@@ -771,7 +828,7 @@ def google_calendar_events(request):
             'events': [],
         })
     try:
-        events = _list_google_events(connection)
+        events, meetings_calendar = _list_google_events(connection)
     except GoogleCalendarError as exc:
         payload = _google_error_payload(exc)
         payload.update({
@@ -792,7 +849,8 @@ def google_calendar_events(request):
         'ok': True,
         'connected': True,
         'google_email': connection.google_email,
-        'calendar_id': connection.calendar_id,
+        'calendar_id': meetings_calendar['id'],
+        'calendar_name': meetings_calendar['name'],
         'events': [
             _event_json(event, minutes.get(str(event.get('iCalUID') or event.get('id') or '')))
             for event in events
