@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 
 from .lms_interaction_api import pulsar_workspace_project_context
 from .models import KnowledgeResource
+from .platform_access import can_view
 from .pulsar import PLATFORM_CONTEXT, PulsarError, complete, configured
 
 
@@ -23,7 +24,7 @@ def _terms(question):
 
 def _accessible_notes(user, question):
     terms = _terms(question)
-    resources = KnowledgeResource.objects.filter(
+    candidates = KnowledgeResource.objects.filter(
         Q(owner=user)
         | Q(workspace__owner=user)
         | Q(workspace__memberships__user=user),
@@ -31,7 +32,11 @@ def _accessible_notes(user, question):
     ).distinct().order_by('-updated_at')[:250]
 
     ranked = []
-    for resource in resources:
+    for resource in candidates:
+        # Workspace membership is only the coarse candidate filter. Object and
+        # project ACLs remain authoritative for every piece of Pulsar context.
+        if not can_view(user, resource):
+            continue
         haystack = f'{resource.title}\n{resource.body}'.lower()
         score = sum(
             3 if term in resource.title.lower() else 1
