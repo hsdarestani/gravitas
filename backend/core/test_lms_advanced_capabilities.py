@@ -154,6 +154,45 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         self.assertIn("section('Path edges'", admin)
 
 
+    def test_interactive_learning_and_scoped_pulsar_contract(self):
+        models = self.read('backend/core/lms_models.py')
+        api = self.read('backend/core/lms_interaction_api.py')
+        assistant = self.read('backend/core/assistant_api.py')
+        urls = self.read('backend/core/urls.py')
+        learner = self.read('assets/ws/ws-member-lms.js')
+
+        for marker in ('class LearningInteraction', 'class PulsarAccessGrant'):
+            self.assertIn(marker, models)
+        for marker in (
+            'def course_interactions',
+            'def course_learning_plan',
+            'def course_pulsar_access',
+            'def pulsar_project_context',
+            'def pulsar_workspace_project_context',
+            'can_view(user, project)',
+            'can_view(user, resource)',
+            'sync_note_to_nextcloud(resource)',
+        ):
+            self.assertIn(marker, api)
+        self.assertIn('can_view(user, resource)', assistant)
+        self.assertIn('pulsar_workspace_project_context(request.user)', assistant)
+        for marker in (
+            "lms/courses/<int:course_id>/interactions/",
+            "lms/courses/<int:course_id>/learning-plan/",
+            "lms/courses/<int:course_id>/pulsar-access/",
+        ):
+            self.assertIn(marker, urls)
+        for marker in (
+            "section('Return points'",
+            "section('Course plan'",
+            "section(\n    'Pulsar access'",
+            "Highlight selection",
+            "Save as lesson note",
+            "Turn into task",
+        ):
+            self.assertIn(marker, learner)
+
+
 class CoreAssetVersioningContractTests(SimpleTestCase):
     def read(self, path):
         return (ROOT / path).read_text(encoding='utf-8')
