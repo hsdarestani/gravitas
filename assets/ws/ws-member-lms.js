@@ -1140,6 +1140,97 @@ function lessonInteractionPanel(lesson, course) {
   return panel;
 }
 
+function focusLearningInteraction(item) {
+  if (!item?.lesson_id) return;
+  const target = document.getElementById(`lesson-${item.lesson_id}`);
+  if (!target) return;
+  target.open = true;
+
+  const prose = target.querySelector('.fl-prose');
+  const quote = String(item.quote || item.anchor?.selected_text || '').trim();
+  if (prose && quote) {
+    const original = prose.dataset.learningOriginalText || prose.textContent || '';
+    prose.dataset.learningOriginalText = original;
+    prose.textContent = original;
+    const at = original.indexOf(quote);
+    if (at >= 0) {
+      prose.textContent = '';
+      prose.append(
+        document.createTextNode(original.slice(0, at)),
+        el('mark', 'fl-return-highlight', original.slice(at, at + quote.length)),
+        document.createTextNode(original.slice(at + quote.length)),
+      );
+    }
+  }
+
+  window.requestAnimationFrame(() => {
+    const mark = target.querySelector('.fl-return-highlight');
+    (mark || target).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
+function courseReturnPointsPanel(course) {
+  const box = section(
+    'Return points',
+    'Notes, highlights, bookmarks and reminders that take you back to the lesson context where you created them.',
+  );
+
+  const draw = () => {
+    box.body.innerHTML = '';
+    const items = (course._learningInteractions || [])
+      .filter((item) => ['note', 'highlight', 'bookmark', 'reminder'].includes(item.kind))
+      .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+
+    if (!items.length) {
+      box.body.append(empty('No return points yet', 'Add a note, highlight, bookmark or reminder inside a lesson.'));
+      return;
+    }
+
+    const modules = new Map();
+    for (const module of course.modules || []) {
+      for (const lesson of module.lessons || []) {
+        modules.set(String(lesson.id), { lesson, module });
+      }
+    }
+
+    const list = el('div', 'fl-course-return-points');
+    for (const item of items) {
+      const context = modules.get(String(item.lesson_id));
+      const title = item.body || item.quote || item.label || label(item.kind);
+      const node = row({
+        title,
+        meta: P.meta([
+          label(item.kind),
+          context ? `${context.module.title} · ${context.lesson.title}` : 'Course',
+          item.due_at ? new Date(item.due_at).toLocaleString() : '',
+          item.nextcloud_resource_id ? 'Nextcloud' : '',
+        ]),
+        badges: item.completed ? ['Done'] : [],
+        onClick: item.lesson_id ? () => focusLearningInteraction(item) : null,
+      });
+      list.append(node);
+    }
+    box.body.append(list);
+  };
+
+  const refresh = action('Refresh', async () => {
+    refresh.disabled = true;
+    try {
+      const data = await P.lmsCourseInteractions(course.id);
+      course._learningInteractions = data.interactions || [];
+      draw();
+    } catch (error) {
+      refresh.title = error?.message || '';
+    } finally {
+      refresh.disabled = false;
+    }
+  });
+  refresh.classList.add('ws-btn--tiny');
+  box.head.append(refresh);
+  draw();
+  return box.box;
+}
+
 async function coursePlanPanel(course) {
   const box = section('Course plan', 'Required lessons plus your own tasks and reminders, in one progress model.');
   const render = async () => {
@@ -2637,6 +2728,7 @@ export async function renderCourse(host, id, { go }) {
     }
 
     if (course.enrolled && !offlineSnapshot) {
+      wrap.append(courseReturnPointsPanel(course));
       wrap.append(await coursePlanPanel(course));
       wrap.append(await pulsarAccessPanel(course));
     }
