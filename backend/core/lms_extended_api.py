@@ -37,6 +37,7 @@ from .lms_models import (
     LessonProgress,
     SourceConnection,
 )
+from .lms_interaction_api import pulsar_project_context
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
 from .pulsar import PulsarError, complete
 
@@ -473,6 +474,7 @@ def lms_ai_tutor(request, course_id):
         data.get('source_connection_id'),
         data.get('source_keys') if isinstance(data.get('source_keys'), list) else [],
     )
+    project_context, project_sources = pulsar_project_context(request.user, course)
     lesson_text = ''
     if lesson:
         lesson_text = strip_tags(lesson.body or '')[:12000]
@@ -512,6 +514,7 @@ def lms_ai_tutor(request, course_id):
         'When context is insufficient, say so and suggest what to inspect next. '
         + guidance_rule + ' '
         'Never invent a Zotero source or claim the learner completed work they did not complete. '
+        'Never imply access to a project or file that is not present in the supplied user-approved context. '
         + (f'Instructor-specific guidance: {instructor_prompt}' if instructor_prompt else '')
     )
     prompt = (
@@ -519,6 +522,7 @@ def lms_ai_tutor(request, course_id):
         f'Learner progress: {enrollment.progress_percent}%\n'
         + (f'Lesson: {lesson.title}\nLesson material:\n{lesson_text}\n' if lesson else '')
         + (f'Learner selected sources:\n{source_text}\n' if source_text else '')
+        + (f'User-approved project context:\n{project_context}\n' if project_context else '')
         + (f'Recent tutor conversation:\n' + '\n'.join(history) + '\n' if history else '')
         + f'Learner question: {question}'
     )
@@ -535,12 +539,19 @@ def lms_ai_tutor(request, course_id):
         lesson=lesson,
         metadata={
             'source_count': len(sources),
+            'project_source_count': len(project_sources),
             'question_chars': len(question),
             'answer_chars': len(answer),
             'guidance_mode': guidance_mode,
         },
     )
-    return JsonResponse({'ok': True, 'answer': answer, 'sources': sources, 'provider': 'cloudflare-workers-ai'})
+    return JsonResponse({
+        'ok': True,
+        'answer': answer,
+        'sources': [*sources, *project_sources],
+        'project_sources': project_sources,
+        'provider': 'cloudflare-workers-ai',
+    })
 
 
 def _course_export_parts(course):
