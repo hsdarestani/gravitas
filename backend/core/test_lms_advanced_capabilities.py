@@ -183,12 +183,15 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         ):
             self.assertIn(marker, urls)
         for marker in (
-            "section('Return points'",
-            "section('Course plan'",
-            "section(\n    'Pulsar access'",
-            "Highlight selection",
-            "Save as lesson note",
-            "Turn into task",
+            'function courseReturnPointsPanel',
+            'async function coursePlanPanel',
+            'async function pulsarAccessPanel',
+            "'Return points'",
+            "'Course plan'",
+            "'Pulsar access'",
+            'Highlight selection',
+            'Save as lesson note',
+            'Turn into task',
         ):
             self.assertIn(marker, learner)
 
