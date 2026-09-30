@@ -17,7 +17,7 @@ from .lms_models import (
 )
 from .models import KnowledgeResource, ResearchProject
 from .nextcloud_bridge import ensure_user
-from .nextcloud_notes import NotesError, _delete_remote, _mirror, reconcile_notes
+from .nextcloud_notes import NotesError, _delete_remote, _mirror, sync_note_to_nextcloud
 from .platform_access import can_edit, can_view
 from .workspace_api import provision_personal_workspace
 
@@ -153,7 +153,7 @@ def _sync_learning_note(user, item):
 
     if getattr(user, 'gravitas_nextcloud', None):
         try:
-            reconcile_notes(user)
+            sync_note_to_nextcloud(resource)
         except Exception:
             logger.exception('Learning note %s could not be mirrored to Nextcloud immediately', item.pk)
     return resource
