@@ -104,3 +104,95 @@
   background: currentColor;
 }
 
+
+
+/* Learner interaction layer ------------------------------------------------ */
+.fl-learning-interactions {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--ws-line, rgba(120, 120, 140, .22));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ws-panel, #fff) 92%, transparent);
+}
+
+.fl-learning-interactions__head {
+  display: grid;
+  gap: .2rem;
+  margin-bottom: .75rem;
+}
+
+.fl-learning-interactions__composer {
+  display: grid;
+  gap: .65rem;
+}
+
+.fl-learning-interactions__controls {
+  display: grid;
+  grid-template-columns: minmax(120px, .8fr) minmax(170px, 1fr) auto auto;
+  gap: .55rem;
+  align-items: center;
+}
+
+.fl-learning-interactions__list {
+  display: grid;
+  gap: .55rem;
+  margin-top: .8rem;
+}
+
+.fl-course-plan__summary {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: .8rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.fl-course-plan__add {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(170px, .5fr) auto;
+  gap: .6rem;
+  margin-bottom: 1rem;
+}
+
+.fl-course-plan__list {
+  display: grid;
+  gap: .55rem;
+}
+
+.fl-pulsar-access__row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: .85rem 0;
+  border-bottom: 1px solid var(--ws-line, rgba(120, 120, 140, .18));
+}
+
+.fl-pulsar-access__row:last-child {
+  border-bottom: 0;
+}
+
+.fl-pulsar-access__main {
+  display: grid;
+  gap: .2rem;
+}
+
+.fl-pulsar-access__controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .65rem;
+}
+
+@media (max-width: 760px) {
+  .fl-learning-interactions__controls,
+  .fl-course-plan__summary,
+  .fl-course-plan__add,
+  .fl-pulsar-access__row {
+    grid-template-columns: 1fr;
+  }
+
+  .fl-pulsar-access__controls {
+    justify-content: flex-start;
+  }
+}
