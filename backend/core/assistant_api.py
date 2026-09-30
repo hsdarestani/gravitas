@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 
+from .lms_interaction_api import pulsar_workspace_project_context
 from .models import KnowledgeResource
 from .pulsar import PLATFORM_CONTEXT, PulsarError, complete, configured
 
@@ -57,7 +58,11 @@ def assistant_ask(request):
 
     matches = _accessible_notes(request.user, question)
     sources = [
-        {'id': str(resource.pk), 'title': resource.title}
+        {
+            'id': str(resource.pk),
+            'title': resource.title,
+            'href': f'/workspace/page/{resource.pk}',
+        }
         for resource in matches
     ]
     context_rows = []
@@ -67,6 +72,7 @@ def assistant_ask(request):
             f'[{resource.title}] {text[:1800]}' if text else f'[{resource.title}]'
         )
     private_context = '\n\n'.join(context_rows)
+    project_context, project_sources = pulsar_workspace_project_context(request.user)
 
     if configured():
         try:
@@ -75,7 +81,9 @@ def assistant_ask(request):
                     'You are Pulsar inside the authenticated Gravitas+ workspace. '
                     'Answer in the same language as the user. Be concise, precise and useful. '
                     'For claims about the user\'s own work, use only the private context supplied below; '
-                    'do not invent notes, projects, files or results. If the private context is insufficient, '
+                    'do not invent notes, projects, files or results. The project context below exists only because '
+                    'the user explicitly granted Pulsar access, and the server has rechecked the user\'s live ACL. '
+                    'If the private context is insufficient, '
                     'say that clearly. You may explain documented Gravitas+ platform capabilities from the '
                     'platform context. Mention source titles naturally when private notes support the answer.\n\n'
                     + PLATFORM_CONTEXT
@@ -87,6 +95,11 @@ def assistant_ask(request):
                         if private_context
                         else 'Accessible private note context: no matching notes were found.'
                     )
+                    + (
+                        '\n\nExplicitly granted project context:\n' + project_context
+                        if project_context
+                        else '\n\nExplicitly granted project context: none.'
+                    )
                 ),
                 max_tokens=1100,
             )
@@ -94,13 +107,24 @@ def assistant_ask(request):
                 'ok': True,
                 'grounded': True,
                 'answer': answer,
-                'sources': sources,
+                'sources': [*sources, *project_sources],
                 'provider': 'cloudflare-workers-ai',
             })
         except PulsarError:
             pass
 
     if not matches:
+        if project_sources:
+            return JsonResponse({
+                'ok': True,
+                'grounded': True,
+                'answer': (
+                    'I can see project material you explicitly granted to Pulsar, but the managed AI service '
+                    'is temporarily unavailable, so I cannot synthesize it safely right now.'
+                ),
+                'sources': project_sources,
+                'provider': 'fallback',
+            })
         return JsonResponse({
             'ok': True,
             'grounded': True,
