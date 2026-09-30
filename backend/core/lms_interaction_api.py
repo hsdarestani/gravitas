@@ -445,20 +445,27 @@ def _read_resource_text(user, resource):
         return raw.decode('utf-8', errors='replace')[:MAX_RESOURCE_CHARS]
 
 
-def pulsar_project_context(user, course, max_chars=MAX_PROJECT_CONTEXT_CHARS):
-    if not user or not user.is_authenticated:
-        return '', []
-    grants = (
-        PulsarAccessGrant.objects
-        .filter(user=user, course=course, active=True)
-        .select_related('project')
-        .order_by('project__title')
-    )
+def _pulsar_context_from_grants(user, grants, max_chars=MAX_PROJECT_CONTEXT_CHARS):
     blocks = []
     sources = []
     used = 0
+    permissions = {}
+
+    # A project may be granted from more than one course. Across workspace
+    # views the effective grant is the union of scopes the user explicitly
+    # enabled, while the live project/resource ACL remains the hard ceiling.
     for grant in grants:
-        project = grant.project
+        project_id = grant.project_id
+        state = permissions.setdefault(project_id, {
+            'project': grant.project,
+            'allow_markdown': False,
+            'allow_notes': False,
+        })
+        state['allow_markdown'] = state['allow_markdown'] or bool(grant.allow_markdown)
+        state['allow_notes'] = state['allow_notes'] or bool(grant.allow_notes)
+
+    for state in permissions.values():
+        project = state['project']
         if not can_view(user, project):
             continue
         resources = (
@@ -474,9 +481,9 @@ def pulsar_project_context(user, course, max_chars=MAX_PROJECT_CONTEXT_CHARS):
                 continue
             is_note = resource.kind == KnowledgeResource.Kind.NOTE
             is_markdown = resource.kind == KnowledgeResource.Kind.FILE and _markdown_resource(resource)
-            if is_note and not grant.allow_notes:
+            if is_note and not state['allow_notes']:
                 continue
-            if is_markdown and not grant.allow_markdown:
+            if is_markdown and not state['allow_markdown']:
                 continue
             if not is_note and not is_markdown:
                 continue
@@ -491,9 +498,35 @@ def pulsar_project_context(user, course, max_chars=MAX_PROJECT_CONTEXT_CHARS):
             sources.append({
                 'title': resource.title,
                 'project': project.title,
+                'project_id': project.pk,
                 'resource_id': resource.pk,
                 'kind': 'project_note' if is_note else 'markdown',
+                'href': f'/workspace/research/projects/{project.pk}',
             })
         if len(sources) >= MAX_CONTEXT_RESOURCES or used >= max_chars:
             break
     return '\n\n---\n\n'.join(blocks), sources
+
+
+def pulsar_project_context(user, course, max_chars=MAX_PROJECT_CONTEXT_CHARS):
+    if not user or not user.is_authenticated:
+        return '', []
+    grants = (
+        PulsarAccessGrant.objects
+        .filter(user=user, course=course, active=True)
+        .select_related('project')
+        .order_by('-updated_at')
+    )
+    return _pulsar_context_from_grants(user, grants, max_chars=max_chars)
+
+
+def pulsar_workspace_project_context(user, max_chars=MAX_PROJECT_CONTEXT_CHARS):
+    if not user or not user.is_authenticated:
+        return '', []
+    grants = (
+        PulsarAccessGrant.objects
+        .filter(user=user, active=True)
+        .select_related('project')
+        .order_by('-updated_at')
+    )
+    return _pulsar_context_from_grants(user, grants, max_chars=max_chars)
