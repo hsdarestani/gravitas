@@ -148,6 +148,12 @@ from core.lms_api import (
     lms_lesson_progress,
     lms_me,
 )
+from core.lms_interaction_api import (
+    course_interaction_detail,
+    course_interactions,
+    course_learning_plan,
+    course_pulsar_access,
+)
 from core.lms_extended_api import (
     admin_learning_assets,
     admin_lms_analytics,
@@ -384,6 +390,10 @@ urlpatterns = [
     path('lms/courses/<int:course_id>/events/', lms_event),
     path('lms/courses/<int:course_id>/registration-profile/', lms_registration_profile),
     path('lms/courses/<int:course_id>/ai/', lms_ai_tutor),
+    path('lms/courses/<int:course_id>/interactions/', course_interactions),
+    path('lms/courses/<int:course_id>/interactions/<int:interaction_id>/', course_interaction_detail),
+    path('lms/courses/<int:course_id>/learning-plan/', course_learning_plan),
+    path('lms/courses/<int:course_id>/pulsar-access/', course_pulsar_access),
     path('lms/courses/<int:course_id>/export/<str:fmt>/', lms_course_export),
     path('lms/certificates/<uuid:code>/download/', lms_certificate_download),
     path('lms/sources/zotero/', zotero_connection),
