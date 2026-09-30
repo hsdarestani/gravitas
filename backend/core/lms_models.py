@@ -619,6 +619,102 @@ class NotebookWorkspace(models.Model):
     class Meta:
         ordering = ['-updated_at']
 
+
+class LearningInteraction(models.Model):
+    class Kind(models.TextChoices):
+        NOTE = 'note', 'Note'
+        HIGHLIGHT = 'highlight', 'Highlight'
+        BOOKMARK = 'bookmark', 'Bookmark'
+        REMINDER = 'reminder', 'Reminder'
+        TASK = 'task', 'Task'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_learning_interactions',
+    )
+    enrollment = models.ForeignKey(
+        CourseEnrollment,
+        on_delete=models.CASCADE,
+        related_name='interactions',
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.CASCADE,
+        related_name='learner_interactions',
+        blank=True,
+        null=True,
+    )
+    kind = models.CharField(max_length=24, choices=Kind.choices, db_index=True)
+    section_key = models.CharField(max_length=240, blank=True, db_index=True)
+    quote = models.TextField(blank=True)
+    body = models.TextField(blank=True)
+    anchor = models.JSONField(default=dict, blank=True)
+    due_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    completed = models.BooleanField(default=False, db_index=True)
+    nextcloud_resource = models.ForeignKey(
+        'KnowledgeResource',
+        on_delete=models.SET_NULL,
+        related_name='learning_interactions',
+        blank=True,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['completed', 'due_at', '-updated_at']
+        indexes = [
+            models.Index(
+                fields=['user', 'enrollment', 'kind', 'completed'],
+                name='grav_lms_interact_user_state',
+            ),
+            models.Index(
+                fields=['enrollment', 'lesson', 'kind'],
+                name='grav_lms_interact_lesson',
+            ),
+        ]
+
+
+class PulsarAccessGrant(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_access_grants',
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name='pulsar_access_grants',
+    )
+    project = models.ForeignKey(
+        'ResearchProject',
+        on_delete=models.CASCADE,
+        related_name='pulsar_access_grants',
+    )
+    allow_markdown = models.BooleanField(default=True)
+    allow_notes = models.BooleanField(default=True)
+    allow_write_interactions = models.BooleanField(default=True)
+    active = models.BooleanField(default=True, db_index=True)
+    granted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['project__title', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'course', 'project'],
+                name='unique_gravitas_pulsar_course_project_grant',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', 'course', 'active'],
+                name='grav_pulsar_user_course_active',
+            ),
+        ]
+
+
 class CoursePayment(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
