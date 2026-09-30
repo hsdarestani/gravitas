@@ -1325,7 +1325,7 @@ async function coursePlanPanel(course) {
 async function pulsarAccessPanel(course) {
   const box = section(
     'Pulsar access',
-    'Pulsar starts with course context only. Grant individual projects explicitly; every read is still checked against your live project permissions.',
+    'Pulsar starts without project access. Grant individual projects explicitly; the grant follows Pulsar across workspace views, and every read is still checked against your live project permissions.',
   );
   try {
     const data = await P.lmsPulsarAccess(course.id);
