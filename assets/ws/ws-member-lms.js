@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20260919-planning1';
+import * as P from './ws-platform.js?v=20260930-lms-interactions1';
 import * as C from './ws-charts.js?v=20260924-unify1';
 
 const el = (tag, cls, text) => {
@@ -979,8 +979,332 @@ function parseOption(value) {
   try { return JSON.parse(value); } catch { return value; }
 }
 
+function lessonInteractionPanel(lesson, course) {
+  const panel = el('div', 'fl-learning-interactions');
+  const heading = el('div', 'fl-learning-interactions__head');
+  heading.append(
+    el('strong', null, 'Your layer on this lesson'),
+    el('small', 'fl-muted', 'Notes and highlights sync into the Learning area in Nextcloud.'),
+  );
+  panel.append(heading);
+
+  const form = el('form', 'fl-learning-interactions__composer');
+  const kind = el('select', 'v-input fl-input');
+  [
+    ['note', 'Note'],
+    ['task', 'Task'],
+    ['reminder', 'Reminder'],
+    ['bookmark', 'Bookmark'],
+  ].forEach(([value, text]) => {
+    const option = el('option', null, text);
+    option.value = value;
+    kind.append(option);
+  });
+  const body = el('textarea', 'v-input fl-input fl-textarea');
+  body.rows = 2;
+  body.placeholder = 'Write a note or something you want to come back to…';
+  const due = el('input', 'v-input fl-input');
+  due.type = 'datetime-local';
+  due.hidden = true;
+  const save = action('Add', () => {}, true);
+  save.type = 'submit';
+  const highlight = action('Highlight selection', async () => {
+    const quote = String(window.getSelection?.()?.toString() || '').trim();
+    if (!quote) {
+      highlight.textContent = 'Select lesson text first';
+      window.setTimeout(() => { highlight.textContent = 'Highlight selection'; }, 1800);
+      return;
+    }
+    highlight.disabled = true;
+    try {
+      await P.lmsCreateInteraction(course.id, {
+        kind: 'highlight',
+        lesson_id: lesson.id,
+        section_key: `lesson-${lesson.id}`,
+        quote,
+        anchor: { lesson_id: lesson.id, selected_text: quote.slice(0, 1200) },
+      });
+      await refresh();
+    } catch (error) {
+      highlight.title = error?.message || '';
+    } finally {
+      highlight.disabled = false;
+    }
+  });
+  highlight.classList.add('ws-btn--tiny');
+
+  kind.addEventListener('change', () => {
+    due.hidden = !['task', 'reminder'].includes(kind.value);
+    body.placeholder = kind.value === 'note'
+      ? 'Write a note or something you want to come back to…'
+      : kind.value === 'bookmark'
+        ? 'Optional bookmark label'
+        : 'What should you do next?';
+  });
+
+  const controls = el('div', 'fl-learning-interactions__controls');
+  controls.append(kind, due, save, highlight);
+  form.append(body, controls);
+
+  const list = el('div', 'fl-learning-interactions__list');
+
+  const draw = (items) => {
+    list.innerHTML = '';
+    if (!items.length) {
+      list.append(el('p', 'fl-muted', 'Nothing attached to this lesson yet.'));
+      return;
+    }
+    for (const item of items) {
+      const tools = [];
+      if (['task', 'reminder'].includes(item.kind)) {
+        const toggle = action(item.completed ? 'Reopen' : 'Done', async () => {
+          toggle.disabled = true;
+          try {
+            await P.lmsUpdateInteraction(course.id, item.id, { completed: !item.completed });
+            await refresh();
+          } catch {
+            toggle.disabled = false;
+          }
+        });
+        toggle.classList.add('ws-btn--tiny');
+        tools.push(toggle);
+      }
+      const remove = action('Delete', async () => {
+        remove.disabled = true;
+        try {
+          await P.lmsDeleteInteraction(course.id, item.id);
+          await refresh();
+        } catch {
+          remove.disabled = false;
+        }
+      });
+      remove.classList.add('ws-btn--tiny');
+      tools.push(remove);
+
+      const meta = P.meta([
+        label(item.kind),
+        item.due_at ? new Date(item.due_at).toLocaleString() : '',
+        item.nextcloud_resource_id ? 'Nextcloud' : '',
+        item.completed ? 'Done' : '',
+      ]);
+      list.append(row({
+        title: item.body || item.quote || item.label,
+        meta,
+        body: item.quote && item.body ? item.quote : '',
+        badges: item.completed ? ['Completed'] : [],
+        actions: tools,
+      }));
+    }
+  };
+
+  const refresh = async () => {
+    try {
+      const data = await P.lmsCourseInteractions(course.id, { lesson_id: lesson.id });
+      const items = data.interactions || [];
+      const others = (course._learningInteractions || []).filter((item) => String(item.lesson_id) !== String(lesson.id));
+      course._learningInteractions = [...others, ...items];
+      draw(items);
+    } catch (error) {
+      list.innerHTML = '';
+      list.append(el('p', 'fl-muted', error?.message || 'Lesson notes could not be loaded.'));
+    }
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const text = body.value.trim();
+    if (kind.value === 'note' && !text) return;
+    if (['task', 'reminder'].includes(kind.value) && !text) return;
+    save.disabled = true;
+    try {
+      await P.lmsCreateInteraction(course.id, {
+        kind: kind.value,
+        lesson_id: lesson.id,
+        section_key: `lesson-${lesson.id}`,
+        body: text,
+        due_at: due.value ? new Date(due.value).toISOString() : null,
+        anchor: { lesson_id: lesson.id },
+      });
+      body.value = '';
+      due.value = '';
+      await refresh();
+    } catch (error) {
+      save.title = error?.message || '';
+    } finally {
+      save.disabled = false;
+    }
+  });
+
+  panel.append(form, list);
+  draw((course._learningInteractions || []).filter((item) => String(item.lesson_id) === String(lesson.id)));
+  return panel;
+}
+
+async function coursePlanPanel(course) {
+  const box = section('Course plan', 'Required lessons plus your own tasks and reminders, in one progress model.');
+  const render = async () => {
+    box.body.innerHTML = '';
+    try {
+      const data = await P.lmsLearningPlan(course.id);
+      const summary = el('div', 'fl-course-plan__summary');
+      summary.append(
+        percent(data.workspace_progress_percent),
+        el('span', 'fl-muted', `${data.done} of ${data.total} plan items complete`),
+      );
+      box.body.append(summary);
+
+      const add = el('form', 'fl-course-plan__add');
+      const text = el('input', 'v-input fl-input');
+      text.placeholder = 'Add a course task';
+      const due = el('input', 'v-input fl-input');
+      due.type = 'datetime-local';
+      const submit = action('Add task', () => {}, true);
+      submit.type = 'submit';
+      add.append(text, due, submit);
+      add.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!text.value.trim()) return;
+        submit.disabled = true;
+        try {
+          await P.lmsCreateInteraction(course.id, {
+            kind: 'task',
+            body: text.value.trim(),
+            due_at: due.value ? new Date(due.value).toISOString() : null,
+            section_key: 'course-plan',
+          });
+          text.value = '';
+          due.value = '';
+          await render();
+        } catch (error) {
+          submit.title = error?.message || '';
+        } finally {
+          submit.disabled = false;
+        }
+      });
+      box.body.append(add);
+
+      const items = data.checklist || [];
+      if (!items.length) {
+        box.body.append(empty('No plan items yet', 'Required lessons and your own tasks appear here.'));
+        return;
+      }
+      const list = el('div', 'fl-course-plan__list');
+      for (const item of items) {
+        const tools = [];
+        if (item.type === 'task' || item.type === 'reminder') {
+          const toggle = action(item.done ? 'Reopen' : 'Done', async () => {
+            toggle.disabled = true;
+            try {
+              await P.lmsUpdateInteraction(course.id, item.id, { completed: !item.done });
+              await render();
+            } catch {
+              toggle.disabled = false;
+            }
+          });
+          toggle.classList.add('ws-btn--tiny');
+          tools.push(toggle);
+        }
+        list.append(row({
+          title: item.title,
+          meta: P.meta([
+            item.module_title,
+            label(item.type),
+            item.due_at ? new Date(item.due_at).toLocaleString() : '',
+          ]),
+          badges: item.done ? ['Done'] : [],
+          onClick: item.type === 'lesson' ? () => {
+            const target = document.getElementById(`lesson-${item.lesson_id}`);
+            if (target) {
+              target.open = true;
+              target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          } : null,
+          actions: tools,
+        }));
+      }
+      box.body.append(list);
+    } catch (error) {
+      box.body.append(empty('Course plan unavailable', error?.message || 'Try again.'));
+    }
+  };
+  await render();
+  return box.box;
+}
+
+async function pulsarAccessPanel(course) {
+  const box = section(
+    'Pulsar access',
+    'Pulsar starts with course context only. Grant individual projects explicitly; every read is still checked against your live project permissions.',
+  );
+  try {
+    const data = await P.lmsPulsarAccess(course.id);
+    const grants = new Map((data.grants || []).map((item) => [String(item.project_id), item]));
+    if (!(data.projects || []).length) {
+      box.body.append(empty('No project context available', 'Projects you can access will appear here when Research access is available.'));
+      return box.box;
+    }
+    for (const project of data.projects || []) {
+      const grant = grants.get(String(project.id));
+      const line = el('div', 'fl-pulsar-access__row');
+      const main = el('div', 'fl-pulsar-access__main');
+      main.append(el('strong', null, project.title));
+      main.append(el('small', 'fl-muted', project.can_edit ? 'Your project access: edit' : 'Your project access: read'));
+
+      const enabled = el('input');
+      enabled.type = 'checkbox';
+      enabled.checked = !!grant?.active;
+      const markdown = el('input');
+      markdown.type = 'checkbox';
+      markdown.checked = grant ? grant.allow_markdown !== false : true;
+      const notes = el('input');
+      notes.type = 'checkbox';
+      notes.checked = grant ? grant.allow_notes !== false : true;
+
+      const controls = el('div', 'fl-pulsar-access__controls');
+      const wrapCheck = (input, text) => {
+        const row = el('label', 'v-check-row');
+        row.append(input, el('span', null, text));
+        return row;
+      };
+      controls.append(
+        wrapCheck(enabled, 'Allow Pulsar'),
+        wrapCheck(markdown, 'Markdown files'),
+        wrapCheck(notes, 'Project notes'),
+      );
+
+      const saveGrant = async () => {
+        [enabled, markdown, notes].forEach((node) => { node.disabled = true; });
+        try {
+          await P.lmsSetPulsarAccess(course.id, {
+            project_id: project.id,
+            enabled: enabled.checked,
+            allow_markdown: markdown.checked,
+            allow_notes: notes.checked,
+            allow_write_interactions: true,
+          });
+        } catch (error) {
+          enabled.checked = !!grant?.active;
+          line.title = error?.message || '';
+        } finally {
+          [enabled, markdown, notes].forEach((node) => { node.disabled = false; });
+        }
+      };
+      enabled.addEventListener('change', saveGrant);
+      markdown.addEventListener('change', saveGrant);
+      notes.addEventListener('change', saveGrant);
+
+      line.append(main, controls);
+      box.body.append(line);
+    }
+  } catch (error) {
+    box.body.append(empty('Pulsar permissions unavailable', error?.message || 'Try again.'));
+  }
+  return box.box;
+}
+
 function lessonCard(lesson, course, host, go) {
   const details = el('details', 'fl-lesson');
+  details.id = `lesson-${lesson.id}`;
   const summary = el('summary', 'fl-lesson__summary');
   const main = el('span');
   main.append(el('strong', null, lesson.title));
@@ -1073,6 +1397,7 @@ function lessonCard(lesson, course, host, go) {
     }
 
     if (course.enrolled) {
+      body.append(lessonInteractionPanel(lesson, course));
       const actions = el('div', 'fl-form-actions');
       const done = action('Mark complete', async () => {
         done.disabled = true;
@@ -1262,7 +1587,7 @@ function courseAssetsPanel(course) {
 
 async function courseTutorPanel(course) {
   if (!course.enrolled) return null;
-  const box = section('AI Tutor', 'Ask Pulsar in the context of this course, a lesson and optionally selected Zotero sources.');
+  const box = section('AI Tutor', 'Ask Pulsar with course context, a lesson, selected Zotero sources and only the projects you explicitly granted above.');
   const controls = el('div', 'fl-form-grid');
   const lessonSelect = el('select', 'v-input fl-input');
   const rootOption = el('option', null, 'Whole course');
@@ -1366,9 +1691,46 @@ async function courseTutorPanel(course) {
       reply.append(el('strong', null, 'Pulsar'), el('p', null, data.answer));
       if (data.sources?.length) {
         const sources = el('div', 'fl-badges');
-        data.sources.forEach((item) => sources.append(badge(item.title)));
+        data.sources.forEach((item) => sources.append(badge(item.project ? `${item.project} · ${item.title}` : item.title)));
         reply.append(sources);
       }
+      const replyActions = el('div', 'fl-form-actions');
+      const saveNote = action('Save as lesson note', async () => {
+        saveNote.disabled = true;
+        try {
+          await P.lmsCreateInteraction(course.id, {
+            kind: 'note',
+            lesson_id: lessonSelect.value ? Number(lessonSelect.value) : null,
+            section_key: lessonSelect.value ? `lesson-${lessonSelect.value}` : 'course-ai',
+            body: data.answer,
+            anchor: { source: 'pulsar', question: value },
+          });
+          saveNote.textContent = 'Saved to page + Nextcloud';
+        } catch (error) {
+          saveNote.textContent = error?.message || 'Save failed';
+          saveNote.disabled = false;
+        }
+      });
+      saveNote.classList.add('ws-btn--tiny');
+      const makeTask = action('Turn into task', async () => {
+        makeTask.disabled = true;
+        try {
+          await P.lmsCreateInteraction(course.id, {
+            kind: 'task',
+            lesson_id: lessonSelect.value ? Number(lessonSelect.value) : null,
+            section_key: lessonSelect.value ? `lesson-${lessonSelect.value}` : 'course-plan',
+            body: data.answer.slice(0, 24000),
+            anchor: { source: 'pulsar', question: value },
+          });
+          makeTask.textContent = 'Task added';
+        } catch (error) {
+          makeTask.textContent = error?.message || 'Task failed';
+          makeTask.disabled = false;
+        }
+      });
+      makeTask.classList.add('ws-btn--tiny');
+      replyActions.append(saveNote, makeTask);
+      reply.append(replyActions);
       log.append(reply);
       note.textContent = '';
     } catch (error) {
@@ -2130,6 +2492,14 @@ export async function renderCourse(host, id, { go }) {
       data = offlineSnapshot.data;
     }
     const course = data.course;
+    if (!offlineSnapshot && course.enrolled) {
+      try {
+        const interactionData = await P.lmsCourseInteractions(course.id);
+        course._learningInteractions = interactionData.interactions || [];
+      } catch {
+        course._learningInteractions = [];
+      }
+    }
     if (!offlineSnapshot && course.enrolled) P.lmsCourseEvent(course.id, { kind: 'course.open' }).catch(() => {});
     const wrap = doc(host, course.title, course.summary || 'Gravitas+ course');
     if (offlineSnapshot) {
@@ -2264,6 +2634,11 @@ export async function renderCourse(host, id, { go }) {
       try { profile = await P.lmsRegistrationProfile(course.id); } catch {}
       const registration = courseRegistrationPanel(course, profile, host, go);
       if (registration) wrap.append(registration);
+    }
+
+    if (course.enrolled && !offlineSnapshot) {
+      wrap.append(await coursePlanPanel(course));
+      wrap.append(await pulsarAccessPanel(course));
     }
 
     const curriculum = section('Curriculum');
