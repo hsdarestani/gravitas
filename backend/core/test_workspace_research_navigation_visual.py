@@ -69,7 +69,7 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
 
         for marker in (
             '/assets/ws/ws-app.js?v=20260926-assets1',
-            '/assets/ws/ws-five-layer.js?v=20260924-railsync1',
+            '/assets/ws/ws-five-layer.js?v=20260930-interactions1',
             '/assets/ws/ws-nextcloud-native.js?v=20260924-unify1',
             '/assets/ws/ws-unified-design.css?v=20260924-rhythm1',
             '/assets/ws/ws-design-runtime.js?v=20260924-rhythm1',
@@ -79,6 +79,6 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         self.assertIn("./ws-research.js?v=20260924-rhythm1", app)
         self.assertIn("./ws-nav.js?v=20260926-meetings1", app)
         self.assertIn("./ws-home.js?v=20260924-unify1", app)
-        self.assertIn("./ws-member-lms.js?v=20260924-unify1", five)
+        self.assertIn("./ws-member-lms.js?v=20260930-interactions1", five)
         self.assertIn("./ws-member-progress.js?v=20260924-unify1", five)
         self.assertIn("DESIGN_VERSION = '20260924-rhythm1'", runtime)
