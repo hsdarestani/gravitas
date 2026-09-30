@@ -34,7 +34,7 @@ import {
 import { renderDashboard, stopClock } from './ws-home.js?v=20260924-unify1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
-import { installAssistant, askAssistant } from './ws-ai.js?v=20260924-pulsar3';
+import { installAssistant, askAssistant } from './ws-ai.js?v=20260930-project-grants1';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);
