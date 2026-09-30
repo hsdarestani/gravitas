@@ -16,7 +16,8 @@ from .lms_models import (
     PulsarAccessGrant,
 )
 from .models import KnowledgeResource, ResearchProject
-from .nextcloud_notes import reconcile_notes
+from .nextcloud_bridge import ensure_user
+from .nextcloud_notes import NotesError, _delete_remote, _mirror, reconcile_notes
 from .platform_access import can_edit, can_view
 from .workspace_api import provision_personal_workspace
 
@@ -235,14 +236,17 @@ def course_interaction_detail(request, course_id, interaction_id):
 
     if request.method == 'DELETE':
         resource = item.nextcloud_resource
-        item.delete()
         if resource and resource.owner_id == request.user.pk:
-            resource.delete()
-            if getattr(request.user, 'gravitas_nextcloud', None):
+            mirror = _mirror(resource)
+            note_id = mirror.get('id')
+            if note_id is not None:
                 try:
-                    reconcile_notes(request.user)
-                except Exception:
-                    logger.exception('Could not reconcile Nextcloud after deleting learning interaction')
+                    _delete_remote(ensure_user(resource.owner), note_id)
+                except (NotesError, cloud.CloudError) as exc:
+                    logger.exception('Could not delete mirrored learning note %s from Nextcloud', resource.pk)
+                    return _error('nextcloud_note_delete_failed', 503, detail=str(exc))
+            resource.delete()
+        item.delete()
         return JsonResponse({'ok': True})
 
     data = _body(request)
