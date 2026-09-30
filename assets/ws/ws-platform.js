@@ -363,6 +363,16 @@ export const lmsCourseEvent = (id, body) => call(`/lms/courses/${id}/events/`, {
 export const lmsRegistrationProfile = (id) => call(`/lms/courses/${id}/registration-profile/`);
 export const lmsSaveRegistrationProfile = (id, answers) => call(`/lms/courses/${id}/registration-profile/`, { method: 'POST', body: { answers } });
 export const lmsAiTutor = (id, body) => call(`/lms/courses/${id}/ai/`, { method: 'POST', body });
+export const lmsCourseInteractions = (id, params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== '')).toString();
+  return call(`/lms/courses/${id}/interactions/${query ? `?${query}` : ''}`);
+};
+export const lmsCreateInteraction = (id, body) => call(`/lms/courses/${id}/interactions/`, { method: 'POST', body });
+export const lmsUpdateInteraction = (courseId, interactionId, body) => call(`/lms/courses/${courseId}/interactions/${interactionId}/`, { method: 'PATCH', body });
+export const lmsDeleteInteraction = (courseId, interactionId) => call(`/lms/courses/${courseId}/interactions/${interactionId}/`, { method: 'DELETE' });
+export const lmsLearningPlan = (id) => call(`/lms/courses/${id}/learning-plan/`);
+export const lmsPulsarAccess = (id) => call(`/lms/courses/${id}/pulsar-access/`);
+export const lmsSetPulsarAccess = (id, body) => call(`/lms/courses/${id}/pulsar-access/`, { method: 'POST', body });
 export const lmsZotero = () => call('/lms/sources/zotero/');
 export const lmsConnectZotero = (body) => call('/lms/sources/zotero/', { method: 'POST', body });
 export const lmsDeleteZotero = (id) => call(`/lms/sources/zotero/?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
