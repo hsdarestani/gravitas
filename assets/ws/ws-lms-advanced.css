@@ -196,3 +196,16 @@
     justify-content: flex-start;
   }
 }
+
+
+.fl-course-return-points {
+  display: grid;
+  gap: .55rem;
+}
+
+.fl-return-highlight {
+  padding: .08em .18em;
+  border-radius: .25em;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  color: inherit;
+}
