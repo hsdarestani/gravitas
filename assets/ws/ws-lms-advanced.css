@@ -974,6 +974,113 @@
 .flc-cover-edit__controls { display: grid; gap: 10px; }
 .flc-cover-edit__controls > p { margin: 0; font-size: var(--ws-fs-sm); }
 
+/* ---- Assessment (learner) -----------------------------------------------------
+   A quiz, not a form: numbered questions in the module accordion's circle,
+   choices as option cards keyed A/B/C, and a footer where Submit keeps its own
+   width beside the answered count. Nothing here stretches to the card edge. */
+.flc-quiz { display: grid; gap: 18px; }
+.flc-quiz__list { display: grid; gap: 22px; margin: 0; padding: 0; list-style: none; }
+.flc-quiz__set { min-width: 0; margin: 0; padding: 0; border: 0; }
+.flc-quiz__prompt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--g-text);
+  font-size: 14px;
+  font-weight: var(--g-w-semibold);
+  line-height: 1.45;
+}
+.flc-quiz__num {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: -1px;
+  border: 1px solid color-mix(in srgb, var(--g-accent) 55%, transparent);
+  border-radius: 50%;
+  color: var(--g-accent);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--g-dur-fast) ease, color var(--g-dur-fast) ease;
+}
+.flc-quiz__q[data-answered="true"] .flc-quiz__num {
+  border-color: transparent;
+  background: var(--g-accent);
+  color: var(--g-bg);
+}
+.flc-quiz__choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+  padding-left: 32px;
+}
+.flc-quiz__choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--g-hairline);
+  border-radius: 10px;
+  background: var(--g-surface-sunken);
+  color: var(--g-text);
+  font-size: 13.5px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color var(--g-dur-fast) ease, background-color var(--g-dur-fast) ease;
+}
+.flc-quiz__choice input { position: absolute; opacity: 0; pointer-events: none; }
+.flc-quiz__key {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--g-border);
+  border-radius: 6px;
+  color: var(--g-text-muted);
+  font-size: 11px;
+  font-weight: var(--g-w-semibold);
+  transition: inherit;
+}
+.flc-quiz__text { min-width: 0; overflow-wrap: anywhere; }
+@media (hover: hover) and (pointer: fine) {
+  .flc-quiz__choice:hover { border-color: var(--g-border-strong, var(--g-border)); background: var(--g-surface-hover); }
+}
+.flc-quiz__choice:has(input:focus-visible) { outline: 2px solid var(--g-focus, var(--g-accent)); outline-offset: 1px; }
+.flc-quiz__choice:has(input:checked) {
+  border-color: var(--g-accent);
+  background: color-mix(in srgb, var(--g-accent) 12%, var(--g-surface-sunken));
+}
+.flc-quiz__choice:has(input:checked) .flc-quiz__key {
+  border-color: transparent;
+  background: var(--g-accent);
+  color: var(--g-bg);
+}
+.flc-quiz__input { max-width: 420px; margin-left: 32px; }
+.flc-quiz__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--g-hairline);
+}
+.flc-quiz__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-width: 0; }
+.flc-quiz__progress { color: var(--g-text-subtle); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.flc-quiz__status { font-size: 12.5px; font-weight: var(--g-w-medium); }
+.flc-quiz__status:empty { display: none; }
+.flc-quiz__status[data-tone="ok"] { color: var(--g-accent); }
+.flc-quiz__status[data-tone="warn"] { color: var(--g-warning, var(--g-text)); }
+.flc-quiz__status[data-tone="bad"] { color: var(--g-danger, var(--g-text)); }
+.flc-quiz__submit { flex: none; height: 34px; padding: 0 18px; }
+.flc-quiz__submit:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
 @media (max-width: 900px) {
   .flc-hero { grid-template-columns: 1fr; }
   .flc-hero__media { order: -1; }
@@ -985,8 +1092,11 @@
   .flc-acc .flc-lessons { padding-left: 10px; }
   .flc-stat + .flc-stat { padding-left: 0; border-left: 0; }
   .flc-cover-edit { grid-template-columns: 1fr; }
+  .flc-quiz__choices { padding-left: 0; }
+  .flc-quiz__input { margin-left: 0; }
+  .flc-quiz__submit { width: 100%; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .flc-tile, .flc-acc__twist, .flc-tab { transition: none; }
+  .flc-tile, .flc-acc__twist, .flc-tab, .flc-quiz__num, .flc-quiz__choice, .flc-quiz__key { transition: none; }
   .flc-tile:hover { transform: none; }
 }

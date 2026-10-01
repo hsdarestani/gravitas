@@ -1722,57 +1722,103 @@ function lessonView(lesson, course, { position, next, offline, reload, openLesso
   return article;
 }
 
+/* An assessment reads as a quiz, not as a settings form. Choices are option
+   cards rather than a <select>: a closed dropdown hides the very answers the
+   reader is meant to weigh against each other, and costs two clicks a question.
+   Submit keeps its natural width in a footer beside the answered count, and
+   waits until every question has an answer — attempts are limited, and a stray
+   click on a half-filled quiz would spend one. A failed attempt re-arms the
+   button; before, it stayed disabled until the page was reloaded. */
+const trimNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? String(+number.toFixed(2)) : String(value ?? '');
+};
+
 function assessmentCard(assessment, course, reload) {
-  const box = section(assessment.title, `${assessment.passing_score}% to pass · ${assessment.max_attempts} attempts`);
+  const attempts = Number(assessment.max_attempts) || 0;
+  const box = section(assessment.title, `${trimNumber(assessment.passing_score)}% to pass · ${attempts} ${attempts === 1 ? 'attempt' : 'attempts'}`);
   if (!assessment.questions?.length) {
     box.body.append(empty('Assessment unavailable', course.enrolled ? 'No scorable questions were published.' : 'Enroll to open the assessment.'));
     return box.box;
   }
-  const form = el('form', 'fl-assessment');
+  const form = el('form', 'flc-quiz');
+  const list = el('ol', 'flc-quiz__list');
   const answers = new Map();
+  const total = assessment.questions.length;
+  const progress = el('span', 'flc-quiz__progress');
+  const status = el('span', 'flc-quiz__status');
+  status.setAttribute('role', 'status');
+  const submit = action('Submit assessment', () => {}, true);
+  submit.type = 'submit';
+  submit.classList.add('flc-quiz__submit');
+  const sync = () => {
+    progress.textContent = `${answers.size} of ${total} answered`;
+    submit.disabled = answers.size < total;
+  };
+  const group = `quiz-${assessment.id ?? Math.random().toString(36).slice(2)}`;
   assessment.questions.forEach((question, index) => {
     const qid = String(question.id ?? index + 1);
-    const field = el('label', 'fl-question');
-    field.append(el('strong', null, question.prompt || `Question ${index + 1}`));
+    const item = el('li', 'flc-quiz__q');
+    const set = el('fieldset', 'flc-quiz__set');
+    const legend = el('legend', 'flc-quiz__prompt');
+    legend.append(el('span', 'flc-quiz__num', String(index + 1)), el('span', null, question.prompt || `Question ${index + 1}`));
+    set.append(legend);
     if (Array.isArray(question.choices) && question.choices.length) {
-      const select = el('select', 'v-input fl-input');
-      const placeholder = el('option', null, 'Choose an answer');
-      placeholder.value = '';
-      select.append(placeholder);
-      question.choices.forEach((choice) => {
-        const option = el('option', null, String(choice));
-        option.value = JSON.stringify(choice);
-        select.append(option);
+      const choices = el('div', 'flc-quiz__choices');
+      question.choices.forEach((choice, at) => {
+        const option = el('label', 'flc-quiz__choice');
+        const input = el('input');
+        input.type = 'radio';
+        input.name = `${group}-${qid}`;
+        input.value = JSON.stringify(choice);
+        input.addEventListener('change', () => {
+          if (!input.checked) return;
+          answers.set(qid, parseOption(input.value));
+          item.dataset.answered = 'true';
+          sync();
+        });
+        option.append(input, el('span', 'flc-quiz__key', String.fromCharCode(65 + (at % 26))), el('span', 'flc-quiz__text', String(choice)));
+        choices.append(option);
       });
-      select.addEventListener('change', () => { if (select.value) answers.set(qid, parseOption(select.value)); else answers.delete(qid); });
-      field.append(select);
+      set.append(choices);
     } else {
-      const input = el('input', 'v-input fl-input');
-      input.addEventListener('input', () => answers.set(qid, input.value));
-      field.append(input);
+      const input = el('input', 'v-input fl-input flc-quiz__input');
+      input.placeholder = 'Your answer';
+      input.addEventListener('input', () => {
+        if (input.value.trim()) answers.set(qid, input.value); else answers.delete(qid);
+        item.dataset.answered = String(answers.has(qid));
+        sync();
+      });
+      set.append(input);
     }
-    form.append(field);
+    item.append(set);
+    list.append(item);
   });
-  const status = el('p', 'fl-muted');
-  const submit = action('Submit assessment', () => {} , true);
-  submit.type = 'submit';
+  const foot = el('div', 'flc-quiz__foot');
+  const meta = el('div', 'flc-quiz__meta');
+  meta.append(progress, status);
+  foot.append(meta, submit);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (answers.size < total) return;
     submit.disabled = true;
+    delete status.dataset.tone;
     status.textContent = 'Scoring…';
     try {
       const result = await P.lmsAssessmentAttempt(assessment.id, Object.fromEntries(answers));
       const attempt = result.attempt || {};
-      status.textContent = `${attempt.passed ? 'Passed' : 'Not passed'} · ${attempt.score}%`;
+      status.textContent = `${attempt.passed ? 'Passed' : 'Not passed'} · ${trimNumber(attempt.score)}%`;
       status.dataset.tone = attempt.passed ? 'ok' : 'warn';
       if (attempt.passed) setTimeout(() => reload(), 700);
+      else submit.disabled = false;
     } catch (error) {
       status.textContent = error?.message || 'Assessment could not be submitted.';
       status.dataset.tone = 'bad';
       submit.disabled = false;
     }
   });
-  form.append(submit, status);
+  sync();
+  form.append(list, foot);
   box.body.append(form);
   return box.box;
 }
