@@ -31,7 +31,7 @@ import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
 } from './ws-nav.js?v=20260926-meetings1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261001-source-manager1';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261001-series1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { installAssistant, askAssistant } from './ws-ai.js?v=20260930-project-grants1';
@@ -459,7 +459,7 @@ function renderIndex() {
         renderIndex();
       },
       onClick: () => go(section.path),
-      series: String((sectionIndex % 5) + 1),
+      series: String((sectionIndex % 4) + 1),
     });
     tree.append(row);
 

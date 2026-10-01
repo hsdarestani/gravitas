@@ -12,7 +12,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20260919-planning1';
-import * as C from './ws-charts.js?v=20261001-cosmos1';
+import * as C from './ws-charts.js?v=20261001-series1';
 import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20260920-dashboard3';
 import { availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
 import * as K from './ws-kms.js';
@@ -678,7 +678,7 @@ function intelligenceMetric(value, label, index = 0) {
     featured: false,
   });
   node.classList.add('ri__metric');
-  node.dataset.series = String((index % 5) + 1);
+  node.dataset.series = String((index % 4) + 1);
   return node;
 }
 

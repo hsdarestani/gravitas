@@ -1,5 +1,5 @@
 import * as P from './ws-platform.js?v=20260930-lms-interactions1';
-import * as C from './ws-charts.js?v=20261001-cosmos1';
+import * as C from './ws-charts.js?v=20261001-series1';
 import { courseCover } from './ws-course-cover.js?v=20261001-cover1';
 import { dateTimeField } from './ws-datetime.js?v=20261001-picker1';
 
@@ -236,7 +236,7 @@ function activityMix(activity = []) {
     tally.set(kind, (tally.get(kind) || 0) + 1);
   }
   return [...tally.entries()].map(([kind, value]) => ({
-    label: label(kind), value, series: ACTIVITY_SERIES[kind] || '5',
+    label: label(kind), value, series: ACTIVITY_SERIES[kind] || '4',
   }));
 }
 
@@ -396,7 +396,7 @@ function layerCard(data, go) {
     rows.push({ label: 'Courses', value: count(learning.active) + count(learning.completed), series: '4', onClick: () => go('/workspace/learning') });
   }
   if (research.access) {
-    rows.push({ label: 'Projects', value: count(research.projects), series: '5', onClick: () => go('/workspace/research') });
+    rows.push({ label: 'Projects', value: count(research.projects), series: '4', onClick: () => go('/workspace/research') });
   }
 
   const box = C.card({ title: 'Across your account', note: 'Items in the layers you can open', span: 4 });

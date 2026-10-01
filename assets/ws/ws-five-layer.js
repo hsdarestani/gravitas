@@ -8,7 +8,7 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20261001-quiz1';
+} from './ws-member-lms.js?v=20261001-series1';
 import { renderMemberProgress } from './ws-member-progress.js?v=20260924-unify1';
 import { renderMemberSupport } from './ws-support.js?v=20260920-dashboard3';
 import {
@@ -270,7 +270,7 @@ function renderIndex(title, items, footer = '', { ancestor = '', branches = new 
   const lit = ancestor ? '' : activeEntry(items);
   items.forEach(([name, path, mark], index) => {
     const clean = path.replace(/\/$/, '');
-    const node = indexButton(name, path, mark, String((index % 5) + 1), clean === lit);
+    const node = indexButton(name, path, mark, String((index % 4) + 1), clean === lit);
     nav.append(node);
     const branch = branches.get(path);
     if (clean === ancestor) node.dataset.ancestor = 'true';
@@ -447,7 +447,7 @@ function ensureCoreAdminEntry() {
   if (!body || body.querySelector('.fl-core-admin-entry')) return;
   const wrap = document.createElement('div');
   wrap.className = 'fl-core-admin-entry';
-  wrap.append(indexButton('Platform Admin', '/workspace/core/admin', 'team', '5'));
+  wrap.append(indexButton('Platform Admin', '/workspace/core/admin', 'team', '1'));
   body.prepend(wrap);
 }
 

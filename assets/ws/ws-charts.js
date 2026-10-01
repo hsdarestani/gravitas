@@ -120,7 +120,7 @@ export function tileRow(tiles = []) {
     const lead = n === 5 && index < 2;
     tile.dataset.span = String(lead ? 3 : wide);
     tile.dataset.spanMd = String(lead ? 6 : medium);
-    tile.dataset.series = String((index % 5) + 1);
+    tile.dataset.series = String((index % 4) + 1);
     delete tile.dataset.tail;
   });
   if (n % 2) list[n - 1].dataset.tail = '';
