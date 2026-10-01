@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
-    help = 'Configure the Gravitas+ Telegram bot webhook for task notifications.'
+    help = 'Configure the Gravitas+ Pulsar Telegram bot, commands, and webhook.'
 
     def handle(self, *args, **options):
         token = settings.GRAVITAS_TELEGRAM_BOT_TOKEN
@@ -21,7 +21,7 @@ class Command(BaseCommand):
                 json={
                     'url': url,
                     'secret_token': secret,
-                    'allowed_updates': ['message'],
+                    'allowed_updates': ['message', 'callback_query'],
                     'drop_pending_updates': False,
                 },
                 timeout=15,
@@ -36,4 +36,38 @@ class Command(BaseCommand):
             raise CommandError('Telegram webhook returned invalid JSON') from None
         if not data.get('ok'):
             raise CommandError(str(data.get('description') or 'Telegram webhook setup failed')[:300])
-        self.stdout.write(self.style.SUCCESS(f'Telegram webhook configured: {url}'))
+
+        setup_calls = [
+            ('setMyName', {'name': 'Pulsar'}),
+            ('setMyShortDescription', {
+                'short_description': 'Pulsar · your Gravitas+ AI assistant for tasks, research, and reminders.',
+            }),
+            ('setMyDescription', {
+                'description': (
+                    'Pulsar is the Gravitas+ assistant in Telegram. Send tasks naturally, '
+                    'let Pulsar suggest the right KR/project/links, and confirm before creation. '
+                    'Task reminders continue here too.'
+                ),
+            }),
+            ('setMyCommands', {'commands': [
+                {'command': 'new', 'description': 'Create tasks with Pulsar'},
+                {'command': 'tasks', 'description': 'Show my open Core tasks'},
+                {'command': 'cancel', 'description': 'Cancel the current Pulsar draft'},
+                {'command': 'help', 'description': 'How to use Pulsar'},
+            ]}),
+        ]
+        for method, payload in setup_calls:
+            try:
+                extra = requests.post(
+                    f"https://api.telegram.org/bot{token}/{method}",
+                    json=payload,
+                    timeout=15,
+                )
+                extra.raise_for_status()
+                extra_data = extra.json()
+            except (requests.RequestException, ValueError):
+                raise CommandError(f'Telegram {method} setup failed') from None
+            if not extra_data.get('ok'):
+                raise CommandError(str(extra_data.get('description') or f'Telegram {method} failed')[:300])
+
+        self.stdout.write(self.style.SUCCESS(f'Pulsar Telegram webhook configured: {url}'))
