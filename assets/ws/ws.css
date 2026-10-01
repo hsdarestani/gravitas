@@ -2952,3 +2952,164 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
     width: 100%;
   }
 }
+
+/* ---- Date-time field ----------------------------------------------------
+   The trigger and popover drawn by ws-datetime.js in place of the browser's
+   datetime-local picker, whose popup no stylesheet can reach. The trigger
+   wears .v-input so it matches the fields beside it; everything below is
+   the part the native control used to draw. The popover lives on <body>,
+   outside .ws, so it carries its own focus ring. */
+@layer ws-components {
+  .ws-dt {
+    display: flex; align-items: center; gap: 2px;
+    padding: 0 4px 0 0 !important;
+    min-width: 0;
+    cursor: pointer;
+  }
+  .ws-dt[hidden] { display: none; }
+  .ws-dt:focus-within {
+    border-color: var(--g-accent) !important;
+    outline: 2px solid color-mix(in srgb, var(--g-accent) 24%, transparent);
+    outline-offset: 1px;
+  }
+  .ws-dt__trigger {
+    flex: 1; min-width: 0; align-self: stretch;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 6px 0 10px;
+    border: 0; background: none; color: var(--g-text);
+    font: inherit; font-size: var(--ws-fs); text-align: left;
+    cursor: pointer;
+  }
+  .ws-dt__trigger:focus-visible { outline: none; }
+  .ws-dt__icon { display: inline-flex; color: var(--g-text-subtle); flex: none; }
+  .ws-dt__icon svg, .ws-dt__clear svg { width: 15px; height: 15px; }
+  .ws-dt__text {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .ws-dt[data-empty] .ws-dt__text { color: var(--g-text-subtle); }
+  .ws-dt__clear {
+    flex: none; display: inline-grid; place-items: center;
+    width: 24px; height: 24px; padding: 0;
+    border: 0; border-radius: var(--ws-r-control);
+    background: none; color: var(--g-text-subtle);
+    cursor: pointer;
+  }
+  .ws-dt__clear svg { width: 11px; height: 11px; }
+  .ws-dt__clear:hover { background: var(--g-surface-sunken); color: var(--g-text); }
+  .ws-dt__clear[hidden] { display: none; }
+
+  .ws-dt-pop {
+    position: fixed; z-index: 10050;
+    width: 284px;
+    padding: 12px;
+    border: 1px solid var(--g-border);
+    border-radius: var(--ws-r-panel);
+    background: var(--g-surface-raised);
+    color: var(--g-text);
+    box-shadow: var(--g-shadow), var(--g-glow-md);
+    font-family: inherit; font-size: var(--ws-fs);
+    animation: ws-dt-in var(--g-dur-fast) var(--g-ease-orbit);
+  }
+  @keyframes ws-dt-in {
+    from { opacity: 0; transform: translateY(-4px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .ws-dt-pop { animation: none; } }
+  .ws-dt-pop :focus-visible { outline: 2px solid var(--g-focus); outline-offset: 1px; }
+
+  .ws-dt-pop__head {
+    display: grid; grid-template-columns: 28px 1fr 28px; align-items: center;
+    margin-bottom: 8px;
+  }
+  .ws-dt-pop__title {
+    text-align: center;
+    font-size: var(--ws-fs); font-weight: var(--g-w-medium);
+  }
+  .ws-dt-pop__nav {
+    display: grid; place-items: center;
+    width: 28px; height: 28px; padding: 0;
+    border: 0; border-radius: var(--ws-r-control);
+    background: none; color: var(--g-text-muted);
+    cursor: pointer;
+  }
+  .ws-dt-pop__nav svg { width: 14px; height: 14px; }
+  .ws-dt-pop__nav--prev svg { transform: scaleX(-1); }
+  .ws-dt-pop__nav:hover { background: var(--g-surface-sunken); color: var(--g-text); }
+
+  .ws-dt-pop__grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+  }
+  .ws-dt-pop__wd {
+    height: 24px; display: grid; place-items: center;
+    font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .ws-dt-pop__day {
+    position: relative;
+    height: 34px; padding: 0;
+    border: 0; border-radius: var(--ws-r-control);
+    background: none; color: var(--g-text);
+    font: inherit; font-size: var(--ws-fs); font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background-color var(--g-dur-fast) var(--g-ease-orbit);
+  }
+  .ws-dt-pop__day:hover { background: var(--g-surface-sunken); }
+  .ws-dt-pop__day[data-outside] { color: var(--g-text-subtle); opacity: .55; }
+  /* Today is marked the way the brand marks a thing: one accent dot. */
+  .ws-dt-pop__day[data-today]::after {
+    content: ""; position: absolute; left: 50%; bottom: 4px;
+    width: 4px; height: 4px; margin-left: -2px; border-radius: 50%;
+    background: var(--g-accent);
+  }
+  .ws-dt-pop__day[data-today] { font-weight: var(--g-w-medium); }
+  .ws-dt-pop__day[data-selected],
+  .ws-dt-pop__day[data-selected]:hover {
+    background: var(--g-solid-bg); color: var(--g-solid-fg); opacity: 1;
+  }
+  .ws-dt-pop__day[data-selected]::after { background: currentColor; }
+
+  .ws-dt-pop__quick {
+    display: flex; gap: 6px;
+    margin: 10px 0 0; padding-top: 10px;
+    border-top: 1px solid var(--g-hairline);
+  }
+  .ws-dt-pop__chip {
+    flex: 1;
+    height: 26px; padding: 0 8px;
+    border: 1px solid var(--g-hairline); border-radius: 999px;
+    background: none; color: var(--g-text-muted);
+    font: inherit; font-size: var(--ws-fs-xs);
+    cursor: pointer;
+  }
+  .ws-dt-pop__chip:hover { border-color: var(--g-border); color: var(--g-text); background: var(--g-surface-hover); }
+
+  .ws-dt-pop__time {
+    display: flex; align-items: center; gap: 4px;
+    margin-top: 10px;
+  }
+  .ws-dt-pop__label {
+    margin-right: auto;
+    font-size: var(--ws-fs-sm); color: var(--g-text-muted);
+  }
+  .ws-dt-pop__num {
+    width: 40px; height: 30px; padding: 0;
+    border: 1px solid var(--g-border); border-radius: var(--ws-r-control);
+    background: var(--g-bg); color: var(--g-text);
+    font-family: var(--g-font-mono); font-size: var(--ws-fs);
+    text-align: center; font-variant-numeric: tabular-nums;
+  }
+  .ws-dt-pop__num:focus { outline: none; border-color: var(--g-accent); }
+  .ws-dt-pop__colon { color: var(--g-text-subtle); font-family: var(--g-font-mono); }
+
+  .ws-dt-pop__foot {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px;
+  }
+  .ws-dt-pop__link {
+    padding: 4px 2px;
+    border: 0; background: none; color: var(--g-text-subtle);
+    font: inherit; font-size: var(--ws-fs-sm);
+    cursor: pointer;
+  }
+  .ws-dt-pop__link:hover { color: var(--g-text); text-decoration: underline; text-underline-offset: 3px; }
+}

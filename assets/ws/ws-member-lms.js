@@ -1,6 +1,7 @@
 import * as P from './ws-platform.js?v=20260930-lms-interactions1';
 import * as C from './ws-charts.js?v=20260924-unify1';
 import { courseCover } from './ws-course-cover.js?v=20261001-cover1';
+import { dateTimeField } from './ws-datetime.js?v=20261001-picker1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -1032,8 +1033,7 @@ function lessonInteractionPanel(lesson, course) {
   const body = el('textarea', 'v-input fl-input fl-textarea');
   body.rows = 2;
   body.placeholder = 'Write a note or something you want to come back to…';
-  const due = el('input', 'v-input fl-input');
-  due.type = 'datetime-local';
+  const due = dateTimeField({ placeholder: 'Due date (optional)' });
   due.hidden = true;
   const save = action('Add', () => {}, true);
   save.type = 'submit';
@@ -1439,8 +1439,7 @@ async function coursePlanPanel(course, openLesson = null) {
       const add = el('form', 'fl-course-plan__add');
       const text = el('input', 'v-input fl-input');
       text.placeholder = 'Add a course task';
-      const due = el('input', 'v-input fl-input');
-      due.type = 'datetime-local';
+      const due = dateTimeField({ placeholder: 'Due date (optional)' });
       const submit = action('Add task', () => {}, true);
       submit.type = 'submit';
       add.append(text, due, submit);
