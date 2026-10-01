@@ -301,7 +301,7 @@ class CoreTaskBoardFrontendContractTests(TestCase):
         platform = (root / 'assets/ws/ws-platform.js').read_text(encoding='utf-8')
 
         self.assertIn('task-trello-board', views)
-        self.assertIn("card.draggable = true", views)
+        self.assertIn("card.draggable = draggable", views)
         self.assertIn('uploadOperatingTaskAttachment', views)
         self.assertIn('addOperatingTaskComment', views)
         self.assertIn('operatingTaskHistory', views)
