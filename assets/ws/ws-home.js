@@ -827,10 +827,16 @@ function renderResearchIntelligence(host) {
 
   const actions = el('div', 'ri__head-actions');
   const live = el('span', 'ri__live', 'Live sources');
+  const sourceSettings = el('button', 'ri__refresh', 'Sources');
+  sourceSettings.type = 'button';
+  sourceSettings.setAttribute('aria-expanded', 'false');
   const refresh = el('button', 'ri__refresh', 'Refresh');
   refresh.type = 'button';
-  actions.append(live, refresh);
+  actions.append(live, sourceSettings, refresh);
   head.append(intro, actions);
+
+  const sourceManager = el('div', 'ri__source-manager');
+  sourceManager.hidden = true;
 
   const metrics = el('div', 'ri__metrics');
   metrics.append(
@@ -974,7 +980,7 @@ function renderResearchIntelligence(host) {
   const updated = el('span', null, 'Connecting to sources…');
   const errors = el('span'); errors.dataset.errors = '';
   foot.append(updated, errors);
-  section.append(head, metrics, tabs, fundingTools, content, foot);
+  section.append(head, sourceManager, metrics, tabs, fundingTools, content, foot);
   host.append(section);
 
   let payload = null;
@@ -989,6 +995,183 @@ function renderResearchIntelligence(host) {
     ['history', 'History'],
   ];
   const buttons = new Map();
+
+  const sourceProfileDraft = () => ({
+    enabled_sources: [...(payload?.source_profile?.enabled_sources || [])],
+    custom_sources: (payload?.source_profile?.custom_sources || []).map((item) => ({ ...item })),
+  });
+
+  const saveSourceProfile = async (nextProfile) => {
+    sourceManager.classList.add('is-saving');
+    try {
+      const result = await P.call('/platform/research-intelligence/sources/', {
+        method: 'PUT',
+        body: nextProfile,
+      });
+      if (payload) {
+        payload.source_profile = result.profile || nextProfile;
+        payload.source_catalog = result.catalog || payload.source_catalog || [];
+      }
+      await load(true);
+      renderSourceManager();
+    } finally {
+      sourceManager.classList.remove('is-saving');
+    }
+  };
+
+  const renderSourceManager = () => {
+    sourceManager.innerHTML = '';
+    if (!payload) {
+      sourceManager.append(el('div', 'ri__source-empty', 'Source settings load with Research Intelligence.'));
+      return;
+    }
+
+    const profile = payload.source_profile || { enabled_sources: [], custom_sources: [] };
+    const catalog = payload.source_catalog || [];
+    const enabled = new Set(profile.enabled_sources || []);
+    const titleRow = el('div', 'ri__source-head');
+    const titleBox = el('div');
+    titleBox.append(
+      el('strong', null, 'AutoResearch sources'),
+      el('span', null, 'Choose which sources the backend actually checks. Recommended defaults focus on Europe and international research.'),
+    );
+    const reset = el('button', 'ri__weights-reset', 'Recommended defaults');
+    reset.type = 'button';
+    reset.addEventListener('click', () => {
+      const next = sourceProfileDraft();
+      next.enabled_sources = catalog.filter((item) => item.default_enabled).map((item) => item.id);
+      saveSourceProfile(next).catch(() => {});
+    });
+    titleRow.append(titleBox, reset);
+    sourceManager.append(titleRow);
+
+    const groups = [
+      ['funding', 'Funding'],
+      ['papers_tools', 'Papers & tools'],
+      ['developments', 'Developments'],
+    ];
+    for (const [kind, label] of groups) {
+      const group = el('div', 'ri__source-group');
+      group.append(el('h3', null, label));
+      const list = el('div', 'ri__source-list');
+      for (const meta of catalog.filter((item) => item.kind === kind)) {
+        const row = el('label', 'ri__source-row');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = enabled.has(meta.id);
+        checkbox.addEventListener('change', () => {
+          const next = sourceProfileDraft();
+          const ids = new Set(next.enabled_sources);
+          if (checkbox.checked) ids.add(meta.id);
+          else ids.delete(meta.id);
+          next.enabled_sources = [...ids];
+          saveSourceProfile(next).catch(() => {
+            checkbox.checked = !checkbox.checked;
+          });
+        });
+        const copy = el('span', 'ri__source-copy');
+        const top = el('span', 'ri__source-name');
+        top.append(
+          document.createTextNode(meta.name || meta.id),
+          el('small', null, meta.region || ''),
+        );
+        copy.append(top, el('span', 'ri__source-desc', meta.description || ''));
+        row.append(checkbox, copy);
+        list.append(row);
+      }
+      group.append(list);
+      sourceManager.append(group);
+    }
+
+    const custom = el('div', 'ri__source-group ri__source-group--custom');
+    custom.append(
+      el('h3', null, 'Custom RSS / Atom feeds'),
+      el('p', 'ri__source-help', 'Add a public HTTPS RSS or Atom feed. Private/local network addresses are blocked.'),
+    );
+
+    const customList = el('div', 'ri__source-list');
+    for (const item of profile.custom_sources || []) {
+      const row = el('div', 'ri__source-row ri__source-row--custom');
+      const copy = el('span', 'ri__source-copy');
+      const top = el('span', 'ri__source-name');
+      top.append(
+        document.createTextNode(item.name || 'Custom source'),
+        el('small', null, item.kind === 'funding' ? 'Funding' : 'Developments'),
+      );
+      copy.append(top, el('span', 'ri__source-desc', item.url || ''));
+      const remove = el('button', 'ri__source-remove', 'Remove');
+      remove.type = 'button';
+      remove.addEventListener('click', () => {
+        const next = sourceProfileDraft();
+        next.custom_sources = next.custom_sources.filter((sourceItem) => sourceItem.id !== item.id);
+        saveSourceProfile(next).catch(() => {});
+      });
+      row.append(copy, remove);
+      customList.append(row);
+    }
+    if (!(profile.custom_sources || []).length) {
+      customList.append(el('div', 'ri__source-empty', 'No custom feeds yet.'));
+    }
+    custom.append(customList);
+
+    const form = el('form', 'ri__source-form');
+    const name = document.createElement('input');
+    name.className = 'ri-filter';
+    name.placeholder = 'Source name';
+    name.required = true;
+    name.maxLength = 120;
+    const url = document.createElement('input');
+    url.className = 'ri-filter';
+    url.type = 'url';
+    url.placeholder = 'https://example.org/feed.xml';
+    url.required = true;
+    const kind = document.createElement('select');
+    kind.className = 'ri-filter';
+    for (const [value, text] of [['funding', 'Funding'], ['developments', 'Developments']]) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = text;
+      kind.append(option);
+    }
+    const add = el('button', 'ri__weights-reset', 'Add source');
+    add.type = 'submit';
+    const formError = el('span', 'ri__source-form-error');
+    form.append(name, url, kind, add, formError);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      formError.textContent = '';
+      add.disabled = true;
+      try {
+        const next = sourceProfileDraft();
+        next.custom_sources.push({
+          name: name.value.trim(),
+          url: url.value.trim(),
+          kind: kind.value,
+        });
+        await saveSourceProfile(next);
+      } catch (error) {
+        const code = error?.data?.error || error?.message || 'Could not add this source.';
+        const messages = {
+          source_url_https_required: 'Use a public HTTPS feed URL.',
+          source_url_private_host: 'Private or local network sources are not allowed.',
+          source_url_unresolvable: 'The source hostname could not be resolved.',
+          custom_source_name_required: 'Enter a source name.',
+        };
+        formError.textContent = messages[code] || 'Could not add this feed. Check the URL and try again.';
+      } finally {
+        add.disabled = false;
+      }
+    });
+    custom.append(form);
+    sourceManager.append(custom);
+  };
+
+  sourceSettings.addEventListener('click', () => {
+    sourceManager.hidden = !sourceManager.hidden;
+    sourceSettings.setAttribute('aria-expanded', String(!sourceManager.hidden));
+    sourceSettings.textContent = sourceManager.hidden ? 'Sources' : 'Sources ✓';
+    if (!sourceManager.hidden) renderSourceManager();
+  });
 
   const drawLoading = () => {
     content.innerHTML = '';
@@ -1168,6 +1351,7 @@ function renderResearchIntelligence(host) {
         loadSaved(),
       ]);
       payload = nextPayload;
+      if (!sourceManager.hidden) renderSourceManager();
 
       const knownSources = [...new Set([
         ...(payload.sources?.funding || []),

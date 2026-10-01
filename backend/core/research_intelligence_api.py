@@ -7,6 +7,7 @@ per-source: one upstream outage never blanks the whole radar.
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import logging
@@ -16,6 +17,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from urllib.parse import urljoin
 from xml.etree import ElementTree
 
 import requests
@@ -24,6 +26,17 @@ from django.views.decorators.http import require_http_methods
 
 from .models import ResearchIntelligenceSavedItem
 from .research_intelligence_history import archived_funding_payload, history_payload, persist_payload, run_status_payload
+from .research_intelligence_sources import (
+    BUILTIN_SOURCE_CATALOG,
+    DEFAULT_SOURCE_IDS,
+    DFG_FUNDING_FEED,
+    get_source_profile,
+    save_source_profile,
+    source_catalog_payload,
+    source_name_map,
+    source_profile_signature,
+    validate_public_https_url,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -38,12 +51,14 @@ ARXIV_QUERY = "https://export.arxiv.org/api/query"
 GITHUB_SEARCH = "https://api.github.com/search/repositories"
 EU_SEARCH = "https://api.tech.ec.europa.eu/search-api/prod/rest/search"
 UKRI_FEED = "https://www.ukri.org/opportunity/feed/"
-OFFICIAL_FEEDS = (
-    ("OpenAI", "https://openai.com/news/rss.xml"),
-    ("Hugging Face", "https://huggingface.co/blog/feed.xml"),
-)
+DEVELOPMENT_FEEDS = {
+    "openai_news": ("OpenAI", "https://openai.com/news/rss.xml"),
+    "huggingface_blog": ("Hugging Face", "https://huggingface.co/blog/feed.xml"),
+}
 
-_CACHE = {"at": 0.0, "payload": None}
+# Cache is keyed by the user's effective source profile. A source selection is
+# therefore a real backend fetch boundary, not merely a client-side filter.
+_CACHE = {}
 _CACHE_LOCK = threading.Lock()
 
 SPACE_RE = re.compile(r"\s+")
@@ -730,14 +745,24 @@ def _github_tools():
     return items[:10], errors
 
 
-def _feed_entries(source, url):
+def _feed_raw_entries(url):
+    # Re-validate custom/public feeds at fetch time so a hostname that later
+    # resolves to a private address cannot turn the source feature into SSRF.
     session = _session()
-    response = session.get(url, timeout=REQUEST_TIMEOUT)
+    current_url = validate_public_https_url(url)
+    response = None
+    for _hop in range(4):
+        response = session.get(current_url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+        if not (response.is_redirect or response.is_permanent_redirect):
+            break
+        location = response.headers.get("Location") or ""
+        current_url = validate_public_https_url(urljoin(current_url, location))
+    if response is None or response.is_redirect or response.is_permanent_redirect:
+        raise ValueError("source_redirect_limit")
     response.raise_for_status()
     root = ElementTree.fromstring(response.content)
 
     entries = []
-    # RSS 2.x
     for item in root.findall(".//item"):
         title = _text(item.findtext("title"), 220)
         summary = _text(item.findtext("description") or item.findtext("content"), 360)
@@ -745,7 +770,6 @@ def _feed_entries(source, url):
         date = _iso_date(item.findtext("pubDate") or item.findtext("date"))
         entries.append((title, summary, link, date))
 
-    # Atom
     if not entries:
         ns = {"atom": "http://www.w3.org/2005/Atom"}
         for item in root.findall("atom:entry", ns):
@@ -766,17 +790,22 @@ def _feed_entries(source, url):
                 or item.findtext("atom:updated", default="", namespaces=ns)
             )
             entries.append((title, summary, link, date))
+    return entries
 
+
+def _feed_entries(source, url):
     out = []
-    for index, (title, summary, link, date) in enumerate(entries):
+    for index, (title, summary, link, date) in enumerate(_feed_raw_entries(url)):
         relevance = _score(title, summary)
         lower = f" {title.lower()} {summary.lower()} "
         has_research_context = any(term in lower for term in RELEVANCE_TERMS)
         if not has_research_context:
             continue
+        identity = link or f"{source}|{title}|{date}|{index}"
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
         out.append(
             {
-                "id": f"{source.lower().replace(' ', '-')}-{index}-{date}",
+                "id": f"feed:{digest}",
                 "kind": "development",
                 "source": source,
                 "title": title,
@@ -789,11 +818,62 @@ def _feed_entries(source, url):
     return out[:10]
 
 
-def _developments():
+def _funding_feed_entries(
+    source,
+    url,
+    *,
+    geography_scope="unspecified",
+    geographies=None,
+    region="",
+):
+    items = []
+    for index, (title, summary, link, date) in enumerate(_feed_raw_entries(url)):
+        if not title:
+            continue
+        identity = link or f"{source}|{title}|{date}|{index}"
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
+        item = {
+            "id": f"feed:{digest}",
+            "kind": "funding",
+            "source": source,
+            "title": title,
+            "summary": summary,
+            "agency": source,
+            "status": "open",
+            "open_date": date,
+            "close_date": "",
+            "opportunity_number": "",
+            "award_ceiling": "",
+            "award_floor": "",
+            "eligibility": [],
+            "categories": ["Funding feed"],
+            "template_available": False,
+            "template_names": [],
+            "attachment_count": 0,
+            "url": link,
+            "relevance": _score(title, summary),
+        }
+        item.update(
+            _funding_metadata(
+                item,
+                geography_scope=geography_scope,
+                geographies=list(geographies or []),
+                region=region,
+            )
+        )
+        items.append(item)
+    items.sort(key=lambda item: -int(item.get("relevance") or 0))
+    return items[:16]
+
+
+def _developments(feeds=None):
+    feeds = tuple(feeds or ())
     items = []
     errors = []
-    with ThreadPoolExecutor(max_workers=len(OFFICIAL_FEEDS)) as pool:
-        futures = {pool.submit(_feed_entries, source, url): source for source, url in OFFICIAL_FEEDS}
+    if not feeds:
+        return items, errors
+    with ThreadPoolExecutor(max_workers=min(8, len(feeds))) as pool:
+        futures = {pool.submit(_feed_entries, source, url): source for source, url in feeds}
         for future in as_completed(futures):
             source = futures[future]
             try:
@@ -801,39 +881,80 @@ def _developments():
             except Exception as exc:
                 errors.append(_source_error(source, exc))
     items.sort(key=lambda item: (item.get("date") or "", item.get("relevance") or 0), reverse=True)
-    return items[:12], errors
+    return items[:18], errors
 
-
-def _build_payload():
+def _build_payload(enabled_sources=None, custom_sources=None):
+    enabled = set(DEFAULT_SOURCE_IDS if enabled_sources is None else enabled_sources)
+    custom_sources = list(custom_sources or [])
     errors = []
-    funding_us = []
-    funding_eu = []
-    funding_uk = []
+    funding = []
     papers = []
     tools = []
     developments = []
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        jobs = {
-            pool.submit(_funding_calls): "funding_us",
-            pool.submit(_eu_funding_calls): "funding_eu",
-            pool.submit(_ukri_funding_calls): "funding_uk",
-            pool.submit(_arxiv_papers): "papers",
-            pool.submit(_github_tools): "tools",
-            pool.submit(_developments): "developments",
-        }
+    selected_development_feeds = [
+        DEVELOPMENT_FEEDS[source_id]
+        for source_id in ("openai_news", "huggingface_blog")
+        if source_id in enabled
+    ]
+    selected_development_feeds.extend(
+        (item["name"], item["url"])
+        for item in custom_sources
+        if item.get("kind") == "developments"
+    )
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        jobs = {}
+        if "grants_gov" in enabled:
+            jobs[pool.submit(_funding_calls)] = "funding_us"
+        if "eu_funding" in enabled:
+            jobs[pool.submit(_eu_funding_calls)] = "funding_eu"
+        if "ukri_funding" in enabled:
+            jobs[pool.submit(_ukri_funding_calls)] = "funding_uk"
+        if "dfg_funding" in enabled:
+            jobs[
+                pool.submit(
+                    _funding_feed_entries,
+                    "DFG Funding Calls",
+                    DFG_FUNDING_FEED,
+                    geography_scope="country",
+                    geographies=["Germany"],
+                    region="Europe",
+                )
+            ] = "funding_feed"
+        for item in custom_sources:
+            if item.get("kind") != "funding":
+                continue
+            jobs[
+                pool.submit(
+                    _funding_feed_entries,
+                    item["name"],
+                    item["url"],
+                )
+            ] = "funding_feed"
+        if "arxiv" in enabled:
+            jobs[pool.submit(_arxiv_papers)] = "papers"
+        if "github" in enabled:
+            jobs[pool.submit(_github_tools)] = "tools"
+        if selected_development_feeds:
+            jobs[pool.submit(_developments, selected_development_feeds)] = "developments"
+
         for future in as_completed(jobs):
             kind = jobs[future]
             try:
                 result = future.result()
                 if kind == "funding_us":
-                    funding_us, source_errors = result
+                    items, source_errors = result
+                    funding.extend(items)
                     errors.extend(source_errors)
                 elif kind == "funding_eu":
-                    funding_eu = result
+                    funding.extend(result)
                 elif kind == "funding_uk":
-                    funding_uk, source_errors = result
+                    items, source_errors = result
+                    funding.extend(items)
                     errors.extend(source_errors)
+                elif kind == "funding_feed":
+                    funding.extend(result)
                 elif kind == "papers":
                     papers = result
                 elif kind == "tools":
@@ -845,10 +966,7 @@ def _build_payload():
             except Exception as exc:
                 errors.append(_source_error(kind, exc))
 
-    funding = [
-        item for item in [*funding_eu, *funding_uk, *funding_us]
-        if not item.get("archived")
-    ]
+    funding = [item for item in funding if not item.get("archived")]
     funding.sort(
         key=lambda item: (
             item.get("close_date") in ("", None),
@@ -856,13 +974,26 @@ def _build_payload():
             -int(item.get("relevance") or 0),
         )
     )
-    funding = funding[:16]
+    funding = funding[:24]
 
     papers_tools = [*papers, *tools]
     papers_tools.sort(
         key=lambda item: (item.get("date") or item.get("updated_at") or "", item.get("relevance") or 0),
         reverse=True,
     )
+
+    catalog_by_id = {item["id"]: item for item in BUILTIN_SOURCE_CATALOG}
+    sources = {"funding": [], "papers_tools": [], "developments": []}
+    for source_id in enabled:
+        meta = catalog_by_id.get(source_id)
+        if meta:
+            sources[meta["kind"]].append(meta["name"])
+    for item in custom_sources:
+        kind = item.get("kind")
+        if kind in sources:
+            sources[kind].append(item.get("name"))
+    for key in sources:
+        sources[key] = sorted({name for name in sources[key] if name})
 
     return {
         "ok": True,
@@ -871,25 +1002,32 @@ def _build_payload():
         "funding": funding,
         "papers_tools": papers_tools[:18],
         "developments": developments,
-        "sources": {
-            "funding": ["EU Funding & Tenders", "UKRI Funding Finder", "Grants.gov"],
-            "papers_tools": ["arXiv", "GitHub"],
-            "developments": [source for source, _url in OFFICIAL_FEEDS],
-        },
+        "sources": sources,
         "errors": errors,
     }
 
 
-def _with_history(payload):
+def _with_history(payload, *, allowed_sources=None, allowed_funding_sources=None):
     try:
-        history = history_payload(60)
-        funding_archive = archived_funding_payload(120)
+        history = history_payload(100)
+        funding_archive = archived_funding_payload(180)
         automation = run_status_payload()
     except Exception as exc:
         logger.warning("research_intelligence history unavailable: %s", exc)
         history = []
         funding_archive = []
         automation = {}
+
+    if allowed_sources is not None:
+        allowed_sources = set(allowed_sources)
+        history = [item for item in history if item.get("source") in allowed_sources]
+    if allowed_funding_sources is not None:
+        allowed_funding_sources = set(allowed_funding_sources)
+        funding_archive = [
+            item for item in funding_archive
+            if item.get("source") in allowed_funding_sources
+        ]
+
     return {
         **payload,
         "history": history,
@@ -897,6 +1035,7 @@ def _with_history(payload):
         "automation": {
             "enabled": True,
             "interval_seconds": CACHE_TTL_SECONDS,
+            "profile_scope": "default_sources",
             **automation,
         },
     }
@@ -904,30 +1043,97 @@ def _with_history(payload):
 
 @require_http_methods(["GET"])
 def research_intelligence(request):
+    profile = get_source_profile(request.user)
+    signature = source_profile_signature(profile)
     force = request.GET.get("refresh") == "1"
     now = time.monotonic()
 
     with _CACHE_LOCK:
-        cached = _CACHE["payload"]
-        fresh = cached is not None and (now - _CACHE["at"]) < CACHE_TTL_SECONDS
-        if fresh and not force:
-            return JsonResponse({**_with_history(cached), "cached": True})
+        cached_entry = _CACHE.get(signature) or {}
+        cached = cached_entry.get("payload")
+        fresh = cached is not None and (now - float(cached_entry.get("at") or 0)) < CACHE_TTL_SECONDS
 
-    payload = _build_payload()
-    try:
-        persist_payload(payload)
-    except Exception:
-        # History storage must never take the live radar down. Deployment
-        # migrations and the background collector make persistence durable,
-        # while this path keeps source visibility resilient.
-        logger.exception("research_intelligence persistence failed")
+    names = set(source_name_map(profile).values())
+    funding_names = set(
+        item["name"]
+        for item in BUILTIN_SOURCE_CATALOG
+        if item["id"] in set(profile["enabled_sources"]) and item["kind"] == "funding"
+    )
+    funding_names.update(
+        item["name"]
+        for item in profile["custom_sources"]
+        if item.get("kind") == "funding"
+    )
+
+    if fresh and not force:
+        return JsonResponse({
+            **_with_history(
+                cached,
+                allowed_sources=names,
+                allowed_funding_sources=funding_names,
+            ),
+            "cached": True,
+            "source_profile": profile,
+            "source_catalog": source_catalog_payload(),
+        })
+
+    payload = _build_payload(
+        profile["enabled_sources"],
+        profile["custom_sources"],
+    )
+
+    # Shared persistent history is collected from the curated default profile.
+    # Personal source profiles stay private to their owner and must not leak
+    # custom-source observations into another Core member's history.
+    is_default_profile = (
+        set(profile["enabled_sources"]) == set(DEFAULT_SOURCE_IDS)
+        and not profile["custom_sources"]
+    )
+    if is_default_profile:
+        try:
+            persist_payload(payload)
+        except Exception:
+            logger.exception("research_intelligence persistence failed")
 
     with _CACHE_LOCK:
-        _CACHE["payload"] = payload
-        _CACHE["at"] = time.monotonic()
+        _CACHE[signature] = {"payload": payload, "at": time.monotonic()}
+        if len(_CACHE) > 32:
+            oldest = min(_CACHE, key=lambda key: _CACHE[key].get("at") or 0)
+            _CACHE.pop(oldest, None)
 
-    return JsonResponse({**_with_history(payload), "cached": False})
+    return JsonResponse({
+        **_with_history(
+            payload,
+            allowed_sources=names,
+            allowed_funding_sources=funding_names,
+        ),
+        "cached": False,
+        "source_profile": profile,
+        "source_catalog": source_catalog_payload(),
+    })
 
+
+@require_http_methods(["GET", "PUT"])
+def research_intelligence_sources(request):
+    if request.method == "GET":
+        return JsonResponse({
+            "profile": get_source_profile(request.user),
+            "catalog": source_catalog_payload(),
+        })
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+        profile = save_source_profile(request.user, body)
+    except (ValueError, UnicodeDecodeError) as exc:
+        return JsonResponse({"error": str(exc) or "invalid_source_profile"}, status=400)
+
+    with _CACHE_LOCK:
+        _CACHE.clear()
+    return JsonResponse({
+        "ok": True,
+        "profile": profile,
+        "catalog": source_catalog_payload(),
+    })
 
 
 def _saved_item_key(item):
