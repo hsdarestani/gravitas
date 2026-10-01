@@ -251,9 +251,9 @@ export function renderCoreTasks(host, { go }) {
     ].filter(Boolean).join(' ').toLowerCase();
   }
 
-  function taskCard(task, openCard) {
+  function taskCard(task, openCard, { draggable = true } = {}) {
     const card = el('article', 'task-trello-card');
-    card.draggable = true;
+    card.draggable = draggable;
     card.dataset.taskId = task.id;
     card.dataset.status = task.status;
     card.tabIndex = 0;
@@ -299,16 +299,18 @@ export function renderCoreTasks(host, { go }) {
     card.append(foot);
 
     let dragging = false;
-    card.addEventListener('dragstart', (event) => {
-      dragging = true;
-      card.classList.add('is-dragging');
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', String(task.id));
-    });
-    card.addEventListener('dragend', () => {
-      window.setTimeout(() => { dragging = false; }, 0);
-      card.classList.remove('is-dragging');
-    });
+    if (draggable) {
+      card.addEventListener('dragstart', (event) => {
+        dragging = true;
+        card.classList.add('is-dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', String(task.id));
+      });
+      card.addEventListener('dragend', () => {
+        window.setTimeout(() => { dragging = false; }, 0);
+        card.classList.remove('is-dragging');
+      });
+    }
     card.addEventListener('click', () => { if (!dragging) openCard(task.id); });
     card.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -338,6 +340,23 @@ export function renderCoreTasks(host, { go }) {
       const detailData = await P.operatingTaskCard(taskId);
       const task = detailData.task;
       head.querySelector('h2').textContent = task.title;
+      if (detailData.can_delete) {
+        const remove = makeButton('Delete task', async () => {
+          if (!confirm(`Delete “${task.title}”? This cannot be undone.`)) return;
+          remove.disabled = true;
+          try {
+            await P.deleteOperatingTaskCard(task.id);
+            closeDialog(dialog);
+            await reloadBoard();
+          } catch (error) {
+            remove.disabled = false;
+            alert(error?.data?.error || error?.message || 'Task could not be deleted.');
+          }
+        });
+        remove.classList.add('ws-btn--danger');
+        const closeButton = head.querySelector('button');
+        head.insertBefore(remove, closeButton);
+      }
       body.innerHTML = '';
 
       const layout = el('div', 'task-card-dialog__grid');
@@ -485,19 +504,7 @@ export function renderCoreTasks(host, { go }) {
       const actions = el('div', 'task-card-dialog__actions');
       const save = makeButton('Save changes', () => {}, true);
       save.type = 'submit';
-      const remove = makeButton('Delete task', async () => {
-        if (!confirm(`Delete “${task.title}”?`)) return;
-        remove.disabled = true;
-        try {
-          await P.deleteOperatingTaskCard(task.id);
-          closeDialog(dialog);
-          await reloadBoard();
-        } catch (error) {
-          remove.disabled = false;
-          alert(error?.message || 'Task could not be deleted.');
-        }
-      });
-      actions.append(save, remove);
+      actions.append(save);
       const note = el('p', 'v-note');
 
       form.append(
@@ -866,12 +873,13 @@ export function renderCoreTasks(host, { go }) {
 
   return guard(holder, 'Core tasks', async () => {
     let state = null;
-    let filters = { q: '', owner: '', priority: '' };
+    let filters = { q: '', owner: '', priority: '', sort: 'manual' };
     let deepLinkedTaskOpened = false;
 
     const load = async ({ keepDialog = false } = {}) => {
       const data = await P.operatingTaskBoard();
       state = data;
+      holder._taskBoardResizeObserver?.disconnect?.();
       holder.innerHTML = '';
 
       const openTasks = data.tasks.filter((task) => !['done', 'archived'].includes(task.status)).length;
@@ -897,13 +905,29 @@ export function renderCoreTasks(host, { go }) {
       search.setAttribute('aria-label', 'Search tasks');
       const ownerFilter = select([['', 'All owners'], ...(data.members || []).map((member) => [member.id, member.name || member.email])], filters.owner);
       const priorityFilter = select([['', 'All priorities'], ...(data.priorities || []).map((item) => [item.value, item.label])], filters.priority);
+      const sortFilter = select([
+        ['manual', 'Manual order'],
+        ['due_asc', 'Due date · soonest'],
+        ['due_desc', 'Due date · latest'],
+        ['created_desc', 'Created · newest'],
+        ['created_asc', 'Created · oldest'],
+      ], filters.sort);
+      sortFilter.setAttribute('aria-label', 'Sort tasks');
       const count = el('span', 'v-toolbar__count');
       const add = makeButton('New task from KR', () => openCreateDialog(state, load), true);
       if (!data.can_edit) {
         add.disabled = true;
       }
-      toolbar.append(search, ownerFilter, priorityFilter, count, add);
-      holder.append(toolbar);
+      toolbar.append(search, ownerFilter, priorityFilter, sortFilter, count, add);
+
+      const topScroll = el('div', 'task-board__top-scroll');
+      topScroll.setAttribute('aria-label', 'Horizontal task board scroll');
+      const topScrollTrack = el('div', 'task-board__top-scroll-track');
+      topScroll.append(topScrollTrack);
+
+      const stickyControls = el('div', 'task-board__sticky-controls');
+      stickyControls.append(toolbar, topScroll);
+      holder.append(stickyControls);
 
       const board = el('div', 'task-trello-board');
       board.tabIndex = 0;
@@ -911,8 +935,25 @@ export function renderCoreTasks(host, { go }) {
       board.setAttribute('aria-label', 'Core task board by status');
       holder.append(board);
 
+      const syncTopScroll = () => {
+        topScrollTrack.style.width = `${Math.max(board.scrollWidth, board.clientWidth)}px`;
+        topScroll.hidden = board.scrollWidth <= board.clientWidth + 1;
+        if (topScroll.scrollLeft !== board.scrollLeft) topScroll.scrollLeft = board.scrollLeft;
+      };
+      topScroll.addEventListener('scroll', () => {
+        if (board.scrollLeft !== topScroll.scrollLeft) board.scrollLeft = topScroll.scrollLeft;
+      }, { passive: true });
+      board.addEventListener('scroll', () => {
+        if (topScroll.scrollLeft !== board.scrollLeft) topScroll.scrollLeft = board.scrollLeft;
+      }, { passive: true });
+      if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(syncTopScroll);
+        resizeObserver.observe(board);
+        holder._taskBoardResizeObserver = resizeObserver;
+      }
+
       const draw = () => {
-        filters = { q: search.value.trim(), owner: ownerFilter.value, priority: priorityFilter.value };
+        filters = { q: search.value.trim(), owner: ownerFilter.value, priority: priorityFilter.value, sort: sortFilter.value };
         const q = filters.q.toLowerCase();
         const visible = data.tasks.filter((task) => {
           if (filters.owner && String(task.owner?.id) !== filters.owner) return false;
@@ -927,16 +968,28 @@ export function renderCoreTasks(host, { go }) {
           const column = el('section', 'task-trello-column');
           column.dataset.status = statusValue;
           const matches = visible.filter((task) => task.status === statusValue)
-            .sort((a, b) => (a.board_order || 0) - (b.board_order || 0) || a.id - b.id);
+            .sort((a, b) => {
+              if (filters.sort === 'due_asc' || filters.sort === 'due_desc') {
+                const aMissing = !a.due_date;
+                const bMissing = !b.due_date;
+                if (aMissing !== bMissing) return aMissing ? 1 : -1;
+                const diff = String(a.due_date || '').localeCompare(String(b.due_date || ''));
+                if (diff) return filters.sort === 'due_desc' ? -diff : diff;
+              } else if (filters.sort === 'created_desc' || filters.sort === 'created_asc') {
+                const diff = String(a.created_at || '').localeCompare(String(b.created_at || ''));
+                if (diff) return filters.sort === 'created_desc' ? -diff : diff;
+              }
+              return (a.board_order || 0) - (b.board_order || 0) || a.id - b.id;
+            });
           const head = el('div', 'task-trello-column__head');
           head.append(el('strong', null, statusLabel), el('span', 'v-column__count', String(matches.length)));
           const body = el('div', 'task-trello-column__body');
           body.dataset.status = statusValue;
           if (!matches.length) body.append(el('div', 'v-column__empty task-trello-column__empty'));
-          for (const task of matches) body.append(taskCard(task, (id) => openTaskDialog(id, state, load)));
+          for (const task of matches) body.append(taskCard(task, (id) => openTaskDialog(id, state, load), { draggable: data.can_edit && filters.sort === 'manual' }));
 
           body.addEventListener('dragover', (event) => {
-            if (!data.can_edit) return;
+            if (!data.can_edit || filters.sort !== 'manual') return;
             event.preventDefault();
             body.classList.add('is-over');
             const id = Number(event.dataTransfer.getData('text/plain'));
@@ -950,7 +1003,7 @@ export function renderCoreTasks(host, { go }) {
             if (!body.contains(event.relatedTarget)) body.classList.remove('is-over');
           });
           body.addEventListener('drop', async (event) => {
-            if (!data.can_edit) return;
+            if (!data.can_edit || filters.sort !== 'manual') return;
             event.preventDefault();
             body.classList.remove('is-over');
             const taskId = Number(event.dataTransfer.getData('text/plain'));
@@ -967,11 +1020,13 @@ export function renderCoreTasks(host, { go }) {
           column.append(head, body);
           board.append(column);
         }
+        window.requestAnimationFrame(syncTopScroll);
       };
 
       search.addEventListener('input', draw);
       ownerFilter.addEventListener('change', draw);
       priorityFilter.addEventListener('change', draw);
+      sortFilter.addEventListener('change', draw);
       draw();
 
       if (!deepLinkedTaskOpened) {
