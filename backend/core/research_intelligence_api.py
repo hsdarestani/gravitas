@@ -17,6 +17,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from urllib.parse import urljoin
 from xml.etree import ElementTree
 
 import requests
@@ -747,13 +748,17 @@ def _github_tools():
 def _feed_raw_entries(url):
     # Re-validate custom/public feeds at fetch time so a hostname that later
     # resolves to a private address cannot turn the source feature into SSRF.
-    validate_public_https_url(url)
     session = _session()
-    response = session.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
-    if response.is_redirect or response.is_permanent_redirect:
+    current_url = validate_public_https_url(url)
+    response = None
+    for _hop in range(4):
+        response = session.get(current_url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+        if not (response.is_redirect or response.is_permanent_redirect):
+            break
         location = response.headers.get("Location") or ""
-        location = validate_public_https_url(location)
-        response = session.get(location, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+        current_url = validate_public_https_url(urljoin(current_url, location))
+    if response is None or response.is_redirect or response.is_permanent_redirect:
+        raise ValueError("source_redirect_limit")
     response.raise_for_status()
     root = ElementTree.fromstring(response.content)
 
