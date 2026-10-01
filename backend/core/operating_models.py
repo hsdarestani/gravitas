@@ -418,6 +418,19 @@ class TaskNotificationPreference(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class TelegramPulsarSession(models.Model):
+    """Persistent conversational state for the authenticated Telegram Pulsar."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_telegram_pulsar_session',
+    )
+    state = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class TaskNotificationOutbox(models.Model):
     class Channel(models.TextChoices):
         EMAIL = 'email', 'Email'
