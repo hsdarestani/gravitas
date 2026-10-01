@@ -17,6 +17,7 @@ from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .models import WorkspaceMembership
 from .task_notifications import enqueue_task_event
+from .workspace_api import _can_manage_workspace
 from .operating_models import (
     Initiative,
     OperatingCycle,
@@ -291,6 +292,7 @@ def task_board(request):
     return JsonResponse({
         'ok': True,
         'can_edit': base._editable(request, workspace),
+        'can_delete': _can_manage_workspace(request.user, workspace),
         'statuses': [{'value': value, 'label': label} for value, label in WorkStatus.choices],
         'priorities': [{'value': value, 'label': label} for value, label in Priority.choices],
         'tasks': [_task_json(task) for task in tasks],
@@ -309,18 +311,25 @@ def task_board_detail(request, task_id):
         return _error('task_not_found', 404)
 
     if request.method == 'GET':
-        return JsonResponse({'ok': True, 'task': _task_json(task), **_choices(request, workspace)})
-
-    if not base._editable(request, workspace):
-        return _error('permission_denied', 403)
+        return JsonResponse({
+            'ok': True,
+            'task': _task_json(task),
+            'can_delete': _can_manage_workspace(request.user, workspace),
+            **_choices(request, workspace),
+        })
 
     if request.method == 'DELETE':
+        if not _can_manage_workspace(request.user, workspace):
+            return _error('permission_denied', 403)
         title = task.title
         from .google_calendar_api import delete_existing_task_events
         delete_existing_task_events(task)
         _log(request, task, 'task.deleted', {'title': title})
         task.delete()
         return JsonResponse({'ok': True})
+
+    if not base._editable(request, workspace):
+        return _error('permission_denied', 403)
 
     payload = base._body(request)
     before = _task_json(task)

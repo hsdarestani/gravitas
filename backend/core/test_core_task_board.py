@@ -115,12 +115,41 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(delivery.event_type, 'task.updated')
         self.assertIn('Title:', delivery.body)
 
+    def test_only_admin_or_owner_can_delete_task(self):
+        task_id = self.create_task('Protected delete task')
+        teammate = User.objects.create_user(
+            username='task-delete-member@example.test',
+            email='task-delete-member@example.test',
+            password='Strong-pass-123!',
+        )
+        WorkspaceMembership.objects.create(
+            workspace=self.workspace,
+            user=teammate,
+            role=WorkspaceMembership.Role.MEMBER,
+        )
+
+        self.client.force_login(teammate)
+        detail = self.client.get(f'/api/operating/task-board/{task_id}/')
+        self.assertEqual(detail.status_code, 200, detail.content)
+        self.assertFalse(detail.json()['can_delete'])
+        denied = self.client.delete(f'/api/operating/task-board/{task_id}/')
+        self.assertEqual(denied.status_code, 403, denied.content)
+        self.assertTrue(OperatingTask.objects.filter(pk=task_id).exists())
+
+        self.client.force_login(self.user)
+        detail = self.client.get(f'/api/operating/task-board/{task_id}/')
+        self.assertTrue(detail.json()['can_delete'])
+        deleted = self.client.delete(f'/api/operating/task-board/{task_id}/')
+        self.assertEqual(deleted.status_code, 200, deleted.content)
+        self.assertFalse(OperatingTask.objects.filter(pk=task_id).exists())
+
     def test_board_lists_real_operating_tasks_and_context(self):
         task_id = self.create_task()
         response = self.client.get('/api/operating/task-board/')
         self.assertEqual(response.status_code, 200, response.content)
         data = response.json()
         self.assertTrue(data['can_edit'])
+        self.assertTrue(data['can_delete'])
         self.assertIn(task_id, [row['id'] for row in data['tasks']])
         self.assertIn(self.user.pk, [row['id'] for row in data['members']])
         self.assertIn(self.initiative['id'], [row['id'] for row in data['initiatives']])
@@ -272,7 +301,7 @@ class CoreTaskBoardFrontendContractTests(TestCase):
         platform = (root / 'assets/ws/ws-platform.js').read_text(encoding='utf-8')
 
         self.assertIn('task-trello-board', views)
-        self.assertIn("card.draggable = true", views)
+        self.assertIn("card.draggable = draggable", views)
         self.assertIn('uploadOperatingTaskAttachment', views)
         self.assertIn('addOperatingTaskComment', views)
         self.assertIn('operatingTaskHistory', views)
@@ -280,6 +309,13 @@ class CoreTaskBoardFrontendContractTests(TestCase):
         self.assertIn('addOperatingTaskChecklistItem', views)
         self.assertIn('task-checklist__item', views)
         self.assertIn('moveOperatingTask', views)
+        self.assertIn("['due_asc', 'Due date · soonest']", views)
+        self.assertIn("['created_desc', 'Created · newest']", views)
+        self.assertIn('task-board__top-scroll', views)
+        self.assertIn('detailData.can_delete', views)
+        self.assertIn("remove.classList.add('ws-btn--danger')", views)
+        self.assertIn('.task-board__top-scroll', css)
+        self.assertIn('.ws-btn--danger', css)
         self.assertIn('.task-card-dialog', css)
         self.assertIn('.task-checklist__item', css)
         self.assertIn("export const operatingTaskBoard", platform)
