@@ -39,7 +39,10 @@
   gap: .6rem;
   align-items: end;
   padding-top: .75rem;
-  background: var(--g-bg);
+  /* The panel is --g-surface-raised; --g-bg here drew a darker strip behind
+     the composer. The message list scrolls on its own, so nothing passes
+     underneath that would need covering. */
+  background: transparent;
 }
 .fl-course-chat__composer textarea {
   min-height: 3.3rem;

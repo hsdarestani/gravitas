@@ -1289,7 +1289,7 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
     .ws textarea,
     .ws select,
     .ws-palette__input { font-size: 16px; }
-    .v-input { height: 38px; }
+    .v-input:not(textarea) { height: 38px; }
     .ws-ai__input { min-height: 40px; }
 
     /* Document text at 14px is an interface size, not a reading size. On a
@@ -1623,6 +1623,13 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
     background: var(--g-bg); color: var(--g-text);
     font: inherit; font-size: var(--ws-fs);
     transition: border-color var(--g-dur-fast) var(--ws-ease);
+  }
+  /* The fixed height and zero block padding above are for one-line fields.
+     A textarea given the same class inherited them, collapsed to a single
+     line with its text pressed against the top border, and ignored rows. */
+  textarea.v-input {
+    height: auto; min-height: 64px; padding: 8px 10px;
+    line-height: 1.5; resize: vertical;
   }
   .v-input::placeholder { color: var(--g-text-subtle); }
   .v-input:focus { outline: none; border-color: var(--g-border-strong); }

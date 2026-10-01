@@ -169,6 +169,9 @@
   }
   .fl-toolbar { justify-content: space-between; }
   .fl-form { display: grid; gap: 14px; }
+  /* A grid item stretches by default, so a submit button placed straight in
+     the form became a full-width bar that read as a second text field. */
+  .fl-form > .ws-btn { justify-self: start; }
   .fl-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
   .fl-field { display: grid; gap: 5px; min-width: 0; }
   .fl-field__label { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); font-weight: var(--g-w-medium); }
