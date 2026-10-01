@@ -727,11 +727,11 @@ html .ws-action-dialog__actions {
 
 /* Focus / "Up next" surfaces use the Dashboard's single accented-card rule. */
 #ws-view :is(.v-focus, .au-focus-panel) {
-  border: 1px solid color-mix(in srgb, var(--g-accent) 36%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--wc-2) 30%, transparent) !important;
   border-radius: var(--wc-r, 16px) !important;
   background:
     radial-gradient(120% 130% at 100% 0%,
-      color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--wc-2) 14%, transparent) 0%,
       transparent 60%),
     var(--g-surface-raised) !important;
 }
@@ -934,10 +934,10 @@ html .au-modal {
 #ws-view .v-focus.wc-card {
   margin-bottom: 12px !important;
   padding: var(--wc-pad, 16px) !important;
-  border-color: color-mix(in srgb, var(--g-accent) 36%, transparent) !important;
+  border-color: color-mix(in srgb, var(--wc-2) 30%, transparent) !important;
   background:
     radial-gradient(120% 130% at 100% 0%,
-      color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--wc-2) 14%, transparent) 0%,
       transparent 60%),
     var(--g-surface-raised) !important;
 }
@@ -963,9 +963,9 @@ html .au-modal {
 /* The Dashboard's featured tile must stay featured even when a legacy class
    such as ri__metric/fl-metric is present on the same node. */
 #ws-view .wc-tile[data-featured] {
-  background: var(--g-accent) !important;
+  background: var(--g-solid-bg) !important;
   border-color: transparent !important;
-  color: var(--g-text-inverse) !important;
+  color: var(--g-solid-fg) !important;
 }
 #ws-view .wc-tile[data-featured] :is(
   .wc-tile__label,
@@ -986,10 +986,10 @@ html .au-modal {
    flatten them back to the same blue as everything else. */
 #ws-view .wc-card--accent:is(.v-panel, .fl-panel),
 #ws-view .wc-card.wc-card--accent {
-  border-color: color-mix(in srgb, var(--g-accent) 36%, transparent) !important;
+  border-color: color-mix(in srgb, var(--wc-2) 30%, transparent) !important;
   background:
     radial-gradient(120% 130% at 100% 0%,
-      color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--wc-2) 14%, transparent) 0%,
       transparent 60%),
     var(--g-surface-raised) !important;
 }

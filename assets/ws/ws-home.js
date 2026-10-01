@@ -12,7 +12,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20260919-planning1';
-import * as C from './ws-charts.js?v=20260924-unify1';
+import * as C from './ws-charts.js?v=20261001-cosmos1';
 import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20260920-dashboard3';
 import { availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
 import * as K from './ws-kms.js';

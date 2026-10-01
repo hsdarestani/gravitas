@@ -293,10 +293,15 @@ export function gauge({ value, total, label = '', caption = '', empty = 'Nothing
   const has = num(total) > 0;
   const reached = has ? share(value, total) : 0;
 
-  frame.append(svg('path', {
-    d: ARC, class: 'wc-gauge__value', pathLength: 100,
-    'stroke-dasharray': `${reached} 100`,
-  }));
+  /* A zero-length dash with round caps still paints its caps, and the
+     pattern repeats at the end of the path, so "0 of 1" used to draw a dot
+     at each end of the arc. Nothing reached, nothing drawn. */
+  if (reached > 0) {
+    frame.append(svg('path', {
+      d: ARC, class: 'wc-gauge__value', pathLength: 100,
+      'stroke-dasharray': `${reached} 100`,
+    }));
+  }
 
   const caption_ = svg('title', {});
   caption_.textContent = has ? `${num(value)} of ${num(total)} complete` : empty;
@@ -323,10 +328,12 @@ export function ring(percentValue, { size = 34, label = '' } = {}) {
 
   const frame = svg('svg', { viewBox: '0 0 40 40', class: 'wc-ring__svg', role: 'img' });
   frame.append(svg('circle', { cx: 20, cy: 20, r: 16, class: 'wc-ring__track', pathLength: 100 }));
-  frame.append(svg('circle', {
-    cx: 20, cy: 20, r: 16, class: 'wc-ring__value', pathLength: 100,
-    'stroke-dasharray': `${value} 100`,
-  }));
+  if (value > 0) {
+    frame.append(svg('circle', {
+      cx: 20, cy: 20, r: 16, class: 'wc-ring__value', pathLength: 100,
+      'stroke-dasharray': `${value} 100`,
+    }));
+  }
   const title = svg('title', {});
   title.textContent = label || `${pct(value)} complete`;
   frame.append(title);

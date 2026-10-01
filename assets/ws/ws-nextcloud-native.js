@@ -1,5 +1,5 @@
 import * as P from './ws-platform.js?v=20260914-7';
-import * as C from './ws-charts.js?v=20260924-unify1';
+import * as C from './ws-charts.js?v=20261001-cosmos1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {

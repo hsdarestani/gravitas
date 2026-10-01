@@ -1,5 +1,5 @@
 import * as P from './ws-platform.js?v=20260930-lms-interactions1';
-import * as C from './ws-charts.js?v=20260924-unify1';
+import * as C from './ws-charts.js?v=20261001-cosmos1';
 import { courseCover } from './ws-course-cover.js?v=20261001-cover1';
 import { dateTimeField } from './ws-datetime.js?v=20261001-picker1';
 

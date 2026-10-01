@@ -50,8 +50,8 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('/assets/ws/ws-app.js?v=20261001-taskboard2', html)
         self.assertIn('/assets/ws/ws-five-layer.js?v=20261001-quiz1', html)
-        self.assertIn('/assets/ws/ws-charts.css?v=20260924-unify1', html)
-        self.assertIn('/assets/ws/ws-unified-design.css?v=20260924-rhythm1', html)
+        self.assertIn('/assets/ws/ws-charts.css?v=20261001-cosmos1', html)
+        self.assertIn('/assets/ws/ws-unified-design.css?v=20261001-cosmos1', html)
 
         app = self.read('ws-app.js')
         self.assertIn("./ws-home.js?v=20261001-source-manager1", app)

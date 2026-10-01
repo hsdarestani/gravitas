@@ -1,19 +1,27 @@
 /* ==========================================================================
    GRAVITAS+ WORKSPACE  ·  CHART KIT STYLES
-   The visual half of ws-charts.js. It adds no colour of its own: the series
-   palette below is the brand accent plus the three signal colours already
-   declared in gravitas.css, which is why every chart here is correct in
-   both themes without a single prefers-color-scheme block.
+   The visual half of ws-charts.js.
 
-   Four series is the ceiling on purpose. A dashboard that needs a fifth
-   colour is a dashboard showing two charts stacked into one.
+   The series palette is one hue at four depths: the Cosmos ramp. It used
+   to be the bronze accent plus the green, blue and ochre signal colours,
+   and a dashboard drawn in that came out as five products sharing a page:
+   a bronze tile, a green meter, an ochre bar, navy buttons around all of
+   them. The layers on the dashboard are not rival categories that need
+   telling apart at a glance; they are one account seen from several sides,
+   and every chart carries its labels anyway. So the series differ in depth,
+   not in hue, and the warm accent is left to the brand's own small marks.
+   Series 5 stays the critical signal, because it means something.
+
+   The ramp needs two readings, since a navy mark vanishes on the dark
+   theme's navy cards. Dark is the bare :root in gravitas.css and light is
+   [data-theme="light"], so the light values follow the same selector.
    ========================================================================== */
 @layer ws-components {
   :root {
-    --wc-1: var(--g-accent);
-    --wc-2: var(--g-signal-positive);
-    --wc-3: rgb(var(--g-canvas-body-c));
-    --wc-4: var(--g-signal-caution);
+    --wc-1: #cfe0ec;
+    --wc-2: #8dbbd9;
+    --wc-3: #5f93b8;
+    --wc-4: #4a7fa3;
     --wc-5: var(--g-signal-critical);
     --wc-track: var(--g-hairline);
     --wc-dur: var(--g-dur-slow, 420ms);
@@ -24,6 +32,12 @@
        from --ws-r-panel, and it departs deliberately. */
     --wc-r: 16px;
     --wc-pad: 16px;
+  }
+  :root[data-theme="light"] {
+    --wc-1: var(--g-cosmos-600);
+    --wc-2: var(--g-cosmos-300);
+    --wc-3: #5a8db0;
+    --wc-4: #93b5cc;
   }
 
   /* The series attribute is read by every mark in the kit, so one rule
@@ -72,11 +86,15 @@
 
   /* The featured tile carries the one number the screen is actually about,
      and it is the only filled object in the row. One filled card gives the
-     eye somewhere to land; two make a pattern and land nowhere. */
+     eye somewhere to land; two make a pattern and land nowhere.
+
+     It is filled with the solid-control pair, the same navy as the active
+     tab above it, not the bronze accent: a slab of bronze was the loudest
+     thing on the screen and belonged to nothing else on it. */
   .wc-tile[data-featured] {
-    background: var(--g-accent);
+    background: var(--g-solid-bg);
     border-color: transparent;
-    color: var(--g-text-inverse);
+    color: var(--g-solid-fg);
   }
   .wc-tile[data-featured] .wc-tile__label,
   .wc-tile[data-featured] .wc-tile__note,
@@ -85,7 +103,7 @@
   .wc-tile[data-featured] .wc-tile__go { border-color: color-mix(in srgb, currentColor 34%, transparent); }
   .wc-tile[data-featured] .wc-tile__value { font-size: 34px; }
   .wc-tile[data-featured].wc-tile--button:hover {
-    background: color-mix(in srgb, var(--g-accent) 88%, var(--g-text));
+    background: color-mix(in srgb, var(--g-solid-bg) 90%, var(--g-solid-fg));
     border-color: transparent;
   }
 
@@ -345,10 +363,10 @@
      is the only thing on a dashboard that is an instruction rather than a
      report. */
   .wc-card--accent {
-    border-color: color-mix(in srgb, var(--g-accent) 36%, transparent);
+    border-color: color-mix(in srgb, var(--wc-2) 30%, transparent);
     background:
       radial-gradient(120% 130% at 100% 0%,
-        color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
+        color-mix(in srgb, var(--wc-2) 14%, transparent) 0%,
         transparent 60%),
       var(--g-surface-raised);
   }
