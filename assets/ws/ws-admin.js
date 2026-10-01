@@ -1,4 +1,5 @@
 import * as P from './ws-platform.js?v=20260919-planning1';
+import { courseCover } from './ws-course-cover.js?v=20261001-cover1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -1288,6 +1289,131 @@ function enrollmentAdminRow(enrollment, refresh) {
   });
 }
 
+/* ==========================================================================
+   COURSE COVER
+   The picture is cropped to 16:9 from the centre and resized to 1280×720
+   here, in the browser, then sent as a JPEG data URI — the same route the
+   researcher avatar takes, because this deployment has no file storage for
+   it. Lowering the quality until it fits keeps every upload under the
+   server's cap, so a large phone photo is shrunk rather than refused.
+
+   It saves on its own PATCH the moment a file is chosen, not with the rest
+   of the course form: a 300 KB image riding along on every structure save
+   would make each of those saves slower for nothing.
+   ========================================================================== */
+
+const COVER_W = 1280;
+const COVER_H = 720;
+const COVER_BUDGET = 700 * 1024;
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file could not be read as an image.')); };
+    img.src = url;
+  });
+}
+
+async function coverDataUri(file) {
+  const img = await loadImage(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = COVER_W;
+  canvas.height = COVER_H;
+  const context = canvas.getContext('2d');
+  const scale = Math.max(COVER_W / img.naturalWidth, COVER_H / img.naturalHeight);
+  const w = img.naturalWidth * scale;
+  const h = img.naturalHeight * scale;
+  context.fillStyle = '#003049';
+  context.fillRect(0, 0, COVER_W, COVER_H);
+  context.drawImage(img, (COVER_W - w) / 2, (COVER_H - h) / 2, w, h);
+  let uri = '';
+  for (const quality of [0.86, 0.78, 0.7, 0.6, 0.5]) {
+    uri = canvas.toDataURL('image/jpeg', quality);
+    if (uri.length * 0.75 < COVER_BUDGET) return uri;
+  }
+  return uri;
+}
+
+function courseCoverEditor(course) {
+  const box = section(
+    'Cover image',
+    'Shown on the course page, in the catalog and in My learning. Cropped to 16:9 from the centre and resized to 1280×720. A course without one gets a generated Gravitas+ cover.',
+  );
+  if (!course) {
+    box.body.append(empty('Save the course first', 'The cover can be added once the course exists.'));
+    return box.box;
+  }
+  let current = course;
+  const layout = el('div', 'flc-cover-edit');
+  const preview = el('div', 'flc-cover-edit__preview');
+  const draw = () => {
+    preview.replaceChildren(courseCover(current, 'flc-cover'));
+    preview.dataset.generated = current.cover_url ? 'false' : 'true';
+  };
+  const file = el('input');
+  file.type = 'file';
+  file.accept = 'image/png,image/jpeg,image/webp';
+  file.hidden = true;
+  const status = statusLine();
+  const upload = action(current.cover_url ? 'Replace image' : 'Upload image', () => file.click(), true);
+  const remove = action('Use the generated cover', async () => {
+    remove.disabled = true;
+    setStatus(status, 'Removing…');
+    try {
+      const result = await P.lmsUpdateCourse(course.id, { cover_image: '' });
+      current = { ...current, cover_url: result.course?.cover_url || '' };
+      draw();
+      remove.hidden = true;
+      upload.textContent = 'Upload image';
+      setStatus(status, 'The generated cover is shown again.', 'ok');
+    } catch (error) {
+      setStatus(status, error?.message || 'The cover could not be removed.', 'bad');
+    } finally {
+      remove.disabled = false;
+    }
+  });
+  remove.hidden = !current.cover_url;
+  file.addEventListener('change', async () => {
+    const chosen = file.files?.[0];
+    file.value = '';
+    if (!chosen) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(chosen.type)) {
+      setStatus(status, 'Use a PNG, JPEG or WebP image.', 'bad');
+      return;
+    }
+    upload.disabled = true;
+    setStatus(status, 'Preparing the image…');
+    try {
+      const uri = await coverDataUri(chosen);
+      setStatus(status, 'Uploading…');
+      const result = await P.lmsUpdateCourse(course.id, { cover_image: uri });
+      current = { ...current, cover_url: result.course?.cover_url || '' };
+      draw();
+      remove.hidden = !current.cover_url;
+      upload.textContent = 'Replace image';
+      setStatus(status, 'Cover saved.', 'ok');
+    } catch (error) {
+      setStatus(status, error?.message || 'The cover could not be saved.', 'bad');
+    } finally {
+      upload.disabled = false;
+    }
+  });
+  const controls = el('div', 'flc-cover-edit__controls');
+  controls.append(el('p', 'fl-muted', 'PNG, JPEG or WebP. Pick an image that still reads when it is small: one clear subject, little text.'), buttonStrip([upload, remove]), status, file);
+  layout.append(preview, controls);
+  draw();
+  box.body.append(layout);
+  return box.box;
+}
+
+function buttonStrip(buttons) {
+  const strip = el('div', 'fl-form-actions');
+  buttons.forEach((button) => strip.append(button));
+  return strip;
+}
+
 export async function renderAdminCourseEditor(host, id, { go }) {
   loading(host, id === 'new' ? 'New course' : 'Edit course');
   try {
@@ -1352,6 +1478,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       field('Category', category),
     );
     form.append(grid, field('Summary', summary), field('Description', description), field('Tags', tagSelect), certEnabled.wrap);
+    form.append(courseCoverEditor(course));
 
     let slugTouched = !!course;
     slug.addEventListener('input', () => { slugTouched = true; });

@@ -165,6 +165,41 @@ const ROUTES = [
    back to the workspace whose index should be open around it. */
 const AREA_OF_SPACE = { core: 'core', research: 'research', kms: 'kms' };
 
+/* Routes ws-five-layer.js draws: rail, index, crumbs and view. None of them
+   is in ROUTES, so parse() turned each into Home and areaOf() into Research,
+   and render() painted the Research index and the Home dashboard on them.
+   ws-five-layer only installs once the platform bootstrap settles, so on
+   every refresh of a Learning page the reader saw Research for that long,
+   and again when start() finished and re-applied the route. The shell now
+   keeps its hands off these routes: the first paint draws a neutral
+   placeholder with the right workspace name, and later renders leave the
+   index, the trail and the view to their owner. */
+function fiveLayerOwns(path = location.pathname) {
+  return /^\/workspace\/dashboard(?:\/|$)/.test(path)
+    || /^\/workspace\/learning(?:\/|$)/.test(path)
+    || /^\/workspace\/core\/admin(?:\/|$)/.test(path)
+    || /^\/workspace\/research\/projects\/\d+(?:\/[a-z-]+)?\/?$/.test(path);
+}
+
+function fiveLayerName(path = location.pathname) {
+  if (path.startsWith('/workspace/learning')) return 'Learning';
+  if (path.startsWith('/workspace/core/admin')) return 'Platform Admin';
+  if (path.startsWith('/workspace/research')) return 'Research';
+  return 'Dashboard';
+}
+
+function renderHandoff() {
+  if (!ui.booting) return;
+  const name = fiveLayerName();
+  $('#ws-index-title').textContent = name;
+  views.skeleton(4, $('#ws-index-body'));
+  $('#ws-index-count').textContent = '';
+  const crumbs = $('#ws-crumbs');
+  crumbs.innerHTML = '';
+  crumbs.append(el('span', '', name));
+  views.skeleton(3, $('#ws-view'));
+}
+
 function parse(path) {
   for (const [pattern, build] of ROUTES) {
     const match = path.match(pattern);
@@ -369,6 +404,9 @@ function attachTip(host, text) {
    ========================================================================== */
 
 function renderIndex() {
+  // A tree change (Pulsar filing a note, say) must not redraw the Research
+  // tree over the Learning or Dashboard index.
+  if (fiveLayerOwns()) return;
   const title = $('#ws-index-title');
   const body = $('#ws-index-body');
   const foot = $('#ws-index-count');
@@ -1285,6 +1323,7 @@ function relative(stamp) {
 /* The breadcrumb is Home / Workspace / Section, which is the platform's real
    hierarchy. Inside Pages it continues into the page's own path. */
 function renderCrumbs() {
+  if (fiveLayerOwns()) return;
   const host = $('#ws-crumbs');
   host.innerHTML = '';
 
@@ -1447,6 +1486,13 @@ function render() {
   renderCrumbs();
   renderIndex();
   renderDock();
+
+  if (fiveLayerOwns()) {
+    stopClock();
+    renderHandoff();
+    updateStatus();
+    return;
+  }
 
   const host = $('#ws-view');
   host.innerHTML = '';
@@ -1747,11 +1793,6 @@ export async function start() {
      only has to set the state. */
   addEventListener('ws:navigate', closeOverlays);
 
-  const fiveLayerOwns = (path) =>
-    /^\/workspace\/dashboard(?:\/|$)/.test(path)
-    || /^\/workspace\/learning(?:\/|$)/.test(path)
-    || /^\/workspace\/core\/admin(?:\/|$)/.test(path)
-    || /^\/workspace\/research\/projects\/\d+(?:\/[a-z-]+)?\/?$/.test(path);
   addEventListener('popstate', () => {
     // ws-five-layer owns these routes and also listens to popstate. Letting
     // the legacy router parse them first caused stale/Home/Research content to

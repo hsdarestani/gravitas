@@ -1,10 +1,14 @@
+import base64
+import binascii
 import json
+import re
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
-from django.http import JsonResponse
+from django.db.models import BooleanField, Case, Value, When
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
@@ -73,6 +77,55 @@ def _safe_http_url(value, *, allow_blank=True):
 
 def _iso(value):
     return value.isoformat() if value else None
+
+
+# Course covers arrive as data URIs, cropped to 16:9 and resized in the
+# browser before upload. The checks mirror the researcher avatar's: a type we
+# are willing to serve back (no SVG, which can carry script), a payload that
+# really is base64, and a size cap. The cap is larger than the avatar's
+# because a cover is drawn wide, and still small enough that a course PATCH
+# stays far below anything the serving chain could refuse.
+COVER_MAX_BYTES = 768 * 1024
+COVER_TYPES = ('image/png', 'image/jpeg', 'image/webp')
+DATA_URI = re.compile(r'^data:([a-z/+-]+);base64,(.+)$', re.IGNORECASE | re.DOTALL)
+
+
+def _clean_cover(value):
+    """Return a safe data URI (or '' to remove the cover), or raise ValueError."""
+    text = str(value or '').strip()
+    if not text:
+        return ''
+    match = DATA_URI.match(text)
+    if not match:
+        raise ValueError('cover_must_be_data_uri')
+    if match.group(1).lower() not in COVER_TYPES:
+        raise ValueError('cover_unsupported_type')
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except (binascii.Error, ValueError):
+        raise ValueError('cover_not_base64')
+    if len(raw) > COVER_MAX_BYTES:
+        raise ValueError('cover_too_large')
+    return text
+
+
+def _cover_url(course):
+    has_cover = getattr(course, 'has_cover', None)
+    if has_cover is None:
+        has_cover = bool(course.cover_image)
+    if not has_cover:
+        return ''
+    # The version makes the URL change whenever the course is saved, so the
+    # bytes behind one URL never change and can be cached for a year.
+    version = int(course.updated_at.timestamp()) if course.updated_at else 0
+    return f'/api/lms/courses/{course.pk}/cover/?v={version}'
+
+
+def _catalog(qs):
+    """A course list without the cover bytes: only whether there is one."""
+    return qs.defer('cover_image').annotate(
+        has_cover=Case(When(cover_image='', then=Value(False)), default=Value(True), output_field=BooleanField()),
+    )
 
 
 def _public_questions(questions):
@@ -184,6 +237,7 @@ def _course_json(course, user=None, *, include_structure=False):
     data = {
         'id': course.pk,
         'slug': course.slug,
+        'cover_url': _cover_url(course),
         'title': course.title,
         'summary': course.summary,
         'description': course.description if entitled or course.status == Course.Status.PUBLISHED else '',
@@ -619,7 +673,7 @@ def _openedx_sync_enrollment(enrollment):
 def lms_courses(request):
     if request.method == 'GET':
         admin = _is_core_admin(request.user)
-        qs = Course.objects.all() if admin and request.GET.get('all') == '1' else Course.objects.filter(status=Course.Status.PUBLISHED)
+        qs = _catalog(Course.objects.all() if admin and request.GET.get('all') == '1' else Course.objects.filter(status=Course.Status.PUBLISHED))
         return JsonResponse({
             'ok': True,
             'courses': [_course_json(course, request.user) for course in qs],
@@ -733,6 +787,8 @@ def lms_course_detail(request, course_id):
                 course.price = _as_decimal(data.get('price'))
             if 'certificate_enabled' in data:
                 course.certificate_enabled = bool(data['certificate_enabled'])
+            if 'cover_image' in data:
+                course.cover_image = _clean_cover(data.get('cover_image'))
             _course_relation_fields(course, data)
             if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
                 raise ValueError('openedx_course_key_required')
@@ -760,6 +816,30 @@ def lms_course_detail(request, course_id):
         detail={'fields': sorted(data.keys())},
     )
     return JsonResponse({'ok': True, 'course': _course_json(course, request.user, include_structure=True)})
+
+
+@require_http_methods(['GET', 'HEAD'])
+def lms_course_cover(request, course_id):
+    """The course picture as bytes. Published covers are public like the
+    catalog itself and cached for a year, which is safe because cover_url
+    changes whenever the course is saved. A draft's cover is for Core admins."""
+    course = Course.objects.filter(pk=course_id).only('pk', 'status', 'cover_image').first()
+    if not course or not course.cover_image:
+        return HttpResponse(status=404)
+    published = course.status == Course.Status.PUBLISHED
+    if not published and not _is_core_admin(request.user):
+        return HttpResponse(status=404)
+    match = DATA_URI.match(course.cover_image)
+    if not match or match.group(1).lower() not in COVER_TYPES:
+        return HttpResponse(status=404)
+    try:
+        raw = base64.b64decode(match.group(2))
+    except (binascii.Error, ValueError):
+        return HttpResponse(status=404)
+    response = HttpResponse(raw, content_type=match.group(1).lower())
+    response['Cache-Control'] = 'public, max-age=31536000, immutable' if published else 'private, max-age=300'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 @require_http_methods(['POST'])
@@ -843,6 +923,8 @@ def _enrollment_json(enrollment):
         'id': enrollment.pk,
         'course_id': enrollment.course_id,
         'course_title': enrollment.course.title,
+        'course_cover_url': _cover_url(enrollment.course),
+        'course_summary': enrollment.course.summary,
         'status': enrollment.status,
         'access_source': enrollment.access_source,
         'progress_percent': str(enrollment.progress_percent),

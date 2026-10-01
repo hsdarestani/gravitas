@@ -142,6 +142,7 @@ from core.platform_admin_extended import (
 from core.layer_guards import require_core, require_core_admin, require_lms, require_research_or_core
 from core.lms_api import (
     lms_assessment_attempt,
+    lms_course_cover,
     lms_course_detail,
     lms_course_enroll,
     lms_courses,
@@ -383,6 +384,7 @@ urlpatterns = [
     # learner access and authoring is limited to Core owner/admin accounts.
     path('lms/courses/', lms_courses),
     path('lms/courses/<int:course_id>/', lms_course_detail),
+    path('lms/courses/<int:course_id>/cover/', lms_course_cover),
     path('lms/courses/<int:course_id>/enroll/', lms_course_enroll),
     path('lms/me/', lms_me),
     path('lms/lessons/<int:lesson_id>/progress/', lms_lesson_progress),

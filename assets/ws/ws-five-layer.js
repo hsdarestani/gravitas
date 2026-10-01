@@ -8,7 +8,7 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20260930-interactions2';
+} from './ws-member-lms.js?v=20261001-course2';
 import { renderMemberProgress } from './ws-member-progress.js?v=20260924-unify1';
 import { renderMemberSupport } from './ws-support.js?v=20260920-dashboard3';
 import {
@@ -25,14 +25,14 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20260920-visual4';
+} from './ws-admin.js?v=20261001-cover1';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260924-repeat2';
 import { renderCoreLinks } from './ws-core-links.js?v=20260920-visual4';
 import { renderResearchProject } from './ws-project.js?v=20260920-visual4';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
-const state = { installed: false, scheduled: false };
+const state = { installed: false, scheduled: false, drawn: '' };
 
 const DASHBOARD_INDEX = [
   ['Dashboard', '/workspace/dashboard', 'overview'],
@@ -106,8 +106,8 @@ function pathKind(path = location.pathname) {
   if (path === '/workspace/learning/catalog' || path === '/workspace/learning/catalog/') return { kind: 'learning', page: 'catalog' };
   if (path === '/workspace/learning/my' || path === '/workspace/learning/my/') return { kind: 'learning', page: 'my' };
   if (path === '/workspace/learning/certificates' || path === '/workspace/learning/certificates/') return { kind: 'learning', page: 'certificates' };
-  let match = path.match(/^\/workspace\/learning\/courses\/(\d+)\/?$/);
-  if (match) return { kind: 'learning', page: 'course', id: match[1] };
+  let match = path.match(/^\/workspace\/learning\/courses\/(\d+)(?:\/lessons\/(\d+))?\/?$/);
+  if (match) return { kind: 'learning', page: 'course', id: match[1], lesson: match[2] || '' };
 
   // Legacy KMS tools remain reachable, but they are visually folded under
   // Learning instead of being presented as a sixth top-level workspace.
@@ -217,7 +217,7 @@ function normalizeRail() {
 /* `series` gives the link the same tinted round mark the Research and Core
    index rows carry (ws-app.js sectionRow), in the same position order, so
    the index looks like one component whichever workspace drew it. */
-function indexButton(title, path, mark = 'overview', series = '1') {
+function indexButton(title, path, mark = 'overview', series = '1', active = null) {
   const node = document.createElement('button');
   node.className = 'fl-index-link';
   node.type = 'button';
@@ -226,27 +226,216 @@ function indexButton(title, path, mark = 'overview', series = '1') {
   glyph.className = 'fl-index-link__icon';
   glyph.innerHTML = icon(mark);
   node.append(glyph, document.createTextNode(title));
-  const here = location.pathname.replace(/\/$/, '');
-  const target = path.replace(/\/$/, '');
-  const active = here === target || (target !== '/workspace/core' && here.startsWith(target + '/'));
+  if (active == null) {
+    const here = location.pathname.replace(/\/$/, '');
+    const target = path.replace(/\/$/, '');
+    active = here === target || (target !== '/workspace/core' && here.startsWith(target + '/'));
+  }
   if (active) node.setAttribute('aria-current', 'page');
   node.addEventListener('click', () => navigate(path));
   return node;
 }
 
-function renderIndex(title, items, footer = '') {
+/* Exactly one entry is lit: the one whose path is the longest prefix of the
+   URL. Each entry used to test the prefix on its own, so the workspace root
+   ("Overview", "Dashboard", "Admin overview") matched every page below it —
+   opening a course lit Overview, and Catalog lit both Catalog and Overview.
+   `ancestor` overrides that for pages that belong under an entry their URL
+   does not start with: a course lives at /learning/courses/… but sits in
+   the index under My learning. */
+function activeEntry(items, here = location.pathname) {
+  const path = here.replace(/\/$/, '');
+  let best = '';
+  for (const [, target] of items) {
+    const clean = target.replace(/\/$/, '');
+    if ((path === clean || path.startsWith(clean + '/')) && clean.length > best.length) best = clean;
+  }
+  return best;
+}
+
+function renderIndex(title, items, footer = '', { ancestor = '', branches = new Map() } = {}) {
   const head = $('#ws-index-title');
   const body = $('#ws-index-body');
   const foot = $('#ws-index-count');
   if (!head || !body || !foot) return;
+  // Redrawing the index to open a branch must not throw the reader back to
+  // the top of a long course outline they were scrolling.
+  const scroller = body.closest('.ws-pane__body, .ws-pane') || body;
+  const scrolled = scroller.scrollTop;
   head.textContent = title;
   body.innerHTML = '';
   const nav = document.createElement('nav');
   nav.className = 'fl-index-nav';
   nav.setAttribute('aria-label', `${title} sections`);
-  items.forEach(([name, path, mark], index) => nav.append(indexButton(name, path, mark, String((index % 5) + 1))));
+  const lit = ancestor ? '' : activeEntry(items);
+  items.forEach(([name, path, mark], index) => {
+    const clean = path.replace(/\/$/, '');
+    const node = indexButton(name, path, mark, String((index % 5) + 1), clean === lit);
+    nav.append(node);
+    const branch = branches.get(path);
+    if (clean === ancestor) node.dataset.ancestor = 'true';
+    if (branch) {
+      node.setAttribute('aria-expanded', 'true');
+      nav.append(branch);
+    }
+  });
   body.append(nav);
   foot.textContent = footer;
+  scroller.scrollTop = scrolled;
+  const current = nav.querySelector('.flc-tree [aria-current="page"]');
+  if (current) current.scrollIntoView({ block: 'nearest' });
+}
+
+/* ==========================================================================
+   THE LEARNING INDEX
+   A course is not a sixth section beside Catalog and Certificates; it is a
+   thing the reader is taking. So the index draws every enrollment as a
+   branch under My learning, and the open course unfolds into its modules
+   and lessons there, the same way a Research project unfolds into its
+   pages. A course opened from the catalog without an enrollment hangs under
+   Course catalog instead, because that is where the reader found it.
+
+   Enrollments come from /lms/me/ once per session. The open course's
+   outline is handed over by the course screen itself (ctx.outline), which
+   already holds the structure, so drawing the tree costs no second request
+   for it. Completion marks only appear for lessons the learning plan
+   reports on — required lessons. An optional lesson gets no tick rather
+   than a guessed one.
+   ========================================================================== */
+
+const learningTree = { enrollments: null, pending: null, outline: null };
+
+function loadEnrollments() {
+  if (learningTree.enrollments || learningTree.pending) return;
+  learningTree.pending = P.lmsMe()
+    .then((data) => { learningTree.enrollments = (data.enrollments || []).filter((item) => item.status !== 'revoked'); })
+    .catch(() => { learningTree.enrollments = []; })
+    .finally(() => {
+      learningTree.pending = null;
+      if (pathKind()?.kind === 'learning') drawLearningIndex(pathKind());
+    });
+}
+
+function treeRow(cls, text, { path = '', mark = '', current = false, state = '', meta = '', title = '' } = {}) {
+  const node = document.createElement('button');
+  node.type = 'button';
+  node.className = cls;
+  if (state) node.dataset.state = state;
+  if (current) node.setAttribute('aria-current', 'page');
+  if (title) node.title = title;
+  const glyph = document.createElement('span');
+  glyph.className = 'flc-tree__mark';
+  glyph.innerHTML = mark ? icon(mark) : '';
+  const label = document.createElement('span');
+  label.className = 'flc-tree__label';
+  label.textContent = text;
+  node.append(glyph, label);
+  if (meta) {
+    const small = document.createElement('small');
+    small.className = 'flc-tree__meta';
+    small.textContent = meta;
+    node.append(small);
+  }
+  if (path) node.addEventListener('click', () => navigate(path));
+  return node;
+}
+
+function courseOutline(outline, route) {
+  const box = document.createElement('div');
+  box.className = 'flc-tree__outline';
+  box.setAttribute('role', 'group');
+  const base = `/workspace/learning/courses/${outline.course.id}`;
+  for (const module of outline.course.modules || []) {
+    const lessons = module.lessons || [];
+    if (!lessons.length) continue;
+    const head = document.createElement('div');
+    head.className = 'flc-tree__module';
+    head.textContent = module.title;
+    box.append(head);
+    for (const lesson of lessons) {
+      const done = outline.done?.has(String(lesson.id));
+      const state = lesson.locked ? 'locked' : done ? 'done' : '';
+      box.append(treeRow('flc-tree__lesson', lesson.title, {
+        path: `${base}/lessons/${lesson.id}`,
+        mark: lesson.locked ? 'secure' : done ? 'check' : '',
+        state,
+        current: String(route.lesson) === String(lesson.id),
+        title: lesson.locked ? `${lesson.title} · locked` : lesson.title,
+      }));
+    }
+  }
+  if (!box.childElementCount) {
+    const none = document.createElement('div');
+    none.className = 'flc-tree__module';
+    none.textContent = 'No lessons published yet';
+    box.append(none);
+  }
+  return box;
+}
+
+function courseBranch(courses, route) {
+  const box = document.createElement('div');
+  box.className = 'flc-tree';
+  box.setAttribute('role', 'group');
+  for (const course of courses) {
+    const open = route.page === 'course' && String(route.id) === String(course.id);
+    const share = Number(course.progress);
+    const node = treeRow('flc-tree__course', course.title || 'Course', {
+      path: `/workspace/learning/courses/${course.id}`,
+      mark: 'content',
+      current: open && !route.lesson,
+      meta: Number.isFinite(share) && course.enrolled ? `${Math.round(share)}%` : '',
+      title: course.title,
+    });
+    if (open) node.dataset.open = 'true';
+    box.append(node);
+    const outline = learningTree.outline;
+    if (open && outline && String(outline.course.id) === String(course.id)) box.append(courseOutline(outline, route));
+  }
+  return box;
+}
+
+function drawLearningIndex(route) {
+  loadEnrollments();
+  const footer = P.canOpenLms() ? 'LMS access enabled' : 'Catalog access';
+  const enrolled = (learningTree.enrollments || []).map((item) => ({
+    id: item.course_id, title: item.course_title, progress: item.progress_percent, enrolled: true,
+  }));
+  const branches = new Map();
+  let ancestor = '';
+  if (route.page === 'course') {
+    const outline = learningTree.outline && String(learningTree.outline.course.id) === String(route.id) ? learningTree.outline : null;
+    const known = enrolled.find((item) => String(item.id) === String(route.id));
+    const isEnrolled = outline ? !!outline.course.enrolled : (known || !learningTree.enrollments);
+    if (outline && known) {
+      known.title = outline.course.title;
+      known.progress = outline.course.progress_percent;
+    }
+    if (isEnrolled && outline && !known) {
+      enrolled.unshift({ id: outline.course.id, title: outline.course.title, progress: outline.course.progress_percent, enrolled: true });
+    }
+    if (isEnrolled) {
+      ancestor = '/workspace/learning/my';
+    } else {
+      ancestor = '/workspace/learning/catalog';
+      branches.set('/workspace/learning/catalog', courseBranch([{ id: route.id, title: outline?.course.title || 'Course' }], route));
+    }
+  }
+  if (enrolled.length) branches.set('/workspace/learning/my', courseBranch(enrolled, route));
+  renderIndex('Learning', LEARNING_INDEX, footer, { ancestor, branches });
+}
+
+/* Called by the course screen once it holds the course. `done` is the set
+   of lesson ids the learning plan reports as complete. */
+function setCourseOutline(course, done = new Set()) {
+  learningTree.outline = { course, done };
+  const route = pathKind();
+  if (route?.kind === 'learning' && route.page === 'course' && String(route.id) === String(course.id)) drawLearningIndex(route);
+  if (course.enrolled && learningTree.enrollments && !learningTree.enrollments.some((item) => String(item.course_id) === String(course.id))) {
+    // Enrolled from this screen a moment ago; the cached list predates it.
+    learningTree.enrollments = null;
+    loadEnrollments();
+  }
 }
 
 function ensureCoreAdminEntry() {
@@ -295,6 +484,7 @@ function rendererContext() {
 async function renderCustom() {
   normalizeRail();
   const route = pathKind();
+  state.drawn = route && route.kind !== 'redirect' && route.kind !== 'learning-legacy' ? location.pathname : '';
   if (!route) {
     ensureCoreAdminEntry();
     return false;
@@ -338,14 +528,27 @@ async function renderCustom() {
   }
 
   if (route.kind === 'learning') {
-    renderIndex('Learning', LEARNING_INDEX, P.canOpenLms() ? 'LMS access enabled' : 'Catalog access');
-    setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, ...(route.page === 'overview' ? [] : [{ label: route.page === 'course' ? 'Course' : route.page }])]);
+    drawLearningIndex(route);
+    const titles = { library: 'Library', catalog: 'Course catalog', my: 'My learning', certificates: 'Certificates' };
+    if (route.page !== 'course') {
+      setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, ...(route.page === 'overview' ? [] : [{ label: titles[route.page] }])]);
+    }
     if (route.page === 'overview') await renderLearningOverview(host, ctx);
     if (route.page === 'library') await renderMemberLibrary(host, ctx);
     if (route.page === 'catalog') await renderLearningCatalog(host, ctx);
     if (route.page === 'my') await renderMyLearning(host, ctx);
     if (route.page === 'certificates') await renderCertificates(host, ctx);
-    if (route.page === 'course') await renderCourse(host, route.id, ctx);
+    if (route.page === 'course') {
+      // The course screen names its own trail once it knows the course and
+      // the lesson; until then the trail says where it is going.
+      setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, { label: 'My learning', path: '/workspace/learning/my' }, { label: 'Course' }]);
+      await renderCourse(host, route.id, {
+        ...ctx,
+        lesson: route.lesson,
+        outline: setCourseOutline,
+        crumbs: (parts) => setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, ...parts]),
+      });
+    }
     return true;
   }
 
@@ -412,7 +615,14 @@ export function installFiveLayer() {
   state.installed = true;
 
   addEventListener('popstate', schedule);
-  addEventListener('ws:navigate', schedule);
+  // workspace.html sends one `settle` navigation when ws-app finishes
+  // booting, for the overlays whose legacy routes start() may have redrawn.
+  // ws-app no longer touches the routes drawn here, so redrawing one that is
+  // already on screen only flashed its loading state a second time.
+  addEventListener('ws:navigate', (event) => {
+    if (event.detail?.settle && state.drawn === location.pathname) return;
+    schedule();
+  });
 
   const rail = $('#ws-rail');
   const index = $('#ws-index-body');

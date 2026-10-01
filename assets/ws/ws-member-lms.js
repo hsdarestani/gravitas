@@ -1,5 +1,6 @@
 import * as P from './ws-platform.js?v=20260930-lms-interactions1';
 import * as C from './ws-charts.js?v=20260924-unify1';
+import { courseCover } from './ws-course-cover.js?v=20261001-cover1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -881,14 +882,32 @@ function courseMeta(course) {
   return P.meta([access, `${course.lesson_count ?? 0} lessons`, course.enrolled ? `${course.progress_percent}% complete` : '']);
 }
 
-function courseRow(course, go) {
-  return row({
-    title: course.title,
-    meta: courseMeta(course),
-    body: course.summary,
-    badges: [course.certificate_enabled ? 'Certificate' : '', course.enrolled ? label(course.enrollment_status) : ''],
-    onClick: () => go(`/workspace/learning/courses/${course.id}`),
-  });
+/* A course as a card: its cover, what it is, and — for an enrollment — how
+   far along it is. Catalog and My learning both draw these, so a course
+   looks the same wherever the reader meets it. */
+function courseTile(course, go, { eyebrow = '', meta = '', progress = null, flag = '' } = {}) {
+  const card = el('button', 'flc-tile');
+  card.type = 'button';
+  card.addEventListener('click', () => go(`/workspace/learning/courses/${course.id}`));
+  const media = el('span', 'flc-tile__media');
+  media.append(courseCover(course, 'flc-cover'));
+  if (flag) media.append(el('span', 'flc-tile__flag', flag));
+  const body = el('span', 'flc-tile__body');
+  if (eyebrow) body.append(el('span', 'fl-eyebrow', eyebrow));
+  body.append(el('strong', 'flc-tile__title', course.title || 'Untitled course'));
+  if (course.summary) body.append(el('span', 'flc-tile__summary', plainText(course.summary)));
+  const foot = el('span', 'flc-tile__foot');
+  if (progress != null) foot.append(percent(progress));
+  if (meta) foot.append(el('small', 'fl-muted', meta));
+  if (foot.childElementCount) body.append(foot);
+  card.append(media, body);
+  return card;
+}
+
+function courseTiles(items) {
+  const grid = el('div', 'flc-tiles');
+  items.forEach((item) => grid.append(item));
+  return grid;
 }
 
 export async function renderLearningCatalog(host, { go }) {
@@ -902,18 +921,27 @@ export async function renderLearningCatalog(host, { go }) {
     search.placeholder = 'Search courses';
     toolbar.append(search);
     wrap.append(toolbar);
-    const box = section('Courses');
+    const results = el('div', 'flc-results');
     const courses = data.courses || [];
     const draw = () => {
-      box.body.innerHTML = '';
+      results.innerHTML = '';
       const q = search.value.trim().toLowerCase();
       const matches = courses.filter((item) => !q || `${item.title} ${item.summary}`.toLowerCase().includes(q));
-      if (!matches.length) box.body.append(empty('No matching courses', courses.length ? 'Try another search.' : 'There are no published courses yet.'));
-      for (const item of matches) box.body.append(courseRow(item, go));
+      if (!matches.length) {
+        results.append(empty('No matching courses', courses.length ? 'Try another search.' : 'There are no published courses yet.'));
+        return;
+      }
+      results.append(courseTiles(matches.map((item) => courseTile(item, go, {
+        eyebrow: item.category?.name || '',
+        // The bar carries the progress, so the line under it does not repeat it.
+        meta: item.enrolled ? P.meta([courseMeta({ ...item, enrolled: false })]) : courseMeta(item),
+        progress: item.enrolled ? item.progress_percent : null,
+        flag: item.enrolled ? label(item.enrollment_status || 'enrolled') : (item.certificate_enabled ? 'Certificate' : ''),
+      }))));
     };
     search.addEventListener('input', draw);
     draw();
-    wrap.append(box.box);
+    wrap.append(results);
   } catch (error) {
     errorView(host, 'Course catalog', error, () => renderLearningCatalog(host, { go }));
   }
@@ -924,20 +952,21 @@ export async function renderMyLearning(host, { go }) {
   try {
     const data = await P.lmsMe();
     const wrap = doc(host, 'My learning', 'All course enrollments and completion state.');
-    const box = section('Enrollments');
     const items = data.enrollments || [];
-    if (!items.length) box.body.append(empty('No enrollments yet', 'Open the catalog to start a course.'));
-    for (const item of items) {
-      const node = row({
-        title: item.course_title,
-        meta: P.meta([label(item.status), label(item.access_source), item.completed_at ? `Completed ${date(item.completed_at)}` : '']),
-        badges: [item.certificate?.valid ? 'Certificate issued' : ''],
-        onClick: () => go(`/workspace/learning/courses/${item.course_id}`),
-      });
-      node.querySelector('.fl-row__main').append(percent(item.progress_percent));
-      box.body.append(node);
+    if (!items.length) {
+      wrap.append(empty('No enrollments yet', 'Open the catalog to start a course.'));
+      return;
     }
-    wrap.append(box.box);
+    wrap.append(courseTiles(items.map((item) => courseTile({
+      id: item.course_id,
+      title: item.course_title,
+      summary: item.course_summary,
+      cover_url: item.course_cover_url,
+    }, go, {
+      meta: P.meta([label(item.access_source), item.completed_at ? `Completed ${date(item.completed_at)}` : '', item.certificate?.valid ? 'Certificate issued' : '']),
+      progress: item.progress_percent,
+      flag: label(item.status),
+    }))));
   } catch (error) {
     errorView(host, 'My learning', error, () => renderMyLearning(host, { go }));
   }
@@ -1140,36 +1169,199 @@ function lessonInteractionPanel(lesson, course) {
   return panel;
 }
 
-function focusLearningInteraction(item) {
+/* ==========================================================================
+   COURSE TEXT
+   Course descriptions and lesson bodies are written in Markdown by the
+   course team, and were printed with white-space: pre-wrap, so a learner
+   read "**Introduction to AI Workflows**" with the asterisks in it. This
+   is a deliberately small reader — paragraphs, headings, lists, quotes,
+   code, emphasis and links — built from DOM nodes, never from innerHTML,
+   because the text is authored content and must not become markup.
+
+   Maths is left exactly as written. ws-math.js watches the workspace and
+   typesets $…$ and \(…\) wherever it lands in a text node, so the reader's
+   only duty is not to mistake the asterisk in $a*b*c$ for emphasis.
+   ========================================================================== */
+
+const SAFE_HREF = /^(https?:|mailto:|\/(?!\/)|#)/i;
+const INLINE = /(`[^`\n]+`)|(\$\$[\s\S]+?\$\$|\\\([\s\S]+?\\\)|\$[^$\n]+?\$)|\*\*([^*]+?)\*\*|__([^_]+?)__|\*([^*\s][^*\n]*?)\*|(?<![\w])_([^_\s][^_\n]*?)_(?![\w])|\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+
+function inlineMarkdown(text, target) {
+  let last = 0;
+  INLINE.lastIndex = 0;
+  const source = String(text);
+  const matches = [...source.matchAll(INLINE)];
+  for (const m of matches) {
+    if (m.index > last) appendLines(target, source.slice(last, m.index));
+    if (m[1]) target.append(el('code', null, m[1].slice(1, -1)));
+    else if (m[2]) target.append(document.createTextNode(m[2]));
+    else if (m[3] || m[4]) {
+      const strong = el('strong');
+      inlineMarkdown(m[3] || m[4], strong);
+      target.append(strong);
+    } else if (m[5] || m[6]) {
+      const em = el('em');
+      inlineMarkdown(m[5] || m[6], em);
+      target.append(em);
+    } else if (m[7]) {
+      if (SAFE_HREF.test(m[8])) {
+        const a = el('a', null, m[7]);
+        a.href = m[8];
+        if (/^https?:/i.test(m[8])) {
+          a.target = '_blank';
+          a.rel = 'noopener';
+        }
+        target.append(a);
+      } else {
+        target.append(document.createTextNode(m[7]));
+      }
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < source.length) appendLines(target, source.slice(last));
+  return target;
+}
+
+/* A single newline stays a line break. Lessons written before this reader
+   existed were laid out for pre-wrap, and their authors meant those breaks. */
+function appendLines(target, text) {
+  text.split('\n').forEach((part, index) => {
+    if (index) target.append(el('br'));
+    if (part) target.append(document.createTextNode(part));
+  });
+}
+
+const BLOCK_START = /^\s*(```|#{1,6}\s|>|[-*+]\s+|\d+[.)]\s+|(-{3,}|\*{3,})\s*$)/;
+
+function markdown(source, cls = '') {
+  const root = el('div', `flc-md${cls ? ` ${cls}` : ''}`);
+  const lines = String(source || '').replace(/\r\n?/g, '\n').split('\n');
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { i += 1; continue; }
+
+    if (/^\s*```/.test(line)) {
+      const code = [];
+      i += 1;
+      while (i < lines.length && !/^\s*```/.test(lines[i])) { code.push(lines[i]); i += 1; }
+      i += 1;
+      const pre = el('pre');
+      pre.append(el('code', null, code.join('\n')));
+      root.append(pre);
+      continue;
+    }
+    const heading = /^\s*(#{1,6})\s+(.*)$/.exec(line);
+    if (heading) {
+      const level = Math.min(6, heading[1].length + 2);
+      root.append(inlineMarkdown(heading[2], el(`h${level}`)));
+      i += 1;
+      continue;
+    }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) {
+      root.append(el('hr'));
+      i += 1;
+      continue;
+    }
+    if (/^\s*>/.test(line)) {
+      const quoted = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) { quoted.push(lines[i].replace(/^\s*>\s?/, '')); i += 1; }
+      const quote = el('blockquote');
+      quote.append(...markdown(quoted.join('\n')).childNodes);
+      root.append(quote);
+      continue;
+    }
+    const bullet = /^\s*[-*+]\s+/;
+    const number = /^\s*\d+[.)]\s+/;
+    if (bullet.test(line) || number.test(line)) {
+      const ordered = number.test(line);
+      const marker = ordered ? number : bullet;
+      const list = el(ordered ? 'ol' : 'ul');
+      while (i < lines.length && marker.test(lines[i])) {
+        let text = lines[i].replace(marker, '');
+        i += 1;
+        // An indented line under an item continues it.
+        while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !marker.test(lines[i])) { text += `\n${lines[i].trim()}`; i += 1; }
+        list.append(inlineMarkdown(text, el('li')));
+      }
+      root.append(list);
+      continue;
+    }
+    const para = [line];
+    i += 1;
+    while (i < lines.length && lines[i].trim() && !BLOCK_START.test(lines[i])) { para.push(lines[i]); i += 1; }
+    root.append(inlineMarkdown(para.join('\n'), el('p')));
+  }
+  return root;
+}
+
+/* For one-line places — the page lede, a meta line — where emphasis
+   markers are noise and structure has nowhere to go. */
+function plainText(source) {
+  return String(source || '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/(\*\*|__|`)/g, '')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/* Marks the quote wherever it sits in the rendered lesson, across the
+   strong and em nodes the Markdown made. A learner selects rendered text,
+   so that is what the stored quote is matched against. */
+function highlightQuote(root, quote) {
+  for (const old of root.querySelectorAll('mark.fl-return-highlight')) old.replaceWith(...old.childNodes);
+  root.normalize();
+  const nodes = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let text = '';
+  let node;
+  while ((node = walker.nextNode())) {
+    nodes.push({ node, start: text.length });
+    text += node.nodeValue;
+  }
+  const at = text.indexOf(quote);
+  if (at < 0) return null;
+  const end = at + quote.length;
+  const locate = (offset, isEnd) => {
+    for (const item of nodes) {
+      const stop = item.start + item.node.nodeValue.length;
+      if (offset < stop || (isEnd && offset === stop)) return [item.node, offset - item.start];
+    }
+    return null;
+  };
+  const from = locate(at, false);
+  const to = locate(end, true);
+  if (!from || !to) return null;
+  const range = document.createRange();
+  range.setStart(from[0], from[1]);
+  range.setEnd(to[0], to[1]);
+  const mark = el('mark', 'fl-return-highlight');
+  mark.append(range.extractContents());
+  range.insertNode(mark);
+  return mark;
+}
+
+/* A return point names a lesson. When that lesson is not the one on
+   screen, the course opens it and finishes the job after it has drawn. */
+let pendingFocus = null;
+
+function focusLearningInteraction(item, openLesson = null) {
   if (!item?.lesson_id) return;
   const target = document.getElementById(`lesson-${item.lesson_id}`);
-  if (!target) return;
-  target.open = true;
-
-  const prose = target.querySelector('.fl-prose');
-  const quote = String(item.quote || item.anchor?.selected_text || '').trim();
-  if (prose && quote) {
-    const original = prose.dataset.learningOriginalText || prose.textContent || '';
-    prose.dataset.learningOriginalText = original;
-    prose.textContent = original;
-    const at = original.indexOf(quote);
-    if (at >= 0) {
-      prose.textContent = '';
-      prose.append(
-        document.createTextNode(original.slice(0, at)),
-        el('mark', 'fl-return-highlight', original.slice(at, at + quote.length)),
-        document.createTextNode(original.slice(at + quote.length)),
-      );
-    }
+  if (!target) {
+    if (openLesson) openLesson(item.lesson_id, item);
+    return;
   }
-
+  const prose = target.querySelector('.flc-md');
+  const quote = String(item.quote || item.anchor?.selected_text || '').trim();
+  const mark = prose && quote ? highlightQuote(prose, quote) : null;
   window.requestAnimationFrame(() => {
-    const mark = target.querySelector('.fl-return-highlight');
     (mark || target).scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 }
 
-function courseReturnPointsPanel(course) {
+function courseReturnPointsPanel(course, openLesson = null) {
   const box = section(
     'Return points',
     'Notes, highlights, bookmarks and reminders that take you back to the lesson context where you created them.',
@@ -1206,7 +1398,7 @@ function courseReturnPointsPanel(course) {
           item.nextcloud_resource_id ? 'Nextcloud' : '',
         ]),
         badges: item.completed ? ['Done'] : [],
-        onClick: item.lesson_id ? () => focusLearningInteraction(item) : null,
+        onClick: item.lesson_id ? () => focusLearningInteraction(item, openLesson) : null,
       });
       list.append(node);
     }
@@ -1231,7 +1423,7 @@ function courseReturnPointsPanel(course) {
   return box.box;
 }
 
-async function coursePlanPanel(course) {
+async function coursePlanPanel(course, openLesson = null) {
   const box = section('Course plan', 'Required lessons plus your own tasks and reminders, in one progress model.');
   const render = async () => {
     box.body.innerHTML = '';
@@ -1303,13 +1495,7 @@ async function coursePlanPanel(course) {
             item.due_at ? new Date(item.due_at).toLocaleString() : '',
           ]),
           badges: item.done ? ['Done'] : [],
-          onClick: item.type === 'lesson' ? () => {
-            const target = document.getElementById(`lesson-${item.lesson_id}`);
-            if (target) {
-              target.open = true;
-              target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          } : null,
+          onClick: item.type === 'lesson' && openLesson ? () => openLesson(item.lesson_id) : null,
           actions: tools,
         }));
       }
@@ -1393,25 +1579,37 @@ async function pulsarAccessPanel(course) {
   return box.box;
 }
 
-function lessonCard(lesson, course, host, go) {
-  const details = el('details', 'fl-lesson');
-  details.id = `lesson-${lesson.id}`;
-  const summary = el('summary', 'fl-lesson__summary');
-  const main = el('span');
-  main.append(el('strong', null, lesson.title));
-  main.append(el('small', 'fl-muted', P.meta([
+function lessonMeta(lesson) {
+  return P.meta([
     label(lesson.kind),
     lesson.duration_seconds ? `${Math.ceil(lesson.duration_seconds / 60)} min` : '',
     lesson.is_preview ? 'Preview' : '',
-  ])));
-  summary.append(main, badge(lesson.locked ? 'Locked' : 'Available'));
-  details.append(summary);
-  const body = el('div', 'fl-lesson__body');
-  let openedAt = 0;
-  let viewSent = false;
+    lesson.is_required === false ? 'Optional' : '',
+  ]);
+}
+
+/* One lesson, open, as the page. Lessons used to be <details> rows stacked
+   in the curriculum, all of them on one screen with every panel the course
+   has below them; the index tree now chooses the lesson and this draws it.
+   The view event goes out when it draws, the dwell when the reader leaves
+   it for any other route. */
+function lessonView(lesson, course, { position, next, offline, reload, openLesson, goHome }) {
+  const article = el('article', 'flc-lesson');
+  article.id = `lesson-${lesson.id}`;
+  const head = el('header', 'flc-lesson__head');
+  const where = el('span', 'fl-eyebrow', P.meta([position.module.title, `Lesson ${position.index} of ${position.total}`]));
+  const title = el('h2', 'flc-lesson__title', lesson.title);
+  const meta = el('div', 'flc-lesson__meta');
+  meta.append(el('span', 'fl-muted', lessonMeta(lesson)));
+  if (lesson.locked) meta.append(badge('Locked'));
+  else if (position.done) meta.append(badge('Completed', 'ok'));
+  head.append(where, title, meta);
+  article.append(head);
+  const body = el('div', 'flc-lesson__body');
+  let openedAt = Date.now();
 
   const sendDwell = () => {
-    if (!openedAt || !course.enrolled) return;
+    if (!openedAt || !course.enrolled || offline) return;
     const seconds = Math.max(1, Math.round((Date.now() - openedAt) / 1000));
     openedAt = 0;
     P.lmsCourseEvent(course.id, {
@@ -1420,18 +1618,18 @@ function lessonCard(lesson, course, host, go) {
       duration_seconds: seconds,
     }).catch(() => {});
   };
-
-  details.addEventListener('toggle', () => {
-    if (details.open) {
-      openedAt = Date.now();
-      if (!viewSent && course.enrolled && !lesson.locked) {
-        viewSent = true;
-        P.lmsCourseEvent(course.id, { kind: 'lesson.view', lesson_id: lesson.id }).catch(() => {});
-      }
-    } else {
-      sendDwell();
-    }
-  });
+  const leave = () => {
+    sendDwell();
+    removeEventListener('ws:navigate', leave);
+    removeEventListener('popstate', leave);
+    removeEventListener('pagehide', leave);
+  };
+  addEventListener('ws:navigate', leave);
+  addEventListener('popstate', leave);
+  addEventListener('pagehide', leave);
+  if (course.enrolled && !lesson.locked && !offline) {
+    P.lmsCourseEvent(course.id, { kind: 'lesson.view', lesson_id: lesson.id }).catch(() => {});
+  }
 
   if (lesson.locked) {
     const lockCopy = {
@@ -1443,9 +1641,11 @@ function lessonCard(lesson, course, host, go) {
       invalid_access_rule: 'This lesson has an invalid access rule. Ask the course team to review it.',
     };
     body.append(empty('Lesson locked', lockCopy[lesson.lock_reason] || 'Complete the required access steps or ask the course team for access.'));
+    if (['course_profile_required', 'course_enrollment_required'].includes(lesson.lock_reason)) {
+      body.append(C.actions([action('Go to the course overview', goHome, true)]));
+    }
   } else {
-    if (lesson.summary) body.append(el('p', 'fl-muted', lesson.summary));
-    if (lesson.body) body.append(el('div', 'fl-prose', lesson.body));
+    if (lesson.summary) body.append(el('p', 'flc-lesson__lede', lesson.summary));
 
     if (lesson.kind === 'lab' && lesson.lab_slug && course.learning_config?.lab_enabled !== false) {
       const frame = el('iframe', 'fl-course-embed');
@@ -1453,12 +1653,11 @@ function lessonCard(lesson, course, host, go) {
       frame.title = lesson.title;
       frame.loading = 'lazy';
       frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups');
-      body.append(frame);
       const labOpen = action('Start Lab activity', () => {
         if (course.enrolled) P.lmsCourseEvent(course.id, { kind: 'lab.use', lesson_id: lesson.id }).catch(() => {});
         frame.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, true);
-      body.prepend(labOpen);
+      body.append(C.actions([labOpen]), frame);
     } else if (lesson.kind === 'embed' && lesson.content_url) {
       const frame = el('iframe', 'fl-course-embed');
       frame.src = lesson.content_url;
@@ -1484,43 +1683,47 @@ function lessonCard(lesson, course, host, go) {
       media.href = lesson.content_url;
       media.target = '_blank';
       media.rel = 'noopener';
-      body.append(media);
+      body.append(C.actions([media]));
     }
 
-    if (course.enrolled) {
-      body.append(lessonInteractionPanel(lesson, course));
-      const actions = el('div', 'fl-form-actions');
-      const done = action('Mark complete', async () => {
+    if (lesson.body) body.append(markdown(lesson.body, 'flc-lesson__prose'));
+
+    if (course.enrolled && !offline) {
+      const actions = el('div', 'flc-lesson__actions');
+      const done = action(position.done ? 'Completed · mark again' : 'Mark complete', async () => {
         done.disabled = true;
         done.textContent = 'Saving…';
         sendDwell();
         try {
           await P.lmsLessonProgress(lesson.id, { completed: true, progress_seconds: lesson.duration_seconds || 0 });
-          await renderCourse(host, course.id, { go });
+          await reload(next ? next.lesson.id : '');
         } catch (error) {
           done.disabled = false;
           done.textContent = error?.message || 'Try again';
         }
-      }, true);
+      }, !position.done);
       const skip = action('Skip for now', async () => {
         skip.disabled = true;
         sendDwell();
         try {
           await P.lmsCourseEvent(course.id, { kind: 'lesson.skip', lesson_id: lesson.id });
           skip.textContent = 'Skipped';
+          if (next) openLesson(next.lesson.id);
         } catch {
           skip.disabled = false;
         }
       });
       actions.append(done, skip);
+      if (position.done && next) actions.prepend(action(`Next · ${next.lesson.title}`, () => openLesson(next.lesson.id), true));
       body.append(actions);
+      body.append(lessonInteractionPanel(lesson, course));
     }
   }
-  details.append(body);
-  return details;
+  article.append(body);
+  return article;
 }
 
-function assessmentCard(assessment, course, host, go) {
+function assessmentCard(assessment, course, reload) {
   const box = section(assessment.title, `${assessment.passing_score}% to pass · ${assessment.max_attempts} attempts`);
   if (!assessment.questions?.length) {
     box.body.append(empty('Assessment unavailable', course.enrolled ? 'No scorable questions were published.' : 'Enroll to open the assessment.'));
@@ -1563,7 +1766,7 @@ function assessmentCard(assessment, course, host, go) {
       const attempt = result.attempt || {};
       status.textContent = `${attempt.passed ? 'Passed' : 'Not passed'} · ${attempt.score}%`;
       status.dataset.tone = attempt.passed ? 'ok' : 'warn';
-      if (attempt.passed) setTimeout(() => renderCourse(host, course.id, { go }), 700);
+      if (attempt.passed) setTimeout(() => reload(), 700);
     } catch (error) {
       status.textContent = error?.message || 'Assessment could not be submitted.';
       status.dataset.tone = 'bad';
@@ -1575,9 +1778,10 @@ function assessmentCard(assessment, course, host, go) {
   return box.box;
 }
 
-function courseRegistrationPanel(course, profile, host, go) {
+function courseRegistrationPanel(course, profile, reload) {
   if (!course.enrolled || !course.registration_schema?.length || profile?.completed) return null;
   const box = section('Complete your course profile', 'The course team requires these fields before protected lessons unlock.');
+  box.box.classList.add('flc-callout');
   const form = el('form', 'fl-form');
   const controls = new Map();
   for (const spec of course.registration_schema) {
@@ -1594,7 +1798,7 @@ function courseRegistrationPanel(course, profile, host, go) {
       }
     } else if (spec.type === 'textarea') {
       control = el('textarea', 'v-input fl-input fl-textarea');
-      control.rows = 4;
+      control.rows = 3;
     } else if (spec.type === 'checkbox') {
       control = el('input');
       control.type = 'checkbox';
@@ -1612,7 +1816,7 @@ function courseRegistrationPanel(course, profile, host, go) {
   const status = el('p', 'v-note');
   const save = action('Save and continue', () => {}, true);
   save.type = 'submit';
-  form.append(save, status);
+  form.append(C.actions([save, status]));
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const answers = {};
@@ -1621,7 +1825,7 @@ function courseRegistrationPanel(course, profile, host, go) {
     status.textContent = 'Saving…';
     try {
       await P.lmsSaveRegistrationProfile(course.id, answers);
-      await renderCourse(host, course.id, { go });
+      await reload();
     } catch (error) {
       status.textContent = error?.data?.fields?.length
         ? `Required: ${error.data.fields.join(', ')}`
@@ -1678,7 +1882,7 @@ function courseAssetsPanel(course) {
 
 async function courseTutorPanel(course) {
   if (!course.enrolled) return null;
-  const box = section('AI Tutor', 'Ask Pulsar with course context, a lesson, selected Zotero sources and only the projects you explicitly granted above.');
+  const box = section('AI Tutor', 'Ask Pulsar with course context, a lesson, selected Zotero sources and only the projects granted under Pulsar access.');
   const controls = el('div', 'fl-form-grid');
   const lessonSelect = el('select', 'v-input fl-input');
   const rootOption = el('option', null, 'Whole course');
@@ -2570,230 +2774,856 @@ async function loadOfflineCourseSnapshot(id) {
   }
 }
 
-export async function renderCourse(host, id, { go }) {
-  loading(host, 'Course');
+/* ==========================================================================
+   THE COURSE
+   This screen used to be every panel the course has, stacked full width in
+   one column: the hero, the profile form, return points, the plan, Pulsar
+   permissions, the whole curriculum with every lesson open-able in place,
+   then the tutor, Zotero, integrations, the group chat, papers, a notebook,
+   GitHub, publishing and PKM export. Fourteen cards of equal weight, and
+   the lesson the learner came for was somewhere in the middle of them.
+
+   It is now two things side by side. The main column is what is being
+   learned: the course overview with its curriculum, or one lesson. The
+   side column is the course card (progress, the next step, the
+   instructors) and the course tools, listed as plugins and opened in a
+   drawer beside the lesson, so a note or a tutor question never costs the
+   reader their place. Which lesson is open is the URL
+   (/learning/courses/:id/lessons/:lesson), and the index tree in
+   ws-five-layer.js draws the same outline, so the two always agree.
+
+   Tools build when first opened, not when the course loads. Before, every
+   course open paid for Pulsar grants, Zotero connections and the
+   integrations list whether or not the learner looked at them.
+
+   The course payload is cached for a minute per course, so stepping
+   through lessons does not refetch the course, its interactions and its
+   plan on every click. Anything that changes progress drops the cache.
+   ========================================================================== */
+
+const glyph = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
+const courseCache = new Map();
+const COURSE_TTL = 60000;
+
+function forgetCourse(id) {
+  courseCache.delete(String(id));
+}
+
+async function loadCourse(id) {
+  const key = String(id);
+  const hit = courseCache.get(key);
+  if (hit && Date.now() - hit.at < COURSE_TTL) return { ...hit, fresh: false };
+  let data;
+  let offline = null;
   try {
-    let data;
-    let offlineSnapshot = null;
-    try {
-      data = await P.lmsCourse(id);
-    } catch (networkError) {
-      offlineSnapshot = await loadOfflineCourseSnapshot(id);
-      if (!offlineSnapshot) throw networkError;
-      data = offlineSnapshot.data;
-    }
-    const course = data.course;
-    if (!offlineSnapshot && course.enrolled) {
+    data = await P.lmsCourse(id);
+  } catch (networkError) {
+    offline = await loadOfflineCourseSnapshot(id);
+    if (!offline) throw networkError;
+    data = offline.data;
+  }
+  const course = data.course;
+  let plan = null;
+  let profile = null;
+  if (!offline && course.enrolled) {
+    const [interactions, planData, profileData] = await Promise.all([
+      P.lmsCourseInteractions(course.id).then((result) => result.interactions || []).catch(() => []),
+      P.lmsLearningPlan(course.id).catch(() => null),
+      course.registration_schema?.length ? P.lmsRegistrationProfile(course.id).catch(() => null) : null,
+    ]);
+    course._learningInteractions = interactions;
+    plan = planData;
+    profile = profileData;
+  }
+  const bundle = { data, plan, profile, offline, at: Date.now() };
+  if (!offline) courseCache.set(key, bundle);
+  return { ...bundle, fresh: true };
+}
+
+/* The plan names the next required item; when that is a lesson it wins.
+   Otherwise the first open lesson the plan does not report as done. */
+function pickNext(flat, done, plan) {
+  if (plan?.next?.type === 'lesson') {
+    const found = flat.find((item) => String(item.lesson.id) === String(plan.next.lesson_id));
+    if (found && !found.lesson.locked) return found;
+  }
+  return flat.find((item) => !item.lesson.locked && !done.has(String(item.lesson.id))) || null;
+}
+
+function courseHead(course, compact) {
+  const head = el('header', 'ws-doc__head fl-head flc-head');
+  if (compact) head.dataset.compact = 'true';
+  const eyebrow = P.meta([course.category?.name, course.provider === 'openedx' ? 'Open edX' : '']) || 'Course';
+  head.append(el('span', 'fl-eyebrow', eyebrow));
+  head.append(el('h1', 'ws-doc__title', course.title));
+  if (!compact && course.summary) head.append(el('p', 'ws-doc__meta flc-head__summary', plainText(course.summary)));
+  return head;
+}
+
+function enrollActions(course, actions, reload) {
+  if (course.access_type === 'open') {
+    const enroll = action('Enroll', async () => {
+      enroll.disabled = true;
+      enroll.textContent = 'Enrolling…';
       try {
-        const interactionData = await P.lmsCourseInteractions(course.id);
-        course._learningInteractions = interactionData.interactions || [];
-      } catch {
-        course._learningInteractions = [];
+        await P.lmsEnroll(course.id, {});
+        await P.loadBootstrap();
+        await reload();
+      } catch (error) {
+        enroll.disabled = false;
+        enroll.textContent = error?.message || 'Try again';
       }
-    }
-    if (!offlineSnapshot && course.enrolled) P.lmsCourseEvent(course.id, { kind: 'course.open' }).catch(() => {});
-    const wrap = doc(host, course.title, course.summary || 'Gravitas+ course');
-    if (offlineSnapshot) {
-      const offline = el('div', 'ws-alert');
-      offline.append(
-        el('strong', 'ws-alert__title', 'Offline read mode'),
-        el('p', '', 'Showing the course snapshot saved ' + new Date(offlineSnapshot.saved_at).toLocaleString() + '. Progress updates, AI, Lab, discussions and external tools need a connection.'),
-      );
-      wrap.append(offline);
-    }
-    const hero = el('div', 'fl-course-hero');
-    const info = el('div');
-    const tags = el('div', 'fl-badges');
-    tags.append(badge(label(course.access_type)), badge(label(course.status)));
-    if (course.provider === 'openedx') tags.append(badge('Open edX'));
-    if (course.category?.name) tags.append(badge(course.category.name));
-    (course.tags || []).forEach((item) => tags.append(badge(item.name)));
-    if (course.certificate_enabled) tags.append(badge('Gravitas+ Certificate'));
-    info.append(tags);
-    if (course.instructors?.length) info.append(el('p', 'fl-muted', `Instructors · ${course.instructors.map((item) => item.name).join(', ')}`));
-    if (course.description) info.append(el('p', 'fl-prose', course.description));
-    if (course.enrolled) info.append(percent(course.progress_percent));
-    hero.append(info);
-
-    const actions = el('div', 'fl-course-hero__actions');
-    if (!course.enrolled) {
-      if (course.access_type === 'open') {
-        const enroll = action('Enroll', async () => {
-          enroll.disabled = true;
-          enroll.textContent = 'Enrolling…';
-          try {
-            await P.lmsEnroll(course.id, {});
-            await P.loadBootstrap();
-            await renderCourse(host, id, { go });
-          } catch (error) {
-            enroll.disabled = false;
-            enroll.textContent = error?.message || 'Try again';
-          }
-        }, true);
-        actions.append(enroll);
-      } else if (course.access_type === 'paid') {
-        actions.append(badge((course.price || '—') + ' ' + (course.currency || 'EUR')));
-        const paymentState = el('p', 'fl-muted');
-        if (course.payment?.enabled && course.payment?.checkout_url) {
-          const checkout = action('Continue to checkout', async () => {
-            checkout.disabled = true;
-            checkout.textContent = 'Preparing checkout…';
-            const checkoutWindow = window.open('about:blank', '_blank', 'noopener');
-            try {
-              const result = await P.lmsStartCheckout(course.id);
-              const url = result.payment?.checkout_url;
-              paymentState.textContent = result.payment
-                ? 'Payment status · ' + label(result.payment.status)
-                : '';
-              if (url && checkoutWindow) checkoutWindow.location.href = url;
-              else if (url) location.href = url;
-              else checkoutWindow?.close();
-              checkout.textContent = 'Open checkout';
-            } catch (error) {
-              checkoutWindow?.close();
-              paymentState.textContent = error?.message || 'Checkout could not be prepared.';
-              paymentState.dataset.tone = 'bad';
-              checkout.textContent = 'Continue to checkout';
-            } finally {
-              checkout.disabled = false;
-            }
-          }, true);
-          actions.append(checkout, paymentState);
-          const refreshPayment = async () => {
-            if (!actions.isConnected) return false;
-            try {
-              const result = await P.lmsCheckout(course.id);
-              if (result.enrolled) {
-                await P.loadBootstrap();
-                await renderCourse(host, id, { go });
-                return true;
-              }
-              const latest = (result.payments || [])[0];
-              paymentState.textContent = latest
-                ? 'Payment status · ' + label(latest.status) + (latest.external_reference ? ' · ' + latest.external_reference : '')
-                : 'Access activates after payment is verified.';
-            } catch {
-              paymentState.textContent = 'Access activates after payment is verified.';
-            }
-            return false;
-          };
-          refreshPayment();
-          const paymentTimer = window.setInterval(async () => {
-            if (!actions.isConnected || await refreshPayment()) window.clearInterval(paymentTimer);
-          }, 10000);
-        } else {
-          paymentState.textContent = course.payment?.enabled
-            ? 'Payment is configured, but the checkout URL is not available yet.'
-            : 'Checkout is not enabled for this course.';
-          actions.append(paymentState);
+    }, true);
+    actions.append(enroll);
+  } else if (course.access_type === 'paid') {
+    actions.append(el('strong', 'flc-summary__price', (course.price || '—') + ' ' + (course.currency || 'EUR')));
+    const paymentState = el('p', 'fl-muted');
+    if (course.payment?.enabled && course.payment?.checkout_url) {
+      const checkout = action('Continue to checkout', async () => {
+        checkout.disabled = true;
+        checkout.textContent = 'Preparing checkout…';
+        const checkoutWindow = window.open('about:blank', '_blank', 'noopener');
+        try {
+          const result = await P.lmsStartCheckout(course.id);
+          const url = result.payment?.checkout_url;
+          paymentState.textContent = result.payment
+            ? 'Payment status · ' + label(result.payment.status)
+            : '';
+          if (url && checkoutWindow) checkoutWindow.location.href = url;
+          else if (url) location.href = url;
+          else checkoutWindow?.close();
+          checkout.textContent = 'Open checkout';
+        } catch (error) {
+          checkoutWindow?.close();
+          paymentState.textContent = error?.message || 'Checkout could not be prepared.';
+          paymentState.dataset.tone = 'bad';
+          checkout.textContent = 'Continue to checkout';
+        } finally {
+          checkout.disabled = false;
         }
-      } else {
-        actions.append(el('p', 'fl-muted', 'This course is invite-only. A Core administrator can grant enrollment.'));
-      }
+      }, true);
+      actions.append(checkout, paymentState);
+      const refreshPayment = async () => {
+        if (!actions.isConnected) return false;
+        try {
+          const result = await P.lmsCheckout(course.id);
+          if (result.enrolled) {
+            await P.loadBootstrap();
+            await reload();
+            return true;
+          }
+          const latest = (result.payments || [])[0];
+          paymentState.textContent = latest
+            ? 'Payment status · ' + label(latest.status) + (latest.external_reference ? ' · ' + latest.external_reference : '')
+            : 'Access activates after payment is verified.';
+        } catch {
+          paymentState.textContent = 'Access activates after payment is verified.';
+        }
+        return false;
+      };
+      refreshPayment();
+      const paymentTimer = window.setInterval(async () => {
+        if (!actions.isConnected || await refreshPayment()) window.clearInterval(paymentTimer);
+      }, 10000);
     } else {
-      actions.append(badge(label(course.enrollment_status), 'ok'));
-      if (course.provider === 'openedx' && course.openedx_launch_url) {
-        const openedx = el('a', 'ws-btn', 'Open learning engine');
-        openedx.href = course.openedx_launch_url;
-        openedx.target = '_blank';
-        openedx.rel = 'noopener';
-        actions.append(openedx);
+      paymentState.textContent = course.payment?.enabled
+        ? 'Payment is configured, but the checkout URL is not available yet.'
+        : 'Checkout is not enabled for this course.';
+      actions.append(paymentState);
+    }
+  } else {
+    actions.append(el('p', 'fl-muted', 'This course is invite-only. A Core administrator can grant enrollment.'));
+  }
+}
+
+function courseShare(course) {
+  return Math.max(0, Math.min(100, Number(course.progress_percent) || 0));
+}
+
+/* "2 of 8 required lessons" when the plan reports required lessons;
+   otherwise only the percentage the enrollment carries. */
+function progressCopy(course, plan) {
+  const required = (plan?.checklist || []).filter((item) => item.type === 'lesson');
+  return required.length
+    ? `${required.filter((item) => item.done).length} of ${required.length} required lessons`
+    : `${Math.round(courseShare(course))}% complete`;
+}
+
+function courseBadges(course) {
+  const tags = el('div', 'fl-badges');
+  if (course.enrolled && course.enrollment_status) tags.append(badge(label(course.enrollment_status), 'ok'));
+  tags.append(badge(label(course.access_type)));
+  if (course.status && course.status !== 'published') tags.append(badge(label(course.status)));
+  if (course.certificate_enabled) tags.append(badge('Gravitas+ Certificate'));
+  (course.tags || []).forEach((item) => tags.append(badge(item.name)));
+  return tags;
+}
+
+/* The one next step: enroll (or pay) before enrollment, continue after. */
+function courseActions(course, { plan, nextUp, current = null, openLesson, reload, go }, cls) {
+  const actions = el('div', cls);
+  if (!course.enrolled) {
+    enrollActions(course, actions, reload);
+    return actions;
+  }
+  if (nextUp && (!current || String(current.lesson.id) !== String(nextUp.lesson.id))) {
+    const started = Number(course.progress_percent) > 0 || (plan?.done || 0) > 0;
+    actions.append(action(started ? 'Continue learning' : 'Start the course', () => openLesson(nextUp.lesson.id), true));
+  }
+  if (course.provider === 'openedx' && course.openedx_launch_url) {
+    const openedx = el('a', 'ws-btn', 'Open learning engine');
+    openedx.href = course.openedx_launch_url;
+    openedx.target = '_blank';
+    openedx.rel = 'noopener';
+    actions.append(openedx);
+  }
+  if (course.certificate?.valid) actions.append(link(go, 'View certificate', '/workspace/learning/certificates'));
+  return actions;
+}
+
+/* The side card beside a lesson: where the learner stands and the one
+   thing to do next. The ring is drawn from progress_percent, which the
+   enrollment carries. */
+function courseSummaryCard(course, options) {
+  const card = el('section', 'flc-card flc-summary');
+  if (course.enrolled) {
+    const share = courseShare(course);
+    const progress = el('div', 'flc-summary__progress');
+    progress.append(C.ring(share, { size: 52, label: `${Math.round(share)}% complete` }));
+    const text = el('div', 'flc-summary__figures');
+    text.append(el('strong', null, `${Math.round(share)}% complete`));
+    text.append(el('small', 'fl-muted', progressCopy(course, options.plan)));
+    progress.append(text);
+    card.append(progress);
+  }
+  card.append(courseBadges(course));
+  if (course.instructors?.length) {
+    const people = el('div', 'flc-summary__people');
+    people.append(el('span', 'fl-eyebrow', course.instructors.length > 1 ? 'Instructors' : 'Instructor'));
+    people.append(el('span', null, course.instructors.map((item) => item.name).join(', ')));
+    card.append(people);
+  }
+  const actions = courseActions(course, options, 'flc-summary__actions');
+  if (actions.childElementCount) card.append(actions);
+  return card;
+}
+
+/* The top of the course overview: the cover beside the course, as a
+   reader meets it in a catalog, with where they stand and the next step. */
+function courseHero(course, options) {
+  const hero = el('header', 'flc-hero');
+  const info = el('div', 'flc-hero__info');
+  const top = el('div', 'flc-hero__top');
+  if (course.enrolled) {
+    const pill = el('span', 'flc-pill');
+    pill.append(C.ring(courseShare(course), { size: 22, label: `${Math.round(courseShare(course))}% complete` }));
+    pill.append(el('span', null, progressCopy(course, options.plan)));
+    top.append(pill);
+  }
+  const eyebrow = P.meta([course.category?.name, course.provider === 'openedx' ? 'Open edX' : '']);
+  if (eyebrow) top.append(el('span', 'fl-eyebrow', eyebrow));
+  if (top.childElementCount) info.append(top);
+  info.append(el('h1', 'ws-doc__title flc-hero__title', course.title));
+  if (course.summary) info.append(el('p', 'flc-hero__summary', plainText(course.summary)));
+  if (course.instructors?.length) {
+    info.append(el('p', 'flc-hero__people', `Taught by ${course.instructors.map((item) => item.name).join(', ')}`));
+  }
+  info.append(courseBadges(course));
+  const actions = courseActions(course, options, 'flc-hero__actions');
+  if (actions.childElementCount) info.append(actions);
+  const media = el('div', 'flc-hero__media');
+  media.append(courseCover(course, 'flc-cover', { eager: true }));
+  hero.append(info, media);
+  return hero;
+}
+
+function offlineExportPanel(course, data) {
+  const box = section('Offline & export', 'Keep a read-only copy of this course on this device, or download it as a document.');
+  const actions = el('div', 'fl-form-actions flc-export');
+  if (course.learning_config?.offline_enabled !== false) {
+    const saveOffline = action('Save offline', async () => {
+      saveOffline.disabled = true;
+      saveOffline.textContent = 'Saving…';
+      const ok = await saveOfflineCourseSnapshot(data);
+      saveOffline.textContent = ok ? 'Saved offline' : 'Offline save failed';
+      saveOffline.disabled = false;
+    }, true);
+    actions.append(saveOffline);
+  }
+  for (const [fmt, title] of [['md', 'Markdown'], ['tex', 'LaTeX'], ['docx', 'DOCX']]) {
+    const download = el('a', 'ws-btn', title);
+    download.href = `/api/lms/courses/${course.id}/export/${fmt}/`;
+    download.download = '';
+    actions.append(download);
+  }
+  box.body.append(actions);
+  return box.box;
+}
+
+/* Every tool a course offers, in the order a learner reaches for them.
+   learning_config switches a tool off; absent means on, as before. */
+function coursePlugins(course, data, { openLesson }) {
+  const on = (key) => course.learning_config?.[key] !== false;
+  const files = (course.assets || []).length;
+  return [
+    { group: 'Study', key: 'plan', title: 'Course plan', note: 'Lessons, tasks and reminders', mark: 'tasks', build: () => coursePlanPanel(course, openLesson) },
+    { group: 'Study', key: 'returns', title: 'Return points', note: 'Notes, highlights, bookmarks', mark: 'notes', build: () => courseReturnPointsPanel(course, openLesson) },
+    on('ai_enabled') && { group: 'Study', key: 'tutor', title: 'AI Tutor', note: 'Ask Pulsar about this course', mark: 'pulsar', build: () => courseTutorPanel(course) },
+    on('discussions_enabled') && { group: 'Study', key: 'group', title: 'Course group', note: 'Learners and instructors', mark: 'collaboration', build: () => courseDiscussionPanel(course) },
+    files && { group: 'Study', key: 'files', title: 'Course files', note: `${files} file${files === 1 ? '' : 's'} and embeds`, mark: 'files', build: () => courseAssetsPanel(course) },
+    on('literature_enabled') && { group: 'Research', key: 'papers', title: 'Related papers', note: 'arXiv, INSPIRE, Semantic Scholar', mark: 'search', build: () => literaturePanel(course) },
+    on('zotero_enabled') && { group: 'Research', key: 'zotero', title: 'Zotero sources', note: 'Your reference library', mark: 'storage', build: () => zoteroConnectionPanel() },
+    on('notebook_enabled') && { group: 'Research', key: 'notebook', title: 'Notebook', note: 'Python in the browser, .ipynb', mark: 'datasets', build: () => notebookPanel(course) },
+    on('git_enabled') && { group: 'Research', key: 'git', title: 'GitHub', note: 'Push work for review', mark: 'cycle', build: () => gitPanel(course) },
+    { group: 'Connect', key: 'pulsar', title: 'Pulsar access', note: 'Projects Pulsar may read', mark: 'secure', build: () => pulsarAccessPanel(course) },
+    { group: 'Connect', key: 'tools', title: 'Connected tools', note: 'GitHub, LinkedIn, ORCID, Medium', mark: 'share', build: () => learningIntegrationsPanel() },
+    on('social_publish_enabled') && { group: 'Connect', key: 'publish', title: 'Publish', note: 'Share an achievement', mark: 'external', build: () => publishingPanel(course) },
+    { group: 'Connect', key: 'export', title: 'Offline & export', note: 'Save offline, Markdown, LaTeX, DOCX', mark: 'content', build: () => offlineExportPanel(course, data) },
+    on('pkm_enabled') && { group: 'Connect', key: 'pkm', title: 'Export to PKM', note: 'Obsidian, Logseq, Notion, Roam', mark: 'mindmap', build: () => pkmExportPanel(course) },
+  ].filter(Boolean);
+}
+
+const PLUGIN_SERIES = { Study: '1', Research: '2', Connect: '4' };
+
+/* A sheet over the right edge of the workspace. A tool keeps its state
+   between openings — a half-written tutor question, a notebook — because
+   each panel is built once per course visit and only hidden after. */
+function pluginDrawer() {
+  const root = el('div', 'flc-drawer');
+  root.dataset.open = 'false';
+  root.inert = true;
+  const scrim = el('div', 'flc-drawer__scrim');
+  const sheet = el('section', 'flc-drawer__sheet');
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.tabIndex = -1;
+  const close = el('button', 'flc-drawer__close');
+  close.type = 'button';
+  close.setAttribute('aria-label', 'Close tool');
+  close.innerHTML = glyph('close') || '×';
+  const body = el('div', 'flc-drawer__body');
+  sheet.append(close, body);
+  root.append(scrim, sheet);
+
+  const built = new Map();
+  let current = null;
+  let trigger = null;
+  const listeners = new Set();
+  const changed = (key) => listeners.forEach((fn) => fn(key));
+
+  const show = (key) => {
+    for (const node of body.children) node.hidden = node.dataset.plugin !== key;
+  };
+  const hide = () => {
+    if (root.dataset.open !== 'true') return;
+    root.dataset.open = 'false';
+    root.inert = true;
+    current = null;
+    changed(null);
+    trigger?.focus?.({ preventScroll: true });
+    trigger = null;
+  };
+  const open = async (plugin, from = null) => {
+    if (current === plugin.key && root.dataset.open === 'true') {
+      hide();
+      return;
+    }
+    trigger = from;
+    current = plugin.key;
+    changed(plugin.key);
+    root.dataset.open = 'true';
+    root.inert = false;
+    sheet.setAttribute('aria-label', plugin.title);
+    show(plugin.key);
+    close.focus({ preventScroll: true });
+    if (built.has(plugin.key)) return;
+
+    const wait = el('div', 'flc-drawer__wait');
+    wait.dataset.plugin = plugin.key;
+    wait.append(el('div', 'fl-skeleton'), el('div', 'fl-skeleton'));
+    body.append(wait);
+    built.set(plugin.key, wait);
+    show(current);
+    let made = null;
+    try {
+      made = await plugin.build();
+    } catch (error) {
+      wait.replaceChildren(empty(`${plugin.title} could not be opened`, error?.message || 'Try again.'));
+      return;
+    }
+    if (!made) {
+      wait.replaceChildren(empty(plugin.title, 'Nothing to show here yet.'));
+      return;
+    }
+    made.dataset.plugin = plugin.key;
+    wait.replaceWith(made);
+    built.set(plugin.key, made);
+    show(current);
+  };
+
+  scrim.addEventListener('click', hide);
+  close.addEventListener('click', hide);
+  root.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      hide();
+    }
+  });
+  return { root, open, close: hide, onChange: (fn) => listeners.add(fn) };
+}
+
+function pluginLauncher(plugins, drawer, emptyNote) {
+  const card = el('section', 'flc-card flc-tools');
+  card.append(el('h2', 'flc-card__title', 'Course tools'));
+  if (!plugins.length) {
+    card.append(el('p', 'fl-muted flc-tools__empty', emptyNote));
+    return card;
+  }
+  const buttons = new Map();
+  let group = '';
+  let list = null;
+  for (const plugin of plugins) {
+    if (plugin.group !== group) {
+      group = plugin.group;
+      card.append(el('div', 'flc-tools__group', group));
+      list = el('div', 'flc-tools__list');
+      card.append(list);
+    }
+    const button = el('button', 'flc-tool');
+    button.type = 'button';
+    button.dataset.series = PLUGIN_SERIES[plugin.group] || '1';
+    button.setAttribute('aria-haspopup', 'dialog');
+    button.setAttribute('aria-expanded', 'false');
+    const mark = el('span', 'flc-tool__mark');
+    mark.innerHTML = glyph(plugin.mark);
+    const text = el('span', 'flc-tool__text');
+    text.append(el('span', 'flc-tool__title', plugin.title), el('small', 'flc-tool__note', plugin.note));
+    button.append(mark, text);
+    button.addEventListener('click', () => drawer.open(plugin, button));
+    buttons.set(plugin.key, button);
+    list.append(button);
+  }
+  drawer.onChange((key) => {
+    for (const [name, button] of buttons) button.setAttribute('aria-expanded', String(name === key));
+  });
+  return card;
+}
+
+function nextUpCard(item, started, openLesson) {
+  const card = el('section', 'flc-next');
+  const text = el('div', 'flc-next__text');
+  text.append(
+    el('span', 'fl-eyebrow', started ? 'Up next' : 'Start here'),
+    el('strong', 'flc-next__title', item.lesson.title),
+    el('small', 'fl-muted', P.meta([item.module.title, lessonMeta(item.lesson)])),
+  );
+  card.append(text, action(started ? 'Continue' : 'Start lesson', () => openLesson(item.lesson.id), true));
+  return card;
+}
+
+function aboutPanel(course) {
+  const box = section('About this course');
+  box.box.classList.add('flc-about');
+  box.body.append(markdown(course.description));
+  return box.box;
+}
+
+const minutes = (seconds) => Math.ceil((Number(seconds) || 0) / 60);
+
+function durationText(seconds) {
+  const total = minutes(seconds);
+  if (!total) return '';
+  if (total < 60) return `${total} min`;
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+/* The figures a learner sizes a course by. Total time is shown only when
+   the course team entered lesson durations; a course with none gets no
+   "0 min" that would read as an empty course. */
+function courseStats(course) {
+  const modules = course.modules || [];
+  const lessons = modules.flatMap((module) => module.lessons || []);
+  const seconds = lessons.reduce((sum, lesson) => sum + (Number(lesson.duration_seconds) || 0), 0);
+  const strip = el('div', 'flc-stats');
+  const stat = (mark, value, text) => {
+    const item = el('div', 'flc-stat');
+    const glyphSlot = el('span', 'flc-stat__mark');
+    glyphSlot.innerHTML = glyph(mark);
+    const words = el('span', 'flc-stat__text');
+    words.append(el('strong', null, String(value)), el('span', 'fl-muted', text));
+    item.append(glyphSlot, words);
+    strip.append(item);
+  };
+  stat('content', lessons.length, lessons.length === 1 ? 'lesson' : 'lessons');
+  stat('projects', modules.length, modules.length === 1 ? 'module' : 'modules');
+  const assessments = (course.assessments || []).length;
+  if (assessments) stat('target', assessments, assessments === 1 ? 'assessment' : 'assessments');
+  if (seconds) stat('activity', durationText(seconds), 'in total');
+  return strip;
+}
+
+/* The curriculum as an accordion, one row per module: its number, its
+   title, how long it runs, how many lessons and how many are done. The
+   module holding the next lesson opens by itself, the rest stay folded,
+   so a twelve-module course is a page of twelve rows rather than a wall. */
+function curriculumPanel(course, done, nextUp, openLesson) {
+  const modules = course.modules || [];
+  const box = el('section', 'flc-curriculum');
+  box.append(courseStats(course));
+  if (!modules.length) {
+    box.append(empty('No lessons published yet', course.provider === 'openedx' ? 'This course is delivered by Open edX. Use Open learning engine when it becomes available.' : 'The course structure has not been published.'));
+    return box;
+  }
+  const openId = nextUp ? String(nextUp.module.id) : String(modules[0].id);
+  let number = 0;
+  modules.forEach((module, index) => {
+    const lessons = module.lessons || [];
+    const finished = lessons.filter((lesson) => done.has(String(lesson.id))).length;
+    const part = el('details', 'flc-acc');
+    part.open = String(module.id) === openId;
+    if (lessons.length && finished === lessons.length) part.dataset.state = 'done';
+
+    const head = el('summary', 'flc-acc__head');
+    head.append(el('span', 'flc-acc__num', String(index + 1)));
+    const titles = el('span', 'flc-acc__titles');
+    titles.append(el('strong', 'flc-acc__title', module.title), el('small', 'fl-muted', module.summary ? plainText(module.summary) : `Module ${index + 1}`));
+    head.append(titles);
+    const chips = el('span', 'flc-acc__chips');
+    const seconds = lessons.reduce((sum, lesson) => sum + (Number(lesson.duration_seconds) || 0), 0);
+    if (seconds) chips.append(el('span', 'flc-chip', durationText(seconds)));
+    chips.append(el('span', 'flc-chip', `${lessons.length} lesson${lessons.length === 1 ? '' : 's'}`));
+    if (finished) chips.append(el('span', 'flc-chip', `${finished}/${lessons.length} done`));
+    head.append(chips);
+    const twist = el('span', 'flc-acc__twist');
+    twist.innerHTML = glyph('chevron');
+    head.append(twist);
+    part.append(head);
+
+    const list = el('ol', 'flc-lessons');
+    for (const lesson of lessons) {
+      number += 1;
+      const state = lesson.locked ? 'locked' : done.has(String(lesson.id)) ? 'done' : '';
+      const item = el('li');
+      const button = el('button', 'flc-lesson-row');
+      button.type = 'button';
+      if (state) button.dataset.state = state;
+      const mark = el('span', 'flc-lesson-row__mark');
+      if (state === 'done') mark.innerHTML = glyph('check');
+      else if (state === 'locked') mark.innerHTML = glyph('secure');
+      else mark.textContent = String(number);
+      const text = el('span', 'flc-lesson-row__text');
+      text.append(el('span', 'flc-lesson-row__title', lesson.title), el('small', 'fl-muted', P.meta([
+        label(lesson.kind),
+        lesson.is_preview ? 'Preview' : '',
+        lesson.is_required === false ? 'Optional' : '',
+      ])));
+      button.append(mark, text);
+      const side = el('span', 'flc-lesson-row__side');
+      if (nextUp && String(nextUp.lesson.id) === String(lesson.id)) side.append(el('span', 'flc-lesson-row__tag', 'Up next'));
+      if (lesson.duration_seconds) side.append(el('span', 'flc-lesson-row__time', durationText(lesson.duration_seconds)));
+      button.append(side);
+      button.addEventListener('click', () => openLesson(lesson.id));
+      item.append(button);
+      list.append(item);
+    }
+    if (!lessons.length) list.append(el('li', 'fl-muted flc-lessons__none', 'No lessons in this module yet.'));
+    part.append(list);
+    box.append(part);
+  });
+  return box;
+}
+
+function instructorsPanel(course) {
+  if (!course.instructors?.length) return null;
+  const box = section(course.instructors.length > 1 ? 'Instructors' : 'Instructor');
+  const list = el('div', 'flc-people');
+  for (const person of course.instructors) {
+    const item = el('div', 'flc-person');
+    item.append(el('span', 'flc-person__mark', (person.name || person.email || '?').trim().charAt(0).toUpperCase()));
+    const text = el('span', 'flc-person__text');
+    text.append(el('strong', null, person.name || person.email || 'Instructor'));
+    if (person.role) text.append(el('small', 'fl-muted', label(person.role)));
+    item.append(text);
+    list.append(item);
+  }
+  box.body.append(list);
+  return box.box;
+}
+
+function toolsGrid(plugins, drawer) {
+  const grid = el('div', 'flc-toolgrid');
+  const buttons = new Map();
+  for (const plugin of plugins) {
+    const button = el('button', 'flc-toolcard');
+    button.type = 'button';
+    button.dataset.series = PLUGIN_SERIES[plugin.group] || '1';
+    button.setAttribute('aria-haspopup', 'dialog');
+    button.setAttribute('aria-expanded', 'false');
+    const mark = el('span', 'flc-tool__mark');
+    mark.innerHTML = glyph(plugin.mark);
+    const text = el('span', 'flc-tool__text');
+    text.append(el('span', 'flc-tool__title', plugin.title), el('small', 'flc-tool__note', plugin.note));
+    button.append(mark, text, el('span', 'flc-toolcard__group', plugin.group));
+    button.addEventListener('click', () => drawer.open(plugin, button));
+    buttons.set(plugin.key, button);
+    grid.append(button);
+  }
+  drawer.onChange((key) => {
+    for (const [name, button] of buttons) button.setAttribute('aria-expanded', String(name === key));
+  });
+  return grid;
+}
+
+/* The course overview is tabbed, like the course pages learners already
+   know elsewhere: Overview, Course content, Discussion, Notes, Tools. Each
+   tab is built the first time it is opened and kept after, and the tab is
+   the URL hash, so a reload or a shared link lands on the same one. Tabs
+   that need an enrollment or a connection are left out, not greyed. */
+function courseTabs(course, data, options) {
+  const { plan, done, nextUp, offline, openLesson, reload, drawer } = options;
+  const live = course.enrolled && !offline;
+  const tabs = [['overview', 'Overview'], ['content', 'Course content']];
+  if (live && course.learning_config?.discussions_enabled !== false) tabs.push(['discussion', 'Discussion']);
+  if (live) tabs.push(['notes', 'Notes'], ['tools', 'Tools']);
+
+  const build = async (key) => {
+    if (key === 'overview') {
+      const parts = [];
+      if (course.enrolled && nextUp) parts.push(nextUpCard(nextUp, courseShare(course) > 0 || done.size > 0, openLesson));
+      if (course.description) parts.push(aboutPanel(course));
+      parts.push(instructorsPanel(course));
+      if (live) parts.push(await coursePlanPanel(course, openLesson));
+      if (course.certificate) {
+        const cert = section('Gravitas+ Certificate');
+        cert.body.append(row({
+          title: course.certificate.valid ? 'Certificate issued' : 'Certificate revoked',
+          meta: P.meta([course.certificate.code, date(course.certificate.issued_at)]),
+        }));
+        parts.push(cert.box);
       }
-      if (course.certificate?.valid) actions.append(link(go, 'View certificate', '/workspace/learning/certificates'));
-      if (!offlineSnapshot && course.learning_config?.offline_enabled !== false) {
-        const saveOffline = action('Save offline', async () => {
-          saveOffline.disabled = true;
-          saveOffline.textContent = 'Saving…';
-          const ok = await saveOfflineCourseSnapshot(data);
-          saveOffline.textContent = ok ? 'Saved offline' : 'Offline save failed';
-          saveOffline.disabled = false;
-        });
-        actions.append(saveOffline);
-      }
-      for (const [fmt, title] of [['md','Markdown'],['tex','LaTeX'],['docx','DOCX']]) {
-        const download = el('a', 'ws-btn ws-btn--tiny', title);
-        download.href = `/api/lms/courses/${course.id}/export/${fmt}/`;
-        download.download = '';
-        actions.append(download);
+      return parts;
+    }
+    if (key === 'content') {
+      return [
+        curriculumPanel(course, done, course.enrolled ? nextUp : null, openLesson),
+        ...(course.assessments || []).map((assessment) => assessmentCard(assessment, course, () => reload())),
+      ];
+    }
+    if (key === 'discussion') return [courseDiscussionPanel(course)];
+    if (key === 'notes') return [courseReturnPointsPanel(course, openLesson)];
+    const tools = coursePlugins(course, data, { openLesson }).filter((item) => !['plan', 'returns', 'group'].includes(item.key));
+    return [toolsGrid(tools, drawer)];
+  };
+
+  const box = el('section', 'flc-tabbed');
+  const bar = el('div', 'flc-tabs');
+  bar.setAttribute('role', 'tablist');
+  bar.setAttribute('aria-label', 'Course sections');
+  const panel = el('div', 'flc-tabpanel');
+  const panes = new Map();
+  const buttons = new Map();
+  const wanted = location.hash.replace(/^#/, '');
+  let active = tabs.some(([key]) => key === wanted) ? wanted : (course.enrolled ? 'content' : 'overview');
+
+  const select = async (key, remember) => {
+    active = key;
+    for (const [name, button] of buttons) {
+      const on = name === key;
+      button.setAttribute('aria-selected', String(on));
+      button.tabIndex = on ? 0 : -1;
+    }
+    if (remember) history.replaceState(history.state, '', `${location.pathname}${location.search}#${key}`);
+    let pane = panes.get(key);
+    if (!pane) {
+      pane = el('div', 'flc-tabpanel__pane');
+      pane.id = `flc-tab-${key}`;
+      pane.setAttribute('role', 'tabpanel');
+      pane.setAttribute('aria-labelledby', `flc-tabbtn-${key}`);
+      pane.append(el('div', 'fl-skeleton'));
+      panel.append(pane);
+      panes.set(key, pane);
+      try {
+        pane.replaceChildren(...(await build(key)).filter(Boolean));
+      } catch (error) {
+        pane.replaceChildren(empty('This section could not be loaded', error?.message || 'Try again.'));
       }
     }
-    hero.append(actions);
-    wrap.append(hero);
+    for (const [name, node] of panes) node.hidden = name !== active;
+  };
 
-    let profile = null;
-    if (course.enrolled && course.registration_schema?.length) {
-      try { profile = await P.lmsRegistrationProfile(course.id); } catch {}
-      const registration = courseRegistrationPanel(course, profile, host, go);
+  for (const [key, text] of tabs) {
+    const button = el('button', 'flc-tab', text);
+    button.type = 'button';
+    button.id = `flc-tabbtn-${key}`;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-controls', `flc-tab-${key}`);
+    button.addEventListener('click', () => select(key, true));
+    buttons.set(key, button);
+    bar.append(button);
+  }
+  bar.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const keys = tabs.map(([key]) => key);
+    let index = keys.indexOf(active);
+    if (event.key === 'ArrowRight') index = (index + 1) % keys.length;
+    if (event.key === 'ArrowLeft') index = (index - 1 + keys.length) % keys.length;
+    if (event.key === 'Home') index = 0;
+    if (event.key === 'End') index = keys.length - 1;
+    select(keys[index], true);
+    buttons.get(keys[index]).focus();
+  });
+
+  box.append(bar, panel);
+  select(active, false);
+  return box;
+}
+
+function lessonPager(prev, next, openLesson, goHome) {
+  const nav = el('nav', 'flc-pager');
+  nav.setAttribute('aria-label', 'Lessons');
+  const cell = (item, dir) => {
+    const button = el('button', 'flc-pager__link');
+    button.type = 'button';
+    button.dataset.dir = dir;
+    button.append(
+      el('small', 'fl-muted', dir === 'prev' ? '← Previous' : item ? 'Next →' : 'End of the outline'),
+      el('strong', null, item ? item.lesson.title : 'Back to the course overview'),
+    );
+    button.addEventListener('click', () => (item ? openLesson(item.lesson.id) : goHome()));
+    return button;
+  };
+  nav.append(prev ? cell(prev, 'prev') : el('span'), cell(next, 'next'));
+  return nav;
+}
+
+export async function renderCourse(host, id, ctx = {}) {
+  const { go } = ctx;
+  const token = `${Date.now()}-${Math.random()}`;
+  host.dataset.courseRender = token;
+  if (!courseCache.has(String(id))) loading(host, 'Course');
+  try {
+    const bundle = await loadCourse(id);
+    if (host.dataset.courseRender !== token) return;
+    const { data, plan, profile, offline } = bundle;
+    const course = data.course;
+    const base = `/workspace/learning/courses/${course.id}`;
+    if (bundle.fresh && !offline && course.enrolled) P.lmsCourseEvent(course.id, { kind: 'course.open' }).catch(() => {});
+
+    const done = new Set((plan?.checklist || [])
+      .filter((item) => item.type === 'lesson' && item.done)
+      .map((item) => String(item.lesson_id)));
+    const flat = [];
+    for (const module of course.modules || []) {
+      for (const lesson of module.lessons || []) flat.push({ lesson, module });
+    }
+    const at = ctx.lesson ? flat.findIndex((item) => String(item.lesson.id) === String(ctx.lesson)) : -1;
+    const current = at >= 0 ? flat[at] : null;
+    const nextUp = pickNext(flat, done, plan);
+
+    ctx.outline?.(course, done);
+    const parent = course.enrolled
+      ? { label: 'My learning', path: '/workspace/learning/my' }
+      : { label: 'Course catalog', path: '/workspace/learning/catalog' };
+    ctx.crumbs?.(ctx.lesson
+      ? [parent, { label: course.title, path: base }, { label: current?.lesson.title || 'Lesson' }]
+      : [parent, { label: course.title }]);
+
+    const drawer = pluginDrawer();
+    const goHome = () => go(base);
+    const openLesson = (lessonId, focus = null) => {
+      drawer.close();
+      const path = `${base}/lessons/${lessonId}`;
+      if (location.pathname.replace(/\/$/, '') === path) {
+        if (focus) focusLearningInteraction(focus);
+        else document.getElementById(`lesson-${lessonId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      pendingFocus = focus;
+      go(path);
+    };
+    /* null redraws this screen; a lesson id (or '' for the overview) moves
+       there. Either way the next draw reads the course fresh. */
+    const reload = async (target = null) => {
+      forgetCourse(course.id);
+      if (target === null) return renderCourse(host, id, ctx);
+      const path = target ? `${base}/lessons/${target}` : base;
+      if (location.pathname.replace(/\/$/, '') === path) return renderCourse(host, id, ctx);
+      go(path);
+      return undefined;
+    };
+
+    host.innerHTML = '';
+    const wrap = el('div', 'ws-doc ws-doc--wide fl-doc flc');
+    host.append(wrap);
+    const notice = offline ? el('div', 'ws-alert') : null;
+    if (notice) {
+      notice.append(
+        el('strong', 'ws-alert__title', 'Offline read mode'),
+        el('p', '', 'Showing the course snapshot saved ' + new Date(offline.saved_at).toLocaleString() + '. Progress updates, AI, Lab, discussions and external tools need a connection.'),
+      );
+    }
+    const registration = course.enrolled && !offline
+      ? courseRegistrationPanel(course, profile, () => reload())
+      : null;
+    const options = { plan, nextUp, current, openLesson, reload, go };
+
+    if (!ctx.lesson) {
+      // The overview: cover and course on top, then the tabbed sections.
+      wrap.append(courseHero(course, options));
+      if (notice) wrap.append(notice);
       if (registration) wrap.append(registration);
+      wrap.append(courseTabs(course, data, { plan, done, nextUp, offline, openLesson, reload, drawer }));
+    } else {
+      // One lesson: the lesson, with the course card and the tools beside it.
+      wrap.append(courseHead(course, true));
+      if (notice) wrap.append(notice);
+      const layout = el('div', 'flc-layout');
+      const main = el('div', 'flc-main');
+      const aside = el('aside', 'flc-aside');
+      aside.setAttribute('aria-label', 'Course progress and tools');
+      layout.append(main, aside);
+      wrap.append(layout);
+      if (registration) main.append(registration);
+      if (!current) {
+        main.append(empty('Lesson not found', 'This lesson is not published in the course any more, or the link is wrong.'));
+        main.append(C.actions([action('Back to the course overview', goHome, true)]));
+      } else {
+        main.append(lessonView(current.lesson, course, {
+          position: { module: current.module, index: at + 1, total: flat.length, done: done.has(String(current.lesson.id)) },
+          next: flat[at + 1] || null,
+          offline: !!offline,
+          reload,
+          openLesson,
+          goHome,
+        }));
+        main.append(lessonPager(flat[at - 1] || null, flat[at + 1] || null, openLesson, goHome));
+      }
+      aside.append(courseSummaryCard(course, options));
+      const plugins = course.enrolled && !offline ? coursePlugins(course, data, { openLesson }) : [];
+      aside.append(pluginLauncher(plugins, drawer, offline
+        ? 'Course tools need a connection.'
+        : 'Notes, the AI tutor, the course group and the research tools open once you are enrolled.'));
     }
+    wrap.append(drawer.root);
 
-    if (course.enrolled && !offlineSnapshot) {
-      wrap.append(courseReturnPointsPanel(course));
-      wrap.append(await coursePlanPanel(course));
-      wrap.append(await pulsarAccessPanel(course));
+    // A new lesson starts at its top; a redraw of the same one stays put.
+    if (host.dataset.coursePath !== location.pathname) {
+      host.dataset.coursePath = location.pathname;
+      const scroller = host.closest('.ws-main');
+      if (scroller) scroller.scrollTop = 0;
     }
-
-    const curriculum = section('Curriculum');
-    const modules = course.modules || [];
-    if (!modules.length) curriculum.body.append(empty('No lessons published yet', course.provider === 'openedx' ? 'This course is delivered by Open edX. Use Open learning engine when it becomes available.' : 'The course structure has not been published.'));
-    for (const module of modules) {
-      const moduleBox = el('section', 'fl-module');
-      moduleBox.append(el('h3', null, module.title));
-      if (module.summary) moduleBox.append(el('p', 'fl-muted', module.summary));
-      const lessons = el('div', 'fl-lessons');
-      (module.lessons || []).forEach((lesson) => lessons.append(lessonCard(lesson, course, host, go)));
-      moduleBox.append(lessons);
-      curriculum.body.append(moduleBox);
-    }
-    wrap.append(curriculum.box);
-
-    if ((course.assessments || []).length) {
-      const assessments = el('div', 'fl-stack');
-      (course.assessments || []).forEach((assessment) => assessments.append(assessmentCard(assessment, course, host, go)));
-      wrap.append(assessments);
-    }
-
-    const assets = courseAssetsPanel(course);
-    if (assets) wrap.append(assets);
-
-    if (course.enrolled && !offlineSnapshot) {
-      if (course.learning_config?.ai_enabled !== false) {
-        const tutor = await courseTutorPanel(course);
-        if (tutor) wrap.append(tutor);
+    if (current) {
+      if (pendingFocus && String(pendingFocus.lesson_id) === String(current.lesson.id)) {
+        const item = pendingFocus;
+        pendingFocus = null;
+        focusLearningInteraction(item);
       }
-      if (course.learning_config?.zotero_enabled !== false) {
-        wrap.append(zoteroConnectionPanel());
-      }
-      wrap.append(learningIntegrationsPanel());
-      if (course.learning_config?.discussions_enabled !== false) {
-        wrap.append(courseDiscussionPanel(course));
-      }
-      if (course.learning_config?.literature_enabled !== false) {
-        wrap.append(literaturePanel(course));
-      }
-      if (course.learning_config?.notebook_enabled !== false) {
-        wrap.append(notebookPanel(course));
-      }
-      if (course.learning_config?.git_enabled !== false) {
-        wrap.append(gitPanel(course));
-      }
-      if (course.learning_config?.social_publish_enabled !== false) {
-        wrap.append(publishingPanel(course));
-      }
-      if (course.learning_config?.pkm_enabled !== false) {
-        wrap.append(pkmExportPanel(course));
-      }
-    }
-
-    if (course.certificate) {
-      const cert = section('Gravitas+ Certificate');
-      cert.body.append(row({
-        title: course.certificate.valid ? 'Certificate issued' : 'Certificate revoked',
-        meta: P.meta([course.certificate.code, date(course.certificate.issued_at)]),
-      }));
-      wrap.append(cert.box);
     }
   } catch (error) {
-    errorView(host, 'Course', error, () => renderCourse(host, id, { go }));
+    if (host.dataset.courseRender !== token) return;
+    errorView(host, 'Course', error, () => renderCourse(host, id, ctx));
   }
 }

@@ -68,6 +68,12 @@ class Course(models.Model):
     registration_schema = models.JSONField(default=list, blank=True)
     payment_config = models.JSONField(default=dict, blank=True)
     learning_config = models.JSONField(default=dict, blank=True)
+    # The course picture, as a data URI. Like the researcher avatar it needs no
+    # storage backend, because this deployment has no MEDIA_ROOT and no
+    # FileField. It never travels inside a course payload: the payload carries
+    # cover_url, and lms_course_cover serves the bytes with a long cache. A
+    # course without one is drawn a generated brand cover in the browser.
+    cover_image = models.TextField(blank=True, default='')
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
