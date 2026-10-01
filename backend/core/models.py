@@ -699,3 +699,22 @@ class ResearchIntelligenceSavedItem(models.Model):
 
     def __str__(self):
         return f'{self.user} · {self.item_key}'
+
+
+
+class ResearchIntelligenceSourceProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_research_intelligence_sources',
+    )
+    enabled_sources = models.JSONField(default=list, blank=True)
+    custom_sources = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['user_id']
+
+    def __str__(self):
+        return f'{self.user} · Research Intelligence sources'
