@@ -423,6 +423,79 @@ def task_notification_settings(request):
     return JsonResponse({'ok': True, 'settings': _settings_json(pref)})
 
 
+def _send_telegram_pulsar_messages(chat_id, messages):
+    for message in messages or []:
+        if not isinstance(message, dict):
+            continue
+        text = str(message.get('text') or '').strip()
+        if not text:
+            continue
+        payload = {
+            'chat_id': chat_id,
+            'text': text[:4096],
+            'disable_web_page_preview': False,
+        }
+        if isinstance(message.get('reply_markup'), dict):
+            payload['reply_markup'] = message['reply_markup']
+        _telegram_api('sendMessage', payload)
+
+
+def _telegram_connected_preference(chat_id):
+    if not chat_id:
+        return None
+    return (
+        TaskNotificationPreference.objects
+        .select_related('user')
+        .filter(telegram_chat_id=chat_id)
+        .first()
+    )
+
+
+def _bind_telegram_start(chat_id, chat, code):
+    pref = (
+        TaskNotificationPreference.objects
+        .select_related('user')
+        .filter(telegram_link_code=code, telegram_link_expires_at__gte=timezone.now())
+        .first()
+    ) if code else None
+
+    if not pref:
+        existing = _telegram_connected_preference(chat_id)
+        if existing:
+            from .telegram_pulsar import welcome_message
+            _send_telegram_pulsar_messages(chat_id, [welcome_message(existing.user, 'fa')])
+            return existing
+        _telegram_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': 'This Gravitas+ connection link is invalid or expired. Please create a new link in Settings.',
+        })
+        return None
+
+    conflict = TaskNotificationPreference.objects.filter(
+        telegram_chat_id=chat_id,
+    ).exclude(pk=pref.pk).exists()
+    if conflict:
+        _telegram_api('sendMessage', {
+            'chat_id': chat_id,
+            'text': 'This Telegram account is already connected to another Gravitas+ account.',
+        })
+        return None
+
+    pref.telegram_chat_id = int(chat_id)
+    pref.telegram_username = str(chat.get('username') or '')[:64]
+    pref.telegram_enabled = True
+    pref.telegram_connected_at = timezone.now()
+    pref.telegram_link_code = None
+    pref.telegram_link_expires_at = None
+    pref.save(update_fields=[
+        'telegram_chat_id', 'telegram_username', 'telegram_enabled',
+        'telegram_connected_at', 'telegram_link_code', 'telegram_link_expires_at', 'updated_at',
+    ])
+    from .telegram_pulsar import welcome_message
+    _send_telegram_pulsar_messages(chat_id, [welcome_message(pref.user, 'fa')])
+    return pref
+
+
 @csrf_exempt
 @require_http_methods(['POST'])
 def telegram_notification_webhook(request):
@@ -435,55 +508,75 @@ def telegram_notification_webhook(request):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({'ok': True})
 
+    callback = update.get('callback_query') or {}
+    if callback:
+        callback_id = callback.get('id')
+        message = callback.get('message') or {}
+        chat = message.get('chat') or {}
+        chat_id = chat.get('id')
+        pref = _telegram_connected_preference(chat_id)
+        try:
+            if callback_id:
+                _telegram_api('answerCallbackQuery', {'callback_query_id': callback_id})
+            if pref and chat.get('type') == 'private':
+                from .telegram_pulsar import handle_callback
+                _send_telegram_pulsar_messages(
+                    chat_id,
+                    handle_callback(pref.user, str(callback.get('data') or '')),
+                )
+        except Exception:
+            logger.exception('Telegram Pulsar callback failed chat_id=%s', chat_id)
+            if chat_id:
+                try:
+                    _telegram_api('sendMessage', {
+                        'chat_id': chat_id,
+                        'text': 'Pulsar could not complete that action. Please try again.',
+                    })
+                except Exception:
+                    logger.exception('Could not send Telegram Pulsar callback error')
+        return JsonResponse({'ok': True})
+
     message = update.get('message') or {}
     chat = message.get('chat') or {}
     if chat.get('type') != 'private':
         return JsonResponse({'ok': True})
-    text = str(message.get('text') or '').strip()
-    if not text.startswith('/start'):
-        return JsonResponse({'ok': True})
-
-    parts = text.split(maxsplit=1)
-    code = parts[1].strip() if len(parts) > 1 else ''
-    pref = (
-        TaskNotificationPreference.objects
-        .select_related('user')
-        .filter(telegram_link_code=code, telegram_link_expires_at__gte=timezone.now())
-        .first()
-    ) if code else None
     chat_id = chat.get('id')
-
-    if not pref or not chat_id:
-        if chat_id:
-            try:
-                _telegram_api('sendMessage', {'chat_id': chat_id, 'text': 'This Gravitas+ connection link is invalid or expired. Please create a new link in Settings.'})
-            except Exception:
-                logger.exception('Could not send invalid Telegram link response')
+    text = str(message.get('text') or '').strip()
+    if not chat_id or not text:
         return JsonResponse({'ok': True})
 
-    conflict = TaskNotificationPreference.objects.filter(telegram_chat_id=chat_id).exclude(pk=pref.pk).exists()
-    if conflict:
+    if text.startswith('/start'):
+        parts = text.split(maxsplit=1)
+        code = parts[1].strip() if len(parts) > 1 else ''
         try:
-            _telegram_api('sendMessage', {'chat_id': chat_id, 'text': 'This Telegram account is already connected to another Gravitas+ account.'})
+            _bind_telegram_start(chat_id, chat, code)
         except Exception:
-            logger.exception('Could not send Telegram conflict response')
+            logger.exception('Could not bind or welcome Telegram Pulsar chat_id=%s', chat_id)
         return JsonResponse({'ok': True})
 
-    pref.telegram_chat_id = int(chat_id)
-    pref.telegram_username = str(chat.get('username') or '')[:64]
-    pref.telegram_enabled = True
-    pref.telegram_connected_at = timezone.now()
-    pref.telegram_link_code = None
-    pref.telegram_link_expires_at = None
-    pref.save(update_fields=[
-        'telegram_chat_id', 'telegram_username', 'telegram_enabled',
-        'telegram_connected_at', 'telegram_link_code', 'telegram_link_expires_at', 'updated_at',
-    ])
+    pref = _telegram_connected_preference(chat_id)
+    if not pref:
+        try:
+            _telegram_api('sendMessage', {
+                'chat_id': chat_id,
+                'text': 'Connect this Telegram account from Gravitas+ Settings first, then talk to Pulsar here.',
+            })
+        except Exception:
+            logger.exception('Could not send unconnected Telegram Pulsar response')
+        return JsonResponse({'ok': True})
+
     try:
-        _telegram_api('sendMessage', {
-            'chat_id': chat_id,
-            'text': 'Gravitas+ task notifications are connected. You will receive task changes and enabled deadline reminders here.',
-        })
+        _telegram_api('sendChatAction', {'chat_id': chat_id, 'action': 'typing'})
+        from .telegram_pulsar import handle_message
+        _send_telegram_pulsar_messages(chat_id, handle_message(pref.user, text))
     except Exception:
-        logger.exception('Could not send Telegram connection confirmation')
+        logger.exception('Telegram Pulsar message failed chat_id=%s user_id=%s', chat_id, pref.user_id)
+        try:
+            _telegram_api('sendMessage', {
+                'chat_id': chat_id,
+                'text': 'Pulsar hit an error while processing that message. Nothing was created. Please try again.',
+            })
+        except Exception:
+            logger.exception('Could not send Telegram Pulsar error response')
     return JsonResponse({'ok': True})
+
