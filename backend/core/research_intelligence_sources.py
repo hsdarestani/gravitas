@@ -142,7 +142,7 @@ def validate_public_https_url(value):
     return raw
 
 
-def _normalise_custom_source(item):
+def _normalise_custom_source(item, *, resolve=True):
     if not isinstance(item, dict):
         raise ValueError("custom_source_invalid")
     name = " ".join(str(item.get("name") or "").split()).strip()[:120]
@@ -151,7 +151,16 @@ def _normalise_custom_source(item):
         raise ValueError("custom_source_name_required")
     if kind not in CUSTOM_SOURCE_KINDS:
         raise ValueError("custom_source_kind_invalid")
-    url = validate_public_https_url(item.get("url"))
+    raw_url = str(item.get("url") or "").strip()
+    if resolve:
+        url = validate_public_https_url(raw_url)
+    else:
+        parsed = urlparse(raw_url)
+        if parsed.scheme.lower() != "https" or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("source_url_invalid")
+        if parsed.port not in (None, 443):
+            raise ValueError("source_url_port_not_allowed")
+        url = raw_url
     source_id = str(item.get("id") or "").strip()
     if not source_id.startswith("custom:"):
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
@@ -165,7 +174,7 @@ def _normalise_custom_source(item):
     }
 
 
-def sanitise_source_profile(enabled_sources, custom_sources):
+def sanitise_source_profile(enabled_sources, custom_sources, *, resolve_custom=True):
     if not isinstance(enabled_sources, list):
         enabled_sources = list(DEFAULT_SOURCE_IDS)
     enabled = []
@@ -178,7 +187,7 @@ def sanitise_source_profile(enabled_sources, custom_sources):
     seen_urls = set()
     if isinstance(custom_sources, list):
         for raw in custom_sources[:MAX_CUSTOM_SOURCES]:
-            item = _normalise_custom_source(raw)
+            item = _normalise_custom_source(raw, resolve=resolve_custom)
             if item["url"] in seen_urls:
                 continue
             seen_urls.add(item["url"])
@@ -208,6 +217,7 @@ def get_source_profile(user, *, create=True):
     enabled, custom = sanitise_source_profile(
         profile.enabled_sources,
         profile.custom_sources,
+        resolve_custom=False,
     )
     return {
         "enabled_sources": enabled,
