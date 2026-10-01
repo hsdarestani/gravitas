@@ -1032,11 +1032,12 @@ export function renderCoreTasks(host, { go }) {
       if (!deepLinkedTaskOpened) {
         deepLinkedTaskOpened = true;
         const params = new URLSearchParams(location.search);
-        const taskToOpen = Number(params.get('calendar_task') || 0);
+        const taskToOpen = Number(params.get('task') || params.get('calendar_task') || 0);
         if (taskToOpen && data.tasks.some((row) => row.id === taskToOpen)) {
           window.setTimeout(() => openTaskDialog(taskToOpen, state, load), 0);
         }
-        if (params.has('calendar_task') || params.has('calendar_connected') || params.has('calendar_error')) {
+        if (params.has('task') || params.has('calendar_task') || params.has('calendar_connected') || params.has('calendar_error')) {
+          params.delete('task');
           params.delete('calendar_task');
           params.delete('calendar_connected');
           params.delete('calendar_error');
