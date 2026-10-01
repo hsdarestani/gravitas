@@ -68,6 +68,70 @@ class TaskNotificationTests(TestCase):
         self.assertTrue(pref.telegram_enabled)
         self.assertIsNotNone(pref.telegram_connected_at)
 
+    @patch('core.telegram_pulsar.handle_message')
+    @patch('core.task_notifications.requests.post')
+    def test_connected_telegram_message_routes_to_pulsar(self, post, handle_message):
+        post.return_value = Mock(
+            ok=True,
+            status_code=200,
+            json=Mock(return_value={'ok': True, 'result': {}}),
+        )
+        handle_message.return_value = [{'text': 'Pulsar reply'}]
+        TaskNotificationPreference.objects.create(
+            user=self.user,
+            telegram_chat_id=123456789,
+            telegram_enabled=True,
+        )
+        response = self.client.post(
+            '/api/task-notifications/telegram/webhook/',
+            data=json.dumps({
+                'message': {
+                    'text': 'برای من یه تسک بساز',
+                    'chat': {'id': 123456789, 'type': 'private', 'username': 'notify_person'},
+                },
+            }),
+            content_type='application/json',
+            HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='webhook-secret',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        handle_message.assert_called_once_with(self.user, 'برای من یه تسک بساز')
+        payloads = [call.kwargs.get('json') for call in post.call_args_list]
+        self.assertTrue(any(payload and payload.get('text') == 'Pulsar reply' for payload in payloads))
+
+    @patch('core.telegram_pulsar.handle_callback')
+    @patch('core.task_notifications.requests.post')
+    def test_telegram_callback_routes_to_pulsar(self, post, handle_callback):
+        post.return_value = Mock(
+            ok=True,
+            status_code=200,
+            json=Mock(return_value={'ok': True, 'result': {}}),
+        )
+        handle_callback.return_value = [{'text': 'Created'}]
+        TaskNotificationPreference.objects.create(
+            user=self.user,
+            telegram_chat_id=123456789,
+            telegram_enabled=True,
+        )
+        response = self.client.post(
+            '/api/task-notifications/telegram/webhook/',
+            data=json.dumps({
+                'callback_query': {
+                    'id': 'callback-1',
+                    'data': 'pulsar:create',
+                    'message': {
+                        'chat': {'id': 123456789, 'type': 'private'},
+                    },
+                },
+            }),
+            content_type='application/json',
+            HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='webhook-secret',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        handle_callback.assert_called_once_with(self.user, 'pulsar:create')
+        payloads = [call.kwargs.get('json') for call in post.call_args_list]
+        self.assertTrue(any(payload and payload.get('callback_query_id') == 'callback-1' for payload in payloads))
+        self.assertTrue(any(payload and payload.get('text') == 'Created' for payload in payloads))
+
     @patch('core.task_notifications.requests.post')
     def test_worker_delivers_email_and_telegram(self, post):
         post.return_value = Mock(
