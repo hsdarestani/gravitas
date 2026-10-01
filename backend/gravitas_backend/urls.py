@@ -25,7 +25,7 @@ from core.pulsar_api import public_pulsar_ask
 from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
 from core.research_deliverable_api import project_deliverable_detail
-from core.research_intelligence_api import research_intelligence, research_intelligence_saved
+from core.research_intelligence_api import research_intelligence, research_intelligence_saved, research_intelligence_sources
 from core.research_milestone_api import project_milestone_detail, project_milestones
 from core.roadmap_okr import roadmap_okr_sync
 from core.space_api import space_tree
@@ -112,6 +112,7 @@ urlpatterns = [
     path('api/platform/dashboard/', platform_dashboard_acl_safe),
     path('api/platform/research-intelligence/', require_core(research_intelligence)),
     path('api/platform/research-intelligence/saved/', require_core(research_intelligence_saved)),
+    path('api/platform/research-intelligence/sources/', require_core(research_intelligence_sources)),
     path('api/platform/projects/<int:project_id>/', platform_project_detail_acl_safe),
     path('api/platform/links/', entity_links_layer_safe),
     path('api/platform/share/', sharing_v5),
