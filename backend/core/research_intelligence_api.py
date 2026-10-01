@@ -879,7 +879,7 @@ def _developments(feeds=None):
     return items[:18], errors
 
 def _build_payload(enabled_sources=None, custom_sources=None):
-    enabled = set(enabled_sources or DEFAULT_SOURCE_IDS)
+    enabled = set(DEFAULT_SOURCE_IDS if enabled_sources is None else enabled_sources)
     custom_sources = list(custom_sources or [])
     errors = []
     funding = []
