@@ -113,7 +113,11 @@ def add_priority_backlog(apps, schema_editor):
             break
 
     if state is None:
-        raise RuntimeError('Sprint 02 backlog: no roadmap workspace contains all required KR bindings.')
+        # Fresh/test databases may not have a live Roadmap sync state. This
+        # release seed is production data, so absence of a fully bound roadmap
+        # should not make schema migration impossible.
+        print('Sprint 02 backlog seed skipped: no fully bound roadmap workspace found.')
+        return
 
     workspace = state.workspace
     memberships = list(
