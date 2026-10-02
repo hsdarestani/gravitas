@@ -547,18 +547,24 @@ async function openAnnotationDrawer(item) {
   await render();
 }
 
+/* The index used to be inserted under the Notes page head on every visit, a
+   long panel above the notes that walked Nextcloud (?remote=1) before
+   anything else on the page settled. Notes is now a notebook, and the index
+   is one of its views: the notebook draws an empty [data-space-index-slot]
+   when the reader opens it and announces that with ws:space-index. Nothing is
+   fetched until then. */
 async function enhanceMarkdownIndex() {
   if (!['/workspace/research/notes', '/workspace/core/notes'].includes(route())) return;
   const doc = document.querySelector('#ws-view .nc-notes');
-  const head = doc?.querySelector(':scope > .ws-doc__head');
-  if (!doc || !head || doc.querySelector('[data-space-markdown-index]')) return;
+  const slot = doc?.querySelector('[data-space-index-slot]');
+  if (!slot || slot.querySelector('[data-space-markdown-index]')) return;
 
   const panel = el('section', 'fl-panel space-md-index');
   panel.dataset.spaceMarkdownIndex = '1';
   const panelHead = el('div', 'fl-panel__head space-md-index__head');
   const copy = el('div');
-  copy.append(el('h2', 'fl-panel__title', 'Markdown index'));
-  copy.append(el('p', 'fl-muted', 'All managed @space, @category, @project, @task, @note and repository Markdown sidecars. Structural metadata stays in Files; @note remains editable in native Notes.'));
+  copy.append(el('h2', 'fl-panel__title', 'Markdown files'));
+  copy.append(el('p', 'fl-muted', 'Managed @space, @category, @project, @task, @note and repository sidecars.'));
   const tools = el('div', 'space-md-index__tools');
   const refresh = action('Refresh', () => { panel.remove(); schedule(); });
   tools.append(refresh);
@@ -566,7 +572,7 @@ async function enhanceMarkdownIndex() {
   const body = el('div', 'fl-panel__body');
   body.append(el('p', 'fl-muted', 'Loading Space index…'));
   panel.append(panelHead, body);
-  head.insertAdjacentElement('afterend', panel);
+  slot.append(panel);
 
   let data;
   let nextcloud;
@@ -679,5 +685,6 @@ export function installSpaceWorkspaceIntegration() {
   });
   addEventListener('popstate', schedule);
   addEventListener('ws:navigate', schedule);
+  addEventListener('ws:space-index', schedule);
   schedule();
 }

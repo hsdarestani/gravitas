@@ -73,6 +73,7 @@ export const CORE_SECTIONS = [
   {
     id: 'core-overview',
     label: 'Overview',
+    hint: "The team's week at a glance",
     icon: 'overview',
     path: '/workspace/core',
     match: exact('/workspace/core'),
@@ -80,6 +81,7 @@ export const CORE_SECTIONS = [
   {
     id: 'core-tasks',
     label: 'Tasks & Execution',
+    hint: 'Who is doing what, and by when',
     icon: 'tasks',
     path: '/workspace/core/tasks',
     match: under('/workspace/core/tasks'),
@@ -87,6 +89,7 @@ export const CORE_SECTIONS = [
   {
     id: 'core-meetings',
     label: 'Meetings',
+    hint: 'Meetings, minutes and their files',
     icon: 'meeting',
     path: '/workspace/core/meetings',
     match: under('/workspace/core/meetings'),
@@ -94,6 +97,7 @@ export const CORE_SECTIONS = [
   {
     id: 'core-content',
     label: 'Content Pipeline',
+    hint: 'Videos and articles, idea to published',
     icon: 'content',
     path: '/workspace/core/content',
     match: under('/workspace/core/content'),
@@ -101,6 +105,7 @@ export const CORE_SECTIONS = [
   {
     id: 'core-assets',
     label: 'Assets',
+    hint: 'Shared brand and team files',
     icon: 'storage',
     path: '/workspace/core/assets',
     match: under('/workspace/core/assets'),
@@ -108,6 +113,7 @@ export const CORE_SECTIONS = [
   {
     id: 'core-planning',
     label: 'Planning',
+    hint: 'Objectives, key results, initiatives',
     icon: 'planning',
     path: '/workspace/operating',
     match: under('/workspace/operating'),
@@ -119,6 +125,7 @@ export const CORE_SECTIONS = [
        branch of the tree. */
     id: 'core-notes',
     label: 'Notes',
+    hint: 'Meeting notes and decisions',
     icon: 'notes',
     path: '/workspace/core/notes',
     match: under('/workspace/core/notes'),
@@ -128,6 +135,7 @@ export const CORE_SECTIONS = [
   {
     id: 'core-team',
     label: 'Team & Access',
+    hint: 'Members and what they can open',
     icon: 'team',
     path: '/workspace/core/team',
     match: under('/workspace/core/team'),
@@ -142,6 +150,7 @@ export const RESEARCH_SECTIONS = [
     id: 'res-overview',
     group: 'Work',
     label: 'Overview',
+    hint: 'Your research at a glance',
     icon: 'overview',
     path: '/workspace/research',
     match: exact('/workspace/research'),
@@ -150,6 +159,7 @@ export const RESEARCH_SECTIONS = [
     id: 'res-projects',
     group: 'Work',
     label: 'Projects',
+    hint: 'The projects you are part of',
     icon: 'projects',
     path: '/workspace/research/projects',
     match: under('/workspace/research/projects'),
@@ -158,6 +168,7 @@ export const RESEARCH_SECTIONS = [
     id: 'res-notes',
     group: 'Work',
     label: 'Notes',
+    hint: 'Private notes and your calendar',
     icon: 'notes',
     path: '/workspace/research/notes',
     // Notes own their list inside the document pane. Keeping the page tree
@@ -174,6 +185,7 @@ export const RESEARCH_SECTIONS = [
     id: 'res-files',
     group: 'Work',
     label: 'Files & Data',
+    hint: 'Files, datasets and data rooms',
     icon: 'files',
     path: '/workspace/research/folders',
     match: any(
@@ -189,6 +201,7 @@ export const RESEARCH_SECTIONS = [
     id: 'res-tasks',
     group: 'Work',
     label: 'Tasks',
+    hint: 'What needs doing on your projects',
     icon: 'tasks',
     path: '/workspace/research/tasks',
     match: under('/workspace/research/tasks'),
@@ -197,7 +210,8 @@ export const RESEARCH_SECTIONS = [
     id: 'res-people',
     group: 'Connect',
     label: 'Researchers',
-    icon: 'team',
+    hint: 'Find and reach other researchers',
+    icon: 'people',
     path: '/workspace/people',
     match: any(under('/workspace/people'), under('/workspace/research/nextcloud')),
   },
@@ -205,7 +219,8 @@ export const RESEARCH_SECTIONS = [
     id: 'res-opportunities',
     group: 'Connect',
     label: 'Opportunities',
-    icon: 'planning',
+    hint: 'Open calls and collaborations',
+    icon: 'opportunity',
     path: '/workspace/community',
     match: under('/workspace/community'),
   },
@@ -236,6 +251,7 @@ export const KMS_SECTIONS = [
   {
     id: 'kms-overview',
     label: 'Overview',
+    hint: 'Your learning at a glance',
     icon: 'overview',
     path: '/workspace/kms',
     match: exact('/workspace/kms'),
@@ -243,27 +259,31 @@ export const KMS_SECTIONS = [
   {
     id: 'kms-library',
     label: 'Library',
-    icon: 'files',
+    hint: 'What you saved from the site',
+    icon: 'library',
     path: '/workspace/kms/library',
     match: under('/workspace/kms/library'),
   },
   {
     id: 'kms-paths',
     label: 'Learning Paths',
-    icon: 'planning',
+    hint: 'What to study next',
+    icon: 'path',
     path: '/workspace/kms/paths',
     match: under('/workspace/kms/paths'),
   },
   {
     id: 'kms-sources',
     label: 'Sources',
-    icon: 'files',
+    hint: 'What you are reading now',
+    icon: 'inbox',
     path: '/workspace/kms/sources',
     match: under('/workspace/kms/sources'),
   },
   {
     id: 'kms-base',
     label: 'Knowledge Base',
+    hint: 'Notes in your own words',
     icon: 'notes',
     path: '/workspace/kms/base',
     match: under('/workspace/kms/base'),
@@ -273,6 +293,7 @@ export const KMS_SECTIONS = [
   {
     id: 'kms-recall',
     label: 'Recall & Review',
+    hint: 'Rehearse what you have learned',
     icon: 'cycle',
     path: '/workspace/kms/recall',
     match: under('/workspace/kms/recall'),
@@ -280,6 +301,7 @@ export const KMS_SECTIONS = [
   {
     id: 'kms-skills',
     label: 'Skills',
+    hint: 'What it all adds up to',
     icon: 'target',
     path: '/workspace/kms/skills',
     match: under('/workspace/kms/skills'),

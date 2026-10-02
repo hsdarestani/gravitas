@@ -41,17 +41,24 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         self.assertIn("'v-panel wc-card'", shared)
         self.assertIn("'v-stats wc-tiles'", shared)
         self.assertIn('wc-item--button', shared)
-        for name in ('ws-admin.js', 'ws-project.js', 'ws-member-lms.js'):
+        for name in ('ws-project.js', 'ws-member-lms.js'):
             source = self.read(name)
             self.assertIn('wc-card', source, name)
             self.assertIn('wc-item', source, name)
+        # Platform Admin draws through its kit, which builds cards with the
+        # chart kit's card() and rows as wc-items.
+        admin = self.read('ws-admin.js')
+        kit = self.read('ws-admin-kit.js')
+        self.assertIn("./ws-admin-kit.js?v=20261002-admin1", admin)
+        self.assertIn('C.card(', kit)
+        self.assertIn("'adm-row wc-item'", kit)
 
     def test_workspace_force_loads_rebuilt_renderers(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-app.js?v=20261002-dropdown2', html)
-        self.assertIn('/assets/ws/ws-five-layer.js?v=20261002-tabs1', html)
+        self.assertIn('/assets/ws/ws-app.js?v=20261002-hints1', html)
+        self.assertIn('/assets/ws/ws-five-layer.js?v=20261002-hints1', html)
         self.assertIn('/assets/ws/ws-charts.css?v=20261001-cosmos1', html)
-        self.assertIn('/assets/ws/ws-unified-design.css?v=20261001-cosmos1', html)
+        self.assertIn('/assets/ws/ws-unified-design.css?v=20261002-hints1', html)
 
         app = self.read('ws-app.js')
         self.assertIn("./ws-home.js?v=20261001-series1", app)
@@ -63,7 +70,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         for marker in (
             "./ws-member-lms.js?v=20261002-tabs1",
             "./ws-member-progress.js?v=20260924-unify1",
-            "./ws-admin.js?v=20261001-cover1",
+            "./ws-admin.js?v=20261002-admin1",
             "./ws-project.js?v=20260920-visual4",
         ):
             self.assertIn(marker, five)

@@ -272,18 +272,18 @@ function memberTiles(data, go) {
 
   const tiles = [
     C.statTile({
-      value: count(library.saved_count), label: 'Saved', icon: 'files', featured: true,
+      value: count(library.saved_count), label: 'Saved', icon: 'library', featured: true,
       note: count(library.following_count) ? `${count(library.following_count)} followed` : 'From the public site',
       onClick: () => go('/workspace/dashboard/library'),
     }),
     C.statTile({
-      value: count(discussions.total), label: 'Discussions', icon: 'collaboration',
+      value: count(discussions.total), label: 'Discussions', icon: 'discussion',
       part: count(discussions.published), total: count(discussions.total),
       note: 'On published material',
       onClick: () => go('/workspace/dashboard/discussions'),
     }),
     C.statTile({
-      value: count(topics.total), label: 'Topics', icon: 'target',
+      value: count(topics.total), label: 'Topics', icon: 'topic',
       part: count(topics.completed), total: count(topics.total),
       note: 'Started',
       onClick: () => go('/workspace/dashboard/progress'),
@@ -295,7 +295,7 @@ function memberTiles(data, go) {
      the bar chart carries the count. */
   if (learning.access) {
     tiles.push(C.statTile({
-      value: count(learning.active), label: 'Courses', icon: 'content',
+      value: count(learning.active), label: 'Courses', icon: 'course',
       note: count(learning.completed) ? `${count(learning.completed)} completed` : 'In progress',
       onClick: () => go('/workspace/learning'),
     }));
@@ -308,7 +308,7 @@ function memberTiles(data, go) {
     }));
   }
   tiles.push(C.statTile({
-    value: count(data.support?.open), label: 'Open tickets', icon: 'activity',
+    value: count(data.support?.open), label: 'Open tickets', icon: 'support',
     note: count(data.support?.open) ? 'Waiting on a reply' : 'Nothing open',
     onClick: () => go('/workspace/dashboard/support'),
   }));
@@ -500,15 +500,15 @@ function discussionCard(data, go) {
       title: item.content_key.replace(/-/g, ' '),
       meta: P.meta([label(item.status), date(item.updated_at)]),
       series: item.status === 'published' ? '2' : '4',
-      icon: 'collaboration',
+      icon: 'discussion',
       onClick: () => go('/workspace/dashboard/discussions'),
     }))));
   }
   return box.box;
 }
 
-const NEXT_ICONS = { path: 'planning', learning: 'content', research: 'projects', comment: 'collaboration', topic: 'target' };
-const SAVED_ICONS = { article: 'notes', topic: 'target', lab: 'datasets', path: 'planning', dossier: 'files' };
+const NEXT_ICONS = { path: 'path', learning: 'course', research: 'projects', comment: 'discussion', topic: 'topic' };
+const SAVED_ICONS = { article: 'magazine', topic: 'topic', lab: 'lab', path: 'path', dossier: 'files' };
 
 function linkButton(go, text, href) {
   const button = action(text, () => go(href));
@@ -688,7 +688,7 @@ function enrollmentItem(enrollment, go) {
   return C.listItem({
     title: enrollment.course_title,
     meta: P.meta([label(enrollment.status), Number.isFinite(share) ? `${Math.round(share)}% complete` : '']),
-    icon: 'content',
+    icon: 'course',
     series: COURSE_SERIES[enrollment.status] || '1',
     right: Number.isFinite(share) ? C.ring(share, { label: `${enrollment.course_title}: ${Math.round(share)}%` }) : null,
     onClick: () => go(`/workspace/learning/courses/${enrollment.course_id}`),
@@ -699,7 +699,7 @@ function catalogItem(course, go) {
   return C.listItem({
     title: course.title,
     meta: courseMeta(course),
-    icon: course.enrolled ? 'content' : 'planning',
+    icon: course.enrolled ? 'learning' : 'course',
     series: course.enrolled ? '1' : '3',
     onClick: () => go(`/workspace/learning/courses/${course.id}`),
   });
@@ -737,21 +737,21 @@ export async function renderLearningOverview(host, { go }) {
     const layout = C.bento();
     layout.append(...C.tileRow([
       C.statTile({
-        value: active.length, label: 'In progress', icon: 'content', note: 'Active courses', featured: true,
+        value: active.length, label: 'In progress', icon: 'learning', note: 'Active courses', featured: true,
         onClick: () => go('/workspace/learning/my'),
       }),
       C.statTile({
-        value: completed.length, label: 'Completed', icon: 'target',
+        value: completed.length, label: 'Completed', icon: 'check',
         part: completed.length, total: enrollments.length,
         note: 'Finished courses',
         onClick: () => go('/workspace/learning/my'),
       }),
       C.statTile({
-        value: certs.length, label: 'Certificates', icon: 'notes', note: 'Valid credentials',
+        value: certs.length, label: 'Certificates', icon: 'certificate', note: 'Valid credentials',
         onClick: () => go('/workspace/learning/certificates'),
       }),
       C.statTile({
-        value: paths.length, label: 'Learning paths', icon: 'planning', note: 'Published paths',
+        value: paths.length, label: 'Learning paths', icon: 'path', note: 'Published paths',
         onClick: () => go('/workspace/learning/catalog'),
       }),
     ]));
@@ -818,7 +818,7 @@ export async function renderLearningOverview(host, { go }) {
             `${(path.nodes || []).length} courses`,
             `${(path.edges || []).length} connections`,
           ]),
-          icon: 'planning',
+          icon: 'path',
           series: '3',
           right: start,
         });
@@ -855,7 +855,7 @@ export async function renderLearningOverview(host, { go }) {
         return C.listItem({
           title: node.title || (node.course_id ? 'Course ' + node.course_id : node.id),
           meta: P.meta([label(nodeType), enrollment ? label(enrollment.status) : '']),
-          icon: node.course_id ? 'content' : 'target',
+          icon: node.course_id ? 'course' : 'target',
           series: enrollment?.status === 'completed' ? '2' : '1',
           right: Number.isFinite(share) ? C.ring(share, { label: `${Math.round(share)}%` }) : null,
           onClick: node.course_id ? () => go('/workspace/learning/courses/' + node.course_id) : null,
@@ -3112,12 +3112,12 @@ function coursePlugins(course, data, { openLesson }) {
   const files = (course.assets || []).length;
   return [
     { group: 'Study', key: 'plan', title: 'Course plan', note: 'Lessons, tasks and reminders', mark: 'tasks', build: () => coursePlanPanel(course, openLesson) },
-    { group: 'Study', key: 'returns', title: 'Return points', note: 'Notes, highlights, bookmarks', mark: 'notes', build: () => courseReturnPointsPanel(course, openLesson) },
+    { group: 'Study', key: 'returns', title: 'Return points', note: 'Notes, highlights, bookmarks', mark: 'learning', build: () => courseReturnPointsPanel(course, openLesson) },
     on('ai_enabled') && { group: 'Study', key: 'tutor', title: 'AI Tutor', note: 'Ask Pulsar about this course', mark: 'pulsar', build: () => courseTutorPanel(course) },
     on('discussions_enabled') && { group: 'Study', key: 'group', title: 'Course group', note: 'Learners and instructors', mark: 'collaboration', build: () => courseDiscussionPanel(course) },
     files && { group: 'Study', key: 'files', title: 'Course files', note: `${files} file${files === 1 ? '' : 's'} and embeds`, mark: 'files', build: () => courseAssetsPanel(course) },
     on('literature_enabled') && { group: 'Research', key: 'papers', title: 'Related papers', note: 'arXiv, INSPIRE, Semantic Scholar', mark: 'search', build: () => literaturePanel(course) },
-    on('zotero_enabled') && { group: 'Research', key: 'zotero', title: 'Zotero sources', note: 'Your reference library', mark: 'storage', build: () => zoteroConnectionPanel() },
+    on('zotero_enabled') && { group: 'Research', key: 'zotero', title: 'Zotero sources', note: 'Your reference library', mark: 'library', build: () => zoteroConnectionPanel() },
     on('notebook_enabled') && { group: 'Research', key: 'notebook', title: 'Notebook', note: 'Python in the browser, .ipynb', mark: 'datasets', build: () => notebookPanel(course) },
     on('git_enabled') && { group: 'Research', key: 'git', title: 'GitHub', note: 'Push work for review', mark: 'cycle', build: () => gitPanel(course) },
     { group: 'Connect', key: 'pulsar', title: 'Pulsar access', note: 'Projects Pulsar may read', mark: 'secure', build: () => pulsarAccessPanel(course) },

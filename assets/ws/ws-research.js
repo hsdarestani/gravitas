@@ -65,7 +65,7 @@ function dashboardBars(title, note, rows, span = 12) {
 }
 
 export function renderCalendar(host, ctx) {
-  const doc = shell(host, 'Journal', 'Daily research notes with project deadlines in the same calendar.');
+  const doc = shell(host, 'Calendar', 'Daily research notes and project deadlines on one calendar.');
   const body = el('div', 'rkms-calendar'); doc.append(body);
   let cursor = new Date();
   cursor.setDate(1);
@@ -101,10 +101,10 @@ export function renderCalendar(host, ctx) {
     const upcomingCount = events.filter((event) => event.due_date && event.due_date >= todayKey).length;
     const monthDeadlineCount = events.filter((event) => String(event.due_date || '').startsWith(monthPrefix)).length;
     body.append(dashboardSummary([
-      { value: events.length, label: 'Deadlines', icon: 'activity', note: 'Research schedule' },
-      { value: upcomingCount, label: 'Upcoming', icon: 'planning', note: 'From today forward' },
-      { value: journalDays.size, label: 'Journal days', icon: 'notes', note: 'Entries with a date' },
-      { value: monthDeadlineCount, label: 'This month', icon: 'target', note: 'Deadlines in view' },
+      { value: events.length, label: 'Deadlines', icon: 'target', note: 'Research schedule' },
+      { value: upcomingCount, label: 'Upcoming', icon: 'meeting', note: 'From today forward' },
+      { value: journalDays.size, label: 'Noted days', icon: 'notes', note: 'Entries with a date' },
+      { value: monthDeadlineCount, label: 'This month', icon: 'calendar', note: 'Deadlines in view' },
     ]));
 
     const month = el('section', 'v-panel wc-card rkms-month');
@@ -527,8 +527,8 @@ export function renderTasks(host, { go }) {
     const summary = dashboardSummary([
       { value: records.filter(({ task }) => !['done', 'archived'].includes(task.status)).length, label: 'Open tasks', icon: 'tasks', note: 'Research execution' },
       { value: statusCounts.active, label: 'Active', icon: 'activity', note: 'In progress' },
-      { value: statusCounts.blocked, label: 'Blocked', icon: 'target', note: 'Needs attention' },
-      { value: statusCounts.done, label: 'Done', icon: 'cycle', note: 'Completed' },
+      { value: statusCounts.blocked, label: 'Blocked', icon: 'alert', note: 'Needs attention' },
+      { value: statusCounts.done, label: 'Done', icon: 'check', note: 'Completed' },
     ]);
     summary.append(
       dashboardBars('Task status', 'Distribution across all accessible research projects.', [

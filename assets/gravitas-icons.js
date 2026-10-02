@@ -1,6 +1,6 @@
 /* ==========================================================================
    GRAVITAS+ WORKSPACE ICONS
-   Thirty-three marks for the product interface, drawn to the same geometry as the
+   Fifty-six marks for the product interface, drawn to the same geometry as the
    sixteen in the brand book (section 11) so the workspace and the public site
    speak with one hand.
 
@@ -50,6 +50,56 @@
     target: "<g transform=\"translate(0.332 0.331) scale(0.968448)\" stroke-width=\"1.755\"><circle cx=\"12\" cy=\"12\" r=\"9.2\"/><circle cx=\"12\" cy=\"12\" r=\"4.8\"/><circle cx=\"12\" cy=\"12\" r=\"1.600\" fill=\"currentColor\" stroke=\"none\"/></g>",
     cycle: "<g transform=\"translate(-1.028 0.184) scale(1.038200)\" stroke-width=\"1.637\"><path d=\"M20.4 12a8.4 8.4 0 1 1-2.9-6.35\"/><path d=\"M20.8 3.2v5.2h-5.2\"/><circle cx=\"12\" cy=\"12\" r=\"1.493\" fill=\"currentColor\" stroke=\"none\"/></g>",
     meeting: "<g transform=\"translate(0.225 0.531) scale(0.968286)\" stroke-width=\"1.756\"><circle cx=\"12\" cy=\"12\" r=\"9.2\"/><path d=\"M12 6.6V12l3.8 2.4\"/></g>",
+
+    /* ---- One mark per destination --------------------------------------
+       Until these were drawn the set had twenty-two marks for things and the
+       workspace had around sixty things to mark, so the same drawing was
+       made to stand for unrelated places. The bar chart that means Planning
+       also stood for Opportunities, the Course catalog, LMS Admin, Learning
+       Paths and Upcoming; the briefcase for Files, both Libraries, Sources
+       and Saved; the target for Skills, Certificates, Progress, Blocked and
+       Favorites. Three names the navigation asked for — mail, lab, link —
+       did not exist at all and fell back to Overview without a word. A mark
+       that means five things means none of them, so each destination now
+       has its own, and two rows in one index never share a drawing.
+
+       Fitted by the same procedure as everything above: ink centroid on
+       (12, 12), 19.6 cap, stroke counter-scaled to 1.7, accent dot re-cut to
+       3.1 across. The dot marks what the drawing is about — the card in
+       motion on the board, the day on the calendar, the item dropping into
+       the inbox, the point of the exclamation. Link carries none, for the
+       reason Activity carries none: it draws a relation, not an object. The
+       head on People is structural, as it is on Team. */
+    dashboard: "<g transform=\"translate(0.552 0.414) scale(0.972826)\" stroke-width=\"1.747\"><rect x=\"2.8\" y=\"2.8\" width=\"8\" height=\"10.4\" rx=\"2.2\"/><rect x=\"13.2\" y=\"2.8\" width=\"8\" height=\"6\" rx=\"2.2\"/><rect x=\"13.2\" y=\"11.6\" width=\"8\" height=\"9.6\" rx=\"2.2\"/><rect x=\"2.8\" y=\"15.6\" width=\"8\" height=\"5.6\" rx=\"2.2\"/><circle cx=\"6.8\" cy=\"8\" r=\"1.593\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    library: "<g transform=\"translate(1.926 1.225) scale(0.844738)\" stroke-width=\"2.012\"><rect x=\"2.4\" y=\"3.2\" width=\"6.8\" height=\"17.6\" rx=\"1.8\"/><rect x=\"11\" y=\"6.4\" width=\"4\" height=\"14.4\" rx=\"1.4\"/><path d=\"M16.40 19.82 20.07 20.80 23.59 7.66 19.92 6.68z\"/><circle cx=\"5.8\" cy=\"8.2\" r=\"1.835\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    discussion: "<g transform=\"translate(0.446 0.882) scale(0.952128)\" stroke-width=\"1.785\"><path d=\"M4.6 3.2h9.8a2 2 0 0 1 2 2v6.4a2 2 0 0 1-2 2H9.2l-3.8 3.2v-3.2h-.8a2 2 0 0 1-2-2V5.2a2 2 0 0 1 2-2z\"/><path d=\"M19.4 9.2h-.2M19.4 9.2a2 2 0 0 1 2 2v5.6a2 2 0 0 1-2 2h-.6v3l-3.6-3h-3.4a2 2 0 0 1-2-2v-.6\"/><circle cx=\"9.6\" cy=\"8.4\" r=\"1.628\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    progress: "<g transform=\"translate(-0.822 -0.702) scale(1.040700)\" stroke-width=\"1.634\"><path d=\"M5.9 20.5A8.6 8.6 0 1 1 18.1 20.5\"/><path d=\"M12 14.4 16.4 9.6\"/><circle cx=\"12\" cy=\"14.4\" r=\"1.489\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    support: "<g transform=\"translate(0.250 -1.132) scale(0.942105)\" stroke-width=\"1.804\"><path d=\"M4.6 13.4V12a7.4 7.4 0 0 1 14.8 0v1.4\"/><rect x=\"2.8\" y=\"12.6\" width=\"4\" height=\"6.6\" rx=\"1.8\"/><rect x=\"17.2\" y=\"12.6\" width=\"4\" height=\"6.6\" rx=\"1.8\"/><path d=\"M19.2 19.2v.4a2.4 2.4 0 0 1-2.4 2.4h-2.2\"/><circle cx=\"12.6\" cy=\"22\" r=\"1.645\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    catalog: "<g transform=\"translate(2.156 0.725) scale(0.972826)\" stroke-width=\"1.747\"><rect x=\"2.8\" y=\"3\" width=\"7.2\" height=\"7.2\" rx=\"2\"/><path d=\"M13.2 4.8h8\"/><path d=\"M13.2 8.4h5\"/><rect x=\"2.8\" y=\"13.8\" width=\"7.2\" height=\"7.2\" rx=\"2\"/><path d=\"M13.2 15.6h8\"/><path d=\"M13.2 19.2h5\"/><circle cx=\"6.4\" cy=\"6.6\" r=\"1.593\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    course: "<g transform=\"translate(-0.162 1.216) scale(0.952128)\" stroke-width=\"1.785\"><path d=\"M12 3.8 2.6 8.6 12 13.4l9.4-4.8z\"/><path d=\"M6.2 10.8v5c0 1.8 2.6 3.2 5.8 3.2s5.8-1.4 5.8-3.2v-5\"/><path d=\"M21.4 8.6v6.4\"/><circle cx=\"12\" cy=\"8.6\" r=\"1.628\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    learning: "<g transform=\"translate(-0.201 0.113) scale(1.017045)\" stroke-width=\"1.672\"><path d=\"M6.4 3.2h11.2a1.4 1.4 0 0 1 1.4 1.4v16.2l-7-4.6-7 4.6V4.6a1.4 1.4 0 0 1 1.4-1.4z\"/><circle cx=\"12\" cy=\"9.4\" r=\"1.524\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    certificate: "<g transform=\"translate(0.198 -0.336) scale(0.983516)\" stroke-width=\"1.728\"><circle cx=\"12\" cy=\"9\" r=\"6\"/><path d=\"M8.6 13.8 6.9 21.2l5.1-2.6 5.1 2.6-1.7-7.4\"/><circle cx=\"12\" cy=\"9\" r=\"1.576\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    moderation: "<g transform=\"translate(0.311 0.797) scale(0.972826)\" stroke-width=\"1.747\"><path d=\"M12 2.8 4.2 5.8v5.6c0 4.8 3.2 8.6 7.8 9.8 4.6-1.2 7.8-5 7.8-9.8V5.8z\"/><circle cx=\"12\" cy=\"11.4\" r=\"1.593\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    link: "<g transform=\"translate(-0.715 -0.718) scale(1.060095)\" stroke-width=\"1.604\"><path d=\"M10 14a4.2 4.2 0 0 0 6 0l3.2-3.2a4.2 4.2 0 0 0-6-6l-1 1\"/><path d=\"M14 10a4.2 4.2 0 0 0-6 0l-3.2 3.2a4.2 4.2 0 0 0 6 6l1-1\"/></g>",
+    board: "<g transform=\"translate(0.904 2.048) scale(0.922680)\" stroke-width=\"1.842\"><rect x=\"2.6\" y=\"3\" width=\"6.6\" height=\"18\" rx=\"2\"/><rect x=\"11\" y=\"3\" width=\"4.6\" height=\"11\" rx=\"1.6\"/><rect x=\"17.4\" y=\"3\" width=\"4.6\" height=\"14.4\" rx=\"1.6\"/><circle cx=\"5.9\" cy=\"16.8\" r=\"1.680\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    calendar: "<g transform=\"translate(0.282 0.673) scale(0.962366)\" stroke-width=\"1.766\"><rect x=\"3\" y=\"4.4\" width=\"18\" height=\"16.8\" rx=\"3\"/><path d=\"M3 9.6h18\"/><path d=\"M8 2.6v3.6\"/><path d=\"M16 2.6v3.6\"/><circle cx=\"15.6\" cy=\"15.4\" r=\"1.611\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    people: "<g transform=\"translate(0.883 0.457) scale(0.952128)\" stroke-width=\"1.785\"><rect x=\"2.6\" y=\"4.2\" width=\"18.8\" height=\"15.6\" rx=\"3\"/><circle cx=\"8.6\" cy=\"10.2\" r=\"2.3\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M5.4 16.4a3.2 3.2 0 0 1 6.4 0\"/><path d=\"M14.6 10h3.8\"/><path d=\"M14.6 13.6h2.4\"/></g>",
+    opportunity: "<g transform=\"translate(1.603 2.662) scale(0.983516)\" stroke-width=\"1.728\"><path d=\"M5.4 21.2V3\"/><path d=\"M5.4 3.8h12.8l-2.8 4.4 2.8 4.4H5.4\"/><circle cx=\"10.4\" cy=\"8.2\" r=\"1.576\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    inbox: "<g transform=\"translate(0.316 -0.859) scale(0.972826)\" stroke-width=\"1.747\"><path d=\"M2.8 13.6h4.8l1.6 2.8h5.6l1.6-2.8h4.8\"/><path d=\"M2.8 13.6v4.8a2 2 0 0 0 2 2h14.4a2 2 0 0 0 2-2v-4.8l-2.9-8a2 2 0 0 0-1.9-1.4H7.6a2 2 0 0 0-1.9 1.4z\"/><circle cx=\"12\" cy=\"9.2\" r=\"1.593\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    alert: "<g transform=\"translate(1.226 -0.929) scale(0.897866)\" stroke-width=\"1.893\"><path d=\"M10.3 4.2a2 2 0 0 1 3.4 0l8 13.8a2 2 0 0 1-1.7 3H4a2 2 0 0 1-1.7-3z\"/><path d=\"M12 9.4v4.2\"/><circle cx=\"12\" cy=\"17.2\" r=\"1.726\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    star: "<g transform=\"translate(0.707 0.124) scale(0.941115)\" stroke-width=\"1.806\"><path d=\"M12.00 2.60 14.59 9.04 21.51 9.51 16.18 13.96 17.88 20.69 12.00 17.00 6.12 20.69 7.82 13.96 2.49 9.51 9.41 9.04Z\"/><circle cx=\"12\" cy=\"12.9\" r=\"1.647\" fill=\"currentColor\" stroke=\"none\"/></g>",
+
+    /* Five workspace destinations are the public sections themselves seen
+       from inside: Topics, Magazine, the Interactive Lab, Learning Paths and
+       the Newsletter. They take the product-set mark exactly as the site
+       draws it, transform and all, so a reader who knows the Lab flask from
+       the footer finds the same flask on the admin row for it. Copied, not
+       redrawn — a near-copy would be a second Lab mark. */
+    topic: "<g transform=\"translate(2.282 2.283) scale(1.0407)\" stroke-width=\"1.634\"><rect x=\".75\" y=\".75\" width=\"17.2\" height=\"17.2\" rx=\"3.4\" ry=\"3.4\"/><path d=\"M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3\"/><path d=\"M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5\"/></g>",
+    magazine: "<g transform=\"translate(1.971 3.385) scale(1.17763)\" stroke-width=\"1.444\"><path d=\"M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5\"/><path d=\"M8.35,2.33v9.24\"/><path d=\"M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41\"/><path d=\"M10.38,5.74h3.1\"/><path d=\"M10.38,8.74h2.2\"/><circle cx=\"4.85\" cy=\"7.24\" r=\"1.316\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    lab: "<g transform=\"translate(4.844 0.9) scale(0.972826)\" stroke-width=\"1.747\"><path d=\"M4.7.75h5.2\"/><path d=\"M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95\"/><circle cx=\"7.3\" cy=\"14.8\" r=\"1.593\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    path: "<g transform=\"translate(2.353 2.45) scale(0.962366)\" stroke-width=\"1.766\"><path d=\"M4.45,17.15c3-.8,3.2-5.8,5.6-7.2\"/><path d=\"M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2\"/><circle cx=\"2.35\" cy=\"17.55\" r=\"1.6\"/><circle cx=\"17.75\" cy=\"2.35\" r=\"1.6\"/><circle cx=\"10.05\" cy=\"9.95\" r=\"1.611\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    mail: "<g transform=\"translate(2.332 4.76) scale(0.994444)\" stroke-width=\"1.709\"><path d=\"M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83\"/><path d=\"M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z\"/><circle cx=\"9.75\" cy=\"7.11\" r=\"1.559\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     /* The three workspaces. One motif, three fields: a mass at the centre, and
        around it the structure that workspace is. A cube for what the team builds

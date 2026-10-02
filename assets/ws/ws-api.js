@@ -105,7 +105,7 @@ let serverPages = {};
 
 function decoratedServerNodes(nodes, pages) {
   const out = structuredClone(nodes);
-  const journalRoot = { id: 'journal', title: 'Journal', kind: 'folder', parent: null, space: 'research', phantom: false, virtual: true };
+  const journalRoot = { id: 'journal', title: 'Calendar', kind: 'folder', parent: null, space: 'research', phantom: false, virtual: true };
   if (!out.some((node) => node.id === journalRoot.id)) out.unshift(journalRoot);
   for (const node of out) {
     const page = pages[String(node.id)];

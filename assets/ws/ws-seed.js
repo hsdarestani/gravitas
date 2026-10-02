@@ -32,7 +32,7 @@ export const seed = {
        parent, resolved once when the tree is read, because a note that is
        moved between branches should change workspace by being moved rather
        than by somebody remembering to rewrite a second field on it. */
-    { id: 'journal',   title: 'Journal',            kind: 'folder', parent: null, space: 'research', phantom: false },
+    { id: 'journal',   title: 'Calendar',           kind: 'folder', parent: null, space: 'research', phantom: false },
     { id: 'dossiers',  title: 'Dossiers',           kind: 'folder', parent: null, space: 'research', phantom: false },
     { id: 'd-cu',      title: 'Computable Universe', kind: 'folder', parent: 'dossiers', phantom: false },
     { id: 'cu-brief',  title: 'Editorial brief',     kind: 'note',   parent: 'd-cu',     phantom: false },

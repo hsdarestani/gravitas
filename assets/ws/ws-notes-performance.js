@@ -37,14 +37,16 @@ function summary(result) {
 
 function editorIsBusy() {
   const active = document.activeElement;
-  return !!active?.closest?.('.nc-notes__editor');
+  return !!active?.closest?.('.nb-main');
 }
 
 async function refreshAfterSync(space) {
   const current = routeInfo();
   if (!current || current.space !== space || editorIsBusy()) return;
   // The canonical Notes GET is local-only, so this repaint is cheap and picks
-  // up notes adopted/pulled by the background reconciliation.
+  // up notes adopted/pulled by the background reconciliation. The notebook
+  // treats it as a refresh in place: the list updates, an open editor with
+  // unsaved text is left alone.
   dispatchEvent(new CustomEvent('ws:navigate'));
 }
 
@@ -71,9 +73,9 @@ function enhance() {
   const info = canonicalizeResearchNotes();
   if (!info) return;
   const doc = document.querySelector('#ws-view .nc-notes');
-  const layout = doc?.querySelector('.nc-notes__layout');
+  const layout = doc?.querySelector('.nb-main');
   if (!doc || !layout) return;
-  const status = doc.querySelector('.nc-notes__global-status');
+  const status = doc.querySelector('.nb-sync-status');
   if (doc.dataset.fastNotesReady !== '1') {
     doc.dataset.fastNotesReady = '1';
     if (status) status.textContent = 'Local notes ready';

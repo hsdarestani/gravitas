@@ -285,7 +285,7 @@ function collapsible(host, items, limit, draw) {
    They were ws-views rows with no mark, so the Research and Core overviews
    read as lists of text beside a Dashboard that reads as a list of things.
    The series follow what the tiles and charts above them already use. */
-const KNOWLEDGE_ICONS = { note: 'notes', file: 'files', dataset: 'datasets', mindmap: 'mindmap', link: 'share' };
+const KNOWLEDGE_ICONS = { note: 'notes', file: 'files', dataset: 'datasets', mindmap: 'mindmap', link: 'link' };
 const PROJECT_SERIES = { client: '1', community: '2' };
 
 function flagged(text, tone = '') {
@@ -631,7 +631,7 @@ function renderCoreBody(doc, ctx, boot) {
       assets.body.append(C.list([C.listItem({
         title: 'Content Studio Blueprint',
         meta: P.meta(['v0.2', 'Team approval', '16 sections']),
-        icon: 'files',
+        icon: 'storage',
         series: '1',
         onClick: () => ctx.go('/workspace/core/assets/content-studio-blueprint'),
       })]));
@@ -670,7 +670,7 @@ function intelligenceRelative(value) {
 }
 
 function intelligenceMetric(value, label, index = 0) {
-  const icons = ['planning', 'space-research', 'activity', 'cycle'];
+  const icons = ['opportunity', 'magazine', 'activity', 'calendar'];
   const node = C.statTile({
     value: value || 0,
     label,
@@ -1443,7 +1443,7 @@ function renderResearchBody(doc, ctx, boot) {
         C.statTile({
           value: board.counts.research_requests,
           label: 'Research requests',
-          icon: 'activity',
+          icon: 'inbox',
           note: 'Requests and handoffs',
           onClick: () => ctx.go('/workspace/research/tasks?show=requests'),
         }),
@@ -1496,7 +1496,7 @@ function renderResearchBody(doc, ctx, boot) {
         collapsible(box.body, requests, 5, (item) => C.listItem({
           title: item.title,
           meta: P.meta([item.assignee, P.formatDate(item.due_date)]),
-          icon: 'activity',
+          icon: 'inbox',
           series: '4',
           right: flagged(P.label(item.status)),
         }));

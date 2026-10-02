@@ -167,7 +167,9 @@ function button(text, handler, solid = false) {
 
 function setIndexActive(path) {
   for (const node of document.querySelectorAll('.fl-index-link')) {
-    const text = node.textContent?.trim().toLowerCase();
+    // The name only: the index link also carries a hint line under it.
+    const name = [...node.childNodes].find((child) => child.nodeType === Node.TEXT_NODE && child.nodeValue.trim());
+    const text = (name ? name.nodeValue : node.textContent || '').trim().toLowerCase();
     const active = path.endsWith('/base') ? text === 'personal learning notes' : text === 'recall & review';
     if (active) node.setAttribute('aria-current', 'page');
     else node.removeAttribute('aria-current');

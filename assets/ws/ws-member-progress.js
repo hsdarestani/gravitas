@@ -77,20 +77,20 @@ export async function renderMemberProgress(host, { go }) {
       C.statTile({
         value: data.topic_progress?.total || 0,
         label: 'Topics tracked',
-        icon: 'target',
+        icon: 'topic',
         note: data.topic_progress?.completed ? `${data.topic_progress.completed} completed` : 'Public topics',
         featured: true,
       }),
       C.statTile({
         value: data.topic_progress?.completed || 0,
         label: 'Topics completed',
-        icon: 'activity',
+        icon: 'check',
         note: 'Finished topics',
       }),
       C.statTile({
         value: data.public_paths?.in_progress || 0,
         label: 'Public paths',
-        icon: 'planning',
+        icon: 'path',
         note: 'In progress',
       }),
     ];
@@ -100,14 +100,14 @@ export async function renderMemberProgress(host, { go }) {
         C.statTile({
           value: data.learning?.active || 0,
           label: 'Courses active',
-          icon: 'content',
+          icon: 'course',
           note: 'LMS',
           onClick: () => go('/workspace/learning/my'),
         }),
         C.statTile({
           value: data.learning?.completed || 0,
           label: 'Courses completed',
-          icon: 'notes',
+          icon: 'certificate',
           note: 'LMS',
           onClick: () => go('/workspace/learning/certificates'),
         }),
@@ -176,7 +176,7 @@ export async function renderMemberProgress(host, { go }) {
           meta: `${item.done_count} of ${item.total} activities`,
           tags: [...completed, item.completed ? 'Completed' : 'In progress'],
           percent: item.progress_percent,
-          icon: 'target',
+          icon: 'topic',
           series: '1',
           onClick: () => { if (item.url) location.href = item.url; },
         }));
@@ -199,7 +199,7 @@ export async function renderMemberProgress(host, { go }) {
         meta: `${item.done_count} of ${item.total} steps`,
         tags: [item.completed ? 'Completed' : 'In progress'],
         percent: item.progress_percent,
-        icon: 'planning',
+        icon: 'path',
         series: '2',
         onClick: () => { if (item.url) location.href = item.url; },
       }))));

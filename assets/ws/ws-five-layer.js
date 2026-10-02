@@ -25,9 +25,9 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261001-cover1';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20260924-repeat2';
-import { renderCoreLinks } from './ws-core-links.js?v=20260920-visual4';
+} from './ws-admin.js?v=20261002-admin1';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261002-admin1';
+import { renderCoreLinks } from './ws-core-links.js?v=20261002-admin1';
 import { renderResearchProject } from './ws-project.js?v=20260920-visual4';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
@@ -35,35 +35,35 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const state = { installed: false, scheduled: false, drawn: '' };
 
 const DASHBOARD_INDEX = [
-  ['Dashboard', '/workspace/dashboard', 'overview'],
-  ['Library', '/workspace/dashboard/library', 'files'],
-  ['Discussions', '/workspace/dashboard/discussions', 'collaboration'],
-  ['Progress', '/workspace/dashboard/progress', 'target'],
-  ['Support', '/workspace/dashboard/support', 'activity'],
+  ['Dashboard', '/workspace/dashboard', 'dashboard', 'Your day at a glance'],
+  ['Library', '/workspace/dashboard/library', 'library', 'What you saved from the site'],
+  ['Discussions', '/workspace/dashboard/discussions', 'discussion', 'Your comments and replies'],
+  ['Progress', '/workspace/dashboard/progress', 'progress', 'Courses and research you are in'],
+  ['Support', '/workspace/dashboard/support', 'support', 'Ask the Gravitas+ team for help'],
 ];
 
 const LEARNING_INDEX = [
-  ['Overview', '/workspace/learning', 'overview'],
-  ['Library', '/workspace/learning/library', 'files'],
-  ['Course catalog', '/workspace/learning/catalog', 'planning'],
-  ['My learning', '/workspace/learning/my', 'notes'],
-  ['Certificates', '/workspace/learning/certificates', 'target'],
+  ['Overview', '/workspace/learning', 'overview', 'Where your learning stands'],
+  ['Library', '/workspace/learning/library', 'library', 'What you saved from the site'],
+  ['Course catalog', '/workspace/learning/catalog', 'catalog', 'Browse courses you can join'],
+  ['My learning', '/workspace/learning/my', 'learning', 'Courses you are taking'],
+  ['Certificates', '/workspace/learning/certificates', 'certificate', 'Courses you have completed'],
 ];
 
 const ADMIN_INDEX = [
-  ['Admin overview', '/workspace/core/admin', 'overview'],
-  ['Users & Access', '/workspace/core/admin/users', 'team'],
-  ['Topics', '/workspace/core/admin/content', 'content'],
-  ['Moderation', '/workspace/core/admin/moderation', 'collaboration'],
-  ['Newsletter', '/workspace/core/admin/newsletter', 'mail'],
-  ['Support tickets', '/workspace/core/admin/tickets', 'collaboration'],
-  ['Interactive Lab', '/workspace/core/admin/labs', 'lab'],
-  ['LMS Admin', '/workspace/core/admin/lms', 'planning'],
-  ['Research Admin', '/workspace/core/admin/research', 'projects'],
-  ['Cross-layer Links', '/workspace/core/admin/links', 'link'],
-  ['Activity', '/workspace/core/admin/activity', 'cycle'],
-  ['Nextcloud Deck', '/workspace/core/admin/deck', 'tasks'],
-  ['Back to Core Ops', '/workspace/core', 'space-core'],
+  ['Admin overview', '/workspace/core/admin', 'overview', 'The whole platform at a glance'],
+  ['Users & Access', '/workspace/core/admin/users', 'team', 'Accounts, roles and permissions'],
+  ['Topics', '/workspace/core/admin/content', 'topic', 'Write and publish site topics'],
+  ['Moderation', '/workspace/core/admin/moderation', 'moderation', 'Review public comments'],
+  ['Newsletter', '/workspace/core/admin/newsletter', 'mail', 'Subscribers and campaigns'],
+  ['Support tickets', '/workspace/core/admin/tickets', 'support', 'Reply to member requests'],
+  ['Interactive Lab', '/workspace/core/admin/labs', 'lab', 'Build interactive experiments'],
+  ['LMS Admin', '/workspace/core/admin/lms', 'course', 'Courses, lessons and enrolments'],
+  ['Research Admin', '/workspace/core/admin/research', 'space-research', 'Every research project'],
+  ['Cross-layer Links', '/workspace/core/admin/links', 'link', 'Connect items across workspaces'],
+  ['Activity', '/workspace/core/admin/activity', 'activity', 'Who changed what, and when'],
+  ['Nextcloud Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
+  ['Back to Core Ops', '/workspace/core', 'space-core', 'Return to the Core workspace'],
 ];
 
 function navigate(path, { replace = false } = {}) {
@@ -199,7 +199,7 @@ function normalizeRail() {
   rail.innerHTML = '';
 
   const area = topArea();
-  rail.append(railButton('overview', 'Dashboard', area === 'dashboard', '/workspace/dashboard'));
+  rail.append(railButton('dashboard', 'Dashboard', area === 'dashboard', '/workspace/dashboard'));
   const rule = document.createElement('div');
   rule.className = 'ws-rail__rule';
   rail.append(rule);
@@ -216,8 +216,13 @@ function normalizeRail() {
 
 /* `series` gives the link the same tinted round mark the Research and Core
    index rows carry (ws-app.js sectionRow), in the same position order, so
-   the index looks like one component whichever workspace drew it. */
-function indexButton(title, path, mark = 'overview', series = '1', active = null) {
+   the index looks like one component whichever workspace drew it.
+
+   `hint` is the short line under the name saying what the section holds,
+   for a reader meeting the product for the first time. The name stays the
+   button's direct text node: ws-actionable-ui shortens long names by
+   rewriting exactly that node, and the hint is a span beside it. */
+function indexButton(title, path, mark = 'overview', series = '1', active = null, hint = '') {
   const node = document.createElement('button');
   node.className = 'fl-index-link';
   node.type = 'button';
@@ -226,6 +231,13 @@ function indexButton(title, path, mark = 'overview', series = '1', active = null
   glyph.className = 'fl-index-link__icon';
   glyph.innerHTML = icon(mark);
   node.append(glyph, document.createTextNode(title));
+  if (hint) {
+    const small = document.createElement('span');
+    small.className = 'fl-index-link__hint';
+    small.textContent = hint;
+    node.append(small);
+    node.dataset.hinted = '';
+  }
   if (active == null) {
     const here = location.pathname.replace(/\/$/, '');
     const target = path.replace(/\/$/, '');
@@ -268,9 +280,9 @@ function renderIndex(title, items, footer = '', { ancestor = '', branches = new 
   nav.className = 'fl-index-nav';
   nav.setAttribute('aria-label', `${title} sections`);
   const lit = ancestor ? '' : activeEntry(items);
-  items.forEach(([name, path, mark], index) => {
+  items.forEach(([name, path, mark, hint], index) => {
     const clean = path.replace(/\/$/, '');
-    const node = indexButton(name, path, mark, String((index % 4) + 1), clean === lit);
+    const node = indexButton(name, path, mark, String((index % 4) + 1), clean === lit, hint);
     nav.append(node);
     const branch = branches.get(path);
     if (clean === ancestor) node.dataset.ancestor = 'true';
@@ -382,7 +394,7 @@ function courseBranch(courses, route) {
     const share = Number(course.progress);
     const node = treeRow('flc-tree__course', course.title || 'Course', {
       path: `/workspace/learning/courses/${course.id}`,
-      mark: 'content',
+      mark: 'course',
       current: open && !route.lesson,
       meta: Number.isFinite(share) && course.enrolled ? `${Math.round(share)}%` : '',
       title: course.title,
@@ -447,7 +459,7 @@ function ensureCoreAdminEntry() {
   if (!body || body.querySelector('.fl-core-admin-entry')) return;
   const wrap = document.createElement('div');
   wrap.className = 'fl-core-admin-entry';
-  wrap.append(indexButton('Platform Admin', '/workspace/core/admin', 'team', '1'));
+  wrap.append(indexButton('Platform Admin', '/workspace/core/admin', 'team', '1', null, 'Owner and admin tools'));
   body.prepend(wrap);
 }
 

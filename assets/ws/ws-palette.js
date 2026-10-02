@@ -50,7 +50,7 @@ function actions() {
     },
     {
       group: 'Actions',
-      label: "Open today's journal",
+      label: "Open today in Calendar",
       hint: 'Ctrl J',
       icon: 'meeting',
       run: async () => {
@@ -398,7 +398,7 @@ function globalKeys(event) {
   if (!root.hidden) return;
 
   if (key === 'n') { event.preventDefault(); runByLabel('New page'); }
-  else if (key === 'j') { event.preventDefault(); runByLabel("Open today's journal"); }
+  else if (key === 'j') { event.preventDefault(); runByLabel("Open today in Calendar"); }
   else if (key === 't') { event.preventDefault(); runByLabel('New task from selection'); }
 }
 

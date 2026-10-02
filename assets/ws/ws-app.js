@@ -19,18 +19,18 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20260913-3';
+import * as api from './ws-api.js?v=20261002-calendar1';
 import * as P from './ws-platform.js?v=20260926-calendar2';
 import * as views from './ws-views.js?v=20261002-dropdown2';
 import * as meetings from './ws-meetings.js?v=20260926-calendar6';
 import * as assets from './ws-core-assets.js?v=20260926-links1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js?v=20260924-seen1';
-import * as research from './ws-research.js?v=20260924-rhythm1';
+import * as research from './ws-research.js?v=20261002-calendar1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20260926-meetings1';
+} from './ws-nav.js?v=20261002-hints1';
 import { renderDashboard, stopClock } from './ws-home.js?v=20261001-series1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
@@ -307,7 +307,7 @@ function renderRail() {
   rail.innerHTML = '';
 
   const area = railArea();
-  rail.append(railButton('overview', 'Dashboard', area === 'dashboard', () => go('/workspace/dashboard')));
+  rail.append(railButton('dashboard', 'Dashboard', area === 'dashboard', () => go('/workspace/dashboard')));
   rail.append(el('div', 'ws-rail__rule'));
 
   if (P.canOpenLms() || area === 'learning') rail.append(railButton('space-knowledge', 'Learning', area === 'learning', () => go('/workspace/learning')));
@@ -449,6 +449,7 @@ function renderIndex() {
 
     const row = sectionRow({
       label: section.label,
+      hint: section.hint,
       mark: section.icon,
       depth: 0,
       active: active && !visibleChildren.some((c) => c.match(location.pathname)),
@@ -530,10 +531,17 @@ function workspaceChoice(workspace) {
   return row;
 }
 
-function sectionRow({ label, mark, depth, active, expandable, expanded, onToggle, onClick, series = '' }) {
+/* `hint` is the one-line answer to "what is in here?" drawn under a
+   section's name. The product is new to most people who open it, and a
+   column of bare nouns — Assets, Planning, Opportunities — asks them to
+   click each one to find out, which reads as a test rather than a welcome.
+   The label keeps its own span, untouched, because ws-actionable-ui and
+   ws-research-actions read `.ws-node__label` to recognise a section. */
+function sectionRow({ label, hint = '', mark, depth, active, expandable, expanded, onToggle, onClick, series = '' }) {
   const wrap = document.createElement('div');
   wrap.className = 'ws-node';
   if (expanded) wrap.setAttribute('data-open', '');
+  if (hint) wrap.dataset.hinted = '';
 
   const row = document.createElement('button');
   row.className = 'ws-node__row';
@@ -571,6 +579,7 @@ function sectionRow({ label, mark, depth, active, expandable, expanded, onToggle
   text.textContent = label;
 
   row.append(glyph, text);
+  if (hint) row.append(el('span', 'ws-node__hint', hint));
   row.addEventListener('click', onClick);
   // Arrow keys still expand from the row, which is where the hand already is.
   row.addEventListener('keydown', (event) => {
@@ -632,7 +641,7 @@ function pageNode(node, depth) {
 
   const glyph = document.createElement('span');
   glyph.className = 'ws-node__icon';
-  glyph.innerHTML = icon(node.kind === 'folder' ? 'projects' : node.kind === 'journal' ? 'meeting' : 'notes');
+  glyph.innerHTML = icon(node.kind === 'folder' ? 'projects' : node.kind === 'journal' ? 'calendar' : 'notes');
 
   const text = document.createElement('span');
   text.className = 'ws-node__label';
@@ -1102,7 +1111,7 @@ function renderFolder(host) {
 
 const DOCK_TABS = [
   { id: 'tasks',     label: 'Tasks' },
-  { id: 'journal',   label: 'Journal' },
+  { id: 'journal',   label: 'Calendar' },
   { id: 'links',     label: 'Links' },
 ];
 

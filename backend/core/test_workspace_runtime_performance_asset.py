@@ -45,15 +45,15 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
     def test_workspace_cache_busts_all_performance_modules(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         for name in (
-            'ws-notes-performance.js',
             'ws-research-actions.js',
             'ws-project-actions.js',
             'ws-task-deck-mirror.js',
             'ws-actionable-ui.js',
         ):
             self.assertIn(f'/assets/ws/{name}?v=20260920-perf1', html)
+        self.assertIn('/assets/ws/ws-task-deck-fixes.js?v=20260924-rhythm1', html)
         for name in (
-            'ws-task-deck-fixes.js',
+            'ws-notes-performance.js',
             'ws-space-integration.js',
         ):
-            self.assertIn(f'/assets/ws/{name}?v=20260924-rhythm1', html)
+            self.assertIn(f'/assets/ws/{name}?v=20261002-notebook1', html)

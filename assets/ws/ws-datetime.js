@@ -94,7 +94,7 @@ export function dateTimeField({ placeholder = 'Due date', className = 'v-input f
   trigger.setAttribute('aria-haspopup', 'dialog');
   trigger.setAttribute('aria-expanded', 'false');
   const icon = el('span', 'ws-dt__icon');
-  icon.innerHTML = glyph('meeting');
+  icon.innerHTML = glyph('calendar');
   const text = el('span', 'ws-dt__text');
   trigger.append(icon, text);
   const clear = button('ws-dt__clear', null, 'Clear date');
