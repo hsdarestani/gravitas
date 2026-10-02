@@ -1187,3 +1187,46 @@ html .au-modal {
 #ws-view .research-action-toolbar > .v-note {
   margin: 0 0 0 auto;
 }
+
+/* A file input is the one control the browser still draws itself: a grey
+   "Choose File" bevel that ignores the theme and sits in a .v-input box like a
+   foreign object. The box stays; the button inside it becomes a .ws-btn, and
+   the "No file chosen" text drops to the muted tone every other hint uses. */
+#ws-view input[type="file"],
+html .ws-action-dialog input[type="file"],
+html .au-modal input[type="file"] {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px 3px 3px !important;
+  color: var(--g-text-muted) !important;
+  font: inherit;
+  font-size: var(--ws-fs-sm);
+  cursor: pointer;
+}
+#ws-view input[type="file"]::file-selector-button,
+html .ws-action-dialog input[type="file"]::file-selector-button,
+html .au-modal input[type="file"]::file-selector-button {
+  height: 26px;
+  margin: 0 10px 0 0;
+  padding: 0 12px;
+  border: 1px solid var(--g-border);
+  border-radius: 6px;
+  background: var(--g-surface-raised, transparent);
+  color: var(--g-text);
+  font: inherit;
+  font-weight: var(--g-w-medium);
+  cursor: pointer;
+  transition: background-color var(--g-dur-fast) var(--ws-ease),
+              border-color var(--g-dur-fast) var(--ws-ease);
+}
+#ws-view input[type="file"]:hover::file-selector-button,
+html .ws-action-dialog input[type="file"]:hover::file-selector-button,
+html .au-modal input[type="file"]:hover::file-selector-button {
+  background: var(--g-surface-hover);
+  border-color: var(--g-border-strong);
+}
+#ws-view input[type="file"]:disabled,
+#ws-view input[type="file"]:disabled::file-selector-button {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

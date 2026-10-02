@@ -71,17 +71,17 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         runtime = (ROOT / 'assets' / 'ws' / 'ws-design-runtime.js').read_text(encoding='utf-8')
 
         for marker in (
-            '/assets/ws/ws-app.js?v=20261002-hints1',
-            '/assets/ws/ws-five-layer.js?v=20261002-hints1',
+            '/assets/ws/ws-app.js?v=20261002-file1',
+            '/assets/ws/ws-five-layer.js?v=20261002-file1',
             '/assets/ws/ws-nextcloud-native.js?v=20261002-notebook1',
-            '/assets/ws/ws-unified-design.css?v=20261002-hints1',
-            '/assets/ws/ws-design-runtime.js?v=20261002-hints1',
+            '/assets/ws/ws-unified-design.css?v=20261002-file1',
+            '/assets/ws/ws-design-runtime.js?v=20261002-file1',
         ):
             self.assertIn(marker, html)
 
         self.assertIn("./ws-research.js?v=20261002-calendar1", app)
-        self.assertIn("./ws-nav.js?v=20261002-hints1", app)
+        self.assertIn("./ws-nav.js?v=20261002-file1", app)
         self.assertIn("./ws-home.js?v=20261001-series1", app)
         self.assertIn("./ws-member-lms.js?v=20261002-tabs1", five)
         self.assertIn("./ws-member-progress.js?v=20260924-unify1", five)
-        self.assertIn("DESIGN_VERSION = '20261002-hints1'", runtime)
+        self.assertIn("DESIGN_VERSION = '20261002-file1'", runtime)

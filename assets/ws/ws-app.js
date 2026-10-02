@@ -30,7 +30,7 @@ import * as research from './ws-research.js?v=20261002-calendar1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20261002-hints1';
+} from './ws-nav.js?v=20261002-file1';
 import { renderDashboard, stopClock } from './ws-home.js?v=20261001-series1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
