@@ -1319,7 +1319,7 @@ ul.stance { list-style: none; }
    the bodies. On light the same job needs the opposite value. */
 :root[data-theme="light"] .lp-orbit::before {
   background: radial-gradient(closest-side,
-    rgb(255 255 255 / .9), rgb(255 255 255 / .55) 55%, rgb(255 255 255 / 0) 100%);
+    rgb(255 255 255 / .55), rgb(255 255 255 / .3) 55%, rgb(255 255 255 / 0) 100%);
 }
 
 /* Cards on a white page need an edge, not a glow, or they dissolve into the

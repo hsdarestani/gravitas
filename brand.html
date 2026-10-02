@@ -21,7 +21,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <meta name="robots" content="noindex, follow">
 <link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
-<link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09">
+<link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-well1">
 
 <link rel="stylesheet" href="assets/brand.css?v=up-f706806e3a02-g1df6ff09">
 <link rel="stylesheet" href="assets/chat.css?v=20260924-pulsar7">
@@ -1537,10 +1537,11 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <pre class="g-code"><code>assets/
   gravitas.css   <span class="c-com">design system: tokens, base, layout, components, utilities</span>
   site.css       <span class="c-com">components this architecture needs, built on the system</span>
-  hero.css       <span class="c-com">home page hero only</span>
+  hero.css       <span class="c-com">home and community heroes</span>
   chat.css       <span class="c-com">Ask Pulsar launcher and panel</span>
   site.js        <span class="c-com">header, menu, theme toggle, filters, depth switch</span>
   hero.js        <span class="c-com">orbit, grid, meteors, comet</span>
+  community-hero.js <span class="c-com">the community hero's many-body disc</span>
   chat.js        <span class="c-com">the assistant router</span></code></pre>
   <p><code>gravitas.css</code> is the source of truth and should be edited, not re-derived.
     Anything it does not already provide goes in the shared second stylesheet, never into the

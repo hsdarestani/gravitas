@@ -3113,3 +3113,31 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
   }
   .ws-dt-pop__link:hover { color: var(--g-text); text-decoration: underline; text-underline-offset: 3px; }
 }
+
+/* ==========================================================================
+   DRAFTING GRID
+   The public hero's lattice, under the document pane, at a fraction of its
+   ink. On the public site the grid is spacetime being bent; here it is the
+   cutting mat: the same 52px cell, perfectly straight, there to say "this is
+   a working surface" and nothing more. It sits on .ws-main, which never
+   scrolls, so the lattice stays put while pages scroll over it, the way
+   paper moves on a drafting table.
+
+   The fade is painted, not masked: a radial wash of the page colour over the
+   lines, so no stacking context or positioning is added to the pane and
+   nothing inside it changes containing block. The index and dock stay plain;
+   a grid in every pane would read as noise rather than as a table.
+   ========================================================================== */
+@layer ws-panes {
+  .ws-main {
+    --ws-grid-ink: rgb(var(--g-canvas-line) / 0.045);
+    background-color: var(--g-bg);
+    background-image:
+      radial-gradient(120% 95% at 50% 0%, transparent 30%, var(--g-bg) 100%),
+      linear-gradient(to right, var(--ws-grid-ink) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--ws-grid-ink) 1px, transparent 1px);
+    background-size: 100% 100%, 52px 52px, 52px 52px;
+    background-position: 0 0, center top, center top;
+  }
+  :root[data-theme="light"] .ws-main { --ws-grid-ink: rgb(var(--g-canvas-line) / 0.06); }
+}

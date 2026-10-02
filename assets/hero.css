@@ -112,10 +112,12 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
 }
 /* The hero field is Cosmos Blue, which pulls every trail cool, a warm Sisal
    body composited over it reads blue. A soft Royal-Black well behind the
-   canvas lets the three bodies keep their own colour, and focuses the eye. */
+   canvas lets the three bodies keep their own colour, and focuses the eye.
+   Kept to about half the depth it once had: at .82 it read as a black hole
+   punched in the grid rather than a shade behind the figure. */
 .lp-orbit::before {
   content: ""; position: absolute; inset: -6% -6% 8%;
-  background: radial-gradient(closest-side, rgba(3,3,3,.82), rgba(3,3,3,.55) 55%, rgba(3,3,3,0) 100%);
+  background: radial-gradient(closest-side, rgba(3,3,3,.42), rgba(3,3,3,.24) 55%, rgba(3,3,3,0) 100%);
   pointer-events: none;
 }
 .lp-orbit__stage { position: relative; }
@@ -424,3 +426,26 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
   color: var(--g-text-subtle); margin-bottom: .15rem;
 }
 .lp-rt dd { margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); }
+
+/* ---- A trace of the hero grid ---------------------------------------------
+   Below the hero the deep bands were flat fills, and the page read as plain
+   the moment the grid stopped. Carrying the whole grid down would have argued
+   with the content, so two bands get a trace of it instead: the same 52px
+   cell, straight, faint, and fading out from one corner, so it reads as the
+   texture of that band rather than as a background behind the whole page.
+   Static on purpose. The hero is where the grid moves. */
+.lp-gridded { overflow: hidden; }
+.lp-gridded::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  --_ink: rgb(var(--g-canvas-line) / 0.07);
+  background-image:
+    linear-gradient(to right, var(--_ink) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--_ink) 1px, transparent 1px);
+  background-size: 52px 52px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(60% 85% at var(--_at, 100% 0%), #000, transparent 100%);
+          mask-image: radial-gradient(60% 85% at var(--_at, 100% 0%), #000, transparent 100%);
+}
+.lp-gridded--left::before { --_at: 0% 0%; }
+.lp-gridded > .g-container { position: relative; z-index: 1; }
+:root[data-theme="light"] .lp-gridded::before { --_ink: rgb(var(--g-canvas-line) / 0.08); }
