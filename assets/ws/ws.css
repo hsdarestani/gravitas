@@ -2438,7 +2438,91 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
   background: var(--g-bg);
 }
 .task-board__toolbar { position: static; margin-bottom: 4px; padding: 0; background: var(--g-bg); }
-.task-board__toolbar .task-board__input[type="search"] { min-width: min(360px, 52vw); }
+/* .task-board__input is width:100% for the dialog fields; in the toolbar the
+   controls size to their content instead of each taking a whole row. */
+.task-board__toolbar .task-board__input[type="search"] { flex: 1 1 260px; width: auto; min-width: min(260px, 100%) !important; max-width: 420px; }
+.task-board__toolbar select.task-board__input { flex: 0 0 auto; width: auto; min-width: 150px !important; max-width: 240px; }
+.task-board__toolbar .v-toolbar__count { margin-left: 4px; }
+@media (max-width: 640px) {
+  .task-board__toolbar select.task-board__input { flex: 1 1 140px; max-width: none; }
+}
+
+/* ---- Gravitas dropdown (ws-select.js) ----------------------------------
+   Every single-choice <select> in the workspace: one chevron and one open
+   state for the closed control, one option list drawn by ws-select.js. The
+   !important lines and the :is(#ws-view, body) prefix exist because
+   ws-unified-design.css sets `#ws-view .v-input { background: … !important }`
+   as a shorthand, which otherwise wipes the chevron off every select. */
+:root {
+  --ws-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23849397' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  --ws-select-chevron-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23d4c9be' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 7.5 6 4l3.5 3.5'/%3E%3C/svg%3E");
+}
+:root[data-theme="light"] {
+  --ws-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%235d7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  --ws-select-chevron-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%237b6242' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 7.5 6 4l3.5 3.5'/%3E%3C/svg%3E");
+}
+:is(#ws-view, body) select:not([multiple]):not([size]:not([size="1"])) {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  padding-right: 32px !important;
+  background-image: var(--ws-select-chevron) !important;
+  background-repeat: no-repeat !important;
+  background-position: right 11px center !important;
+  background-size: 12px 12px !important;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: border-color .15s ease;
+}
+:is(#ws-view, body) select:not([multiple]):not([size]:not([size="1"])):hover:not(:disabled) { border-color: var(--g-border-strong); }
+select:disabled { cursor: not-allowed; }
+:is(#ws-view, body) select.is-ws-select-open {
+  background-image: var(--ws-select-chevron-open) !important;
+  border-color: var(--g-accent) !important;
+  outline: 2px solid color-mix(in srgb, var(--g-accent) 24%, transparent);
+  outline-offset: 1px;
+}
+/* What the browser shows if ws-select.js is not running (touch input). */
+select option { background: var(--g-surface-raised); color: var(--g-text); }
+
+.ws-select-pop {
+  position: fixed; inset: auto; margin: 0; z-index: 1000;
+  box-sizing: border-box; width: max-content;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-sm, 6px);
+  background: var(--g-surface-raised); color: var(--g-text);
+  box-shadow: var(--g-shadow);
+  font-family: var(--g-font); font-size: var(--ws-fs-sm, 13px);
+  scrollbar-width: thin;
+  animation: ws-select-in .14s cubic-bezier(.2, .8, .2, 1);
+  transform-origin: top left;
+}
+.ws-select-pop.is-up { transform-origin: bottom left; }
+.ws-select-pop__group {
+  padding: 8px 10px 4px;
+  font-size: var(--ws-fs-xs, 11px); font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--g-text-subtle);
+}
+.ws-select-pop__group:not(:first-child) { margin-top: 4px; border-top: 1px solid var(--g-hairline); }
+.ws-select-pop__option {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  min-height: 32px; padding: 6px 10px;
+  border-radius: calc(var(--g-radius-sm, 6px) - 2px);
+  line-height: 1.3; white-space: nowrap;
+  color: var(--g-text-muted); cursor: pointer;
+}
+.ws-select-pop__option > span { overflow: hidden; text-overflow: ellipsis; }
+.ws-select-pop__option.is-active { background: var(--g-surface-hover); color: var(--g-text); }
+.ws-select-pop__option[aria-selected="true"] { color: var(--g-text); font-weight: 600; }
+.ws-select-pop__option[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.ws-select-pop__option[aria-disabled="true"].is-active { background: none; }
+.ws-select-pop__check { flex: none; width: 13px; height: 13px; color: var(--g-accent); }
+@keyframes ws-select-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.ws-select-pop.is-up { animation-name: ws-select-in-up; }
+@keyframes ws-select-in-up { from { opacity: 0; transform: translateY(4px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) {
+  .ws-select-pop { animation: none; }
+}
 .task-board__top-scroll {
   width: 100%;
   height: 14px;

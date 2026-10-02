@@ -918,6 +918,8 @@ export function renderCoreTasks(host, { go }) {
       if (!data.can_edit) {
         add.disabled = true;
       }
+      ownerFilter.setAttribute('aria-label', 'Filter by owner');
+      priorityFilter.setAttribute('aria-label', 'Filter by priority');
       toolbar.append(search, ownerFilter, priorityFilter, sortFilter, count, add);
 
       const topScroll = el('div', 'task-board__top-scroll');

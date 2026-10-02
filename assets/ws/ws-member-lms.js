@@ -3472,6 +3472,29 @@ function courseTabs(course, data, options) {
   const wanted = location.hash.replace(/^#/, '');
   let active = tabs.some(([key]) => key === wanted) ? wanted : (course.enrolled ? 'content' : 'overview');
 
+  /* Panes differ a lot in height: Discussion carries a 32rem chat, Notes is
+     often one empty state. Swapping a tall pane for a short one shrank the
+     scroller under the reader, so the browser clamped scrollTop and the page
+     jumped upwards. Before the swap the panel holds its old height. After
+     the swap the scroll position is put back: the reader's own place, or,
+     when the tab bar was stuck, the point where the bar sticks, so the new
+     pane starts right under it. The panel is then given only the height
+     that position needs. */
+  const keepPlace = () => {
+    const scroller = box.closest('.ws-view');
+    if (!scroller) return () => {};
+    const top = scroller.scrollTop;
+    panel.style.minHeight = `${panel.offsetHeight}px`;
+    return () => {
+      const stick = box.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+      const target = Math.min(top, Math.max(0, stick));
+      panel.style.minHeight = '';
+      const short = target + scroller.clientHeight - scroller.scrollHeight;
+      if (short > 0) panel.style.minHeight = `${panel.offsetHeight + short}px`;
+      scroller.scrollTop = target;
+    };
+  };
+
   const select = async (key, remember) => {
     active = key;
     for (const [name, button] of buttons) {
@@ -3480,8 +3503,10 @@ function courseTabs(course, data, options) {
       button.tabIndex = on ? 0 : -1;
     }
     if (remember) history.replaceState(history.state, '', `${location.pathname}${location.search}#${key}`);
+    const restore = keepPlace();
     let pane = panes.get(key);
-    if (!pane) {
+    const fresh = !pane;
+    if (fresh) {
       pane = el('div', 'flc-tabpanel__pane');
       pane.id = `flc-tab-${key}`;
       pane.setAttribute('role', 'tabpanel');
@@ -3489,13 +3514,17 @@ function courseTabs(course, data, options) {
       pane.append(el('div', 'fl-skeleton'));
       panel.append(pane);
       panes.set(key, pane);
-      try {
-        pane.replaceChildren(...(await build(key)).filter(Boolean));
-      } catch (error) {
-        pane.replaceChildren(empty('This section could not be loaded', error?.message || 'Try again.'));
-      }
     }
+    // Hide the old pane now rather than after the build, or both panes stand
+    // stacked while a slow one (Overview waits on the plan) loads.
     for (const [name, node] of panes) node.hidden = name !== active;
+    restore();
+    if (!fresh) return;
+    try {
+      pane.replaceChildren(...(await build(key)).filter(Boolean));
+    } catch (error) {
+      pane.replaceChildren(empty('This section could not be loaded', error?.message || 'Try again.'));
+    }
   };
 
   for (const [key, text] of tabs) {

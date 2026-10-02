@@ -21,7 +21,7 @@
 
 import * as api from './ws-api.js?v=20260913-3';
 import * as P from './ws-platform.js?v=20260926-calendar2';
-import * as views from './ws-views.js?v=20261001-pulsar1';
+import * as views from './ws-views.js?v=20261002-dropdown2';
 import * as meetings from './ws-meetings.js?v=20260926-calendar6';
 import * as assets from './ws-core-assets.js?v=20260926-links1';
 import * as kms from './ws-kms-views.js';
@@ -35,6 +35,7 @@ import { renderDashboard, stopClock } from './ws-home.js?v=20261001-series1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { installAssistant, askAssistant } from './ws-ai.js?v=20260930-project-grants1';
+import { installSelects } from './ws-select.js?v=20261002-dropdown2';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1703,6 +1704,7 @@ function initTheme() {
 
 export async function start() {
   initTheme();
+  installSelects();
   installAssistant({ go });
 
   const prefs = readPrefs();

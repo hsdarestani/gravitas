@@ -364,6 +364,11 @@
   z-index: 80;
   pointer-events: none;
 }
+/* The drawer is appended into the course doc, so the sibling rhythm in
+   ws-unified-design.css (`.ws-doc--wide > * + * { margin-top }`) reached it,
+   and a margin on a fixed, inset:0 box moves the box: the sheet and scrim
+   started a gutter below the window top, leaving the topbar showing above. */
+#ws-view .flc-drawer { margin: 0 !important; }
 .flc-drawer[data-open="true"] { pointer-events: auto; }
 .flc-drawer__scrim {
   position: absolute;
@@ -783,6 +788,10 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--g-accent) 35%, transparent);
 }
 .flc-tabpanel__pane { display: grid; gap: 12px; }
+/* A tall tab overflows the view and a short one does not. Without a standing
+   gutter the scrollbar comes and goes between tabs and the centred course
+   page shifts sideways by its width. */
+.ws-view:has(.flc-tabbed) { scrollbar-gutter: stable; }
 
 /* ---- Course content ---------------------------------------------------------- */
 .flc-curriculum { display: grid; gap: 10px; }

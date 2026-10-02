@@ -41,7 +41,12 @@ function installStyle() {
   style.id = 'ws-task-deck-mirror-style';
   style.textContent = `
     .ws-core-deck-mirror { margin:0 0 18px; }
-    .ws-core-deck-mirror .v-panel__body { display:grid; gap:10px; }
+    /* The lead lives in the body rather than a .v-panel__head, so the body
+       carries the head's padding itself; the #ws-view prefix outranks the
+       unified 0 6px 10px body padding meant for row lists. */
+    #ws-view .ws-core-deck-mirror .v-panel__body,
+    .ws-core-deck-mirror .v-panel__body { display:grid; gap:12px; padding:16px 18px; }
+    .ws-core-deck-mirror .v-toolbar { margin:0; }
     .ws-core-deck-mirror__lead { display:grid; gap:4px; }
     .ws-core-deck-mirror__lead h2 { margin:0; font-size:1rem; }
     .ws-core-deck-mirror__lead p { margin:0; max-width:900px; }
