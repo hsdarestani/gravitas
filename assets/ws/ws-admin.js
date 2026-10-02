@@ -1,311 +1,276 @@
+/* ==========================================================================
+   GRAVITAS+ WORKSPACE  ·  PLATFORM ADMIN
+   Users & Access, Moderation, Newsletter, Support tickets, Interactive Lab,
+   LMS, Research, Activity and Nextcloud Deck. Topics live in
+   ws-topic-admin.js, Links in ws-core-links.js, the Mirror in
+   ws-nextcloud-native.js; all four draw with ws-admin-kit.js.
+
+   This module was rebuilt for one reason: it looked like a different
+   product from the workspace it sits in. Every screen was a stack of
+   full-width boxes in the old `fl-` vocabulary, forms put a hint under one
+   field and pushed its row out of line, each product layer on an account
+   became its own card around a full-width select, the save button sat
+   under a screen of controls, LMS Admin was one scroll eleven cards long,
+   and audit detail was printed as raw JSON.
+
+   What changed is presentation only. Every route, request and payload is
+   the one the screens sent before; the server stays the only judge of what
+   an administrator may do. What the screens do now:
+
+     - open with the shared page head and, where there is something to
+       count, the Dashboard's tile row;
+     - lay their cards on the twelve-column bento, side by side where the
+       content is short, instead of stacking everything at full width;
+     - split pages that are really several tools (LMS, a course) into the
+       course screen's tabs, kept in the URL hash;
+     - give on/off settings a switch row, product grants a grant row, and
+       every long form a save bar that stays in reach.
+   ========================================================================== */
+
 import * as P from './ws-platform.js?v=20260919-planning1';
+import * as K from './ws-admin-kit.js?v=20261002-admin1';
 import { courseCover } from './ws-course-cover.js?v=20261001-cover1';
 
-const el = (tag, cls, text) => {
-  const node = document.createElement(tag);
-  if (cls) node.className = cls;
-  if (text != null) node.textContent = text;
-  return node;
-};
-
-const label = (value) => P.label(value || '');
+const { el, label, C } = K;
 const date = (value) => P.formatDate(value);
+const action = (text, handler, solid = false, tiny = false) => K.button(text, handler, { solid, tiny });
+const link = (go, text, href, solid = false) => K.link(go, text, href, { solid });
 
-function doc(host, title, subtitle = '') {
-  host.innerHTML = '';
-  const wrap = el('div', 'ws-doc ws-doc--wide fl-doc');
-  const head = el('header', 'ws-doc__head fl-head');
-  head.append(el('span', 'fl-eyebrow', 'CORE / PLATFORM ADMIN'));
-  head.append(el('h1', 'ws-doc__title', title));
-  if (subtitle) head.append(el('p', 'ws-doc__meta', subtitle));
-  wrap.append(head);
-  host.append(wrap);
-  return wrap;
+/* A card on the bento. Named `section` because that is what each block of
+   an admin screen is, and the tests that pin which blocks exist read it. */
+function section(title, note = '', span = 12, actions = []) {
+  return K.card({ title, note, span, actions });
 }
 
-function loading(host, title) {
-  const wrap = doc(host, title);
-  const grid = el('div', 'fl-skeleton-grid');
-  for (let i = 0; i < 7; i += 1) grid.append(el('div', 'fl-skeleton'));
-  wrap.append(grid);
-}
+function statusLine() { return K.status(); }
+const setStatus = K.setStatus;
 
-function action(text, handler, solid = false, tiny = false) {
-  const button = el('button', `${solid ? 'ws-btn ws-btn--solid' : 'ws-btn'}${tiny ? ' ws-btn--tiny' : ''}`, text);
-  button.type = 'button';
-  button.addEventListener('click', handler);
-  return button;
-}
+const ADMIN = '/workspace/core/admin';
 
-function link(go, text, href, solid = false) {
-  return action(text, () => go(href), solid);
-}
-
-function badge(text, tone = '') {
-  const node = el('span', 'v-badge fl-badge', text);
-  if (tone) node.dataset.tone = tone;
-  return node;
-}
-
-function metric(value, title, note = '') {
-  const node = el('div', 'fl-metric wc-tile');
-  node.append(el('strong', 'fl-metric__value wc-tile__value', String(value ?? 0)));
-  node.append(el('span', 'fl-metric__title wc-tile__label', title));
-  if (note) node.append(el('small', 'fl-muted', note));
-  return node;
-}
-
-function section(title, note = '') {
-  const box = el('section', 'fl-panel wc-card');
-  const head = el('div', 'fl-panel__head wc-card__head');
-  const text = el('div');
-  text.append(el('h2', 'fl-panel__title wc-card__title', title));
-  if (note) text.append(el('p', 'fl-muted', note));
-  head.append(text);
-  const body = el('div', 'fl-panel__body wc-card__body');
-  box.append(head, body);
-  return { box, body, head };
-}
-
-function empty(title, copy) {
-  const node = el('div', 'fl-state');
-  node.append(el('strong', null, title), el('p', 'fl-muted', copy));
-  return node;
-}
-
-function fail(host, title, error, retry) {
-  const wrap = doc(host, title);
-  const node = empty('This administration view could not be loaded.', error?.message || 'The server did not return a usable response.');
-  if (retry) node.append(action('Retry', retry, true));
-  wrap.append(node);
-}
-
-function row({ title, meta = '', body = '', badges = [], onClick = null, actions = [] }) {
-  const node = el(onClick ? 'button' : 'div', `fl-row wc-item${onClick ? ' fl-row--button wc-item--button' : ''}`);
-  if (onClick) {
-    node.type = 'button';
-    node.addEventListener('click', onClick);
-  }
-  const main = el('div', 'fl-row__main wc-item__main');
-  main.append(el('strong', 'wc-item__title', title || 'Untitled'));
-  if (meta) main.append(el('small', 'fl-muted wc-item__meta', meta));
-  if (body) main.append(el('p', 'fl-row__body', body));
-  if (badges.length) {
-    const strip = el('div', 'fl-badges');
-    badges.filter(Boolean).forEach((item) => strip.append(badge(item)));
-    main.append(strip);
-  }
-  node.append(main);
-  if (actions.length) {
-    const tools = el('div', 'fl-row__actions');
-    actions.forEach((item) => tools.append(item));
-    node.append(tools);
-  }
-  return node;
-}
-
-function field(labelText, control, hint = '') {
-  const wrap = el('label', 'fl-field');
-  wrap.append(el('span', 'fl-field__label', labelText), control);
-  if (hint) wrap.append(el('small', 'fl-muted', hint));
-  return wrap;
-}
-
-function input(value = '', type = 'text', placeholder = '') {
-  const node = el('input', 'v-input fl-input');
-  node.type = type;
-  node.value = value ?? '';
-  node.placeholder = placeholder;
-  return node;
-}
-
-function textarea(value = '', rows = 4) {
-  const node = el('textarea', 'v-input fl-input fl-textarea');
-  node.value = value ?? '';
-  node.rows = rows;
-  return node;
-}
-
-function select(options, value) {
-  const node = el('select', 'v-input fl-input');
-  for (const [optionValue, text] of options) {
-    const option = el('option', null, text);
-    option.value = optionValue;
-    option.selected = String(optionValue) === String(value ?? '');
-    node.append(option);
-  }
-  return node;
-}
-
-function checkbox(checked, text) {
-  const wrap = el('label', 'fl-check');
-  const node = document.createElement('input');
-  node.type = 'checkbox';
-  node.checked = !!checked;
-  wrap.append(node, el('span', null, text));
-  return { wrap, input: node };
-}
-
-function statusLine() {
-  return el('p', 'fl-form-status fl-muted');
-}
-
-function setStatus(node, text, tone = '') {
-  node.textContent = text;
-  if (tone) node.dataset.tone = tone;
-  else node.removeAttribute('data-tone');
-}
-
-function slugify(value) {
-  return String(value || '').toLowerCase().trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
+/* ==========================================================================
+   OVERVIEW
+   ========================================================================== */
 
 export async function renderAdminOverview(host, { go }) {
-  loading(host, 'Platform Admin');
+  K.loading(host, 'Platform Admin', { tiles: 6 });
   try {
     const [overview, deck] = await Promise.all([P.adminOverview(), P.adminDeck().catch(() => null)]);
-    const wrap = doc(host, 'Platform Admin', 'Control access, Topics, learning, research and Core execution from one place.');
+    const wrap = K.page(host, {
+      title: 'Platform Admin',
+      meta: 'Accounts and access, the public site, learning, research and Core execution — one place to run the platform.',
+      actions: [link(go, 'Users & access', `${ADMIN}/users`, true), link(go, 'Activity', `${ADMIN}/activity`)],
+    });
 
-    const metrics = el('div', 'fl-metrics');
-    metrics.append(
-      metric(overview.users.total, 'Accounts', `${overview.users.active_accounts} active`),
-      metric(overview.lms.active_enrollments, 'Active learners', `${overview.lms.courses_published} published courses`),
-      metric(overview.research.projects_total, 'Research projects'),
-      metric(overview.shell.comments_pending, 'Comments pending'),
-      metric(overview.shell.content_published, 'Published content'),
-      metric(overview.activity_events, 'Audit events'),
-    );
-    wrap.append(metrics);
-
-    const grid = el('div', 'fl-admin-grid');
-    const surfaces = [
-      ['Users & Access', 'Community identity, account status and independent Dashboard/LMS/Research/Core entitlements.', '/workspace/core/admin/users', `${overview.users.total} accounts`],
-      ['Topics', 'Create and manage the Topic pages published across the public site.', '/workspace/core/admin/content', `${overview.shell.content_draft} drafts`],
-      ['Moderation', 'Review public comments without mixing them with private research discussions.', '/workspace/core/admin/moderation', `${overview.shell.comments_pending} pending`],
-      ['LMS Admin', 'Course authoring, enrollment state, completion overrides and certificates.', '/workspace/core/admin/lms', `${overview.lms.courses_total} courses`],
-      ['Research Admin', 'Project metadata, secure-room policy, membership and Nextcloud project access.', '/workspace/core/admin/research', `${overview.research.projects_total} projects`],
-      ['Activity', 'Cross-layer audit trail for administrative and product events.', '/workspace/core/admin/activity', `${overview.activity_events} events`],
-      ['Nextcloud Deck', 'Mirror canonical Core tasks into a native Deck execution board.', '/workspace/core/admin/deck', deck?.board ? 'Connected' : (deck?.configured ? 'Ready to initialize' : 'Not configured')],
+    const users = overview.users || {};
+    const lms = overview.lms || {};
+    const research = overview.research || {};
+    const shell = overview.shell || {};
+    const tiles = [
+      K.tile({ value: users.total, label: 'Accounts', icon: 'team', featured: true, part: users.active_accounts, total: users.total, onClick: () => go(`${ADMIN}/users`) }),
+      K.tile({ value: lms.active_enrollments, label: 'Active learners', icon: 'course', note: `${lms.courses_published || 0} published courses`, onClick: () => go(`${ADMIN}/lms`) }),
+      K.tile({ value: research.projects_total, label: 'Research projects', icon: 'space-research', note: 'Across every workspace', onClick: () => go(`${ADMIN}/research`) }),
+      K.tile({ value: shell.comments_pending, label: 'Comments pending', icon: 'moderation', note: shell.comments_pending ? 'Waiting for review' : 'Nothing waiting', onClick: () => go(`${ADMIN}/moderation`) }),
+      K.tile({ value: shell.content_published, label: 'Published content', icon: 'topic', note: `${shell.content_draft || 0} drafts`, onClick: () => go(`${ADMIN}/content`) }),
+      K.tile({ value: overview.activity_events, label: 'Audit events', icon: 'activity', note: 'All layers', onClick: () => go(`${ADMIN}/activity`) }),
     ];
-    for (const [title, body, href, meta] of surfaces) {
-      const card = el('button', 'fl-admin-card');
-      card.type = 'button';
-      card.append(el('span', 'fl-eyebrow', meta), el('strong', 'fl-admin-card__title', title), el('p', 'fl-muted', body));
-      card.addEventListener('click', () => go(href));
-      grid.append(card);
-    }
-    wrap.append(grid);
 
-    const layers = section('Layer access state', 'Configured grants are not community roles. Core still requires actual Core membership.');
+    const surfaces = section('Administration', 'Every tool in Platform Admin, with what is waiting in it.', 8);
+    const entries = [
+      ['Users & Access', 'Identity, account status and per-layer grants', `${ADMIN}/users`, 'team', `${users.total || 0} accounts`],
+      ['Topics', 'Topic pages published across the public site', `${ADMIN}/content`, 'topic', `${shell.content_draft || 0} drafts`],
+      ['Moderation', 'Public comments, kept apart from private research discussion', `${ADMIN}/moderation`, 'moderation', shell.comments_pending ? [`${shell.comments_pending} pending`, 'warn'] : 'Clear'],
+      ['LMS', 'Courses, enrollments, analytics, paths and payments', `${ADMIN}/lms`, 'course', `${lms.courses_total || 0} courses`],
+      ['Research', 'Project policy, secure rooms and membership', `${ADMIN}/research`, 'space-research', `${research.projects_total || 0} projects`],
+      ['Activity', 'Cross-layer audit trail', `${ADMIN}/activity`, 'activity', `${overview.activity_events || 0} events`],
+      ['Nextcloud Deck', 'Core tasks mirrored to a native Deck board', `${ADMIN}/deck`, 'board',
+        deck?.board ? ['Connected', 'ok'] : deck?.configured ? ['Ready to initialize', 'warn'] : ['Not configured', 'bad']],
+    ];
+    surfaces.body.append(K.list(entries.map(([title, meta, href, mark, state], index) => K.row({
+      title, meta, onClick: () => go(href),
+      lead: K.avatar(title, { mark, series: (index % 4) + 1 }),
+      badges: [Array.isArray(state) ? K.badge(state[0], state[1]) : K.badge(state)],
+    }))));
+
+    const layers = section('Layer access', 'Enabled grants out of configured ones. A grant is not a community role, and Core still needs Core membership.', 4);
+    const bars = el('div', 'adm-list');
     for (const [key, value] of Object.entries(overview.layers || {})) {
-      layers.body.append(row({ title: label(key), meta: `${value.enabled} enabled · ${value.configured} configured` }));
+      const line = el('button', 'adm-row');
+      line.type = 'button';
+      const bar = el('div', 'adm-bar');
+      const head = el('div', 'adm-bar__head');
+      head.append(el('strong', null, LAYER_NAMES[key] || label(key)), el('span', null, `${value.enabled} of ${value.configured} enabled`));
+      const share = value.configured ? Math.round((value.enabled / value.configured) * 100) : 0;
+      bar.append(head, C.meter(share));
+      line.append(bar);
+      line.addEventListener('click', () => go(key === 'lms' ? `${ADMIN}/lms` : key === 'research' ? `${ADMIN}/research` : key === 'core' ? '/workspace/core/team' : `${ADMIN}/users`));
+      bars.append(line);
     }
-    wrap.append(layers.box);
+    if (!bars.childElementCount) bars.append(K.empty('No layer grants are configured yet.'));
+    layers.body.append(bars);
+
+    wrap.append(K.tiles(tiles), K.bento([surfaces.box, layers.box]));
   } catch (error) {
-    fail(host, 'Platform Admin', error, () => renderAdminOverview(host, { go }));
+    K.failure(host, 'Platform Admin', error, () => renderAdminOverview(host, { go }));
   }
+}
+
+/* ==========================================================================
+   USERS & ACCESS
+   ========================================================================== */
+
+const MODULES = [
+  ['lms', 'LMS', 'course', 'Courses, enrollment and certificates.'],
+  ['research', 'Research', 'space-research', 'Research projects this account can see or join.'],
+  ['core', 'Core', 'space-core', 'Core operations. Also needs a Core workspace membership.'],
+];
+
+function moduleBadges(user) {
+  return MODULES
+    .filter(([key]) => user.modules?.[key]?.enabled)
+    .map(([, name]) => K.badge(name));
 }
 
 export async function renderAdminUsers(host, { go }) {
-  loading(host, 'Users & Access');
+  K.loading(host, 'Users & Access', { tiles: 0, cards: [12] });
   try {
-    const wrap = doc(host, 'Users & Access', 'Community role describes identity. Module grants authorize product layers independently.');
-    const toolbar = el('div', 'fl-toolbar');
-    const search = input('', 'search', 'Search name or email');
-    const count = el('span', 'fl-muted');
-    toolbar.append(search, count);
-    wrap.append(toolbar);
+    const wrap = K.page(host, {
+      title: 'Users & Access',
+      meta: 'Community role describes who someone is. Grants decide which product layers they can open, one layer at a time.',
+    });
     const box = section('Accounts');
-    wrap.append(box.box);
+    let users = [];
+    let filter = '';
+    const counter = el('span', 'adm-count');
+    const listHost = el('div');
 
-    let timer = null;
-    const load = async () => {
-      box.body.innerHTML = '';
-      box.body.append(el('div', 'fl-skeleton'));
+    const draw = () => {
+      const shown = users.filter((user) => !filter
+        || (filter === 'disabled' ? !user.account_active : user.community_status === filter));
+      counter.textContent = `${shown.length} of ${users.length} account${users.length === 1 ? '' : 's'}`;
+      if (!shown.length) {
+        listHost.replaceChildren(K.empty(users.length ? 'No account in this filter.' : 'No matching accounts. Try another name or email.'));
+        return;
+      }
+      listHost.replaceChildren(K.list(shown.map((user, index) => K.row({
+        title: user.name || user.email,
+        meta: P.meta([user.email, label(user.community_role)]),
+        lead: K.avatar(user.name || user.email, { series: (index % 4) + 1 }),
+        badges: [
+          ...moduleBadges(user),
+          user.account_active ? K.stateBadge(user.community_status) : K.badge('Sign-in off', 'bad'),
+        ],
+        onClick: () => go(`${ADMIN}/users/${user.id}`),
+      }))));
+    };
+
+    const load = async (query = '') => {
+      listHost.replaceChildren(el('div', 'fl-skeleton adm-skeleton'));
       try {
-        const data = await P.adminUsers(search.value.trim());
-        box.body.innerHTML = '';
-        count.textContent = `${data.returned} account${data.returned === 1 ? '' : 's'}`;
-        if (!data.users.length) box.body.append(empty('No matching accounts', 'Try another name or email.'));
-        for (const user of data.users) {
-          const modules = Object.entries(user.modules || {}).filter(([, value]) => value.enabled).map(([key]) => label(key));
-          box.body.append(row({
-            title: user.name,
-            meta: P.meta([user.email, label(user.community_role), label(user.community_status)]),
-            badges: [user.account_active ? 'Account active' : 'Account disabled', ...modules],
-            onClick: () => go(`/workspace/core/admin/users/${user.id}`),
-          }));
-        }
+        const data = await P.adminUsers(query);
+        users = data.users || [];
+        draw();
       } catch (error) {
-        box.body.innerHTML = '';
-        box.body.append(empty('Accounts could not be loaded', error?.message || 'Try again.'));
+        listHost.replaceChildren(K.empty(error?.message || 'Accounts could not be loaded.', [action('Retry', () => load(query))]));
       }
     };
-    search.addEventListener('input', () => {
-      clearTimeout(timer);
-      timer = setTimeout(load, 220);
-    });
+
+    const finder = K.search('Search name or email', load);
+    const states = K.choices([['', 'All'], ['active', 'Active'], ['invited', 'Invited'], ['suspended', 'Suspended'], ['disabled', 'Sign-in off']], '', (value) => { filter = value; draw(); });
+    box.body.append(K.toolbar([finder.wrap, states], [counter]), listHost);
+    wrap.append(K.bento([box.box]));
     await load();
   } catch (error) {
-    fail(host, 'Users & Access', error, () => renderAdminUsers(host, { go }));
+    K.failure(host, 'Users & Access', error, () => renderAdminUsers(host, { go }));
   }
 }
 
 export async function renderAdminUser(host, id, { go }) {
-  loading(host, 'Account');
+  K.loading(host, 'Account', { tiles: 0, cards: [8, 4] });
   try {
     const data = await P.adminUser(id);
     const user = data.user;
-    const wrap = doc(host, user.name, user.email);
-    const form = el('form', 'fl-form');
-    const grid = el('div', 'fl-form-grid');
-    const role = select([
-      ['member', 'Member'], ['learner', 'Learner'], ['researcher', 'Researcher'], ['team', 'Gravitas+ Team'],
-    ], user.community_role);
-    const status = select([['invited', 'Invited'], ['active', 'Active'], ['suspended', 'Suspended']], user.community_status);
-    const active = checkbox(user.account_active, 'Account can sign in');
-    grid.append(field('Community role', role, 'Descriptive identity; it does not authorize a layer.'), field('Community status', status), active.wrap);
-    form.append(grid);
+    const wrap = K.page(host, {
+      title: user.name || user.email,
+      meta: P.meta([user.email, label(user.community_role), label(user.community_status)]),
+      actions: [link(go, 'All users', `${ADMIN}/users`)],
+    });
 
-    const access = section('Product-layer access', 'Dashboard belongs to every active registered account. LMS and Research are independent. Core additionally requires Core workspace membership.');
+    const form = el('form', 'adm-form');
+
+    /* Product layers ---------------------------------------------------- */
+    const access = section('Product-layer access', 'Each layer is granted on its own. Turning one off keeps its level, so turning it back on restores it.', 8);
+    const grants = el('div', 'adm-grants');
+    const dashboard = el('div', 'adm-grant adm-grant--static');
+    const dashText = el('div', 'adm-grant__text');
+    dashText.append(el('span', 'adm-grant__name', 'Dashboard'), el('span', 'adm-grant__hint', 'Belongs to every active registered account.'));
+    dashboard.append(K.avatar('Dashboard', { mark: 'dashboard', series: 1 }), dashText, el('span', 'adm-grant__level', 'Always on'), el('span'));
+    grants.append(dashboard);
+
     const controls = {};
-    for (const module of ['lms', 'research', 'core']) {
+    MODULES.forEach(([module, name, mark, hint], index) => {
       const current = user.modules?.[module] || {};
-      const card = el('div', 'fl-access-card');
-      const enabled = checkbox(current.enabled, `Enable ${label(module)}`);
-      const level = select([
+      const line = el('div', 'adm-grant');
+      const text = el('div', 'adm-grant__text');
+      text.append(el('span', 'adm-grant__name', name), el('span', 'adm-grant__hint', hint));
+      const level = K.select([
         ['view', 'View'], ['participate', 'Participate'], ['edit', 'Edit'], ['manage', 'Manage'],
       ], current.access_level || (module === 'core' ? 'edit' : 'participate'));
-      card.append(enabled.wrap, field('Access level', level));
+      level.classList.add('adm-grant__level');
+      level.setAttribute('aria-label', `${name} access level`);
+      const enabled = el('input', 'adm-toggle');
+      enabled.type = 'checkbox';
+      enabled.setAttribute('role', 'switch');
+      enabled.setAttribute('aria-label', `Enable ${name}`);
+      enabled.checked = !!current.enabled;
+      line.append(K.avatar(name, { mark, series: index + 2 }), text, level, enabled);
+
       let workspaceRole = null;
       if (module === 'core') {
-        workspaceRole = select([['member', 'Member'], ['admin', 'Admin']], current.workspace_role === 'owner' ? 'admin' : (current.workspace_role || 'member'));
-        card.append(field('Core membership role', workspaceRole, current.workspace_role === 'owner' ? 'Owner membership is preserved.' : 'Core grant alone never manufactures access.'));
+        workspaceRole = K.select([['member', 'Member'], ['admin', 'Admin']], current.workspace_role === 'owner' ? 'admin' : (current.workspace_role || 'member'));
+        workspaceRole.setAttribute('aria-label', 'Core membership role');
+        const extra = el('div', 'adm-grant__extra');
+        extra.append(
+          el('span', 'adm-grant__hint', current.workspace_role === 'owner'
+            ? 'Core membership role. Owner membership is preserved.'
+            : 'Core membership role. A Core grant alone never manufactures access.'),
+          workspaceRole,
+        );
+        line.append(extra);
       }
-      controls[module] = { enabled: enabled.input, level, workspaceRole };
-      access.body.append(card);
-    }
-    form.append(access.box);
+      const sync = () => line.toggleAttribute('data-off', !enabled.checked);
+      enabled.addEventListener('change', sync);
+      sync();
+      controls[module] = { enabled, level, workspaceRole };
+      grants.append(line);
+    });
+    access.body.append(grants);
+
+    /* Identity ---------------------------------------------------------- */
+    const identity = section('Account', 'Who this person is in the community, and whether they can sign in at all.', 4);
+    const role = K.select([
+      ['member', 'Member'], ['learner', 'Learner'], ['researcher', 'Researcher'], ['team', 'Gravitas+ Team'],
+    ], user.community_role);
+    const status = K.select([['invited', 'Invited'], ['active', 'Active'], ['suspended', 'Suspended']], user.community_status);
+    const active = K.toggle(user.account_active, 'Account can sign in', 'Off blocks sign-in without deleting anything.');
+    identity.body.append(
+      K.fields([
+        K.field('Community role', role, 'Descriptive identity; it does not authorize a layer.'),
+        K.field('Community status', status),
+      ], 1),
+      K.switches([active]),
+    );
 
     const line = statusLine();
-    const buttons = el('div', 'fl-form-actions');
-    const save = action('Save access', () => {}, true);
+    const save = action('Save access', null, true);
     save.type = 'submit';
-    buttons.append(save, link(go, 'Back to users', '/workspace/core/admin/users'));
-    form.append(buttons, line);
+    form.append(K.bento([access.box, identity.box]), K.foot([save, link(go, 'Cancel', `${ADMIN}/users`)], line));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       save.disabled = true;
       setStatus(line, 'Saving…');
       const modules = {};
       for (const [module, control] of Object.entries(controls)) {
-        modules[module] = {
-          enabled: control.enabled.checked,
-          access_level: control.level.value,
-        };
+        modules[module] = { enabled: control.enabled.checked, access_level: control.level.value };
         if (control.workspaceRole) modules[module].workspace_role = control.workspaceRole.value;
       }
       try {
@@ -316,244 +281,212 @@ export async function renderAdminUser(host, id, { go }) {
           modules,
         });
         setStatus(line, 'Access saved.', 'ok');
-        save.disabled = false;
       } catch (error) {
         setStatus(line, error?.message || 'Access was not saved.', 'bad');
+      } finally {
         save.disabled = false;
       }
     });
     wrap.append(form);
 
-    const activity = section('Account activity');
-    if (!data.activity.length) activity.body.append(empty('No recorded activity', 'Cross-layer activity for this account appears here.'));
-    for (const item of data.activity) activity.body.append(row({ title: label(item.action), meta: P.meta([label(item.layer), date(item.created_at)]), body: JSON.stringify(item.detail || {}) }));
-    wrap.append(activity.box);
+    const activity = section('Account activity', 'Cross-layer events recorded for this account.');
+    if (!data.activity.length) activity.body.append(K.empty('No recorded activity yet.'));
+    else activity.body.append(K.list(data.activity.map((item) => activityRow(item))));
+    wrap.append(K.bento([activity.box]));
   } catch (error) {
-    fail(host, 'Account', error, () => renderAdminUser(host, id, { go }));
+    K.failure(host, 'Account', error, () => renderAdminUser(host, id, { go }));
   }
 }
 
-export async function renderAdminContent(host, { go }) {
-  loading(host, 'Public Content');
-  try {
-    const data = await P.adminSiteContent();
-    const wrap = doc(host, 'Public Content', 'Layer 1 editorial control for public articles, dossiers, learning paths and labs.');
-    const toolbar = el('div', 'fl-toolbar');
-    toolbar.append(link(go, 'New content', '/workspace/core/admin/content/new', true));
-    wrap.append(toolbar);
-    const box = section('Content');
-    if (!data.items.length) box.body.append(empty('No CMS content yet', 'Create the first public content item.'));
-    for (const item of data.items) {
-      box.body.append(row({
-        title: item.title,
-        meta: P.meta([label(item.kind), label(item.status), item.published_at ? `Published ${date(item.published_at)}` : `Updated ${date(item.updated_at)}`]),
-        badges: (item.translations || []).map((translation) => `${translation.locale.toUpperCase()} ${label(translation.status)}`),
-        onClick: () => go(`/workspace/core/admin/content/${item.id}`),
-      }));
-    }
-    wrap.append(box.box);
-  } catch (error) {
-    fail(host, 'Public Content', error, () => renderAdminContent(host, { go }));
-  }
+function activityRow(item, { withActor = false } = {}) {
+  const node = K.row({
+    title: label(item.action),
+    meta: P.meta([LAYER_NAMES[item.layer] || label(item.layer), withActor ? (item.actor?.email || 'System') : '', date(item.created_at)]),
+    lead: K.avatar(item.layer, { mark: LAYER_MARKS[item.layer] || 'activity', series: LAYER_SERIES[item.layer] || 1 }),
+    badges: [
+      item.subject_user?.email ? K.badge(item.subject_user.email) : null,
+      item.object_type ? K.badge(`${item.object_type} ${item.object_id ?? ''}`.trim()) : null,
+    ],
+  });
+  const detail = K.kv(item.detail);
+  if (detail) node.querySelector('.adm-row__main').append(detail);
+  return node;
 }
 
-function translationBlock(locale, name, current = {}) {
-  const block = el('fieldset', 'fl-fieldset');
-  const legend = el('legend', null, name);
-  const title = input(current.title || '');
-  const summary = textarea(current.summary || '', 3);
-  const body = textarea(current.body || '', 9);
-  const status = select([['draft', 'Draft'], ['published', 'Published']], current.status || 'draft');
-  block.append(legend, field('Title', title), field('Summary', summary), field('Body', body), field('Status', status));
-  return { block, locale, title, summary, body, status };
-}
+const LAYER_NAMES = { shell: 'Public site', dashboard: 'Dashboard', lms: 'LMS', research: 'Research', core: 'Core' };
+const LAYER_MARKS = { shell: 'topic', dashboard: 'dashboard', lms: 'course', research: 'space-research', core: 'space-core' };
+const LAYER_SERIES = { shell: 1, dashboard: 2, lms: 3, research: 4, core: 1 };
 
-export async function renderAdminContentEditor(host, id, { go }) {
-  loading(host, id === 'new' ? 'New content' : 'Edit content');
-  try {
-    const current = id === 'new' ? null : (await P.adminSiteContentItem(id)).item;
-    const wrap = doc(host, current ? current.title : 'New public content', 'English is the base version; German and Persian translations are managed alongside it.');
-    const form = el('form', 'fl-form');
-    const title = input(current?.title || '');
-    const slug = input(current?.slug || '');
-    const kind = select([['article', 'Article'], ['dossier', 'Dossier'], ['learning', 'Learning path'], ['lab', 'Lab / Interactive']], current?.kind || 'article');
-    const status = select([['draft', 'Draft'], ['published', 'Published']], current?.status || 'draft');
-    const summary = textarea(current?.summary || '', 4);
-    const body = textarea(current?.body || '', 14);
-    const grid = el('div', 'fl-form-grid');
-    grid.append(field('Title', title), field('Slug', slug), field('Type', kind), field('Status', status));
-    form.append(grid, field('Summary', summary), field('Body', body));
-    let touchedSlug = !!current;
-    slug.addEventListener('input', () => { touchedSlug = true; });
-    title.addEventListener('input', () => { if (!touchedSlug) slug.value = slugify(title.value); });
-
-    const translations = section('Translations', 'Leave a translation title empty to keep that locale unchanged/not created.');
-    const byLocale = Object.fromEntries((current?.translations || []).map((item) => [item.locale, item]));
-    const german = translationBlock('de', 'Deutsch', byLocale.de);
-    const persian = translationBlock('fa', 'فارسی', byLocale.fa);
-    translations.body.append(german.block, persian.block);
-    form.append(translations.box);
-
-    const line = statusLine();
-    const save = action(current ? 'Save content' : 'Create content', () => {}, true);
-    save.type = 'submit';
-    const actions = el('div', 'fl-form-actions');
-    actions.append(save, link(go, 'Back to content', '/workspace/core/admin/content'));
-    form.append(actions, line);
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      save.disabled = true;
-      setStatus(line, 'Saving…');
-      const localeRows = [german, persian]
-        .filter((item) => item.title.value.trim())
-        .map((item) => ({
-          locale: item.locale,
-          title: item.title.value.trim(),
-          summary: item.summary.value,
-          body: item.body.value,
-          status: item.status.value,
-        }));
-      const payload = {
-        title: title.value.trim(), slug: slug.value.trim(), kind: kind.value, status: status.value,
-        summary: summary.value, body: body.value, translations: localeRows,
-      };
-      try {
-        const result = current
-          ? await P.adminUpdateSiteContent(current.id, payload)
-          : await P.adminCreateSiteContent(payload);
-        setStatus(line, 'Content saved.', 'ok');
-        save.disabled = false;
-        if (!current) go(`/workspace/core/admin/content/${result.item.id}`, { replace: true });
-      } catch (error) {
-        setStatus(line, error?.message || 'Content was not saved.', 'bad');
-        save.disabled = false;
-      }
-    });
-    wrap.append(form);
-  } catch (error) {
-    fail(host, 'Public Content', error, () => renderAdminContentEditor(host, id, { go }));
-  }
-}
+/* ==========================================================================
+   MODERATION
+   ========================================================================== */
 
 export async function renderAdminModeration(host) {
-  loading(host, 'Moderation');
+  K.loading(host, 'Moderation', { tiles: 0, cards: [12] });
   try {
-    const wrap = doc(host, 'Moderation', 'Public comments are reviewed here. Private research discussion remains inside project ACLs.');
-    const toolbar = el('div', 'fl-toolbar');
-    const filter = select([['pending', 'Pending'], ['published', 'Published'], ['hidden', 'Hidden'], ['', 'All']], 'pending');
-    toolbar.append(field('Status', filter));
-    wrap.append(toolbar);
+    const wrap = K.page(host, {
+      title: 'Moderation',
+      meta: 'Public comments are reviewed here. Private research discussion stays inside its project and never appears on this list.',
+    });
+    let current = 'pending';
     const box = section('Comments');
-    wrap.append(box.box);
-    const load = async () => {
-      box.body.innerHTML = '';
-      box.body.append(el('div', 'fl-skeleton'));
+    const counter = el('span', 'adm-count');
+    const filter = K.choices([['pending', 'Pending'], ['published', 'Published'], ['hidden', 'Hidden'], ['', 'All']], current, (value) => { current = value; load(); });
+    const line = statusLine();
+    const listHost = el('div');
+    box.body.append(K.toolbar([filter], [line, counter]), listHost);
+    wrap.append(K.bento([box.box]));
+
+    const moderate = async (item, state, buttons) => {
+      buttons.forEach((button) => { button.disabled = true; });
       try {
-        const data = await P.adminSiteComments({ status: filter.value });
-        box.body.innerHTML = '';
-        if (!data.comments.length) box.body.append(empty('No comments in this state', 'Choose another status or wait for new contributions.'));
-        for (const item of data.comments) {
-          const publish = action('Publish', async () => { await P.adminModerateComment(item.id, 'published'); load(); }, false, true);
-          const hide = action('Hide', async () => { await P.adminModerateComment(item.id, 'hidden'); load(); }, false, true);
-          box.body.append(row({
-            title: item.author.name || item.author.email,
-            meta: P.meta([item.content_key, label(item.status), date(item.created_at)]),
-            body: item.body,
-            actions: [publish, hide],
-          }));
-        }
+        await P.adminModerateComment(item.id, state);
+        setStatus(line, state === 'published' ? 'Comment published.' : 'Comment hidden.', 'ok');
+        await load();
       } catch (error) {
-        box.body.innerHTML = '';
-        box.body.append(empty('Comments could not be loaded', error?.message || 'Try again.'));
+        setStatus(line, error?.message || 'The comment was not changed.', 'bad');
+        buttons.forEach((button) => { button.disabled = false; });
       }
     };
-    filter.addEventListener('change', load);
+
+    const load = async () => {
+      listHost.replaceChildren(el('div', 'fl-skeleton adm-skeleton'));
+      try {
+        const data = await P.adminSiteComments({ status: current });
+        const comments = data.comments || [];
+        counter.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
+        if (!comments.length) {
+          listHost.replaceChildren(K.empty('No comments in this state.'));
+          return;
+        }
+        listHost.replaceChildren(K.list(comments.map((item, index) => {
+          const buttons = [];
+          const publish = action('Publish', () => moderate(item, 'published', buttons), false, true);
+          const hide = action('Hide', () => moderate(item, 'hidden', buttons), false, true);
+          if (item.status !== 'published') buttons.push(publish);
+          if (item.status !== 'hidden') buttons.push(hide);
+          return K.row({
+            title: item.author?.name || item.author?.email || 'Anonymous',
+            meta: P.meta([item.content_key, date(item.created_at)]),
+            body: item.body,
+            lead: K.avatar(item.author?.name || item.author?.email, { series: (index % 4) + 1 }),
+            badges: [K.stateBadge(item.status)],
+            actions: buttons,
+          });
+        })));
+      } catch (error) {
+        listHost.replaceChildren(K.empty(error?.message || 'Comments could not be loaded.', [action('Retry', load)]));
+      }
+    };
     await load();
   } catch (error) {
-    fail(host, 'Moderation', error, () => renderAdminModeration(host));
+    K.failure(host, 'Moderation', error, () => renderAdminModeration(host));
   }
 }
 
+/* ==========================================================================
+   COURSE BUILDER PARTS
+   A module holds lessons and assessments, an assessment holds questions.
+   Each editor keeps its controls on `_controls`, so serializing reads named
+   fields instead of counting inputs in document order.
+   ========================================================================== */
+
 function questionEditor(question = {}) {
-  const wrap = el('div', 'fl-question-editor');
-  const prompt = input(question.prompt || '');
-  const choices = textarea(Array.isArray(question.choices) ? question.choices.map(String).join('\n') : '', 3);
-  const correct = input(question.correct_answer ?? question.correct ?? '');
-  const remove = action('Remove question', () => wrap.remove(), false, true);
-  wrap.append(field('Question', prompt), field('Choices', choices, 'One choice per line. Leave empty for free text.'), field('Correct answer', correct, 'Numbers, true/false and quoted JSON values are preserved when possible.'), remove);
+  const wrap = K.sub('Question');
+  const prompt = K.input(question.prompt || '', 'text', 'What is being asked?');
+  const choices = K.textarea(Array.isArray(question.choices) ? question.choices.map(String).join('\n') : '', 3);
+  const correct = K.input(question.correct_answer ?? question.correct ?? '');
+  wrap.head.querySelector('.adm-sub__tools').append(K.button('Remove', () => wrap.remove(), { tiny: true, danger: true }));
+  wrap.append(K.fields([
+    K.field('Question', prompt, '', { wide: true }),
+    K.field('Choices', choices, 'One choice per line. Leave empty for free text.'),
+    K.field('Correct answer', correct, 'Numbers, true/false and quoted JSON values are preserved when possible.'),
+  ], 2));
+  wrap.classList.add('adm-question');
+  wrap._controls = { prompt, choices, correct };
   return wrap;
 }
 
 function assessmentEditor(assessment = {}) {
-  const wrap = el('div', 'fl-assessment-editor');
+  const wrap = K.sub(assessment.title || 'Assessment', { meta: assessment.id ? `#${assessment.id}` : 'new' });
   wrap.dataset.originalId = assessment.id || '';
-  const title = input(assessment.title || 'Final assessment');
-  const passing = input(assessment.passing_score ?? 70, 'number');
-  const attempts = input(assessment.max_attempts ?? 3, 'number');
-  const required = checkbox(assessment.required_for_completion !== false, 'Required for completion');
-  const questions = el('div', 'fl-stack');
+  const title = K.input(assessment.title || 'Final assessment');
+  const passing = K.input(assessment.passing_score ?? 70, 'number');
+  const attempts = K.input(assessment.max_attempts ?? 3, 'number');
+  const required = K.toggle(assessment.required_for_completion !== false, 'Required for completion');
+  const questions = K.stack();
   (assessment.questions || []).forEach((q) => questions.append(questionEditor(q)));
   if (!questions.children.length) questions.append(questionEditor());
-  const add = action('Add question', () => questions.append(questionEditor()), false, true);
-  const remove = action('Remove assessment', () => wrap.remove(), false, true);
-  wrap.append(field('Assessment title', title), field('Passing score', passing), field('Max attempts', attempts), required.wrap, questions, add, remove);
+  const add = K.button('Add question', () => questions.append(questionEditor()), { tiny: true });
+  add.classList.add('adm-add');
+  wrap.head.querySelector('.adm-sub__tools').append(K.button('Remove assessment', () => wrap.remove(), { tiny: true, danger: true }));
+  wrap.append(
+    K.fields([K.field('Assessment title', title), K.field('Passing score', passing), K.field('Max attempts', attempts)]),
+    K.switches([required]),
+    questions, add,
+  );
   wrap._controls = { title, passing, attempts, required: required.input, questions };
   return wrap;
 }
 
 function lessonEditor(lesson = {}) {
-  const wrap = el('div', 'fl-lesson-editor');
+  const wrap = K.sub(lesson.title || 'New lesson', { meta: lesson.id ? `#${lesson.id}` : '' });
   wrap.dataset.originalId = lesson.id || '';
-  const title = input(lesson.title || '');
-  const kind = select([
+  const title = K.input(lesson.title || '');
+  title.addEventListener('input', () => { wrap.titleNode.firstChild.nodeValue = title.value || 'New lesson'; });
+  const kind = K.select([
     ['article', 'Article'], ['video', 'Video'], ['audio', 'Audio'],
     ['file', 'File / download'], ['pdf', 'PDF'], ['document', 'Document'],
     ['dataset', 'Dataset'], ['embed', 'Embedded content'], ['lab', 'Interactive Lab'],
     ['interactive', 'Interactive'], ['live', 'Live session'],
   ], lesson.kind || 'article');
-  const summary = textarea(lesson.summary || '', 2);
-  const body = textarea(lesson.body || '', 5);
-  const url = input(lesson.content_url || '', 'url');
-  const duration = input(lesson.duration_seconds || 0, 'number');
-  const labSlug = input(lesson.lab_slug || '');
-  const providerKey = input(lesson.provider_key || '');
+  const summary = K.textarea(lesson.summary || '', 2);
+  const body = K.textarea(lesson.body || '', 5);
+  const url = K.input(lesson.content_url || '', 'url', 'https://…');
+  const duration = K.input(lesson.duration_seconds || 0, 'number');
+  const labSlug = K.input(lesson.lab_slug || '');
+  const providerKey = K.input(lesson.provider_key || '');
   const rule = lesson.access_rule && typeof lesson.access_rule === 'object' ? lesson.access_rule : {};
-  const prerequisiteIds = input(
+  const prerequisiteIds = K.input(
     Array.isArray(rule.requires_lesson_ids) ? rule.requires_lesson_ids.join(', ') : '',
     'text',
     'Lesson IDs, comma-separated',
   );
-  const minimumProgress = input(rule.min_progress_percent ?? '', 'number', '0–100');
+  const minimumProgress = K.input(rule.min_progress_percent ?? '', 'number', '0–100');
   minimumProgress.min = '0';
   minimumProgress.max = '100';
-  const availableAfter = input(rule.available_after || '', 'text', '2026-10-01T09:00:00+02:00');
+  const availableAfter = K.input(rule.available_after || '', 'text', '2026-10-01T09:00:00+02:00');
   const advancedRule = { ...rule };
   delete advancedRule.requires_lesson_ids;
   delete advancedRule.min_progress_percent;
   delete advancedRule.available_after;
-  const accessRule = textarea(
-    Object.keys(advancedRule).length ? JSON.stringify(advancedRule, null, 2) : '{}',
-    3,
-  );
-  const preview = checkbox(lesson.is_preview, 'Preview available before enrollment');
-  const required = checkbox(lesson.is_required !== false, 'Required for completion');
-  const published = checkbox(lesson.published !== false, 'Published lesson');
-  const remove = action('Remove lesson', () => wrap.remove(), false, true);
-  const grid = el('div', 'fl-form-grid');
-  grid.append(field('Lesson title', title), field('Type', kind), field('Duration seconds', duration), field('Resource / embed URL', url));
+  const accessRule = K.textarea(Object.keys(advancedRule).length ? JSON.stringify(advancedRule, null, 2) : '{}', 3, '', { code: true });
+  const preview = K.toggle(lesson.is_preview, 'Preview available before enrollment');
+  const required = K.toggle(lesson.is_required !== false, 'Required for completion');
+  const published = K.toggle(lesson.published !== false, 'Published lesson');
+  wrap.head.querySelector('.adm-sub__tools').append(...K.orderTools(wrap, 'Remove lesson'));
+
+  const locks = el('details', 'adm-details');
+  locks.append(el('summary', null, 'Content access & locks'), K.fields([
+    K.field('Prerequisite lesson IDs', prerequisiteIds, 'Learner must complete all listed lesson IDs first.'),
+    K.field('Minimum course progress %', minimumProgress, 'Optional progress threshold before this lesson unlocks.'),
+    K.field('Available after', availableAfter, 'Optional ISO date/time for scheduled release.'),
+    K.field('Advanced access rule JSON', accessRule, 'Optional extra rule metadata; standard lock fields above are merged automatically.', { wide: true }),
+  ], 2));
+  if (prerequisiteIds.value || minimumProgress.value || availableAfter.value) locks.open = true;
+
   wrap.append(
-    grid,
-    field('Summary', summary),
-    field('Body', body),
-    field('Lab slug', labSlug, 'For Lab lessons, reference an Interactive Lab slug.'),
-    field('Provider key', providerKey, 'Optional Open edX/XBlock content key.'),
-    el('h4', null, 'Content access & locks'),
-    field('Prerequisite lesson IDs', prerequisiteIds, 'Learner must complete all listed lesson IDs first.'),
-    field('Minimum course progress %', minimumProgress, 'Optional progress threshold before this lesson unlocks.'),
-    field('Available after', availableAfter, 'Optional ISO date/time for scheduled release.'),
-    field('Advanced access rule JSON', accessRule, 'Optional extra rule metadata; standard lock fields above are merged automatically.'),
-    preview.wrap, required.wrap, published.wrap, remove,
+    K.fields([K.field('Lesson title', title), K.field('Type', kind), K.field('Duration seconds', duration), K.field('Resource / embed URL', url)], 2),
+    K.fields([
+      K.field('Summary', summary),
+      K.field('Body', body),
+      K.field('Lab slug', labSlug, 'For Lab lessons, reference an Interactive Lab slug.'),
+      K.field('Provider key', providerKey, 'Optional Open edX/XBlock content key.'),
+    ], 2),
+    locks,
+    K.switches([preview, required, published]),
   );
+  wrap.classList.add('adm-lesson');
   wrap._controls = {
     title, kind, summary, body, url, duration, labSlug, providerKey,
     accessRule, prerequisiteIds, minimumProgress, availableAfter,
@@ -563,18 +496,23 @@ function lessonEditor(lesson = {}) {
 }
 
 function moduleEditor(module = {}) {
-  const wrap = el('div', 'fl-module-editor');
+  const wrap = K.sub(module.title || 'New module', { meta: module.id ? `#${module.id}` : '' });
   wrap.dataset.originalId = module.id || '';
-  const title = input(module.title || '');
-  const summary = textarea(module.summary || '', 2);
-  const lessons = el('div', 'fl-stack');
+  const title = K.input(module.title || '');
+  title.addEventListener('input', () => { wrap.titleNode.firstChild.nodeValue = title.value || 'New module'; });
+  const summary = K.textarea(module.summary || '', 2);
+  const lessons = K.stack();
   (module.lessons || []).forEach((lesson) => lessons.append(lessonEditor(lesson)));
   if (!lessons.children.length) lessons.append(lessonEditor());
-  const assessments = el('div', 'fl-stack');
-  const addLesson = action('Add lesson', () => lessons.append(lessonEditor()), false, true);
-  const addAssessment = action('Add module assessment', () => assessments.append(assessmentEditor()), false, true);
-  const remove = action('Remove module', () => wrap.remove(), false, true);
-  wrap.append(field('Module title', title), field('Module summary', summary), el('h4', null, 'Lessons'), lessons, addLesson, el('h4', null, 'Module assessments'), assessments, addAssessment, remove);
+  const assessments = K.stack();
+  const addLesson = K.button('Add lesson', () => lessons.append(lessonEditor()), { tiny: true });
+  const addAssessment = K.button('Add module assessment', () => assessments.append(assessmentEditor()), { tiny: true });
+  wrap.head.querySelector('.adm-sub__tools').append(...K.orderTools(wrap, 'Remove module'));
+  wrap.append(
+    K.fields([K.field('Module title', title), K.field('Module summary', summary)], 2),
+    K.heading('Lessons'), lessons, K.cardActions([addLesson]),
+    K.heading('Module assessments'), assessments, K.cardActions([addAssessment]),
+  );
   wrap._controls = { title, summary, lessons, assessments };
   return wrap;
 }
@@ -588,10 +526,10 @@ function parseLiteral(value) {
 function serializeAssessment(node) {
   const c = node._controls;
   const questions = [...c.questions.children].map((questionNode, index) => {
-    const controls = questionNode.querySelectorAll('input, textarea');
-    const prompt = controls[0].value.trim();
-    const choices = controls[1].value.split('\n').map((item) => item.trim()).filter(Boolean).map(parseLiteral);
-    const correct = parseLiteral(controls[2].value);
+    const q = questionNode._controls;
+    const prompt = q.prompt.value.trim();
+    const choices = q.choices.value.split('\n').map((item) => item.trim()).filter(Boolean).map(parseLiteral);
+    const correct = parseLiteral(q.correct.value);
     return { id: `q${index + 1}`, prompt, choices, correct_answer: correct };
   }).filter((q) => q.prompt);
   return {
@@ -650,36 +588,29 @@ function populateStructure(modulesHost, finalsHost, course) {
   assessments.filter((item) => !item.module_id).forEach((item) => finalsHost.append(assessmentEditor(item)));
 }
 
-function safeJson(value, fallback) {
-  try {
-    const parsed = JSON.parse(String(value || ''));
-    return parsed == null ? fallback : parsed;
-  } catch {
-    return fallback;
-  }
-}
-
 function registrationFieldEditor(spec = {}) {
-  const wrap = el('div', 'fl-question-editor');
-  const key = input(spec.key || '');
-  const labelInput = input(spec.label || '');
-  const type = select([
+  const wrap = K.sub(spec.label || 'Profile field');
+  const key = K.input(spec.key || '', 'text', 'field_key');
+  const labelInput = K.input(spec.label || '');
+  const type = K.select([
     ['text', 'Text'], ['number', 'Number'], ['textarea', 'Long text'],
     ['select', 'Select'], ['checkbox', 'Checkbox'],
   ], spec.type || 'text');
-  const options = textarea(Array.isArray(spec.options) ? spec.options.join('\n') : '', 3);
-  const help = input(spec.help || '');
-  const required = checkbox(!!spec.required, 'Required');
-  const remove = action('Remove field', () => wrap.remove(), false, true);
-  const grid = el('div', 'fl-form-grid');
-  grid.append(field('Key', key), field('Label', labelInput), field('Type', type), field('Help text', help));
-  wrap.append(grid, field('Options', options, 'One option per line for Select fields.'), required.wrap, remove);
+  const options = K.textarea(Array.isArray(spec.options) ? spec.options.join('\n') : '', 3);
+  const help = K.input(spec.help || '');
+  const required = K.toggle(!!spec.required, 'Required');
+  wrap.head.querySelector('.adm-sub__tools').append(...K.orderTools(wrap, 'Remove field'));
+  wrap.append(
+    K.fields([K.field('Key', key), K.field('Label', labelInput), K.field('Type', type), K.field('Help text', help)]),
+    K.field('Options', options, 'One option per line for Select fields.'),
+    K.switches([required]),
+  );
   wrap._controls = { key, label: labelInput, type, options, help, required: required.input };
   return wrap;
 }
 
-function serializeRegistrationFields(host) {
-  return [...host.children].map((node) => {
+function serializeRegistrationFields(hostNode) {
+  return [...hostNode.children].map((node) => {
     const c = node._controls;
     if (!c) return null;
     return {
@@ -693,9 +624,15 @@ function serializeRegistrationFields(host) {
   }).filter((item) => item?.key && item?.label);
 }
 
+/* ==========================================================================
+   LMS ADMIN
+   Six tools that used to be one scroll: courses and the engine, analytics,
+   learning paths, taxonomy, payments with repository review, enrollments.
+   ========================================================================== */
+
 function adminAnalyticsLessonRow(item) {
   const dwell = Number(item.dwell_seconds || 0);
-  return row({
+  return K.row({
     title: item.lesson__title || 'Lesson',
     meta: P.meta([item.course__title, `${item.views || 0} views`, `${item.skips || 0} skips`, `${Math.round(dwell / 60)} min dwell`]),
     badges: [`${item.ai_uses || 0} AI`, `${item.lab_uses || 0} Lab`],
@@ -703,151 +640,98 @@ function adminAnalyticsLessonRow(item) {
 }
 
 function adminAnalyticsVisual(items = []) {
-  const wrap = el('div', 'fl-analytics-bars');
-  const rows = [...items]
-    .sort((a, b) => Number(b.views || 0) - Number(a.views || 0))
-    .slice(0, 10);
+  const wrap = el('div', 'adm-bars');
+  const rows = [...items].sort((a, b) => Number(b.views || 0) - Number(a.views || 0)).slice(0, 10);
   const max = Math.max(1, ...rows.map((item) => Number(item.views || 0)));
   if (!rows.length) {
-    wrap.append(empty('No visual activity yet', 'The chart appears after lesson views are tracked.'));
+    wrap.append(K.empty('No visual activity yet. The chart appears after lesson views are tracked.'));
     return wrap;
   }
-  for (const item of rows) {
-    const line = el('div', 'fl-analytics-bar');
-    const head = el('div', 'fl-analytics-bar__head');
+  rows.forEach((item, index) => {
+    const line = el('div', 'adm-bar');
+    line.dataset.series = String((index % 4) + 1);
+    const head = el('div', 'adm-bar__head');
     head.append(
       el('strong', null, item.lesson__title || 'Lesson'),
-      el('span', 'fl-muted', `${item.views || 0} views · ${Math.round(Number(item.dwell_seconds || 0) / 60)} min · ${item.ai_uses || 0} AI · ${item.lab_uses || 0} Lab`),
+      el('span', null, `${item.views || 0} views · ${Math.round(Number(item.dwell_seconds || 0) / 60)} min · ${item.ai_uses || 0} AI · ${item.lab_uses || 0} Lab`),
     );
-    const track = el('div', 'fl-analytics-bar__track');
-    const fill = el('span', 'fl-analytics-bar__fill');
-    fill.style.setProperty('--analytics-value', `${Math.max(3, Math.round((Number(item.views || 0) / max) * 100))}%`);
-    track.append(fill);
-    line.append(head, track);
+    line.append(head, C.meter(Math.round((Number(item.views || 0) / max) * 100)));
     wrap.append(line);
-  }
+  });
   return wrap;
 }
 
-async function renderLmsMetaAdmin(host, meta, refresh) {
-  const box = section('Categories & tags', 'Taxonomy shared by the catalog, learning paths and Open edX mappings.');
-  const cols = el('div', 'fl-columns');
-  const categories = el('div', 'fl-stack');
-  const tags = el('div', 'fl-stack');
-
-  for (const item of meta.categories || []) {
-    const remove = action('Delete', async () => {
-      remove.disabled = true;
-      try { await P.adminDeleteLmsMeta('category', item.id); await refresh(); } catch { remove.disabled = false; }
-    }, false, true);
-    categories.append(row({
-      title: item.name,
-      meta: P.meta([item.slug, item.active ? 'Active' : 'Inactive']),
-      body: item.description,
-      actions: [remove],
-    }));
-  }
-  const categoryForm = el('form', 'fl-form');
-  const catName = input('', 'text', 'Category name');
-  const catSlug = input('', 'text', 'category-slug');
-  const catAdd = action('Add category', () => {}, true); catAdd.type = 'submit';
-  categoryForm.append(catName, catSlug, catAdd);
-  categoryForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    catAdd.disabled = true;
-    try {
-      await P.adminSaveLmsMeta({ kind: 'category', name: catName.value.trim(), slug: catSlug.value.trim() || slugify(catName.value) });
-      await refresh();
-    } catch { catAdd.disabled = false; }
-  });
-  categories.append(categoryForm);
-
-  for (const item of meta.tags || []) {
-    const remove = action('Delete', async () => {
-      remove.disabled = true;
-      try { await P.adminDeleteLmsMeta('tag', item.id); await refresh(); } catch { remove.disabled = false; }
-    }, false, true);
-    tags.append(row({ title: item.name, meta: item.slug, actions: [remove] }));
-  }
-  const tagForm = el('form', 'fl-form');
-  const tagName = input('', 'text', 'Tag name');
-  const tagSlug = input('', 'text', 'tag-slug');
-  const tagAdd = action('Add tag', () => {}, true); tagAdd.type = 'submit';
-  tagForm.append(tagName, tagSlug, tagAdd);
-  tagForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    tagAdd.disabled = true;
-    try {
-      await P.adminSaveLmsMeta({ kind: 'tag', name: tagName.value.trim(), slug: tagSlug.value.trim() || slugify(tagName.value) });
-      await refresh();
-    } catch { tagAdd.disabled = false; }
-  });
-  tags.append(tagForm);
-
-  const categoryPanel = section('Categories');
-  categoryPanel.body.append(categories);
-  const tagPanel = section('Tags');
-  tagPanel.body.append(tags);
-  cols.append(categoryPanel.box, tagPanel.box);
-  box.body.append(cols);
-  host.append(box.box);
+function renderLmsMetaAdmin(meta, refresh) {
+  const taxonomy = (kind, title, items, describe) => {
+    const box = section(title, kind === 'category' ? 'Used by the catalog, learning paths and Open edX mappings.' : 'Free labels shown on course cards.', 6);
+    const rows = items.map((item) => {
+      const remove = K.button('Delete', async () => {
+        remove.disabled = true;
+        try { await P.adminDeleteLmsMeta(kind, item.id); await refresh(); } catch { remove.disabled = false; }
+      }, { tiny: true, danger: true });
+      return K.row({ title: item.name, meta: describe(item), body: item.description || '', actions: [remove] });
+    });
+    box.body.append(rows.length ? K.list(rows) : K.empty(`No ${kind === 'category' ? 'categories' : 'tags'} yet.`));
+    const name = K.input('', 'text', kind === 'category' ? 'Category name' : 'Tag name');
+    const slug = K.input('', 'text', kind === 'category' ? 'category-slug' : 'tag-slug');
+    name.addEventListener('input', () => { if (!slug.dataset.touched) slug.value = K.slugify(name.value); });
+    slug.addEventListener('input', () => { slug.dataset.touched = '1'; });
+    const add = K.button(kind === 'category' ? 'Add category' : 'Add tag', async () => {
+      if (!name.value.trim()) return;
+      add.disabled = true;
+      try {
+        await P.adminSaveLmsMeta({ kind, name: name.value.trim(), slug: slug.value.trim() || K.slugify(name.value) });
+        await refresh();
+      } catch { add.disabled = false; }
+    }, { solid: true });
+    box.body.append(K.fields([K.field('Name', name), K.field('Slug', slug)]), K.cardActions([add]));
+    return box.box;
+  };
+  return K.bento([
+    taxonomy('category', 'Categories', meta.categories || [], (item) => P.meta([item.slug, item.active ? 'Active' : 'Inactive'])),
+    taxonomy('tag', 'Tags', meta.tags || [], (item) => item.slug),
+  ]);
 }
 
-async function renderLearningPathsAdmin(host, paths, courses, refresh) {
-  const box = section(
-    'Learning paths',
-    'Build learning paths as graph objects. Nodes may be courses, gates, milestones or choices; edges define completion and branching rules.',
-  );
-
+function renderLearningPathsAdmin(paths, courses, refresh) {
   const courseOptions = [['', 'Choose course'], ...(courses || []).map((item) => [item.id, item.title])];
   let nodeCounter = 0;
 
   const nodeEditor = (initial = {}) => {
     nodeCounter += 1;
-    const card = el('div', 'v-panel fl-path-node');
-    const nodeId = input(initial.id || ('node-' + nodeCounter), 'text', 'node-id');
-    const nodeType = select([
+    const card = K.sub(initial.title || initial.id || 'Node');
+    const nodeId = K.input(initial.id || ('node-' + nodeCounter), 'text', 'node-id');
+    const nodeType = K.select([
       ['course', 'Course'],
       ['gate', 'Gate'],
       ['milestone', 'Milestone'],
       ['choice', 'Choice / branch'],
     ], initial.type || (initial.course_id ? 'course' : 'milestone'));
-    const nodeTitle = input(initial.title || '', 'text', 'Node title');
-    const nodeCourse = select(courseOptions, initial.course_id || '');
-    const nodeDescription = textarea(initial.description || '', 2);
-    const remove = action('Remove node', () => card.remove(), false, true);
-    const grid = el('div', 'fl-form-grid');
-    grid.append(
-      field('Node ID', nodeId),
-      field('Type', nodeType),
-      field('Title', nodeTitle),
-      field('Course', nodeCourse),
+    const nodeTitle = K.input(initial.title || '', 'text', 'Node title');
+    const nodeCourse = K.select(courseOptions, initial.course_id || '');
+    const nodeDescription = K.textarea(initial.description || '', 2);
+    card.head.querySelector('.adm-sub__tools').append(K.button('Remove node', () => card.remove(), { tiny: true, danger: true }));
+    card.append(
+      K.fields([K.field('Node ID', nodeId), K.field('Type', nodeType), K.field('Title', nodeTitle), K.field('Course', nodeCourse)]),
+      K.field('Description', nodeDescription),
     );
-    card.append(grid, field('Description', nodeDescription), remove);
     card._fields = { nodeId, nodeType, nodeTitle, nodeCourse, nodeDescription };
     return card;
   };
 
   const edgeEditor = (initial = {}) => {
-    const card = el('div', 'v-panel fl-path-edge');
-    const from = input(initial.from || '', 'text', 'from node ID');
-    const to = input(initial.to || '', 'text', 'to node ID');
-    const rule = select([
+    const card = K.sub('Edge', { meta: initial.from ? `${initial.from} → ${initial.to}` : '' });
+    const from = K.input(initial.from || '', 'text', 'from node ID');
+    const to = K.input(initial.to || '', 'text', 'to node ID');
+    const rule = K.select([
       ['complete', 'Complete source'],
       ['pass', 'Pass source assessment'],
       ['manual', 'Manual approval'],
       ['any', 'Any / informational'],
     ], initial.rule || 'complete');
-    const edgeLabel = input(initial.label || '', 'text', 'Edge label / branch condition');
-    const remove = action('Remove edge', () => card.remove(), false, true);
-    const grid = el('div', 'fl-form-grid');
-    grid.append(
-      field('From', from),
-      field('To', to),
-      field('Rule', rule),
-      field('Label', edgeLabel),
-    );
-    card.append(grid, remove);
+    const edgeLabel = K.input(initial.label || '', 'text', 'Edge label / branch condition');
+    card.head.querySelector('.adm-sub__tools').append(K.button('Remove edge', () => card.remove(), { tiny: true, danger: true }));
+    card.append(K.fields([K.field('From', from), K.field('To', to), K.field('Rule', rule), K.field('Label', edgeLabel)]));
     card._fields = { from, to, rule, edgeLabel };
     return card;
   };
@@ -855,134 +739,271 @@ async function renderLearningPathsAdmin(host, paths, courses, refresh) {
   const serializeNodes = (hostNode) => [...hostNode.children].map((card) => {
     const f = card._fields;
     const type = f.nodeType.value;
-    const payload = {
-      id: f.nodeId.value.trim(),
-      type,
-      title: f.nodeTitle.value.trim(),
-      description: f.nodeDescription.value,
-    };
+    const payload = { id: f.nodeId.value.trim(), type, title: f.nodeTitle.value.trim(), description: f.nodeDescription.value };
     if (type === 'course') payload.course_id = Number(f.nodeCourse.value || 0);
     return payload;
   });
 
   const serializeEdges = (hostNode) => [...hostNode.children].map((card) => {
     const f = card._fields;
-    return {
-      from: f.from.value.trim(),
-      to: f.to.value.trim(),
-      rule: f.rule.value,
-      label: f.edgeLabel.value.trim(),
-    };
+    return { from: f.from.value.trim(), to: f.to.value.trim(), rule: f.rule.value, label: f.edgeLabel.value.trim() };
   });
 
   const graphEditor = ({ initialNodes = [], initialEdges = [] } = {}) => {
-    const wrapper = el('div', 'fl-stack');
-    const nodesBox = section('Path nodes', 'Course nodes link to actual courses; gate, milestone and choice nodes model complex branching.');
-    const nodeHost = el('div', 'fl-stack');
+    const nodesBox = section('Path nodes', 'Course nodes link to actual courses; gate, milestone and choice nodes model branching.', 6);
+    const nodeHost = K.stack();
     for (const item of initialNodes) nodeHost.append(nodeEditor(item));
     if (!initialNodes.length) nodeHost.append(nodeEditor({ type: 'course' }));
-    const addNode = action('Add node', () => nodeHost.append(nodeEditor()), false, true);
-    nodesBox.body.append(nodeHost, addNode);
+    nodesBox.body.append(nodeHost, K.cardActions([K.button('Add node', () => nodeHost.append(nodeEditor()), { tiny: true })]));
 
-    const edgesBox = section('Path edges', 'Connect any nodes by ID. Multiple outgoing/incoming edges allow branching and convergence.');
-    const edgeHost = el('div', 'fl-stack');
+    const edgesBox = section('Path edges', 'Connect nodes by ID. Several outgoing or incoming edges make branches and convergence.', 6);
+    const edgeHost = K.stack();
     for (const item of initialEdges) edgeHost.append(edgeEditor(item));
-    const addEdge = action('Add edge', () => edgeHost.append(edgeEditor()), false, true);
-    edgesBox.body.append(edgeHost, addEdge);
+    if (!initialEdges.length) edgeHost.append(K.empty('No edges yet. A single node needs none.'));
+    edgesBox.body.append(edgeHost, K.cardActions([K.button('Add edge', () => {
+      edgeHost.querySelector('.adm-empty')?.remove();
+      edgeHost.append(edgeEditor());
+    }, { tiny: true })]));
 
-    wrapper.append(nodesBox.box, edgesBox.box);
+    const wrapper = K.bento([nodesBox.box, edgesBox.box]);
     wrapper._graph = {
       nodes: () => serializeNodes(nodeHost),
-      edges: () => serializeEdges(edgeHost),
+      edges: () => serializeEdges(edgeHost).filter((edge) => edge.from || edge.to),
     };
     return wrapper;
   };
 
-  const form = el('form', 'fl-form');
-  const title = input('', 'text', 'Path title');
-  const slug = input('', 'text', 'path-slug');
-  const summary = textarea('', 2);
-  const status = select([['draft','Draft'],['published','Published']], 'draft');
-  const graph = graphEditor();
-  const add = action('Create learning path', () => {}, true); add.type = 'submit';
-  const note = statusLine();
-  const grid = el('div', 'fl-form-grid');
-  grid.append(field('Title', title), field('Slug', slug), field('Status', status));
-  form.append(grid, field('Summary', summary), graph, add, note);
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    add.disabled = true;
-    try {
-      await P.lmsCreateLearningPath({
-        title: title.value.trim(),
-        slug: slug.value.trim() || slugify(title.value),
-        summary: summary.value,
-        status: status.value,
-        nodes: graph._graph.nodes(),
-        edges: graph._graph.edges(),
-        payment_config: { enabled: false, provider: 'external' },
-      });
-      await refresh();
-    } catch (error) {
-      setStatus(note, error?.data?.error || error?.message || 'Path could not be created.', 'bad');
-      add.disabled = false;
-    }
-  });
-  box.body.append(form);
-
-  for (const item of paths || []) {
-    const edit = action('Edit graph', () => {
-      const editor = el('form', 'fl-form');
-      const s = textarea(item.summary || '', 2);
-      const st = select([['draft','Draft'],['published','Published'],['archived','Archived']], item.status);
-      const existingGraph = graphEditor({ initialNodes: item.nodes || [], initialEdges: item.edges || [] });
-      const save = action('Save path', () => {}, true); save.type = 'submit';
-      const line = statusLine();
-      editor.append(field('Summary', s), field('Status', st), existingGraph, save, line);
-      editor.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        save.disabled = true;
-        try {
+  const pathForm = ({ item = null } = {}) => {
+    const form = el('form', 'adm-form');
+    const title = K.input(item?.title || '', 'text', 'Path title');
+    const slug = K.input(item?.slug || '', 'text', 'path-slug');
+    const summary = K.textarea(item?.summary || '', 2);
+    const status = K.select([['draft', 'Draft'], ['published', 'Published'], ...(item ? [['archived', 'Archived']] : [])], item?.status || 'draft');
+    if (item) { title.disabled = true; slug.disabled = true; }
+    else title.addEventListener('input', () => { if (!slug.dataset.touched) slug.value = K.slugify(title.value); });
+    slug.addEventListener('input', () => { slug.dataset.touched = '1'; });
+    const graph = graphEditor({ initialNodes: item?.nodes || [], initialEdges: item?.edges || [] });
+    const save = action(item ? 'Save path' : 'Create learning path', null, true);
+    save.type = 'submit';
+    const note = statusLine();
+    form.append(
+      K.fields([K.field('Title', title), K.field('Slug', slug), K.field('Status', status)]),
+      K.field('Summary', summary),
+      graph,
+      K.cardActions([save], note),
+    );
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      save.disabled = true;
+      setStatus(note, 'Saving…');
+      try {
+        if (item) {
           await P.lmsUpdateLearningPath(item.id, {
-            summary: s.value,
-            status: st.value,
-            nodes: existingGraph._graph.nodes(),
-            edges: existingGraph._graph.edges(),
+            summary: summary.value, status: status.value,
+            nodes: graph._graph.nodes(), edges: graph._graph.edges(),
           });
-          await refresh();
-        } catch (error) {
-          setStatus(line, error?.data?.error || error?.message || 'Save failed.', 'bad');
-          save.disabled = false;
+        } else {
+          await P.lmsCreateLearningPath({
+            title: title.value.trim(),
+            slug: slug.value.trim() || K.slugify(title.value),
+            summary: summary.value,
+            status: status.value,
+            nodes: graph._graph.nodes(),
+            edges: graph._graph.edges(),
+            payment_config: { enabled: false, provider: 'external' },
+          });
         }
-      });
-      const rowNode = edit.closest('.fl-row');
-      rowNode?.insertAdjacentElement('afterend', editor);
-      edit.disabled = true;
-    }, false, true);
+        await refresh();
+      } catch (error) {
+        setStatus(note, error?.data?.error || error?.message || 'Path could not be saved.', 'bad');
+        save.disabled = false;
+      }
+    });
+    return form;
+  };
 
-    const remove = action('Delete', async () => {
+  const box = section(
+    'Learning paths',
+    'Paths are graphs: nodes are courses, gates, milestones or choices; edges define completion and branching.',
+    12,
+  );
+  const editorHost = el('div');
+  const open = (item) => {
+    const editor = section(item ? `Edit · ${item.title}` : 'New learning path', '', 12, [K.button('Close', () => editorHost.replaceChildren(), { tiny: true })]);
+    editor.body.append(pathForm({ item }));
+    editorHost.replaceChildren(K.bento([editor.box]));
+    editorHost.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const newButton = K.button('New learning path', () => open(null), { solid: true, tiny: true });
+  const tools = el('div');
+  tools.append(newButton);
+  box.head.append(tools);
+
+  const rows = (paths || []).map((item) => {
+    const edit = K.button('Edit graph', () => open(item), { tiny: true });
+    const remove = K.button('Delete', async () => {
       if (!confirm('Delete learning path “' + item.title + '”?')) return;
       remove.disabled = true;
       try { await P.lmsDeleteLearningPath(item.id); await refresh(); } catch { remove.disabled = false; }
-    }, false, true);
-
-    box.body.append(row({
+    }, { tiny: true, danger: true });
+    return K.row({
       title: item.title,
-      meta: P.meta([
-        label(item.status),
-        item.slug,
-        (item.nodes || []).length + ' nodes',
-        (item.edges || []).length + ' edges',
-      ]),
+      meta: P.meta([item.slug, (item.nodes || []).length + ' nodes', (item.edges || []).length + ' edges']),
       body: item.summary,
+      lead: K.avatar(item.title, { mark: 'path', series: 3 }),
+      badges: [K.stateBadge(item.status)],
       actions: [edit, remove],
+    });
+  });
+  box.body.append(rows.length ? K.list(rows) : K.empty('No learning paths yet.', [K.button('Create the first path', () => open(null), { tiny: true })]));
+  const out = el('div', 'adm-stack');
+  out.append(K.bento([box.box]), editorHost);
+  return out;
+}
+
+function enrollmentAdminRow(enrollment, refresh) {
+  const state = K.select([['active', 'Active'], ['paused', 'Paused'], ['completed', 'Completed'], ['revoked', 'Revoked']], enrollment.status);
+  state.setAttribute('aria-label', 'Enrollment status');
+  const save = action('Apply', async () => {
+    save.disabled = true;
+    try { await P.adminUpdateLmsEnrollment(enrollment.id, { status: state.value }); await refresh(); }
+    catch { save.disabled = false; }
+  }, false, true);
+  const cert = enrollment.certificate
+    ? action(enrollment.certificate.valid ? 'Revoke certificate' : 'Reissue certificate', async () => {
+        cert.disabled = true;
+        try {
+          await P.adminUpdateLmsEnrollment(enrollment.id, { certificate: enrollment.certificate.valid ? 'revoke' : 'reissue' });
+          await refresh();
+        } catch { cert.disabled = false; }
+      }, false, true)
+    : null;
+  return K.row({
+    title: `${enrollment.user.name} · ${enrollment.course.title}`,
+    meta: P.meta([enrollment.user.email, `${enrollment.progress_percent}%`, label(enrollment.access_source)]),
+    lead: K.avatar(enrollment.user.name || enrollment.user.email),
+    badges: [K.stateBadge(enrollment.status), enrollment.certificate?.valid ? K.badge('Certificate', 'accent') : null],
+    actions: [state, save, cert].filter(Boolean),
+  });
+}
+
+function lmsAnalytics(courses, analytics) {
+  const box = section('Learning analytics', 'Filter by course, lesson, learner and date. Views, skips, dwell, AI and Lab usage stay attributable down to the lesson.');
+  const courseFilter = K.select([['', 'All courses'], ...courses.map((item) => [item.id, item.title])], '');
+  const lessonFilter = K.select([['', 'All lessons']], '');
+  const dateFrom = K.input('', 'date');
+  const dateTo = K.input('', 'date');
+  const learnerFinder = K.search('Filter learner', () => {}, 0);
+  const learnerSearch = learnerFinder.input;
+  const clearLearner = K.button('Clear', null, { tiny: true });
+  const selectedLearner = K.badge('All learners');
+  const learnerResults = el('div');
+  let learnerId = '';
+  let learnerTimer = null;
+  box.body.append(
+    K.fields([
+      K.field('Course', courseFilter), K.field('Lesson', lessonFilter),
+      K.field('From', dateFrom), K.field('To', dateTo),
+    ]),
+    K.toolbar([learnerFinder.wrap, selectedLearner, clearLearner]),
+    learnerResults,
+  );
+
+  const content = el('div', 'adm-stack');
+  const drawAnalytics = (payload) => {
+    const selectedLesson = lessonFilter.value;
+    lessonFilter.innerHTML = '';
+    const allLessons = el('option', null, 'All lessons');
+    allLessons.value = '';
+    lessonFilter.append(allLessons);
+    for (const item of payload.lesson_options || []) {
+      const option = el('option', null, item.course + ' · ' + item.module + ' · ' + item.title);
+      option.value = item.id;
+      lessonFilter.append(option);
+    }
+    if ([...lessonFilter.options].some((option) => option.value === selectedLesson)) lessonFilter.value = selectedLesson;
+
+    const kinds = payload.summary?.by_kind || {};
+    const tiles = K.tiles([
+      K.tile({ value: payload.summary?.enrollments || 0, label: 'Enrollments', icon: 'team', featured: true, note: 'In this filter' }),
+      K.tile({ value: `${payload.summary?.average_progress || 0}%`, label: 'Average progress', icon: 'progress', note: 'Across enrollments' }),
+      K.tile({ value: kinds['lesson.view']?.count || 0, label: 'Lesson views', icon: 'overview', note: `${kinds['lesson.skip']?.count || 0} skips` }),
+      K.tile({ value: Math.round((kinds['lesson.dwell']?.duration_seconds || 0) / 60), label: 'Dwell', icon: 'cycle', note: 'minutes' }),
+      K.tile({ value: kinds['ai.use']?.count || 0, label: 'AI uses', icon: 'pulsar', note: 'Tutor questions' }),
+      K.tile({ value: kinds['lab.use']?.count || 0, label: 'Lab uses', icon: 'lab', note: 'Interactive sessions' }),
+    ]);
+
+    const visual = section('Activity overview', 'Top lessons by views; dwell, AI and Lab usage stay visible beside each bar.', 12);
+    visual.body.append(adminAnalyticsVisual(payload.lessons || []));
+
+    const learnerRows = section('Learner activity', 'First hundred learners in this filter.', 6);
+    const learners = (payload.learners || []).slice(0, 100).map((item) => K.row({
+      title: `${item.name} · ${item.course}`,
+      meta: P.meta([`${item.progress_percent}% progress`, `${item.views} views`, `${item.skips} skips`, `${Math.round(Number(item.dwell_seconds || 0) / 60)} min dwell`]),
+      badges: [`${item.ai_uses} AI`, `${item.lab_uses} Lab`, K.stateBadge(item.status)],
     }));
-  }
-  host.append(box.box);
+    learnerRows.body.append(learners.length ? K.list(learners) : K.empty('No learners in this filter.'));
+
+    const topLessons = section('Lesson activity', 'Views, dwell, skips, AI and Lab per lesson.', 6);
+    const lessons = (payload.lessons || []).slice(0, 60).map(adminAnalyticsLessonRow);
+    topLessons.body.append(lessons.length ? K.list(lessons) : K.empty('No tracked lesson activity yet.'));
+
+    content.replaceChildren(tiles, K.bento([visual.box, learnerRows.box, topLessons.box]));
+  };
+
+  const reloadAnalytics = async () => {
+    content.replaceChildren(el('div', 'fl-skeleton adm-skeleton'));
+    try {
+      const payload = await P.adminLmsAnalytics({
+        course_id: courseFilter.value,
+        lesson_id: lessonFilter.value,
+        user_id: learnerId,
+        from: dateFrom.value ? dateFrom.value + 'T00:00:00' : '',
+        to: dateTo.value ? dateTo.value + 'T23:59:59' : '',
+      });
+      drawAnalytics(payload);
+    } catch (error) {
+      content.replaceChildren(K.empty(error?.message || 'Analytics unavailable.'));
+    }
+  };
+  courseFilter.addEventListener('change', () => { lessonFilter.value = ''; reloadAnalytics(); });
+  lessonFilter.addEventListener('change', reloadAnalytics);
+  dateFrom.addEventListener('change', reloadAnalytics);
+  dateTo.addEventListener('change', reloadAnalytics);
+  clearLearner.addEventListener('click', () => {
+    learnerId = '';
+    learnerSearch.value = '';
+    selectedLearner.textContent = 'All learners';
+    learnerResults.replaceChildren();
+    reloadAnalytics();
+  });
+  learnerSearch.addEventListener('input', () => {
+    clearTimeout(learnerTimer);
+    learnerTimer = setTimeout(async () => {
+      learnerResults.replaceChildren();
+      const q = learnerSearch.value.trim();
+      if (q.length < 2) return;
+      try {
+        const result = await P.adminUsers(q);
+        learnerResults.append(K.list((result.users || []).slice(0, 8).map((user) => K.row({
+          title: user.name, meta: user.email,
+          lead: K.avatar(user.name || user.email),
+          actions: [K.button('Filter', () => {
+            learnerId = String(user.id);
+            selectedLearner.textContent = user.name || user.email;
+            learnerResults.replaceChildren();
+            reloadAnalytics();
+          }, { tiny: true })],
+        }))));
+      } catch {}
+    }, 180);
+  });
+  drawAnalytics(analytics);
+  return [K.bento([box.box]), content];
 }
 
 export async function renderAdminLms(host, { go }) {
-  loading(host, 'LMS Admin');
+  K.loading(host, 'LMS Admin', { tiles: 5 });
   try {
     const [courses, enrollments, meta, analytics, openedx, paths, repositories, payments] = await Promise.all([
       P.lmsCourses({ all: true }),
@@ -994,299 +1015,144 @@ export async function renderAdminLms(host, { go }) {
       P.adminLearningRepositories().catch(() => ({ repositories: [] })),
       P.adminCoursePayments().catch(() => ({ payments: [] })),
     ]);
-    const wrap = doc(host, 'LMS Admin', 'Open edX-backed learning with Gravitas+ AI, Lab, source management, exports and analytics.');
-    const metrics = el('div', 'fl-metrics');
-    metrics.append(
-      metric(courses.courses.length, 'Courses'),
-      metric(enrollments.enrollments.filter((item) => item.status === 'active').length, 'Active enrollments'),
-      metric(enrollments.enrollments.filter((item) => item.status === 'completed').length, 'Completed'),
-      metric(analytics.summary?.by_kind?.['ai.use']?.count || 0, 'AI tutor uses'),
-      metric(analytics.summary?.by_kind?.['lab.use']?.count || 0, 'Lab uses'),
-    );
-    wrap.append(metrics);
-
-    const toolbar = el('div', 'fl-toolbar');
-    toolbar.append(link(go, 'New course', '/workspace/core/admin/lms/courses/new', true));
-    wrap.append(toolbar);
-
-    const engine = section('Open edX engine', 'Tutor/Open edX runs as the standards-based learning engine; Gravitas+ remains the learner and admin experience.');
+    const refresh = () => renderAdminLms(host, { go });
     const engineState = openedx.openedx || {};
-    engine.body.append(row({
-      title: engineState.reachable ? 'Open edX reachable' : 'Open edX not reachable yet',
-      meta: P.meta([
-        engineState.configured ? 'OAuth configured' : 'OAuth pending',
-        openedx.lms_url || 'learn.gravitasplus.com',
-        openedx.cms_url || 'studio.gravitasplus.com',
-      ]),
-      badges: [engineState.reachable ? 'Online' : 'Pending', engineState.oauth ? 'OAuth OK' : ''],
-    }));
-    const engineLinks = el('div', 'fl-form-actions');
-    const lmsLink = el('a', 'ws-btn', 'Open learner LMS');
-    lmsLink.href = openedx.lms_url || 'https://learn.gravitasplus.com';
-    lmsLink.target = '_blank'; lmsLink.rel = 'noopener';
-    const studioLink = el('a', 'ws-btn', 'Open Studio');
-    studioLink.href = openedx.cms_url || 'https://studio.gravitasplus.com';
-    studioLink.target = '_blank'; studioLink.rel = 'noopener';
-    engineLinks.append(lmsLink, studioLink);
-    engine.body.append(engineLinks);
-    wrap.append(engine.box);
-
-    const courseBox = section('Courses');
-    for (const course of courses.courses) courseBox.body.append(row({
-      title: course.title,
-      meta: P.meta([
-        label(course.status),
-        label(course.access_type),
-        label(course.provider || 'native'),
-        course.category?.name || '',
-        `${course.lesson_count} lessons`,
-      ]),
-      badges: [
-        course.price ? `${course.price} ${course.currency}` : '',
-        course.certificate_enabled ? 'Certificate' : '',
-        ...(course.tags || []).slice(0, 3).map((item) => item.name),
+    const lmsUrl = openedx.lms_url || 'https://learn.gravitasplus.com';
+    const studioUrl = openedx.cms_url || 'https://studio.gravitasplus.com';
+    const wrap = K.page(host, {
+      title: 'LMS Admin',
+      meta: 'Open edX-backed learning with Gravitas+ AI, Lab, source management, exports and analytics.',
+      actions: [
+        link(go, 'New course', `${ADMIN}/lms/courses/new`, true),
+        K.anchor('Open learner LMS', lmsUrl),
+        K.anchor('Open Studio', studioUrl),
       ],
-      onClick: () => go(`/workspace/core/admin/lms/courses/${course.id}`),
-    }));
-    if (!courses.courses.length) courseBox.body.append(empty('No courses yet', 'Create the first course.'));
-    wrap.append(courseBox.box);
+    });
 
-    const paymentBox = section('Course payments', 'Track paid-course checkout attempts and grant access only after a payment is verified.');
-    for (const item of payments.payments || []) {
-      const state = select([
-        ['pending', 'Pending'],
-        ['paid', 'Paid / verified'],
-        ['failed', 'Failed'],
-        ['cancelled', 'Cancelled'],
-        ['refunded', 'Refunded'],
-      ], item.status || 'pending');
-      const reference = input(item.external_reference || '', 'text', 'Provider reference');
-      const applyPayment = action('Apply', async () => {
-        applyPayment.disabled = true;
-        try {
-          await P.adminUpdateCoursePayment(item.id, {
-            status: state.value,
-            external_reference: reference.value.trim(),
-          });
-          await renderAdminLms(host, { go });
-        } catch (error) {
-          applyPayment.disabled = false;
-          alert(error?.message || 'Payment status could not be updated.');
-        }
-      }, false, true);
-      paymentBox.body.append(row({
-        title: item.user_name + ' · ' + item.course_title,
-        meta: P.meta([
-          item.user_email,
-          item.amount + ' ' + item.currency,
-          label(item.provider),
-          new Date(item.created_at).toLocaleString(),
-        ]),
-        body: item.verified_by ? 'Verified by ' + item.verified_by : '',
-        badges: [label(item.status), item.external_reference || ''],
-        actions: [state, reference, applyPayment],
-      }));
-    }
-    if (!(payments.payments || []).length) {
-      paymentBox.body.append(empty('No checkout attempts yet', 'Paid-course checkout attempts will appear here.'));
-    }
-    wrap.append(paymentBox.box);
+    const all = enrollments.enrollments || [];
+    const pendingPayments = (payments.payments || []).filter((item) => item.status === 'pending').length;
+    const pendingReviews = (repositories.repositories || []).filter((item) => (item.review_status || 'pending') === 'pending').length;
+    wrap.append(K.tiles([
+      K.tile({ value: courses.courses.length, label: 'Courses', icon: 'course', featured: true, note: `${courses.courses.filter((c) => c.status === 'published').length} published` }),
+      K.tile({ value: all.filter((item) => item.status === 'active').length, label: 'Active enrollments', icon: 'team', note: `${all.length} in total` }),
+      K.tile({ value: all.filter((item) => item.status === 'completed').length, label: 'Completed', icon: 'certificate', note: `${all.filter((item) => item.certificate?.valid).length} with certificate` }),
+      K.tile({ value: analytics.summary?.by_kind?.['ai.use']?.count || 0, label: 'AI tutor uses', icon: 'pulsar', note: 'All courses' }),
+      K.tile({ value: analytics.summary?.by_kind?.['lab.use']?.count || 0, label: 'Lab uses', icon: 'lab', note: 'All courses' }),
+    ]));
 
-    const reviewBox = section('Exercise repository review', 'Learner Git pushes appear here for instructor review. A new push automatically returns the item to Pending review.');
-    for (const item of repositories.repositories || []) {
-      const open = el('a', 'ws-btn ws-btn--tiny', 'Open repository');
-      open.href = item.html_url || ('https://github.com/' + item.owner + '/' + item.repository);
-      open.target = '_blank';
-      open.rel = 'noopener';
-      const reviewState = select([
-        ['pending', 'Pending review'],
-        ['needs_changes', 'Needs changes'],
-        ['approved', 'Approved'],
-      ], item.review_status || 'pending');
-      const reviewNote = input(item.review_note || '', 'text', 'Review note');
-      const apply = action('Save review', async () => {
-        apply.disabled = true;
-        try {
-          await P.adminReviewLearningRepository(item.id, reviewState.value, reviewNote.value.trim());
-          await renderAdminLms(host, { go });
-        } catch (error) {
-          apply.disabled = false;
-          alert(error?.message || 'Review could not be saved.');
-        }
-      }, false, true);
-      reviewBox.body.append(row({
-        title: item.learner + ' · ' + item.course_title,
-        meta: P.meta([
-          item.lesson_title || 'Course exercise',
-          item.owner + '/' + item.repository,
-          item.branch,
-          item.last_commit_sha ? item.last_commit_sha.slice(0, 10) : '',
-        ]),
-        body: item.review_note || '',
-        badges: [label(item.review_status), item.reviewed_by ? 'Reviewed by ' + item.reviewed_by : ''],
-        actions: [open, reviewState, reviewNote, apply],
-      }));
-    }
-    if (!(repositories.repositories || []).length) {
-      reviewBox.body.append(empty('No exercise repositories yet', 'Learner Git pushes will appear here for review.'));
-    }
-    wrap.append(reviewBox.box);
-
-    const analyticsBox = section('Learning analytics', 'Filter by course, lesson, learner and date. Views, skips, dwell, AI and Lab usage remain attributable down to the lesson.');
-    const analyticsFilters = el('div', 'fl-toolbar');
-    const courseFilter = select([
-      ['', 'All courses'],
-      ...courses.courses.map((item) => [item.id, item.title]),
-    ], '');
-    const lessonFilter = select([['', 'All lessons']], '');
-    const dateFrom = input('', 'date');
-    dateFrom.title = 'From date';
-    const dateTo = input('', 'date');
-    dateTo.title = 'To date';
-    const learnerSearch = input('', 'search', 'Filter learner');
-    const clearLearner = action('Clear learner', () => {}, false, true);
-    const selectedLearner = el('span', 'v-toolbar__count', 'All learners');
-    const learnerResults = el('div', 'fl-stack');
-    let learnerId = '';
-    let learnerTimer = null;
-    analyticsFilters.append(courseFilter, lessonFilter, dateFrom, dateTo, learnerSearch, clearLearner, selectedLearner);
-    analyticsBox.body.append(analyticsFilters, learnerResults);
-
-    const analyticsContent = el('div', 'fl-stack');
-    analyticsBox.body.append(analyticsContent);
-    const drawAnalytics = (payload) => {
-      analyticsContent.innerHTML = '';
-      const selectedLesson = lessonFilter.value;
-      lessonFilter.innerHTML = '';
-      const allLessons = el('option', null, 'All lessons');
-      allLessons.value = '';
-      lessonFilter.append(allLessons);
-      for (const item of payload.lesson_options || []) {
-        const option = el('option', null, item.course + ' · ' + item.module + ' · ' + item.title);
-        option.value = item.id;
-        lessonFilter.append(option);
-      }
-      if ([...lessonFilter.options].some((option) => option.value === selectedLesson)) {
-        lessonFilter.value = selectedLesson;
-      }
-      const summaryMetrics = el('div', 'fl-metrics');
-      summaryMetrics.append(
-        metric(payload.summary?.enrollments || 0, 'Enrollments'),
-        metric(payload.summary?.average_progress || 0, 'Average progress', '%'),
-        metric(payload.summary?.by_kind?.['lesson.view']?.count || 0, 'Lesson views'),
-        metric(payload.summary?.by_kind?.['lesson.skip']?.count || 0, 'Skips'),
-        metric(Math.round((payload.summary?.by_kind?.['lesson.dwell']?.duration_seconds || 0) / 60), 'Dwell', 'minutes'),
-        metric(payload.summary?.by_kind?.['ai.use']?.count || 0, 'AI uses'),
-        metric(payload.summary?.by_kind?.['lab.use']?.count || 0, 'Lab uses'),
-      );
-      analyticsContent.append(summaryMetrics);
-
-      const visual = section('Activity overview', 'Top lessons by views; dwell, AI and Lab usage stay visible beside each bar.');
-      visual.body.append(adminAnalyticsVisual(payload.lessons || []));
-      analyticsContent.append(visual.box);
-
-      const learnerRows = section('Learner activity');
-      for (const item of (payload.learners || []).slice(0, 100)) {
-        learnerRows.body.append(row({
-          title: `${item.name} · ${item.course}`,
-          meta: P.meta([`${item.progress_percent}% progress`, `${item.views} views`, `${item.skips} skips`, `${Math.round(Number(item.dwell_seconds || 0) / 60)} min dwell`]),
-          badges: [`${item.ai_uses} AI`, `${item.lab_uses} Lab`, label(item.status)],
+    const build = (key) => {
+      if (key === 'courses') {
+        const engine = section('Open edX engine', 'Tutor/Open edX is the standards-based engine; Gravitas+ stays the learner and admin experience.', 4);
+        engine.body.append(
+          K.cardActions([
+            K.badge(engineState.reachable ? 'Reachable' : 'Not reachable yet', engineState.reachable ? 'ok' : 'warn'),
+            K.badge(engineState.configured ? 'OAuth configured' : 'OAuth pending', engineState.configured ? '' : 'warn'),
+            engineState.oauth ? K.badge('OAuth OK', 'ok') : null,
+          ]),
+          K.defs([['Learner', lmsUrl.replace(/^https?:\/\//, '')], ['Studio', studioUrl.replace(/^https?:\/\//, '')]]),
+          K.cardActions([K.anchor('Open learner LMS', lmsUrl, { tiny: true }), K.anchor('Open Studio', studioUrl, { tiny: true })]),
+        );
+        const courseBox = section('Courses', 'Open a course to edit it in the Course Builder.', 8, [link(go, 'New course', `${ADMIN}/lms/courses/new`)]);
+        courseBox.head.querySelector('.ws-btn')?.classList.add('ws-btn--tiny');
+        const rows = courses.courses.map((course, index) => K.row({
+          title: course.title,
+          meta: P.meta([label(course.access_type), label(course.provider || 'native'), course.category?.name || '', `${course.lesson_count} lessons`]),
+          lead: K.avatar(course.title, { mark: 'course', series: (index % 4) + 1 }),
+          badges: [
+            K.stateBadge(course.status),
+            course.price ? K.badge(`${course.price} ${course.currency}`) : null,
+            course.certificate_enabled ? K.badge('Certificate') : null,
+            ...(course.tags || []).slice(0, 2).map((item) => K.badge(item.name)),
+          ],
+          onClick: () => go(`${ADMIN}/lms/courses/${course.id}`),
         }));
+        courseBox.body.append(rows.length ? K.list(rows) : K.empty('No courses yet.', [link(go, 'Create the first course', `${ADMIN}/lms/courses/new`)]));
+        return [K.bento([courseBox.box, engine.box])];
       }
-      if (!(payload.learners || []).length) learnerRows.body.append(empty('No learners in this filter', 'Change the course or learner filter.'));
-      analyticsContent.append(learnerRows.box);
 
-      const topLessons = section('Lesson activity');
-      (payload.lessons || []).slice(0, 60).forEach((item) => topLessons.body.append(adminAnalyticsLessonRow(item)));
-      if (!(payload.lessons || []).length) topLessons.body.append(empty('No tracked lesson activity yet', 'Views, dwell, skips, AI and Lab events will appear as learners use courses.'));
-      analyticsContent.append(topLessons.box);
-    };
+      if (key === 'analytics') return lmsAnalytics(courses.courses, analytics);
+      if (key === 'paths') return [renderLearningPathsAdmin(paths.paths || [], courses.courses || [], refresh)];
+      if (key === 'taxonomy') {
+        return [renderLmsMetaAdmin(meta, refresh)];
+      }
 
-    const reloadAnalytics = async () => {
-      analyticsContent.innerHTML = '<div class="fl-skeleton"></div>';
-      try {
-        const payload = await P.adminLmsAnalytics({
-          course_id: courseFilter.value,
-          lesson_id: lessonFilter.value,
-          user_id: learnerId,
-          from: dateFrom.value ? dateFrom.value + 'T00:00:00' : '',
-          to: dateTo.value ? dateTo.value + 'T23:59:59' : '',
+      if (key === 'commerce') {
+        const paymentBox = section('Course payments', 'Paid-course checkout attempts. Access is granted only after a payment is verified.', 12);
+        const paymentRows = (payments.payments || []).map((item) => {
+          const state = K.select([
+            ['pending', 'Pending'], ['paid', 'Paid / verified'], ['failed', 'Failed'], ['cancelled', 'Cancelled'], ['refunded', 'Refunded'],
+          ], item.status || 'pending');
+          state.setAttribute('aria-label', 'Payment status');
+          const reference = K.input(item.external_reference || '', 'text', 'Provider reference');
+          reference.setAttribute('aria-label', 'Provider reference');
+          const applyPayment = action('Apply', async () => {
+            applyPayment.disabled = true;
+            try {
+              await P.adminUpdateCoursePayment(item.id, { status: state.value, external_reference: reference.value.trim() });
+              await refresh();
+            } catch (error) {
+              applyPayment.disabled = false;
+              alert(error?.message || 'Payment status could not be updated.');
+            }
+          }, false, true);
+          return K.row({
+            title: item.user_name + ' · ' + item.course_title,
+            meta: P.meta([item.user_email, item.amount + ' ' + item.currency, label(item.provider), date(item.created_at)]),
+            body: item.verified_by ? 'Verified by ' + item.verified_by : '',
+            badges: [K.stateBadge(item.status)],
+            actions: [state, reference, applyPayment],
+          });
         });
-        drawAnalytics(payload);
-      } catch (error) {
-        analyticsContent.innerHTML = '';
-        analyticsContent.append(empty('Analytics unavailable', error?.message || 'Try again.'));
+        paymentBox.body.append(paymentRows.length ? K.list(paymentRows) : K.empty('No checkout attempts yet.'));
+
+        const reviewBox = section('Exercise repository review', 'Learner Git pushes for instructor review. A new push returns the item to Pending review.', 12);
+        const reviewRows = (repositories.repositories || []).map((item) => {
+          const open = K.anchor('Open repository', item.html_url || ('https://github.com/' + item.owner + '/' + item.repository), { tiny: true });
+          const reviewState = K.select([
+            ['pending', 'Pending review'], ['needs_changes', 'Needs changes'], ['approved', 'Approved'],
+          ], item.review_status || 'pending');
+          reviewState.setAttribute('aria-label', 'Review status');
+          const reviewNote = K.input(item.review_note || '', 'text', 'Review note');
+          reviewNote.setAttribute('aria-label', 'Review note');
+          const apply = action('Save review', async () => {
+            apply.disabled = true;
+            try {
+              await P.adminReviewLearningRepository(item.id, reviewState.value, reviewNote.value.trim());
+              await refresh();
+            } catch (error) {
+              apply.disabled = false;
+              alert(error?.message || 'Review could not be saved.');
+            }
+          }, false, true);
+          return K.row({
+            title: item.learner + ' · ' + item.course_title,
+            meta: P.meta([item.lesson_title || 'Course exercise', item.owner + '/' + item.repository, item.branch, item.last_commit_sha ? item.last_commit_sha.slice(0, 10) : '']),
+            body: item.review_note || '',
+            badges: [K.stateBadge(item.review_status || 'pending'), item.reviewed_by ? K.badge('Reviewed by ' + item.reviewed_by) : null],
+            actions: [open, reviewState, reviewNote, apply],
+          });
+        });
+        reviewBox.body.append(reviewRows.length ? K.list(reviewRows) : K.empty('No exercise repositories yet. Learner Git pushes will appear here.'));
+        return [K.bento([paymentBox.box, reviewBox.box])];
       }
+
+      const enrollmentBox = section('Recent enrollments', 'The thirty most recent enrollments and admin grants.');
+      const rows = all.slice(0, 30).map((item) => enrollmentAdminRow(item, refresh));
+      enrollmentBox.body.append(rows.length ? K.list(rows) : K.empty('No enrollments yet.'));
+      return [K.bento([enrollmentBox.box])];
     };
-    courseFilter.addEventListener('change', () => {
-      lessonFilter.value = '';
-      reloadAnalytics();
-    });
-    lessonFilter.addEventListener('change', reloadAnalytics);
-    dateFrom.addEventListener('change', reloadAnalytics);
-    dateTo.addEventListener('change', reloadAnalytics);
-    clearLearner.addEventListener('click', () => {
-      learnerId = '';
-      learnerSearch.value = '';
-      selectedLearner.textContent = 'All learners';
-      learnerResults.innerHTML = '';
-      reloadAnalytics();
-    });
-    learnerSearch.addEventListener('input', () => {
-      clearTimeout(learnerTimer);
-      learnerTimer = setTimeout(async () => {
-        learnerResults.innerHTML = '';
-        const q = learnerSearch.value.trim();
-        if (q.length < 2) return;
-        try {
-          const result = await P.adminUsers(q);
-          for (const user of (result.users || []).slice(0, 8)) {
-            const choose = action('Filter', () => {
-              learnerId = String(user.id);
-              selectedLearner.textContent = user.name || user.email;
-              learnerResults.innerHTML = '';
-              reloadAnalytics();
-            }, false, true);
-            learnerResults.append(row({ title: user.name, meta: user.email, actions: [choose] }));
-          }
-        } catch {}
-      }, 180);
-    });
-    drawAnalytics(analytics);
-    wrap.append(analyticsBox.box);
 
-    await renderLmsMetaAdmin(wrap, meta, () => renderAdminLms(host, { go }));
-    await renderLearningPathsAdmin(wrap, paths.paths || [], courses.courses || [], () => renderAdminLms(host, { go }));
-
-    const enrollmentBox = section('Recent enrollments');
-    for (const enrollment of enrollments.enrollments.slice(0, 30)) enrollmentBox.body.append(enrollmentAdminRow(enrollment, () => renderAdminLms(host, { go })));
-    if (!enrollments.enrollments.length) enrollmentBox.body.append(empty('No enrollments yet', 'Learner enrollments and admin grants appear here.'));
-    wrap.append(enrollmentBox.box);
+    wrap.append(K.tabs([
+      ['courses', 'Courses'],
+      ['analytics', 'Analytics'],
+      ['paths', 'Learning paths'],
+      ['taxonomy', 'Categories & tags'],
+      ['commerce', `Payments & review${pendingPayments + pendingReviews ? ` · ${pendingPayments + pendingReviews}` : ''}`],
+      ['enrollments', 'Enrollments'],
+    ], build, { name: 'LMS administration' }));
   } catch (error) {
-    fail(host, 'LMS Admin', error, () => renderAdminLms(host, { go }));
+    K.failure(host, 'LMS Admin', error, () => renderAdminLms(host, { go }));
   }
-}
-
-function enrollmentAdminRow(enrollment, refresh) {
-  const state = select([['active', 'Active'], ['paused', 'Paused'], ['completed', 'Completed'], ['revoked', 'Revoked']], enrollment.status);
-  const save = action('Apply', async () => {
-    save.disabled = true;
-    try { await P.adminUpdateLmsEnrollment(enrollment.id, { status: state.value }); await refresh(); }
-    catch { save.disabled = false; }
-  }, false, true);
-  const cert = enrollment.certificate
-    ? action(enrollment.certificate.valid ? 'Revoke certificate' : 'Reissue certificate', async () => {
-        cert.disabled = true;
-        await P.adminUpdateLmsEnrollment(enrollment.id, { certificate: enrollment.certificate.valid ? 'revoke' : 'reissue' });
-        await refresh();
-      }, false, true)
-    : null;
-  return row({
-    title: `${enrollment.user.name} · ${enrollment.course.title}`,
-    meta: P.meta([enrollment.user.email, `${enrollment.progress_percent}%`, label(enrollment.access_source)]),
-    badges: [label(enrollment.status), enrollment.certificate?.valid ? 'Certificate' : ''],
-    actions: [state, save, cert].filter(Boolean),
-  });
 }
 
 /* ==========================================================================
@@ -1339,15 +1205,16 @@ async function coverDataUri(file) {
 function courseCoverEditor(course) {
   const box = section(
     'Cover image',
-    'Shown on the course page, in the catalog and in My learning. Cropped to 16:9 from the centre and resized to 1280×720. A course without one gets a generated Gravitas+ cover.',
+    'Shown on the course page, in the catalog and in My learning. Cropped to 16:9 and resized to 1280×720. Without one, the course gets a generated Gravitas+ cover.',
+    12,
   );
   if (!course) {
-    box.body.append(empty('Save the course first', 'The cover can be added once the course exists.'));
+    box.body.append(K.empty('Save the course first; the cover can be added once it exists.'));
     return box.box;
   }
   let current = course;
-  const layout = el('div', 'flc-cover-edit');
-  const preview = el('div', 'flc-cover-edit__preview');
+  const layout = el('div', 'adm-cover flc-cover-edit');
+  const preview = el('div', 'adm-cover__preview flc-cover-edit__preview');
   const draw = () => {
     preview.replaceChildren(courseCover(current, 'flc-cover'));
     preview.dataset.generated = current.cover_url ? 'false' : 'true';
@@ -1400,22 +1267,24 @@ function courseCoverEditor(course) {
       upload.disabled = false;
     }
   });
-  const controls = el('div', 'flc-cover-edit__controls');
-  controls.append(el('p', 'fl-muted', 'PNG, JPEG or WebP. Pick an image that still reads when it is small: one clear subject, little text.'), buttonStrip([upload, remove]), status, file);
+  const controls = el('div', 'adm-cover__controls');
+  controls.append(C.note('PNG, JPEG or WebP. Pick an image that still reads when small: one clear subject, little text.'), K.cardActions([upload, remove]), status, file);
   layout.append(preview, controls);
   draw();
   box.body.append(layout);
   return box.box;
 }
 
-function buttonStrip(buttons) {
-  const strip = el('div', 'fl-form-actions');
-  buttons.forEach((button) => strip.append(button));
-  return strip;
-}
+/* ==========================================================================
+   COURSE BUILDER
+   One form across seven tabs. The tabs are built eagerly and only hidden,
+   because submit reads every control on every tab. Media and direct
+   enrollment act immediately on their own buttons, so they are not nested
+   forms inside the course form.
+   ========================================================================== */
 
 export async function renderAdminCourseEditor(host, id, { go }) {
-  loading(host, id === 'new' ? 'New course' : 'Edit course');
+  K.loading(host, id === 'new' ? 'New course' : 'Course', { tiles: 0, cards: [8, 4] });
   try {
     const [courseResult, meta] = await Promise.all([
       id === 'new' ? Promise.resolve({ course: null }) : P.lmsCourse(id),
@@ -1426,36 +1295,37 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     const mediaData = course
       ? await P.adminLearningAssets(course.id)
       : { assets: [], groups: [], folders: [], nextcloud: { state: 'unavailable' } };
-    const assets = mediaData.assets || [];
+    const reload = () => renderAdminCourseEditor(host, id, { go });
 
-    const wrap = doc(
-      host,
-      course?.title || 'New course',
-      'Course Builder · safe live editing, Open edX mapping, media, access, instructors, forms, assessments and future payment policy.',
-    );
-    const form = el('form', 'fl-form');
-    const title = input(course?.title || '');
-    const slug = input(course?.slug || '');
-    const summary = textarea(course?.summary || '', 3);
-    const description = textarea(course?.description || '', 7);
-    const accessType = select([['open', 'Open enrollment'], ['locked', 'Invite only'], ['paid', 'Paid']], course?.access_type || 'open');
-    const status = select([['draft', 'Draft'], ['published', 'Published'], ['archived', 'Archived']], course?.status || 'draft');
-    const price = input(course?.price || '', 'number');
+    const wrap = K.page(host, {
+      title: course?.title || 'New course',
+      meta: course
+        ? P.meta([label(course.status), label(course.access_type), `${enrolled.length} enrollment${enrolled.length === 1 ? '' : 's'}`])
+        : 'Course Builder — details first; structure, media and enrollment open once the course exists.',
+      actions: [
+        link(go, 'LMS Admin', `${ADMIN}/lms`),
+        course ? link(go, 'View as learner', `/workspace/learning/courses/${course.id}`) : null,
+      ],
+    });
+    const form = el('form', 'adm-form');
+
+    /* Details ------------------------------------------------------------- */
+    const title = K.input(course?.title || '');
+    const slug = K.input(course?.slug || '');
+    const summary = K.textarea(course?.summary || '', 3);
+    const description = K.textarea(course?.description || '', 7);
+    const accessType = K.select([['open', 'Open enrollment'], ['locked', 'Invite only'], ['paid', 'Paid']], course?.access_type || 'open');
+    const status = K.select([['draft', 'Draft'], ['published', 'Published'], ['archived', 'Archived']], course?.status || 'draft');
+    const price = K.input(course?.price || '', 'number');
     price.step = '0.01';
-    const currency = input(course?.currency || 'EUR');
-    const certEnabled = checkbox(course?.certificate_enabled !== false, 'Issue Gravitas+ certificate on completion');
-
-    const provider = select([['native', 'Gravitas native'], ['openedx', 'Open edX']], course?.provider || 'native');
-    const openedxKey = input(course?.openedx_course_key || '');
-    const openedxUrl = input(course?.openedx_launch_url || '', 'url');
-    const openedxStudio = input(course?.openedx_studio_url || '', 'url');
-
-    const category = select([
-      ['', 'No category'],
-      ...(meta.categories || []).map((item) => [item.id, item.name]),
-    ], course?.category?.id || '');
-
-    const tagSelect = el('select', 'v-input fl-input');
+    const currency = K.input(course?.currency || 'EUR');
+    const certEnabled = K.toggle(course?.certificate_enabled !== false, 'Issue Gravitas+ certificate on completion');
+    const provider = K.select([['native', 'Gravitas native'], ['openedx', 'Open edX']], course?.provider || 'native');
+    const openedxKey = K.input(course?.openedx_course_key || '');
+    const openedxUrl = K.input(course?.openedx_launch_url || '', 'url');
+    const openedxStudio = K.input(course?.openedx_studio_url || '', 'url');
+    const category = K.select([['', 'No category'], ...(meta.categories || []).map((item) => [item.id, item.name])], course?.category?.id || '');
+    const tagSelect = el('select', 'v-input');
     tagSelect.multiple = true;
     tagSelect.size = Math.min(7, Math.max(3, (meta.tags || []).length || 3));
     const selectedTags = new Set((course?.tags || []).map((item) => String(item.id)));
@@ -1465,270 +1335,222 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       option.selected = selectedTags.has(String(item.id));
       tagSelect.append(option);
     }
-
-    const grid = el('div', 'fl-form-grid');
-    grid.append(
-      field('Title', title),
-      field('Slug', slug),
-      field('Access', accessType),
-      field('Status', status),
-      field('Price', price),
-      field('Currency', currency),
-      field('Provider', provider),
-      field('Category', category),
-    );
-    form.append(grid, field('Summary', summary), field('Description', description), field('Tags', tagSelect), certEnabled.wrap);
-    form.append(courseCoverEditor(course));
-
     let slugTouched = !!course;
     slug.addEventListener('input', () => { slugTouched = true; });
-    title.addEventListener('input', () => { if (!slugTouched) slug.value = slugify(title.value); });
+    title.addEventListener('input', () => { if (!slugTouched) slug.value = K.slugify(title.value); });
 
-    const openedx = section('Open edX mapping', 'Map this Gravitas+ course to an Open edX course run while keeping the Gravitas+ learner experience.');
-    const openedxGrid = el('div', 'fl-form-grid');
-    openedxGrid.append(
-      field('Course key', openedxKey, 'Example: course-v1:Gravitas+Research101+2026'),
-      field('Learner URL', openedxUrl),
-      field('Studio URL', openedxStudio),
+    const details = section('Course', 'What learners see in the catalog and on the course page.', 8);
+    details.body.append(
+      K.fields([K.field('Title', title), K.field('Slug', slug)], 2),
+      K.field('Summary', summary),
+      K.field('Description', description),
     );
-    openedx.body.append(openedxGrid);
+    const publishing = section('Publishing & access', 'Status, who can enroll and what it costs.', 4);
+    publishing.body.append(
+      K.fields([
+        K.field('Status', status), K.field('Access', accessType),
+        K.field('Price', price), K.field('Currency', currency),
+        K.field('Category', category), K.field('Provider', provider),
+        K.field('Tags', tagSelect, 'Ctrl/⌘-click to choose several.', { wide: true }),
+      ], 2),
+      K.switches([certEnabled]),
+    );
+
+    /* Integration --------------------------------------------------------- */
+    const openedx = section('Open edX mapping', 'Map this course to an Open edX course run while keeping the Gravitas+ learner experience.');
+    openedx.body.append(K.fields([
+      K.field('Course key', openedxKey, 'Example: course-v1:Gravitas+Research101+2026'),
+      K.field('Learner URL', openedxUrl),
+      K.field('Studio URL', openedxStudio),
+    ]));
     if (course) {
+      const openedxStatus = statusLine();
       const validate = action('Validate Open edX mapping', async () => {
         validate.disabled = true;
-        openedxStatus.textContent = 'Checking…';
+        setStatus(openedxStatus, 'Checking…');
         try {
           const result = await P.adminValidateOpenEdxCourse(course.id);
-          openedxStatus.textContent = result.course_details?.course_name
-            ? `Connected · ${result.course_details.course_name}`
-            : 'Connected.';
-          openedxStatus.dataset.tone = 'ok';
+          setStatus(openedxStatus, result.course_details?.course_name ? `Connected · ${result.course_details.course_name}` : 'Connected.', 'ok');
         } catch (error) {
-          openedxStatus.textContent = error?.message || 'Open edX mapping is not reachable yet.';
-          openedxStatus.dataset.tone = 'bad';
+          setStatus(openedxStatus, error?.message || 'Open edX mapping is not reachable yet.', 'bad');
         } finally { validate.disabled = false; }
       });
-      const openedxStatus = statusLine();
-      openedx.body.append(validate, openedxStatus);
+      openedx.body.append(K.cardActions([validate], openedxStatus));
     }
-    form.append(openedx.box);
 
-    const instructorsBox = section('Instructors', 'Add multiple course instructors without changing their Research/Core access.');
+    /* People & forms ------------------------------------------------------ */
+    const instructorsBox = section('Instructors', 'Several instructors per course, without changing their Research or Core access.', 6);
     const instructorState = (course?.instructors || []).map((item) => ({
-      user_id: item.user_id,
-      name: item.name,
-      email: item.email,
-      role: item.role || 'instructor',
+      user_id: item.user_id, name: item.name, email: item.email, role: item.role || 'instructor',
     }));
-    const instructorList = el('div', 'fl-stack');
+    const instructorList = el('div');
     const drawInstructors = () => {
-      instructorList.innerHTML = '';
-      for (const item of instructorState) {
-        const role = select([['lead','Lead'],['instructor','Instructor'],['assistant','Teaching assistant']], item.role);
+      const rows = instructorState.map((item) => {
+        const role = K.select([['lead', 'Lead'], ['instructor', 'Instructor'], ['assistant', 'Teaching assistant']], item.role);
+        role.setAttribute('aria-label', 'Instructor role');
         role.addEventListener('change', () => { item.role = role.value; });
-        const remove = action('Remove', () => {
+        const remove = K.button('Remove', () => {
           const index = instructorState.indexOf(item);
           if (index >= 0) instructorState.splice(index, 1);
           drawInstructors();
-        }, false, true);
-        instructorList.append(row({
-          title: item.name || item.email,
-          meta: item.email,
-          actions: [role, remove],
-        }));
-      }
-      if (!instructorState.length) instructorList.append(empty('No instructors assigned', 'Search registered accounts below.'));
+        }, { tiny: true, danger: true });
+        return K.row({ title: item.name || item.email, meta: item.email, lead: K.avatar(item.name || item.email), actions: [role, remove] });
+      });
+      instructorList.replaceChildren(rows.length ? K.list(rows) : K.empty('No instructors assigned. Search registered accounts below.'));
     };
     drawInstructors();
+    const instructorRole = K.select([['lead', 'Lead'], ['instructor', 'Instructor'], ['assistant', 'Teaching assistant']], 'instructor');
+    instructorRole.setAttribute('aria-label', 'Role for added instructor');
+    const instructorResults = el('div');
+    const instructorFinder = K.search('Search instructor account', async (q) => {
+      instructorResults.replaceChildren();
+      if (q.length < 2) return;
+      try {
+        const data = await P.adminUsers(q);
+        instructorResults.append(K.list((data.users || []).slice(0, 8).map((user) => K.row({
+          title: user.name, meta: user.email, lead: K.avatar(user.name || user.email),
+          actions: [K.button('Add', () => {
+            if (!instructorState.some((entry) => String(entry.user_id) === String(user.id))) {
+              instructorState.push({ user_id: user.id, name: user.name, email: user.email, role: instructorRole.value });
+              drawInstructors();
+            }
+          }, { tiny: true })],
+        }))));
+      } catch {}
+    }, 180);
+    instructorsBox.body.append(instructorList, K.toolbar([instructorFinder.wrap, instructorRole]), instructorResults);
 
-    const instructorSearch = input('', 'search', 'Search instructor account');
-    const instructorRole = select([['lead','Lead'],['instructor','Instructor'],['assistant','Teaching assistant']], 'instructor');
-    const instructorResults = el('div', 'fl-stack');
-    let instructorTimer = null;
-    instructorSearch.addEventListener('input', () => {
-      clearTimeout(instructorTimer);
-      instructorTimer = setTimeout(async () => {
-        instructorResults.innerHTML = '';
-        const q = instructorSearch.value.trim();
-        if (q.length < 2) return;
-        try {
-          const data = await P.adminUsers(q);
-          for (const user of (data.users || []).slice(0, 8)) {
-            const add = action('Add', () => {
-              if (!instructorState.some((row) => String(row.user_id) === String(user.id))) {
-                instructorState.push({
-                  user_id: user.id,
-                  name: user.name,
-                  email: user.email,
-                  role: instructorRole.value,
-                });
-                drawInstructors();
-              }
-            }, false, true);
-            instructorResults.append(row({ title: user.name, meta: user.email, actions: [add] }));
-          }
-        } catch {}
-      }, 180);
-    });
-    const instructorSearchRow = el('div', 'fl-form-grid');
-    instructorSearchRow.append(instructorSearch, instructorRole);
-    instructorsBox.body.append(instructorList, instructorSearchRow, instructorResults);
-    form.append(instructorsBox.box);
-
-    const profileBox = section('Enrollment & profile form', 'Define fields learners complete after enrollment. Required fields lock protected lessons until completed.');
-    const registrationHost = el('div', 'fl-stack');
+    const profileBox = section('Enrollment & profile form', 'Fields learners complete after enrolling. Required fields lock protected lessons until done.', 6);
+    const registrationHost = K.stack();
     for (const fieldSpec of course?.registration_schema || []) registrationHost.append(registrationFieldEditor(fieldSpec));
-    const addRegistrationField = action('Add profile field', () => registrationHost.append(registrationFieldEditor()), false, true);
-    profileBox.body.append(registrationHost, addRegistrationField);
-    form.append(profileBox.box);
+    profileBox.body.append(registrationHost, K.cardActions([K.button('Add profile field', () => registrationHost.append(registrationFieldEditor()), { tiny: true })]));
 
-    const payment = section('Payment', 'Define the paid-course checkout policy. Enrollment is still granted only after a verified payment or an admin grant; a checkout link never creates a fake purchase.');
+    /* Payment ------------------------------------------------------------- */
+    const payment = section('Payment', 'Paid-course checkout policy. Enrollment is granted only after a verified payment or an admin grant; a checkout link never creates a fake purchase.');
     const paymentConfig = course?.payment_config || {};
-    const paymentEnabled = checkbox(!!paymentConfig.enabled, 'Checkout enabled');
-    const paymentProvider = select([
-      ['external','External checkout'],
-      ['stripe','Stripe'],
-      ['sumup','SumUp'],
-    ], paymentConfig.provider || 'external');
-    const paymentSku = input(paymentConfig.sku || '');
-    const paymentCheckoutUrl = input(paymentConfig.checkout_url || '', 'url', 'https://checkout.example/…');
-    const paymentWebhookSecret = input(paymentConfig.webhook_secret || '', 'password', 'Webhook secret');
+    const paymentEnabled = K.toggle(!!paymentConfig.enabled, 'Checkout enabled');
+    const paymentProvider = K.select([['external', 'External checkout'], ['stripe', 'Stripe'], ['sumup', 'SumUp']], paymentConfig.provider || 'external');
+    const paymentSku = K.input(paymentConfig.sku || '');
+    const paymentCheckoutUrl = K.input(paymentConfig.checkout_url || '', 'url', 'https://checkout.example/…');
+    const paymentWebhookSecret = K.input(paymentConfig.webhook_secret || '', 'password', 'Webhook secret');
     payment.body.append(
-      paymentEnabled.wrap,
-      field('Provider', paymentProvider),
-      field('SKU / product key', paymentSku),
-      field('Checkout URL', paymentCheckoutUrl, 'Supports {payment_id}, {course_id}, {user_email}, {amount}, and {currency} placeholders.'),
-      field('Webhook secret', paymentWebhookSecret, course ? 'Provider/backend webhook: /api/lms/courses/' + course.id + '/payment-webhook/ · send X-Gravitas-Payment-Secret.' : 'Saved per course.'),
+      K.switches([paymentEnabled]),
+      K.fields([
+        K.field('Provider', paymentProvider),
+        K.field('SKU / product key', paymentSku),
+        K.field('Checkout URL', paymentCheckoutUrl, 'Supports {payment_id}, {course_id}, {user_email}, {amount}, and {currency} placeholders.'),
+        K.field('Webhook secret', paymentWebhookSecret, course ? 'Provider/backend webhook: /api/lms/courses/' + course.id + '/payment-webhook/ · send X-Gravitas-Payment-Secret.' : 'Saved per course.'),
+      ], 2),
     );
-    form.append(payment.box);
 
+    /* Learning behavior --------------------------------------------------- */
     const learningConfig = course?.learning_config || {};
-    const behavior = section('Learning behavior', 'Configure tutoring, research tooling, collaboration, offline access and reproducible exercise workflows per course.');
-    const aiEnabled = checkbox(learningConfig.ai_enabled !== false, 'AI Tutor enabled');
-    const zoteroEnabled = checkbox(learningConfig.zotero_enabled !== false, 'Zotero/source management enabled');
-    const labEnabled = checkbox(learningConfig.lab_enabled !== false, 'Interactive Lab enabled');
-    const profileRequired = checkbox(learningConfig.require_profile_before_content !== false, 'Require profile form before protected content');
-    const discussionsEnabled = checkbox(learningConfig.discussions_enabled !== false, 'Course discussion group enabled');
-    const literatureEnabled = checkbox(learningConfig.literature_enabled !== false, 'Paper recommendations enabled (ORCID / arXiv / INSPIRE / Semantic Scholar)');
-    const notebookEnabled = checkbox(learningConfig.notebook_enabled !== false, 'Notebook workspace enabled');
-    const gitEnabled = checkbox(learningConfig.git_enabled !== false, 'Git/GitHub exercise push enabled');
-    const socialEnabled = checkbox(learningConfig.social_publish_enabled !== false, 'Achievement publishing enabled');
-    const pkmEnabled = checkbox(learningConfig.pkm_enabled !== false, 'PKM exports enabled');
-    const offlineEnabled = checkbox(learningConfig.offline_enabled !== false, 'Limited offline read mode enabled');
-    const guidanceMode = select([
+    const aiEnabled = K.toggle(learningConfig.ai_enabled !== false, 'AI Tutor enabled');
+    const zoteroEnabled = K.toggle(learningConfig.zotero_enabled !== false, 'Zotero/source management enabled');
+    const labEnabled = K.toggle(learningConfig.lab_enabled !== false, 'Interactive Lab enabled');
+    const profileRequired = K.toggle(learningConfig.require_profile_before_content !== false, 'Require profile form before protected content');
+    const discussionsEnabled = K.toggle(learningConfig.discussions_enabled !== false, 'Course discussion group enabled');
+    const literatureEnabled = K.toggle(learningConfig.literature_enabled !== false, 'Paper recommendations enabled', 'ORCID / arXiv / INSPIRE / Semantic Scholar');
+    const notebookEnabled = K.toggle(learningConfig.notebook_enabled !== false, 'Notebook workspace enabled');
+    const gitEnabled = K.toggle(learningConfig.git_enabled !== false, 'Git/GitHub exercise push enabled');
+    const socialEnabled = K.toggle(learningConfig.social_publish_enabled !== false, 'Achievement publishing enabled');
+    const pkmEnabled = K.toggle(learningConfig.pkm_enabled !== false, 'PKM exports enabled');
+    const offlineEnabled = K.toggle(learningConfig.offline_enabled !== false, 'Limited offline read mode enabled');
+    const guidanceMode = K.select([
       ['hint_only', 'Hints only · never reveal final answer'],
       ['guided', 'Guided · hints first, full answer only after effort/request'],
       ['full', 'Full explanations allowed'],
     ], learningConfig.ai_guidance_mode || 'guided');
-    const instructorPrompt = textarea(learningConfig.ai_instructor_prompt || '', 4);
-    const notebookRuntime = select([
+    const instructorPrompt = K.textarea(learningConfig.ai_instructor_prompt || '', 4);
+    const notebookRuntime = K.select([
       ['python', 'Python in browser + .ipynb export'],
       ['jupyter', 'Jupyter / Python'],
       ['mathematica', 'Mathematica / Wolfram kernel'],
     ], learningConfig.notebook_runtime || 'python');
-    const notebookPackages = textarea(
-      Array.isArray(learningConfig.notebook_packages) ? learningConfig.notebook_packages.join('\n') : '',
-      3,
-    );
-    const jupyterUrl = input(learningConfig.jupyter_url || '', 'url', 'https://jupyter.example/…');
-    const mathematicaUrl = input(learningConfig.mathematica_url || '', 'url', 'https://wolfram.example/…');
-    const behaviorGrid = el('div', 'fl-form-grid');
-    behaviorGrid.append(
-      field('AI guidance mode', guidanceMode),
-      field('Default notebook runtime', notebookRuntime),
-      field('Jupyter runner URL', jupyterUrl),
-      field('Mathematica / Wolfram runner URL', mathematicaUrl),
-    );
-    behavior.body.append(
-      aiEnabled.wrap,
-      behaviorGrid,
-      field('Instructor AI guidance', instructorPrompt, 'Extra policy/instructions appended to the course tutor system prompt.'),
-      zoteroEnabled.wrap,
-      labEnabled.wrap,
-      discussionsEnabled.wrap,
-      literatureEnabled.wrap,
-      notebookEnabled.wrap,
-      field('Notebook packages', notebookPackages, 'One Python package per line. Stored in the reproducible environment spec.'),
-      gitEnabled.wrap,
-      socialEnabled.wrap,
-      pkmEnabled.wrap,
-      offlineEnabled.wrap,
-      profileRequired.wrap,
-    );
-    form.append(behavior.box);
+    const notebookPackages = K.textarea(Array.isArray(learningConfig.notebook_packages) ? learningConfig.notebook_packages.join('\n') : '', 3, '', { code: true });
+    const jupyterUrl = K.input(learningConfig.jupyter_url || '', 'url', 'https://jupyter.example/…');
+    const mathematicaUrl = K.input(learningConfig.mathematica_url || '', 'url', 'https://wolfram.example/…');
 
+    const tutor = section('AI tutor', 'How much the course tutor may reveal, and any instructions of your own.', 6);
+    tutor.body.append(
+      K.switches([aiEnabled]),
+      K.field('AI guidance mode', guidanceMode),
+      K.field('Instructor AI guidance', instructorPrompt, 'Extra policy/instructions appended to the course tutor system prompt.'),
+    );
+    const notebook = section('Notebook & runtimes', 'The reproducible environment exercises run in.', 6);
+    notebook.body.append(
+      K.switches([notebookEnabled]),
+      K.fields([
+        K.field('Default notebook runtime', notebookRuntime, '', { wide: true }),
+        K.field('Jupyter runner URL', jupyterUrl),
+        K.field('Mathematica / Wolfram runner URL', mathematicaUrl),
+        K.field('Notebook packages', notebookPackages, 'One Python package per line. Stored in the reproducible environment spec.', { wide: true }),
+      ], 2),
+    );
+    const behavior = section('Learning behavior', 'Research tooling, collaboration, offline access and exercise workflows for this course.');
+    behavior.body.append(K.switches([
+      profileRequired, discussionsEnabled, labEnabled, zoteroEnabled, literatureEnabled,
+      gitEnabled, socialEnabled, pkmEnabled, offlineEnabled,
+    ]));
+
+    /* Structure ----------------------------------------------------------- */
     const structure = section(
       'Course structure',
       enrolled.length
         ? `${enrolled.length} enrollment(s) exist. Stable IDs preserve learner progress while lessons and assessments are edited.`
         : 'Modules contain lessons, course media, Labs and optional assessments.',
     );
-    const modulesHost = el('div', 'fl-stack');
-    const finalsHost = el('div', 'fl-stack');
+    const modulesHost = K.stack();
+    const finalsHost = K.stack();
     populateStructure(modulesHost, finalsHost, course);
-    const addModule = action('Add module', () => modulesHost.append(moduleEditor()), false, true);
-    const addFinal = action('Add final assessment', () => finalsHost.append(assessmentEditor()), false, true);
-    structure.body.append(modulesHost, addModule, el('h3', null, 'Course assessments'), finalsHost, addFinal);
-    form.append(structure.box);
+    structure.body.append(modulesHost, K.cardActions([K.button('Add module', () => modulesHost.append(moduleEditor()))]));
+    const finals = section('Course assessments', 'Final assessments that apply to the whole course.');
+    finals.body.append(finalsHost, K.cardActions([K.button('Add final assessment', () => finalsHost.append(assessmentEditor()))]));
 
+    /* Media & enrollment (existing courses only) -------------------------- */
+    const mediaPane = [];
     if (course) {
       const currentGroups = (mediaData.groups || []).map((group) => {
         const current = (group.versions || []).find((item) => item.id === group.current_id) || (group.versions || [])[0];
         return { ...group, current };
       }).filter((group) => group.current);
       const maxUpload = mediaData.max_file_bytes ? P.formatBytes(mediaData.max_file_bytes) : 'configured server limit';
+      const cloudState = mediaData.nextcloud?.state || 'unavailable';
       const media = section(
         'Course media library',
         'Nextcloud-backed media with folders and version history. File types are unrestricted; each upload may be up to ' + maxUpload + '.',
+        8,
+        [
+          K.badge(cloudState === 'live' ? `Nextcloud · ${mediaData.nextcloud?.mountpoint || 'Gravitas Learning'}` : cloudState === 'partial' ? 'Migration pending' : 'Storage unavailable',
+            cloudState === 'live' ? 'ok' : cloudState === 'partial' ? 'warn' : 'bad'),
+          mediaData.nextcloud?.files_url ? K.anchor('Open in Nextcloud', mediaData.nextcloud.files_url, { tiny: true }) : null,
+        ],
       );
+      if (cloudState === 'partial') media.body.append(C.note('Nextcloud is active, but at least one older local file still needs migration.'));
 
-      const cloudState = mediaData.nextcloud?.state || 'unavailable';
-      const cloudBar = el('div', 'v-note');
-      cloudBar.dataset.tone = cloudState === 'live' ? 'good' : cloudState === 'partial' ? 'warn' : 'bad';
-      cloudBar.append(document.createTextNode(
-        cloudState === 'live'
-          ? 'Nextcloud storage active · ' + (mediaData.nextcloud?.mountpoint || 'Gravitas Learning')
-          : cloudState === 'partial'
-            ? 'Nextcloud is active, but at least one older local file still needs migration.'
-            : 'Nextcloud course-media storage is currently unavailable.',
-      ));
-      if (mediaData.nextcloud?.files_url) {
-        const openCloud = el('a', 'ws-btn ws-btn--tiny', 'Open media in Nextcloud');
-        openCloud.href = mediaData.nextcloud.files_url;
-        openCloud.target = '_blank';
-        openCloud.rel = 'noopener';
-        openCloud.style.marginInlineStart = '10px';
-        cloudBar.append(openCloud);
-      }
-      media.body.append(cloudBar);
-
-      const assetList = el('div', 'fl-stack');
+      const assetList = K.stack();
       const sortedGroups = [...currentGroups].sort((a, b) => {
         const folderCompare = String(a.folder_path || '').localeCompare(String(b.folder_path || ''));
         return folderCompare || String(a.title || '').localeCompare(String(b.title || ''));
       });
       let activeFolder = null;
       let folderHost = null;
-
       for (const group of sortedGroups) {
         const item = group.current;
         const folderKey = item.folder_path || '';
         if (folderKey !== activeFolder) {
           activeFolder = folderKey;
-          const folderSection = el('section', 'fl-stack');
-          folderSection.append(el('h3', null, folderKey || 'Root'));
-          folderHost = el('div', 'fl-stack');
-          folderSection.append(folderHost);
-          assetList.append(folderSection);
+          assetList.append(K.heading(folderKey || 'Root'));
+          folderHost = K.list();
+          assetList.append(folderHost);
         }
 
         const actions = [];
-        const open = el('a', 'ws-btn ws-btn--tiny', item.kind === 'file' ? 'Download' : 'Open');
-        open.href = item.kind === 'file' ? item.download_url : item.source_url;
-        if (item.kind !== 'file') { open.target = '_blank'; open.rel = 'noopener'; }
+        const open = K.anchor(item.kind === 'file' ? 'Download' : 'Open', item.kind === 'file' ? item.download_url : item.source_url, { tiny: true, external: item.kind !== 'file' });
         actions.push(open);
 
         if (item.kind === 'file') {
-          const picker = input('', 'file');
+          const picker = K.input('', 'file');
           picker.hidden = true;
           picker.addEventListener('change', async () => {
             const picked = picker.files?.[0];
@@ -1743,14 +1565,13 @@ export async function renderAdminCourseEditor(host, id, { go }) {
             if (item.lesson_id) body.append('lesson_id', String(item.lesson_id));
             try {
               await P.adminUploadLearningAsset(course.id, body);
-              await renderAdminCourseEditor(host, id, { go });
+              await reload();
             } catch (error) {
               alert(error?.message || 'New version could not be uploaded.');
             }
           });
           media.body.append(picker);
-          const newVersion = action('New version', () => picker.click(), false, true);
-          actions.push(newVersion);
+          actions.push(action('New version', () => picker.click(), false, true));
         }
 
         const edit = action('Rename / move', async () => {
@@ -1767,13 +1588,10 @@ export async function renderAdminCourseEditor(host, id, { go }) {
           edit.disabled = true;
           try {
             await P.adminUpdateLearningAsset(item.id, {
-              title: nextTitle.trim(),
-              folder_path: nextFolder.trim(),
-              source_url: sourceUrl,
-              lesson_id: item.lesson_id || null,
-              metadata: item.metadata || {},
+              title: nextTitle.trim(), folder_path: nextFolder.trim(), source_url: sourceUrl,
+              lesson_id: item.lesson_id || null, metadata: item.metadata || {},
             });
-            await renderAdminCourseEditor(host, id, { go });
+            await reload();
           } catch (error) {
             edit.disabled = false;
             alert(error?.message || 'Asset could not be updated.');
@@ -1781,66 +1599,47 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         }, false, true);
         actions.push(edit);
 
-        const remove = action('Delete current', async () => {
+        const remove = K.button('Delete current', async () => {
           if (!confirm('Delete current version of “' + item.title + '”? Older versions stay available.')) return;
           remove.disabled = true;
           try {
             await P.adminDeleteLearningAsset(item.id);
-            await renderAdminCourseEditor(host, id, { go });
+            await reload();
           } catch (error) {
             remove.disabled = false;
             alert(error?.message || 'Version could not be deleted.');
           }
-        }, false, true);
+        }, { tiny: true, danger: true });
         actions.push(remove);
 
-        folderHost.append(row({
+        const node = K.row({
           title: item.title,
-          meta: P.meta([
-            label(item.kind),
-            'v' + item.version,
-            item.version_count + ' ' + (item.version_count === 1 ? 'version' : 'versions'),
-            item.mime_type,
-            item.size ? P.formatBytes(item.size) : '',
-          ]),
+          meta: P.meta([label(item.kind), 'v' + item.version, item.version_count + ' ' + (item.version_count === 1 ? 'version' : 'versions'), item.mime_type, item.size ? P.formatBytes(item.size) : '']),
           body: item.version_note || '',
+          lead: K.avatar(item.title, { mark: item.kind === 'file' ? 'files' : 'link', series: 2 }),
           actions,
-        }));
+        });
+        folderHost.append(node);
 
         if ((group.versions || []).length > 1) {
-          const history = el('details', 'v-panel');
-          const summary = el('summary', null, 'Version history · ' + group.versions.length);
-          history.append(summary);
-          const historyList = el('div', 'fl-stack');
-          for (const version of group.versions) {
-            const versionActions = [];
-            if (version.kind === 'file') {
-              const get = el('a', 'ws-btn ws-btn--tiny', 'Download v' + version.version);
-              get.href = version.download_url;
-              versionActions.push(get);
-            }
-            historyList.append(row({
-              title: 'v' + version.version + ' · ' + (version.original_name || version.title),
-              meta: P.meta([
-                new Date(version.created_at).toLocaleString(),
-                version.is_current ? 'Current' : '',
-                version.size ? P.formatBytes(version.size) : '',
-              ]),
-              body: version.version_note || '',
-              actions: versionActions,
-            }));
-          }
-          history.append(historyList);
-          folderHost.append(history);
+          const history = el('details', 'adm-details');
+          history.append(el('summary', null, 'Version history · ' + group.versions.length));
+          history.append(K.list(group.versions.map((version) => K.row({
+            title: 'v' + version.version + ' · ' + (version.original_name || version.title),
+            meta: P.meta([date(version.created_at), version.is_current ? 'Current' : '', version.size ? P.formatBytes(version.size) : '']),
+            body: version.version_note || '',
+            actions: version.kind === 'file' ? [K.anchor('Download v' + version.version, version.download_url, { tiny: true, external: false })] : [],
+          }))));
+          node.querySelector('.adm-row__main').append(history);
         }
       }
-      if (!currentGroups.length) assetList.append(empty('No course assets yet', 'Upload a file or register an external URL/embed.'));
+      if (!currentGroups.length) assetList.append(K.empty('No course assets yet. Upload a file or register an external URL or embed.'));
       media.body.append(assetList);
 
-      const assetForm = el('form', 'fl-form');
-      const assetTitle = input('', 'text', 'Asset title');
-      const assetKind = select([['file','File'],['url','URL'],['embed','Embed']], 'file');
-      const assetFolder = input('', 'text', 'Folder, e.g. Week 1/Datasets');
+      const addAsset = section('Add asset', 'A file, a link or an embed, optionally tied to one lesson.', 4);
+      const assetTitle = K.input('', 'text', 'Asset title');
+      const assetKind = K.select([['file', 'File'], ['url', 'URL'], ['embed', 'Embed']], 'file');
+      const assetFolder = K.input('', 'text', 'Week 1/Datasets');
       assetFolder.setAttribute('list', 'course-media-folders-' + course.id);
       const folderOptions = el('datalist');
       folderOptions.id = 'course-media-folders-' + course.id;
@@ -1849,19 +1648,19 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         option.value = value;
         folderOptions.append(option);
       }
-      const assetVersionNote = input('', 'text', 'Version note (optional)');
-      const assetFile = input('', 'file');
-      const assetUrl = input('', 'url', 'https://…');
-      const lessonOptions = [['','Whole course']];
+      const assetVersionNote = K.input('', 'text', 'Optional');
+      const assetFile = K.input('', 'file');
+      const assetUrl = K.input('', 'url', 'https://…');
+      const lessonOptions = [['', 'Whole course']];
       for (const module of course.modules || []) for (const lesson of module.lessons || []) lessonOptions.push([lesson.id, module.title + ' · ' + lesson.title]);
-      const assetLesson = select(lessonOptions, '');
-      const assetSave = action('Add asset', () => {}, true); assetSave.type = 'submit';
+      const assetLesson = K.select(lessonOptions, '');
+      const fileField = K.field('File', assetFile);
+      const urlField = K.field('URL', assetUrl);
+      const syncKind = () => { fileField.hidden = assetKind.value !== 'file'; urlField.hidden = assetKind.value === 'file'; };
+      assetKind.addEventListener('change', syncKind);
+      syncKind();
       const assetStatus = statusLine();
-      const mediaGrid = el('div', 'fl-form-grid');
-      mediaGrid.append(assetTitle, assetFolder, assetKind, assetLesson);
-      assetForm.append(mediaGrid, folderOptions, assetVersionNote, assetFile, assetUrl, assetSave, assetStatus);
-      assetForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+      const assetSave = action('Add asset', async () => {
         const body = new FormData();
         body.append('title', assetTitle.value.trim());
         body.append('folder_path', assetFolder.value.trim());
@@ -1879,51 +1678,75 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         setStatus(assetStatus, 'Saving…');
         try {
           await P.adminUploadLearningAsset(course.id, body);
-          await renderAdminCourseEditor(host, id, { go });
+          await reload();
         } catch (error) {
           setStatus(assetStatus, error?.message || 'Asset could not be saved.', 'bad');
           assetSave.disabled = false;
         }
-      });
-      media.body.append(assetForm);
-      form.append(media.box);
+      }, true);
+      addAsset.body.append(
+        K.fields([
+          K.field('Title', assetTitle), K.field('Kind', assetKind), K.field('Folder', assetFolder),
+          K.field('Lesson', assetLesson), fileField, urlField, K.field('Version note', assetVersionNote),
+        ], 1),
+        folderOptions,
+        K.cardActions([assetSave], assetStatus),
+      );
 
-      const access = section('Enrollment management', 'Grant a course directly to a registered account.');
-      const userSearch = input('', 'search', 'Search account');
-      const resultList = el('div', 'fl-stack');
-      let timer = null;
-      userSearch.addEventListener('input', () => {
-        clearTimeout(timer);
-        timer = setTimeout(async () => {
-          resultList.innerHTML = '';
-          if (userSearch.value.trim().length < 2) return;
-          const data = await P.adminUsers(userSearch.value.trim());
-          for (const user of data.users.slice(0, 8)) {
-            const grant = action('Enroll', async () => {
+      const access = section('Enrollment management', 'Grant this course directly to a registered account.', 12);
+      const enrollStatus = statusLine();
+      const resultList = el('div');
+      const userFinder = K.search('Search account', async (q) => {
+        resultList.replaceChildren();
+        if (q.length < 2) return;
+        try {
+          const data = await P.adminUsers(q);
+          resultList.append(K.list(data.users.slice(0, 8).map((user) => {
+            const grant = K.button('Enroll', async () => {
               grant.disabled = true;
               try { await P.lmsEnroll(course.id, { user_id: user.id }); setStatus(enrollStatus, `${user.email} enrolled.`, 'ok'); }
               catch (error) { setStatus(enrollStatus, error?.message || 'Enrollment failed.', 'bad'); grant.disabled = false; }
-            }, false, true);
-            resultList.append(row({ title: user.name, meta: user.email, actions: [grant] }));
-          }
-        }, 200);
-      });
-      const enrollStatus = statusLine();
-      access.body.append(userSearch, resultList, enrollStatus);
-      form.append(access.box);
+            }, { tiny: true });
+            return K.row({ title: user.name, meta: user.email, lead: K.avatar(user.name || user.email), actions: [grant] });
+          })));
+        } catch (error) {
+          setStatus(enrollStatus, error?.message || 'Accounts could not be searched.', 'bad');
+        }
+      }, 200);
+      access.body.append(K.toolbar([userFinder.wrap], [enrollStatus]), resultList);
+      const enrolledRows = enrolled.map((item) => enrollmentAdminRow(item, reload));
+      if (enrolledRows.length) access.body.append(K.heading(`Enrollments · ${enrolledRows.length}`), K.list(enrolledRows));
+      mediaPane.push(K.bento([media.box, addAsset.box]), K.bento([access.box]));
     }
 
+    const tabList = [
+      ['details', 'Details'],
+      ['structure', 'Structure'],
+      ['behavior', 'Learning behavior'],
+      ['people', 'Instructors & forms'],
+      ['payment', 'Payment'],
+      ['integration', 'Open edX'],
+      ...(course ? [['media', 'Media & enrollment']] : []),
+    ];
+    const builders = {
+      details: () => [K.bento([details.box, publishing.box]), K.bento([courseCoverEditor(course)])],
+      structure: () => [K.bento([structure.box, finals.box])],
+      behavior: () => [K.bento([tutor.box, notebook.box, behavior.box])],
+      people: () => [K.bento([instructorsBox.box, profileBox.box])],
+      payment: () => [K.bento([payment.box])],
+      integration: () => [K.bento([openedx.box])],
+      media: () => mediaPane,
+    };
+    form.append(K.tabs(tabList, (key) => builders[key](), { name: 'Course builder', eager: true }));
+
     const line = statusLine();
-    const save = action(course ? 'Save course' : 'Create course', () => {}, true);
+    const save = action(course ? 'Save course' : 'Create course', null, true);
     save.type = 'submit';
-    const actions = el('div', 'fl-form-actions');
-    actions.append(save, link(go, 'Back to LMS Admin', '/workspace/core/admin/lms'));
-    form.append(actions, line);
+    form.append(K.foot([save, link(go, 'Back to LMS Admin', `${ADMIN}/lms`)], line));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       save.disabled = true;
       setStatus(line, 'Saving…');
-
       const tagIds = [...tagSelect.selectedOptions].map((option) => Number(option.value));
       const payload = {
         title: title.value.trim(),
@@ -1979,78 +1802,105 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         const result = course ? await P.lmsUpdateCourse(course.id, payload) : await P.lmsCreateCourse(payload);
         setStatus(line, 'Course saved.', 'ok');
         save.disabled = false;
-        if (!course) go(`/workspace/core/admin/lms/courses/${result.course.id}`, { replace: true });
-        else await renderAdminCourseEditor(host, id, { go });
+        if (!course) go(`${ADMIN}/lms/courses/${result.course.id}`, { replace: true });
+        else await reload();
       } catch (error) {
         setStatus(line, error?.data?.error || error?.message || 'Course was not saved.', 'bad');
         save.disabled = false;
       }
     });
     wrap.append(form);
-
-    if (course && enrolled.length) {
-      const enrollmentBox = section('Enrollments');
-      for (const item of enrolled) enrollmentBox.body.append(enrollmentAdminRow(item, () => renderAdminCourseEditor(host, id, { go })));
-      wrap.append(enrollmentBox.box);
-    }
   } catch (error) {
-    fail(host, 'LMS course', error, () => renderAdminCourseEditor(host, id, { go }));
+    K.failure(host, 'LMS course', error, () => renderAdminCourseEditor(host, id, { go }));
   }
 }
 
+/* ==========================================================================
+   RESEARCH
+   ========================================================================== */
+
 export async function renderAdminResearch(host, { go }) {
-  loading(host, 'Research Admin');
+  K.loading(host, 'Research Admin', { tiles: 4, cards: [12] });
   try {
     const data = await P.adminResearchProjects();
-    const wrap = doc(host, 'Research Admin', 'Operate project policy and membership without making Core administrators Research participants.');
-    const box = section('Projects');
-    if (!data.projects.length) box.body.append(empty('No research projects', 'Projects created in the Research Workspace appear here.'));
-    for (const project of data.projects) {
-      box.body.append(row({
+    const projects = data.projects || [];
+    const wrap = K.page(host, {
+      title: 'Research Admin',
+      meta: 'Project policy and membership, without making Core administrators Research participants.',
+      actions: [link(go, 'Research workspace', '/workspace/research')],
+    });
+    const count = (fn) => projects.filter(fn).length;
+    wrap.append(K.tiles([
+      K.tile({ value: projects.length, label: 'Projects', icon: 'space-research', featured: true, note: 'Every workspace' }),
+      K.tile({ value: count((p) => p.status === 'active'), label: 'Active', icon: 'progress', note: 'In progress now' }),
+      K.tile({ value: count((p) => p.category === 'client'), label: 'Client projects', icon: 'opportunity', note: 'Revenue research' }),
+      K.tile({ value: count((p) => p.secure_data_room), label: 'Secure data rooms', icon: 'secure', note: 'Restricted storage' }),
+    ]));
+
+    const box = section('Projects', 'Open a project to change its policy or membership.');
+    let filter = '';
+    const listHost = el('div');
+    const draw = () => {
+      const shown = projects.filter((p) => !filter || p.category === filter);
+      listHost.replaceChildren(shown.length ? K.list(shown.map((project, index) => K.row({
         title: project.title,
-        meta: P.meta([project.owner.name, label(project.category), label(project.status), project.deadline ? `Due ${date(project.deadline)}` : '']),
-        badges: [label(project.visibility), project.secure_data_room ? 'Secure data room' : ''],
-        onClick: () => go(`/workspace/core/admin/research/${project.id}`),
-      }));
-    }
-    wrap.append(box.box);
+        meta: P.meta([project.owner?.name, label(project.category), project.deadline ? `Due ${date(project.deadline)}` : '']),
+        lead: K.avatar(project.title, { mark: 'projects', series: (index % 4) + 1 }),
+        badges: [K.stateBadge(project.status), K.badge(label(project.visibility)), project.secure_data_room ? K.badge('Secure room', 'accent') : null],
+        onClick: () => go(`${ADMIN}/research/${project.id}`),
+      }))) : K.empty(projects.length ? 'No project in this category.' : 'No research projects yet. Projects created in the Research workspace appear here.'));
+    };
+    box.body.append(K.toolbar([K.choices([['', 'All'], ['internal', 'Internal'], ['client', 'Client'], ['community', 'Community']], '', (value) => { filter = value; draw(); })], [K.count(projects.length, 'project')]), listHost);
+    draw();
+    wrap.append(K.bento([box.box]));
   } catch (error) {
-    fail(host, 'Research Admin', error, () => renderAdminResearch(host, { go }));
+    K.failure(host, 'Research Admin', error, () => renderAdminResearch(host, { go }));
   }
 }
 
 export async function renderAdminResearchProject(host, id, { go }) {
-  loading(host, 'Research project');
+  K.loading(host, 'Research project', { tiles: 0, cards: [8, 4] });
   try {
     const data = await P.adminResearchProject(id);
     const project = data.project;
-    const wrap = doc(host, project.title, 'Project metadata, confidentiality, membership and native Nextcloud access.');
-    const form = el('form', 'fl-form');
-    const title = input(project.title);
-    const description = textarea(project.description, 5);
-    const status = select([['intake', 'Intake'], ['active', 'Active'], ['review', 'Review'], ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['closed', 'Closed']], project.status);
-    const category = select([['internal', 'Internal research'], ['client', 'Client / revenue research'], ['community', 'Community research']], project.category);
-    const visibility = select([['private', 'Private'], ['invite', 'Invite only'], ['community', 'Community'], ['public', 'Public']], project.visibility);
-    const confidentiality = select([['internal', 'Internal'], ['confidential', 'Confidential'], ['restricted', 'Restricted data room'], ['public', 'Public']], project.confidentiality);
-    const question = textarea(project.research_question, 4);
-    const client = input(project.client_name || '');
-    const deadline = input(project.deadline || '', 'date');
-    const budget = input(project.budget || '', 'number');
+    const wrap = K.page(host, {
+      title: project.title,
+      meta: P.meta([label(project.status), label(project.category), `${project.counts.members} members`, `${project.counts.files} files`, `${project.counts.folders} folders`]),
+      actions: [link(go, 'Open in Research Workspace', `/workspace/research/projects/${project.id}`), link(go, 'All projects', `${ADMIN}/research`)],
+    });
+    const form = el('form', 'adm-form');
+    const title = K.input(project.title);
+    const description = K.textarea(project.description, 5);
+    const status = K.select([['intake', 'Intake'], ['active', 'Active'], ['review', 'Review'], ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['closed', 'Closed']], project.status);
+    const category = K.select([['internal', 'Internal research'], ['client', 'Client / revenue research'], ['community', 'Community research']], project.category);
+    const visibility = K.select([['private', 'Private'], ['invite', 'Invite only'], ['community', 'Community'], ['public', 'Public']], project.visibility);
+    const confidentiality = K.select([['internal', 'Internal'], ['confidential', 'Confidential'], ['restricted', 'Restricted data room'], ['public', 'Public']], project.confidentiality);
+    const question = K.textarea(project.research_question, 4);
+    const client = K.input(project.client_name || '');
+    const deadline = K.input(project.deadline || '', 'date');
+    const budget = K.input(project.budget || '', 'number');
     budget.step = '0.01';
-    const currency = input(project.currency || 'EUR');
-    const secure = checkbox(project.secure_data_room, 'Secure data room');
-    const publicLinks = checkbox(project.allow_public_links, 'Allow public share links');
-    const downloads = checkbox(project.allow_downloads, 'Allow downloads');
-    const archived = checkbox(project.archived, 'Archive project');
-    const grid = el('div', 'fl-form-grid');
-    grid.append(field('Title', title), field('Status', status), field('Category', category), field('Visibility', visibility), field('Confidentiality', confidentiality), field('Client', client), field('Deadline', deadline), field('Budget', budget), field('Currency', currency));
-    form.append(grid, field('Description', description), field('Research question', question), secure.wrap, publicLinks.wrap, downloads.wrap, archived.wrap);
+    const currency = K.input(project.currency || 'EUR');
+    const secure = K.toggle(project.secure_data_room, 'Secure data room', 'Restricted storage and audited access.');
+    const publicLinks = K.toggle(project.allow_public_links, 'Allow public share links');
+    const downloads = K.toggle(project.allow_downloads, 'Allow downloads');
+    const archived = K.toggle(project.archived, 'Archive project', 'Hidden from active lists; nothing is deleted.');
+
+    const main = section('Project', 'Metadata shown in the Research workspace.', 8);
+    main.body.append(
+      K.fields([K.field('Title', title, '', { wide: true }), K.field('Status', status), K.field('Category', category), K.field('Client', client), K.field('Deadline', deadline), K.field('Budget', budget), K.field('Currency', currency)]),
+      K.field('Description', description),
+      K.field('Research question', question),
+    );
+    const policy = section('Policy', 'Who can see the project and what leaves it.', 4);
+    policy.body.append(
+      K.fields([K.field('Visibility', visibility), K.field('Confidentiality', confidentiality)], 1),
+      K.switches([secure, publicLinks, downloads, archived]),
+    );
     const line = statusLine();
-    const save = action('Save project policy', () => {}, true);
+    const save = action('Save project policy', null, true);
     save.type = 'submit';
-    const actions = el('div', 'fl-form-actions');
-    actions.append(save, link(go, 'Open in Research Workspace', `/workspace/research/projects/${project.id}`), link(go, 'Back to Research Admin', '/workspace/core/admin/research'));
-    form.append(actions, line);
+    form.append(K.bento([main.box, policy.box]), K.foot([save, link(go, 'Back to Research Admin', `${ADMIN}/research`)], line));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       save.disabled = true;
@@ -2064,34 +1914,32 @@ export async function renderAdminResearchProject(host, id, { go }) {
           allow_downloads: downloads.input.checked, archived: archived.input.checked,
         });
         setStatus(line, 'Project policy saved.', 'ok');
-        save.disabled = false;
       } catch (error) {
         setStatus(line, error?.message || 'Project was not saved.', 'bad');
+      } finally {
         save.disabled = false;
       }
     });
     wrap.append(form);
 
-    const membership = section('Members & Nextcloud access', `${project.counts.members} members · ${project.counts.files} files · ${project.counts.folders} folders`);
-    for (const member of project.members) {
-      const tools = [];
-      if (!member.project_owner) tools.push(action('Revoke', async () => {
+    const membership = section('Members & Nextcloud access', 'Membership here is mirrored to the project’s Nextcloud folder.', 8);
+    const memberStatus = statusLine();
+    const members = project.members.map((member, index) => K.row({
+      title: member.name, meta: member.email,
+      lead: K.avatar(member.name || member.email, { series: (index % 4) + 1 }),
+      badges: [K.badge(label(member.role), member.project_owner ? 'accent' : '')],
+      actions: member.project_owner ? [] : [K.button('Revoke', async () => {
         try {
           await P.adminUpdateResearchProject(project.id, { member: { action: 'revoke', user_id: member.user_id } });
           renderAdminResearchProject(host, id, { go });
         } catch (error) { setStatus(memberStatus, error?.message || 'Membership could not be revoked.', 'bad'); }
-      }, false, true));
-      membership.body.append(row({ title: member.name, meta: member.email, badges: [label(member.role)], actions: tools }));
-    }
-    const memberForm = el('form', 'fl-inline-form');
-    const email = input('', 'email', 'Registered account email');
-    const role = select([['viewer', 'Viewer'], ['editor', 'Editor'], ['owner', 'Project owner role']], 'viewer');
-    const add = action('Grant project access', () => {}, true, true);
-    add.type = 'submit';
-    const memberStatus = statusLine();
-    memberForm.append(email, role, add);
-    memberForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
+      }, { tiny: true, danger: true })],
+    }));
+    membership.body.append(members.length ? K.list(members) : K.empty('No members yet.'));
+    const email = K.input('', 'email', 'Registered account email');
+    const role = K.select([['viewer', 'Viewer'], ['editor', 'Editor'], ['owner', 'Project owner role']], 'viewer');
+    const add = K.button('Grant access', async () => {
+      if (!email.value.trim()) { setStatus(memberStatus, 'Enter an account email.', 'bad'); return; }
       add.disabled = true;
       setStatus(memberStatus, 'Granting access…');
       try {
@@ -2101,312 +1949,368 @@ export async function renderAdminResearchProject(host, id, { go }) {
         setStatus(memberStatus, error?.message || 'Access could not be granted.', 'bad');
         add.disabled = false;
       }
-    });
-    membership.body.append(memberForm, memberStatus);
-    wrap.append(membership.box);
+    }, { solid: true });
+    membership.body.append(K.heading('Grant access'), K.fields([K.field('Account email', email), K.field('Role', role)], 2), K.cardActions([add], memberStatus));
 
-    const applications = section('Applications');
-    if (!project.applications.length) applications.body.append(empty('No project applications', 'Community applications appear here when this project accepts them.'));
-    for (const item of project.applications) applications.body.append(row({ title: item.name, meta: P.meta([item.email, label(item.status), date(item.created_at)]), badges: item.skills || [] }));
-    wrap.append(applications.box);
+    const applications = section('Applications', 'Community applications to join this project.', 4);
+    const apps = project.applications.map((item) => K.row({
+      title: item.name, meta: P.meta([item.email, date(item.created_at)]),
+      badges: [K.stateBadge(item.status), ...(item.skills || []).slice(0, 3).map((skill) => K.badge(skill))],
+    }));
+    applications.body.append(apps.length ? K.list(apps) : K.empty('No applications.'));
+    wrap.append(K.bento([membership.box, applications.box]));
   } catch (error) {
-    fail(host, 'Research project', error, () => renderAdminResearchProject(host, id, { go }));
+    K.failure(host, 'Research project', error, () => renderAdminResearchProject(host, id, { go }));
   }
 }
+
+/* ==========================================================================
+   ACTIVITY
+   ========================================================================== */
 
 export async function renderAdminActivity(host) {
-  loading(host, 'Activity');
+  K.loading(host, 'Activity', { tiles: 0, cards: [12] });
   try {
-    const wrap = doc(host, 'Activity', 'Cross-layer audit stream. Administrative changes and product events stay attributable.');
-    const toolbar = el('div', 'fl-toolbar');
-    const layer = select([['', 'All layers'], ['shell', 'Shell'], ['dashboard', 'Dashboard'], ['lms', 'LMS'], ['research', 'Research'], ['core', 'Core']], '');
-    toolbar.append(field('Layer', layer));
-    wrap.append(toolbar);
+    const wrap = K.page(host, {
+      title: 'Activity',
+      meta: 'The cross-layer audit stream. Administrative changes and product events stay attributable to a person.',
+    });
+    let layer = '';
     const box = section('Events');
-    wrap.append(box.box);
+    const counter = el('span', 'adm-count');
+    const listHost = el('div');
+    const filter = K.choices([['', 'All layers'], ['shell', 'Site'], ['dashboard', 'Dashboard'], ['lms', 'LMS'], ['research', 'Research'], ['core', 'Core']], '', (value) => { layer = value; load(); });
+    box.body.append(K.toolbar([filter], [counter]), listHost);
+    wrap.append(K.bento([box.box]));
     const load = async () => {
-      box.body.innerHTML = '';
-      box.body.append(el('div', 'fl-skeleton'));
+      listHost.replaceChildren(el('div', 'fl-skeleton adm-skeleton'));
       try {
-        const data = await P.adminActivity({ layer: layer.value });
-        box.body.innerHTML = '';
-        if (!data.events.length) box.body.append(empty('No events', 'No audit events match this filter.'));
-        for (const item of data.events) {
-          box.body.append(row({
-            title: label(item.action),
-            meta: P.meta([label(item.layer), item.actor?.email || 'System', date(item.created_at)]),
-            body: Object.keys(item.detail || {}).length ? JSON.stringify(item.detail) : '',
-            badges: [item.subject_user?.email || '', item.object_type ? `${item.object_type} ${item.object_id}` : ''],
-          }));
-        }
+        const data = await P.adminActivity({ layer });
+        const events = data.events || [];
+        counter.textContent = `${events.length} event${events.length === 1 ? '' : 's'}`;
+        listHost.replaceChildren(events.length ? K.list(events.map((item) => activityRow(item, { withActor: true }))) : K.empty('No audit events match this filter.'));
       } catch (error) {
-        box.body.innerHTML = '';
-        box.body.append(empty('Activity could not be loaded', error?.message || 'Try again.'));
+        listHost.replaceChildren(K.empty(error?.message || 'Activity could not be loaded.', [action('Retry', load)]));
       }
     };
-    layer.addEventListener('change', load);
     await load();
   } catch (error) {
-    fail(host, 'Activity', error, () => renderAdminActivity(host));
+    K.failure(host, 'Activity', error, () => renderAdminActivity(host));
   }
 }
 
+/* ==========================================================================
+   NEXTCLOUD DECK
+   ========================================================================== */
+
 export async function renderAdminDeck(host) {
-  loading(host, 'Nextcloud Deck');
+  K.loading(host, 'Nextcloud Deck', { tiles: 0, cards: [8, 4] });
   try {
     const data = await P.adminDeck();
-    const wrap = doc(host, 'Nextcloud Deck', 'Gravitas remains the source of truth. Deck is the native execution surface for Core tasks.');
-    const state = section('Connection');
-    state.body.append(row({
-      title: data.configured ? (data.available ? 'Deck adapter ready' : 'Deck unavailable') : 'Nextcloud credentials not configured',
-      meta: data.board ? data.board.title : (data.error || 'The board will be created on the first sync.'),
-      badges: [data.configured ? 'Configured' : 'Needs configuration', data.board ? `${data.task_count} canonical tasks` : ''],
-    }));
-    if (data.board?.url) {
-      const open = el('a', 'ws-btn', 'Open Deck');
-      open.href = data.board.url;
-      open.target = '_blank';
-      open.rel = 'noopener';
-      state.body.append(open);
-    }
-    wrap.append(state.box);
-
-    const explanation = section('Sync contract');
-    explanation.body.append(
-      row({ title: 'Canonical data', body: 'Task title, owner, status, priority, due date, description and definition of done originate in Gravitas.' }),
-      row({ title: 'Native execution', body: 'Tasks are mirrored into Backlog, Active, Blocked and Done stacks in Nextcloud Deck.' }),
-      row({ title: 'Safe reconciliation', body: 'Every card contains a stable Gravitas task marker. Deleted canonical tasks are archived in Deck instead of silently left live.' }),
-    );
-    wrap.append(explanation.box);
-
+    const wrap = K.page(host, {
+      title: 'Nextcloud Deck',
+      meta: 'Gravitas stays the source of truth. Deck is the native execution surface for Core tasks.',
+      actions: data.board?.url ? [K.anchor('Open Deck', data.board.url)] : [],
+    });
+    const state = data.configured ? (data.available ? ['Deck adapter ready', 'ok'] : ['Deck unavailable', 'bad']) : ['Credentials not configured', 'warn'];
+    const connection = section('Connection', 'The board Core tasks are mirrored into.', 8, [K.badge(state[0], state[1])]);
     const line = statusLine();
-    const sync = action('Sync Core tasks to Deck', async () => {
+    const sync = K.button('Sync Core tasks to Deck', async () => {
       sync.disabled = true;
       setStatus(line, 'Reconciling Deck…');
       try {
         const result = await P.adminDeckSync();
         const c = result.changes;
         setStatus(line, `Synced ${result.tasks} tasks · ${c.created} created · ${c.updated} updated · ${c.moved} moved · ${c.archived} archived.`, 'ok');
-        sync.disabled = false;
       } catch (error) {
         setStatus(line, error?.data?.detail || error?.message || 'Deck sync failed.', 'bad');
-        sync.disabled = false;
+      } finally {
+        sync.disabled = !data.configured;
       }
-    }, true);
+    }, { solid: true });
     sync.disabled = !data.configured;
-    wrap.append(sync, line);
+    connection.body.append(
+      K.defs([
+        ['Board', data.board ? data.board.title : (data.error || 'Created on the first sync.')],
+        ['Canonical tasks', data.board ? String(data.task_count) : '—'],
+        ['Mode', data.mirror_mode === 'bidirectional-execution' ? 'Two-way for execution fields' : 'Gravitas → Deck'],
+      ]),
+      K.cardActions([sync, data.board?.url ? K.anchor('Open Deck', data.board.url) : null], line),
+    );
+    const contract = section('Sync contract', 'What moves, and in which direction.', 4);
+    contract.body.append(K.defs([
+      ['Canonical data', 'Title, owner, status, priority, due date, description and definition of done originate in Gravitas.'],
+      ['Native execution', 'Tasks are mirrored into Backlog, Active, Blocked and Done stacks in Deck.'],
+      ['Safe reconciliation', 'Every card carries a stable Gravitas marker. Deleted tasks are archived in Deck, not left live.'],
+    ]));
+    wrap.append(K.bento([connection.box, contract.box]));
   } catch (error) {
-    fail(host, 'Nextcloud Deck', error, () => renderAdminDeck(host));
+    K.failure(host, 'Nextcloud Deck', error, () => renderAdminDeck(host));
   }
 }
 
-
-/* ---- Support / Newsletter / Interactive Lab administration ------------- */
+/* ==========================================================================
+   SUPPORT TICKETS
+   ========================================================================== */
 
 export async function renderAdminTickets(host) {
-  loading(host, 'Support tickets');
+  K.loading(host, 'Support tickets', { tiles: 0, cards: [4, 8] });
   try {
-    const data = await P.adminTickets();
-    const wrap = doc(host, 'Support tickets', 'Member conversations with the Gravitas+ team. Only Core administrators can read or reply.');
-    const layout = el('div', 'fl-columns');
-    const list = section('Tickets');
-    const detail = section('Conversation');
-    layout.append(list.box, detail.box); wrap.append(layout);
+    const wrap = K.page(host, {
+      title: 'Support tickets',
+      meta: 'Member conversations with the Gravitas+ team. Only Core administrators can read or reply.',
+    });
+    const list = section('Tickets', '', 4);
+    const detail = section('Conversation', 'Choose a ticket to read and reply.', 8);
+    const listHost = el('div');
+    let filter = '';
+    let openId = null;
+    list.body.append(K.choices([['', 'All'], ['waiting_team', 'Waiting'], ['open', 'Open'], ['resolved', 'Done']], '', (value) => { filter = value; reload(); }), listHost);
+    wrap.append(K.bento([list.box, detail.box]));
+    const detailTitle = detail.head.querySelector('.wc-card__title');
+    const detailNote = detail.head.querySelector('.wc-card__note');
 
-    const openTicket = async (id) => {
-      detail.body.innerHTML = '<div class="fl-skeleton"></div>';
+    const openTicket = async (ticketId) => {
+      openId = ticketId;
+      for (const node of listHost.querySelectorAll('.adm-row')) {
+        if (node.dataset.id === String(ticketId)) node.setAttribute('aria-current', 'true');
+        else node.removeAttribute('aria-current');
+      }
+      detail.body.replaceChildren(el('div', 'fl-skeleton adm-skeleton'));
       try {
-        const result = await P.adminTicket(id);
+        const result = await P.adminTicket(ticketId);
         const ticket = result.ticket;
-        detail.head.querySelector('.fl-panel__title').textContent = ticket.subject;
-        detail.body.innerHTML = '';
-        detail.body.append(row({
-          title: ticket.member.name,
-          meta: P.meta([ticket.member.email, label(ticket.status), label(ticket.priority), date(ticket.updated_at)]),
-        }));
+        detailTitle.textContent = ticket.subject;
+        if (detailNote) detailNote.textContent = P.meta([ticket.member.name, ticket.member.email, `Updated ${date(ticket.updated_at)}`]);
+        const thread = el('div', 'adm-thread');
         for (const message of ticket.messages || []) {
-          detail.body.append(row({
-            title: message.is_team_reply ? 'Gravitas+ Team' : message.author,
-            meta: date(message.created_at),
-            body: message.body,
-            badges: [message.is_team_reply ? 'Team reply' : 'Member'],
-          }));
+          const bubble = el('article', 'adm-msg');
+          if (message.is_team_reply) bubble.dataset.team = '';
+          const who = el('div', 'adm-msg__who');
+          who.append(el('strong', null, message.is_team_reply ? 'Gravitas+ Team' : message.author), el('span', null, date(message.created_at)));
+          bubble.append(who, el('p', 'adm-msg__body', message.body));
+          thread.append(bubble);
         }
-        const form = el('form', 'fl-form');
-        const reply = textarea('', 4); reply.placeholder = 'Reply to this ticket…';
-        const status = select([
-          ['open','Open'], ['waiting_member','Waiting for member'], ['waiting_team','Waiting for Gravitas+'],
-          ['resolved','Resolved'], ['closed','Closed'],
+        if (!thread.childElementCount) thread.append(K.empty('No messages yet.'));
+
+        const form = el('form', 'adm-form');
+        const reply = K.textarea('', 4, 'Reply to this ticket…');
+        const status = K.select([
+          ['open', 'Open'], ['waiting_member', 'Waiting for member'], ['waiting_team', 'Waiting for Gravitas+'],
+          ['resolved', 'Resolved'], ['closed', 'Closed'],
         ], ticket.status);
-        const send = action('Send reply', () => {}, true); send.type = 'submit';
+        status.setAttribute('aria-label', 'Ticket status');
+        status.style.width = 'auto';
+        const send = action('Send reply', null, true);
+        send.type = 'submit';
+        const line = statusLine();
         const saveStatus = action('Update status', async () => {
           saveStatus.disabled = true;
-          try { await P.adminUpdateTicket(id, {status: status.value}); await openTicket(id); await reload(); }
+          try { await P.adminUpdateTicket(ticketId, { status: status.value }); await reload(); await openTicket(ticketId); }
+          catch (error) { setStatus(line, error?.message || 'Status was not changed.', 'bad'); }
           finally { saveStatus.disabled = false; }
         });
-        const line = statusLine();
-        form.append(field('Reply', reply), field('Status', status), el('div', 'fl-form-actions'), line);
-        form.querySelector('.fl-form-actions').append(send, saveStatus);
+        form.append(K.field('Reply', reply), K.cardActions([send, status, saveStatus], line));
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
           if (!reply.value.trim()) { setStatus(line, 'Write a reply first.', 'bad'); return; }
-          send.disabled = true; setStatus(line, 'Sending…');
-          try { await P.adminReplyTicket(id, reply.value.trim()); await openTicket(id); await reload(); }
+          send.disabled = true;
+          setStatus(line, 'Sending…');
+          try { await P.adminReplyTicket(ticketId, reply.value.trim()); await reload(); await openTicket(ticketId); }
           catch (error) { setStatus(line, error?.message || 'Reply failed.', 'bad'); send.disabled = false; }
         });
-        detail.body.append(form);
+        detail.body.replaceChildren(K.cardActions([K.stateBadge(ticket.status), K.stateBadge(ticket.priority)]), thread, form);
       } catch (error) {
-        detail.body.innerHTML = '';
-        detail.body.append(empty('Ticket could not be loaded', error?.message || 'Request failed.'));
+        detail.body.replaceChildren(K.empty(error?.message || 'Ticket could not be loaded.'));
       }
     };
 
     const reload = async () => {
-      const fresh = await P.adminTickets();
-      list.body.innerHTML = '';
-      if (!(fresh.tickets || []).length) list.body.append(empty('No tickets', 'New member tickets will appear here.'));
-      for (const ticket of fresh.tickets || []) {
-        list.body.append(row({
+      const fresh = await P.adminTickets(filter);
+      const tickets = fresh.tickets || [];
+      listHost.replaceChildren(tickets.length ? K.list(tickets.map((ticket) => {
+        const node = K.row({
           title: ticket.subject,
-          meta: P.meta([ticket.member.name, label(ticket.status), date(ticket.updated_at)]),
-          badges: [label(ticket.priority), String(ticket.message_count) + ' messages'],
+          meta: P.meta([ticket.member.name, `${ticket.message_count} messages`, date(ticket.updated_at)]),
+          badges: [K.stateBadge(ticket.status)],
           onClick: () => openTicket(ticket.id),
-        }));
-      }
+          current: String(ticket.id) === String(openId),
+          chevron: false,
+        });
+        node.dataset.id = String(ticket.id);
+        return node;
+      })) : K.empty('No tickets in this filter.'));
+      return tickets;
     };
-    await reload();
-    if (data.tickets?.[0]) await openTicket(data.tickets[0].id);
+    const tickets = await reload();
+    if (tickets[0]) await openTicket(tickets[0].id);
   } catch (error) {
-    fail(host, 'Support tickets', error, () => renderAdminTickets(host));
+    K.failure(host, 'Support tickets', error, () => renderAdminTickets(host));
   }
 }
 
+/* ==========================================================================
+   NEWSLETTER
+   ========================================================================== */
+
 export async function renderAdminNewsletter(host) {
-  loading(host, 'Newsletter');
+  K.loading(host, 'Newsletter', { tiles: 3, cards: [8, 4] });
   try {
     const data = await P.adminNewsletter();
-    const wrap = doc(host, 'Newsletter', 'Confirmed subscribers, delivery history and direct campaign sending.');
-    const metrics = el('div', 'fl-metrics');
-    metrics.append(metric(data.active_count, 'Active subscribers'), metric((data.campaigns || []).length, 'Recent campaigns'));
-    wrap.append(metrics);
+    const subscribersList = data.subscribers || [];
+    const campaignsList = data.campaigns || [];
+    const wrap = K.page(host, {
+      title: 'Newsletter',
+      meta: 'Confirmed subscribers, delivery history and direct campaign sending.',
+    });
+    wrap.append(K.tiles([
+      K.tile({ value: data.active_count, label: 'Active subscribers', icon: 'mail', featured: true, note: 'Receive the next send' }),
+      K.tile({ value: subscribersList.filter((item) => !item.active).length, label: 'Inactive', icon: 'team', note: 'In the latest list' }),
+      K.tile({ value: campaignsList.length, label: 'Recent campaigns', icon: 'share', note: campaignsList[0] ? `Last ${date(campaignsList[0].created_at)}` : 'None sent yet' }),
+    ]));
 
-    const composer = section('Send newsletter', 'Each active subscriber receives a separate email; addresses are never exposed to other recipients.');
-    const form = el('form', 'fl-form');
-    const subject = input('', 'text', 'Email subject');
-    const body = textarea('', 10); body.placeholder = 'Newsletter body…';
+    const composer = section('Send newsletter', 'Each active subscriber gets a separate email; addresses are never shown to other recipients.', 8);
+    const form = el('form', 'adm-form');
+    const subject = K.input('', 'text', 'Email subject');
+    const body = K.textarea('', 10, 'Newsletter body…');
     const line = statusLine();
-    const send = action('Send to active subscribers', () => {}, true); send.type = 'submit';
-    form.append(field('Subject', subject), field('Message', body), send, line);
+    const send = action(`Send to ${data.active_count} subscribers`, null, true);
+    send.type = 'submit';
+    form.append(K.field('Subject', subject), K.field('Message', body), K.cardActions([send], line));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!subject.value.trim() || !body.value.trim()) { setStatus(line, 'Subject and message are required.', 'bad'); return; }
       if (!confirm(`Send this email to ${data.active_count} active subscribers?`)) return;
-      send.disabled = true; setStatus(line, 'Sending…');
+      send.disabled = true;
+      setStatus(line, 'Sending…');
       try {
-        const result = await P.adminSendNewsletter({subject: subject.value.trim(), body: body.value.trim()});
+        const result = await P.adminSendNewsletter({ subject: subject.value.trim(), body: body.value.trim() });
         setStatus(line, `Sent to ${result.sent_count} subscribers.`, 'ok');
-        subject.value = ''; body.value = '';
+        subject.value = '';
+        body.value = '';
       } catch (error) {
-        setStatus(line, error?.message || 'Newsletter could not be sent.', 'bad'); send.disabled = false;
+        setStatus(line, error?.message || 'Newsletter could not be sent.', 'bad');
+      } finally {
+        send.disabled = false;
       }
     });
-    composer.body.append(form); wrap.append(composer.box);
+    composer.body.append(form);
 
-    const subscribers = section('Subscribers');
-    if (!(data.subscribers || []).length) subscribers.body.append(empty('No subscribers yet', 'Confirmed website subscriptions appear here.'));
-    for (const item of data.subscribers || []) {
-      const toggle = action(item.active ? 'Deactivate' : 'Activate', async () => {
+    const campaigns = section('Recent campaigns', '', 4);
+    const campaignRows = campaignsList.map((item) => K.row({
+      title: item.subject, meta: P.meta([`${item.sent_count} sent`, date(item.created_at)]), body: item.created_by,
+    }));
+    campaigns.body.append(campaignRows.length ? K.list(campaignRows) : K.empty('No campaigns sent yet.'));
+
+    const subscribers = section('Subscribers', 'Deactivating stops delivery without deleting the address.');
+    const subscriberRows = subscribersList.map((item, index) => {
+      const toggle = K.button(item.active ? 'Deactivate' : 'Activate', async () => {
         toggle.disabled = true;
         try { await P.adminUpdateNewsletterSubscriber(item.id, !item.active); renderAdminNewsletter(host); }
         catch { toggle.disabled = false; }
-      }, false, true);
-      subscribers.body.append(row({
+      }, { tiny: true });
+      return K.row({
         title: item.email,
         meta: P.meta([item.source, date(item.created_at)]),
-        badges: [item.active ? 'Active' : 'Inactive'],
+        lead: K.avatar(item.email, { series: (index % 4) + 1 }),
+        badges: [item.active ? K.badge('Active', 'ok') : K.badge('Inactive')],
         actions: [toggle],
-      }));
-    }
-    wrap.append(subscribers.box);
-
-    const campaigns = section('Recent campaigns');
-    for (const item of data.campaigns || []) campaigns.body.append(row({
-      title: item.subject, meta: P.meta([`${item.sent_count} sent`, item.created_by, date(item.created_at)]),
-    }));
-    if (!(data.campaigns || []).length) campaigns.body.append(empty('No campaigns sent yet', 'Sent newsletters will be logged here.'));
-    wrap.append(campaigns.box);
+      });
+    });
+    subscribers.body.append(subscriberRows.length ? K.list(subscriberRows) : K.empty('No subscribers yet. Confirmed website subscriptions appear here.'));
+    wrap.append(K.bento([composer.box, campaigns.box, subscribers.box]));
   } catch (error) {
-    fail(host, 'Newsletter', error, () => renderAdminNewsletter(host));
+    K.failure(host, 'Newsletter', error, () => renderAdminNewsletter(host));
   }
 }
 
+/* ==========================================================================
+   INTERACTIVE LAB
+   ========================================================================== */
+
 export async function renderAdminLabs(host) {
-  loading(host, 'Interactive Lab');
+  K.loading(host, 'Interactive Lab', { tiles: 0, cards: [4, 8] });
   try {
     const data = await P.adminLabs();
-    const wrap = doc(host, 'Interactive Lab', 'Create sandboxed interactive experiments from one or more HTML/CSS/JavaScript files.');
-    const editor = section('Lab editor', 'Published labs require index.html. Code runs in a sandbox on the public Lab page.');
-    const list = section('Labs');
-    wrap.append(editor.box, list.box);
+    const labs = data.labs || [];
+    const wrap = K.page(host, {
+      title: 'Interactive Lab',
+      meta: 'Sandboxed interactive experiments built from HTML, CSS and JavaScript files.',
+    });
+    const list = section('Labs', '', 4);
+    const editor = section('Lab editor', 'Published labs need index.html. Code runs in a sandbox on the public Lab page.', 8);
+    wrap.append(K.bento([list.box, editor.box]));
+    const listHost = el('div');
+    list.body.append(listHost);
+    let selected = labs[0] || null;
+
+    const drawList = () => {
+      listHost.replaceChildren(labs.length ? K.list(labs.map((lab) => K.row({
+        title: lab.title,
+        meta: P.meta([lab.slug, lab.duration_text, date(lab.updated_at)]),
+        badges: [K.stateBadge(lab.status)],
+        onClick: () => { selected = lab; drawList(); drawEditor(lab); },
+        current: selected?.id === lab.id,
+        chevron: false,
+      }))) : K.empty('No managed labs yet.'));
+    };
 
     const drawEditor = (lab = null) => {
-      editor.body.innerHTML = '';
-      const form = el('form', 'fl-form');
-      const title = input(lab?.title || '', 'text', 'Lab title');
-      const slug = input(lab?.slug || '', 'text', 'my-lab');
+      editor.head.querySelector('.wc-card__title').textContent = lab ? lab.title : 'New lab';
+      const form = el('form', 'adm-form');
+      const title = K.input(lab?.title || '', 'text', 'Lab title');
+      const slug = K.input(lab?.slug || '', 'text', 'my-lab');
       slug.disabled = !!lab;
-      const summary = textarea(lab?.summary || '', 3);
-      const duration = input(lab?.duration_text || '', 'text', '10 min');
-      const state = select([['draft','Draft'],['published','Published']], lab?.status || 'draft');
+      if (!lab) title.addEventListener('input', () => { if (!slug.dataset.touched) slug.value = K.slugify(title.value); });
+      slug.addEventListener('input', () => { slug.dataset.touched = '1'; });
+      const summary = K.textarea(lab?.summary || '', 3);
+      const duration = K.input(lab?.duration_text || '', 'text', '10 min');
+      const state = K.select([['draft', 'Draft'], ['published', 'Published']], lab?.status || 'draft');
       const existing = Object.fromEntries((lab?.files || []).map((file) => [file.name, file.content || '']));
-      const index = textarea(existing['index.html'] || '<!doctype html>\n<html><head><meta charset="utf-8"><link rel="stylesheet" href="styles.css"></head><body>\n<h1>Interactive Lab</h1>\n<script src="app.js"><\/script></body></html>', 12);
-      const css = textarea(existing['styles.css'] || '', 7);
-      const js = textarea(existing['app.js'] || '', 10);
+      const index = K.textarea(existing['index.html'] || '<!doctype html>\n<html><head><meta charset="utf-8"><link rel="stylesheet" href="styles.css"></head><body>\n<h1>Interactive Lab</h1>\n<script src="app.js"><\/script></body></html>', 14, '', { code: true });
+      const css = K.textarea(existing['styles.css'] || '', 14, '/* styles.css */', { code: true });
+      const js = K.textarea(existing['app.js'] || '', 14, '// app.js', { code: true });
       const line = statusLine();
-      const save = action(lab ? 'Save lab' : 'Create lab', () => {}, true); save.type = 'submit';
-      const remove = lab ? action('Delete', async () => {
+      const save = action(lab ? 'Save lab' : 'Create lab', null, true);
+      save.type = 'submit';
+      const open = lab ? K.anchor('Open public', `/lab.html?lab=${encodeURIComponent(lab.slug)}`) : null;
+      const remove = lab ? K.button('Delete', async () => {
         if (!confirm(`Delete “${lab.title}”?`)) return;
-        await P.adminDeleteLab(lab.id); await renderAdminLabs(host);
-      }) : null;
+        try { await P.adminDeleteLab(lab.id); await renderAdminLabs(host); }
+        catch (error) { setStatus(line, error?.message || 'Lab could not be deleted.', 'bad'); }
+      }, { danger: true }) : null;
+      const files = K.tabs([['index', 'index.html'], ['css', 'styles.css'], ['js', 'app.js']], (key) => [{ index, css, js }[key]], { name: 'Lab files', eager: true, remember: false });
       form.append(
-        field('Title', title), field('Slug', slug, 'Lowercase letters, numbers and hyphens.'),
-        field('Summary', summary), field('Duration', duration), field('Status', state),
-        field('index.html', index), field('styles.css', css), field('app.js', js),
-        el('div', 'fl-form-actions'), line,
+        K.fields([K.field('Title', title), K.field('Slug', slug, 'Lowercase letters, numbers and hyphens.'), K.field('Duration', duration), K.field('Status', state)]),
+        K.field('Summary', summary),
+        files,
+        K.cardActions([save, open, remove], line),
       );
-      form.querySelector('.fl-form-actions').append(save, ...(remove ? [remove] : []));
       form.addEventListener('submit', async (event) => {
-        event.preventDefault(); save.disabled = true; setStatus(line, 'Saving…');
-        const files = [{name:'index.html',content:index.value}];
-        if (css.value.trim()) files.push({name:'styles.css',content:css.value});
-        if (js.value.trim()) files.push({name:'app.js',content:js.value});
-        const payload = {title:title.value.trim(), slug:slug.value.trim(), summary:summary.value.trim(), duration_text:duration.value.trim(), status:state.value, files};
+        event.preventDefault();
+        save.disabled = true;
+        setStatus(line, 'Saving…');
+        const filesPayload = [{ name: 'index.html', content: index.value }];
+        if (css.value.trim()) filesPayload.push({ name: 'styles.css', content: css.value });
+        if (js.value.trim()) filesPayload.push({ name: 'app.js', content: js.value });
+        const payload = { title: title.value.trim(), slug: slug.value.trim(), summary: summary.value.trim(), duration_text: duration.value.trim(), status: state.value, files: filesPayload };
         try {
           if (lab) await P.adminUpdateLab(lab.id, payload); else await P.adminCreateLab(payload);
           await renderAdminLabs(host);
         } catch (error) {
-          setStatus(line, error?.message || 'Lab could not be saved.', 'bad'); save.disabled = false;
+          setStatus(line, error?.message || 'Lab could not be saved.', 'bad');
+          save.disabled = false;
         }
       });
-      editor.body.append(form);
+      editor.body.replaceChildren(form);
     };
 
-    const labs = data.labs || [];
-    const newLab = action('New lab', () => drawEditor(null), true);
-    list.head.append(newLab);
-    if (!labs.length) list.body.append(empty('No managed labs yet', 'Create the first interactive object above.'));
-    for (const lab of labs) {
-      const open = el('a', 'ws-btn ws-btn--tiny', 'Open public');
-      open.href = `/lab.html?lab=${encodeURIComponent(lab.slug)}`; open.target = '_blank';
-      list.body.append(row({
-        title: lab.title,
-        meta: P.meta([lab.slug, label(lab.status), lab.duration_text, date(lab.updated_at)]),
-        body: lab.summary,
-        actions: [action('Edit', () => drawEditor(lab), false, true), open],
-      }));
-    }
-    drawEditor(labs[0] || null);
+    const tools = el('div');
+    tools.append(K.button('New lab', () => { selected = null; drawList(); drawEditor(null); }, { solid: true, tiny: true }));
+    list.head.append(tools);
+    drawList();
+    drawEditor(selected);
   } catch (error) {
-    fail(host, 'Interactive Lab', error, () => renderAdminLabs(host));
+    K.failure(host, 'Interactive Lab', error, () => renderAdminLabs(host));
   }
 }

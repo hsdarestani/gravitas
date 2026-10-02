@@ -1,83 +1,35 @@
+/* ==========================================================================
+   GRAVITAS+ WORKSPACE  ·  CROSS-LAYER LINKS
+   Connect one canonical Core task to the Research project, LMS course or
+   lesson, public-site content or production item it belongs to.
+
+   A link is a relationship, not a copy: removing it never deletes either
+   object. The screen is drawn with ws-admin-kit.js like the rest of
+   Platform Admin. It used to be four unlabeled selects in a row above a
+   list, which read as a filter rather than a form; it is now a labelled
+   form beside the chosen task's links, so what you pick and what it is
+   already linked to are on screen together.
+   ========================================================================== */
+
 import * as P from './ws-platform.js?v=20260914-7';
+import * as K from './ws-admin-kit.js?v=20261002-admin1';
 
-const el = (tag, cls, text) => {
-  const node = document.createElement(tag);
-  if (cls) node.className = cls;
-  if (text != null) node.textContent = text;
-  return node;
-};
+const { el } = K;
 
-function panel(title, note = '') {
-  const box = el('section', 'fl-panel wc-card');
-  const head = el('div', 'fl-panel__head wc-card__head');
-  const text = el('div');
-  text.append(el('h2', 'fl-panel__title wc-card__title', title));
-  if (note) text.append(el('p', 'fl-muted', note));
-  head.append(text);
-  const body = el('div', 'fl-panel__body wc-card__body');
-  box.append(head, body);
-  return { box, body, head };
-}
-
-function option(value, text) {
-  const node = el('option', null, text);
-  node.value = value;
-  return node;
-}
-
-function input(type = 'text', placeholder = '') {
-  const node = el('input', 'v-input fl-input');
-  node.type = type;
-  node.placeholder = placeholder;
-  return node;
-}
-
-function select() {
-  return el('select', 'v-input fl-input');
-}
-
-function button(text, handler, solid = false) {
-  const node = el('button', solid ? 'ws-btn ws-btn--solid' : 'ws-btn', text);
-  node.type = 'button';
-  node.addEventListener('click', handler);
-  return node;
-}
-
-function empty(title, body) {
-  const node = el('div', 'fl-state');
-  node.append(el('strong', null, title), el('p', 'fl-muted', body));
-  return node;
-}
-
-function row(link, onRemove) {
-  const node = el('div', 'fl-row wc-item');
-  const main = el('div', 'fl-row__main wc-item__main');
-  main.append(el('strong', 'wc-item__title', link.title));
-  main.append(el('small', 'fl-muted wc-item__meta', `${P.label(link.target_type)} · ${P.label(link.relation)}`));
-  const tools = el('div', 'fl-row__actions');
-  tools.append(button('Remove link', onRemove));
-  node.append(main, tools);
-  return node;
-}
+const TARGETS = [
+  ['research-project', 'Research project', 'space-research'],
+  ['course', 'LMS course', 'course'],
+  ['lesson', 'LMS lesson', 'learning'],
+  ['public-content', 'Public-site content', 'topic'],
+  ['content-work', 'Content pipeline item', 'content'],
+];
 
 function taskTitle(task) {
   return `${task.title}${task.owner?.name ? ` · ${task.owner.name}` : ''}`;
 }
 
 export async function renderCoreLinks(host) {
-  host.innerHTML = '';
-  const doc = el('div', 'ws-doc ws-doc--wide fl-doc');
-  const head = el('header', 'ws-doc__head fl-head');
-  head.append(el('span', 'fl-eyebrow', 'CORE / TRACEABILITY'));
-  head.append(el('h1', 'ws-doc__title', 'Cross-layer task links'));
-  head.append(el('p', 'ws-doc__meta', 'Connect one canonical Core task to the Research project, LMS course or lesson, public-site content, or production item it belongs to.'));
-  doc.append(head);
-  host.append(doc);
-
-  const loading = el('div', 'fl-skeleton-grid');
-  for (let i = 0; i < 5; i += 1) loading.append(el('div', 'fl-skeleton'));
-  doc.append(loading);
-
+  K.loading(host, 'Cross-layer links', { tiles: 0, cards: [6, 6] });
   try {
     const [taskData, researchData, courseData, siteData, workData] = await Promise.all([
       P.operatingTasks(),
@@ -86,7 +38,6 @@ export async function renderCoreLinks(host) {
       P.adminSiteContent(),
       P.content(),
     ]);
-    loading.remove();
 
     const tasks = taskData.tasks || [];
     const sources = {
@@ -110,102 +61,104 @@ export async function renderCoreLinks(host) {
       }
     });
 
-    const editor = panel('Link a task', 'A link is a relationship, not a copy. Removing it never deletes either object.');
-    const form = el('div', 'fl-form');
-    const taskSelect = select();
-    taskSelect.append(option('', 'Choose Core task'));
-    tasks.forEach((task) => taskSelect.append(option(String(task.id), taskTitle(task))));
+    const wrap = K.page(host, {
+      title: 'Cross-layer links',
+      meta: 'Connect one canonical Core task to the Research project, LMS course or lesson, public-site content or production item it belongs to.',
+    });
 
-    const typeSelect = select();
-    [
-      ['research-project', 'Research project'],
-      ['course', 'LMS course'],
-      ['lesson', 'LMS lesson'],
-      ['public-content', 'Public-site content'],
-      ['content-work', 'Content pipeline item'],
-    ].forEach(([value, text]) => typeSelect.append(option(value, text)));
-
-    const targetSelect = select();
-    const relation = input('text', 'Relation, e.g. supports / produces / requires');
-    relation.value = 'related';
-    const status = el('p', 'fl-form-status fl-muted');
-    const save = button('Create link', async () => {
-      if (!taskSelect.value || !targetSelect.value) {
-        status.textContent = 'Choose both a task and a target.';
-        status.dataset.tone = 'bad';
-        return;
-      }
-      save.disabled = true;
-      status.textContent = 'Linking…';
-      status.removeAttribute('data-tone');
-      try {
-        await P.call(`/operating/tasks/${taskSelect.value}/links/`, {
-          method: 'POST',
-          body: {
-            target_type: typeSelect.value,
-            target_id: Number(targetSelect.value),
-            relation: relation.value.trim() || 'related',
-          },
-        });
-        status.textContent = 'Link created.';
-        status.dataset.tone = 'ok';
-        await drawLinks();
-      } catch (error) {
-        status.textContent = error?.message || 'The link could not be created.';
-        status.dataset.tone = 'bad';
-      } finally {
-        save.disabled = false;
-      }
-    }, true);
+    const editor = K.card({ title: 'Link a task', note: 'A link is a relationship, not a copy. Removing it never deletes either object.', span: 6 });
+    const taskSelect = K.select([['', 'Choose Core task'], ...tasks.map((task) => [String(task.id), taskTitle(task)])], '');
+    const typeSelect = K.select(TARGETS.map(([value, text]) => [value, text]), 'research-project');
+    const targetSelect = K.select([], '');
+    const relation = K.input('related', 'text', 'supports / produces / requires');
+    const status = K.status();
 
     const refill = () => {
-      targetSelect.innerHTML = '';
-      targetSelect.append(option('', 'Choose target'));
-      for (const item of sources[typeSelect.value] || []) targetSelect.append(option(String(item.id), item.title));
+      const options = sources[typeSelect.value] || [];
+      targetSelect.replaceChildren();
+      const first = el('option', null, options.length ? 'Choose target' : 'Nothing of this kind yet');
+      first.value = '';
+      targetSelect.append(first);
+      for (const item of options) {
+        const option = el('option', null, item.title);
+        option.value = String(item.id);
+        targetSelect.append(option);
+      }
     };
     typeSelect.addEventListener('change', refill);
     refill();
 
-    const grid = el('div', 'fl-form-grid');
-    grid.append(taskSelect, typeSelect, targetSelect, relation);
-    form.append(grid, save, status);
-    editor.body.append(form);
-    doc.append(editor.box);
-
-    const existing = panel('Links on selected task');
-    doc.append(existing.box);
-
-    const drawLinks = async () => {
-      existing.body.innerHTML = '';
-      if (!taskSelect.value) {
-        existing.body.append(empty('Choose a task', 'Its cross-layer relationships will appear here.'));
+    const save = K.button('Create link', async () => {
+      if (!taskSelect.value || !targetSelect.value) {
+        K.setStatus(status, 'Choose both a task and a target.', 'bad');
         return;
       }
-      existing.body.append(el('div', 'fl-skeleton'));
+      save.disabled = true;
+      K.setStatus(status, 'Linking…');
+      try {
+        await P.call(`/operating/tasks/${taskSelect.value}/links/`, {
+          method: 'POST',
+          body: { target_type: typeSelect.value, target_id: Number(targetSelect.value), relation: relation.value.trim() || 'related' },
+        });
+        K.setStatus(status, 'Link created.', 'ok');
+        await drawLinks();
+      } catch (error) {
+        K.setStatus(status, error?.message || 'The link could not be created.', 'bad');
+      } finally {
+        save.disabled = false;
+      }
+    }, { solid: true });
+
+    editor.body.append(
+      K.fields([
+        K.field('Core task', taskSelect, tasks.length ? '' : 'No Core tasks exist yet.', { wide: true }),
+        K.field('Target kind', typeSelect),
+        K.field('Relation', relation, 'A short verb: supports, produces, requires.'),
+        K.field('Target', targetSelect, '', { wide: true }),
+      ], 2),
+      K.cardActions([save], status),
+    );
+
+    const existing = K.card({ title: 'Links on this task', note: 'Choose a task to see what it is connected to.', span: 6 });
+    const marks = Object.fromEntries(TARGETS.map(([value, , mark]) => [value, mark]));
+
+    const drawLinks = async () => {
+      if (!taskSelect.value) {
+        existing.body.replaceChildren(K.empty('Choose a task; its cross-layer relationships appear here.'));
+        return;
+      }
+      existing.body.replaceChildren(el('div', 'fl-skeleton adm-skeleton'));
       try {
         const data = await P.call(`/operating/tasks/${taskSelect.value}/links/`);
-        existing.body.innerHTML = '';
-        if (!(data.links || []).length) {
-          existing.body.append(empty('No links yet', 'Use the form above to connect this task to another layer.'));
-          return;
-        }
-        for (const item of data.links) {
-          existing.body.append(row(item, async () => {
-            await P.call(`/operating/tasks/${taskSelect.value}/links/`, {
-              method: 'DELETE', body: { link_id: item.id },
-            });
-            await drawLinks();
-          }));
-        }
+        const links = data.links || [];
+        existing.body.replaceChildren(links.length ? K.list(links.map((link, index) => {
+          const remove = K.button('Remove link', async () => {
+            remove.disabled = true;
+            try {
+              await P.call(`/operating/tasks/${taskSelect.value}/links/`, { method: 'DELETE', body: { link_id: link.id } });
+              await drawLinks();
+            } catch (error) {
+              remove.disabled = false;
+              K.setStatus(status, error?.message || 'The link could not be removed.', 'bad');
+            }
+          }, { tiny: true, danger: true });
+          return K.row({
+            title: link.title,
+            meta: P.label(link.target_type),
+            lead: K.avatar(link.title, { mark: marks[link.target_type] || 'link', series: (index % 4) + 1 }),
+            badges: [K.badge(P.label(link.relation))],
+            actions: [remove],
+          });
+        })) : K.empty('No links yet. Use the form to connect this task to another layer.'));
       } catch (error) {
-        existing.body.innerHTML = '';
-        existing.body.append(empty('Links could not be loaded', error?.message || 'Try again.'));
+        existing.body.replaceChildren(K.empty(error?.message || 'Links could not be loaded.'));
       }
     };
     taskSelect.addEventListener('change', drawLinks);
+
+    wrap.append(K.bento([editor.box, existing.box]));
     await drawLinks();
   } catch (error) {
-    loading.remove();
-    doc.append(empty('Cross-layer links could not be loaded', error?.message || 'The platform did not return a usable response.'));
+    K.failure(host, 'Cross-layer links', error, () => renderCoreLinks(host));
   }
 }
