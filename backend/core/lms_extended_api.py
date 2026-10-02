@@ -1335,7 +1335,7 @@ def admin_lms_analytics(request):
             'enrollments': enrollments.count(),
             'active': enrollments.filter(status=CourseEnrollment.Status.ACTIVE).count(),
             'completed': enrollments.filter(status=CourseEnrollment.Status.COMPLETED).count(),
-            'average_progress': str(enrollments.aggregate(v=Avg('progress_percent'))['v'] or 0),
+            'average_progress': round(float(enrollments.aggregate(v=Avg('progress_percent'))['v'] or 0), 1),
             'events': events.count(),
             'by_kind': by_kind,
         },

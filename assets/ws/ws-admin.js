@@ -926,7 +926,7 @@ function lmsAnalytics(courses, analytics) {
     const kinds = payload.summary?.by_kind || {};
     const tiles = K.tiles([
       K.tile({ value: payload.summary?.enrollments || 0, label: 'Enrollments', icon: 'team', featured: true, note: 'In this filter' }),
-      K.tile({ value: `${payload.summary?.average_progress || 0}%`, label: 'Average progress', icon: 'progress', note: 'Across enrollments' }),
+      K.tile({ value: `${Math.round(Number(payload.summary?.average_progress) || 0)}%`, label: 'Average progress', icon: 'progress', note: 'Across enrollments' }),
       K.tile({ value: kinds['lesson.view']?.count || 0, label: 'Lesson views', icon: 'overview', note: `${kinds['lesson.skip']?.count || 0} skips` }),
       K.tile({ value: Math.round((kinds['lesson.dwell']?.duration_seconds || 0) / 60), label: 'Dwell', icon: 'cycle', note: 'minutes' }),
       K.tile({ value: kinds['ai.use']?.count || 0, label: 'AI uses', icon: 'pulsar', note: 'Tutor questions' }),

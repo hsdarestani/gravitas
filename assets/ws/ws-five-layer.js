@@ -25,7 +25,7 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261002-admin1';
+} from './ws-admin.js?v=20261002-admin2';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261002-admin1';
 import { renderCoreLinks } from './ws-core-links.js?v=20261002-admin1';
 import { renderResearchProject } from './ws-project.js?v=20260920-visual4';

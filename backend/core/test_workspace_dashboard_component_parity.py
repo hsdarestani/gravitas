@@ -70,7 +70,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         for marker in (
             "./ws-member-lms.js?v=20261002-tabs1",
             "./ws-member-progress.js?v=20260924-unify1",
-            "./ws-admin.js?v=20261002-admin1",
+            "./ws-admin.js?v=20261002-admin2",
             "./ws-project.js?v=20260920-visual4",
         ):
             self.assertIn(marker, five)
