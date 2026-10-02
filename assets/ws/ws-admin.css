@@ -51,7 +51,7 @@
   transform: translateY(-50%); color: var(--g-text-subtle); pointer-events: none;
 }
 #ws-view .adm-search .v-input { width: 100%; padding-left: 31px; }
-#ws-view .adm .v-choices { align-self: center; background: var(--g-surface-sunken); }
+#ws-view .adm .v-choices { align-self: center; justify-self: start; background: var(--g-surface-sunken); }
 #ws-view .adm .v-choice { font-size: var(--ws-fs-sm); }
 
 /* ---- Rows ---------------------------------------------------------------- */
