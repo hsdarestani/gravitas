@@ -1283,7 +1283,7 @@ function courseCoverEditor(course) {
    forms inside the course form.
    ========================================================================== */
 
-export async function renderAdminCourseEditor(host, id, { go }) {
+export async function renderAdminCourseEditor(host, id, { go, authorMode = false }) {
   K.loading(host, id === 'new' ? 'New course' : 'Course', { tiles: 0, cards: [8, 4] });
   try {
     const [courseResult, meta] = await Promise.all([
@@ -1295,7 +1295,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     const mediaData = course
       ? await P.adminLearningAssets(course.id)
       : { assets: [], groups: [], folders: [], nextcloud: { state: 'unavailable' } };
-    const reload = () => renderAdminCourseEditor(host, id, { go });
+    const reload = () => renderAdminCourseEditor(host, id, { go, authorMode });
 
     const wrap = K.page(host, {
       title: course?.title || 'New course',
