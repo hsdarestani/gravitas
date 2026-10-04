@@ -164,6 +164,7 @@ class CoreTaskBoardTests(TestCase):
             {TaskNotificationOutbox.Channel.EMAIL, TaskNotificationOutbox.Channel.TELEGRAM},
         )
 
+        self.client.force_login(self.user)
         inbox = self.client.get('/api/task-notifications/in-app/')
         self.assertEqual(inbox.status_code, 200, inbox.content)
         self.assertEqual(inbox.json()['unread_count'], 1)
