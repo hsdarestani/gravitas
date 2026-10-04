@@ -158,6 +158,20 @@ def _recipient_ids(task, action, actor, detail):
             old = owner_change.get('from')
             if isinstance(old, dict) and old.get('id'):
                 ids.add(int(old['id']))
+
+    # Comments can explicitly mention several Core members.  The comment API
+    # resolves the browser's stable user IDs against the task workspace before
+    # they reach this point, so the notification layer only has to merge them
+    # into the normal recipient set.  They then use the same reliable outbox as
+    # assignment/change notifications (email and connected Telegram).
+    mention_ids = (detail or {}).get('mention_user_ids') or []
+    if isinstance(mention_ids, list):
+        for value in mention_ids:
+            try:
+                ids.add(int(value))
+            except (TypeError, ValueError):
+                continue
+
     if actor and actor.pk in ids:
         ids.remove(actor.pk)
     return {pk for pk in ids if pk}
