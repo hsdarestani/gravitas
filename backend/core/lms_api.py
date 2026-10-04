@@ -993,7 +993,7 @@ def lms_course_detail(request, course_id):
     if data is None:
         return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
-    if course.status == Course.Status.PUBLISHED:
+    if course.status == Course.Status.PUBLISHED or not _is_core_admin(request.user):
         try:
             revision = _stage_course_revision(course, request.user, data)
         except ValueError as exc:
