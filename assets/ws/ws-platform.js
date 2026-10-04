@@ -336,7 +336,7 @@ export const deleteOperatingTaskChecklistItem = (taskId, itemId) => call(
   `/operating/tasks/${taskId}/checklist/${itemId}/`, { method: 'DELETE' }
 );
 export const operatingTaskComments = (id) => call(`/operating/tasks/${id}/comments/`);
-export const addOperatingTaskComment = (id, body) => call(`/operating/tasks/${id}/comments/`, { method: 'POST', body: { body } });
+export const addOperatingTaskComment = (id, body, mentionUserIds = []) => call(`/operating/tasks/${id}/comments/`, { method: 'POST', body: { body, mention_user_ids: mentionUserIds } });
 export const operatingTaskAttachments = (id) => call(`/operating/tasks/${id}/attachments/`);
 export const uploadOperatingTaskAttachment = (id, file) => {
   const form = new FormData(); form.append('file', file);
