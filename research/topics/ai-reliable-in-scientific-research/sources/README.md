@@ -20,6 +20,29 @@ Each source is stored as an individual Markdown record so research can be querie
 - verification status
 - last checked
 
+## Categories
+
+### Reliability, hallucination and epistemics
+S001, S003, S004, S013, S014, S015
+
+### Scientific discovery and history
+S018, S019, S020
+
+### Modern AI-for-science case studies
+S005, S006, S007, S008, S009, S012, S017
+
+### Hypothesis generation and autonomous science
+S008, S017, S020, S021
+
+### Governance and publishing
+S010, S011
+
+### Ecosystem effects
+S002
+
+### Prediction, simulation and scientific constraints
+S016
+
 ## Current source set
 
 | ID | Short name | Tier | Role |
@@ -41,5 +64,9 @@ Each source is stored as an individual Markdown record so research can be querie
 | S015 | SciSlopBench 2026 | A* | slop benchmark; very recent preprint |
 | S016 | Physics-informed ML survey 2025 | B | prediction/mechanism bridge |
 | S017 | The AI Scientist 2026 | A | end-to-end agentic research |
+| S018 | Scientific discovery in the age of AI | B | field-wide review |
+| S019 | Schmidt & Lipson 2009 | A | machine discovery history |
+| S020 | Robot Scientist Adam 2009 | A | autonomous experimental science |
+| S021 | AI-generated hypotheses, ACS 2026 | C | autonomous discovery perspective |
 
 `A*` means original research available as a preprint rather than a peer-reviewed version at the time of this research snapshot.
