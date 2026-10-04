@@ -286,7 +286,7 @@ def _course_json(course, user=None, *, include_structure=False):
             'checkout_url': str((course.payment_config or {}).get('checkout_url') or ''),
             'sku': str((course.payment_config or {}).get('sku') or ''),
         },
-        'payment_config': course.payment_config if author else {},
+        'payment_config': (course.payment_config if admin else {k: v for k, v in (course.payment_config or {}).items() if k != 'webhook_secret'}) if author else {},
         'learning_config': course.learning_config if author or entitled else {},
         'published_at': _iso(course.published_at),
         'updated_at': _iso(course.updated_at),
@@ -711,7 +711,16 @@ def _course_revision_payload(course):
     }
 
 
-def _revision_json(revision):
+def _authoring_payload_for_user(payload, user):
+    clean = dict(payload or {}) if isinstance(payload, dict) else {}
+    if not _is_core_admin(user):
+        payment = dict(clean.get('payment_config') or {})
+        payment.pop('webhook_secret', None)
+        clean['payment_config'] = payment
+    return clean
+
+
+def _revision_json(revision, user=None):
     if not revision:
         return None
     return {
@@ -725,7 +734,7 @@ def _revision_json(revision):
             'name': revision.author.get_full_name() or revision.author.email,
             'email': revision.author.email,
         },
-        'payload': revision.payload if isinstance(revision.payload, dict) else {},
+        'payload': _authoring_payload_for_user(revision.payload, user),
     }
 
 
@@ -744,8 +753,18 @@ def _stage_course_revision(course, author, patch):
         raise ValueError('invalid_revision_payload')
     revision = _active_course_revision(course)
     payload = dict(revision.payload or {}) if revision else _course_revision_payload(course)
+    patch = dict(patch)
+    if not _is_core_admin(author):
+        patch.pop('instructors', None)
+        if 'payment_config' in patch and isinstance(patch.get('payment_config'), dict):
+            payment = dict(patch['payment_config'])
+            existing_payment = dict(payload.get('payment_config') or {})
+            if existing_payment.get('webhook_secret'):
+                payment['webhook_secret'] = existing_payment['webhook_secret']
+            else:
+                payment.pop('webhook_secret', None)
+            patch['payment_config'] = payment
     if 'cover_image' in patch:
-        patch = dict(patch)
         patch['cover_image'] = _clean_cover(patch.get('cover_image'))
     payload.update(patch)
     if not str(payload.get('title') or '').strip() or not str(payload.get('slug') or '').strip():
@@ -1009,7 +1028,7 @@ def lms_course_detail(request, course_id):
         return JsonResponse({
             'ok': True,
             'staged': True,
-            'revision': _revision_json(revision),
+            'revision': _revision_json(revision, request.user),
             'course': _course_json(course, request.user, include_structure=True),
         })
 
@@ -1049,8 +1068,8 @@ def lms_course_revision(request, course_id):
     if request.method == 'GET':
         return JsonResponse({
             'ok': True,
-            'revision': _revision_json(revision),
-            'payload': (revision.payload if revision else _course_revision_payload(course)),
+            'revision': _revision_json(revision, request.user),
+            'payload': _authoring_payload_for_user((revision.payload if revision else _course_revision_payload(course)), request.user),
             'live_updated_at': _iso(course.updated_at),
         })
 
@@ -1069,7 +1088,7 @@ def lms_course_revision(request, course_id):
         object_id=course.pk,
         detail={'revision_id': revision.pk, 'fields': sorted(data.keys())},
     )
-    return JsonResponse({'ok': True, 'revision': _revision_json(revision)})
+    return JsonResponse({'ok': True, 'revision': _revision_json(revision, request.user)})
 
 
 @require_http_methods(['POST'])
@@ -1094,7 +1113,7 @@ def lms_course_revision_publish(request, course_id):
         revision.status = CourseRevision.Status.DRAFT
         revision.scheduled_for = None
         revision.save(update_fields=['status', 'scheduled_for', 'updated_at'])
-        return JsonResponse({'ok': True, 'revision': _revision_json(revision)})
+        return JsonResponse({'ok': True, 'revision': _revision_json(revision, request.user)})
 
     if action == 'schedule':
         raw = str(data.get('scheduled_for') or '').strip()
@@ -1117,7 +1136,7 @@ def lms_course_revision_publish(request, course_id):
             object_id=course.pk,
             detail={'revision_id': revision.pk, 'scheduled_for': scheduled_for.isoformat()},
         )
-        return JsonResponse({'ok': True, 'revision': _revision_json(revision)})
+        return JsonResponse({'ok': True, 'revision': _revision_json(revision, request.user)})
 
     if action != 'publish_now':
         return JsonResponse({'ok': False, 'error': 'invalid_publish_action'}, status=400)
@@ -1131,7 +1150,7 @@ def lms_course_revision_publish(request, course_id):
     course.refresh_from_db()
     return JsonResponse({
         'ok': True,
-        'revision': _revision_json(revision),
+        'revision': _revision_json(revision, request.user),
         'course': _course_json(course, request.user, include_structure=True),
     })
 
