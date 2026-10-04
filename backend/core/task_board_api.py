@@ -16,7 +16,7 @@ from . import operating_api_v4 as v4
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .models import WorkspaceMembership
-from .task_notifications import enqueue_task_event
+from .task_notifications import enqueue_task_event, enqueue_task_mentions
 from .workspace_api import _can_manage_workspace
 from .operating_models import (
     Initiative,
@@ -639,10 +639,12 @@ def task_checklist_item(request, task_id, item_id):
 
 
 def _comment_json(row):
+    mentions = list(row.mentions.all()) if hasattr(row, 'mentions') else []
     return {
         'id': row.pk,
         'author': _person(row.author),
         'body': row.body,
+        'mentions': [_person(user) for user in mentions],
         'created_at': row.created_at.isoformat(),
         'updated_at': row.updated_at.isoformat(),
     }
@@ -659,7 +661,7 @@ def task_comments(request, task_id):
         return _error('task_not_found', 404)
 
     if request.method == 'GET':
-        rows = task.board_comments.select_related('author').all()[:500]
+        rows = task.board_comments.select_related('author').prefetch_related('mentions').all()[:500]
         return JsonResponse({'ok': True, 'comments': [_comment_json(row) for row in rows]})
 
     if not base._editable(request, workspace):
@@ -668,8 +670,47 @@ def task_comments(request, task_id):
     body = str(payload.get('body') or '').strip()
     if not body or len(body) > 10000:
         return _error('invalid_comment')
+    mention_ids = []
+    for value in payload.get('mention_user_ids') or []:
+        try:
+            mention_ids.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    mentioned_users = list(
+        WorkspaceMembership.objects.filter(
+            workspace=workspace,
+            user_id__in=set(mention_ids),
+            user__is_active=True,
+        )
+        .select_related('user')
+        .values_list('user', flat=False)
+    )
+    mentioned_users = [
+        membership.user
+        for membership in WorkspaceMembership.objects.filter(
+            workspace=workspace,
+            user_id__in=set(mention_ids),
+            user__is_active=True,
+        ).select_related('user')
+    ]
     row = OperatingTaskComment.objects.create(task=task, author=request.user, body=body)
-    _log(request, task, 'task.comment_added', {'comment_id': row.pk, 'comment_preview': body[:240]})
+    if mentioned_users:
+        row.mentions.set(mentioned_users)
+    mentioned_ids = [user.pk for user in mentioned_users if user.pk != request.user.pk]
+    _log(request, task, 'task.comment_added', {
+        'comment_id': row.pk,
+        'comment_preview': body[:240],
+        'exclude_user_ids': mentioned_ids,
+    })
+    if mentioned_ids:
+        enqueue_task_mentions(
+            task,
+            request.user,
+            mentioned_users,
+            comment_id=row.pk,
+            comment_preview=body[:240],
+        )
+    row = OperatingTaskComment.objects.select_related('author').prefetch_related('mentions').get(pk=row.pk)
     return JsonResponse({'ok': True, 'comment': _comment_json(row)}, status=201)
 
 
