@@ -978,62 +978,47 @@ def lms_course_detail(request, course_id):
     except Course.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'course_not_found'}, status=404)
 
-    admin = _is_core_admin(request.user)
+    author = _can_author_course(request.user, course)
     if request.method == 'GET':
-        if course.status != Course.Status.PUBLISHED and not admin:
+        if course.status != Course.Status.PUBLISHED and not author:
             return JsonResponse({'ok': False, 'error': 'course_not_found'}, status=404)
         return JsonResponse({'ok': True, 'course': _course_json(course, request.user, include_structure=True)})
 
     denied = _auth_required(request)
     if denied:
         return denied
-    if not admin:
-        return JsonResponse({'ok': False, 'error': 'core_admin_required'}, status=403)
+    if not author:
+        return JsonResponse({'ok': False, 'error': 'course_author_required'}, status=403)
     data = _payload(request)
     if data is None:
         return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
+    if course.status == Course.Status.PUBLISHED:
+        try:
+            revision = _stage_course_revision(course, request.user, data)
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        record_activity(
+            layer=ActivityEvent.Layer.LMS,
+            action='course.revision_saved',
+            actor=request.user,
+            object_type='course',
+            object_id=course.pk,
+            detail={'revision_id': revision.pk, 'fields': sorted(data.keys())},
+        )
+        return JsonResponse({
+            'ok': True,
+            'staged': True,
+            'revision': _revision_json(revision),
+            'course': _course_json(course, request.user, include_structure=True),
+        })
+
     try:
         with transaction.atomic():
             course = Course.objects.select_for_update().get(pk=course.pk)
-            for field in ('title', 'summary', 'description', 'currency'):
-                if field in data:
-                    setattr(course, field, str(data[field] or '').strip() if field == 'title' else str(data[field] or ''))
-            if 'slug' in data:
-                course.slug = str(data['slug'] or '').strip()
-            if 'access_type' in data:
-                value = str(data['access_type'])
-                if value not in Course.AccessType.values:
-                    raise ValueError('invalid_access_type')
-                course.access_type = value
-            if 'status' in data:
-                value = str(data['status'])
-                if value not in Course.Status.values:
-                    raise ValueError('invalid_status')
-                if value == Course.Status.PUBLISHED and not course.published_at:
-                    course.published_at = timezone.now()
-                course.status = value
-            if 'price' in data:
-                course.price = _as_decimal(data.get('price'))
-            if 'certificate_enabled' in data:
-                course.certificate_enabled = bool(data['certificate_enabled'])
-            if 'cover_image' in data:
-                course.cover_image = _clean_cover(data.get('cover_image'))
-            _course_relation_fields(course, data)
-            if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
-                raise ValueError('openedx_course_key_required')
-            if course.access_type == Course.AccessType.PAID and (course.price is None or course.price <= 0):
-                raise ValueError('paid_course_price_required')
-            course.save()
-            _save_course_relations(course, data)
-            has_modules = 'modules' in data
-            has_assessments = 'assessments' in data
-            if has_modules != has_assessments:
-                raise ValueError('complete_structure_payload_required')
-            if has_modules and has_assessments:
-                _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
+            _apply_course_payload(course, data)
     except ValueError as exc:
-        return JsonResponse({'ok': False, 'error': str(exc)}, status=409 if str(exc) == 'course_structure_locked_after_enrollment' else 400)
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     except IntegrityError:
         return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
 
@@ -1046,6 +1031,109 @@ def lms_course_detail(request, course_id):
         detail={'fields': sorted(data.keys())},
     )
     return JsonResponse({'ok': True, 'course': _course_json(course, request.user, include_structure=True)})
+
+
+@require_http_methods(['GET', 'PUT', 'PATCH'])
+def lms_course_revision(request, course_id):
+    denied = _auth_required(request)
+    if denied:
+        return denied
+    try:
+        course = Course.objects.get(pk=course_id)
+    except Course.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'course_not_found'}, status=404)
+    if not _can_author_course(request.user, course):
+        return JsonResponse({'ok': False, 'error': 'course_author_required'}, status=403)
+
+    revision = _active_course_revision(course)
+    if request.method == 'GET':
+        return JsonResponse({
+            'ok': True,
+            'revision': _revision_json(revision),
+            'payload': (revision.payload if revision else _course_revision_payload(course)),
+            'live_updated_at': _iso(course.updated_at),
+        })
+
+    data = _payload(request)
+    if data is None:
+        return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+    try:
+        revision = _stage_course_revision(course, request.user, data)
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    record_activity(
+        layer=ActivityEvent.Layer.LMS,
+        action='course.revision_saved',
+        actor=request.user,
+        object_type='course',
+        object_id=course.pk,
+        detail={'revision_id': revision.pk, 'fields': sorted(data.keys())},
+    )
+    return JsonResponse({'ok': True, 'revision': _revision_json(revision)})
+
+
+@require_http_methods(['POST'])
+def lms_course_revision_publish(request, course_id):
+    denied = _auth_required(request)
+    if denied:
+        return denied
+    try:
+        course = Course.objects.get(pk=course_id)
+    except Course.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'course_not_found'}, status=404)
+    if not _can_author_course(request.user, course):
+        return JsonResponse({'ok': False, 'error': 'course_author_required'}, status=403)
+
+    revision = _active_course_revision(course)
+    if not revision:
+        return JsonResponse({'ok': False, 'error': 'course_revision_not_found'}, status=404)
+    data = _payload(request) or {}
+    action = str(data.get('action') or 'publish_now')
+
+    if action == 'cancel_schedule':
+        revision.status = CourseRevision.Status.DRAFT
+        revision.scheduled_for = None
+        revision.save(update_fields=['status', 'scheduled_for', 'updated_at'])
+        return JsonResponse({'ok': True, 'revision': _revision_json(revision)})
+
+    if action == 'schedule':
+        raw = str(data.get('scheduled_for') or '').strip()
+        scheduled_for = parse_datetime(raw)
+        if scheduled_for is None:
+            return JsonResponse({'ok': False, 'error': 'invalid_scheduled_for'}, status=400)
+        if timezone.is_naive(scheduled_for):
+            scheduled_for = timezone.make_aware(scheduled_for, timezone.get_current_timezone())
+        if scheduled_for <= timezone.now():
+            return JsonResponse({'ok': False, 'error': 'scheduled_for_must_be_future'}, status=400)
+        revision.status = CourseRevision.Status.SCHEDULED
+        revision.scheduled_for = scheduled_for
+        revision.author = request.user
+        revision.save(update_fields=['status', 'scheduled_for', 'author', 'updated_at'])
+        record_activity(
+            layer=ActivityEvent.Layer.LMS,
+            action='course.revision_scheduled',
+            actor=request.user,
+            object_type='course',
+            object_id=course.pk,
+            detail={'revision_id': revision.pk, 'scheduled_for': scheduled_for.isoformat()},
+        )
+        return JsonResponse({'ok': True, 'revision': _revision_json(revision)})
+
+    if action != 'publish_now':
+        return JsonResponse({'ok': False, 'error': 'invalid_publish_action'}, status=400)
+
+    try:
+        revision = _publish_course_revision(revision, request.user)
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except IntegrityError:
+        return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
+    course.refresh_from_db()
+    return JsonResponse({
+        'ok': True,
+        'revision': _revision_json(revision),
+        'course': _course_json(course, request.user, include_structure=True),
+    })
 
 
 @require_http_methods(['GET', 'HEAD'])
