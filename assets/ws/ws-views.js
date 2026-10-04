@@ -333,6 +333,285 @@ export function renderCoreTasks(host, { go }) {
     return card;
   }
 
+  function taskHierarchy(tasks) {
+    const objectives = new Map();
+    for (const task of tasks) {
+      const objective = task.trace?.objective || { id: 'none', title: 'No objective' };
+      const kr = task.trace?.key_result || { id: 'none', title: 'No key result' };
+      const objectiveKey = String(objective.id || objective.title || 'none');
+      if (!objectives.has(objectiveKey)) objectives.set(objectiveKey, { ...objective, key_results: new Map() });
+      const objectiveNode = objectives.get(objectiveKey);
+      const krKey = String(kr.id || kr.title || 'none');
+      if (!objectiveNode.key_results.has(krKey)) objectiveNode.key_results.set(krKey, { ...kr, tasks: [] });
+      objectiveNode.key_results.get(krKey).tasks.push(task);
+    }
+    return [...objectives.values()].map((objective) => ({
+      ...objective,
+      key_results: [...objective.key_results.values()],
+    }));
+  }
+
+  function renderTaskTree(host, tasks, openCard) {
+    const tree = el('div', 'task-tree');
+    const hierarchy = taskHierarchy(tasks);
+    for (const objective of hierarchy) {
+      const objectiveNode = el('section', 'task-tree__objective');
+      const objectiveHead = el('div', 'task-tree__objective-head');
+      const objectiveTaskCount = objective.key_results.reduce((sum, kr) => sum + kr.tasks.length, 0);
+      objectiveHead.append(
+        el('span', 'task-tree__type', 'Objective'),
+        el('h3', null, objective.title || 'Untitled objective'),
+        el('span', 'v-badge', String(objectiveTaskCount) + ' tasks'),
+      );
+      objectiveNode.append(objectiveHead);
+
+      const krList = el('div', 'task-tree__kr-list');
+      for (const kr of objective.key_results) {
+        const krNode = el('section', 'task-tree__kr');
+        const krHead = el('div', 'task-tree__kr-head');
+        krHead.append(
+          el('span', 'task-tree__connector'),
+          el('span', 'task-tree__type', 'KR'),
+          el('strong', null, kr.title || 'Untitled key result'),
+          el('span', 'v-badge', String(kr.tasks.length)),
+        );
+        krNode.append(krHead);
+
+        const taskHost = el('div', 'task-tree__tasks');
+        const byId = new Map(kr.tasks.map((task) => [String(task.id), task]));
+        const children = new Map();
+        for (const task of kr.tasks) {
+          const parentId = task.dependency_id && byId.has(String(task.dependency_id)) ? String(task.dependency_id) : '';
+          if (!children.has(parentId)) children.set(parentId, []);
+          children.get(parentId).push(task);
+        }
+        const visited = new Set();
+        const appendTask = (task, depth = 0) => {
+          if (visited.has(task.id)) return;
+          visited.add(task.id);
+          const button = el('button', 'task-tree__task');
+          button.type = 'button';
+          button.style.setProperty('--task-depth', String(depth));
+          button.dataset.status = task.status;
+          const main = el('span', 'task-tree__task-main');
+          main.append(
+            el('strong', null, task.title),
+            el('small', 'fl-muted', P.meta([
+              P.label(task.status),
+              P.label(task.priority),
+              task.owner?.name || task.owner?.email,
+              P.formatDate(task.due_date),
+            ])),
+          );
+          const edge = el('span', 'task-tree__task-edge', depth ? '↳' : '•');
+          button.append(edge, main);
+          button.addEventListener('click', () => openCard(task.id));
+          taskHost.append(button);
+          for (const child of children.get(String(task.id)) || []) appendTask(child, depth + 1);
+        };
+        for (const root of children.get('') || []) appendTask(root, 0);
+        for (const task of kr.tasks) appendTask(task, 0);
+        krNode.append(taskHost);
+        krList.append(krNode);
+      }
+      objectiveNode.append(krList);
+      tree.append(objectiveNode);
+    }
+    if (!hierarchy.length) tree.append(el('p', 'v-note', 'No tasks match these filters.'));
+    host.append(tree);
+  }
+
+  function renderTaskGraph(host, tasks, openCard) {
+    const hierarchy = taskHierarchy(tasks);
+    if (!hierarchy.length) {
+      host.append(el('p', 'v-note', 'No tasks match these filters.'));
+      return;
+    }
+
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'task-graph');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Objective to key result to task graph');
+    const xObjective = 20;
+    const xKr = 350;
+    const xTask = 710;
+    const objectiveW = 250;
+    const krW = 280;
+    const taskW = 330;
+    const h = 58;
+    const gap = 18;
+    let y = 28;
+    const objectiveRows = [];
+
+    for (const objective of hierarchy) {
+      const krRows = [];
+      for (const kr of objective.key_results) {
+        const taskRows = [];
+        for (const task of kr.tasks) {
+          taskRows.push({ task, y });
+          y += h + gap;
+        }
+        if (!taskRows.length) {
+          taskRows.push({ task: null, y });
+          y += h + gap;
+        }
+        const krY = taskRows.reduce((sum, row) => sum + row.y, 0) / taskRows.length;
+        krRows.push({ kr, y: krY, taskRows });
+      }
+      const objectiveY = krRows.reduce((sum, row) => sum + row.y, 0) / Math.max(1, krRows.length);
+      objectiveRows.push({ objective, y: objectiveY, krRows });
+      y += 22;
+    }
+
+    const width = 1080;
+    const height = Math.max(360, y + 20);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('width', String(width));
+    svg.setAttribute('height', String(height));
+
+    const path = (x1, y1, x2, y2, cls = '') => {
+      const p = document.createElementNS(ns, 'path');
+      const mid = (x1 + x2) / 2;
+      p.setAttribute('d', `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`);
+      p.setAttribute('class', 'task-graph__edge ' + cls);
+      svg.append(p);
+    };
+
+    const node = ({ x, y: top, width: nodeW, label, title, kind, status = '', taskId = null, meta = '' }) => {
+      const group = document.createElementNS(ns, 'g');
+      group.setAttribute('class', `task-graph__node task-graph__node--${kind}`);
+      if (status) group.dataset.status = status;
+      if (taskId) {
+        group.setAttribute('role', 'button');
+        group.setAttribute('tabindex', '0');
+        group.style.cursor = 'pointer';
+        const activate = () => openCard(taskId);
+        group.addEventListener('click', activate);
+        group.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            activate();
+          }
+        });
+      }
+      const rect = document.createElementNS(ns, 'rect');
+      rect.setAttribute('x', String(x));
+      rect.setAttribute('y', String(top));
+      rect.setAttribute('width', String(nodeW));
+      rect.setAttribute('height', String(h));
+      rect.setAttribute('rx', '12');
+      const small = document.createElementNS(ns, 'text');
+      small.setAttribute('x', String(x + 14));
+      small.setAttribute('y', String(top + 18));
+      small.setAttribute('class', 'task-graph__label');
+      small.textContent = label;
+      const text = document.createElementNS(ns, 'text');
+      text.setAttribute('x', String(x + 14));
+      text.setAttribute('y', String(top + 38));
+      text.setAttribute('class', 'task-graph__title');
+      text.textContent = String(title || '').length > 38 ? String(title).slice(0, 35) + '…' : title;
+      group.append(rect, small, text);
+      if (meta) {
+        const metaText = document.createElementNS(ns, 'text');
+        metaText.setAttribute('x', String(x + nodeW - 14));
+        metaText.setAttribute('y', String(top + 18));
+        metaText.setAttribute('text-anchor', 'end');
+        metaText.setAttribute('class', 'task-graph__meta');
+        metaText.textContent = meta;
+        group.append(metaText);
+      }
+      const full = document.createElementNS(ns, 'title');
+      full.textContent = String(title || '');
+      group.append(full);
+      svg.append(group);
+    };
+
+    for (const objectiveRow of objectiveRows) {
+      node({
+        x: xObjective, y: objectiveRow.y, width: objectiveW,
+        label: 'OBJECTIVE', title: objectiveRow.objective.title, kind: 'objective',
+        meta: String(objectiveRow.krRows.length) + ' KR',
+      });
+      for (const krRow of objectiveRow.krRows) {
+        path(xObjective + objectiveW, objectiveRow.y + h / 2, xKr, krRow.y + h / 2, 'is-objective');
+        node({
+          x: xKr, y: krRow.y, width: krW,
+          label: 'KEY RESULT', title: krRow.kr.title, kind: 'kr',
+          meta: String(krRow.kr.tasks.length) + ' tasks',
+        });
+        for (const taskRow of krRow.taskRows) {
+          if (!taskRow.task) continue;
+          path(xKr + krW, krRow.y + h / 2, xTask, taskRow.y + h / 2, 'is-task');
+          node({
+            x: xTask, y: taskRow.y, width: taskW,
+            label: P.label(taskRow.task.status).toUpperCase(),
+            title: taskRow.task.title,
+            kind: 'task',
+            status: taskRow.task.status,
+            taskId: taskRow.task.id,
+            meta: taskRow.task.owner?.name || taskRow.task.owner?.email || '',
+          });
+        }
+      }
+    }
+
+    const wrap = el('div', 'task-graph-wrap');
+    wrap.append(svg);
+    host.append(wrap);
+  }
+
+  async function openTaskNotificationsDialog(state, reloadBoard) {
+    const { dialog, body, head } = makeDialog('Notifications');
+    const markAll = makeButton('Mark all read', async () => {
+      markAll.disabled = true;
+      try {
+        await P.markTaskInAppNotificationsRead([], true);
+        await draw();
+      } finally {
+        markAll.disabled = false;
+      }
+    });
+    head.insertBefore(markAll, head.querySelector('button'));
+
+    const draw = async () => {
+      body.innerHTML = '';
+      const data = await P.taskInAppNotifications();
+      if (!(data.notifications || []).length) {
+        body.append(el('p', 'v-note', 'No task notifications yet.'));
+        return;
+      }
+      const list = el('div', 'task-notification-list');
+      for (const notice of data.notifications || []) {
+        const item = el('button', 'task-notification');
+        item.type = 'button';
+        if (!notice.read) item.dataset.unread = 'true';
+        item.append(
+          el('strong', null, notice.title),
+          el('span', null, notice.body.split('\n').filter(Boolean)[0] || ''),
+          el('small', 'fl-muted', P.formatDate(notice.created_at)),
+        );
+        item.addEventListener('click', async () => {
+          if (!notice.read) await P.markTaskInAppNotificationsRead([notice.id], false).catch(() => {});
+          if (notice.task_id) {
+            closeDialog(dialog);
+            openTaskDialog(notice.task_id, state, reloadBoard);
+          } else {
+            await draw();
+          }
+        });
+        list.append(item);
+      }
+      body.append(list);
+    };
+
+    try {
+      await draw();
+    } catch (error) {
+      body.append(el('p', 'v-note', error?.message || 'Notifications unavailable.'));
+    }
+  }
+
   function getDropBefore(container, y) {
     const cards = [...container.querySelectorAll('.task-trello-card:not(.is-dragging)')];
     let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
