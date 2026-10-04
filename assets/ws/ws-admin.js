@@ -1318,11 +1318,18 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
     const wrap = K.page(host, {
       title: course?.title || 'New course',
       meta: course
-        ? P.meta([label(course.status), label(course.access_type), `${enrolled.length} enrollment${enrolled.length === 1 ? '' : 's'}`])
+        ? P.meta([
+            label(course.status),
+            label(course.access_type),
+            revisionData.revision ? label(revisionData.revision.status) + ' revision' : '',
+            authorMode ? 'Instructor authoring' : `${enrolled.length} enrollment${enrolled.length === 1 ? '' : 's'}`,
+          ])
         : 'Course Builder — details first; structure, media and enrollment open once the course exists.',
       actions: [
-        link(go, 'LMS Admin', `${ADMIN}/lms`),
-        course ? link(go, 'View as learner', `/workspace/learning/courses/${course.id}`) : null,
+        authorMode
+          ? link(go, 'Back to course', `/workspace/learning/courses/${course?.id || ''}`)
+          : link(go, 'LMS Admin', `${ADMIN}/lms`),
+        course ? link(go, 'View live course', `/workspace/learning/courses/${course.id}`) : null,
       ],
     });
     const form = el('form', 'adm-form');
