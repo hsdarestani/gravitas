@@ -1872,6 +1872,67 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     form.append(K.tabs(tabList, (key) => builders[key](), { name: 'Course builder', eager: true }));
 
     const collectCoursePayload = () => {
+      const tagIds = [...tagSelect.selectedOptions].map((option) => Number(option.value));
+      const payload = {
+        title: title.value.trim(),
+        slug: slug.value.trim(),
+        summary: summary.value,
+        description: description.value,
+        access_type: accessType.value,
+        currency: currency.value.trim() || 'EUR',
+        certificate_enabled: certEnabled.input.checked,
+        provider: provider.value,
+        openedx_course_key: openedxKey.value.trim(),
+        openedx_course_url: openedxUrl.value.trim(),
+        openedx_studio_url: openedxStudio.value.trim(),
+        category_id: category.value ? Number(category.value) : null,
+        tag_ids: tagIds,
+        instructors: instructorState.map((item) => ({ user_id: item.user_id, role: item.role })),
+        registration_schema: serializeRegistrationFields(registrationHost),
+        payment_config: {
+          enabled: paymentEnabled.input.checked,
+          provider: paymentProvider.value,
+          sku: paymentSku.value.trim(),
+          checkout_url: paymentCheckoutUrl.value.trim(),
+          webhook_secret: paymentWebhookSecret.value.trim(),
+          prepared: true,
+        },
+        learning_config: {
+          ai_enabled: aiEnabled.input.checked,
+          ai_guidance_mode: guidanceMode.value,
+          ai_instructor_prompt: instructorPrompt.value,
+          zotero_enabled: zoteroEnabled.input.checked,
+          lab_enabled: labEnabled.input.checked,
+          discussions_enabled: discussionsEnabled.input.checked,
+          literature_enabled: literatureEnabled.input.checked,
+          notebook_enabled: notebookEnabled.input.checked,
+          notebook_runtime: notebookRuntime.value,
+          notebook_packages: notebookPackages.value.split('\n').map((item) => item.trim()).filter(Boolean),
+          jupyter_url: jupyterUrl.value.trim(),
+          mathematica_url: mathematicaUrl.value.trim(),
+          git_enabled: gitEnabled.input.checked,
+          social_publish_enabled: socialEnabled.input.checked,
+          pkm_enabled: pkmEnabled.input.checked,
+          offline_enabled: offlineEnabled.input.checked,
+          require_profile_before_content: profileRequired.input.checked,
+        },
+        modules: [...modulesHost.children].map((node, index) => serializeModule(node, index + 1)).filter((item) => item.title),
+        assessments: [...finalsHost.children].map(serializeAssessment).filter((item) => item.title),
+      };
+      if (accessType.value === 'paid') payload.price = price.value;
+      else payload.price = price.value || null;
+      if (!course) payload.status = 'draft';
+      return payload;
+    };
+
+    const line = statusLine();
+    const save = action(course ? 'Save draft' : 'Create draft', null, true);
+    save.type = 'submit';
+    form.append(K.foot([save, link(go, 'Back to LMS Admin', `${ADMIN}/lms`)], line));
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      save.disabled = true;
+      setStatus(line, course ? 'Saving draft…' : 'Creating draft…');
       const payload = collectCoursePayload();
 
       try {
