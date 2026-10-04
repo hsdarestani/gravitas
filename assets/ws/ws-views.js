@@ -1004,6 +1004,10 @@ export function renderCoreTasks(host, { go }) {
       holder.append(board);
 
       const syncTopScroll = () => {
+        if (viewMode !== 'board') {
+          topScroll.hidden = true;
+          return;
+        }
         topScrollTrack.style.width = `${Math.max(board.scrollWidth, board.clientWidth)}px`;
         topScroll.hidden = board.scrollWidth <= board.clientWidth + 1;
         if (topScroll.scrollLeft !== board.scrollLeft) topScroll.scrollLeft = board.scrollLeft;
