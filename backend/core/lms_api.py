@@ -223,9 +223,10 @@ def _lesson_access(lesson, enrollment):
 
 def _course_json(course, user=None, *, include_structure=False):
     enrollment = _enrollment_for(user, course)
-    admin = _can_author_course(user, course)
+    author = _can_author_course(user, course)
+    admin = _is_core_admin(user)
     entitled = bool(
-        admin
+        author
         or (
             enrollment
             and enrollment.status
@@ -286,7 +287,7 @@ def _course_json(course, user=None, *, include_structure=False):
             'sku': str((course.payment_config or {}).get('sku') or ''),
         },
         'payment_config': course.payment_config if admin else {},
-        'learning_config': course.learning_config if admin or entitled else {},
+        'learning_config': course.learning_config if author or entitled else {},
         'published_at': _iso(course.published_at),
         'updated_at': _iso(course.updated_at),
         'enrolled': bool(enrollment and enrollment.status != CourseEnrollment.Status.REVOKED),
@@ -305,10 +306,10 @@ def _course_json(course, user=None, *, include_structure=False):
     for module in course.modules.prefetch_related('lessons', 'assessments').all():
         lessons = []
         for lesson in module.lessons.all():
-            if not lesson.published and not admin:
+            if not lesson.published and not author:
                 continue
-            rule_open, lock_reason = (True, '') if admin or not enrollment else _lesson_access(lesson, enrollment)
-            can_open = admin or lesson.is_preview or (entitled and registration_complete and rule_open)
+            rule_open, lock_reason = (True, '') if author or not enrollment else _lesson_access(lesson, enrollment)
+            can_open = author or lesson.is_preview or (entitled and registration_complete and rule_open)
             if not can_open and not lock_reason:
                 if entitled and not registration_complete:
                     lock_reason = 'course_profile_required'
@@ -329,8 +330,8 @@ def _course_json(course, user=None, *, include_structure=False):
                 'body': lesson.body if can_open else '',
                 'content_url': lesson.content_url if can_open else '',
                 'metadata': lesson.metadata if can_open else {},
-                'access_rule': lesson.access_rule if can_open or admin else {},
-                'provider_key': lesson.provider_key if admin else '',
+                'access_rule': lesson.access_rule if can_open or author else {},
+                'provider_key': lesson.provider_key if author else '',
                 'lab_slug': lesson.lab_slug if can_open else '',
             })
         modules.append({
@@ -365,10 +366,10 @@ def _course_json(course, user=None, *, include_structure=False):
             'max_attempts': assessment.max_attempts,
             'required_for_completion': assessment.required_for_completion,
             'published': assessment.published,
-            'questions': _public_questions(assessment.questions) if entitled or admin else [],
+            'questions': _public_questions(assessment.questions) if entitled or author else [],
         }
         for assessment in course.assessments.all()
-        if assessment.published or admin
+        if assessment.published or author
     ]
     return data
 
@@ -762,7 +763,7 @@ def _authoring_preview_json(course, payload, user):
     for field in (
         'title', 'slug', 'summary', 'description', 'access_type', 'price',
         'currency', 'certificate_enabled', 'provider', 'registration_schema',
-        'payment_config', 'learning_config',
+        'learning_config',
     ):
         if field in payload:
             data[field] = payload[field]
@@ -814,6 +815,7 @@ def _authoring_preview_json(course, payload, user):
     data['module_count'] = len(data['modules'])
     data['lesson_count'] = sum(len(module.get('lessons') or []) for module in data['modules'] if isinstance(module, dict))
     payment_config = payload.get('payment_config') or {}
+    data['payment_config'] = payment_config if _is_core_admin(user) else {}
     data['payment'] = {
         'configured': bool(payment_config),
         'enabled': bool(payment_config.get('enabled')),
@@ -1050,7 +1052,11 @@ def lms_course_detail(request, course_id):
         with transaction.atomic():
             revision = CourseRevision.objects.select_for_update().filter(course=course).first()
             current = revision.payload if revision else _course_authoring_payload(course)
-            payload = _merge_authoring_payload(course, current, data)
+            author_changes = dict(data)
+            if not _is_core_admin(request.user):
+                author_changes.pop('instructors', None)
+                author_changes.pop('payment_config', None)
+            payload = _merge_authoring_payload(course, current, author_changes)
             revision, _ = CourseRevision.objects.update_or_create(
                 course=course,
                 defaults={
