@@ -53,6 +53,20 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         self.assertIn('C.card(', kit)
         self.assertIn("'adm-row wc-item'", kit)
 
+    def test_core_task_hierarchy_nodes_and_mentions_are_interactive(self):
+        source = self.read('ws-views.js')
+        css = self.read('ws.css')
+        self.assertIn("openTaskHierarchyDialog('objective'", source)
+        self.assertIn("openTaskHierarchyDialog('kr'", source)
+        self.assertIn("renderTaskTree(board, visible, openCard, openHierarchy)", source)
+        self.assertIn("renderTaskGraph(board, visible, openCard, openHierarchy)", source)
+        self.assertIn("'task-comment__selected-chip'", source)
+        self.assertIn("'task-comment__person'", source)
+        self.assertIn(".task-tree__objective-head[role=\"button\"]", css)
+        self.assertIn(".task-graph__node[role=\"button\"]", css)
+        self.assertIn(".task-comment__picker", css)
+
+
     def test_workspace_force_loads_rebuilt_renderers(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('/assets/ws/ws-app.js?v=20261004-hierarchy1', html)
