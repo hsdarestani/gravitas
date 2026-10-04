@@ -106,7 +106,9 @@ function pathKind(path = location.pathname) {
   if (path === '/workspace/learning/catalog' || path === '/workspace/learning/catalog/') return { kind: 'learning', page: 'catalog' };
   if (path === '/workspace/learning/my' || path === '/workspace/learning/my/') return { kind: 'learning', page: 'my' };
   if (path === '/workspace/learning/certificates' || path === '/workspace/learning/certificates/') return { kind: 'learning', page: 'certificates' };
-  let match = path.match(/^\/workspace\/learning\/courses\/(\d+)(?:\/lessons\/(\d+))?\/?$/);
+  let match = path.match(/^\/workspace\/learning\/courses\/(\d+)\/edit\/?$/);
+  if (match) return { kind: 'learning', page: 'course-editor', id: match[1] };
+  match = path.match(/^\/workspace\/learning\/courses\/(\d+)(?:\/lessons\/(\d+))?\/?$/);
   if (match) return { kind: 'learning', page: 'course', id: match[1], lesson: match[2] || '' };
 
   // Legacy KMS tools remain reachable, but they are visually folded under
@@ -550,6 +552,14 @@ async function renderCustom() {
     if (route.page === 'catalog') await renderLearningCatalog(host, ctx);
     if (route.page === 'my') await renderMyLearning(host, ctx);
     if (route.page === 'certificates') await renderCertificates(host, ctx);
+    if (route.page === 'course-editor') {
+      setCrumbs([
+        { label: 'Learning', path: '/workspace/learning' },
+        { label: 'Course', path: `/workspace/learning/courses/${route.id}` },
+        { label: 'Edit' },
+      ]);
+      await renderAdminCourseEditor(host, route.id, ctx);
+    }
     if (route.page === 'course') {
       // The course screen names its own trail once it knows the course and
       // the lesson; until then the trail says where it is going.
