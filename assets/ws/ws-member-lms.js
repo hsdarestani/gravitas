@@ -3007,6 +3007,9 @@ function courseBadges(course) {
 /* The one next step: enroll (or pay) before enrollment, continue after. */
 function courseActions(course, { plan, nextUp, current = null, openLesson, reload, go }, cls) {
   const actions = el('div', cls);
+  if (course.can_author) {
+    actions.append(action('Edit course', () => go(`/workspace/learning/courses/${course.id}/edit`), true));
+  }
   if (!course.enrolled) {
     enrollActions(course, actions, reload);
     return actions;
