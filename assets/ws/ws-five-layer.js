@@ -106,7 +106,9 @@ function pathKind(path = location.pathname) {
   if (path === '/workspace/learning/catalog' || path === '/workspace/learning/catalog/') return { kind: 'learning', page: 'catalog' };
   if (path === '/workspace/learning/my' || path === '/workspace/learning/my/') return { kind: 'learning', page: 'my' };
   if (path === '/workspace/learning/certificates' || path === '/workspace/learning/certificates/') return { kind: 'learning', page: 'certificates' };
-  let match = path.match(/^\/workspace\/learning\/courses\/(\d+)(?:\/lessons\/(\d+))?\/?$/);
+  let match = path.match(/^\/workspace\/learning\/courses\/(\d+)\/edit\/?$/);
+  if (match) return { kind: 'learning', page: 'course-author', id: match[1] };
+  match = path.match(/^\/workspace\/learning\/courses\/(\d+)(?:\/lessons\/(\d+))?\/?$/);
   if (match) return { kind: 'learning', page: 'course', id: match[1], lesson: match[2] || '' };
 
   // Legacy KMS tools remain reachable, but they are visually folded under
@@ -541,7 +543,7 @@ async function renderCustom() {
 
   if (route.kind === 'learning') {
     drawLearningIndex(route);
-    const titles = { library: 'Library', catalog: 'Course catalog', my: 'My learning', certificates: 'Certificates' };
+    const titles = { library: 'Library', catalog: 'Course catalog', my: 'My learning', certificates: 'Certificates', 'course-author': 'Edit course' };
     if (route.page !== 'course') {
       setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, ...(route.page === 'overview' ? [] : [{ label: titles[route.page] }])]);
     }
@@ -560,6 +562,14 @@ async function renderCustom() {
         outline: setCourseOutline,
         crumbs: (parts) => setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, ...parts]),
       });
+    }
+    if (route.page === 'course-author') {
+      setCrumbs([
+        { label: 'Learning', path: '/workspace/learning' },
+        { label: 'Course', path: `/workspace/learning/courses/${route.id}` },
+        { label: 'Edit course' },
+      ]);
+      await renderAdminCourseEditor(host, route.id, { ...ctx, authorMode: true });
     }
     return true;
   }
