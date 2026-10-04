@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from core.task_notifications import deliver_pending, enqueue_due_reminders
+from core.lms_api import publish_scheduled_course_revisions
 
 
 class Command(BaseCommand):
@@ -12,9 +13,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         queued = enqueue_due_reminders()
         result = deliver_pending(limit=max(1, options['limit']))
+        published_courses = publish_scheduled_course_revisions()
         self.stdout.write(
             self.style.SUCCESS(
                 f"task notifications queued={queued} sent={result['sent']} "
-                f"failed={result['failed']} skipped={result['skipped']}"
+                f"failed={result['failed']} skipped={result['skipped']} "
+                f"course_revisions_published={published_courses}"
             )
         )
