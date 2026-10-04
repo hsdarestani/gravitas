@@ -318,3 +318,84 @@
 @media (prefers-reduced-motion: reduce) {
   .adm-toggle, .adm-toggle::before { transition: none; }
 }
+
+
+/* Course authoring preview ------------------------------------------------ */
+.course-draft-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  overflow: auto;
+  background: rgba(0, 18, 30, .74);
+  backdrop-filter: blur(4px);
+}
+.course-draft-preview__frame {
+  width: min(980px, calc(100vw - 36px));
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  border: 1px solid var(--g-border);
+  border-radius: 16px;
+  background: var(--g-bg);
+  color: var(--g-text);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .34);
+}
+.course-draft-preview__head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--g-hairline);
+  background: color-mix(in srgb, var(--g-bg) 94%, transparent);
+  backdrop-filter: blur(8px);
+}
+.course-draft-preview__head h2 {
+  margin: 4px 0;
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+}
+.course-draft-preview__head p { margin: 0; max-width: 68ch; }
+.course-draft-preview__body { display: grid; gap: 22px; padding: 22px; }
+.course-draft-preview__description {
+  max-width: 76ch;
+  margin: 0;
+  color: var(--g-text-muted);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+.course-draft-preview__structure { display: grid; gap: 14px; }
+.course-draft-preview__module {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--g-hairline);
+  border-radius: 12px;
+  background: var(--g-surface);
+}
+.course-draft-preview__module h3 { margin: 0; }
+.course-draft-preview__module p { margin: 0; }
+.course-draft-preview__lessons { display: grid; gap: 6px; margin-top: 4px; }
+.course-draft-preview__lesson {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 9px 10px;
+  border-top: 1px solid var(--g-hairline);
+}
+.course-draft-preview__lesson > div { display: grid; gap: 2px; }
+.course-draft-preview__lesson-index {
+  font: 600 var(--ws-fs-xs)/1 var(--g-font-mono);
+  color: var(--g-text-subtle);
+}
+@media (max-width: 640px) {
+  .course-draft-preview { padding: 8px; }
+  .course-draft-preview__frame { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+  .course-draft-preview__head { padding: 15px; }
+  .course-draft-preview__body { padding: 15px; }
+}
