@@ -1290,9 +1290,27 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
       id === 'new' ? Promise.resolve({ course: null }) : P.lmsCourse(id),
       P.adminLmsMeta(),
     ]);
-    const course = courseResult.course;
-    const enrolled = course ? (await P.adminLmsEnrollments({ course_id: course.id })).enrollments : [];
-    const mediaData = course
+    const liveCourse = courseResult.course;
+    const revisionData = liveCourse
+      ? await P.lmsCourseRevision(liveCourse.id).catch(() => ({ revision: null, payload: null }))
+      : { revision: null, payload: null };
+    const draft = revisionData.revision ? revisionData.payload : null;
+    const course = draft ? {
+      ...liveCourse,
+      ...draft,
+      id: liveCourse.id,
+      category: draft.category_id
+        ? (meta.categories || []).find((item) => String(item.id) === String(draft.category_id)) || null
+        : null,
+      tags: (meta.tags || []).filter((item) => (draft.tag_ids || []).map(String).includes(String(item.id))),
+      instructors: draft.instructors || liveCourse.instructors || [],
+      openedx_launch_url: draft.openedx_course_url || '',
+      cover_url: Object.prototype.hasOwnProperty.call(draft, 'cover_image') ? (draft.cover_image || '') : liveCourse.cover_url,
+      revision: revisionData.revision,
+    } : liveCourse;
+    const usesRevision = !!course && (authorMode || liveCourse?.status === 'published');
+    const enrolled = course && !authorMode ? (await P.adminLmsEnrollments({ course_id: course.id })).enrollments : [];
+    const mediaData = course && !authorMode
       ? await P.adminLearningAssets(course.id)
       : { assets: [], groups: [], folders: [], nextcloud: { state: 'unavailable' } };
     const reload = () => renderAdminCourseEditor(host, id, { go, authorMode });
