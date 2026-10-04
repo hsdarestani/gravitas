@@ -360,7 +360,7 @@ export const lmsAssessmentAttempt = (id, answers) => call(`/lms/assessments/${id
   method: 'POST', body: { answers },
 });
 export const lmsCreateCourse = (body) => call('/lms/courses/', { method: 'POST', body });
-export const lmsUpdateCourse = (id, body) => call(`/lms/courses/${id}/`, { method: 'PATCH', body });
+export const lmsUpdateCourse = (id, body) => call(`/lms/courses/${id}/?authoring=1`, { method: 'PATCH', body });
 export const lmsCourseEvent = (id, body) => call(`/lms/courses/${id}/events/`, { method: 'POST', body });
 export const lmsRegistrationProfile = (id) => call(`/lms/courses/${id}/registration-profile/`);
 export const lmsSaveRegistrationProfile = (id, answers) => call(`/lms/courses/${id}/registration-profile/`, { method: 'POST', body: { answers } });
