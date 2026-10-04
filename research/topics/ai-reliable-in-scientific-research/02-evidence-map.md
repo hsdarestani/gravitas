@@ -122,13 +122,15 @@ SciSlopBench argues that scientific slop includes failures of structure, argumen
 
 **Type:** synthesis / inference  
 **Status:** qualified  
-**Confidence:** medium-high  
-**Sources:** S004, S012, S013, S014, S015
+**Confidence:** high as a research-infrastructure concern  
+**Sources:** S004, S012, S013, S014, S015, S017
 
 This is our synthesis across several findings, not a direct result from one paper.
 
+The AI Scientist paper materially strengthens this point because it demonstrates end-to-end automation of machine-learning research and itself notes the risk of taxing review systems and adding noise to the literature.
+
 Public wording:
-“Generation is scaling faster than many existing verification processes.”
+“Generation is beginning to scale faster than many existing verification processes.”
 
 ## C014 — The strongest current AI-for-science examples pair generation with rejection mechanisms
 
@@ -152,3 +154,14 @@ paper agentification ↔ execution tests.
 **Sources:** S016 plus domain-specific case studies
 
 Avoid claiming that mechanistic models are always more scientifically useful. The appropriate representation depends on the question.
+
+## C016 — End-to-end machine-learning research can now be substantially automated
+
+**Type:** primary research  
+**Status:** verified and scoped  
+**Confidence:** high for the reported system, limited for cross-domain generalization  
+**Source:** S017
+
+Nature 2026 reports The AI Scientist, which automates idea generation, coding, experiments, analysis, manuscript writing and automated review in machine-learning research. A generated manuscript passed the first round of peer review for a workshop whose acceptance rate was 70%.
+
+Public wording must keep the domain constraint: this is strongest in computational research where experiments can be executed automatically.
