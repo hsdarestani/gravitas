@@ -996,23 +996,65 @@ export function renderCoreTasks(host, { go }) {
 
           const commentForm = el('form', 'task-board__form');
           const comment = textarea('', 3);
-          comment.placeholder = 'Add a comment…';
+          comment.placeholder = 'Add a comment… Type @ to mention someone';
+          const members = (detailData.members || state.members || []).filter(
+            (member) => String(member.id) !== String(P.platform?.user?.user?.id || ''),
+          );
           const mention = el('select', 'v-input task-comment__mention-select');
           mention.multiple = true;
           mention.setAttribute('aria-label', 'Mention people');
           mention.title = 'Select one or more people to mention';
-          for (const member of detailData.members || state.members || []) {
-            if (String(member.id) === String(P.platform?.user?.user?.id || '')) continue;
+          for (const member of members) {
             const option = el('option', null, '@' + (member.name || member.email));
             option.value = member.id;
             mention.append(option);
           }
+          const mentionSuggestions = el('div', 'task-comment__suggestions');
+          mentionSuggestions.hidden = true;
+          const drawMentionSuggestions = () => {
+            const beforeCursor = comment.value.slice(0, comment.selectionStart ?? comment.value.length);
+            const match = beforeCursor.match(/(?:^|\s)@([^@\s]*)$/);
+            mentionSuggestions.replaceChildren();
+            if (!match) {
+              mentionSuggestions.hidden = true;
+              return;
+            }
+            const q = String(match[1] || '').toLowerCase();
+            const matches = members.filter((member) => {
+              const haystack = `${member.name || ''} ${member.email || ''}`.toLowerCase();
+              return !q || haystack.includes(q);
+            }).slice(0, 6);
+            if (!matches.length) {
+              mentionSuggestions.hidden = true;
+              return;
+            }
+            for (const member of matches) {
+              const pick = makeButton(member.name || member.email, () => {
+                const cursor = comment.selectionStart ?? comment.value.length;
+                const start = beforeCursor.lastIndexOf('@');
+                const display = member.name || member.email;
+                comment.value = comment.value.slice(0, start) + '@' + display + ' ' + comment.value.slice(cursor);
+                const nextCursor = start + display.length + 2;
+                comment.focus();
+                comment.setSelectionRange(nextCursor, nextCursor);
+                const option = [...mention.options].find((item) => String(item.value) === String(member.id));
+                if (option) option.selected = true;
+                mentionSuggestions.hidden = true;
+              });
+              pick.classList.add('ws-btn--tiny');
+              mentionSuggestions.append(pick);
+            }
+            mentionSuggestions.hidden = false;
+          };
+          comment.addEventListener('input', drawMentionSuggestions);
+          comment.addEventListener('click', drawMentionSuggestions);
           const send = makeButton('Comment', () => {}, true);
           send.type = 'submit';
           const commentNote = el('p', 'v-note');
           commentForm.append(
             comment,
-            field('Mention people', mention, 'Ctrl/⌘ click for multiple people. Mentioned teammates get an in-app notification, email and Telegram notification when connected.'),
+            mentionSuggestions,
+            field('Mention people', mention, 'Type @ in the comment or select people here. Mentioned teammates get an in-app notification, email and Telegram notification when connected.'),
             send,
             commentNote,
           );
