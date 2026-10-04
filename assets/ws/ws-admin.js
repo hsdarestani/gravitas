@@ -1764,14 +1764,7 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
     };
     form.append(K.tabs(tabList, (key) => builders[key](), { name: 'Course builder', eager: true }));
 
-    const line = statusLine();
-    const save = action(course ? 'Save course' : 'Create course', null, true);
-    save.type = 'submit';
-    form.append(K.foot([save, link(go, 'Back to LMS Admin', `${ADMIN}/lms`)], line));
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      save.disabled = true;
-      setStatus(line, 'Saving…');
+    const collectPayload = () => {
       const tagIds = [...tagSelect.selectedOptions].map((option) => Number(option.value));
       const payload = {
         title: title.value.trim(),
@@ -1788,7 +1781,12 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
         openedx_studio_url: openedxStudio.value.trim(),
         category_id: category.value ? Number(category.value) : null,
         tag_ids: tagIds,
-        instructors: instructorState.map((item) => ({ user_id: item.user_id, role: item.role })),
+        instructors: instructorState.map((item) => ({
+          user_id: item.user_id,
+          role: item.role,
+          name: item.name || '',
+          email: item.email || '',
+        })),
         registration_schema: serializeRegistrationFields(registrationHost),
         payment_config: {
           enabled: paymentEnabled.input.checked,
@@ -1820,15 +1818,162 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
         modules: [...modulesHost.children].map((node, index) => serializeModule(node, index + 1)).filter((item) => item.title),
         assessments: [...finalsHost.children].map(serializeAssessment).filter((item) => item.title),
       };
-      if (accessType.value === 'paid') payload.price = price.value;
-      else payload.price = price.value || null;
+      payload.price = accessType.value === 'paid' ? price.value : (price.value || null);
+      return payload;
+    };
+
+    const openPreview = () => {
+      const payload = collectPayload();
+      const overlay = el('div', 'adm-course-preview');
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      const frame = el('div', 'adm-course-preview__frame');
+      const head = el('div', 'adm-course-preview__head');
+      const close = K.button('Close preview', () => overlay.remove(), { tiny: true });
+      head.append(
+        el('div', null, ''),
+        el('div', 'adm-course-preview__title', 'Learner preview · draft only'),
+        close,
+      );
+      const body = el('div', 'adm-course-preview__body');
+      body.append(el('span', 'fl-eyebrow', payload.status === 'published' ? 'COURSE UPDATE' : 'COURSE DRAFT'));
+      body.append(el('h1', null, payload.title || 'Untitled course'));
+      if (payload.summary) body.append(el('p', 'adm-course-preview__summary', payload.summary));
+      if (payload.description) body.append(el('p', 'fl-muted', payload.description));
+      const outline = el('div', 'adm-course-preview__outline');
+      for (const module of payload.modules || []) {
+        const moduleBox = el('section', 'adm-course-preview__module');
+        moduleBox.append(el('h2', null, module.title));
+        if (module.summary) moduleBox.append(el('p', 'fl-muted', module.summary));
+        const lessons = el('div', 'adm-course-preview__lessons');
+        for (const lesson of module.lessons || []) {
+          const lessonRow = el('div', 'adm-course-preview__lesson');
+          lessonRow.append(
+            el('span', 'v-badge', label(lesson.kind)),
+            el('strong', null, lesson.title),
+            lesson.duration_seconds ? el('small', 'fl-muted', Math.ceil(Number(lesson.duration_seconds) / 60) + ' min') : el('span'),
+          );
+          if (lesson.summary) lessonRow.append(el('p', 'fl-muted', lesson.summary));
+          lessons.append(lessonRow);
+        }
+        moduleBox.append(lessons);
+        outline.append(moduleBox);
+      }
+      if ((payload.assessments || []).length) {
+        const finalsPreview = el('section', 'adm-course-preview__module');
+        finalsPreview.append(el('h2', null, 'Course assessments'));
+        for (const assessment of payload.assessments) {
+          finalsPreview.append(el('div', 'adm-course-preview__lesson', assessment.title));
+        }
+        outline.append(finalsPreview);
+      }
+      body.append(outline);
+      frame.append(head, body);
+      overlay.append(frame);
+      overlay.addEventListener('click', (event) => { if (event.target === overlay) overlay.remove(); });
+      document.body.append(overlay);
+    };
+
+    const line = statusLine();
+    const save = action(course ? (usesRevision ? 'Save draft' : 'Save course') : 'Create course', null, true);
+    save.type = 'submit';
+    const preview = action('Preview changes', openPreview);
+
+    const footActions = [save, preview];
+    let scheduleAt = null;
+    let scheduleButton = null;
+    let publishButton = null;
+    if (usesRevision) {
+      scheduleAt = K.input('', 'datetime-local');
+      scheduleAt.setAttribute('aria-label', 'Scheduled publish time');
+      if (revisionData.revision?.scheduled_for) {
+        const scheduled = new Date(revisionData.revision.scheduled_for);
+        const local = new Date(scheduled.getTime() - scheduled.getTimezoneOffset() * 60000);
+        scheduleAt.value = local.toISOString().slice(0, 16);
+      }
+      scheduleButton = action('Schedule publish', async () => {
+        if (!scheduleAt.value) {
+          setStatus(line, 'Choose a publish date and time.', 'bad');
+          return;
+        }
+        scheduleButton.disabled = true;
+        publishButton.disabled = true;
+        save.disabled = true;
+        setStatus(line, 'Saving draft and scheduling…');
+        try {
+          const payload = collectPayload();
+          await P.lmsSaveCourseRevision(course.id, payload);
+          const when = new Date(scheduleAt.value);
+          if (Number.isNaN(when.getTime())) throw new Error('Invalid publish date.');
+          await P.lmsPublishCourseRevision(course.id, { action: 'schedule', scheduled_for: when.toISOString() });
+          setStatus(line, 'Changes scheduled. The live course stays unchanged until that time.', 'ok');
+          await reload();
+        } catch (error) {
+          setStatus(line, error?.data?.error || error?.message || 'Could not schedule publication.', 'bad');
+          scheduleButton.disabled = false;
+          publishButton.disabled = false;
+          save.disabled = false;
+        }
+      });
+      publishButton = action('Publish changes now', async () => {
+        if (!confirm('Publish these course changes now? Learners will see the new version immediately.')) return;
+        publishButton.disabled = true;
+        scheduleButton.disabled = true;
+        save.disabled = true;
+        setStatus(line, 'Publishing…');
+        try {
+          const payload = collectPayload();
+          await P.lmsSaveCourseRevision(course.id, payload);
+          await P.lmsPublishCourseRevision(course.id, { action: 'publish_now' });
+          setStatus(line, 'Changes published.', 'ok');
+          await reload();
+        } catch (error) {
+          setStatus(line, error?.data?.error || error?.message || 'Course changes were not published.', 'bad');
+          publishButton.disabled = false;
+          scheduleButton.disabled = false;
+          save.disabled = false;
+        }
+      }, true);
+      const release = section(
+        'Release changes',
+        'The live course is untouched while you edit. Preview the draft, publish it now, or choose an automatic publish time.',
+        12,
+      );
+      release.body.append(
+        K.fields([K.field('Publish at', scheduleAt, 'Uses your local time; the server stores the instant in UTC.')]),
+        K.cardActions([scheduleButton, publishButton]),
+      );
+      form.append(K.bento([release.box]));
+    }
+
+    form.append(K.foot([
+      ...footActions,
+      link(go, authorMode ? 'Back to course' : 'Back to LMS Admin', authorMode ? `/workspace/learning/courses/${course?.id || ''}` : `${ADMIN}/lms`),
+    ], line));
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      save.disabled = true;
+      setStatus(line, usesRevision ? 'Saving draft…' : 'Saving…');
+      const payload = collectPayload();
 
       try {
-        const result = course ? await P.lmsUpdateCourse(course.id, payload) : await P.lmsCreateCourse(payload);
-        setStatus(line, 'Course saved.', 'ok');
+        let result;
+        if (!course) {
+          result = await P.lmsCreateCourse(payload);
+          setStatus(line, 'Course created.', 'ok');
+          go(`${ADMIN}/lms/courses/${result.course.id}`, { replace: true });
+          return;
+        }
+        if (usesRevision) {
+          result = await P.lmsSaveCourseRevision(course.id, payload);
+          setStatus(line, 'Draft saved. The live course is unchanged.', 'ok');
+        } else {
+          result = await P.lmsUpdateCourse(course.id, payload);
+          setStatus(line, 'Course saved.', 'ok');
+        }
         save.disabled = false;
-        if (!course) go(`${ADMIN}/lms/courses/${result.course.id}`, { replace: true });
-        else await reload();
+        await reload();
       } catch (error) {
         setStatus(line, error?.data?.error || error?.message || 'Course was not saved.', 'bad');
         save.disabled = false;
