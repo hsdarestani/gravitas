@@ -311,6 +311,43 @@ jobs:
           EOF
           $SUDO mv /tmp/gravitas-task-notifications.timer /etc/systemd/system/gravitas-task-notifications.timer
 
+          cat > /tmp/gravitas-course-publisher.service <<EOF
+          [Unit]
+          Description=Gravitas scheduled LMS course revision publisher
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+          Requires=postgresql.service
+
+          [Service]
+          Type=oneshot
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          EnvironmentFile=-/etc/gravitas/openedx.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          Environment=PYTHONPATH=$BACKEND_PATH
+          ExecStart=$BACKEND_PATH/.venv/bin/django-admin publish_scheduled_course_revisions --limit 100
+          Nice=10
+          TimeoutStartSec=50s
+          EOF
+          $SUDO mv /tmp/gravitas-course-publisher.service /etc/systemd/system/gravitas-course-publisher.service
+
+          cat > /tmp/gravitas-course-publisher.timer <<'EOF'
+          [Unit]
+          Description=Publish scheduled Gravitas course drafts every minute
+
+          [Timer]
+          OnBootSec=50s
+          OnUnitActiveSec=1min
+          Persistent=true
+          Unit=gravitas-course-publisher.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-course-publisher.timer /etc/systemd/system/gravitas-course-publisher.timer
+
           cat > /tmp/gravitas-backup.sh <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -572,6 +609,7 @@ jobs:
           fi
           sudo systemctl enable --now gravitas-research-radar.timer
           sudo systemctl enable --now gravitas-task-notifications.timer
+          sudo systemctl enable --now gravitas-course-publisher.timer
           sudo systemctl start gravitas-task-notifications.service || true
           REMOTE
 
@@ -603,6 +641,7 @@ jobs:
           sudo systemctl is-active gravitas-backup.timer
           sudo systemctl is-active gravitas-research-radar.timer
           sudo systemctl is-active gravitas-task-notifications.timer
+          sudo systemctl is-active gravitas-course-publisher.timer
           sudo systemctl is-active gravitas-backend
           sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
           curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'

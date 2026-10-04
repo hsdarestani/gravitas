@@ -336,7 +336,7 @@ export const deleteOperatingTaskChecklistItem = (taskId, itemId) => call(
   `/operating/tasks/${taskId}/checklist/${itemId}/`, { method: 'DELETE' }
 );
 export const operatingTaskComments = (id) => call(`/operating/tasks/${id}/comments/`);
-export const addOperatingTaskComment = (id, body) => call(`/operating/tasks/${id}/comments/`, { method: 'POST', body: { body } });
+export const addOperatingTaskComment = (id, body, mentionUserIds = []) => call(`/operating/tasks/${id}/comments/`, { method: 'POST', body: { body, mention_user_ids: mentionUserIds } });
 export const operatingTaskAttachments = (id) => call(`/operating/tasks/${id}/attachments/`);
 export const uploadOperatingTaskAttachment = (id, file) => {
   const form = new FormData(); form.append('file', file);
@@ -351,6 +351,8 @@ export const operatingCycles = () => call('/operating/cycles/');
 /* ---- Layer 3 / LMS ------------------------------------------------------ */
 export const lmsCourses = ({ all = false } = {}) => call(`/lms/courses/${all ? '?all=1' : ''}`);
 export const lmsCourse = (id) => call(`/lms/courses/${id}/`);
+export const lmsCourseAuthoring = (id) => call(`/lms/courses/${id}/?authoring=1`);
+export const lmsPublishCourseRevision = (id, body = {}) => call(`/lms/courses/${id}/publish-revision/`, { method: 'POST', body });
 export const lmsEnroll = (id, body = {}) => call(`/lms/courses/${id}/enroll/`, { method: 'POST', body });
 export const lmsMe = () => call('/lms/me/');
 export const lmsLessonProgress = (id, body) => call(`/lms/lessons/${id}/progress/`, { method: 'PUT', body });
@@ -358,7 +360,7 @@ export const lmsAssessmentAttempt = (id, answers) => call(`/lms/assessments/${id
   method: 'POST', body: { answers },
 });
 export const lmsCreateCourse = (body) => call('/lms/courses/', { method: 'POST', body });
-export const lmsUpdateCourse = (id, body) => call(`/lms/courses/${id}/`, { method: 'PATCH', body });
+export const lmsUpdateCourse = (id, body) => call(`/lms/courses/${id}/?authoring=1`, { method: 'PATCH', body });
 export const lmsCourseEvent = (id, body) => call(`/lms/courses/${id}/events/`, { method: 'POST', body });
 export const lmsRegistrationProfile = (id) => call(`/lms/courses/${id}/registration-profile/`);
 export const lmsSaveRegistrationProfile = (id, answers) => call(`/lms/courses/${id}/registration-profile/`, { method: 'POST', body: { answers } });

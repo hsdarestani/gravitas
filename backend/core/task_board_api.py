@@ -668,9 +668,63 @@ def task_comments(request, task_id):
     body = str(payload.get('body') or '').strip()
     if not body or len(body) > 10000:
         return _error('invalid_comment')
+
+    raw_mentions = payload.get('mention_user_ids') or []
+    if not isinstance(raw_mentions, list):
+        return _error('invalid_mentions')
+    mention_ids = set()
+    for value in raw_mentions[:50]:
+        try:
+            mention_ids.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    mention_ids.discard(request.user.pk)
+    valid_mentions = list(
+        WorkspaceMembership.objects.filter(
+            workspace=workspace,
+            user_id__in=mention_ids,
+            user__is_active=True,
+        )
+        .select_related('user')
+        .order_by('user_id')
+    )
+    resolved_ids = [membership.user_id for membership in valid_mentions]
+
     row = OperatingTaskComment.objects.create(task=task, author=request.user, body=body)
-    _log(request, task, 'task.comment_added', {'comment_id': row.pk, 'comment_preview': body[:240]})
-    return JsonResponse({'ok': True, 'comment': _comment_json(row)}, status=201)
+    detail = {
+        'comment_id': row.pk,
+        'comment_preview': body[:240],
+        'mention_user_ids': resolved_ids,
+        'mentions': [
+            _person(membership.user)
+            for membership in valid_mentions
+        ],
+    }
+    _log(request, task, 'task.comment_added', detail)
+
+    # ActivityEvent is also our in-product audit/notification trace.  Keep one
+    # subject event per mentioned person so "who was pulled into this work?"
+    # remains queryable independently from delivery through email/Telegram.
+    for membership in valid_mentions:
+        record_activity(
+            layer=ActivityEvent.Layer.CORE,
+            action='task.mentioned',
+            actor=request.user,
+            subject_user=membership.user,
+            object_type='operating_task',
+            object_id=task.pk,
+            detail={
+                'title': task.title,
+                'comment_id': row.pk,
+                'comment_preview': body[:240],
+            },
+        )
+
+    return JsonResponse({
+        'ok': True,
+        'comment': _comment_json(row),
+        'mentions': [_person(membership.user) for membership in valid_mentions],
+    }, status=201)
 
 
 def _attachment_json(row):

@@ -119,6 +119,43 @@ class CourseInstructor(models.Model):
         ]
 
 
+class CourseRevision(models.Model):
+    """The instructor's next version of a course.
+
+    Published Course/CourseModule/Lesson rows remain the learner-facing source
+    of truth.  Editing writes one complete JSON snapshot here and only the
+    explicit publish step applies it to those live rows.
+    """
+
+    class State(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SCHEDULED = 'scheduled', 'Scheduled'
+
+    course = models.OneToOneField(
+        Course,
+        on_delete=models.CASCADE,
+        related_name='authoring_revision',
+    )
+    payload = models.JSONField(default=dict, blank=True)
+    state = models.CharField(max_length=16, choices=State.choices, default=State.DRAFT, db_index=True)
+    scheduled_for = models.DateTimeField(blank=True, null=True, db_index=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='gravitas_course_revisions_updated',
+        blank=True,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['scheduled_for', '-updated_at']
+
+    def __str__(self):
+        return f'{self.course} · {self.state}'
+
+
 class CourseModule(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='modules')
     position = models.PositiveIntegerField(default=1)

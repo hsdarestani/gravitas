@@ -26,6 +26,7 @@ from .lms_models import (
     CourseInstructor,
     CourseModule,
     CourseRegistrationProfile,
+    CourseRevision,
     CourseTag,
     Lesson,
     LessonProgress,
@@ -54,6 +55,14 @@ def _is_core_admin(user):
 
     spaces = ensure_platform_workspaces(user)
     return core_role(user, spaces['core']) in {'owner', 'admin'}
+
+
+def _can_author_course(user, course):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if _is_core_admin(user):
+        return True
+    return CourseInstructor.objects.filter(course=course, user=user).exists()
 
 
 def _as_decimal(value, default=None):
@@ -214,9 +223,10 @@ def _lesson_access(lesson, enrollment):
 
 def _course_json(course, user=None, *, include_structure=False):
     enrollment = _enrollment_for(user, course)
+    author = _can_author_course(user, course)
     admin = _is_core_admin(user)
     entitled = bool(
-        admin
+        author
         or (
             enrollment
             and enrollment.status
@@ -277,7 +287,7 @@ def _course_json(course, user=None, *, include_structure=False):
             'sku': str((course.payment_config or {}).get('sku') or ''),
         },
         'payment_config': course.payment_config if admin else {},
-        'learning_config': course.learning_config if admin or entitled else {},
+        'learning_config': course.learning_config if author or entitled else {},
         'published_at': _iso(course.published_at),
         'updated_at': _iso(course.updated_at),
         'enrolled': bool(enrollment and enrollment.status != CourseEnrollment.Status.REVOKED),
@@ -296,10 +306,10 @@ def _course_json(course, user=None, *, include_structure=False):
     for module in course.modules.prefetch_related('lessons', 'assessments').all():
         lessons = []
         for lesson in module.lessons.all():
-            if not lesson.published and not admin:
+            if not lesson.published and not author:
                 continue
-            rule_open, lock_reason = (True, '') if admin or not enrollment else _lesson_access(lesson, enrollment)
-            can_open = admin or lesson.is_preview or (entitled and registration_complete and rule_open)
+            rule_open, lock_reason = (True, '') if author or not enrollment else _lesson_access(lesson, enrollment)
+            can_open = author or lesson.is_preview or (entitled and registration_complete and rule_open)
             if not can_open and not lock_reason:
                 if entitled and not registration_complete:
                     lock_reason = 'course_profile_required'
@@ -320,8 +330,8 @@ def _course_json(course, user=None, *, include_structure=False):
                 'body': lesson.body if can_open else '',
                 'content_url': lesson.content_url if can_open else '',
                 'metadata': lesson.metadata if can_open else {},
-                'access_rule': lesson.access_rule if can_open or admin else {},
-                'provider_key': lesson.provider_key if admin else '',
+                'access_rule': lesson.access_rule if can_open or author else {},
+                'provider_key': lesson.provider_key if author else '',
                 'lab_slug': lesson.lab_slug if can_open else '',
             })
         modules.append({
@@ -356,10 +366,10 @@ def _course_json(course, user=None, *, include_structure=False):
             'max_attempts': assessment.max_attempts,
             'required_for_completion': assessment.required_for_completion,
             'published': assessment.published,
-            'questions': _public_questions(assessment.questions) if entitled or admin else [],
+            'questions': _public_questions(assessment.questions) if entitled or author else [],
         }
         for assessment in course.assessments.all()
-        if assessment.published or admin
+        if assessment.published or author
     ]
     return data
 
@@ -625,6 +635,247 @@ def _save_course_relations(course, data):
             )
 
 
+def _assessment_authoring_payload(assessment):
+    return {
+        'id': assessment.pk,
+        'module_id': assessment.module_id,
+        'title': assessment.title,
+        'instructions': assessment.instructions,
+        'questions': assessment.questions if isinstance(assessment.questions, list) else [],
+        'passing_score': str(assessment.passing_score),
+        'max_attempts': assessment.max_attempts,
+        'required_for_completion': assessment.required_for_completion,
+        'published': assessment.published,
+    }
+
+
+def _course_authoring_payload(course):
+    """Serialize the complete live authoring state into JSON-safe values."""
+    modules = []
+    for module in course.modules.prefetch_related('lessons', 'assessments').all():
+        modules.append({
+            'id': module.pk,
+            'position': module.position,
+            'title': module.title,
+            'summary': module.summary,
+            'lessons': [{
+                'id': lesson.pk,
+                'position': lesson.position,
+                'title': lesson.title,
+                'kind': lesson.kind,
+                'summary': lesson.summary,
+                'body': lesson.body,
+                'content_url': lesson.content_url,
+                'duration_seconds': lesson.duration_seconds,
+                'is_preview': lesson.is_preview,
+                'is_required': lesson.is_required,
+                'published': lesson.published,
+                'metadata': lesson.metadata if isinstance(lesson.metadata, dict) else {},
+                'access_rule': lesson.access_rule if isinstance(lesson.access_rule, dict) else {},
+                'provider_key': lesson.provider_key,
+                'lab_slug': lesson.lab_slug,
+            } for lesson in module.lessons.all()],
+            'assessments': [
+                _assessment_authoring_payload(assessment)
+                for assessment in module.assessments.all()
+            ],
+        })
+
+    return {
+        'title': course.title,
+        'slug': course.slug,
+        'summary': course.summary,
+        'description': course.description,
+        'access_type': course.access_type,
+        'price': str(course.price) if course.price is not None else None,
+        'currency': course.currency,
+        'certificate_enabled': course.certificate_enabled,
+        'cover_image': course.cover_image,
+        'provider': course.provider,
+        'openedx_course_key': course.openedx_course_key,
+        'openedx_course_url': course.openedx_course_url,
+        'openedx_studio_url': course.openedx_studio_url,
+        'category_id': course.category_id,
+        'tag_ids': list(course.tags.values_list('pk', flat=True)),
+        'instructors': [
+            {'user_id': link.user_id, 'role': link.role}
+            for link in course.instructor_links.all()
+        ],
+        'registration_schema': course.registration_schema if isinstance(course.registration_schema, list) else [],
+        'payment_config': course.payment_config if isinstance(course.payment_config, dict) else {},
+        'learning_config': course.learning_config if isinstance(course.learning_config, dict) else {},
+        'modules': modules,
+        'assessments': [
+            _assessment_authoring_payload(assessment)
+            for assessment in course.assessments.filter(module__isnull=True)
+        ],
+    }
+
+
+AUTHORING_FIELDS = {
+    'title', 'slug', 'summary', 'description', 'access_type', 'price', 'currency',
+    'certificate_enabled', 'cover_image', 'provider', 'openedx_course_key',
+    'openedx_course_url', 'openedx_studio_url', 'category_id', 'tag_ids',
+    'instructors', 'registration_schema', 'payment_config', 'learning_config',
+    'modules', 'assessments',
+}
+
+
+def _merge_authoring_payload(course, current, changes):
+    payload = dict(current or _course_authoring_payload(course))
+    for key in AUTHORING_FIELDS:
+        if key in changes:
+            payload[key] = changes[key]
+
+    if 'cover_image' in payload:
+        payload['cover_image'] = _clean_cover(payload.get('cover_image'))
+    if not isinstance(payload.get('modules'), list):
+        raise ValueError('invalid_modules')
+    if not isinstance(payload.get('assessments'), list):
+        raise ValueError('invalid_assessments')
+    if not isinstance(payload.get('tag_ids'), list):
+        raise ValueError('invalid_tag_ids')
+    if not isinstance(payload.get('instructors'), list):
+        raise ValueError('invalid_instructors')
+    if not isinstance(payload.get('registration_schema'), list):
+        raise ValueError('invalid_registration_schema')
+    if not isinstance(payload.get('payment_config'), dict):
+        raise ValueError('invalid_payment_config')
+    if not isinstance(payload.get('learning_config'), dict):
+        raise ValueError('invalid_learning_config')
+    return payload
+
+
+def _revision_meta(revision):
+    if not revision:
+        return None
+    return {
+        'state': revision.state,
+        'scheduled_for': _iso(revision.scheduled_for),
+        'updated_at': _iso(revision.updated_at),
+        'updated_by_id': revision.updated_by_id,
+    }
+
+
+def _authoring_preview_json(course, payload, user):
+    """Shape a pending revision like a Course response without mutating live rows."""
+    data = _course_json(course, user, include_structure=True)
+    for field in (
+        'title', 'slug', 'summary', 'description', 'access_type', 'price',
+        'currency', 'certificate_enabled', 'provider', 'registration_schema',
+        'learning_config',
+    ):
+        if field in payload:
+            data[field] = payload[field]
+
+    if 'cover_image' in payload:
+        data['cover_url'] = payload.get('cover_image') or ''
+    if 'openedx_course_key' in payload:
+        data['openedx_course_key'] = payload.get('openedx_course_key') or ''
+    if 'openedx_course_url' in payload:
+        data['openedx_launch_url'] = payload.get('openedx_course_url') or ''
+    if 'openedx_studio_url' in payload:
+        data['openedx_studio_url'] = payload.get('openedx_studio_url') or ''
+
+    category_id = payload.get('category_id')
+    category = CourseCategory.objects.filter(pk=category_id).first() if category_id else None
+    data['category'] = (
+        {'id': category.pk, 'slug': category.slug, 'name': category.name}
+        if category else None
+    )
+
+    tag_ids = payload.get('tag_ids') or []
+    tags = CourseTag.objects.filter(pk__in=tag_ids)
+    data['tags'] = [{'id': tag.pk, 'slug': tag.slug, 'name': tag.name} for tag in tags]
+
+    user_ids = []
+    roles = {}
+    for row in payload.get('instructors') or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            user_id = int(row.get('user_id'))
+        except (TypeError, ValueError):
+            continue
+        user_ids.append(user_id)
+        roles[user_id] = str(row.get('role') or CourseInstructor.Role.INSTRUCTOR)
+    author_users = {
+        item.pk: item
+        for item in get_user_model().objects.filter(pk__in=user_ids)
+    }
+    data['instructors'] = [{
+        'user_id': user_id,
+        'name': author_users[user_id].get_full_name() or author_users[user_id].email,
+        'email': author_users[user_id].email,
+        'role': roles[user_id],
+    } for user_id in user_ids if user_id in author_users]
+
+    data['modules'] = payload.get('modules') or []
+    data['assessments'] = payload.get('assessments') or []
+    data['module_count'] = len(data['modules'])
+    data['lesson_count'] = sum(len(module.get('lessons') or []) for module in data['modules'] if isinstance(module, dict))
+    payment_config = payload.get('payment_config') or {}
+    data['payment_config'] = payment_config if _is_core_admin(user) else {}
+    data['payment'] = {
+        'configured': bool(payment_config),
+        'enabled': bool(payment_config.get('enabled')),
+        'provider': str(payment_config.get('provider') or ''),
+        'checkout_url': str(payment_config.get('checkout_url') or ''),
+        'sku': str(payment_config.get('sku') or ''),
+    }
+    data['can_author'] = True
+    data['authoring_preview'] = True
+    return data
+
+
+def _apply_course_revision(revision, actor=None):
+    """Atomically publish one revision while retaining stable lesson IDs."""
+    with transaction.atomic():
+        revision = CourseRevision.objects.select_for_update().select_related('course').get(pk=revision.pk)
+        course = Course.objects.select_for_update().get(pk=revision.course_id)
+        data = dict(revision.payload or {})
+
+        title = str(data.get('title') or '').strip()
+        slug = str(data.get('slug') or '').strip()
+        if not title or not slug:
+            raise ValueError('title_and_slug_required')
+
+        course.title = title
+        course.slug = slug
+        course.summary = str(data.get('summary') or '')
+        course.description = str(data.get('description') or '')
+        access_type = str(data.get('access_type') or Course.AccessType.OPEN)
+        if access_type not in Course.AccessType.values:
+            raise ValueError('invalid_access_type')
+        course.access_type = access_type
+        course.price = _as_decimal(data.get('price'))
+        course.currency = str(data.get('currency') or 'EUR')[:8].upper()
+        course.certificate_enabled = bool(data.get('certificate_enabled', True))
+        course.cover_image = _clean_cover(data.get('cover_image'))
+        _course_relation_fields(course, data)
+        if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
+            raise ValueError('openedx_course_key_required')
+        if course.access_type == Course.AccessType.PAID and (course.price is None or course.price <= 0):
+            raise ValueError('paid_course_price_required')
+
+        course.status = Course.Status.PUBLISHED
+        course.published_at = timezone.now()
+        course.save()
+        _save_course_relations(course, data)
+        _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
+        revision.delete()
+
+    record_activity(
+        layer=ActivityEvent.Layer.LMS,
+        action='course.revision_published',
+        actor=actor,
+        object_type='course',
+        object_id=course.pk,
+        detail={'title': course.title},
+    )
+    return course
+
+
 def _openedx_sync_enrollment(enrollment):
     course = enrollment.course
     if (
@@ -748,86 +999,227 @@ def lms_course_detail(request, course_id):
     except Course.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'course_not_found'}, status=404)
 
-    admin = _is_core_admin(request.user)
+    author = _can_author_course(request.user, course)
     if request.method == 'GET':
-        if course.status != Course.Status.PUBLISHED and not admin:
+        authoring = request.GET.get('authoring') == '1'
+        if authoring:
+            denied = _auth_required(request)
+            if denied:
+                return denied
+            if not author:
+                return JsonResponse({'ok': False, 'error': 'course_author_required'}, status=403)
+            revision = CourseRevision.objects.filter(course=course).select_related('updated_by').first()
+            payload = dict(revision.payload) if revision else _course_authoring_payload(course)
+            return JsonResponse({
+                'ok': True,
+                'course': _authoring_preview_json(course, payload, request.user),
+                'live_course': _course_json(course, request.user, include_structure=True),
+                'revision': _revision_meta(revision),
+                'can_author': True,
+                'authoring_meta': {
+                    'categories': [{
+                        'id': item.pk,
+                        'slug': item.slug,
+                        'name': item.name,
+                        'description': item.description,
+                        'position': item.position,
+                        'active': item.active,
+                    } for item in CourseCategory.objects.all()],
+                    'tags': [{
+                        'id': item.pk,
+                        'slug': item.slug,
+                        'name': item.name,
+                    } for item in CourseTag.objects.all()],
+                },
+            })
+
+        if course.status != Course.Status.PUBLISHED and not author:
             return JsonResponse({'ok': False, 'error': 'course_not_found'}, status=404)
-        return JsonResponse({'ok': True, 'course': _course_json(course, request.user, include_structure=True)})
+        data = _course_json(course, request.user, include_structure=True)
+        data['can_author'] = author
+        return JsonResponse({'ok': True, 'course': data})
 
     denied = _auth_required(request)
     if denied:
         return denied
-    if not admin:
+    if not author:
+        # Keep the historical error contract for users who still have no
+        # authoring role at all. Assigned instructors are handled below.
         return JsonResponse({'ok': False, 'error': 'core_admin_required'}, status=403)
     data = _payload(request)
     if data is None:
         return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
+    # Backward-compatible admin API: existing integrations/tests that PATCH the
+    # canonical endpoint still change the live course.  The Course Builder and
+    # all instructor authoring explicitly use ?authoring=1, which is the safe
+    # draft/preview workflow.
+    if request.GET.get('authoring') != '1':
+        if not _is_core_admin(request.user):
+            return JsonResponse({'ok': False, 'error': 'course_authoring_required'}, status=403)
+        try:
+            with transaction.atomic():
+                course = Course.objects.select_for_update().get(pk=course.pk)
+                for field in ('title', 'summary', 'description', 'currency'):
+                    if field in data:
+                        setattr(course, field, str(data[field] or '').strip() if field == 'title' else str(data[field] or ''))
+                if 'slug' in data:
+                    course.slug = str(data['slug'] or '').strip()
+                if 'access_type' in data:
+                    value = str(data['access_type'])
+                    if value not in Course.AccessType.values:
+                        raise ValueError('invalid_access_type')
+                    course.access_type = value
+                if 'status' in data:
+                    value = str(data['status'])
+                    if value not in Course.Status.values:
+                        raise ValueError('invalid_status')
+                    if value == Course.Status.PUBLISHED and not course.published_at:
+                        course.published_at = timezone.now()
+                    course.status = value
+                if 'price' in data:
+                    course.price = _as_decimal(data.get('price'))
+                if 'certificate_enabled' in data:
+                    course.certificate_enabled = bool(data['certificate_enabled'])
+                if 'cover_image' in data:
+                    course.cover_image = _clean_cover(data.get('cover_image'))
+                _course_relation_fields(course, data)
+                if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
+                    raise ValueError('openedx_course_key_required')
+                if course.access_type == Course.AccessType.PAID and (course.price is None or course.price <= 0):
+                    raise ValueError('paid_course_price_required')
+                course.save()
+                _save_course_relations(course, data)
+                has_modules = 'modules' in data
+                has_assessments = 'assessments' in data
+                if has_modules != has_assessments:
+                    raise ValueError('complete_structure_payload_required')
+                if has_modules and has_assessments:
+                    _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        except IntegrityError:
+            return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
+
+        record_activity(
+            layer=ActivityEvent.Layer.LMS,
+            action='course.updated',
+            actor=request.user,
+            object_type='course',
+            object_id=course.pk,
+            detail={'fields': sorted(data.keys())},
+        )
+        return JsonResponse({'ok': True, 'course': _course_json(course, request.user, include_structure=True)})
+
     try:
         with transaction.atomic():
-            course = Course.objects.select_for_update().get(pk=course.pk)
-            for field in ('title', 'summary', 'description', 'currency'):
-                if field in data:
-                    setattr(course, field, str(data[field] or '').strip() if field == 'title' else str(data[field] or ''))
-            if 'slug' in data:
-                course.slug = str(data['slug'] or '').strip()
-            if 'access_type' in data:
-                value = str(data['access_type'])
-                if value not in Course.AccessType.values:
-                    raise ValueError('invalid_access_type')
-                course.access_type = value
-            if 'status' in data:
-                value = str(data['status'])
-                if value not in Course.Status.values:
-                    raise ValueError('invalid_status')
-                if value == Course.Status.PUBLISHED and not course.published_at:
-                    course.published_at = timezone.now()
-                course.status = value
-            if 'price' in data:
-                course.price = _as_decimal(data.get('price'))
-            if 'certificate_enabled' in data:
-                course.certificate_enabled = bool(data['certificate_enabled'])
-            if 'cover_image' in data:
-                course.cover_image = _clean_cover(data.get('cover_image'))
-            _course_relation_fields(course, data)
-            if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
-                raise ValueError('openedx_course_key_required')
-            if course.access_type == Course.AccessType.PAID and (course.price is None or course.price <= 0):
-                raise ValueError('paid_course_price_required')
-            course.save()
-            _save_course_relations(course, data)
-            has_modules = 'modules' in data
-            has_assessments = 'assessments' in data
-            if has_modules != has_assessments:
-                raise ValueError('complete_structure_payload_required')
-            if has_modules and has_assessments:
-                _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
+            revision = CourseRevision.objects.select_for_update().filter(course=course).first()
+            current = revision.payload if revision else _course_authoring_payload(course)
+            author_changes = dict(data)
+            if not _is_core_admin(request.user):
+                author_changes.pop('instructors', None)
+                author_changes.pop('payment_config', None)
+            payload = _merge_authoring_payload(course, current, author_changes)
+            revision, _ = CourseRevision.objects.update_or_create(
+                course=course,
+                defaults={
+                    'payload': payload,
+                    'state': CourseRevision.State.DRAFT,
+                    'scheduled_for': None,
+                    'updated_by': request.user,
+                },
+            )
     except ValueError as exc:
-        return JsonResponse({'ok': False, 'error': str(exc)}, status=409 if str(exc) == 'course_structure_locked_after_enrollment' else 400)
-    except IntegrityError:
-        return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
 
     record_activity(
         layer=ActivityEvent.Layer.LMS,
-        action='course.updated',
+        action='course.revision_saved',
         actor=request.user,
         object_type='course',
         object_id=course.pk,
-        detail={'fields': sorted(data.keys())},
+        detail={'fields': sorted(key for key in data.keys() if key in AUTHORING_FIELDS)},
     )
-    return JsonResponse({'ok': True, 'course': _course_json(course, request.user, include_structure=True)})
+    return JsonResponse({
+        'ok': True,
+        'course': _authoring_preview_json(course, revision.payload, request.user),
+        'live_course': _course_json(course, request.user, include_structure=True),
+        'revision': _revision_meta(revision),
+        'can_author': True,
+    })
+
+
+@require_http_methods(['POST'])
+def lms_course_publish_revision(request, course_id):
+    denied = _auth_required(request)
+    if denied:
+        return denied
+    try:
+        course = Course.objects.get(pk=course_id)
+    except Course.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'course_not_found'}, status=404)
+    if not _can_author_course(request.user, course):
+        return JsonResponse({'ok': False, 'error': 'course_author_required'}, status=403)
+
+    revision = CourseRevision.objects.filter(course=course).first()
+    if not revision:
+        return JsonResponse({'ok': False, 'error': 'course_revision_not_found'}, status=409)
+
+    data = _payload(request)
+    if data is None:
+        return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+    raw_schedule = str(data.get('scheduled_for') or '').strip()
+    if raw_schedule:
+        scheduled_for = parse_datetime(raw_schedule)
+        if scheduled_for is None:
+            return JsonResponse({'ok': False, 'error': 'invalid_scheduled_for'}, status=400)
+        if timezone.is_naive(scheduled_for):
+            scheduled_for = timezone.make_aware(scheduled_for, timezone.get_current_timezone())
+        if scheduled_for > timezone.now():
+            revision.state = CourseRevision.State.SCHEDULED
+            revision.scheduled_for = scheduled_for
+            revision.updated_by = request.user
+            revision.save(update_fields=['state', 'scheduled_for', 'updated_by', 'updated_at'])
+            record_activity(
+                layer=ActivityEvent.Layer.LMS,
+                action='course.revision_scheduled',
+                actor=request.user,
+                object_type='course',
+                object_id=course.pk,
+                detail={'scheduled_for': scheduled_for.isoformat(), 'title': course.title},
+            )
+            return JsonResponse({
+                'ok': True,
+                'scheduled': True,
+                'revision': _revision_meta(revision),
+                'course': _authoring_preview_json(course, revision.payload, request.user),
+            })
+
+    try:
+        course = _apply_course_revision(revision, actor=request.user)
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except IntegrityError:
+        return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
+
+    return JsonResponse({
+        'ok': True,
+        'scheduled': False,
+        'course': _course_json(course, request.user, include_structure=True),
+        'revision': None,
+    })
 
 
 @require_http_methods(['GET', 'HEAD'])
 def lms_course_cover(request, course_id):
     """The course picture as bytes. Published covers are public like the
     catalog itself and cached for a year, which is safe because cover_url
-    changes whenever the course is saved. A draft's cover is for Core admins."""
+    changes whenever the course is saved. A draft's cover is visible only to course authors."""
     course = Course.objects.filter(pk=course_id).only('pk', 'status', 'cover_image').first()
     if not course or not course.cover_image:
         return HttpResponse(status=404)
     published = course.status == Course.Status.PUBLISHED
-    if not published and not _is_core_admin(request.user):
+    if not published and not _can_author_course(request.user, course):
         return HttpResponse(status=404)
     match = DATA_URI.match(course.cover_image)
     if not match or match.group(1).lower() not in COVER_TYPES:

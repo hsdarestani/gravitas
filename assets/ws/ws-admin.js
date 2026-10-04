@@ -1260,7 +1260,7 @@ function courseCoverEditor(course) {
       draw();
       remove.hidden = !current.cover_url;
       upload.textContent = 'Replace image';
-      setStatus(status, 'Cover saved.', 'ok');
+      setStatus(status, 'Cover saved to draft.', 'ok');
     } catch (error) {
       setStatus(status, error?.message || 'The cover could not be saved.', 'bad');
     } finally {
@@ -1286,25 +1286,34 @@ function courseCoverEditor(course) {
 export async function renderAdminCourseEditor(host, id, { go }) {
   K.loading(host, id === 'new' ? 'New course' : 'Course', { tiles: 0, cards: [8, 4] });
   try {
-    const [courseResult, meta] = await Promise.all([
-      id === 'new' ? Promise.resolve({ course: null }) : P.lmsCourse(id),
-      P.adminLmsMeta(),
-    ]);
+    const coreAdmin = P.isCoreAdmin();
+    const courseResult = id === 'new'
+      ? { course: null, live_course: null, revision: null, authoring_meta: { categories: [], tags: [] } }
+      : await P.lmsCourseAuthoring(id);
+    const meta = coreAdmin ? await P.adminLmsMeta() : (courseResult.authoring_meta || { categories: [], tags: [] });
     const course = courseResult.course;
-    const enrolled = course ? (await P.adminLmsEnrollments({ course_id: course.id })).enrollments : [];
-    const mediaData = course
+    const liveCourse = courseResult.live_course || course;
+    const revision = courseResult.revision || null;
+    const enrolled = course && coreAdmin ? (await P.adminLmsEnrollments({ course_id: course.id })).enrollments : [];
+    const mediaData = course && coreAdmin
       ? await P.adminLearningAssets(course.id)
       : { assets: [], groups: [], folders: [], nextcloud: { state: 'unavailable' } };
     const reload = () => renderAdminCourseEditor(host, id, { go });
+    const backPath = coreAdmin ? `${ADMIN}/lms` : (course ? `/workspace/learning/courses/${course.id}` : '/workspace/learning');
 
     const wrap = K.page(host, {
       title: course?.title || 'New course',
       meta: course
-        ? P.meta([label(course.status), label(course.access_type), `${enrolled.length} enrollment${enrolled.length === 1 ? '' : 's'}`])
-        : 'Course Builder — details first; structure, media and enrollment open once the course exists.',
+        ? P.meta([
+            `Live · ${label(liveCourse?.status || course.status)}`,
+            revision ? (revision.state === 'scheduled' ? 'Changes scheduled' : 'Unpublished changes') : 'No unpublished changes',
+            label(course.access_type),
+            `${enrolled.length} enrollment${enrolled.length === 1 ? '' : 's'}`,
+          ])
+        : 'Course Builder — create the course first, then review a draft before publishing.',
       actions: [
-        link(go, 'LMS Admin', `${ADMIN}/lms`),
-        course ? link(go, 'View as learner', `/workspace/learning/courses/${course.id}`) : null,
+        link(go, coreAdmin ? 'LMS Admin' : 'Back to course', backPath),
+        course && liveCourse?.status === 'published' ? link(go, 'View live course', `/workspace/learning/courses/${course.id}`) : null,
       ],
     });
     const form = el('form', 'adm-form');
@@ -1315,7 +1324,8 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     const summary = K.textarea(course?.summary || '', 3);
     const description = K.textarea(course?.description || '', 7);
     const accessType = K.select([['open', 'Open enrollment'], ['locked', 'Invite only'], ['paid', 'Paid']], course?.access_type || 'open');
-    const status = K.select([['draft', 'Draft'], ['published', 'Published'], ['archived', 'Archived']], course?.status || 'draft');
+    const status = K.select([['draft', 'Draft'], ['published', 'Published'], ['archived', 'Archived']], liveCourse?.status || course?.status || 'draft');
+    if (course) status.disabled = true;
     const price = K.input(course?.price || '', 'number');
     price.step = '0.01';
     const currency = K.input(course?.currency || 'EUR');
@@ -1348,13 +1358,137 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     const publishing = section('Publishing & access', 'Status, who can enroll and what it costs.', 4);
     publishing.body.append(
       K.fields([
-        K.field('Status', status), K.field('Access', accessType),
+        K.field('Live status', status, course ? 'Publishing is controlled below; editing never changes the learner-facing course.' : 'New courses begin as drafts.'),
+        K.field('Access', accessType),
         K.field('Price', price), K.field('Currency', currency),
         K.field('Category', category), K.field('Provider', provider),
         K.field('Tags', tagSelect, 'Ctrl/⌘-click to choose several.', { wide: true }),
       ], 2),
       K.switches([certEnabled]),
     );
+
+    const showCourseDraftPreview = (payload) => {
+      const modal = el('div', 'course-draft-preview');
+      const frame = el('div', 'course-draft-preview__frame');
+      const head = el('div', 'course-draft-preview__head');
+      head.append(
+        el('div', null, ''),
+        K.button('Close preview', () => modal.remove(), { tiny: true }),
+      );
+      const titleBox = head.firstElementChild;
+      titleBox.append(
+        el('small', 'fl-muted', 'INSTRUCTOR PREVIEW · NOT LIVE'),
+        el('h2', null, payload.title || 'Untitled course'),
+        payload.summary ? el('p', 'fl-muted', payload.summary) : document.createTextNode(''),
+      );
+      const body = el('div', 'course-draft-preview__body');
+      if (payload.description) body.append(el('p', 'course-draft-preview__description', payload.description));
+      const structurePreview = el('div', 'course-draft-preview__structure');
+      for (const [moduleIndex, module] of (payload.modules || []).entries()) {
+        const moduleNode = el('section', 'course-draft-preview__module');
+        moduleNode.append(
+          el('small', 'fl-muted', `MODULE ${moduleIndex + 1}`),
+          el('h3', null, module.title || 'Untitled module'),
+        );
+        if (module.summary) moduleNode.append(el('p', 'fl-muted', module.summary));
+        const lessons = el('div', 'course-draft-preview__lessons');
+        for (const [lessonIndex, lesson] of (module.lessons || []).entries()) {
+          const lessonNode = el('article', 'course-draft-preview__lesson');
+          lessonNode.append(
+            el('span', 'course-draft-preview__lesson-index', String(lessonIndex + 1).padStart(2, '0')),
+            el('div', null, ''),
+          );
+          lessonNode.lastElementChild.append(
+            el('strong', null, lesson.title || 'Untitled lesson'),
+            el('small', 'fl-muted', P.meta([label(lesson.kind), lesson.published === false ? 'Hidden' : '', lesson.is_preview ? 'Free preview' : ''])),
+          );
+          lessons.append(lessonNode);
+        }
+        if (!(module.lessons || []).length) lessons.append(K.empty('No lessons in this module.'));
+        moduleNode.append(lessons);
+        structurePreview.append(moduleNode);
+      }
+      if (!(payload.modules || []).length) structurePreview.append(K.empty('No modules yet.'));
+      body.append(structurePreview);
+      frame.append(head, body);
+      modal.append(frame);
+      modal.addEventListener('click', (event) => { if (event.target === modal) modal.remove(); });
+      document.body.append(modal);
+    };
+
+    const publishingWorkflow = section(
+      'Draft, preview & publish',
+      course
+        ? 'All edits stay in an instructor draft. Preview the complete draft, then publish now or choose an automatic publish time.'
+        : 'Create this course as a draft first. Publishing controls appear after it exists.',
+      12,
+    );
+    const workflowStatus = statusLine();
+    let scheduleAt = null;
+    let previewDraft = null;
+    let publishNow = null;
+    let schedulePublish = null;
+    if (course) {
+      scheduleAt = K.input('', 'datetime-local');
+      if (revision?.scheduled_for) {
+        const scheduled = new Date(revision.scheduled_for);
+        const local = new Date(scheduled.getTime() - scheduled.getTimezoneOffset() * 60000);
+        scheduleAt.value = local.toISOString().slice(0, 16);
+      }
+      previewDraft = K.button('Preview changes', () => showCourseDraftPreview(collectCoursePayload()), { tiny: true });
+      publishNow = K.button('Publish now', async () => {
+        if (!confirm('Publish the current draft to learners now?')) return;
+        publishNow.disabled = true;
+        schedulePublish.disabled = true;
+        setStatus(workflowStatus, 'Saving draft…');
+        try {
+          await P.lmsUpdateCourse(course.id, collectCoursePayload());
+          setStatus(workflowStatus, 'Publishing…');
+          await P.lmsPublishCourseRevision(course.id);
+          setStatus(workflowStatus, 'Published.', 'ok');
+          await reload();
+        } catch (error) {
+          setStatus(workflowStatus, error?.data?.error || error?.message || 'Course could not be published.', 'bad');
+          publishNow.disabled = false;
+          schedulePublish.disabled = false;
+        }
+      }, { solid: true, tiny: true });
+      schedulePublish = K.button('Schedule publish', async () => {
+        if (!scheduleAt.value) {
+          setStatus(workflowStatus, 'Choose a publish date and time.', 'bad');
+          return;
+        }
+        const scheduledFor = new Date(scheduleAt.value);
+        if (Number.isNaN(scheduledFor.getTime()) || scheduledFor <= new Date()) {
+          setStatus(workflowStatus, 'Choose a future publish date and time.', 'bad');
+          return;
+        }
+        publishNow.disabled = true;
+        schedulePublish.disabled = true;
+        setStatus(workflowStatus, 'Saving draft…');
+        try {
+          await P.lmsUpdateCourse(course.id, collectCoursePayload());
+          await P.lmsPublishCourseRevision(course.id, { scheduled_for: scheduledFor.toISOString() });
+          setStatus(workflowStatus, 'Automatic publish scheduled.', 'ok');
+          await reload();
+        } catch (error) {
+          setStatus(workflowStatus, error?.data?.error || error?.message || 'Publish could not be scheduled.', 'bad');
+          publishNow.disabled = false;
+          schedulePublish.disabled = false;
+        }
+      }, { tiny: true });
+      publishingWorkflow.body.append(
+        revision
+          ? C.note(revision.state === 'scheduled' && revision.scheduled_for
+              ? `Current draft is scheduled for ${date(revision.scheduled_for)}.`
+              : 'There are unpublished draft changes.')
+          : C.note('The editor currently starts from the live version. Saving creates an unpublished draft.'),
+        K.fields([K.field('Automatic publish time', scheduleAt, 'Uses your local time.')], 1),
+        K.cardActions([previewDraft, publishNow, schedulePublish], workflowStatus),
+      );
+    } else {
+      publishingWorkflow.body.append(C.note('Nothing is visible to learners until this draft is explicitly published.'));
+    }
 
     /* Integration --------------------------------------------------------- */
     const openedx = section('Open edX mapping', 'Map this course to an Open edX course run while keeping the Gravitas+ learner experience.');
@@ -1363,7 +1497,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       K.field('Learner URL', openedxUrl),
       K.field('Studio URL', openedxStudio),
     ]));
-    if (course) {
+    if (course && coreAdmin) {
       const openedxStatus = statusLine();
       const validate = action('Validate Open edX mapping', async () => {
         validate.disabled = true;
@@ -1388,13 +1522,18 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       const rows = instructorState.map((item) => {
         const role = K.select([['lead', 'Lead'], ['instructor', 'Instructor'], ['assistant', 'Teaching assistant']], item.role);
         role.setAttribute('aria-label', 'Instructor role');
+        role.disabled = !coreAdmin;
         role.addEventListener('change', () => { item.role = role.value; });
-        const remove = K.button('Remove', () => {
-          const index = instructorState.indexOf(item);
-          if (index >= 0) instructorState.splice(index, 1);
-          drawInstructors();
-        }, { tiny: true, danger: true });
-        return K.row({ title: item.name || item.email, meta: item.email, lead: K.avatar(item.name || item.email), actions: [role, remove] });
+        const actions = [role];
+        if (coreAdmin) {
+          const remove = K.button('Remove', () => {
+            const index = instructorState.indexOf(item);
+            if (index >= 0) instructorState.splice(index, 1);
+            drawInstructors();
+          }, { tiny: true, danger: true });
+          actions.push(remove);
+        }
+        return K.row({ title: item.name || item.email, meta: item.email, lead: K.avatar(item.name || item.email), actions });
       });
       instructorList.replaceChildren(rows.length ? K.list(rows) : K.empty('No instructors assigned. Search registered accounts below.'));
     };
@@ -1418,7 +1557,9 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         }))));
       } catch {}
     }, 180);
-    instructorsBox.body.append(instructorList, K.toolbar([instructorFinder.wrap, instructorRole]), instructorResults);
+    instructorsBox.body.append(instructorList);
+    if (coreAdmin) instructorsBox.body.append(K.toolbar([instructorFinder.wrap, instructorRole]), instructorResults);
+    else instructorsBox.body.append(C.note('You can edit the course content and publishing draft. Instructor membership is managed by a Core administrator.'));
 
     const profileBox = section('Enrollment & profile form', 'Fields learners complete after enrolling. Required fields lock protected lessons until done.', 6);
     const registrationHost = K.stack();
@@ -1509,7 +1650,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
 
     /* Media & enrollment (existing courses only) -------------------------- */
     const mediaPane = [];
-    if (course) {
+    if (course && coreAdmin) {
       const currentGroups = (mediaData.groups || []).map((group) => {
         const current = (group.versions || []).find((item) => item.id === group.current_id) || (group.versions || [])[0];
         return { ...group, current };
@@ -1724,12 +1865,12 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       ['structure', 'Structure'],
       ['behavior', 'Learning behavior'],
       ['people', 'Instructors & forms'],
-      ['payment', 'Payment'],
+      ...(coreAdmin ? [['payment', 'Payment']] : []),
       ['integration', 'Open edX'],
-      ...(course ? [['media', 'Media & enrollment']] : []),
+      ...(course && coreAdmin ? [['media', 'Media & enrollment']] : []),
     ];
     const builders = {
-      details: () => [K.bento([details.box, publishing.box]), K.bento([courseCoverEditor(course)])],
+      details: () => [K.bento([details.box, publishing.box]), K.bento([publishingWorkflow.box]), K.bento([courseCoverEditor(course)])],
       structure: () => [K.bento([structure.box, finals.box])],
       behavior: () => [K.bento([tutor.box, notebook.box, behavior.box])],
       people: () => [K.bento([instructorsBox.box, profileBox.box])],
@@ -1739,14 +1880,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     };
     form.append(K.tabs(tabList, (key) => builders[key](), { name: 'Course builder', eager: true }));
 
-    const line = statusLine();
-    const save = action(course ? 'Save course' : 'Create course', null, true);
-    save.type = 'submit';
-    form.append(K.foot([save, link(go, 'Back to LMS Admin', `${ADMIN}/lms`)], line));
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      save.disabled = true;
-      setStatus(line, 'Saving…');
+    const collectCoursePayload = () => {
       const tagIds = [...tagSelect.selectedOptions].map((option) => Number(option.value));
       const payload = {
         title: title.value.trim(),
@@ -1754,7 +1888,6 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         summary: summary.value,
         description: description.value,
         access_type: accessType.value,
-        status: status.value,
         currency: currency.value.trim() || 'EUR',
         certificate_enabled: certEnabled.input.checked,
         provider: provider.value,
@@ -1797,10 +1930,23 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       };
       if (accessType.value === 'paid') payload.price = price.value;
       else payload.price = price.value || null;
+      if (!course) payload.status = 'draft';
+      return payload;
+    };
+
+    const line = statusLine();
+    const save = action(course ? 'Save draft' : 'Create draft', null, true);
+    save.type = 'submit';
+    form.append(K.foot([save, link(go, coreAdmin ? 'Back to LMS Admin' : 'Back to course', backPath)], line));
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      save.disabled = true;
+      setStatus(line, course ? 'Saving draft…' : 'Creating draft…');
+      const payload = collectCoursePayload();
 
       try {
         const result = course ? await P.lmsUpdateCourse(course.id, payload) : await P.lmsCreateCourse(payload);
-        setStatus(line, 'Course saved.', 'ok');
+        setStatus(line, course ? 'Draft saved. Learners still see the live version.' : 'Draft created.', 'ok');
         save.disabled = false;
         if (!course) go(`${ADMIN}/lms/courses/${result.course.id}`, { replace: true });
         else await reload();

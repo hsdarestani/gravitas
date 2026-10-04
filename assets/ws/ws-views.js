@@ -269,7 +269,11 @@ export function renderCoreTasks(host, { go }) {
       due.dateTime = task.due_date;
       top.append(due);
     }
-    card.append(top, el('h3', null, task.title));
+    const krPath = el('div', 'task-trello-card__kr');
+    if (task.trace?.objective?.title) krPath.append(el('span', null, task.trace.objective.title));
+    if (task.trace?.objective?.title && task.trace?.key_result?.title) krPath.append(el('b', null, '›'));
+    if (task.trace?.key_result?.title) krPath.append(el('strong', null, task.trace.key_result.title));
+    card.append(top, krPath, el('h3', null, task.title));
 
     if (task.description) {
       card.append(el('p', 'task-trello-card__description', task.description.slice(0, 145)));
@@ -696,24 +700,79 @@ export function renderCoreTasks(host, { go }) {
           }
           if (!(data.comments || []).length) commentsPanel.body.append(el('p', 'fl-muted', 'No comments yet.'));
 
-          const commentForm = el('form', 'task-board__form');
+          const commentForm = el('form', 'task-board__form task-comment-form');
           const comment = textarea('', 3);
-          comment.placeholder = 'Add a comment…';
+          comment.placeholder = 'Add a comment… Type @ to mention someone';
+          const mentionPicker = el('div', 'task-mention-picker');
+          mentionPicker.hidden = true;
+          const selectedMentions = new Map();
+          const members = detailData.members || state.members || [];
+
+          const mentionMatch = () => {
+            const caret = comment.selectionStart ?? comment.value.length;
+            const prefix = comment.value.slice(0, caret);
+            const match = prefix.match(/(?:^|\s)@([^@\n]*)$/);
+            return match ? { query: match[1].trim().toLowerCase(), start: caret - match[1].length - 1, end: caret } : null;
+          };
+          const drawMentions = () => {
+            const match = mentionMatch();
+            mentionPicker.replaceChildren();
+            if (!match) {
+              mentionPicker.hidden = true;
+              return;
+            }
+            const choices = members.filter((member) => {
+              const haystack = `${member.name || ''} ${member.email || ''}`.toLowerCase();
+              return !match.query || haystack.includes(match.query);
+            }).slice(0, 7);
+            mentionPicker.hidden = !choices.length;
+            for (const member of choices) {
+              const button = el('button', 'task-mention-picker__item');
+              button.type = 'button';
+              button.append(
+                el('strong', null, member.name || member.email),
+                member.name && member.email ? el('small', 'fl-muted', member.email) : document.createTextNode(''),
+              );
+              button.addEventListener('click', () => {
+                const current = mentionMatch();
+                if (!current) return;
+                const label = member.name || member.email;
+                comment.value = comment.value.slice(0, current.start) + '@' + label + ' ' + comment.value.slice(current.end);
+                selectedMentions.set(Number(member.id), label);
+                mentionPicker.hidden = true;
+                comment.focus();
+                const nextCaret = current.start + label.length + 2;
+                comment.setSelectionRange(nextCaret, nextCaret);
+              });
+              mentionPicker.append(button);
+            }
+          };
+          comment.addEventListener('input', drawMentions);
+          comment.addEventListener('click', drawMentions);
+          comment.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') mentionPicker.hidden = true;
+          });
+
           const send = makeButton('Comment', () => {}, true);
           send.type = 'submit';
           const commentNote = el('p', 'v-note');
-          commentForm.append(comment, send, commentNote);
+          commentForm.append(comment, mentionPicker, send, commentNote);
           commentForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-            if (!comment.value.trim()) return;
+            const bodyText = comment.value.trim();
+            if (!bodyText) return;
             send.disabled = true;
             try {
-              await P.addOperatingTaskComment(task.id, comment.value.trim());
+              const mentionIds = [...selectedMentions.entries()]
+                .filter(([, label]) => bodyText.includes('@' + label))
+                .map(([id]) => id);
+              await P.addOperatingTaskComment(task.id, bodyText, mentionIds);
               comment.value = '';
+              selectedMentions.clear();
               await loadComments();
               await reloadBoard({ keepDialog: true });
             } catch (error) {
-              commentNote.textContent = error?.message || 'Comment failed.';
+              commentNote.textContent = error?.data?.error || error?.message || 'Comment failed.';
               send.disabled = false;
             }
           });
@@ -874,6 +933,7 @@ export function renderCoreTasks(host, { go }) {
   return guard(holder, 'Core tasks', async () => {
     let state = null;
     let filters = { q: '', owner: '', priority: '', sort: 'manual' };
+    let viewMode = 'board';
     let deepLinkedTaskOpened = false;
 
     const load = async ({ keepDialog = false } = {}) => {
@@ -913,6 +973,12 @@ export function renderCoreTasks(host, { go }) {
         ['created_asc', 'Created · oldest'],
       ], filters.sort);
       sortFilter.setAttribute('aria-label', 'Sort tasks');
+      const viewFilter = select([
+        ['board', 'Board'],
+        ['tree', 'Tree'],
+        ['graph', 'Graph'],
+      ], viewMode);
+      viewFilter.setAttribute('aria-label', 'Task visualization');
       const count = el('span', 'v-toolbar__count');
       const add = makeButton('New task from KR', () => openCreateDialog(state, load), true);
       if (!data.can_edit) {
@@ -920,7 +986,7 @@ export function renderCoreTasks(host, { go }) {
       }
       ownerFilter.setAttribute('aria-label', 'Filter by owner');
       priorityFilter.setAttribute('aria-label', 'Filter by priority');
-      toolbar.append(search, ownerFilter, priorityFilter, sortFilter, count, add);
+      toolbar.append(search, ownerFilter, priorityFilter, sortFilter, viewFilter, count, add);
 
       const topScroll = el('div', 'task-board__top-scroll');
       topScroll.setAttribute('aria-label', 'Horizontal task board scroll');
@@ -938,6 +1004,10 @@ export function renderCoreTasks(host, { go }) {
       holder.append(board);
 
       const syncTopScroll = () => {
+        if (viewMode !== 'board') {
+          topScroll.hidden = true;
+          return;
+        }
         topScrollTrack.style.width = `${Math.max(board.scrollWidth, board.clientWidth)}px`;
         topScroll.hidden = board.scrollWidth <= board.clientWidth + 1;
         if (topScroll.scrollLeft !== board.scrollLeft) topScroll.scrollLeft = board.scrollLeft;
@@ -954,44 +1024,134 @@ export function renderCoreTasks(host, { go }) {
         holder._taskBoardResizeObserver = resizeObserver;
       }
 
-      const draw = () => {
-        filters = { q: search.value.trim(), owner: ownerFilter.value, priority: priorityFilter.value, sort: sortFilter.value };
-        const q = filters.q.toLowerCase();
-        const visible = data.tasks.filter((task) => {
-          if (filters.owner && String(task.owner?.id) !== filters.owner) return false;
-          if (filters.priority && task.priority !== filters.priority) return false;
+      const sortedVisibleTasks = () => {
+        const q = search.value.trim().toLowerCase();
+        return data.tasks.filter((task) => {
+          if (ownerFilter.value && String(task.owner?.id) !== ownerFilter.value) return false;
+          if (priorityFilter.value && task.priority !== priorityFilter.value) return false;
           if (q && !taskSearchText(task).includes(q)) return false;
           return true;
+        }).sort((a, b) => {
+          if (sortFilter.value === 'due_asc' || sortFilter.value === 'due_desc') {
+            const aMissing = !a.due_date;
+            const bMissing = !b.due_date;
+            if (aMissing !== bMissing) return aMissing ? 1 : -1;
+            const diff = String(a.due_date || '').localeCompare(String(b.due_date || ''));
+            if (diff) return sortFilter.value === 'due_desc' ? -diff : diff;
+          } else if (sortFilter.value === 'created_desc' || sortFilter.value === 'created_asc') {
+            const diff = String(a.created_at || '').localeCompare(String(b.created_at || ''));
+            if (diff) return sortFilter.value === 'created_desc' ? -diff : diff;
+          }
+          return (a.board_order || 0) - (b.board_order || 0) || a.id - b.id;
         });
-        count.textContent = `${visible.length} of ${data.tasks.length}`;
-        board.innerHTML = '';
+      };
 
+      const renderTree = (visible) => {
+        board.className = 'task-tree-view';
+        board.removeAttribute('role');
+        board.removeAttribute('aria-label');
+        const byObjective = new Map();
+        for (const task of visible) {
+          const objective = task.trace?.objective || { id: 'none', title: 'No objective' };
+          const kr = task.trace?.key_result || { id: 'none', title: 'No key result' };
+          if (!byObjective.has(objective.id)) byObjective.set(objective.id, { objective, krs: new Map() });
+          const objectiveGroup = byObjective.get(objective.id);
+          if (!objectiveGroup.krs.has(kr.id)) objectiveGroup.krs.set(kr.id, { kr, tasks: [] });
+          objectiveGroup.krs.get(kr.id).tasks.push(task);
+        }
+        for (const { objective, krs } of byObjective.values()) {
+          const objectiveNode = el('section', 'task-tree-objective');
+          const objectiveHead = el('div', 'task-tree-objective__head');
+          objectiveHead.append(
+            el('span', 'task-tree-node__kind', 'Objective'),
+            el('h3', null, objective.title),
+            el('span', 'v-column__count', String([...krs.values()].reduce((sum, item) => sum + item.tasks.length, 0))),
+          );
+          objectiveNode.append(objectiveHead);
+          const krHost = el('div', 'task-tree-krs');
+          for (const { kr, tasks } of krs.values()) {
+            const krNode = el('section', 'task-tree-kr');
+            const krHead = el('div', 'task-tree-kr__head');
+            krHead.append(el('span', 'task-tree-node__kind', 'KR'), el('strong', null, kr.title), el('span', 'v-column__count', String(tasks.length)));
+            const taskHost = el('div', 'task-tree-tasks');
+            for (const task of tasks) {
+              const taskRow = el('button', 'task-tree-task');
+              taskRow.type = 'button';
+              const main = el('span', 'task-tree-task__main');
+              main.append(el('strong', null, task.title), el('small', 'fl-muted', P.meta([task.owner?.name || task.owner?.email, P.label(task.status), P.formatDate(task.due_date)])));
+              taskRow.append(main, el('span', 'v-badge', P.label(task.priority)));
+              taskRow.addEventListener('click', () => openTaskDialog(task.id, state, load));
+              taskHost.append(taskRow);
+            }
+            krNode.append(krHead, taskHost);
+            krHost.append(krNode);
+          }
+          objectiveNode.append(krHost);
+          board.append(objectiveNode);
+        }
+        if (!visible.length) board.append(el('div', 'v-note', 'No tasks match these filters.'));
+      };
+
+      const renderGraph = (visible) => {
+        board.className = 'task-graph-view';
+        board.removeAttribute('role');
+        board.setAttribute('aria-label', 'Task relationship graph from objectives to key results to tasks');
+        const byObjective = new Map();
+        for (const task of visible) {
+          const objective = task.trace?.objective || { id: 'none', title: 'No objective' };
+          const kr = task.trace?.key_result || { id: 'none', title: 'No key result' };
+          if (!byObjective.has(objective.id)) byObjective.set(objective.id, { objective, krs: new Map() });
+          const group = byObjective.get(objective.id);
+          if (!group.krs.has(kr.id)) group.krs.set(kr.id, { kr, tasks: [] });
+          group.krs.get(kr.id).tasks.push(task);
+        }
+        for (const { objective, krs } of byObjective.values()) {
+          const cluster = el('section', 'task-graph-cluster');
+          const objectiveNode = el('div', 'task-graph-node task-graph-node--objective');
+          objectiveNode.append(el('small', null, 'OBJECTIVE'), el('strong', null, objective.title));
+          const krColumn = el('div', 'task-graph-krs');
+          for (const { kr, tasks } of krs.values()) {
+            const branch = el('div', 'task-graph-branch');
+            const krNode = el('div', 'task-graph-node task-graph-node--kr');
+            krNode.append(el('small', null, 'KEY RESULT'), el('strong', null, kr.title));
+            const taskColumn = el('div', 'task-graph-tasks');
+            for (const task of tasks) {
+              const taskNode = el('button', 'task-graph-node task-graph-node--task');
+              taskNode.type = 'button';
+              taskNode.append(
+                el('strong', null, task.title),
+                el('small', null, P.meta([P.label(task.status), task.owner?.name || task.owner?.email])),
+              );
+              taskNode.addEventListener('click', () => openTaskDialog(task.id, state, load));
+              taskColumn.append(taskNode);
+            }
+            branch.append(krNode, taskColumn);
+            krColumn.append(branch);
+          }
+          cluster.append(objectiveNode, krColumn);
+          board.append(cluster);
+        }
+        if (!visible.length) board.append(el('div', 'v-note', 'No tasks match these filters.'));
+      };
+
+      const renderBoard = (visible) => {
+        board.className = 'task-trello-board';
+        board.tabIndex = 0;
+        board.setAttribute('role', 'group');
+        board.setAttribute('aria-label', 'Core task board by status');
         for (const [statusValue, statusLabel] of STATUS_COLUMNS) {
           const column = el('section', 'task-trello-column');
           column.dataset.status = statusValue;
-          const matches = visible.filter((task) => task.status === statusValue)
-            .sort((a, b) => {
-              if (filters.sort === 'due_asc' || filters.sort === 'due_desc') {
-                const aMissing = !a.due_date;
-                const bMissing = !b.due_date;
-                if (aMissing !== bMissing) return aMissing ? 1 : -1;
-                const diff = String(a.due_date || '').localeCompare(String(b.due_date || ''));
-                if (diff) return filters.sort === 'due_desc' ? -diff : diff;
-              } else if (filters.sort === 'created_desc' || filters.sort === 'created_asc') {
-                const diff = String(a.created_at || '').localeCompare(String(b.created_at || ''));
-                if (diff) return filters.sort === 'created_desc' ? -diff : diff;
-              }
-              return (a.board_order || 0) - (b.board_order || 0) || a.id - b.id;
-            });
+          const matches = visible.filter((task) => task.status === statusValue);
           const head = el('div', 'task-trello-column__head');
           head.append(el('strong', null, statusLabel), el('span', 'v-column__count', String(matches.length)));
           const body = el('div', 'task-trello-column__body');
           body.dataset.status = statusValue;
           if (!matches.length) body.append(el('div', 'v-column__empty task-trello-column__empty'));
-          for (const task of matches) body.append(taskCard(task, (id) => openTaskDialog(id, state, load), { draggable: data.can_edit && filters.sort === 'manual' }));
+          for (const task of matches) body.append(taskCard(task, (id) => openTaskDialog(id, state, load), { draggable: data.can_edit && sortFilter.value === 'manual' }));
 
           body.addEventListener('dragover', (event) => {
-            if (!data.can_edit || filters.sort !== 'manual') return;
+            if (!data.can_edit || sortFilter.value !== 'manual') return;
             event.preventDefault();
             body.classList.add('is-over');
             const id = Number(event.dataTransfer.getData('text/plain'));
@@ -1005,7 +1165,7 @@ export function renderCoreTasks(host, { go }) {
             if (!body.contains(event.relatedTarget)) body.classList.remove('is-over');
           });
           body.addEventListener('drop', async (event) => {
-            if (!data.can_edit || filters.sort !== 'manual') return;
+            if (!data.can_edit || sortFilter.value !== 'manual') return;
             event.preventDefault();
             body.classList.remove('is-over');
             const taskId = Number(event.dataTransfer.getData('text/plain'));
@@ -1022,6 +1182,18 @@ export function renderCoreTasks(host, { go }) {
           column.append(head, body);
           board.append(column);
         }
+      };
+
+      const draw = () => {
+        filters = { q: search.value.trim(), owner: ownerFilter.value, priority: priorityFilter.value, sort: sortFilter.value };
+        viewMode = viewFilter.value;
+        const visible = sortedVisibleTasks();
+        count.textContent = `${visible.length} of ${data.tasks.length}`;
+        board.innerHTML = '';
+        topScroll.hidden = viewMode !== 'board';
+        if (viewMode === 'tree') renderTree(visible);
+        else if (viewMode === 'graph') renderGraph(visible);
+        else renderBoard(visible);
         window.requestAnimationFrame(syncTopScroll);
       };
 
@@ -1029,6 +1201,7 @@ export function renderCoreTasks(host, { go }) {
       ownerFilter.addEventListener('change', draw);
       priorityFilter.addEventListener('change', draw);
       sortFilter.addEventListener('change', draw);
+      viewFilter.addEventListener('change', draw);
       draw();
 
       if (!deepLinkedTaskOpened) {
