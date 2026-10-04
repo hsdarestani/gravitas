@@ -1260,7 +1260,7 @@ function courseCoverEditor(course) {
       draw();
       remove.hidden = !current.cover_url;
       upload.textContent = 'Replace image';
-      setStatus(status, 'Cover saved.', 'ok');
+      setStatus(status, 'Cover saved to draft.', 'ok');
     } catch (error) {
       setStatus(status, error?.message || 'The cover could not be saved.', 'bad');
     } finally {
@@ -1865,7 +1865,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       ['structure', 'Structure'],
       ['behavior', 'Learning behavior'],
       ['people', 'Instructors & forms'],
-      ['payment', 'Payment'],
+      ...(coreAdmin ? [['payment', 'Payment']] : []),
       ['integration', 'Open edX'],
       ...(course && coreAdmin ? [['media', 'Media & enrollment']] : []),
     ];
