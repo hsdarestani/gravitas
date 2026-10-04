@@ -224,8 +224,9 @@ def _lesson_access(lesson, enrollment):
 def _course_json(course, user=None, *, include_structure=False):
     enrollment = _enrollment_for(user, course)
     admin = _is_core_admin(user)
+    author = _can_author_course(user, course)
     entitled = bool(
-        admin
+        author
         or (
             enrollment
             and enrollment.status
@@ -256,7 +257,7 @@ def _course_json(course, user=None, *, include_structure=False):
         'currency': course.currency,
         'certificate_enabled': course.certificate_enabled,
         'provider': course.provider,
-        'openedx_course_key': course.openedx_course_key if admin else '',
+        'openedx_course_key': course.openedx_course_key if author else '',
         'openedx_launch_url': (
             course.openedx_course_url
             or (
@@ -265,7 +266,7 @@ def _course_json(course, user=None, *, include_structure=False):
                 else ''
             )
         ) if entitled or admin else '',
-        'openedx_studio_url': course.openedx_studio_url if admin else '',
+        'openedx_studio_url': course.openedx_studio_url if author else '',
         'category': (
             {'id': course.category_id, 'slug': course.category.slug, 'name': course.category.name}
             if course.category_id else None
@@ -285,8 +286,8 @@ def _course_json(course, user=None, *, include_structure=False):
             'checkout_url': str((course.payment_config or {}).get('checkout_url') or ''),
             'sku': str((course.payment_config or {}).get('sku') or ''),
         },
-        'payment_config': course.payment_config if admin else {},
-        'learning_config': course.learning_config if admin or entitled else {},
+        'payment_config': course.payment_config if author else {},
+        'learning_config': course.learning_config if author or entitled else {},
         'published_at': _iso(course.published_at),
         'updated_at': _iso(course.updated_at),
         'enrolled': bool(enrollment and enrollment.status != CourseEnrollment.Status.REVOKED),
@@ -294,6 +295,7 @@ def _course_json(course, user=None, *, include_structure=False):
         'enrollment_status': enrollment.status if enrollment else None,
         'registration_complete': registration_complete,
         'certificate': _certificate_json(enrollment) if enrollment else None,
+        'can_author': author,
     }
 
     if not include_structure:
@@ -305,10 +307,10 @@ def _course_json(course, user=None, *, include_structure=False):
     for module in course.modules.prefetch_related('lessons', 'assessments').all():
         lessons = []
         for lesson in module.lessons.all():
-            if not lesson.published and not admin:
+            if not lesson.published and not author:
                 continue
-            rule_open, lock_reason = (True, '') if admin or not enrollment else _lesson_access(lesson, enrollment)
-            can_open = admin or lesson.is_preview or (entitled and registration_complete and rule_open)
+            rule_open, lock_reason = (True, '') if author or not enrollment else _lesson_access(lesson, enrollment)
+            can_open = author or lesson.is_preview or (entitled and registration_complete and rule_open)
             if not can_open and not lock_reason:
                 if entitled and not registration_complete:
                     lock_reason = 'course_profile_required'
@@ -329,8 +331,8 @@ def _course_json(course, user=None, *, include_structure=False):
                 'body': lesson.body if can_open else '',
                 'content_url': lesson.content_url if can_open else '',
                 'metadata': lesson.metadata if can_open else {},
-                'access_rule': lesson.access_rule if can_open or admin else {},
-                'provider_key': lesson.provider_key if admin else '',
+                'access_rule': lesson.access_rule if can_open or author else {},
+                'provider_key': lesson.provider_key if author else '',
                 'lab_slug': lesson.lab_slug if can_open else '',
             })
         modules.append({
@@ -350,25 +352,25 @@ def _course_json(course, user=None, *, include_structure=False):
         'folder_path': asset.folder_path,
         'version': asset.version,
         'version_note': asset.version_note,
-        'source_url': asset.source_url if entitled or admin else '',
+        'source_url': asset.source_url if entitled or author else '',
         'mime_type': asset.mime_type,
         'size': asset.size,
-        'download_url': f'/api/lms/assets/{asset.pk}/download/' if entitled or admin else '',
+        'download_url': f'/api/lms/assets/{asset.pk}/download/' if entitled or author else '',
     } for asset in course.assets.filter(is_current=True)]
     data['assessments'] = [
         {
             'id': assessment.pk,
             'module_id': assessment.module_id,
             'title': assessment.title,
-            'instructions': assessment.instructions if entitled or admin else '',
+            'instructions': assessment.instructions if entitled or author else '',
             'passing_score': str(assessment.passing_score),
             'max_attempts': assessment.max_attempts,
             'required_for_completion': assessment.required_for_completion,
             'published': assessment.published,
-            'questions': _public_questions(assessment.questions) if entitled or admin else [],
+            'questions': _public_questions(assessment.questions) if entitled or author else [],
         }
         for assessment in course.assessments.all()
-        if assessment.published or admin
+        if assessment.published or author
     ]
     return data
 
