@@ -275,8 +275,20 @@ export function renderCoreTasks(host, { go }) {
       card.append(el('p', 'task-trello-card__description', task.description.slice(0, 145)));
     }
 
+    const hierarchy = el('div', 'task-trello-card__hierarchy');
+    if (task.trace?.objective?.title) {
+      const objective = el('div', 'task-trello-card__path');
+      objective.append(el('small', null, 'Objective'), el('strong', null, task.trace.objective.title));
+      hierarchy.append(objective);
+    }
+    if (task.trace?.key_result?.title) {
+      const kr = el('div', 'task-trello-card__path task-trello-card__path--kr');
+      kr.append(el('small', null, 'KR'), el('strong', null, task.trace.key_result.title));
+      hierarchy.append(kr);
+    }
+    card.append(hierarchy);
+
     const context = el('div', 'task-trello-card__context');
-    if (task.trace?.key_result?.title) context.append(el('span', null, task.trace.key_result.title));
     if (task.milestone_title) context.append(el('span', null, task.milestone_title));
     if (task.project_title) context.append(el('span', null, task.project_title));
     card.append(context);
@@ -690,8 +702,15 @@ export function renderCoreTasks(host, { go }) {
             item.append(
               el('strong', null, formatActor(comment.author)),
               el('p', null, comment.body),
-              el('small', 'fl-muted', P.formatDate(comment.created_at)),
             );
+            if ((comment.mentions || []).length) {
+              const mentions = el('div', 'task-comment__mentions');
+              for (const person of comment.mentions) {
+                mentions.append(el('span', 'v-badge task-comment__mention', '@' + (person.name || person.email)));
+              }
+              item.append(mentions);
+            }
+            item.append(el('small', 'fl-muted', P.formatDate(comment.created_at)));
             commentsPanel.body.append(item);
           }
           if (!(data.comments || []).length) commentsPanel.body.append(el('p', 'fl-muted', 'No comments yet.'));
@@ -699,17 +718,34 @@ export function renderCoreTasks(host, { go }) {
           const commentForm = el('form', 'task-board__form');
           const comment = textarea('', 3);
           comment.placeholder = 'Add a comment…';
+          const mention = el('select', 'v-input task-comment__mention-select');
+          mention.multiple = true;
+          mention.setAttribute('aria-label', 'Mention people');
+          mention.title = 'Select one or more people to mention';
+          for (const member of detailData.members || state.members || []) {
+            if (String(member.id) === String(P.platform?.user?.user?.id || '')) continue;
+            const option = el('option', null, '@' + (member.name || member.email));
+            option.value = member.id;
+            mention.append(option);
+          }
           const send = makeButton('Comment', () => {}, true);
           send.type = 'submit';
           const commentNote = el('p', 'v-note');
-          commentForm.append(comment, send, commentNote);
+          commentForm.append(
+            comment,
+            field('Mention people', mention, 'Ctrl/⌘ click for multiple people. Mentioned teammates get an in-app notification, email and Telegram notification when connected.'),
+            send,
+            commentNote,
+          );
           commentForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             if (!comment.value.trim()) return;
             send.disabled = true;
             try {
-              await P.addOperatingTaskComment(task.id, comment.value.trim());
+              const mentionUserIds = [...mention.selectedOptions].map((option) => Number(option.value)).filter(Boolean);
+              await P.addOperatingTaskComment(task.id, comment.value.trim(), mentionUserIds);
               comment.value = '';
+              for (const option of mention.options) option.selected = false;
               await loadComments();
               await reloadBoard({ keepDialog: true });
             } catch (error) {
