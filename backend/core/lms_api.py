@@ -636,6 +636,225 @@ def _save_course_relations(course, data):
             )
 
 
+def _course_revision_payload(course):
+    def assessment_payload(item):
+        return {
+            'id': item.pk,
+            'module_id': item.module_id,
+            'title': item.title,
+            'instructions': item.instructions,
+            'questions': item.questions if isinstance(item.questions, list) else [],
+            'passing_score': str(item.passing_score),
+            'max_attempts': item.max_attempts,
+            'required_for_completion': item.required_for_completion,
+            'published': item.published,
+        }
+
+    modules = []
+    for module in course.modules.prefetch_related('lessons', 'assessments').all():
+        modules.append({
+            'id': module.pk,
+            'position': module.position,
+            'title': module.title,
+            'summary': module.summary,
+            'lessons': [{
+                'id': lesson.pk,
+                'position': lesson.position,
+                'title': lesson.title,
+                'kind': lesson.kind,
+                'summary': lesson.summary,
+                'body': lesson.body,
+                'content_url': lesson.content_url,
+                'duration_seconds': lesson.duration_seconds,
+                'is_preview': lesson.is_preview,
+                'is_required': lesson.is_required,
+                'published': lesson.published,
+                'metadata': lesson.metadata if isinstance(lesson.metadata, dict) else {},
+                'access_rule': lesson.access_rule if isinstance(lesson.access_rule, dict) else {},
+                'provider_key': lesson.provider_key,
+                'lab_slug': lesson.lab_slug,
+            } for lesson in module.lessons.all()],
+            'assessments': [assessment_payload(item) for item in module.assessments.all()],
+        })
+
+    return {
+        'title': course.title,
+        'slug': course.slug,
+        'summary': course.summary,
+        'description': course.description,
+        'access_type': course.access_type,
+        'status': course.status,
+        'price': str(course.price) if course.price is not None else None,
+        'currency': course.currency,
+        'certificate_enabled': course.certificate_enabled,
+        'provider': course.provider,
+        'openedx_course_key': course.openedx_course_key,
+        'openedx_course_url': course.openedx_course_url,
+        'openedx_studio_url': course.openedx_studio_url,
+        'category_id': course.category_id,
+        'tag_ids': list(course.tags.values_list('pk', flat=True)),
+        'instructors': [{
+            'user_id': link.user_id,
+            'name': link.user.get_full_name() or link.user.email,
+            'email': link.user.email,
+            'role': link.role,
+        } for link in course.instructor_links.select_related('user').all()],
+        'registration_schema': course.registration_schema if isinstance(course.registration_schema, list) else [],
+        'payment_config': course.payment_config if isinstance(course.payment_config, dict) else {},
+        'learning_config': course.learning_config if isinstance(course.learning_config, dict) else {},
+        'cover_image': course.cover_image or '',
+        'modules': modules,
+        'assessments': [
+            assessment_payload(item)
+            for item in course.assessments.filter(module__isnull=True)
+        ],
+    }
+
+
+def _revision_json(revision):
+    if not revision:
+        return None
+    return {
+        'id': revision.pk,
+        'status': revision.status,
+        'scheduled_for': _iso(revision.scheduled_for),
+        'published_at': _iso(revision.published_at),
+        'updated_at': _iso(revision.updated_at),
+        'author': {
+            'id': revision.author_id,
+            'name': revision.author.get_full_name() or revision.author.email,
+            'email': revision.author.email,
+        },
+        'payload': revision.payload if isinstance(revision.payload, dict) else {},
+    }
+
+
+def _active_course_revision(course):
+    return (
+        CourseRevision.objects
+        .filter(course=course, status__in=[CourseRevision.Status.DRAFT, CourseRevision.Status.SCHEDULED])
+        .select_related('author')
+        .order_by('-updated_at', '-id')
+        .first()
+    )
+
+
+def _stage_course_revision(course, author, patch):
+    if not isinstance(patch, dict):
+        raise ValueError('invalid_revision_payload')
+    revision = _active_course_revision(course)
+    payload = dict(revision.payload or {}) if revision else _course_revision_payload(course)
+    if 'cover_image' in patch:
+        patch = dict(patch)
+        patch['cover_image'] = _clean_cover(patch.get('cover_image'))
+    payload.update(patch)
+    if not str(payload.get('title') or '').strip() or not str(payload.get('slug') or '').strip():
+        raise ValueError('title_and_slug_required')
+    if revision:
+        revision.author = author
+        revision.payload = payload
+        revision.status = CourseRevision.Status.DRAFT
+        revision.scheduled_for = None
+        revision.save(update_fields=['author', 'payload', 'status', 'scheduled_for', 'updated_at'])
+    else:
+        revision = CourseRevision.objects.create(
+            course=course,
+            author=author,
+            payload=payload,
+            status=CourseRevision.Status.DRAFT,
+        )
+    return revision
+
+
+def _apply_course_payload(course, data):
+    for field in ('title', 'summary', 'description', 'currency'):
+        if field in data:
+            setattr(course, field, str(data[field] or '').strip() if field == 'title' else str(data[field] or ''))
+    if 'slug' in data:
+        course.slug = str(data['slug'] or '').strip()
+    if 'access_type' in data:
+        value = str(data['access_type'])
+        if value not in Course.AccessType.values:
+            raise ValueError('invalid_access_type')
+        course.access_type = value
+    if 'status' in data:
+        value = str(data['status'])
+        if value not in Course.Status.values:
+            raise ValueError('invalid_status')
+        if value == Course.Status.PUBLISHED and not course.published_at:
+            course.published_at = timezone.now()
+        course.status = value
+    if 'price' in data:
+        course.price = _as_decimal(data.get('price'))
+    if 'certificate_enabled' in data:
+        course.certificate_enabled = bool(data['certificate_enabled'])
+    if 'cover_image' in data:
+        course.cover_image = _clean_cover(data.get('cover_image'))
+    _course_relation_fields(course, data)
+    if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
+        raise ValueError('openedx_course_key_required')
+    if course.access_type == Course.AccessType.PAID and (course.price is None or course.price <= 0):
+        raise ValueError('paid_course_price_required')
+    course.save()
+    _save_course_relations(course, data)
+    has_modules = 'modules' in data
+    has_assessments = 'assessments' in data
+    if has_modules != has_assessments:
+        raise ValueError('complete_structure_payload_required')
+    if has_modules and has_assessments:
+        _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
+    return course
+
+
+def _publish_course_revision(revision, actor=None):
+    with transaction.atomic():
+        revision = CourseRevision.objects.select_for_update().select_related('course', 'author').get(pk=revision.pk)
+        if revision.status not in {CourseRevision.Status.DRAFT, CourseRevision.Status.SCHEDULED}:
+            return revision
+        course = Course.objects.select_for_update().get(pk=revision.course_id)
+        payload = dict(revision.payload or {})
+        payload['status'] = Course.Status.PUBLISHED
+        _apply_course_payload(course, payload)
+        now = timezone.now()
+        revision.status = CourseRevision.Status.PUBLISHED
+        revision.published_at = now
+        revision.scheduled_for = None
+        revision.published_by = actor if actor and getattr(actor, 'is_authenticated', False) else revision.author
+        revision.save(update_fields=['status', 'published_at', 'scheduled_for', 'published_by', 'updated_at'])
+        CourseRevision.objects.filter(
+            course=course,
+            status__in=[CourseRevision.Status.DRAFT, CourseRevision.Status.SCHEDULED],
+        ).exclude(pk=revision.pk).update(status=CourseRevision.Status.CANCELLED, scheduled_for=None)
+    record_activity(
+        layer=ActivityEvent.Layer.LMS,
+        action='course.revision_published',
+        actor=revision.published_by,
+        object_type='course',
+        object_id=revision.course_id,
+        detail={'revision_id': revision.pk},
+    )
+    return revision
+
+
+def publish_scheduled_course_revisions(now=None):
+    now = now or timezone.now()
+    rows = list(
+        CourseRevision.objects.filter(
+            status=CourseRevision.Status.SCHEDULED,
+            scheduled_for__isnull=False,
+            scheduled_for__lte=now,
+        ).select_related('author').order_by('scheduled_for', 'id')[:50]
+    )
+    published = 0
+    for revision in rows:
+        try:
+            _publish_course_revision(revision, revision.author)
+            published += 1
+        except (ValueError, IntegrityError):
+            continue
+    return published
+
+
 def _openedx_sync_enrollment(enrollment):
     course = enrollment.course
     if (
