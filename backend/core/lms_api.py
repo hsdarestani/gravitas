@@ -1145,7 +1145,7 @@ def lms_course_cover(request, course_id):
     if not course or not course.cover_image:
         return HttpResponse(status=404)
     published = course.status == Course.Status.PUBLISHED
-    if not published and not _is_core_admin(request.user):
+    if not published and not _can_author_course(request.user, course):
         return HttpResponse(status=404)
     match = DATA_URI.match(course.cover_image)
     if not match or match.group(1).lower() not in COVER_TYPES:
