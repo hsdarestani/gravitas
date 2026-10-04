@@ -26,6 +26,7 @@ from .lms_models import (
     CourseInstructor,
     CourseModule,
     CourseRegistrationProfile,
+    CourseRevision,
     CourseTag,
     Lesson,
     LessonProgress,
@@ -54,6 +55,14 @@ def _is_core_admin(user):
 
     spaces = ensure_platform_workspaces(user)
     return core_role(user, spaces['core']) in {'owner', 'admin'}
+
+
+def _can_author_course(user, course):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if _is_core_admin(user):
+        return True
+    return CourseInstructor.objects.filter(course=course, user=user).exists()
 
 
 def _as_decimal(value, default=None):
