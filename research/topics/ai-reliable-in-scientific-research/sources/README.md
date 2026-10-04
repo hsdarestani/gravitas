@@ -40,5 +40,6 @@ Each source is stored as an individual Markdown record so research can be querie
 | S014 | Phantom References 2026 | A* | conference citations; preprint |
 | S015 | SciSlopBench 2026 | A* | slop benchmark; very recent preprint |
 | S016 | Physics-informed ML survey 2025 | B | prediction/mechanism bridge |
+| S017 | The AI Scientist 2026 | A | end-to-end agentic research |
 
 `A*` means original research available as a preprint rather than a peer-reviewed version at the time of this research snapshot.
