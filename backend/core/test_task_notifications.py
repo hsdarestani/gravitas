@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
@@ -8,7 +9,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from .operating_models import TaskNotificationOutbox, TaskNotificationPreference
-from .task_notifications import deliver_pending
+from .task_notifications import _recipient_ids, deliver_pending
 
 
 User = get_user_model()
@@ -170,6 +171,29 @@ class TaskNotificationTests(TestCase):
         self.assertEqual(
             TaskNotificationOutbox.objects.filter(status=TaskNotificationOutbox.Status.SENT).count(),
             2,
+        )
+
+    def test_comment_mentions_join_normal_notification_recipients(self):
+        task = SimpleNamespace(owner_id=self.user.pk)
+        actor = SimpleNamespace(pk=9999)
+        recipients = _recipient_ids(
+            task,
+            'task.comment_added',
+            actor,
+            {'mention_user_ids': [123, '456', 123, 'invalid']},
+        )
+        self.assertEqual(recipients, {self.user.pk, 123, 456})
+
+        # Mentioning yourself never sends a duplicate notification back to the
+        # author, even when you are also the task owner.
+        self.assertEqual(
+            _recipient_ids(
+                SimpleNamespace(owner_id=actor.pk),
+                'task.comment_added',
+                actor,
+                {'mention_user_ids': [actor.pk, 321]},
+            ),
+            {321},
         )
 
     def test_settings_can_disable_change_notifications(self):
