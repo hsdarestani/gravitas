@@ -244,6 +244,13 @@ class FiveLayerPlatformTests(TestCase):
             content_type='application/json',
         )
         self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json().get('staged'))
+        published = self.client.post(
+            f'/api/lms/courses/{course.pk}/revision/publish/',
+            data=json.dumps({'action': 'publish_now'}),
+            content_type='application/json',
+        )
+        self.assertEqual(published.status_code, 200, published.content)
         course.refresh_from_db()
         self.assertEqual(course.modules.count(), 1)
         self.assertEqual(course.assessments.count(), 1)
