@@ -351,6 +351,8 @@ export const operatingCycles = () => call('/operating/cycles/');
 /* ---- Layer 3 / LMS ------------------------------------------------------ */
 export const lmsCourses = ({ all = false } = {}) => call(`/lms/courses/${all ? '?all=1' : ''}`);
 export const lmsCourse = (id) => call(`/lms/courses/${id}/`);
+export const lmsCourseAuthoring = (id) => call(`/lms/courses/${id}/?authoring=1`);
+export const lmsPublishCourseRevision = (id, body = {}) => call(`/lms/courses/${id}/publish-revision/`, { method: 'POST', body });
 export const lmsEnroll = (id, body = {}) => call(`/lms/courses/${id}/enroll/`, { method: 'POST', body });
 export const lmsMe = () => call('/lms/me/');
 export const lmsLessonProgress = (id, body) => call(`/lms/lessons/${id}/progress/`, { method: 'PUT', body });
