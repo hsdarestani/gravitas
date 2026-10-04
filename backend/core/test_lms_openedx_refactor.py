@@ -192,6 +192,14 @@ class OpenEdXLmsRefactorTests(TestCase):
             }],
         })
         self.assertEqual(updated.status_code, 200, updated.content)
+        self.assertTrue(updated.json().get('staged'))
+        self.assertEqual(updated.json()['course']['modules'][0]['lessons'][0]['id'], lesson['id'])
+        published = self.post_json(
+            f"/api/lms/courses/{course['id']}/revision/publish/",
+            {'action': 'publish_now'},
+        )
+        self.assertEqual(published.status_code, 200, published.content)
+        updated = published
         self.assertEqual(updated.json()['course']['modules'][0]['lessons'][0]['id'], lesson['id'])
         self.assertEqual(LessonProgress.objects.get(pk=progress_id).lesson_id, lesson['id'])
         self.assertTrue(LessonProgress.objects.get(pk=progress_id).completed)
@@ -301,7 +309,13 @@ class OpenEdXLmsRefactorTests(TestCase):
             }],
         })
         self.assertEqual(updated.status_code, 200, updated.content)
-        gated = updated.json()['course']['modules'][0]['lessons'][1]
+        self.assertTrue(updated.json().get('staged'))
+        published = self.post_json(
+            f"/api/lms/courses/{course['id']}/revision/publish/",
+            {'action': 'publish_now'},
+        )
+        self.assertEqual(published.status_code, 200, published.content)
+        gated = published.json()['course']['modules'][0]['lessons'][1]
 
         self.enroll_learner(course['id'])
         self.client.force_login(self.learner)
