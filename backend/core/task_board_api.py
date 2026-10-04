@@ -676,15 +676,6 @@ def task_comments(request, task_id):
             mention_ids.append(int(value))
         except (TypeError, ValueError):
             continue
-    mentioned_users = list(
-        WorkspaceMembership.objects.filter(
-            workspace=workspace,
-            user_id__in=set(mention_ids),
-            user__is_active=True,
-        )
-        .select_related('user')
-        .values_list('user', flat=False)
-    )
     mentioned_users = [
         membership.user
         for membership in WorkspaceMembership.objects.filter(
