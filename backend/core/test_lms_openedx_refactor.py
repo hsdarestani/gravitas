@@ -1,17 +1,21 @@
 import io
 import json
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, SimpleTestCase, override_settings
+from django.utils import timezone
 
 from . import cloud
 from .lms_models import (
     Course,
     CourseEvent,
+    CourseInstructor,
+    CourseRevision,
     CourseRegistrationProfile,
     LearningAsset,
     Lesson,
@@ -19,6 +23,7 @@ from .lms_models import (
     SourceConnection,
 )
 from .platform_runtime_v3 import ensure_platform_workspaces
+from .lms_api import publish_scheduled_course_revisions
 
 
 User = get_user_model()
@@ -203,6 +208,88 @@ class OpenEdXLmsRefactorTests(TestCase):
         self.assertEqual(updated.json()['course']['modules'][0]['lessons'][0]['id'], lesson['id'])
         self.assertEqual(LessonProgress.objects.get(pk=progress_id).lesson_id, lesson['id'])
         self.assertTrue(LessonProgress.objects.get(pk=progress_id).completed)
+
+    def test_instructor_edits_stay_draft_until_scheduled_publish(self):
+        course = self.create_course(
+            slug='instructor-revision-course',
+            payment_config={
+                'enabled': True,
+                'provider': 'external',
+                'checkout_url': 'https://checkout.example.test/course',
+                'webhook_secret': 'server-secret',
+                'prepared': True,
+            },
+        )
+        instructor = User.objects.create_user(
+            username='course-instructor@example.test',
+            email='course-instructor@example.test',
+            password='Strong-pass-123!',
+            first_name='Course',
+            last_name='Instructor',
+        )
+        CourseInstructor.objects.create(
+            course_id=course['id'],
+            user=instructor,
+            role=CourseInstructor.Role.INSTRUCTOR,
+        )
+        original_title = Course.objects.get(pk=course['id']).title
+
+        self.client.force_login(instructor)
+        detail = self.client.get(f"/api/lms/courses/{course['id']}/")
+        self.assertEqual(detail.status_code, 200, detail.content)
+        self.assertTrue(detail.json()['course']['can_author'])
+        self.assertNotIn(
+            'webhook_secret',
+            detail.json()['course']['payment_config'],
+        )
+
+        staged = self.patch_json(f"/api/lms/courses/{course['id']}/", {
+            'title': 'Instructor staged title',
+            'instructors': [],
+            'payment_config': {
+                'enabled': True,
+                'provider': 'external',
+                'checkout_url': 'https://checkout.example.test/course-v2',
+                'webhook_secret': '',
+                'prepared': True,
+            },
+        })
+        self.assertEqual(staged.status_code, 200, staged.content)
+        self.assertTrue(staged.json()['staged'])
+        live = Course.objects.get(pk=course['id'])
+        self.assertEqual(live.title, original_title)
+        self.assertTrue(live.instructors.filter(pk=instructor.pk).exists())
+
+        revision = CourseRevision.objects.get(course_id=course['id'])
+        self.assertEqual(revision.payload['title'], 'Instructor staged title')
+        self.assertEqual(revision.payload['payment_config']['webhook_secret'], 'server-secret')
+        revision_api = self.client.get(f"/api/lms/courses/{course['id']}/revision/")
+        self.assertEqual(revision_api.status_code, 200, revision_api.content)
+        self.assertNotIn(
+            'webhook_secret',
+            revision_api.json()['payload']['payment_config'],
+        )
+
+        scheduled_for = timezone.now() + timedelta(hours=1)
+        scheduled = self.post_json(
+            f"/api/lms/courses/{course['id']}/revision/publish/",
+            {'action': 'schedule', 'scheduled_for': scheduled_for.isoformat()},
+        )
+        self.assertEqual(scheduled.status_code, 200, scheduled.content)
+        self.assertEqual(scheduled.json()['revision']['status'], 'scheduled')
+        self.assertEqual(Course.objects.get(pk=course['id']).title, original_title)
+
+        published_count = publish_scheduled_course_revisions(
+            now=scheduled_for + timedelta(minutes=1),
+        )
+        self.assertEqual(published_count, 1)
+        live.refresh_from_db()
+        self.assertEqual(live.title, 'Instructor staged title')
+        self.assertEqual(live.payment_config['webhook_secret'], 'server-secret')
+        self.assertTrue(live.instructors.filter(pk=instructor.pk).exists())
+        revision.refresh_from_db()
+        self.assertEqual(revision.status, CourseRevision.Status.PUBLISHED)
+
 
     def test_registration_profile_locks_protected_lesson_and_final_exam_until_complete(self):
         course = self.create_course(
