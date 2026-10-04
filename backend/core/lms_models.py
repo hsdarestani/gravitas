@@ -119,6 +119,44 @@ class CourseInstructor(models.Model):
         ]
 
 
+class CourseRevision(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        SCHEDULED = 'scheduled', 'Scheduled'
+        PUBLISHED = 'published', 'Published'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='revisions')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_course_revisions_authored',
+    )
+    published_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='gravitas_course_revisions_published',
+        blank=True,
+        null=True,
+    )
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    scheduled_for = models.DateTimeField(blank=True, null=True, db_index=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at', '-id']
+        indexes = [
+            models.Index(fields=['course', 'status', '-updated_at'], name='grav_course_rev_state'),
+            models.Index(fields=['status', 'scheduled_for'], name='grav_course_rev_schedule'),
+        ]
+
+    def __str__(self):
+        return f'{self.course} · {self.status} · {self.pk}'
+
+
 class CourseModule(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='modules')
     position = models.PositiveIntegerField(default=1)
