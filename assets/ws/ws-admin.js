@@ -1981,7 +1981,7 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
     });
     wrap.append(form);
   } catch (error) {
-    K.failure(host, 'LMS course', error, () => renderAdminCourseEditor(host, id, { go }));
+    K.failure(host, 'LMS course', error, () => renderAdminCourseEditor(host, id, { go, authorMode }));
   }
 }
 
