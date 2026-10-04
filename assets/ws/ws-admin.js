@@ -1286,18 +1286,20 @@ function courseCoverEditor(course) {
 export async function renderAdminCourseEditor(host, id, { go }) {
   K.loading(host, id === 'new' ? 'New course' : 'Course', { tiles: 0, cards: [8, 4] });
   try {
-    const [courseResult, meta] = await Promise.all([
-      id === 'new' ? Promise.resolve({ course: null, live_course: null, revision: null }) : P.lmsCourseAuthoring(id),
-      P.adminLmsMeta(),
-    ]);
+    const coreAdmin = P.isCoreAdmin();
+    const courseResult = id === 'new'
+      ? { course: null, live_course: null, revision: null, authoring_meta: { categories: [], tags: [] } }
+      : await P.lmsCourseAuthoring(id);
+    const meta = coreAdmin ? await P.adminLmsMeta() : (courseResult.authoring_meta || { categories: [], tags: [] });
     const course = courseResult.course;
     const liveCourse = courseResult.live_course || course;
     const revision = courseResult.revision || null;
-    const enrolled = course ? (await P.adminLmsEnrollments({ course_id: course.id })).enrollments : [];
-    const mediaData = course
+    const enrolled = course && coreAdmin ? (await P.adminLmsEnrollments({ course_id: course.id })).enrollments : [];
+    const mediaData = course && coreAdmin
       ? await P.adminLearningAssets(course.id)
       : { assets: [], groups: [], folders: [], nextcloud: { state: 'unavailable' } };
     const reload = () => renderAdminCourseEditor(host, id, { go });
+    const backPath = coreAdmin ? `${ADMIN}/lms` : (course ? `/workspace/learning/courses/${course.id}` : '/workspace/learning');
 
     const wrap = K.page(host, {
       title: course?.title || 'New course',
@@ -1310,7 +1312,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
           ])
         : 'Course Builder — create the course first, then review a draft before publishing.',
       actions: [
-        link(go, 'LMS Admin', `${ADMIN}/lms`),
+        link(go, coreAdmin ? 'LMS Admin' : 'Back to course', backPath),
         course && liveCourse?.status === 'published' ? link(go, 'View live course', `/workspace/learning/courses/${course.id}`) : null,
       ],
     });
@@ -1495,7 +1497,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       K.field('Learner URL', openedxUrl),
       K.field('Studio URL', openedxStudio),
     ]));
-    if (course) {
+    if (course && coreAdmin) {
       const openedxStatus = statusLine();
       const validate = action('Validate Open edX mapping', async () => {
         validate.disabled = true;
@@ -1520,13 +1522,18 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       const rows = instructorState.map((item) => {
         const role = K.select([['lead', 'Lead'], ['instructor', 'Instructor'], ['assistant', 'Teaching assistant']], item.role);
         role.setAttribute('aria-label', 'Instructor role');
+        role.disabled = !coreAdmin;
         role.addEventListener('change', () => { item.role = role.value; });
-        const remove = K.button('Remove', () => {
-          const index = instructorState.indexOf(item);
-          if (index >= 0) instructorState.splice(index, 1);
-          drawInstructors();
-        }, { tiny: true, danger: true });
-        return K.row({ title: item.name || item.email, meta: item.email, lead: K.avatar(item.name || item.email), actions: [role, remove] });
+        const actions = [role];
+        if (coreAdmin) {
+          const remove = K.button('Remove', () => {
+            const index = instructorState.indexOf(item);
+            if (index >= 0) instructorState.splice(index, 1);
+            drawInstructors();
+          }, { tiny: true, danger: true });
+          actions.push(remove);
+        }
+        return K.row({ title: item.name || item.email, meta: item.email, lead: K.avatar(item.name || item.email), actions });
       });
       instructorList.replaceChildren(rows.length ? K.list(rows) : K.empty('No instructors assigned. Search registered accounts below.'));
     };
@@ -1550,7 +1557,9 @@ export async function renderAdminCourseEditor(host, id, { go }) {
         }))));
       } catch {}
     }, 180);
-    instructorsBox.body.append(instructorList, K.toolbar([instructorFinder.wrap, instructorRole]), instructorResults);
+    instructorsBox.body.append(instructorList);
+    if (coreAdmin) instructorsBox.body.append(K.toolbar([instructorFinder.wrap, instructorRole]), instructorResults);
+    else instructorsBox.body.append(C.note('You can edit the course content and publishing draft. Instructor membership is managed by a Core administrator.'));
 
     const profileBox = section('Enrollment & profile form', 'Fields learners complete after enrolling. Required fields lock protected lessons until done.', 6);
     const registrationHost = K.stack();
@@ -1641,7 +1650,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
 
     /* Media & enrollment (existing courses only) -------------------------- */
     const mediaPane = [];
-    if (course) {
+    if (course && coreAdmin) {
       const currentGroups = (mediaData.groups || []).map((group) => {
         const current = (group.versions || []).find((item) => item.id === group.current_id) || (group.versions || [])[0];
         return { ...group, current };
@@ -1858,7 +1867,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
       ['people', 'Instructors & forms'],
       ['payment', 'Payment'],
       ['integration', 'Open edX'],
-      ...(course ? [['media', 'Media & enrollment']] : []),
+      ...(course && coreAdmin ? [['media', 'Media & enrollment']] : []),
     ];
     const builders = {
       details: () => [K.bento([details.box, publishing.box]), K.bento([publishingWorkflow.box]), K.bento([courseCoverEditor(course)])],
@@ -1928,7 +1937,7 @@ export async function renderAdminCourseEditor(host, id, { go }) {
     const line = statusLine();
     const save = action(course ? 'Save draft' : 'Create draft', null, true);
     save.type = 'submit';
-    form.append(K.foot([save, link(go, 'Back to LMS Admin', `${ADMIN}/lms`)], line));
+    form.append(K.foot([save, link(go, coreAdmin ? 'Back to LMS Admin' : 'Back to course', backPath)], line));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       save.disabled = true;
