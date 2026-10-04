@@ -351,12 +351,25 @@ export function renderCoreTasks(host, { go }) {
     }));
   }
 
-  function renderTaskTree(host, tasks, openCard) {
+  function renderTaskTree(host, tasks, openCard, openHierarchy) {
     const tree = el('div', 'task-tree');
     const hierarchy = taskHierarchy(tasks);
     for (const objective of hierarchy) {
       const objectiveNode = el('section', 'task-tree__objective');
       const objectiveHead = el('div', 'task-tree__objective-head');
+      const objectiveInteractive = objective.id && String(objective.id) !== 'none';
+      if (objectiveInteractive) {
+        objectiveHead.tabIndex = 0;
+        objectiveHead.setAttribute('role', 'button');
+        objectiveHead.setAttribute('aria-label', `Open objective: ${objective.title || 'Untitled objective'}`);
+        objectiveHead.addEventListener('click', () => openHierarchy('objective', objective.id));
+        objectiveHead.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openHierarchy('objective', objective.id);
+          }
+        });
+      }
       const objectiveTaskCount = objective.key_results.reduce((sum, kr) => sum + kr.tasks.length, 0);
       objectiveHead.append(
         el('span', 'task-tree__type', 'Objective'),
@@ -369,6 +382,19 @@ export function renderCoreTasks(host, { go }) {
       for (const kr of objective.key_results) {
         const krNode = el('section', 'task-tree__kr');
         const krHead = el('div', 'task-tree__kr-head');
+        const krInteractive = kr.id && String(kr.id) !== 'none';
+        if (krInteractive) {
+          krHead.tabIndex = 0;
+          krHead.setAttribute('role', 'button');
+          krHead.setAttribute('aria-label', `Open key result: ${kr.title || 'Untitled key result'}`);
+          krHead.addEventListener('click', () => openHierarchy('kr', kr.id));
+          krHead.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              openHierarchy('kr', kr.id);
+            }
+          });
+        }
         krHead.append(
           el('span', 'task-tree__connector'),
           el('span', 'task-tree__type', 'KR'),
@@ -421,7 +447,7 @@ export function renderCoreTasks(host, { go }) {
     host.append(tree);
   }
 
-  function renderTaskGraph(host, tasks, openCard) {
+  function renderTaskGraph(host, tasks, openCard, openHierarchy) {
     const hierarchy = taskHierarchy(tasks);
     if (!hierarchy.length) {
       host.append(el('p', 'v-note', 'No tasks match these filters.'));
@@ -478,15 +504,19 @@ export function renderCoreTasks(host, { go }) {
       svg.append(p);
     };
 
-    const node = ({ x, y: top, width: nodeW, label, title, kind, status = '', taskId = null, meta = '' }) => {
+    const node = ({ x, y: top, width: nodeW, label, title, kind, status = '', taskId = null, hierarchyKind = '', hierarchyId = null, meta = '' }) => {
       const group = document.createElementNS(ns, 'g');
       group.setAttribute('class', `task-graph__node task-graph__node--${kind}`);
       if (status) group.dataset.status = status;
-      if (taskId) {
+      const activate = taskId
+        ? () => openCard(taskId)
+        : hierarchyKind && hierarchyId && String(hierarchyId) !== 'none'
+          ? () => openHierarchy(hierarchyKind, hierarchyId)
+          : null;
+      if (activate) {
         group.setAttribute('role', 'button');
         group.setAttribute('tabindex', '0');
         group.style.cursor = 'pointer';
-        const activate = () => openCard(taskId);
         group.addEventListener('click', activate);
         group.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -531,6 +561,7 @@ export function renderCoreTasks(host, { go }) {
       node({
         x: xObjective, y: objectiveRow.y, width: objectiveW,
         label: 'OBJECTIVE', title: objectiveRow.objective.title, kind: 'objective',
+        hierarchyKind: 'objective', hierarchyId: objectiveRow.objective.id,
         meta: String(objectiveRow.krRows.length) + ' KR',
       });
       for (const krRow of objectiveRow.krRows) {
@@ -538,6 +569,7 @@ export function renderCoreTasks(host, { go }) {
         node({
           x: xKr, y: krRow.y, width: krW,
           label: 'KEY RESULT', title: krRow.kr.title, kind: 'kr',
+          hierarchyKind: 'kr', hierarchyId: krRow.kr.id,
           meta: String(krRow.kr.tasks.length) + ' tasks',
         });
         for (const taskRow of krRow.taskRows) {
@@ -559,6 +591,158 @@ export function renderCoreTasks(host, { go }) {
     const wrap = el('div', 'task-graph-wrap');
     wrap.append(svg);
     host.append(wrap);
+  }
+
+  async function openTaskHierarchyDialog(kind, id, state, reloadBoard) {
+    const isObjective = kind === 'objective';
+    const { dialog, body, head } = makeDialog(isObjective ? 'Loading objective…' : 'Loading key result…');
+    body.append(skeleton(5));
+
+    try {
+      const dashboard = await P.operatingDashboard();
+      const planning = dashboard.planning || {};
+      const objectives = planning.objectives || [];
+      let objective = null;
+      let keyResult = null;
+
+      if (isObjective) {
+        objective = objectives.find((item) => String(item.id) === String(id)) || null;
+      } else {
+        for (const item of objectives) {
+          const match = (item.key_results || []).find((row) => String(row.id) === String(id));
+          if (match) {
+            objective = item;
+            keyResult = match;
+            break;
+          }
+        }
+        if (!keyResult) {
+          keyResult = (planning.key_results || state.key_results || []).find((row) => String(row.id) === String(id)) || null;
+          if (keyResult?.objective_id) {
+            objective = objectives.find((item) => String(item.id) === String(keyResult.objective_id)) || null;
+          }
+        }
+      }
+
+      const entity = isObjective ? objective : keyResult;
+      if (!entity) throw new Error(isObjective ? 'Objective not found.' : 'Key Result not found.');
+
+      head.querySelector('h2').textContent = entity.title || (isObjective ? 'Objective' : 'Key Result');
+      const planningButton = makeButton('Open planning', () => {
+        closeDialog(dialog);
+        go('/workspace/core/planning');
+      });
+      head.insertBefore(planningButton, head.querySelector('button'));
+
+      body.innerHTML = '';
+      const shell = el('div', 'task-hierarchy-dialog');
+      const eyebrow = el('div', 'task-hierarchy-dialog__eyebrow');
+      eyebrow.append(
+        el('span', 'v-badge', isObjective ? 'Objective' : 'Key Result'),
+        entity.health ? el('span', 'v-badge', P.label(entity.health)) : null,
+        entity.status ? el('span', 'v-badge', P.label(entity.status)) : null,
+      );
+      const hero = el('section', 'task-hierarchy-dialog__hero');
+      hero.append(eyebrow);
+      if (!isObjective && objective) {
+        const parent = el('button', 'task-hierarchy-dialog__parent', objective.title || 'Objective');
+        parent.type = 'button';
+        parent.addEventListener('click', () => {
+          closeDialog(dialog);
+          openTaskHierarchyDialog('objective', objective.id, state, reloadBoard);
+        });
+        hero.append(parent);
+      }
+
+      const details = el('div', 'task-hierarchy-dialog__details');
+      const detailRows = [
+        ['Owner', entity.owner?.name || entity.owner?.email || '—'],
+        ['Due', P.formatDate(entity.due_date) || '—'],
+        ['Progress', entity.progress == null ? '—' : `${entity.progress}%`],
+      ];
+      if (!isObjective) {
+        const current = entity.current_value ?? '—';
+        const target = entity.target_value ?? '—';
+        const metric = entity.metric_name || entity.unit || '';
+        detailRows.push(['Metric', metric ? `${current} / ${target} ${entity.unit || ''}`.trim() : `${current} / ${target}`]);
+      }
+      for (const [labelText, value] of detailRows) {
+        const item = el('div', 'task-hierarchy-dialog__detail');
+        item.append(el('small', null, labelText), el('strong', null, String(value || '—')));
+        details.append(item);
+      }
+      hero.append(details);
+
+      if (entity.progress != null) {
+        const progress = el('div', 'task-hierarchy-dialog__progress');
+        const fill = el('i');
+        fill.style.width = `${Math.max(0, Math.min(100, Number(entity.progress) || 0))}%`;
+        progress.append(fill);
+        hero.append(progress);
+      }
+      shell.append(hero);
+
+      const linkedTasks = (state.tasks || []).filter((task) => {
+        if (isObjective) return String(task.trace?.objective?.id) === String(entity.id);
+        return String(task.trace?.key_result?.id) === String(entity.id);
+      });
+
+      if (isObjective) {
+        const krPanel = el('section', 'task-hierarchy-dialog__section');
+        krPanel.append(el('h3', null, 'Key Results'));
+        const krList = el('div', 'task-hierarchy-dialog__list');
+        for (const kr of entity.key_results || []) {
+          const item = el('button', 'task-hierarchy-dialog__item');
+          item.type = 'button';
+          item.append(
+            el('span', null, kr.title || 'Untitled key result'),
+            el('small', 'fl-muted', P.meta([
+              kr.progress == null ? '' : `${kr.progress}%`,
+              kr.owner?.name || kr.owner?.email,
+              P.formatDate(kr.due_date),
+            ])),
+          );
+          item.addEventListener('click', () => {
+            closeDialog(dialog);
+            openTaskHierarchyDialog('kr', kr.id, state, reloadBoard);
+          });
+          krList.append(item);
+        }
+        if (!(entity.key_results || []).length) krList.append(el('p', 'v-note', 'No Key Results under this objective.'));
+        krPanel.append(krList);
+        shell.append(krPanel);
+      }
+
+      const taskPanel = el('section', 'task-hierarchy-dialog__section');
+      taskPanel.append(el('h3', null, `Tasks · ${linkedTasks.length}`));
+      const taskList = el('div', 'task-hierarchy-dialog__list');
+      for (const task of linkedTasks) {
+        const item = el('button', 'task-hierarchy-dialog__item');
+        item.type = 'button';
+        item.dataset.status = task.status;
+        item.append(
+          el('span', null, task.title),
+          el('small', 'fl-muted', P.meta([
+            P.label(task.status),
+            P.label(task.priority),
+            task.owner?.name || task.owner?.email,
+            P.formatDate(task.due_date),
+          ])),
+        );
+        item.addEventListener('click', () => {
+          closeDialog(dialog);
+          openTaskDialog(task.id, state, reloadBoard);
+        });
+        taskList.append(item);
+      }
+      if (!linkedTasks.length) taskList.append(el('p', 'v-note', 'No tasks linked here yet.'));
+      taskPanel.append(taskList);
+      shell.append(taskPanel);
+      body.append(shell);
+    } catch (error) {
+      body.innerHTML = '';
+      body.append(el('p', 'v-note', error?.message || 'This planning item could not be opened.'));
+    }
   }
 
   async function openTaskNotificationsDialog(state, reloadBoard) {
@@ -994,21 +1178,110 @@ export function renderCoreTasks(host, { go }) {
           }
           if (!(data.comments || []).length) commentsPanel.body.append(el('p', 'fl-muted', 'No comments yet.'));
 
-          const commentForm = el('form', 'task-board__form');
+          const commentForm = el('form', 'task-board__form task-comment__form');
           const comment = textarea('', 3);
-          comment.placeholder = 'Add a comment… Type @ to mention someone';
+          comment.placeholder = 'Write a comment. Type @ to mention a teammate…';
           const members = (detailData.members || state.members || []).filter(
             (member) => String(member.id) !== String(P.platform?.user?.user?.id || ''),
           );
-          const mention = el('select', 'v-input task-comment__mention-select');
-          mention.multiple = true;
-          mention.setAttribute('aria-label', 'Mention people');
-          mention.title = 'Select one or more people to mention';
-          for (const member of members) {
-            const option = el('option', null, '@' + (member.name || member.email));
-            option.value = member.id;
-            mention.append(option);
-          }
+          const selectedMentions = new Map();
+          const mentionBox = el('div', 'task-comment__picker');
+          const mentionTop = el('div', 'task-comment__picker-top');
+          const mentionTitle = el('div');
+          mentionTitle.append(
+            el('strong', null, 'Mention teammates'),
+            el('small', 'fl-muted', 'They will be notified in Gravitas, email and Telegram when connected.'),
+          );
+          const togglePicker = makeButton('@ Add people', () => {});
+          togglePicker.classList.add('ws-btn--tiny', 'task-comment__add-people');
+          mentionTop.append(mentionTitle, togglePicker);
+
+          const selectedHost = el('div', 'task-comment__selected');
+          selectedHost.hidden = true;
+          const pickerPanel = el('div', 'task-comment__people-panel');
+          pickerPanel.hidden = true;
+          const pickerSearch = input('search', '');
+          pickerSearch.placeholder = 'Search teammates';
+          pickerSearch.setAttribute('aria-label', 'Search teammates to mention');
+          const pickerResults = el('div', 'task-comment__people-results');
+          pickerPanel.append(pickerSearch, pickerResults);
+
+          const memberLabel = (member) => member.name || member.email || 'Teammate';
+          const initials = (member) => memberLabel(member).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+
+          const drawSelected = () => {
+            selectedHost.replaceChildren();
+            for (const member of selectedMentions.values()) {
+              const chip = el('span', 'task-comment__selected-chip');
+              chip.append(
+                el('span', 'task-comment__avatar', initials(member) || '@'),
+                el('span', null, memberLabel(member)),
+              );
+              const remove = el('button', 'task-comment__chip-remove', '×');
+              remove.type = 'button';
+              remove.setAttribute('aria-label', `Remove ${memberLabel(member)} mention`);
+              remove.addEventListener('click', () => {
+                selectedMentions.delete(String(member.id));
+                drawSelected();
+                drawPeople();
+              });
+              chip.append(remove);
+              selectedHost.append(chip);
+            }
+            selectedHost.hidden = !selectedMentions.size;
+          };
+
+          const selectMention = (member) => {
+            selectedMentions.set(String(member.id), member);
+            drawSelected();
+            drawPeople();
+          };
+
+          const peopleRow = (member, onPick) => {
+            const row = el('button', 'task-comment__person');
+            row.type = 'button';
+            const copy = el('span', 'task-comment__person-copy');
+            copy.append(
+              el('strong', null, memberLabel(member)),
+              member.email && member.email !== member.name ? el('small', 'fl-muted', member.email) : null,
+            );
+            row.append(
+              el('span', 'task-comment__avatar', initials(member) || '@'),
+              copy,
+              el('span', 'task-comment__person-state', selectedMentions.has(String(member.id)) ? '✓' : '+'),
+            );
+            if (selectedMentions.has(String(member.id))) row.dataset.selected = 'true';
+            row.addEventListener('click', () => onPick(member));
+            return row;
+          };
+
+          const drawPeople = () => {
+            const q = pickerSearch.value.trim().toLowerCase();
+            pickerResults.replaceChildren();
+            const matches = members.filter((member) => {
+              const haystack = `${member.name || ''} ${member.email || ''}`.toLowerCase();
+              return !q || haystack.includes(q);
+            }).slice(0, 10);
+            for (const member of matches) {
+              pickerResults.append(peopleRow(member, (picked) => {
+                const key = String(picked.id);
+                if (selectedMentions.has(key)) selectedMentions.delete(key);
+                else selectedMentions.set(key, picked);
+                drawSelected();
+                drawPeople();
+              }));
+            }
+            if (!matches.length) pickerResults.append(el('p', 'v-note', 'No teammate matches that search.'));
+          };
+          pickerSearch.addEventListener('input', drawPeople);
+          togglePicker.addEventListener('click', () => {
+            pickerPanel.hidden = !pickerPanel.hidden;
+            if (!pickerPanel.hidden) {
+              drawPeople();
+              pickerSearch.focus();
+            }
+          });
+
           const mentionSuggestions = el('div', 'task-comment__suggestions');
           mentionSuggestions.hidden = true;
           const drawMentionSuggestions = () => {
@@ -1029,33 +1302,34 @@ export function renderCoreTasks(host, { go }) {
               return;
             }
             for (const member of matches) {
-              const pick = makeButton(member.name || member.email, () => {
+              mentionSuggestions.append(peopleRow(member, (picked) => {
                 const cursor = comment.selectionStart ?? comment.value.length;
                 const start = beforeCursor.lastIndexOf('@');
-                const display = member.name || member.email;
+                const display = memberLabel(picked);
                 comment.value = comment.value.slice(0, start) + '@' + display + ' ' + comment.value.slice(cursor);
                 const nextCursor = start + display.length + 2;
+                selectMention(picked);
                 comment.focus();
                 comment.setSelectionRange(nextCursor, nextCursor);
-                const option = [...mention.options].find((item) => String(item.value) === String(member.id));
-                if (option) option.selected = true;
                 mentionSuggestions.hidden = true;
-              });
-              pick.classList.add('ws-btn--tiny');
-              mentionSuggestions.append(pick);
+              }));
             }
             mentionSuggestions.hidden = false;
           };
           comment.addEventListener('input', drawMentionSuggestions);
           comment.addEventListener('click', drawMentionSuggestions);
+
+          mentionBox.append(mentionTop, selectedHost, pickerPanel);
           const send = makeButton('Comment', () => {}, true);
           send.type = 'submit';
           const commentNote = el('p', 'v-note');
+          const composerActions = el('div', 'task-comment__composer-actions');
+          composerActions.append(send);
           commentForm.append(
             comment,
             mentionSuggestions,
-            field('Mention people', mention, 'Type @ in the comment or select people here. Mentioned teammates get an in-app notification, email and Telegram notification when connected.'),
-            send,
+            mentionBox,
+            composerActions,
             commentNote,
           );
           commentForm.addEventListener('submit', async (event) => {
@@ -1063,10 +1337,10 @@ export function renderCoreTasks(host, { go }) {
             if (!comment.value.trim()) return;
             send.disabled = true;
             try {
-              const mentionUserIds = [...mention.selectedOptions].map((option) => Number(option.value)).filter(Boolean);
+              const mentionUserIds = [...selectedMentions.keys()].map((value) => Number(value)).filter(Boolean);
               await P.addOperatingTaskComment(task.id, comment.value.trim(), mentionUserIds);
               comment.value = '';
-              for (const option of mention.options) option.selected = false;
+              selectedMentions.clear();
               await loadComments();
               await reloadBoard({ keepDialog: true });
             } catch (error) {
@@ -1349,13 +1623,14 @@ export function renderCoreTasks(host, { go }) {
             : 'task-board__surface task-board__surface--tree';
 
         const openCard = (id) => openTaskDialog(id, state, load);
+        const openHierarchy = (kind, id) => openTaskHierarchyDialog(kind, id, state, load);
         if (filters.view === 'tree') {
-          renderTaskTree(board, visible, openCard);
+          renderTaskTree(board, visible, openCard, openHierarchy);
           syncTopScroll();
           return;
         }
         if (filters.view === 'graph') {
-          renderTaskGraph(board, visible, openCard);
+          renderTaskGraph(board, visible, openCard, openHierarchy);
           syncTopScroll();
           return;
         }
