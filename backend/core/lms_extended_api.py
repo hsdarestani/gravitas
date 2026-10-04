@@ -1027,10 +1027,13 @@ def _meta_json():
 
 @require_http_methods(['GET', 'POST', 'PATCH', 'DELETE'])
 def admin_lms_meta(request):
+    if request.method == 'GET':
+        can_read = bool(request.user.is_authenticated and (_admin(request.user) or CourseInstructor.objects.filter(user=request.user).exists()))
+        if not can_read:
+            return _error('course_author_required', 403)
+        return JsonResponse({'ok': True, **_meta_json()})
     if not _admin(request.user):
         return _error('core_admin_required', 403)
-    if request.method == 'GET':
-        return JsonResponse({'ok': True, **_meta_json()})
     data = _json_body(request)
     kind = str(data.get('kind') or '')
     Model = CourseCategory if kind == 'category' else CourseTag if kind == 'tag' else None
