@@ -1048,6 +1048,67 @@ def lms_course_detail(request, course_id):
     if data is None:
         return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
+    # Backward-compatible admin API: existing integrations/tests that PATCH the
+    # canonical endpoint still change the live course.  The Course Builder and
+    # all instructor authoring explicitly use ?authoring=1, which is the safe
+    # draft/preview workflow.
+    if request.GET.get('authoring') != '1':
+        if not _is_core_admin(request.user):
+            return JsonResponse({'ok': False, 'error': 'course_authoring_required'}, status=403)
+        try:
+            with transaction.atomic():
+                course = Course.objects.select_for_update().get(pk=course.pk)
+                for field in ('title', 'summary', 'description', 'currency'):
+                    if field in data:
+                        setattr(course, field, str(data[field] or '').strip() if field == 'title' else str(data[field] or ''))
+                if 'slug' in data:
+                    course.slug = str(data['slug'] or '').strip()
+                if 'access_type' in data:
+                    value = str(data['access_type'])
+                    if value not in Course.AccessType.values:
+                        raise ValueError('invalid_access_type')
+                    course.access_type = value
+                if 'status' in data:
+                    value = str(data['status'])
+                    if value not in Course.Status.values:
+                        raise ValueError('invalid_status')
+                    if value == Course.Status.PUBLISHED and not course.published_at:
+                        course.published_at = timezone.now()
+                    course.status = value
+                if 'price' in data:
+                    course.price = _as_decimal(data.get('price'))
+                if 'certificate_enabled' in data:
+                    course.certificate_enabled = bool(data['certificate_enabled'])
+                if 'cover_image' in data:
+                    course.cover_image = _clean_cover(data.get('cover_image'))
+                _course_relation_fields(course, data)
+                if course.provider == Course.Provider.OPENEDX and not course.openedx_course_key:
+                    raise ValueError('openedx_course_key_required')
+                if course.access_type == Course.AccessType.PAID and (course.price is None or course.price <= 0):
+                    raise ValueError('paid_course_price_required')
+                course.save()
+                _save_course_relations(course, data)
+                has_modules = 'modules' in data
+                has_assessments = 'assessments' in data
+                if has_modules != has_assessments:
+                    raise ValueError('complete_structure_payload_required')
+                if has_modules and has_assessments:
+                    _replace_structure(course, data.get('modules') or [], data.get('assessments') or [])
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        except IntegrityError:
+            return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
+
+        record_activity(
+            layer=ActivityEvent.Layer.LMS,
+            action='course.updated',
+            actor=request.user,
+            object_type='course',
+            object_id=course.pk,
+            detail={'fields': sorted(data.keys())},
+        )
+        return JsonResponse({'ok': True, 'course': _course_json(course, request.user, include_structure=True)})
+
     try:
         with transaction.atomic():
             revision = CourseRevision.objects.select_for_update().filter(course=course).first()
