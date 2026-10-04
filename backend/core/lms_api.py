@@ -1014,6 +1014,21 @@ def lms_course_detail(request, course_id):
                 'live_course': _course_json(course, request.user, include_structure=True),
                 'revision': _revision_meta(revision),
                 'can_author': True,
+                'authoring_meta': {
+                    'categories': [{
+                        'id': item.pk,
+                        'slug': item.slug,
+                        'name': item.name,
+                        'description': item.description,
+                        'position': item.position,
+                        'active': item.active,
+                    } for item in CourseCategory.objects.all()],
+                    'tags': [{
+                        'id': item.pk,
+                        'slug': item.slug,
+                        'name': item.name,
+                    } for item in CourseTag.objects.all()],
+                },
             })
 
         if course.status != Course.Status.PUBLISHED and not author:
