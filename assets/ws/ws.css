@@ -2727,6 +2727,8 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
 .task-comment__mentions { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0; }
 .task-comment__mention { font-size: 10px; }
 .task-comment__mention-select { min-height: 74px; padding: 6px 8px; }
+.task-comment__suggestions { display:flex; flex-wrap:wrap; gap:6px; margin-top:-6px; padding:8px; border:1px solid var(--g-hairline); border-radius:8px; background:var(--g-surface-raised); }
+.task-comment__suggestions[hidden] { display:none; }
 .task-notification-button--unread { border-color: var(--g-accent) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--g-accent) 12%, transparent); }
 .task-notification-list { display: grid; gap: 8px; }
 .task-notification {
