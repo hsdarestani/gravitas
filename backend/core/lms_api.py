@@ -1043,7 +1043,9 @@ def lms_course_detail(request, course_id):
     if denied:
         return denied
     if not author:
-        return JsonResponse({'ok': False, 'error': 'course_author_required'}, status=403)
+        # Keep the historical error contract for users who still have no
+        # authoring role at all. Assigned instructors are handled below.
+        return JsonResponse({'ok': False, 'error': 'core_admin_required'}, status=403)
     data = _payload(request)
     if data is None:
         return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
