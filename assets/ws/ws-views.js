@@ -1188,11 +1188,14 @@ export function renderCoreTasks(host, { go }) {
 
   return guard(holder, 'Core tasks', async () => {
     let state = null;
-    let filters = { q: '', owner: '', priority: '', sort: 'manual' };
+    let filters = { q: '', owner: '', priority: '', sort: 'manual', view: 'tree' };
     let deepLinkedTaskOpened = false;
 
     const load = async ({ keepDialog = false } = {}) => {
-      const data = await P.operatingTaskBoard();
+      const [data, notificationData] = await Promise.all([
+        P.operatingTaskBoard(),
+        P.taskInAppNotifications().catch(() => ({ unread_count: 0, notifications: [] })),
+      ]);
       state = data;
       holder._taskBoardResizeObserver?.disconnect?.();
       holder.innerHTML = '';
@@ -1228,14 +1231,25 @@ export function renderCoreTasks(host, { go }) {
         ['created_asc', 'Created · oldest'],
       ], filters.sort);
       sortFilter.setAttribute('aria-label', 'Sort tasks');
+      const viewFilter = select([
+        ['tree', 'Tree view'],
+        ['board', 'Board view'],
+        ['graph', 'Graph view'],
+      ], filters.view || 'tree');
+      viewFilter.setAttribute('aria-label', 'Task view');
       const count = el('span', 'v-toolbar__count');
+      const notifications = makeButton(
+        notificationData.unread_count ? `Notifications · ${notificationData.unread_count}` : 'Notifications',
+        () => openTaskNotificationsDialog(state, load),
+      );
+      if (notificationData.unread_count) notifications.classList.add('task-notification-button--unread');
       const add = makeButton('New task from KR', () => openCreateDialog(state, load), true);
       if (!data.can_edit) {
         add.disabled = true;
       }
       ownerFilter.setAttribute('aria-label', 'Filter by owner');
       priorityFilter.setAttribute('aria-label', 'Filter by priority');
-      toolbar.append(search, ownerFilter, priorityFilter, sortFilter, count, add);
+      toolbar.append(search, ownerFilter, priorityFilter, sortFilter, viewFilter, count, notifications, add);
 
       const topScroll = el('div', 'task-board__top-scroll');
       topScroll.setAttribute('aria-label', 'Horizontal task board scroll');
@@ -1246,15 +1260,15 @@ export function renderCoreTasks(host, { go }) {
       stickyControls.append(toolbar, topScroll);
       holder.append(stickyControls);
 
-      const board = el('div', 'task-trello-board');
+      const board = el('div', 'task-board__surface');
       board.tabIndex = 0;
       board.setAttribute('role', 'group');
-      board.setAttribute('aria-label', 'Core task board by status');
+      board.setAttribute('aria-label', 'Core tasks');
       holder.append(board);
 
       const syncTopScroll = () => {
         topScrollTrack.style.width = `${Math.max(board.scrollWidth, board.clientWidth)}px`;
-        topScroll.hidden = board.scrollWidth <= board.clientWidth + 1;
+        topScroll.hidden = filters.view !== 'board' || board.scrollWidth <= board.clientWidth + 1;
         if (topScroll.scrollLeft !== board.scrollLeft) topScroll.scrollLeft = board.scrollLeft;
       };
       topScroll.addEventListener('scroll', () => {
@@ -1270,7 +1284,13 @@ export function renderCoreTasks(host, { go }) {
       }
 
       const draw = () => {
-        filters = { q: search.value.trim(), owner: ownerFilter.value, priority: priorityFilter.value, sort: sortFilter.value };
+        filters = {
+          q: search.value.trim(),
+          owner: ownerFilter.value,
+          priority: priorityFilter.value,
+          sort: sortFilter.value,
+          view: viewFilter.value,
+        };
         const q = filters.q.toLowerCase();
         const visible = data.tasks.filter((task) => {
           if (filters.owner && String(task.owner?.id) !== filters.owner) return false;
@@ -1280,6 +1300,23 @@ export function renderCoreTasks(host, { go }) {
         });
         count.textContent = `${visible.length} of ${data.tasks.length}`;
         board.innerHTML = '';
+        board.className = filters.view === 'board'
+          ? 'task-board__surface task-trello-board'
+          : filters.view === 'graph'
+            ? 'task-board__surface task-board__surface--graph'
+            : 'task-board__surface task-board__surface--tree';
+
+        const openCard = (id) => openTaskDialog(id, state, load);
+        if (filters.view === 'tree') {
+          renderTaskTree(board, visible, openCard);
+          syncTopScroll();
+          return;
+        }
+        if (filters.view === 'graph') {
+          renderTaskGraph(board, visible, openCard);
+          syncTopScroll();
+          return;
+        }
 
         for (const [statusValue, statusLabel] of STATUS_COLUMNS) {
           const column = el('section', 'task-trello-column');
@@ -1344,6 +1381,7 @@ export function renderCoreTasks(host, { go }) {
       ownerFilter.addEventListener('change', draw);
       priorityFilter.addEventListener('change', draw);
       sortFilter.addEventListener('change', draw);
+      viewFilter.addEventListener('change', draw);
       draw();
 
       if (!deepLinkedTaskOpened) {
