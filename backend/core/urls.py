@@ -145,6 +145,7 @@ from core.lms_api import (
     lms_course_cover,
     lms_course_detail,
     lms_course_enroll,
+    lms_course_publish_revision,
     lms_courses,
     lms_lesson_progress,
     lms_me,
@@ -384,6 +385,7 @@ urlpatterns = [
     # learner access and authoring is limited to Core owner/admin accounts.
     path('lms/courses/', lms_courses),
     path('lms/courses/<int:course_id>/', lms_course_detail),
+    path('lms/courses/<int:course_id>/publish-revision/', lms_course_publish_revision),
     path('lms/courses/<int:course_id>/cover/', lms_course_cover),
     path('lms/courses/<int:course_id>/enroll/', lms_course_enroll),
     path('lms/me/', lms_me),
