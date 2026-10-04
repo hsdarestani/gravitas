@@ -15,7 +15,9 @@ from .operating_models import (
     OperatingTaskAttachment,
     OperatingTaskChecklistItem,
     OperatingTaskComment,
+    TaskInAppNotification,
     TaskNotificationOutbox,
+    TaskNotificationPreference,
     StrategicObjective,
 )
 from .models import WorkspaceMembership
@@ -114,6 +116,61 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(delivery.task_id, task_id)
         self.assertEqual(delivery.event_type, 'task.updated')
         self.assertIn('Title:', delivery.body)
+
+    def test_comment_mentions_notify_in_app_email_and_telegram(self):
+        task_id = self.create_task('Mentioned task')
+        teammate = User.objects.create_user(
+            username='mention-editor@example.test',
+            email='mention-editor@example.test',
+            password='Strong-pass-123!',
+            first_name='Mention',
+        )
+        WorkspaceMembership.objects.create(
+            workspace=self.workspace,
+            user=teammate,
+            role=WorkspaceMembership.Role.MEMBER,
+        )
+        TaskNotificationPreference.objects.update_or_create(
+            user=self.user,
+            defaults={
+                'email_enabled': True,
+                'telegram_enabled': True,
+                'task_changes_enabled': True,
+                'telegram_chat_id': 987654321,
+            },
+        )
+        self.client.force_login(teammate)
+        response = self.post_json(f'/api/operating/tasks/{task_id}/comments/', {
+            'body': 'Please review this result.',
+            'mention_user_ids': [self.user.pk],
+        })
+        self.assertEqual(response.status_code, 201, response.content)
+        comment = OperatingTaskComment.objects.get(pk=response.json()['comment']['id'])
+        self.assertEqual(list(comment.mentions.values_list('pk', flat=True)), [self.user.pk])
+
+        notice = TaskInAppNotification.objects.get(recipient=self.user)
+        self.assertEqual(notice.event_type, 'task.mentioned')
+        self.assertEqual(notice.task_id, task_id)
+        self.assertFalse(notice.read_at)
+
+        channels = set(
+            TaskNotificationOutbox.objects.filter(
+                recipient=self.user,
+                event_type='task.mentioned',
+            ).values_list('channel', flat=True)
+        )
+        self.assertEqual(
+            channels,
+            {TaskNotificationOutbox.Channel.EMAIL, TaskNotificationOutbox.Channel.TELEGRAM},
+        )
+
+        inbox = self.client.get('/api/task-notifications/in-app/')
+        self.assertEqual(inbox.status_code, 200, inbox.content)
+        self.assertEqual(inbox.json()['unread_count'], 1)
+        marked = self.patch_json('/api/task-notifications/in-app/', {'ids': [notice.pk]})
+        self.assertEqual(marked.status_code, 200, marked.content)
+        self.assertEqual(marked.json()['unread_count'], 0)
+
 
     def test_only_admin_or_owner_can_delete_task(self):
         task_id = self.create_task('Protected delete task')
