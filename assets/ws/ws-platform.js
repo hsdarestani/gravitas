@@ -361,6 +361,9 @@ export const lmsAssessmentAttempt = (id, answers) => call(`/lms/assessments/${id
 });
 export const lmsCreateCourse = (body) => call('/lms/courses/', { method: 'POST', body });
 export const lmsUpdateCourse = (id, body) => call(`/lms/courses/${id}/`, { method: 'PATCH', body });
+export const lmsCourseRevision = (id) => call(`/lms/courses/${id}/revision/`);
+export const lmsSaveCourseRevision = (id, body) => call(`/lms/courses/${id}/revision/`, { method: 'PATCH', body });
+export const lmsPublishCourseRevision = (id, body) => call(`/lms/courses/${id}/revision/publish/`, { method: 'POST', body });
 export const lmsCourseEvent = (id, body) => call(`/lms/courses/${id}/events/`, { method: 'POST', body });
 export const lmsRegistrationProfile = (id) => call(`/lms/courses/${id}/registration-profile/`);
 export const lmsSaveRegistrationProfile = (id, answers) => call(`/lms/courses/${id}/registration-profile/`, { method: 'POST', body: { answers } });
