@@ -637,11 +637,9 @@ export function renderCoreTasks(host, { go }) {
       body.innerHTML = '';
       const shell = el('div', 'task-hierarchy-dialog');
       const eyebrow = el('div', 'task-hierarchy-dialog__eyebrow');
-      eyebrow.append(
-        el('span', 'v-badge', isObjective ? 'Objective' : 'Key Result'),
-        entity.health ? el('span', 'v-badge', P.label(entity.health)) : null,
-        entity.status ? el('span', 'v-badge', P.label(entity.status)) : null,
-      );
+      eyebrow.append(el('span', 'v-badge', isObjective ? 'Objective' : 'Key Result'));
+      if (entity.health) eyebrow.append(el('span', 'v-badge', P.label(entity.health)));
+      if (entity.status) eyebrow.append(el('span', 'v-badge', P.label(entity.status)));
       const hero = el('section', 'task-hierarchy-dialog__hero');
       hero.append(eyebrow);
       if (!isObjective && objective) {
@@ -1241,10 +1239,8 @@ export function renderCoreTasks(host, { go }) {
             const row = el('button', 'task-comment__person');
             row.type = 'button';
             const copy = el('span', 'task-comment__person-copy');
-            copy.append(
-              el('strong', null, memberLabel(member)),
-              member.email && member.email !== member.name ? el('small', 'fl-muted', member.email) : null,
-            );
+            copy.append(el('strong', null, memberLabel(member)));
+            if (member.email && member.email !== member.name) copy.append(el('small', 'fl-muted', member.email));
             row.append(
               el('span', 'task-comment__avatar', initials(member) || '@'),
               copy,
