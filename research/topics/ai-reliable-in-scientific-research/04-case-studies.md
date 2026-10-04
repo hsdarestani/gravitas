@@ -119,7 +119,36 @@ Source: S012.
 
 ---
 
-## Case 6 — Scientific literature assistants: the weak-verifier case
+## Case 6 — The AI Scientist: generation reaches the full paper loop
+
+### Why it matters
+This case changes the scale of the reliability problem.
+
+The system does not automate one isolated scientific task. In machine-learning research it can generate ideas, write code, run experiments, plot and analyse results, write a manuscript and perform automated review.
+
+### Reported result
+The 2026 Nature paper reports that one AI-generated manuscript passed the first round of review for a workshop of a top-tier machine-learning conference. The workshop acceptance rate was 70%.
+
+### Why the domain matters
+Machine-learning research is unusually automation-friendly:
+- experiments are computational;
+- environments can be instrumented;
+- results can often be regenerated cheaply;
+- code can be executed repeatedly.
+
+The same architecture cannot simply be assumed to transfer to wet-lab biology, field science or clinical research.
+
+### Reliability risk
+If generation becomes end-to-end and cheap, review capacity can become the limiting resource. The authors explicitly note risks of burdening review systems and adding noise to the literature.
+
+### Reliability lesson
+Autonomous research makes verification throughput part of scientific infrastructure.
+
+Source: S017.
+
+---
+
+## Case 7 — Scientific literature assistants: the weak-verifier case
 
 ### Why it matters
 This is where users most easily confuse fluency with evidence.
