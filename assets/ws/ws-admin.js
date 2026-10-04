@@ -1230,7 +1230,7 @@ function courseCoverEditor(course) {
     setStatus(status, 'Removing…');
     try {
       const result = await P.lmsUpdateCourse(course.id, { cover_image: '' });
-      current = { ...current, cover_url: result.course?.cover_url || '' };
+      current = { ...current, cover_url: Object.prototype.hasOwnProperty.call(result.revision?.payload || {}, 'cover_image') ? (result.revision.payload.cover_image || '') : (result.course?.cover_url || '') };
       draw();
       remove.hidden = true;
       upload.textContent = 'Upload image';
@@ -1534,7 +1534,7 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
 
     /* Media & enrollment (existing courses only) -------------------------- */
     const mediaPane = [];
-    if (course) {
+    if (course && !authorMode) {
       const currentGroups = (mediaData.groups || []).map((group) => {
         const current = (group.versions || []).find((item) => item.id === group.current_id) || (group.versions || [])[0];
         return { ...group, current };
@@ -1751,7 +1751,7 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
       ['people', 'Instructors & forms'],
       ['payment', 'Payment'],
       ['integration', 'Open edX'],
-      ...(course ? [['media', 'Media & enrollment']] : []),
+      ...(course && !authorMode ? [['media', 'Media & enrollment']] : []),
     ];
     const builders = {
       details: () => [K.bento([details.box, publishing.box]), K.bento([courseCoverEditor(course)])],
