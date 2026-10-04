@@ -21,7 +21,7 @@
 
 import * as api from './ws-api.js?v=20261002-calendar1';
 import * as P from './ws-platform.js?v=20260926-calendar2';
-import * as views from './ws-views.js?v=20261002-dropdown2';
+import * as views from './ws-views.js?v=20261004-hierarchy1';
 import * as meetings from './ws-meetings.js?v=20260926-calendar6';
 import * as assets from './ws-core-assets.js?v=20260926-links1';
 import * as kms from './ws-kms-views.js';
