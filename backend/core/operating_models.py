@@ -491,11 +491,60 @@ class OperatingTaskComment(models.Model):
         related_name='gravitas_operating_task_comments',
     )
     body = models.TextField(max_length=10000)
+    mentions = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='gravitas_operating_task_mentions',
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['created_at', 'id']
+
+
+class TaskInAppNotification(models.Model):
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_task_in_app_notifications',
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='gravitas_task_notifications_authored',
+        blank=True,
+        null=True,
+    )
+    task = models.ForeignKey(
+        OperatingTask,
+        on_delete=models.SET_NULL,
+        related_name='in_app_notifications',
+        blank=True,
+        null=True,
+    )
+    event_key = models.CharField(max_length=120)
+    event_type = models.CharField(max_length=80)
+    title = models.CharField(max_length=300)
+    body = models.TextField(blank=True)
+    payload = models.JSONField(default=dict, blank=True)
+    read_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['recipient', 'event_key'],
+                name='unique_task_in_app_notification',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['recipient', 'read_at', '-created_at'],
+                name='grav_task_inapp_unread',
+            ),
+        ]
 
 
 class OperatingTaskAttachment(models.Model):
