@@ -36,11 +36,19 @@ class CourseCoverTests(TestCase):
 
     def patch_cover(self, value, course=None):
         course = course or self.course
-        return self.client.patch(
+        response = self.client.patch(
             f'/api/lms/courses/{course.pk}/',
             json.dumps({'cover_image': value}),
             content_type='application/json',
         )
+        if response.status_code == 200 and course.status == Course.Status.PUBLISHED:
+            self.assertTrue(response.json().get('staged'))
+            response = self.client.post(
+                f'/api/lms/courses/{course.pk}/revision/publish/',
+                json.dumps({'action': 'publish_now'}),
+                content_type='application/json',
+            )
+        return response
 
     def test_uploaded_cover_is_served_from_a_versioned_url(self):
         response = self.patch_cover(data_uri(PNG))
