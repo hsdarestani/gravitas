@@ -18,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 
 from .operating_models import (
     OperatingTask,
+    TaskInAppNotification,
     TaskNotificationOutbox,
     TaskNotificationPreference,
     WorkStatus,
@@ -158,6 +159,13 @@ def _recipient_ids(task, action, actor, detail):
             old = owner_change.get('from')
             if isinstance(old, dict) and old.get('id'):
                 ids.add(int(old['id']))
+    excluded = set()
+    for value in (detail or {}).get('exclude_user_ids') or []:
+        try:
+            excluded.add(int(value))
+        except (TypeError, ValueError):
+            continue
+    ids -= excluded
     if actor and actor.pk in ids:
         ids.remove(actor.pk)
     return {pk for pk in ids if pk}
@@ -168,7 +176,7 @@ def _preference(user):
     return pref
 
 
-def _enqueue_for_user(user, task, event_key, event_type, subject, body, payload, *, reminder=False):
+def _enqueue_for_user(user, task, event_key, event_type, subject, body, payload, *, reminder=False, actor=None):
     if not user or not user.is_active:
         return 0
     pref = _preference(user)
@@ -179,6 +187,20 @@ def _enqueue_for_user(user, task, event_key, event_type, subject, body, payload,
         return 0
 
     created = 0
+    _, made = TaskInAppNotification.objects.get_or_create(
+        recipient=user,
+        event_key=event_key,
+        defaults={
+            'actor': actor,
+            'task': task,
+            'event_type': event_type,
+            'title': subject[:300],
+            'body': body,
+            'payload': payload,
+        },
+    )
+    created += int(made)
+
     if pref.email_enabled and (user.email or '').strip():
         _, made = TaskNotificationOutbox.objects.get_or_create(
             recipient=user,
@@ -220,7 +242,43 @@ def enqueue_task_event(task, action, actor=None, detail=None):
     recipient_ids = _recipient_ids(task, action, actor, detail or {})
     users = User.objects.filter(pk__in=recipient_ids, is_active=True)
     return sum(
-        _enqueue_for_user(user, task, event_key, action, subject, body, payload)
+        _enqueue_for_user(user, task, event_key, action, subject, body, payload, actor=actor)
+        for user in users
+    )
+
+
+def enqueue_task_mentions(task, actor, mentioned_users, *, comment_id, comment_preview=''):
+    users = [user for user in mentioned_users if user and user.is_active and (not actor or user.pk != actor.pk)]
+    if not users:
+        return 0
+    actor_name = _user_name(actor) if actor else 'Gravitas+'
+    subject = f'You were mentioned: {task.title}'
+    link = _task_url(task.pk)
+    preview = str(comment_preview or '').strip()
+    body = (
+        f'{actor_name} mentioned you in a task comment.\n\n'
+        f'Task: {task.title}\n'
+        + (f'Comment: {preview}\n' if preview else '')
+        + f'\nOpen task: {link}'
+    )
+    payload = {
+        'url': link,
+        'task_id': task.pk,
+        'comment_id': comment_id,
+        'mentioned': True,
+    }
+    event_key = f'mention:{comment_id}:{task.pk}'
+    return sum(
+        _enqueue_for_user(
+            user,
+            task,
+            event_key,
+            'task.mentioned',
+            subject,
+            body,
+            payload,
+            actor=actor,
+        )
         for user in users
     )
 
@@ -389,6 +447,57 @@ def _settings_json(pref):
         'telegram_bot_configured': bot_configured,
         'telegram_connect_url': link,
     }
+
+
+def _in_app_json(row):
+    return {
+        'id': row.pk,
+        'event_type': row.event_type,
+        'title': row.title,
+        'body': row.body,
+        'task_id': row.task_id,
+        'actor': {
+            'id': row.actor_id,
+            'name': _user_name(row.actor),
+        } if row.actor_id else None,
+        'payload': row.payload if isinstance(row.payload, dict) else {},
+        'read': bool(row.read_at),
+        'read_at': row.read_at.isoformat() if row.read_at else None,
+        'created_at': row.created_at.isoformat(),
+    }
+
+
+@require_http_methods(['GET', 'PATCH'])
+def task_in_app_notifications(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+
+    qs = TaskInAppNotification.objects.filter(recipient=request.user).select_related('actor', 'task')
+    if request.method == 'PATCH':
+        try:
+            payload = json.loads(request.body or '{}')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            payload = {}
+        target = qs.filter(read_at__isnull=True)
+        ids = payload.get('ids')
+        if isinstance(ids, list) and not payload.get('all'):
+            clean = []
+            for value in ids:
+                try:
+                    clean.append(int(value))
+                except (TypeError, ValueError):
+                    continue
+            target = target.filter(pk__in=clean)
+        elif not payload.get('all'):
+            return JsonResponse({'ok': False, 'error': 'ids_or_all_required'}, status=400)
+        target.update(read_at=timezone.now())
+
+    rows = list(qs[:50])
+    return JsonResponse({
+        'ok': True,
+        'unread_count': qs.filter(read_at__isnull=True).count(),
+        'notifications': [_in_app_json(row) for row in rows],
+    })
 
 
 @require_http_methods(['GET', 'PATCH'])
