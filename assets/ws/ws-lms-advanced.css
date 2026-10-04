@@ -1109,3 +1109,5 @@
   .flc-tile, .flc-acc__twist, .flc-tab, .flc-quiz__num, .flc-quiz__choice, .flc-quiz__key { transition: none; }
   .flc-tile:hover { transform: none; }
 }
+
+.fl-course-author-bar { justify-content:space-between; gap:14px; margin-bottom:14px; padding:10px 12px; border:1px solid color-mix(in srgb,var(--g-accent) 30%,var(--g-border)); border-radius:12px; background:color-mix(in srgb,var(--g-accent) 6%,var(--g-surface)); }
