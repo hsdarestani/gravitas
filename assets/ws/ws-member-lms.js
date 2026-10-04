@@ -3632,6 +3632,19 @@ export async function renderCourse(host, id, ctx = {}) {
     host.innerHTML = '';
     const wrap = el('div', 'ws-doc ws-doc--wide fl-doc flc');
     host.append(wrap);
+    const viewerId = P.platform?.user?.user?.id;
+    const canAuthor = !!viewerId && (course.instructors || []).some(
+      (item) => String(item.user_id) === String(viewerId),
+    );
+    if (!ctx.lesson && canAuthor) {
+      const authorBar = el('div', 'fl-toolbar fl-course-author-bar');
+      authorBar.append(
+        el('span', 'fl-muted', 'You are an instructor for this course. Edits are saved as a private draft until you publish them.'),
+        action('Edit course', () => go(`${base}/edit`), true),
+      );
+      wrap.append(authorBar);
+    }
+
     const notice = offline ? el('div', 'ws-alert') : null;
     if (notice) {
       notice.append(
