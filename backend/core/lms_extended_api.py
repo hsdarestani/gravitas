@@ -29,6 +29,7 @@ from .lms_models import (
     CourseCategory,
     CourseEnrollment,
     CourseEvent,
+    CourseInstructor,
     CourseRegistrationProfile,
     CourseTag,
     LearningAsset,
