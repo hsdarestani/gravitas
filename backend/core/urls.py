@@ -19,7 +19,7 @@ from core.google_calendar_api import (
 )
 from core.reader_library import reader_library
 from core.topic_progress import topic_progress
-from core.task_notifications import task_notification_settings, telegram_notification_webhook
+from core.task_notifications import task_in_app_notifications, task_notification_settings, telegram_notification_webhook
 from core.support_api import admin_ticket_detail, admin_tickets, member_ticket_detail, member_tickets
 from core.newsletter_admin_api import admin_newsletter, admin_newsletter_subscriber
 from core.lab_api import admin_lab_detail, admin_labs
@@ -284,6 +284,7 @@ urlpatterns = [
     path('analytics/kpi/', kpi_summary),
     path('reader/library/', reader_library),
     path('task-notifications/settings/', task_notification_settings),
+    path('task-notifications/in-app/', task_in_app_notifications),
     path('task-notifications/telegram/webhook/', telegram_notification_webhook),
 
     # Five-layer bootstrap and Layer 2 account home.
