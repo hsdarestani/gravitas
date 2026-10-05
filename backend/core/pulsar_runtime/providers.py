@@ -107,6 +107,13 @@ def _managed_model_configured(prefix):
     )
 
 
+def _provider_name(provider):
+    return str(
+        getattr(provider, 'name', '')
+        or provider.__class__.__name__
+    ).strip().lower()
+
+
 def _provider_fallback_model(provider_name):
     prefix = {
         'cloudflare-workers-ai': 'CLOUDFLARE',
@@ -130,7 +137,7 @@ def _provider_matches(provider, name):
         'anthropic': {'anthropic'},
         'gemini': {'gemini'},
     }
-    return provider.name in aliases.get(name, {name})
+    return _provider_name(provider) in aliases.get(name, {name})
 
 
 def _managed_model(prefix, tier):
@@ -438,7 +445,7 @@ class ModelGateway:
     def status(self):
         return [
             {
-                'provider': provider.name,
+                'provider': _provider_name(provider),
                 'configured': bool(provider.configured()),
             }
             for provider in self.providers
@@ -474,19 +481,20 @@ class ModelGateway:
             try:
                 return provider.complete(**kwargs)
             except PulsarError as exc:
-                errors.append(f'{provider.name}:{exc}')
-                fallback = _provider_fallback_model(provider.name)
+                provider_name = _provider_name(provider)
+                errors.append(f'{provider_name}:{exc}')
+                fallback = _provider_fallback_model(provider_name)
                 if fallback:
                     try:
                         retry_kwargs = dict(kwargs)
                         retry_kwargs['model_override'] = fallback
                         return provider.complete(**retry_kwargs)
                     except PulsarError as fallback_exc:
-                        errors.append(f'{provider.name}:fallback:{fallback_exc}')
+                        errors.append(f'{provider_name}:fallback:{fallback_exc}')
                 if provider_override:
                     break
                 logger.warning(
                     'Pulsar provider %s failed; trying next configured provider',
-                    provider.name,
+                    provider_name,
                 )
         raise PulsarError('pulsar_all_model_providers_failed:' + '|'.join(errors))
