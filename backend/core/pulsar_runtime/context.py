@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.utils.html import strip_tags
 
 from .errors import PulsarPermissionError
-from .profiles import snapshot
+from .profiles import assert_skill_allowed, snapshot
 
 
 @dataclass
@@ -36,11 +36,12 @@ def _resource_text(resource):
 class PulsarContextEngine:
     """Build just-in-time context while live ACLs remain authoritative."""
 
-    def workspace(self, user, question, *, project_id=None, max_resources=8):
+    def workspace(self, user, question, *, project_id=None, skill='research', max_resources=8):
         from core.models import KnowledgeResource, ResearchProject
         from core.operating_models import OperatingTask, WorkStatus
         from core.platform_access import can_view
 
+        assert_skill_allowed(user, skill)
         profile = snapshot(user)
         terms = _terms(question)
         blocks = []
@@ -161,6 +162,7 @@ class PulsarContextEngine:
         )
 
     def learning(self, user, course, *, lesson=None, question='', max_interactions=8):
+        assert_skill_allowed(user, 'learning')
         from core.lms_interaction_api import pulsar_project_context
         from core.lms_models import CourseEnrollment, LearningInteraction
 
