@@ -24,6 +24,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--tier', choices=['fast', 'general', 'deep'])
         parser.add_argument('--model', default=None)
+        parser.add_argument('--provider', choices=['cloudflare', 'openai', 'anthropic', 'gemini'])
         parser.add_argument('--json', action='store_true', dest='as_json')
 
     def handle(self, *args, **options):
@@ -41,6 +42,7 @@ class Command(BaseCommand):
                 temperature=0,
                 tier=item['tier'],
                 model_override=options.get('model'),
+                provider_override=options.get('provider'),
             )
             answer = response.text.strip()
             ok = item['expected'].lower() in answer.lower()
@@ -58,6 +60,7 @@ class Command(BaseCommand):
 
         correct = sum(int(row['ok']) for row in rows)
         result = {
+            'provider_override': options.get('provider'),
             'correct': correct,
             'total': len(rows),
             'accuracy': correct / len(rows) if rows else 0,
