@@ -63,11 +63,12 @@ def assistant_ask(request):
                 operation='synthesis' if package.sources else 'answer',
                 user_id=request.user.pk,
                 workspace_id=str(data.get('workspace_id') or '')[:120] or None,
-                thread_id=str(data.get('thread_id') or '')[:160] or None,
+                thread_id=str(data.get('thread_id') or 'primary')[:160],
                 actor=request.user,
                 metadata={
                     'source_count': len(package.sources),
                     'project_id': package.metadata.get('project_id'),
+                    'turn_input': question,
                 },
             )
             return JsonResponse({
