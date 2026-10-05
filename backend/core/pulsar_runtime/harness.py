@@ -1,15 +1,22 @@
 from .decisions import DecisionRouter
+from .profiles import assert_skill_allowed, snapshot
 from .providers import ModelGateway
 from .skills import SkillRegistry
+from .tools import ToolRegistry
 from .trace import emit
 from .types import HarnessResult, InvocationContext
 
 
 class PulsarHarness:
-    """Shared runtime for every Pulsar surface."""
+    """Shared runtime for every Pulsar surface.
 
-    def __init__(self, *, skills=None, decisions=None, models=None):
+    User memory/profile narrows capabilities. Live object ACLs are still
+    enforced in the context/tool services before any data is read or written.
+    """
+
+    def __init__(self, *, skills=None, tools=None, decisions=None, models=None):
         self.skills = skills or SkillRegistry()
+        self.tools = tools or ToolRegistry()
         self.decisions = decisions or DecisionRouter()
         self.models = models or ModelGateway()
 
@@ -31,17 +38,32 @@ class PulsarHarness:
         workspace_id=None,
         locale=None,
         metadata=None,
+        actor=None,
     ):
         invocation = InvocationContext.create(
             surface=surface,
             thread_id=thread_id,
-            user_id=user_id,
+            user_id=user_id or (getattr(actor, 'pk', None) if actor else None),
             workspace_id=workspace_id,
             locale=locale,
             metadata=metadata,
         )
         skill_def = self.skills.resolve(name=skill, surface=invocation.surface)
-        emit('run.started', invocation, skill=skill_def.name, operation=operation)
+        if skill_def.requires_auth:
+            assert_skill_allowed(actor, skill_def.name)
+        profile = snapshot(actor)
+        allowed_tools = self.tools.allowed_names(
+            skill_name=skill_def.name,
+            profile=profile,
+        )
+        emit(
+            'run.started',
+            invocation,
+            skill=skill_def.name,
+            operation=operation,
+            profile_version=profile.get('version'),
+            allowed_tools=list(allowed_tools),
+        )
 
         selection = self.decisions.select_model(
             skill=skill_def,
@@ -93,4 +115,6 @@ class PulsarHarness:
             skill=skill_def.name,
             run_id=invocation.run_id,
             decision_source=selection.decision_source,
+            tools=allowed_tools,
+            profile_version=int(profile.get('version') or 0),
         )

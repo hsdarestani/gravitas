@@ -15,7 +15,9 @@ from .lms_models import Course
 from .models import ResearchProject, WorkspaceMembership
 from .operating_models import KeyResult, OperatingTask, Priority, TelegramPulsarSession, WorkStatus
 from .platform_runtime_v3 import core_access, ensure_platform_workspaces
-from .pulsar import PLATFORM_CONTEXT, PulsarError, complete, configured
+from .pulsar import PLATFORM_CONTEXT, PulsarError, PulsarPermissionError, complete, configured
+from .pulsar_runtime.profiles import assert_skill_allowed
+from .pulsar_runtime.policy import ActionPolicy
 
 
 logger = logging.getLogger(__name__)
@@ -196,6 +198,7 @@ def _interpret(user, text, ctx):
             skill='project_task',
             operation='interpret',
             user_id=user.pk,
+            actor=user,
         ))
     except PulsarError:
         logger.exception('Telegram Pulsar interpretation failed user_id=%s', user.pk)
@@ -300,7 +303,7 @@ def _kr_question(state, ctx):
     return {'text': '\n'.join(lines)}
 
 
-def _resolve_kr(text, rows, ctx):
+def _resolve_kr(user, text, rows, ctx):
     value = str(text or '').strip().lower()
     for row in rows:
         haystack = f'{row["objective"]} {row["title"]}'.lower()
@@ -317,6 +320,8 @@ def _resolve_kr(text, rows, ctx):
             surface='telegram',
             skill='project_task',
             operation='decision',
+            user_id=user.pk,
+            actor=user,
         ))
         picked = _as_int(payload.get('id'))
         return picked if picked in ctx['kr_ids'] else None
@@ -343,7 +348,7 @@ def _due_question(state, ctx):
     return {'text': '\n'.join(lines)}
 
 
-def _parse_due(text, lang):
+def _parse_due(user, text, lang):
     direct = parse_date(str(text or '').strip())
     if direct:
         return direct.isoformat()
@@ -361,6 +366,8 @@ def _parse_due(text, lang):
             surface='telegram',
             skill='project_task',
             operation='date',
+            user_id=user.pk,
+            actor=user,
         ))
         value = str(payload.get('date') or '')
         return value if parse_date(value) else None
@@ -445,6 +452,7 @@ def _edit(user, draft, instruction, ctx):
             skill='project_task',
             operation='edit',
             user_id=user.pk,
+            actor=user,
         ))
         merged = {**draft, **payload}
         updated = _normalize(merged, user, ctx, instruction)
@@ -458,6 +466,9 @@ def _edit(user, draft, instruction, ctx):
 
 
 def _create(user, draft, ctx):
+    # The Telegram confirmation is explicit user approval, but the server-side
+    # policy remains authoritative and can still deny the side effect.
+    ActionPolicy().decide(user, 'tasks.create', confirmed=True)
     core = ctx['core']
     owner_link = WorkspaceMembership.objects.filter(workspace=core, user_id=draft.get('owner_id')).select_related('user').first()
     owner = owner_link.user if owner_link else None
@@ -547,6 +558,10 @@ def handle_message(user, text):
     if not text:
         return [help_message(lang)]
     try:
+        assert_skill_allowed(user, 'project_task')
+    except PulsarPermissionError:
+        return [{'text': _say(lang, 'دسترسی Pulsar برای مدیریت پروژه و تسک در پروفایل شما غیرفعال است.', 'Pulsar project/task capability is disabled in your profile.')}]
+    try:
         ctx = _context(user)
     except PermissionError:
         return [{'text': _say(lang, 'این اکانت Core Workspace access نداره.', 'This account has no Core Workspace access.')}]
@@ -591,7 +606,7 @@ def handle_message(user, text):
             ids = state.get('kr_option_ids') or []
             rows = [x for x in ctx['key_results'] if x['id'] in ids]
             raw = text.translate(DIGIT_MAP).strip()
-            picked = ids[int(raw) - 1] if raw.isdigit() and 0 < int(raw) <= len(ids) else _resolve_kr(text, rows, ctx)
+            picked = ids[int(raw) - 1] if raw.isdigit() and 0 < int(raw) <= len(ids) else _resolve_kr(user, text, rows, ctx)
             if not picked:
                 return [_kr_question(state, ctx)]
             state['draft']['key_result_id'] = picked
@@ -600,7 +615,7 @@ def handle_message(user, text):
             return messages
         if mode == 'ask_due':
             raw, options = text.translate(DIGIT_MAP).strip(), state.get('due_options') or []
-            due = options[int(raw) - 1] if raw.isdigit() and 0 < int(raw) <= len(options) else _parse_due(text, state_lang)
+            due = options[int(raw) - 1] if raw.isdigit() and 0 < int(raw) <= len(options) else _parse_due(user, text, state_lang)
             if not due:
                 return [_due_question(state, ctx)]
             state['draft']['due_date'] = due

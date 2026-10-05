@@ -60,3 +60,5 @@ class HarnessResult:
     skill: str
     run_id: str
     decision_source: str
+    tools: tuple = ()
+    profile_version: int = 0

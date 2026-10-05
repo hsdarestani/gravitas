@@ -158,6 +158,7 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         models = self.read('backend/core/lms_models.py')
         api = self.read('backend/core/lms_interaction_api.py')
         assistant = self.read('backend/core/assistant_api.py')
+        pulsar_context = self.read('backend/core/pulsar_runtime/context.py')
         urls = self.read('backend/core/urls.py')
         learner = self.read('assets/ws/ws-member-lms.js')
 
@@ -174,8 +175,9 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             'sync_note_to_nextcloud(resource)',
         ):
             self.assertIn(marker, api)
-        self.assertIn('can_view(user, resource)', assistant)
-        self.assertIn('pulsar_workspace_project_context(request.user)', assistant)
+        self.assertIn('PulsarContextEngine().workspace', assistant)
+        self.assertIn('can_view(user, resource)', pulsar_context)
+        self.assertIn('pulsar_workspace_project_context(user)', pulsar_context)
         for marker in (
             "lms/courses/<int:course_id>/interactions/",
             "lms/courses/<int:course_id>/learning-plan/",

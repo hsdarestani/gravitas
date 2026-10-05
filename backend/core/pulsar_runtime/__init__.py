@@ -1,4 +1,4 @@
-from .errors import PulsarDecisionError, PulsarError
+from .errors import PulsarDecisionError, PulsarError, PulsarPermissionError
 from .harness import PulsarHarness
 from .types import HarnessResult
 
@@ -36,6 +36,7 @@ def run_text(
     workspace_id=None,
     locale=None,
     metadata=None,
+    actor=None,
 ):
     return default_harness.run_text(
         system=system,
@@ -50,6 +51,7 @@ def run_text(
         workspace_id=workspace_id,
         locale=locale,
         metadata=metadata,
+        actor=actor,
     )
 
 
@@ -67,6 +69,7 @@ def complete(
     workspace_id=None,
     locale=None,
     metadata=None,
+    actor=None,
 ):
     """Compatibility text-only API used by existing Pulsar callers."""
     return run_text(
@@ -82,6 +85,7 @@ def complete(
         workspace_id=workspace_id,
         locale=locale,
         metadata=metadata,
+        actor=actor,
     ).text
 
 
@@ -90,6 +94,7 @@ __all__ = [
     'HarnessResult',
     'PulsarDecisionError',
     'PulsarError',
+    'PulsarPermissionError',
     'PulsarHarness',
     'complete',
     'configured',
