@@ -745,3 +745,130 @@ class PulsarUserMemoryProfile(models.Model):
     def __str__(self):
         return f'Pulsar memory profile · {self.user}'
 
+class PulsarThread(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = 'active', 'Active'
+        CLOSED = 'closed', 'Closed'
+
+    public_id = models.UUIDField(default=__import__('uuid').uuid4, unique=True, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_threads',
+    )
+    title = models.CharField(max_length=240, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE, db_index=True)
+    primary_surface = models.CharField(max_length=32, blank=True)
+    resource_scope = models.JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_active_at = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        ordering = ['-last_active_at']
+        indexes = [
+            models.Index(fields=['user', 'status', '-last_active_at'], name='pulsar_thread_user_active'),
+        ]
+
+
+class PulsarTurn(models.Model):
+    class Role(models.TextChoices):
+        USER = 'user', 'User'
+        ASSISTANT = 'assistant', 'Assistant'
+        SYSTEM = 'system', 'System'
+        TOOL = 'tool', 'Tool'
+
+    thread = models.ForeignKey(PulsarThread, on_delete=models.CASCADE, related_name='turns')
+    role = models.CharField(max_length=16, choices=Role.choices)
+    surface = models.CharField(max_length=32)
+    skill = models.CharField(max_length=48, blank=True)
+    run_id = models.CharField(max_length=64, blank=True, db_index=True)
+    content = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [
+            models.Index(fields=['thread', '-created_at'], name='pulsar_turn_thread_recent'),
+        ]
+
+
+class PulsarMemoryItem(models.Model):
+    class Kind(models.TextChoices):
+        WORKING = 'working', 'Working'
+        EPISODIC = 'episodic', 'Episodic'
+        SEMANTIC = 'semantic', 'Semantic'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_memories',
+    )
+    thread = models.ForeignKey(
+        PulsarThread,
+        on_delete=models.SET_NULL,
+        related_name='memory_items',
+        blank=True,
+        null=True,
+    )
+    kind = models.CharField(max_length=16, choices=Kind.choices, db_index=True)
+    scope_type = models.CharField(max_length=32, default='global', db_index=True)
+    scope_key = models.CharField(max_length=160, blank=True, db_index=True)
+    memory_key = models.CharField(max_length=200, blank=True)
+    content = models.TextField()
+    source_type = models.CharField(max_length=48, blank=True)
+    source_id = models.CharField(max_length=160, blank=True)
+    confidence = models.FloatField(default=1.0)
+    metadata = models.JSONField(default=dict, blank=True)
+    active = models.BooleanField(default=True, db_index=True)
+    last_verified_at = models.DateTimeField(blank=True, null=True)
+    stale_after = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'kind', 'active', '-updated_at'], name='pulsar_memory_user_kind'),
+            models.Index(fields=['user', 'scope_type', 'scope_key'], name='pulsar_memory_scope'),
+        ]
+
+
+class PulsarRun(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = 'running', 'Running'
+        WAITING_USER = 'waiting_user', 'Waiting for user'
+        WAITING_TIME = 'waiting_time', 'Waiting for time'
+        WAITING_EVENT = 'waiting_event', 'Waiting for event'
+        COMPLETED = 'completed', 'Completed'
+        FAILED = 'failed', 'Failed'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    run_id = models.CharField(max_length=64, unique=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_runs',
+    )
+    thread = models.ForeignKey(
+        PulsarThread,
+        on_delete=models.CASCADE,
+        related_name='runs',
+    )
+    surface = models.CharField(max_length=32)
+    skill = models.CharField(max_length=48)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.RUNNING, db_index=True)
+    state = models.JSONField(default=dict, blank=True)
+    result_summary = models.TextField(blank=True)
+    error_code = models.CharField(max_length=120, blank=True)
+    wake_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'status', '-updated_at'], name='pulsar_run_user_status'),
+        ]
+
