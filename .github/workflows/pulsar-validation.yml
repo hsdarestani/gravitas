@@ -13,11 +13,13 @@ on:
       - 'backend/core/management/commands/evaluate_pulsar_v1.py'
       - 'backend/core/management/commands/report_pulsar_metrics.py'
       - 'backend/core/management/commands/benchmark_pulsar_models.py'
+      - 'backend/core/management/commands/index_pulsar_embeddings.py'
       - 'backend/core/assistant_api.py'
       - 'backend/core/lms_extended_api.py'
       - 'backend/core/models.py'
       - 'backend/core/migrations/0056_pulsar_user_memory_profile.py'
       - 'backend/core/migrations/0057_pulsar_memory_thread_run.py'
+      - 'backend/core/migrations/0058_pulsar_resource_embedding.py'
       - 'backend/core/telegram_pulsar.py'
       - 'backend/core/test_pulsar_*.py'
       - 'backend/core/test_assistant_api.py'
@@ -89,6 +91,7 @@ jobs:
             core.test_pulsar_multi_provider \
             core.test_pulsar_agent \
             core.test_pulsar_agent_api \
+            core.test_pulsar_semantic \
             core.test_telegram_pulsar \
             core.test_assistant_api \
             core.test_lms_advanced_capabilities \
