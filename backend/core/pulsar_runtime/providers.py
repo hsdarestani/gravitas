@@ -100,6 +100,39 @@ def _cloudflare_model(tier):
     )
 
 
+def _managed_model_configured(prefix):
+    return any(
+        _clean_setting(f'PULSAR_{prefix}_MODEL_{tier}')
+        for tier in ('FAST', 'GENERAL', 'DEEP')
+    )
+
+
+def _provider_fallback_model(provider_name):
+    prefix = {
+        'cloudflare-workers-ai': 'CLOUDFLARE',
+        'openai': 'OPENAI',
+        'anthropic': 'ANTHROPIC',
+        'gemini': 'GEMINI',
+    }.get(str(provider_name or '').strip().lower())
+    if prefix:
+        specific = _clean_setting(f'PULSAR_{prefix}_MODEL_FALLBACK')
+        if specific:
+            return specific
+    return _clean_setting('PULSAR_MODEL_FALLBACK')
+
+
+def _provider_matches(provider, name):
+    name = str(name or '').strip().lower()
+    aliases = {
+        'cloudflare': {'cloudflare', 'cloudflare-workers-ai'},
+        'cloudflare-workers-ai': {'cloudflare', 'cloudflare-workers-ai'},
+        'openai': {'openai'},
+        'anthropic': {'anthropic'},
+        'gemini': {'gemini'},
+    }
+    return provider.name in aliases.get(name, {name})
+
+
 def _managed_model(prefix, tier):
     tier = str(tier or 'general').strip().upper()
     return (
@@ -109,7 +142,7 @@ def _managed_model(prefix, tier):
 
 
 class ManagedCloudflareProvider:
-    name = 'cloudflare'
+    name = 'cloudflare-workers-ai'
 
     def configured(self):
         return bool(
@@ -183,7 +216,7 @@ class ManagedOpenAIProvider:
     def configured(self):
         return bool(
             _clean_setting('PULSAR_OPENAI_API_KEY')
-            and _managed_model('OPENAI', 'general')
+            and _managed_model_configured('OPENAI')
         )
 
     def complete(
@@ -242,7 +275,7 @@ class ManagedAnthropicProvider:
     def configured(self):
         return bool(
             _clean_setting('PULSAR_ANTHROPIC_API_KEY')
-            and _managed_model('ANTHROPIC', 'general')
+            and _managed_model_configured('ANTHROPIC')
         )
 
     def complete(
@@ -308,7 +341,7 @@ class ManagedGeminiProvider:
     def configured(self):
         return bool(
             _clean_setting('PULSAR_GEMINI_API_KEY')
-            and _managed_model('GEMINI', 'general')
+            and _managed_model_configured('GEMINI')
         )
 
     def complete(
@@ -416,8 +449,7 @@ class ModelGateway:
             target = str(provider_override).strip().lower()
             matched = [
                 provider for provider in self.providers
-                if provider.name == target
-                or (target == 'cloudflare-workers-ai' and provider.name == 'cloudflare')
+                if _provider_matches(provider, target)
             ]
             if not matched:
                 raise PulsarError('pulsar_provider_not_available')
@@ -427,8 +459,8 @@ class ModelGateway:
         configured = [provider for provider in self.providers if provider.configured()]
         if not pin:
             return configured
-        preferred = [provider for provider in configured if provider.name == pin]
-        rest = [provider for provider in configured if provider.name != pin]
+        preferred = [provider for provider in configured if _provider_matches(provider, pin)]
+        rest = [provider for provider in configured if not _provider_matches(provider, pin)]
         return preferred + rest
 
     def complete(self, *, provider_override=None, **kwargs):
@@ -443,7 +475,7 @@ class ModelGateway:
                 return provider.complete(**kwargs)
             except PulsarError as exc:
                 errors.append(f'{provider.name}:{exc}')
-                fallback = _clean_setting('PULSAR_MODEL_FALLBACK')
+                fallback = _provider_fallback_model(provider.name)
                 if fallback:
                     try:
                         return provider.complete(**kwargs, model_override=fallback)
