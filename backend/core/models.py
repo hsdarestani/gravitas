@@ -3,6 +3,7 @@ import uuid
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from pgvector.django import VectorField
 
 
 class NewsletterSubscriber(models.Model):
@@ -872,5 +873,31 @@ class PulsarRun(models.Model):
         ordering = ['-updated_at']
         indexes = [
             models.Index(fields=['user', 'status', '-updated_at'], name='pulsar_run_user_status'),
+        ]
+
+class PulsarSemanticChunk(models.Model):
+    source_type = models.CharField(max_length=32, db_index=True)
+    source_id = models.CharField(max_length=160, db_index=True)
+    chunk_index = models.PositiveSmallIntegerField(default=0)
+    workspace_id_ref = models.BigIntegerField(blank=True, null=True, db_index=True)
+    project_id_ref = models.BigIntegerField(blank=True, null=True, db_index=True)
+    course_id_ref = models.BigIntegerField(blank=True, null=True, db_index=True)
+    content = models.TextField()
+    content_hash = models.CharField(max_length=64)
+    embedding = VectorField(dimensions=1024, blank=True, null=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    indexed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['source_type', 'source_id', 'chunk_index']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source_type', 'source_id', 'chunk_index'],
+                name='unique_pulsar_semantic_chunk',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['source_type', 'source_id'], name='pulsar_semantic_source'),
+            models.Index(fields=['project_id_ref', 'source_type'], name='pulsar_semantic_project'),
         ]
 
