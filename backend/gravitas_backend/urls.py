@@ -23,6 +23,7 @@ from core.operating_api_v4 import operating_dashboard, milestones, risks, tasks,
 from core.project_cockpit_v2 import project_cockpit
 from core.pulsar_api import public_pulsar_ask
 from core.pulsar_profile_api import pulsar_memory_profile
+from core.pulsar_memory_api import pulsar_memories, pulsar_thread_detail, pulsar_threads
 from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
 from core.research_deliverable_api import project_deliverable_detail
@@ -77,6 +78,9 @@ urlpatterns = [
     path('api/platform/ai/providers/', ai_providers),
     path('api/platform/ai/ask/', assistant_ask),
     path('api/platform/pulsar/profile/', pulsar_memory_profile),
+    path('api/platform/pulsar/threads/', pulsar_threads),
+    path('api/platform/pulsar/threads/<uuid:thread_id>/', pulsar_thread_detail),
+    path('api/platform/pulsar/memories/', pulsar_memories),
     path('api/pulsar/ask/', public_pulsar_ask),
     path('api/platform/ai/providers/<int:provider_id>/', ai_provider_detail),
     path('api/platform/space/tree/', require_research_or_core(space_tree)),
