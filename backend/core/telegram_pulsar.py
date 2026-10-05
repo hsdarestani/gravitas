@@ -12,12 +12,19 @@ from . import operating_api as operating_base
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .lms_models import Course
-from .models import ResearchProject, WorkspaceMembership
+from .models import PulsarTurn, ResearchProject, WorkspaceMembership
 from .operating_models import KeyResult, OperatingTask, Priority, TelegramPulsarSession, WorkStatus
 from .platform_runtime_v3 import core_access, ensure_platform_workspaces
 from .pulsar import PLATFORM_CONTEXT, PulsarError, PulsarPermissionError, complete, configured
 from .pulsar_runtime.profiles import assert_skill_allowed
 from .pulsar_runtime.policy import ActionPolicy
+from .pulsar_runtime.memory import (
+    add_turn,
+    continuity_context,
+    remember,
+    remember_exchange,
+    telegram_thread,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -167,7 +174,7 @@ def _fallback_tasks(text):
     return [{'title': x[:240]} for x in rows[:8]]
 
 
-def _interpret(user, text, ctx):
+def _interpret(user, text, ctx, thread=None):
     if not configured():
         return {'intent': 'create_tasks', 'reply': '', 'tasks': _fallback_tasks(text)}
     system = (
@@ -190,7 +197,11 @@ def _interpret(user, text, ctx):
             user=(
                 f'Current date: {timezone.localdate().isoformat()}\n'
                 f'Current user: {user.pk} · {_name(user)}\n'
-                f'Authorized catalog: {_prompt_context(ctx)}\n\nUser message: {text[:6000]}'
+                + (
+                    f'Cross-surface continuity:\n{continuity_context(thread, user, text)}\n\n'
+                    if thread and continuity_context(thread, user, text) else ''
+                )
+                + f'Authorized catalog: {_prompt_context(ctx)}\n\nUser message: {text[:6000]}'
             ),
             max_tokens=1800,
             temperature=0.1,
@@ -198,6 +209,7 @@ def _interpret(user, text, ctx):
             skill='project_task',
             operation='interpret',
             user_id=user.pk,
+            thread_id=str(thread.public_id) if thread else None,
             actor=user,
         ))
     except PulsarError:
@@ -581,6 +593,7 @@ def handle_message(user, text):
         ])}]
 
     session = _session(user)
+    thread = telegram_thread(user, session)
     state = session.state or {}
     if text.startswith('/new'):
         _store(session, {})
@@ -589,6 +602,14 @@ def handle_message(user, text):
         if not text:
             return [{'text': _say(lang, 'تسک یا لیست کارها رو بفرست.', 'Send a task or list of work items.')}]
         state = {}
+
+    add_turn(
+        thread,
+        role=PulsarTurn.Role.USER,
+        surface='telegram',
+        skill='project_task',
+        content=text,
+    )
 
     if state:
         mode, state_lang = state.get('mode'), state.get('language') or lang
@@ -630,10 +651,25 @@ def handle_message(user, text):
             _store(session, state)
             return messages
 
-    payload = _interpret(user, text, ctx)
+    payload = _interpret(user, text, ctx, thread=thread)
     if payload.get('intent') != 'create_tasks':
         reply = str(payload.get('reply') or '').strip() or _say(lang, 'بگو چه کمکی می‌خوای.', 'Tell me what you need.')
-        return [{'text': reply[:4096]}]
+        add_turn(
+            thread,
+            role=PulsarTurn.Role.ASSISTANT,
+            surface='telegram',
+            skill='project_task',
+            content=reply[:4096],
+        )
+        remember_exchange(
+            user,
+            thread,
+            question=text,
+            answer=reply[:4096],
+            surface='telegram',
+            skill='project_task',
+        )
+        return [{'text': reply[:4096], 'thread_id': str(thread.public_id)}]
 
     candidates = _normalize_many(payload.get('tasks'), user, ctx, text)
     if not candidates:
@@ -648,6 +684,7 @@ def handle_message(user, text):
 
 def handle_callback(user, action):
     session, ctx = _session(user), _context(user)
+    thread = telegram_thread(user, session)
     state = session.state or {}
     lang = state.get('language') or 'en'
     if not state:
@@ -663,9 +700,30 @@ def handle_callback(user, action):
         return [{'text': _say(lang, 'این اکشن معتبر نیست.', 'That action is not valid now.')}]
     task = _create(user, state['draft'], ctx)
     base = settings.PUBLIC_BASE_URL.rstrip('/')
-    created = {'text': _say(
+    created_text = _say(
         lang,
         f'✅ ساخته شد: {task.title}\n{base}/workspace/core/tasks?task={task.pk}',
         f'✅ Created: {task.title}\n{base}/workspace/core/tasks?task={task.pk}',
-    )}
+    )
+    add_turn(
+        thread,
+        role=PulsarTurn.Role.ASSISTANT,
+        surface='telegram',
+        skill='project_task',
+        content=created_text,
+        metadata={'task_id': task.pk, 'event': 'task.created'},
+    )
+    remember(
+        user,
+        kind='episodic',
+        content=f'Pulsar created task “{task.title}” from Telegram after explicit user approval.',
+        thread=thread,
+        scope_type='project' if task.project_id else 'global',
+        scope_key=str(task.project_id or ''),
+        source_type='operating_task',
+        source_id=str(task.pk),
+        confidence=1.0,
+        metadata={'surface': 'telegram', 'task_id': task.pk},
+    )
+    created = {'text': created_text, 'thread_id': str(thread.public_id)}
     return [created, *_next(user, state, ctx, session)]
