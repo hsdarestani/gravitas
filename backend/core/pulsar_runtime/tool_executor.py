@@ -48,6 +48,7 @@ class PulsarToolExecutor:
 
     def execute(self, actor, tool_name, args=None, *, confirmed=False):
         args = dict(args or {})
+        args.setdefault('_tool', tool_name)
         self.policy.decide(actor, tool_name, confirmed=confirmed)
         handler = {
             'lms.read': self._lms_read,
