@@ -62,8 +62,14 @@ class PulsarHarness:
             effective_thread_id = 'primary'
         run = None
         continuity_prefix = ''
-        if effective_thread_id:
-            run_metadata = dict(metadata or {})
+        run_metadata = dict(metadata or {})
+        persist_continuity = run_metadata.get('continuity', True) is not False
+        if operation in {
+            'decision', 'date', 'risk', 'route', 'routing', 'approval',
+            'done_check', 'classify', 'extract',
+        }:
+            persist_continuity = False
+        if effective_thread_id and persist_continuity:
             if workspace_id not in (None, ''):
                 run_metadata.setdefault('workspace_id', workspace_id)
             turn_input = str(run_metadata.get('turn_input') or user)
