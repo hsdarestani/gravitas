@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from .models import Workspace
 from .operating_models import KeyResult, OperatingTask, StrategicObjective
 from .platform_runtime_v3 import ensure_platform_workspaces
 from .pulsar_runtime.errors import PulsarApprovalRequired
@@ -95,7 +96,11 @@ class PulsarTaskActionTests(TestCase):
             email='pulsar-task-other@example.test',
             password='Strong-pass-123!',
         )
-        other_core = ensure_platform_workspaces(other)['core']
+        other_core = Workspace.objects.create(
+            name='Foreign workspace',
+            kind=Workspace.Kind.PERSONAL,
+            owner=other,
+        )
         other_objective = StrategicObjective.objects.create(
             workspace=other_core,
             title='Other objective',
