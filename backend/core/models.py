@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -750,7 +752,7 @@ class PulsarThread(models.Model):
         ACTIVE = 'active', 'Active'
         CLOSED = 'closed', 'Closed'
 
-    public_id = models.UUIDField(default=__import__('uuid').uuid4, unique=True, editable=False)
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
