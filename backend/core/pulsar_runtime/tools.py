@@ -19,7 +19,7 @@ DEFAULT_TOOLS = (
     ToolDefinition('files.read', 'research', 'r0', 'read', 'Read text from ACL-visible project resources.'),
     ToolDefinition('projects.read', 'project_task', 'r0', 'read', 'Read accessible project execution context.'),
     ToolDefinition('tasks.read', 'project_task', 'r0', 'read', 'Read accessible tasks.'),
-    ToolDefinition('tasks.draft', 'project_task', 'r1', 'write', 'Prepare a task draft without committing a side effect.'),
+    ToolDefinition('tasks.draft', 'project_task', 'r1', 'read', 'Prepare a task draft without committing a side effect.'),
     ToolDefinition('tasks.create', 'project_task', 'r2', 'write', 'Create a task after policy/approval checks.'),
 )
 
