@@ -63,6 +63,7 @@ jobs:
           PY="$RUNNER_TEMP/gravitas-pulsar-tests/bin/python"
           "$PY" -m django check
           "$PY" -m django makemigrations --check --dry-run
+          "$PY" -m django benchmark_pulsar_decisions --provider deterministic
 
       - name: Pulsar unit and regression tests
         shell: bash
