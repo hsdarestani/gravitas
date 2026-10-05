@@ -15,7 +15,8 @@ from .lms_models import Course
 from .models import ResearchProject, WorkspaceMembership
 from .operating_models import KeyResult, OperatingTask, Priority, TelegramPulsarSession, WorkStatus
 from .platform_runtime_v3 import core_access, ensure_platform_workspaces
-from .pulsar import PLATFORM_CONTEXT, PulsarError, complete, configured
+from .pulsar import PLATFORM_CONTEXT, PulsarError, PulsarPermissionError, complete, configured
+from .pulsar_runtime.profiles import assert_skill_allowed
 
 
 logger = logging.getLogger(__name__)
@@ -552,6 +553,10 @@ def handle_message(user, text):
     text, lang = str(text or '').strip(), _lang(text)
     if not text:
         return [help_message(lang)]
+    try:
+        assert_skill_allowed(user, 'project_task')
+    except PulsarPermissionError:
+        return [{'text': _say(lang, 'دسترسی Pulsar برای مدیریت پروژه و تسک در پروفایل شما غیرفعال است.', 'Pulsar project/task capability is disabled in your profile.')}]
     try:
         ctx = _context(user)
     except PermissionError:
