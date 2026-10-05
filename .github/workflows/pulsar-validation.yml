@@ -8,6 +8,7 @@ on:
       - 'backend/core/pulsar_profile_api.py'
       - 'backend/core/pulsar_memory_api.py'
       - 'backend/core/pulsar_agent_api.py'
+      - 'backend/core/pulsar_task_service.py'
       - 'backend/core/pulsar_schedule_api.py'
       - 'backend/core/pulsar_runtime/**'
       - 'backend/core/pulsar_evalset.py'
@@ -96,6 +97,7 @@ jobs:
             core.test_pulsar_agent_api \
             core.test_pulsar_semantic \
             core.test_pulsar_scheduler \
+            core.test_pulsar_task_actions \
             core.test_telegram_pulsar \
             core.test_assistant_api \
             core.test_lms_advanced_capabilities \
