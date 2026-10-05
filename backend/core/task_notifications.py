@@ -233,6 +233,40 @@ def _enqueue_for_user(user, task, event_key, event_type, subject, body, payload,
     return created
 
 
+def enqueue_pulsar_reminder(run):
+    """Queue a scheduled Pulsar reminder through the existing delivery outbox."""
+    user = run.user
+    state = run.state if isinstance(run.state, dict) else {}
+    reminder = state.get('reminder') if isinstance(state.get('reminder'), dict) else {}
+    title = str(reminder.get('title') or 'Pulsar reminder').strip()[:300]
+    message = str(reminder.get('message') or run.input_text or '').strip()[:12000]
+    if not message:
+        return 0
+
+    thread_key = run.thread.thread_key if run.thread_id else 'primary'
+    url = settings.PUBLIC_BASE_URL.rstrip('/') + '/workspace'
+    payload = {
+        'url': url,
+        'pulsar_run_id': run.run_id,
+        'thread_key': thread_key,
+        'surface': run.surface,
+        'skill': run.skill,
+        'scheduled_for': run.wait_until.isoformat() if run.wait_until else None,
+    }
+    event_key = f'pulsar-reminder:{run.run_id}'
+    body = f'{message}\n\nOpen Gravitas+: {url}'
+    return _enqueue_for_user(
+        user,
+        None,
+        event_key,
+        'pulsar.reminder',
+        title,
+        body,
+        payload,
+        reminder=True,
+    )
+
+
 def enqueue_task_event(task, action, actor=None, detail=None):
     copy = _event_copy(task, action, actor, detail or {})
     if not copy:

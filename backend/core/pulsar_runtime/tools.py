@@ -14,12 +14,15 @@ class ToolDefinition:
 DEFAULT_TOOLS = (
     ToolDefinition('lms.read', 'learning', 'r0', 'read', 'Read course, lesson and learner progress context.'),
     ToolDefinition('learning.notes', 'learning', 'r1', 'write_interactions', 'Create learner notes/highlights or draft interactions.'),
+    ToolDefinition('learning.reminders', 'learning', 'r1', 'write_interactions', 'Schedule a Pulsar learning reminder for the current user.'),
     ToolDefinition('research.read', 'research', 'r0', 'read', 'Read research projects and ACL-visible resources.'),
     ToolDefinition('research.search', 'research', 'r0', 'read', 'Search ACL-visible research knowledge.'),
+    ToolDefinition('research.reminders', 'research', 'r1', 'write', 'Schedule a Pulsar research reminder for the current user.'),
     ToolDefinition('files.read', 'research', 'r0', 'read', 'Read text from ACL-visible project resources.'),
     ToolDefinition('projects.read', 'project_task', 'r0', 'read', 'Read accessible project execution context.'),
     ToolDefinition('tasks.read', 'project_task', 'r0', 'read', 'Read accessible tasks.'),
     ToolDefinition('tasks.draft', 'project_task', 'r1', 'read', 'Prepare a task draft without committing a side effect.'),
+    ToolDefinition('project.reminders', 'project_task', 'r1', 'write', 'Schedule a Pulsar project or task reminder for the current user.'),
     ToolDefinition('tasks.create', 'project_task', 'r2', 'write', 'Create a task after policy/approval checks.'),
 )
 
