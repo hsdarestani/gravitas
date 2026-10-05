@@ -511,9 +511,25 @@ export async function assistantProviders() {
   }
 }
 
+const PULSAR_THREAD_KEY = 'gravitas.pulsar.thread.v1';
+
+function pulsarThreadId() {
+  try { return localStorage.getItem(PULSAR_THREAD_KEY) || ''; } catch { return ''; }
+}
+
+function rememberPulsarThread(id) {
+  if (!id) return;
+  try { localStorage.setItem(PULSAR_THREAD_KEY, String(id)); } catch {}
+}
+
 export async function ask(question) {
   try {
-    return await request('/platform/ai/ask/', { method: 'POST', body: { question } });
+    const data = await request('/platform/ai/ask/', {
+      method: 'POST',
+      body: { question, thread_id: pulsarThreadId() || null },
+    });
+    rememberPulsarThread(data.thread_id);
+    return data;
   } catch {
     // Fall through to the local answer rather than showing a dead end.
   }
