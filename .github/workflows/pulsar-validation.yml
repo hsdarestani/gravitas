@@ -72,4 +72,5 @@ jobs:
           export PYTHONPATH="$GITHUB_WORKSPACE/backend"
           export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
           PY="$RUNNER_TEMP/gravitas-pulsar-tests/bin/python"
-          "$PY" -m django test             core.test_pulsar_runtime             core.test_pulsar_context_profile             core.test_telegram_pulsar             core.test_assistant_api             core.test_lms_advanced_capabilities
+          "$PY" -m django test             core.test_pulsar_runtime             core.test_pulsar_context_profile             core.test_telegram_pulsar             core.test_assistant_api             core.test_lms_advanced_capabilities \
+            core.test_lms_openedx_refactor
