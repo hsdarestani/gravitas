@@ -39,9 +39,18 @@ from .lms_models import (
     SourceConnection,
 )
 from .lms_interaction_api import pulsar_project_context
+from .models import PulsarRun, PulsarTurn
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
 from .pulsar import PulsarError, PulsarPermissionError, run_text
 from .pulsar_runtime.context import PulsarContextEngine
+from .pulsar_runtime.memory import (
+    add_turn,
+    continuity_context,
+    finish_run,
+    remember_exchange,
+    resolve_thread,
+    start_run,
+)
 
 
 ZOTERO_ROOT = 'https://api.zotero.org'
@@ -477,6 +486,20 @@ def lms_ai_tutor(request, course_id):
         data.get('source_keys') if isinstance(data.get('source_keys'), list) else [],
     )
     try:
+        thread = resolve_thread(
+            request.user,
+            thread_id=data.get('thread_id'),
+            surface='lms',
+            resource_scope={'course_id': course.pk},
+            resume_recent=not bool(data.get('thread_id')),
+        )
+        continuity = continuity_context(
+            thread,
+            request.user,
+            question,
+            scope_type='course',
+            scope_key=str(course.pk),
+        )
         package = PulsarContextEngine().learning(
             request.user,
             course,
@@ -486,17 +509,26 @@ def lms_ai_tutor(request, course_id):
     except PulsarPermissionError as exc:
         return _error(str(exc), 403)
 
+    add_turn(
+        thread,
+        role=PulsarTurn.Role.USER,
+        surface='lms',
+        skill='learning',
+        content=question,
+        metadata={'course_id': course.pk, 'lesson_id': lesson.pk if lesson else None},
+    )
+
     source_text = '\n'.join(
         f"- {row['title']} | {', '.join(row['creators'])} | {row['date']} | {row['abstract'][:1000]}"
         for row in sources
     )
-    history = []
-    for turn in (data.get('history') if isinstance(data.get('history'), list) else [])[-8:]:
+    browser_history = []
+    for turn in (data.get('history') if isinstance(data.get('history'), list) else [])[-4:]:
         if isinstance(turn, dict):
             role = str(turn.get('role') or '')[:20]
-            text = str(turn.get('content') or '').strip()[:1400]
+            text = str(turn.get('content') or '').strip()[:1000]
             if role and text:
-                history.append(f'{role}: {text}')
+                browser_history.append(f'{role}: {text}')
 
     learning_config = course.learning_config if isinstance(course.learning_config, dict) else {}
     guidance_mode = str(learning_config.get('ai_guidance_mode') or 'guided').strip().lower()
@@ -522,6 +554,8 @@ def lms_ai_tutor(request, course_id):
         'You are a learning and research assistant, not a generic answer bot. '
         'Teach rather than merely answer. Use the language of the learner. '
         'Base factual claims on the supplied ACL-checked course, learner, project and selected-source context. '
+        'Thread history and memory are continuity aids, not source-of-truth. '
+        'If memory conflicts with current course/project context, current context wins. '
         'When context is insufficient, say so and suggest what to inspect next. '
         + guidance_rule + ' '
         'Never invent a Zotero source or claim the learner completed work they did not complete. '
@@ -529,10 +563,11 @@ def lms_ai_tutor(request, course_id):
         + (f'Instructor-specific guidance: {instructor_prompt}' if instructor_prompt else '')
     )
     prompt = (
-        package.text
+        (f'Cross-surface continuity:\n{continuity}\n\n' if continuity else '')
+        + package.text
         + (f'\nLearner selected sources:\n{source_text}\n' if source_text else '')
-        + (f'\nRecent tutor conversation:\n' + '\n'.join(history) + '\n' if history else '')
-        + f'\nLearner question: {question}'
+        + (f'\nLocal browser history:\n' + '\n'.join(browser_history) + '\n' if browser_history else '')
+        + f'\nCurrent learner question: {question}'
     )
     try:
         result = run_text(
@@ -543,7 +578,7 @@ def lms_ai_tutor(request, course_id):
             surface='lms',
             skill='learning',
             operation='tutor',
-            thread_id=str(data.get('thread_id') or '')[:160] or None,
+            thread_id=str(thread.public_id),
             user_id=request.user.pk,
             workspace_id=f'course:{course.pk}',
             actor=request.user,
@@ -552,12 +587,49 @@ def lms_ai_tutor(request, course_id):
                 'lesson_id': lesson.pk if lesson else None,
                 'source_count': len(sources),
                 'context_source_count': len(package.sources),
+                'continuity': bool(continuity),
             },
         )
     except PulsarPermissionError as exc:
         return _error(str(exc), 403)
     except PulsarError as exc:
         return _error(str(exc), 503)
+
+    start_run(
+        request.user,
+        thread,
+        run_id=result.run_id,
+        surface='lms',
+        skill=result.skill,
+        state={
+            'course_id': course.pk,
+            'lesson_id': lesson.pk if lesson else None,
+            'source_count': len(sources),
+        },
+    )
+    finish_run(
+        result.run_id,
+        status=PulsarRun.Status.COMPLETED,
+        result_summary=result.text,
+    )
+    add_turn(
+        thread,
+        role=PulsarTurn.Role.ASSISTANT,
+        surface='lms',
+        skill=result.skill,
+        run_id=result.run_id,
+        content=result.text,
+        metadata={'course_id': course.pk, 'lesson_id': lesson.pk if lesson else None},
+    )
+    remember_exchange(
+        request.user,
+        thread,
+        question=question,
+        answer=result.text,
+        surface='lms',
+        skill=result.skill,
+        run_id=result.run_id,
+    )
 
     project_sources = [
         row for row in package.sources
@@ -577,6 +649,7 @@ def lms_ai_tutor(request, course_id):
             'answer_chars': len(result.text),
             'guidance_mode': guidance_mode,
             'pulsar_run_id': result.run_id,
+            'pulsar_thread_id': str(thread.public_id),
             'pulsar_skill': result.skill,
             'model_tier': result.model_tier,
         },
@@ -588,6 +661,7 @@ def lms_ai_tutor(request, course_id):
         'project_sources': project_sources,
         'provider': result.provider,
         'run_id': result.run_id,
+        'thread_id': str(thread.public_id),
         'skill': result.skill,
         'model_tier': result.model_tier,
     })
