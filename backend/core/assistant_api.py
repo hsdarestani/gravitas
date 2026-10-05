@@ -1,58 +1,17 @@
 import json
-import re
 
-from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 
-from .lms_interaction_api import pulsar_workspace_project_context
-from .models import KnowledgeResource
-from .platform_access import can_view
-from .pulsar import PLATFORM_CONTEXT, PulsarError, complete, configured
-
-
-def _terms(question):
-    return {
-        value.lower()
-        for value in re.findall(r"[\w'-]{3,}", question, flags=re.UNICODE)
-        if value.lower() not in {
-            'about', 'from', 'have', 'that', 'these', 'this',
-            'what', 'when', 'where', 'which', 'with', 'your',
-        }
-    }
-
-
-def _accessible_notes(user, question):
-    terms = _terms(question)
-    candidates = KnowledgeResource.objects.filter(
-        Q(owner=user)
-        | Q(workspace__owner=user)
-        | Q(workspace__memberships__user=user),
-        kind=KnowledgeResource.Kind.NOTE,
-    ).distinct().order_by('-updated_at')[:250]
-
-    ranked = []
-    for resource in candidates:
-        # Workspace membership is only the coarse candidate filter. Object and
-        # project ACLs remain authoritative for every piece of Pulsar context.
-        if not can_view(user, resource):
-            continue
-        haystack = f'{resource.title}\n{resource.body}'.lower()
-        score = sum(
-            3 if term in resource.title.lower() else 1
-            for term in terms
-            if term in haystack
-        )
-        if score:
-            ranked.append((score, resource))
-    ranked.sort(key=lambda row: (-row[0], -row[1].updated_at.timestamp()))
-    return [resource for _, resource in ranked[:8]]
+from .pulsar import PLATFORM_CONTEXT, PulsarError, PulsarPermissionError, configured, run_text
+from .pulsar_runtime.context import PulsarContextEngine
 
 
 @require_POST
 def assistant_ask(request):
     if not request.user.is_authenticated:
         return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+
     try:
         data = json.loads(request.body or '{}')
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -61,94 +20,86 @@ def assistant_ask(request):
     if not question:
         return JsonResponse({'ok': False, 'error': 'question_required'}, status=400)
 
-    matches = _accessible_notes(request.user, question)
-    sources = [
-        {
-            'id': str(resource.pk),
-            'title': resource.title,
-            'href': f'/workspace/page/{resource.pk}',
-        }
-        for resource in matches
-    ]
-    context_rows = []
-    for resource in matches:
-        text = re.sub(r'\s+', ' ', resource.body or '').strip()
-        context_rows.append(
-            f'[{resource.title}] {text[:1800]}' if text else f'[{resource.title}]'
+    surface = str(data.get('surface') or 'research').strip().lower()
+    project_id = data.get('project_id')
+    skill = 'project_task' if surface in {'core', 'projects', 'project'} else 'research'
+    surface = 'core' if skill == 'project_task' else 'research'
+
+    try:
+        package = PulsarContextEngine().workspace(
+            request.user,
+            question,
+            project_id=project_id,
         )
-    private_context = '\n\n'.join(context_rows)
-    project_context, project_sources = pulsar_workspace_project_context(request.user)
+    except PulsarPermissionError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=403)
 
     if configured():
         try:
-            answer = complete(
+            result = run_text(
                 system=(
                     'You are Pulsar inside the authenticated Gravitas+ workspace. '
+                    'Pulsar is a multi-capability learning and research assistant. '
                     'Answer in the same language as the user. Be concise, precise and useful. '
-                    'For claims about the user\'s own work, use only the private context supplied below; '
-                    'do not invent notes, projects, files or results. The project context below exists only because '
-                    'the user explicitly granted Pulsar access, and the server has rechecked the user\'s live ACL. '
-                    'If the private context is insufficient, '
-                    'say that clearly. You may explain documented Gravitas+ platform capabilities from the '
-                    'platform context. Mention source titles naturally when private notes support the answer.\n\n'
+                    'For claims about the user\'s own work, use only the supplied ACL-checked context. '
+                    'Do not invent notes, projects, files, tasks or results. '
+                    'If the context is insufficient, say that clearly. '
+                    'Mention source titles naturally when they support the answer.\n\n'
                     + PLATFORM_CONTEXT
                 ),
                 user=(
                     f'Question: {question}\n\n'
                     + (
-                        'Accessible private note context:\n' + private_context
-                        if private_context
-                        else 'Accessible private note context: no matching notes were found.'
-                    )
-                    + (
-                        '\n\nExplicitly granted project context:\n' + project_context
-                        if project_context
-                        else '\n\nExplicitly granted project context: none.'
+                        'ACL-checked Gravitas context:\n' + package.text
+                        if package.text
+                        else 'ACL-checked Gravitas context: no matching material was found.'
                     )
                 ),
-                max_tokens=1100,
+                max_tokens=1200,
+                temperature=0.2,
+                surface=surface,
+                skill=skill,
+                operation='synthesis' if package.sources else 'answer',
+                user_id=request.user.pk,
+                workspace_id=str(data.get('workspace_id') or '')[:120] or None,
+                thread_id=str(data.get('thread_id') or '')[:160] or None,
+                actor=request.user,
+                metadata={
+                    'source_count': len(package.sources),
+                    'project_id': package.metadata.get('project_id'),
+                },
             )
             return JsonResponse({
                 'ok': True,
                 'grounded': True,
-                'answer': answer,
-                'sources': [*sources, *project_sources],
-                'provider': 'cloudflare-workers-ai',
+                'answer': result.text,
+                'sources': package.sources,
+                'provider': result.provider,
+                'run_id': result.run_id,
+                'skill': result.skill,
+                'model_tier': result.model_tier,
             })
+        except PulsarPermissionError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=403)
         except PulsarError:
             pass
 
-    if not matches:
-        if project_sources:
-            return JsonResponse({
-                'ok': True,
-                'grounded': True,
-                'answer': (
-                    'I can see project material you explicitly granted to Pulsar, but the managed AI service '
-                    'is temporarily unavailable, so I cannot synthesize it safely right now.'
-                ),
-                'sources': project_sources,
-                'provider': 'fallback',
-            })
+    if not package.text:
         return JsonResponse({
             'ok': True,
             'grounded': True,
             'answer': (
-                'I could not find this in the workspace pages you can access, '
+                'I could not find this in the Gravitas material you are allowed to access, '
                 'and the managed AI service is temporarily unavailable.'
             ),
             'sources': [],
             'provider': 'fallback',
         })
 
-    excerpts = []
-    for resource in matches[:3]:
-        text = re.sub(r'\s+', ' ', resource.body or '').strip()
-        excerpts.append(f'{resource.title}: {text[:280]}' if text else resource.title)
     return JsonResponse({
         'ok': True,
         'grounded': True,
-        'answer': 'I found the following in your pages:\n\n' + '\n\n'.join(excerpts),
-        'sources': sources,
+        'answer': 'I found the following in your accessible Gravitas context:\n\n' + package.text[:2400],
+        'sources': package.sources,
         'provider': 'fallback',
     })
