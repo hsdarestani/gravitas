@@ -336,6 +336,11 @@ class PulsarAgent:
             tool = str(pending.get('tool') or '')
             args = pending.get('args') if isinstance(pending.get('args'), dict) else {}
             original = str(pending.get('message') or message or '')
+            definition = self.executor.tools.get(tool)
+            if definition is None:
+                self._clear_pending(thread)
+                raise PulsarPermissionError('pending_pulsar_tool_unknown')
+            assert_skill_allowed(actor, definition.skill)
             result = self.executor.execute(
                 actor,
                 tool,
@@ -347,20 +352,25 @@ class PulsarAgent:
                 actor,
                 message=original,
                 surface=surface,
-                skill_name=skill_def.name,
+                skill_name=definition.skill,
                 thread_id=thread_id,
                 metadata=metadata,
                 tool_result=result,
             )
 
-        plan, _ = self._plan(
+        try:
+            plan, _ = self._plan(
             actor,
             message=message,
             surface=surface,
             skill_name=skill_def.name,
             thread_id=thread_id,
-            metadata=metadata,
-        )
+                metadata=metadata,
+            )
+        except PulsarPermissionError:
+            raise
+        except PulsarError:
+            plan = {'action': 'answer'}
         if plan.get('action') != 'tool':
             return self._final_answer(
                 actor,
