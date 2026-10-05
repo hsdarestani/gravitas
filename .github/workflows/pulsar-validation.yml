@@ -1,0 +1,59 @@
+name: Pulsar Validation
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/pulsar.py'
+      - 'backend/core/pulsar_api.py'
+      - 'backend/core/pulsar_runtime/**'
+      - 'backend/core/telegram_pulsar.py'
+      - 'backend/core/test_pulsar_runtime.py'
+      - 'backend/core/test_telegram_pulsar.py'
+      - 'backend/gravitas_backend/settings.py'
+      - '.github/workflows/pulsar-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/core/pulsar.py'
+      - 'backend/core/pulsar_api.py'
+      - 'backend/core/pulsar_runtime/**'
+      - 'backend/core/telegram_pulsar.py'
+      - 'backend/core/test_pulsar_runtime.py'
+      - 'backend/core/test_telegram_pulsar.py'
+      - 'backend/gravitas_backend/settings.py'
+      - '.github/workflows/pulsar-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/gravitas-pulsar-tests"
+          "$RUNNER_TEMP/gravitas-pulsar-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+
+      - name: Django checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          PY="$RUNNER_TEMP/gravitas-pulsar-tests/bin/python"
+          "$PY" -m django check
+
+      - name: Pulsar unit and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          PY="$RUNNER_TEMP/gravitas-pulsar-tests/bin/python"
+          "$PY" -m django test             core.test_pulsar_runtime             core.test_telegram_pulsar

@@ -192,6 +192,10 @@ def _interpret(user, text, ctx):
             ),
             max_tokens=1800,
             temperature=0.1,
+            surface='telegram',
+            skill='project_task',
+            operation='interpret',
+            user_id=user.pk,
         ))
     except PulsarError:
         logger.exception('Telegram Pulsar interpretation failed user_id=%s', user.pk)
@@ -310,6 +314,9 @@ def _resolve_kr(text, rows, ctx):
             user=f'User reply: {text[:500]}\nKRs: {json.dumps(ctx["key_results"], ensure_ascii=False)}',
             max_tokens=100,
             temperature=0,
+            surface='telegram',
+            skill='project_task',
+            operation='decision',
         ))
         picked = _as_int(payload.get('id'))
         return picked if picked in ctx['kr_ids'] else None
@@ -351,6 +358,9 @@ def _parse_due(text, lang):
             user=f'Current date: {timezone.localdate().isoformat()}\nLanguage: {lang}\nExpression: {text[:250]}',
             max_tokens=100,
             temperature=0,
+            surface='telegram',
+            skill='project_task',
+            operation='date',
         ))
         value = str(payload.get('date') or '')
         return value if parse_date(value) else None
@@ -431,6 +441,10 @@ def _edit(user, draft, instruction, ctx):
             ),
             max_tokens=1000,
             temperature=.05,
+            surface='telegram',
+            skill='project_task',
+            operation='edit',
+            user_id=user.pk,
         ))
         merged = {**draft, **payload}
         updated = _normalize(merged, user, ctx, instruction)
