@@ -103,6 +103,8 @@ class PulsarContextEngine:
             if tasks:
                 task_rows = []
                 for task in tasks:
+                    if not can_view(user, task):
+                        continue
                     owner = (
                         task.owner.get_full_name() or task.owner.email
                         if task.owner_id else 'Unassigned'
@@ -110,7 +112,8 @@ class PulsarContextEngine:
                     task_rows.append(
                         f'- {task.title} | owner={owner} | due={task.due_date or "—"} | status={task.status}'
                     )
-                blocks.append('Open project tasks:\n' + '\n'.join(task_rows))
+                if task_rows:
+                    blocks.append('Open project tasks:\n' + '\n'.join(task_rows))
         else:
             candidates = (
                 KnowledgeResource.objects
