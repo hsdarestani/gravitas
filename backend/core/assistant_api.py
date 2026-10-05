@@ -30,6 +30,7 @@ def assistant_ask(request):
             request.user,
             question,
             project_id=project_id,
+            skill=skill,
         )
     except PulsarPermissionError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=403)
