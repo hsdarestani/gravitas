@@ -10,6 +10,8 @@ on:
       - 'backend/core/pulsar_runtime/**'
       - 'backend/core/pulsar_evalset.py'
       - 'backend/core/management/commands/evaluate_pulsar_v1.py'
+      - 'backend/core/management/commands/report_pulsar_metrics.py'
+      - 'backend/core/management/commands/benchmark_pulsar_models.py'
       - 'backend/core/assistant_api.py'
       - 'backend/core/lms_extended_api.py'
       - 'backend/core/models.py'
