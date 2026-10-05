@@ -2018,13 +2018,19 @@ async function courseTutorPanel(course) {
     send.disabled = true;
     note.textContent = 'Pulsar is thinking…';
     try {
+      let sharedThread = '';
+      try { sharedThread = localStorage.getItem('gravitas.pulsar.thread.v1') || ''; } catch {}
       const data = await P.lmsAiTutor(course.id, {
         question: value,
         lesson_id: lessonSelect.value ? Number(lessonSelect.value) : null,
         source_connection_id: sourceSelect.value ? Number(sourceSelect.value) : null,
         source_keys: [...selected],
         history,
+        thread_id: sharedThread || null,
       });
+      if (data.thread_id) {
+        try { localStorage.setItem('gravitas.pulsar.thread.v1', String(data.thread_id)); } catch {}
+      }
       history.push({ role: 'user', content: value }, { role: 'assistant', content: data.answer });
       const reply = el('article', 'fl-ai-tutor__turn');
       reply.dataset.who = 'assistant';
