@@ -4,8 +4,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .pulsar_runtime.decisions import DecisionRouter
-from .pulsar_runtime.errors import PulsarPermissionError
+from .pulsar_runtime.errors import PulsarApprovalRequired, PulsarPermissionError
 from .pulsar_runtime.profiles import update_profile
+from .pulsar_runtime.policy import ActionPolicy
 from .pulsar_runtime.harness import PulsarHarness
 from .pulsar_runtime.skills import SkillRegistry
 from .pulsar_runtime.types import ProviderResponse
@@ -61,6 +62,22 @@ class PulsarRuntimeTests(TestCase):
         self.assertEqual(result.provider, 'fake-provider')
         self.assertEqual(gateway.calls[0]['tier'], 'general')
         self.assertTrue(result.run_id)
+
+    def test_action_policy_requires_approval_for_r2_tool(self):
+        with self.assertRaises(PulsarApprovalRequired):
+            ActionPolicy().decide(self.user, 'tasks.create', confirmed=False)
+        decision = ActionPolicy().decide(self.user, 'tasks.create', confirmed=True)
+        self.assertTrue(decision.allowed)
+        self.assertEqual(decision.risk, 'r2')
+
+    def test_permission_scope_can_deny_side_effect_even_after_confirmation(self):
+        update_profile(self.user, {
+            'permission_scope': {
+                'project_task': {'read': True, 'write': 'deny'},
+            },
+        })
+        with self.assertRaises(PulsarPermissionError):
+            ActionPolicy().decide(self.user, 'tasks.create', confirmed=True)
 
     def test_user_memory_profile_can_disable_a_skill_before_model_call(self):
         gateway = FakeGateway()
