@@ -37,6 +37,7 @@ class PulsarToolExecutor:
         'projects.read',
         'tasks.read',
         'tasks.draft',
+        'tasks.create',
         'project.reminders',
     }
 
@@ -64,6 +65,7 @@ class PulsarToolExecutor:
             'projects.read': self._project_read,
             'tasks.read': self._tasks_read,
             'tasks.draft': self._task_draft,
+            'tasks.create': self._task_create,
             'project.reminders': self._reminder,
         }.get(tool_name)
         if handler is None:
@@ -333,6 +335,56 @@ class PulsarToolExecutor:
             },
         )
 
+
+    def _task_create(self, actor, args):
+        from core.pulsar_task_service import create_operating_task
+
+        payload = {
+            key: value
+            for key, value in args.items()
+            if key in {
+                'title',
+                'description',
+                'definition_of_done',
+                'priority',
+                'due_date',
+                'project_id',
+                'key_result_id',
+                'dependency_id',
+                'owner_id',
+                'related_links',
+            }
+        }
+        task = create_operating_task(
+            actor,
+            payload,
+            confirmed=True,
+            source='pulsar_agent',
+        )
+        return ToolExecutionResult(
+            tool='tasks.create',
+            content=(
+                f'Task created: #{task.pk} {task.title} '
+                f'due={task.due_date.isoformat() if task.due_date else ""}'
+            ),
+            data={
+                'task_id': task.pk,
+                'title': task.title,
+                'status': task.status,
+                'priority': task.priority,
+                'due_date': task.due_date.isoformat() if task.due_date else None,
+                'project_id': task.project_id,
+                'owner_id': task.owner_id,
+                'key_result_id': task.initiative.key_result_id,
+            },
+            sources=[{
+                'id': str(task.pk),
+                'title': task.title,
+                'kind': 'task',
+                'href': f'/workspace/core/tasks?task={task.pk}',
+            }],
+        )
+
     def _task_draft(self, actor, args):
         title = ' '.join(str(args.get('title') or '').split()).strip()[:240]
         if not title:
@@ -344,6 +396,8 @@ class PulsarToolExecutor:
             'priority': str(args.get('priority') or 'p2').lower(),
             'due_date': str(args.get('due_date') or '').strip() or None,
             'project_id': args.get('project_id'),
+            'key_result_id': args.get('key_result_id'),
+            'dependency_id': args.get('dependency_id'),
             'owner_id': args.get('owner_id') or getattr(actor, 'pk', None),
         }
         if draft['priority'] not in {'p0', 'p1', 'p2', 'p3'}:
