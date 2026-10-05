@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from .continuity import get_thread, normalize_thread_key
 from .errors import PulsarPermissionError
+from .profiles import assert_skill_allowed
 
 
 def schedule_reminder(
@@ -20,6 +21,8 @@ def schedule_reminder(
 ):
     if not user or not getattr(user, 'is_authenticated', False):
         raise PulsarPermissionError('pulsar_authentication_required')
+    if skill not in {'public', 'general'}:
+        assert_skill_allowed(user, skill)
     if due_at is None:
         raise ValueError('reminder_due_at_required')
     if timezone.is_naive(due_at):
