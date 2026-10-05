@@ -79,6 +79,19 @@ TOOL_ARGUMENT_HINTS = {
         'priority': 'p0|p1|p2|p3',
         'due_date': 'YYYY-MM-DD, optional',
         'project_id': 'integer, optional',
+        'key_result_id': 'integer, optional',
+        'dependency_id': 'integer, optional',
+        'owner_id': 'integer, optional',
+    },
+    'tasks.create': {
+        'title': 'string, required',
+        'description': 'string, optional',
+        'definition_of_done': 'string, optional',
+        'priority': 'p0|p1|p2|p3',
+        'due_date': 'YYYY-MM-DD, required',
+        'key_result_id': 'integer, required',
+        'project_id': 'integer, optional',
+        'dependency_id': 'integer, optional',
         'owner_id': 'integer, optional',
     },
 }
@@ -126,7 +139,8 @@ def _safe_metadata(metadata):
     result = {}
     for key in (
         'project_id', 'course_id', 'lesson_id', 'resource_id',
-        'workspace_id', 'section_key',
+        'workspace_id', 'section_key', 'key_result_id',
+        'dependency_id', 'owner_id',
     ):
         value = metadata.get(key)
         if value not in (None, ''):
