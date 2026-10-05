@@ -427,6 +427,13 @@ class TelegramPulsarSession(models.Model):
         related_name='gravitas_telegram_pulsar_session',
     )
     state = models.JSONField(default=dict, blank=True)
+    pulsar_thread = models.ForeignKey(
+        'core.PulsarThread',
+        on_delete=models.SET_NULL,
+        related_name='telegram_sessions',
+        blank=True,
+        null=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
