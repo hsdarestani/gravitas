@@ -3,7 +3,7 @@ import json
 import tempfile
 from datetime import timedelta
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -453,8 +453,15 @@ class OpenEdXLmsRefactorTests(TestCase):
         )
         self.assertEqual(enrollment['provider_state']['openedx']['state'], 'enrolled')
 
-    @patch('core.lms_extended_api.complete', return_value='Use the source to form a falsifiable claim.')
-    def test_ai_tutor_is_personalized_and_logged(self, complete):
+    @patch('core.lms_extended_api.run_text')
+    def test_ai_tutor_is_personalized_and_logged(self, run_text):
+        run_text.return_value = Mock(
+            text='Use the source to form a falsifiable claim.',
+            provider='test-provider',
+            run_id='test-run-id',
+            skill='learning',
+            model_tier='general',
+        )
         course = self.create_course(slug='ai-course')
         self.enroll_learner(course['id'])
         lesson_id = course['modules'][0]['lessons'][0]['id']
@@ -465,13 +472,20 @@ class OpenEdXLmsRefactorTests(TestCase):
             'history': [{'role': 'user', 'content': 'I am studying evidence.'}],
         })
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertIn('falsifiable', response.json()['answer'])
+        payload = response.json()
+        self.assertIn('falsifiable', payload['answer'])
+        self.assertEqual(payload['skill'], 'learning')
+        self.assertEqual(payload['model_tier'], 'general')
         self.assertTrue(CourseEvent.objects.filter(
             user=self.learner,
             course_id=course['id'],
             kind=CourseEvent.Kind.AI_USE,
         ).exists())
-        complete.assert_called_once()
+        run_text.assert_called_once()
+        kwargs = run_text.call_args.kwargs
+        self.assertEqual(kwargs['surface'], 'lms')
+        self.assertEqual(kwargs['skill'], 'learning')
+        self.assertEqual(kwargs['actor'], self.learner)
 
     @patch('core.lms_extended_api._zotero_request')
     def test_zotero_connection_encrypts_key_and_never_returns_it(self, zotero_request):
