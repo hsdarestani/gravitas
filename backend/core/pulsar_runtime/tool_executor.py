@@ -29,12 +29,15 @@ class PulsarToolExecutor:
     SUPPORTED = {
         'lms.read',
         'learning.notes',
+        'learning.reminders',
         'research.read',
         'research.search',
+        'research.reminders',
         'files.read',
         'projects.read',
         'tasks.read',
         'tasks.draft',
+        'project.reminders',
     }
 
     def __init__(self, *, tools=None, policy=None, context=None):
@@ -53,12 +56,15 @@ class PulsarToolExecutor:
         handler = {
             'lms.read': self._lms_read,
             'learning.notes': self._learning_notes,
+            'learning.reminders': self._reminder,
             'research.read': self._research_read,
             'research.search': self._research_read,
+            'research.reminders': self._reminder,
             'files.read': self._files_read,
             'projects.read': self._project_read,
             'tasks.read': self._tasks_read,
             'tasks.draft': self._task_draft,
+            'project.reminders': self._reminder,
         }.get(tool_name)
         if handler is None:
             raise PulsarPermissionError(f'pulsar_tool_not_executable:{tool_name}')
@@ -266,6 +272,65 @@ class PulsarToolExecutor:
             tool='tasks.read',
             content=json.dumps(rows, ensure_ascii=False),
             data={'tasks': rows, 'count': len(rows)},
+        )
+
+
+    def _reminder(self, actor, args):
+        from django.utils import timezone
+        from django.utils.dateparse import parse_datetime
+
+        from .scheduler import schedule_reminder
+
+        due_at = parse_datetime(str(args.get('due_at') or '').strip())
+        if due_at is None:
+            raise PulsarPermissionError('valid_reminder_due_at_required')
+        if timezone.is_naive(due_at):
+            due_at = timezone.make_aware(
+                due_at,
+                timezone.get_current_timezone(),
+            )
+        tool_name = str(args.get('_tool') or '')
+        skill = {
+            'learning.reminders': 'learning',
+            'research.reminders': 'research',
+            'project.reminders': 'project_task',
+        }.get(tool_name)
+        if not skill:
+            raise PulsarPermissionError('invalid_reminder_tool')
+        message = str(args.get('message') or '').strip()
+        if not message:
+            raise PulsarPermissionError('reminder_message_required')
+        run = schedule_reminder(
+            actor,
+            message=message,
+            due_at=due_at,
+            title=str(args.get('title') or 'Pulsar reminder'),
+            thread_key=str(args.get('thread_id') or 'primary')[:160],
+            surface=str(args.get('surface') or 'core')[:32],
+            skill=skill,
+            metadata={
+                key: value
+                for key, value in args.items()
+                if key in {
+                    'project_id',
+                    'course_id',
+                    'lesson_id',
+                    'workspace_id',
+                }
+            },
+        )
+        return ToolExecutionResult(
+            tool=tool_name,
+            content=(
+                f'Reminder scheduled for {run.wait_until.isoformat()}: '
+                f'{message[:500]}'
+            ),
+            data={
+                'run_id': run.run_id,
+                'status': run.status,
+                'wait_until': run.wait_until.isoformat(),
+                'thread_key': run.thread.thread_key,
+            },
         )
 
     def _task_draft(self, actor, args):
