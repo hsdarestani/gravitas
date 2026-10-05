@@ -1,3 +1,4 @@
+from .continuity import begin_run, build_continuity_prefix, complete_run, fail_run
 from .decisions import DecisionRouter
 from .profiles import assert_skill_allowed, snapshot
 from .providers import ModelGateway
@@ -52,6 +53,31 @@ class PulsarHarness:
         if skill_def.requires_auth:
             assert_skill_allowed(actor, skill_def.name)
         profile = snapshot(actor)
+        effective_thread_id = thread_id
+        if (
+            not effective_thread_id
+            and actor is not None
+            and getattr(actor, 'is_authenticated', False)
+        ):
+            effective_thread_id = 'primary'
+        run = None
+        continuity_prefix = ''
+        if effective_thread_id:
+            run_metadata = dict(metadata or {})
+            if workspace_id not in (None, ''):
+                run_metadata.setdefault('workspace_id', workspace_id)
+            turn_input = str(run_metadata.get('turn_input') or user)
+            _, run, history, memories = begin_run(
+                actor,
+                run_id=invocation.run_id,
+                thread_key=effective_thread_id,
+                surface=invocation.surface,
+                skill=skill_def.name,
+                input_text=turn_input,
+                metadata=run_metadata,
+            )
+            continuity_prefix = build_continuity_prefix(history, memories)
+
         allowed_tools = self.tools.allowed_names(
             skill_name=skill_def.name,
             profile=profile,
@@ -81,14 +107,20 @@ class PulsarHarness:
         )
 
         try:
+            effective_user = (
+                continuity_prefix + '\n\nCurrent turn:\n' + str(user)
+                if continuity_prefix
+                else user
+            )
             response = self.models.complete(
                 system=system,
-                user=user,
+                user=effective_user,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 tier=selection.tier,
             )
         except Exception as exc:
+            fail_run(run, exc)
             emit(
                 'run.failed',
                 invocation,
@@ -98,6 +130,16 @@ class PulsarHarness:
             )
             raise
 
+        complete_run(
+            run,
+            output_text=response.text,
+            provider=response.provider,
+            model=response.model,
+            metadata={
+                'model_tier': selection.tier,
+                'decision_source': selection.decision_source,
+            },
+        )
         emit(
             'run.completed',
             invocation,
