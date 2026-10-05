@@ -2,6 +2,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.db import connection
 from django.db.models import Q
 from django.utils.html import strip_tags
 
@@ -31,6 +33,25 @@ def _resource_text(resource):
     body = re.sub(r'\s+', ' ', str(resource.body or '')).strip()
     description = re.sub(r'\s+', ' ', str(resource.description or '')).strip()
     return body or description
+
+
+def _candidate_resources(queryset, question, *, limit):
+    """Lexical pre-ranking in PostgreSQL with a portable fallback for tests."""
+    question = str(question or '').strip()
+    if connection.vendor == 'postgresql' and question:
+        vector = (
+            SearchVector('title', weight='A', config='simple')
+            + SearchVector('description', weight='B', config='simple')
+            + SearchVector('body', weight='C', config='simple')
+        )
+        query = SearchQuery(question, search_type='websearch', config='simple')
+        return list(
+            queryset
+            .annotate(_pulsar_rank=SearchRank(vector, query))
+            .filter(_pulsar_rank__gt=0)
+            .order_by('-_pulsar_rank', '-updated_at')[:limit]
+        )
+    return list(queryset.order_by('-updated_at')[:limit])
 
 
 class PulsarContextEngine:
@@ -66,11 +87,12 @@ class PulsarContextEngine:
                 'href': f'/workspace/research/projects/{project.pk}',
             })
 
-            candidates = (
+            candidates = _candidate_resources(
                 KnowledgeResource.objects
                 .filter(project=project)
-                .select_related('project', 'workspace')
-                .order_by('-updated_at')[:120]
+                .select_related('project', 'workspace'),
+                question,
+                limit=120,
             )
             ranked = []
             for resource in candidates:
@@ -115,7 +137,7 @@ class PulsarContextEngine:
                 if task_rows:
                     blocks.append('Open project tasks:\n' + '\n'.join(task_rows))
         else:
-            candidates = (
+            candidates = _candidate_resources(
                 KnowledgeResource.objects
                 .filter(
                     Q(owner=user)
@@ -123,8 +145,9 @@ class PulsarContextEngine:
                     | Q(workspace__memberships__user=user),
                     kind=KnowledgeResource.Kind.NOTE,
                 )
-                .distinct()
-                .order_by('-updated_at')[:250]
+                .distinct(),
+                question,
+                limit=250,
             )
             ranked = []
             for resource in candidates:
@@ -161,6 +184,11 @@ class PulsarContextEngine:
                 'profile': profile,
                 'project_id': project_id,
                 'resource_count': len(sources),
+                'retrieval_mode': (
+                    'structured+postgres_fts+scoped_memory'
+                    if connection.vendor == 'postgresql'
+                    else 'structured+portable_lexical+scoped_memory'
+                ),
             },
         )
 
