@@ -1,4 +1,5 @@
-from django.test import SimpleTestCase
+from django.contrib.auth import get_user_model
+from django.test import TestCase
 
 from .pulsar_runtime.decisions import DecisionRouter
 from .pulsar_runtime.harness import PulsarHarness
@@ -23,7 +24,13 @@ class FakeGateway:
         )
 
 
-class PulsarRuntimeTests(SimpleTestCase):
+class PulsarRuntimeTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='pulsar-runtime@example.test',
+            email='pulsar-runtime@example.test',
+            password='Strong-pass-123!',
+        )
     def test_skill_registry_maps_learning_and_research_surfaces(self):
         registry = SkillRegistry()
         self.assertEqual(registry.resolve(surface='lms').name, 'learning')
@@ -40,7 +47,8 @@ class PulsarRuntimeTests(SimpleTestCase):
             surface='lms',
             operation='answer',
             thread_id='thread-1',
-            user_id=42,
+            user_id=self.user.pk,
+            actor=self.user,
         )
 
         self.assertEqual(result.text, 'ok')
@@ -59,6 +67,7 @@ class PulsarRuntimeTests(SimpleTestCase):
             user='synthesize',
             surface='research',
             operation='synthesis',
+            actor=self.user,
         )
 
         self.assertEqual(result.skill, 'research')
