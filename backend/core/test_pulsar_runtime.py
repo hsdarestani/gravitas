@@ -1,3 +1,5 @@
+from unittest.mock import Mock, patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -73,6 +75,42 @@ class PulsarRuntimeTests(TestCase):
         self.assertEqual(result.skill, 'research')
         self.assertEqual(result.model_tier, 'deep')
         self.assertEqual(gateway.calls[0]['tier'], 'deep')
+
+
+
+    @patch('core.pulsar_runtime.decisions.requests.post')
+    def test_jev_choice_can_drive_model_tier_when_configured(self, post):
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            'model': 'jev-1.13.0',
+            'answers': {
+                'model_tier': {
+                    'type': 'choice',
+                    'choice': 'deep',
+                    'confidence': 0.91,
+                    'probabilities': {'fast': 0.01, 'general': 0.08, 'deep': 0.91},
+                },
+            },
+            'usage': {'input_tokens': 30, 'output_tokens': 0},
+        }
+        post.return_value = response
+        router = DecisionRouter(
+            provider='jev',
+            model='jev-latest',
+            base_url='https://system-one.example/v1',
+            api_key='test-key',
+        )
+        selection = router.select_model(
+            skill=SkillRegistry().resolve(surface='research'),
+            operation='synthesis',
+            surface='research',
+        )
+        self.assertEqual(selection.tier, 'deep')
+        self.assertEqual(selection.decision_source, 'jev')
+        self.assertEqual(selection.decision_model, 'jev-1.13.0')
+        request = post.call_args.kwargs
+        self.assertEqual(request['json']['questions']['model_tier']['type'], 'choice')
 
     def test_external_decision_provider_is_safe_contract_fallback_in_v01(self):
         router = DecisionRouter(provider='jev', model='system-one')
