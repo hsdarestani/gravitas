@@ -49,6 +49,9 @@ class ProviderResponse:
     provider: str
     model: str
     latency_ms: int
+    input_tokens: int = 0
+    output_tokens: int = 0
+    estimated_cost_usd: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -62,3 +65,7 @@ class HarnessResult:
     decision_source: str
     tools: tuple = ()
     profile_version: int = 0
+    latency_ms: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    estimated_cost_usd: float = 0.0
