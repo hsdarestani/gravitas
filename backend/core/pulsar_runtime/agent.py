@@ -14,6 +14,25 @@ from .tool_executor import PulsarToolExecutor
 
 
 TOOL_ARGUMENT_HINTS = {
+    'learning.reminders': {
+        'message': 'string, required',
+        'title': 'string, optional',
+        'due_at': 'ISO datetime, required',
+        'course_id': 'integer, optional',
+        'lesson_id': 'integer, optional',
+    },
+    'research.reminders': {
+        'message': 'string, required',
+        'title': 'string, optional',
+        'due_at': 'ISO datetime, required',
+        'project_id': 'integer, optional',
+    },
+    'project.reminders': {
+        'message': 'string, required',
+        'title': 'string, optional',
+        'due_at': 'ISO datetime, required',
+        'project_id': 'integer, optional',
+    },
     'lms.read': {
         'course_id': 'integer, required',
         'lesson_id': 'integer, optional',
@@ -207,6 +226,8 @@ class PulsarAgent:
                 + json.dumps(catalog, ensure_ascii=False)
                 + '\nContext IDs:\n'
                 + json.dumps(_safe_metadata(metadata), ensure_ascii=False)
+                + '\nCurrent time:\n'
+                + timezone.localtime().isoformat()
                 + '\nUser request:\n'
                 + str(message or '')[:8000]
             ),
