@@ -145,7 +145,7 @@ def index_resource(resource, *, gateway=None, force=False):
     if not text.strip():
         return None, False
     vector = gateway.embed(text)
-    row, created = PulsarResourceEmbedding.objects.update_or_create(
+    row, _ = PulsarResourceEmbedding.objects.update_or_create(
         resource=resource,
         defaults={
             'provider': gateway.provider,
@@ -155,7 +155,7 @@ def index_resource(resource, *, gateway=None, force=False):
             'content_hash': digest,
         },
     )
-    return row, created
+    return row, True
 
 
 def semantic_candidates(queryset, *, limit=300, gateway=None):
