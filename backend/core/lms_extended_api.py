@@ -40,7 +40,8 @@ from .lms_models import (
 )
 from .lms_interaction_api import pulsar_project_context
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
-from .pulsar import PulsarError, complete
+from .pulsar import PulsarError, PulsarPermissionError, run_text
+from .pulsar_runtime.context import PulsarContextEngine
 
 
 ZOTERO_ROOT = 'https://api.zotero.org'
@@ -475,10 +476,16 @@ def lms_ai_tutor(request, course_id):
         data.get('source_connection_id'),
         data.get('source_keys') if isinstance(data.get('source_keys'), list) else [],
     )
-    project_context, project_sources = pulsar_project_context(request.user, course)
-    lesson_text = ''
-    if lesson:
-        lesson_text = strip_tags(lesson.body or '')[:12000]
+    try:
+        package = PulsarContextEngine().learning(
+            request.user,
+            course,
+            lesson=lesson,
+            question=question,
+        )
+    except PulsarPermissionError as exc:
+        return _error(str(exc), 403)
+
     source_text = '\n'.join(
         f"- {row['title']} | {', '.join(row['creators'])} | {row['date']} | {row['abstract'][:1000]}"
         for row in sources
@@ -509,29 +516,53 @@ def lms_ai_tutor(request, course_id):
             'You may provide complete explanations and worked solutions, while still explaining the reasoning and checking understanding.'
         ),
     }[guidance_mode]
+
     system = (
-        'You are the Gravitas+ course tutor. Teach rather than merely answer. '
-        'Use the language of the learner. Base factual claims on the supplied course and source context. '
+        'You are Pulsar acting through the Learning skill inside Gravitas+. '
+        'You are a learning and research assistant, not a generic answer bot. '
+        'Teach rather than merely answer. Use the language of the learner. '
+        'Base factual claims on the supplied ACL-checked course, learner, project and selected-source context. '
         'When context is insufficient, say so and suggest what to inspect next. '
         + guidance_rule + ' '
         'Never invent a Zotero source or claim the learner completed work they did not complete. '
-        'Never imply access to a project or file that is not present in the supplied user-approved context. '
+        'Never imply access to a project or file that is not present in the supplied context. '
         + (f'Instructor-specific guidance: {instructor_prompt}' if instructor_prompt else '')
     )
     prompt = (
-        f'Course: {course.title}\nCourse summary: {course.summary}\n'
-        f'Learner progress: {enrollment.progress_percent}%\n'
-        + (f'Lesson: {lesson.title}\nLesson material:\n{lesson_text}\n' if lesson else '')
-        + (f'Learner selected sources:\n{source_text}\n' if source_text else '')
-        + (f'User-approved project context:\n{project_context}\n' if project_context else '')
-        + (f'Recent tutor conversation:\n' + '\n'.join(history) + '\n' if history else '')
-        + f'Learner question: {question}'
+        package.text
+        + (f'\nLearner selected sources:\n{source_text}\n' if source_text else '')
+        + (f'\nRecent tutor conversation:\n' + '\n'.join(history) + '\n' if history else '')
+        + f'\nLearner question: {question}'
     )
     try:
-        answer = complete(system=system, user=prompt, max_tokens=1400, temperature=0.25)
+        result = run_text(
+            system=system,
+            user=prompt,
+            max_tokens=1400,
+            temperature=0.25,
+            surface='lms',
+            skill='learning',
+            operation='tutor',
+            thread_id=str(data.get('thread_id') or '')[:160] or None,
+            user_id=request.user.pk,
+            workspace_id=f'course:{course.pk}',
+            actor=request.user,
+            metadata={
+                'course_id': course.pk,
+                'lesson_id': lesson.pk if lesson else None,
+                'source_count': len(sources),
+                'context_source_count': len(package.sources),
+            },
+        )
+    except PulsarPermissionError as exc:
+        return _error(str(exc), 403)
     except PulsarError as exc:
         return _error(str(exc), 503)
 
+    project_sources = [
+        row for row in package.sources
+        if str(row.get('kind') or '').startswith('project_')
+    ]
     _event(
         request.user,
         course,
@@ -541,19 +572,25 @@ def lms_ai_tutor(request, course_id):
         metadata={
             'source_count': len(sources),
             'project_source_count': len(project_sources),
+            'context_source_count': len(package.sources),
             'question_chars': len(question),
-            'answer_chars': len(answer),
+            'answer_chars': len(result.text),
             'guidance_mode': guidance_mode,
+            'pulsar_run_id': result.run_id,
+            'pulsar_skill': result.skill,
+            'model_tier': result.model_tier,
         },
     )
     return JsonResponse({
         'ok': True,
-        'answer': answer,
-        'sources': [*sources, *project_sources],
+        'answer': result.text,
+        'sources': [*sources, *package.sources],
         'project_sources': project_sources,
-        'provider': 'cloudflare-workers-ai',
+        'provider': result.provider,
+        'run_id': result.run_id,
+        'skill': result.skill,
+        'model_tier': result.model_tier,
     })
-
 
 def _course_export_parts(course):
     yield '#', course.title, course.summary or course.description
