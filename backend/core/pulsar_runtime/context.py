@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
+from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.db import connection
 from django.db.models import Q
@@ -9,6 +10,7 @@ from django.utils.html import strip_tags
 
 from .errors import PulsarPermissionError
 from .profiles import assert_skill_allowed, snapshot
+from .semantic import semantic_candidates, semantic_scores
 
 
 @dataclass
@@ -54,6 +56,58 @@ def _candidate_resources(queryset, question, *, limit):
     return list(queryset.order_by('-updated_at')[:limit])
 
 
+
+
+def _hybrid_candidates(queryset, question, *, limit):
+    lexical = _candidate_resources(queryset, question, limit=limit)
+    semantic = semantic_candidates(queryset, limit=max(limit, 300))
+    rows = []
+    seen = set()
+    for resource in list(lexical) + list(semantic):
+        if resource.pk in seen:
+            continue
+        seen.add(resource.pk)
+        rows.append(resource)
+    return rows
+
+
+def _rank_resources(resources, question, terms, can_view):
+    prepared = []
+    for resource in resources:
+        if not can_view(resource):
+            continue
+        text = _resource_text(resource)
+        prepared.append((resource, text))
+
+    scores = semantic_scores(
+        [resource for resource, _ in prepared],
+        question,
+    )
+    minimum = float(getattr(settings, 'PULSAR_SEMANTIC_MIN_SCORE', 0.25) or 0.25)
+    ranked = []
+    for resource, text in prepared:
+        haystack = f'{resource.title}\n{text}'.lower()
+        lexical = sum(
+            3 if term in resource.title.lower() else 1
+            for term in terms
+            if term in haystack
+        )
+        semantic = max(0.0, float(scores.get(resource.pk) or 0.0))
+        if not terms and not semantic:
+            lexical = 1
+        if lexical or semantic >= minimum:
+            combined = float(lexical) + (semantic * 4.0)
+            ranked.append((combined, semantic, resource, text))
+    ranked.sort(
+        key=lambda row: (
+            -row[0],
+            -row[1],
+            -row[2].updated_at.timestamp(),
+        )
+    )
+    return ranked, bool(scores)
+
+
 class PulsarContextEngine:
     """Build just-in-time context while live ACLs remain authoritative."""
 
@@ -67,6 +121,7 @@ class PulsarContextEngine:
         terms = _terms(question)
         blocks = []
         sources = []
+        semantic_used = False
 
         if project_id not in (None, ''):
             try:
@@ -87,26 +142,21 @@ class PulsarContextEngine:
                 'href': f'/workspace/research/projects/{project.pk}',
             })
 
-            candidates = _candidate_resources(
+            candidates = _hybrid_candidates(
                 KnowledgeResource.objects
                 .filter(project=project)
                 .select_related('project', 'workspace'),
                 question,
                 limit=120,
             )
-            ranked = []
-            for resource in candidates:
-                if not can_view(user, resource):
-                    continue
-                text = _resource_text(resource)
-                haystack = f'{resource.title}\n{text}'.lower()
-                score = sum(3 if term in resource.title.lower() else 1 for term in terms if term in haystack)
-                if not terms:
-                    score = 1
-                if score:
-                    ranked.append((score, resource, text))
-            ranked.sort(key=lambda row: (-row[0], -row[1].updated_at.timestamp()))
-            for _, resource, text in ranked[:max_resources]:
+            ranked, project_semantic_used = _rank_resources(
+                candidates,
+                question,
+                terms,
+                lambda resource: can_view(user, resource),
+            )
+            semantic_used = semantic_used or project_semantic_used
+            for _, _, resource, text in ranked[:max_resources]:
                 blocks.append(f'Resource: {resource.title}\n{text[:3000]}')
                 sources.append({
                     'id': str(resource.pk),
@@ -137,7 +187,7 @@ class PulsarContextEngine:
                 if task_rows:
                     blocks.append('Open project tasks:\n' + '\n'.join(task_rows))
         else:
-            candidates = _candidate_resources(
+            candidates = _hybrid_candidates(
                 KnowledgeResource.objects
                 .filter(
                     Q(owner=user)
@@ -149,17 +199,14 @@ class PulsarContextEngine:
                 question,
                 limit=250,
             )
-            ranked = []
-            for resource in candidates:
-                if not can_view(user, resource):
-                    continue
-                text = _resource_text(resource)
-                haystack = f'{resource.title}\n{text}'.lower()
-                score = sum(3 if term in resource.title.lower() else 1 for term in terms if term in haystack)
-                if score:
-                    ranked.append((score, resource, text))
-            ranked.sort(key=lambda row: (-row[0], -row[1].updated_at.timestamp()))
-            for _, resource, text in ranked[:max_resources]:
+            ranked, workspace_semantic_used = _rank_resources(
+                candidates,
+                question,
+                terms,
+                lambda resource: can_view(user, resource),
+            )
+            semantic_used = semantic_used or workspace_semantic_used
+            for _, _, resource, text in ranked[:max_resources]:
                 blocks.append(f'Workspace note: {resource.title}\n{text[:2200]}')
                 sources.append({
                     'id': str(resource.pk),
@@ -185,10 +232,19 @@ class PulsarContextEngine:
                 'project_id': project_id,
                 'resource_count': len(sources),
                 'retrieval_mode': (
-                    'structured+postgres_fts+scoped_memory'
-                    if connection.vendor == 'postgresql'
-                    else 'structured+portable_lexical+scoped_memory'
+                    'structured+postgres_fts+semantic+scoped_memory'
+                    if semantic_used and connection.vendor == 'postgresql'
+                    else (
+                        'structured+portable_lexical+semantic+scoped_memory'
+                        if semantic_used
+                        else (
+                            'structured+postgres_fts+scoped_memory'
+                            if connection.vendor == 'postgresql'
+                            else 'structured+portable_lexical+scoped_memory'
+                        )
+                    )
                 ),
+                'semantic_used': semantic_used,
             },
         )
 
