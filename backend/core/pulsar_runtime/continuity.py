@@ -91,10 +91,10 @@ def begin_run(
     metadata = dict(metadata or {})
     scope = {
         'skill': skill,
-        'workspace_id': metadata.get('workspace_id'),
-        'project_id': metadata.get('project_id'),
-        'course_id': metadata.get('course_id'),
-        'lesson_id': metadata.get('lesson_id'),
+        'workspace_id': metadata.get('workspace_id') or '__none__',
+        'project_id': metadata.get('project_id') or '__none__',
+        'course_id': metadata.get('course_id') or '__none__',
+        'lesson_id': metadata.get('lesson_id') or '__none__',
     }
     memories = recall(user, input_text, scope=scope, limit=6)
     return thread, run, history_text(thread), memories
