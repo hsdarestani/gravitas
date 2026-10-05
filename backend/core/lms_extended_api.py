@@ -543,7 +543,7 @@ def lms_ai_tutor(request, course_id):
             surface='lms',
             skill='learning',
             operation='tutor',
-            thread_id=str(data.get('thread_id') or '')[:160] or None,
+            thread_id=str(data.get('thread_id') or 'primary')[:160],
             user_id=request.user.pk,
             workspace_id=f'course:{course.pk}',
             actor=request.user,
@@ -552,6 +552,7 @@ def lms_ai_tutor(request, course_id):
                 'lesson_id': lesson.pk if lesson else None,
                 'source_count': len(sources),
                 'context_source_count': len(package.sources),
+                'turn_input': question,
             },
         )
     except PulsarPermissionError as exc:
