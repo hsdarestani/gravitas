@@ -11,11 +11,13 @@ from .operating_models import (
     TaskNotificationOutbox,
     TaskNotificationPreference,
 )
+from .pulsar_runtime.errors import PulsarApprovalRequired
 from .pulsar_runtime.scheduler import (
     cancel_scheduled_run,
     schedule_reminder,
     wake_due_runs,
 )
+from .pulsar_runtime.tool_executor import PulsarToolExecutor
 
 
 class PulsarSchedulerTests(TestCase):
@@ -169,6 +171,39 @@ class PulsarSchedulerTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'cancelled')
+
+
+    def test_agent_reminder_tool_requires_approval_then_schedules(self):
+        executor = PulsarToolExecutor()
+        due_at = timezone.now() + timedelta(hours=3)
+        args = {
+            'message': 'Revisit the evidence map.',
+            'due_at': due_at.isoformat(),
+            'project_id': 17,
+            'surface': 'research',
+        }
+        with self.assertRaises(PulsarApprovalRequired):
+            executor.execute(
+                self.user,
+                'research.reminders',
+                args,
+                confirmed=False,
+            )
+
+        result = executor.execute(
+            self.user,
+            'research.reminders',
+            args,
+            confirmed=True,
+        )
+        self.assertEqual(result.tool, 'research.reminders')
+        run = PulsarRun.objects.get(run_id=result.data['run_id'])
+        self.assertEqual(run.status, PulsarRun.Status.WAITING_TIME)
+        self.assertEqual(run.skill, 'research')
+        self.assertEqual(
+            run.state['project_id'],
+            17,
+        )
 
     def test_past_due_time_is_rejected(self):
         self.client.force_login(self.user)
