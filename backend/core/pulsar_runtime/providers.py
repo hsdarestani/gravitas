@@ -478,7 +478,9 @@ class ModelGateway:
                 fallback = _provider_fallback_model(provider.name)
                 if fallback:
                     try:
-                        return provider.complete(**kwargs, model_override=fallback)
+                        retry_kwargs = dict(kwargs)
+                        retry_kwargs['model_override'] = fallback
+                        return provider.complete(**retry_kwargs)
                     except PulsarError as fallback_exc:
                         errors.append(f'{provider.name}:fallback:{fallback_exc}')
                 if provider_override:
