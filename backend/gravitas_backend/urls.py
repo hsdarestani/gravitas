@@ -25,6 +25,7 @@ from core.pulsar_api import public_pulsar_ask
 from core.pulsar_profile_api import pulsar_memory_profile
 from core.pulsar_memory_api import pulsar_memories, pulsar_memory_disable, pulsar_thread_state
 from core.pulsar_agent_api import pulsar_agent_run
+from core.pulsar_schedule_api import pulsar_reminders, pulsar_reminder_detail
 from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
 from core.research_deliverable_api import project_deliverable_detail
@@ -83,6 +84,8 @@ urlpatterns = [
     path('api/platform/pulsar/memories/<int:memory_id>/disable/', pulsar_memory_disable),
     path('api/platform/pulsar/threads/<str:thread_key>/', pulsar_thread_state),
     path('api/platform/pulsar/agent/', pulsar_agent_run),
+    path('api/platform/pulsar/reminders/', pulsar_reminders),
+    path('api/platform/pulsar/reminders/<str:run_id>/', pulsar_reminder_detail),
     path('api/pulsar/ask/', public_pulsar_ask),
     path('api/platform/ai/providers/<int:provider_id>/', ai_provider_detail),
     path('api/platform/space/tree/', require_research_or_core(space_tree)),
