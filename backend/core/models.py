@@ -863,3 +863,36 @@ class PulsarRun(models.Model):
                 name='pulsar_run_user_status',
             ),
         ]
+
+
+
+class PulsarResourceEmbedding(models.Model):
+    """Portable semantic index row for a KnowledgeResource.
+
+    Vectors are stored as JSON so deployments do not require a PostgreSQL
+    extension. The semantic service owns the storage contract, allowing a
+    pgvector backend to replace this representation without changing the
+    Context Engine or Pulsar tools.
+    """
+
+    resource = models.OneToOneField(
+        KnowledgeResource,
+        on_delete=models.CASCADE,
+        related_name='pulsar_semantic_embedding',
+    )
+    provider = models.CharField(max_length=80, default='openai-compatible')
+    model_name = models.CharField(max_length=240)
+    dimensions = models.PositiveIntegerField(default=0)
+    vector = models.JSONField(default=list)
+    content_hash = models.CharField(max_length=64, db_index=True)
+    indexed_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-indexed_at']
+        indexes = [
+            models.Index(
+                fields=['model_name', '-indexed_at'],
+                name='pulsar_embed_model_time',
+            ),
+        ]
