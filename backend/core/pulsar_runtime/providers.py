@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 
@@ -13,6 +14,33 @@ logger = logging.getLogger(__name__)
 
 def _clean_setting(name, default=''):
     return str(getattr(settings, name, default) or '').strip()
+
+
+def _pricing():
+    raw = _clean_setting('PULSAR_MODEL_PRICING_JSON')
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        logger.warning('Invalid PULSAR_MODEL_PRICING_JSON; cost telemetry disabled')
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _estimate_cost(model, input_tokens, output_tokens):
+    row = _pricing().get(model) if model else None
+    if not isinstance(row, dict):
+        return 0.0
+    try:
+        input_rate = float(row.get('input_per_million') or 0)
+        output_rate = float(row.get('output_per_million') or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return (
+        (max(0, int(input_tokens or 0)) / 1_000_000) * input_rate
+        + (max(0, int(output_tokens or 0)) / 1_000_000) * output_rate
+    )
 
 
 def _model_for_tier(tier):
@@ -38,10 +66,19 @@ class ManagedCloudflareProvider:
             and _clean_setting('CLOUDFLARE_AI_API_TOKEN')
         )
 
-    def complete(self, *, system, user, max_tokens=900, temperature=0.2, tier='general'):
+    def complete(
+        self,
+        *,
+        system,
+        user,
+        max_tokens=900,
+        temperature=0.2,
+        tier='general',
+        model_override=None,
+    ):
         account_id = _clean_setting('CLOUDFLARE_AI_ACCOUNT_ID')
         token = _clean_setting('CLOUDFLARE_AI_API_TOKEN')
-        model = _model_for_tier(tier)
+        model = str(model_override or _model_for_tier(tier)).strip()
         timeout = int(getattr(settings, 'CLOUDFLARE_AI_TIMEOUT', 45) or 45)
         if not account_id or not token:
             raise PulsarError('cloudflare_ai_not_configured')
@@ -78,17 +115,36 @@ class ManagedCloudflareProvider:
         result = payload.get('result')
         if isinstance(result, dict):
             answer = result.get('response') or result.get('text') or result.get('answer')
+            usage = result.get('usage') if isinstance(result.get('usage'), dict) else {}
         else:
             answer = result
+            usage = {}
+        if not usage and isinstance(payload.get('usage'), dict):
+            usage = payload.get('usage')
         answer = str(answer or '').strip()
         if not answer:
             raise PulsarError('cloudflare_ai_empty')
 
+        input_tokens = int(
+            usage.get('input_tokens')
+            or usage.get('prompt_tokens')
+            or usage.get('promptTokens')
+            or 0
+        )
+        output_tokens = int(
+            usage.get('output_tokens')
+            or usage.get('completion_tokens')
+            or usage.get('completionTokens')
+            or 0
+        )
         return ProviderResponse(
             text=answer,
             provider=self.name,
             model=model,
             latency_ms=max(0, int((time.monotonic() - started) * 1000)),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            estimated_cost_usd=_estimate_cost(model, input_tokens, output_tokens),
         )
 
 
@@ -102,4 +158,14 @@ class ModelGateway:
         return bool(self.provider.configured())
 
     def complete(self, **kwargs):
-        return self.provider.complete(**kwargs)
+        try:
+            return self.provider.complete(**kwargs)
+        except PulsarError:
+            fallback = _clean_setting('PULSAR_MODEL_FALLBACK')
+            if not fallback:
+                raise
+            logger.warning(
+                'Pulsar primary model failed; retrying configured fallback model %s',
+                fallback,
+            )
+            return self.provider.complete(**kwargs, model_override=fallback)

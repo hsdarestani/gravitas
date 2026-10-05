@@ -144,6 +144,10 @@ class PulsarHarness:
             metadata={
                 'model_tier': selection.tier,
                 'decision_source': selection.decision_source,
+                'latency_ms': response.latency_ms,
+                'input_tokens': response.input_tokens,
+                'output_tokens': response.output_tokens,
+                'estimated_cost_usd': response.estimated_cost_usd,
             },
         )
         emit(
@@ -154,6 +158,9 @@ class PulsarHarness:
             provider=response.provider,
             model=response.model,
             latency_ms=response.latency_ms,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            estimated_cost_usd=response.estimated_cost_usd,
         )
         return HarnessResult(
             text=response.text,
@@ -165,4 +172,8 @@ class PulsarHarness:
             decision_source=selection.decision_source,
             tools=allowed_tools,
             profile_version=int(profile.get('version') or 0),
+            latency_ms=response.latency_ms,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            estimated_cost_usd=response.estimated_cost_usd,
         )
