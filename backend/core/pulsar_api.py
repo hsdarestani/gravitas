@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .models import ContentItem
-from .pulsar import PLATFORM_CONTEXT, PulsarError, complete, configured
+from .pulsar import PLATFORM_CONTEXT, PulsarError, configured, run_text
 
 
 def _links(message):
@@ -54,7 +54,7 @@ def public_pulsar_ask(request):
 
     if configured():
         try:
-            answer = complete(
+            result = run_text(
                 system=(
                     'You are Pulsar, the Gravitas+ assistant on the public website. '
                     'Answer in the language the visitor used. Be concise and useful. '
@@ -69,12 +69,19 @@ def public_pulsar_ask(request):
                     + f'Published Gravitas+ content:\n{public_context}\n\n'
                     + f'Visitor question: {message}'
                 ),
+                surface='public',
+                skill='public',
+                operation='answer',
+                thread_id=str(data.get('thread_id') or '')[:160] or None,
+                locale=str(data.get('locale') or '')[:40] or None,
+                metadata={'page': page or '/'},
             )
             return JsonResponse({
                 'ok': True,
-                'reply': answer,
+                'reply': result.text,
                 'links': _links(message),
-                'provider': 'cloudflare-workers-ai',
+                'provider': result.provider,
+                'run_id': result.run_id,
             })
         except PulsarError:
             pass
