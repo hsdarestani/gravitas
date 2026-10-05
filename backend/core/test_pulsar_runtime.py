@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .pulsar_runtime.decisions import DecisionRouter
+from .pulsar_runtime.errors import PulsarPermissionError
+from .pulsar_runtime.profiles import update_profile
 from .pulsar_runtime.harness import PulsarHarness
 from .pulsar_runtime.skills import SkillRegistry
 from .pulsar_runtime.types import ProviderResponse
@@ -59,6 +61,21 @@ class PulsarRuntimeTests(TestCase):
         self.assertEqual(result.provider, 'fake-provider')
         self.assertEqual(gateway.calls[0]['tier'], 'general')
         self.assertTrue(result.run_id)
+
+    def test_user_memory_profile_can_disable_a_skill_before_model_call(self):
+        gateway = FakeGateway()
+        harness = PulsarHarness(models=gateway)
+        update_profile(self.user, {'allowed_skills': ['research', 'project_task']})
+
+        with self.assertRaises(PulsarPermissionError):
+            harness.run_text(
+                system='system',
+                user='question',
+                surface='lms',
+                operation='answer',
+                actor=self.user,
+            )
+        self.assertEqual(gateway.calls, [])
 
     def test_research_synthesis_routes_to_deep_tier(self):
         gateway = FakeGateway()
