@@ -718,3 +718,30 @@ class ResearchIntelligenceSourceProfile(models.Model):
 
     def __str__(self):
         return f'{self.user} · Research Intelligence sources'
+
+class PulsarUserMemoryProfile(models.Model):
+    """Per-user Pulsar memory and capability envelope.
+
+    This profile narrows what Pulsar may attempt for a user. Live object ACLs
+    are still authoritative and must be rechecked before every read or write.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_memory_profile',
+    )
+    allowed_skills = models.JSONField(default=list, blank=True)
+    permission_scope = models.JSONField(default=dict, blank=True)
+    approval_defaults = models.JSONField(default=dict, blank=True)
+    preferences = models.JSONField(default=dict, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['user_id']
+
+    def __str__(self):
+        return f'Pulsar memory profile · {self.user}'
+
