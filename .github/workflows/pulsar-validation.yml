@@ -8,6 +8,8 @@ on:
       - 'backend/core/pulsar_profile_api.py'
       - 'backend/core/pulsar_memory_api.py'
       - 'backend/core/pulsar_runtime/**'
+      - 'backend/core/pulsar_evalset.py'
+      - 'backend/core/management/commands/evaluate_pulsar_v1.py'
       - 'backend/core/assistant_api.py'
       - 'backend/core/lms_extended_api.py'
       - 'backend/core/models.py'
@@ -66,6 +68,7 @@ jobs:
           "$PY" -m django check
           "$PY" -m django makemigrations --check --dry-run
           "$PY" -m django benchmark_pulsar_decisions --provider deterministic
+          "$PY" -m django evaluate_pulsar_v1 --provider deterministic
 
       - name: Pulsar unit and regression tests
         shell: bash
