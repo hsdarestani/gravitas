@@ -17,6 +17,7 @@ from .operating_models import KeyResult, OperatingTask, Priority, TelegramPulsar
 from .platform_runtime_v3 import core_access, ensure_platform_workspaces
 from .pulsar import PLATFORM_CONTEXT, PulsarError, PulsarPermissionError, complete, configured
 from .pulsar_runtime.profiles import assert_skill_allowed
+from .pulsar_runtime.policy import ActionPolicy
 
 
 logger = logging.getLogger(__name__)
@@ -465,6 +466,9 @@ def _edit(user, draft, instruction, ctx):
 
 
 def _create(user, draft, ctx):
+    # The Telegram confirmation is explicit user approval, but the server-side
+    # policy remains authoritative and can still deny the side effect.
+    ActionPolicy().decide(user, 'tasks.create', confirmed=True)
     core = ctx['core']
     owner_link = WorkspaceMembership.objects.filter(workspace=core, user_id=draft.get('owner_id')).select_related('user').first()
     owner = owner_link.user if owner_link else None
