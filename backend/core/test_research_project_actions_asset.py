@@ -8,7 +8,7 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         root = Path(__file__).resolve().parents[2]
         workspace = (root / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('installResearchProjectActions', workspace)
-        self.assertIn('/assets/ws/ws-project-actions.js?v=20261006-mindmap1', workspace)
+        self.assertIn('/assets/ws/ws-project-actions.js?v=20261006-mindmap2', workspace)
 
     def test_project_tabs_expose_mutations_without_native_dialog(self):
         root = Path(__file__).resolve().parents[2]
@@ -63,7 +63,12 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         self.assertIn("Add connection", editor)
         self.assertIn("node.update", editor)
         self.assertIn("edge.create", editor)
-        self.assertIn("/assets/ws/ws-mindmap-editor.css?v=20261006-editor1", workspace)
+        self.assertIn("edge.update", editor)
+        self.assertIn("beginConnection", editor)
+        self.assertIn("openNodeCanvasEditor", editor)
+        self.assertIn("openEdgeCanvasEditor", editor)
+        self.assertIn("dblclick", editor)
+        self.assertIn("/assets/ws/ws-mindmap-editor.css?v=20261006-editor2", workspace)
 
     def test_project_actions_use_canonical_endpoints(self):
         root = Path(__file__).resolve().parents[2]

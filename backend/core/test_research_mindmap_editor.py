@@ -113,6 +113,16 @@ class ResearchMindMapEditorApiTests(TestCase):
         self.assertEqual(item['edges'][0]['label'], 'supports hypothesis')
         self.assertEqual(MindMap.objects.get(pk=map_id).nodes.get(pk=second_id).title, 'Updated evidence')
 
+        updated_edge = self.post_json(f'/api/platform/mindmaps/{map_id}/', {
+            'action': 'edge.update',
+            'edge_id': edge.json()['edge']['id'],
+            'relation': 'evidence_for',
+            'label': 'direct canvas edit',
+        })
+        self.assertEqual(updated_edge.status_code, 200, updated_edge.content)
+        self.assertEqual(updated_edge.json()['edge']['relation'], 'evidence_for')
+        self.assertEqual(updated_edge.json()['edge']['label'], 'direct canvas edit')
+
     def test_map_title_cannot_be_emptied(self):
         create = self.post_json('/api/platform/mindmaps/', {
             'project_id': self.project.pk,
