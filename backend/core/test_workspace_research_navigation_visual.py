@@ -72,7 +72,7 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
 
         for marker in (
             '/assets/ws/ws-app.js?v=20261006-researchscope1',
-            '/assets/ws/ws-five-layer.js?v=20261006-mindmap1',
+            '/assets/ws/ws-five-layer.js?v=20261006-mindmapdelete1',
             '/assets/ws/ws-nextcloud-native.js?v=20261006-projectnotes1',
             '/assets/ws/ws-unified-design.css?v=20261002-file1',
             '/assets/ws/ws-design-runtime.js?v=20261002-file1',

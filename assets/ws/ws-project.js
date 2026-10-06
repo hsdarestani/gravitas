@@ -280,12 +280,28 @@ function sourcesView(doc, cockpit) {
     const open = action(map.can_edit ? 'Edit map' : 'View map', () => {
       dispatchEvent(new CustomEvent('ws:mindmap-open', { detail: { mapId: map.id } }));
     }, false, true);
+    const actions = [open];
+    if (map.can_edit) {
+      const remove = action('Delete map', async () => {
+        if (!window.confirm(`Delete “${map.title || 'this mind map'}” and all of its nodes and connections?`)) return;
+        remove.disabled = true;
+        try {
+          await P.call(`/platform/mindmaps/${map.id}/`, { method: 'DELETE' });
+          dispatchEvent(new CustomEvent('ws:navigate'));
+        } catch (error) {
+          remove.disabled = false;
+          window.alert(error?.data?.error || error?.message || 'Mind map could not be deleted.');
+        }
+      }, false, true);
+      remove.dataset.tone = 'bad';
+      actions.push(remove);
+    }
     maps.body.append(row({
       title: map.title,
       meta: `${map.node_count} nodes · ${map.edge_count} edges · ${date(map.updated_at)}`,
       body: map.description,
       badges: [map.can_edit ? 'Editable' : 'Read only'],
-      actions: [open],
+      actions,
     }));
   }
   doc.append(maps.box);

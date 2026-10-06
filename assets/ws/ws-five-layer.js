@@ -28,7 +28,7 @@ import {
 } from './ws-admin.js?v=20261002-admin2';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261002-admin1';
 import { renderCoreLinks } from './ws-core-links.js?v=20261002-admin1';
-import { renderResearchProject } from './ws-project.js?v=20261006-mindmap1';
+import { renderResearchProject } from './ws-project.js?v=20261006-mindmapdelete1';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
