@@ -1714,7 +1714,18 @@ function initTheme() {
 export async function start() {
   initTheme();
   installSelects();
-  installAssistant({ go });
+  installAssistant({
+    go,
+    pulsarContext: () => {
+      const area = railArea(location.pathname);
+      const currentProjectId = ui.route?.view === 'project' ? ui.route.id : null;
+      return {
+        surface: area === 'core' ? 'core' : (area === 'learning' ? 'learning' : 'research'),
+        project_id: currentProjectId || undefined,
+        thread_id: 'primary',
+      };
+    },
+  });
 
   const prefs = readPrefs();
   if (Array.isArray(prefs.openSections)) ui.openSections = new Set(prefs.openSections);
