@@ -7,7 +7,8 @@ from .models import PulsarThread
 from .pulsar_runtime.agent import PulsarAgent
 from .pulsar_runtime.errors import PulsarApprovalRequired, PulsarPermissionError
 from .pulsar_runtime.policy import ActionPolicy
-from .pulsar_runtime.tool_executor import ToolExecutionResult
+from .pulsar_runtime.profiles import ensure_profile
+from .pulsar_runtime.tool_executor import PulsarToolExecutor, ToolExecutionResult
 from .pulsar_runtime.tools import ToolRegistry
 
 
@@ -35,6 +36,17 @@ class FakeExecutor:
         if skill_name == 'project_task':
             return ('tasks.read', 'tasks.draft')
         return ()
+
+    def supported_names_for_skills(self, *, skill_names, profile):
+        names = []
+        for skill_name in tuple(skill_names or ()):
+            for name in self.supported_names(
+                skill_name=skill_name,
+                profile=profile,
+            ):
+                if name not in names:
+                    names.append(name)
+        return tuple(names)
 
     def execute(self, actor, tool_name, args=None, *, confirmed=False):
         self.calls.append({
@@ -141,6 +153,104 @@ class PulsarAgentTests(TestCase):
             ['route', 'route', 'answer'],
         )
 
+    def test_agent_can_orchestrate_across_research_and_project_skills(self):
+        harness = FakeHarness(
+            '{"action":"tool","tool":"research.search","args":{"query":"replication"}}',
+            '{"action":"tool","tool":"tasks.read","args":{"mine":true}}',
+            '{"action":"answer"}',
+            'Cross-skill grounded answer',
+        )
+        executor = FakeExecutor()
+        result = PulsarAgent(harness=harness, executor=executor).run(
+            self.user,
+            'Compare replication research with my current tasks.',
+            surface='core',
+        )
+
+        self.assertEqual(result.status, 'completed')
+        self.assertEqual(result.reply, 'Cross-skill grounded answer')
+        self.assertEqual(
+            [call['tool'] for call in executor.calls],
+            ['research.search', 'tasks.read'],
+        )
+        self.assertIn('research.search', harness.calls[0]['user'])
+        self.assertIn('tasks.read', harness.calls[0]['user'])
+        self.assertIn('"skill": "research"', harness.calls[0]['user'])
+        self.assertIn('"skill": "project_task"', harness.calls[0]['user'])
+
+    def test_explicit_skill_keeps_planner_confined_to_that_skill(self):
+        harness = FakeHarness(
+            '{"action":"tool","tool":"research.search","args":{"query":"x"}}',
+        )
+        with self.assertRaises(PulsarPermissionError):
+            PulsarAgent(harness=harness, executor=FakeExecutor()).run(
+                self.user,
+                'Read research.',
+                surface='core',
+                skill='project_task',
+            )
+        self.assertNotIn('research.search', harness.calls[0]['user'])
+        self.assertIn('tasks.read', harness.calls[0]['user'])
+
+    def test_cross_skill_catalog_excludes_profile_denied_skills(self):
+        profile = ensure_profile(self.user)
+        profile.allowed_skills = ['project_task']
+        profile.save(update_fields=['allowed_skills', 'updated_at'])
+
+        harness = FakeHarness(
+            '{"action":"tool","tool":"research.search","args":{"query":"x"}}',
+        )
+        with self.assertRaises(PulsarPermissionError):
+            PulsarAgent(harness=harness, executor=FakeExecutor()).run(
+                self.user,
+                'Use research.',
+                surface='core',
+            )
+        self.assertNotIn('research.search', harness.calls[0]['user'])
+        self.assertIn('tasks.read', harness.calls[0]['user'])
+
+    def test_approval_preserves_prior_cross_skill_read_context(self):
+        harness = FakeHarness(
+            '{"action":"tool","tool":"research.search","args":{"query":"replication"}}',
+            '{"action":"tool","tool":"learning.notes","args":{"course_id":4,"body":"Remember replication"}}',
+            'Saved with prior research context.',
+        )
+        executor = FakeExecutor()
+        agent = PulsarAgent(harness=harness, executor=executor)
+
+        pending = agent.run(
+            self.user,
+            'Research replication and save the key point as a learning note.',
+            surface='core',
+        )
+        self.assertEqual(pending.status, 'approval_required')
+        self.assertEqual(pending.data['completed_read_steps'], 1)
+
+        thread = PulsarThread.objects.get(user=self.user, thread_key='primary')
+        stored = thread.state['pending_tool']
+        self.assertEqual(stored['primary_skill'], 'project_task')
+        self.assertEqual(len(stored['completed_tools']), 1)
+        self.assertEqual(stored['completed_tools'][0]['tool'], 'research.search')
+
+        completed = agent.run(
+            self.user,
+            '',
+            surface='core',
+            confirm=True,
+        )
+        self.assertEqual(completed.status, 'completed')
+        self.assertEqual(completed.reply, 'Saved with prior research context.')
+        self.assertEqual(
+            [call['tool'] for call in executor.calls],
+            ['research.search', 'learning.notes', 'learning.notes'],
+        )
+        self.assertTrue(executor.calls[-1]['confirmed'])
+        self.assertIn(
+            'grounded result from research.search',
+            harness.calls[-1]['user'],
+        )
+        self.assertEqual(len(completed.data['tool_trace']), 2)
+
     def test_agent_stores_pending_side_effect_and_executes_only_after_confirmation(self):
         harness = FakeHarness(
             '{"action":"tool","tool":"learning.notes","args":{"course_id":4,"body":"Remember this"}}',
@@ -197,6 +307,24 @@ class PulsarAgentTests(TestCase):
                 surface='core',
                 skill='project_task',
             )
+
+    def test_real_executor_cross_skill_catalog_respects_permission_scope(self):
+        executor = PulsarToolExecutor()
+        names = executor.supported_names_for_skills(
+            skill_names=('research', 'project_task'),
+            profile={
+                'permission_scope': {
+                    'research': {'read': False, 'write': 'deny'},
+                    'project_task': {'read': True, 'write': 'deny'},
+                },
+            },
+        )
+        self.assertNotIn('research.read', names)
+        self.assertNotIn('research.search', names)
+        self.assertNotIn('files.read', names)
+        self.assertIn('projects.read', names)
+        self.assertIn('tasks.read', names)
+        self.assertNotIn('tasks.create', names)
 
     def test_profile_write_mode_can_make_r1_learning_action_require_approval(self):
         with self.assertRaises(PulsarApprovalRequired):
