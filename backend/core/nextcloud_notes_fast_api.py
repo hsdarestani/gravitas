@@ -9,8 +9,7 @@ existing conflict-safe Notes adapter.
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from .models import KnowledgeResource
-from .nextcloud_notes import _allowed_space, _json, _remote_url, _space, native_notes
+from .nextcloud_notes import _json, _remote_url, _visible_notes_for_user, native_notes
 
 
 @require_http_methods(['GET', 'POST'])
@@ -28,11 +27,8 @@ def native_notes_fast(request):
     if request.GET.get('sync') in {'1', 'true', 'yes'}:
         return native_notes(request)
 
-    resources = KnowledgeResource.objects.filter(
-        owner=request.user,
-        kind=KnowledgeResource.Kind.NOTE,
-    ).order_by('-updated_at')
-    items = [_json(resource) for resource in resources if _allowed_space(request.user, _space(resource))]
+    resources = _visible_notes_for_user(request.user)
+    items = [_json(resource, request.user) for resource in resources]
     return JsonResponse({
         'ok': True,
         'available': None,
