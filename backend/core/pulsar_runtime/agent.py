@@ -633,7 +633,6 @@ class PulsarAgent:
                     thread_id=thread_id,
                     metadata=metadata,
                     tool_results=tool_results,
-                    decision_trace=decision_trace,
                 )
             except PulsarPermissionError:
                 raise
@@ -667,6 +666,7 @@ class PulsarAgent:
                     thread_id=thread_id,
                     metadata=metadata,
                     tool_results=tool_results,
+                    decision_trace=decision_trace,
                 )
 
             tool = plan['tool']
@@ -686,6 +686,7 @@ class PulsarAgent:
                     thread_id=thread_id,
                     metadata=metadata,
                     tool_results=tool_results,
+                    decision_trace=decision_trace,
                 )
             seen_calls.add(call_signature)
 
