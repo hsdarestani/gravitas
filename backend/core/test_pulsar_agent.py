@@ -8,7 +8,7 @@ from .pulsar_runtime.agent import PulsarAgent
 from .pulsar_runtime.errors import PulsarApprovalRequired, PulsarPermissionError
 from .pulsar_runtime.policy import ActionPolicy
 from .pulsar_runtime.profiles import ensure_profile
-from .pulsar_runtime.tool_executor import ToolExecutionResult
+from .pulsar_runtime.tool_executor import PulsarToolExecutor, ToolExecutionResult
 from .pulsar_runtime.tools import ToolRegistry
 
 
@@ -307,6 +307,24 @@ class PulsarAgentTests(TestCase):
                 surface='core',
                 skill='project_task',
             )
+
+    def test_real_executor_cross_skill_catalog_respects_permission_scope(self):
+        executor = PulsarToolExecutor()
+        names = executor.supported_names_for_skills(
+            skill_names=('research', 'project_task'),
+            profile={
+                'permission_scope': {
+                    'research': {'read': False, 'write': 'deny'},
+                    'project_task': {'read': True, 'write': 'deny'},
+                },
+            },
+        )
+        self.assertNotIn('research.read', names)
+        self.assertNotIn('research.search', names)
+        self.assertNotIn('files.read', names)
+        self.assertIn('projects.read', names)
+        self.assertIn('tasks.read', names)
+        self.assertNotIn('tasks.create', names)
 
     def test_profile_write_mode_can_make_r1_learning_action_require_approval(self):
         with self.assertRaises(PulsarApprovalRequired):
