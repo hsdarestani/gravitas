@@ -63,6 +63,7 @@ class PulsarAgentTests(TestCase):
     def test_agent_plans_one_read_tool_then_returns_grounded_answer(self):
         harness = FakeHarness(
             '{"action":"tool","tool":"research.search","args":{"query":"replication"}}',
+            '{"action":"answer"}',
             'Grounded answer',
         )
         executor = FakeExecutor()
@@ -78,8 +79,67 @@ class PulsarAgentTests(TestCase):
         self.assertEqual(result.tool, 'research.search')
         self.assertEqual(executor.calls[0]['args']['project_id'], 7)
         self.assertFalse(executor.calls[0]['confirmed'])
-        self.assertEqual(harness.calls[0]['operation'], 'route')
-        self.assertEqual(harness.calls[1]['operation'], 'answer')
+        self.assertEqual(
+            [call['operation'] for call in harness.calls],
+            ['route', 'route', 'answer'],
+        )
+
+    def test_agent_can_chain_multiple_read_tools_before_answer(self):
+        harness = FakeHarness(
+            '{"action":"tool","tool":"research.search","args":{"query":"replication"}}',
+            '{"action":"tool","tool":"research.search","args":{"query":"reproducibility"}}',
+            '{"action":"answer"}',
+            'Combined grounded answer',
+        )
+        executor = FakeExecutor()
+        result = PulsarAgent(harness=harness, executor=executor).run(
+            self.user,
+            'Compare our notes on replication and reproducibility.',
+            surface='research',
+            metadata={'project_id': 7},
+        )
+
+        self.assertEqual(result.status, 'completed')
+        self.assertEqual(result.reply, 'Combined grounded answer')
+        self.assertEqual(len(executor.calls), 2)
+        self.assertEqual(
+            [call['args']['query'] for call in executor.calls],
+            ['replication', 'reproducibility'],
+        )
+        self.assertEqual(
+            [call['operation'] for call in harness.calls],
+            ['route', 'route', 'route', 'answer'],
+        )
+        self.assertIn(
+            'grounded result from research.search',
+            harness.calls[1]['user'],
+        )
+        self.assertEqual(len(result.data['tool_trace']), 2)
+
+    def test_agent_stops_duplicate_tool_loop_before_reexecution(self):
+        same_plan = (
+            '{"action":"tool","tool":"research.search",'
+            '"args":{"query":"replication"}}'
+        )
+        harness = FakeHarness(
+            same_plan,
+            same_plan,
+            'Answer after duplicate guard',
+        )
+        executor = FakeExecutor()
+        result = PulsarAgent(harness=harness, executor=executor).run(
+            self.user,
+            'Find replication notes.',
+            surface='research',
+        )
+
+        self.assertEqual(result.status, 'completed')
+        self.assertEqual(result.reply, 'Answer after duplicate guard')
+        self.assertEqual(len(executor.calls), 1)
+        self.assertEqual(
+            [call['operation'] for call in harness.calls],
+            ['route', 'route', 'answer'],
+        )
 
     def test_agent_stores_pending_side_effect_and_executes_only_after_confirmation(self):
         harness = FakeHarness(
