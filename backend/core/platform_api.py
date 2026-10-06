@@ -1453,6 +1453,32 @@ def mindmap_detail(request, map_id):
             'label': edge.label,
         }}, status=201 if created else 200)
 
+    if action == 'edge.update':
+        edge = item.edges.filter(pk=data.get('edge_id')).first()
+        if not edge:
+            return _error('edge_not_found', 404)
+        relation = str(data.get('relation', edge.relation)).strip()[:60] or 'related'
+        label = str(data.get('label', edge.label)).strip()[:160]
+        duplicate = item.edges.filter(
+            source=edge.source,
+            target=edge.target,
+            relation=relation,
+        ).exclude(pk=edge.pk).first()
+        if duplicate:
+            return _error('edge_already_exists', 409)
+        edge.relation = relation
+        edge.label = label
+        edge.save(update_fields=['relation', 'label'])
+        _touch_mindmap(item)
+        _audit(item.project, request.user, 'mindmap_edge_updated', item, title=f'{edge.source.title} → {edge.target.title}')
+        return JsonResponse({'ok': True, 'edge': {
+            'id': edge.pk,
+            'source_id': edge.source_id,
+            'target_id': edge.target_id,
+            'relation': edge.relation,
+            'label': edge.label,
+        }})
+
     if action == 'edge.delete':
         edge = item.edges.filter(pk=data.get('edge_id')).first()
         if not edge:
