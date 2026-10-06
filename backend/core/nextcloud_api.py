@@ -166,7 +166,7 @@ def project_nextcloud_sync(request, project_id):
     # Team Folder had already been provisioned successfully. Keep opening the
     # project room and report a partial repair instead; subsequent syncs can
     # converge the failed child objects without trapping the user on Gravitas.
-    warnings = []
+    warnings = list(team.get('warnings') or [])
     for folder in project.collections.select_related('parent'):
         if not (can_view(request.user, folder) or can_manage(request.user, project)):
             continue
