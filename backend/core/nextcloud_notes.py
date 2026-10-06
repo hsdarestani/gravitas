@@ -645,7 +645,7 @@ def native_notes(request):
             return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource, request.user)}, status=409)
         except Exception as exc:
             _mark(resource, 'error', str(exc))
-        return JsonResponse({'ok': True, 'item': _json(resource)}, status=201)
+        return JsonResponse({'ok': True, 'item': _json(resource, request.user)}, status=201)
 
     sync_result = None
     available = True
@@ -672,7 +672,7 @@ def native_note_detail(request, resource_id):
     if not resource:
         return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
     if request.method == 'GET':
-        return JsonResponse({'ok': True, 'item': _json(resource)})
+        return JsonResponse({'ok': True, 'item': _json(resource, request.user)})
     if not can_edit(request.user, resource):
         return JsonResponse({'ok': False, 'error': 'permission_denied'}, status=403)
 
@@ -719,10 +719,10 @@ def native_note_detail(request, resource_id):
     try:
         sync_note_to_nextcloud(resource)
     except NotesConflict as exc:
-        return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource)}, status=409)
+        return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource, request.user)}, status=409)
     except Exception as exc:
         _mark(resource, 'error', str(exc))
-    return JsonResponse({'ok': True, 'item': _json(resource)})
+    return JsonResponse({'ok': True, 'item': _json(resource, request.user)})
 
 
 @require_http_methods(['POST'])
@@ -750,7 +750,7 @@ def native_note_resolve(request, resource_id):
                 workspace=resource.workspace, actor=request.user, resource=resource, project=resource.project,
                 action='note_conflict_resolved', detail={'winner': 'gravitas'},
             )
-            return JsonResponse({'ok': True, 'winner': winner, 'item': _json(resource)})
+            return JsonResponse({'ok': True, 'winner': winner, 'item': _json(resource, request.user)})
 
         if remote is None:
             workspace, project, title = resource.workspace, resource.project, resource.title
@@ -768,9 +768,9 @@ def native_note_resolve(request, resource_id):
             workspace=resource.workspace, actor=request.user, resource=resource, project=resource.project,
             action='note_conflict_resolved', detail={'winner': 'nextcloud'},
         )
-        return JsonResponse({'ok': True, 'winner': winner, 'item': _json(resource)})
+        return JsonResponse({'ok': True, 'winner': winner, 'item': _json(resource, request.user)})
     except NotesConflict as exc:
-        return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource)}, status=409)
+        return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource, request.user)}, status=409)
     except (NotesError, cloud.CloudError, ImproperlyConfigured) as exc:
         return JsonResponse({'ok': False, 'error': 'notes_resolution_failed', 'detail': str(exc)}, status=503)
 
