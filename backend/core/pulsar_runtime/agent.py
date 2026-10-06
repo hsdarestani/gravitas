@@ -10,7 +10,7 @@ from .errors import PulsarApprovalRequired, PulsarError, PulsarPermissionError
 from .harness import PulsarHarness
 from .profiles import assert_skill_allowed, snapshot
 from .skills import SkillRegistry
-from .tool_executor import PulsarToolExecutor
+from .tool_executor import PulsarToolExecutor, ToolExecutionResult
 
 
 TOOL_ARGUMENT_HINTS = {
@@ -98,6 +98,7 @@ TOOL_ARGUMENT_HINTS = {
 
 
 MAX_TOOL_STEPS = 4
+CROSS_SKILL_SURFACES = {'core', 'projects', 'research', 'lms', 'learning', 'telegram'}
 
 
 @dataclass
@@ -163,6 +164,24 @@ def _tool_trace(results):
     return rows
 
 
+def _json_safe(value):
+    return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+
+
+def _restore_tool_results(rows):
+    results = []
+    for row in list(rows or [])[:MAX_TOOL_STEPS]:
+        if not isinstance(row, dict):
+            continue
+        results.append(ToolExecutionResult(
+            tool=str(row.get('tool') or ''),
+            content=str(row.get('content') or ''),
+            data=row.get('data') if isinstance(row.get('data'), dict) else {},
+            sources=row.get('sources') if isinstance(row.get('sources'), list) else [],
+        ))
+    return results
+
+
 class PulsarAgent:
     """Controlled bounded agent loop shared by authenticated Gravitas surfaces.
 
@@ -192,7 +211,16 @@ class PulsarAgent:
         value = state.get('pending_tool')
         return value if isinstance(value, dict) else None
 
-    def _set_pending(self, thread, *, tool, args, message):
+    def _set_pending(
+        self,
+        thread,
+        *,
+        tool,
+        args,
+        message,
+        primary_skill,
+        tool_results=None,
+    ):
         if thread is None:
             return
         state = dict(thread.state or {})
@@ -200,6 +228,8 @@ class PulsarAgent:
             'tool': tool,
             'args': dict(args or {}),
             'message': str(message or '')[:6000],
+            'primary_skill': str(primary_skill or '')[:64],
+            'completed_tools': _json_safe(_tool_trace(tool_results)),
             'created_at': timezone.now().isoformat(),
         }
         thread.state = state
@@ -224,16 +254,53 @@ class PulsarAgent:
                 continue
             rows.append({
                 'name': definition.name,
+                'skill': definition.skill,
                 'description': definition.description,
                 'risk': definition.risk,
+                'action': definition.action,
                 'arguments': TOOL_ARGUMENT_HINTS.get(name, {}),
             })
         return rows
 
-    def _plan(self, actor, *, message, surface, skill_name, thread_id, metadata, tool_results=None):
+    def _orchestration_skills(
+        self,
+        actor,
+        *,
+        primary_skill,
+        surface,
+        explicit_skill,
+    ):
+        if explicit_skill or str(surface or '').strip().lower() not in CROSS_SKILL_SURFACES:
+            return (primary_skill,)
+
         profile = snapshot(actor)
-        names = self.executor.supported_names(
-            skill_name=skill_name,
+        allowed = {
+            str(name or '').strip().lower()
+            for name in (profile.get('allowed_skills') or [])
+        }
+        ordered = []
+        if primary_skill in allowed:
+            ordered.append(primary_skill)
+        for skill in self.skills.all():
+            if skill.name in allowed and skill.name not in ordered:
+                ordered.append(skill.name)
+        return tuple(ordered or (primary_skill,))
+
+    def _plan(
+        self,
+        actor,
+        *,
+        message,
+        surface,
+        skill_name,
+        skill_names,
+        thread_id,
+        metadata,
+        tool_results=None,
+    ):
+        profile = snapshot(actor)
+        names = self.executor.supported_names_for_skills(
+            skill_names=skill_names,
             profile=profile,
         )
         if not names:
@@ -246,6 +313,7 @@ class PulsarAgent:
             'Use {"action":"answer"} when enough evidence has been retrieved. '
             'Otherwise use {"action":"tool","tool":"exact.name","args":{...}}. '
             'The server may call you again after a tool result, but enforces a hard bounded step limit. '
+            'Tools may belong to different skills. Choose across them only when the user request needs it. '
             'Only choose a listed tool. Never invent IDs. Reuse IDs supplied in Context IDs. '
             'Never repeat a tool with the same arguments when that result is already present. '
             'Do not choose a write tool unless the user explicitly asked for that side effect. '
@@ -255,7 +323,9 @@ class PulsarAgent:
         planning = self.harness.run_text(
             system=system,
             user=(
-                'Available tools:\n'
+                'Available skills:\n'
+                + json.dumps(list(skill_names), ensure_ascii=False)
+                + '\nAvailable tools:\n'
                 + json.dumps(catalog, ensure_ascii=False)
                 + '\nContext IDs:\n'
                 + json.dumps(_safe_metadata(metadata), ensure_ascii=False)
@@ -396,8 +466,17 @@ class PulsarAgent:
         if not actor or not getattr(actor, 'is_authenticated', False):
             raise PulsarPermissionError('pulsar_authentication_required')
 
+        explicit_skill = bool(str(skill or '').strip())
         skill_def = self.skills.resolve(name=skill, surface=surface)
         assert_skill_allowed(actor, skill_def.name)
+        orchestration_skills = self._orchestration_skills(
+            actor,
+            primary_skill=skill_def.name,
+            surface=surface,
+            explicit_skill=explicit_skill,
+        )
+        for allowed_skill in orchestration_skills:
+            assert_skill_allowed(actor, allowed_skill)
         metadata = dict(metadata or {})
         thread = self._thread(
             actor,
@@ -420,6 +499,7 @@ class PulsarAgent:
             tool = str(pending.get('tool') or '')
             args = pending.get('args') if isinstance(pending.get('args'), dict) else {}
             original = str(pending.get('message') or message or '')
+            prior_results = _restore_tool_results(pending.get('completed_tools'))
             definition = self.executor.tools.get(tool)
             if definition is None:
                 self._clear_pending(thread)
@@ -436,10 +516,10 @@ class PulsarAgent:
                 actor,
                 message=original,
                 surface=surface,
-                skill_name=definition.skill,
+                skill_name=str(pending.get('primary_skill') or definition.skill),
                 thread_id=thread_id,
                 metadata=metadata,
-                tool_results=[result],
+                tool_results=[*prior_results, result],
             )
 
         tool_results = []
@@ -451,6 +531,7 @@ class PulsarAgent:
                     message=message,
                     surface=surface,
                     skill_name=skill_def.name,
+                    skill_names=orchestration_skills,
                     thread_id=thread_id,
                     metadata=metadata,
                     tool_results=tool_results,
@@ -499,6 +580,8 @@ class PulsarAgent:
                     tool=tool,
                     args=args,
                     message=message,
+                    primary_skill=skill_def.name,
+                    tool_results=tool_results,
                 )
                 definition = self.executor.tools.get(tool)
                 return AgentOutcome(
