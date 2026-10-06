@@ -23,6 +23,7 @@ from core.operating_api_v4 import operating_dashboard, milestones, risks, tasks,
 from core.project_cockpit_v2 import project_cockpit
 from core.pulsar_api import public_pulsar_ask
 from core.pulsar_profile_api import pulsar_memory_profile
+from core.pulsar_runtime_api import pulsar_runtime_status
 from core.pulsar_memory_api import pulsar_memories, pulsar_memory_disable, pulsar_thread_state
 from core.pulsar_agent_api import pulsar_agent_run
 from core.pulsar_schedule_api import pulsar_reminders, pulsar_reminder_detail
@@ -80,6 +81,7 @@ urlpatterns = [
     path('api/platform/ai/providers/', ai_providers),
     path('api/platform/ai/ask/', assistant_ask),
     path('api/platform/pulsar/profile/', pulsar_memory_profile),
+    path('api/platform/pulsar/runtime-status/', pulsar_runtime_status),
     path('api/platform/pulsar/memories/', pulsar_memories),
     path('api/platform/pulsar/memories/<int:memory_id>/disable/', pulsar_memory_disable),
     path('api/platform/pulsar/threads/<str:thread_key>/', pulsar_thread_state),
