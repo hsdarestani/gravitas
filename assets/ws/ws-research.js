@@ -418,8 +418,8 @@ export function renderFolders(host, { go }) {
       body.append(dashboardSummary([
         { value: projects.length, label: 'Data rooms', icon: 'projects', note: 'Accessible projects' },
         { value: files.length, label: 'Files', icon: 'files', note: 'Personal + project' },
-        { value: datasets.length, label: 'Datasets', icon: 'data', note: 'Accessible data' },
-        { value: folders.length, label: 'Personal folders', icon: 'folder', note: 'Your Space structure' },
+        { value: datasets.length, label: 'Datasets', icon: 'files', note: 'Accessible data' },
+        { value: folders.length, label: 'Personal folders', icon: 'projects', note: 'Your Space structure' },
       ]));
 
       const rooms = el('section', 'v-panel');
