@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -34,12 +35,14 @@ class AssistantApiTests(TestCase):
         self.assertIn('pipeline stays on CPU', payload['answer'])
 
 
+    @patch('core.assistant_api.timezone.localdate', return_value=date(2026, 10, 6))
     @patch('core.assistant_api.run_text')
     @patch('core.assistant_api.configured', return_value=True)
     def test_core_surface_routes_to_project_task_and_hides_internal_acl_label(
         self,
         configured,
         run_text,
+        localdate,
     ):
         run_text.return_value = SimpleNamespace(
             text='You have one open task.',
@@ -59,6 +62,7 @@ class AssistantApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
+        self.assertEqual(payload['surface'], 'core')
         self.assertEqual(payload['skill'], 'project_task')
         kwargs = run_text.call_args.kwargs
         self.assertEqual(kwargs['surface'], 'core')
@@ -66,6 +70,9 @@ class AssistantApiTests(TestCase):
         self.assertNotIn('ACL-checked', kwargs['system'])
         self.assertNotIn('ACL-checked', kwargs['user'])
         self.assertIn('Accessible Gravitas context', kwargs['user'])
+        self.assertIn('authoritative current date is 2026-10-06', kwargs['system'])
+        self.assertIn('Current date: 2026-10-06', kwargs['user'])
+        self.assertIn('only treat items explicitly assigned to the authenticated current user as theirs', kwargs['system'])
 
     @patch('core.assistant_api.run_text')
     @patch('core.assistant_api.configured', return_value=True)
@@ -86,6 +93,9 @@ class AssistantApiTests(TestCase):
             content_type='application/json',
         )
         self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['surface'], 'learning')
+        self.assertEqual(payload['skill'], 'learning')
         kwargs = run_text.call_args.kwargs
         self.assertEqual(kwargs['surface'], 'learning')
         self.assertEqual(kwargs['skill'], 'learning')

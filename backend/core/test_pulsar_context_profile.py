@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .lms_models import Course, CourseEnrollment, CourseModule, LearningInteraction, Lesson
-from .models import KnowledgeResource, Workspace
+from .models import KnowledgeResource, Workspace, WorkspaceMembership
 from .operating_models import KeyResult, StrategicObjective
 from .pulsar_runtime.context import PulsarContextEngine
 from .pulsar_runtime.profiles import snapshot
@@ -127,13 +127,105 @@ class PulsarContextAndProfileTests(TestCase):
             skill='project_task',
         )
 
-        self.assertIn('Open Core tasks:', package.text)
+        self.assertIn('Tasks assigned to the current user:', package.text)
         self.assertIn('Review Pulsar architecture', package.text)
         self.assertTrue(
             any(
                 row['kind'] == 'core_task' and row['id'] == str(task.pk)
                 for row in package.sources
             )
+        )
+
+    def test_personal_task_question_excludes_other_team_members_tasks(self):
+        core = ensure_platform_workspaces(self.user)['core']
+        WorkspaceMembership.objects.get_or_create(
+            workspace=core,
+            user=self.other,
+            defaults={'role': WorkspaceMembership.Role.MEMBER},
+        )
+        objective = StrategicObjective.objects.create(
+            workspace=core,
+            title='Week 1 ownership',
+            owner=self.user,
+        )
+        kr = KeyResult.objects.create(
+            objective=objective,
+            title='Respect task assignment',
+            owner=self.user,
+            baseline_value=0,
+            target_value=2,
+            current_value=0,
+            unit='tasks',
+        )
+        mine = create_operating_task(
+            self.user,
+            {
+                'title': 'My Pulsar task',
+                'definition_of_done': 'My task is complete.',
+                'due_date': '2026-10-08',
+                'key_result_id': kr.pk,
+                'owner_id': self.user.pk,
+            },
+            confirmed=True,
+            source='test',
+        )
+        other = create_operating_task(
+            self.user,
+            {
+                'title': 'Other member task',
+                'definition_of_done': 'Other task is complete.',
+                'due_date': '2026-10-07',
+                'key_result_id': kr.pk,
+                'owner_id': self.other.pk,
+            },
+            confirmed=True,
+            source='test',
+        )
+
+        package = PulsarContextEngine().workspace(
+            self.user,
+            'Which of my current tasks should I work on first?',
+            skill='project_task',
+        )
+
+        self.assertIn(mine.title, package.text)
+        self.assertNotIn(other.title, package.text)
+        self.assertIn('assignment=assigned_to_current_user', package.text)
+        self.assertFalse(
+            any(row['id'] == str(other.pk) for row in package.sources)
+        )
+
+    def test_workspace_learning_context_includes_enrollment_progress(self):
+        course = Course.objects.create(
+            slug='workspace-learning-progress',
+            title='Workspace Learning Progress',
+            summary='Progress should be visible to Pulsar in the Learning surface.',
+            created_by=self.user,
+        )
+        enrollment = CourseEnrollment.objects.create(
+            user=self.user,
+            course=course,
+            progress_percent=42,
+        )
+        LearningInteraction.objects.create(
+            user=self.user,
+            enrollment=enrollment,
+            kind=LearningInteraction.Kind.NOTE,
+            body='Remember the benchmark section.',
+        )
+
+        package = PulsarContextEngine().workspace(
+            self.user,
+            'What should I learn next?',
+            skill='learning',
+        )
+
+        self.assertIn('Current learner course progress:', package.text)
+        self.assertIn('Workspace Learning Progress', package.text)
+        self.assertIn('progress=42', package.text)
+        self.assertIn('Remember the benchmark section.', package.text)
+        self.assertTrue(
+            any(row['kind'] == 'course' and row['id'] == str(course.pk) for row in package.sources)
         )
 
     def test_learning_context_combines_course_progress_lesson_and_user_notes(self):

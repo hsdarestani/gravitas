@@ -486,6 +486,8 @@ class OpenEdXLmsRefactorTests(TestCase):
         self.assertEqual(kwargs['surface'], 'lms')
         self.assertEqual(kwargs['skill'], 'learning')
         self.assertEqual(kwargs['actor'], self.learner)
+        self.assertNotIn('ACL-checked', kwargs['system'])
+        self.assertIn('accessible course, learner, project and selected-source context', kwargs['system'])
 
     @patch('core.lms_extended_api._zotero_request')
     def test_zotero_connection_encrypts_key_and_never_returns_it(self, zotero_request):
