@@ -286,6 +286,18 @@ def platform_file_upload(request):
         return _error('unsupported_dataset_type', 415, allowed=sorted(DATASET_EXTENSIONS))
     try:
         workspace, project, collection = _resolve_context(request.user, request.POST)
+        if project and collection is None:
+            # Files never fall into an unstructured project root. Ordinary
+            # uploads default to Working; datasets default to Datasets. Callers
+            # can still target any explicit project collection via collection_id.
+            default_folder = '03_Datasets' if kind == KnowledgeResource.Kind.DATASET else '02_Working'
+            collection, _ = Collection.objects.get_or_create(
+                workspace=workspace,
+                project=project,
+                parent=None,
+                name=default_folder,
+                defaults={'created_by': project.owner},
+            )
         visibility = _visibility(request.POST, project, workspace, collection)
     except PermissionError:
         return _error('permission_denied', 403)

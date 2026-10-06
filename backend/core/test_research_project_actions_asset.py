@@ -8,7 +8,7 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         root = Path(__file__).resolve().parents[2]
         workspace = (root / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('installResearchProjectActions', workspace)
-        self.assertIn('/assets/ws/ws-project-actions.js?v=20260920-perf1', workspace)
+        self.assertIn('/assets/ws/ws-project-actions.js?v=20261006-dataroom1', workspace)
 
     def test_project_tabs_expose_mutations_without_native_dialog(self):
         root = Path(__file__).resolve().parents[2]
@@ -38,6 +38,13 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
             self.assertIn(text, source)
         self.assertNotIn('.showModal(', source)
         self.assertNotIn("createElement('dialog')", source)
+
+    def test_data_room_opens_the_project_team_folder_not_nextcloud_home(self):
+        root = Path(__file__).resolve().parents[2]
+        source = (root / 'assets/ws/ws-project-actions.js').read_text(encoding='utf-8')
+        self.assertIn('/platform/projects/${projectId}/nextcloud/sync/', source)
+        self.assertIn('data?.team_folder?.native_url', source)
+        self.assertNotIn("`${root}/index.php/apps/files/`", source)
 
     def test_project_actions_use_canonical_endpoints(self):
         root = Path(__file__).resolve().parents[2]

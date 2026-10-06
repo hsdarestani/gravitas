@@ -26,11 +26,11 @@ import * as meetings from './ws-meetings.js?v=20260926-calendar6';
 import * as assets from './ws-core-assets.js?v=20260926-links1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js?v=20260924-seen1';
-import * as research from './ws-research.js?v=20261002-calendar1';
+import * as research from './ws-research.js?v=20261006-filesdata1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20261002-file1';
+} from './ws-nav.js?v=20261006-researchscope1';
 import { renderDashboard, stopClock } from './ws-home.js?v=20261001-series1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';

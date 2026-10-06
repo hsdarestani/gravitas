@@ -282,6 +282,18 @@ function sourcesView(doc, cockpit) {
 
 function filesView(doc, cockpit) {
   const items = resourcesByKind(cockpit.resources, ['file']);
+  const folders = cockpit.folders || [];
+  const structure = section('Project structure', 'The same project folders are used by Gravitas and the Nextcloud data room.');
+  if (!folders.length) structure.body.append(empty('Project structure is being prepared', 'Open Data room to reconcile this project with Nextcloud.'));
+  for (const folder of folders) {
+    structure.body.append(row({
+      title: folder.name,
+      meta: folder.parent_id ? 'Nested folder' : 'Project root',
+      badges: [`${folder.resource_count || 0} item${Number(folder.resource_count || 0) === 1 ? '' : 's'}`],
+    }));
+  }
+  doc.append(structure.box);
+
   const box = section('Files & secure data room', 'Project files are backed by Nextcloud and remain inside the project ACL.');
   if (!items.length) box.body.append(empty('No files yet', 'Files attached to this project appear here.'));
   items.forEach((item) => box.body.append(resourceRow(item)));

@@ -242,6 +242,10 @@ def project_cockpit(request, project_id):
         item for item in project.resources.select_related('owner', 'collection', 'project')
         if can_view(request.user, item)
     ]
+    folders = [
+        item for item in project.collections.select_related('parent', 'created_by').order_by('name', 'id')
+        if can_view(request.user, item)
+    ]
     deliverables = [
         item for item in project.deliverables.select_related('resource', 'created_by')
         if can_view(request.user, item)
@@ -305,6 +309,14 @@ def project_cockpit(request, project_id):
             'open_requests': open_requests,
         },
         'members': members,
+        'folders': [{
+            'id': folder.pk,
+            'name': folder.name,
+            'parent_id': folder.parent_id,
+            'role': effective_role(request.user, folder),
+            'can_edit': can_edit(request.user, folder),
+            'resource_count': sum(1 for resource in resources if resource.collection_id == folder.pk),
+        } for folder in folders],
         'resources': [_resource_json(item) | {
             'collection_id': item.collection_id,
             'owner': _person(item.owner),

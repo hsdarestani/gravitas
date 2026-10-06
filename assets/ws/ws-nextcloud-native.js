@@ -533,8 +533,13 @@ function noteRow(item, active) {
   const snippet = el('span', 'nb-row__snippet', preview || 'Empty note');
   snippet.dir = 'auto';
   if (!preview) snippet.dataset.empty = '';
-  const when = el('span', 'nb-row__when', ago(item.updated));
-  when.title = fullDate(item.updated);
+  const context = item.project_title
+    ? `${item.project_title} · `
+    : item.scope === 'shared' ? 'Shared · ' : 'Personal · ';
+  const when = el('span', 'nb-row__when', `${context}${ago(item.updated)}`);
+  when.title = item.project_title
+    ? `${item.project_title} · ${fullDate(item.updated)}`
+    : `${item.scope === 'shared' ? 'Shared' : 'Personal'} note · ${fullDate(item.updated)}`;
   row.append(top, snippet, when);
   row.addEventListener('click', () => choose(item.id));
   return row;
@@ -552,7 +557,7 @@ function drawList() {
   const query = book.query.trim().toLowerCase();
   const sorted = [...book.items].sort((a, b) => stamp(b.updated) - stamp(a.updated));
   const matches = query
-    ? sorted.filter((item) => `${item.title || ''}\n${item.content || ''}`.toLowerCase().includes(query))
+    ? sorted.filter((item) => `${item.title || ''}\n${item.content || ''}\n${item.project_title || ''}`.toLowerCase().includes(query))
     : sorted;
   if (!matches.length) {
     list.append(el('p', 'nb-list__empty', `Nothing matches “${book.query.trim()}”.`));
@@ -569,7 +574,22 @@ function drawList() {
     list.append(section);
   };
   group('Pinned', matches.filter((item) => item.favorite));
-  group(query ? 'Results' : 'Notes', matches.filter((item) => !item.favorite));
+  const ordinary = matches.filter((item) => !item.favorite);
+  if (query) {
+    group('Results', ordinary);
+    return;
+  }
+  group('Personal', ordinary.filter((item) => !item.project_id && item.scope !== 'shared'));
+  group('Shared', ordinary.filter((item) => !item.project_id && item.scope === 'shared'));
+  const projects = new Map();
+  ordinary.filter((item) => item.project_id).forEach((item) => {
+    const key = String(item.project_id);
+    if (!projects.has(key)) projects.set(key, { title: item.project_title || 'Project', items: [] });
+    projects.get(key).items.push(item);
+  });
+  [...projects.values()]
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .forEach((project) => group(project.title, project.items));
 }
 
 function choose(id) {
@@ -635,7 +655,7 @@ function drawEmpty(main) {
   const box = el('div', 'nb-empty');
   box.append(glyph('notes'));
   box.append(el('h2', 'nb-empty__title', 'Start your notebook'));
-  box.append(el('p', 'nb-empty__text', 'Notes are plain Markdown, mirrored to Nextcloud Notes. Write here or there; both copies stay in step.'));
+  box.append(el('p', 'nb-empty__text', 'Personal, shared and project notes live in one Research notebook. Your own notes mirror to Nextcloud; shared content follows its Gravitas ACL.'));
   const create = action('New note', () => createNote(create), { solid: true });
   box.append(create);
   main.append(box);
@@ -788,7 +808,7 @@ function conflictBox(note, report) {
 
 function drawEditor(main, note, { fresh = false } = {}) {
   const { info } = book;
-  const locked = !!note.readonly || note.sync_state === 'blocked';
+  const locked = note.can_edit === false || !!note.readonly || note.sync_state === 'blocked';
 
   /* Bar: where you are, whether it is saved, and the few things you do to a
      whole note. Everything else is in the text. */
@@ -875,7 +895,10 @@ function drawEditor(main, note, { fresh = false } = {}) {
     const edited = el('span', null, note.updated ? `Edited ${ago(note.updated).toLowerCase()}` : 'Not saved yet');
     edited.title = fullDate(note.updated);
     meta.append(pill, edited);
+    if (note.project_title) meta.append(el('span', null, `Project · ${note.project_title}`));
+    else meta.append(el('span', null, note.scope === 'shared' ? `Shared · ${note.owner_name || 'Collaborator'}` : 'Personal'));
     if (note.favorite) meta.append(el('span', null, 'Pinned'));
+    star.disabled = locked;
     star.dataset.on = note.favorite ? '1' : '';
     star.setAttribute('aria-pressed', String(!!note.favorite));
     star.title = note.favorite ? 'Unpin note' : 'Pin note';
@@ -1021,10 +1044,12 @@ function drawEditor(main, note, { fresh = false } = {}) {
     item.addEventListener('click', () => handler(item, text));
     return item;
   };
-  menu.append(menuItem('external', 'Open in Nextcloud Notes', () => {
-    closeMenu();
-    openNative(note.native_url);
-  }));
+  if (note.native_url) {
+    menu.append(menuItem('external', 'Open in Nextcloud Notes', () => {
+      closeMenu();
+      openNative(note.native_url);
+    }));
+  }
   menu.append(menuItem('notes', 'Copy as Markdown', async () => {
     closeMenu();
     try {
@@ -1066,7 +1091,7 @@ function drawEditor(main, note, { fresh = false } = {}) {
     }
   });
   remove.dataset.tone = 'bad';
-  menu.append(remove);
+  if (!locked) menu.append(remove);
 
   star.addEventListener('click', () => {
     note.favorite = !note.favorite;

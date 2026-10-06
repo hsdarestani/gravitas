@@ -564,11 +564,13 @@ function editDeliverable(projectId, cockpit) {
   });
 }
 
-async function openDataRoom() {
-  const data = await P.nextcloud();
-  const root = String(data.nextcloud?.url || data.url || '').replace(/\/$/, '');
-  if (!root) throw new Error('Nextcloud is not configured.');
-  window.open(`${root}/index.php/apps/files/`, '_blank', 'noopener');
+async function openDataRoom(projectId) {
+  // Sync first so legacy projects get the canonical folder skeleton and the
+  // returned URL targets this project's Team Folder instead of Nextcloud home.
+  const data = await P.call(`/platform/projects/${projectId}/nextcloud/sync/`, { method: 'POST' });
+  const url = data?.team_folder?.native_url;
+  if (!url) throw new Error('Project data room is not available.');
+  window.open(url, '_blank', 'noopener');
 }
 
 function actionSet(info, cockpit, project) {
@@ -603,7 +605,7 @@ function actionSet(info, cockpit, project) {
   } else if (info.tab === 'files') {
     if (canEdit) add('Upload file', () => uploadFile(info.projectId, 'file'), true);
     if ((cockpit.resources || []).some((item) => item.kind === 'file' && item.can_edit)) add('Edit file', () => manageResource(cockpit, ['file'], 'Edit file'));
-    add('Data room', () => openDataRoom().catch((error) => window.alert(error.message)));
+    add('Data room', () => openDataRoom(info.projectId).catch((error) => window.alert(error.message)));
   } else if (info.tab === 'discussions') {
     if (canEdit) add('New message', () => createDiscussion(info.projectId), true);
     if (canEdit) add('Manage', () => manageDiscussions(info.projectId).catch(console.error));

@@ -337,14 +337,21 @@ function flatten(nodes, depth = 0, out = []) {
 }
 
 export function renderFolders(host, { go }) {
-  const doc = shell(host, 'Research Folder', 'The live Gravitas Space tree, synchronised with Nextcloud.');
+  const doc = shell(host, 'Files & Data', 'Your Personal Space plus every project data room, file and dataset you are allowed to access.');
   const body = el('div'); doc.append(body);
   let selectedFolder = null;
 
   const load = async () => {
     body.innerHTML = ''; body.append(notice('Loading folder tree', 'Reading Space and synchronisation state…'));
     try {
-      const [treeData, itemData, noteData] = await Promise.all([P.spaceTree(), P.spaceItems(), P.spaceNotes()]);
+      const [treeData, itemData, noteData, projectData, fileData, datasetData] = await Promise.all([
+        P.spaceTree(),
+        P.spaceItems(),
+        P.spaceNotes(),
+        P.projects(),
+        P.resources('file'),
+        P.resources('dataset'),
+      ]);
       body.innerHTML = '';
       const bar = el('div', 'v-toolbar');
       const status = el('span', 'v-note', noteData.cloud_unavailable ? 'Nextcloud currently unavailable' : 'Connected to Space');
@@ -400,21 +407,80 @@ export function renderFolders(host, { go }) {
       const panel = el('div', 'v-panel rkms-tree');
       const folders = flatten(treeData.tree || []);
       const items = itemData.items || [];
+      const projects = projectData.projects || [];
+      const files = fileData.items || [];
+      const datasets = datasetData.items || [];
+      const projectById = new Map(projects.map((project) => [String(project.id), project]));
       // The notes index also annotates managed Space items discovered on disk.
       // Those are already returned by spaceItems(), so keep only note/link rows
       // here to avoid rendering the same synced file twice.
       const notes = (noteData.items || []).filter((item) => item.source !== 'managed');
       body.append(dashboardSummary([
-        { value: folders.length, label: 'Folders', icon: 'files', note: 'Space structure' },
-        { value: items.length, label: 'Managed items', icon: 'projects', note: 'Tasks & repositories' },
-        { value: notes.length, label: 'Notes', icon: 'notes', note: 'Synced knowledge' },
-        { value: noteData.cloud_unavailable ? 0 : 1, label: 'Cloud link', icon: 'cycle', note: noteData.cloud_unavailable ? 'Unavailable' : 'Connected' },
+        { value: projects.length, label: 'Data rooms', icon: 'projects', note: 'Accessible projects' },
+        { value: files.length, label: 'Files', icon: 'files', note: 'Personal + project' },
+        { value: datasets.length, label: 'Datasets', icon: 'files', note: 'Accessible data' },
+        { value: folders.length, label: 'Personal folders', icon: 'projects', note: 'Your Space structure' },
       ]));
+
+      const rooms = el('section', 'v-panel');
+      const roomsHead = el('div', 'v-panel__head');
+      roomsHead.append(el('h2', 'v-panel__title', 'Project data rooms'), el('p', 'v-note', 'Each project opens its own structured GRV Team Folder, never the generic Nextcloud home.'));
+      rooms.append(roomsHead);
+      if (!projects.length) rooms.append(notice('No accessible projects', 'Project data rooms appear here as soon as you own or join a Research project.'));
+      for (const project of projects) {
+        const projectFiles = files.filter((item) => String(item.project_id || '') === String(project.id));
+        const projectDatasets = datasets.filter((item) => String(item.project_id || '') === String(project.id));
+        const line = el('div', 'v-row');
+        const main = el('div', 'v-row__main');
+        main.append(
+          el('strong', null, project.title),
+          el('small', null, P.meta([
+            P.label(project.visibility),
+            `${projectFiles.length} file${projectFiles.length === 1 ? '' : 's'}`,
+            `${projectDatasets.length} dataset${projectDatasets.length === 1 ? '' : 's'}`,
+          ])),
+        );
+        const open = button('Open project files', () => go(`/workspace/research/projects/${project.id}/files`));
+        open.classList.add('ws-btn--tiny');
+        line.append(main, open);
+        rooms.append(line);
+      }
+      body.append(rooms);
+
+      const accessible = [...files, ...datasets];
+      const library = el('section', 'v-panel');
+      const libraryHead = el('div', 'v-panel__head');
+      libraryHead.append(el('h2', 'v-panel__title', 'Accessible files & datasets'), el('p', 'v-note', 'One permission-filtered library across Personal and project storage.'));
+      library.append(libraryHead);
+      if (!accessible.length) library.append(notice('No files or datasets yet', 'Uploads from Personal Space and accessible projects appear here.'));
+      for (const item of accessible.sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''))).slice(0, 200)) {
+        const project = item.project_id ? projectById.get(String(item.project_id)) : null;
+        const line = el('div', 'v-row');
+        const main = el('div', 'v-row__main');
+        main.append(
+          el('strong', null, item.title || item.original_name || 'Untitled'),
+          el('small', null, P.meta([
+            project ? project.title : 'Personal',
+            P.label(item.kind),
+            item.file_size ? P.formatBytes(item.file_size) : '',
+            P.formatDate(item.updated_at),
+          ])),
+        );
+        line.append(main);
+        if (item.has_download) {
+          const download = el('a', 'ws-btn ws-btn--tiny', 'Download');
+          download.href = `/api/platform/files/${item.id}/download/`;
+          line.append(download);
+        }
+        library.append(line);
+      }
+      body.append(library);
+
       body.append(C.bento([
-        dashboardBars('Content mix', 'What currently lives in the Research Space.', [
+        dashboardBars('Personal Space', 'Your private filing tree and managed Markdown/index layer.', [
           { label: 'Folders', value: folders.length, series: '1' },
           { label: 'Managed items', value: items.length, series: '2' },
-          { label: 'Notes', value: notes.length, series: '4' },
+          { label: 'Notes & links', value: notes.length, series: '4' },
         ], 12),
       ]));
       if (!folders.length && !items.length && !notes.length) panel.append(notice('Space is empty', 'Create a folder to start the research structure.'));

@@ -57,13 +57,29 @@ from .workspace_api import provision_personal_workspace
 
 
 PROJECT_FOLDERS = (
-    '01 Client Input',
-    '02 Working',
-    '03 Datasets',
-    '04 Analysis',
-    '05 Deliverables',
-    '06 Archive',
+    '01_Client_Input',
+    '02_Working',
+    '03_Datasets',
+    '04_Analysis',
+    '05_Deliverables',
+    '06_Archive',
 )
+
+
+def ensure_project_folder_structure(project, created_by=None):
+    """Create the canonical top-level Research folders without touching user folders."""
+    creator = created_by or project.owner
+    folders = []
+    for folder_name in PROJECT_FOLDERS:
+        folder, _ = Collection.objects.get_or_create(
+            workspace=project.workspace,
+            project=project,
+            parent=None,
+            name=folder_name,
+            defaults={'created_by': creator},
+        )
+        folders.append(folder)
+    return folders
 
 
 def _body(request):
@@ -242,11 +258,12 @@ def _project_profile(project):
             'category': ResearchProjectProfile.Category.INTERNAL,
             'visibility': ResearchProjectProfile.Visibility.PRIVATE,
             'status': ResearchProjectProfile.Status.ACTIVE,
-            'nextcloud_root': f'Gravitas/Projects/GRV-{project.pk:06d}',
+            'nextcloud_root': f'GRV-{project.pk:06d}',
         },
     )
-    if not profile.nextcloud_root:
-        profile.nextcloud_root = f'Gravitas/Projects/GRV-{project.pk:06d}'
+    canonical_root = f'GRV-{project.pk:06d}'
+    if profile.nextcloud_root != canonical_root:
+        profile.nextcloud_root = canonical_root
         profile.save(update_fields=['nextcloud_root', 'updated_at'])
     return profile
 
@@ -529,7 +546,7 @@ def platform_projects(request):
             required_skills=_list(data.get('required_skills')),
             application_open=bool(data.get('application_open')),
             public_slug=public_slug,
-            nextcloud_root=f'Gravitas/Projects/GRV-{project.pk:06d}',
+            nextcloud_root=f'GRV-{project.pk:06d}',
             secure_data_room=bool(data.get('secure_data_room')),
             allow_public_links=bool(data.get('allow_public_links')),
             allow_downloads=data.get('allow_downloads') is not False,
@@ -545,15 +562,11 @@ def platform_projects(request):
             allow_reshare=profile.allow_public_links,
             created_by=request.user,
         )
-        if category in {'client', 'community'} or profile.secure_data_room:
-            for folder_name in PROJECT_FOLDERS:
-                Collection.objects.get_or_create(
-                    workspace=research,
-                    project=project,
-                    parent=None,
-                    name=folder_name,
-                    defaults={'created_by': request.user},
-                )
+        # Every Research project gets the same predictable data-room skeleton.
+        # Personal/private versus shared is an ACL concern, not a filesystem
+        # concern; keeping one structure makes project storage portable and
+        # prevents UI routes from diverging by visibility/category.
+        ensure_project_folder_structure(project, request.user)
         _audit(project, request.user, 'project_created', project, category=category, visibility=visibility)
     return JsonResponse({'ok': True, 'project': _project_json(project, request.user, include_detail=True)}, status=201)
 
@@ -745,9 +758,10 @@ def content_work_detail(request, item_id):
                     visibility=ResearchProjectProfile.Visibility.PRIVATE,
                     status=ResearchProjectProfile.Status.ACTIVE,
                     research_question=str(data.get('research_question', '')).strip(),
-                    nextcloud_root=f'Gravitas/Projects/GRV-{project.pk:06d}',
+                    nextcloud_root=f'GRV-{project.pk:06d}',
                 )
                 policy_for(project, create=True, created_by=request.user, default_visibility=ObjectPolicy.Visibility.WORKSPACE)
+                ensure_project_folder_structure(project, request.user)
                 item.research_project = project
                 item.status = ContentWorkItem.Status.RESEARCH
                 item.save(update_fields=['research_project', 'status', 'updated_at'])
