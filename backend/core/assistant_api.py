@@ -102,6 +102,7 @@ def assistant_ask(request):
                 'sources': package.sources,
                 'provider': result.provider,
                 'run_id': result.run_id,
+                'surface': surface,
                 'skill': result.skill,
                 'model_tier': result.model_tier,
             })
