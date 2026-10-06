@@ -79,7 +79,7 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         ):
             self.assertIn(marker, html)
 
-        self.assertIn("./ws-research.js?v=20261002-calendar1", app)
+        self.assertIn("./ws-research.js?v=20261006-filesdata1", app)
         self.assertIn("./ws-nav.js?v=20261006-researchscope1", app)
         self.assertIn("./ws-home.js?v=20261001-series1", app)
         self.assertIn("./ws-member-lms.js?v=20261002-tabs1", five)
