@@ -66,6 +66,22 @@ PROJECT_FOLDERS = (
 )
 
 
+def ensure_project_folder_structure(project, created_by=None):
+    """Create the canonical top-level Research folders without touching user folders."""
+    creator = created_by or project.owner
+    folders = []
+    for folder_name in PROJECT_FOLDERS:
+        folder, _ = Collection.objects.get_or_create(
+            workspace=project.workspace,
+            project=project,
+            parent=None,
+            name=folder_name,
+            defaults={'created_by': creator},
+        )
+        folders.append(folder)
+    return folders
+
+
 def _body(request):
     try:
         return json.loads(request.body or '{}')
@@ -550,14 +566,7 @@ def platform_projects(request):
         # Personal/private versus shared is an ACL concern, not a filesystem
         # concern; keeping one structure makes project storage portable and
         # prevents UI routes from diverging by visibility/category.
-        for folder_name in PROJECT_FOLDERS:
-            Collection.objects.get_or_create(
-                workspace=research,
-                project=project,
-                parent=None,
-                name=folder_name,
-                defaults={'created_by': request.user},
-            )
+        ensure_project_folder_structure(project, request.user)
         _audit(project, request.user, 'project_created', project, category=category, visibility=visibility)
     return JsonResponse({'ok': True, 'project': _project_json(project, request.user, include_detail=True)}, status=201)
 
@@ -752,6 +761,7 @@ def content_work_detail(request, item_id):
                     nextcloud_root=f'GRV-{project.pk:06d}',
                 )
                 policy_for(project, create=True, created_by=request.user, default_visibility=ObjectPolicy.Visibility.WORKSPACE)
+                ensure_project_folder_structure(project, request.user)
                 item.research_project = project
                 item.status = ContentWorkItem.Status.RESEARCH
                 item.save(update_fields=['research_project', 'status', 'updated_at'])
