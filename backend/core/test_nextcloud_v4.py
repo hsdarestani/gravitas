@@ -184,6 +184,52 @@ class NextcloudV4ApiTests(NextcloudV4AccessTests):
         self.assertEqual(response.json()['credentials']['username'], f'gravitas-u-{self.owner.pk}')
         create_credentials.assert_called_once_with(self.owner)
 
+    @patch('core.nextcloud_api.nextcloud_bridge.sync_resource_acl')
+    @patch('core.nextcloud_api.nextcloud_bridge.sync_collection_acl')
+    @patch('core.nextcloud_api.nextcloud_bridge.ensure_project_space')
+    def test_project_data_room_opens_when_child_acl_repair_is_partial(
+        self, ensure_space, sync_collection, sync_resource
+    ):
+        ensure_space.return_value = {
+            'folder_id': 77,
+            'mount_point': cloud.project_mountpoint(self.project),
+            'group_id': cloud.project_group_id(self.project),
+            'native_url': cloud.native_files_url(cloud.project_mountpoint(self.project)),
+            'member_count': 3,
+        }
+        sync_collection.side_effect = cloud.CloudError('stale child ACL')
+        sync_resource.return_value = ensure_space.return_value
+
+        self.client.force_login(self.owner)
+        response = self.client.post(
+            f'/api/platform/projects/{self.project.pk}/nextcloud/sync/',
+            data='{}',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        body = response.json()
+        self.assertTrue(body['ok'])
+        self.assertEqual(body['team_folder']['mount_point'], cloud.project_mountpoint(self.project))
+        self.assertEqual(body['sync']['state'], 'partial')
+        self.assertGreater(body['sync']['warning_count'], 0)
+        self.assertTrue(all(item['type'] == 'folder' for item in body['sync']['warnings']))
+
+    @patch('core.nextcloud_api.nextcloud_bridge.ensure_project_space')
+    def test_project_data_room_still_fails_when_team_folder_provisioning_fails(self, ensure_space):
+        ensure_space.side_effect = cloud.CloudError('team folder unavailable')
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            f'/api/platform/projects/{self.project.pk}/nextcloud/sync/',
+            data='{}',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 503, response.content)
+        self.assertEqual(response.json()['error'], 'cloud_sync_failed')
+        self.assertEqual(response.json()['stage'], 'provision')
+
     def test_nextcloud_status_lists_native_project_mount(self):
         self.client.force_login(self.viewer)
         response = self.client.get('/api/platform/nextcloud/')
