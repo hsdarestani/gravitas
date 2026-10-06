@@ -52,6 +52,10 @@ class LegacyFolderCleanupTests(TestCase):
         )
         self.assertEqual(response.status_code, 201, response.content)
         self.project = ResearchProject.objects.get(pk=response.json()['project']['id'])
+        # This suite models pre-migration projects that contained only the old
+        # spaced folder names. New projects now receive the canonical structure,
+        # so remove it here to keep the legacy-cleanup fixture historically exact.
+        self.project.collections.all().delete()
         self.folders = {}
         for name in LEGACY_NAMES:
             self.folders[name] = Collection.objects.create(
