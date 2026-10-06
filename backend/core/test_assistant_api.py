@@ -62,6 +62,7 @@ class AssistantApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
+        self.assertEqual(payload['surface'], 'core')
         self.assertEqual(payload['skill'], 'project_task')
         kwargs = run_text.call_args.kwargs
         self.assertEqual(kwargs['surface'], 'core')
@@ -92,6 +93,9 @@ class AssistantApiTests(TestCase):
             content_type='application/json',
         )
         self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['surface'], 'learning')
+        self.assertEqual(payload['skill'], 'learning')
         kwargs = run_text.call_args.kwargs
         self.assertEqual(kwargs['surface'], 'learning')
         self.assertEqual(kwargs['skill'], 'learning')
