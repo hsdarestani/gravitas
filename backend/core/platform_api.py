@@ -1316,16 +1316,6 @@ def mindmaps(request):
             created_by=request.user,
             default_visibility=ObjectPolicy.Visibility.PROJECT if project else ObjectPolicy.Visibility.PRIVATE,
         )
-        # A new map opens as a usable canvas instead of an empty database shell.
-        # The root node can immediately be renamed, dragged, connected or deleted.
-        MindMapNode.objects.create(
-            mind_map=item,
-            key='root',
-            title=title,
-            kind=MindMapNode.Kind.CONCEPT,
-            x=600,
-            y=360,
-        )
         _audit(project, request.user, 'mindmap_created', item, title=title)
     return JsonResponse({'ok': True, 'item': _mindmap_payload(item, request.user, detail=True)}, status=201)
 
