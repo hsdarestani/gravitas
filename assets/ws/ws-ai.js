@@ -72,7 +72,12 @@ export function askAssistant(question) {
 async function ask(question) {
   let reply;
   try {
-    reply = await api.ask(question);
+    const requestContext = (
+      context && typeof context.pulsarContext === 'function'
+        ? context.pulsarContext()
+        : {}
+    );
+    reply = await api.ask(question, requestContext);
   } catch {
     return {
       reply: 'That request did not go through. Pulsar may be down; nothing was changed in your pages.',
