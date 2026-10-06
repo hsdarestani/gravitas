@@ -533,11 +533,13 @@ function noteRow(item, active) {
   const snippet = el('span', 'nb-row__snippet', preview || 'Empty note');
   snippet.dir = 'auto';
   if (!preview) snippet.dataset.empty = '';
-  const context = item.project_title ? `${item.project_title} · ` : 'Personal · ';
+  const context = item.project_title
+    ? `${item.project_title} · `
+    : item.scope === 'shared' ? 'Shared · ' : 'Personal · ';
   const when = el('span', 'nb-row__when', `${context}${ago(item.updated)}`);
   when.title = item.project_title
     ? `${item.project_title} · ${fullDate(item.updated)}`
-    : `Personal note · ${fullDate(item.updated)}`;
+    : `${item.scope === 'shared' ? 'Shared' : 'Personal'} note · ${fullDate(item.updated)}`;
   row.append(top, snippet, when);
   row.addEventListener('click', () => choose(item.id));
   return row;
@@ -577,7 +579,8 @@ function drawList() {
     group('Results', ordinary);
     return;
   }
-  group('Personal', ordinary.filter((item) => !item.project_id));
+  group('Personal', ordinary.filter((item) => !item.project_id && item.scope !== 'shared'));
+  group('Shared', ordinary.filter((item) => !item.project_id && item.scope === 'shared'));
   const projects = new Map();
   ordinary.filter((item) => item.project_id).forEach((item) => {
     const key = String(item.project_id);
@@ -652,7 +655,7 @@ function drawEmpty(main) {
   const box = el('div', 'nb-empty');
   box.append(glyph('notes'));
   box.append(el('h2', 'nb-empty__title', 'Start your notebook'));
-  box.append(el('p', 'nb-empty__text', 'Personal and project notes live in one Research notebook. Your own notes mirror to Nextcloud; shared project notes follow the project ACL.'));
+  box.append(el('p', 'nb-empty__text', 'Personal, shared and project notes live in one Research notebook. Your own notes mirror to Nextcloud; shared content follows its Gravitas ACL.'));
   const create = action('New note', () => createNote(create), { solid: true });
   box.append(create);
   main.append(box);
@@ -893,7 +896,7 @@ function drawEditor(main, note, { fresh = false } = {}) {
     edited.title = fullDate(note.updated);
     meta.append(pill, edited);
     if (note.project_title) meta.append(el('span', null, `Project · ${note.project_title}`));
-    else meta.append(el('span', null, 'Personal'));
+    else meta.append(el('span', null, note.scope === 'shared' ? `Shared · ${note.owner_name || 'Collaborator'}` : 'Personal'));
     if (note.favorite) meta.append(el('span', null, 'Pinned'));
     star.disabled = locked;
     star.dataset.on = note.favorite ? '1' : '';
