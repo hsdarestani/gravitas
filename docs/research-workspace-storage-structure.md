@@ -21,8 +21,11 @@ Notes, papers, files, and datasets are KnowledgeResource rows. A project note is
 It contains:
 
 - Personal notes owned by the user.
+- Standalone notes explicitly shared with the user.
 - Notes belonging to projects the user can view.
 - Shared project notes with editability derived from the user's actual project/object role.
+
+The UI keeps Personal, Shared, and per-project groups visually distinct while still searching them as one notebook.
 
 `/workspace/research/projects/<id>/notes` is a project-filtered view of those same canonical note rows.
 
