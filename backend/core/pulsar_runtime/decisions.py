@@ -4,7 +4,7 @@ from uuid import uuid4
 import requests
 from django.conf import settings
 
-from .types import ModelSelection
+from .types import AgentRouteDecision, ModelSelection
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,9 @@ class DecisionRouter:
             timeout
             if timeout is not None
             else getattr(settings, 'PULSAR_DECISION_TIMEOUT', 12)
+        )
+        self.min_confidence = float(
+            getattr(settings, 'PULSAR_DECISION_MIN_CONFIDENCE', 0.55)
         )
 
     def _deterministic(self, *, skill, operation='chat', surface='unknown', source='deterministic'):
@@ -148,6 +151,159 @@ class DecisionRouter:
             decision_model=str(payload.get('model') or self.model),
         )
 
+    def _planner_route(self, *, source='deterministic', reason='planner_default'):
+        return AgentRouteDecision(
+            action='planner',
+            reason=reason,
+            decision_source=source,
+            decision_model=self.model if self.provider in JEV_PROVIDERS else None,
+        )
+
+    def _jev_tool_route(
+        self,
+        *,
+        message,
+        surface,
+        primary_skill,
+        tools,
+        completed_tools=None,
+    ):
+        tools = [row for row in list(tools or []) if isinstance(row, dict)]
+        criteria = {
+            'answer': (
+                'Enough information is already available to answer the user without '
+                'calling another tool.'
+            ),
+        }
+        tool_map = {}
+        for index, tool in enumerate(tools, start=1):
+            name = str(tool.get('name') or '').strip()
+            if not name:
+                continue
+            key = f'tool_{index}'
+            tool_map[key] = name
+            criteria[key] = (
+                f"Use {name} (skill={tool.get('skill')}, risk={tool.get('risk')}, "
+                f"action={tool.get('action')}) when it is the best next grounded step. "
+                f"{str(tool.get('description') or '')[:400]}"
+            )
+
+        if not tool_map:
+            return AgentRouteDecision(
+                action='answer',
+                reason='jev:no_tools',
+                decision_source='jev',
+                decision_model=self.model,
+            )
+
+        completed = []
+        for row in list(completed_tools or [])[:4]:
+            if not isinstance(row, dict):
+                continue
+            completed.append({
+                'tool': str(row.get('tool') or ''),
+                'content': str(row.get('content') or '')[:1500],
+            })
+
+        payload = self.evaluate(
+            state={
+                'surface': str(surface or 'unknown'),
+                'primary_skill': str(primary_skill or ''),
+                'user_request': str(message or '')[:6000],
+                'available_tools': [
+                    {
+                        'name': str(row.get('name') or ''),
+                        'skill': str(row.get('skill') or ''),
+                        'risk': str(row.get('risk') or ''),
+                        'action': str(row.get('action') or ''),
+                    }
+                    for row in tools
+                ],
+                'completed_tools': completed,
+            },
+            questions={
+                'next_action': {
+                    'type': 'choice',
+                    'instructions': (
+                        'Choose the single best next action for the Gravitas Pulsar agent. '
+                        'Choose answer if enough grounded information is already available. '
+                        'Otherwise choose exactly one available tool. Never choose a tool '
+                        'only because it exists; use the minimum necessary next step.'
+                    ),
+                    'criteria': criteria,
+                },
+            },
+        )
+        answer = (payload.get('answers') or {}).get('next_action') or {}
+        choice = str(answer.get('choice') or '').strip()
+        confidence = answer.get('confidence')
+        try:
+            confidence_value = float(confidence) if confidence is not None else None
+        except (TypeError, ValueError):
+            confidence_value = None
+
+        if (
+            confidence_value is not None
+            and confidence_value < self.min_confidence
+        ):
+            return self._planner_route(
+                source='jev:low-confidence',
+                reason=f'confidence={confidence_value:.3f}',
+            )
+
+        if choice == 'answer':
+            return AgentRouteDecision(
+                action='answer',
+                reason='jev:typed_choice',
+                decision_source='jev',
+                decision_model=str(payload.get('model') or self.model),
+                confidence=confidence_value,
+            )
+        if choice not in tool_map:
+            raise ValueError('invalid_system_one_tool_route')
+        return AgentRouteDecision(
+            action='tool',
+            tool=tool_map[choice],
+            reason='jev:typed_choice',
+            decision_source='jev',
+            decision_model=str(payload.get('model') or self.model),
+            confidence=confidence_value,
+        )
+
+    def select_tool_route(
+        self,
+        *,
+        message,
+        surface,
+        primary_skill,
+        tools,
+        completed_tools=None,
+    ):
+        if self.provider in JEV_PROVIDERS:
+            if self.external_configured():
+                try:
+                    return self._jev_tool_route(
+                        message=message,
+                        surface=surface,
+                        primary_skill=primary_skill,
+                        tools=tools,
+                        completed_tools=completed_tools,
+                    )
+                except (requests.RequestException, ValueError, RuntimeError) as exc:
+                    logger.warning(
+                        'Pulsar Jev tool-route decision failed; using planner fallback: %s',
+                        exc,
+                    )
+                    return self._planner_route(
+                        source='jev:fallback',
+                        reason=exc.__class__.__name__,
+                    )
+            return self._planner_route(
+                source='jev:contract-fallback',
+                reason='system_one_not_configured',
+            )
+        return self._planner_route()
+
     def select_model(self, *, skill, operation='chat', surface='unknown'):
         if self.provider in JEV_PROVIDERS:
             if self.external_configured():
@@ -183,4 +339,6 @@ class DecisionRouter:
             'model': self.model,
             'external_active': self.external_configured(),
             'base_url': self.base_url if self.provider in JEV_PROVIDERS else None,
+            'tool_routing': True,
+            'min_confidence': self.min_confidence,
         }
