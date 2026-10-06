@@ -70,7 +70,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
     def test_workspace_force_loads_rebuilt_renderers(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('/assets/ws/ws-app.js?v=20261006-researchscope1', html)
-        self.assertIn('/assets/ws/ws-five-layer.js?v=20261006-projectstructure1', html)
+        self.assertIn('/assets/ws/ws-five-layer.js?v=20261006-mindmap1', html)
         self.assertIn('/assets/ws/ws-charts.css?v=20261001-cosmos1', html)
         self.assertIn('/assets/ws/ws-unified-design.css?v=20261002-file1', html)
 
