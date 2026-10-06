@@ -15,6 +15,7 @@ on:
       - 'backend/core/management/commands/evaluate_pulsar_v1.py'
       - 'backend/core/management/commands/report_pulsar_metrics.py'
       - 'backend/core/management/commands/benchmark_pulsar_models.py'
+      - 'backend/core/management/commands/benchmark_pulsar_decisions.py'
       - 'backend/core/management/commands/index_pulsar_embeddings.py'
       - 'backend/core/assistant_api.py'
       - 'backend/core/lms_extended_api.py'
