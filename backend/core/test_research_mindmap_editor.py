@@ -123,6 +123,40 @@ class ResearchMindMapEditorApiTests(TestCase):
         self.assertEqual(updated_edge.json()['edge']['relation'], 'evidence_for')
         self.assertEqual(updated_edge.json()['edge']['label'], 'direct canvas edit')
 
+    def test_map_can_be_deleted_with_its_nodes_and_edges(self):
+        create = self.post_json('/api/platform/mindmaps/', {
+            'project_id': self.project.pk,
+            'title': 'Disposable map',
+        })
+        self.assertEqual(create.status_code, 201, create.content)
+        map_id = create.json()['item']['id']
+
+        first = self.post_json(f'/api/platform/mindmaps/{map_id}/', {
+            'action': 'node.create',
+            'key': 'first',
+            'title': 'First',
+        })
+        second = self.post_json(f'/api/platform/mindmaps/{map_id}/', {
+            'action': 'node.create',
+            'key': 'second',
+            'title': 'Second',
+        })
+        self.assertEqual(first.status_code, 201, first.content)
+        self.assertEqual(second.status_code, 201, second.content)
+
+        edge = self.post_json(f'/api/platform/mindmaps/{map_id}/', {
+            'action': 'edge.create',
+            'source_id': first.json()['node']['id'],
+            'target_id': second.json()['node']['id'],
+            'relation': 'related',
+        })
+        self.assertEqual(edge.status_code, 201, edge.content)
+
+        deleted = self.client.delete(f'/api/platform/mindmaps/{map_id}/')
+        self.assertEqual(deleted.status_code, 200, deleted.content)
+        self.assertFalse(MindMap.objects.filter(pk=map_id).exists())
+        self.assertEqual(self.client.get(f'/api/platform/mindmaps/{map_id}/').status_code, 404)
+
     def test_map_title_cannot_be_emptied(self):
         create = self.post_json('/api/platform/mindmaps/', {
             'project_id': self.project.pk,
