@@ -584,7 +584,7 @@ def _json(resource, user=None):
         'updated': resource.updated_at.isoformat(),
         'project_id': resource.project_id,
         'project_title': project.title if project else None,
-        'scope': 'project' if project else 'personal',
+        'scope': 'project' if project else ('personal' if is_owner else 'shared'),
         'owner_id': resource.owner_id,
         'owner_name': (resource.owner.first_name or resource.owner.email) if resource.owner else '',
         'can_edit': editable,
