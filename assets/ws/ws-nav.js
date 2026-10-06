@@ -168,7 +168,7 @@ export const RESEARCH_SECTIONS = [
     id: 'res-notes',
     group: 'Work',
     label: 'Notes',
-    hint: 'Personal and project notes',
+    hint: 'Personal, shared and project notes',
     icon: 'notes',
     path: '/workspace/research/notes',
     // Notes own their list inside the document pane. Keeping the page tree
