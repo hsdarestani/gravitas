@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .layer_models import ActivityEvent, ModuleGrant
-from .models import KnowledgeResource
+from .models import KnowledgeResource, ProjectMembership, ResearchProject
 from .nextcloud_deck import _pull_card
 from .nextcloud_notes import (
     DELETE_DONE_ACTION,
@@ -15,10 +15,13 @@ from .nextcloud_notes import (
     _local_fingerprint,
     _remote_fingerprint,
     _snapshot,
+    _json,
+    _visible_notes_for_user,
     reconcile_notes,
     sync_note_to_nextcloud,
 )
 from .operating_models import WorkStatus
+from .platform_api import ensure_dual_workspaces
 from .workspace_api import provision_personal_workspace
 
 
@@ -54,6 +57,49 @@ class NativeNotesMirrorTests(TestCase):
                 'ws_blocks': [{'id': 'b-1', 'type': 'p', 'text': body}],
             },
         )
+
+    def test_project_member_sees_the_same_canonical_note_in_research_notebook(self):
+        member = get_user_model().objects.create_user(
+            username='shared-notes-member', email='shared-notes@example.com',
+        )
+        ModuleGrant.objects.update_or_create(
+            user=member,
+            module=ModuleGrant.Module.RESEARCH,
+            defaults={
+                'enabled': True,
+                'access_level': ModuleGrant.AccessLevel.PARTICIPATE,
+                'source': ModuleGrant.Source.ADMIN,
+            },
+        )
+        research = ensure_dual_workspaces(self.user)['research']
+        project = ResearchProject.objects.create(
+            workspace=research, owner=self.user, title='Shared animation research',
+        )
+        ProjectMembership.objects.create(
+            project=project, user=self.user, role=ProjectMembership.Role.OWNER,
+        )
+        ProjectMembership.objects.create(
+            project=project, user=member, role=ProjectMembership.Role.VIEWER,
+        )
+        note = KnowledgeResource.objects.create(
+            workspace=research,
+            project=project,
+            owner=self.user,
+            kind=KnowledgeResource.Kind.NOTE,
+            title='Storyboard findings',
+            body='Project note body',
+            metadata={'ws_space': 'research', 'ws_kind': 'note'},
+        )
+
+        visible = _visible_notes_for_user(member)
+        self.assertIn(note.pk, [item.pk for item in visible])
+        payload = _json(note, member)
+        self.assertEqual(payload['project_id'], project.pk)
+        self.assertEqual(payload['project_title'], project.title)
+        self.assertEqual(payload['scope'], 'project')
+        self.assertFalse(payload['can_edit'])
+        self.assertTrue(payload['readonly'])
+        self.assertIsNone(payload['native_url'])
 
     @patch('core.nextcloud_notes.ensure_user', return_value=object())
     @patch('core.nextcloud_notes._request')
