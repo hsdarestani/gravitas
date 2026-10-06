@@ -97,6 +97,9 @@ TOOL_ARGUMENT_HINTS = {
 }
 
 
+MAX_TOOL_STEPS = 4
+
+
 @dataclass
 class AgentOutcome:
     status: str
@@ -148,12 +151,25 @@ def _safe_metadata(metadata):
     return result
 
 
-class PulsarAgent:
-    """One controlled agent loop shared by authenticated Gravitas surfaces.
+def _tool_trace(results):
+    rows = []
+    for result in list(results or [])[:MAX_TOOL_STEPS]:
+        rows.append({
+            'tool': str(getattr(result, 'tool', '') or ''),
+            'content': str(getattr(result, 'content', '') or '')[:6000],
+            'data': getattr(result, 'data', {}) if isinstance(getattr(result, 'data', {}), dict) else {},
+            'sources': list(getattr(result, 'sources', []) or [])[:8],
+        })
+    return rows
 
-    v1.1 intentionally permits at most one tool call per turn. This keeps the
-    planner observable and prevents hidden autonomous loops. Side effects remain
-    behind ActionPolicy and server-side pending approvals.
+
+class PulsarAgent:
+    """Controlled bounded agent loop shared by authenticated Gravitas surfaces.
+
+    Pulsar may chain a small number of observable tool calls when a request needs
+    multiple retrieval steps. The server enforces a hard step ceiling, blocks
+    duplicate tool calls, and keeps every side effect behind ActionPolicy and
+    server-side pending approvals.
     """
 
     def __init__(self, *, harness=None, skills=None, executor=None):
@@ -214,7 +230,7 @@ class PulsarAgent:
             })
         return rows
 
-    def _plan(self, actor, *, message, surface, skill_name, thread_id, metadata):
+    def _plan(self, actor, *, message, surface, skill_name, thread_id, metadata, tool_results=None):
         profile = snapshot(actor)
         names = self.executor.supported_names(
             skill_name=skill_name,
@@ -226,11 +242,14 @@ class PulsarAgent:
         catalog = self._tool_catalog(names)
         system = (
             'You are the planning step of Pulsar, the Gravitas+ multi-capability agent. '
-            'Choose at most one tool. Return ONLY JSON. '
-            'Use {"action":"answer"} when no tool is needed. '
+            'Choose exactly one next action and return ONLY JSON. '
+            'Use {"action":"answer"} when enough evidence has been retrieved. '
             'Otherwise use {"action":"tool","tool":"exact.name","args":{...}}. '
+            'The server may call you again after a tool result, but enforces a hard bounded step limit. '
             'Only choose a listed tool. Never invent IDs. Reuse IDs supplied in Context IDs. '
+            'Never repeat a tool with the same arguments when that result is already present. '
             'Do not choose a write tool unless the user explicitly asked for that side effect. '
+            'Write tools still require server-side approval. '
             'Do not answer the user in this planning step.'
         )
         planning = self.harness.run_text(
@@ -242,6 +261,8 @@ class PulsarAgent:
                 + json.dumps(_safe_metadata(metadata), ensure_ascii=False)
                 + '\nCurrent time:\n'
                 + timezone.localtime().isoformat()
+                + '\nTool results already retrieved:\n'
+                + json.dumps(_tool_trace(tool_results), ensure_ascii=False, default=str)
                 + '\nUser request:\n'
                 + str(message or '')[:8000]
             ),
@@ -278,9 +299,10 @@ class PulsarAgent:
         skill_name,
         thread_id,
         metadata,
-        tool_result=None,
+        tool_results=None,
     ):
-        if tool_result is None:
+        tool_results = list(tool_results or [])
+        if not tool_results:
             system = (
                 'You are Pulsar, the Gravitas+ learning and research assistant. '
                 'Answer in the user language. Be concise, useful and transparent about uncertainty. '
@@ -293,20 +315,47 @@ class PulsarAgent:
         else:
             system = (
                 'You are Pulsar, the Gravitas+ learning and research assistant. '
-                'Answer the original request using the tool result as grounded context. '
+                'Answer the original request using all retrieved tool results as grounded context. '
                 'Live Gravitas data is authoritative over memory. '
-                'Do not invent facts outside the tool result. '
+                'Do not invent facts outside the retrieved results. '
                 'When useful, reference supplied sources by title.'
             )
+            trace = _tool_trace(tool_results)
             user_text = (
                 f'Original request:\n{str(message or "")[:6000]}\n\n'
-                f'Tool used: {tool_result.tool}\n'
-                f'Tool result:\n{tool_result.content[:18000]}\n\n'
-                f'Sources:\n{json.dumps(tool_result.sources[:12], ensure_ascii=False)}'
+                f'Retrieved tool results:\n'
+                f'{json.dumps(trace, ensure_ascii=False, default=str)[:24000]}'
             )
-            sources = tool_result.sources
-            tool_name = tool_result.tool
-            data = tool_result.data
+            sources = []
+            seen_sources = set()
+            for row in tool_results:
+                for source in list(getattr(row, 'sources', []) or []):
+                    if not isinstance(source, dict):
+                        continue
+                    marker = (
+                        str(source.get('id') or ''),
+                        str(source.get('title') or ''),
+                        str(source.get('href') or ''),
+                    )
+                    if marker in seen_sources:
+                        continue
+                    seen_sources.add(marker)
+                    sources.append(source)
+                    if len(sources) >= 20:
+                        break
+                if len(sources) >= 20:
+                    break
+            last = tool_results[-1]
+            tool_name = last.tool
+            data = dict(last.data or {}) if isinstance(last.data, dict) else {}
+            if len(tool_results) > 1:
+                data['tool_trace'] = [
+                    {
+                        'tool': row['tool'],
+                        'sources': row['sources'],
+                    }
+                    for row in trace
+                ]
 
         result = self.harness.run_text(
             system=system,
@@ -390,55 +439,82 @@ class PulsarAgent:
                 skill_name=definition.skill,
                 thread_id=thread_id,
                 metadata=metadata,
-                tool_result=result,
+                tool_results=[result],
             )
 
-        try:
-            plan, _ = self._plan(
-            actor,
-            message=message,
-            surface=surface,
-            skill_name=skill_def.name,
-            thread_id=thread_id,
-                metadata=metadata,
-            )
-        except PulsarPermissionError:
-            raise
-        except PulsarError:
-            plan = {'action': 'answer'}
-        if plan.get('action') != 'tool':
-            return self._final_answer(
-                actor,
-                message=message,
-                surface=surface,
-                skill_name=skill_def.name,
-                thread_id=thread_id,
-                metadata=metadata,
-            )
+        tool_results = []
+        seen_calls = set()
+        for _step in range(MAX_TOOL_STEPS):
+            try:
+                plan, _ = self._plan(
+                    actor,
+                    message=message,
+                    surface=surface,
+                    skill_name=skill_def.name,
+                    thread_id=thread_id,
+                    metadata=metadata,
+                    tool_results=tool_results,
+                )
+            except PulsarPermissionError:
+                raise
+            except PulsarError:
+                plan = {'action': 'answer'}
 
-        tool = plan['tool']
-        args = plan.get('args') or {}
-        try:
-            result = self.executor.execute(actor, tool, args, confirmed=False)
-        except PulsarApprovalRequired:
-            self._set_pending(
-                thread,
-                tool=tool,
-                args=args,
-                message=message,
+            if plan.get('action') != 'tool':
+                return self._final_answer(
+                    actor,
+                    message=message,
+                    surface=surface,
+                    skill_name=skill_def.name,
+                    thread_id=thread_id,
+                    metadata=metadata,
+                    tool_results=tool_results,
+                )
+
+            tool = plan['tool']
+            args = plan.get('args') or {}
+            call_signature = json.dumps(
+                [tool, args],
+                ensure_ascii=False,
+                sort_keys=True,
+                default=str,
             )
-            definition = self.executor.tools.get(tool)
-            return AgentOutcome(
-                status='approval_required',
-                reply=f'Approval required before Pulsar can execute {tool}.',
-                tool=tool,
-                tool_args=args,
-                approval_required=True,
-                data={
-                    'risk': definition.risk if definition else None,
-                    'description': definition.description if definition else '',
-                },
-            )
+            if call_signature in seen_calls:
+                return self._final_answer(
+                    actor,
+                    message=message,
+                    surface=surface,
+                    skill_name=skill_def.name,
+                    thread_id=thread_id,
+                    metadata=metadata,
+                    tool_results=tool_results,
+                )
+            seen_calls.add(call_signature)
+
+            try:
+                result = self.executor.execute(actor, tool, args, confirmed=False)
+            except PulsarApprovalRequired:
+                self._set_pending(
+                    thread,
+                    tool=tool,
+                    args=args,
+                    message=message,
+                )
+                definition = self.executor.tools.get(tool)
+                return AgentOutcome(
+                    status='approval_required',
+                    reply=f'Approval required before Pulsar can execute {tool}.',
+                    tool=tool,
+                    tool_args=args,
+                    approval_required=True,
+                    data={
+                        'risk': definition.risk if definition else None,
+                        'description': definition.description if definition else '',
+                        'completed_read_steps': len(tool_results),
+                    },
+                )
+
+            tool_results.append(result)
 
         return self._final_answer(
             actor,
@@ -447,5 +523,5 @@ class PulsarAgent:
             skill_name=skill_def.name,
             thread_id=thread_id,
             metadata=metadata,
-            tool_result=result,
+            tool_results=tool_results,
         )
