@@ -551,9 +551,29 @@ def _resource_for_user(user, resource_id):
     return resource
 
 
-def _json(resource):
+def _visible_notes_for_user(user):
+    """Return every note the viewer may see, regardless of who owns it.
+
+    Native Nextcloud reconciliation is still owner-scoped, but the Gravitas
+    notebook is a view over canonical KnowledgeResource rows. Project members
+    therefore see the same project notes here and in the project cockpit.
+    """
+    candidates = KnowledgeResource.objects.filter(
+        kind=KnowledgeResource.Kind.NOTE,
+    ).select_related('owner', 'project', 'workspace').order_by('-updated_at')
+    return [
+        resource for resource in candidates
+        if _allowed_space(user, _space(resource)) and can_view(user, resource)
+    ]
+
+
+def _json(resource, user=None):
     mirror = _mirror(resource)
     space = _space(resource)
+    viewer = user or resource.owner
+    editable = can_edit(viewer, resource)
+    is_owner = getattr(viewer, 'pk', None) == resource.owner_id
+    project = resource.project
     return {
         'id': resource.pk,
         'title': resource.title,
@@ -562,13 +582,22 @@ def _json(resource):
         'category': _category(resource),
         'favorite': _favorite(resource),
         'updated': resource.updated_at.isoformat(),
+        'project_id': resource.project_id,
+        'project_title': project.title if project else None,
+        'scope': 'project' if project else 'personal',
+        'owner_id': resource.owner_id,
+        'owner_name': (resource.owner.first_name or resource.owner.email) if resource.owner else '',
+        'can_edit': editable,
         'sync_state': mirror.get('state') or ('pending' if not mirror.get('id') else 'synced'),
         'sync_error': mirror.get('error') or '',
         'remote_id': mirror.get('id'),
         'remote_modified': mirror.get('modified') or 0,
-        'readonly': bool(mirror.get('readonly')),
-        'can_resolve': mirror.get('state') == 'conflict',
-        'native_url': _remote_url(mirror.get('id')) if mirror.get('id') else _remote_url(),
+        'readonly': bool(mirror.get('readonly')) or not editable,
+        'can_resolve': editable and mirror.get('state') == 'conflict',
+        # A native Notes record belongs to the resource owner's Nextcloud
+        # identity. Shared project members work on the canonical note in
+        # Gravitas; do not send them to someone else's private Notes surface.
+        'native_url': (_remote_url(mirror.get('id')) if mirror.get('id') else _remote_url()) if is_owner else None,
     }
 
 
@@ -613,7 +642,7 @@ def native_notes(request):
         try:
             sync_note_to_nextcloud(resource)
         except NotesConflict as exc:
-            return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource)}, status=409)
+            return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource, request.user)}, status=409)
         except Exception as exc:
             _mark(resource, 'error', str(exc))
         return JsonResponse({'ok': True, 'item': _json(resource)}, status=201)
@@ -625,11 +654,7 @@ def native_notes(request):
     except Exception as exc:
         available = False
         sync_result = {'counts': {'errors': 1}, 'error': str(exc), 'native_url': _remote_url()}
-    items = [
-        _json(resource)
-        for resource in KnowledgeResource.objects.filter(owner=request.user, kind=KnowledgeResource.Kind.NOTE).order_by('-updated_at')
-        if _allowed_space(request.user, _space(resource))
-    ]
+    items = [_json(resource, request.user) for resource in _visible_notes_for_user(request.user)]
     return JsonResponse({
         'ok': True,
         'available': available,
