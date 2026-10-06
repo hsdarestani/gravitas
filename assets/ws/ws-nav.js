@@ -41,7 +41,7 @@ export const WORKSPACES = {
     long: 'Scientific research, client projects, secure data rooms, notes, datasets and researcher collaboration.',
     icon: 'space-research',
     home: '/workspace/research',
-    note: 'Research collaboration workspace. Access is granted per project or item; private notes and files stay private until shared.',
+    note: 'Research collaboration workspace. Personal work stays private; project notes and files follow each project ACL.',
   },
   kms: {
     id: 'kms',
@@ -168,7 +168,7 @@ export const RESEARCH_SECTIONS = [
     id: 'res-notes',
     group: 'Work',
     label: 'Notes',
-    hint: 'Private notes and your calendar',
+    hint: 'Personal and project notes',
     icon: 'notes',
     path: '/workspace/research/notes',
     // Notes own their list inside the document pane. Keeping the page tree
