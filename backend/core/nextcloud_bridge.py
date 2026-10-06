@@ -188,7 +188,15 @@ def _project_root_roles(project):
 
 
 def ensure_project_space(project):
-    """Provision a native Team Folder and reconcile eligible membership/roles."""
+    """Provision a native Team Folder and reconcile eligible membership/roles.
+
+    Creating the Team Folder, adding entitled project users, and reducing the
+    project group to read-only are the security boundary and remain hard
+    requirements. Root ACL elevation and child-folder materialisation are
+    repairable conveniences: if one of those fails, return a warning so the
+    project room can still open safely in read-only/degraded mode and a later
+    reconciliation can finish the repair.
+    """
     mountpoint = cloud.project_mountpoint(project)
     group_id = cloud.project_group_id(project)
     team = cloud.ensure_team_folder(mountpoint, group_id)
@@ -199,8 +207,18 @@ def ensure_project_space(project):
         identities[user.pk] = identity
         cloud.add_user_to_group(identity.username, group_id)
 
+    # This must succeed before we tolerate anything else. ensure_team_folder()
+    # initially attaches the project group with collaborative permissions;
+    # reducing the group to read-only prevents a degraded ACL sync from ever
+    # accidentally granting viewers edit/delete rights.
     _set_project_group_read_only(team['id'], group_id)
-    _write_team_acl(mountpoint, '', group_id, _project_root_roles(project), 'project')
+
+    warnings = []
+    try:
+        _write_team_acl(mountpoint, '', group_id, _project_root_roles(project), 'project')
+    except (cloud.CloudError, NextcloudBridgeError):
+        logger.exception('Could not reconcile root ACL for Nextcloud project %s', project.pk)
+        warnings.append({'type': 'project_root_acl'})
 
     # A suspended/inactive owner must not be silently re-enabled merely because
     # collection folders need maintenance. Use any eligible project identity;
@@ -209,7 +227,14 @@ def ensure_project_space(project):
     writer_identity = identities.get(project.owner_id) or next(iter(identities.values()), None)
     if writer_identity is not None:
         for collection in Collection.objects.filter(project=project).select_related('parent').order_by('id'):
-            _ensure_collection_folder(project, collection, writer_identity)
+            try:
+                _ensure_collection_folder(project, collection, writer_identity)
+            except (cloud.CloudError, NextcloudBridgeError):
+                logger.exception(
+                    'Could not materialise Nextcloud folder %s for project %s',
+                    collection.pk, project.pk,
+                )
+                warnings.append({'type': 'folder_materialise', 'id': collection.pk})
 
     return {
         'folder_id': team['id'],
@@ -217,6 +242,7 @@ def ensure_project_space(project):
         'group_id': group_id,
         'native_url': cloud.native_files_url(mountpoint),
         'member_count': len(identities),
+        'warnings': warnings,
     }
 
 
