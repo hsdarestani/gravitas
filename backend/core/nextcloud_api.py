@@ -147,24 +147,53 @@ def project_nextcloud_sync(request, project_id):
     project = _project_for_user(request, project_id, 'view')
     if not project:
         return _error('not_found', 404)
+
+    # The database structure is local and idempotent. Do it before touching
+    # Nextcloud so an older project always converges on the canonical tree.
+    ensure_project_folder_structure(project, project.owner)
+
+    # Provisioning the Team Folder and project membership is the one hard
+    # requirement for opening a data room. If this fails there may be no safe
+    # native project boundary to send the user to.
     try:
-        # Backfill the canonical project structure for older projects before
-        # provisioning the Team Folder. This makes the Data room action a safe,
-        # idempotent repair point as well as a launcher.
-        ensure_project_folder_structure(project, project.owner)
         team = nextcloud_bridge.ensure_project_space(project)
-        # Reconcile every folder/resource ACL so native clients and Gravitas
-        # converge even after an interrupted deployment or membership update.
-        for folder in project.collections.select_related('parent'):
-            if can_view(request.user, folder) or can_manage(request.user, project):
-                nextcloud_bridge.sync_collection_acl(folder)
-        for resource in project.resources.select_related('collection'):
-            if resource.storage_path:
-                nextcloud_bridge.sync_resource_acl(resource)
     except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError):
-        logger.exception('Could not reconcile Nextcloud project %s', project.pk)
-        return _error('cloud_sync_failed', 503)
-    return JsonResponse({'ok': True, 'team_folder': team})
+        logger.exception('Could not provision Nextcloud project %s', project.pk)
+        return _error('cloud_sync_failed', 503, stage='provision')
+
+    # Folder/resource ACL repair is secondary. Historically any one stale ACL
+    # made the whole Data room action return cloud_sync_failed even though the
+    # Team Folder had already been provisioned successfully. Keep opening the
+    # project room and report a partial repair instead; subsequent syncs can
+    # converge the failed child objects without trapping the user on Gravitas.
+    warnings = []
+    for folder in project.collections.select_related('parent'):
+        if not (can_view(request.user, folder) or can_manage(request.user, project)):
+            continue
+        try:
+            nextcloud_bridge.sync_collection_acl(folder)
+        except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError):
+            logger.exception('Could not reconcile Nextcloud folder %s in project %s', folder.pk, project.pk)
+            warnings.append({'type': 'folder', 'id': folder.pk})
+
+    for resource in project.resources.select_related('collection'):
+        if not resource.storage_path:
+            continue
+        try:
+            nextcloud_bridge.sync_resource_acl(resource)
+        except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError):
+            logger.exception('Could not reconcile Nextcloud resource %s in project %s', resource.pk, project.pk)
+            warnings.append({'type': 'resource', 'id': resource.pk})
+
+    return JsonResponse({
+        'ok': True,
+        'team_folder': team,
+        'sync': {
+            'state': 'partial' if warnings else 'synced',
+            'warning_count': len(warnings),
+            'warnings': warnings[:50],
+        },
+    })
 
 
 @require_http_methods(['GET', 'POST'])
