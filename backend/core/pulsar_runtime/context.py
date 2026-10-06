@@ -36,6 +36,24 @@ def _resource_text(resource):
     description = re.sub(r'\s+', ' ', str(resource.description or '')).strip()
     return body or description
 
+def _asks_for_own_tasks(question):
+    value = str(question or '').strip().lower()
+    if not value:
+        return False
+    patterns = (
+        r'\bmy\b',
+        r'\bmine\b',
+        r'\bassigned\s+to\s+me\b',
+        r'\bfor\s+me\b',
+        r'\bmein(?:e|en|er|es|em)?\b',
+        r'\bmir\s+zugewiesen\b',
+        r'کارهای\s+من',
+        r'تسک(?:‌|\s)*های\s+من',
+        r'وظایف\s+من',
+        r'به\s+من\s+اختصاص',
+    )
+    return any(re.search(pattern, value, flags=re.UNICODE) for pattern in patterns)
+
 
 def _candidate_resources(queryset, question, *, limit):
     """Lexical pre-ranking in PostgreSQL with a portable fallback for tests."""
@@ -112,6 +130,7 @@ class PulsarContextEngine:
     """Build just-in-time context while live ACLs remain authoritative."""
 
     def workspace(self, user, question, *, project_id=None, skill='research', max_resources=8):
+        from core.lms_models import CourseEnrollment, LearningInteraction
         from core.models import KnowledgeResource, ResearchProject
         from core.operating_models import OperatingTask, WorkStatus
         from core.platform_access import can_view
@@ -216,6 +235,7 @@ class PulsarContextEngine:
                 })
 
             if skill == 'project_task':
+                own_tasks_only = _asks_for_own_tasks(question)
                 task_candidates = (
                     OperatingTask.objects
                     .filter(
@@ -230,11 +250,13 @@ class PulsarContextEngine:
                         'initiative__key_result__objective',
                     )
                     .distinct()
-                    .order_by('due_date', 'priority', 'id')[:40]
+                    .order_by('due_date', 'priority', 'id')[:60]
                 )
                 task_rows = []
                 for task in task_candidates:
                     if not can_view(user, task):
+                        continue
+                    if own_tasks_only and task.owner_id != user.pk:
                         continue
                     owner = (
                         task.owner.get_full_name() or task.owner.email
@@ -242,8 +264,13 @@ class PulsarContextEngine:
                     )
                     project_title = task.project.title if task.project_id else 'Core'
                     kr = task.initiative.key_result
+                    assignment = (
+                        'assigned_to_current_user'
+                        if task.owner_id == user.pk
+                        else 'assigned_to_other_team_member'
+                    )
                     task_rows.append(
-                        f'- [{task.pk}] {task.title} | owner={owner} | '
+                        f'- [{task.pk}] {task.title} | owner={owner} | assignment={assignment} | '
                         f'project={project_title} | kr={kr.title} | '
                         f'due={task.due_date or "—"} | status={task.status}'
                     )
@@ -256,7 +283,72 @@ class PulsarContextEngine:
                     if len(task_rows) >= 20:
                         break
                 if task_rows:
-                    blocks.append('Open Core tasks:\n' + '\n'.join(task_rows))
+                    heading = (
+                        'Tasks assigned to the current user:'
+                        if own_tasks_only
+                        else 'Visible open Core tasks:'
+                    )
+                    blocks.append(heading + '\n' + '\n'.join(task_rows))
+
+            if skill == 'learning':
+                enrollments = (
+                    CourseEnrollment.objects
+                    .filter(
+                        user=user,
+                        status__in=[
+                            CourseEnrollment.Status.ACTIVE,
+                            CourseEnrollment.Status.PAUSED,
+                            CourseEnrollment.Status.COMPLETED,
+                        ],
+                    )
+                    .select_related('course')
+                    .order_by('-updated_at')[:12]
+                )
+                learning_rows = []
+                enrollment_ids = []
+                for enrollment in enrollments:
+                    course = enrollment.course
+                    learning_rows.append(
+                        f'- course={course.title} | course_id={course.pk} | '
+                        f'progress={enrollment.progress_percent}% | status={enrollment.status}'
+                    )
+                    enrollment_ids.append(enrollment.pk)
+                    sources.append({
+                        'id': str(course.pk),
+                        'title': course.title,
+                        'kind': 'course',
+                        'href': f'/workspace/learning/courses/{course.pk}',
+                    })
+                if learning_rows:
+                    blocks.append(
+                        'Current learner course progress:\n' + '\n'.join(learning_rows)
+                    )
+
+                if enrollment_ids:
+                    interactions = (
+                        LearningInteraction.objects
+                        .filter(user=user, enrollment_id__in=enrollment_ids)
+                        .select_related('enrollment__course', 'lesson')
+                        .order_by('-updated_at')[:12]
+                    )
+                    interaction_rows = []
+                    for item in interactions:
+                        text = (item.body or item.quote or '').strip()
+                        if not text:
+                            continue
+                        label = (
+                            item.lesson.title
+                            if item.lesson_id
+                            else item.enrollment.course.title
+                        )
+                        interaction_rows.append(
+                            f'- {item.kind} @ {label}: {text[:700]}'
+                        )
+                    if interaction_rows:
+                        blocks.append(
+                            'Recent learner notes/highlights/reminders:\n'
+                            + '\n'.join(interaction_rows)
+                        )
 
             try:
                 from core.lms_interaction_api import pulsar_workspace_project_context
