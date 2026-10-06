@@ -1,8 +1,10 @@
 import json
 from io import StringIO
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
@@ -135,6 +137,19 @@ class PulsarWeek1ReleaseTests(TestCase):
             [first.run_id, second.run_id],
         )
         self.assertTrue(all(run.status == PulsarRun.Status.COMPLETED for run in runs))
+
+
+    def test_workspace_widget_sends_live_surface_and_project_context(self):
+        root = Path(settings.BASE_DIR).parent
+        api_js = (root / 'assets/ws/ws-api.js').read_text(encoding='utf-8')
+        ai_js = (root / 'assets/ws/ws-ai.js').read_text(encoding='utf-8')
+        app_js = (root / 'assets/ws/ws-app.js').read_text(encoding='utf-8')
+
+        self.assertIn("if (context.surface) body.surface = context.surface;", api_js)
+        self.assertIn("if (context.project_id) body.project_id = context.project_id;", api_js)
+        self.assertIn("context.pulsarContext()", ai_js)
+        self.assertIn("surface: area === 'core' ? 'core'", app_js)
+        self.assertIn("project_id: currentProjectId || undefined", app_js)
 
     def test_runtime_status_exposes_skill_provider_and_recent_run_contract(self):
         harness = PulsarHarness(models=FakeGateway())
