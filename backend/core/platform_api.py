@@ -242,11 +242,12 @@ def _project_profile(project):
             'category': ResearchProjectProfile.Category.INTERNAL,
             'visibility': ResearchProjectProfile.Visibility.PRIVATE,
             'status': ResearchProjectProfile.Status.ACTIVE,
-            'nextcloud_root': f'Gravitas/Projects/GRV-{project.pk:06d}',
+            'nextcloud_root': f'GRV-{project.pk:06d}',
         },
     )
-    if not profile.nextcloud_root:
-        profile.nextcloud_root = f'Gravitas/Projects/GRV-{project.pk:06d}'
+    canonical_root = f'GRV-{project.pk:06d}'
+    if profile.nextcloud_root != canonical_root:
+        profile.nextcloud_root = canonical_root
         profile.save(update_fields=['nextcloud_root', 'updated_at'])
     return profile
 
@@ -529,7 +530,7 @@ def platform_projects(request):
             required_skills=_list(data.get('required_skills')),
             application_open=bool(data.get('application_open')),
             public_slug=public_slug,
-            nextcloud_root=f'Gravitas/Projects/GRV-{project.pk:06d}',
+            nextcloud_root=f'GRV-{project.pk:06d}',
             secure_data_room=bool(data.get('secure_data_room')),
             allow_public_links=bool(data.get('allow_public_links')),
             allow_downloads=data.get('allow_downloads') is not False,
@@ -748,7 +749,7 @@ def content_work_detail(request, item_id):
                     visibility=ResearchProjectProfile.Visibility.PRIVATE,
                     status=ResearchProjectProfile.Status.ACTIVE,
                     research_question=str(data.get('research_question', '')).strip(),
-                    nextcloud_root=f'Gravitas/Projects/GRV-{project.pk:06d}',
+                    nextcloud_root=f'GRV-{project.pk:06d}',
                 )
                 policy_for(project, create=True, created_by=request.user, default_visibility=ObjectPolicy.Visibility.WORKSPACE)
                 item.research_project = project
