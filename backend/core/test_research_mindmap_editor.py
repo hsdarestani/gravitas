@@ -42,7 +42,7 @@ class ResearchMindMapEditorApiTests(TestCase):
     def post_json(self, path, payload):
         return self.client.post(path, data=json.dumps(payload), content_type='application/json')
 
-    def test_create_map_opens_with_editable_root_node(self):
+    def test_create_map_returns_editable_canvas(self):
         response = self.post_json('/api/platform/mindmaps/', {
             'project_id': self.project.pk,
             'title': 'Evidence map',
@@ -53,9 +53,8 @@ class ResearchMindMapEditorApiTests(TestCase):
         self.assertEqual(item['title'], 'Evidence map')
         self.assertEqual(item['project_id'], self.project.pk)
         self.assertTrue(item['permissions']['can_edit'])
-        self.assertEqual(len(item['nodes']), 1)
-        self.assertEqual(item['nodes'][0]['key'], 'root')
-        self.assertEqual(item['nodes'][0]['title'], 'Evidence map')
+        self.assertEqual(item['nodes'], [])
+        self.assertEqual(item['edges'], [])
 
     def test_node_drag_edit_and_connections_persist(self):
         create = self.post_json('/api/platform/mindmaps/', {
@@ -63,7 +62,16 @@ class ResearchMindMapEditorApiTests(TestCase):
             'title': 'Model',
         })
         map_id = create.json()['item']['id']
-        root = create.json()['item']['nodes'][0]
+        root_response = self.post_json(f'/api/platform/mindmaps/{map_id}/', {
+            'action': 'node.create',
+            'key': 'hypothesis',
+            'title': 'Hypothesis',
+            'kind': 'hypothesis',
+            'x': 600,
+            'y': 360,
+        })
+        self.assertEqual(root_response.status_code, 201, root_response.content)
+        root = root_response.json()['node']
 
         second = self.post_json(f'/api/platform/mindmaps/{map_id}/', {
             'action': 'node.create',
