@@ -26,7 +26,7 @@
    and falls back to search rather than to invention.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20260913-2';
+import * as api from './ws-api.js?v=20261006-pulsar-context1';
 import * as P from './ws-platform.js';
 
 let context = null;
