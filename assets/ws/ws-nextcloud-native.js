@@ -652,7 +652,7 @@ function drawEmpty(main) {
   const box = el('div', 'nb-empty');
   box.append(glyph('notes'));
   box.append(el('h2', 'nb-empty__title', 'Start your notebook'));
-  box.append(el('p', 'nb-empty__text', 'Notes are plain Markdown, mirrored to Nextcloud Notes. Write here or there; both copies stay in step.'));
+  box.append(el('p', 'nb-empty__text', 'Personal and project notes live in one Research notebook. Your own notes mirror to Nextcloud; shared project notes follow the project ACL.'));
   const create = action('New note', () => createNote(create), { solid: true });
   box.append(create);
   main.append(box);
