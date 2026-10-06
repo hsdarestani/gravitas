@@ -10,6 +10,7 @@ from .pulsar_runtime.policy import ActionPolicy
 from .pulsar_runtime.profiles import ensure_profile
 from .pulsar_runtime.tool_executor import PulsarToolExecutor, ToolExecutionResult
 from .pulsar_runtime.tools import ToolRegistry
+from .pulsar_runtime.types import AgentRouteDecision
 
 
 class FakeHarness:
@@ -61,6 +62,22 @@ class FakeExecutor:
             content=f'grounded result from {tool_name}',
             data={'confirmed': confirmed},
             sources=[{'id': '1', 'title': 'Source One', 'kind': 'note'}],
+        )
+
+
+class FakeDecisionRouter:
+    def __init__(self, *decisions):
+        self.decisions = list(decisions)
+        self.calls = []
+
+    def select_tool_route(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.decisions:
+            return self.decisions.pop(0)
+        return AgentRouteDecision(
+            action='planner',
+            reason='fake_default',
+            decision_source='fake',
         )
 
 
@@ -250,6 +267,81 @@ class PulsarAgentTests(TestCase):
             harness.calls[-1]['user'],
         )
         self.assertEqual(len(completed.data['tool_trace']), 2)
+
+    def test_decision_model_can_constrain_planner_to_selected_tool(self):
+        decisions = FakeDecisionRouter(
+            AgentRouteDecision(
+                action='tool',
+                tool='tasks.read',
+                reason='typed_choice',
+                decision_source='jev',
+                decision_model='jev-test',
+                confidence=0.92,
+            ),
+            AgentRouteDecision(
+                action='planner',
+                reason='continue_with_planner',
+                decision_source='deterministic',
+            ),
+        )
+        harness = FakeHarness(
+            '{"action":"tool","tool":"tasks.read","args":{"mine":true}}',
+            '{"action":"answer"}',
+            'Task-grounded answer',
+        )
+        executor = FakeExecutor()
+        result = PulsarAgent(
+            harness=harness,
+            executor=executor,
+            decisions=decisions,
+        ).run(
+            self.user,
+            'Check my tasks.',
+            surface='core',
+        )
+
+        self.assertEqual(result.status, 'completed')
+        self.assertEqual(executor.calls[0]['tool'], 'tasks.read')
+        self.assertNotIn('research.search', harness.calls[0]['user'])
+        self.assertIn('tasks.read', harness.calls[0]['user'])
+        self.assertEqual(
+            result.data['decision_trace'][0]['route_source'],
+            'jev',
+        )
+        self.assertEqual(
+            result.data['decision_trace'][0]['route_tool'],
+            'tasks.read',
+        )
+        self.assertEqual(
+            result.data['decision_trace'][0]['route_confidence'],
+            0.92,
+        )
+
+    def test_decision_model_cannot_escape_profile_permissions(self):
+        profile = ensure_profile(self.user)
+        profile.allowed_skills = ['project_task']
+        profile.save(update_fields=['allowed_skills', 'updated_at'])
+
+        decisions = FakeDecisionRouter(
+            AgentRouteDecision(
+                action='tool',
+                tool='research.search',
+                reason='bad_route',
+                decision_source='jev',
+            ),
+        )
+        harness = FakeHarness()
+        with self.assertRaises(PulsarPermissionError):
+            PulsarAgent(
+                harness=harness,
+                executor=FakeExecutor(),
+                decisions=decisions,
+            ).run(
+                self.user,
+                'Search research.',
+                surface='core',
+            )
+        self.assertEqual(harness.calls, [])
 
     def test_agent_stores_pending_side_effect_and_executes_only_after_confirmation(self):
         harness = FakeHarness(

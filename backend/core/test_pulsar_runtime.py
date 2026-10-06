@@ -146,6 +146,112 @@ class PulsarRuntimeTests(TestCase):
         request = post.call_args.kwargs
         self.assertEqual(request['json']['questions']['model_tier']['type'], 'choice')
 
+    def test_deterministic_tool_route_delegates_to_bounded_planner(self):
+        router = DecisionRouter(provider='deterministic')
+        selection = router.select_tool_route(
+            message='Compare research with my tasks.',
+            surface='core',
+            primary_skill='project_task',
+            tools=[
+                {
+                    'name': 'research.search',
+                    'skill': 'research',
+                    'risk': 'r0',
+                    'action': 'read',
+                    'description': 'Search research knowledge.',
+                },
+            ],
+        )
+        self.assertEqual(selection.action, 'planner')
+        self.assertEqual(selection.decision_source, 'deterministic')
+
+    @patch('core.pulsar_runtime.decisions.requests.post')
+    def test_jev_choice_can_route_agent_to_specific_tool(self, post):
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            'model': 'jev-1.13.0',
+            'answers': {
+                'next_action': {
+                    'type': 'choice',
+                    'choice': 'tool_2',
+                    'confidence': 0.93,
+                },
+            },
+        }
+        post.return_value = response
+        router = DecisionRouter(
+            provider='jev',
+            model='jev-latest',
+            base_url='https://system-one.example/v1',
+            api_key='test-key',
+        )
+        selection = router.select_tool_route(
+            message='Compare research with my tasks.',
+            surface='core',
+            primary_skill='project_task',
+            tools=[
+                {
+                    'name': 'research.search',
+                    'skill': 'research',
+                    'risk': 'r0',
+                    'action': 'read',
+                    'description': 'Search research knowledge.',
+                },
+                {
+                    'name': 'tasks.read',
+                    'skill': 'project_task',
+                    'risk': 'r0',
+                    'action': 'read',
+                    'description': 'Read project tasks.',
+                },
+            ],
+        )
+        self.assertEqual(selection.action, 'tool')
+        self.assertEqual(selection.tool, 'tasks.read')
+        self.assertEqual(selection.decision_source, 'jev')
+        self.assertEqual(selection.decision_model, 'jev-1.13.0')
+        self.assertAlmostEqual(selection.confidence, 0.93)
+        request = post.call_args.kwargs['json']
+        self.assertEqual(request['questions']['next_action']['type'], 'choice')
+        self.assertIn('tool_2', request['questions']['next_action']['criteria'])
+
+    @patch('core.pulsar_runtime.decisions.requests.post')
+    def test_low_confidence_jev_tool_route_falls_back_to_planner(self, post):
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            'model': 'jev-1.13.0',
+            'answers': {
+                'next_action': {
+                    'type': 'choice',
+                    'choice': 'tool_1',
+                    'confidence': 0.20,
+                },
+            },
+        }
+        post.return_value = response
+        router = DecisionRouter(
+            provider='jev',
+            model='jev-latest',
+            base_url='https://system-one.example/v1',
+            api_key='test-key',
+        )
+        selection = router.select_tool_route(
+            message='Read tasks.',
+            surface='core',
+            primary_skill='project_task',
+            tools=[{
+                'name': 'tasks.read',
+                'skill': 'project_task',
+                'risk': 'r0',
+                'action': 'read',
+                'description': 'Read project tasks.',
+            }],
+        )
+        self.assertEqual(selection.action, 'planner')
+        self.assertEqual(selection.decision_source, 'jev:low-confidence')
+
     def test_external_decision_provider_is_safe_contract_fallback_in_v01(self):
         router = DecisionRouter(provider='jev', model='system-one')
         selection = router.select_model(

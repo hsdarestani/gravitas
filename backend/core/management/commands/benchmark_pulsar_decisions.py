@@ -49,9 +49,38 @@ class Command(BaseCommand):
                 'ok': ok,
             })
 
+        route_probe = router.select_tool_route(
+            message='Compare research evidence with my open tasks.',
+            surface='core',
+            primary_skill='project_task',
+            tools=[
+                {
+                    'name': 'research.search',
+                    'skill': 'research',
+                    'risk': 'r0',
+                    'action': 'read',
+                    'description': 'Search grounded research knowledge.',
+                },
+                {
+                    'name': 'tasks.read',
+                    'skill': 'project_task',
+                    'risk': 'r0',
+                    'action': 'read',
+                    'description': 'Read accessible project tasks.',
+                },
+            ],
+        )
+
         result = {
             'provider': router.provider,
             'status': router.status(),
+            'agent_route_probe': {
+                'action': route_probe.action,
+                'tool': route_probe.tool,
+                'source': route_probe.decision_source,
+                'model': route_probe.decision_model,
+                'confidence': route_probe.confidence,
+            },
             'cases': rows,
             'correct': correct,
             'total': len(rows),
@@ -66,6 +95,10 @@ class Command(BaseCommand):
                     f"{mark} {row['skill']}:{row['operation']} "
                     f"expected={row['expected']} actual={row['actual']} source={row['source']}"
                 )
+            self.stdout.write(
+                f"Agent route probe: action={route_probe.action} "
+                f"tool={route_probe.tool or '-'} source={route_probe.decision_source}"
+            )
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Routing benchmark: {correct}/{len(rows)} ({result['accuracy']:.0%})"

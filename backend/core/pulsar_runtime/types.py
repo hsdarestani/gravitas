@@ -44,6 +44,16 @@ class ModelSelection:
 
 
 @dataclass(frozen=True)
+class AgentRouteDecision:
+    action: str
+    tool: Optional[str] = None
+    reason: str = ''
+    decision_source: str = 'deterministic'
+    decision_model: Optional[str] = None
+    confidence: Optional[float] = None
+
+
+@dataclass(frozen=True)
 class ProviderResponse:
     text: str
     provider: str
