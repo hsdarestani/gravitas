@@ -50,6 +50,17 @@ class PulsarToolExecutor:
         allowed = self.tools.allowed_names(skill_name=skill_name, profile=profile)
         return tuple(name for name in allowed if name in self.SUPPORTED)
 
+    def supported_names_for_skills(self, *, skill_names, profile):
+        names = []
+        for skill_name in tuple(skill_names or ()):
+            for name in self.supported_names(
+                skill_name=skill_name,
+                profile=profile,
+            ):
+                if name not in names:
+                    names.append(name)
+        return tuple(names)
+
     def execute(self, actor, tool_name, args=None, *, confirmed=False):
         args = dict(args or {})
         args.setdefault('_tool', tool_name)
