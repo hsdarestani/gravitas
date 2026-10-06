@@ -4,20 +4,16 @@ import re
 from datetime import timedelta
 
 from django.conf import settings
-from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
-from . import operating_api as operating_base
-from .layer_access import record_activity
-from .layer_models import ActivityEvent
 from .lms_models import Course
 from .models import ResearchProject, WorkspaceMembership
 from .operating_models import KeyResult, OperatingTask, Priority, TelegramPulsarSession, WorkStatus
 from .platform_runtime_v3 import core_access, ensure_platform_workspaces
 from .pulsar import PLATFORM_CONTEXT, PulsarError, PulsarPermissionError, complete, configured
 from .pulsar_runtime.profiles import assert_skill_allowed
-from .pulsar_runtime.policy import ActionPolicy
+from .pulsar_task_service import create_operating_task
 
 
 logger = logging.getLogger(__name__)
@@ -466,52 +462,14 @@ def _edit(user, draft, instruction, ctx):
 
 
 def _create(user, draft, ctx):
-    # The Telegram confirmation is explicit user approval, but the server-side
-    # policy remains authoritative and can still deny the side effect.
-    ActionPolicy().decide(user, 'tasks.create', confirmed=True)
-    core = ctx['core']
-    owner_link = WorkspaceMembership.objects.filter(workspace=core, user_id=draft.get('owner_id')).select_related('user').first()
-    owner = owner_link.user if owner_link else None
-    kr = KeyResult.objects.filter(
-        pk=draft.get('key_result_id'), objective__workspace=core,
-    ).exclude(status=WorkStatus.ARCHIVED).first()
-    due = parse_date(str(draft.get('due_date') or ''))
-    if not core_access(user, core) or not owner or not kr or not due:
-        raise ValueError('task_missing_required_fields')
-
-    initiative = operating_base._execution_initiative_for_kr(core, kr, owner)
-    project = ResearchProject.objects.filter(
-        pk=draft.get('project_id'), archived=False,
-        workspace_id__in={core.pk, ctx['research'].pk},
-    ).first() if draft.get('project_id') else None
-    dependency = OperatingTask.objects.filter(
-        pk=draft.get('dependency_id'), workspace=core,
-    ).exclude(status=WorkStatus.ARCHIVED).first() if draft.get('dependency_id') else None
-    priority = draft.get('priority') if draft.get('priority') in Priority.values else Priority.P2
-
-    description = str(draft.get('description') or '').strip()
-    links = _links(draft, ctx)
-    if links:
-        description += ('\n\n' if description else '') + 'Related links:\n' + '\n'.join(f'- {x["label"]}: {x["url"]}' for x in links)
-
-    with transaction.atomic():
-        task = OperatingTask.objects.create(
-            workspace=core, initiative=initiative, project=project, owner=owner,
-            title=draft['title'][:240], description=description[:12000], priority=priority,
-            status=WorkStatus.ACTIVE, due_date=due,
-            definition_of_done=draft['definition_of_done'][:8000], dependency=dependency,
-        )
-        record_activity(
-            layer=ActivityEvent.Layer.CORE, action='task.created', actor=user, subject_user=user,
-            object_type='operating_task', object_id=task.pk,
-            detail={'title': task.title, 'source': 'telegram_pulsar'},
-        )
-        try:
-            from .task_notifications import enqueue_task_event
-            enqueue_task_event(task, 'task.created', actor=user, detail={'source': 'telegram_pulsar'})
-        except Exception:
-            logger.exception('Could not enqueue Telegram-created task notification task_id=%s', task.pk)
-    return task
+    payload = dict(draft or {})
+    payload['related_links'] = _links(payload, ctx)
+    return create_operating_task(
+        user,
+        payload,
+        confirmed=True,
+        source='telegram_pulsar',
+    )
 
 
 def _begin(user, draft, queue, lang, ctx, session):
