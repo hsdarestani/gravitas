@@ -21,6 +21,7 @@ PERSIAN_RE = re.compile(r'[\u0600-\u06ff]')
 URL_RE = re.compile(r'https?://[^\s<>()]+', re.I)
 DIGIT_MAP = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')
 MAX_ROWS = 40
+TELEGRAM_THREAD_KEY = 'primary'
 
 
 def _lang(text):
@@ -192,6 +193,7 @@ def _interpret(user, text, ctx):
             temperature=0.1,
             surface='telegram',
             skill='project_task',
+            thread_id=TELEGRAM_THREAD_KEY,
             operation='interpret',
             user_id=user.pk,
             actor=user,
@@ -315,6 +317,7 @@ def _resolve_kr(user, text, rows, ctx):
             temperature=0,
             surface='telegram',
             skill='project_task',
+            thread_id=TELEGRAM_THREAD_KEY,
             operation='decision',
             user_id=user.pk,
             actor=user,
@@ -361,6 +364,7 @@ def _parse_due(user, text, lang):
             temperature=0,
             surface='telegram',
             skill='project_task',
+            thread_id=TELEGRAM_THREAD_KEY,
             operation='date',
             user_id=user.pk,
             actor=user,
@@ -446,6 +450,7 @@ def _edit(user, draft, instruction, ctx):
             temperature=.05,
             surface='telegram',
             skill='project_task',
+            thread_id=TELEGRAM_THREAD_KEY,
             operation='edit',
             user_id=user.pk,
             actor=user,
