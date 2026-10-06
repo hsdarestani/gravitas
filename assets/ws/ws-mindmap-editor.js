@@ -536,7 +536,7 @@ export async function openMindMapEditor(mapId, { onChanged = null } = {}) {
         const dy = moveEvent.clientY - startY;
         if (!moved && Math.hypot(dx, dy) < 4) return;
         moved = true;
-        event.preventDefault();
+        moveEvent.preventDefault();
         card.dataset.dragging = '1';
         const scaleX = 1400 / (canvas.getBoundingClientRect().width || 1400);
         const scaleY = 850 / (canvas.getBoundingClientRect().height || 850);
