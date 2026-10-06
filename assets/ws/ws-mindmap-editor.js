@@ -28,6 +28,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const NODE_W = 190;
 const NODE_H = 74;
 let activeLayer = null;
+let activeCleanup = null;
 
 const el = (tag, cls = '', text = '') => {
   const node = document.createElement(tag);
@@ -95,6 +96,8 @@ function mapRequest(mapId, body, method = 'POST') {
 }
 
 function closeActive() {
+  if (activeCleanup) activeCleanup();
+  activeCleanup = null;
   if (!activeLayer) return;
   activeLayer.remove();
   activeLayer = null;
@@ -487,12 +490,10 @@ export async function openMindMapEditor(mapId, { onChanged = null } = {}) {
     if (event.target === layer) closeActive();
   });
   const escape = (event) => {
-    if (event.key === 'Escape' && activeLayer === layer) {
-      document.removeEventListener('keydown', escape);
-      closeActive();
-    }
+    if (event.key === 'Escape' && activeLayer === layer) closeActive();
   };
-  document.addEventListener('keydown', escape, { once: false });
+  document.addEventListener('keydown', escape);
+  activeCleanup = () => document.removeEventListener('keydown', escape);
 
   state.selectedId = state.nodes[0]?.id || null;
   renderNodes();
