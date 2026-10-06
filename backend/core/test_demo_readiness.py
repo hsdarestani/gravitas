@@ -225,7 +225,17 @@ class DemoReadinessTests(TestCase):
         self.assertEqual(project_response.status_code, 201, project_response.content)
         project = project_response.json()['project']
         project_id = project['id']
-        self.assertEqual(Collection.objects.filter(project_id=project_id).count(), 0)
+        self.assertEqual(
+            set(Collection.objects.filter(project_id=project_id).values_list('name', flat=True)),
+            {
+                '01_Client_Input',
+                '02_Working',
+                '03_Datasets',
+                '04_Analysis',
+                '05_Deliverables',
+                '06_Archive',
+            },
+        )
 
         patch_response = self.patch_json(f'/api/platform/projects/{project_id}/', {
             'description': 'Updated during the demo readiness flow.',
@@ -332,7 +342,17 @@ class DemoReadinessTests(TestCase):
         self.assertGreaterEqual(counts['files'], 1)
         self.assertGreaterEqual(counts['datasets'], 1)
         self.assertGreaterEqual(counts['deliverables'], 1)
-        self.assertEqual(len(project_detail['folders']), 0)
+        self.assertEqual(
+            {item['name'] for item in project_detail['folders']},
+            {
+                '01_Client_Input',
+                '02_Working',
+                '03_Datasets',
+                '04_Analysis',
+                '05_Deliverables',
+                '06_Archive',
+            },
+        )
         resource_ids = {item['id'] for item in project_detail['resources']}
         self.assertTrue({note_id, file_id, dataset_id}.issubset(resource_ids))
 
