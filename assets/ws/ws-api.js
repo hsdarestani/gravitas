@@ -511,9 +511,16 @@ export async function assistantProviders() {
   }
 }
 
-export async function ask(question) {
+export async function ask(question, context = {}) {
+  const body = { question };
+  if (context && typeof context === 'object') {
+    if (context.surface) body.surface = context.surface;
+    if (context.project_id) body.project_id = context.project_id;
+    if (context.workspace_id) body.workspace_id = context.workspace_id;
+    if (context.thread_id) body.thread_id = context.thread_id;
+  }
   try {
-    return await request('/platform/ai/ask/', { method: 'POST', body: { question } });
+    return await request('/platform/ai/ask/', { method: 'POST', body });
   } catch {
     // Fall through to the local answer rather than showing a dead end.
   }

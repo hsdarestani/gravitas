@@ -215,6 +215,49 @@ class PulsarContextEngine:
                     'href': f'/workspace/page/{resource.pk}',
                 })
 
+            if skill == 'project_task':
+                task_candidates = (
+                    OperatingTask.objects
+                    .filter(
+                        Q(owner=user)
+                        | Q(workspace__owner=user)
+                        | Q(workspace__memberships__user=user)
+                    )
+                    .exclude(status__in=[WorkStatus.DONE, WorkStatus.ARCHIVED])
+                    .select_related(
+                        'owner',
+                        'project',
+                        'initiative__key_result__objective',
+                    )
+                    .distinct()
+                    .order_by('due_date', 'priority', 'id')[:40]
+                )
+                task_rows = []
+                for task in task_candidates:
+                    if not can_view(user, task):
+                        continue
+                    owner = (
+                        task.owner.get_full_name() or task.owner.email
+                        if task.owner_id else 'Unassigned'
+                    )
+                    project_title = task.project.title if task.project_id else 'Core'
+                    kr = task.initiative.key_result
+                    task_rows.append(
+                        f'- [{task.pk}] {task.title} | owner={owner} | '
+                        f'project={project_title} | kr={kr.title} | '
+                        f'due={task.due_date or "—"} | status={task.status}'
+                    )
+                    sources.append({
+                        'id': str(task.pk),
+                        'title': task.title,
+                        'kind': 'core_task',
+                        'href': '/workspace/core/tasks',
+                    })
+                    if len(task_rows) >= 20:
+                        break
+                if task_rows:
+                    blocks.append('Open Core tasks:\n' + '\n'.join(task_rows))
+
             try:
                 from core.lms_interaction_api import pulsar_workspace_project_context
                 granted_text, granted_sources = pulsar_workspace_project_context(user)

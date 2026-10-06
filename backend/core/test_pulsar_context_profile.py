@@ -5,8 +5,11 @@ from django.test import TestCase
 
 from .lms_models import Course, CourseEnrollment, CourseModule, LearningInteraction, Lesson
 from .models import KnowledgeResource, Workspace
+from .operating_models import KeyResult, StrategicObjective
 from .pulsar_runtime.context import PulsarContextEngine
 from .pulsar_runtime.profiles import snapshot
+from .pulsar_task_service import create_operating_task
+from .platform_runtime_v3 import ensure_platform_workspaces
 
 
 class PulsarContextAndProfileTests(TestCase):
@@ -88,6 +91,50 @@ class PulsarContextAndProfileTests(TestCase):
         self.assertIn('verified dataset', package.text)
         self.assertNotIn('SECRET OTHER USER MATERIAL', package.text)
         self.assertEqual(package.sources[0]['title'], 'Research direction')
+
+    def test_core_context_includes_visible_open_tasks_without_project_filter(self):
+        core = ensure_platform_workspaces(self.user)['core']
+        objective = StrategicObjective.objects.create(
+            workspace=core,
+            title='Ship Pulsar',
+            owner=self.user,
+        )
+        kr = KeyResult.objects.create(
+            objective=objective,
+            title='Validate Week 1',
+            owner=self.user,
+            baseline_value=0,
+            target_value=1,
+            current_value=0,
+            unit='release',
+        )
+        task = create_operating_task(
+            self.user,
+            {
+                'title': 'Review Pulsar architecture',
+                'definition_of_done': 'Week 1 review is complete.',
+                'due_date': '2026-10-10',
+                'key_result_id': kr.pk,
+                'owner_id': self.user.pk,
+            },
+            confirmed=True,
+            source='test',
+        )
+
+        package = PulsarContextEngine().workspace(
+            self.user,
+            'What are my current project tasks?',
+            skill='project_task',
+        )
+
+        self.assertIn('Open Core tasks:', package.text)
+        self.assertIn('Review Pulsar architecture', package.text)
+        self.assertTrue(
+            any(
+                row['kind'] == 'core_task' and row['id'] == str(task.pk)
+                for row in package.sources
+            )
+        )
 
     def test_learning_context_combines_course_progress_lesson_and_user_notes(self):
         course = Course.objects.create(

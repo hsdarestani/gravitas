@@ -26,7 +26,7 @@
    and falls back to search rather than to invention.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20260913-2';
+import * as api from './ws-api.js?v=20261006-pulsar-context1';
 import * as P from './ws-platform.js';
 
 let context = null;
@@ -72,7 +72,12 @@ export function askAssistant(question) {
 async function ask(question) {
   let reply;
   try {
-    reply = await api.ask(question);
+    const requestContext = (
+      context && typeof context.pulsarContext === 'function'
+        ? context.pulsarContext()
+        : {}
+    );
+    reply = await api.ask(question, requestContext);
   } catch {
     return {
       reply: 'That request did not go through. Pulsar may be down; nothing was changed in your pages.',

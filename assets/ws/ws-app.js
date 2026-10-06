@@ -34,7 +34,7 @@ import {
 import { renderDashboard, stopClock } from './ws-home.js?v=20261001-series1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
-import { installAssistant, askAssistant } from './ws-ai.js?v=20260930-project-grants1';
+import { installAssistant, askAssistant } from './ws-ai.js?v=20261006-context1';
 import { installSelects } from './ws-select.js?v=20261002-dropdown2';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
@@ -1714,7 +1714,18 @@ function initTheme() {
 export async function start() {
   initTheme();
   installSelects();
-  installAssistant({ go });
+  installAssistant({
+    go,
+    pulsarContext: () => {
+      const area = railArea(location.pathname);
+      const currentProjectId = ui.route?.view === 'project' ? ui.route.id : null;
+      return {
+        surface: area === 'core' ? 'core' : (area === 'learning' ? 'learning' : 'research'),
+        project_id: currentProjectId || undefined,
+        thread_id: 'primary',
+      };
+    },
+  });
 
   const prefs = readPrefs();
   if (Array.isArray(prefs.openSections)) ui.openSections = new Set(prefs.openSections);

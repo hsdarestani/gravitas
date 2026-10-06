@@ -20,10 +20,17 @@ def assistant_ask(request):
     if not question:
         return JsonResponse({'ok': False, 'error': 'question_required'}, status=400)
 
-    surface = str(data.get('surface') or 'research').strip().lower()
+    requested_surface = str(data.get('surface') or 'research').strip().lower()
     project_id = data.get('project_id')
-    skill = 'project_task' if surface in {'core', 'projects', 'project'} else 'research'
-    surface = 'core' if skill == 'project_task' else 'research'
+    if requested_surface in {'core', 'projects', 'project'}:
+        skill = 'project_task'
+        surface = 'core'
+    elif requested_surface in {'learning', 'lms', 'kms'}:
+        skill = 'learning'
+        surface = 'learning'
+    else:
+        skill = 'research'
+        surface = 'research'
 
     try:
         package = PulsarContextEngine().workspace(
@@ -42,8 +49,9 @@ def assistant_ask(request):
                     'You are Pulsar inside the authenticated Gravitas+ workspace. '
                     'Pulsar is a multi-capability learning and research assistant. '
                     'Answer in the same language as the user. Be concise, precise and useful. '
-                    'For claims about the user\'s own work, use only the supplied ACL-checked context. '
+                    'For claims about the user\'s own work, use only the supplied accessible Gravitas context. '
                     'Do not invent notes, projects, files, tasks or results. '
+                    'Do not expose internal implementation labels such as ACL checks, context packages, tools or routing unless the user explicitly asks. '
                     'If the context is insufficient, say that clearly. '
                     'Mention source titles naturally when they support the answer.\n\n'
                     + PLATFORM_CONTEXT
@@ -51,9 +59,9 @@ def assistant_ask(request):
                 user=(
                     f'Question: {question}\n\n'
                     + (
-                        'ACL-checked Gravitas context:\n' + package.text
+                        'Accessible Gravitas context:\n' + package.text
                         if package.text
-                        else 'ACL-checked Gravitas context: no matching material was found.'
+                        else 'Accessible Gravitas context: no matching material was found.'
                     )
                 ),
                 max_tokens=1200,
