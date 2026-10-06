@@ -57,12 +57,12 @@ from .workspace_api import provision_personal_workspace
 
 
 PROJECT_FOLDERS = (
-    '01 Client Input',
-    '02 Working',
-    '03 Datasets',
-    '04 Analysis',
-    '05 Deliverables',
-    '06 Archive',
+    '01_Client_Input',
+    '02_Working',
+    '03_Datasets',
+    '04_Analysis',
+    '05_Deliverables',
+    '06_Archive',
 )
 
 
@@ -545,15 +545,18 @@ def platform_projects(request):
             allow_reshare=profile.allow_public_links,
             created_by=request.user,
         )
-        if category in {'client', 'community'} or profile.secure_data_room:
-            for folder_name in PROJECT_FOLDERS:
-                Collection.objects.get_or_create(
-                    workspace=research,
-                    project=project,
-                    parent=None,
-                    name=folder_name,
-                    defaults={'created_by': request.user},
-                )
+        # Every Research project gets the same predictable data-room skeleton.
+        # Personal/private versus shared is an ACL concern, not a filesystem
+        # concern; keeping one structure makes project storage portable and
+        # prevents UI routes from diverging by visibility/category.
+        for folder_name in PROJECT_FOLDERS:
+            Collection.objects.get_or_create(
+                workspace=research,
+                project=project,
+                parent=None,
+                name=folder_name,
+                defaults={'created_by': request.user},
+            )
         _audit(project, request.user, 'project_created', project, category=category, visibility=visibility)
     return JsonResponse({'ok': True, 'project': _project_json(project, request.user, include_detail=True)}, status=201)
 
