@@ -191,10 +191,11 @@ class PulsarAgent:
     server-side pending approvals.
     """
 
-    def __init__(self, *, harness=None, skills=None, executor=None):
+    def __init__(self, *, harness=None, skills=None, executor=None, decisions=None):
         self.harness = harness or PulsarHarness()
         self.skills = skills or SkillRegistry()
         self.executor = executor or PulsarToolExecutor()
+        self.decisions = decisions or getattr(self.harness, 'decisions', None)
 
     def _thread(self, actor, thread_id, *, surface, skill):
         return get_thread(
@@ -220,6 +221,7 @@ class PulsarAgent:
         message,
         primary_skill,
         tool_results=None,
+        decision_trace=None,
     ):
         if thread is None:
             return
@@ -230,6 +232,7 @@ class PulsarAgent:
             'message': str(message or '')[:6000],
             'primary_skill': str(primary_skill or '')[:64],
             'completed_tools': _json_safe(_tool_trace(tool_results)),
+            'decision_trace': _json_safe(decision_trace or []),
             'created_at': timezone.now().isoformat(),
         }
         thread.state = state
@@ -307,6 +310,49 @@ class PulsarAgent:
             return {'action': 'answer'}, ()
 
         catalog = self._tool_catalog(names)
+        route = None
+        if self.decisions is not None and hasattr(self.decisions, 'select_tool_route'):
+            route = self.decisions.select_tool_route(
+                message=message,
+                surface=surface,
+                primary_skill=skill_name,
+                tools=catalog,
+                completed_tools=_tool_trace(tool_results),
+            )
+
+        route_record = {
+            'route_action': str(getattr(route, 'action', 'planner') or 'planner'),
+            'route_tool': getattr(route, 'tool', None),
+            'route_source': str(
+                getattr(route, 'decision_source', 'planner') or 'planner'
+            ),
+            'route_model': getattr(route, 'decision_model', None),
+            'route_reason': str(getattr(route, 'reason', '') or ''),
+            'route_confidence': getattr(route, 'confidence', None),
+        }
+        if route_record['route_action'] == 'answer':
+            return {
+                'action': 'answer',
+                '_decision': {
+                    **route_record,
+                    'planner_action': 'skipped',
+                    'planner_tool': None,
+                },
+            }, names
+
+        selected_tool = (
+            str(route_record['route_tool'] or '').strip()
+            if route_record['route_action'] == 'tool'
+            else ''
+        )
+        if selected_tool:
+            if selected_tool not in set(names):
+                raise PulsarPermissionError(
+                    f'pulsar_decision_tool_not_allowed:{selected_tool}'
+                )
+            names = (selected_tool,)
+            catalog = self._tool_catalog(names)
+
         system = (
             'You are the planning step of Pulsar, the Gravitas+ multi-capability agent. '
             'Choose exactly one next action and return ONLY JSON. '
@@ -327,6 +373,8 @@ class PulsarAgent:
                 + json.dumps(list(skill_names), ensure_ascii=False)
                 + '\nAvailable tools:\n'
                 + json.dumps(catalog, ensure_ascii=False)
+                + '\nDecision layer route:\n'
+                + json.dumps(route_record, ensure_ascii=False, default=str)
                 + '\nContext IDs:\n'
                 + json.dumps(_safe_metadata(metadata), ensure_ascii=False)
                 + '\nCurrent time:\n'
@@ -348,9 +396,20 @@ class PulsarAgent:
         plan = _json_object(planning.text)
         action = str(plan.get('action') or 'answer').strip().lower()
         if action != 'tool':
-            return {'action': 'answer'}, names
+            return {
+                'action': 'answer',
+                '_decision': {
+                    **route_record,
+                    'planner_action': 'answer',
+                    'planner_tool': None,
+                },
+            }, names
 
         tool = str(plan.get('tool') or '').strip()
+        if selected_tool and tool != selected_tool:
+            raise PulsarPermissionError(
+                f'pulsar_planner_route_mismatch:{tool}:{selected_tool}'
+            )
         if tool not in set(names):
             raise PulsarPermissionError(f'pulsar_planner_tool_not_allowed:{tool}')
         args = plan.get('args')
@@ -358,7 +417,16 @@ class PulsarAgent:
             args = {}
         for key, value in _safe_metadata(metadata).items():
             args.setdefault(key, value)
-        return {'action': 'tool', 'tool': tool, 'args': args}, names
+        return {
+            'action': 'tool',
+            'tool': tool,
+            'args': args,
+            '_decision': {
+                **route_record,
+                'planner_action': 'tool',
+                'planner_tool': tool,
+            },
+        }, names
 
     def _final_answer(
         self,
@@ -370,8 +438,10 @@ class PulsarAgent:
         thread_id,
         metadata,
         tool_results=None,
+        decision_trace=None,
     ):
         tool_results = list(tool_results or [])
+        decision_trace = list(decision_trace or [])
         if not tool_results:
             system = (
                 'You are Pulsar, the Gravitas+ learning and research assistant. '
@@ -426,6 +496,19 @@ class PulsarAgent:
                     }
                     for row in trace
                 ]
+
+        if tool_results:
+            skills_used = []
+            for row in tool_results:
+                definition = self.executor.tools.get(
+                    str(getattr(row, 'tool', '') or '')
+                )
+                if definition and definition.skill not in skills_used:
+                    skills_used.append(definition.skill)
+            if skills_used:
+                data['skills_used'] = skills_used
+        if decision_trace:
+            data['decision_trace'] = _json_safe(decision_trace)
 
         result = self.harness.run_text(
             system=system,
@@ -500,6 +583,7 @@ class PulsarAgent:
             args = pending.get('args') if isinstance(pending.get('args'), dict) else {}
             original = str(pending.get('message') or message or '')
             prior_results = _restore_tool_results(pending.get('completed_tools'))
+            prior_decisions = list(pending.get('decision_trace') or [])
             definition = self.executor.tools.get(tool)
             if definition is None:
                 self._clear_pending(thread)
@@ -520,9 +604,23 @@ class PulsarAgent:
                 thread_id=thread_id,
                 metadata=metadata,
                 tool_results=[*prior_results, result],
+                decision_trace=[
+                    *prior_decisions,
+                    {
+                        'route_action': 'approved_tool',
+                        'route_tool': tool,
+                        'route_source': 'user_confirmation',
+                        'route_model': None,
+                        'route_reason': 'explicit_approval',
+                        'route_confidence': None,
+                        'planner_action': 'tool',
+                        'planner_tool': tool,
+                    },
+                ],
             )
 
         tool_results = []
+        decision_trace = []
         seen_calls = set()
         for _step in range(MAX_TOOL_STEPS):
             try:
@@ -535,11 +633,30 @@ class PulsarAgent:
                     thread_id=thread_id,
                     metadata=metadata,
                     tool_results=tool_results,
+                    decision_trace=decision_trace,
                 )
             except PulsarPermissionError:
                 raise
-            except PulsarError:
-                plan = {'action': 'answer'}
+            except PulsarError as exc:
+                plan = {
+                    'action': 'answer',
+                    '_decision': {
+                        'route_action': 'fallback_answer',
+                        'route_tool': None,
+                        'route_source': 'planner_error',
+                        'route_model': None,
+                        'route_reason': exc.__class__.__name__,
+                        'route_confidence': None,
+                        'planner_action': 'error',
+                        'planner_tool': None,
+                    },
+                }
+
+            if isinstance(plan.get('_decision'), dict):
+                decision_trace.append({
+                    'step': len(decision_trace) + 1,
+                    **plan['_decision'],
+                })
 
             if plan.get('action') != 'tool':
                 return self._final_answer(
@@ -582,6 +699,7 @@ class PulsarAgent:
                     message=message,
                     primary_skill=skill_def.name,
                     tool_results=tool_results,
+                    decision_trace=decision_trace,
                 )
                 definition = self.executor.tools.get(tool)
                 return AgentOutcome(
@@ -594,6 +712,7 @@ class PulsarAgent:
                         'risk': definition.risk if definition else None,
                         'description': definition.description if definition else '',
                         'completed_read_steps': len(tool_results),
+                        'decision_trace': _json_safe(decision_trace),
                     },
                 )
 
@@ -607,4 +726,5 @@ class PulsarAgent:
             thread_id=thread_id,
             metadata=metadata,
             tool_results=tool_results,
+            decision_trace=decision_trace,
         )
