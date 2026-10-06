@@ -1,5 +1,6 @@
 import * as P from './ws-platform.js?v=20260914-7';
 import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
+import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261006-editor1';
 
 const state = { installed: false, scheduled: false, loading: new Set(), observer: null };
 const PROJECT_STATUS = [['intake', 'Intake'], ['active', 'Active'], ['review', 'Review'], ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['closed', 'Closed']];
@@ -453,8 +454,34 @@ function createMindMap(projectId) {
     grid.append(field('Title', input('title', '', 'text', 'Mind map title')), field('Description', textarea('description', '', 3)));
     return {};
   }, 'Create map', async (_fields, data) => {
-    await P.call('/platform/mindmaps/', { method: 'POST', body: { project_id: projectId, title: String(data.get('title') || '').trim(), description: String(data.get('description') || '').trim() } });
+    const result = await P.call('/platform/mindmaps/', {
+      method: 'POST',
+      body: {
+        project_id: projectId,
+        title: String(data.get('title') || '').trim(),
+        description: String(data.get('description') || '').trim(),
+      },
+    });
     refreshProject();
+    const mapId = result?.item?.id;
+    if (mapId) queueMicrotask(() => openMindMapEditor(mapId, { onChanged: refreshProject }));
+  });
+}
+
+function editMindMap(cockpit) {
+  const items = (cockpit.mindmaps || []).filter((item) => item.can_edit);
+  if (!items.length) return;
+  if (items.length === 1) {
+    openMindMapEditor(items[0].id, { onChanged: refreshProject });
+    return;
+  }
+  modal('Open mind map', (grid) => {
+    const picker = select('map_id', items.map((item) => [String(item.id), item.title || `Mind map ${item.id}`]), String(items[0].id));
+    grid.append(field('Mind map', picker));
+    return { picker };
+  }, 'Open map', async (fields) => {
+    const mapId = Number(fields.picker.value);
+    queueMicrotask(() => openMindMapEditor(mapId, { onChanged: refreshProject }));
   });
 }
 
@@ -601,6 +628,7 @@ function actionSet(info, cockpit, project) {
     if (canEdit) add('Add source', () => addSource(info.projectId), true);
     if (canEdit) add('Upload dataset', () => uploadFile(info.projectId, 'dataset'));
     if (canEdit) add('New map', () => createMindMap(info.projectId));
+    if ((cockpit.mindmaps || []).some((item) => item.can_edit)) add('Edit map', () => editMindMap(cockpit));
     if ((cockpit.resources || []).some((item) => ['paper', 'dataset'].includes(item.kind) && item.can_edit)) add('Edit source', () => manageResource(cockpit, ['paper', 'dataset'], 'Edit source'));
   } else if (info.tab === 'files') {
     if (canEdit) add('Upload file', () => uploadFile(info.projectId, 'file'), true);
@@ -681,6 +709,10 @@ export function installResearchProjectActions() {
   state.installed = true;
   addEventListener('popstate', schedule);
   addEventListener('ws:navigate', schedule);
+  addEventListener('ws:mindmap-open', (event) => {
+    const mapId = Number(event.detail?.mapId);
+    if (mapId) openMindMapEditor(mapId, { onChanged: refreshProject });
+  });
   const view = document.getElementById('ws-view');
   state.observer = observeSurface({
     target: view,

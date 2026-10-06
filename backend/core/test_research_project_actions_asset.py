@@ -8,7 +8,7 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         root = Path(__file__).resolve().parents[2]
         workspace = (root / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('installResearchProjectActions', workspace)
-        self.assertIn('/assets/ws/ws-project-actions.js?v=20261006-dataroom1', workspace)
+        self.assertIn('/assets/ws/ws-project-actions.js?v=20261006-mindmap1', workspace)
 
     def test_project_tabs_expose_mutations_without_native_dialog(self):
         root = Path(__file__).resolve().parents[2]
@@ -22,6 +22,8 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
             'Edit task',
             'New project note',
             'Add source',
+            'New map',
+            'Edit map',
             'Upload dataset',
             'Upload file',
             'New discussion',
@@ -45,6 +47,23 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         self.assertIn('/platform/projects/${projectId}/nextcloud/sync/', source)
         self.assertIn('data?.team_folder?.native_url', source)
         self.assertNotIn("`${root}/index.php/apps/files/`", source)
+
+    def test_mind_map_editor_is_interactive_not_a_static_project_row(self):
+        root = Path(__file__).resolve().parents[2]
+        actions = (root / 'assets/ws/ws-project-actions.js').read_text(encoding='utf-8')
+        project = (root / 'assets/ws/ws-project.js').read_text(encoding='utf-8')
+        editor = (root / 'assets/ws/ws-mindmap-editor.js').read_text(encoding='utf-8')
+        workspace = (root / 'workspace.html').read_text(encoding='utf-8')
+
+        self.assertIn("openMindMapEditor", actions)
+        self.assertIn("ws:mindmap-open", actions)
+        self.assertIn("ws:mindmap-open", project)
+        self.assertIn("Add node", editor)
+        self.assertIn("Save node", editor)
+        self.assertIn("Add connection", editor)
+        self.assertIn("node.update", editor)
+        self.assertIn("edge.create", editor)
+        self.assertIn("/assets/ws/ws-mindmap-editor.css?v=20261006-editor1", workspace)
 
     def test_project_actions_use_canonical_endpoints(self):
         root = Path(__file__).resolve().parents[2]

@@ -274,9 +274,20 @@ function sourcesView(doc, cockpit) {
   items.forEach((item) => box.body.append(resourceRow(item)));
   doc.append(box.box);
 
-  const maps = section('Mind maps');
-  if (!cockpit.mindmaps.length) maps.body.append(empty('No mind maps', 'Concept maps attached to this project appear here.'));
-  for (const map of cockpit.mindmaps) maps.body.append(row({ title: map.title, meta: `${map.node_count} nodes · ${map.edge_count} edges`, body: map.description }));
+  const maps = section('Mind maps', 'Visual concept maps for hypotheses, evidence, questions and project relationships.');
+  if (!cockpit.mindmaps.length) maps.body.append(empty('No mind maps', 'Create a map to organise the research visually.'));
+  for (const map of cockpit.mindmaps) {
+    const open = action(map.can_edit ? 'Edit map' : 'View map', () => {
+      dispatchEvent(new CustomEvent('ws:mindmap-open', { detail: { mapId: map.id } }));
+    }, false, true);
+    maps.body.append(row({
+      title: map.title,
+      meta: `${map.node_count} nodes · ${map.edge_count} edges · ${date(map.updated_at)}`,
+      body: map.description,
+      badges: [map.can_edit ? 'Editable' : 'Read only'],
+      actions: [open],
+    }));
+  }
   doc.append(maps.box);
 }
 
