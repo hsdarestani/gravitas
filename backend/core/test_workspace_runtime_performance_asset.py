@@ -46,11 +46,11 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         for name in (
             'ws-research-actions.js',
-            'ws-project-actions.js',
             'ws-task-deck-mirror.js',
             'ws-actionable-ui.js',
         ):
             self.assertIn(f'/assets/ws/{name}?v=20260920-perf1', html)
+        self.assertIn('/assets/ws/ws-project-actions.js?v=20261006-dataroom1', html)
         self.assertIn('/assets/ws/ws-task-deck-fixes.js?v=20260924-rhythm1', html)
         for name in (
             'ws-notes-performance.js',
