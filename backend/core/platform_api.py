@@ -1237,15 +1237,59 @@ def researcher_me(request):
     }})
 
 
+def _mindmap_payload(item, user, *, detail=False):
+    data = {
+        'id': item.pk,
+        'title': item.title,
+        'description': item.description,
+        'project_id': item.project_id,
+        'owner': item.owner.first_name or item.owner.email,
+        'updated_at': item.updated_at.isoformat(),
+        'permissions': {
+            'role': effective_role(user, item),
+            'can_view': can_view(user, item),
+            'can_edit': can_edit(user, item),
+            'can_manage': can_manage(user, item),
+        },
+    }
+    if detail:
+        data['nodes'] = [{
+            'id': node.pk,
+            'key': node.key,
+            'title': node.title,
+            'body': node.body,
+            'kind': node.kind,
+            'x': node.x,
+            'y': node.y,
+            'linked_object_id': node.linked_object_id,
+        } for node in item.nodes.all()]
+        data['edges'] = [{
+            'id': edge.pk,
+            'source_id': edge.source_id,
+            'target_id': edge.target_id,
+            'relation': edge.relation,
+            'label': edge.label,
+        } for edge in item.edges.all()]
+    else:
+        data['node_count'] = item.nodes.count()
+        data['edge_count'] = item.edges.count()
+    return data
+
+
+def _touch_mindmap(item):
+    item.save(update_fields=['updated_at'])
+
+
 @require_http_methods(['GET', 'POST'])
 def mindmaps(request):
     if response := _auth(request):
         return response
     spaces = ensure_dual_workspaces(request.user)
     if request.method == 'GET':
-        qs = MindMap.objects.filter(workspace__in=spaces.values()).select_related('project', 'owner')
+        qs = MindMap.objects.filter(workspace__in=spaces.values()).select_related('project', 'owner').prefetch_related('nodes', 'edges')
         items = [item for item in qs if can_view(request.user, item)]
-        return JsonResponse({'ok': True, 'items': [{'id': item.pk, 'title': item.title, 'description': item.description, 'project_id': item.project_id, 'owner': item.owner.first_name or item.owner.email, 'updated_at': item.updated_at.isoformat()} for item in items]})
+        return JsonResponse({'ok': True, 'items': [_mindmap_payload(item, request.user) for item in items]})
+
     data = _body(request)
     title = str(data.get('title', '')).strip()[:240]
     if not title:
@@ -1257,87 +1301,177 @@ def mindmaps(request):
         if not project or not can_edit(request.user, project):
             return _error('permission_denied', 403)
         workspace = project.workspace
-    item = MindMap.objects.create(workspace=workspace, project=project, owner=request.user, title=title, description=str(data.get('description', '')).strip())
-    policy_for(item, create=True, created_by=request.user, default_visibility=ObjectPolicy.Visibility.PROJECT if project else ObjectPolicy.Visibility.PRIVATE)
-    return JsonResponse({'ok': True, 'item': {'id': item.pk, 'title': item.title, 'project_id': item.project_id}}, status=201)
+
+    with transaction.atomic():
+        item = MindMap.objects.create(
+            workspace=workspace,
+            project=project,
+            owner=request.user,
+            title=title,
+            description=str(data.get('description', '')).strip(),
+        )
+        policy_for(
+            item,
+            create=True,
+            created_by=request.user,
+            default_visibility=ObjectPolicy.Visibility.PROJECT if project else ObjectPolicy.Visibility.PRIVATE,
+        )
+        # A new map opens as a usable canvas instead of an empty database shell.
+        # The root node can immediately be renamed, dragged, connected or deleted.
+        MindMapNode.objects.create(
+            mind_map=item,
+            key='root',
+            title=title,
+            kind=MindMapNode.Kind.CONCEPT,
+            x=600,
+            y=360,
+        )
+        _audit(project, request.user, 'mindmap_created', item, title=title)
+    return JsonResponse({'ok': True, 'item': _mindmap_payload(item, request.user, detail=True)}, status=201)
 
 
 @require_http_methods(['GET', 'PATCH', 'POST', 'DELETE'])
 def mindmap_detail(request, map_id):
     if response := _auth(request):
         return response
-    item = MindMap.objects.select_related('project', 'workspace', 'owner').filter(pk=map_id).first()
+    item = MindMap.objects.select_related('project', 'workspace', 'owner').prefetch_related('nodes', 'edges').filter(pk=map_id).first()
     if not item or not can_view(request.user, item):
         return _error('not_found', 404)
+
     if request.method == 'GET':
-        return JsonResponse({'ok': True, 'item': {
-            'id': item.pk,
-            'title': item.title,
-            'description': item.description,
-            'project_id': item.project_id,
-            'nodes': [{'id': node.pk, 'key': node.key, 'title': node.title, 'body': node.body, 'kind': node.kind, 'x': node.x, 'y': node.y, 'linked_object_id': node.linked_object_id} for node in item.nodes.all()],
-            'edges': [{'id': edge.pk, 'source_id': edge.source_id, 'target_id': edge.target_id, 'relation': edge.relation, 'label': edge.label} for edge in item.edges.all()],
-            'permissions': {'role': effective_role(request.user, item), 'can_edit': can_edit(request.user, item), 'can_manage': can_manage(request.user, item)},
-        }})
+        return JsonResponse({'ok': True, 'item': _mindmap_payload(item, request.user, detail=True)})
     if not can_edit(request.user, item):
         return _error('permission_denied', 403)
+
     if request.method == 'DELETE':
+        project = item.project
+        title = item.title
         item.delete()
+        _audit(project, request.user, 'mindmap_deleted', None, title=title)
         return JsonResponse({'ok': True})
+
     data = _body(request)
     if request.method == 'PATCH':
         if 'title' in data:
-            item.title = str(data['title']).strip()[:240]
+            title = str(data['title']).strip()[:240]
+            if not title:
+                return _error('title_required')
+            item.title = title
         if 'description' in data:
             item.description = str(data['description']).strip()
         item.save()
-        return JsonResponse({'ok': True})
+        _audit(item.project, request.user, 'mindmap_updated', item, title=item.title)
+        return JsonResponse({'ok': True, 'item': _mindmap_payload(item, request.user, detail=True)})
+
     action = str(data.get('action', '')).strip()
+
     if action == 'node.create':
-        key = str(data.get('key') or f'n-{item.nodes.count() + 1}')[:80]
+        base_key = str(data.get('key') or f'n-{item.nodes.count() + 1}').strip()[:64] or 'node'
+        key = base_key
+        suffix = 2
+        while item.nodes.filter(key=key).exists():
+            tail = f'-{suffix}'
+            key = f'{base_key[:80 - len(tail)]}{tail}'
+            suffix += 1
         node = MindMapNode.objects.create(
             mind_map=item,
             key=key,
             title=str(data.get('title', '')).strip()[:240] or 'Untitled node',
             body=str(data.get('body', '')).strip(),
-            kind=str(data.get('kind', 'concept')) if str(data.get('kind', 'concept')) in MindMapNode.Kind.values else 'concept',
+            kind=str(data.get('kind', 'concept')) if str(data.get('kind', 'concept')) in MindMapNode.Kind.values else MindMapNode.Kind.CONCEPT,
             x=float(data.get('x', 0) or 0),
             y=float(data.get('y', 0) or 0),
         )
-        return JsonResponse({'ok': True, 'node': {'id': node.pk, 'key': node.key, 'title': node.title, 'kind': node.kind, 'x': node.x, 'y': node.y}}, status=201)
+        _touch_mindmap(item)
+        _audit(item.project, request.user, 'mindmap_node_created', item, title=node.title)
+        return JsonResponse({
+            'ok': True,
+            'node': {
+                'id': node.pk,
+                'key': node.key,
+                'title': node.title,
+                'body': node.body,
+                'kind': node.kind,
+                'x': node.x,
+                'y': node.y,
+            },
+        }, status=201)
+
     if action == 'node.update':
         node = item.nodes.filter(pk=data.get('node_id')).first()
         if not node:
             return _error('node_not_found', 404)
-        for field in ('title', 'body'):
-            if field in data:
-                setattr(node, field, str(data[field]).strip())
+        if 'title' in data:
+            node.title = str(data['title']).strip()[:240] or 'Untitled node'
+        if 'body' in data:
+            node.body = str(data['body']).strip()
         if 'kind' in data and data['kind'] in MindMapNode.Kind.values:
             node.kind = data['kind']
-        for field in ('x', 'y'):
-            if field in data:
-                setattr(node, field, float(data[field]))
+        try:
+            for field in ('x', 'y'):
+                if field in data:
+                    setattr(node, field, float(data[field]))
+        except (TypeError, ValueError):
+            return _error('invalid_position')
         node.save()
-        return JsonResponse({'ok': True})
+        _touch_mindmap(item)
+        _audit(item.project, request.user, 'mindmap_node_updated', item, title=node.title)
+        return JsonResponse({'ok': True, 'node': {
+            'id': node.pk,
+            'key': node.key,
+            'title': node.title,
+            'body': node.body,
+            'kind': node.kind,
+            'x': node.x,
+            'y': node.y,
+        }})
+
     if action == 'node.delete':
-        item.nodes.filter(pk=data.get('node_id')).delete()
+        node = item.nodes.filter(pk=data.get('node_id')).first()
+        if not node:
+            return _error('node_not_found', 404)
+        title = node.title
+        node.delete()
+        _touch_mindmap(item)
+        _audit(item.project, request.user, 'mindmap_node_deleted', item, title=title)
         return JsonResponse({'ok': True})
+
     if action == 'edge.create':
         source = item.nodes.filter(pk=data.get('source_id')).first()
         target = item.nodes.filter(pk=data.get('target_id')).first()
         if not source or not target or source.pk == target.pk:
             return _error('invalid_edge')
-        edge, _ = MindMapEdge.objects.get_or_create(
+        relation = str(data.get('relation', 'related')).strip()[:60] or 'related'
+        label = str(data.get('label', '')).strip()[:160]
+        edge, created = MindMapEdge.objects.get_or_create(
             mind_map=item,
             source=source,
             target=target,
-            relation=str(data.get('relation', 'related'))[:60],
-            defaults={'label': str(data.get('label', ''))[:160]},
+            relation=relation,
+            defaults={'label': label},
         )
-        return JsonResponse({'ok': True, 'edge': {'id': edge.pk, 'source_id': edge.source_id, 'target_id': edge.target_id, 'relation': edge.relation}}, status=201)
+        if not created and edge.label != label:
+            edge.label = label
+            edge.save(update_fields=['label'])
+        _touch_mindmap(item)
+        _audit(item.project, request.user, 'mindmap_edge_created', item, title=f'{source.title} → {target.title}')
+        return JsonResponse({'ok': True, 'edge': {
+            'id': edge.pk,
+            'source_id': edge.source_id,
+            'target_id': edge.target_id,
+            'relation': edge.relation,
+            'label': edge.label,
+        }}, status=201 if created else 200)
+
     if action == 'edge.delete':
-        item.edges.filter(pk=data.get('edge_id')).delete()
+        edge = item.edges.filter(pk=data.get('edge_id')).first()
+        if not edge:
+            return _error('edge_not_found', 404)
+        edge.delete()
+        _touch_mindmap(item)
+        _audit(item.project, request.user, 'mindmap_edge_deleted', item)
         return JsonResponse({'ok': True})
+
     return _error('invalid_action')
 
 
