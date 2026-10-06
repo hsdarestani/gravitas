@@ -23,7 +23,7 @@ from .platform_access import (
     policy_for,
     resolve_target,
 )
-from .platform_api import _audit, _parse_datetime
+from .platform_api import PROJECT_FOLDERS, _audit, _parse_datetime
 from .platform_models import AccessGrant, ObjectPolicy, ShareLink
 
 logger = logging.getLogger(__name__)
@@ -148,6 +148,17 @@ def project_nextcloud_sync(request, project_id):
     if not project:
         return _error('not_found', 404)
     try:
+        # Backfill the canonical project structure for older projects before
+        # provisioning the Team Folder. This makes the Data room action a safe,
+        # idempotent repair point as well as a launcher.
+        for folder_name in PROJECT_FOLDERS:
+            Collection.objects.get_or_create(
+                workspace=project.workspace,
+                project=project,
+                parent=None,
+                name=folder_name,
+                defaults={'created_by': project.owner},
+            )
         team = nextcloud_bridge.ensure_project_space(project)
         # Reconcile every folder/resource ACL so native clients and Gravitas
         # converge even after an interrupted deployment or membership update.
