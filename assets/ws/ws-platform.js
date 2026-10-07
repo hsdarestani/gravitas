@@ -229,164 +229,7 @@ export const dashboard = (workspace) => call(`/platform/dashboard/?workspace=${w
 export const projects = () => call('/platform/projects/');
 export const researchCalendar = () => call('/platform/research-calendar/');
 export const project = (id) => call(`/platform/projects/${id}/`);
-export const projectCockpit = (id) => call(`/platform/projects/${id}/cockpit/`);
-export const projectMilestones = (id) => call(`/platform/projects/${id}/milestones/`);
-export const projectExperiments = (id) => call(`/platform/projects/${id}/experiments/`);
-export const createProjectExperiment = (id, body) => call(`/platform/projects/${id}/experiments/`, { method: 'POST', body });
-export const updateProjectExperiment = (projectId, experimentId, body) => call(`/platform/projects/${projectId}/experiments/${experimentId}/`, { method: 'PATCH', body });
-export const deleteProjectExperiment = (projectId, experimentId) => call(`/platform/projects/${projectId}/experiments/${experimentId}/`, { method: 'DELETE' });
-export const projectDiscussions = (id) => call(`/platform/projects/${id}/discussions/`);
-export const createProjectDiscussion = (id, body) => call(`/platform/projects/${id}/discussions/`, { method: 'POST', body });
-export const updateProjectDiscussion = (projectId, messageId, body) => call(`/platform/projects/${projectId}/discussions/${messageId}/`, { method: 'PATCH', body });
-export const deleteProjectDiscussion = (projectId, messageId) => call(`/platform/projects/${projectId}/discussions/${messageId}/`, { method: 'DELETE' });
-export const spaceTree = () => call('/platform/space/tree/');
-export const spaceItems = () => call('/platform/space/items/');
-export const spaceNotes = () => call('/platform/space/notes/');
-export const syncSpace = ({ force = false, confirmed = false } = {}) => call('/platform/space/sync/', {
-  method: 'POST', body: { force, confirmed },
-});
-export const reconcileSpace = () => call('/platform/space/reconcile/', {
-  method: 'POST', body: { confirmed: true },
-});
-export const createSpaceFolder = ({ title, parentId = null }) => call('/platform/space/tree/', {
-  method: 'POST', body: { title, kind: 'category', parent_id: parentId },
-});
-export const renameSpaceFolder = (id, title) => call(`/platform/space/nodes/${id}/`, {
-  method: 'PATCH', body: { title },
-});
-export const createSpaceItem = (payload) => call('/platform/space/items/', { method: 'POST', body: payload });
-export const updateSpaceItem = (id, payload) => call(`/platform/space/items/${id}/`, {
-  method: 'PATCH', body: payload,
-});
-export const deleteSpaceItem = (id) => call(`/platform/space/items/${id}/`, { method: 'DELETE' });
-export const content = () => call('/platform/content/');
-export const resources = (kind) => call(`/platform/resources/?kind=${encodeURIComponent(kind)}`);
-export const searchResources = (query) => call(`/platform/resources/?workspace=research&q=${encodeURIComponent(query)}`);
-export const mindmaps = () => call('/platform/mindmaps/');
-export const createMindmap = (body) => call('/platform/mindmaps/', { method: 'POST', body });
-export const mindmap = (id) => call(`/platform/mindmaps/${id}/`);
-export const mindmapAction = (id, body) => call(`/platform/mindmaps/${id}/`, { method: 'POST', body });
-export const updateMindmap = (id, body) => call(`/platform/mindmaps/${id}/`, { method: 'PATCH', body });
-export const researchers = () => call('/platform/researchers/');
-export const myProfile = () => call('/platform/researchers/me/');
-export const sharedWithMe = () => call('/platform/shared-with-me/');
-export const team = () => call('/platform/team/');
-export const teamStorage = () => call('/platform/team/storage/');
-export const nextcloud = () => call('/platform/nextcloud/');
-export const researchRequests = () => call('/platform/research-requests/');
-export const operatingDashboard = () => call('/operating/dashboard/');
-export const operatingObjectives = () => call('/operating/objectives/');
-export const createOperatingObjective = (body) => call('/operating/objectives/', { method: 'POST', body });
-export const updateOperatingObjective = (id, body) => call(`/operating/objectives/${id}/`, { method: 'PATCH', body });
-export const deleteOperatingObjective = (id) => call(`/operating/objectives/${id}/`, { method: 'DELETE' });
-export const operatingKeyResults = (objectiveId = '') => call(
-  '/operating/key-results/' + (objectiveId ? '?objective_id=' + encodeURIComponent(objectiveId) : '')
-);
-export const createOperatingKeyResult = (body) => call('/operating/key-results/', { method: 'POST', body });
-export const updateOperatingKeyResult = (id, body) => call(`/operating/key-results/${id}/`, { method: 'PATCH', body });
-export const deleteOperatingKeyResult = (id) => call(`/operating/key-results/${id}/`, { method: 'DELETE' });
-export const operatingMilestones = () => call('/operating/milestones/');
-export const createOperatingMilestone = (body) => call('/operating/milestones/', { method: 'POST', body });
-export const updateOperatingMilestone = (id, body) => call(`/operating/milestones/${id}/`, { method: 'PATCH', body });
-export const deleteOperatingMilestone = (id) => call(`/operating/milestones/${id}/`, { method: 'DELETE' });
-export const operatingInitiatives = () => call('/operating/initiatives/');
-export const operatingTasks = () => call('/operating/tasks/');
-export const operatingMeetings = () => call('/operating/meetings/');
-export const createOperatingMeeting = (body) => call('/operating/meetings/', { method: 'POST', body });
-export const googleCalendarStatus = (meetingId = '') => call(
-  '/calendar/google/status/' + (meetingId ? '?meeting_id=' + encodeURIComponent(meetingId) : '')
-);
-export const syncOperatingMeetingToGoogle = (meetingId) => call(
-  `/calendar/google/meetings/${meetingId}/sync/`, { method: 'POST', body: {} }
-);
-export const googleCalendarEvents = () => call('/calendar/google/events/');
-export const googleCalendarTaskStatus = (taskId) => call(`/calendar/google/tasks/${taskId}/status/`);
-export const syncOperatingTaskToGoogle = (taskId) => call(
-  `/calendar/google/tasks/${taskId}/sync/`, { method: 'POST', body: {} }
-);
-export const saveGoogleCalendarMinute = (body) => call('/calendar/google/minutes/', { method: 'POST', body });
-export const googleCalendarMinuteAttachments = (minuteId) => call(
-  `/calendar/google/minutes/${minuteId}/attachments/`
-);
-export const uploadGoogleCalendarMinuteAttachment = (minuteId, file) => {
-  const form = new FormData();
-  form.append('file', file);
-  return upload(`/calendar/google/minutes/${minuteId}/attachments/`, form);
-};
-export const deleteGoogleCalendarMinuteAttachment = (minuteId, attachmentId) => call(
-  `/calendar/google/minutes/${minuteId}/attachments/${attachmentId}/`, { method: 'DELETE' }
-);
-export const disconnectGoogleCalendar = () => call('/calendar/google/disconnect/', { method: 'DELETE' });
-export const operatingTaskBoard = () => call('/operating/task-board/');
-export const createOperatingTask = (body) => call('/operating/task-board/', { method: 'POST', body });
-export const operatingTaskCard = (id) => call(`/operating/task-board/${id}/`);
-export const updateOperatingTaskCard = (id, body) => call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
-export const deleteOperatingTaskCard = (id) => call(`/operating/task-board/${id}/`, { method: 'DELETE' });
-export const moveOperatingTask = (taskId, status, orderedIds) => call('/operating/task-board/move/', {
-  method: 'POST', body: { task_id: taskId, status, ordered_ids: orderedIds },
-});
-export const operatingTaskChecklist = (id) => call(`/operating/tasks/${id}/checklist/`);
-export const addOperatingTaskChecklistItem = (id, title) => call(`/operating/tasks/${id}/checklist/`, {
-  method: 'POST', body: { title },
-});
-export const updateOperatingTaskChecklistItem = (taskId, itemId, body) => call(
-  `/operating/tasks/${taskId}/checklist/${itemId}/`, { method: 'PATCH', body }
-);
-export const deleteOperatingTaskChecklistItem = (taskId, itemId) => call(
-  `/operating/tasks/${taskId}/checklist/${itemId}/`, { method: 'DELETE' }
-);
-export const operatingTaskComments = (id) => call(`/operating/tasks/${id}/comments/`);
-export const addOperatingTaskComment = (id, body, mentionUserIds = []) => call(`/operating/tasks/${id}/comments/`, { method: 'POST', body: { body, mention_user_ids: mentionUserIds } });
-export const taskInAppNotifications = () => call('/task-notifications/in-app/');
-export const markTaskInAppNotificationsRead = (ids = [], all = false) => call('/task-notifications/in-app/', { method: 'PATCH', body: { ids, all } });
-export const operatingTaskAttachments = (id) => call(`/operating/tasks/${id}/attachments/`);
-export const uploadOperatingTaskAttachment = (id, file) => {
-  const form = new FormData(); form.append('file', file);
-  return upload(`/operating/tasks/${id}/attachments/`, form);
-};
-export const deleteOperatingTaskAttachment = (taskId, attachmentId) => call(
-  `/operating/tasks/${taskId}/attachments/${attachmentId}/`, { method: 'DELETE' }
-);
-export const operatingTaskHistory = (id) => call(`/operating/tasks/${id}/history/`);
-export const operatingCycles = () => call('/operating/cycles/');
-
-/* ---- Layer 3 / LMS ------------------------------------------------------ */
-export const lmsCourses = ({ all = false } = {}) => call(`/lms/courses/${all ? '?all=1' : ''}`);
-export const lmsCourse = (id) => call(`/lms/courses/${id}/`);
-export const lmsEnroll = (id, body = {}) => call(`/lms/courses/${id}/enroll/`, { method: 'POST', body });
-export const lmsMe = () => call('/lms/me/');
-export const lmsLessonProgress = (id, body) => call(`/lms/lessons/${id}/progress/`, { method: 'PUT', body });
-export const lmsAssessmentAttempt = (id, answers) => call(`/lms/assessments/${id}/attempt/`, {
-  method: 'POST', body: { answers },
-});
-export const lmsCreateCourse = (body) => call('/lms/courses/', { method: 'POST', body });
-export const lmsUpdateCourse = (id, body) => call(`/lms/courses/${id}/`, { method: 'PATCH', body });
-export const lmsCourseRevision = (id) => call(`/lms/courses/${id}/revision/`);
-export const lmsSaveCourseRevision = (id, body) => call(`/lms/courses/${id}/revision/`, { method: 'PATCH', body });
-export const lmsPublishCourseRevision = (id, body) => call(`/lms/courses/${id}/revision/publish/`, { method: 'POST', body });
-export const lmsCourseEvent = (id, body) => call(`/lms/courses/${id}/events/`, { method: 'POST', body });
-export const lmsRegistrationProfile = (id) => call(`/lms/courses/${id}/registration-profile/`);
-export const lmsSaveRegistrationProfile = (id, answers) => call(`/lms/courses/${id}/registration-profile/`, { method: 'POST', body: { answers } });
-export const lmsAiTutor = (id, body) => call(`/lms/courses/${id}/ai/`, { method: 'POST', body });
-export const lmsCourseInteractions = (id, params = {}) => {
-  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== '')).toString();
-  return call(`/lms/courses/${id}/interactions/${query ? `?${query}` : ''}`);
-};
-export const lmsCreateInteraction = (id, body) => call(`/lms/courses/${id}/interactions/`, { method: 'POST', body });
-export const lmsUpdateInteraction = (courseId, interactionId, body) => call(`/lms/courses/${courseId}/interactions/${interactionId}/`, { method: 'PATCH', body });
-export const lmsDeleteInteraction = (courseId, interactionId) => call(`/lms/courses/${courseId}/interactions/${interactionId}/`, { method: 'DELETE' });
-export const lmsLearningPlan = (id) => call(`/lms/courses/${id}/learning-plan/`);
-export const lmsPulsarAccess = (id) => call(`/lms/courses/${id}/pulsar-access/`);
-export const lmsSetPulsarAccess = (id, body) => call(`/lms/courses/${id}/pulsar-access/`, { method: 'POST', body });
-export const lmsZotero = () => call('/lms/sources/zotero/');
-export const lmsConnectZotero = (body) => call('/lms/sources/zotero/', { method: 'POST', body });
-export const lmsDeleteZotero = (id) => call(`/lms/sources/zotero/?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-export const lmsZoteroItems = ({ connectionId, q = '', limit = 20 }) => {
-  const params = new URLSearchParams({ connection_id: connectionId, limit: String(limit) });
-  if (q) params.set('q', q);
-  return call(`/lms/sources/zotero/items/?${params.toString()}`);
-};
-export const lmsLearningPaths = ({ all = false } = {}) => call(`/lms/paths/${all ? '?all=1' : ''}`);
+export const projectCockpit …3041 tokens truncated… false } = {}) => call(`/lms/paths/${all ? '?all=1' : ''}`);
 export const lmsCreateLearningPath = (body) => call('/lms/paths/', { method: 'POST', body });
 export const lmsUpdateLearningPath = (id, body) => call(`/lms/paths/${id}/`, { method: 'PATCH', body });
 export const lmsDeleteLearningPath = (id) => call(`/lms/paths/${id}/`, { method: 'DELETE' });
@@ -525,7 +368,9 @@ export function label(value) {
 
 export function formatDate(value) {
   if (!value) return '';
-  const date = new Date(value);
+  // Date-only deadlines are calendar days, not UTC instants. Parsing them as
+  // UTC midnight displays the previous day in western browser time zones.
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? `${value}T00:00:00` : value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }

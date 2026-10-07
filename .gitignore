@@ -1,4 +1,0 @@
-__pycache__/
-*.py[cod]
-backend/test.sqlite3
-backend/staticfiles/
