@@ -72,6 +72,56 @@ class CanonicalJournalTests(TransactionTestCase):
         batch.finalize()
         self.assertNotIn('project/project.md', self.dav.files)
 
+    def acl_store(self):
+        from .canonical_acl import normalize
+        path = 'project/02_Working/Research/notes/item'
+        old = [{'type': 'group', 'id': 'group', 'mask': 31, 'permissions': 1}]
+        state = {'rules': normalize(old), 'etag': '"acl1"'}
+        def read(target):
+            self.assertEqual(target, path)
+            return {'rules': [dict(r) for r in state['rules']], 'etag': state['etag']}
+        def write(target, rules, expected):
+            self.assertEqual(target, path)
+            if expected != state['etag']:
+                return None
+            state['rules'] = normalize(rules)
+            state['etag'] += 'n'
+            return read(target)
+        for target, fn in [('core.canonical_acl.read_acl', read), ('core.canonical_acl.write_acl', write)]:
+            p = patch(target, side_effect=fn); p.start(); self.addCleanup(p.stop)
+        return path, old, state
+
+    def test_acl_rollback_restores_previous_permissions_and_commit_retains_new(self):
+        path, old, state = self.acl_store()
+        batch = WriteBatch(); batch.acl(self.project, path, [])
+        self.assertEqual(state['rules'], [])
+        batch.finalize(); batch.finalize()
+        self.assertEqual(state['rules'], old)
+        batch = WriteBatch(); batch.acl(self.project, path, [])
+        commit_witness(batch); batch.finalize()
+        self.assertEqual(state['rules'], [])
+
+    def test_external_acl_change_is_preserved_during_recovery(self):
+        path, old, state = self.acl_store()
+        batch = WriteBatch(); batch.acl(self.project, path, [])
+        state['rules'] = [{'type': 'user', 'id': 'external-owner', 'mask': 31, 'permissions': 31}]
+        with self.assertRaises(RecoveryRequired):
+            batch.finalize()
+        self.assertEqual(state['rules'][0]['id'], 'external-owner')
+
+    def test_ambiguous_acl_write_stops_for_review(self):
+        path, old, state = self.acl_store()
+        batch = WriteBatch()
+        from .canonical_acl import write_acl
+        def crash(*args):
+            write_acl(*args)
+            raise RuntimeError('crash after ACL write')
+        with patch('core.canonical_acl.write_acl', side_effect=crash):
+            with self.assertRaises(RuntimeError):
+                batch.acl(self.project, path, [])
+        with self.assertRaises(RecoveryRequired):
+            batch.finalize()
+
     def test_deleted_file_restored_on_rollback_and_kept_deleted_on_commit(self):
         path = 'project/02_Working/Research/notes/note.md'
         before = self.dav.write(path, 'original note')

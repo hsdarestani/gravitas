@@ -28,7 +28,7 @@ class CanonicalProjectMiddleware:
         if not request.path.startswith('/api/') or not request.user.is_authenticated:
             return None
         # Do not query every project for unrelated auth/LMS/notification reads.
-        relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'assistant/', 'pulsar/'))
+        relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'assistant/', 'pulsar/', 'platform/share/', 'platform/folders/'))
         if not relevant:
             return None
         try:

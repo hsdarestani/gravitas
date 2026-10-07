@@ -1,5 +1,5 @@
 """All existing UI surfaces write the same canonical files after adoption."""
-from django.db.models.signals import post_save, pre_delete, pre_save
+from django.db.models.signals import post_save, pre_delete, pre_save, post_delete
 from .canonical_projects import SPECS, active, export_object, project_for, suppress, _suppressed, _pending
 from .canonical_models import CanonicalFile
 from .models import ResearchProject
@@ -73,12 +73,41 @@ def install():
         pre_save.connect(writing, sender=model, dispatch_uid=f'canonical_pre_save_{name}', weak=False)
         post_save.connect(saved, sender=model, dispatch_uid=f'canonical_save_{name}', weak=False)
         pre_delete.connect(deleting, sender=model, dispatch_uid=f'canonical_delete_{name}', weak=False)
+    for name in ('ObjectPolicy', 'AccessGrant', 'ProjectMembership'):
+        model = apps.get_model('core', name)
+        pre_save.connect(permission_writing, sender=model, dispatch_uid=f'canonical_permission_pre_{name}', weak=False)
+        pre_delete.connect(permission_writing, sender=model, dispatch_uid=f'canonical_permission_delete_pre_{name}', weak=False)
+        post_save.connect(permission_changed, sender=model, dispatch_uid=f'canonical_permission_save_{name}', weak=False)
+        post_delete.connect(permission_changed, sender=model, dispatch_uid=f'canonical_permission_delete_{name}', weak=False)
+
+
+def permission_object(instance):
+    return instance.project if instance.__class__.__name__ == 'ProjectMembership' else instance.content_object
+
+
+def permission_writing(sender, instance, **kwargs):
+    obj = permission_object(instance)
+    if obj:
+        writing(sender, obj, **kwargs)
+
+
+def permission_changed(sender, instance, **kwargs):
+    obj = permission_object(instance)
+    project = project_for(obj) if obj else None
+    if not _suppressed.get() and active(project):
+        pending = _pending.get()
+        if pending is None:
+            from .canonical_journal import RecoveryRequired
+            raise RecoveryRequired('canonical_permissions_require_operation_boundary')
+        pending.append(('permissions', project.pk))
 
 
 def flush_pending(pending, actor=None):
     seen = set()
     deleted = {(item[1].__class__, item[1].pk) for item in pending if item[0] == 'delete'}
     for item in pending:
+        if item[0] == 'permissions':
+            continue
         if item[0] == 'delete':
             archive_object(item[1])
             continue
@@ -90,3 +119,13 @@ def flush_pending(pending, actor=None):
         obj = model.objects.filter(pk=pk).first()
         if obj:
             export_object(obj, actor)
+    for project_id in {item[1] for item in pending if item[0] == 'permissions'}:
+        from . import nextcloud_bridge
+        from .canonical_projects import object_for, file_acl
+        from pathlib import PurePosixPath
+        project = ResearchProject.objects.get(pk=project_id)
+        nextcloud_bridge.ensure_project_space(project)
+        for file in CanonicalFile.objects.filter(project=project, deleted=False):
+            obj = object_for(file)
+            if obj and file.path != 'project.md':
+                file_acl(obj, str(PurePosixPath(file.path).parent))

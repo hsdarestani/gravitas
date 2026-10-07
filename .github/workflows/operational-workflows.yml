@@ -1,0 +1,82 @@
+name: Operational Workflows Validation
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/canonical*.py'
+      - 'backend/core/work_report*.py'
+      - 'backend/core/telegram_work_reports.py'
+      - 'backend/core/test_canonical*.py'
+      - 'backend/core/test_work_reports.py'
+      - 'ops/canonical_checkpoint.py'
+      - 'ops/test_canonical_checkpoint.py'
+      - '.github/workflows/operational-workflows.yml'
+  push:
+    branches: [main, codex/gravitas-operational-workflows]
+    paths:
+      - 'backend/core/canonical*.py'
+      - 'backend/core/work_report*.py'
+      - 'ops/canonical_checkpoint.py'
+      - 'ops/inspect_operational_runtime.py'
+      - '.github/workflows/operational-workflows.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test complete backend and checkpoint recovery ordering
+        run: |
+          python3 -m venv "$RUNNER_TEMP/operational-tests"
+          "$RUNNER_TEMP/operational-tests/bin/pip" install -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/operational-tests/bin/python" -m django test core
+          "$RUNNER_TEMP/operational-tests/bin/python" -m django makemigrations core --check --dry-run
+          python3 -m unittest discover -s ops -p test_canonical_checkpoint.py
+          python3 ops/canonical_checkpoint.py backup
+
+  inspect-production:
+    needs: validate
+    if: github.event_name == 'push' && github.repository == 'hsdarestani/gravitas'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare existing deployment identity
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          OPERATIONS_HOST: ${{ secrets.DEPLOY_HOST }}
+          OPERATIONS_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$OPERATIONS_HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/operational_inspection
+          chmod 600 ~/.ssh/operational_inspection
+          ssh-keyscan -p "${OPERATIONS_PORT:-22}" -H "$OPERATIONS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Read-only production inventory and native stack status
+        env:
+          OPERATIONS_HOST: ${{ secrets.DEPLOY_HOST }}
+          OPERATIONS_LOGIN: ${{ secrets.DEPLOY_USER }}
+          OPERATIONS_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          OPERATIONS_LOGIN="${OPERATIONS_LOGIN:-deploy}"
+          SSH_OPTIONS=(-i ~/.ssh/operational_inspection -p "${OPERATIONS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${SSH_OPTIONS[@]}" "$OPERATIONS_LOGIN@$OPERATIONS_HOST" true 2>/dev/null; then
+            # Same existing deployment identity fallback; this job only reads.
+            ssh "${SSH_OPTIONS[@]}" "root@$OPERATIONS_HOST" true
+            OPERATIONS_LOGIN=root
+          fi
+          ssh -i ~/.ssh/operational_inspection -p "${OPERATIONS_PORT:-22}" "${OPERATIONS_LOGIN:-deploy}@$OPERATIONS_HOST" \
+            "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python -'" \
+            < ops/inspect_operational_runtime.py
+          ssh -i ~/.ssh/operational_inspection -p "${OPERATIONS_PORT:-22}" "${OPERATIONS_LOGIN:-deploy}@$OPERATIONS_HOST" \
+            'sudo docker exec -u www-data gravitas-nextcloud php occ status --output=json'
+          curl -4 -fsS --max-time 20 https://gravitasplus.com/api/health/

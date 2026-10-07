@@ -32,6 +32,9 @@ def _sync_project(project_id):
     project = ResearchProject.objects.select_related('owner', 'workspace').filter(pk=project_id).first()
     if not project:
         return
+    from .canonical_projects import active
+    if active(project):
+        return
     users = {project.owner_id: project.owner}
     for link in ProjectSpaceLink.objects.filter(project=project).select_related('user'):
         users[link.user_id] = link.user

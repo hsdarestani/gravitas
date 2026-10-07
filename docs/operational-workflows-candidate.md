@@ -63,8 +63,8 @@ overwriting. Keep the journal and both content versions. Do not remove the
 journal to bypass that stop. Simulated tests cover rollback, committed replay,
 new-file removal, external edits and crashes before/after PUT.
 
-**Remaining release blockers:** ACL rollback and a full matched database/folder
-restore are not implemented. Caller-identity binary uploads and user-file MOVE
+**Remaining release blockers:** Conditional ACL rollback and a full matched native
+checkpoint/restore are implemented but need live provider and restore acceptance. Caller-identity binary uploads and user-file MOVE
 operations do not create database projections and use native DAV conditions;
 their live permissions, failure and restore behavior still need validation.
 Domain deletes now use conditional, durable journals rather than an unjournaled
@@ -81,8 +81,15 @@ Before migration, back up the database and full project folder including
 attachments, policies and ETags; verify restore on staging. The migration JSON
 is a content snapshot, not a full relational or binary backup. For rollback,
 pause writers, reconcile any successful remote writes, disable the project's
-canonical state and restore the matched DB/folder backup together. There is no
-automated complete restore command in this candidate.
+canonical state and restore the matched DB/folder backup together. The server tool
+`python3 ops/canonical_checkpoint.py backup` inspects without mutation;
+`backup --apply` pauses writers and captures both DBs plus native files.
+`verify --checkpoint PATH` checks integrity. `restore --checkpoint PATH --apply`
+first captures a safety checkpoint, stages both DBs before any exchange, retains
+old databases/directories and validates native version/schema before resuming.
+Interrupted restore leaves writers paused; recover its recorded safety checkpoint.
+Run staging restore and validate native IDs, ACLs, attachments and domain IDs
+before treating this as accepted. No real server backup/restore has run here.
 
 ## Daily work reporting
 
@@ -145,7 +152,7 @@ They cover conditional conflicts, projection import, IDs, migration counts,
 viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
 correction history, dependency completion and reminder idempotency.
 Existing backend tests run against isolated test settings.
-The final full backend suite passes: 605 tests; canonical regressions pass 24 tests.
+The final full backend suite passes: 611 backend tests plus 4 native checkpoint regressions; live acceptance is pending.
 One additional source-provisioning regression passes. Full acceptance evidence
 and remaining limitations are recorded in operational-workflows-report.md. Migration drift check reports no
 changes; new frontend modules pass JavaScript syntax checks.

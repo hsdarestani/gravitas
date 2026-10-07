@@ -147,6 +147,39 @@ class CanonicalProjectTests(TestCase):
         self.assertEqual(str(profile.deadline), '2026-10-15')
         self.assertEqual(profile.visibility, 'private')
 
+    def test_external_project_title_and_description_preserve_identity_and_owner(self):
+        self.adopt()
+        path = self.full('project.md')
+        header, _, body = self.dav.files[path]['content'].partition('\n')
+        payload = json.loads(header[len('<!-- gravitas:'):-len(' -->')])
+        payload['fields']['title'] = 'External research title'
+        updated = '<!-- gravitas:' + json.dumps(payload) + ' -->\nExternal research description'
+        self.dav.external(path, updated)
+        refresh_project(self.project, self.owner)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, 'External research title')
+        self.assertEqual(self.project.description, 'External research description')
+        self.assertEqual(self.project.owner_id, self.owner.pk)
+        self.assertEqual(CanonicalProject.objects.get(project=self.project).project_id, self.project.pk)
+
+    def test_membership_change_requires_boundary_and_propagates_all_child_acls(self):
+        from .canonical_journal import canonical_operation, RecoveryRequired
+        self.adopt()
+        member = ProjectMembership.objects.get(project=self.project, user=self.viewer)
+        member.role = 'editor'
+        with self.assertRaises(RecoveryRequired):
+            member.save()
+        member.refresh_from_db()
+        self.assertEqual(member.role, 'viewer')
+        with patch('core.canonical_projects.nextcloud_bridge.ensure_project_space') as root_acl, patch('core.canonical_projects.file_acl') as children:
+            with canonical_operation(self.owner):
+                member.role = 'editor'
+                member.save()
+            root_acl.assert_called_once()
+            self.assertGreater(children.call_count, 0)
+        member.refresh_from_db()
+        self.assertEqual(member.role, 'editor')
+
     def test_project_markdown_persists_and_api_viewer_cannot_edit(self):
         self.adopt()
         url = f'/api/platform/projects/{self.project.pk}/file-content/?path=project.md'

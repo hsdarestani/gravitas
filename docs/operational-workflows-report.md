@@ -30,15 +30,15 @@ controlled. Existing projects keep their current contract until adoption.
 ## 4. Canonical file structure
 
 The stable project Team Folder and existing six directories are retained.
-`project.md` contains the editable project description. Typed content is indexed
+`project.md` contains the editable project title header and description. Typed content is indexed
 under `02_Working/Research`: notes, sources, attachment metadata, datasets,
 tasks, discussions, outputs, annotations, mind maps/nodes/edges, activity and
 project metadata. Binary attachments retain their paths. Migration snapshots and
 transaction journals are private under `06_Archive`. User-file archival goes to
 `06_Archive/UserTrash`, with native Nextcloud restoration.
 
-Project title and all permission/relationship metadata are not yet independently
-editable canonical fields. Externally created arbitrary files are browsable;
+Project title and business metadata are editable canonical fields. Permission
+and relationship metadata remain server controlled. Externally created arbitrary files are browsable;
 they are not automatically promoted to new typed domain objects.
 
 ## 5. Nextcloud synchronization
@@ -64,8 +64,11 @@ review. Nested transactions finalize only after the outer commit; rollback
 leaves a durable pending journal for recovery before the next projection read.
 Jobs use `canonical_operation(actor)` around model and policy edits. Unprotected
 adopted-project saves fail before SQL. Project hard deletion is rejected in favor
-of archival. ACL rollback and full matched DB/folder restore remain engineering
-gaps; adoption stays disabled.
+of archival. Conditional ACL snapshots and changes now share the durable journal;
+rollback preserves external ACL changes and pauses ambiguous writes for review.
+Policy, grant and membership changes propagate through the same boundary. Root
+ACLs explicitly enumerate permitted users so old Team Folder group membership
+does not provide fallback access. Adoption stays disabled pending native acceptance.
 
 ## 7. Pulsar integration
 
@@ -135,12 +138,19 @@ No production migration, adoption or data rewrite occurred. Migrations 0060–00
 are additive candidate schema changes. Adoption defaults to disabled and creates
 an inspection snapshot before export/readback and activation. Snapshot JSON is
 not a full binary/relational backup. A matched DB/folder backup and a tested
-complete restore are prerequisites; automated complete restore is not implemented.
+complete restore are prerequisites. `ops/canonical_checkpoint.py` now captures
+both PostgreSQL databases, site/backend and the complete native Nextcloud volume
+in one writer-paused checkpoint. Restore verifies integrity/image compatibility,
+captures a safety checkpoint, stages both databases before exchanging either,
+retains prior databases/directories and validates native schema/version before
+resuming writers. Interrupted restores stay paused and can recover from their
+recorded safety checkpoint. This tool has not run on the production server.
 
 ## 15. Automated checks
 
-Final full backend run: **605 tests, OK**, 30.193 seconds. Canonical regression after
-metadata support: **24 tests, OK**. Actual-source provisioning
+Full backend run: **611 tests, OK**, 31.730 seconds. Conditional ACL tests cover
+rollback, committed replay, external changes, ambiguous writes, missing snapshots,
+XML escaping and multi-status property failure. Native checkpoint regression: **4 tests, OK**. Actual-source provisioning
 regression: **1 test, OK**, also included in the final full run (preserves human edits, IDs and source-map links).
 Migration drift: no changes. Changed frontend modules: syntax passes.
 The API coverage checker retains 14 known baseline query-template false positives.
@@ -175,12 +185,13 @@ WAITING ON OWNER. Topic: intentionally waiting on review.
 ## 17. Remaining blockers
 
 External: this browser cannot load Workspace; no verified production DB/DAV
-session or server execution capability is exposed; real Telegram/provider and
+session; read-only Actions inspection has been added using the existing deployment identity; real Telegram/provider and
 mobile tests are unavailable. Ahmad owns the Skill; Sajad owns Topic review.
 
-Internal engineering: ACL rollback, complete DB/folder restore, wider metadata
-coverage and external creation-to-domain semantics remain unfinished. These are
-**not external blockers** and are not marked complete. Live tests may reveal
+ACL rollback, native matched checkpoint/restore and wider metadata coverage are
+implemented and tested locally. Native provider/restore acceptance is pending.
+Arbitrary externally created files do not automatically become domain objects;
+that is a remaining product gap, not an external blocker. Live tests may reveal
 additional failures. The draft must not be deployed as an accepted canonical
 migration merely because automated tests pass.
 
@@ -191,8 +202,8 @@ migration merely because automated tests pass.
 | Video design/documentation | DONE | Final chart retrieved/read; Hossein; preserve approved design |
 | Reusable Video Claude Skill | WAITING ON OWNER | Ahmad; approved workflow; build Skill |
 | Video final cycle/real Research capture | BLOCKED | Skill + live access; Hossein/Ahmad; run final revision cycle |
-| Canonical Research implementation | IN PROGRESS | PR #150; engineering owner Hossein; resolve internal gaps |
-| Canonical conflict/recovery local regressions | RETEST PASSED (automated only) | 24 canonical tests; not live acceptance |
+| Canonical Research implementation | IN PROGRESS | PR #150; engineering owner Hossein; validate native checkpoint/ACL and external-create semantics |
+| Canonical conflict/recovery local regressions | RETEST PASSED (automated only) | Canonical and ACL regressions; not live acceptance |
 | Research operational QA A–L | BLOCKED | Live access/DAV required; execute evidence-backed tests |
 | Pulsar provisioning implementation | RETEST PASSED (automated only) | Real-source preservation regression; live run not started |
 | Actual Pulsar project/synthesis acceptance | NOT STARTED (live execution blocked) | Authenticated project inspection and provisioning required |

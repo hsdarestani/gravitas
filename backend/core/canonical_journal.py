@@ -43,6 +43,48 @@ class WriteBatch:
 
     def mutate(self, project, path, content, etag, kind):
         from .canonical_projects import dav_read, dav_write
+        journal = self.journal(project)
+        if any(op['path'] == path and op.get('kind') != 'acl' for op in journal['manifest']['operations']):
+            raise RecoveryRequired('canonical_repeated_file_write_requires_review:' + journal['path'])
+        before = dav_read(path)
+        if (before['etag'] if before else None) != etag:
+            return None
+        operation = {'kind': kind, 'path': path, 'before': before, 'content': content, 'written_etag': None}
+        journal['manifest']['operations'].append(operation)
+        self.persist(journal)
+        result = dav_delete(path, etag) if kind == 'delete' else dav_write(path, content, etag)
+        if result is None or result is False:
+            operation['not_written'] = True
+        elif kind == 'delete':
+            operation['deleted'] = True
+        else:
+            operation['written_etag'] = result['etag']
+        self.persist(journal)
+        return result
+
+    def acl(self, project, path, rules):
+        from .canonical_acl import read_acl, write_acl, normalize
+        before = read_acl(path)
+        rules = normalize(rules)
+        if before['rules'] == rules:
+            return before
+        journal = self.journal(project)
+        if any(op['path'] == path and op.get('kind') == 'acl' for op in journal['manifest']['operations']):
+            raise RecoveryRequired('canonical_repeated_acl_change_requires_review')
+        op = {'kind': 'acl', 'path': path, 'before': before, 'rules': rules, 'written': None}
+        journal['manifest']['operations'].append(op)
+        self.persist(journal)
+        result = write_acl(path, rules, before['etag'])
+        if result is None:
+            op['not_written'] = True
+        else:
+            op['written'] = result
+        self.persist(journal)
+        if result is None:
+            raise RecoveryRequired('canonical_acl_changed')
+        return result
+
+    def journal(self, project):
         journal = self.journals.get(project.pk)
         if not journal:
             root = cloud.project_mountpoint(project)
@@ -53,24 +95,7 @@ class WriteBatch:
                        'manifest': {'schema': 1, 'batch_id': str(self.id), 'project_id': project.pk,
                                     'state': 'pending', 'operations': []}}
             self.journals[project.pk] = journal
-        if any(op['path'] == path for op in journal['manifest']['operations']):
-            raise RecoveryRequired('canonical_repeated_file_write_requires_review:' + journal['path'])
-        before = dav_read(path)
-        if (before['etag'] if before else None) != etag:
-            return None
-        operation = {'kind': kind, 'path': path, 'before': before, 'content': content, 'written_etag': None}
-        journal['manifest']['operations'].append(operation)
-        self.persist(journal)  # Durable BEFORE touching a canonical file.
-        result = dav_delete(path, etag) if kind == 'delete' else dav_write(path, content, etag)
-        if result is None or result is False:
-            operation['not_written'] = True
-        else:
-            if kind == 'delete':
-                operation['deleted'] = True
-            else:
-                operation['written_etag'] = result['etag']
-        self.persist(journal)
-        return result
+        return journal
 
     def finalize(self):
         # This runs after the outer DB atomic block, including its commit.
@@ -189,7 +214,8 @@ def recover_journal(path):
     from .canonical_projects import ROOT
     for op in manifest.get('operations', []):
         target = op.get('path', '')
-        if not (target == project_root + '/project.md' or target.startswith(project_root + '/' + ROOT + '/')) or '..' in target.split('/'):
+        allowed = (target == project_root or target.startswith(project_root + '/')) if op.get('kind') == 'acl' else (target == project_root + '/project.md' or target.startswith(project_root + '/' + ROOT + '/'))
+        if not allowed or '..' in target.split('/') or target.startswith(project_root + '/06_Archive/CanonicalTransactions'):
             raise RecoveryRequired('canonical_journal_target_invalid:' + path)
     if manifest['state'] in {'committed', 'rolled_back'}:
         return manifest['state']
@@ -199,6 +225,22 @@ def recover_journal(path):
         # Restore in reverse order, retaining checkpoints for restart/replay.
         for op in reversed(manifest['operations']):
             if op.get('restored') or op.get('not_written'):
+                continue
+            if op.get('kind') == 'acl':
+                from .canonical_acl import read_acl, write_acl
+                current = read_acl(op['path'])
+                if current['rules'] == op['before']['rules']:
+                    op['restored'] = True
+                elif not op.get('written') or current['rules'] != op['written']['rules']:
+                    raise RecoveryRequired('canonical_acl_recovery_review_required:' + path)
+                else:
+                    if not write_acl(op['path'], op['before']['rules'], current['etag']):
+                        raise RecoveryRequired('canonical_acl_recovery_conflict:' + path)
+                    op['restored'] = True
+                saved = dav_write(path, json.dumps(manifest, ensure_ascii=False), remote['etag'])
+                if not saved:
+                    raise RecoveryRequired('canonical_journal_changed:' + path)
+                remote = saved
                 continue
             current = dav_read(op['path'])
             before = op['before']

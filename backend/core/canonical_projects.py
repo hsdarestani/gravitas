@@ -32,7 +32,7 @@ _suppressed = contextvars.ContextVar('canonical_import', default=False)
 _pending = contextvars.ContextVar('canonical_pending', default=None)
 ROOT = '02_Working/Research'
 SPECS = {
-    'ResearchProjectProfile': ('metadata', ('status', 'research_question', 'deadline', 'required_skills', 'compensation_text')),
+    'ResearchProjectProfile': ('metadata', ('category', 'status', 'research_question', 'client_name', 'requester_name', 'requester_email', 'deadline', 'budget', 'currency', 'required_skills', 'compensation_text')),
     'KnowledgeResource': ('notes', ('title', 'description', 'body', 'source_url', 'metadata')),
     'OperatingTask': ('tasks', ('title', 'description', 'priority', 'status', 'due_date', 'definition_of_done', 'blocked_reason', 'completed_at')),
     'ProjectDiscussionMessage': ('discussions', ('body', 'resolved')),
@@ -94,7 +94,8 @@ def relative_path(obj):
 
 def encode(obj):
     if isinstance(obj, ResearchProject):
-        return obj.description
+        header = {'schema': 1, 'type': 'ResearchProject', 'id': obj.pk, 'fields': {'title': obj.title}}
+        return '<!-- gravitas:' + json.dumps(header, ensure_ascii=False, sort_keys=True) + ' -->\n' + obj.description
     name = obj.__class__.__name__
     payload = {'schema': 1, 'type': name, 'id': obj.pk, 'project_id': project_for(obj).pk,
                'fields': {field: getattr(obj, field) for field in SPECS[name][1]}}
@@ -109,6 +110,16 @@ def encode(obj):
 
 def decode(obj, content):
     if isinstance(obj, ResearchProject):
+        if content.startswith('<!-- gravitas:'):
+            header, sep, body = content.partition('\n')
+            if not sep or not header.endswith(' -->'):
+                raise ValueError('invalid_project_header')
+            data = json.loads(header[len('<!-- gravitas:'):-len(' -->')])
+            if not isinstance(data, dict) or data.get('schema') != 1 or data.get('type') != 'ResearchProject' or data.get('id') != obj.pk or not isinstance(data.get('fields'), dict) or set(data['fields']) != {'title'} or not isinstance(data['fields']['title'], str):
+                raise ValueError('canonical_identity_changed')
+            title = obj._meta.get_field('title').clean(data['fields']['title'], obj)
+            return {'title': title, 'description': body}
+        # Existing plain Markdown remains valid without rewriting its title.
         return {'description': content}
     name = obj.__class__.__name__
     if name == 'KnowledgeResource' and obj.kind == 'note':
@@ -116,6 +127,8 @@ def decode(obj, content):
         if not sep or not header.startswith('<!-- gravitas:') or not header.endswith(' -->'):
             raise ValueError('invalid_canonical_note_header')
         data = json.loads(header[len('<!-- gravitas:'):-len(' -->')])
+        if not isinstance(data, dict) or not isinstance(data.get('fields'), dict):
+            raise ValueError('invalid_canonical_note_header')
         data.get('fields', {})['body'] = body
     else:
         data = json.loads(content)
@@ -229,7 +242,13 @@ def file_acl(obj, path):
     if obj.__class__.__name__ == 'ProjectAuditEvent':
         roles = {nextcloud_bridge.ensure_user(u).username: 'manage' for u in nextcloud_bridge._manager_users(project)}
         visibility = 'specific'
-    nextcloud_bridge._write_team_acl(cloud.project_mountpoint(project), path, cloud.project_group_id(project), roles, visibility)
+    from .canonical_journal import _batch, RecoveryRequired
+    from .canonical_acl import desired_rules
+    batch = _batch.get()
+    if not batch:
+        raise RecoveryRequired('canonical_acl_requires_transaction')
+    batch.acl(project, cloud.project_mountpoint(project) + '/' + path,
+              desired_rules(cloud.project_group_id(project), roles, visibility))
 
 
 @transaction.atomic
