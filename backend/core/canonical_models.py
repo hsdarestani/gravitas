@@ -1,6 +1,13 @@
 """Caches and revision provenance for authoritative Nextcloud project files."""
 from django.conf import settings
 from django.db import models
+import uuid
+
+
+class CanonicalWriteCommit(models.Model):
+    """Commit witness written in the same DB transaction as the projections."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class CanonicalProject(models.Model):

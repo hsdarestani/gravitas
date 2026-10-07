@@ -29,6 +29,13 @@ class MemoryDAV:
         row = self.files[path]
         return self.write(path, content, row['etag'])
 
+    def delete(self, path, etag):
+        row = self.files.get(path)
+        if row and row['etag'] != etag:
+            return False
+        self.files.pop(path, None)
+        return True
+
 
 @override_settings(SECURE_SSL_REDIRECT=False, GRAVITAS_CANONICAL_ADOPTION_ENABLED=True)
 class CanonicalProjectTests(TestCase):
@@ -50,6 +57,8 @@ class CanonicalProjectTests(TestCase):
             ('core.canonical_projects.cloud.admin_make_folder', {}),
             ('core.canonical_projects.cloud.set_team_folder_acl', {}),
             ('core.canonical_projects.nextcloud_bridge.ensure_project_space', {}),
+            ('core.canonical_journal.recover_project', {}),
+            ('core.canonical_journal.dav_delete', {'side_effect': self.dav.delete}),
         ]:
             p = patch(name, **kwargs); p.start(); self.addCleanup(p.stop)
         self.client.force_login(self.owner)

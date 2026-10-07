@@ -14,6 +14,7 @@ from . import cloud
 from .canonical_projects import CanonicalConflict, refresh_project, _pending
 from .canonical_models import CanonicalProject
 from .platform_access import can_view
+from .canonical_journal import write_batch, commit_witness
 
 
 class CanonicalProjectMiddleware:
@@ -31,8 +32,8 @@ class CanonicalProjectMiddleware:
         if not relevant:
             return None
         try:
-            with transaction.atomic():
-                states = CanonicalProject.objects.filter(enabled=True).select_related('project')
+            with write_batch() as batch, transaction.atomic():
+                states = CanonicalProject.objects.select_for_update().filter(enabled=True).select_related('project')
                 project_id = view_kwargs.get('project_id') or request.GET.get('project')
                 if project_id:
                     states = states.filter(project_id=project_id)
@@ -48,6 +49,7 @@ class CanonicalProjectMiddleware:
                     else:
                         from .canonical_signals import flush_pending
                         flush_pending(pending, request.user)
+                        commit_witness(batch)
                     return response
                 finally:
                     _pending.reset(token)

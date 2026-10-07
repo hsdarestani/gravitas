@@ -29,6 +29,10 @@ def clean_path(value):
     return value.strip('/')
 
 
+def managed_path(path):
+    return path == 'project.md' or path == ROOT or path.startswith(ROOT + '/') or path == '06_Archive' or path.startswith('06_Archive/')
+
+
 def _project(request, project_id, edit=False):
     project = ResearchProject.objects.filter(pk=project_id, archived=False).first()
     if not project or not request.user.is_authenticated or not (can_edit if edit else can_view)(request.user, project):
@@ -82,7 +86,7 @@ def project_files(request, project_id):
                 adopt_project(project, request.user)
             else:
                 path = clean_path(data.get('path'))
-                if not path or path == 'project.md' or path.startswith(ROOT + '/') or path.startswith('06_Archive/CanonicalMigration'):
+                if not path or managed_path(path):
                     raise ValueError('managed_path_use_project_surface')
                 identity = nextcloud_bridge.ensure_user(request.user)
                 full = cloud.project_mountpoint(project) + '/' + path
@@ -97,12 +101,15 @@ def project_files(request, project_id):
                     if result.status_code == 412:
                         raise ValueError('file_already_exists')
                 elif data.get('action') == 'move':
+                    if ROOT.startswith(path + '/'):
+                        raise ValueError('managed_path_use_project_surface')
                     # A DAV rename must not orphan domain attachment references.
                     tracked = KnowledgeResource.objects.filter(project=project).exclude(storage_path='')
-                    if any(r.storage_path == path or r.storage_path.startswith(path + '/') for r in tracked):
+                    prefix = cloud.project_mountpoint(project) + '/'
+                    if any(r.storage_path.removeprefix(prefix) == path or r.storage_path.removeprefix(prefix).startswith(path + '/') for r in tracked):
                         raise ValueError('referenced_attachment_use_resource_surface')
                     target = clean_path(data.get('target'))
-                    if not target or target == 'project.md' or target.startswith(ROOT + '/') or target.startswith('06_Archive/CanonicalMigration'):
+                    if not target or managed_path(target) or ROOT.startswith(target + '/'):
                         raise ValueError('managed_path_use_project_surface')
                     etag = str(data.get('etag') or '')
                     if not etag:
@@ -167,7 +174,8 @@ def project_file_content(request, project_id):
             content = content_merged
         decode(obj, content)
         cache(file, remote, request.user, 'before_save')
-        saved = dav_write(cloud.project_mountpoint(project) + '/' + path, content, remote['etag'])
+        from .canonical_journal import guarded_put
+        saved = guarded_put(project, cloud.project_mountpoint(project) + '/' + path, content, remote['etag'])
         if not saved:
             latest = dav_read(cloud.project_mountpoint(project) + '/' + path) or {'content': '', 'etag': ''}
             raise CanonicalConflict(path, remote['content'], content, latest['content'], latest['etag'])

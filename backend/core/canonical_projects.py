@@ -26,6 +26,7 @@ from . import cloud, nextcloud_bridge
 from .canonical_models import CanonicalFile, CanonicalFileRevision, CanonicalProject
 from .models import ResearchProject, KnowledgeResource
 from .platform_access import can_edit, can_view, downloads_allowed
+from .canonical_journal import journal_transaction
 
 _suppressed = contextvars.ContextVar('canonical_import', default=False)
 _pending = contextvars.ContextVar('canonical_pending', default=None)
@@ -264,7 +265,8 @@ def export_object(obj, actor=None, adopting=False):
         # Keep the old revision before PUT, including edits made externally.
         if remote:
             cache(file, remote, actor, 'before_save')
-        remote = dav_write(full, mine, etag)
+        from .canonical_journal import guarded_put
+        remote = guarded_put(project, full, mine, etag)
         if remote is None:
             latest = dav_read(full) or {'content': '', 'etag': ''}
             raise CanonicalConflict(path, file.base_content, mine, latest['content'], latest['etag'])
@@ -300,9 +302,13 @@ def refresh_file(file, user=None):
     cache(file, remote, source='nextcloud')
 
 
+@transaction.atomic
 def refresh_project(project, user=None):
     if not active(project):
         return
+    CanonicalProject.objects.select_for_update().get(project=project)
+    from .canonical_journal import recover_project
+    recover_project(project)
     for file in CanonicalFile.objects.filter(project=project, deleted=False).select_related('project'):
         refresh_file(file, user)
 
@@ -315,7 +321,7 @@ def project_objects(project):
         yield from model.objects.filter(**query).order_by('pk')
 
 
-@transaction.atomic
+@journal_transaction
 def adopt_project(project, actor):
     from .platform_access import can_manage
     if not can_manage(actor, project):
@@ -328,6 +334,8 @@ def adopt_project(project, actor):
         refresh_project(project, actor)
         return state
     nextcloud_bridge.ensure_project_space(project)
+    from .canonical_journal import recover_project
+    recover_project(project)
     stamp = timezone.now().strftime('%Y%m%dT%H%M%S%f')
     backup_path = cloud.project_mountpoint(project) + '/06_Archive/CanonicalMigration/' + stamp + '.json'
     objects = list(project_objects(project))

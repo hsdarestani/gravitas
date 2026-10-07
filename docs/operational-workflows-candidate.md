@@ -39,20 +39,36 @@ Permission revocation and policy-change propagation need live acceptance tests.
 ## Migration and release gate
 
 `GRAVITAS_CANONICAL_ADOPTION_ENABLED` defaults to false. Do not enable it on
-production yet. The command `adopt_canonical_project PROJECT_ID --actor EMAIL`
+production yet. The command `adopt_canonical_project --project PROJECT_ID --actor EMAIL`
 inspects only; `--apply` also requires this gate and manager permission.
 Adoption first writes a private snapshot, exports stable objects with readback
 and ACL checks, verifies counts, then enables the project. Existing objects are
 retained. Failure does not enable the new contract. Partially created remote
 files may remain and must be inspected before retry.
 
-**Unresolved release blocker:** database transactions do not make a sequence of
-DAV writes atomic. A later export failure can leave earlier remote writes while
-the database rolls back. A durable write journal, conditional compensation or
-equivalent recoverable transaction protocol is required before adoption. Test
-server crashes, DB commit failure, second-file failure, remote concurrent edits,
-delete cascades and restart/replay. The current code must remain a draft until
-these pass. Merely setting the gate is not an acceptance decision.
+Canonical PUTs inside the API batch and explicit adoption now use a private DAV
+write-ahead journal under `06_Archive/CanonicalTransactions`. A commit witness
+is written in the same database transaction as the projections. After the DB
+transaction exits, committed writes are retained; failed transactions restore
+prior files with exact recorded ETags, or conditionally remove files created by
+that batch. Journals survive DB rollback and worker restart. Project refresh
+locks the project state and recovers pending journals before reading projections.
+`recover_canonical_transaction PROJECT_ID BATCH_UUID` inspects a known journal;
+`--apply` performs recovery while holding the project state lock.
+
+If the remote file changed externally, or a worker died after PUT but before its
+new ETag was durably recorded, recovery stops for review instead of guessing or
+overwriting. Keep the journal and both content versions. Do not remove the
+journal to bypass that stop. Simulated tests cover rollback, committed replay,
+new-file removal, external edits and crashes before/after PUT.
+
+**Remaining release blockers:** MOVE/delete cascades, binary uploads, ACL changes
+and standalone background writes are not covered by this PUT journal. They need
+the same transaction/recovery contract before adoption can be enabled. A recovery
+checkpoint itself may fail; ambiguous states require operator reconciliation.
+Live crash/DB commit failure, multi-project replay, ACL and rollback acceptance
+still remain. The current code must remain a draft until these pass. Merely
+setting the gate is not an acceptance decision.
 
 Before migration, back up the database and full project folder including
 attachments, policies and ETags; verify restore on staging. The migration JSON
@@ -119,7 +135,7 @@ They cover conditional conflicts, projection import, IDs, migration counts,
 viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
 correction history, dependency completion and reminder idempotency.
 Existing backend tests run against isolated test settings.
-The full backend suite passes: 590 tests. Migration drift check reports no
+The full backend suite passes: 597 tests. Migration drift check reports no
 changes; new frontend modules pass JavaScript syntax checks.
 The API coverage checker reports the same 14 query-template false positives on the base commit;
 it is not a clean coverage result. Google authentication redirected to Workspace,
