@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import tarfile
+import tempfile
 import uuid
 
 BASE = Path('/var/backups/gravitas-canonical')
@@ -109,9 +110,30 @@ def database_fingerprint(db, native=False):
         identifier = '"' + table.replace('"', '""') + '"'
         # Deterministic table content hashes retain native IDs, relations, ACLs
         # and filecache metadata without writing row values to logs/manifests.
-        sql = f"SET TIME ZONE 'UTC'; SELECT json_build_object('rows', count(*), 'hash', md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' ORDER BY row_to_json(t)::text), ''))) FROM public.{identifier} t;"
-        result[table] = json.loads(output(prefix + ['psql', *flags, '-qAt', '-d', db, '-c', sql]))
+        # Stream sorted fixed-size row digests. Aggregating raw JSON exceeds
+        # PostgreSQL's 1 GB value limit on real Nextcloud activity tables.
+        # Duplicate digests remain in the stream, preserving multiplicity.
+        sql = f"SET TIME ZONE 'UTC'; COPY (SELECT md5(row_to_json(t)::text) AS digest FROM public.{identifier} t ORDER BY digest COLLATE \"C\") TO STDOUT;"
+        result[table] = stream_fingerprint(prefix + ['psql', *flags, '-qAt', '-v', 'ON_ERROR_STOP=1', '-d', db, '-c', sql])
     return result
+
+
+def stream_fingerprint(command):
+    digest_value = hashlib.sha256()
+    count = 0
+    # stderr stays private and disk-backed: SQL failures must not leak rows or
+    # block a full pipe while stdout is consumed with bounded memory.
+    with tempfile.TemporaryFile() as errors:
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=errors) as process:
+            for line in process.stdout:
+                if len(line) != 33 or any(c not in b'0123456789abcdef' for c in line[:-1]) or line[-1:] != b'\n':
+                    process.kill()
+                    raise ValueError('Invalid database fingerprint stream')
+                digest_value.update(line)
+                count += 1
+            if process.wait() != 0:
+                raise RuntimeError('Database fingerprint query failed')
+    return {'rows': count, 'hash': digest_value.hexdigest(), 'algorithm': 'sha256-sorted-md5-rows-v1'}
 
 
 def active_units():

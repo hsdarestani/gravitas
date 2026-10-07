@@ -525,7 +525,9 @@ export function label(value) {
 
 export function formatDate(value) {
   if (!value) return '';
-  const date = new Date(value);
+  // Date-only deadlines are calendar days, not UTC instants. Parsing them as
+  // UTC midnight displays the previous day in western browser time zones.
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? `${value}T00:00:00` : value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }

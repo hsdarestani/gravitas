@@ -79,4 +79,6 @@ jobs:
             < ops/inspect_operational_runtime.py
           ssh -i ~/.ssh/operational_inspection -p "${OPERATIONS_PORT:-22}" "${OPERATIONS_LOGIN:-deploy}@$OPERATIONS_HOST" \
             'sudo docker exec -u www-data gravitas-nextcloud php occ status --output=json'
+          ssh -i ~/.ssh/operational_inspection -p "${OPERATIONS_PORT:-22}" "${OPERATIONS_LOGIN:-deploy}@$OPERATIONS_HOST" \
+            'sudo python3 -' < ops/probe_checkpoint_runtime.py
           curl -4 -fsS --max-time 20 https://gravitasplus.com/api/health/
