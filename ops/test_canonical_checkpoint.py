@@ -14,6 +14,13 @@ spec.loader.exec_module(checkpoint)
 
 
 class CheckpointTests(unittest.TestCase):
+    def test_partial_pause_failure_restores_original_runtime_state(self):
+        status = {'installed': True, 'needsDbUpgrade': False, 'maintenance': False, 'version': '34.0.3.2'}
+        with patch.object(checkpoint, 'output', return_value=json.dumps(status)), patch.object(checkpoint, 'active_units', return_value=['gravitas-backend.service']), patch.object(checkpoint, 'save_json'), patch.object(checkpoint, 'run', side_effect=RuntimeError('failed to stop service')), patch.object(checkpoint, 'resume') as resume:
+            with self.assertRaises(RuntimeError):
+                checkpoint.pause()
+            resume.assert_called_once_with({'units': ['gravitas-backend.service'], 'maintenance': False, 'nextcloud_version': '34.0.3.2'})
+
     def test_symlink_followed_by_child_cannot_write_outside_staging(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'unsafe.tar'

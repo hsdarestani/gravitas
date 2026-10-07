@@ -19,6 +19,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--actor', required=True)
         parser.add_argument('--project', type=int)
+        parser.add_argument('--source-root', type=Path, help='Deployed frontend/repository root containing docs; backend sources use this installed backend if split.')
         parser.add_argument('--apply', action='store_true')
         parser.add_argument('--adopt', action='store_true')
     def handle(self, *args, **options):
@@ -36,9 +37,13 @@ class Command(BaseCommand):
         project = matches.first()
         if project and not can_manage(actor, project):
             raise CommandError('Project manage access required')
-        root = Path(__file__).resolve().parents[4]
+        root = options.get('source_root') or Path(__file__).resolve().parents[4]
+        backend_root = Path(__file__).resolve().parents[3]
+        source_paths = {path: root / path for path in MATERIAL}
         for path in MATERIAL:
-            if not (root / path).is_file():
+            if not source_paths[path].is_file() and path.startswith('backend/'):
+                source_paths[path] = backend_root / path.removeprefix('backend/')
+            if not source_paths[path].is_file():
                 raise CommandError(f'Existing source material missing: {path}')
         self.stdout.write(f'project={project.pk if project else "not_defined"} source_files={len(MATERIAL)}')
         if not options['apply']:
@@ -56,7 +61,7 @@ class Command(BaseCommand):
             if existing:
                 notes.append(existing)
                 continue
-            content = (root / path).read_text()
+            content = source_paths[path].read_text()
             language = 'python' if path.endswith('.py') else 'markdown'
             note = KnowledgeResource.objects.create(workspace=project.workspace, project=project, owner=actor, kind='note',
                 title=f'Existing Pulsar material · {Path(path).name}', description=path,

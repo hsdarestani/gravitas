@@ -16,7 +16,7 @@ import tarfile
 import uuid
 
 BASE = Path('/var/backups/gravitas-canonical')
-SOURCES = {'site.tar': Path('/var/www/gravitas'), 'backend.tar': Path('/opt/gravitas-backend'), 'config.tar': Path('/etc/gravitas')}
+SOURCES = {'site.tar': Path('/var/www/gravitas'), 'backend.tar': Path('/opt/gravitas-backend'), 'config.tar': Path('/etc/gravitas'), 'media.tar': Path('/var/lib/gravitas')}
 FILES = (*SOURCES, 'nextcloud.tar', 'gravitas.dump', 'nextcloud.dump')
 
 
@@ -127,10 +127,16 @@ def pause():
     # Persist runtime state before stopping anything; inspect/recover uses this
     # file after an interrupted process instead of guessing which units ran.
     save_json(BASE / 'runtime.json', state)
-    for unit in sorted(state['units'], key=lambda name: not name.endswith('.timer')):
-        run(['systemctl', 'stop', unit])
-    run(['docker', 'exec', '-u', 'www-data', 'gravitas-nextcloud', 'php', 'occ', 'maintenance:mode', '--on'], stdout=subprocess.DEVNULL)
-    run(['docker', 'stop', 'gravitas-nextcloud'], stdout=subprocess.DEVNULL)
+    try:
+        for unit in sorted(state['units'], key=lambda name: not name.endswith('.timer')):
+            run(['systemctl', 'stop', unit])
+        run(['docker', 'exec', '-u', 'www-data', 'gravitas-nextcloud', 'php', 'occ', 'maintenance:mode', '--on'], stdout=subprocess.DEVNULL)
+        run(['docker', 'stop', 'gravitas-nextcloud'], stdout=subprocess.DEVNULL)
+    except Exception:
+        # No store has changed yet. Compensate a partial pause rather than
+        # leave a failed pre-deployment inspection with the app unavailable.
+        resume(state)
+        raise
     return state
 
 
