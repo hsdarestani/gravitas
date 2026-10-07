@@ -14,6 +14,18 @@ spec.loader.exec_module(checkpoint)
 
 
 class CheckpointTests(unittest.TestCase):
+    def test_streaming_fingerprint_preserves_duplicate_rows_and_counts(self):
+        import sys
+        fingerprint = checkpoint.stream_fingerprint([sys.executable, '-c', "import sys; sys.stdout.write('a' * 32 + '\\n'); sys.stdout.write('a' * 32 + '\\n')"])
+        self.assertEqual(fingerprint['rows'], 2)
+        single = checkpoint.stream_fingerprint([sys.executable, '-c', "print('a' * 32)"])
+        self.assertNotEqual(fingerprint['hash'], single['hash'])
+
+    def test_streaming_fingerprint_rejects_failed_query_even_after_valid_output(self):
+        import sys
+        with self.assertRaises(RuntimeError):
+            checkpoint.stream_fingerprint([sys.executable, '-c', "print('a' * 32); raise SystemExit(1)"])
+
     def test_partial_pause_failure_restores_original_runtime_state(self):
         status = {'installed': True, 'needsDbUpgrade': False, 'maintenance': False, 'version': '34.0.3.2'}
         with patch.object(checkpoint, 'output', return_value=json.dumps(status)), patch.object(checkpoint, 'active_units', return_value=['gravitas-backend.service']), patch.object(checkpoint, 'save_json'), patch.object(checkpoint, 'run', side_effect=RuntimeError('failed to stop service')), patch.object(checkpoint, 'resume') as resume:
