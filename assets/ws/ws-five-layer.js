@@ -1,3 +1,4 @@
+import { renderWorkReports } from './ws-work-reports.js?v=20261007-report1';
 import * as P from './ws-platform.js?v=20260919-planning1';
 import {
   renderCertificates,
@@ -28,7 +29,7 @@ import {
 } from './ws-admin.js?v=20261002-admin2';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261002-admin1';
 import { renderCoreLinks } from './ws-core-links.js?v=20261002-admin1';
-import { renderResearchProject } from './ws-project.js?v=20261006-mindmapdelete1';
+import { renderResearchProject } from './ws-project.js?v=20261007-canonical1';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -95,6 +96,7 @@ function pathKind(path = location.pathname) {
   }
   if (path === '/workspace/kms' || path === '/workspace/kms/') return { kind: 'redirect', to: '/workspace/learning' };
 
+  if (path === '/workspace/core/work-reports' || path === '/workspace/core/work-reports/') return { kind: 'work-reports' };
   if (path === '/workspace/dashboard' || path === '/workspace/dashboard/') return { kind: 'dashboard', page: 'overview' };
   if (path === '/workspace/dashboard/library' || path === '/workspace/dashboard/library/') return { kind: 'dashboard', page: 'library' };
   if (path === '/workspace/dashboard/discussions' || path === '/workspace/dashboard/discussions/') return { kind: 'dashboard', page: 'discussions' };
@@ -117,8 +119,8 @@ function pathKind(path = location.pathname) {
 
   match = path.match(/^\/workspace\/research\/projects\/(\d+)(?:\/([a-z-]+))?\/?$/);
   if (match) {
-    const tabs = new Set(['overview', 'milestones', 'tasks', 'notes', 'sources', 'files', 'discussions', 'experiments', 'activity']);
-    const tab = match[2] && tabs.has(match[2]) ? match[2] : 'overview';
+    const tabs = new Set(['structure', 'overview', 'milestones', 'tasks', 'notes', 'sources', 'files', 'discussions', 'experiments', 'activity']);
+    const tab = match[2] && tabs.has(match[2]) ? match[2] : 'structure';
     return { kind: 'research-project', id: match[1], tab };
   }
 
@@ -574,6 +576,10 @@ async function renderCustom() {
     return true;
   }
 
+  if (route.kind === 'work-reports') {
+    setCrumbs([{ label: 'Core', path: '/workspace/core' }, { label: 'Daily work reports' }]);
+    await renderWorkReports(host, ctx); return true;
+  }
   if (route.kind === 'research-project') {
     setCrumbs([{ label: 'Research', path: '/workspace/research' }, { label: 'Projects', path: '/workspace/research/projects' }, { label: route.tab === 'overview' ? 'Project' : route.tab }]);
     await renderResearchProject(host, route.id, route.tab, ctx);

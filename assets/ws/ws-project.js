@@ -1,6 +1,8 @@
+import { renderProjectStructure } from './ws-project-files.js?v=20261007-canonical1';
 import * as P from './ws-platform.js?v=20260914-6';
 
 const TABS = [
+  ['structure', 'Project files'],
   ['overview', 'Overview'],
   ['milestones', 'Milestones'],
   ['tasks', 'Tasks'],
@@ -104,7 +106,7 @@ function projectShell(host, project, projectId, tab, go) {
     const button = el('button', 'fl-tab', title);
     button.type = 'button';
     button.setAttribute('aria-current', key === tab ? 'page' : 'false');
-    button.addEventListener('click', () => go(key === 'overview'
+    button.addEventListener('click', () => go(key === 'structure'
       ? `/workspace/research/projects/${projectId}`
       : `/workspace/research/projects/${projectId}/${key}`));
     tabs.append(button);
@@ -486,7 +488,7 @@ function activityView(doc, cockpit) {
   doc.append(box.box);
 }
 
-export async function renderResearchProject(host, projectId, tab = 'overview', { go }) {
+export async function renderResearchProject(host, projectId, tab = 'structure', { go }) {
   loading(host);
   try {
     const needs = [P.projectCockpit(projectId)];
@@ -499,7 +501,8 @@ export async function renderResearchProject(host, projectId, tab = 'overview', {
     const doc = projectShell(host, project, projectId, tab, go);
     const rerender = () => renderResearchProject(host, projectId, tab, { go });
 
-    if (tab === 'overview') overviewView(doc, cockpit);
+    if (tab === 'structure') await renderProjectStructure(doc, projectId);
+    else if (tab === 'overview') overviewView(doc, cockpit);
     else if (tab === 'milestones') milestonesView(doc, results[1].milestones || []);
     else if (tab === 'tasks') tasksView(doc, cockpit);
     else if (tab === 'notes') notesView(doc, cockpit);

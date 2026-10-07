@@ -151,6 +151,10 @@ class PulsarContextEngine:
             if not project or not can_view(user, project):
                 raise PulsarPermissionError('project_access_required')
 
+            from core.canonical_projects import refresh_project
+            refresh_project(project, user)
+            project.refresh_from_db()
+
             blocks.append(
                 f'Project: {project.title}\nDescription: {str(project.description or "")[:2200]}'
             )
@@ -205,6 +209,21 @@ class PulsarContextEngine:
                     )
                 if task_rows:
                     blocks.append('Open project tasks:\n' + '\n'.join(task_rows))
+            from core.research_models import ProjectDiscussionMessage, ResearchExperiment
+            from core.platform_models import MindMap
+            for name, queryset, fields in (
+                ('Discussion', ProjectDiscussionMessage.objects.filter(project=project), ('body', 'resolved')),
+                ('Experiment', ResearchExperiment.objects.filter(project=project), ('title', 'hypothesis', 'result_summary', 'status')),
+                ('Mind map', MindMap.objects.filter(project=project), ('title', 'description')),
+            ):
+                for item in queryset.order_by('-pk')[:12]:
+                    boundary = item if name == 'Mind map' else project
+                    if not can_view(user, boundary):
+                        continue
+                    blocks.append(name + ': ' + ' | '.join(str(getattr(item, field, ''))[:1200] for field in fields))
+                    if name == 'Mind map':
+                        blocks.append('Nodes: ' + '; '.join(f'{n.title}: {n.body[:400]}' for n in item.nodes.all()[:30]))
+                    sources.append({'id': str(item.pk), 'title': getattr(item, 'title', name), 'kind': name.lower(), 'href': f'/workspace/research/projects/{project.pk}'})
         else:
             candidates = _hybrid_candidates(
                 KnowledgeResource.objects

@@ -51,6 +51,9 @@ def _sync_note(resource_id):
     resource = KnowledgeResource.objects.select_related('owner', 'project').filter(pk=resource_id, kind='note').first()
     if not resource:
         return
+    from .canonical_projects import active
+    if resource.project_id and active(resource.project):
+        return
 
     # Keep the filesystem mirror because project folders, attachments, desktop
     # clients and backups depend on it.
@@ -155,7 +158,8 @@ def sync_project_markdown_after_save(sender, instance, **kwargs):
 
 @receiver(post_save, sender=KnowledgeResource)
 def sync_note_markdown_after_save(sender, instance, **kwargs):
-    if instance.kind == KnowledgeResource.Kind.NOTE:
+    from .canonical_projects import active
+    if instance.kind == KnowledgeResource.Kind.NOTE and not (instance.project_id and active(instance.project)):
         transaction.on_commit(lambda: _queue_note_sync(instance.pk))
 
 

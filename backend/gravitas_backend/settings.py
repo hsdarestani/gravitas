@@ -39,6 +39,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.canonical_middleware.CanonicalProjectMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -267,3 +268,9 @@ LOGGING = {
         },
     },
 }
+
+# Reporting cadence follows the team's local work day, independent of server TZ.
+GRAVITAS_DAILY_REPORT_TIMEZONE = os.environ.get('GRAVITAS_DAILY_REPORT_TIMEZONE', 'Asia/Tehran')
+GRAVITAS_DAILY_REPORT_HOUR = int(os.environ.get('GRAVITAS_DAILY_REPORT_HOUR', '18'))
+# Release gate: live DAV/ACL and cross-file recovery acceptance are still pending.
+GRAVITAS_CANONICAL_ADOPTION_ENABLED = os.environ.get('GRAVITAS_CANONICAL_ADOPTION_ENABLED', 'false').lower() == 'true'

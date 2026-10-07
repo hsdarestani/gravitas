@@ -87,6 +87,14 @@ export const CORE_SECTIONS = [
     match: under('/workspace/core/tasks'),
   },
   {
+    id: 'core-work-reports',
+    label: 'Daily work reports',
+    hint: 'Progress, blockers and next actions',
+    icon: 'tasks',
+    path: '/workspace/core/work-reports',
+    match: under('/workspace/core/work-reports'),
+  },
+  {
     id: 'core-meetings',
     label: 'Meetings',
     hint: 'Meetings, minutes and their files',

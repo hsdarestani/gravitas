@@ -1,3 +1,5 @@
+from core.canonical_api import project_files, project_file_content
+from core.work_reports import reports_api, report_decision_api, report_overview_api
 from django.urls import path
 
 from core.content_api import community_polls, content_detail, content_list, topic_media, topic_poll
@@ -246,6 +248,11 @@ from core.views import (
 )
 
 urlpatterns = [
+    path('platform/projects/<int:project_id>/structure/', project_files),
+    path('platform/projects/<int:project_id>/file-content/', project_file_content),
+    path('platform/work-reports/', reports_api),
+    path('platform/work-reports/overview/', report_overview_api),
+    path('platform/work-reports/<uuid:report_id>/', report_decision_api),
     path('health/', health),
     path('content/', content_list),
     path('content/<slug:slug>/', content_detail),

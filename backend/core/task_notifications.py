@@ -416,6 +416,12 @@ def _send_telegram(row):
         'text': text[:4096],
         'disable_web_page_preview': False,
     })
+    if row.event_type == 'daily.checkin':
+        from .operating_models import TelegramPulsarSession
+        session, _ = TelegramPulsarSession.objects.get_or_create(user=row.recipient)
+        if not session.state:
+            session.state = {'mode': 'daily_checkin'}
+            session.save(update_fields=['state', 'updated_at'])
     return 'sent'
 
 
@@ -663,9 +669,10 @@ def telegram_notification_webhook(request):
                 _telegram_api('answerCallbackQuery', {'callback_query_id': callback_id})
             if pref and chat.get('type') == 'private':
                 from .telegram_pulsar import handle_callback
+                from .telegram_work_reports import handle_report_callback
                 _send_telegram_pulsar_messages(
                     chat_id,
-                    handle_callback(pref.user, str(callback.get('data') or '')),
+                    handle_report_callback(pref.user, str(callback.get('data') or '')) if str(callback.get('data') or '').startswith('wr:') else handle_callback(pref.user, str(callback.get('data') or '')),
                 )
         except Exception:
             logger.exception('Telegram Pulsar callback failed chat_id=%s', chat_id)
@@ -711,7 +718,9 @@ def telegram_notification_webhook(request):
     try:
         _telegram_api('sendChatAction', {'chat_id': chat_id, 'action': 'typing'})
         from .telegram_pulsar import handle_message
-        _send_telegram_pulsar_messages(chat_id, handle_message(pref.user, text))
+        from .telegram_work_reports import handle_report_message
+        report_messages = handle_report_message(pref.user, text, source_key=f"{chat_id}:{message.get('message_id')}")
+        _send_telegram_pulsar_messages(chat_id, report_messages if report_messages is not None else handle_message(pref.user, text))
     except Exception:
         logger.exception('Telegram Pulsar message failed chat_id=%s user_id=%s', chat_id, pref.user_id)
         try:

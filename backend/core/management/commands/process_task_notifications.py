@@ -13,6 +13,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         pulsar = wake_due_runs(limit=max(1, options['limit']))
+        from core.work_reports import enqueue_daily_checkins
+        checkins = enqueue_daily_checkins()
         queued = enqueue_due_reminders()
         result = deliver_pending(limit=max(1, options['limit']))
         published_courses = publish_scheduled_course_revisions()
@@ -20,6 +22,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"pulsar_runs_awakened={pulsar['awakened']} "
                 f"pulsar_notifications_queued={pulsar['notifications_queued']} "
+                f"daily_checkins_queued={checkins} "
                 f"task notifications queued={queued} sent={result['sent']} "
                 f"failed={result['failed']} skipped={result['skipped']} "
                 f"course_revisions_published={published_courses}"

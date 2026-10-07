@@ -1,0 +1,129 @@
+# Operational workflows engineering candidate
+
+Status: draft, not deployed or accepted in production. Existing LMS and video
+workflow designs are preserved. No real user task has been marked complete.
+
+## Research content contract
+
+Each adopted project retains its stable Nextcloud Team Folder and six current
+directories. `project.md` is the central editable project description.
+`02_Working/Research` contains individually indexed notes, sources, attachment
+metadata, datasets, tasks, discussions, outputs, annotations, maps, map nodes,
+map edges and activity. Uploaded attachment binaries retain their current paths.
+Stable domain IDs remain in filenames and validated headers; memberships,
+ownership, object policies and relational identities remain server controlled.
+The database is a typed projection/revision cache after explicit adoption.
+Existing projects retain the existing storage contract before adoption.
+
+Platform edits use the same file export/import service as file editing. Known
+external edits refresh permitted projections at relevant API boundaries and in
+project-scoped Pulsar context. Arbitrary externally created files are browsable
+but are not automatically promoted into new domain objects. No background
+watcher is implemented. Paths referenced by attachments cannot be renamed from
+the generic file browser. Generic deletion and transactional folder renames
+remain pending; domain deletes archive canonical content conditionally.
+
+Writes use HTTP `If-Match` with the remote ETag; creation uses
+`If-None-Match: *`. Three-way text/field merging accepts disjoint edits only.
+Overlap returns base, local and remote versions. The editor supports manual
+merge, keep remote, or explicit keep mine against the displayed current ETag.
+Missing canonical content fails visibly instead of recreating stale content.
+Canonical IDs and foreign references cannot be edited through file JSON.
+
+Caller DAV identity is used for file listings and arbitrary downloads. Known
+files also require platform object permission. Service exports apply parent
+folder ACLs before content is written. Migration backups and deleted canonical
+files are private. Audit content is append-only through the file editor.
+Permission revocation and policy-change propagation need live acceptance tests.
+
+## Migration and release gate
+
+`GRAVITAS_CANONICAL_ADOPTION_ENABLED` defaults to false. Do not enable it on
+production yet. The command `adopt_canonical_project PROJECT_ID --actor EMAIL`
+inspects only; `--apply` also requires this gate and manager permission.
+Adoption first writes a private snapshot, exports stable objects with readback
+and ACL checks, verifies counts, then enables the project. Existing objects are
+retained. Failure does not enable the new contract. Partially created remote
+files may remain and must be inspected before retry.
+
+**Unresolved release blocker:** database transactions do not make a sequence of
+DAV writes atomic. A later export failure can leave earlier remote writes while
+the database rolls back. A durable write journal, conditional compensation or
+equivalent recoverable transaction protocol is required before adoption. Test
+server crashes, DB commit failure, second-file failure, remote concurrent edits,
+delete cascades and restart/replay. The current code must remain a draft until
+these pass. Merely setting the gate is not an acceptance decision.
+
+Before migration, back up the database and full project folder including
+attachments, policies and ETags; verify restore on staging. The migration JSON
+is a content snapshot, not a full relational or binary backup. For rollback,
+pause writers, reconcile any successful remote writes, disable the project's
+canonical state and restore the matched DB/folder backup together. There is no
+automated complete restore command in this candidate.
+
+## Daily work reporting
+
+The platform Daily reports page and Telegram `/report` share one service. Pulsar
+interprets natural text against the reporter's visible owned tasks. Ambiguous
+or incidental work stays unmatched; absent AI configuration preserves the raw
+report. AI proposals cannot mutate tasks. The user must confirm the exact
+stored revision, edit it, or cancel it. Edits invalidate stale confirmation
+buttons and retain previous proposals. Confirmed corrections are new reports
+linked to the original. Task changes are rechecked for access, dependency and
+concurrent modifications inside a database transaction. Stable source keys and
+confirmed-state checks prevent duplicate effects on webhook/button replay.
+Activity records distinguish AI suggestion and user confirmation.
+
+Daily reminders enter the existing notification outbox once per eligible member
+and local day. `process_task_notifications` schedules and delivers them through
+the existing channel infrastructure; no reminder is sent during implementation
+verification. Defaults: Asia/Tehran, hour 18, configurable through
+`GRAVITAS_DAILY_REPORT_TIMEZONE` and `GRAVITAS_DAILY_REPORT_HOUR`.
+Managers have an ACL-filtered overview of reports, blockers, stale tasks and
+recent completion. Ready, waiting, needs_review and retest extend existing
+status choices. Scheduling, connected Telegram, provider permission failures
+and authenticated mobile/browser flows still require real acceptance testing.
+
+## Pulsar project provisioning
+
+`setup_pulsar_research_project --actor EMAIL` inspects source files only.
+`--apply` creates/reuses an accessible Pulsar project and imports actual checked-in
+runtime/architecture materials as deduplicated source notes. `--project-id`
+targets an existing project explicitly. `--adopt` remains gated. This is not a
+claim that the live Research project, maps, synthesis or permissions were
+created or validated: production credentials were not available.
+
+## Acceptance and task reconciliation
+
+Source: latest Gravitas Team Tasks reviewed in the engineering session. Do not
+rewrite existing assigned task text or claim completion from this candidate.
+
+| Hossein workstream | Honest state | Acceptance/dependency |
+| --- | --- | --- |
+| Video workflow | Final T19–T26 artifact not verified; existing design untouched | Locate approved graph/document; Ahmad's reusable Claude Skill; run one actual final revision cycle |
+| Research operational quality | Implementation candidate; needs review/retest | Resolve cross-file recovery; real DAV/ACL, file edits, projections, maps, permissions and rollback tests |
+| Pulsar real Research project | Provisioning command prepared; live execution pending | Authorized existing-project inspection, real source material, notes/maps/synthesis and end-to-end validation |
+| LMS course acceptance | Retest pending; no redesign | Actual learner/instructor course, notes/highlights, reminders/tasks/progress, preview/publish/schedule, mobile |
+| Topic | Blocked; no upload or publication performed | Sajad approves Topic Template before preparation is applied/published |
+| Daily reporting | Implementation candidate; needs review/retest | Platform and connected Telegram live confirm/edit/cancel/replay, manager ACL and daily scheduling |
+
+Do not mark Video design done until its exact final artifact is identified. Do
+not mark LMS, Research or Pulsar operationally complete until real evidence is
+attached. Do not infer Topic approval. Task mutations against the production
+database have not been performed in this session.
+
+## Verification scope
+
+New service tests use a simulated DAV store, not a live Nextcloud server.
+They cover conditional conflicts, projection import, IDs, migration counts,
+viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
+correction history, dependency completion and reminder idempotency.
+Existing backend tests run against isolated test settings.
+The full backend suite passes: 588 tests. Migration drift check reports no
+changes; new frontend modules pass JavaScript syntax checks.
+The API coverage checker reports the same 14 query-template false positives on the base commit;
+it is not a clean coverage result. Production browser was signed out, so LMS,
+Pulsar, Telegram, mobile and Nextcloud acceptance remain unverified.
+
+References: [HTTP conditional requests](https://www.rfc-editor.org/rfc/rfc9110.html#name-conditional-requests),
+[Nextcloud WebDAV](https://docs.nextcloud.com/server/latest/developer_manual/client_apis/WebDAV/index.html).
