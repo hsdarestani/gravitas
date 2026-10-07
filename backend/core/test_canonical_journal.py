@@ -1,12 +1,12 @@
 import json
 from unittest.mock import patch
-from django.test import TestCase
+from django.test import TransactionTestCase
 from .test_canonical_projects import MemoryDAV
 from .canonical_journal import WriteBatch, recover_journal, RecoveryRequired, commit_witness, write_batch
 from .canonical_models import CanonicalWriteCommit
 
 
-class CanonicalJournalTests(TestCase):
+class CanonicalJournalTests(TransactionTestCase):
     def setUp(self):
         from types import SimpleNamespace
         self.project = SimpleNamespace(pk=71)
@@ -44,6 +44,22 @@ class CanonicalJournalTests(TestCase):
         self.assertFalse(CanonicalWriteCommit.objects.filter(pk=batch.id).exists())
         self.assertEqual(self.dav.files['project/project.md']['content'], 'original')
 
+    def test_outer_transaction_rollback_leaves_pending_journal_for_recovery(self):
+        from django.db import transaction
+        path = 'project/project.md'
+        before = self.dav.write(path, 'original')
+        with self.assertRaises(ValueError):
+            with transaction.atomic():
+                with write_batch() as batch, transaction.atomic():
+                    batch.put(self.project, path, 'edited', before['etag'])
+                    commit_witness(batch)
+                manifest = json.loads(self.dav.files[batch.journals[71]['path']]['content'])
+                self.assertEqual(manifest['state'], 'pending')
+                raise ValueError('outer failure')
+        self.assertFalse(CanonicalWriteCommit.objects.filter(pk=batch.id).exists())
+        batch.finalize()
+        self.assertEqual(self.dav.files[path]['content'], 'original')
+
     def test_committed_database_witness_preserves_remote_and_replay(self):
         before = self.dav.write('project/project.md', 'original')
         batch = WriteBatch(); batch.put(self.project, 'project/project.md', 'edited', before['etag'])
@@ -55,6 +71,28 @@ class CanonicalJournalTests(TestCase):
         batch = WriteBatch(); batch.put(self.project, 'project/project.md', 'new', None)
         batch.finalize()
         self.assertNotIn('project/project.md', self.dav.files)
+
+    def test_deleted_file_restored_on_rollback_and_kept_deleted_on_commit(self):
+        path = 'project/02_Working/Research/notes/note.md'
+        before = self.dav.write(path, 'original note')
+        batch = WriteBatch()
+        self.assertTrue(batch.delete(self.project, path, before['etag']))
+        self.assertNotIn(path, self.dav.files)
+        batch.finalize()
+        self.assertEqual(self.dav.files[path]['content'], 'original note')
+        batch = WriteBatch()
+        self.assertTrue(batch.delete(self.project, path, self.dav.files[path]['etag']))
+        commit_witness(batch); batch.finalize(); batch.finalize()
+        self.assertNotIn(path, self.dav.files)
+
+    def test_delete_recovery_preserves_external_recreation(self):
+        path = 'project/02_Working/Research/notes/note.md'
+        before = self.dav.write(path, 'original')
+        batch = WriteBatch(); batch.delete(self.project, path, before['etag'])
+        self.dav.write(path, 'external recreation')
+        with self.assertRaises(RecoveryRequired):
+            batch.finalize()
+        self.assertEqual(self.dav.files[path]['content'], 'external recreation')
 
     def test_external_edit_is_never_overwritten_by_recovery(self):
         before = self.dav.write('project/project.md', 'original')

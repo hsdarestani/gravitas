@@ -32,6 +32,7 @@ _suppressed = contextvars.ContextVar('canonical_import', default=False)
 _pending = contextvars.ContextVar('canonical_pending', default=None)
 ROOT = '02_Working/Research'
 SPECS = {
+    'ResearchProjectProfile': ('metadata', ('status', 'research_question', 'deadline', 'required_skills', 'compensation_text')),
     'KnowledgeResource': ('notes', ('title', 'description', 'body', 'source_url', 'metadata')),
     'OperatingTask': ('tasks', ('title', 'description', 'priority', 'status', 'due_date', 'definition_of_done', 'blocked_reason', 'completed_at')),
     'ProjectDiscussionMessage': ('discussions', ('body', 'resolved')),
@@ -70,13 +71,13 @@ def project_for(obj):
 def acl_object(obj):
     if hasattr(obj, 'mind_map'):
         return obj.mind_map
-    if obj.__class__.__name__ in {'ProjectDiscussionMessage', 'ResearchExperiment', 'ProjectAuditEvent'}:
+    if obj.__class__.__name__ in {'ResearchProjectProfile', 'ProjectDiscussionMessage', 'ResearchExperiment', 'ProjectAuditEvent'}:
         return obj.project
     return obj
 
 
 def active(project):
-    return bool(project and CanonicalProject.objects.filter(project=project, enabled=True).exists())
+    return bool(project and project.pk and CanonicalProject.objects.filter(project=project, enabled=True).exists())
 
 
 def relative_path(obj):

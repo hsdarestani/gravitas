@@ -36,6 +36,12 @@ class WriteBatch:
         journal['etag'] = result['etag']
 
     def put(self, project, path, content, etag):
+        return self.mutate(project, path, content, etag, 'put')
+
+    def delete(self, project, path, etag):
+        return self.mutate(project, path, None, etag, 'delete')
+
+    def mutate(self, project, path, content, etag, kind):
         from .canonical_projects import dav_read, dav_write
         journal = self.journals.get(project.pk)
         if not journal:
@@ -52,14 +58,17 @@ class WriteBatch:
         before = dav_read(path)
         if (before['etag'] if before else None) != etag:
             return None
-        operation = {'path': path, 'before': before, 'content': content, 'written_etag': None}
+        operation = {'kind': kind, 'path': path, 'before': before, 'content': content, 'written_etag': None}
         journal['manifest']['operations'].append(operation)
         self.persist(journal)  # Durable BEFORE touching a canonical file.
-        result = dav_write(path, content, etag)
-        if result is None:
+        result = dav_delete(path, etag) if kind == 'delete' else dav_write(path, content, etag)
+        if result is None or result is False:
             operation['not_written'] = True
         else:
-            operation['written_etag'] = result['etag']
+            if kind == 'delete':
+                operation['deleted'] = True
+            else:
+                operation['written_etag'] = result['etag']
         self.persist(journal)
         return result
 
@@ -81,13 +90,46 @@ def write_batch():
         yield batch
     finally:
         _batch.reset(token)
-        batch.finalize()
+        # A caller may already own a larger transaction. Its witness is not
+        # durable yet: never mark a journal committed before that transaction
+        # commits. On rollback the pending journal is recovered on next access.
+        if transaction.get_connection().in_atomic_block:
+            transaction.on_commit(batch.finalize)
+        else:
+            batch.finalize()
 
 
 def guarded_put(project, path, content, etag=None):
-    from .canonical_projects import dav_write
     batch = _batch.get()
-    return batch.put(project, path, content, etag) if batch else dav_write(path, content, etag)
+    if not batch:
+        raise RecoveryRequired('canonical_write_requires_transaction')
+    return batch.put(project, path, content, etag)
+
+
+@contextmanager
+def canonical_operation(actor=None):
+    """Jobs/commands use this boundary around model and policy edits together."""
+    from .canonical_projects import _pending
+    if _pending.get() is not None:
+        yield
+        return
+    with write_batch() as batch, transaction.atomic():
+        pending = []
+        token = _pending.set(pending)
+        try:
+            yield
+            from .canonical_signals import flush_pending
+            flush_pending(pending, actor)
+            commit_witness(batch)
+        finally:
+            _pending.reset(token)
+
+
+def guarded_delete(project, path, etag):
+    batch = _batch.get()
+    if not batch:
+        raise RecoveryRequired('canonical_delete_requires_transaction')
+    return batch.delete(project, path, etag)
 
 
 def dav_delete(path, etag):
@@ -162,6 +204,17 @@ def recover_journal(path):
             before = op['before']
             if current == before:
                 op['restored'] = True
+                continue
+            if op.get('kind') == 'delete':
+                if current or not op.get('deleted') or not before:
+                    raise RecoveryRequired('canonical_recovery_review_required:' + path)
+                if not dav_write(op['path'], before['content'], None):
+                    raise RecoveryRequired('canonical_recovery_conflict:' + path)
+                op['restored'] = True
+                saved = dav_write(path, json.dumps(manifest, ensure_ascii=False), remote['etag'])
+                if not saved:
+                    raise RecoveryRequired('canonical_journal_changed:' + path)
+                remote = saved
                 continue
             if not current or not op['written_etag'] or current['etag'] != op['written_etag']:
                 raise RecoveryRequired('canonical_recovery_review_required:' + path)

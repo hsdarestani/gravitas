@@ -1,11 +1,13 @@
 """A project-scoped file browser; system content stays behind object ACLs."""
 import json
+import uuid
 from pathlib import PurePosixPath
 from urllib.parse import unquote
 from xml.etree import ElementTree
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, StreamingHttpResponse
+from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from . import cloud, nextcloud_bridge
 from .canonical_models import CanonicalFile
@@ -30,7 +32,8 @@ def clean_path(value):
 
 
 def managed_path(path):
-    return path == 'project.md' or path == ROOT or path.startswith(ROOT + '/') or path == '06_Archive' or path.startswith('06_Archive/')
+    from .platform_api import PROJECT_FOLDERS
+    return path in PROJECT_FOLDERS or path == 'project.md' or path == ROOT or path.startswith(ROOT + '/') or path == '06_Archive' or path.startswith('06_Archive/')
 
 
 def _project(request, project_id, edit=False):
@@ -81,7 +84,7 @@ def project_files(request, project_id):
     try:
         project = _project(request, project_id, request.method == 'POST')
         if request.method == 'POST':
-            data = body(request)
+            data = request.POST if request.FILES else body(request)
             if data.get('action') == 'adopt':
                 adopt_project(project, request.user)
             else:
@@ -92,15 +95,18 @@ def project_files(request, project_id):
                 full = cloud.project_mountpoint(project) + '/' + path
                 if data.get('action') == 'folder':
                     cloud.make_folder(identity, full)
-                elif data.get('action') == 'file':
+                elif data.get('action') in {'file', 'upload'}:
                     parent = str(PurePosixPath(full).parent); cloud.make_folder(identity, parent)
-                    content = str(data.get('content') or '')
-                    if len(content.encode('utf-8')) > 1024 * 1024:
+                    attachment = request.FILES.get('file') if data.get('action') == 'upload' else None
+                    if data.get('action') == 'upload' and not attachment:
+                        raise ValueError('file_required')
+                    content = attachment.read() if attachment and attachment.size <= 30 * 1024 * 1024 else str(data.get('content') or '').encode('utf-8') if not attachment else None
+                    if content is None or not attachment and len(content) > 1024 * 1024:
                         raise ValueError('file_too_large')
-                    result = cloud._request('PUT', cloud._dav_url(identity, full), auth=cloud._auth(identity), expected={200, 201, 204, 412}, headers={'If-None-Match': '*'}, data=content.encode())
+                    result = cloud._request('PUT', cloud._dav_url(identity, full), auth=cloud._auth(identity), expected={200, 201, 204, 412}, headers={'If-None-Match': '*'}, data=content)
                     if result.status_code == 412:
                         raise ValueError('file_already_exists')
-                elif data.get('action') == 'move':
+                elif data.get('action') in {'move', 'trash'}:
                     if ROOT.startswith(path + '/'):
                         raise ValueError('managed_path_use_project_surface')
                     # A DAV rename must not orphan domain attachment references.
@@ -108,8 +114,9 @@ def project_files(request, project_id):
                     prefix = cloud.project_mountpoint(project) + '/'
                     if any(r.storage_path.removeprefix(prefix) == path or r.storage_path.removeprefix(prefix).startswith(path + '/') for r in tracked):
                         raise ValueError('referenced_attachment_use_resource_surface')
-                    target = clean_path(data.get('target'))
-                    if not target or managed_path(target) or ROOT.startswith(target + '/'):
+                    trash = data.get('action') == 'trash'
+                    target = '06_Archive/UserTrash/' + str(uuid.uuid4()) + '/' + PurePosixPath(path).name if trash else clean_path(data.get('target'))
+                    if not target or not trash and (managed_path(target) or ROOT.startswith(target + '/')):
                         raise ValueError('managed_path_use_project_surface')
                     etag = str(data.get('etag') or '')
                     if not etag:
@@ -124,6 +131,7 @@ def project_files(request, project_id):
         path = clean_path(request.GET.get('path', ''))
         return JsonResponse({'ok': True, 'path': path, 'root': cloud.project_mountpoint(project), 'enabled': active(project),
                              'can_edit': can_edit(request.user, project), 'can_manage': can_manage(request.user, project),
+                             'can_adopt': bool(getattr(settings, 'GRAVITAS_CANONICAL_ADOPTION_ENABLED', False) and can_manage(request.user, project)),
                              'items': listing(project, request.user, path), 'native_url': cloud.native_files_url(cloud.project_mountpoint(project) + ('/' + path if path else ''))})
     except (CanonicalConflict, PermissionError, ValueError, cloud.CloudError, ImproperlyConfigured, ValidationError) as exc:
         return error(exc)
@@ -140,13 +148,38 @@ def project_file_content(request, project_id):
         if file and (not obj or not can_view(request.user, acl_object(obj))):
             raise PermissionError('file_access_required')
         if not file:
-            if request.method == 'PUT':
-                raise ValueError('create_file_from_structure')
             identity = nextcloud_bridge.ensure_user(request.user)
             if not downloads_allowed(project):
                 raise PermissionError('downloads_restricted')
+            if request.method == 'PUT' or request.GET.get('edit') == '1':
+                if managed_path(path) or PurePosixPath(path).suffix.lower() not in {'.md', '.txt', '.json', '.csv'}:
+                    raise ValueError('file_not_text_editable')
+                full = cloud.project_mountpoint(project) + '/' + path
+                response = cloud._request('GET', cloud._dav_url(identity, full), auth=cloud._auth(identity), expected={200, 404})
+                if response.status_code == 404:
+                    raise ValueError('file_missing')
+                if len(response.content) > 1024 * 1024:
+                    raise ValueError('file_too_large')
+                content = response.content.decode('utf-8')
+                etag = response.headers.get('ETag', '')
+                if not etag:
+                    raise ValueError('revision_required')
+                if request.method == 'PUT':
+                    data = body(request); mine = data.get('content'); expected = data.get('etag')
+                    if not isinstance(mine, str) or len(mine.encode('utf-8')) > 1024 * 1024:
+                        raise ValueError('invalid_content')
+                    if not expected:
+                        raise ValueError('revision_required')
+                    if expected != etag:
+                        raise CanonicalConflict(path, '', mine, content, etag)
+                    result = cloud._request('PUT', cloud._dav_url(identity, full), auth=cloud._auth(identity), expected={200, 201, 204, 412}, headers={'If-Match': etag}, data=mine.encode('utf-8'))
+                    latest = cloud._request('GET', cloud._dav_url(identity, full), auth=cloud._auth(identity), expected={200})
+                    if result.status_code == 412 or latest.content.decode('utf-8') != mine:
+                        raise CanonicalConflict(path, content, mine, latest.content.decode('utf-8'), latest.headers.get('ETag', ''))
+                    content, etag = mine, latest.headers.get('ETag', '')
+                return JsonResponse({'ok': True, 'content': content, 'etag': etag, 'path': path, 'can_edit': can_edit(request.user, project)})
             response = cloud.download(identity, cloud.project_mountpoint(project) + '/' + path)
-            return HttpResponse(response.content, content_type=response.headers.get('Content-Type', 'application/octet-stream'))
+            return StreamingHttpResponse(response.iter_content(chunk_size=65536), content_type=response.headers.get('Content-Type', 'application/octet-stream'))
         remote = dav_read(cloud.project_mountpoint(project) + '/' + path)
         if not remote:
             raise ValueError('canonical_file_missing')

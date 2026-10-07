@@ -88,12 +88,64 @@ class CanonicalProjectTests(TestCase):
         self.assertEqual(KnowledgeResource.objects.filter(project=self.project).count(), 1)
 
     def test_note_surface_write_updates_canonical_and_external_edit_updates_projection(self):
-        self.adopt(); self.note.body = 'New note body'; self.note.save()
+        from .canonical_journal import canonical_operation
+        self.adopt()
+        with canonical_operation(self.owner):
+            self.note.body = 'New note body'; self.note.save()
         path = self.full(relative_path(self.note))
         self.assertIn('New note body', self.dav.files[path]['content'])
         self.dav.external(path, self.dav.files[path]['content'].replace('New note body', 'External canonical note edit'))
         refresh_project(self.project, self.owner)
         self.note.refresh_from_db(); self.assertEqual(self.note.body, 'External canonical note edit')
+
+    def test_background_write_rejected_before_sql_without_canonical_boundary(self):
+        from .canonical_journal import RecoveryRequired
+        self.adopt(); original = self.note.body
+        self.note.body = 'unprotected background write'
+        with self.assertRaises(RecoveryRequired):
+            self.note.save()
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.body, original)
+
+    def test_generic_text_edit_checks_revision_and_viewer_access(self):
+        response = Mock(status_code=200, content=b'external text', headers={'ETag': '"external"'})
+        url = f'/api/platform/projects/{self.project.pk}/file-content/?path=02_Working/synthesis.md&edit=1'
+        with patch('core.canonical_api.nextcloud_bridge.ensure_user', return_value=Mock(username='canonical-owner')), patch('core.canonical_api.cloud._auth', return_value=('caller', 'test-only')), patch('core.canonical_api.cloud._request', return_value=response) as dav:
+            loaded = self.client.get(url)
+            self.assertEqual(loaded.status_code, 200, loaded.content)
+            stale = self.client.put(url, json.dumps({'content': 'mine', 'etag': '"old"'}), content_type='application/json')
+            self.assertEqual(stale.status_code, 409, stale.content)
+            self.assertEqual(stale.json()['conflict']['remote'], 'external text')
+            self.assertTrue(all(call.args[0] == 'GET' for call in dav.call_args_list))
+            self.client.force_login(self.viewer)
+            denied = self.client.put(url, json.dumps({'content': 'mine', 'etag': '"external"'}), content_type='application/json')
+            self.assertEqual(denied.status_code, 403)
+
+    def test_viewer_cannot_upload_or_archive_project_files(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_login(self.viewer)
+        url = f'/api/platform/projects/{self.project.pk}/structure/'
+        with patch('core.canonical_api.cloud._request') as dav:
+            result = self.client.post(url, {'action': 'upload', 'path': '02_Working/source.pdf', 'file': SimpleUploadedFile('source.pdf', b'source')})
+            self.assertEqual(result.status_code, 403)
+            result = self.client.post(url, json.dumps({'action': 'trash', 'path': '02_Working/source.pdf', 'etag': '"revision"'}), content_type='application/json')
+            self.assertEqual(result.status_code, 403)
+            dav.assert_not_called()
+
+    def test_project_metadata_import_does_not_change_access_policy(self):
+        from .platform_models import ResearchProjectProfile
+        profile, _ = ResearchProjectProfile.objects.get_or_create(project=self.project)
+        self.adopt()
+        path = self.full(relative_path(profile))
+        document = json.loads(self.dav.files[path]['content'])
+        document['fields']['research_question'] = 'How does scoped context preserve project ACLs?'
+        document['fields']['deadline'] = '2026-10-15'
+        self.dav.external(path, json.dumps(document))
+        refresh_project(self.project, self.owner)
+        profile.refresh_from_db()
+        self.assertEqual(profile.research_question, document['fields']['research_question'])
+        self.assertEqual(str(profile.deadline), '2026-10-15')
+        self.assertEqual(profile.visibility, 'private')
 
     def test_project_markdown_persists_and_api_viewer_cannot_edit(self):
         self.adopt()

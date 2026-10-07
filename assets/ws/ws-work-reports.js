@@ -15,12 +15,20 @@ export async function renderWorkReports(host, { go }) {
   try { data = await call('/platform/work-reports/'); } catch (e) { status.textContent = e.message; doc.append(button('Retry', () => renderWorkReports(host, { go }))); return; }
   status.textContent = data.date;
   const work = el('section', 'fl-panel'); work.append(el('h2', null, 'What should I work on now?'));
-  for (const task of data.tasks.filter(t => !['done', 'archived'].includes(t.status)).slice(0, 12)) {
+  function paintWork() {
+  work.replaceChildren(el('h2', null, 'What should I work on now?'));
+  for (const task of data.tasks.filter(t => !['done', 'archived'].includes(t.status))) {
     const r = el('div', 'fl-row');
-    r.append(button(task.title, () => go(`/workspace/core/tasks?task=${task.id}`)), el('small', 'fl-muted', `${task.status} · Due ${task.due_date || '—'} · ${task.project}`));
+    r.append(button(task.title, () => go(`/workspace/core/tasks?task=${task.id}`)), el('small', 'fl-muted', `${task.priority} · ${task.status} · Due ${task.due_date || '—'} · ${task.project}`));
+    r.append(el('p', 'fl-muted', `${task.objective} → ${task.key_result}`));
+    if (task.latest_progress?.progress) r.append(el('p', null, `Latest progress: ${task.latest_progress.progress}`));
+    if (task.latest_progress?.next_action) r.append(el('p', null, `Next: ${task.latest_progress.next_action}`));
+    if (task.latest_progress?.artifact_url) { const link = el('a', 'ws-btn', 'Open artifact'); link.href = task.latest_progress.artifact_url; link.target = '_blank'; link.rel = 'noopener'; r.append(link); }
     if (task.dependency || task.blocked_reason) r.append(el('p', null, `Waiting: ${task.dependency || task.blocked_reason}`));
     work.append(r);
   }
+  }
+  paintWork();
   doc.append(work);
   const input = el('textarea', 'ws-input'); input.rows = 4; input.maxLength = 16000; input.setAttribute('aria-label', 'What did you work on today?'); input.placeholder = 'What did you work on, what changed, and what comes next?';
   let correction = null;
@@ -68,6 +76,7 @@ export async function renderWorkReports(host, { go }) {
           const result = await call(`/platform/work-reports/${report.id}/`, { method: 'POST', body: { action, revision: report.revision, interpretation: draft } });
           const at = data.reports.findIndex(r => r.id === report.id); data.reports[at] = result.report;
           data.tasks = (await call('/platform/work-reports/')).tasks;
+          paintWork();
           redraw(); status.textContent = action === 'edit' ? 'Revised proposal saved. Review it, then confirm.' : `Report ${result.report.status}.`;
         } catch (e) { status.textContent = e.message; for (const b of tools.querySelectorAll('button')) b.disabled = false; }
       };

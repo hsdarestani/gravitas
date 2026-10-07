@@ -47,14 +47,22 @@ def my_tasks(user):
 
 
 def catalog(user):
+    latest = {}
+    ids = [t.pk for t in my_tasks(user)]
+    for event in ActivityEvent.objects.filter(object_type='operating_task', object_id__in=[str(i) for i in ids], action='task.daily_report').order_by('-created_at', '-pk'):
+        latest.setdefault(event.object_id, {'progress': event.detail.get('progress', ''),
+            'next_action': event.detail.get('next_action', ''), 'artifact_url': event.detail.get('artifact_url', ''),
+            'deliverable': event.detail.get('deliverable', ''), 'at': event.created_at.isoformat()})
     return [{'id': t.pk, 'title': t.title, 'description': t.description,
              'priority': t.priority, 'definition_of_done': t.definition_of_done,
              'status': t.status, 'updated_at': t.updated_at.isoformat(),
              'due_date': str(t.due_date or ''), 'project_id': t.project_id,
              'project': t.project.title if t.project_id else 'Core',
-             'dependency_id': t.dependency_id,
-             'dependency': t.dependency.title if t.dependency_id else '',
-             'blocked_reason': t.blocked_reason} for t in my_tasks(user)]
+             'dependency_id': t.dependency_id if t.dependency_id and can_view(user, t.dependency) else None,
+             'dependency': t.dependency.title if t.dependency_id and can_view(user, t.dependency) else '',
+             'blocked_reason': t.blocked_reason, 'key_result': t.initiative.key_result.title,
+             'objective': t.initiative.key_result.objective.title,
+             'latest_progress': latest.get(str(t.pk), {})} for t in my_tasks(user)]
 
 
 def normalize(user, raw):

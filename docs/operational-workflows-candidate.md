@@ -20,8 +20,10 @@ external edits refresh permitted projections at relevant API boundaries and in
 project-scoped Pulsar context. Arbitrary externally created files are browsable
 but are not automatically promoted into new domain objects. No background
 watcher is implemented. Paths referenced by attachments cannot be renamed from
-the generic file browser. Generic deletion and transactional folder renames
-remain pending; domain deletes archive canonical content conditionally.
+the generic file browser. The file surface supports text-file editing, upload, downloads, folder creation,
+conditional rename/move and recoverable archival of unreferenced user files.
+Domain deletion retains a tombstone and private recovery content in its journal;
+project hard deletion is rejected in favor of archival.
 
 Writes use HTTP `If-Match` with the remote ETag; creation uses
 `If-None-Match: *`. Three-way text/field merging accepts disjoint edits only.
@@ -32,8 +34,7 @@ Canonical IDs and foreign references cannot be edited through file JSON.
 
 Caller DAV identity is used for file listings and arbitrary downloads. Known
 files also require platform object permission. Service exports apply parent
-folder ACLs before content is written. Migration backups and deleted canonical
-files are private. Audit content is append-only through the file editor.
+folder ACLs before content is written. Migration backups and canonical recovery journals are private. Audit content is append-only through the file editor.
 Permission revocation and policy-change propagation need live acceptance tests.
 
 ## Migration and release gate
@@ -62,9 +63,15 @@ overwriting. Keep the journal and both content versions. Do not remove the
 journal to bypass that stop. Simulated tests cover rollback, committed replay,
 new-file removal, external edits and crashes before/after PUT.
 
-**Remaining release blockers:** MOVE/delete cascades, binary uploads, ACL changes
-and standalone background writes are not covered by this PUT journal. They need
-the same transaction/recovery contract before adoption can be enabled. A recovery
+**Remaining release blockers:** ACL rollback and a full matched database/folder
+restore are not implemented. Caller-identity binary uploads and user-file MOVE
+operations do not create database projections and use native DAV conditions;
+their live permissions, failure and restore behavior still need validation.
+Domain deletes now use conditional, durable journals rather than an unjournaled
+MOVE. Jobs must use `canonical_operation(actor)` around model and policy edits;
+unprotected adopted-project saves are rejected before their SQL write. Nested
+transactions finalize journals only after the outer database commit; rolled-back
+outer transactions leave pending recovery journals. A recovery
 checkpoint itself may fail; ambiguous states require operator reconciliation.
 Live crash/DB commit failure, multi-project replay, ACL and rollback acceptance
 still remain. The current code must remain a draft until these pass. Merely
@@ -104,9 +111,10 @@ and authenticated mobile/browser flows still require real acceptance testing.
 
 `setup_pulsar_research_project --actor EMAIL` inspects source files only.
 `--apply` creates/reuses an accessible Pulsar project and imports actual checked-in
-runtime/architecture materials as deduplicated source notes. `--project-id`
+runtime/architecture materials as deduplicated source notes and builds a
+source map linked to those actual note objects. Existing notes/maps are retained. `--project`
 targets an existing project explicitly. `--adopt` remains gated. This is not a
-claim that the live Research project, maps, synthesis or permissions were
+claim that the live Research project, source map, synthesis or permissions were
 created or validated: production credentials were not available.
 
 ## Acceptance and task reconciliation
@@ -116,14 +124,16 @@ rewrite existing assigned task text or claim completion from this candidate.
 
 | Hossein workstream | Honest state | Acceptance/dependency |
 | --- | --- | --- |
-| Video workflow | Final T19–T26 artifact not verified; existing design untouched | Locate approved graph/document; Ahmad's reusable Claude Skill; run one actual final revision cycle |
+| Video workflow | DONE (design/documentation); existing design untouched | Evidence: Gravitas Video Production Workflow Chart.png, retrieved and read; Ahmad's reusable Claude Skill and one actual final revision cycle remain separate |
 | Research operational quality | Implementation candidate; needs review/retest | Resolve cross-file recovery; real DAV/ACL, file edits, projections, maps, permissions and rollback tests |
 | Pulsar real Research project | Provisioning command prepared; live execution pending | Authorized existing-project inspection, real source material, notes/maps/synthesis and end-to-end validation |
 | LMS course acceptance | Retest pending; no redesign | Actual learner/instructor course, notes/highlights, reminders/tasks/progress, preview/publish/schedule, mobile |
 | Topic | Blocked; no upload or publication performed | Sajad approves Topic Template before preparation is applied/published |
 | Daily reporting | Implementation candidate; needs review/retest | Platform and connected Telegram live confirm/edit/cancel/replay, manager ACL and daily scheduling |
 
-Do not mark Video design done until its exact final artifact is identified. Do
+The exact final graph artifact has been identified and its extracted content
+confirms Final QA ↔ Revision (T19–T26). The design is DONE; this does not close
+the live Research Project or final production-cycle validation task. Do
 not mark LMS, Research or Pulsar operationally complete until real evidence is
 attached. Do not infer Topic approval. Task mutations against the production
 database have not been performed in this session.
@@ -135,7 +145,9 @@ They cover conditional conflicts, projection import, IDs, migration counts,
 viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
 correction history, dependency completion and reminder idempotency.
 Existing backend tests run against isolated test settings.
-The full backend suite passes: 597 tests. Migration drift check reports no
+The final full backend suite passes: 605 tests; canonical regressions pass 24 tests.
+One additional source-provisioning regression passes. Full acceptance evidence
+and remaining limitations are recorded in operational-workflows-report.md. Migration drift check reports no
 changes; new frontend modules pass JavaScript syntax checks.
 The API coverage checker reports the same 14 query-template false positives on the base commit;
 it is not a clean coverage result. Google authentication redirected to Workspace,

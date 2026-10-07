@@ -192,7 +192,7 @@ class PulsarContextEngine:
                 OperatingTask.objects
                 .filter(project=project)
                 .exclude(status__in=[WorkStatus.DONE, WorkStatus.ARCHIVED])
-                .select_related('owner')
+                .select_related('owner', 'dependency')
                 .order_by('due_date', 'id')[:20]
             )
             if tasks:
@@ -205,12 +205,36 @@ class PulsarContextEngine:
                         if task.owner_id else 'Unassigned'
                     )
                     task_rows.append(
-                        f'- {task.title} | owner={owner} | due={task.due_date or "—"} | status={task.status}'
+                        f'- {task.title} | owner={owner} | due={task.due_date or "—"} | status={task.status} | priority={task.priority} | blocker={task.blocked_reason[:500]} | dependency={task.dependency.title if task.dependency_id and can_view(user, task.dependency) else "—"}'
                     )
                 if task_rows:
                     blocks.append('Open project tasks:\n' + '\n'.join(task_rows))
             from core.research_models import ProjectDiscussionMessage, ResearchExperiment
             from core.platform_models import MindMap
+            from core.models import ProjectMembership
+            from core.platform_models import ProjectAuditEvent, ResearchProjectProfile
+            project_profile = ResearchProjectProfile.objects.filter(project=project).first()
+            if project_profile:
+                blocks.append(f'Project status: {project_profile.status} | deadline={project_profile.deadline or "—"}\nResearch question: {project_profile.research_question[:1600]}')
+            team = ProjectMembership.objects.filter(project=project, user__is_active=True).select_related('user')
+            blocks.append('Project team: ' + '; '.join(f'{m.user.get_full_name() or m.user.get_username()} ({m.role})' for m in team[:30]))
+            # Audit details can refer to privately scoped child objects. Check
+            # each child before including its event, even inside a visible project.
+            from django.apps import apps
+            activity = []
+            for event in ProjectAuditEvent.objects.filter(project=project).order_by('-created_at')[:40]:
+                if event.object_type and event.object_id:
+                    try:
+                        model = apps.get_model('core', event.object_type)
+                        obj = model.objects.filter(pk=event.object_id).first()
+                    except (LookupError, ValueError, TypeError):
+                        continue
+                    if not obj or not can_view(user, obj):
+                        continue
+                # Keep internal audit payloads out of model context.
+                activity.append(f'{event.created_at.isoformat()} | {event.action}')
+            if activity:
+                blocks.append('Recent project activity:\n' + '\n'.join(activity[:12]))
             for name, queryset, fields in (
                 ('Discussion', ProjectDiscussionMessage.objects.filter(project=project), ('body', 'resolved')),
                 ('Experiment', ResearchExperiment.objects.filter(project=project), ('title', 'hypothesis', 'result_summary', 'status')),
