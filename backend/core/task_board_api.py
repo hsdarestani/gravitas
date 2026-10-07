@@ -36,6 +36,10 @@ from .operating_models import (
 BOARD_STATUSES = (
     WorkStatus.DRAFT,
     WorkStatus.ACTIVE,
+    WorkStatus.READY,
+    WorkStatus.WAITING,
+    WorkStatus.REVIEW,
+    WorkStatus.RETEST,
     WorkStatus.BLOCKED,
     WorkStatus.DONE,
     WorkStatus.ARCHIVED,

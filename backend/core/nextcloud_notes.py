@@ -376,6 +376,10 @@ def _pull_remote(resource, remote):
 
 
 def sync_note_to_nextcloud(resource, *, identity=None):
+    from .canonical_projects import active, export_object
+    if resource.project_id and active(resource.project):
+        return export_object(resource)
+
     """Reconcile one Gravitas note against its mapped native Notes note."""
     if resource.kind != KnowledgeResource.Kind.NOTE:
         return None

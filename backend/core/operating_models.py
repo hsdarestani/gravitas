@@ -13,6 +13,10 @@ class Health(models.TextChoices):
 class WorkStatus(models.TextChoices):
     DRAFT = 'draft', 'Draft'
     ACTIVE = 'active', 'Active'
+    READY = 'ready', 'Ready'
+    WAITING = 'waiting', 'Waiting on owner'
+    REVIEW = 'needs_review', 'Needs review'
+    RETEST = 'retest', 'Acceptance retest'
     BLOCKED = 'blocked', 'Blocked'
     DONE = 'done', 'Done'
     ARCHIVED = 'archived', 'Archived'

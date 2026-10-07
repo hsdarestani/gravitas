@@ -30,7 +30,7 @@ import * as research from './ws-research.js?v=20261006-filesdata1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20261006-researchscope1';
+} from './ws-nav.js?v=20261007-operational1';
 import { renderDashboard, stopClock } from './ws-home.js?v=20261001-series1';
 import { renderSettings } from './ws-settings.js?v=20260919-crop2';
 import { mountPalette, openPalette } from './ws-palette.js';
@@ -177,12 +177,14 @@ const AREA_OF_SPACE = { core: 'core', research: 'research', kms: 'kms' };
    index, the trail and the view to their owner. */
 function fiveLayerOwns(path = location.pathname) {
   return /^\/workspace\/dashboard(?:\/|$)/.test(path)
+    || /^\/workspace\/core\/work-reports(?:\/|$)/.test(path)
     || /^\/workspace\/learning(?:\/|$)/.test(path)
     || /^\/workspace\/core\/admin(?:\/|$)/.test(path)
     || /^\/workspace\/research\/projects\/\d+(?:\/[a-z-]+)?\/?$/.test(path);
 }
 
 function fiveLayerName(path = location.pathname) {
+  if (path.startsWith('/workspace/core/work-reports')) return 'Core';
   if (path.startsWith('/workspace/learning')) return 'Learning';
   if (path.startsWith('/workspace/core/admin')) return 'Platform Admin';
   if (path.startsWith('/workspace/research')) return 'Research';

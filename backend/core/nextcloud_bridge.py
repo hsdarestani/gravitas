@@ -123,6 +123,21 @@ def _write_team_acl(mountpoint, relative_path, group_id, user_roles, visibility)
     """
     relative_path = str(relative_path or '').strip('/')
     path = cloud.safe_filename(mountpoint) + (f'/{relative_path}' if relative_path else '')
+    from .canonical_models import CanonicalProject
+    from .canonical_journal import _batch, RecoveryRequired
+    from .canonical_acl import desired_rules
+    if mountpoint.startswith('GRV-') and mountpoint[4:].isdigit():
+        state = CanonicalProject.objects.filter(project_id=int(mountpoint[4:])).select_related('project').first()
+        batch = _batch.get()
+        if state and (state.enabled or batch is not None):
+            if not batch:
+                raise RecoveryRequired('canonical_acl_requires_transaction')
+            # An old native group member must not retain inherited read access
+            # after their platform grant is revoked. Enumerated users alone
+            # receive access at an adopted project's root.
+            if not relative_path:
+                visibility = 'specific'
+            return batch.acl(state.project, path, desired_rules(group_id, user_roles, visibility))
     roles = dict(user_roles or {})
     if settings.NEXTCLOUD_ADMIN_USER:
         roles.setdefault(settings.NEXTCLOUD_ADMIN_USER, 'manage')
@@ -217,6 +232,10 @@ def ensure_project_space(project):
     try:
         _write_team_acl(mountpoint, '', group_id, _project_root_roles(project), 'project')
     except (cloud.CloudError, NextcloudBridgeError):
+        from .canonical_models import CanonicalProject
+        from .canonical_journal import _batch
+        if CanonicalProject.objects.filter(project=project, enabled=True).exists() or _batch.get() and CanonicalProject.objects.filter(project=project).exists():
+            raise
         logger.exception('Could not reconcile root ACL for Nextcloud project %s', project.pk)
         warnings.append({'type': 'project_root_acl'})
 

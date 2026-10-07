@@ -18,7 +18,7 @@ from .operating_models import (
 
 
 HIGH_PRIORITIES = (Priority.P0, Priority.P1)
-ACTIVE_STATES = (WorkStatus.ACTIVE, WorkStatus.BLOCKED)
+ACTIVE_STATES = (WorkStatus.ACTIVE, WorkStatus.BLOCKED, WorkStatus.READY, WorkStatus.WAITING, WorkStatus.REVIEW, WorkStatus.RETEST)
 
 
 def _initiative_json(obj):
