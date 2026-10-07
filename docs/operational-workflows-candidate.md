@@ -119,11 +119,18 @@ They cover conditional conflicts, projection import, IDs, migration counts,
 viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
 correction history, dependency completion and reminder idempotency.
 Existing backend tests run against isolated test settings.
-The full backend suite passes: 588 tests. Migration drift check reports no
+The full backend suite passes: 590 tests. Migration drift check reports no
 changes; new frontend modules pass JavaScript syntax checks.
 The API coverage checker reports the same 14 query-template false positives on the base commit;
-it is not a clean coverage result. Production browser was signed out, so LMS,
-Pulsar, Telegram, mobile and Nextcloud acceptance remain unverified.
+it is not a clean coverage result. Google authentication redirected to Workspace,
+but the browser then returned 502 / connection refused and account entitlement
+could not be verified. Independent HTTP checks returned 200 for Workspace and
+`status: ok, database: ok` for the health endpoint; the latest production monitor
+was successful. This does not establish an origin outage or authenticated
+acceptance. LMS, Pulsar, Telegram, mobile and Nextcloud acceptance remain
+unverified. Corrections now reject inaccessible, missing or unconfirmed original
+reports, and the task catalog includes description, priority, acceptance criteria
+and dependency IDs for better grounded proposals.
 
 References: [HTTP conditional requests](https://www.rfc-editor.org/rfc/rfc9110.html#name-conditional-requests),
 [Nextcloud WebDAV](https://docs.nextcloud.com/server/latest/developer_manual/client_apis/WebDAV/index.html).

@@ -47,7 +47,14 @@ def my_tasks(user):
 
 
 def catalog(user):
-    return [{'id': t.pk, 'title': t.title, 'status': t.status, 'updated_at': t.updated_at.isoformat(), 'due_date': str(t.due_date or ''), 'project': t.project.title if t.project_id else 'Core', 'dependency': t.dependency.title if t.dependency_id else '', 'blocked_reason': t.blocked_reason} for t in my_tasks(user)]
+    return [{'id': t.pk, 'title': t.title, 'description': t.description,
+             'priority': t.priority, 'definition_of_done': t.definition_of_done,
+             'status': t.status, 'updated_at': t.updated_at.isoformat(),
+             'due_date': str(t.due_date or ''), 'project_id': t.project_id,
+             'project': t.project.title if t.project_id else 'Core',
+             'dependency_id': t.dependency_id,
+             'dependency': t.dependency.title if t.dependency_id else '',
+             'blocked_reason': t.blocked_reason} for t in my_tasks(user)]
 
 
 def normalize(user, raw):
@@ -218,7 +225,11 @@ def reports_api(request):
         tasks = my_tasks(request.user)
         if request.method == 'POST':
             data = _payload(request)
-            prior = DailyWorkReport.objects.filter(pk=data.get('supersedes'), user=request.user).first() if data.get('supersedes') else None
+            prior = None
+            if data.get('supersedes'):
+                prior = DailyWorkReport.objects.filter(pk=data['supersedes'], user=request.user, status='confirmed').first()
+                if prior is None:
+                    raise ValueError('confirmed_report_required_for_correction')
             report = propose(request.user, data.get('text'), source_key=data.get('source_key'), supersedes=prior)
             return JsonResponse({'ok': True, 'report': report_json(report)}, status=201)
         reports = DailyWorkReport.objects.filter(user=request.user).select_related('user')[:100]

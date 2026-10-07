@@ -30,6 +30,26 @@ class DailyWorkReportTests(TestCase):
         with patch('core.work_reports.interpret', return_value=self.raw):
             return propose(self.user, 'I retested lessons. Preview is still pending.', source='telegram', source_key=key)
 
+    def test_correction_requires_accessible_confirmed_original(self):
+        import uuid
+        pending = self.propose()
+        cases = ['invalid-uuid', str(uuid.uuid4()), str(pending.pk)]
+        decide(self.user, pending.pk, 1, 'confirm')
+        self.client.force_login(self.other)
+        cases.append(str(pending.pk))
+        for ident in cases:
+            response = self.client.post('/api/platform/work-reports/',
+                json.dumps({'text': 'Correction', 'supersedes': ident}), content_type='application/json')
+            self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(DailyWorkReport.objects.count(), 1)
+
+    def test_task_catalog_includes_acceptance_context(self):
+        response = self.client.get('/api/platform/work-reports/')
+        self.assertEqual(response.status_code, 200)
+        task = next(t for t in response.json()['tasks'] if t['id'] == self.task.pk)
+        self.assertEqual(task['definition_of_done'], 'Real acceptance pass')
+        self.assertEqual(task['priority'], self.task.priority)
+
     def test_proposal_does_not_mutate_tasks_confirm_once_has_provenance(self):
         report = self.propose(); self.task.refresh_from_db()
         self.assertEqual(self.task.status, 'active')
