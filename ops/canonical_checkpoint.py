@@ -113,9 +113,13 @@ def database_fingerprint(db, native=False):
         # Stream sorted fixed-size row digests. Aggregating raw JSON exceeds
         # PostgreSQL's 1 GB value limit on real Nextcloud activity tables.
         # Duplicate digests remain in the stream, preserving multiplicity.
-        sql = f"SET TIME ZONE 'UTC'; COPY (SELECT md5(row_to_json(t)::text) AS digest FROM public.{identifier} t ORDER BY digest COLLATE \"C\") TO STDOUT;"
+        sql = fingerprint_sql('public.' + identifier)
         result[table] = stream_fingerprint(prefix + ['psql', *flags, '-qAt', '-v', 'ON_ERROR_STOP=1', '-d', db, '-c', sql])
     return result
+
+
+def fingerprint_sql(table):
+    return f"SET TIME ZONE 'UTC'; COPY (SELECT md5(row_to_json(t)::text) FROM {table} t ORDER BY md5(row_to_json(t)::text) COLLATE \"C\") TO STDOUT;"
 
 
 def stream_fingerprint(command):
