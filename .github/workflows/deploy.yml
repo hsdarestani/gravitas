@@ -1,0 +1,687 @@
+name: Deploy Gravitas to Strato
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: gravitas-production
+  cancel-in-progress: true
+
+env:
+  DOMAIN: gravitasplus.com
+  DEPLOY_PATH: /var/www/gravitas
+  BACKEND_PATH: /opt/gravitas-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Mark production deploy pending
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -u
+          TARGET_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          PAYLOAD="$(jq -nc \
+            --arg state "pending" \
+            --arg context "gravitas/production" \
+            --arg description "Production deploy is running" \
+            --arg target_url "$TARGET_URL" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -d "$PAYLOAD" >/dev/null \
+            || echo "::warning::Could not publish pending production status"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test workspace backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/gravitas-tests"
+          "$RUNNER_TEMP/gravitas-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django test core
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django check
+          shopt -s nullglob
+          for module in assets/ws/*.js; do
+            echo "Checking $module"
+            node --input-type=module --check < "$module"
+          done
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}" || { echo "Missing DEPLOY_HOST"; exit 1; }
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo "Missing DEPLOY_SSH_KEY"; exit 1; }
+
+          CONFIGURED_USER="${{ secrets.DEPLOY_USER }}"
+          DEPLOY_PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$CONFIGURED_USER" ] || CONFIGURED_USER="deploy"
+          [ -n "$DEPLOY_PORT" ] || DEPLOY_PORT="22"
+
+          echo "CONFIGURED_USER=$CONFIGURED_USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$DEPLOY_PORT" >> "$GITHUB_ENV"
+
+      - name: Prepare SSH and resolve login user
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keygen -y -f ~/.ssh/gravitas_deploy >/dev/null
+          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          HOST="${{ secrets.DEPLOY_HOST }}"
+
+          if ssh "${SSH_OPTS[@]}" "$CONFIGURED_USER@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="$CONFIGURED_USER"
+          elif [ "$CONFIGURED_USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="root"
+            echo "Configured DEPLOY_USER could not authenticate; using root for bootstrap."
+          else
+            echo "SSH authentication failed."
+            exit 1
+          fi
+
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+
+      - name: Bootstrap production server
+        shell: bash
+        env:
+          GRAVITAS_TELEGRAM_BOT_TOKEN: ${{ secrets.GRAVITAS_TELEGRAM_BOT_TOKEN }}
+          GRAVITAS_TELEGRAM_BOT_USERNAME: ${{ secrets.GRAVITAS_TELEGRAM_BOT_USERNAME }}
+        run: |
+          set -euo pipefail
+          TELEGRAM_TOKEN_B64="$(printf '%s' "$GRAVITAS_TELEGRAM_BOT_TOKEN" | base64 -w0)"
+          TELEGRAM_USERNAME_B64="$(printf '%s' "$GRAVITAS_TELEGRAM_BOT_USERNAME" | base64 -w0)"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" "$BACKEND_PATH" "$TELEGRAM_TOKEN_B64" "$TELEGRAM_USERNAME_B64" <<'REMOTE'
+          set -euo pipefail
+
+          DOMAIN="$1"
+          DEPLOY_PATH="$2"
+          SSH_PORT="$3"
+          BACKEND_PATH="$4"
+          TELEGRAM_TOKEN_B64="${5:-}"
+          TELEGRAM_USERNAME_B64="${6:-}"
+
+          if [ "$(id -u)" -eq 0 ]; then
+            SUDO=""
+          elif sudo -n true 2>/dev/null; then
+            SUDO="sudo"
+          else
+            echo "Deployment user must be root or have passwordless sudo."
+            exit 1
+          fi
+
+          export DEBIAN_FRONTEND=noninteractive
+          $SUDO apt-get update -y
+          $SUDO apt-get install -y \
+            nginx rsync ufw certbot python3-certbot-nginx ca-certificates curl openssl \
+            postgresql postgresql-contrib fail2ban unattended-upgrades python3-venv
+
+          $SUDO systemctl enable --now postgresql
+
+          if ! id gravitas >/dev/null 2>&1; then
+            $SUDO useradd --system --create-home --home-dir /opt/gravitas --shell /usr/sbin/nologin gravitas
+          fi
+
+          if ! $SUDO -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='gravitas'" | grep -q 1; then
+            $SUDO -u postgres createuser gravitas
+          fi
+          if ! $SUDO -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='gravitas'" | grep -q 1; then
+            $SUDO -u postgres createdb -O gravitas gravitas
+          else
+            $SUDO -u postgres psql -c 'ALTER DATABASE gravitas OWNER TO gravitas;' >/dev/null
+          fi
+
+          cat > /tmp/20auto-upgrades <<'EOF'
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+          EOF
+          $SUDO mv /tmp/20auto-upgrades /etc/apt/apt.conf.d/20auto-upgrades
+          $SUDO chmod 644 /etc/apt/apt.conf.d/20auto-upgrades
+
+          cat > /tmp/gravitas-fail2ban.local <<'EOF'
+          [sshd]
+          enabled = true
+          maxretry = 5
+          findtime = 10m
+          bantime = 1h
+          backend = systemd
+          EOF
+          $SUDO mv /tmp/gravitas-fail2ban.local /etc/fail2ban/jail.d/gravitas.local
+          $SUDO systemctl enable --now fail2ban
+          $SUDO fail2ban-client reload
+
+          $SUDO mkdir -p "$DEPLOY_PATH" "$BACKEND_PATH" /etc/gravitas /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads /var/lib/gravitas/lms-media /var/lib/gravitas/lms-media
+          $SUDO chown -R "$(id -un):$(id -gn)" "$DEPLOY_PATH"
+          $SUDO chown -R gravitas:gravitas "$BACKEND_PATH" /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads
+
+          if ! $SUDO test -f /etc/gravitas/backend.env; then
+            SECRET="$($SUDO openssl rand -hex 32)"
+            printf 'DJANGO_SECRET_KEY=%s\nDJANGO_DEBUG=0\n' "$SECRET" | $SUDO tee /etc/gravitas/backend.env >/dev/null
+          fi
+
+          if ! $SUDO grep -q '^GRAVITAS_TELEGRAM_WEBHOOK_SECRET=' /etc/gravitas/backend.env; then
+            TELEGRAM_WEBHOOK_SECRET="$($SUDO openssl rand -hex 32)"
+            printf 'GRAVITAS_TELEGRAM_WEBHOOK_SECRET=%s\n' "$TELEGRAM_WEBHOOK_SECRET" | $SUDO tee -a /etc/gravitas/backend.env >/dev/null
+          fi
+
+          upsert_secret_env() {
+            KEY="$1"
+            VALUE="$2"
+            [ -n "$VALUE" ] || return 0
+            TMP_FILE="$(mktemp)"
+            $SUDO awk -v key="$KEY" -F= '$1 != key { print }' /etc/gravitas/backend.env > "$TMP_FILE"
+            printf '%s=%s\n' "$KEY" "$VALUE" >> "$TMP_FILE"
+            $SUDO mv "$TMP_FILE" /etc/gravitas/backend.env
+          }
+
+          if [ -n "$TELEGRAM_TOKEN_B64" ]; then
+            TELEGRAM_TOKEN="$(printf '%s' "$TELEGRAM_TOKEN_B64" | base64 -d)"
+            upsert_secret_env GRAVITAS_TELEGRAM_BOT_TOKEN "$TELEGRAM_TOKEN"
+            unset TELEGRAM_TOKEN
+          fi
+          if [ -n "$TELEGRAM_USERNAME_B64" ]; then
+            TELEGRAM_USERNAME="$(printf '%s' "$TELEGRAM_USERNAME_B64" | base64 -d)"
+            upsert_secret_env GRAVITAS_TELEGRAM_BOT_USERNAME "$TELEGRAM_USERNAME"
+            unset TELEGRAM_USERNAME
+          fi
+
+          $SUDO chown root:gravitas /etc/gravitas/backend.env
+          $SUDO chmod 640 /etc/gravitas/backend.env
+
+          cat > /tmp/gravitas-backend.service <<EOF
+          [Unit]
+          Description=Gravitas Django backend
+          After=network.target postgresql.service
+          Requires=postgresql.service
+
+          [Service]
+          Type=simple
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          EnvironmentFile=-/etc/gravitas/openedx.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          ExecStart=$BACKEND_PATH/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 django.core.wsgi:get_wsgi_application()
+          Restart=on-failure
+          RestartSec=3
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          $SUDO mv /tmp/gravitas-backend.service /etc/systemd/system/gravitas-backend.service
+
+          cat > /tmp/gravitas-research-radar.service <<EOF
+          [Unit]
+          Description=Gravitas automatic Research Intelligence collector
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+          Requires=postgresql.service
+
+          [Service]
+          Type=oneshot
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          EnvironmentFile=-/etc/gravitas/openedx.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          Environment=PYTHONPATH=$BACKEND_PATH
+          ExecStart=$BACKEND_PATH/.venv/bin/django-admin refresh_research_intelligence
+          Nice=10
+          TimeoutStartSec=8min
+          EOF
+          $SUDO mv /tmp/gravitas-research-radar.service /etc/systemd/system/gravitas-research-radar.service
+
+          cat > /tmp/gravitas-research-radar.timer <<'EOF'
+          [Unit]
+          Description=Run Gravitas Research Intelligence every 30 minutes
+
+          [Timer]
+          OnBootSec=3min
+          OnUnitActiveSec=30min
+          Persistent=true
+          RandomizedDelaySec=90s
+          Unit=gravitas-research-radar.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-research-radar.timer /etc/systemd/system/gravitas-research-radar.timer
+
+          cat > /tmp/gravitas-task-notifications.service <<EOF
+          [Unit]
+          Description=Gravitas task email and Telegram notification worker
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+          Requires=postgresql.service
+
+          [Service]
+          Type=oneshot
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          EnvironmentFile=-/etc/gravitas/openedx.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          Environment=PYTHONPATH=$BACKEND_PATH
+          ExecStart=$BACKEND_PATH/.venv/bin/django-admin process_task_notifications --limit 200
+          Nice=10
+          TimeoutStartSec=50s
+          EOF
+          $SUDO mv /tmp/gravitas-task-notifications.service /etc/systemd/system/gravitas-task-notifications.service
+
+          cat > /tmp/gravitas-task-notifications.timer <<'EOF'
+          [Unit]
+          Description=Deliver Gravitas task notifications every minute
+
+          [Timer]
+          OnBootSec=45s
+          OnUnitActiveSec=1min
+          Persistent=true
+          Unit=gravitas-task-notifications.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-task-notifications.timer /etc/systemd/system/gravitas-task-notifications.timer
+
+          cat > /tmp/gravitas-backup.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          BACKUP_DIR=/var/backups/gravitas
+          STAMP=$(date +%Y%m%d-%H%M%S)
+          mkdir -p "$BACKUP_DIR"
+          tar -czf "$BACKUP_DIR/site-$STAMP.tar.gz" -C /var/www gravitas
+          sudo -u postgres pg_dump -Fc gravitas > "$BACKUP_DIR/db-$STAMP.dump"
+          find "$BACKUP_DIR" -type f -mtime +14 -delete
+          EOF
+          $SUDO mv /tmp/gravitas-backup.sh /usr/local/sbin/gravitas-backup
+          $SUDO chmod 750 /usr/local/sbin/gravitas-backup
+
+          cat > /tmp/gravitas-backup.service <<'EOF'
+          [Unit]
+          Description=Gravitas daily backup
+          After=postgresql.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/gravitas-backup
+          EOF
+          $SUDO mv /tmp/gravitas-backup.service /etc/systemd/system/gravitas-backup.service
+
+          cat > /tmp/gravitas-backup.timer <<'EOF'
+          [Unit]
+          Description=Run Gravitas backup daily
+
+          [Timer]
+          OnCalendar=*-*-* 03:30:00
+          Persistent=true
+          RandomizedDelaySec=15m
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-backup.timer /etc/systemd/system/gravitas-backup.timer
+          $SUDO systemctl daemon-reload
+          $SUDO systemctl enable --now gravitas-backup.timer
+
+          CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
+          if $SUDO test -f "$CERT_DIR/fullchain.pem" && $SUDO test -f "$CERT_DIR/privkey.pem"; then
+            cat > /tmp/gravitas-nginx.conf <<NGINX
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name $DOMAIN;
+              return 301 https://\$host\$request_uri;
+          }
+
+          server {
+              listen 443 ssl;
+              listen [::]:443 ssl;
+              server_name $DOMAIN;
+
+              root $DEPLOY_PATH;
+              index index.html;
+
+              ssl_certificate $CERT_DIR/fullchain.pem;
+              ssl_certificate_key $CERT_DIR/privkey.pem;
+              include /etc/letsencrypt/options-ssl-nginx.conf;
+              ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+              location ^~ /api/ {
+                  client_max_body_size 260M;
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location ^~ /admin/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location ^~ /django-static/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location = /account.html { return 301 /login; }
+              location = /workspace.html { return 301 /workspace; }
+              location = /login { try_files /account.html =404; }
+              location = /signup { try_files /account.html =404; }
+              location = /workspace { try_files /workspace.html =404; }
+              # The shell is one file served under every /workspace/* path, so a
+              # relative asset href inside it resolves to a nested path that this
+              # same catch-all would answer with the HTML. Send those back to the
+              # real file instead of handing the browser a stylesheet made of
+              # markup, which nosniff rejects and which reads as a missing logo.
+              location ^~ /workspace/ {
+                  rewrite ^/workspace/.+?/(assets/.*)$ /\$1 last;
+                  try_files /workspace.html =404;
+              }
+
+              location / {
+                  try_files \$uri \$uri/ /index.html;
+              }
+
+              location ~ /\\. {
+                  deny all;
+              }
+
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+              add_header X-Frame-Options "SAMEORIGIN" always;
+          }
+          NGINX
+          else
+            cat > /tmp/gravitas-nginx.conf <<NGINX
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name $DOMAIN;
+
+              root $DEPLOY_PATH;
+              index index.html;
+
+              location ^~ /api/ {
+                  client_max_body_size 260M;
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location ^~ /admin/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+
+              location ^~ /django-static/ {
+                  proxy_pass http://127.0.0.1:8000;
+              }
+
+              location = /account.html { return 301 /login; }
+              location = /workspace.html { return 301 /workspace; }
+              location = /login { try_files /account.html =404; }
+              location = /signup { try_files /account.html =404; }
+              location = /workspace { try_files /workspace.html =404; }
+              # The shell is one file served under every /workspace/* path, so a
+              # relative asset href inside it resolves to a nested path that this
+              # same catch-all would answer with the HTML. Send those back to the
+              # real file instead of handing the browser a stylesheet made of
+              # markup, which nosniff rejects and which reads as a missing logo.
+              location ^~ /workspace/ {
+                  rewrite ^/workspace/.+?/(assets/.*)$ /\$1 last;
+                  try_files /workspace.html =404;
+              }
+
+              location / {
+                  try_files \$uri \$uri/ /index.html;
+              }
+
+              location ~ /\\. {
+                  deny all;
+              }
+
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+              add_header X-Frame-Options "SAMEORIGIN" always;
+          }
+          NGINX
+          fi
+
+          $SUDO mv /tmp/gravitas-nginx.conf /etc/nginx/sites-available/gravitas
+          $SUDO ln -sfn /etc/nginx/sites-available/gravitas /etc/nginx/sites-enabled/gravitas
+          $SUDO rm -f /etc/nginx/sites-enabled/default
+
+          $SUDO nginx -t
+          $SUDO systemctl enable --now nginx
+          $SUDO systemctl reload nginx
+
+          $SUDO ufw allow "$SSH_PORT/tcp"
+          $SUDO ufw allow 80/tcp
+          $SUDO ufw allow 443/tcp
+          $SUDO ufw --force enable
+          REMOTE
+
+      - name: Capture and rehearse matched native checkpoint before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          OPERATIONS_HOST="${{ secrets.DEPLOY_HOST }}"
+          CHECKPOINT_SCRIPT="/var/tmp/gravitas-canonical-checkpoint-$GITHUB_SHA.py"
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/canonical_checkpoint.py "$DEPLOY_USER@$OPERATIONS_HOST:$CHECKPOINT_SCRIPT"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$OPERATIONS_HOST" bash -s -- "$CHECKPOINT_SCRIPT" <<'REMOTE'
+          set -euo pipefail
+          CHECKPOINT_SCRIPT="$1"
+          CHECKPOINT_OUTPUT="$(sudo python3 "$CHECKPOINT_SCRIPT" backup --apply)"
+          printf '%s\n' "$CHECKPOINT_OUTPUT"
+          CHECKPOINT_PATH="$(printf '%s\n' "$CHECKPOINT_OUTPUT" | sed -n 's/^Checkpoint: //p')"
+          test -n "$CHECKPOINT_PATH"
+          sudo python3 "$CHECKPOINT_SCRIPT" rehearse --checkpoint "$CHECKPOINT_PATH" --apply
+          sudo rm "$CHECKPOINT_SCRIPT"
+          REMOTE
+
+      - name: Deploy frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsync -az --delete --delete-excluded \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'backend/' \
+            -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
+            ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
+
+      - name: Deploy and start backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          rsync -az --delete \
+            --exclude '.venv/' \
+            --exclude 'staticfiles/' \
+            --rsync-path='sudo rsync' \
+            -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
+            ./backend/ "$DEPLOY_USER@$HOST:$BACKEND_PATH/"
+
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            bash -s -- "$BACKEND_PATH" <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH="$1"
+
+          sudo chown -R gravitas:gravitas "$BACKEND_PATH"
+          if [ ! -x "$BACKEND_PATH/.venv/bin/python" ]; then
+            sudo -u gravitas python3 -m venv "$BACKEND_PATH/.venv"
+          fi
+          sudo -u gravitas "$BACKEND_PATH/.venv/bin/pip" install --disable-pip-version-check -q --upgrade pip
+          sudo -u gravitas "$BACKEND_PATH/.venv/bin/pip" install --disable-pip-version-check -q -r "$BACKEND_PATH/requirements.txt"
+
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{print $2}' /etc/gravitas/backend.env)"
+          DJANGO_ENV=(DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$BACKEND_PATH")
+
+          cd "$BACKEND_PATH"
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" makemigrations core --check --dry-run
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" migrate --noinput
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" collectstatic --noinput
+          sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" check --deploy
+          sudo -u gravitas bash -c '
+            set -a
+            . /etc/gravitas/backend.env
+            if [ -f /etc/gravitas/openedx.env ]; then . /etc/gravitas/openedx.env; fi
+            set +a
+            export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+            export PYTHONPATH="'"$BACKEND_PATH"'"
+            exec "'"$BACKEND_PATH"'/.venv/bin/django-admin" configure_telegram_notifications
+          ' || true
+
+          if [ ! -f /etc/gravitas/admin-credentials ]; then
+            ADMIN_PASS="$(openssl rand -base64 24 | tr -d '\n')"
+            sudo -u gravitas env "${DJANGO_ENV[@]}" \
+              DJANGO_SUPERUSER_PASSWORD="$ADMIN_PASS" \
+              DJANGO_SUPERUSER_EMAIL="admin@gravitasplus.com" \
+              "$BACKEND_PATH/.venv/bin/django-admin" createsuperuser --noinput --username gravitasadmin
+            printf 'username=gravitasadmin\npassword=%s\n' "$ADMIN_PASS" | sudo tee /etc/gravitas/admin-credentials >/dev/null
+            sudo chmod 600 /etc/gravitas/admin-credentials
+          fi
+
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now gravitas-backend
+          sudo systemctl restart gravitas-backend
+
+          # Seed the first history snapshot immediately after migrations, then
+          # let systemd continue collecting even when nobody opens Research.
+          if ! sudo systemctl start gravitas-research-radar.service; then
+            echo "Initial Research Intelligence collection failed; timer will retry automatically."
+          fi
+          sudo systemctl enable --now gravitas-research-radar.timer
+          sudo systemctl enable --now gravitas-task-notifications.timer
+          sudo systemctl start gravitas-task-notifications.service || true
+          REMOTE
+
+      - name: Apply selected idempotent operational delivery plan
+        if: hashFiles('ops/operational_delivery.json') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python /var/www/gravitas/ops/operational_delivery.py --plan /var/www/gravitas/ops/operational_delivery.json --source-root /var/www/gravitas'"
+
+      - name: Ensure SSL and reload Nginx
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$DOMAIN" <<'REMOTE'
+          set -euo pipefail
+          DOMAIN="$1"
+          if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+          if ! $SUDO test -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"; then
+            $SUDO certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect
+          fi
+          $SUDO nginx -t
+          $SUDO systemctl reload nginx
+          REMOTE
+
+      - name: Verify infrastructure and backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          sudo systemctl is-active postgresql
+          sudo systemctl is-active fail2ban
+          sudo systemctl is-active gravitas-backup.timer
+          sudo systemctl is-active gravitas-research-radar.timer
+          sudo systemctl is-active gravitas-task-notifications.timer
+          sudo systemctl is-active gravitas-backend
+          sudo -u postgres psql -d gravitas -tAc 'SELECT 1' | grep -q 1
+          curl -fsS -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'
+          BACKEND_ERRORS="$(sudo journalctl -u gravitas-backend --since '5 minutes ago' -p err --no-pager --quiet)"
+          test -z "$BACKEND_ERRORS" || { printf '%s\n' "$BACKEND_ERRORS"; exit 1; }
+          sudo /usr/local/sbin/gravitas-backup
+          test -n "$(sudo find /var/backups/gravitas -maxdepth 1 -type f -name 'db-*.dump' -print -quit)"
+          test ! -e /var/www/gravitas/backend
+          echo infrastructure-and-backend-checks-passed
+          REMOTE
+
+      - name: Verify production
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 6 --retry-delay 3 -H "Host: $DOMAIN" "http://${{ secrets.DEPLOY_HOST }}/" >/dev/null
+          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 "https://$DOMAIN/" >/dev/null
+          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
+          echo "Production and API checks passed: https://$DOMAIN/"
+
+      - name: Publish production deploy status
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -u
+          case "$JOB_STATUS" in
+            success)
+              STATE=success
+              DESCRIPTION="Production deploy completed"
+              ;;
+            cancelled)
+              STATE=error
+              DESCRIPTION="Production deploy was cancelled"
+              ;;
+            *)
+              STATE=failure
+              DESCRIPTION="Production deploy failed"
+              ;;
+          esac
+          TARGET_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          PAYLOAD="$(jq -nc \
+            --arg state "$STATE" \
+            --arg context "gravitas/production" \
+            --arg description "$DESCRIPTION" \
+            --arg target_url "$TARGET_URL" \
+            '{state:$state,context:$context,description:$description,target_url:$target_url}')"
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -d "$PAYLOAD" >/dev/null \
+            || echo "::warning::Could not publish final production status"

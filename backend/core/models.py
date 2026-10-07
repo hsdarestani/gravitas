@@ -1,0 +1,898 @@
+from django.conf import settings
+from django.db import models
+from django.db.models import Q
+
+
+class NewsletterSubscriber(models.Model):
+    email = models.EmailField(unique=True)
+    is_active = models.BooleanField(default=True)
+    source = models.CharField(max_length=80, default='website')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.email
+
+
+class NewsletterCampaign(models.Model):
+    subject = models.CharField(max_length=240)
+    body = models.TextField()
+    sent_count = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_newsletter_campaigns',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class ContentItem(models.Model):
+    class Kind(models.TextChoices):
+        ARTICLE = 'article', 'Article'
+        DOSSIER = 'dossier', 'Dossier'
+        TOPIC = 'topic', 'Topic'
+        LEARNING = 'learning', 'Learning path'
+        LAB = 'lab', 'Lab / Interactive'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PUBLISHED = 'published', 'Published'
+
+    kind = models.CharField(max_length=24, choices=Kind.choices, default=Kind.ARTICLE)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    slug = models.SlugField(max_length=180, unique=True)
+    title = models.CharField(max_length=220)
+    summary = models.TextField(blank=True)
+    body = models.TextField(blank=True)
+    topic_data = models.JSONField(default=dict, blank=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-published_at', '-created_at']
+
+    def __str__(self):
+        return self.title
+
+
+class ContentTranslation(models.Model):
+    class Locale(models.TextChoices):
+        GERMAN = 'de', 'Deutsch'
+        PERSIAN = 'fa', 'فارسی'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PUBLISHED = 'published', 'Published'
+
+    content = models.ForeignKey(
+        ContentItem,
+        on_delete=models.CASCADE,
+        related_name='translations',
+    )
+    locale = models.CharField(max_length=8, choices=Locale.choices)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    title = models.CharField(max_length=220)
+    summary = models.TextField(blank=True)
+    body = models.TextField(blank=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['content_id', 'locale']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['content', 'locale'],
+                name='unique_content_translation_locale',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.content.title} · {self.locale}'
+
+
+class Comment(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending review'
+        PUBLISHED = 'published', 'Published'
+        HIDDEN = 'hidden', 'Hidden'
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_comments',
+    )
+    content_key = models.SlugField(max_length=190, db_index=True)
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        related_name='replies',
+        blank=True,
+        null=True,
+    )
+    body = models.TextField(max_length=5000)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(
+                fields=['content_key', 'status', 'created_at'],
+                name='grav_comment_state_created',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.author} · {self.content_key} · {self.status}'
+
+
+class CommentLike(models.Model):
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_comment_likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['comment', 'user'], name='unique_gravitas_comment_like')]
+
+
+class TopicPollVote(models.Model):
+    topic = models.ForeignKey(ContentItem, on_delete=models.CASCADE, related_name='poll_votes')
+    voter_key = models.CharField(max_length=64)
+    poll_id = models.CharField(max_length=80, default='main')
+    option_id = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['topic', 'voter_key', 'poll_id'],
+                name='unique_gravitas_topic_poll_voter_key',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['topic', 'poll_id', 'option_id'], name='grav_topic_poll_key_option'),
+        ]
+
+
+class TopicProgress(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_topic_progress',
+    )
+    topic = models.ForeignKey(
+        ContentItem,
+        on_delete=models.CASCADE,
+        related_name='member_progress',
+    )
+    video_viewed = models.BooleanField(default=False)
+    commented = models.BooleanField(default=False)
+    voted = models.BooleanField(default=False)
+    simulation_played = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'topic'], name='unique_gravitas_topic_progress'),
+        ]
+
+
+class SupportTicket(models.Model):
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        WAITING_MEMBER = 'waiting_member', 'Waiting for member'
+        WAITING_TEAM = 'waiting_team', 'Waiting for Gravitas+'
+        RESOLVED = 'resolved', 'Resolved'
+        CLOSED = 'closed', 'Closed'
+
+    class Priority(models.TextChoices):
+        NORMAL = 'normal', 'Normal'
+        HIGH = 'high', 'High'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_support_tickets',
+    )
+    subject = models.CharField(max_length=240)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.OPEN, db_index=True)
+    priority = models.CharField(max_length=16, choices=Priority.choices, default=Priority.NORMAL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        indexes = [models.Index(fields=['status', '-updated_at'], name='grav_ticket_status_recent')]
+
+
+class SupportMessage(models.Model):
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name='messages')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_support_messages',
+    )
+    body = models.TextField(max_length=10000)
+    is_team_reply = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
+class InteractiveLab(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PUBLISHED = 'published', 'Published'
+
+    slug = models.SlugField(max_length=180, unique=True)
+    title = models.CharField(max_length=240)
+    summary = models.TextField(blank=True)
+    description = models.TextField(blank=True)
+    duration_text = models.CharField(max_length=80, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    files = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='gravitas_interactive_labs',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+
+class ReaderSavedItem(models.Model):
+    """One thing a reader kept from the public site.
+
+    The shopping-basket shape, deliberately: a visitor browses without an
+    account, keeps what interests them, and signs up only when they want the
+    pile in one place. The guest's pile lives in localStorage and is adopted
+    into rows here on the first authenticated request, which is why every
+    field a row needs in order to render has to arrive from the client. At
+    adoption time the server has nothing else to go on — the public pages are
+    static HTML rather than ContentItem rows, so a saved dossier may have no
+    database record at all. `title`, `url` and `meta` are a snapshot of the
+    card as the reader saw it, not a foreign key.
+
+    One table carries both relations a reader can have with something. Saving
+    an article and following a topic differ in what the reader expects to
+    happen next, not in what has to be stored, and splitting them would mean
+    two models, two endpoints and two adoption paths for one gesture.
+    """
+
+    class Kind(models.TextChoices):
+        ARTICLE = 'article', 'Article'
+        DOSSIER = 'dossier', 'Dossier'
+        TOPIC = 'topic', 'Topic'
+        PATH = 'path', 'Learning path'
+        LAB = 'lab', 'Lab / Interactive'
+        PAGE = 'page', 'Page'
+
+    class Relation(models.TextChoices):
+        SAVED = 'saved', 'Saved'
+        FOLLOWING = 'following', 'Following'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_saved_items',
+    )
+    relation = models.CharField(
+        max_length=16,
+        choices=Relation.choices,
+        default=Relation.SAVED,
+        db_index=True,
+    )
+    kind = models.CharField(max_length=24, choices=Kind.choices, default=Kind.ARTICLE)
+    # The client's stable identifier, usually the page slug. Unique per reader
+    # and relation, which is what makes both the save toggle and the guest
+    # adoption idempotent however many times either one is retried.
+    item_key = models.SlugField(max_length=190, db_index=True)
+    url = models.CharField(max_length=300, blank=True)
+    title = models.CharField(max_length=240)
+    summary = models.TextField(blank=True)
+    meta = models.JSONField(default=dict, blank=True)
+    # When the reader first had this row in front of them on the workspace
+    # Library screen. The public header counts only rows where this is empty:
+    # a number that stays up after the reader has already looked is a
+    # notification nobody can clear, which is what readers complained about.
+    seen_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'relation', 'item_key'],
+                name='unique_reader_saved_item',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', 'relation', '-created_at'],
+                name='grav_saved_reader_recent',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.user} · {self.relation} · {self.item_key}'
+
+
+class LabProgress(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_lab_progress',
+    )
+    lab_key = models.SlugField(max_length=190)
+    state = models.JSONField(default=dict, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    score = models.FloatField(blank=True, null=True)
+    completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'lab_key'], name='unique_user_lab_progress'),
+        ]
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f'{self.user} · {self.lab_key}'
+
+
+class Organization(models.Model):
+    name = models.CharField(max_length=180)
+    slug = models.SlugField(max_length=180, unique=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_organizations_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class OrganizationMembership(models.Model):
+    class Role(models.TextChoices):
+        OWNER = 'owner', 'Owner'
+        ADMIN = 'admin', 'Admin'
+        MEMBER = 'member', 'Member'
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_org_memberships')
+    role = models.CharField(max_length=16, choices=Role.choices, default=Role.MEMBER)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['organization', 'user'], name='unique_gravitas_org_member'),
+        ]
+
+
+class Workspace(models.Model):
+    class Kind(models.TextChoices):
+        PERSONAL = 'personal', 'Personal'
+        TEAM = 'team', 'Team'
+
+    name = models.CharField(max_length=180)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.PERSONAL)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='owned_gravitas_workspaces',
+        blank=True,
+        null=True,
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name='workspaces',
+        blank=True,
+        null=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['owner'],
+                condition=Q(kind='personal'),
+                name='one_personal_workspace_per_user',
+            ),
+            models.CheckConstraint(
+                condition=(Q(kind='personal', owner__isnull=False, organization__isnull=True) |
+                           Q(kind='team', organization__isnull=False)),
+                name='valid_workspace_principal',
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class WorkspaceMembership(models.Model):
+    class Role(models.TextChoices):
+        OWNER = 'owner', 'Owner'
+        ADMIN = 'admin', 'Admin'
+        MEMBER = 'member', 'Member'
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_workspace_memberships')
+    role = models.CharField(max_length=16, choices=Role.choices, default=Role.MEMBER)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'user'], name='unique_gravitas_workspace_member'),
+        ]
+
+
+class StoragePlan(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_storage_plan')
+    tier = models.CharField(max_length=40, default='free')
+    quota_bytes = models.BigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class NextcloudIdentity(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_nextcloud')
+    username = models.CharField(max_length=80, unique=True)
+    encrypted_password = models.TextField()
+    provisioned_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class ResearchProject(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='projects')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_projects_owned')
+    title = models.CharField(max_length=220)
+    description = models.TextField(blank=True)
+    archived = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+
+class ProjectMembership(models.Model):
+    class Role(models.TextChoices):
+        OWNER = 'owner', 'Owner'
+        EDITOR = 'editor', 'Editor'
+        VIEWER = 'viewer', 'Viewer'
+
+    project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_project_memberships')
+    role = models.CharField(max_length=16, choices=Role.choices, default=Role.VIEWER)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['project', 'user'], name='unique_gravitas_project_member'),
+        ]
+
+
+class Collection(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='collections')
+    project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE, related_name='collections', blank=True, null=True)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, related_name='children', blank=True, null=True)
+    name = models.CharField(max_length=180)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_collections_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'parent', 'name'], name='unique_gravitas_collection_name'),
+        ]
+
+
+class Tag(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='tags')
+    name = models.CharField(max_length=80)
+    slug = models.SlugField(max_length=90)
+    color = models.CharField(max_length=16, default='#7566f6')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'slug'], name='unique_gravitas_tag_slug'),
+        ]
+
+
+class KnowledgeResource(models.Model):
+    class Kind(models.TextChoices):
+        NOTE = 'note', 'Note'
+        FILE = 'file', 'File'
+        DATASET = 'dataset', 'Dataset'
+        PAPER = 'paper', 'Paper / reference'
+
+    class IngestionStatus(models.TextChoices):
+        NOT_QUEUED = 'not_queued', 'Not queued'
+        PENDING = 'pending', 'Pending'
+        PROCESSING = 'processing', 'Processing'
+        READY = 'ready', 'Ready'
+        FAILED = 'failed', 'Failed'
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='resources')
+    project = models.ForeignKey(ResearchProject, on_delete=models.SET_NULL, related_name='resources', blank=True, null=True)
+    collection = models.ForeignKey(Collection, on_delete=models.SET_NULL, related_name='resources', blank=True, null=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_resources_owned')
+    kind = models.CharField(max_length=16, choices=Kind.choices, db_index=True)
+    title = models.CharField(max_length=240)
+    description = models.TextField(blank=True)
+    body = models.TextField(blank=True)
+    source_url = models.URLField(max_length=1000, blank=True)
+    storage_path = models.CharField(max_length=1000, blank=True)
+    original_name = models.CharField(max_length=255, blank=True)
+    mime_type = models.CharField(max_length=160, blank=True)
+    file_size = models.BigIntegerField(default=0)
+    checksum = models.CharField(max_length=128, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    ingestion_status = models.CharField(max_length=24, choices=IngestionStatus.choices, default=IngestionStatus.NOT_QUEUED)
+    ingestion_error = models.TextField(blank=True)
+    tags = models.ManyToManyField(Tag, related_name='resources', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['workspace', 'kind', '-updated_at'], name='grav_resource_recent'),
+            models.Index(fields=['workspace', 'project'], name='grav_resource_project'),
+        ]
+
+
+class KnowledgeLink(models.Model):
+    source = models.ForeignKey(KnowledgeResource, on_delete=models.CASCADE, related_name='outgoing_links')
+    target = models.ForeignKey(KnowledgeResource, on_delete=models.CASCADE, related_name='incoming_links')
+    relation = models.CharField(max_length=40, default='related')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['source', 'target', 'relation'], name='unique_gravitas_knowledge_link'),
+            models.CheckConstraint(condition=~Q(source=models.F('target')), name='no_self_gravitas_knowledge_link'),
+        ]
+
+
+class KnowledgeActivity(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='activities')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='gravitas_activities', blank=True, null=True)
+    resource = models.ForeignKey(KnowledgeResource, on_delete=models.CASCADE, related_name='activities', blank=True, null=True)
+    project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE, related_name='activities', blank=True, null=True)
+    action = models.CharField(max_length=40)
+    detail = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class ResearchIntelligenceRun(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = 'running', 'Running'
+        SUCCESS = 'success', 'Success'
+        PARTIAL = 'partial', 'Partial'
+        FAILED = 'failed', 'Failed'
+
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.RUNNING, db_index=True)
+    counts = models.JSONField(default=dict, blank=True)
+    errors = models.JSONField(default=list, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['status', '-started_at'], name='ri_run_status_time'),
+        ]
+
+
+class ResearchIntelligenceItem(models.Model):
+    key = models.CharField(max_length=64, unique=True)
+    kind = models.CharField(max_length=32, db_index=True)
+    source = models.CharField(max_length=120, db_index=True)
+    external_id = models.CharField(max_length=320, blank=True)
+    title = models.CharField(max_length=500)
+    summary = models.TextField(blank=True)
+    url = models.URLField(max_length=1200, blank=True)
+    payload = models.JSONField(default=dict, blank=True)
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        ordering = ['-last_seen_at']
+        indexes = [
+            models.Index(fields=['kind', '-last_seen_at'], name='ri_item_kind_seen'),
+            models.Index(fields=['source', '-last_seen_at'], name='ri_item_src_seen'),
+        ]
+
+
+class ResearchIntelligenceEvent(models.Model):
+    class EventType(models.TextChoices):
+        NEW = 'new', 'New'
+        UPDATED = 'updated', 'Updated'
+
+    item = models.ForeignKey(
+        ResearchIntelligenceItem,
+        on_delete=models.CASCADE,
+        related_name='history_events',
+    )
+    run = models.ForeignKey(
+        ResearchIntelligenceRun,
+        on_delete=models.SET_NULL,
+        related_name='events',
+        blank=True,
+        null=True,
+    )
+    event_type = models.CharField(max_length=16, choices=EventType.choices, db_index=True)
+    changed_fields = models.JSONField(default=list, blank=True)
+    snapshot = models.JSONField(default=dict, blank=True)
+    observed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-observed_at']
+        indexes = [
+            models.Index(fields=['event_type', '-observed_at'], name='ri_event_type_time'),
+            models.Index(fields=['item', '-observed_at'], name='ri_event_item_time'),
+        ]
+
+
+
+class ResearchIntelligenceSavedItem(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_research_intelligence_saves',
+    )
+    item_key = models.CharField(max_length=400)
+    snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'item_key'],
+                name='unique_research_intelligence_save',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', '-updated_at'],
+                name='ri_saved_user_recent',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.user} · {self.item_key}'
+
+
+
+class ResearchIntelligenceSourceProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_research_intelligence_sources',
+    )
+    enabled_sources = models.JSONField(default=list, blank=True)
+    custom_sources = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['user_id']
+
+    def __str__(self):
+        return f'{self.user} · Research Intelligence sources'
+
+class PulsarUserMemoryProfile(models.Model):
+    """Per-user Pulsar memory and capability envelope.
+
+    This profile narrows what Pulsar may attempt for a user. Live object ACLs
+    are still authoritative and must be rechecked before every read or write.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_memory_profile',
+    )
+    allowed_skills = models.JSONField(default=list, blank=True)
+    permission_scope = models.JSONField(default=dict, blank=True)
+    approval_defaults = models.JSONField(default=dict, blank=True)
+    preferences = models.JSONField(default=dict, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['user_id']
+
+    def __str__(self):
+        return f'Pulsar memory profile · {self.user}'
+
+
+
+class PulsarMemoryEntry(models.Model):
+    """Scoped long-term memory for Pulsar.
+
+    Memory is continuity context, not an authorization source or source of
+    truth. Live Gravitas data and ACL checks always win.
+    """
+
+    class Kind(models.TextChoices):
+        EPISODIC = 'episodic', 'Episodic'
+        SEMANTIC = 'semantic', 'Semantic'
+        PREFERENCE = 'preference', 'Preference'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_memories',
+    )
+    kind = models.CharField(max_length=16, choices=Kind.choices, db_index=True)
+    content = models.TextField()
+    scope = models.JSONField(default=dict, blank=True)
+    source_kind = models.CharField(max_length=40, default='user')
+    source_ref = models.CharField(max_length=240, blank=True)
+    source_url = models.URLField(max_length=1000, blank=True)
+    confidence = models.FloatField(default=1.0)
+    fingerprint = models.CharField(max_length=64)
+    is_active = models.BooleanField(default=True, db_index=True)
+    last_verified_at = models.DateTimeField(blank=True, null=True)
+    expires_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'fingerprint'],
+                name='unique_pulsar_memory_fingerprint',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', 'kind', 'is_active', '-updated_at'],
+                name='pulsar_mem_user_kind',
+            ),
+        ]
+
+
+class PulsarThread(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = 'active', 'Active'
+        WAITING = 'waiting', 'Waiting'
+        COMPLETED = 'completed', 'Completed'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_threads',
+    )
+    thread_key = models.CharField(max_length=160)
+    title = models.CharField(max_length=240, blank=True)
+    current_surface = models.CharField(max_length=32, default='unknown')
+    current_skill = models.CharField(max_length=40, default='general')
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
+    state = models.JSONField(default=dict, blank=True)
+    context_snapshot = models.JSONField(default=dict, blank=True)
+    last_run_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'thread_key'],
+                name='unique_pulsar_thread_user_key',
+            ),
+        ]
+
+
+class PulsarRun(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = 'running', 'Running'
+        WAITING_USER = 'waiting_user', 'Waiting for user'
+        WAITING_TIME = 'waiting_time', 'Waiting for time'
+        COMPLETED = 'completed', 'Completed'
+        FAILED = 'failed', 'Failed'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    thread = models.ForeignKey(PulsarThread, on_delete=models.CASCADE, related_name='runs')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gravitas_pulsar_runs',
+    )
+    run_id = models.CharField(max_length=32, unique=True)
+    surface = models.CharField(max_length=32, default='unknown')
+    skill = models.CharField(max_length=40, default='general')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.RUNNING)
+    input_text = models.TextField(blank=True)
+    output_text = models.TextField(blank=True)
+    state = models.JSONField(default=dict, blank=True)
+    provider = models.CharField(max_length=120, blank=True)
+    model_name = models.CharField(max_length=240, blank=True)
+    wait_until = models.DateTimeField(blank=True, null=True)
+    error_code = models.CharField(max_length=240, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(
+                fields=['user', 'status', '-created_at'],
+                name='pulsar_run_user_status',
+            ),
+        ]
+
+
+
+class PulsarResourceEmbedding(models.Model):
+    """Portable semantic index row for a KnowledgeResource.
+
+    Vectors are stored as JSON so deployments do not require a PostgreSQL
+    extension. The semantic service owns the storage contract, allowing a
+    pgvector backend to replace this representation without changing the
+    Context Engine or Pulsar tools.
+    """
+
+    resource = models.OneToOneField(
+        KnowledgeResource,
+        on_delete=models.CASCADE,
+        related_name='pulsar_semantic_embedding',
+    )
+    provider = models.CharField(max_length=80, default='openai-compatible')
+    model_name = models.CharField(max_length=240)
+    dimensions = models.PositiveIntegerField(default=0)
+    vector = models.JSONField(default=list)
+    content_hash = models.CharField(max_length=64, db_index=True)
+    indexed_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-indexed_at']
+        indexes = [
+            models.Index(
+                fields=['model_name', '-indexed_at'],
+                name='pulsar_embed_model_time',
+            ),
+        ]

@@ -1,0 +1,138 @@
+name: Purge Gravitas Production Test Data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/purge-production-now'
+
+permissions:
+  contents: write
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}" || { echo 'Missing DEPLOY_HOST'; exit 1; }
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo 'Missing DEPLOY_SSH_KEY'; exit 1; }
+          USERNAME="${{ secrets.DEPLOY_USER }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$USERNAME" ] || USERNAME=deploy
+          [ -n "$PORT" ] || PORT=22
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/gravitas_deploy -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${OPTS[@]}" "$USERNAME@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER="$USERNAME"
+          elif [ "$USERNAME" != root ] && ssh "${OPTS[@]}" "root@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER=root
+          else
+            echo 'SSH authentication failed'; exit 1
+          fi
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Backup, purge and verify production test data
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s <<'REMOTE'
+          set -euo pipefail
+
+          if [ "$(id -u)" -eq 0 ]; then
+            SUDO=""
+          elif sudo -n true 2>/dev/null; then
+            SUDO="sudo"
+          else
+            echo 'Deployment user must be root or have passwordless sudo.'
+            exit 1
+          fi
+
+          echo 'Creating a recovery backup before destructive cleanup...'
+          $SUDO /usr/local/sbin/gravitas-backup
+
+          TIMER_WAS_ENABLED=0
+          if systemctl is-enabled --quiet gravitas-nextcloud-mirror.timer 2>/dev/null; then
+            TIMER_WAS_ENABLED=1
+          fi
+          restore_mirror() {
+            if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
+              $SUDO systemctl start gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+            fi
+          }
+          trap restore_mirror EXIT
+          $SUDO systemctl stop gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
+          $SUDO systemctl stop gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
+
+          run_django() {
+            $SUDO -u gravitas bash -c '
+              set -a
+              . /etc/gravitas/backend.env
+              set +a
+              export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+              export PYTHONPATH=/opt/gravitas-backend
+              cd /opt/gravitas-backend
+              exec .venv/bin/django-admin "$@"
+            ' _ "$@"
+          }
+
+          echo 'Research purge dry run:'
+          run_django purge_research_test_data
+
+          echo 'Personal placeholder-note dry run:'
+          run_django purge_personal_test_notes
+
+          echo 'Purging Research test/demo data...'
+          run_django purge_research_test_data --apply --confirm PURGE-RESEARCH-TEST-DATA
+
+          echo 'Purging personal placeholder/test notes...'
+          run_django purge_personal_test_notes --apply --confirm PURGE-PERSONAL-TEST-NOTES
+
+          echo 'Removing strict-pattern production E2E accounts...'
+          run_django cleanup_production_e2e_users --scope all
+
+          echo 'Post-purge Research verification:'
+          VERIFY_OUTPUT="$(run_django purge_research_test_data)"
+          printf '%s\n' "$VERIFY_OUTPUT"
+          SUMMARY_JSON="$(printf '%s\n' "$VERIFY_OUTPUT" | grep -m1 '^{')"
+          test -n "$SUMMARY_JSON" || { echo 'Could not read Research purge verification summary.'; exit 1; }
+          python3 -c 'import json,sys; d=json.loads(sys.argv[1]); keys=("projects","resources_total","research_editor_notes","mind_maps","research_requests","research_linked_content_items","collections","tags"); bad={k:d.get(k) for k in keys if int(d.get(k,0) or 0)!=0}; print("Verified empty Research content counts:", {k:d.get(k,0) for k in keys}); sys.exit(1 if bad else 0)' "$SUMMARY_JSON"
+
+          echo 'Post-purge personal placeholder-note verification:'
+          PERSONAL_VERIFY_OUTPUT="$(run_django purge_personal_test_notes)"
+          printf '%s\n' "$PERSONAL_VERIFY_OUTPUT"
+          PERSONAL_SUMMARY_JSON="$(printf '%s\n' "$PERSONAL_VERIFY_OUTPUT" | grep -m1 '^{')"
+          test -n "$PERSONAL_SUMMARY_JSON" || { echo 'Could not read personal note verification summary.'; exit 1; }
+          python3 -c 'import json,sys; d=json.loads(sys.argv[1]); n=int(d.get("personal_test_notes",0) or 0); print("Verified personal placeholder notes:", n); sys.exit(1 if n else 0)' "$PERSONAL_SUMMARY_JSON"
+          REMOTE
+
+      - name: Record successful purge
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .github/purge-production-complete.json <<EOF
+          {
+            "status": "success",
+            "workflow_run_id": "${GITHUB_RUN_ID}",
+            "trigger_sha": "${GITHUB_SHA}",
+            "completed_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/purge-production-complete.json
+          git commit -m 'Record successful production purge'
+          git push origin HEAD:main

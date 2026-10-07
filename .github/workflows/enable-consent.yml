@@ -1,0 +1,91 @@
+name: Enable Gravitas Consent
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/enable-consent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  consent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install persistent privacy, SEO, CMS and cleanup injection
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cat > /tmp/gravitas-consent.conf <<'EOF'
+          map $host $gravitas_body_close {
+              default "</body>";
+              gravitasplus.com '<script src="/assets/production-cleanup.js"></script><script src="/assets/cms-live.js"></script><script src="/assets/cms-links.js"></script><script src="/assets/consent.js"></script></body>';
+          }
+
+          map $uri $gravitas_head_close {
+              default '<link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              / '<link rel="canonical" href="https://gravitasplus.com/"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /index.html '<link rel="canonical" href="https://gravitasplus.com/"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /about.html '<link rel="canonical" href="https://gravitasplus.com/about.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossiers.html '<link rel="canonical" href="https://gravitasplus.com/dossiers.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /magazine.html '<link rel="canonical" href="https://gravitasplus.com/magazine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /lab.html '<link rel="canonical" href="https://gravitasplus.com/lab.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /learn.html '<link rel="canonical" href="https://gravitasplus.com/learn.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /community.html '<link rel="canonical" href="https://gravitasplus.com/community.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossier-machine-hypothesis.html '<link rel="canonical" href="https://gravitasplus.com/dossier-machine-hypothesis.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossier-computable-universe.html '<link rel="canonical" href="https://gravitasplus.com/dossier-computable-universe.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /article-hypothesis-or-sentence.html '<link rel="canonical" href="https://gravitasplus.com/article-hypothesis-or-sentence.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /game-hypothesis-machine.html '<link rel="canonical" href="https://gravitasplus.com/game-hypothesis-machine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+          }
+
+          sub_filter_once on;
+          sub_filter '<link rel="preconnect" href="https://fonts.googleapis.com">' '';
+          sub_filter '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' '';
+          sub_filter '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">' '';
+          sub_filter 'New dossier monthly &middot; <span class="g-nums">312K</span> subscribers' 'New dossier monthly';
+          sub_filter '28:41 &middot; One idea, one world &middot; 418K views' 'One idea, one world';
+          sub_filter '</body>' $gravitas_body_close;
+          sub_filter '</head>' $gravitas_head_close;
+          EOF
+          sudo mv /tmp/gravitas-consent.conf /etc/nginx/conf.d/gravitas-consent.conf
+          sudo chmod 644 /etc/nginx/conf.d/gravitas-consent.conf
+          sudo nginx -t
+          sudo systemctl reload nginx
+          REMOTE
+
+      - name: Verify privacy, canonical, live CMS, cleanup and temporary noindex output
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 2
+          curl -4 -fsSL https://gravitasplus.com/assets/consent.js | grep -q 'gravitas:consent:v1'
+          curl -4 -fsSL https://gravitasplus.com/assets/production-cleanup.js | grep -q '312K'
+          curl -4 -fsSL https://gravitasplus.com/assets/cms-live.js | grep -q '/api/content/'
+          curl -4 -fsSL https://gravitasplus.com/assets/cms-links.js | grep -q '/content/'
+          curl -4 -fsSL https://gravitasplus.com/assets/cms-public.css | grep -q 'g-cms-grid'
+          curl -4 -fsSL 'https://gravitasplus.com/api/content/?kind=dossier&limit=1' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True and isinstance(d.get("items"), list)'
+          HOME_HTML="$(curl -4 -fsSL https://gravitasplus.com/)"
+          printf '%s' "$HOME_HTML" | grep -q '/assets/consent.js'
+          printf '%s' "$HOME_HTML" | grep -q '/assets/production-cleanup.js'
+          printf '%s' "$HOME_HTML" | grep -q '/assets/cms-live.js'
+          printf '%s' "$HOME_HTML" | grep -q '/assets/cms-links.js'
+          printf '%s' "$HOME_HTML" | grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">'
+          printf '%s' "$HOME_HTML" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
+          ! printf '%s' "$HOME_HTML" | grep -q 'fonts.googleapis.com'
+          ! printf '%s' "$HOME_HTML" | grep -q 'fonts.gstatic.com'
+          ! printf '%s' "$HOME_HTML" | grep -q '312K'
+          ! printf '%s' "$HOME_HTML" | grep -q '418K views'
+          echo gravitas-live-cms-enabled

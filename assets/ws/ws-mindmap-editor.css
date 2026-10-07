@@ -1,0 +1,304 @@
+body > .mindmap-editor-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--g-bg) 76%, transparent);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.mindmap-editor {
+  width: min(1480px, calc(100vw - 32px));
+  height: min(900px, calc(100dvh - 32px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--g-border);
+  border-radius: 16px;
+  background: var(--g-bg);
+  color: var(--g-text);
+  box-shadow: 0 30px 100px rgb(0 0 0 / .48);
+}
+
+.mindmap-editor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 68px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--g-hairline);
+  background: var(--g-surface-raised);
+}
+
+.mindmap-editor__heading { min-width: 0; display: grid; gap: 2px; }
+.mindmap-editor__heading h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
+.mindmap-editor__eyebrow { color: var(--g-text-subtle); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+.mindmap-editor__head-actions { display: flex; align-items: center; gap: 8px; }
+.mindmap-editor__status { color: var(--g-text-subtle); font-size: 12px; }
+.mindmap-editor__status[data-tone="bad"] { color: var(--g-danger, #d95454); }
+
+.mindmap-editor__layout {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 250px minmax(420px, 1fr) 300px;
+}
+
+.mindmap-editor__sidebar,
+.mindmap-editor__inspector {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+  background: var(--g-surface-raised);
+}
+
+.mindmap-editor__sidebar { border-right: 1px solid var(--g-hairline); }
+.mindmap-editor__inspector { border-left: 1px solid var(--g-hairline); }
+
+.mindmap-editor__side-section,
+.mindmap-editor__connect,
+.mindmap-editor__connections {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--g-hairline);
+}
+
+.mindmap-editor__side-section:first-child { padding-top: 0; }
+.mindmap-editor__side-section:last-child,
+.mindmap-editor__connections:last-child { border-bottom: 0; }
+.mindmap-editor :is(h3, p) { margin: 0; }
+.mindmap-editor h3 { font-size: 13px; }
+
+.mindmap-editor__field { display: grid; gap: 5px; }
+.mindmap-editor__field > span { color: var(--g-text-subtle); font-size: 11px; font-weight: 600; }
+.mindmap-editor__input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--g-border);
+  border-radius: 8px;
+  background: var(--g-bg);
+  color: var(--g-text);
+}
+.mindmap-editor__textarea { min-height: 88px; resize: vertical; }
+.mindmap-editor__muted,
+.mindmap-editor__help p,
+.mindmap-editor__inspector-empty p { color: var(--g-text-subtle); font-size: 12px; line-height: 1.5; }
+
+.mindmap-editor__workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.mindmap-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--g-hairline);
+  background: var(--g-surface-raised);
+}
+.mindmap-editor__toolbar-note { color: var(--g-text-subtle); font-size: 12px; }
+.mindmap-editor__viewport { min-height: 0; overflow: auto; background: var(--g-surface-sunken); }
+.mindmap-editor__canvas {
+  position: relative;
+  width: 1400px;
+  height: 850px;
+  overflow: hidden;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--g-border) 45%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--g-border) 45%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.mindmap-editor__edges,
+.mindmap-editor__edge-controls,
+.mindmap-editor__nodes { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mindmap-editor__edges { pointer-events: none; overflow: visible; }
+.mindmap-editor__edge-controls { pointer-events: none; z-index: 1; }
+.mindmap-editor__nodes { z-index: 2; pointer-events: none; }
+.mindmap-editor__edge-line { stroke: color-mix(in srgb, var(--g-accent) 55%, var(--g-border)); stroke-width: 1.6; }
+.mindmap-editor__edge-line--preview { stroke: var(--g-accent); stroke-width: 2.2; stroke-dasharray: 7 5; }
+.mindmap-editor__edge-chip {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  max-width: 150px;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid var(--g-hairline);
+  border-radius: 999px;
+  background: var(--g-surface-raised);
+  color: var(--g-text-subtle);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgb(0 0 0 / .16);
+}
+.mindmap-editor__edge-chip:hover:not(:disabled) { border-color: var(--g-accent); color: var(--g-text); }
+.mindmap-editor__edge-chip:disabled { cursor: default; opacity: .85; }
+
+.mindmap-editor__node {
+  position: absolute;
+  width: 190px;
+  min-height: 74px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--g-border);
+  border-radius: 12px;
+  background: var(--g-surface-raised);
+  color: var(--g-text);
+  text-align: left;
+  font: inherit;
+  cursor: grab;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .12);
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+.mindmap-editor__node:hover { border-color: color-mix(in srgb, var(--g-accent) 55%, var(--g-border)); }
+.mindmap-editor__node[data-selected="1"] {
+  border-color: var(--g-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--g-accent) 18%, transparent), 0 10px 28px rgb(0 0 0 / .18);
+}
+.mindmap-editor__node[data-dragging="1"] { cursor: grabbing; z-index: 3; }
+.mindmap-editor__node strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.mindmap-editor__node small { color: var(--g-text-subtle); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.mindmap-editor__node-kind { color: var(--g-accent); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.mindmap-editor__node[data-kind="question"] .mindmap-editor__node-kind { color: var(--g-signal-info, var(--g-accent)); }
+.mindmap-editor__node[data-kind="hypothesis"] .mindmap-editor__node-kind { color: var(--g-signal-warning, var(--g-accent)); }
+.mindmap-editor__node[data-kind="dataset"] .mindmap-editor__node-kind,
+.mindmap-editor__node[data-kind="paper"] .mindmap-editor__node-kind { color: var(--g-signal-success, var(--g-accent)); }
+
+.mindmap-editor__node[data-drop-target="1"] {
+  border-color: var(--g-accent);
+  background: color-mix(in srgb, var(--g-accent) 10%, var(--g-surface-raised));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--g-accent) 22%, transparent);
+}
+.mindmap-editor__node-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding-right: 24px;
+}
+.mindmap-editor__node-tools {
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+.mindmap-editor__node:hover .mindmap-editor__node-tools,
+.mindmap-editor__node:focus-within .mindmap-editor__node-tools,
+.mindmap-editor__node[data-selected="1"] .mindmap-editor__node-tools { opacity: 1; }
+.mindmap-editor__node-edit {
+  min-height: 22px !important;
+  padding: 2px 6px !important;
+  background: color-mix(in srgb, var(--g-surface-raised) 90%, transparent) !important;
+}
+.mindmap-editor__node-connect {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--g-accent);
+  border-radius: 999px;
+  background: var(--g-surface-raised);
+  color: var(--g-accent);
+  font-size: 11px;
+  line-height: 1;
+  cursor: crosshair;
+  touch-action: none;
+}
+.mindmap-editor__node-connect:hover,
+.mindmap-editor__node-connect[data-connecting="1"] {
+  background: var(--g-accent);
+  color: var(--g-bg);
+  transform: scale(1.08);
+}
+
+.mindmap-editor__canvas-popover {
+  position: absolute;
+  z-index: 8;
+  width: 286px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--g-border);
+  border-radius: 12px;
+  background: var(--g-surface-raised);
+  color: var(--g-text);
+  box-shadow: 0 18px 54px rgb(0 0 0 / .38);
+  pointer-events: auto;
+}
+.mindmap-editor__canvas-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--g-hairline);
+}
+.mindmap-editor__canvas-popover-head strong { font-size: 13px; }
+.mindmap-editor__canvas-popover-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.mindmap-editor__canvas-popover-route {
+  color: var(--g-text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mindmap-editor__inspector { display: grid; align-content: start; gap: 10px; }
+.mindmap-editor__inspector-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.mindmap-editor__inspector-empty { display: grid; gap: 7px; padding: 8px 0; }
+.mindmap-editor__connection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--g-hairline);
+  border-radius: 9px;
+}
+.mindmap-editor__connection > div { min-width: 0; display: grid; gap: 2px; }
+.mindmap-editor__connection strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.mindmap-editor__connection small { color: var(--g-text-subtle); font-size: 10px; }
+.mindmap-editor__loading { padding: 28px; color: var(--g-text-subtle); }
+.mindmap-editor__loading[data-tone="bad"] { color: var(--g-danger, #d95454); }
+
+@media (max-width: 1050px) {
+  .mindmap-editor__layout { grid-template-columns: 210px minmax(360px, 1fr); }
+  .mindmap-editor__inspector {
+    position: absolute;
+    right: 16px;
+    top: 84px;
+    bottom: 16px;
+    width: min(320px, calc(100vw - 52px));
+    z-index: 4;
+    border: 1px solid var(--g-border);
+    border-radius: 12px;
+    box-shadow: 0 18px 54px rgb(0 0 0 / .35);
+  }
+}
+
+@media (max-width: 720px) {
+  body > .mindmap-editor-layer { padding: 0; }
+  .mindmap-editor { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+  .mindmap-editor__layout { grid-template-columns: 1fr; }
+  .mindmap-editor__sidebar { display: none; }
+  .mindmap-editor__inspector { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 45dvh; }
+  .mindmap-editor__head { padding: 10px 12px; }
+  .mindmap-editor__status { display: none; }
+}

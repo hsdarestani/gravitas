@@ -1,0 +1,229 @@
+name: Repair Core Roadmap After Deploy
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'workspace.html'
+      - 'assets/ws/**'
+      - 'assets/production-bridge.js'
+      - 'backend/core/email_verification.py'
+      - 'backend/core/urls.py'
+      - 'backend/core/management/commands/provision_core_member_by_email_hash.py'
+      - 'backend/core/management/commands/send_account_verification_by_email_hash.py'
+      - 'backend/core/management/commands/repair_core_roadmap_okr.py'
+      - 'backend/core/roadmap_execution.py'
+      - 'backend/core/roadmap_calendar.py'
+      - 'backend/core/roadmap_agile.py'
+      - 'backend/core/roadmap_assignment.py'
+      - 'backend/core/roadmap_assignment_signals.py'
+      - 'backend/core/test_email_verification.py'
+      - 'backend/core/test_operating_demo_repair.py'
+      - 'backend/core/test_roadmap_assignment.py'
+      - 'backend/core/test_roadmap_calendar.py'
+      - 'backend/core/test_roadmap_agile.py'
+      - 'backend/core/apps.py'
+      - '.github/workflows/repair-operating-roadmap.yml'
+  workflow_run:
+    workflows: ['Deploy Gravitas to Strato']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-core-roadmap-repair
+  cancel-in-progress: false
+
+env:
+  BACKEND_PATH: /opt/gravitas-backend
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Validate route repair and canonical Core data
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          set -euo pipefail
+          pip install --disable-pip-version-check -q -r backend/requirements.txt
+          node --check assets/ws/ws-app.js
+          node --check assets/ws/ws-five-layer.js
+          node --check assets/production-bridge.js
+          python -m django test core.test_email_verification core.test_operating_demo_repair core.test_roadmap_assignment core.test_roadmap_calendar core.test_roadmap_agile --verbosity 2
+          grep -q '/assets/ws/ws-app.js' workspace.html
+          grep -q '/assets/ws/ws-five-layer.js' workspace.html
+
+  production:
+    # Automatic roadmap execution repair is disabled. Planning is manager-driven now.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout deployed revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}"
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}"
+          USERNAME="${{ secrets.DEPLOY_USER }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$USERNAME" ] || USERNAME=deploy
+          [ -n "$PORT" ] || PORT=22
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/gravitas_deploy -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${OPTS[@]}" "$USERNAME@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER="$USERNAME"
+          elif [ "$USERNAME" != root ] && ssh "${OPTS[@]}" "root@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            EFFECTIVE_USER=root
+          else
+            echo 'SSH authentication failed'
+            exit 1
+          fi
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Repair and verify canonical Core Roadmap
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$BACKEND_PATH" <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH="$1"
+          ENV_FILE=/etc/gravitas/backend.env
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
+          test -n "$SECRET"
+          cd "$BACKEND_PATH"
+          OUTPUT="$(sudo -u gravitas env \
+            DJANGO_SECRET_KEY="$SECRET" \
+            DJANGO_DEBUG=0 \
+            DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            PYTHONPATH="$BACKEND_PATH" \
+            "$BACKEND_PATH/.venv/bin/django-admin" repair_core_roadmap_okr)"
+          printf '%s\n' "$OUTPUT"
+          printf '%s\n' "$OUTPUT" | grep -Eq 'core roadmap ready objectives=[1-9][0-9]* key_results=[1-9][0-9]*'
+          sudo systemctl restart gravitas-backend
+          sudo systemctl is-active gravitas-backend
+          REMOTE
+
+      - name: Provision requested Core member once
+        shell: bash
+        env:
+          TARGET_EMAIL_SHA256: a2d01c513295c04d1f7e555024be9ab4fe5c5fb7a10e645986af3c5ff9cb0815
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$BACKEND_PATH" "$TARGET_EMAIL_SHA256" <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH="$1"
+          TARGET_HASH="$2"
+          ENV_FILE=/etc/gravitas/backend.env
+          MARKER_DIR=/var/lib/gravitas/core-member-requests
+          MARKER="$MARKER_DIR/20260901-video-owner.core.done"
+          sudo install -d -m 755 "$MARKER_DIR"
+          if sudo test -f "$MARKER"; then
+            echo 'core member request already processed'
+            exit 0
+          fi
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
+          test -n "$SECRET"
+          cd "$BACKEND_PATH"
+          OUTPUT="$(sudo -u gravitas env \
+            DJANGO_SECRET_KEY="$SECRET" \
+            DJANGO_DEBUG=0 \
+            DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            PYTHONPATH="$BACKEND_PATH" \
+            "$BACKEND_PATH/.venv/bin/django-admin" provision_core_member_by_email_hash \
+              --email-sha256 "$TARGET_HASH" \
+              --name Ahmad \
+              --role member)"
+          printf '%s\n' "$OUTPUT"
+          printf '%s\n' "$OUTPUT" | grep -q 'core member provisioned'
+          sudo touch "$MARKER"
+          REMOTE
+
+      - name: Send requested account verification email
+        shell: bash
+        env:
+          TARGET_EMAIL_SHA256: a2d01c513295c04d1f7e555024be9ab4fe5c5fb7a10e645986af3c5ff9cb0815
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            bash -s -- "$BACKEND_PATH" "$TARGET_EMAIL_SHA256" <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH="$1"
+          TARGET_HASH="$2"
+          ENV_FILE=/etc/gravitas/backend.env
+          MARKER_DIR=/var/lib/gravitas/core-member-requests
+          MARKER="$MARKER_DIR/20260901-video-owner.email-sent.done"
+          sudo install -d -m 755 "$MARKER_DIR"
+          if sudo test -f "$MARKER"; then
+            echo 'account verification delivery already completed'
+            exit 0
+          fi
+
+          read_env() {
+            local raw
+            raw="$(sudo awk -F= -v key="$1" '$1==key {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE")"
+            if [ "${#raw}" -ge 2 ]; then
+              if { [ "${raw:0:1}" = '"' ] && [ "${raw: -1}" = '"' ]; } || \
+                 { [ "${raw:0:1}" = "'" ] && [ "${raw: -1}" = "'" ]; }; then
+                raw="${raw:1:${#raw}-2}"
+              fi
+            fi
+            printf '%s' "$raw"
+          }
+          SECRET="$(read_env DJANGO_SECRET_KEY)"
+          EMAIL_PASSWORD="$(read_env EMAIL_HOST_PASSWORD)"
+          EMAIL_USER="$(read_env EMAIL_HOST_USER)"
+          EMAIL_HOST_VALUE="$(read_env EMAIL_HOST)"
+          EMAIL_PORT_VALUE="$(read_env EMAIL_PORT)"
+          EMAIL_SSL_VALUE="$(read_env EMAIL_USE_SSL)"
+          DEFAULT_FROM="$(read_env DEFAULT_FROM_EMAIL)"
+          PUBLIC_BASE="$(read_env PUBLIC_BASE_URL)"
+          test -n "$SECRET"
+          test -n "$EMAIL_PASSWORD"
+
+          cd "$BACKEND_PATH"
+          OUTPUT="$(sudo -u gravitas env \
+            DJANGO_SECRET_KEY="$SECRET" \
+            DJANGO_DEBUG=0 \
+            DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            PYTHONPATH="$BACKEND_PATH" \
+            EMAIL_HOST_PASSWORD="$EMAIL_PASSWORD" \
+            EMAIL_HOST_USER="${EMAIL_USER:-webmaster@gravitasplus.com}" \
+            EMAIL_HOST="${EMAIL_HOST_VALUE:-smtp.strato.de}" \
+            EMAIL_PORT="${EMAIL_PORT_VALUE:-465}" \
+            EMAIL_USE_SSL="${EMAIL_SSL_VALUE:-1}" \
+            DEFAULT_FROM_EMAIL="${DEFAULT_FROM:-Gravitas+ <webmaster@gravitasplus.com>}" \
+            PUBLIC_BASE_URL="${PUBLIC_BASE:-https://gravitasplus.com}" \
+            "$BACKEND_PATH/.venv/bin/django-admin" send_account_verification_by_email_hash \
+              --email-sha256 "$TARGET_HASH")"
+          printf '%s\n' "$OUTPUT"
+          printf '%s\n' "$OUTPUT" | grep -Eq 'account verification (email sent|already complete)'
+          sudo touch "$MARKER"
+          REMOTE
+
+      - name: Verify public app
+        run: |
+          set -euo pipefail
+          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 https://gravitasplus.com/api/health/ | grep -q '"status": "ok"'

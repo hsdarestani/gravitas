@@ -1,0 +1,3 @@
+force deploy after self-hosted font parity fix
+source frontend: desdevrad/gravitasplus@3cbfde209f0590fbcac67ad7c93e738d352b82aa
+font parity commit: f4522138942961f03c537a4f20a86dd0de049024

@@ -1,0 +1,43 @@
+name: Gravitas production E2E
+
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DOMAIN: gravitasplus.com
+    steps:
+      - name: Verify homepage API admin and sitemap
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/" >/dev/null
+          curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
+          curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/admin/login/" | grep -qi 'django\|log in'
+          curl -4 -fsSL --retry 5 --retry-delay 2 "https://$DOMAIN/sitemap.xml" | grep -q '<urlset'
+
+      - name: Verify newsletter endpoint validation without sending mail
+        shell: bash
+        run: |
+          set -euo pipefail
+          BODY_FILE="$(mktemp)"
+          STATUS="$(curl -4 -sS -o "$BODY_FILE" -w '%{http_code}' \
+            -X POST "https://$DOMAIN/api/newsletter/subscribe/" \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"not-an-email","source":"production-e2e"}')"
+          test "$STATUS" = "400"
+          grep -q '"error": "invalid_email"' "$BODY_FILE"
+          rm -f "$BODY_FILE"
+          echo production-newsletter-validation-passed

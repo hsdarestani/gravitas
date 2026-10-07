@@ -1,0 +1,54 @@
+name: Enable Gravitas Prelaunch Noindex
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/enable-prelaunch-noindex.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  noindex:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install temporary noindex header
+        shell: bash
+        run: |
+          set -euo pipefail
+          USER="${{ secrets.DEPLOY_USER }}"; [ -n "$USER" ] || USER=deploy
+          PORT="${{ secrets.DEPLOY_PORT }}"; [ -n "$PORT" ] || PORT=22
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/key -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cat > /tmp/gravitas-prelaunch-noindex.conf <<'EOF'
+          map $host $gravitas_robots_header {
+              default "";
+              gravitasplus.com "noindex, nofollow";
+              staging.gravitasplus.com "noindex, nofollow";
+          }
+
+          add_header X-Robots-Tag $gravitas_robots_header always;
+          EOF
+          sudo mv /tmp/gravitas-prelaunch-noindex.conf /etc/nginx/conf.d/gravitas-prelaunch-noindex.conf
+          sudo chmod 644 /etc/nginx/conf.d/gravitas-prelaunch-noindex.conf
+          sudo nginx -t
+          sudo systemctl reload nginx
+          REMOTE
+
+      - name: Verify temporary noindex from public production
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 2
+          curl -4 -fsSI https://gravitasplus.com/ | tr -d '\r' | grep -qi '^X-Robots-Tag: noindex, nofollow$'
+          curl -4 -fsSI https://gravitasplus.com/dossiers.html | tr -d '\r' | grep -qi '^X-Robots-Tag: noindex, nofollow$'
+          echo gravitas-prelaunch-noindex-enabled

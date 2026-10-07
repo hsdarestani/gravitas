@@ -1,0 +1,10 @@
+{
+  "name": "Gravitas+ Workspace",
+  "short_name": "Gravitas+",
+  "start_url": "/workspace/",
+  "scope": "/workspace/",
+  "display": "standalone",
+  "background_color": "#002f47",
+  "theme_color": "#002f47",
+  "icons": []
+}

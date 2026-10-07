@@ -1,0 +1,370 @@
+name: Install Gravitas Open edX
+
+# Tutor v22 / Open edX Verawood production installer. Kept idempotent so a
+# validated Gravitas deploy can safely resume a previously interrupted setup.
+on:
+  push:
+    paths:
+      - '.github/workflows/install-openedx.yml'
+      - 'ops/openedx/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: gravitas-openedx-install
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      CONFIGURED_USER: ${{ secrets.DEPLOY_USER || 'root' }}
+      LMS_HOST: learn.gravitasplus.com
+      CMS_HOST: studio.gravitasplus.com
+      MFE_HOST: apps.learn.gravitasplus.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Gravitas production deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Waiting for Deploy Gravitas to Strato for $GITHUB_SHA"
+          for attempt in $(seq 1 180); do
+            payload="$(curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&event=push&per_page=100")"
+            state="$(python3 -c 'import json,sys; data=json.load(sys.stdin); runs=[r for r in data.get("workflow_runs",[]) if r.get("name")=="Deploy Gravitas to Strato"]; print("missing" if not runs else ((max(runs,key=lambda r:r.get("run_number",0)).get("status") or "")+"|"+(max(runs,key=lambda r:r.get("run_number",0)).get("conclusion") or "")))' <<<"$payload")"
+            case "$state" in
+              completed\|success)
+                echo "Main Gravitas deploy succeeded."
+                break
+                ;;
+              completed\|*)
+                echo "Main Gravitas deploy failed: $state"
+                exit 1
+                ;;
+              *)
+                if [ "$attempt" -eq 180 ]; then
+                  echo "Timed out waiting for main deploy: $state"
+                  exit 1
+                fi
+                sleep 10
+                ;;
+            esac
+          done
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}"
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${SSH_OPTS[@]}" "$CONFIGURED_USER@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            echo "DEPLOY_USER=$CONFIGURED_USER" >> "$GITHUB_ENV"
+          elif [ "$CONFIGURED_USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@${{ secrets.DEPLOY_HOST }}" true 2>/dev/null; then
+            echo "DEPLOY_USER=root" >> "$GITHUB_ENV"
+          else
+            echo "SSH authentication failed"
+            exit 1
+          fi
+
+      - name: Install Tutor v22 and Open edX Verawood
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" "$CMS_HOST" "$MFE_HOST" <<'REMOTE'
+          set -euo pipefail
+          LMS_HOST="$1"
+          CMS_HOST="$2"
+          MFE_HOST="$3"
+          if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+
+          export DEBIAN_FRONTEND=noninteractive
+          $SUDO apt-get update -y
+          if ! docker compose version >/dev/null 2>&1; then
+            $SUDO apt-get install -y docker-compose-v2 || $SUDO apt-get install -y docker-compose-plugin
+          fi
+          docker compose version
+
+          # 8 GB RAM is enough for Tutor v22, but a small swap safety net
+          # prevents transient OOM during migrations/image startup.
+          TOTAL_MB="$(awk '/MemTotal/ {printf "%.0f", $2/1024}' /proc/meminfo)"
+          SWAP_MB="$(awk '/SwapTotal/ {printf "%.0f", $2/1024}' /proc/meminfo)"
+          if [ "$TOTAL_MB" -lt 10000 ] && [ "$SWAP_MB" -lt 2048 ]; then
+            if [ ! -f /swapfile-openedx ]; then
+              $SUDO fallocate -l 6G /swapfile-openedx
+              $SUDO chmod 600 /swapfile-openedx
+              $SUDO mkswap /swapfile-openedx
+            fi
+            $SUDO swapon /swapfile-openedx || true
+            grep -q '^/swapfile-openedx ' /etc/fstab || echo '/swapfile-openedx none swap sw 0 0' | $SUDO tee -a /etc/fstab >/dev/null
+          fi
+
+          TUTOR_VERSION="22.0.2"
+          INDIGO_VERSION="22.0.0"
+          MFE_VERSION="22.1.0"
+          TUTOR_VENV="/opt/gravitas-tutor"
+
+          # Use the Python distribution instead of the standalone binary so
+          # Tutor can discover/install Python plugins through normal entry
+          # points. This also makes plugin versions reproducible.
+          if [ ! -x "$TUTOR_VENV/bin/python" ]; then
+            $SUDO python3 -m venv "$TUTOR_VENV"
+          fi
+          $SUDO "$TUTOR_VENV/bin/python" -m pip install --disable-pip-version-check -q --upgrade pip
+          $SUDO "$TUTOR_VENV/bin/python" -m pip install --disable-pip-version-check -q \
+            "tutor==$TUTOR_VERSION" \
+            "tutor-indigo==$INDIGO_VERSION" \
+            "tutor-mfe==$MFE_VERSION"
+          TUTOR="$TUTOR_VENV/bin/tutor"
+          $TUTOR --version
+
+          $SUDO mkdir -p /var/lib/openedx/tutor /etc/gravitas /var/lib/gravitas/lms-media
+          $SUDO chown -R "$(id -un):$(id -gn)" /var/lib/openedx/tutor
+          $SUDO chown -R gravitas:gravitas /var/lib/gravitas/lms-media
+
+          export TUTOR_ROOT=/var/lib/openedx/tutor
+
+          tutor_local() {
+            # The installer itself arrives over SSH stdin. Never let a Tutor/
+            # docker subcommand consume the remaining installer heredoc.
+            if [ "$(id -u)" -eq 0 ]; then
+              "$TUTOR" local "$@" </dev/null
+            else
+              sudo env TUTOR_ROOT="$TUTOR_ROOT" "$TUTOR" local "$@" </dev/null
+            fi
+          }
+
+          # Initialise core Tutor state before enabling plugins. Plugin enable
+          # persists into config.yml and therefore requires the project root
+          # to exist already.
+          $TUTOR config save \
+            --set "LMS_HOST=$LMS_HOST" \
+            --set "CMS_HOST=$CMS_HOST" \
+            --set "MFE_HOST=$MFE_HOST" \
+            --set 'PLATFORM_NAME=Gravitas+' \
+            --set 'CONTACT_EMAIL=webmaster@gravitasplus.com' \
+            --set ENABLE_HTTPS=true \
+            --set ENABLE_WEB_PROXY=false \
+            --set 'CADDY_HTTP_PORT=127.0.0.1:8181' \
+            --set 'LOCAL_PROJECT_NAME=gravitas_openedx_local' \
+            --set 'OPENEDX_COMMON_VERSION=release/verawood.1'
+
+          $TUTOR plugins enable indigo mfe
+
+          # Plugin-specific brand configuration is applied only after the
+          # corresponding config schema has been loaded.
+          $TUTOR config save \
+            --set 'INDIGO_WELCOME_MESSAGE=Research starts connected.' \
+            --set 'INDIGO_PRIMARY_COLOR="#003049"' \
+            --set 'INDIGO_ENABLE_DARK_TOGGLE=true' \
+            --set 'INDIGO_FOOTER_NAV_LINKS=[{"title":"Gravitas+","url":"https://gravitasplus.com"},{"title":"Learning","url":"https://gravitasplus.com/learn.html"},{"title":"Community","url":"https://gravitasplus.com/community.html"}]'
+
+          tutor_local launch -I -p
+          tutor_local do settheme indigo || true
+          tutor_local status
+
+          # A dedicated non-password service identity owns the OAuth client.
+          tutor_local run lms ./manage.py lms manage_user gravitas_bridge bridge@gravitasplus.com --unusable-password
+          tutor_local run lms ./manage.py lms shell -c             "from django.contrib.auth import get_user_model; u=get_user_model().objects.get(username='gravitas_bridge'); u.is_staff=True; u.save(update_fields=['is_staff']); print('bridge-staff-ready')"
+
+          ENV_FILE=/etc/gravitas/openedx.env
+          CREDENTIAL_VERSION=2
+          ROTATE_CREDENTIALS=1
+          if $SUDO test -f "$ENV_FILE"; then
+            EXISTING_VERSION="$($SUDO awk -F= '$1=="OPENEDX_CREDENTIAL_VERSION"{print substr($0,index($0,"=")+1)}' "$ENV_FILE")"
+            OPENEDX_CLIENT_ID="$($SUDO awk -F= '$1=="OPENEDX_CLIENT_ID"{print substr($0,index($0,"=")+1)}' "$ENV_FILE")"
+            OPENEDX_CLIENT_SECRET="$($SUDO awk -F= '$1=="OPENEDX_CLIENT_SECRET"{print substr($0,index($0,"=")+1)}' "$ENV_FILE")"
+            if [ "$EXISTING_VERSION" = "$CREDENTIAL_VERSION" ] && [ -n "$OPENEDX_CLIENT_ID" ] && [ -n "$OPENEDX_CLIENT_SECRET" ]; then
+              ROTATE_CREDENTIALS=0
+            fi
+          fi
+
+          if [ "$ROTATE_CREDENTIALS" -eq 1 ]; then
+            OPENEDX_CLIENT_ID="gravitas-$(openssl rand -hex 16)"
+            OPENEDX_CLIENT_SECRET="$(openssl rand -hex 48)"
+            # Rotate any pre-hardening credential and recreate the bridge app.
+            tutor_local run lms ./manage.py lms shell -c               "from oauth2_provider.models import Application; Application.objects.filter(name='gravitas-bridge').delete(); print('bridge-app-rotated')" >/dev/null 2>&1
+          fi
+
+          APP_EXISTS="$(tutor_local run lms ./manage.py lms shell -c             "from oauth2_provider.models import Application; print('YES' if Application.objects.filter(name='gravitas-bridge').exists() else 'NO')"             | tail -n 1 | tr -d '\r')"
+          if [ "$APP_EXISTS" != "YES" ]; then
+            # Suppress Tutor/docker command echoing so the generated client
+            # secret can never be written to CI logs.
+            tutor_local run lms ./manage.py lms create_dot_application               gravitas-bridge gravitas_bridge               --grant-type client-credentials               --skip-authorization               --scopes 'read,write,email,profile,user_id'               --client-id "$OPENEDX_CLIENT_ID"               --client-secret "$OPENEDX_CLIENT_SECRET" >/dev/null 2>&1
+          fi
+
+          umask 027
+          cat > /tmp/openedx.env <<EOF
+          OPENEDX_ENABLED=1
+          OPENEDX_CREDENTIAL_VERSION=$CREDENTIAL_VERSION
+          OPENEDX_LMS_URL=https://$LMS_HOST
+          OPENEDX_CMS_URL=https://$CMS_HOST
+          OPENEDX_INTERNAL_URL=http://127.0.0.1:8181
+          OPENEDX_CLIENT_ID=$OPENEDX_CLIENT_ID
+          OPENEDX_CLIENT_SECRET=$OPENEDX_CLIENT_SECRET
+          OPENEDX_SERVICE_USERNAME=gravitas_bridge
+          OPENEDX_TIMEOUT=30
+          LMS_MEDIA_ROOT=/var/lib/gravitas/lms-media
+          EOF
+          $SUDO mv /tmp/openedx.env "$ENV_FILE"
+          $SUDO chown root:gravitas "$ENV_FILE"
+          $SUDO chmod 640 "$ENV_FILE"
+
+          curl -fsS -H "Host: $LMS_HOST" http://127.0.0.1:8181/heartbeat >/dev/null
+          echo "Internal Open edX heartbeat is healthy."
+          REMOTE
+
+      - name: Configure host Nginx for Open edX
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" "$CMS_HOST" "$MFE_HOST" <<'REMOTE'
+          set -euo pipefail
+          LMS_HOST="$1"
+          CMS_HOST="$2"
+          MFE_HOST="$3"
+          if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+
+          cat > /tmp/gravitas-openedx.conf <<NGINX
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name $LMS_HOST $CMS_HOST $MFE_HOST;
+
+              client_max_body_size 500m;
+              proxy_read_timeout 300s;
+              proxy_send_timeout 300s;
+
+              location / {
+                  proxy_pass http://127.0.0.1:8181;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+                  proxy_set_header X-Forwarded-Port \$server_port;
+                  proxy_set_header Upgrade \$http_upgrade;
+                  proxy_set_header Connection "upgrade";
+              }
+          }
+          NGINX
+          $SUDO mv /tmp/gravitas-openedx.conf /etc/nginx/sites-available/gravitas-openedx
+          $SUDO ln -sfn /etc/nginx/sites-available/gravitas-openedx /etc/nginx/sites-enabled/gravitas-openedx
+          $SUDO nginx -t
+          $SUDO systemctl reload nginx
+
+          # Keep LMS/Studio TLS healthy even while the separate MFE hostname
+          # is still waiting on DNS. A missing MFE record must never strip the
+          # already-working LMS/CMS HTTPS vhosts on a later idempotent run.
+          if getent ahostsv4 "$LMS_HOST" >/dev/null 2>&1 && getent ahostsv4 "$CMS_HOST" >/dev/null 2>&1; then
+            if $SUDO certbot --nginx -d "$LMS_HOST" -d "$CMS_HOST" \
+              --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
+              echo "LMS/Studio TLS configured."
+            else
+              echo "LMS/Studio TLS configuration failed." >&2
+              exit 1
+            fi
+          else
+            echo "DNS missing for $LMS_HOST or $CMS_HOST." >&2
+            exit 1
+          fi
+
+          # Tutor's MFE plugin serves catalog/learning/account/etc. from MFE_HOST.
+          if getent ahostsv4 "$MFE_HOST" >/dev/null 2>&1; then
+            if $SUDO certbot --nginx -d "$LMS_HOST" -d "$CMS_HOST" -d "$MFE_HOST" \
+              --non-interactive --agree-tos --register-unsafely-without-email --redirect --expand; then
+              echo "MFE TLS configured."
+            else
+              echo "MFE DNS resolves, but TLS issuance/routing failed for $MFE_HOST." >&2
+              exit 1
+            fi
+          else
+            echo "MFE DNS missing: $MFE_HOST" >&2
+          fi
+          $SUDO nginx -t
+          $SUDO systemctl reload nginx
+          REMOTE
+
+      - name: Restart Gravitas bridge and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}"             bash -s -- "$LMS_HOST" "$MFE_HOST" <<'REMOTE'
+          set -euo pipefail
+          LMS_HOST="$1"
+          MFE_HOST="$2"
+          if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
+          $SUDO systemctl daemon-reload
+          $SUDO systemctl restart gravitas-backend
+          $SUDO systemctl is-active gravitas-backend
+          curl -fsS -H "Host: $LMS_HOST" http://127.0.0.1:8181/heartbeat >/dev/null
+          curl -fsS -H "Host: $MFE_HOST" http://127.0.0.1:8181/catalog/ >/dev/null
+          echo "Internal Open edX MFE catalog is healthy."
+
+          # End-to-end bridge verification: load exactly the same env files as
+          # the systemd backend and require a real OAuth client-credentials JWT.
+          # No credential values are printed to the workflow log.
+          $SUDO /opt/gravitas-backend/.venv/bin/python - <<'PY'
+          import os
+          from pathlib import Path
+          
+          def load_env(path):
+              for raw in Path(path).read_text(encoding='utf-8').splitlines():
+                  line = raw.strip()
+                  if not line or line.startswith('#') or '=' not in line:
+                      continue
+                  key, value = line.split('=', 1)
+                  value = value.strip()
+                  if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+                      value = value[1:-1]
+                  os.environ[key.strip()] = value
+          
+          load_env('/etc/gravitas/backend.env')
+          load_env('/etc/gravitas/openedx.env')
+          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+          os.environ['PYTHONPATH'] = '/opt/gravitas-backend'
+          import sys
+          sys.path.insert(0, '/opt/gravitas-backend')
+          import django
+          django.setup()
+          from core import openedx_bridge
+          state = openedx_bridge.health()
+          safe = {k: bool(state.get(k)) for k in ('configured', 'reachable', 'oauth')}
+          print('Gravitas/Open edX bridge:', safe)
+          assert all(safe.values()), state
+          # Also hit an authenticated collection endpoint. An empty list is valid.
+          openedx_bridge.enrollment_rows()
+          print('Authenticated enrollment API: healthy')
+          PY
+
+          if $SUDO test -f "/etc/letsencrypt/live/$LMS_HOST/fullchain.pem"; then
+            curl -fsS "https://$LMS_HOST/heartbeat" >/dev/null
+            echo "Public LMS HTTPS heartbeat is healthy."
+          else
+            echo "LMS certificate is missing after Certbot." >&2
+            exit 1
+          fi
+
+          if getent ahostsv4 "$MFE_HOST" >/dev/null 2>&1; then
+            curl -fsS "https://$MFE_HOST/catalog/" >/dev/null
+            echo "Public Open edX MFE catalog is healthy."
+          else
+            echo "Public MFE blocked only by DNS: create $MFE_HOST pointing to the Gravitas production server." >&2
+            exit 2
+          fi
+          REMOTE

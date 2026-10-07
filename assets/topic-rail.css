@@ -1,0 +1,338 @@
+/* Topic rail — the horizontal pass through the current Topic ---------------
+ *
+ * The landing page used to introduce the current Topic with a single split:
+ * a poster on the left, a paragraph and two buttons on the right. It told you
+ * the Topic existed. It gave no evidence that anything stood behind it, so the
+ * only way to find out was to leave the page.
+ *
+ * This is that card opened out into four panels — the Topic, what it looks
+ * like, the two readings, the argument already running in the comments. The
+ * section pins for the length of the rail and releases at the end, so vertical
+ * scrolling resumes where the page would otherwise have continued.
+ *
+ * THE ONE RULE THAT MAKES THIS WORK: every panel is exactly --panel-h tall.
+ *
+ * A rail whose panels size to their own content is a rail where every panel is
+ * as tall as the worst one. The first build proved it twice: the video panel
+ * carried 400px of content inside a 630px box because the gallery panel needed
+ * 630, and on a phone every panel became 1275px tall because the four pictures
+ * stacked into one column. Both are the same bug. So the panel height is
+ * declared, the content is designed to fit it, and anything that would not fit
+ * is clamped rather than allowed to push — captions lose their sentence, long
+ * quotes lose their tail, the third comment steps out. This is a trailer for
+ * the Topic page, not a copy of it; every panel carries a link to the full
+ * thing.
+ *
+ * Inside that height, one composition, four times: a left column with the
+ * number, the heading, one line of framing and the buttons on the floor, then
+ * a hairline, then the body carrying the one thing the panel is about — the
+ * video, the pictures, the two positions, the comments. Four kinds of content
+ * read as one sequence because the frame never moves.
+ *
+ * One mode, and it is the honest one: a real overflow-x scroller with snap
+ * points, which is what the markup renders as before any script runs. There
+ * used to be a second, pinned mode that held the section under the header and
+ * drove the rail sideways from vertical scroll; it made everything below the
+ * section reachable only by paging through the rail, so it is gone.
+ * assets/topic-rail.js now only pages the scroller — sideways under the
+ * pointer, on a timer when nobody is pointing at it — and never takes the
+ * page's own scrolling away.
+ *
+ * .video, .view and .comment come from site.css. The rail owns layout, not
+ * appearance — that is why this file is mostly grid.
+ */
+
+.trail {
+  --rail-gap: var(--g-space-md);
+  --rail-p: 0;
+  /* Phones first: tall enough to hold a panel, short enough to sit inside the
+     viewport with the section head above it. */
+  --panel-h: clamp(23rem, 68svh, 30rem);
+}
+@media (min-width: 900px) {
+  .trail {
+    --panel-h: clamp(22rem, calc(100svh - var(--g-header-h, 4.5rem) - 14rem), 35rem);
+  }
+}
+
+/* The section head lives INSIDE the stage, with the bar and the rail, because
+   the three are one composition: the heading names the Topic, the bar says
+   which of its four panels you are on, and the rail moves under both. The
+   pinned build needed them grouped so they could be centred under the header
+   together; that reason is gone, but the grouping is still the right one and
+   the stage is now what the pointer- and timer-driven paging treats as "the
+   section" — hovering anywhere in it pauses the slideshow. */
+.trail .lp-head { margin-bottom: var(--g-space-md); }
+.trail__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--g-space-sm);
+}
+
+/* Stage bar: what you are looking at, and how far through it you are. It sits
+   above the rail and outside the scroller, so it stays put while the rail
+   moves — under the pointer, under the dots, or on its own timer. */
+.trail__bar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--g-space-sm);
+  flex-wrap: wrap;
+}
+.trail__now {
+  font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle);
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trail__now b { color: var(--g-text); font-weight: var(--g-w-semibold); }
+.trail__dots {
+  display: flex;
+  align-items: center;
+  gap: var(--g-space-3xs);
+  margin-left: auto;
+}
+.trail__dot {
+  width: 1.5rem; height: 1.5rem;
+  display: grid; place-items: center;
+  padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--g-text-subtle);
+}
+.trail__dot::before {
+  content: "";
+  width: .4rem; height: .4rem; border-radius: 50%;
+  background: currentColor; opacity: .4;
+  transition: transform var(--g-dur) var(--g-ease-orbit), opacity var(--g-dur) var(--g-ease-orbit);
+}
+.trail__dot:hover::before { opacity: .8; }
+.trail__dot[aria-current="true"] { color: var(--g-accent); }
+.trail__dot[aria-current="true"]::before { opacity: 1; transform: scale(1.9); }
+.trail__count {
+  font-family: var(--g-font-mono);
+  font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The rail. In native mode this is the scroller itself. */
+.trail__rail {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rail-gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--g-space-2xs);
+  padding-bottom: var(--g-space-2xs);
+  -webkit-overflow-scrolling: touch;
+  /* The rail used to show a thin native scrollbar, which was the only progress
+     indicator it had outside pinned mode. Now that the progress line under the
+     rail is always on, the scrollbar is a second bar saying the same thing one
+     pixel row away from it — so it goes, the way .topic-nav__row and
+     .fields__ticker already hide theirs. The line, the dots and the count say
+     where you are; the wheel, a drag and a swipe all still move the rail. */
+  scrollbar-width: none;
+}
+.trail__rail::-webkit-scrollbar { width: 0; height: 0; }
+/* While topic-rail.js pages the rail, snapping is off so Firefox cannot
+   re-aim a smooth scroll mid-flight; the target is a snap point anyway. */
+.trail__rail.is-paging { scroll-snap-type: none; }
+
+.trail__panel {
+  flex: 0 0 auto;
+  width: min(88vw, 21rem);
+  height: var(--panel-h);
+  scroll-snap-align: start;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--g-space-sm);
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--g-radius-lg);
+  background: var(--g-surface);
+  padding: var(--g-space-md);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.trail__side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: var(--g-space-sm);
+  border-bottom: 1px solid var(--g-hairline);
+}
+.trail__n {
+  font-family: var(--g-font-mono);
+  font-size: var(--g-fs-caption);
+  letter-spacing: .12em;
+  color: var(--g-accent);
+  margin: 0 0 var(--g-space-2xs);
+}
+.trail__side h3 {
+  font-size: var(--g-fs-h4, 1.15rem);
+  line-height: 1.2;
+  letter-spacing: -.01em;
+  margin: 0;
+  text-wrap: balance;
+}
+.trail__say {
+  font-size: var(--g-fs-small);
+  color: var(--g-text-muted);
+  margin: var(--g-space-2xs) 0 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.trail__meta {
+  font-family: var(--g-font-mono);
+  font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle);
+  margin: var(--g-space-2xs) 0 0;
+}
+/* The buttons sit on the panel's floor, so the CTA is in the same place in
+   every panel and the reader stops hunting for it. */
+/* On a phone the two actions sat on two lines and ate 50px of a panel that
+   is height-budgeted to the pixel. auto-fit rather than a fixed pair of
+   columns: panel 02 carries a single long button and needs the whole width. */
+.trail__act {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: var(--g-space-2xs);
+  margin-top: auto;
+  padding-top: var(--g-space-sm);
+}
+.trail__act .g-btn { width: 100%; justify-content: center; text-align: center; padding-inline: var(--g-space-xs); }
+.trail__body { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: var(--g-space-2xs); }
+
+/* 01 — the poster keeps 16:9. Letting it stretch to the panel height was
+   the wrong fix for the dead space the first build had: a video frame is a
+   known shape and a reader recognises it, so the frame holds its ratio and
+   the leftover height goes to the margins instead, which centres it.
+   Whatever height is left over is the panel breathing, not a gap. */
+.trail__body > .video { width: 100%; aspect-ratio: 16 / 9; height: auto; flex: 0 0 auto; margin-block: auto; }
+
+/* 02 — the pictures. A fraction of the body each, so the mosaic tracks the
+   panel height instead of dictating it. */
+.trail__gal { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: var(--g-space-xs); }
+.trail__fig { margin: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--g-space-3xs); min-width: 0; min-height: 0; }
+.trail__fig img {
+  display: block; width: 100%; height: 100%; object-fit: cover;
+  border-radius: var(--g-radius-sm);
+  border: 1px solid var(--g-hairline);
+  background: var(--g-surface-sunken);
+}
+.trail__fig--face img { object-position: center 20%; }
+.trail__fig--wide img { object-position: 62% 50%; }
+/* A 250×180 cellular automaton upscaled: keep the cells square rather than
+   letting the browser smear them into grey, and let it crop instead of
+   letterboxing itself against a ground that is not its own white. */
+.trail__fig--pixel img { image-rendering: pixelated; background: #fff; object-position: 28% 22%; }
+.trail__fig figcaption { font-size: var(--g-fs-caption); line-height: 1.3; color: var(--g-text-muted); }
+.trail__fig figcaption b { display: block; color: var(--g-text); font-weight: var(--g-w-semibold); }
+.trail__fig figcaption span { display: none; }
+.trail__credit { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0; display: none; }
+.trail__credit a { color: inherit; }
+
+/* 03 — the two readings. */
+/* grid-auto-rows: 1fr forced both cards to an equal share of whatever height
+   was left, and on a phone that share was smaller than a card needs. Flex
+   children then squashed below their own line boxes and the tag came out
+   sliced through the middle. So on the narrow layout the cards size to their
+   content, the children refuse to shrink, and the attribution — the one part
+   a reader does not need in a teaser — steps out instead. */
+.trail__views { flex: 1; min-height: 0; display: grid; grid-auto-rows: auto; align-content: start; gap: var(--g-space-xs); }
+.trail__views .view { display: flex; flex-direction: column; gap: var(--g-space-3xs); padding: var(--g-space-sm); overflow: hidden; }
+.trail__views .view > * { flex: 0 0 auto; }
+.trail__views .view cite { display: none; }
+/* -webkit-line-clamp caps the paragraph, but the card can still be shorter
+   than tag + clamp + cite on a small phone. margin-top:auto on the cite was
+   the bug in that case: a flex box that overflows with an auto margin
+   distributes the overflow to BOTH ends, so the card lost the top of its own
+   tag. The cite is pinned to the floor only where there is a floor to pin it
+   to — the two-column desktop layout, where both cards share a row. */
+.trail__views .view p {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.trail__views .view cite { margin-top: 0; }
+
+/* 04 — the discussion. These are the comments already published on the Topic
+   page; nothing here invents a count or a timestamp. */
+.trail__talk { justify-content: flex-start; gap: 0; }
+.trail__talk .comment { padding-block: var(--g-space-2xs); }
+.trail__talk .comment:first-child { padding-top: 0; }
+.trail__talk .comment p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+/* Two voices and a disagreement is a thread; three is a transcript, and the
+   transcript lives on the Topic page. */
+.trail__talk .comment:nth-child(2) { border-bottom: 0; }
+.trail__talk .comment:nth-child(n + 3) { display: none; }
+
+/* Wider — the two-column composition, and the content the phone could not
+   hold: caption sentences, the picture credit, the third comment. */
+@media (min-width: 900px) {
+  .trail__panel {
+    width: min(92vw, 62rem);
+    grid-template-rows: none;
+    grid-template-columns: 17rem minmax(0, 1fr);
+    gap: var(--g-space-lg);
+    padding: var(--g-space-lg);
+  }
+  .trail__side {
+    padding-bottom: 0;
+    padding-right: var(--g-space-lg);
+    border-bottom: 0;
+    border-right: 1px solid var(--g-hairline);
+  }
+  .trail__side h3 { font-size: var(--g-fs-h3); }
+  .trail__say { -webkit-line-clamp: 5; }
+  .trail__act { padding-top: var(--g-space-md); }
+  .trail__gal { gap: var(--g-space-sm) var(--g-space-md); }
+  .trail__fig figcaption span { display: inline; }
+  .trail__credit { display: block; }
+  .trail__views { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; gap: var(--g-space-md); }
+  .trail__views .view cite { display: block; }
+  .trail__views .view { padding: var(--g-space-md); }
+  .trail__views .view p { -webkit-line-clamp: 5; }
+  .trail__views .view cite { margin-top: auto; }
+  .trail__act { grid-template-columns: none; display: flex; flex-wrap: wrap; }
+  .trail__act .g-btn { width: auto; padding-inline: var(--g-space-md); }
+  .trail__talk { justify-content: center; }
+  .trail__talk .comment { padding-block: var(--g-space-sm); }
+  .trail__talk .comment:nth-child(2) { border-bottom: 1px solid var(--g-hairline); }
+  .trail__talk .comment:nth-child(n + 3) { display: grid; }
+  .trail__talk .comment:last-child { border-bottom: 0; padding-bottom: 0; }
+  .trail__talk .comment p { -webkit-line-clamp: 4; }
+}
+
+/* The bar's progress line ------------------------------------------------
+   It used to appear only in pinned mode, because only there did the section
+   have a progress to report. Now that the rail pages under the pointer and on
+   its own timer, it is the one element that says "there is more to the right"
+   without asking the reader to have already found the dots, so it is always
+   on. topic-rail.js keeps --rail-p in step with the rail's own scrollLeft,
+   including after a swipe that never went through the script. */
+.trail__line { display: block; height: 2px; background: var(--g-hairline); border-radius: 2px; overflow: hidden; }
+.trail__line span {
+  display: block; height: 100%; width: 100%;
+  background: var(--g-accent);
+  transform: scaleX(var(--rail-p)); transform-origin: left center;
+  transition: transform var(--g-dur) var(--g-ease-orbit);
+}
+
+.trail__hint { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .trail__dot::before { transition: none; }
+}

@@ -1,0 +1,26 @@
+.g-math {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  max-width: 100%;
+}
+.g-math--display {
+  display: flex;
+  overflow-x: auto;
+  padding: .55rem 0;
+}
+.g-math__render { min-width: 0; }
+.g-math__copy {
+  border: 1px solid var(--g-line, rgba(127,127,127,.35));
+  background: transparent;
+  color: var(--g-text-muted, inherit);
+  border-radius: 5px;
+  font: inherit;
+  font-size: .68rem;
+  line-height: 1;
+  padding: .2rem .35rem;
+  cursor: pointer;
+  opacity: .55;
+}
+.g-math:hover > .g-math__copy,
+.g-math__copy:focus-visible { opacity: 1; }

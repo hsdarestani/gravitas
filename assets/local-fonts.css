@@ -1,0 +1,63 @@
+/* Self-hosted copies of the exact Google Fonts families used by the Gravitas+ design. */
+@font-face {
+  font-family: 'DM Sans';
+  src: url('fonts/DMSans.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: url('fonts/DMSans-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 1000;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Mono';
+  src: url('fonts/DMMono-Light.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Mono';
+  src: url('fonts/DMMono-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Mono';
+  src: url('fonts/DMMono-Medium.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+/* Production parity: the public Kiarash GitHub Pages build visibly renders
+   3px circular separators between the three homepage facts. Keep this tiny
+   fallback isolated to that row so no other hero geometry is changed. */
+.lp-hero__credit {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: .35rem .8rem !important;
+}
+.lp-hero__credit > span {
+  display: inline-flex !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+  gap: .25em !important;
+}
+.lp-hero__credit > span + span::before {
+  content: "" !important;
+  display: block !important;
+  width: 3px !important;
+  height: 3px !important;
+  min-width: 3px !important;
+  border-radius: 50% !important;
+  flex: none !important;
+  background: rgb(212 201 190 / .55) !important;
+  margin-right: calc(.8rem - .25em) !important;
+}

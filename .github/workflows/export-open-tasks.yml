@@ -1,0 +1,88 @@
+name: Export Open Tasks
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DEPLOY_HOST }}" || { echo "Missing DEPLOY_HOST"; exit 1; }
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo "Missing DEPLOY_SSH_KEY"; exit 1; }
+          USER="${{ secrets.DEPLOY_USER }}"
+          PORT="${{ secrets.DEPLOY_PORT }}"
+          [ -n "$USER" ] || USER="deploy"
+          [ -n "$PORT" ] || PORT="22"
+          echo "CONFIGURED_USER=$USER" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          if ssh "${SSH_OPTS[@]}" "$CONFIGURED_USER@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="$CONFIGURED_USER"
+          elif [ "$CONFIGURED_USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@$HOST" true 2>/dev/null; then
+            EFFECTIVE_USER="root"
+          else
+            echo "SSH authentication failed."
+            exit 1
+          fi
+          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+
+      - name: Export production open tasks
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" 'bash -s' > open-tasks.json <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH=/opt/gravitas-backend
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{print $2}' /etc/gravitas/backend.env)"
+          cd "$BACKEND_PATH"
+          sudo -u gravitas env \
+            DJANGO_SECRET_KEY="$SECRET" \
+            DJANGO_DEBUG=0 \
+            DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            PYTHONPATH="$BACKEND_PATH" \
+            "$BACKEND_PATH/.venv/bin/django-admin" export_open_tasks
+          REMOTE
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('open-tasks.json')
+          payload = json.loads(path.read_text(encoding='utf-8'))
+          if not isinstance(payload.get('tasks'), list):
+              raise SystemExit('Invalid task export')
+          print(f"Exported {payload.get('count', len(payload['tasks']))} open tasks")
+          PY
+
+      - name: Upload task export
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-tasks-production
+          path: open-tasks.json
+          if-no-files-found: error
+          retention-days: 7

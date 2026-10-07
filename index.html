@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Theme, resolved before first paint. See assets/site.js?v=20260918-auth2"dark unless your OS says otherwise":
+   this is a night sky, and a visitor who has never touched the control should
+   see the same site every time rather than one that depends on a setting they
+   made for some other app. Only an explicit choice, stored here, overrides it. */
+(function(){try{var s=localStorage.getItem('gravitas:theme');
+document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
+}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
+</script>
+<title>Gravitas+ · Science, AI and the gravity of underlying questions</title>
+<meta name="description" content="Gravitas+ is a media project, interactive lab and community at the intersection of science, AI and society, for people who always have questions and look for their answers.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="mask-icon" href="assets/monogram.svg" color="#003049">
+<meta name="theme-color" content="#00263a">
+<link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09">
+<link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
+<link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-well1">
+<link rel="stylesheet" href="assets/hero.css?v=20261002-fabric1">
+<link rel="stylesheet" href="assets/topic-rail.css?v=up-f706806e3a02-g1df6ff09-tr6">
+<link rel="stylesheet" href="assets/chat.css?v=20260924-pulsar7">
+<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
+</head>
+<body class="is-overview">
+<a class="g-skip-link" href="#main">Skip to content</a>
+<header class="g-header">
+  <div class="g-container g-header__inner">
+    <a class="g-logo" href="index.html" aria-label="Gravitas+ home"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></a>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg>Topics</a><a class="g-nav__link" href="magazine.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.971 3.385) scale(1.17763)" stroke-width="1.444"><path d="M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5"/><path d="M8.35,2.33v9.24"/><path d="M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41"/><path d="M10.38,5.74h3.1"/><path d="M10.38,8.74h2.2"/><circle cx="4.85" cy="7.24" r="1.316" fill="currentColor" stroke="none"/></g></svg>Magazine</a><a class="g-nav__link" href="lab.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg>Lab</a><a class="g-nav__link" href="learn.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg>Learn</a><a class="g-nav__link" href="community.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg>Community</a><span class="g-nav__sep" aria-hidden="true"></span><a class="g-nav__link gh-nav-signin" href="account.html#in"><svg class="g-ic g-nav__ic g-ic--signin" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg>Sign in</a><a class="g-btn g-btn--primary g-btn--sm g-btn--lead gh-nav-join" href="community.html#join"><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg><span>Join Us</span></a></nav>
+    <div class="gh-actions">
+      <a class="g-btn g-btn--ghost g-btn--sm g-btn--lead gh-signin" href="account.html#in"><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg><span>Sign in</span></a>
+      <!-- The header CTA is the site's single loudest control, and it used to
+           point at a mailing list. The community is the thing this project is
+           actually for, so it gets the slot. -->
+      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="community.html#join" aria-label="Join the Gravitas+ community">
+        <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg>
+        <span>Join Us</span>
+      </a>
+      <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme">
+        <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><!-- The crescent sits centred by bounding box but not by mass: its area centroid measures (9.97, 14.03) against a 12,12 viewBox centre, which is why it read as low and left inside a circular button. Shifted part of the way back: correcting the full 2.03 would push the upper tip out of the box, so this splits the difference between the two centres, which is what optical centring is. --><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
+      </button>
+      <button class="lp-menu-btn" aria-label="Menu" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<main id="main">
+
+<section class="g-hero lp-hero" id="top">
+  <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
+  <div class="g-starfield" aria-hidden="true"></div>
+  <div class="lp-stars" id="lp-stars" aria-hidden="true"></div>
+  <canvas class="lp-meteors" id="lp-meteors" aria-hidden="true"></canvas>
+  <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
+  <div class="g-container g-hero__inner" style="width:100%">
+    <div class="lp-hero__grid">
+      <!-- The column is the container the headline is measured against, not the
+           viewport. See hero.css: sizing display type off vw when it wraps
+           inside a column is what produced one word per line. -->
+      <div class="lp-hero__col">
+        <p class="g-eyebrow">Every Field &middot; One Set of Questions</p>
+        <h1 class="g-display lp-hero__title">Science, AI and the <em>Gravity</em> of Underlying Questions.</h1>
+        <!-- The lede is split rather than shortened. It is three sentences of
+             real information; run together at one size it read as a wall, and
+             the eye bounced off it. Sentence one carries the promise at lead
+             size, the rest drops a step and gets out of the way. -->
+        <p class="g-lead lp-hero__lede">Gravitas+ is for people who always have questions and look for their answers.</p>
+        <p class="lp-hero__sub">Explore how science really works, how it shapes the world around us, and how AI
+          and machine learning are transforming scientific research and education. Watch the video. Then take
+          it apart.</p>
+        <div class="g-cluster g-mt-lg">
+          <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="topics.html">
+            <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            Explore Topics</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="lab.html">Try Lab</a>
+        </div>
+      </div>
+      <div class="lp-orbit">
+        <div class="lp-orbit__stage">
+          <canvas id="lp-3body" role="img"
+            aria-label="Animated two-body gravitational orbit; moving the pointer near it, or dragging on it, adds a third mass and disrupts the orbit"></canvas>
+          <!-- Touch play area. Only this patch swallows the gesture (touch-action:none),
+               so a drag here perturbs the orbit instead of scrolling the page, while the
+               rest of the hero still scrolls normally. -->
+          <div class="lp-orbit__hit" id="lp-orbit-hit" aria-hidden="true"></div>
+        </div>
+        <p class="lp-orbit__cap"><span id="lp-orbit-name">Two-body orbit</span>: <span id="lp-orbit-sub">closed, periodic, exactly solvable</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Fields band ----------------------------------------------------------
+     The site had a physics problem: nothing in it said "only physics", but
+     every worked example came from one, and a visitor from immunology or
+     economics reads that in about four seconds. Naming the fields costs one
+     line and settles the question before the first scroll. -->
+<section class="fields" aria-label="Fields covered">
+  <div class="g-container fields__in">
+    <p class="fields__lab">Questions every field shares</p>
+    <!-- A ticker needs a copy of its content to loop against: both tracks slide
+         left by exactly their own width, so at the end of a cycle copy 2 is
+         standing where copy 1 began and the restart is invisible. The third is
+         insurance for wide viewports, where two copies can be narrower than the
+         rail they run in and a gap would open. Only the first is read aloud. -->
+    <div class="fields__ticker">
+      <ul class="fields__list"><li>Modeling</li><li>Biotech</li><li>Simulation</li><li>Computation</li><li>Informatics</li><li>Genomics</li><li>Robotics</li><li>Data Science</li><li>Neurotech</li><li>Bioinformatics</li></ul>
+      <ul class="fields__list" aria-hidden="true"><li>Modeling</li><li>Biotech</li><li>Simulation</li><li>Computation</li><li>Informatics</li><li>Genomics</li><li>Robotics</li><li>Data Science</li><li>Neurotech</li><li>Bioinformatics</li></ul>
+      <ul class="fields__list" aria-hidden="true"><li>Modeling</li><li>Biotech</li><li>Simulation</li><li>Computation</li><li>Informatics</li><li>Genomics</li><li>Robotics</li><li>Data Science</li><li>Neurotech</li><li>Bioinformatics</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- The current Topic, read across ----------------------------------------
+     This slot used to be one card: a poster, a paragraph, two buttons. It
+     announced that a Topic existed and gave no evidence that anything stood
+     behind it, so the only way to find out was to leave the page.
+
+     It is now a four-panel horizontal pass through the Topic itself. With the
+     pointer over the rail a wheel gesture pages it sideways; with the pointer
+     anywhere else the page scrolls down as usual, and while nobody is pointing
+     at it the rail pages itself on a timer so the reader can see there is more
+     than one panel. It used to pin under the header and take the page's own
+     scrolling for four screens; it does not any more. Layout and behaviour are
+     in assets/topic-rail.css and assets/topic-rail.js; .video, .view and
+     .comment come from site.css so the rail looks like the rest of the site
+     rather than a widget dropped into it.
+
+     Without JavaScript, on a phone, or with prefers-reduced-motion, this is a
+     plain horizontal scroller with snap points and no timer. Nothing below
+     depends on the script running. -->
+<section class="g-section trail" id="current-topic" data-rail="native"><div class="g-container">
+  <div class="trail__track">
+    <div class="trail__stage">
+      <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
+        <p class="g-eyebrow">Start Here</p><h2>The Current Topic</h2></div>
+        <a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+      <div class="trail__bar">
+        <p class="trail__now"><b>Is the universe computable?</b> &middot; <span data-rail-label>The question</span></p>
+        <div class="trail__dots" role="group" aria-label="Jump within this topic">
+          <button class="trail__dot" type="button" aria-current="true" aria-label="The question"></button>
+          <button class="trail__dot" type="button" aria-current="false" aria-label="What it looks like"></button>
+          <button class="trail__dot" type="button" aria-current="false" aria-label="Two readings"></button>
+          <button class="trail__dot" type="button" aria-current="false" aria-label="The discussion"></button>
+        </div>
+        <span class="trail__count g-nums" data-rail-count>01 / 04</span>
+      </div>
+
+      <div class="trail__rail" tabindex="0" role="region" aria-label="Current topic, scrolled sideways">
+
+        <article class="trail__panel" data-rail-title="The question">
+          <div class="trail__side">
+            <p class="trail__n">01 &middot; THE QUESTION</p>
+            <h3>Is the universe computable?</h3>
+            <p class="trail__say">If the world runs on rules, something ought to be able to run them.
+              G&ouml;del, chaos and thermodynamics all disagree about how far that goes.</p>
+            <p class="trail__meta">18 min essay &middot; 4 min summary</p>
+            <div class="trail__act">
+              <a class="g-btn g-btn--primary" href="topic-computable-universe.html">Read the essay</a>
+              <a class="g-btn g-btn--secondary" href="game-hypothesis-machine.html">Play the Game</a>
+            </div>
+          </div>
+          <div class="trail__body">
+            <a class="video" href="topic-computable-universe.html" aria-label="Watch: Is the universe computable?">
+              <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+            </a>
+          </div>
+        </article>
+
+        <article class="trail__panel" data-rail-title="What it looks like">
+          <div class="trail__side">
+            <p class="trail__n">02 &middot; THE PICTURES</p>
+            <h3>Four pictures it keeps returning to</h3>
+            <p class="trail__say">A proof, a trajectory, a machine made of four rules, and the room where
+              &ldquo;in principle&rdquo; first started costing electricity.</p>
+            <div class="trail__act">
+              <a class="g-btn g-btn--secondary g-btn--sm" href="topic-computable-universe.html#timeline">How the question developed</a>
+            </div>
+          </div>
+          <div class="trail__body">
+            <div class="trail__gal">
+              <figure class="trail__fig trail__fig--face">
+                <img src="assets/img/topic-04/turing.jpg" alt="Passport photograph of Alan Turing at sixteen" width="675" height="919" loading="lazy" decoding="async">
+                <figcaption><b>Turing, 1936</b><span>Defines what a machine can compute, and proves some questions it cannot settle.</span></figcaption>
+              </figure>
+              <figure class="trail__fig">
+                <img src="assets/img/topic-04/lorenz.svg" alt="A Lorenz attractor: one trajectory looping through two lobes" width="600" height="600" loading="lazy" decoding="async">
+                <figcaption><b>The attractor</b><span>Deterministic and still unpredictable. Integrated here from Lorenz&rsquo;s 1963 equations.</span></figcaption>
+              </figure>
+              <figure class="trail__fig trail__fig--pixel">
+                <img src="assets/img/topic-04/glider-gun.gif" alt="Gosper&rsquo;s glider gun in Conway&rsquo;s Game of Life, emitting gliders" width="250" height="180" loading="lazy" decoding="async">
+                <figcaption><b>A glider gun</b><span>Game of Life is Turing complete. A universe of four rules already computes.</span></figcaption>
+              </figure>
+              <figure class="trail__fig trail__fig--wide">
+                <img src="assets/img/topic-04/eniac.jpg" alt="Two operators working at the ENIAC computer" width="960" height="723" loading="lazy" decoding="async">
+                <figcaption><b>ENIAC, 1946</b><span>Where computability stopped being a proof and started being a power bill.</span></figcaption>
+              </figure>
+            </div>
+            <p class="trail__credit">Turing: public domain. Glider gun (Lucas Vieira) and ENIAC:
+              <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>, CC BY-SA 3.0.
+              The attractor is computed for this page.</p>
+          </div>
+        </article>
+
+        <article class="trail__panel" data-rail-title="Two readings">
+          <div class="trail__side">
+            <p class="trail__n">03 &middot; VIEWPOINTS</p>
+            <h3>Two readings, both defensible</h3>
+            <p class="trail__say">We publish the strongest case against our own reading. If the
+              counter-argument is weak here, that is our failure.</p>
+            <div class="trail__act">
+              <a class="g-btn g-btn--secondary g-btn--sm" href="topic-computable-universe.html#views">Where do you land?</a>
+            </div>
+          </div>
+          <div class="trail__body">
+            <div class="trail__views">
+              <div class="view view--for"><p class="view__tag">For computability</p>
+                <p>Every physical process we have examined turns out to be simulable given enough resources.
+                  &ldquo;Enough resources&rdquo; is an engineering complaint, not a metaphysical one.</p>
+                <cite>The position the video leans toward</cite></div>
+              <div class="view view--against"><p class="view__tag">Against</p>
+                <p>Undecidability is not a resource complaint: no amount of compute settles it. And treating
+                  the universe as executing a computation smuggles in a substrate and a clock no physics requires.</p>
+                <cite>The strongest objection we could find</cite></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="trail__panel" data-rail-title="The discussion">
+          <div class="trail__side">
+            <p class="trail__n">04 &middot; DISCUSSION</p>
+            <h3>The argument is already running</h3>
+            <p class="trail__say">This week: if a model predicts a material&rsquo;s behaviour correctly but
+              no one can say why, has physics been done?</p>
+            <div class="trail__act">
+              <a class="g-btn g-btn--primary" href="topic-computable-universe.html#talk">Read the thread</a>
+              <a class="g-btn g-btn--secondary" href="community.html#join">Join Us</a>
+            </div>
+          </div>
+          <div class="trail__body trail__talk">
+            <div class="callout">
+              <p class="g-eyebrow">Discussion</p>
+              <h4>Join the discussion</h4>
+              <p>Published comments live on the Topic page. Sign in there to comment, reply or like.</p>
+              <p><a class="g-btn g-btn--secondary g-btn--sm" href="/topic.html?slug=computable-universe#talk">Open discussion</a></p>
+            </div>
+          </div>
+        </article>
+
+      </div>
+
+      <div class="trail__line" aria-hidden="true"><span></span></div>
+      <p class="trail__hint">Scroll over the rail to page sideways, or use the dots.</p>
+    </div>
+  </div>
+</div></section>
+
+<section class="g-section g-section--deep lp-gridded"><div class="g-container">
+  <div class="g-section-head rv" style="max-width:44rem">
+    <p class="g-eyebrow">How the Site Works</p>
+    <h2>Six Ways In</h2></div>
+  <div class="spaces rv"><a class="space" href="topics.html">
+      <span class="space__top"><span class="g-ic-plate space__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg></span><span class="space__n">01</span></span>
+      <h3>Topics</h3><p>One question, worked from every angle.</p>
+      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="community.html">
+      <span class="space__top"><span class="g-ic-plate space__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg></span><span class="space__n">02</span></span>
+      <h3>Community</h3><p>Six roles, weekly experiments, and the vote on what we make next.</p>
+      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="lab.html">
+      <span class="space__top"><span class="g-ic-plate space__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg></span><span class="space__n">03</span></span>
+      <h3>Interactive Lab</h3><p>Do science rather than watch it.</p>
+      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="magazine.html">
+      <span class="space__top"><span class="g-ic-plate space__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.971 3.385) scale(1.17763)" stroke-width="1.444"><path d="M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5"/><path d="M8.35,2.33v9.24"/><path d="M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41"/><path d="M10.38,5.74h3.1"/><path d="M10.38,8.74h2.2"/><circle cx="4.85" cy="7.24" r="1.316" fill="currentColor" stroke="none"/></g></svg></span><span class="space__n">04</span></span>
+      <h3>Magazine</h3><p>Writing that stands on its own.</p>
+      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="learn.html">
+      <span class="space__top"><span class="g-ic-plate space__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg></span><span class="space__n">05</span></span>
+      <h3>Learning Paths</h3><p>The archive, put in order.</p>
+      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a class="space" href="newsletter.html">
+      <span class="space__top"><span class="g-ic-plate space__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg></span><span class="space__n">06</span></span>
+      <h3>Newsletter</h3><p>One edited email a week.</p>
+      <span class="space__go">Enter <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a></div></div></section>
+
+<section class="g-section" id="make"><div class="g-container">
+  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
+      <p class="g-eyebrow">On the Channel</p><h2>What We Make</h2></div></div>
+  <div class="programs rv"><article class="program"><p class="program__n">01</p>
+      <h3>One Idea, One World</h3><p>A single concept, 8–20 minutes.</p><p class="program__cad">Long form</p></article><article class="program"><p class="program__n">02</p>
+      <h3>Science in the Making</h3><p>New work, and how much of it is signal.</p><p class="program__cad">Weekly</p></article><article class="program"><p class="program__n">03</p>
+      <h3>Up Close</h3><p>Researchers on doubt, tedium and failure.</p><p class="program__cad">Monthly</p></article><article class="program"><p class="program__n">04</p>
+      <h3>Gravitas+ Lab</h3><p>AI, data and simulation on one real problem.</p><p class="program__cad">Fortnightly</p></article><article class="program"><p class="program__n">05</p>
+      <h3>The Gravitas+ Table</h3><p>Several people, no one-line answer.</p><p class="program__cad">Monthly</p></article></div></div></section>
+
+<section class="g-section g-section--deep lp-gridded lp-gridded--left"><div class="g-container">
+  <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
+      <p class="g-eyebrow">Latest</p><h2>Across Everything</h2></div><a class="lp-head__link" href="magazine.html">Browse the archive <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+  <div class="rv">
+    <a class="entry" href="magazine.html"><span class="entry__type">Essay</span><div>
+      <h3>Can a model produce a hypothesis, or only a sentence that looks like one?</h3>
+      <div class="entry__meta"><span>14 min read</span><span>AI in research</span><span>4 days ago</span></div></div></a>
+    <a class="entry" href="lab.html"><span class="entry__type">Game</span><div>
+      <h3>Signal or hype?</h3>
+      <div class="entry__meta"><span>6 min</span><span>Media literacy</span><span>1 week ago</span></div></div></a>
+    <a class="entry" href="topic-computable-universe.html"><span class="entry__type">Topic</span><div>
+      <h3>Is the universe computable?</h3>
+      <div class="entry__meta"><span>Topic 04</span><span>Computation</span><span>2 weeks ago</span></div></div></a>
+    <a class="entry" href="learn.html"><span class="entry__type">Path</span><div>
+      <h3>AI in research, from scratch</h3>
+      <div class="entry__meta"><span>8 steps</span><span>~6 hours</span><span>Updated monthly</span></div></div></a>
+  </div></div></section>
+
+<!-- Join band -------------------------------------------------------------
+     This slot used to be a newsletter signup, and the community lived five
+     scrolls up as card 05 of six. That had the architecture backwards: the
+     mailing list is a way to keep in touch, the community is the thing being
+     built. So the loudest block on the page is now the door into it, and the
+     newsletter rides along as the quieter second option. -->
+<section class="g-section"><div class="g-container">
+  <div class="join rv">
+    <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
+    <div class="join__in">
+      <p class="g-eyebrow" style="justify-content:center">Free, and It Stays Free</p>
+      <h2 class="join__h">Come and argue with us</h2>
+      <p class="join__lede">Whatever you study, the questions are the same ones.</p>
+      <div class="join__roles">
+        <span class="join__role">Reader</span><span class="join__role">Researcher</span>
+        <span class="join__role">Translator</span><span class="join__role">Critic</span>
+        <span class="join__role">Builder</span><span class="join__role">Host</span>
+      </div>
+      <div class="join__act">
+        <a class="g-btn g-btn--primary g-btn--lg" href="community.html#join">Join Us</a>
+        <a class="g-btn g-btn--secondary g-btn--lg" href="newsletter.html">Or Just the Newsletter</a>
+      </div>
+      <p class="join__fine"><span class="g-nums">4,100</span> members &middot; They propose the next Topic and vote on it</p>
+    </div>
+  </div></div></section>
+
+</main>
+<footer class="g-footer">
+  <div class="g-container">
+    <div class="g-footer__grid">
+      <div>
+        <div style="width:9rem"><svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630.63 118.24" fill="currentColor">
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <path d="M106.06,49.06h-46.96v20.16h27.29c.65,7.22,2.02,14.31,4.03,21.24-20.24-5.97-42.41-5.97-62.6,0,2.94-10.12,4.47-20.68,4.47-31.32s-1.53-21.2-4.47-31.32c10.12,2.98,20.64,4.51,31.28,4.51,19.55,0,38.7-5.16,55.47-14.88L104.45.04c-13.71,7.94-29.39,12.13-45.35,12.13S27.49,7.98,13.79,0L0,13.79c7.94,13.71,12.13,29.39,12.13,45.35S7.94,90.78,0,104.45l13.79,13.79c13.67-7.94,29.35-12.13,45.31-12.13s31.6,4.19,45.35,12.13l13.79-13.79c-7.98-13.67-12.17-29.35-12.17-45.31v-10.08Z"/>
+      <path d="M160.51,49.21c-2.41,2.06-4.52,4.52-6.3,7.38l-1.74-12.34h-17.84v67.6h20.12v-30.18c0-3.4.4-6.24,1.21-8.52.8-2.28,2.01-4.09,3.62-5.43,1.61-1.34,3.49-2.3,5.63-2.89,2.15-.58,4.56-.87,7.24-.87h6.84v-21.33c-3.85,0-7.33.58-10.46,1.74-3.13,1.17-5.9,2.78-8.32,4.83Z"/>
+      <path d="M239.25,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2c1.74,3.04,4.47,5.48,8.18,7.31,3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.91-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM231.54,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28s-1.14-2.23-1.14-3.76c0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <polygon points="299.2 92.93 283.38 44.25 262.32 44.25 286.73 111.85 311.41 111.85 335.82 44.25 314.9 44.25 299.2 92.93"/>
+      <path d="M365.8,17.69c-2.28-2.05-5.26-3.08-8.92-3.08s-6.48,1.03-8.72,3.08c-2.24,2.06-3.35,4.7-3.35,7.92s1.11,5.72,3.35,7.78c2.24,2.05,5.14,3.08,8.72,3.08s6.64-1.03,8.92-3.08c2.28-2.06,3.42-4.65,3.42-7.78s-1.14-5.86-3.42-7.92Z"/>
+      <rect x="346.82" y="44.25" width="20.12" height="67.6"/>
+      <path d="M413.55,93.14c-1.21-1.12-1.81-3.02-1.81-5.7v-26.42h17.03v-16.77h-17.03v-19.05h-17.98l-2.15,19.05h-11.67v16.77h11.67v26.16c0,6.17,1.03,11.05,3.09,14.62,2.06,3.57,4.96,6.15,8.72,7.71,3.76,1.56,8.05,2.35,12.88,2.35h12.61v-17.03h-9.12c-2.95,0-5.03-.56-6.24-1.68Z"/>
+      <path d="M492.75,45.72c-4.74-2.05-10.33-3.08-16.77-3.08-5.9,0-11.15,1.03-15.76,3.08-4.61,2.06-8.25,4.87-10.93,8.45-2.68,3.57-4.25,7.78-4.69,12.61h19.31c.54-2.68,1.88-4.67,4.02-5.97,2.15-1.3,4.78-1.94,7.91-1.94,2.95,0,5.28.49,6.98,1.48,1.7.98,2.93,2.48,3.69,4.49.76,2.01,1.14,4.54,1.14,7.58h-16.23c-6.71,0-12.18.9-16.43,2.68-4.25,1.79-7.38,4.27-9.39,7.44-2.01,3.17-3.02,6.73-3.02,10.66s.87,7.16,2.61,10.2,4.47,5.48,8.18,7.31c3.71,1.83,8.34,2.75,13.88,2.75,2.68,0,5.09-.27,7.24-.81,2.15-.54,4.11-1.31,5.9-2.35,1.79-1.03,3.35-2.23,4.69-3.62,1.34-1.39,2.5-2.93,3.49-4.63l2.41,9.79h16.77v-41.85c0-5.99-1.32-11.02-3.96-15.09-2.64-4.07-6.33-7.13-11.07-9.19ZM485.04,89.78c-.76,1.66-1.74,3.11-2.95,4.36-1.2,1.25-2.61,2.24-4.22,2.95-1.61.72-3.44,1.07-5.5,1.07-1.61,0-3.06-.27-4.36-.81-1.3-.54-2.33-1.3-3.09-2.28-.76-.98-1.14-2.23-1.14-3.76,0-1.34.33-2.57,1-3.69.67-1.11,1.77-1.96,3.29-2.55,1.52-.58,3.4-.87,5.63-.87h13.01c-.36,2.06-.92,3.91-1.68,5.57Z"/>
+      <path d="M569.27,73.96c-3.98-1.39-8.7-2.61-14.15-3.69-2.78-.54-5.15-1.14-7.11-1.81-1.97-.67-3.47-1.45-4.49-2.35-1.03-.89-1.54-1.88-1.54-2.95,0-1.52.76-2.79,2.28-3.82,1.52-1.03,3.71-1.54,6.57-1.54s4.98.49,6.64,1.47c1.65.99,2.75,2.37,3.29,4.16h18.78c-.9-6.35-3.78-11.4-8.65-15.15-4.87-3.76-11.51-5.63-19.92-5.63-5.99,0-11.11.96-15.36,2.88-4.25,1.93-7.46,4.49-9.66,7.71-2.19,3.22-3.28,6.84-3.28,10.87,0,3.49.71,6.33,2.15,8.52,1.43,2.19,3.4,4.02,5.9,5.5,2.5,1.48,5.34,2.66,8.52,3.55,3.17.89,6.37,1.74,9.59,2.55,2.77.54,5.14,1.12,7.11,1.74,1.96.63,3.46,1.37,4.49,2.22,1.03.85,1.54,2.12,1.54,3.82,0,1.07-.33,2.1-1,3.08-.67.98-1.72,1.77-3.15,2.35-1.43.58-3.22.87-5.37.87s-4.16-.36-5.77-1.07c-1.61-.71-2.88-1.68-3.82-2.88-.94-1.21-1.59-2.53-1.94-3.96h-19.98c.35,4.38,1.85,8.29,4.49,11.74,2.64,3.44,6.26,6.19,10.87,8.25,4.6,2.05,10.13,3.09,16.57,3.09,5.9,0,11.06-.98,15.49-2.95,4.42-1.96,7.82-4.63,10.19-7.98,2.37-3.35,3.56-7.22,3.56-11.6,0-4.74-1.14-8.4-3.42-11-2.28-2.59-5.41-4.58-9.39-5.97Z"/>
+      <polygon points="630.63 39.65 616.16 39.65 616.16 26.52 606.31 26.52 606.31 39.65 591.77 39.65 591.77 49.43 606.31 49.43 606.31 62.65 616.16 62.65 616.16 49.43 630.63 49.43 630.63 39.65"/>
+    </g>
+  </g>
+</svg></div>
+        <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
+          A media project, a lab and a community for working scientists, students and
+          the curious, in every field.</p>
+      </div>
+      <div><h5 class="g-footer__heading">Read</h5>
+        <div class="g-stack g-stack--xs g-stack--ic"><a href="topics.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg><span>Topics</span></a><a href="magazine.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.971 3.385) scale(1.17763)" stroke-width="1.444"><path d="M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5"/><path d="M8.35,2.33v9.24"/><path d="M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41"/><path d="M10.38,5.74h3.1"/><path d="M10.38,8.74h2.2"/><circle cx="4.85" cy="7.24" r="1.316" fill="currentColor" stroke="none"/></g></svg><span>Magazine</span></a><a href="newsletter.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg><span>Newsletter</span></a></div></div>
+      <div><h5 class="g-footer__heading">Do</h5>
+        <div class="g-stack g-stack--xs g-stack--ic"><a href="lab.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg><span>Interactive Lab</span></a><a href="learn.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg><span>Learning Paths</span></a><a href="community.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg><span>Community</span></a></div></div>
+      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"><li><a class="lp-social__link" href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li></ul>
+        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a></div></div>
+    </div>
+    <div class="g-footer__legal">
+      <span>&copy; 2026 Gravitas+</span>
+      <span>Curiosity brings people in. Capability keeps them here.</span>
+    </div>
+  </div>
+</footer>
+<script src="assets/site.js?v=20260918-auth2"></script>
+<script src="assets/hero.js?v=20261002-fabric1"></script>
+<script src="assets/cms-home.js?v=20260918-fix3" defer></script>
+<script src="assets/topic-rail.js?v=up-f706806e3a02-g1df6ff09-tr6" defer></script>
+<script src="assets/chat.js?v=20260924-pulsar5" defer></script>
+<script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
+</body>
+</html>

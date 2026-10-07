@@ -1,0 +1,1425 @@
+import io
+import json
+import mimetypes
+import os
+import re
+import uuid
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import quote, urlparse
+from xml.sax.saxutils import escape
+
+import requests
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+from django.db import transaction
+from django.db.models import Avg, Count, Max, Q, Sum
+from django.http import FileResponse, HttpResponse, JsonResponse, StreamingHttpResponse
+from django.utils.http import content_disposition_header
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from django.utils.html import strip_tags
+from django.views.decorators.http import require_http_methods
+from docx import Document
+
+from . import cloud, nextcloud_bridge, openedx_bridge
+from .lms_models import (
+    Certificate,
+    Course,
+    CourseCategory,
+    CourseEnrollment,
+    CourseEvent,
+    CourseInstructor,
+    CourseRegistrationProfile,
+    CourseTag,
+    LearningAsset,
+    LearningPath,
+    Lesson,
+    LessonProgress,
+    SourceConnection,
+)
+from .lms_interaction_api import pulsar_project_context
+from .platform_runtime_v3 import core_role, ensure_platform_workspaces
+from .pulsar import PulsarError, PulsarPermissionError, run_text
+from .pulsar_runtime.context import PulsarContextEngine
+
+
+ZOTERO_ROOT = 'https://api.zotero.org'
+SAFE_NAME = re.compile(r'[^A-Za-z0-9._ -]+')
+MAX_EVENT_METADATA = 20000
+LMS_NEXTCLOUD_STORAGE_PREFIX = 'nextcloud:'
+
+
+def _json_body(request):
+    try:
+        data = json.loads(request.body or '{}')
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _error(code, status=400, **extra):
+    return JsonResponse({'ok': False, 'error': code, **extra}, status=status)
+
+
+def _admin(user):
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    spaces = ensure_platform_workspaces(user)
+    return core_role(user, spaces['core']) in {'owner', 'admin'}
+
+
+def _course(course_id):
+    return Course.objects.filter(pk=course_id).first()
+
+
+def _enrollment(user, course):
+    if not user or not user.is_authenticated:
+        return None
+    return CourseEnrollment.objects.filter(
+        user=user,
+        course=course,
+        status__in=[
+            CourseEnrollment.Status.ACTIVE,
+            CourseEnrollment.Status.PAUSED,
+            CourseEnrollment.Status.COMPLETED,
+        ],
+    ).first()
+
+
+def _can_access(user, course):
+    return _admin(user) or bool(_enrollment(user, course))
+
+
+def _safe_filename(value):
+    name = Path(str(value or '')).name.strip() or 'file'
+    return SAFE_NAME.sub('_', name)[:255] or 'file'
+
+
+def _safe_folder(value):
+    raw = str(value or '').replace('\\', '/').strip('/')
+    if not raw:
+        return ''
+    parts = []
+    for part in raw.split('/')[:16]:
+        part = part.strip()
+        if part in {'', '.', '..'}:
+            continue
+        clean = SAFE_NAME.sub('_', part).strip(' .')
+        if clean:
+            parts.append(clean[:120])
+    return '/'.join(parts)[:700]
+
+
+def _lms_cloud_path(item):
+    value = str(item.storage_path or '')
+    return value[len(LMS_NEXTCLOUD_STORAGE_PREFIX):] if value.startswith(LMS_NEXTCLOUD_STORAGE_PREFIX) else ''
+
+
+def _lms_asset_path(item, filename):
+    course_dir = f'{item.course_id}-{_safe_filename(item.course.slug)[:80]}'
+    logical_dir = f'{_safe_filename(item.title)[:100]}__{str(item.logical_id)[:8]}'
+    parts = [
+        settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT,
+        'Courses',
+        course_dir,
+    ]
+    if item.folder_path:
+        parts.append(item.folder_path)
+    parts.extend([logical_dir, f'v{int(item.version):03d}', _safe_filename(filename)])
+    return '/'.join(part.strip('/') for part in parts if part)
+
+
+def _prepare_lms_nextcloud(users=None):
+    try:
+        cloud.ensure_team_folder(
+            settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT,
+            settings.LMS_ASSET_NEXTCLOUD_GROUP,
+        )
+        for user in users or []:
+            if not user or not getattr(user, 'is_active', False):
+                continue
+            identity = nextcloud_bridge.ensure_user(user)
+            cloud.add_user_to_group(identity.username, settings.LMS_ASSET_NEXTCLOUD_GROUP)
+        return 'live'
+    except (cloud.CloudError, nextcloud_bridge.NextcloudBridgeError, ImproperlyConfigured):
+        return 'unavailable'
+
+
+def _migrate_legacy_lms_assets(course=None):
+    if _prepare_lms_nextcloud() != 'live':
+        return 0, 1
+    migrated = 0
+    failed = 0
+    qs = LearningAsset.objects.filter(kind=LearningAsset.Kind.FILE).exclude(storage_path='')
+    if course is not None:
+        qs = qs.filter(course=course)
+    for item in qs.iterator():
+        if _lms_cloud_path(item):
+            continue
+        local_path = str(item.storage_path or '')
+        if not local_path or not os.path.isfile(local_path):
+            continue
+        remote_path = _lms_asset_path(item, item.original_name or item.title)
+        try:
+            with open(local_path, 'rb') as source:
+                cloud.admin_upload(
+                    remote_path,
+                    source,
+                    content_type=item.mime_type or 'application/octet-stream',
+                )
+            item.storage_path = LMS_NEXTCLOUD_STORAGE_PREFIX + remote_path
+            item.save(update_fields=['storage_path', 'updated_at'])
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
+            migrated += 1
+        except (cloud.CloudError, ImproperlyConfigured):
+            failed += 1
+    return migrated, failed
+
+
+def _metadata(value):
+    clean = value if isinstance(value, dict) else {}
+    encoded = json.dumps(clean, ensure_ascii=False)
+    return clean if len(encoded.encode('utf-8')) <= MAX_EVENT_METADATA else {}
+
+
+def _event(user, course, kind, *, enrollment=None, lesson=None, duration_seconds=0, metadata=None):
+    return CourseEvent.objects.create(
+        user=user,
+        enrollment=enrollment,
+        course=course,
+        lesson=lesson,
+        kind=kind,
+        duration_seconds=max(0, min(24 * 60 * 60, int(duration_seconds or 0))),
+        metadata=_metadata(metadata),
+    )
+
+
+def _asset_json(item):
+    cloud_path = _lms_cloud_path(item)
+    return {
+        'id': item.pk,
+        'logical_id': str(item.logical_id),
+        'course_id': item.course_id,
+        'lesson_id': item.lesson_id,
+        'kind': item.kind,
+        'title': item.title,
+        'folder_path': item.folder_path,
+        'version': item.version,
+        'version_note': item.version_note,
+        'is_current': item.is_current,
+        'version_count': LearningAsset.objects.filter(logical_id=item.logical_id).count(),
+        'original_name': item.original_name,
+        'source_url': item.source_url,
+        'mime_type': item.mime_type,
+        'size': item.size,
+        'metadata': item.metadata,
+        'storage_backend': 'nextcloud' if cloud_path else ('local' if item.storage_path else ''),
+        'download_url': f'/api/lms/assets/{item.pk}/download/' if item.kind == LearningAsset.Kind.FILE else '',
+        'created_at': item.created_at.isoformat(),
+        'updated_at': item.updated_at.isoformat(),
+    }
+
+
+def _connection_json(item):
+    return {
+        'id': item.pk,
+        'provider': item.provider,
+        'label': item.label,
+        'library_type': item.library_type,
+        'library_id': item.library_id,
+        'connected': bool(item.encrypted_token),
+        'updated_at': item.updated_at.isoformat(),
+    }
+
+
+def _zotero_url(item):
+    root = 'users' if item.library_type == 'user' else 'groups'
+    return f'{ZOTERO_ROOT}/{root}/{quote(str(item.library_id), safe="")}'
+
+
+def _zotero_request(item, endpoint, *, params=None):
+    try:
+        response = requests.get(
+            _zotero_url(item) + endpoint,
+            headers={
+                'Zotero-API-Key': cloud._decrypt(item.encrypted_token),
+                'Zotero-API-Version': '3',
+                'Accept': 'application/json',
+            },
+            params=params or {},
+            timeout=(5, 20),
+        )
+    except requests.RequestException as exc:
+        raise ValueError('zotero_unavailable') from exc
+    if response.status_code in {401, 403}:
+        raise ValueError('zotero_credentials_invalid')
+    if response.status_code < 200 or response.status_code >= 300:
+        raise ValueError('zotero_request_failed')
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise ValueError('zotero_invalid_response') from exc
+
+
+def _zotero_item_json(row):
+    data = row.get('data') if isinstance(row, dict) and isinstance(row.get('data'), dict) else {}
+    creators = []
+    for creator in data.get('creators') or []:
+        if not isinstance(creator, dict):
+            continue
+        name = creator.get('name') or ' '.join(
+            value for value in [creator.get('firstName'), creator.get('lastName')] if value
+        )
+        if name:
+            creators.append(str(name))
+    return {
+        'key': str(row.get('key') or data.get('key') or ''),
+        'title': str(data.get('title') or 'Untitled'),
+        'item_type': str(data.get('itemType') or ''),
+        'creators': creators[:12],
+        'date': str(data.get('date') or ''),
+        'publication_title': str(data.get('publicationTitle') or ''),
+        'doi': str(data.get('DOI') or ''),
+        'url': str(data.get('url') or ''),
+        'abstract': str(data.get('abstractNote') or '')[:3000],
+    }
+
+
+@require_http_methods(['POST'])
+def lms_event(request, course_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    course = _course(course_id)
+    if not course:
+        return _error('course_not_found', 404)
+    enrollment = _enrollment(request.user, course)
+    if not enrollment and not _admin(request.user):
+        return _error('course_enrollment_required', 403)
+
+    data = _json_body(request)
+    kind = str(data.get('kind') or '')
+    if kind not in CourseEvent.Kind.values:
+        return _error('invalid_event_kind')
+    lesson = None
+    if data.get('lesson_id'):
+        lesson = Lesson.objects.filter(pk=data['lesson_id'], module__course=course).first()
+        if not lesson:
+            return _error('lesson_not_found', 404)
+    event = _event(
+        request.user,
+        course,
+        kind,
+        enrollment=enrollment,
+        lesson=lesson,
+        duration_seconds=data.get('duration_seconds') or 0,
+        metadata=data.get('metadata'),
+    )
+    return JsonResponse({'ok': True, 'event_id': event.pk}, status=201)
+
+
+@require_http_methods(['GET', 'POST', 'DELETE'])
+def lms_registration_profile(request, course_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    course = _course(course_id)
+    if not course:
+        return _error('course_not_found', 404)
+    enrollment = _enrollment(request.user, course)
+    if not enrollment:
+        return _error('course_enrollment_required', 403)
+    profile, _ = CourseRegistrationProfile.objects.get_or_create(enrollment=enrollment)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'ok': True,
+            'schema': course.registration_schema if isinstance(course.registration_schema, list) else [],
+            'answers': profile.answers,
+            'completed': profile.completed,
+        })
+    if request.method == 'DELETE':
+        profile.delete()
+        return JsonResponse({'ok': True})
+
+    data = _json_body(request)
+    answers = data.get('answers')
+    if not isinstance(answers, dict):
+        return _error('answers_required')
+    schema = course.registration_schema if isinstance(course.registration_schema, list) else []
+    required = [
+        str(field.get('key') or '').strip()
+        for field in schema
+        if isinstance(field, dict) and field.get('required')
+    ]
+    missing = [key for key in required if key and answers.get(key) in (None, '', [])]
+    if missing:
+        return _error('required_profile_fields_missing', 409, fields=missing)
+    profile.answers = answers
+    profile.completed = True
+    profile.completed_at = timezone.now()
+    profile.save()
+    return JsonResponse({'ok': True, 'completed': True})
+
+
+@require_http_methods(['GET', 'POST', 'DELETE'])
+def zotero_connection(request):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    qs = SourceConnection.objects.filter(user=request.user, provider=SourceConnection.Provider.ZOTERO)
+    if request.method == 'GET':
+        return JsonResponse({'ok': True, 'connections': [_connection_json(item) for item in qs]})
+    if request.method == 'DELETE':
+        connection_id = request.GET.get('id')
+        qs.filter(pk=connection_id).delete()
+        return JsonResponse({'ok': True})
+
+    data = _json_body(request)
+    library_type = str(data.get('library_type') or 'user').strip().lower()
+    if library_type not in {'user', 'group'}:
+        return _error('invalid_library_type')
+    library_id = str(data.get('library_id') or '').strip()
+    api_key = str(data.get('api_key') or '').strip()
+    label = str(data.get('label') or 'Zotero').strip()[:120]
+    if not library_id or not api_key:
+        return _error('library_id_and_api_key_required')
+
+    probe = SourceConnection(
+        user=request.user,
+        provider=SourceConnection.Provider.ZOTERO,
+        label=label or 'Zotero',
+        library_type=library_type,
+        library_id=library_id,
+        encrypted_token=cloud._encrypt(api_key),
+    )
+    try:
+        _zotero_request(probe, '/items', params={'limit': 1, 'format': 'json'})
+    except ValueError as exc:
+        return _error(str(exc), 400)
+
+    item, _ = SourceConnection.objects.update_or_create(
+        user=request.user,
+        provider=SourceConnection.Provider.ZOTERO,
+        library_type=library_type,
+        library_id=library_id,
+        defaults={'label': label or 'Zotero', 'encrypted_token': cloud._encrypt(api_key)},
+    )
+    return JsonResponse({'ok': True, 'connection': _connection_json(item)}, status=201)
+
+
+@require_http_methods(['GET'])
+def zotero_items(request):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    item = SourceConnection.objects.filter(
+        pk=request.GET.get('connection_id'),
+        user=request.user,
+        provider=SourceConnection.Provider.ZOTERO,
+    ).first()
+    if not item:
+        return _error('source_connection_not_found', 404)
+    query = str(request.GET.get('q') or '').strip()[:240]
+    params = {'limit': min(50, max(1, int(request.GET.get('limit') or 20))), 'format': 'json', 'sort': 'dateModified', 'direction': 'desc'}
+    if query:
+        params['q'] = query
+        params['qmode'] = 'everything'
+    try:
+        rows = _zotero_request(item, '/items', params=params)
+    except ValueError as exc:
+        return _error(str(exc), 502)
+    return JsonResponse({'ok': True, 'items': [_zotero_item_json(row) for row in rows if isinstance(row, dict)]})
+
+
+def _source_context(user, connection_id, keys):
+    if not connection_id or not keys:
+        return []
+    item = SourceConnection.objects.filter(pk=connection_id, user=user).first()
+    if not item:
+        return []
+    out = []
+    for key in [str(value) for value in keys[:8] if value]:
+        try:
+            row = _zotero_request(item, f'/items/{quote(key, safe="")}', params={'format': 'json'})
+            out.append(_zotero_item_json(row))
+        except ValueError:
+            continue
+    return out
+
+
+@require_http_methods(['POST'])
+def lms_ai_tutor(request, course_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    course = _course(course_id)
+    if not course:
+        return _error('course_not_found', 404)
+    enrollment = _enrollment(request.user, course)
+    if not enrollment:
+        return _error('course_enrollment_required', 403)
+
+    data = _json_body(request)
+    question = str(data.get('question') or '').strip()[:6000]
+    if not question:
+        return _error('question_required')
+    lesson = None
+    if data.get('lesson_id'):
+        lesson = Lesson.objects.filter(pk=data['lesson_id'], module__course=course).first()
+        if not lesson:
+            return _error('lesson_not_found', 404)
+
+    sources = _source_context(
+        request.user,
+        data.get('source_connection_id'),
+        data.get('source_keys') if isinstance(data.get('source_keys'), list) else [],
+    )
+    try:
+        package = PulsarContextEngine().learning(
+            request.user,
+            course,
+            lesson=lesson,
+            question=question,
+        )
+    except PulsarPermissionError as exc:
+        return _error(str(exc), 403)
+
+    source_text = '\n'.join(
+        f"- {row['title']} | {', '.join(row['creators'])} | {row['date']} | {row['abstract'][:1000]}"
+        for row in sources
+    )
+    history = []
+    for turn in (data.get('history') if isinstance(data.get('history'), list) else [])[-8:]:
+        if isinstance(turn, dict):
+            role = str(turn.get('role') or '')[:20]
+            text = str(turn.get('content') or '').strip()[:1400]
+            if role and text:
+                history.append(f'{role}: {text}')
+
+    learning_config = course.learning_config if isinstance(course.learning_config, dict) else {}
+    guidance_mode = str(learning_config.get('ai_guidance_mode') or 'guided').strip().lower()
+    if guidance_mode not in {'hint_only', 'guided', 'full'}:
+        guidance_mode = 'guided'
+    instructor_prompt = str(learning_config.get('ai_instructor_prompt') or '').strip()[:4000]
+    guidance_rule = {
+        'hint_only': (
+            'Do not provide the final answer, finished derivation, or ready-to-submit solution. '
+            'Give the smallest useful hint, ask a diagnostic question, and let the learner do the next step.'
+        ),
+        'guided': (
+            'Prefer hints, Socratic questions and partial scaffolding. '
+            'Give a direct answer only after the learner has shown meaningful work or explicitly asks for a final explanation.'
+        ),
+        'full': (
+            'You may provide complete explanations and worked solutions, while still explaining the reasoning and checking understanding.'
+        ),
+    }[guidance_mode]
+
+    system = (
+        'You are Pulsar acting through the Learning skill inside Gravitas+. '
+        'You are a learning and research assistant, not a generic answer bot. '
+        'Teach rather than merely answer. Use the language of the learner. '
+        'Base factual claims on the supplied accessible course, learner, project and selected-source context. '
+        'Do not expose internal permission, ACL, routing, tool, or context-package terminology to the learner unless explicitly asked. '
+        'When context is insufficient, say so and suggest what to inspect next. '
+        + guidance_rule + ' '
+        'Never invent a Zotero source or claim the learner completed work they did not complete. '
+        'Never imply access to a project or file that is not present in the supplied context. '
+        + (f'Instructor-specific guidance: {instructor_prompt}' if instructor_prompt else '')
+    )
+    prompt = (
+        package.text
+        + (f'\nLearner selected sources:\n{source_text}\n' if source_text else '')
+        + (f'\nRecent tutor conversation:\n' + '\n'.join(history) + '\n' if history else '')
+        + f'\nLearner question: {question}'
+    )
+    try:
+        result = run_text(
+            system=system,
+            user=prompt,
+            max_tokens=1400,
+            temperature=0.25,
+            surface='lms',
+            skill='learning',
+            operation='tutor',
+            thread_id=str(data.get('thread_id') or 'primary')[:160],
+            user_id=request.user.pk,
+            workspace_id=f'course:{course.pk}',
+            actor=request.user,
+            metadata={
+                'course_id': course.pk,
+                'lesson_id': lesson.pk if lesson else None,
+                'source_count': len(sources),
+                'context_source_count': len(package.sources),
+                'turn_input': question,
+            },
+        )
+    except PulsarPermissionError as exc:
+        return _error(str(exc), 403)
+    except PulsarError as exc:
+        return _error(str(exc), 503)
+
+    project_sources = [
+        row for row in package.sources
+        if str(row.get('kind') or '').startswith('project_')
+    ]
+    _event(
+        request.user,
+        course,
+        CourseEvent.Kind.AI_USE,
+        enrollment=enrollment,
+        lesson=lesson,
+        metadata={
+            'source_count': len(sources),
+            'project_source_count': len(project_sources),
+            'context_source_count': len(package.sources),
+            'question_chars': len(question),
+            'answer_chars': len(result.text),
+            'guidance_mode': guidance_mode,
+            'pulsar_run_id': result.run_id,
+            'pulsar_skill': result.skill,
+            'model_tier': result.model_tier,
+        },
+    )
+    return JsonResponse({
+        'ok': True,
+        'answer': result.text,
+        'sources': [*sources, *package.sources],
+        'project_sources': project_sources,
+        'provider': result.provider,
+        'run_id': result.run_id,
+        'skill': result.skill,
+        'model_tier': result.model_tier,
+    })
+
+def _course_export_parts(course):
+    yield '#', course.title, course.summary or course.description
+    for module in course.modules.prefetch_related('lessons').all():
+        yield '##', module.title, module.summary
+        for lesson in module.lessons.filter(published=True):
+            text = strip_tags(lesson.body or '').strip()
+            resource = lesson.content_url or ''
+            yield '###', lesson.title, '\n\n'.join(value for value in [lesson.summary, text, resource] if value)
+
+
+def _latex_escape(value):
+    replacements = {
+        '\\': r'\textbackslash{}',
+        '&': r'\&', '%': r'\%', '$': r'\$', '#': r'\#',
+        '_': r'\_', '{': r'\{', '}': r'\}', '~': r'\textasciitilde{}',
+        '^': r'\textasciicircum{}',
+    }
+    return ''.join(replacements.get(ch, ch) for ch in str(value or ''))
+
+
+@require_http_methods(['GET'])
+def lms_course_export(request, course_id, fmt):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    course = _course(course_id)
+    if not course:
+        return _error('course_not_found', 404)
+    enrollment = _enrollment(request.user, course)
+    if not enrollment and not _admin(request.user):
+        return _error('course_enrollment_required', 403)
+    fmt = str(fmt).lower()
+    if fmt not in {'md', 'tex', 'docx'}:
+        return _error('invalid_export_format')
+
+    parts = list(_course_export_parts(course))
+    base_name = re.sub(r'[^A-Za-z0-9_-]+', '-', course.slug or f'course-{course.pk}').strip('-') or f'course-{course.pk}'
+    if fmt == 'md':
+        body = '\n\n'.join(f'{level} {title}\n\n{text}'.strip() for level, title, text in parts)
+        response = HttpResponse(body, content_type='text/markdown; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{base_name}.md"'
+    elif fmt == 'tex':
+        sections = []
+        for level, title, text in parts:
+            command = {'#': 'section*', '##': 'section', '###': 'subsection'}.get(level, 'paragraph')
+            sections.append(f'\\{command}{{{_latex_escape(title)}}}\n{_latex_escape(text)}')
+        body = (
+            '\\documentclass{article}\n\\usepackage[utf8]{inputenc}\n'
+            '\\usepackage[T1]{fontenc}\n\\begin{document}\n'
+            + '\n\n'.join(sections)
+            + '\n\\end{document}\n'
+        )
+        response = HttpResponse(body, content_type='application/x-tex; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{base_name}.tex"'
+    else:
+        document = Document()
+        document.add_heading(course.title, 0)
+        if course.summary:
+            document.add_paragraph(course.summary)
+        for level, title, text in parts[1:]:
+            document.add_heading(title, level=1 if level == '##' else 2)
+            if text:
+                document.add_paragraph(text)
+        buffer = io.BytesIO()
+        document.save(buffer)
+        buffer.seek(0)
+        response = FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=f'{base_name}.docx',
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+
+    _event(
+        request.user,
+        course,
+        CourseEvent.Kind.EXPORT,
+        enrollment=enrollment,
+        metadata={'format': fmt},
+    )
+    return response
+
+
+@require_http_methods(['GET', 'POST'])
+def admin_learning_assets(request, course_id):
+    if not _admin(request.user):
+        return _error('core_admin_required', 403)
+    course = _course(course_id)
+    if not course:
+        return _error('course_not_found', 404)
+
+    if request.method == 'GET':
+        nextcloud_users = [request.user, *list(course.instructors.all())]
+        cloud_state = _prepare_lms_nextcloud(nextcloud_users)
+        _migrated, failed = _migrate_legacy_lms_assets(course) if cloud_state == 'live' else (0, 1)
+        assets = list(course.assets.select_related('lesson').all()[:1500])
+        folders = sorted({item.folder_path for item in assets if item.folder_path}, key=str.casefold)
+        groups = {}
+        for item in assets:
+            key = str(item.logical_id)
+            group = groups.setdefault(key, {
+                'logical_id': key,
+                'title': item.title,
+                'folder_path': item.folder_path,
+                'current_id': None,
+                'versions': [],
+            })
+            payload = _asset_json(item)
+            group['versions'].append(payload)
+            if item.is_current:
+                group['current_id'] = item.pk
+                group['title'] = item.title
+                group['folder_path'] = item.folder_path
+        for group in groups.values():
+            group['versions'].sort(key=lambda row: row['version'], reverse=True)
+            if group['current_id'] is None and group['versions']:
+                group['current_id'] = group['versions'][0]['id']
+        return JsonResponse({
+            'ok': True,
+            'assets': [_asset_json(item) for item in assets],
+            'groups': list(groups.values()),
+            'folders': folders,
+            'max_file_bytes': settings.LMS_ASSET_MAX_BYTES,
+            'nextcloud': {
+                'state': 'partial' if failed else cloud_state,
+                'mountpoint': settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT,
+                'files_url': cloud.native_files_url(settings.LMS_ASSET_NEXTCLOUD_MOUNTPOINT),
+            },
+        })
+
+    title = str(request.POST.get('title') or '').strip()[:240]
+    source_url = str(request.POST.get('source_url') or '').strip()[:1800]
+    folder_path = _safe_folder(request.POST.get('folder_path'))
+    version_note = str(request.POST.get('version_note') or '').strip()[:500]
+    kind = str(request.POST.get('kind') or LearningAsset.Kind.FILE)
+    uploaded = request.FILES.get('file')
+
+    base = None
+    version_of_id = request.POST.get('version_of_id')
+    if version_of_id:
+        try:
+            base = LearningAsset.objects.get(pk=int(version_of_id), course=course)
+        except (ValueError, TypeError, LearningAsset.DoesNotExist):
+            return _error('version_base_not_found', 404)
+        if base.kind != LearningAsset.Kind.FILE:
+            return _error('versioning_requires_file')
+        if not uploaded:
+            return _error('file_required')
+        kind = LearningAsset.Kind.FILE
+        title = title or base.title
+        folder_path = folder_path or base.folder_path
+
+    lesson = None
+    lesson_id = request.POST.get('lesson_id')
+    if lesson_id:
+        lesson = Lesson.objects.filter(pk=lesson_id, module__course=course).first()
+        if not lesson:
+            return _error('lesson_not_found', 404)
+    elif base:
+        lesson = base.lesson
+
+    if kind not in LearningAsset.Kind.values:
+        return _error('invalid_asset_kind')
+    if kind == LearningAsset.Kind.FILE and not uploaded:
+        return _error('file_required')
+    if kind != LearningAsset.Kind.FILE and not source_url:
+        return _error('source_url_required')
+    if source_url:
+        parsed = urlparse(source_url)
+        if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            return _error('invalid_source_url')
+    if uploaded and (uploaded.size <= 0 or uploaded.size > settings.LMS_ASSET_MAX_BYTES):
+        return _error('file_size_invalid', 413, max_bytes=settings.LMS_ASSET_MAX_BYTES)
+
+    version = 1
+    logical_id = uuid.uuid4()
+    if base:
+        logical_id = base.logical_id
+        version = (LearningAsset.objects.filter(logical_id=base.logical_id).aggregate(v=Max('version'))['v'] or 0) + 1
+
+    item = LearningAsset(
+        logical_id=logical_id,
+        course=course,
+        lesson=lesson,
+        kind=kind,
+        title=title or (uploaded.name if uploaded else source_url),
+        folder_path=folder_path,
+        version=version,
+        version_note=version_note,
+        is_current=True,
+        source_url=source_url,
+        metadata=dict(base.metadata) if base and isinstance(base.metadata, dict) else {},
+        uploaded_by=request.user,
+    )
+
+    if uploaded:
+        name = _safe_filename(uploaded.name)
+        item.original_name = name
+        item.mime_type = (uploaded.content_type or mimetypes.guess_type(name)[0] or '')[:180]
+        item.size = uploaded.size
+
+        cloud_state = _prepare_lms_nextcloud([request.user, *list(course.instructors.all())])
+        remote_path = ''
+        local_path = None
+        if cloud_state == 'live':
+            remote_path = _lms_asset_path(item, name)
+            try:
+                cloud.admin_upload(remote_path, uploaded, content_type=item.mime_type or 'application/octet-stream')
+                item.storage_path = LMS_NEXTCLOUD_STORAGE_PREFIX + remote_path
+            except (cloud.CloudError, ImproperlyConfigured):
+                cloud_state = 'unavailable'
+
+        if cloud_state != 'live':
+            root = Path(settings.LMS_MEDIA_ROOT) / str(course.pk)
+            root.mkdir(parents=True, exist_ok=True)
+            local_path = root / f'{uuid.uuid4().hex}-{name}'
+            if hasattr(uploaded, 'seek'):
+                uploaded.seek(0)
+            with local_path.open('wb') as handle:
+                for chunk in uploaded.chunks():
+                    handle.write(chunk)
+            item.storage_path = str(local_path)
+
+        try:
+            with transaction.atomic():
+                if base:
+                    LearningAsset.objects.filter(logical_id=base.logical_id, is_current=True).update(is_current=False)
+                item.save()
+        except Exception:
+            if remote_path and item.storage_path.startswith(LMS_NEXTCLOUD_STORAGE_PREFIX):
+                try:
+                    cloud.admin_delete(remote_path)
+                except Exception:
+                    pass
+            if local_path:
+                try:
+                    os.remove(local_path)
+                except OSError:
+                    pass
+            raise
+    else:
+        item.save()
+
+    return JsonResponse({'ok': True, 'asset': _asset_json(item)}, status=201)
+
+
+@require_http_methods(['GET', 'PATCH', 'DELETE'])
+def learning_asset_detail(request, asset_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    item = LearningAsset.objects.select_related('course', 'lesson').filter(pk=asset_id).first()
+    if not item:
+        return _error('asset_not_found', 404)
+
+    if request.method == 'GET':
+        if not _can_access(request.user, item.course):
+            return _error('course_enrollment_required', 403)
+        versions = []
+        if _admin(request.user):
+            versions = [
+                _asset_json(row)
+                for row in LearningAsset.objects.filter(logical_id=item.logical_id).select_related('lesson')
+            ]
+        return JsonResponse({'ok': True, 'asset': _asset_json(item), 'versions': versions})
+
+    if not _admin(request.user):
+        return _error('core_admin_required', 403)
+
+    if request.method == 'DELETE':
+        logical_id = item.logical_id
+        was_current = item.is_current
+        cloud_path = _lms_cloud_path(item)
+        if cloud_path:
+            try:
+                cloud.admin_delete(cloud_path)
+            except (cloud.CloudError, ImproperlyConfigured):
+                return _error('nextcloud_unavailable', 503)
+        elif item.storage_path:
+            try:
+                os.remove(item.storage_path)
+            except FileNotFoundError:
+                pass
+        item.delete()
+        if was_current:
+            replacement = LearningAsset.objects.filter(logical_id=logical_id).order_by('-version').first()
+            if replacement:
+                replacement.is_current = True
+                replacement.save(update_fields=['is_current', 'updated_at'])
+        return JsonResponse({'ok': True})
+
+    data = _json_body(request)
+    versions = list(LearningAsset.objects.filter(logical_id=item.logical_id).select_related('course').order_by('version'))
+    update = {}
+
+    if 'title' in data:
+        title = str(data.get('title') or '').strip()[:240]
+        if not title:
+            return _error('title_required')
+        update['title'] = title
+    if 'folder_path' in data:
+        update['folder_path'] = _safe_folder(data.get('folder_path'))
+    if 'description' in data:
+        # Kept in metadata because LearningAsset has no dedicated description column.
+        metadata = dict(item.metadata or {})
+        metadata['description'] = str(data.get('description') or '')
+        update['metadata'] = metadata
+
+    storage_moves = []
+    if 'title' in update or 'folder_path' in update:
+        try:
+            for revision in versions:
+                old_path = _lms_cloud_path(revision)
+                if not old_path or revision.kind != LearningAsset.Kind.FILE:
+                    continue
+                original_title = revision.title
+                original_folder = revision.folder_path
+                revision.title = update.get('title', revision.title)
+                revision.folder_path = update.get('folder_path', revision.folder_path)
+                new_path = _lms_asset_path(revision, revision.original_name or revision.title)
+                revision.title = original_title
+                revision.folder_path = original_folder
+                if old_path == new_path:
+                    continue
+                cloud.admin_move(old_path, new_path)
+                storage_moves.append((revision.pk, old_path, new_path))
+        except (cloud.CloudError, ImproperlyConfigured):
+            for _pk, old_path, new_path in reversed(storage_moves):
+                try:
+                    cloud.admin_move(new_path, old_path)
+                except Exception:
+                    pass
+            return _error('nextcloud_unavailable', 503)
+
+    if update:
+        with transaction.atomic():
+            LearningAsset.objects.filter(logical_id=item.logical_id).update(**update)
+            for revision_id, _old_path, new_path in storage_moves:
+                LearningAsset.objects.filter(pk=revision_id).update(
+                    storage_path=LMS_NEXTCLOUD_STORAGE_PREFIX + new_path,
+                )
+
+    item.refresh_from_db()
+
+    if 'lesson_id' in data:
+        lesson = None
+        if data.get('lesson_id') not in (None, ''):
+            lesson = Lesson.objects.filter(pk=data['lesson_id'], module__course=item.course).first()
+            if not lesson:
+                return _error('lesson_not_found', 404)
+        LearningAsset.objects.filter(logical_id=item.logical_id).update(lesson=lesson)
+        item.lesson = lesson
+
+    if 'source_url' in data and item.kind != LearningAsset.Kind.FILE:
+        source_url = str(data.get('source_url') or '').strip()[:1800]
+        parsed = urlparse(source_url)
+        if not source_url or parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            return _error('invalid_source_url')
+        LearningAsset.objects.filter(logical_id=item.logical_id).update(source_url=source_url)
+        item.source_url = source_url
+
+    if 'metadata' in data:
+        if not isinstance(data['metadata'], dict):
+            return _error('invalid_metadata')
+        LearningAsset.objects.filter(logical_id=item.logical_id).update(metadata=data['metadata'])
+        item.metadata = data['metadata']
+
+    return JsonResponse({'ok': True, 'asset': _asset_json(item)})
+
+
+@require_http_methods(['GET'])
+def learning_asset_download(request, asset_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    item = LearningAsset.objects.select_related('course').filter(pk=asset_id, kind=LearningAsset.Kind.FILE).first()
+    if not item or not item.storage_path:
+        return _error('asset_not_found', 404)
+    if not _can_access(request.user, item.course):
+        return _error('course_enrollment_required', 403)
+
+    cloud_path = _lms_cloud_path(item)
+    if cloud_path:
+        try:
+            upstream = cloud.admin_download(cloud_path)
+        except (cloud.CloudError, ImproperlyConfigured):
+            return _error('nextcloud_unavailable', 503)
+
+        def stream():
+            try:
+                for chunk in upstream.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        yield chunk
+            finally:
+                upstream.close()
+
+        response = StreamingHttpResponse(
+            stream(),
+            content_type=item.mime_type or upstream.headers.get('Content-Type') or 'application/octet-stream',
+        )
+        response['Content-Disposition'] = content_disposition_header(True, item.original_name or item.title)
+        if item.size:
+            response['Content-Length'] = str(item.size)
+        return response
+
+    if not os.path.isfile(item.storage_path):
+        return _error('asset_not_found', 404)
+    return FileResponse(open(item.storage_path, 'rb'), as_attachment=True, filename=item.original_name or item.title)
+
+
+
+@require_http_methods(['GET'])
+def lms_certificate_download(request, code):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    certificate = (
+        Certificate.objects
+        .select_related('enrollment__course', 'enrollment__user')
+        .filter(code=code)
+        .first()
+    )
+    if not certificate:
+        return _error('certificate_not_found', 404)
+    enrollment = certificate.enrollment
+    if enrollment.user_id != request.user.pk and not _admin(request.user):
+        return _error('certificate_not_found', 404)
+
+    learner = enrollment.user.get_full_name() or enrollment.user.email
+    course = enrollment.course.title
+    issued = certificate.issued_at.date().isoformat()
+    status = 'REVOKED' if certificate.revoked_at else 'CERTIFICATE OF COMPLETION'
+    status_note = (
+        'This certificate has been revoked.'
+        if certificate.revoked_at
+        else 'This certifies successful completion of the Gravitas+ course.'
+    )
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="990" viewBox="0 0 1400 990">
+      <rect width="1400" height="990" fill="#f7f4ec"/>
+      <rect x="46" y="46" width="1308" height="898" rx="18" fill="none" stroke="#123f56" stroke-width="4"/>
+      <rect x="72" y="72" width="1256" height="846" rx="12" fill="none" stroke="#9a7b43" stroke-width="1.5"/>
+      <text x="700" y="170" text-anchor="middle" font-family="Georgia, serif" font-size="44" fill="#123f56">GRAVITAS+</text>
+      <text x="700" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" letter-spacing="7" fill="#6d6251">{escape(status)}</text>
+      <text x="700" y="345" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#4b4b4b">{escape(status_note)}</text>
+      <text x="700" y="445" text-anchor="middle" font-family="Georgia, serif" font-size="50" fill="#111111">{escape(learner)}</text>
+      <line x1="360" y1="472" x2="1040" y2="472" stroke="#9a7b43" stroke-width="1"/>
+      <text x="700" y="555" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#595959">Course</text>
+      <text x="700" y="615" text-anchor="middle" font-family="Georgia, serif" font-size="38" fill="#123f56">{escape(course)}</text>
+      <text x="700" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" fill="#595959">Issued {escape(issued)}</text>
+      <text x="700" y="790" text-anchor="middle" font-family="monospace" font-size="18" fill="#595959">Credential {escape(str(certificate.code))}</text>
+      <text x="700" y="875" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#756b5c">gravitasplus.com</text>
+    </svg>'''
+    response = HttpResponse(svg, content_type='image/svg+xml; charset=utf-8')
+    response['Content-Disposition'] = content_disposition_header(
+        True,
+        f'gravitas-certificate-{certificate.code}.svg',
+    )
+    return response
+
+
+def _meta_json():
+    return {
+        'categories': [{
+            'id': item.pk,
+            'slug': item.slug,
+            'name': item.name,
+            'description': item.description,
+            'position': item.position,
+            'active': item.active,
+        } for item in CourseCategory.objects.all()],
+        'tags': [{'id': item.pk, 'slug': item.slug, 'name': item.name} for item in CourseTag.objects.all()],
+    }
+
+
+@require_http_methods(['GET', 'POST', 'PATCH', 'DELETE'])
+def admin_lms_meta(request):
+    if request.method == 'GET':
+        can_read = bool(request.user.is_authenticated and (_admin(request.user) or CourseInstructor.objects.filter(user=request.user).exists()))
+        if not can_read:
+            return _error('course_author_required', 403)
+        return JsonResponse({'ok': True, **_meta_json()})
+    if not _admin(request.user):
+        return _error('core_admin_required', 403)
+    data = _json_body(request)
+    kind = str(data.get('kind') or '')
+    Model = CourseCategory if kind == 'category' else CourseTag if kind == 'tag' else None
+    if Model is None:
+        return _error('invalid_meta_kind')
+    if request.method == 'POST':
+        name = str(data.get('name') or '').strip()[:180]
+        slug = str(data.get('slug') or '').strip()[:160]
+        if not name or not slug:
+            return _error('name_and_slug_required')
+        defaults = {'name': name}
+        if Model is CourseCategory:
+            defaults.update(
+                description=str(data.get('description') or ''),
+                position=max(0, int(data.get('position') or 0)),
+                active=bool(data.get('active', True)),
+            )
+        item, created = Model.objects.update_or_create(slug=slug, defaults=defaults)
+        return JsonResponse({'ok': True, 'created': created, **_meta_json()}, status=201 if created else 200)
+    try:
+        item_id = int(data.get('id'))
+    except (TypeError, ValueError):
+        return _error('id_required')
+    item = Model.objects.filter(pk=item_id).first()
+    if not item:
+        return _error('not_found', 404)
+    if request.method == 'DELETE':
+        item.delete()
+        return JsonResponse({'ok': True, **_meta_json()})
+    if 'name' in data:
+        item.name = str(data['name'] or '').strip()[:180]
+    if 'slug' in data:
+        item.slug = str(data['slug'] or '').strip()[:160]
+    if Model is CourseCategory:
+        for field in ('description', 'active'):
+            if field in data:
+                setattr(item, field, data[field] if field == 'active' else str(data[field] or ''))
+        if 'position' in data:
+            item.position = max(0, int(data['position'] or 0))
+    item.save()
+    return JsonResponse({'ok': True, **_meta_json()})
+
+
+def _normalize_learning_graph(nodes, edges, *, validate_courses=True):
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        raise ValueError('invalid_learning_graph')
+
+    clean_nodes = []
+    node_ids = set()
+    allowed_types = {'course', 'gate', 'milestone', 'choice'}
+    course_ids = set()
+
+    for index, raw in enumerate(nodes[:250]):
+        if not isinstance(raw, dict):
+            raise ValueError('invalid_learning_path_node')
+        node_id = str(raw.get('id') or '').strip()[:120]
+        if not node_id:
+            node_id = f'node-{index + 1}'
+        if node_id in node_ids:
+            raise ValueError('duplicate_learning_path_node')
+        node_ids.add(node_id)
+
+        node_type = str(raw.get('type') or ('course' if raw.get('course_id') else 'milestone')).strip().lower()
+        if node_type not in allowed_types:
+            raise ValueError('invalid_learning_path_node_type')
+
+        item = {
+            'id': node_id,
+            'type': node_type,
+            'title': str(raw.get('title') or '').strip()[:240],
+            'description': str(raw.get('description') or '').strip()[:2000],
+        }
+        if node_type == 'course':
+            try:
+                course_id = int(raw.get('course_id'))
+            except (TypeError, ValueError):
+                raise ValueError('learning_path_course_required')
+            course_ids.add(course_id)
+            item['course_id'] = course_id
+        if isinstance(raw.get('metadata'), dict):
+            item['metadata'] = raw['metadata']
+        clean_nodes.append(item)
+
+    course_titles = dict(Course.objects.filter(pk__in=course_ids).values_list('pk', 'title'))
+    if validate_courses and set(course_titles) != course_ids:
+        raise ValueError('learning_path_course_not_found')
+    for item in clean_nodes:
+        if item.get('type') == 'course' and not item.get('title'):
+            item['title'] = course_titles.get(item.get('course_id'), '')
+
+    clean_edges = []
+    seen_edges = set()
+    allowed_rules = {'complete', 'pass', 'manual', 'any'}
+    for raw in edges[:500]:
+        if not isinstance(raw, dict):
+            raise ValueError('invalid_learning_path_edge')
+        source = str(raw.get('from') or '').strip()[:120]
+        target = str(raw.get('to') or '').strip()[:120]
+        if not source or not target or source not in node_ids or target not in node_ids or source == target:
+            raise ValueError('invalid_learning_path_edge')
+        key = (source, target)
+        if key in seen_edges:
+            continue
+        seen_edges.add(key)
+        rule = str(raw.get('rule') or 'complete').strip().lower()
+        if rule not in allowed_rules:
+            raise ValueError('invalid_learning_path_edge_rule')
+        edge = {
+            'from': source,
+            'to': target,
+            'rule': rule,
+            'label': str(raw.get('label') or '').strip()[:240],
+        }
+        condition = raw.get('condition')
+        if isinstance(condition, dict):
+            edge['condition'] = condition
+        clean_edges.append(edge)
+
+    return clean_nodes, clean_edges
+
+
+def _path_json(item):
+    return {
+        'id': item.pk,
+        'slug': item.slug,
+        'title': item.title,
+        'summary': item.summary,
+        'status': item.status,
+        'nodes': item.nodes,
+        'edges': item.edges,
+        'payment_config': item.payment_config,
+        'updated_at': item.updated_at.isoformat(),
+    }
+
+
+@require_http_methods(['GET', 'POST'])
+def learning_paths(request):
+    admin = _admin(request.user)
+    if request.method == 'GET':
+        qs = LearningPath.objects.all() if admin and request.GET.get('all') == '1' else LearningPath.objects.filter(status=LearningPath.Status.PUBLISHED)
+        return JsonResponse({'ok': True, 'paths': [_path_json(item) for item in qs]})
+    if not admin:
+        return _error('core_admin_required', 403)
+    data = _json_body(request)
+    slug = str(data.get('slug') or '').strip()[:190]
+    title = str(data.get('title') or '').strip()[:240]
+    if not slug or not title:
+        return _error('slug_and_title_required')
+    if LearningPath.objects.filter(slug=slug).exists():
+        return _error('slug_exists', 409)
+    status = str(data.get('status') or LearningPath.Status.DRAFT)
+    if status not in LearningPath.Status.values:
+        return _error('invalid_status')
+    try:
+        nodes, edges = _normalize_learning_graph(
+            data.get('nodes') if isinstance(data.get('nodes'), list) else [],
+            data.get('edges') if isinstance(data.get('edges'), list) else [],
+            validate_courses=status == LearningPath.Status.PUBLISHED,
+        )
+    except ValueError as exc:
+        return _error(str(exc))
+    item = LearningPath.objects.create(
+        slug=slug,
+        title=title,
+        summary=str(data.get('summary') or ''),
+        status=status,
+        nodes=nodes,
+        edges=edges,
+        payment_config=data.get('payment_config') if isinstance(data.get('payment_config'), dict) else {},
+        created_by=request.user,
+    )
+    return JsonResponse({'ok': True, 'path': _path_json(item)}, status=201)
+
+
+@require_http_methods(['GET', 'PATCH', 'DELETE'])
+def learning_path_detail(request, path_id):
+    item = LearningPath.objects.filter(pk=path_id).first()
+    if not item:
+        return _error('path_not_found', 404)
+    admin = _admin(request.user)
+    if request.method == 'GET':
+        if item.status != LearningPath.Status.PUBLISHED and not admin:
+            return _error('path_not_found', 404)
+        return JsonResponse({'ok': True, 'path': _path_json(item)})
+    if not admin:
+        return _error('core_admin_required', 403)
+    if request.method == 'DELETE':
+        item.delete()
+        return JsonResponse({'ok': True})
+    data = _json_body(request)
+    for field in ('slug', 'title', 'summary'):
+        if field in data:
+            setattr(item, field, str(data[field] or '').strip())
+    if 'status' in data:
+        if data['status'] not in LearningPath.Status.values:
+            return _error('invalid_status')
+        item.status = data['status']
+    if 'nodes' in data or 'edges' in data or (
+        'status' in data and item.status == LearningPath.Status.PUBLISHED
+    ):
+        try:
+            nodes, edges = _normalize_learning_graph(
+                data.get('nodes', item.nodes),
+                data.get('edges', item.edges),
+                validate_courses=item.status == LearningPath.Status.PUBLISHED,
+            )
+        except ValueError as exc:
+            return _error(str(exc))
+        item.nodes = nodes
+        item.edges = edges
+    if 'payment_config' in data:
+        if not isinstance(data['payment_config'], dict):
+            return _error('invalid_payment_config')
+        item.payment_config = data['payment_config']
+    item.save()
+    return JsonResponse({'ok': True, 'path': _path_json(item)})
+
+
+def _date_filter(qs, request):
+    start = str(request.GET.get('from') or '').strip()
+    end = str(request.GET.get('to') or '').strip()
+    if start:
+        parsed = parse_datetime(start)
+        if parsed:
+            qs = qs.filter(created_at__gte=parsed)
+    if end:
+        parsed = parse_datetime(end)
+        if parsed:
+            qs = qs.filter(created_at__lte=parsed)
+    return qs
+
+
+@require_http_methods(['GET'])
+def admin_lms_analytics(request):
+    if not _admin(request.user):
+        return _error('core_admin_required', 403)
+    course_id = request.GET.get('course_id')
+    user_id = request.GET.get('user_id')
+    lesson_id = request.GET.get('lesson_id')
+    enrollments = CourseEnrollment.objects.select_related('user', 'course')
+    events = CourseEvent.objects.select_related('user', 'course', 'lesson')
+
+    lesson_options = Lesson.objects.select_related('module__course').order_by(
+        'module__course__title', 'module__position', 'position'
+    )
+    if course_id:
+        enrollments = enrollments.filter(course_id=course_id)
+        events = events.filter(course_id=course_id)
+        lesson_options = lesson_options.filter(module__course_id=course_id)
+
+    if lesson_id:
+        lesson = Lesson.objects.select_related('module__course').filter(pk=lesson_id).first()
+        if not lesson:
+            return _error('lesson_not_found', 404)
+        if course_id and str(lesson.module.course_id) != str(course_id):
+            return _error('lesson_course_mismatch')
+        events = events.filter(lesson_id=lesson.pk)
+        if not course_id:
+            enrollments = enrollments.filter(course_id=lesson.module.course_id)
+            lesson_options = lesson_options.filter(module__course_id=lesson.module.course_id)
+
+    if user_id:
+        enrollments = enrollments.filter(user_id=user_id)
+        events = events.filter(user_id=user_id)
+    events = _date_filter(events, request)
+
+    by_kind = {
+        row['kind']: {'count': row['count'], 'duration_seconds': row['duration'] or 0}
+        for row in events.values('kind').annotate(count=Count('id'), duration=Sum('duration_seconds'))
+    }
+    lesson_rows = events.filter(lesson__isnull=False).values(
+        'lesson_id', 'lesson__title', 'course_id', 'course__title'
+    ).annotate(
+        views=Count('id', filter=Q(kind=CourseEvent.Kind.LESSON_VIEW)),
+        skips=Count('id', filter=Q(kind=CourseEvent.Kind.LESSON_SKIP)),
+        dwell_seconds=Sum('duration_seconds', filter=Q(kind=CourseEvent.Kind.LESSON_DWELL)),
+        ai_uses=Count('id', filter=Q(kind=CourseEvent.Kind.AI_USE)),
+        lab_uses=Count('id', filter=Q(kind=CourseEvent.Kind.LAB_USE)),
+    ).order_by('-views', '-dwell_seconds')[:500]
+
+    learner_rows = []
+    for enrollment in enrollments[:1000]:
+        learner_events = events.filter(user_id=enrollment.user_id, course_id=enrollment.course_id)
+        learner_rows.append({
+            'enrollment_id': enrollment.pk,
+            'user_id': enrollment.user_id,
+            'name': enrollment.user.get_full_name() or enrollment.user.email,
+            'email': enrollment.user.email,
+            'course_id': enrollment.course_id,
+            'course': enrollment.course.title,
+            'status': enrollment.status,
+            'progress_percent': str(enrollment.progress_percent),
+            'views': learner_events.filter(kind=CourseEvent.Kind.LESSON_VIEW).count(),
+            'skips': learner_events.filter(kind=CourseEvent.Kind.LESSON_SKIP).count(),
+            'dwell_seconds': learner_events.filter(kind=CourseEvent.Kind.LESSON_DWELL).aggregate(v=Sum('duration_seconds'))['v'] or 0,
+            'ai_uses': learner_events.filter(kind=CourseEvent.Kind.AI_USE).count(),
+            'lab_uses': learner_events.filter(kind=CourseEvent.Kind.LAB_USE).count(),
+        })
+
+    return JsonResponse({
+        'ok': True,
+        'summary': {
+            'enrollments': enrollments.count(),
+            'active': enrollments.filter(status=CourseEnrollment.Status.ACTIVE).count(),
+            'completed': enrollments.filter(status=CourseEnrollment.Status.COMPLETED).count(),
+            'average_progress': round(float(enrollments.aggregate(v=Avg('progress_percent'))['v'] or 0), 1),
+            'events': events.count(),
+            'by_kind': by_kind,
+        },
+        'learners': learner_rows,
+        'lessons': list(lesson_rows),
+        'lesson_options': [{
+            'id': item.pk,
+            'course_id': item.module.course_id,
+            'course': item.module.course.title,
+            'module': item.module.title,
+            'title': item.title,
+        } for item in lesson_options[:1000]],
+        'filters': {
+            'course_id': str(course_id or ''),
+            'user_id': str(user_id or ''),
+            'lesson_id': str(lesson_id or ''),
+            'from': str(request.GET.get('from') or ''),
+            'to': str(request.GET.get('to') or ''),
+        },
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+def admin_openedx_status(request):
+    if not _admin(request.user):
+        return _error('core_admin_required', 403)
+    if request.method == 'GET':
+        return JsonResponse({
+            'ok': True,
+            'openedx': openedx_bridge.health(),
+            'lms_url': settings.OPENEDX_LMS_URL,
+            'cms_url': settings.OPENEDX_CMS_URL,
+        })
+    data = _json_body(request)
+    course = _course(data.get('course_id'))
+    if not course:
+        return _error('course_not_found', 404)
+    if course.provider != Course.Provider.OPENEDX or not course.openedx_course_key:
+        return _error('openedx_course_mapping_required', 409)
+    try:
+        details = openedx_bridge.course_details(course.openedx_course_key)
+    except openedx_bridge.OpenEdXError as exc:
+        return _error(str(exc), 502)
+    return JsonResponse({'ok': True, 'course_details': details})
