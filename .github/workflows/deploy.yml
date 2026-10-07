@@ -498,6 +498,24 @@ jobs:
           $SUDO ufw --force enable
           REMOTE
 
+      - name: Capture and rehearse matched native checkpoint before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          OPERATIONS_HOST="${{ secrets.DEPLOY_HOST }}"
+          CHECKPOINT_SCRIPT="/var/tmp/gravitas-canonical-checkpoint-$GITHUB_SHA.py"
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/canonical_checkpoint.py "$DEPLOY_USER@$OPERATIONS_HOST:$CHECKPOINT_SCRIPT"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$OPERATIONS_HOST" bash -s -- "$CHECKPOINT_SCRIPT" <<'REMOTE'
+          set -euo pipefail
+          CHECKPOINT_SCRIPT="$1"
+          CHECKPOINT_OUTPUT="$(sudo python3 "$CHECKPOINT_SCRIPT" backup --apply)"
+          printf '%s\n' "$CHECKPOINT_OUTPUT"
+          CHECKPOINT_PATH="$(printf '%s\n' "$CHECKPOINT_OUTPUT" | sed -n 's/^Checkpoint: //p')"
+          test -n "$CHECKPOINT_PATH"
+          sudo python3 "$CHECKPOINT_SCRIPT" rehearse --checkpoint "$CHECKPOINT_PATH" --apply
+          sudo rm "$CHECKPOINT_SCRIPT"
+          REMOTE
+
       - name: Deploy frontend
         shell: bash
         run: |

@@ -139,18 +139,18 @@ are additive candidate schema changes. Adoption defaults to disabled and creates
 an inspection snapshot before export/readback and activation. Snapshot JSON is
 not a full binary/relational backup. A matched DB/folder backup and a tested
 complete restore are prerequisites. `ops/canonical_checkpoint.py` now captures
-both PostgreSQL databases, site/backend and the complete native Nextcloud volume
+both PostgreSQL databases, site/backend/configuration and the complete native Nextcloud volume
 in one writer-paused checkpoint. Restore verifies integrity/image compatibility,
 captures a safety checkpoint, stages both databases before exchanging either,
 retains prior databases/directories and validates native schema/version before
 resuming writers. Interrupted restores stay paused and can recover from their
-recorded safety checkpoint. This tool has not run on the production server.
+recorded safety checkpoint. Pre-deployment capture and isolated database/native-file restore rehearsal are now wired into deployment; live execution is pending.
 
 ## 15. Automated checks
 
-Full backend run: **611 tests, OK**, 31.730 seconds. Conditional ACL tests cover
+GitHub Actions full backend run: **613 tests, OK**, 23.552 seconds. Conditional ACL tests cover
 rollback, committed replay, external changes, ambiguous writes, missing snapshots,
-XML escaping and multi-status property failure. Native checkpoint regression: **4 tests, OK**. Actual-source provisioning
+XML escaping and multi-status property failure. Native checkpoint regression: **5 tests, OK**. Actual-source provisioning
 regression: **1 test, OK**, also included in the final full run (preserves human edits, IDs and source-map links).
 Migration drift: no changes. Changed frontend modules: syntax passes.
 The API coverage checker retains 14 known baseline query-template false positives.

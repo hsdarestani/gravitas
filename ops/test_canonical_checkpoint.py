@@ -26,7 +26,7 @@ class CheckpointTests(unittest.TestCase):
     def exercise_restore(self, fail_second=False):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp); source = base / 'checkpoint'; source.mkdir()
-            targets = {name: base / name[:-4] for name in ('site.tar', 'backend.tar', 'nextcloud.tar')}
+            targets = {name: base / name[:-4] for name in (*checkpoint.SOURCES, 'nextcloud.tar')}
             for name, target in targets.items():
                 target.mkdir(); (target / 'version').write_text('current')
                 with tarfile.open(source / name, 'w') as archive:
@@ -56,7 +56,7 @@ class CheckpointTests(unittest.TestCase):
                     restores = [i for i, cmd in enumerate(commands) if 'pg_restore' in cmd]
                     self.assertGreater(min(swaps), max(restores))
                     self.assertTrue(all((p / 'version').read_text() == 'snapshot' for p in targets.values()))
-                    self.assertEqual(len(list(base.glob('*.pre-restore-*'))), 3)
+                    self.assertEqual(len(list(base.glob('*.pre-restore-*'))), len(targets))
 
     def test_all_databases_are_staged_before_exchanging_any_live_store(self):
         self.exercise_restore()
@@ -72,6 +72,25 @@ class CheckpointTests(unittest.TestCase):
                 (path / name).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 checkpoint.verify(path)
+
+    def test_rehearsal_uses_isolated_databases_and_cleans_failed_restore(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp); source = base / 'checkpoint'; source.mkdir()
+            for name in checkpoint.FILES:
+                (source / name).touch()
+            calls = []
+            def fake_run(command, **kwargs):
+                calls.append(command)
+                if 'pg_restore' in command:
+                    raise RuntimeError('invalid staged archive')
+            with patch.object(checkpoint, 'BASE', base), patch.object(checkpoint, 'verify', return_value={'databases': {'gravitas': {}, 'nextcloud': {}}}), patch.object(checkpoint, 'run', side_effect=fake_run):
+                with self.assertRaises(RuntimeError):
+                    checkpoint.rehearse(source)
+            created = next(command[-1] for command in calls if 'createdb' in command)
+            self.assertTrue(created.startswith('gravitas_rehearsal_'))
+            self.assertTrue(any('dropdb' in command and command[-1] == created for command in calls))
+            self.assertFalse(any(any('ALTER DATABASE' in arg for arg in command) for command in calls))
+            self.assertFalse(list(base.glob('rehearsal-*')))
 
 
 if __name__ == '__main__':

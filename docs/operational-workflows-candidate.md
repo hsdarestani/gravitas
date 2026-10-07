@@ -152,7 +152,7 @@ They cover conditional conflicts, projection import, IDs, migration counts,
 viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
 correction history, dependency completion and reminder idempotency.
 Existing backend tests run against isolated test settings.
-The final full backend suite passes: 611 backend tests plus 4 native checkpoint regressions; live acceptance is pending.
+The final full backend suite passes: 613 backend tests plus 5 native checkpoint regressions; live acceptance is pending.
 One additional source-provisioning regression passes. Full acceptance evidence
 and remaining limitations are recorded in operational-workflows-report.md. Migration drift check reports no
 changes; new frontend modules pass JavaScript syntax checks.

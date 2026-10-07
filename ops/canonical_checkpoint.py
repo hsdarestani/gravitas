@@ -16,8 +16,8 @@ import tarfile
 import uuid
 
 BASE = Path('/var/backups/gravitas-canonical')
-SOURCES = {'site.tar': Path('/var/www/gravitas'), 'backend.tar': Path('/opt/gravitas-backend')}
-FILES = ('site.tar', 'backend.tar', 'nextcloud.tar', 'gravitas.dump', 'nextcloud.dump')
+SOURCES = {'site.tar': Path('/var/www/gravitas'), 'backend.tar': Path('/opt/gravitas-backend'), 'config.tar': Path('/etc/gravitas')}
+FILES = (*SOURCES, 'nextcloud.tar', 'gravitas.dump', 'nextcloud.dump')
 
 
 def run(args, **kwargs):
@@ -96,6 +96,24 @@ def images():
             for name in ('gravitas-nextcloud', 'gravitas-nextcloud-db')}
 
 
+def database_prefix(native):
+    return (['docker', 'exec', '-i', 'gravitas-nextcloud-db'], ['-U', 'nextcloud']) if native else (['sudo', '-u', 'postgres'], [])
+
+
+def database_fingerprint(db, native=False):
+    prefix, flags = database_prefix(native)
+    tables = json.loads(output(prefix + ['psql', *flags, '-At', '-d', db, '-c',
+        "SELECT coalesce(json_agg(tablename ORDER BY tablename), '[]') FROM pg_tables WHERE schemaname = 'public';"]))
+    result = {}
+    for table in tables:
+        identifier = '"' + table.replace('"', '""') + '"'
+        # Deterministic table content hashes retain native IDs, relations, ACLs
+        # and filecache metadata without writing row values to logs/manifests.
+        sql = f"SET TIME ZONE 'UTC'; SELECT json_build_object('rows', count(*), 'hash', md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' ORDER BY row_to_json(t)::text), ''))) FROM public.{identifier} t;"
+        result[table] = json.loads(output(prefix + ['psql', *flags, '-qAt', '-d', db, '-c', sql]))
+    return result
+
+
 def active_units():
     units = json.loads(output(['systemctl', 'list-units', '--state=active', '--all', '--output=json']))
     return sorted(u['unit'] for u in units if u['unit'].startswith('gravitas-') and u['unit'].endswith(('.service', '.timer')))
@@ -127,7 +145,8 @@ def resume(state):
 def capture(native_path, runtime):
     directory = BASE / str(uuid.uuid4())
     directory.mkdir(mode=0o700)
-    manifest = {'schema': 1, 'state': 'pending', 'files': {}, 'runtime': runtime, 'images': images()}
+    manifest = {'schema': 1, 'state': 'pending', 'files': {}, 'runtime': runtime, 'images': images(),
+                'databases': {'gravitas': database_fingerprint('gravitas'), 'nextcloud': database_fingerprint('nextcloud', True)}}
     save_json(directory / 'manifest.json', manifest)
     for name, source in {**SOURCES, 'nextcloud.tar': native_path}.items():
         if not source.is_dir() or source.is_symlink():
@@ -149,6 +168,36 @@ def capture(native_path, runtime):
     save_json(directory / 'manifest.json', manifest)
     verify(directory)
     return directory
+
+
+def rehearse(directory):
+    """Restore into isolated databases/private trees; never exchange production."""
+    manifest = verify(directory)
+    if not manifest.get('databases'):
+        raise ValueError('Checkpoint lacks reference database fingerprints')
+    rehearsal = BASE / ('rehearsal-' + str(uuid.uuid4()))
+    rehearsal.mkdir(mode=0o700)
+    databases = []
+    try:
+        for name in (*SOURCES, 'nextcloud.tar'):
+            stage = rehearsal / name.removesuffix('.tar')
+            stage.mkdir(mode=0o700)
+            run(['tar', '--acls', '--xattrs', '--numeric-owner', '-xpf', str(directory / name), '-C', str(stage)])
+        for name, native in [('gravitas', False), ('nextcloud', True)]:
+            prefix, flags = database_prefix(native)
+            staging_db = name + '_rehearsal_' + uuid.uuid4().hex[:16]
+            run(prefix + ['createdb', *flags, '-O', name, staging_db])
+            databases.append((prefix, flags, staging_db))
+            with (directory / (name + '.dump')).open('rb') as handle:
+                run(prefix + ['pg_restore', *flags, '--single-transaction', '-d', staging_db], stdin=handle)
+            if database_fingerprint(staging_db, native) != manifest['databases'][name]:
+                raise ValueError('Restored database IDs/content differ: ' + name)
+        save_json(directory / 'rehearsal.json', {'state': 'passed', 'database_fingerprints_match': True, 'native_files_extracted': True})
+        print('Isolated restore passed: both database contents/IDs/ACL metadata match; native files extracted. Production untouched.')
+    finally:
+        for prefix, flags, staging_db in databases:
+            run(prefix + ['dropdb', *flags, '--if-exists', staging_db])
+        shutil.rmtree(rehearsal)
 
 
 def restore_files(directory, native_path, journal):
@@ -197,11 +246,11 @@ def restore_files(directory, native_path, journal):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('backup', 'restore', 'verify', 'resume'))
+    parser.add_argument('action', choices=('backup', 'restore', 'verify', 'rehearse', 'resume'))
     parser.add_argument('--checkpoint', type=Path)
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
-    if args.action in {'restore', 'verify'} and not args.checkpoint:
+    if args.action in {'restore', 'verify', 'rehearse'} and not args.checkpoint:
         parser.error('--checkpoint required')
     if args.action == 'verify':
         verify(args.checkpoint); print('Checkpoint integrity verified'); return
@@ -219,6 +268,10 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         pending = json.loads((BASE / 'restore.json').read_text()) if (BASE / 'restore.json').exists() else None
         interrupted = pending and pending.get('phase') != 'complete'
+        if args.action == 'rehearse':
+            if interrupted:
+                raise ValueError('Complete interrupted restore before rehearsal')
+            rehearse(args.checkpoint.resolve()); return
         if args.action == 'resume':
             if (BASE / 'restore.json').exists() and json.loads((BASE / 'restore.json').read_text()).get('phase') != 'complete':
                 raise ValueError('Incomplete restore: inspect restore.json and restore the safety checkpoint first')
@@ -245,6 +298,10 @@ def main():
                 journal = {'source': str(args.checkpoint.resolve()), 'safety': str(safety), 'phase': 'prepared'}
                 save_json(BASE / 'restore.json', journal)
                 restore_files(args.checkpoint.resolve(), native_path, journal)
+                if manifest.get('databases'):
+                    for database, native in [('gravitas', False), ('nextcloud', True)]:
+                        if database_fingerprint(database, native) != manifest['databases'][database]:
+                            raise ValueError('Restored database identity/content verification failed; writers remain paused')
                 # Keep the restored app closed until both native DBs/files are
                 # in place, even if this was an older non-maintenance snapshot.
                 run(['docker', 'start', 'gravitas-nextcloud'], stdout=subprocess.DEVNULL)
