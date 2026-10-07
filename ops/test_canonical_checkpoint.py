@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -14,6 +15,16 @@ spec.loader.exec_module(checkpoint)
 
 
 class CheckpointTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get('CHECKPOINT_TEST_POSTGRES'), 'PostgreSQL integration fixture not configured')
+    def test_real_postgres_copy_hash_is_independent_of_insertion_order(self):
+        def fingerprint(values):
+            sql = 'CREATE TEMP TABLE checkpoint_fixture (id integer, content text); INSERT INTO checkpoint_fixture VALUES ' + values + '; ' + checkpoint.fingerprint_sql('checkpoint_fixture')
+            return checkpoint.stream_fingerprint(['psql', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'postgres', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', sql])
+        first = fingerprint("(1, 'one'), (2, 'two'), (2, 'two')")
+        self.assertEqual(first, fingerprint("(2, 'two'), (1, 'one'), (2, 'two')"))
+        self.assertEqual(first['rows'], 3)
+        self.assertNotEqual(first['hash'], fingerprint("(1, 'one'), (2, 'two')")['hash'])
+
     def test_streaming_fingerprint_preserves_duplicate_rows_and_counts(self):
         import sys
         fingerprint = checkpoint.stream_fingerprint([sys.executable, '-c', "import sys; sys.stdout.write('a' * 32 + '\\n'); sys.stdout.write('a' * 32 + '\\n')"])

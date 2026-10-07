@@ -27,6 +27,16 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: checkpoint-test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      CHECKPOINT_TEST_POSTGRES: '1'
+      PGPASSWORD: checkpoint-test
     steps:
       - uses: actions/checkout@v4
       - name: Test complete backend and checkpoint recovery ordering
