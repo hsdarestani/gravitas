@@ -43,12 +43,12 @@ class WriteBatch:
 
     def mutate(self, project, path, content, etag, kind):
         from .canonical_projects import dav_read, dav_write
-        journal = self.journal(project)
-        if any(op['path'] == path and op.get('kind') != 'acl' for op in journal['manifest']['operations']):
-            raise RecoveryRequired('canonical_repeated_file_write_requires_review:' + journal['path'])
         before = dav_read(path)
         if (before['etag'] if before else None) != etag:
             return None
+        journal = self.journal(project)
+        if any(op['path'] == path and op.get('kind') != 'acl' for op in journal['manifest']['operations']):
+            raise RecoveryRequired('canonical_repeated_file_write_requires_review:' + journal['path'])
         operation = {'kind': kind, 'path': path, 'before': before, 'content': content, 'written_etag': None}
         journal['manifest']['operations'].append(operation)
         self.persist(journal)
@@ -64,11 +64,11 @@ class WriteBatch:
 
     def acl(self, project, path, rules):
         from .canonical_acl import read_acl, write_acl, normalize
-        journal = self.journal(project)
         before = read_acl(path)
         rules = normalize(rules)
         if before['rules'] == rules:
             return before
+        journal = self.journal(project)
         if any(op['path'] == path and op.get('kind') == 'acl' for op in journal['manifest']['operations']):
             raise RecoveryRequired('canonical_repeated_acl_change_requires_review')
         op = {'kind': 'acl', 'path': path, 'before': before, 'rules': rules, 'written': None}
