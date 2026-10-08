@@ -332,7 +332,7 @@ def refresh_file(file, user=None):
     obj = object_for(file)
     if not obj or user and not can_view(user, acl_object(obj)):
         return
-    remote = dav_read(cloud.project_mountpoint(file.project) + '/' + file.path, file.etag)
+    remote = dav_read(cloud.project_mountpoint(file.project) + '/' + file.path, file.etag if file.file_id else None)
     if remote is None:
         raise CanonicalConflict(file.path, file.base_content, encode(obj), '', '')
     if remote.get('unchanged'):
