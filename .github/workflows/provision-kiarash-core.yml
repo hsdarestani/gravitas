@@ -2,7 +2,7 @@ name: Provision Kiarash Core Access
 
 on:
   workflow_run:
-    workflows: ['Deploy Gravitas to Strato']
+    workflows: ['Selected Operational Project Acceptance']
     types: [completed]
 
 permissions:
