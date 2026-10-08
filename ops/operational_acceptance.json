@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "operation": "accept_selected_existing_project",
+  "project_id": 208,
+  "expected_title": "Pulsar Development Project",
+  "expected_source_notes": 5,
+  "expected_source_maps": 1
+}

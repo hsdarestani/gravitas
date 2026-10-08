@@ -1,0 +1,60 @@
+name: Selected Operational Project Acceptance
+
+on:
+  workflow_run:
+    workflows: ['Deploy Gravitas to Strato']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-production
+  cancel-in-progress: false
+
+jobs:
+  accept-selected-project:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.repository == 'hsdarestani/gravitas'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Check selected plan belongs to the current deployed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT_SHA="$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq '.object.sha')"
+          test "$CURRENT_SHA" = "$RELEASE_SHA"
+          python3 ops/run_operational_acceptance.py
+          python3 ops/operational_acceptance.py --plan ops/operational_acceptance.json
+      - name: Prepare existing deployment identity
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          OPERATIONS_HOST: ${{ secrets.DEPLOY_HOST }}
+          OPERATIONS_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$OPERATIONS_HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/selected_acceptance
+          chmod 600 ~/.ssh/selected_acceptance
+          ssh-keyscan -p "${OPERATIONS_PORT:-22}" -H "$OPERATIONS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Fresh native checkpoint and selected project acceptance
+        env:
+          OPERATIONS_HOST: ${{ secrets.DEPLOY_HOST }}
+          OPERATIONS_LOGIN: ${{ secrets.DEPLOY_USER }}
+          OPERATIONS_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          OPERATIONS_LOGIN="${OPERATIONS_LOGIN:-deploy}"
+          SSH_OPTIONS=(-i ~/.ssh/selected_acceptance -p "${OPERATIONS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${SSH_OPTIONS[@]}" "$OPERATIONS_LOGIN@$OPERATIONS_HOST" true 2>/dev/null; then
+            ssh "${SSH_OPTIONS[@]}" "root@$OPERATIONS_HOST" true
+            OPERATIONS_LOGIN=root
+          fi
+          ssh "${SSH_OPTIONS[@]}" "$OPERATIONS_LOGIN@$OPERATIONS_HOST" 'sudo python3 /var/www/gravitas/ops/run_operational_acceptance.py --apply'
