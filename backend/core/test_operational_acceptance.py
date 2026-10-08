@@ -147,12 +147,13 @@ class ReviewedAclIncidentTests(TestCase):
             current.update(rules=rules, etag='"restored"')
             return read(target)
         with patch('core.canonical_acl.read_acl', side_effect=read), patch('core.canonical_acl.write_acl', side_effect=write) as update, \
-             patch('core.canonical_acl.desired_rules', return_value=current['rules']), patch('core.nextcloud_bridge._project_root_roles', return_value={}), \
+             patch('core.canonical_acl.desired_rules', return_value=current['rules']) as policy, patch('core.nextcloud_bridge._project_root_roles', return_value={}), \
              patch('core.cloud.canonical_native_groups', return_value={}):
             module = acceptance_module()
             self.assertEqual(module.review_selected_root_acl_recovery(self.project, review), 'rolled_back')
             self.assertEqual(module.review_selected_root_acl_recovery(self.project, review), 'already_rolled_back')
         update.assert_called_once()
+        self.assertEqual(policy.call_args.args[2], 'specific')
         self.assertEqual(current['rules'], old['rules'])
         saved = json.loads(self.dav.files[path]['content'])
         self.assertEqual(saved['state'], 'rolled_back')
