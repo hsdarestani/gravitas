@@ -29,10 +29,12 @@ SCOPES = {
     'auth': [
         (re.compile(r'^auth-e2e-\d+@example\.com$'), {'Production E2E'}),
         (re.compile(r'^browser-e2e-\d+-\d+@example\.com$'), {'Browser Production E2E'}),
+        (re.compile(r'^(?:auth-e2e|browser-e2e)-\d+-\d+@example\.com$'), {'Disposable production verification'}),
     ],
     'workspace': [
         (re.compile(r'^workspace-a-\d+@example\.com$'), {'Workspace E2E'}),
         (re.compile(r'^workspace-b-\d+@example\.com$'), {'Workspace E2E'}),
+        (re.compile(r'^workspace-[ab]-\d+-\d+@example\.com$'), {'Disposable production verification'}),
     ],
     'operating': [
         (re.compile(r'^operating-e2e-\d+-\d+@example\.com$'), {'Operating Production E2E'}),
@@ -129,6 +131,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--scope', choices=['auth', 'workspace', 'operating', 'all'], default='all')
+        parser.add_argument('--run-id', type=int, default=0, help='Limit automatic cleanup to the completed workflow run.')
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument(
             '--min-age-minutes',
@@ -139,6 +142,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         min_age_minutes = options['min_age_minutes']
+        run_id = options['run_id']
+        if run_id < 0:
+            raise CommandError('--run-id must be zero or greater')
+        def matches_run(email):
+            return not run_id or bool(re.search(rf'-{run_id}(?:-\d+)?@example\.com$', email.lower()))
         if min_age_minutes < 0:
             raise CommandError('--min-age-minutes must be zero or greater')
 
@@ -148,7 +156,7 @@ class Command(BaseCommand):
             cutoff = timezone.now() - timedelta(minutes=min_age_minutes)
             candidates = candidates.filter(date_joined__lte=cutoff)
         candidates = candidates.order_by('pk')
-        matched = [user for user in candidates if any(matches_scope(user, scope) for scope in scopes)]
+        matched = [user for user in candidates if matches_run(user.email) and any(matches_scope(user, scope) for scope in scopes)]
 
         if options['dry_run']:
             for user in matched:
@@ -224,7 +232,7 @@ class Command(BaseCommand):
         subscriber_ids = [
             item.pk
             for item in NewsletterSubscriber.objects.filter(email__iendswith='@example.com').only('pk', 'email')
-            if any(email_matches_scope(item.email, scope) for scope in scopes)
+            if matches_run(item.email) and any(email_matches_scope(item.email, scope) for scope in scopes)
         ]
         orphan_newsletters_deleted = 0
         if subscriber_ids:
