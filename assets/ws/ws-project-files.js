@@ -2,21 +2,22 @@
  * reused, and all saves carry an exact remote revision. Conflict drafts stay
  * in the visible editor; choosing mine/remote is an explicit guarded save. */
 import { call, upload } from './ws-platform.js?v=20261008-operational2';
+import { nextcloudSsoUrl } from './ws-nextcloud-sso.js?v=20261008-sessionfix1';
 import { renderNoteMarkdown } from './ws-notes-markdown.js';
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const button = (text, fn) => { const n = el('button', 'ws-btn', text); n.type = 'button'; n.onclick = fn; return n; };
 export async function renderProjectStructure(doc, projectId) {
-  const box = el('section', 'fl-panel'); box.append(el('h2', null, 'Project files'), el('p', 'fl-muted', 'Everything belonging to this project lives in its own Team Folder.'));
-  const status = el('p', 'fl-muted', 'Loading files…'), toolbar = el('div', 'fl-row__actions'), tree = el('div'), editor = el('section', 'fl-panel'); box.append(status, toolbar, tree, editor); doc.append(box);
+  const box = el('section', 'fl-panel wc-card project-files'); box.append(el('h2', 'fl-panel__title', 'Project folder'), el('p', 'fl-muted', 'Browse folders, project.md and working documents here. The Attachments tab lists uploaded files and datasets. Both belong to this project.'));
+  const status = el('p', 'fl-muted', 'Loading files…'), toolbar = el('div', 'fl-row__actions'), tree = el('div', 'project-files__list'), editor = el('section', 'fl-panel'); editor.hidden = true; box.append(status, toolbar, tree, editor); doc.append(box);
   const endpoint = `/platform/projects/${projectId}`;
   let current = '', data;
   async function open(path) {
     try {
-      data = await call(`${endpoint}/structure/?path=${encodeURIComponent(path)}`); current = path;
+      data = await call(`${endpoint}/structure/?path=${encodeURIComponent(path)}`); current = path; editor.hidden = true;
       status.textContent = `${data.root}/${path}`; tree.replaceChildren(); toolbar.replaceChildren();
       if (path) toolbar.append(button('Parent folder', () => open(path.split('/').slice(0, -1).join('/'))));
-      const native = el('a', 'ws-btn', 'Open this folder in Nextcloud'); native.href = data.native_url; native.target = '_blank'; native.rel = 'noopener'; toolbar.append(native);
-      if (data.enabled) toolbar.append(button('project.md', () => edit('project.md')));
+      const native = el('a', 'ws-btn', 'Open this folder in Nextcloud'); native.href = nextcloudSsoUrl(data.native_url); native.target = '_blank'; native.rel = 'noopener'; toolbar.append(native);
+      if (data.enabled) { if (!path) toolbar.append(button('Open project summary', () => edit('project.md'))); }
       else {
         status.textContent += ' · Project files are available; content migration is pending.';
         if (data.can_adopt) toolbar.append(button('Adopt canonical files', async () => {
@@ -34,7 +35,8 @@ export async function renderProjectStructure(doc, projectId) {
         };
         toolbar.append(picker, button('Upload file', () => picker.click()));
       }
-      for (const item of data.items) {
+      if (!data.items?.length) tree.append(el('p', 'fl-muted', 'This folder is empty.'));
+      for (const item of data.items || []) {
         const row = el('div', 'fl-row');
         if (item.folder) row.append(button(`${item.name}/`, () => open(item.path)));
         else if (item.canonical || /\.(md|txt|json|csv)$/i.test(item.name)) row.append(button(item.name, () => edit(item.path, !item.canonical)));
@@ -51,7 +53,7 @@ export async function renderProjectStructure(doc, projectId) {
         }
         row.append(el('small', 'fl-muted', item.size ? `${item.size} bytes` : '')); tree.append(row);
       }
-    } catch (e) { status.textContent = e.message; toolbar.replaceChildren(button('Retry', () => open(path))); }
+    } catch (e) { status.textContent = e.message === 'cloud_unavailable' ? 'Project storage is temporarily unavailable. Retry in a moment.' : e.message; toolbar.replaceChildren(button('Retry', () => open(path))); }
   }
   async function create(action) {
     const name = prompt(action === 'folder' ? 'Folder name' : 'File name, e.g. synthesis.md'); if (!name) return;
@@ -61,7 +63,7 @@ export async function renderProjectStructure(doc, projectId) {
     try {
       const url = `${endpoint}/file-content/?path=${encodeURIComponent(path)}${generic ? '&edit=1' : ''}`;
       const file = await call(url); let etag = file.etag;
-      editor.replaceChildren(el('h3', null, path));
+      editor.hidden = false; editor.replaceChildren(el('h3', null, path));
       const input = el('textarea', 'ws-input'); input.rows = 16; input.value = file.content; input.setAttribute('aria-label', 'Canonical file content'); input.disabled = !file.can_edit;
       const preview = el('div'); const paint = () => { preview.replaceChildren(renderNoteMarkdown(input.value)); }; input.oninput = paint;
       editor.append(input, button('Preview Markdown', paint), preview); const conflicts = el('div'); editor.append(conflicts);

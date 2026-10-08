@@ -1,14 +1,14 @@
-import { renderProjectStructure } from './ws-project-files.js?v=20261008-operational2';
+import { renderProjectStructure } from './ws-project-files.js?v=20261008-sessionfix1';
 import * as P from './ws-platform.js?v=20261008-operational2';
 
 const TABS = [
-  ['structure', 'Project files'],
+  ['structure', 'Project folder'],
   ['overview', 'Overview'],
   ['milestones', 'Milestones'],
   ['tasks', 'Tasks'],
   ['notes', 'Notes'],
   ['sources', 'Sources'],
-  ['files', 'Files'],
+  ['files', 'Attachments'],
   ['discussions', 'Discussions'],
   ['experiments', 'Outputs'],
   ['activity', 'Activity'],
