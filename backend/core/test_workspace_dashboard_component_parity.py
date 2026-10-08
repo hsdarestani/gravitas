@@ -85,6 +85,6 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
             "./ws-member-lms.js?v=20261008-reports3",
             "./ws-member-progress.js?v=20261008-operational2",
             "./ws-admin.js?v=20261008-operational2",
-            "./ws-project.js?v=20261008-operational2",
+            "./ws-project.js?v=20261008-sessionfix1",
         ):
             self.assertIn(marker, five)
