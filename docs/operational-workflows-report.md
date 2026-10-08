@@ -1,5 +1,13 @@
 # Gravitas operational workflows: consolidated delivery and acceptance report
 
+## Current acceptance update — 8 October 2026
+
+PR172 fixes recovery rolling back the context-local active journal before its database witness commits. A regression test fails before the fix and verifies recovery of previous crashed operations while preserving the current journal. All 661 backend tests passed, PostgreSQL/role validation passed, and deployment 37796945404 passed its matched checkpoint, isolated restore rehearsal and production checks.
+
+Selected native run 37797532555 committed adoption of project208 and passed canonical content/native identity readback, owner root browsing and Markdown read, stale native ACL rejection, service-only ACL boundary, actual external owner DAV import, overlapping conflict rejection and persisted manual resolution. It then stopped because all existing members had project access, so its assumed outsider fixture did not exist. It has no final acceptance receipt yet. The follow-up creates a passwordless nonstaff disposable outsider with only the Research module grant, verifies project denial and removes it in the same transaction; real-user permissions are unchanged. Seven focused acceptance tests pass; final deployment/native/production browser results remain to be recorded after their real runs.
+
+Read-only inspection confirms one adopted canonical project, native owner root207, SMTP NOOP250, a healthy Telegram webhook and no database transaction waits. Actual browser LMS Pulsar synthesis now answers with permitted sources; the earlier no-model fallback is superseded. Global adoption remains disabled. Full browser invitations/revocation/collaboration, learner assessments/certificate, human Telegram confirmation, Ahmad's reusable Skill, Sajad's Topic approval and the previously rejected immediate course publication are not certified by this server result.
+
 ## 1. Outcome
 
 The engineering release is deployed. Full operational acceptance remains open.

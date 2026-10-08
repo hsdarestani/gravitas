@@ -168,6 +168,34 @@ def send_owner_checkin(owner, plan_digest):
         return result
 
 
+def verify_private_outsider(project, url):
+    """Probe object isolation with Research enabled, without granting real users access."""
+    import uuid
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    from django.test import RequestFactory
+    from core.layer_models import ModuleGrant
+    from core.platform_access import can_view
+    from core.canonical_api import project_file_content
+    # No credentials, invitation, native account or messages are created. The
+    # fixture is removed in this same transaction, including on probe failure.
+    with transaction.atomic():
+        actor = get_user_model().objects.create_user(
+            username='canonical-acceptance-' + uuid.uuid4().hex,
+            first_name='Disposable production verification')
+        ModuleGrant.objects.create(user=actor, module=ModuleGrant.Module.RESEARCH,
+            enabled=True, access_level=ModuleGrant.AccessLevel.EDIT, source=ModuleGrant.Source.SYSTEM)
+        if actor.is_staff or actor.is_superuser or can_view(actor, project):
+            raise ValueError('Disposable outsider unexpectedly has project access')
+        request = RequestFactory().get(url)
+        request.user = actor
+        status = project_file_content(request, project.pk).status_code
+        actor.delete()
+        if status != 403:
+            raise ValueError('Private project outsider access was not denied')
+    return status
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plan', type=Path, required=True)
@@ -298,12 +326,7 @@ def main():
     note.refresh_from_db()
     if 'Reviewed conflict resolution verified.' not in note.body:
         raise ValueError('Resolved note did not persist')
-    outsiders = [u for u in project.workspace.memberships.select_related('user') if u.user_id != owner.pk and not can_view(u.user, project)]
-    if not outsiders:
-        raise ValueError('No existing outsider available to verify private project isolation')
-    denied = factory.get(url); denied.user = outsiders[0].user
-    if project_file_content(denied, project.pk).status_code != 403:
-        raise ValueError('Private project outsider access was not denied')
+    verify_private_outsider(project, url)
     overview = factory.get('/api/operating/work-reports/overview/'); overview.user = owner
     overview_status = report_overview_api(overview).status_code
     question = 'Summarize the existing Pulsar implementation sources in this project and distinguish implemented behavior from remaining operational acceptance.'
