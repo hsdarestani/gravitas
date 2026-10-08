@@ -155,3 +155,29 @@ from django.db import connection
 with connection.cursor() as cursor:
     cursor.execute("SELECT wait_event_type, wait_event, count(*), max(EXTRACT(EPOCH FROM (now()-xact_start))) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND state<>'idle' GROUP BY wait_event_type,wait_event")
     print(json.dumps({'database_waits': [{'type': row[0], 'event': row[1], 'count': row[2], 'max_transaction_seconds': float(row[3]) if row[3] is not None else None} for row in cursor.fetchall()]}))
+
+# Read-only canonical projection readback diagnostics; never emit file bodies.
+if plan_path.is_file() and project:
+    from core.canonical_projects import project_objects, encode, dav_read
+    from core.canonical_models import CanonicalFile
+    failures = []
+    total = 0
+    for obj in project_objects(project):
+        total += 1
+        file = CanonicalFile.objects.filter(project=project, object_type=obj.__class__.__name__, object_id=obj.pk, deleted=False).first()
+        if not file:
+            failures.append({'type': obj.__class__.__name__, 'missing_projection': True}); continue
+        remote = dav_read(cloud.project_mountpoint(project) + '/' + file.path)
+        expected = encode(obj)
+        if not remote or remote['content'] != expected or not remote.get('etag') or not remote.get('file_id'):
+            entry = {'type': obj.__class__.__name__, 'id': obj.pk, 'remote_present': bool(remote), 'content_matches': bool(remote and remote['content'] == expected), 'etag_present': bool(remote and remote.get('etag')), 'native_identity_present': bool(remote and remote.get('file_id'))}
+            if remote and remote['content'] != expected:
+                from core.canonical_projects import decode
+                try:
+                    fields = decode(obj, remote['content'])
+                    entry['differing_fields'] = [name for name,value in fields.items() if value != getattr(obj, name)]
+                    entry['field_types'] = {name: [type(value).__name__, type(getattr(obj,name)).__name__] for name,value in fields.items() if value != getattr(obj,name)}
+                except ValueError as exc:
+                    entry['decode_error'] = str(exc)
+            failures.append(entry)
+    print(json.dumps({'canonical_readback_diagnostics': {'checked': total, 'failures': failures}}, sort_keys=True))
