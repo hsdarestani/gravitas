@@ -120,7 +120,7 @@ if plan_path.is_file() and project:
             from core.canonical_acl import desired_rules
             from core import nextcloud_bridge
             policy = desired_rules(cloud.project_group_id(project), nextcloud_bridge._project_root_roles(project),
-                'project', cloud.canonical_native_groups(project).values())
+                'specific', cloud.canonical_native_groups(project).values())
             details['current_root_matches_policy'] = read_acl(cloud.project_mountpoint(project))['rules'] == policy
             details['operations'] = [{'kind': op.get('kind'), 'write_receipt_recorded': bool(op.get('written') or op.get('written_etag')),
                 'acl_equals_before': read_acl(op['path'])['rules'] == op['before']['rules'] if op.get('kind') == 'acl' else None,
