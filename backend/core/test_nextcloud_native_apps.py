@@ -325,6 +325,21 @@ class DeckBidirectionalMirrorTests(TestCase):
             },
         }
 
+    def test_richer_states_survive_a_newer_legacy_backlog_metadata_edit(self):
+        from .nextcloud_deck import _stack_for_task
+        changed_at = datetime(2026, 9, 14, 12, 0, tzinfo=dt_timezone.utc)
+        for status, lane in [(WorkStatus.READY, 'Ready'), (WorkStatus.WAITING, 'Waiting on owner'), (WorkStatus.REVIEW, 'Needs review'), (WorkStatus.RETEST, 'Acceptance retest')]:
+            with self.subTest(status=status):
+                task = self.task(updated_at=changed_at, status=status)
+                current = self.current(task, stack='Backlog', title='Edited in Deck', modified=changed_at.timestamp() + 30)
+                self.assertEqual(_pull_card(task, current), 'pulled')
+                self.assertEqual(task.title, 'Edited in Deck')
+                self.assertEqual(task.status, status)
+                self.assertEqual(_stack_for_task(task), lane)
+                self.assertEqual(_pull_card(task, self.current(task, stack=lane, title=task.title, modified=changed_at.timestamp()+60)), 'unchanged')
+                self.assertEqual(_pull_card(task, self.current(task, stack='Done', title=task.title, modified=changed_at.timestamp()+90)), 'pulled')
+                self.assertEqual(task.status, WorkStatus.DONE)
+
     def test_newer_deck_execution_state_is_pulled_when_local_is_unchanged(self):
         changed_at = datetime(2026, 9, 14, 12, 0, tzinfo=dt_timezone.utc)
         task = self.task(updated_at=changed_at)

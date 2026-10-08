@@ -50,7 +50,8 @@ def reconcile_tasks(owner):
             review.status = WorkStatus.READY; review.save()
         if review.owner_id != candidates[0].pk:
             raise ValueError('Topic review owner differs from the selected Sajad')
-        changes = [(video, {'status': WorkStatus.WAITING, 'dependency': skill}),
+        changes = [(review, {'status': WorkStatus.READY} if review.status == WorkStatus.DRAFT else {}),
+            (video, {'dependency': skill, **({'status': WorkStatus.WAITING} if video.status in {WorkStatus.DRAFT, WorkStatus.BLOCKED, WorkStatus.WAITING} else {})}),
             (topic, {'status': WorkStatus.BLOCKED, 'dependency': review}),
             (skill, {'priority': video.priority, **({'status': WorkStatus.READY} if skill.status == WorkStatus.DRAFT else {})})]
         for task, fields in changes:
@@ -122,9 +123,6 @@ def main():
     receipt_dir = Path(settings.CORE_UPLOAD_ROOT) / '.operations'
     receipt_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     receipt = receipt_dir / ('acceptance-' + hashlib.sha256(plan_bytes).hexdigest() + '.json')
-    if receipt.exists():
-        print('Selected acceptance plan already completed; no repeated production writes.')
-        return
     project = ResearchProject.objects.select_related('owner').get(pk=plan['project_id'], archived=False)
     owner = project.owner
     if project.title != plan['expected_title'] or not owner.is_active or not can_manage(owner, project):
@@ -134,6 +132,9 @@ def main():
     if sources.count() != plan['expected_source_notes'] or maps.count() != plan['expected_source_maps']:
         raise ValueError('Existing source inventory differs from the reviewed plan')
     task_results = reconcile_tasks(owner)
+    if receipt.exists():
+        print('Selected acceptance already completed; native writes and Telegram delivery are not repeated. Task dependencies reconciled idempotently.')
+        return
     identities = {(obj.__class__.__name__, obj.pk) for obj in project_objects(project)}
     # The explicit CLI plan authorizes only this selected adoption. The global
     # setting remains false; the HTTP adoption endpoint stays unavailable.

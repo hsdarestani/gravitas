@@ -32,12 +32,20 @@ BOARD_COLOR = '202124'
 STACKS = [
     ('Backlog', {WorkStatus.DRAFT}),
     ('Active', {WorkStatus.ACTIVE}),
+    ('Ready', {WorkStatus.READY}),
+    ('Waiting on owner', {WorkStatus.WAITING}),
+    ('Needs review', {WorkStatus.REVIEW}),
+    ('Acceptance retest', {WorkStatus.RETEST}),
     ('Blocked', {WorkStatus.BLOCKED}),
     ('Done', {WorkStatus.DONE, WorkStatus.ARCHIVED}),
 ]
 STACK_STATUS = {
     'Backlog': WorkStatus.DRAFT,
     'Active': WorkStatus.ACTIVE,
+    'Ready': WorkStatus.READY,
+    'Waiting on owner': WorkStatus.WAITING,
+    'Needs review': WorkStatus.REVIEW,
+    'Acceptance retest': WorkStatus.RETEST,
     'Blocked': WorkStatus.BLOCKED,
     'Done': WorkStatus.DONE,
 }
@@ -275,7 +283,10 @@ def _safe_remote_diff(task, current):
         diff['title'] = remote_title
 
     remote_status = STACK_STATUS.get(current['stack_title'])
-    if remote_status and remote_status != task.status:
+    # Older releases exported all richer states to Backlog. A metadata edit on
+    # that legacy card is not an explicit request to discard the richer state.
+    legacy_backlog = current['stack_title'] == 'Backlog' and task.status in {WorkStatus.READY, WorkStatus.WAITING, WorkStatus.REVIEW, WorkStatus.RETEST}
+    if remote_status and remote_status != task.status and not legacy_backlog:
         # Deck's Done lane represents completed work. Archived is intentionally
         # not imported because archive is an administrative Gravitas state.
         diff['status'] = remote_status
