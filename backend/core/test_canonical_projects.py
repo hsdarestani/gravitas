@@ -248,6 +248,18 @@ class CanonicalProjectTests(TestCase):
 
 @override_settings(NEXTCLOUD_ADMIN_USER='service', NEXTCLOUD_ADMIN_PASSWORD='fixture')
 class NativeCanonicalRepresentationTests(TestCase):
+    def test_conditional_writes_use_the_same_native_representation_as_reads(self):
+        from types import SimpleNamespace
+        from .canonical_projects import dav_write
+        from .canonical_journal import dav_delete
+        with patch('core.canonical_projects.cloud.admin_make_folder'), patch('core.canonical_projects.dav_read', return_value={'content': 'new', 'etag': '"next"'}), patch('core.canonical_projects.cloud._request', return_value=SimpleNamespace(status_code=204)) as request:
+            dav_write('GRV-000208/project.md', 'new', '"native"')
+            self.assertEqual(request.call_args.kwargs['headers'], {'Accept-Encoding': 'identity', 'If-Match': '"native"'})
+            dav_write('GRV-000208/project.md', 'new')
+            self.assertEqual(request.call_args.kwargs['headers'], {'Accept-Encoding': 'identity', 'If-None-Match': '*'})
+            dav_delete('GRV-000208/project.md', '"native"')
+            self.assertEqual(request.call_args.kwargs['headers'], {'Accept-Encoding': 'identity', 'If-Match': '"native"'})
+
     def test_native_content_read_requests_identity_representation_for_write_etag(self):
         from types import SimpleNamespace
         from .canonical_projects import dav_read

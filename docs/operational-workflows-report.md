@@ -8,6 +8,19 @@ execution waits for Ahmad's reusable Skill while its approved design is DONE.
 Course publication requires explicit approval after automatic review rejected
 immediate publication. Unverified acceptance is not represented as completion.
 
+
+## Current verification: 2026-10-08 follow-up
+
+PRs 163–165 are merged and production deployment 37788022907 passed. The complete follow-up backend suite passes **649 tests**. Verification-aware disposable auth fixtures preserve the real signed email-confirmation and ordinary HTTPS login contract; no production verification setting is bypassed. Core browser assertions follow the current workspace UI.
+
+Selected native run **37788595528** passed a fresh matched checkpoint and isolated restore and delivered the linked-owner check-in. Root ACL recovery rolled back safely. Adoption then failed closed at a journal conditional PUT; no canonical project was committed. Read-only diagnostic run **37789527397** confirmed a gzip ETag differs from the identity representation: default conditional HEAD returns 412 and identity conditional HEAD returns 200. PR166 aligns conditional PUT/DELETE with identity GET while retaining exact ETag preconditions. Its fresh deployed acceptance result must be recorded separately.
+
+Live browser verification confirms owner SSO opens the actual Nextcloud project folder with all six directories; Daily work reports shows confirmed history and manager coverage. The actual LMS course and lesson open, saved progress remains 33.33% with assessments pending, and Pulsar now returns provider synthesis using permitted course and project sources. These observations supersede the earlier file-listing HTTP404 and LMS fallback observations in section17. Native/browser canonical editing still awaits successful adoption.
+
+CMS live acceptance previously raced the checkpoint's intentional writer pause and returned 502. PR166 runs it after selected acceptance. Native provisioning and matched checkpoint jobs now share the production mutation lock, and checkpoint SSH connections use keepalives. Push-only Nextcloud validation does not count as live provisioning acceptance.
+
+Ahmad's real reusable Skill/Video execution, Sajad's Topic template approval, actual human Telegram reply/confirmation and the previously rejected draft course publication remain owner/approval dependencies. No fake reply, publication, course completion or premature parent-task closure is recorded.
+
 ## 2. Changes and integration
 
 PRs [150](https://github.com/hsdarestani/gravitas/pull/150),
