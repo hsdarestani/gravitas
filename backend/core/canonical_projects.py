@@ -159,7 +159,8 @@ def dav_read(path, etag=None):
 
 def dav_write(path, content, etag=None):
     parent = str(PurePosixPath(path).parent)
-    cloud.admin_make_folder(parent)
+    if not etag:
+        cloud.admin_make_folder(parent)
     response = cloud._request('PUT', cloud._admin_dav_url(path), auth=cloud._admin_auth(), expected={200, 201, 204, 412},
                               headers={'Accept-Encoding': 'identity', **({'If-Match': etag} if etag else {'If-None-Match': '*'})}, data=content.encode('utf-8'))
     if response.status_code == 412:
