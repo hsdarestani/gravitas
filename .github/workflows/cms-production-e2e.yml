@@ -2,7 +2,7 @@ name: Gravitas CMS production E2E
 
 on:
   workflow_run:
-    workflows: ["Enable Content Proxy"]
+    workflows: ["Selected Operational Project Acceptance"]
     types: [completed]
   workflow_dispatch:
 
