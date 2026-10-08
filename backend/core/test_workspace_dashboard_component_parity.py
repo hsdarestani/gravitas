@@ -49,7 +49,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         # chart kit's card() and rows as wc-items.
         admin = self.read('ws-admin.js')
         kit = self.read('ws-admin-kit.js')
-        self.assertIn("./ws-admin-kit.js?v=20261002-admin1", admin)
+        self.assertIn("./ws-admin-kit.js?v=20261008-operational2", admin)
         self.assertIn('C.card(', kit)
         self.assertIn("'adm-row wc-item'", kit)
 
@@ -69,22 +69,22 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
 
     def test_workspace_force_loads_rebuilt_renderers(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-app.js?v=20261007-operational1', html)
-        self.assertIn('/assets/ws/ws-five-layer.js?v=20261007-operational1', html)
+        self.assertIn('/assets/ws/ws-app.js?v=20261008-operational2', html)
+        self.assertIn('/assets/ws/ws-five-layer.js?v=20261008-operational2', html)
         self.assertIn('/assets/ws/ws-charts.css?v=20261001-cosmos1', html)
         self.assertIn('/assets/ws/ws-unified-design.css?v=20261002-file1', html)
 
         app = self.read('ws-app.js')
-        self.assertIn("./ws-home.js?v=20261001-series1", app)
-        self.assertIn("./ws-views.js?v=20261004-hierarchy1", app)
-        self.assertIn("./ws-meetings.js?v=20260926-calendar6", app)
-        self.assertIn("./ws-core-assets.js?v=20260926-links1", app)
+        self.assertIn("./ws-home.js?v=20261008-operational2", app)
+        self.assertIn("./ws-views.js?v=20261008-operational2", app)
+        self.assertIn("./ws-meetings.js?v=20261008-operational2", app)
+        self.assertIn("./ws-core-assets.js?v=20261008-operational2", app)
 
         five = self.read('ws-five-layer.js')
         for marker in (
-            "./ws-member-lms.js?v=20261002-tabs1",
-            "./ws-member-progress.js?v=20260924-unify1",
-            "./ws-admin.js?v=20261002-admin2",
-            "./ws-project.js?v=20261007-canonical1",
+            "./ws-member-lms.js?v=20261008-operational2",
+            "./ws-member-progress.js?v=20261008-operational2",
+            "./ws-admin.js?v=20261008-operational2",
+            "./ws-project.js?v=20261008-operational2",
         ):
             self.assertIn(marker, five)

@@ -1,5 +1,5 @@
-import * as P from './ws-platform.js?v=20260914-7';
-import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
+import * as P from './ws-platform.js?v=20261008-operational2';
+import { observeSurface } from './ws-runtime-performance.js?v=20261008-operational2';
 
 const VERSION = '20260915-1';
 const MENU_LABELS = new Map([

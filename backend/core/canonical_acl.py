@@ -62,3 +62,16 @@ def write_acl(path, rules, expected):
     if saved['rules'] != normalize(rules):
         raise cloud.CloudError('canonical_acl_readback_failed')
     return saved
+
+
+def protect_service_folder(project, relative_path):
+    """Restrict an empty bootstrap/archive folder before storing private data.
+
+    The journal cannot journal its own first ACL. It can still require an
+    exact revision and verified service-only readback before any content PUT.
+    """
+    path = cloud.project_mountpoint(project) + '/' + relative_path
+    before = read_acl(path)
+    rules = desired_rules(cloud.project_group_id(project), {}, 'private')
+    if before['rules'] != rules and write_acl(path, rules, before['etag']) is None:
+        raise cloud.CloudError('canonical_private_folder_changed')

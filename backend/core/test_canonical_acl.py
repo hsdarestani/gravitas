@@ -1,11 +1,23 @@
 from unittest.mock import Mock, patch
 from django.test import SimpleTestCase, override_settings
-from .canonical_acl import read_acl, write_acl
+from .canonical_acl import read_acl, write_acl, protect_service_folder
 from .cloud import CloudError
 
 
 @override_settings(NEXTCLOUD_ADMIN_USER='test-admin', NEXTCLOUD_ADMIN_PASSWORD='test-only')
 class CanonicalACLTests(SimpleTestCase):
+    def test_service_folder_denies_members_but_preserves_conditional_admin_access(self):
+        project = Mock()
+        with patch('core.canonical_acl.cloud.project_mountpoint', return_value='GRV-000208'), patch('core.canonical_acl.cloud.project_group_id', return_value='project-group'), patch('core.canonical_acl.read_acl', return_value={'rules': [], 'etag': 'original'}), patch('core.canonical_acl.write_acl', return_value={'etag': 'saved'}) as write:
+            protect_service_folder(project, '06_Archive/CanonicalTransactions')
+            path, rules, etag = write.call_args.args
+            self.assertEqual(etag, 'original')
+            self.assertIn({'type': 'group', 'id': 'project-group', 'mask': 31, 'permissions': 0}, rules)
+            self.assertIn({'type': 'user', 'id': 'test-admin', 'mask': 31, 'permissions': 31}, rules)
+            write.return_value = None
+            with self.assertRaises(CloudError):
+                protect_service_folder(project, '06_Archive/CanonicalTransactions')
+
     def test_missing_acl_property_is_not_treated_as_empty_permissions(self):
         reply = Mock(content=b'<d:multistatus xmlns:d="DAV:"><d:response><d:propstat><d:prop><d:getetag>etag</d:getetag></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>')
         with patch('core.canonical_acl.cloud._request', return_value=reply):

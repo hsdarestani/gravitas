@@ -49,11 +49,11 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
             'ws-task-deck-mirror.js',
             'ws-actionable-ui.js',
         ):
-            self.assertIn(f'/assets/ws/{name}?v=20260920-perf1', html)
-        self.assertIn('/assets/ws/ws-project-actions.js?v=20261006-mindmap2', html)
-        self.assertIn('/assets/ws/ws-task-deck-fixes.js?v=20260924-rhythm1', html)
+            self.assertIn(f'/assets/ws/{name}?v=20261008-operational2', html)
+        self.assertIn('/assets/ws/ws-project-actions.js?v=20261008-operational2', html)
+        self.assertIn('/assets/ws/ws-task-deck-fixes.js?v=20261008-operational2', html)
         for name in (
             'ws-notes-performance.js',
             'ws-space-integration.js',
         ):
-            self.assertIn(f'/assets/ws/{name}?v=20261002-notebook1', html)
+            self.assertIn(f'/assets/ws/{name}?v=20261008-operational2', html)

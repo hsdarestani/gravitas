@@ -11,10 +11,10 @@
    trust in the rest of the numbers on it.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20260919-planning1';
-import * as C from './ws-charts.js?v=20261001-series1';
-import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20260920-dashboard3';
-import { availableWorkspaces } from './ws-nav.js?v=20260919-planning1';
+import * as P from './ws-platform.js?v=20261008-operational2';
+import * as C from './ws-charts.js?v=20261008-operational2';
+import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261008-operational2';
+import { availableWorkspaces } from './ws-nav.js?v=20261008-operational2';
 import * as K from './ws-kms.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');

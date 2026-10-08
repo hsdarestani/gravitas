@@ -64,17 +64,24 @@ class WriteBatch:
 
     def acl(self, project, path, rules):
         from .canonical_acl import read_acl, write_acl, normalize
+        journal = self.journal(project)
         before = read_acl(path)
         rules = normalize(rules)
         if before['rules'] == rules:
             return before
-        journal = self.journal(project)
         if any(op['path'] == path and op.get('kind') == 'acl' for op in journal['manifest']['operations']):
             raise RecoveryRequired('canonical_repeated_acl_change_requires_review')
         op = {'kind': 'acl', 'path': path, 'before': before, 'rules': rules, 'written': None}
         journal['manifest']['operations'].append(op)
         self.persist(journal)
-        result = write_acl(path, rules, before['etag'])
+        # Persisting a descendant journal changes the project root ETag.
+        # Refresh that ETag only while the observed permissions still match.
+        current = read_acl(path)
+        if current['rules'] != before['rules']:
+            op['not_written'] = True
+            self.persist(journal)
+            raise RecoveryRequired('canonical_acl_changed')
+        result = write_acl(path, rules, current['etag'])
         if result is None:
             op['not_written'] = True
         else:
@@ -90,7 +97,8 @@ class WriteBatch:
             root = cloud.project_mountpoint(project)
             folder = '06_Archive/CanonicalTransactions'
             cloud.admin_make_folder(root + '/' + folder)
-            cloud.set_team_folder_acl(root, folder, cloud.project_group_id(project), {}, 'private')
+            from .canonical_acl import protect_service_folder
+            protect_service_folder(project, folder)
             journal = {'path': root + '/' + folder + '/' + str(self.id) + '.json', 'etag': None,
                        'manifest': {'schema': 1, 'batch_id': str(self.id), 'project_id': project.pk,
                                     'state': 'pending', 'operations': []}}

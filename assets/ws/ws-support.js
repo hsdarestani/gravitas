@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20260918-access3';
+import * as P from './ws-platform.js?v=20261008-operational2';
 
 const el = (tag, cls = '', text = '') => {
   const node = document.createElement(tag);

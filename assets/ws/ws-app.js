@@ -19,23 +19,23 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20261002-calendar1';
-import * as P from './ws-platform.js?v=20260926-calendar2';
-import * as views from './ws-views.js?v=20261004-hierarchy1';
-import * as meetings from './ws-meetings.js?v=20260926-calendar6';
-import * as assets from './ws-core-assets.js?v=20260926-links1';
+import * as api from './ws-api.js?v=20261008-operational2';
+import * as P from './ws-platform.js?v=20261008-operational2';
+import * as views from './ws-views.js?v=20261008-operational2';
+import * as meetings from './ws-meetings.js?v=20261008-operational2';
+import * as assets from './ws-core-assets.js?v=20261008-operational2';
 import * as kms from './ws-kms-views.js';
-import * as library from './ws-library.js?v=20260924-seen1';
-import * as research from './ws-research.js?v=20261006-filesdata1';
+import * as library from './ws-library.js?v=20261008-operational2';
+import * as research from './ws-research.js?v=20261008-operational2';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20261007-operational1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261001-series1';
-import { renderSettings } from './ws-settings.js?v=20260919-crop2';
+} from './ws-nav.js?v=20261008-operational2';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261008-operational2';
+import { renderSettings } from './ws-settings.js?v=20261008-operational2';
 import { mountPalette, openPalette } from './ws-palette.js';
-import { installAssistant, askAssistant } from './ws-ai.js?v=20261006-context1';
-import { installSelects } from './ws-select.js?v=20261002-dropdown2';
+import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-operational2';
+import { installSelects } from './ws-select.js?v=20261008-operational2';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);

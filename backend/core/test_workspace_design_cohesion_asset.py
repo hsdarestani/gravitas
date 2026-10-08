@@ -17,7 +17,7 @@ class WorkspaceDesignCohesionAssetTests(SimpleTestCase):
             html.index(marker),
             html.index('/assets/production-overrides.css'),
         )
-        self.assertIn('/assets/ws/ws-design-runtime.js?v=20261002-file1', html)
+        self.assertIn('/assets/ws/ws-design-runtime.js?v=20261008-operational2', html)
 
     def test_cohesion_layer_adopts_all_workspace_surface_families(self):
         source = COHESION.read_text(encoding='utf-8')

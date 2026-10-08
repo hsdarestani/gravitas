@@ -7,7 +7,7 @@
  *   into the native Nextcloud Notes app.
  */
 
-import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
+import { observeSurface } from './ws-runtime-performance.js?v=20261008-operational2';
 
 const API = '/api';
 const state = { observer: null, timer: null };
