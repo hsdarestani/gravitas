@@ -46,7 +46,7 @@ class OperationalAcceptanceTests(TestCase):
                  patch('core.nextcloud_bridge.ensure_user', return_value=identity), \
                  patch('core.cloud._dav_url', side_effect=lambda identity, path: path), \
                  patch('core.cloud._auth', return_value=('test', 'test')), patch('core.cloud._request', side_effect=native), \
-                 patch.object(module, 'reconcile_tasks', return_value={'tested_separately': True}):
+                 patch.object(module, 'reconcile_tasks', return_value={'tested_separately': True}), patch.object(module, 'send_owner_checkin', return_value='tested_separately'):
                 module.main()
                 evidence = KnowledgeResource.objects.get(project=self.project, metadata__acceptance_key='operational-canonical-acceptance-v1')
                 self.assertIn('Reviewed conflict resolution verified.', evidence.body)
@@ -87,3 +87,15 @@ class OperationalTaskReconciliationTests(TestCase):
         self.assertTrue(item.is_completed)
         review = OperatingTask.objects.get(pk=first['review_task_id'])
         self.assertEqual((review.owner_id, review.status), (self.other.pk, 'ready'))
+
+    def test_real_checkin_targets_only_linked_owner_and_replay_does_not_send(self):
+        from .operating_models import TaskNotificationPreference, TaskNotificationOutbox
+        TaskNotificationPreference.objects.create(user=self.user, telegram_enabled=True, telegram_chat_id=123456)
+        module = acceptance_module()
+        with patch('core.task_notifications._send_telegram', return_value='sent') as send:
+            self.assertEqual(module.send_owner_checkin(self.user, 'a' * 64), 'sent')
+            self.assertEqual(module.send_owner_checkin(self.user, 'a' * 64), 'sent')
+        send.assert_called_once()
+        row = TaskNotificationOutbox.objects.get(event_key='operational-acceptance:' + 'a' * 32)
+        self.assertEqual((row.recipient_id, row.status), (self.user.pk, 'sent'))
+        self.assertEqual(module.send_owner_checkin(self.other, 'b' * 64), 'owner_not_connected')

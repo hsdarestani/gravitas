@@ -63,6 +63,31 @@ def reconcile_tasks(owner):
     return {'video_waiting_on_skill': True, 'topic_blocked_on_review': True, 'review_task_id': review.pk}
 
 
+def send_owner_checkin(owner, plan_digest):
+    """One real check-in to the already linked owner; never impersonate a reply."""
+    from django.db import transaction
+    from django.utils import timezone
+    from core.operating_models import TaskNotificationPreference, TaskNotificationOutbox
+    from core.task_notifications import _send_telegram
+    if not TaskNotificationPreference.objects.filter(user=owner, telegram_enabled=True, telegram_chat_id__isnull=False).exists():
+        return 'owner_not_connected'
+    with transaction.atomic():
+        row, created = TaskNotificationOutbox.objects.get_or_create(recipient=owner, channel='telegram',
+            event_key='operational-acceptance:' + plan_digest[:32], defaults={'event_type': 'operational.acceptance',
+                'subject': 'Pulsar · آزمون واقعی گزارش روزانه',
+                'body': 'برای آزمون گزارش روزانه، /report و گزارش امروزت را بفرست. پیش از هر تغییر وظیفه، پیشنهاد را برای تأیید، ویرایش یا لغو می‌بینی.'})
+        row = TaskNotificationOutbox.objects.select_for_update().get(pk=row.pk)
+        if row.status == 'sent':
+            return 'sent'
+        if not created or row.attempts:
+            return 'pending_existing_delivery'
+        result = _send_telegram(row)
+        row.status = 'sent'; row.sent_at = timezone.now(); row.attempts = 1
+        row.last_error = '' if result == 'sent' else 'skipped_by_current_preference'
+        row.save(update_fields=['status', 'sent_at', 'attempts', 'last_error', 'updated_at'])
+        return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plan', type=Path, required=True)
@@ -199,7 +224,8 @@ def main():
         'external_owner_dav_edit_imported': True, 'overlapping_conflict_rejected': True, 'manual_resolution_persisted': True,
         'private_outsider_denied': True, 'manager_overview_status': overview_status,
         'pending_owner_reports': DailyWorkReport.objects.filter(user=owner, status='pending').count(),
-        'browser_acceptance_complete': False, 'telegram_human_confirmation_complete': False, 'task_reconciliation': task_results}
+        'browser_acceptance_complete': False, 'telegram_human_confirmation_complete': False, 'task_reconciliation': task_results,
+        'telegram_owner_checkin': send_owner_checkin(owner, hashlib.sha256(plan_bytes).hexdigest())}
     temporary = receipt.with_suffix('.tmp')
     with temporary.open('w') as handle:
         json.dump(result, handle); handle.flush(); os.fsync(handle.fileno())
