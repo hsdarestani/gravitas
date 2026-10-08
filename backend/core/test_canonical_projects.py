@@ -261,10 +261,12 @@ class NativeCanonicalRepresentationTests(TestCase):
         from types import SimpleNamespace
         from .canonical_projects import dav_write
         from .canonical_journal import dav_delete
-        with patch('core.canonical_projects.cloud.admin_make_folder'), patch('core.canonical_projects.dav_read', return_value={'content': 'new', 'etag': '"next"'}), patch('core.canonical_projects.cloud._request', return_value=SimpleNamespace(status_code=204)) as request:
+        with patch('core.canonical_projects.cloud.admin_make_folder') as folder, patch('core.canonical_projects.dav_read', return_value={'content': 'new', 'etag': '"next"'}), patch('core.canonical_projects.cloud._request', return_value=SimpleNamespace(status_code=204)) as request:
             dav_write('GRV-000208/project.md', 'new', '"native"')
+            folder.assert_not_called()
             self.assertEqual(request.call_args.kwargs['headers'], {'Accept-Encoding': 'identity', 'If-Match': '"native"'})
             dav_write('GRV-000208/project.md', 'new')
+            folder.assert_called_once_with('GRV-000208')
             self.assertEqual(request.call_args.kwargs['headers'], {'Accept-Encoding': 'identity', 'If-None-Match': '*'})
             dav_delete('GRV-000208/project.md', '"native"')
             self.assertEqual(request.call_args.kwargs['headers'], {'Accept-Encoding': 'identity', 'If-Match': '"native"'})
