@@ -244,3 +244,14 @@ class CanonicalProjectTests(TestCase):
             with self.assertRaises(cloud.CloudError):
                 self.adopt()
         self.assertFalse(CanonicalProject.objects.filter(project=self.project, enabled=True).exists())
+
+
+@override_settings(NEXTCLOUD_ADMIN_USER='service', NEXTCLOUD_ADMIN_PASSWORD='fixture')
+class NativeCanonicalRepresentationTests(TestCase):
+    def test_native_content_read_requests_identity_representation_for_write_etag(self):
+        from types import SimpleNamespace
+        from .canonical_projects import dav_read
+        with patch('core.canonical_projects.cloud._request', return_value=SimpleNamespace(status_code=200, content=b'original', headers={'ETag': '"native"', 'OC-FileId': '1'})) as request:
+            result = dav_read('GRV-000208/project.md', '"prior"')
+        self.assertEqual(request.call_args.kwargs['headers'], {'Accept-Encoding': 'identity', 'If-None-Match': '"prior"'})
+        self.assertEqual(result['etag'], '"native"')

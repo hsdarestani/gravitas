@@ -111,6 +111,10 @@ if plan_path.is_file() and project:
             'identity_encoding': second.headers.get('Content-Encoding', ''),
             'etag_same': first.headers.get('ETag') == second.headers.get('ETag')}
         if second.status_code == 200:
+            for label, response in [('default', first), ('identity', second)]:
+                precondition = cloud._request('HEAD', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 412},
+                    headers={'Accept-Encoding': 'identity', 'If-Match': response.headers.get('ETag', '')})
+                details[label + '_etag_conditional_head_status'] = precondition.status_code
             manifest = second.json()
             details['state'] = manifest.get('state')
             details['operations'] = [{'kind': op.get('kind'), 'write_receipt_recorded': bool(op.get('written') or op.get('written_etag')),
