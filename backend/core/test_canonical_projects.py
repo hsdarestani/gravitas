@@ -67,6 +67,16 @@ class CanonicalProjectTests(TestCase):
     def adopt(self):
         return adopt_project(self.project, self.owner)
 
+    def test_missing_cached_native_identity_is_refreshed_without_a_content_revision(self):
+        self.adopt()
+        file = CanonicalFile.objects.get(project=self.project, path='project.md')
+        revision_count = file.revisions.count()
+        CanonicalFile.objects.filter(pk=file.pk).update(file_id='')
+        refresh_project(self.project, self.owner)
+        file.refresh_from_db()
+        self.assertEqual(file.file_id, self.dav.files[self.full('project.md')]['file_id'])
+        self.assertEqual(file.revisions.count(), revision_count)
+
     @override_settings(GRAVITAS_CANONICAL_ADOPTION_ENABLED=False)
     def test_adoption_gate_leaves_existing_content_untouched(self):
         with self.assertRaisesMessage(ValueError, 'canonical_adoption_pending_operational_validation'):
