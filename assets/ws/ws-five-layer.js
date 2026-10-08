@@ -29,7 +29,7 @@ import {
 } from './ws-admin.js?v=20261008-operational2';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261008-operational2';
 import { renderCoreLinks } from './ws-core-links.js?v=20261008-operational2';
-import { renderResearchProject } from './ws-project.js?v=20261008-operational2';
+import { renderResearchProject } from './ws-project.js?v=20261008-sessionfix1';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);

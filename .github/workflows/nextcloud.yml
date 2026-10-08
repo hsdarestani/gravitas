@@ -17,7 +17,7 @@ on:
       - 'backend/core/management/commands/reconcile_nextcloud_native.py'
   workflow_dispatch:
   workflow_run:
-    workflows: ['Deploy Gravitas to Strato']
+    workflows: ['Selected Operational Project Acceptance']
     types: [completed]
 
 permissions:
@@ -63,7 +63,7 @@ jobs:
           echo 'Nextcloud code validation passed; production provisioning only runs after a successful Gravitas deploy or manual dispatch.'
 
   nextcloud:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure') && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
