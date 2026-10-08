@@ -58,6 +58,8 @@ class Command(BaseCommand):
                 {'command': 'help', 'description': 'How to use Pulsar'},
             ]}),
         ]
+        # Functional command setup must precede optional bot appearance.
+        setup_calls.sort(key=lambda item: item[0] != 'setMyCommands')
         for method, payload in setup_calls:
             try:
                 extra = requests.post(
@@ -68,8 +70,13 @@ class Command(BaseCommand):
                 extra.raise_for_status()
                 extra_data = extra.json()
             except (requests.RequestException, ValueError):
-                raise CommandError(f'Telegram {method} setup failed') from None
+                if method == 'setMyCommands':
+                    raise CommandError('Telegram command setup failed') from None
+                self.stderr.write(f'Telegram optional appearance update failed: {method}')
+                continue
             if not extra_data.get('ok'):
-                raise CommandError(str(extra_data.get('description') or f'Telegram {method} failed')[:300])
+                if method == 'setMyCommands':
+                    raise CommandError('Telegram command setup rejected')
+                self.stderr.write(f'Telegram optional appearance update rejected: {method}')
 
         self.stdout.write(self.style.SUCCESS(f'Pulsar Telegram webhook configured: {url}'))

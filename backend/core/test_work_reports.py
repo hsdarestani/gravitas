@@ -234,3 +234,23 @@ class DailyWorkReportTests(TestCase):
         self.assertEqual([r['id'] for r in data['reports']], [str(report.pk)])
         self.assertEqual(self.client.get('/api/platform/work-reports/?date=bad').status_code, 400)
         self.assertEqual(self.client.get('/api/platform/work-reports/?status=bad').status_code, 400)
+
+
+    @override_settings(GRAVITAS_TELEGRAM_BOT_TOKEN='fixture', GRAVITAS_TELEGRAM_WEBHOOK_SECRET='fixture', PUBLIC_BASE_URL='https://example.test')
+    def test_bot_commands_are_configured_before_optional_appearance_failure(self):
+        import io
+        import requests
+        from django.core.management import call_command
+        from types import SimpleNamespace
+        methods = []
+        def post(url, **kwargs):
+            method = url.rsplit('/', 1)[-1]; methods.append(method)
+            if method == 'setMyName':
+                raise requests.Timeout()
+            if method == 'setMyCommands':
+                commands = {c['command'] for c in kwargs['json']['commands']}
+                self.assertTrue({'report', 'reportedit'}.issubset(commands))
+            return SimpleNamespace(ok=True, json=lambda: {'ok': True}, raise_for_status=lambda: None)
+        with patch('core.management.commands.configure_telegram_notifications.requests.post', side_effect=post):
+            call_command('configure_telegram_notifications', stdout=io.StringIO(), stderr=io.StringIO())
+        self.assertEqual(methods[:2], ['setWebhook', 'setMyCommands'])

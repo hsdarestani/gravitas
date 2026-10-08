@@ -97,3 +97,25 @@ try:
 except RuntimeError:
     telegram = {'inspection': 'native_request_failed'}
 print(json.dumps({'telegram_runtime': telegram}, sort_keys=True))
+
+if plan_path.is_file() and project:
+    # Read-only evidence from the failed selected acceptance transaction.
+    journal_path = cloud.project_mountpoint(project) + '/06_Archive/CanonicalTransactions/4b9efdab-e748-4ace-8ca2-343f7e8d5090.json'
+    try:
+        first = cloud._request('GET', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 404})
+        second = cloud._request('GET', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 404}, headers={'Accept-Encoding': 'identity'})
+        details = {'status': first.status_code, 'identity_status': second.status_code,
+            'default_etag_weak': first.headers.get('ETag', '').startswith('W/'),
+            'identity_etag_weak': second.headers.get('ETag', '').startswith('W/'),
+            'default_encoding': first.headers.get('Content-Encoding', ''),
+            'identity_encoding': second.headers.get('Content-Encoding', ''),
+            'etag_same': first.headers.get('ETag') == second.headers.get('ETag')}
+        if second.status_code == 200:
+            manifest = second.json()
+            details['state'] = manifest.get('state')
+            details['operations'] = [{'kind': op.get('kind'), 'write_receipt_recorded': bool(op.get('written') or op.get('written_etag')),
+                'acl_equals_before': read_acl(op['path'])['rules'] == op['before']['rules'] if op.get('kind') == 'acl' else None,
+                'acl_equals_desired': read_acl(op['path'])['rules'] == op['rules'] if op.get('kind') == 'acl' else None} for op in manifest.get('operations', [])]
+        print(json.dumps({'failed_journal_diagnostics': details}, sort_keys=True))
+    except (cloud.CloudError, ValueError):
+        print(json.dumps({'failed_journal_diagnostics': 'snapshot_unavailable'}))
