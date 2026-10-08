@@ -119,7 +119,7 @@ print(json.dumps({'telegram_runtime': telegram}, sort_keys=True))
 
 if plan_path.is_file() and project:
     # Read-only evidence from the failed selected acceptance transaction.
-    journal_path = cloud.project_mountpoint(project) + '/06_Archive/CanonicalTransactions/4b9efdab-e748-4ace-8ca2-343f7e8d5090.json'
+    journal_path = cloud.project_mountpoint(project) + '/06_Archive/CanonicalTransactions/564fc8fe-87c7-4160-b8a0-0f2164b8badf.json'
     try:
         first = cloud._request('GET', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 404})
         second = cloud._request('GET', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 404}, headers={'Accept-Encoding': 'identity'})
@@ -132,7 +132,7 @@ if plan_path.is_file() and project:
         if second.status_code == 200:
             for label, response in [('default', first), ('identity', second)]:
                 precondition = cloud._request('HEAD', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 412},
-                    headers={'Accept-Encoding': 'identity', 'If-Match': response.headers.get('ETag', '')})
+                    headers={**({'Accept-Encoding': 'identity'} if label == 'identity' else {}), 'If-Match': response.headers.get('ETag', '')})
                 details[label + '_etag_conditional_head_status'] = precondition.status_code
             manifest = second.json()
             details['state'] = manifest.get('state')
