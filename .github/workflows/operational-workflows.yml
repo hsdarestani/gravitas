@@ -52,7 +52,7 @@ jobs:
 
   inspect-production:
     needs: validate
-    if: github.event_name == 'push' && github.repository == 'hsdarestani/gravitas'
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main' && github.repository == 'hsdarestani/gravitas'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

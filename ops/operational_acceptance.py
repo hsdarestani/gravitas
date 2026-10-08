@@ -1,0 +1,212 @@
+"""One-off live acceptance of an explicitly selected existing private project.
+
+Run only after the server wrapper captures and rehearses a matched checkpoint.
+This is native DAV/server integration evidence; it does not certify browser,
+mobile, collaboration invitations or a human Telegram response.
+"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+from urllib.parse import urlencode
+
+
+def reconcile_tasks(owner):
+    """Bind the explicit Topic/Video dependencies without closing execution."""
+    from core.operating_models import OperatingTask, WorkStatus
+    from core.models import WorkspaceMembership
+    from core.platform_access import can_edit
+    from core.pulsar_task_service import create_operating_task
+    from core.canonical_journal import canonical_operation
+    from core.layer_access import record_activity
+    from core.layer_models import ActivityEvent
+    titles = {'video': 'Document the end-to-end video production workflow through a real Research Project',
+        'topic': 'Create a real topic in the platform and test the new structure',
+        'skill': 'Build reusable Claude Skill from the approved Video Production workflow'}
+    selected = {key: OperatingTask.objects.select_related('initiative__key_result', 'owner').get(title=title) for key, title in titles.items()}
+    video, topic, skill = (selected[key] for key in ('video', 'topic', 'skill'))
+    if video.owner_id != owner.pk or topic.owner_id != owner.pk or any(not can_edit(owner, task) for task in selected.values()):
+        raise ValueError('Selected task ownership/access changed')
+    if (skill.owner.get_full_name() or skill.owner.get_username()).split()[0].casefold() != 'ahmad':
+        raise ValueError('Reusable Skill is no longer assigned to the selected Ahmad')
+    candidates = [link.user for link in WorkspaceMembership.objects.filter(workspace=topic.workspace, user__is_active=True).select_related('user')
+        if (link.user.get_full_name() or link.user.get_username()).split()[0].casefold() == 'sajad']
+    if len(candidates) != 1:
+        raise ValueError('Unique existing Sajad membership required')
+    review_title = 'Review and approve the prepared Topic Template before upload'
+    with canonical_operation(owner):
+        matches = OperatingTask.objects.filter(workspace=topic.workspace, title=review_title)
+        if matches.count() > 1:
+            raise ValueError('Ambiguous Topic review task')
+        review = matches.first()
+        if review is None:
+            review = create_operating_task(owner, {'title': review_title, 'owner_id': candidates[0].pk,
+                'key_result_id': topic.initiative.key_result_id, 'due_date': str(topic.due_date), 'priority': topic.priority,
+                'description': 'Prepared content is complete. Review the existing Topic Template; no upload or publication before approval.',
+                'definition_of_done': 'Sajad explicitly approves the existing Topic Template and records any required corrections. Approval releases the prepared-content upload and structure/access/navigation QA step.'}, confirmed=True, source='operational_reconciliation')
+            review.status = WorkStatus.READY; review.save()
+        if review.owner_id != candidates[0].pk:
+            raise ValueError('Topic review owner differs from the selected Sajad')
+        changes = [(video, {'status': WorkStatus.WAITING, 'dependency': skill}),
+            (topic, {'status': WorkStatus.BLOCKED, 'dependency': review}),
+            (skill, {'priority': video.priority, **({'status': WorkStatus.READY} if skill.status == WorkStatus.DRAFT else {})})]
+        for task, fields in changes:
+            changed = any(getattr(task, field) != value for field, value in fields.items())
+            if changed:
+                for field, value in fields.items():
+                    setattr(task, field, value)
+                task.save()
+                record_activity(layer=ActivityEvent.Layer.CORE, action='task.operational_reconciliation', actor=owner,
+                    subject_user=task.owner, object_type='operating_task', object_id=task.pk,
+                    detail={'status': task.status, 'dependency_id': task.dependency_id, 'priority': task.priority})
+    return {'video_waiting_on_skill': True, 'topic_blocked_on_review': True, 'review_task_id': review.pk}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--plan', type=Path, required=True)
+    parser.add_argument('--apply', action='store_true')
+    args = parser.parse_args()
+    plan_bytes = args.plan.read_bytes()
+    plan = json.loads(plan_bytes)
+    if plan.get('schema') != 1 or plan.get('operation') != 'accept_selected_existing_project' or type(plan.get('project_id')) is not int:
+        raise ValueError('Unsupported acceptance plan')
+    if not args.apply:
+        print('Inspection only: selected existing project; native checkpoint and isolated rehearsal required before apply.')
+        return
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+    import django
+    django.setup()
+    from django.conf import settings
+    from django.test import override_settings, RequestFactory
+    from core import cloud, nextcloud_bridge
+    from core.models import ResearchProject, KnowledgeResource
+    from core.platform_models import MindMap
+    from core.platform_access import can_manage, can_view, policy_for
+    from core.canonical_models import CanonicalFile
+    from core.canonical_projects import adopt_project, project_objects, encode, dav_read, relative_path, refresh_project
+    from core.canonical_journal import canonical_operation
+    from core.canonical_api import listing, project_file_content
+    from core.work_report_models import DailyWorkReport
+    from core.work_reports import report_overview_api
+
+    receipt_dir = Path(settings.CORE_UPLOAD_ROOT) / '.operations'
+    receipt_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    receipt = receipt_dir / ('acceptance-' + hashlib.sha256(plan_bytes).hexdigest() + '.json')
+    if receipt.exists():
+        print('Selected acceptance plan already completed; no repeated production writes.')
+        return
+    project = ResearchProject.objects.select_related('owner').get(pk=plan['project_id'], archived=False)
+    owner = project.owner
+    if project.title != plan['expected_title'] or not owner.is_active or not can_manage(owner, project):
+        raise ValueError('Selected project identity/access changed')
+    sources = KnowledgeResource.objects.filter(project=project, metadata__has_key='canonical_source_key')
+    maps = MindMap.objects.filter(project=project, title='Pulsar · Existing implementation sources')
+    if sources.count() != plan['expected_source_notes'] or maps.count() != plan['expected_source_maps']:
+        raise ValueError('Existing source inventory differs from the reviewed plan')
+    task_results = reconcile_tasks(owner)
+    identities = {(obj.__class__.__name__, obj.pk) for obj in project_objects(project)}
+    # The explicit CLI plan authorizes only this selected adoption. The global
+    # setting remains false; the HTTP adoption endpoint stays unavailable.
+    with override_settings(GRAVITAS_CANONICAL_ADOPTION_ENABLED=True):
+        adopt_project(project, owner)
+        adopt_project(project, owner)
+    if identities != {(obj.__class__.__name__, obj.pk) for obj in project_objects(project)}:
+        raise ValueError('Adoption changed existing domain identities')
+    root = cloud.project_mountpoint(project)
+    identity = nextcloud_bridge.ensure_user(owner)
+    for obj in project_objects(project):
+        file = CanonicalFile.objects.get(project=project, object_type=obj.__class__.__name__, object_id=obj.pk, deleted=False)
+        remote = dav_read(root + '/' + file.path)
+        if not remote or remote['content'] != encode(obj) or not remote['etag'] or not remote.get('file_id'):
+            raise ValueError('Canonical content/identity readback failed')
+    names = {row['name'] for row in listing(project, owner, '')}
+    from core.platform_api import PROJECT_FOLDERS
+    if not set(PROJECT_FOLDERS).issubset(names) or 'project.md' not in names:
+        raise ValueError('Owner cannot browse the complete canonical project root')
+    native = cloud._request('GET', cloud._dav_url(identity, root + '/project.md'), auth=cloud._auth(identity), expected={200})
+    if native.content.decode('utf-8') != encode(project):
+        raise ValueError('Owner native project Markdown differs')
+
+    # Keep QA writes in their own evidence note, preserving all source material.
+    key = 'operational-canonical-acceptance-v1'
+    with canonical_operation(owner):
+        note = KnowledgeResource.objects.filter(project=project, metadata__acceptance_key=key).first()
+        if note is None:
+            note = KnowledgeResource.objects.create(workspace=project.workspace, project=project, owner=owner,
+                kind='note', title='Canonical operational acceptance evidence',
+                body='# Native canonical acceptance\n\nSeparate evidence note; imported sources remain preserved.\n', metadata={'acceptance_key': key})
+            policy_for(note, create=True, created_by=owner, default_visibility='inherit')
+    path = relative_path(note)
+    before = dav_read(root + '/' + path)
+    if not before:
+        raise ValueError('Evidence note canonical export missing')
+    # A real owner DAV client edits outside the platform; the supported typed
+    # projection must import it on refresh without changing the object ID.
+    external = before['content'] + '\nExternal owner DAV edit verified.\n'
+    written = cloud._request('PUT', cloud._dav_url(identity, root + '/' + path), auth=cloud._auth(identity),
+        expected={200, 201, 204, 412}, headers={'If-Match': before['etag']}, data=external.encode('utf-8'))
+    if written.status_code == 412:
+        raise ValueError('Evidence note changed; review before retrying')
+    refresh_project(project, owner)
+    note.refresh_from_db()
+    if 'External owner DAV edit verified.' not in note.body:
+        raise ValueError('External edit was not imported into its typed projection')
+
+    # Two separate requests observe one revision. Overlapping edits must return
+    # an explicit conflict, then a reviewed fresh-revision update can resolve it.
+    factory = RequestFactory()
+    url = '/api/platform/projects/' + str(project.pk) + '/file-content/?' + urlencode({'path': path})
+    def request(method, payload=None):
+        req = factory.get(url) if method == 'GET' else factory.put(url, json.dumps(payload), content_type='application/json')
+        req.user = owner
+        response = project_file_content(req, project.pk)
+        return response.status_code, json.loads(response.content)
+    status, first = request('GET')
+    status2, second = request('GET')
+    if status != 200 or status2 != 200 or first['etag'] != second['etag']:
+        raise ValueError('Two-client revision read failed')
+    marker = 'External owner DAV edit verified.'
+    local = first['content'].replace(marker, 'Owner platform edit verified.')
+    with canonical_operation(owner):
+        status, saved = request('PUT', {'content': local, 'etag': first['etag']})
+    if status != 200:
+        raise ValueError('Platform conditional edit failed')
+    conflicting = second['content'].replace(marker, 'Competing overlapping edit.')
+    with canonical_operation(owner):
+        status, conflict = request('PUT', {'content': conflicting, 'etag': second['etag']})
+    if status != 409 or 'conflict' not in conflict:
+        raise ValueError('Overlapping stale edit was not rejected')
+    with canonical_operation(owner):
+        status, resolved = request('PUT', {'content': local + '\nReviewed conflict resolution verified.\n', 'etag': conflict['conflict']['etag']})
+    if status != 200:
+        raise ValueError('Fresh-revision manual conflict resolution failed')
+    refresh_project(project, owner)
+    note.refresh_from_db()
+    if 'Reviewed conflict resolution verified.' not in note.body:
+        raise ValueError('Resolved note did not persist')
+    outsiders = [u for u in project.workspace.memberships.select_related('user') if u.user_id != owner.pk and not can_view(u.user, project)]
+    if not outsiders:
+        raise ValueError('No existing outsider available to verify private project isolation')
+    denied = factory.get(url); denied.user = outsiders[0].user
+    if project_file_content(denied, project.pk).status_code != 403:
+        raise ValueError('Private project outsider access was not denied')
+    overview = factory.get('/api/operating/work-reports/overview/'); overview.user = owner
+    overview_status = report_overview_api(overview).status_code
+    result = {'project_id': project.pk, 'canonical_adoption': True, 'global_adoption_enabled': bool(settings.GRAVITAS_CANONICAL_ADOPTION_ENABLED),
+        'existing_domain_ids_preserved': True, 'owner_native_markdown_read': True, 'canonical_files_verified': CanonicalFile.objects.filter(project=project, deleted=False).count(),
+        'external_owner_dav_edit_imported': True, 'overlapping_conflict_rejected': True, 'manual_resolution_persisted': True,
+        'private_outsider_denied': True, 'manager_overview_status': overview_status,
+        'pending_owner_reports': DailyWorkReport.objects.filter(user=owner, status='pending').count(),
+        'browser_acceptance_complete': False, 'telegram_human_confirmation_complete': False, 'task_reconciliation': task_results}
+    temporary = receipt.with_suffix('.tmp')
+    with temporary.open('w') as handle:
+        json.dump(result, handle); handle.flush(); os.fsync(handle.fileno())
+    os.chmod(temporary, 0o600)
+    os.replace(temporary, receipt)
+    print(json.dumps(result, sort_keys=True))
+
+
+if __name__ == '__main__':
+    main()

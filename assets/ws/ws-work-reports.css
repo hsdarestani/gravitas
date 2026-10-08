@@ -1,0 +1,13 @@
+.wr-page > .fl-panel,
+.wr-page > div > .fl-panel { padding: 16px; margin-top: 16px; }
+.wr-page h2 { margin: 0 0 12px; font-size: 18px; line-height: 1.4; }
+.wr-page h3 { margin: 20px 0 8px; font-size: 15px; }
+.wr-page p { overflow-wrap: anywhere; line-height: 1.6; }
+.wr-page .wr-work-entry { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 14px 0; }
+.wr-page .wr-work-entry > .ws-btn { justify-self: start; text-align: left; white-space: normal; }
+.wr-page .wr-work-entry p { margin: 0; }
+.wr-page .fl-form-grid { margin-bottom: 14px; padding: 14px; }
+.wr-page .fl-form-grid > select { grid-column: 1 / -1; }
+.wr-page .fl-row__actions { margin-top: 14px; }
+.wr-page input:disabled,
+.wr-page select:disabled { opacity: 1; color: var(--g-text-subtle); }

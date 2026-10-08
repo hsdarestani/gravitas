@@ -8,7 +8,7 @@ const button = (text, fn) => { const b = el('button', 'ws-btn', text); b.type = 
 
 export async function renderWorkReports(host, { go }) {
   host.replaceChildren();
-  const doc = el('div', 'ws-doc ws-doc--wide fl-doc'); host.append(doc);
+  const doc = el('div', 'ws-doc ws-doc--wide fl-doc wr-page'); host.append(doc);
   doc.append(el('h1', 'ws-doc__title', 'Daily work reports'), el('p', 'fl-muted', 'Tell Pulsar what changed. Review the proposal before confirming any task updates.'));
   const status = el('p', 'fl-muted', 'Loading your work…'); doc.append(status);
   let data;
@@ -18,7 +18,7 @@ export async function renderWorkReports(host, { go }) {
   function paintWork() {
   work.replaceChildren(el('h2', null, 'What should I work on now?'));
   for (const task of data.tasks.filter(t => !['done', 'archived'].includes(t.status))) {
-    const r = el('div', 'fl-row');
+    const r = el('div', 'fl-row wr-work-entry');
     r.append(button(task.title, () => go(`/workspace/core/tasks?task=${task.id}`)), el('small', 'fl-muted', `${task.priority} · ${task.status} · Due ${task.due_date || '—'} · ${task.project}`));
     r.append(el('p', 'fl-muted', `${task.objective} → ${task.key_result}`));
     if (task.latest_progress?.progress) r.append(el('p', null, `Latest progress: ${task.latest_progress.progress}`));
@@ -30,9 +30,9 @@ export async function renderWorkReports(host, { go }) {
   }
   paintWork();
   doc.append(work);
-  const input = el('textarea', 'ws-input'); input.rows = 4; input.maxLength = 16000; input.setAttribute('aria-label', 'What did you work on today?'); input.placeholder = 'What did you work on, what changed, and what comes next?';
+  const input = el('textarea', 'v-input fl-input'); input.rows = 4; input.maxLength = 16000; input.setAttribute('aria-label', 'What did you work on today?'); input.placeholder = 'What did you work on, what changed, and what comes next?';
   let correction = null;
-  const form = el('form', 'fl-panel'); form.append(input);
+  const form = el('form', 'fl-panel fl-form'); form.append(input);
   const submit = el('button', 'ws-btn ws-btn--solid', 'Review with Pulsar'); submit.type = 'submit'; form.append(submit); doc.append(form);
   form.onsubmit = async event => {
     event.preventDefault(); submit.disabled = true;
@@ -50,19 +50,19 @@ export async function renderWorkReports(host, { go }) {
       const paintUpdates = () => {
         updates.replaceChildren();
         for (const update of draft.updates) {
-          const row = el('div', 'fl-panel');
-          const picker = el('select', 'ws-input'); picker.setAttribute('aria-label', 'Related task');
+          const row = el('div', 'fl-panel fl-form-grid');
+          const picker = el('select', 'v-input fl-input'); picker.setAttribute('aria-label', 'Related task');
           const unmatched = el('option', null, 'Unmatched work'); unmatched.value = ''; picker.append(unmatched);
           for (const task of data.tasks) { const o = el('option', null, task.title); o.value = String(task.id); picker.append(o); }
           picker.value = String(update.task_id || ''); picker.disabled = report.status !== 'pending';
           picker.onchange = () => { const task = data.tasks.find(t => String(t.id) === picker.value); update.task_id = task?.id || null; update.title = task?.title || 'Unmatched work'; };
           row.append(picker);
-          const statuses = el('select', 'ws-input'); statuses.setAttribute('aria-label', 'Suggested status');
+          const statuses = el('select', 'v-input fl-input'); statuses.setAttribute('aria-label', 'Suggested status');
           const same = el('option', null, 'Keep status unchanged'); same.value = ''; statuses.append(same);
           for (const [key, label] of data.statuses) { const o = el('option', null, label); o.value = key; statuses.append(o); }
           statuses.value = update.status || ''; statuses.disabled = report.status !== 'pending'; statuses.onchange = () => { update.status = statuses.value || null; }; row.append(statuses);
           for (const [key, label] of [['progress', 'What changed'], ['deliverable', 'Output'], ['blocker', 'Blocker'], ['next_action', 'Next step'], ['artifact_url', 'Artifact link']]) {
-            const field = el('input', 'ws-input'); field.setAttribute('aria-label', label); field.placeholder = label; field.value = update[key] || ''; field.disabled = report.status !== 'pending'; field.oninput = () => { update[key] = field.value; }; row.append(el('label', null, label), field);
+            const field = el('input', 'v-input fl-input'); field.setAttribute('aria-label', label); field.placeholder = label; field.value = update[key] || ''; field.disabled = report.status !== 'pending'; field.oninput = () => { update[key] = field.value; }; const group = el('label', 'fl-field'); group.append(el('span', 'fl-field__label', label), field); row.append(group);
           }
           updates.append(row);
         }
