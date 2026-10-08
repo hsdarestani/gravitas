@@ -60,6 +60,10 @@ def _admin_auth():
 
 def _request(method, url, *, auth, expected, **kwargs):
     headers = dict(kwargs.pop('headers', {}) or {})
+    # DAV revisions must use one representation across GET and conditional
+    # mutations. Compression changes the served ETag on the native endpoint.
+    if '/remote.php/dav/' in urlparse(url).path:
+        headers.setdefault('Accept-Encoding', 'identity')
     # Nextcloud is reached over loopback by Django, but its canonical hostname
     # is the public cloud subdomain. Supplying that Host avoids a redirect that
     # can strip Basic auth or change PUT/DELETE semantics on DAV requests.

@@ -2,7 +2,7 @@ name: Enable Content Proxy
 
 on:
   workflow_run:
-    workflows: ["Deploy Gravitas to Strato"]
+    workflows: ['Selected Operational Project Acceptance']
     types: [completed]
   workflow_dispatch:
 
