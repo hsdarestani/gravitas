@@ -52,7 +52,7 @@ jobs:
         run: |
           set -euo pipefail
           OPERATIONS_LOGIN="${OPERATIONS_LOGIN:-deploy}"
-          SSH_OPTIONS=(-i ~/.ssh/selected_acceptance -p "${OPERATIONS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10)
+          SSH_OPTIONS=(-i ~/.ssh/selected_acceptance -p "${OPERATIONS_PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=6)
           if ! ssh "${SSH_OPTIONS[@]}" "$OPERATIONS_LOGIN@$OPERATIONS_HOST" true 2>/dev/null; then
             ssh "${SSH_OPTIONS[@]}" "root@$OPERATIONS_HOST" true
             OPERATIONS_LOGIN=root
