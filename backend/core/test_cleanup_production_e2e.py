@@ -86,6 +86,27 @@ class CleanupProductionE2EUsersTests(TestCase):
         self.assertIn('deleted=2', out.getvalue())
         self.assertIn('newsletter_rows_deleted=', out.getvalue())
 
+    def test_completed_run_cleanup_preserves_other_active_run_and_real_lookalike(self):
+        User = get_user_model()
+        completed = User.objects.create_user(username='auth-e2e-234567-2@example.com', email='auth-e2e-234567-2@example.com', first_name='Disposable production verification')
+        active = User.objects.create_user(username='auth-e2e-345678-1@example.com', email='auth-e2e-345678-1@example.com', first_name='Disposable production verification')
+        for user in (completed, active):
+            NewsletterSubscriber.objects.create(email=user.email, source='account-signup')
+        call_command('cleanup_production_e2e_users', scope='auth', run_id=234567, stdout=StringIO())
+        self.assertFalse(User.objects.filter(pk=completed.pk).exists())
+        self.assertFalse(NewsletterSubscriber.objects.filter(email=completed.email).exists())
+        self.assertTrue(User.objects.filter(pk=active.pk).exists())
+        self.assertTrue(NewsletterSubscriber.objects.filter(email=active.email).exists())
+        self.assertTrue(User.objects.filter(pk=self.auth_user.pk).exists())
+        self.assertTrue(User.objects.filter(pk=self.lookalike.pk).exists())
+
+    def test_scoped_workspace_fixture_cleanup(self):
+        User = get_user_model()
+        fixture = User.objects.create_user(username='workspace-b-234567-2@example.com', email='workspace-b-234567-2@example.com', first_name='Disposable production verification')
+        call_command('cleanup_production_e2e_users', scope='workspace', run_id=234567, stdout=StringIO())
+        self.assertFalse(User.objects.filter(pk=fixture.pk).exists())
+        self.assertTrue(User.objects.filter(pk=self.workspace_user.pk).exists())
+
     def test_all_scope_deletes_only_strict_e2e_patterns(self):
         call_command('cleanup_production_e2e_users', scope='all', stdout=StringIO())
         User = get_user_model()
