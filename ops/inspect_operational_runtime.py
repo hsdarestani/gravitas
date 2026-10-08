@@ -149,3 +149,9 @@ if plan_path.is_file() and project:
         print(json.dumps({'failed_journal_diagnostics': details}, sort_keys=True))
     except (cloud.CloudError, ValueError):
         print(json.dumps({'failed_journal_diagnostics': 'snapshot_unavailable'}))
+
+# Read-only wait diagnostics; no SQL text, credentials or user content emitted.
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute("SELECT wait_event_type, wait_event, count(*), max(EXTRACT(EPOCH FROM (now()-xact_start))) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND state<>'idle' GROUP BY wait_event_type,wait_event")
+    print(json.dumps({'database_waits': [{'type': row[0], 'event': row[1], 'count': row[2], 'max_transaction_seconds': float(row[3]) if row[3] is not None else None} for row in cursor.fetchall()]}))
