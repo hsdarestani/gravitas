@@ -28,12 +28,23 @@ class WriteBatch:
         self.journals = {}
 
     def persist(self, journal):
-        from .canonical_projects import dav_write
+        from .canonical_projects import dav_read, dav_write
+        if 'persisted_content' in journal:
+            current = dav_read(journal['path'])
+            # Native ACL changes can revise descendant DAV ETags. Rebase only
+            # an exact prior manifest on the same native file, then still use
+            # If-Match so a change after this read fails closed.
+            if (not current or current['content'] != journal['persisted_content']
+                    or journal.get('file_id') and current.get('file_id') != journal['file_id']):
+                raise RecoveryRequired('canonical_journal_changed:' + journal['path'])
+            journal['etag'] = current['etag']
         content = json.dumps(journal['manifest'], ensure_ascii=False)
         result = dav_write(journal['path'], content, journal['etag'])
         if not result:
             raise RecoveryRequired('canonical_journal_changed:' + journal['path'])
         journal['etag'] = result['etag']
+        journal['file_id'] = result.get('file_id', '')
+        journal['persisted_content'] = content
 
     def put(self, project, path, content, etag):
         return self.mutate(project, path, content, etag, 'put')

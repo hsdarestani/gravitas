@@ -23,6 +23,31 @@ class CanonicalJournalTests(TransactionTestCase):
         ]:
             p = patch(target, **kwargs); p.start(); self.addCleanup(p.stop)
 
+    def test_native_acl_revision_can_rebase_only_unchanged_persisted_journal(self):
+        batch = WriteBatch(); journal = batch.journal(self.project)
+        batch.persist(journal)
+        self.dav.files[journal['path']]['etag'] = '"acl-revision"'
+        journal['manifest']['review'] = 'next operation'
+        batch.persist(journal)
+        self.assertEqual(json.loads(self.dav.files[journal['path']]['content'])['review'], 'next operation')
+
+    def test_rebased_journal_rejects_changed_manifest_and_replaced_native_identity(self):
+        for change in ({'content': '{}', 'etag': '"external"'}, {'file_id': 'replaced', 'etag': '"external"'}):
+            with self.subTest(change=change):
+                batch = WriteBatch(); journal = batch.journal(self.project)
+                batch.persist(journal)
+                self.dav.files[journal['path']].update(change)
+                journal['manifest']['review'] = 'next operation'
+                with self.assertRaises(RecoveryRequired): batch.persist(journal)
+
+    def test_rebased_journal_keeps_conditional_write_race_closed(self):
+        batch = WriteBatch(); journal = batch.journal(self.project)
+        batch.persist(journal)
+        self.dav.files[journal['path']]['etag'] = '"acl-revision"'
+        with patch('core.canonical_projects.dav_write', return_value=None) as write:
+            with self.assertRaises(RecoveryRequired): batch.persist(journal)
+        self.assertEqual(write.call_args.args[2], '"acl-revision"')
+
     def test_failed_second_file_restores_first_after_database_rollback(self):
         before = self.dav.write('project/project.md', 'original')
         batch = WriteBatch()
