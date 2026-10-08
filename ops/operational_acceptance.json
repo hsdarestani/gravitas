@@ -4,5 +4,10 @@
   "project_id": 208,
   "expected_title": "Pulsar Development Project",
   "expected_source_notes": 5,
-  "expected_source_maps": 1
+  "expected_source_maps": 1,
+  "reviewed_acl_recovery": {
+    "batch_id": "4b9efdab-e748-4ace-8ca2-343f7e8d5090",
+    "resolution": "restore_previous_root_acl",
+    "reason": "Selected native run 37754165938 recorded exactly one root ACL intent and no file operations. Read-only inspection 37755662691 verified current rules equal that intent and proved compressed file ETags return 412 while identity ETags return 200. Recheck the current project permission policy, conditionally record this reviewed receipt and restore the prior ACL after the fresh matched checkpoint."
+  }
 }

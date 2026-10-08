@@ -42,7 +42,7 @@ export async function renderWorkReports(host, { go }) {
   const submit = el('button', 'ws-btn ws-btn--solid', 'Review with Pulsar'); submit.type = 'submit'; form.append(submit); doc.append(form);
   form.onsubmit = async event => {
     event.preventDefault(); submit.disabled = true;
-    try { const result = await call('/platform/work-reports/', { method: 'POST', body: { text: input.value, source_key: crypto.randomUUID(), supersedes: correction } }); data.reports.unshift(result.report); input.value = ''; correction = null; redraw(); status.textContent = 'Proposal ready. Tasks have not changed.'; }
+    try { const result = await call('/platform/work-reports/', { method: 'POST', body: { text: input.value, source_key: crypto.randomUUID(), supersedes: correction } }); data.reports.unshift(result.report); input.value = ''; correction = null; dateFilter.value = stateFilter.value = ''; redraw(); status.textContent = 'Proposal ready. Tasks have not changed.'; }
     catch (e) { status.textContent = e.message; } finally { submit.disabled = false; }
   };
   const history = el('div');

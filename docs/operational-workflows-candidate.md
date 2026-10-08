@@ -1,7 +1,7 @@
 # Operational workflows engineering candidate
 
 Status: implementation released through PR154. Selected native acceptance exposed
-a Nextcloud permission-ceiling failure; the follow-up repair passes 636 backend
+a Nextcloud permission-ceiling failure; the follow-up repair passes 641 backend
 tests and awaits deployment/native retest. Existing LMS and approved video designs
 are preserved. Operational composite tasks remain open.
 
@@ -154,7 +154,7 @@ They cover conditional conflicts, projection import, IDs, migration counts,
 viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
 correction history, dependency completion and reminder idempotency.
 Existing backend tests run against isolated test settings.
-The current full backend suite passes **636 tests**. Prior CI also passed nine
+The current full backend suite passes **641 tests**. Prior CI also passed nine
 native checkpoint checks with PostgreSQL16. JavaScript syntax and diff checks pass.
 Production matched native backup and isolated restore have passed repeatedly.
 The real platform report was edited and confirmed, with manager overview visible.
@@ -195,3 +195,17 @@ AI proposals require the individual's review and confirmation before changing
 tasks. The manager sees member coverage, account connection and delivery state.
 Personal history can be filtered by date and status. Human account linking and
 real replies remain necessary for full Telegram end-to-end acceptance.
+
+
+The real #159 run passed native permission changes but could not persist the
+write receipt because Apache compression produced a different representation
+ETag. Read-only HEAD probes proved 412 for the compressed ETag and 200 for the
+identity ETag; canonical reads now request Accept-Encoding: identity without
+stripping, fabricating or bypassing validators. The incident journal remains
+pending until explicit selected recovery. A reviewed incident plan is limited
+to its exact batch UUID, one selected root ACL operation, no file writes, no DB
+commit witness and rules matching both recorded intent and current project
+policy. It conditionally records the reviewed receipt and uses existing CAS to
+restore the prior ACL. Ordinary ambiguous journals still require review;
+external permissions or any additional file operation stop recovery. The
+matched checkpoint and restore wrapper runs before this one-off review.

@@ -195,3 +195,20 @@ class CanonicalJournalTests(TransactionTestCase):
         with self.assertRaises(RecoveryRequired):
             recover_journal(batch.journals[71]['path'])
         self.assertEqual(self.dav.files['project/project.md']['content'], 'edited')
+
+
+    def test_unchanged_acl_has_no_unwritten_journal_to_recover(self):
+        path, old, state = self.acl_store()
+        batch = WriteBatch()
+        self.assertEqual(batch.acl(self.project, path, old), state)
+        self.assertEqual(batch.journals, {})
+        batch.finalize()
+        self.assertFalse(self.dav.files)
+
+    def test_stale_initial_file_save_has_no_missing_journal_on_finalize(self):
+        before = self.dav.write('project/project.md', 'external')
+        batch = WriteBatch()
+        self.assertIsNone(batch.put(self.project, 'project/project.md', 'mine', '"stale"'))
+        self.assertEqual(batch.journals, {})
+        batch.finalize()
+        self.assertEqual(self.dav.files['project/project.md'], before)
