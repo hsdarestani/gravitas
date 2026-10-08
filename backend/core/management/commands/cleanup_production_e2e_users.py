@@ -146,7 +146,7 @@ class Command(BaseCommand):
         if run_id < 0:
             raise CommandError('--run-id must be zero or greater')
         def matches_run(email):
-            return not run_id or bool(re.search(rf'-{run_id}(?:-\d+)?@example\.com$', email.lower()))
+            return not run_id or bool(re.fullmatch(rf'(?:auth-e2e|browser-e2e|workspace-[ab]|operating-e2e)-{run_id}(?:-\d+)?@example\.com', email.lower()))
         if min_age_minutes < 0:
             raise CommandError('--min-age-minutes must be zero or greater')
 
