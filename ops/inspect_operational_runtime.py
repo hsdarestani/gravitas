@@ -49,4 +49,21 @@ with transaction.atomic():
                 inventory['selected_owner_native_root_status'] = response.status_code
             except cloud.CloudError:
                 inventory['selected_owner_native_root_status'] = 'native_request_failed'
+    if plan_path.is_file() and project:
+        from core import cloud
+        from core.canonical_acl import read_acl
+        for label, suffix in [('root', ''), ('journal', '/06_Archive/CanonicalTransactions')]:
+            target = cloud.project_mountpoint(project) + suffix
+            try:
+                first, second = read_acl(target), read_acl(target)
+                etag = second['etag']
+                conditional = cloud._request('HEAD', cloud._admin_dav_url(target), auth=cloud._admin_auth(),
+                    expected={200, 207, 301, 302, 403, 404, 405, 412}, headers={'If-Match': etag})
+                inventory['native_acl_' + label] = {'rules_count': len(second['rules']),
+                    'etag_quoted': etag.startswith('"') and etag.endswith('"'),
+                    'etag_stable': first['etag'] == etag,
+                    'conditional_head_status': conditional.status_code,
+                    'head_etag_matches': conditional.headers.get('ETag') == etag}
+            except cloud.CloudError:
+                inventory['native_acl_' + label] = 'snapshot_unavailable'
 print(json.dumps(inventory, sort_keys=True))
