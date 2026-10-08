@@ -47,7 +47,7 @@ class OperationalAcceptanceTests(TestCase):
                  patch('core.nextcloud_bridge.ensure_user', return_value=identity), \
                  patch('core.cloud._dav_url', side_effect=lambda identity, path: path), \
                  patch('core.cloud._auth', return_value=('test', 'test')), patch('core.cloud._request', side_effect=native), \
-                 patch.object(module, 'reconcile_tasks', return_value={'tested_separately': True}), patch.object(module, 'send_owner_checkin', return_value='tested_separately'), \
+                 patch.object(module, 'verify_native_acl_boundary', return_value=403), patch.object(module, 'reconcile_tasks', return_value={'tested_separately': True}), patch.object(module, 'send_owner_checkin', return_value='tested_separately'), \
                  patch('core.assistant_api.assistant_ask', return_value=JsonResponse({'provider': 'fallback', 'sources': []})):
                 module.main()
                 evidence = KnowledgeResource.objects.get(project=self.project, metadata__acceptance_key='operational-canonical-acceptance-v1')
@@ -101,3 +101,20 @@ class OperationalTaskReconciliationTests(TestCase):
         row = TaskNotificationOutbox.objects.get(event_key='operational-acceptance:' + 'a' * 32)
         self.assertEqual((row.recipient_id, row.status), (self.user.pk, 'sent'))
         self.assertEqual(module.send_owner_checkin(self.other, 'b' * 64), 'owner_not_connected')
+
+
+class NativeAclBoundaryTests(TestCase):
+    setUp = fixtures.CanonicalProjectTests.setUp
+
+    def test_stale_etag_and_same_etag_old_rules_fail_without_mutation_and_owner_is_denied(self):
+        module = acceptance_module()
+        snapshot = {'etag': '"v1"', 'rules': [{'type': 'user', 'id': 'service', 'mask': 31, 'permissions': 31}]}
+        identity = SimpleNamespace(username='owner')
+        with patch('core.canonical_acl.read_acl', return_value=snapshot), patch('core.canonical_acl.write_acl', return_value=None) as write, \
+             patch('core.cloud._request', return_value=SimpleNamespace(status_code=403)) as request, patch('core.cloud._auth', return_value=('owner', 'test')):
+            self.assertEqual(module.verify_native_acl_boundary(self.project, identity), 403)
+        self.assertEqual(write.call_count, 2)
+        self.assertNotEqual(write.call_args_list[0].args[2]['etag'], snapshot['etag'])
+        self.assertEqual(write.call_args_list[1].args[2], {'etag': '"v1"', 'rules': []})
+        self.assertEqual(request.call_args.kwargs['expected'], {403})
+        self.assertEqual(request.call_args.kwargs['auth'], ('owner', 'test'))

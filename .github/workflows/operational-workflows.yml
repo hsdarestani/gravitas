@@ -8,6 +8,9 @@ on:
       - 'backend/core/telegram_work_reports.py'
       - 'backend/core/test_canonical*.py'
       - 'backend/core/test_work_reports.py'
+      - 'ops/nextcloud/gravitascanonical/**'
+      - 'ops/nextcloud/install-canonical.sh'
+      - 'ops/test_native_acl_bridge.*'
       - 'ops/canonical_checkpoint.py'
       - 'ops/test_canonical_checkpoint.py'
       - '.github/workflows/operational-workflows.yml'
@@ -16,6 +19,9 @@ on:
     paths:
       - 'backend/core/canonical*.py'
       - 'backend/core/work_report*.py'
+      - 'ops/nextcloud/gravitascanonical/**'
+      - 'ops/nextcloud/install-canonical.sh'
+      - 'ops/test_native_acl_bridge.*'
       - 'ops/canonical_checkpoint.py'
       - 'ops/inspect_operational_runtime.py'
       - '.github/workflows/operational-workflows.yml'
@@ -48,6 +54,8 @@ jobs:
           "$RUNNER_TEMP/operational-tests/bin/python" -m django test core
           "$RUNNER_TEMP/operational-tests/bin/python" -m django makemigrations core --check --dry-run
           python3 -m unittest discover -s ops -p test_canonical_checkpoint.py
+          "$RUNNER_TEMP/operational-tests/bin/python" -m unittest discover -s ops -p test_native_acl_bridge.py
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo php:8.3-cli php ops/test_native_acl_bridge.php
           python3 ops/canonical_checkpoint.py backup
 
   inspect-production:
@@ -89,4 +97,6 @@ jobs:
             < ops/inspect_operational_runtime.py
           ssh -i ~/.ssh/operational_inspection -p "${OPERATIONS_PORT:-22}" "${OPERATIONS_LOGIN:-deploy}@$OPERATIONS_HOST" \
             'sudo docker exec -u www-data gravitas-nextcloud php occ status --output=json'
+          ssh -i ~/.ssh/operational_inspection -p "${OPERATIONS_PORT:-22}" "${OPERATIONS_LOGIN:-deploy}@$OPERATIONS_HOST" \
+            'sudo systemctl is-active gravitas-task-notifications.timer; sudo systemctl show gravitas-task-notifications.service --property=Result --property=ExecMainStatus; sudo systemctl list-timers gravitas-task-notifications.timer --no-pager'
           curl -4 -fsS --max-time 20 https://gravitasplus.com/api/health/

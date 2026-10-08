@@ -593,6 +593,13 @@ jobs:
           sudo systemctl start gravitas-task-notifications.service || true
           REMOTE
 
+      - name: Install native conditional ACL bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            'sudo bash /var/www/gravitas/ops/nextcloud/install-canonical.sh'
+
       - name: Apply selected idempotent operational delivery plan
         if: hashFiles('ops/operational_delivery.json') != ''
         shell: bash

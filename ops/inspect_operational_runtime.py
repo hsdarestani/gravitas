@@ -35,6 +35,25 @@ with transaction.atomic():
     inventory['report_states'] = dict(reports.objects.values_list('status').annotate(total=Count('pk')))
     from core.pulsar import configured
     inventory['managed_ai_configured'] = bool(configured())
+    from core.work_reports import my_tasks
+    from core import work_reports
+    from django.contrib.auth import get_user_model
+    open_owner_ids = apps.get_model('core', 'OperatingTask').objects.exclude(status__in=['done', 'archived']).values_list('owner_id', flat=True)
+    states = []
+    for user in get_user_model().objects.filter(is_active=True, pk__in=open_owner_ids):
+        try:
+            tasks = my_tasks(user)
+        except PermissionError:
+            continue
+        if any(t.status not in {'done', 'archived'} for t in tasks):
+            states.append(work_reports.checkin_status(user, tasks) if hasattr(work_reports, 'checkin_status') else {'telegram_connected': preference.objects.filter(user=user, telegram_enabled=True, telegram_chat_id__isnull=False).exists(), 'confirmed': reports.objects.filter(user=user, report_date=work_reports.report_day(), status='confirmed').exists(), 'due': False})
+    inventory['daily_reporting'] = {'timezone': getattr(settings, 'GRAVITAS_DAILY_REPORT_TIMEZONE', 'Asia/Tehran'),
+        'hour': getattr(settings, 'GRAVITAS_DAILY_REPORT_HOUR', 18), 'platform_requests_deployed': hasattr(work_reports, 'checkin_status'), 'eligible_members': len(states),
+        'telegram_connected_members': sum(s['telegram_connected'] for s in states),
+        'confirmed_today': sum(s['confirmed'] for s in states), 'awaiting_reports': sum(s['due'] for s in states)}
+    outbox = apps.get_model('core', 'TaskNotificationOutbox')
+    inventory['daily_checkin_delivery_states'] = dict(outbox.objects.filter(event_type='daily.checkin').values_list('status').annotate(total=Count('pk')))
+
     from pathlib import Path
     plan_path = Path('/var/www/gravitas/ops/operational_acceptance.json')
     if plan_path.is_file():

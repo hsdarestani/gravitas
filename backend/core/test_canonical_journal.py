@@ -83,7 +83,7 @@ class CanonicalJournalTests(TransactionTestCase):
             return {'rules': [dict(r) for r in state['rules']], 'etag': state['etag']}
         def write(target, rules, expected):
             self.assertEqual(target, path)
-            if expected != state['etag']:
+            if expected != state:
                 return None
             state['rules'] = normalize(rules)
             state['etag'] += 'n'
@@ -115,7 +115,7 @@ class CanonicalJournalTests(TransactionTestCase):
         current = dict(before, etag='after-journal')
         with patch('core.canonical_acl.read_acl', side_effect=[before, current]), patch('core.canonical_acl.write_acl', return_value={'rules': [], 'etag': 'written'}) as write:
             WriteBatch().acl(self.project, 'project', [])
-        write.assert_called_once_with('project', [], 'after-journal')
+        write.assert_called_once_with('project', [], current)
 
     def test_external_acl_change_between_journal_and_write_is_preserved(self):
         before = {'rules': [], 'etag': 'old'}
