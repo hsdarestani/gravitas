@@ -76,7 +76,7 @@ def review_selected_root_acl_recovery(project, review):
         if not op.get('written'):
             current = read_acl(root)
             policy = desired_rules(cloud.project_group_id(project), nextcloud_bridge._project_root_roles(project),
-                'project', cloud.canonical_native_groups(project).values())
+                'specific', cloud.canonical_native_groups(project).values())
             if current['rules'] != normalize(op['rules']) or current['rules'] != policy:
                 raise RecoveryRequired('Current root ACL differs from reviewed incident and current permission policy')
             op['written'] = current

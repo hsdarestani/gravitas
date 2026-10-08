@@ -87,6 +87,25 @@ with transaction.atomic():
                 inventory['native_acl_' + label] = 'snapshot_unavailable'
 print(json.dumps(inventory, sort_keys=True))
 
+# Diagnose verification-mail failures without sending mail or exposing values.
+import smtplib
+mail_probe = {'credentials_configured': bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD),
+    'ssl': bool(settings.EMAIL_USE_SSL), 'tls': bool(settings.EMAIL_USE_TLS)}
+try:
+    client_type = smtplib.SMTP_SSL if settings.EMAIL_USE_SSL else smtplib.SMTP
+    with client_type(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=10) as smtp:
+        smtp.ehlo()
+        if settings.EMAIL_USE_TLS:
+            smtp.starttls(); smtp.ehlo()
+        if settings.EMAIL_HOST_USER:
+            smtp.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
+        mail_probe['noop_status'] = smtp.noop()[0]
+except Exception as exc:
+    mail_probe['error_type'] = type(exc).__name__
+    if isinstance(getattr(exc, 'smtp_code', None), int):
+        mail_probe['smtp_status'] = exc.smtp_code
+print(json.dumps({'verification_mail_runtime': mail_probe}, sort_keys=True))
+
 # Native Telegram metadata only; no bot token, chat identity or webhook secret
 # is emitted. A healthy webhook does not certify a human response.
 from core.task_notifications import _telegram_api
@@ -117,6 +136,11 @@ if plan_path.is_file() and project:
                 details[label + '_etag_conditional_head_status'] = precondition.status_code
             manifest = second.json()
             details['state'] = manifest.get('state')
+            from core.canonical_acl import desired_rules
+            from core import nextcloud_bridge
+            policy = desired_rules(cloud.project_group_id(project), nextcloud_bridge._project_root_roles(project),
+                'specific', cloud.canonical_native_groups(project).values())
+            details['current_root_matches_policy'] = read_acl(cloud.project_mountpoint(project))['rules'] == policy
             details['operations'] = [{'kind': op.get('kind'), 'write_receipt_recorded': bool(op.get('written') or op.get('written_etag')),
                 'acl_equals_before': read_acl(op['path'])['rules'] == op['before']['rules'] if op.get('kind') == 'acl' else None,
                 'acl_equals_desired': read_acl(op['path'])['rules'] == op['rules'] if op.get('kind') == 'acl' else None} for op in manifest.get('operations', [])]
