@@ -248,6 +248,15 @@ class CanonicalProjectTests(TestCase):
 
 @override_settings(NEXTCLOUD_ADMIN_USER='service', NEXTCLOUD_ADMIN_PASSWORD='fixture')
 class NativeCanonicalRepresentationTests(TestCase):
+    def test_owner_dav_clients_and_admin_reads_share_strong_representation(self):
+        from types import SimpleNamespace
+        for method in ('GET', 'PUT', 'DELETE', 'MOVE', 'HEAD'):
+            with self.subTest(method=method), patch('core.cloud.requests.request', return_value=SimpleNamespace(status_code=200)) as request:
+                cloud._request(method, cloud._admin_dav_url('GRV-000208/project.md'), auth=('fixture', 'fixture'), expected={200}, headers={'If-Match': '"native"'})
+                headers = request.call_args.kwargs['headers']
+                self.assertEqual(headers['Accept-Encoding'], 'identity')
+                self.assertEqual(headers['If-Match'], '"native"')
+
     def test_conditional_writes_use_the_same_native_representation_as_reads(self):
         from types import SimpleNamespace
         from .canonical_projects import dav_write
