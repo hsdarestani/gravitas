@@ -15,10 +15,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: gravitas-team-folder-migration
-  cancel-in-progress: false
-
 env:
   DOMAIN: gravitasplus.com
   BACKEND_PATH: /opt/gravitas-backend
@@ -62,11 +58,15 @@ jobs:
           python -m django test core.test_team_folder_migration --verbosity 2
 
   production:
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
     if: >-
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'workflow_run' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_sha == github.sha
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
