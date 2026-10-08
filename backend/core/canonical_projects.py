@@ -146,7 +146,7 @@ def decode(obj, content):
 
 def dav_read(path, etag=None):
     response = cloud._request('GET', cloud._admin_dav_url(path), auth=cloud._admin_auth(), expected={200, 304, 404},
-                              headers={'If-None-Match': etag} if etag else {})
+                              headers={'Accept-Encoding': 'identity', **({'If-None-Match': etag} if etag else {})})
     if response.status_code == 404:
         return None
     if response.status_code == 304:

@@ -410,12 +410,26 @@ def _send_telegram(row):
     pref = _preference(row.recipient)
     if not pref.telegram_enabled or not pref.telegram_chat_id:
         return 'skipped'
+    if row.event_type == 'daily.checkin':
+        from .work_reports import my_tasks, report_day
+        from .work_report_models import DailyWorkReport
+        if not row.recipient.is_active or row.payload.get('report_date') != str(report_day()):
+            return 'skipped'
+        try:
+            eligible = any(t.status not in {'done', 'archived'} for t in my_tasks(row.recipient))
+        except PermissionError:
+            eligible = False
+        if not eligible or DailyWorkReport.objects.filter(user=row.recipient, report_date=report_day(), status='confirmed').exists():
+            return 'skipped'
     text = f'{row.subject}\n\n{row.body}'
-    _telegram_api('sendMessage', {
+    payload = {
         'chat_id': pref.telegram_chat_id,
         'text': text[:4096],
         'disable_web_page_preview': False,
-    })
+    }
+    if row.event_type == 'daily.checkin':
+        payload['reply_markup'] = {'inline_keyboard': [[{'text': 'Write daily report · گزارش روزانه', 'callback_data': 'wr:start'}]]}
+    _telegram_api('sendMessage', payload)
     if row.event_type == 'daily.checkin':
         from .operating_models import TelegramPulsarSession
         session, _ = TelegramPulsarSession.objects.get_or_create(user=row.recipient)

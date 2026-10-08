@@ -86,3 +86,40 @@ with transaction.atomic():
             except cloud.CloudError:
                 inventory['native_acl_' + label] = 'snapshot_unavailable'
 print(json.dumps(inventory, sort_keys=True))
+
+# Native Telegram metadata only; no bot token, chat identity or webhook secret
+# is emitted. A healthy webhook does not certify a human response.
+from core.task_notifications import _telegram_api
+try:
+    info = _telegram_api('getWebhookInfo', {}).get('result', {})
+    telegram = {'webhook_matches_platform': info.get('url') == settings.PUBLIC_BASE_URL.rstrip('/') + '/api/task-notifications/telegram/webhook/',
+        'pending_updates': info.get('pending_update_count', 0), 'has_last_error': bool(info.get('last_error_date'))}
+except RuntimeError:
+    telegram = {'inspection': 'native_request_failed'}
+print(json.dumps({'telegram_runtime': telegram}, sort_keys=True))
+
+if plan_path.is_file() and project:
+    # Read-only evidence from the failed selected acceptance transaction.
+    journal_path = cloud.project_mountpoint(project) + '/06_Archive/CanonicalTransactions/4b9efdab-e748-4ace-8ca2-343f7e8d5090.json'
+    try:
+        first = cloud._request('GET', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 404})
+        second = cloud._request('GET', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 404}, headers={'Accept-Encoding': 'identity'})
+        details = {'status': first.status_code, 'identity_status': second.status_code,
+            'default_etag_weak': first.headers.get('ETag', '').startswith('W/'),
+            'identity_etag_weak': second.headers.get('ETag', '').startswith('W/'),
+            'default_encoding': first.headers.get('Content-Encoding', ''),
+            'identity_encoding': second.headers.get('Content-Encoding', ''),
+            'etag_same': first.headers.get('ETag') == second.headers.get('ETag')}
+        if second.status_code == 200:
+            for label, response in [('default', first), ('identity', second)]:
+                precondition = cloud._request('HEAD', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 412},
+                    headers={'Accept-Encoding': 'identity', 'If-Match': response.headers.get('ETag', '')})
+                details[label + '_etag_conditional_head_status'] = precondition.status_code
+            manifest = second.json()
+            details['state'] = manifest.get('state')
+            details['operations'] = [{'kind': op.get('kind'), 'write_receipt_recorded': bool(op.get('written') or op.get('written_etag')),
+                'acl_equals_before': read_acl(op['path'])['rules'] == op['before']['rules'] if op.get('kind') == 'acl' else None,
+                'acl_equals_desired': read_acl(op['path'])['rules'] == op['rules'] if op.get('kind') == 'acl' else None} for op in manifest.get('operations', [])]
+        print(json.dumps({'failed_journal_diagnostics': details}, sort_keys=True))
+    except (cloud.CloudError, ValueError):
+        print(json.dumps({'failed_journal_diagnostics': 'snapshot_unavailable'}))

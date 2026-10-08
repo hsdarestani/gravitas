@@ -201,3 +201,56 @@ class DailyWorkReportTests(TestCase):
         self.assertIn('Confirm', str(preview))
         self.assertEqual(DailyWorkReport.objects.get().status, 'pending')
         self.task.refresh_from_db(); self.assertEqual(self.task.status, 'active')
+
+
+    @override_settings(GRAVITAS_DAILY_REPORT_HOUR=0)
+    def test_queued_checkin_is_not_sent_after_confirmation_or_on_next_day(self):
+        from .task_notifications import deliver_pending
+        TaskNotificationPreference.objects.create(user=self.user, telegram_enabled=True, telegram_chat_id=123)
+        enqueue_daily_checkins()
+        report = self.propose(); decide(self.user, report.pk, 1, 'confirm')
+        with patch('core.task_notifications._telegram_api') as send:
+            self.assertEqual(deliver_pending()['skipped'], 1)
+        send.assert_not_called()
+        row = TaskNotificationOutbox.objects.get()
+        row.status = 'pending'; row.payload['report_date'] = str(report.report_date - timezone.timedelta(days=1)); row.save()
+        with patch('core.task_notifications._telegram_api') as send:
+            self.assertEqual(deliver_pending()['skipped'], 1)
+        send.assert_not_called()
+
+    def test_daily_prompt_does_not_capture_other_telegram_commands(self):
+        from .operating_models import TelegramPulsarSession
+        TelegramPulsarSession.objects.create(user=self.user, state={'mode': 'daily_checkin'})
+        for command in ['/tasks', '/help', '/new']:
+            self.assertIsNone(handle_report_message(self.user, command))
+        self.assertFalse(DailyWorkReport.objects.exists())
+
+
+    def test_date_filter_retrieves_older_report_and_rejects_invalid_filters(self):
+        report = self.propose()
+        DailyWorkReport.objects.filter(pk=report.pk).update(report_date='2025-01-01')
+        DailyWorkReport.objects.bulk_create([DailyWorkReport(user=self.user, report_date='2026-10-08', source='platform', source_key=f'later-{i}', original_text='Later draft') for i in range(101)])
+        data = self.client.get('/api/platform/work-reports/?date=2025-01-01&status=pending').json()
+        self.assertEqual([r['id'] for r in data['reports']], [str(report.pk)])
+        self.assertEqual(self.client.get('/api/platform/work-reports/?date=bad').status_code, 400)
+        self.assertEqual(self.client.get('/api/platform/work-reports/?status=bad').status_code, 400)
+
+
+    @override_settings(GRAVITAS_TELEGRAM_BOT_TOKEN='fixture', GRAVITAS_TELEGRAM_WEBHOOK_SECRET='fixture', PUBLIC_BASE_URL='https://example.test')
+    def test_bot_commands_are_configured_before_optional_appearance_failure(self):
+        import io
+        import requests
+        from django.core.management import call_command
+        from types import SimpleNamespace
+        methods = []
+        def post(url, **kwargs):
+            method = url.rsplit('/', 1)[-1]; methods.append(method)
+            if method == 'setMyName':
+                raise requests.Timeout()
+            if method == 'setMyCommands':
+                commands = {c['command'] for c in kwargs['json']['commands']}
+                self.assertTrue({'report', 'reportedit'}.issubset(commands))
+            return SimpleNamespace(ok=True, json=lambda: {'ok': True}, raise_for_status=lambda: None)
+        with patch('core.management.commands.configure_telegram_notifications.requests.post', side_effect=post):
+            call_command('configure_telegram_notifications', stdout=io.StringIO(), stderr=io.StringIO())
+        self.assertEqual(methods[:2], ['setWebhook', 'setMyCommands'])

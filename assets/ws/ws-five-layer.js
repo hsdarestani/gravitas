@@ -9,7 +9,7 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20261008-operational2';
+} from './ws-member-lms.js?v=20261008-reports3';
 import { renderMemberProgress } from './ws-member-progress.js?v=20261008-operational2';
 import { renderMemberSupport } from './ws-support.js?v=20261008-operational2';
 import {
