@@ -14,7 +14,9 @@ PRs [150](https://github.com/hsdarestani/gravitas/pull/150),
 [151](https://github.com/hsdarestani/gravitas/pull/151),
 [152](https://github.com/hsdarestani/gravitas/pull/152),
 [153](https://github.com/hsdarestani/gravitas/pull/153), and
-[154](https://github.com/hsdarestani/gravitas/pull/154) are merged.
+[154](https://github.com/hsdarestani/gravitas/pull/154),
+[155](https://github.com/hsdarestani/gravitas/pull/155), and
+[156](https://github.com/hsdarestani/gravitas/pull/156) are merged.
 They implement confirmed daily reporting, typed canonical file projections,
 conditional conflict handling, recoverable content/ACL writes, native checkpoint
 and restore rehearsal, real Pulsar source provisioning, client cache correction,
@@ -123,6 +125,9 @@ checked complete. A separate real reusable Claude Skill task is assigned to
 Ahmad; the original composite task explicitly depends on it. That parent is not
 DONE because the real Research production/revision cycle remains pending.
 Selected reconciliation changes the parent to Waiting and aligns Skill priority.
+Live Deck synchronization exposed a legacy fallback that changed richer states
+to Draft. PR156 adds dedicated lanes and preserves richer states during legacy
+Backlog metadata edits; its live deployment is in progress.
 
 ## 14. Backup, migration and deployment
 
@@ -142,7 +147,7 @@ canonical adoption remains false; selected adoption is separately gated.
 PR153 passed **618 backend tests**, plus **9 checkpoint checks**, including the
 exact SQL against PostgreSQL16. PR154 adds selected-plan preservation/replay,
 external edit/conflict flow, task dependency reconciliation and owner-only
-check-in regressions; the follow-up native-ceiling repair passes the complete local suite of **627 tests**. Its live rerun is still required.
+check-in regressions; the follow-up native-ceiling repair passes the complete local suite of **629 tests**. Its live rerun is still required.
 Changed JavaScript syntax, workflow YAML, migration drift and inspection-only
 commands pass. DAV unit fixtures simulate Nextcloud and are not live native
 acceptance. The checkpoint rehearsal itself ran on the real server.
@@ -213,3 +218,5 @@ All independent engineering and acceptance work should continue before asking
 for the final required approval.
 
 Native acceptance update: run 37707274517 passed a fresh matched backup and isolated restore, then failed HTTP403 while creating the private journal. Adoption did not commit. The native group ceiling capped ACL allows; the follow-up repair preserves the read-only project group, verifies exclusive service membership, and grants an editor ceiling only after root ACL readback. Live rerun remains pending.
+
+Second selected native run 37709508780 failed closed before adoption committed: Nextcloud represents a new folder with no direct ACL rules as a 404 property. The follow-up accepts that empty ACL only with positive group-folder identity, enabled ACL, ACL-manager entitlement and a current ETag; missing, denied or unsupported snapshots still fail closed. The complete local suite passes 629 tests. This repair still needs its live rerun.
