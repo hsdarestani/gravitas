@@ -67,6 +67,16 @@ class CanonicalProjectTests(TestCase):
     def adopt(self):
         return adopt_project(self.project, self.owner)
 
+    def test_missing_cached_native_identity_is_refreshed_without_a_content_revision(self):
+        self.adopt()
+        file = CanonicalFile.objects.get(project=self.project, path='project.md')
+        revision_count = file.revisions.count()
+        CanonicalFile.objects.filter(pk=file.pk).update(file_id='')
+        refresh_project(self.project, self.owner)
+        file.refresh_from_db()
+        self.assertEqual(file.file_id, self.dav.files[self.full('project.md')]['file_id'])
+        self.assertEqual(file.revisions.count(), revision_count)
+
     @override_settings(GRAVITAS_CANONICAL_ADOPTION_ENABLED=False)
     def test_adoption_gate_leaves_existing_content_untouched(self):
         with self.assertRaisesMessage(ValueError, 'canonical_adoption_pending_operational_validation'):
@@ -248,6 +258,24 @@ class CanonicalProjectTests(TestCase):
 
 @override_settings(NEXTCLOUD_ADMIN_USER='service', NEXTCLOUD_ADMIN_PASSWORD='fixture')
 class NativeCanonicalRepresentationTests(TestCase):
+    def test_get_without_file_id_binds_dav_identity_to_the_content_revision(self):
+        from types import SimpleNamespace
+        from .canonical_projects import dav_read
+        metadata = b'<d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns"><d:response><d:propstat><d:prop><oc:id>123instance</oc:id><d:getetag>"native"</d:getetag></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>'
+        with patch('core.canonical_projects.cloud._request', side_effect=[SimpleNamespace(status_code=200, content=b'original', headers={'ETag': '"native"'}), SimpleNamespace(status_code=207, content=metadata)]) as request:
+            result = dav_read('GRV-000208/project.md')
+        self.assertEqual(result, {'content': 'original', 'etag': '"native"', 'file_id': '123instance'})
+        self.assertEqual(request.call_args.args[0], 'PROPFIND')
+        self.assertEqual(request.call_args.kwargs['headers']['Depth'], '0')
+
+    def test_changed_metadata_revision_cannot_be_attached_to_old_content(self):
+        from types import SimpleNamespace
+        from .canonical_projects import dav_read
+        metadata = b'<d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns"><d:response><d:propstat><d:prop><oc:id>123instance</oc:id><d:getetag>"changed"</d:getetag></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>'
+        with patch('core.canonical_projects.cloud._request', side_effect=[SimpleNamespace(status_code=200, content=b'original', headers={'ETag': '"native"'}), SimpleNamespace(status_code=207, content=metadata)]):
+            with self.assertRaisesMessage(cloud.CloudError, 'canonical_read_revision_changed'):
+                dav_read('GRV-000208/project.md')
+
     def test_owner_dav_clients_and_admin_reads_share_strong_representation(self):
         from types import SimpleNamespace
         for method in ('GET', 'PUT', 'DELETE', 'MOVE', 'HEAD'):

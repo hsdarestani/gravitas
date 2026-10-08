@@ -16,6 +16,7 @@ import difflib
 import json
 from contextlib import contextmanager
 from pathlib import PurePosixPath
+from xml.etree import ElementTree
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -153,8 +154,28 @@ def dav_read(path, etag=None):
         return {'unchanged': True}
     if len(response.content) > 4 * 1024 * 1024:
         raise ValueError('canonical_file_too_large')
-    return {'content': response.content.decode('utf-8'), 'etag': response.headers.get('ETag') or response.headers.get('OC-ETag', ''),
-            'file_id': response.headers.get('OC-FileId', '')}
+    etag = response.headers.get('ETag') or response.headers.get('OC-ETag', '')
+    file_id = response.headers.get('OC-FileId', '')
+    if not file_id:
+        # Nextcloud sends OC-FileId after writes, not necessarily on GET.
+        # Obtain the immutable identity from DAV properties, binding it to
+        # the same revision as the content we just read.
+        metadata = cloud._request('PROPFIND', cloud._admin_dav_url(path), auth=cloud._admin_auth(), expected={207, 404},
+            headers={'Depth': '0', 'Content-Type': 'application/xml; charset=utf-8'},
+            data=b'<d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns"><d:prop><d:getetag/><oc:id/></d:prop></d:propfind>')
+        if metadata.status_code != 207:
+            raise cloud.CloudError('canonical_file_identity_missing')
+        try:
+            root = ElementTree.fromstring(metadata.content)
+            properties = [p.find('{DAV:}prop') for p in root.findall('.//{DAV:}propstat')
+                if ' 200 ' in (p.findtext('{DAV:}status') or '')]
+            file_id = next((p.findtext('{http://owncloud.org/ns}id') for p in properties if p is not None and p.findtext('{http://owncloud.org/ns}id')), '')
+            native_etag = next((p.findtext('{DAV:}getetag') for p in properties if p is not None and p.findtext('{DAV:}getetag')), '')
+        except ElementTree.ParseError as exc:
+            raise cloud.CloudError('canonical_file_identity_invalid') from exc
+        if not file_id or not etag or native_etag != etag:
+            raise cloud.CloudError('canonical_read_revision_changed')
+    return {'content': response.content.decode('utf-8'), 'etag': etag, 'file_id': file_id}
 
 
 def dav_write(path, content, etag=None):
@@ -311,7 +332,7 @@ def refresh_file(file, user=None):
     obj = object_for(file)
     if not obj or user and not can_view(user, acl_object(obj)):
         return
-    remote = dav_read(cloud.project_mountpoint(file.project) + '/' + file.path, file.etag)
+    remote = dav_read(cloud.project_mountpoint(file.project) + '/' + file.path, file.etag if file.file_id else None)
     if remote is None:
         raise CanonicalConflict(file.path, file.base_content, encode(obj), '', '')
     if remote.get('unchanged'):
