@@ -33,7 +33,7 @@ jobs:
           RUN="${{ github.run_id }}-${{ github.run_attempt }}"
           EMAIL_A="workspace-a-$RUN@example.com"
           EMAIL_B="workspace-b-$RUN@example.com"
-          PASSWORD="E2E-${RUN}-$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')-aA1!"
+          PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(64) + "-aA1!")')"
           echo "::add-mask::$PASSWORD"
           JAR_A="$RUNNER_TEMP/a.cookies"
           JAR_B="$RUNNER_TEMP/b.cookies"
