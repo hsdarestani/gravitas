@@ -248,7 +248,7 @@ def file_acl(obj, path):
     if not batch:
         raise RecoveryRequired('canonical_acl_requires_transaction')
     batch.acl(project, cloud.project_mountpoint(project) + '/' + path,
-              desired_rules(cloud.project_group_id(project), roles, visibility))
+              desired_rules(cloud.project_group_id(project), roles, visibility, cloud.canonical_native_groups(project).values()))
 
 
 @transaction.atomic

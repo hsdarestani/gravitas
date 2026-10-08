@@ -117,9 +117,10 @@ def _set_project_group_read_only(folder_id, group_id):
 def _write_team_acl(mountpoint, relative_path, group_id, user_roles, visibility):
     """Write a complete Advanced Permissions list for a Team Folder path.
 
-    The project group has read-only base access. Editors/managers are elevated
-    with explicit user rules at the root. Restricted paths additionally deny
-    the project group, then allow only explicitly permitted users/managers.
+    The project group has read-only base access. Canonical projects additionally
+    use verified service/writer ceilings because ACLs cannot exceed their native
+    group ceiling. Restricted paths deny all these groups, then allow only
+    explicitly permitted users/managers.
     """
     relative_path = str(relative_path or '').strip('/')
     path = cloud.safe_filename(mountpoint) + (f'/{relative_path}' if relative_path else '')
@@ -137,7 +138,7 @@ def _write_team_acl(mountpoint, relative_path, group_id, user_roles, visibility)
             # receive access at an adopted project's root.
             if not relative_path:
                 visibility = 'specific'
-            return batch.acl(state.project, path, desired_rules(group_id, user_roles, visibility))
+            return batch.acl(state.project, path, desired_rules(group_id, user_roles, visibility, cloud.canonical_native_groups(state.project).values()))
     roles = dict(user_roles or {})
     if settings.NEXTCLOUD_ADMIN_USER:
         roles.setdefault(settings.NEXTCLOUD_ADMIN_USER, 'manage')
@@ -214,7 +215,12 @@ def ensure_project_space(project):
     """
     mountpoint = cloud.project_mountpoint(project)
     group_id = cloud.project_group_id(project)
-    team = cloud.ensure_team_folder(mountpoint, group_id)
+    team = cloud.ensure_team_folder(mountpoint, group_id, group_permissions=cloud.NC_PERMISSION_READ)
+    from .canonical_models import CanonicalProject
+    from .canonical_journal import _batch
+    canonical = CanonicalProject.objects.filter(project=project).filter(enabled=True).exists() or bool(_batch.get() and CanonicalProject.objects.filter(project=project).exists())
+    if canonical:
+        cloud.prepare_canonical_service_access(project, team['id'])
 
     identities = {}
     for user in project_users(project):
@@ -230,7 +236,9 @@ def ensure_project_space(project):
 
     warnings = []
     try:
-        _write_team_acl(mountpoint, '', group_id, _project_root_roles(project), 'project')
+        root_acl = _write_team_acl(mountpoint, '', group_id, _project_root_roles(project), 'project')
+        if canonical:
+            cloud.sync_canonical_writer_access(project, team['id'], _project_root_roles(project), root_rules=root_acl['rules'])
     except (cloud.CloudError, NextcloudBridgeError):
         from .canonical_models import CanonicalProject
         from .canonical_journal import _batch

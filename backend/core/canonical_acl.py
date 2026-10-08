@@ -13,11 +13,11 @@ def normalize(rules):
                    for r in rules], key=lambda r: (r['type'], r['id'], r['mask'], r['permissions']))
 
 
-def desired_rules(group_id, roles, visibility):
+def desired_rules(group_id, roles, visibility, extra_groups=()):
     roles = dict(roles)
     if settings.NEXTCLOUD_ADMIN_USER:
         roles.setdefault(settings.NEXTCLOUD_ADMIN_USER, 'manage')
-    rules = [{'type': 'group', 'id': group_id, 'mask': cloud.NC_PERMISSION_ALL, 'permissions': 0}] if visibility in {'specific', 'private'} else []
+    rules = [{'type': 'group', 'id': group, 'mask': cloud.NC_PERMISSION_ALL, 'permissions': 0} for group in {group_id, *extra_groups}] if visibility in {'specific', 'private'} else []
     rules.extend({'type': 'user', 'id': name, 'mask': cloud.NC_PERMISSION_ALL,
                   'permissions': cloud.ROLE_PERMISSION_MAP.get(role, cloud.NC_PERMISSION_READ)} for name, role in roles.items())
     return normalize(rules)
@@ -72,6 +72,6 @@ def protect_service_folder(project, relative_path):
     """
     path = cloud.project_mountpoint(project) + '/' + relative_path
     before = read_acl(path)
-    rules = desired_rules(cloud.project_group_id(project), {}, 'private')
+    rules = desired_rules(cloud.project_group_id(project), {}, 'private', cloud.canonical_native_groups(project).values())
     if before['rules'] != rules and write_acl(path, rules, before['etag']) is None:
         raise cloud.CloudError('canonical_private_folder_changed')

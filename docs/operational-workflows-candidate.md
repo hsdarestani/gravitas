@@ -1,7 +1,9 @@
 # Operational workflows engineering candidate
 
-Status: draft, not deployed or accepted in production. Existing LMS and video
-workflow designs are preserved. No real user task has been marked complete.
+Status: implementation released through PR154. Selected native acceptance exposed
+a Nextcloud permission-ceiling failure; the follow-up repair passes 627 backend
+tests and awaits deployment/native retest. Existing LMS and approved video designs
+are preserved. Operational composite tasks remain open.
 
 ## Research content contract
 
@@ -74,7 +76,7 @@ transactions finalize journals only after the outer database commit; rolled-back
 outer transactions leave pending recovery journals. A recovery
 checkpoint itself may fail; ambiguous states require operator reconciliation.
 Live crash/DB commit failure, multi-project replay, ACL and rollback acceptance
-still remain. The current code must remain a draft until these pass. Merely
+still remain. Do not treat unverified acceptance items as complete. Merely
 setting the gate is not an acceptance decision.
 
 Before migration, back up the database and full project folder including
@@ -89,7 +91,7 @@ first captures a safety checkpoint, stages both DBs before any exchange, retains
 old databases/directories and validates native version/schema before resuming.
 Interrupted restore leaves writers paused; recover its recorded safety checkpoint.
 Run staging restore and validate native IDs, ACLs, attachments and domain IDs
-before treating this as accepted. No real server backup/restore has run here.
+before treating this as accepted. Real matched backups and isolated restore rehearsals passed on production before releases and before selected acceptance.
 
 ## Daily work reporting
 
@@ -120,9 +122,9 @@ and authenticated mobile/browser flows still require real acceptance testing.
 `--apply` creates/reuses an accessible Pulsar project and imports actual checked-in
 runtime/architecture materials as deduplicated source notes and builds a
 source map linked to those actual note objects. Existing notes/maps are retained. `--project`
-targets an existing project explicitly. `--adopt` remains gated. This is not a
-claim that the live Research project, source map, synthesis or permissions were
-created or validated: production credentials were not available.
+targets an existing project explicitly. `--adopt` remains gated. The real private Pulsar Development Project (208), five existing-source notes
+and one source map were provisioned idempotently. Native access, provider synthesis
+and canonical adoption are tracked separately in the current acceptance report.
 
 ## Acceptance and task reconciliation
 
@@ -132,18 +134,18 @@ rewrite existing assigned task text or claim completion from this candidate.
 | Hossein workstream | Honest state | Acceptance/dependency |
 | --- | --- | --- |
 | Video workflow | DONE (design/documentation); existing design untouched | Evidence: Gravitas Video Production Workflow Chart.png, retrieved and read; Ahmad's reusable Claude Skill and one actual final revision cycle remain separate |
-| Research operational quality | Implementation candidate; needs review/retest | Resolve cross-file recovery; real DAV/ACL, file edits, projections, maps, permissions and rollback tests |
-| Pulsar real Research project | Provisioning command prepared; live execution pending | Authorized existing-project inspection, real source material, notes/maps/synthesis and end-to-end validation |
-| LMS course acceptance | Retest pending; no redesign | Actual learner/instructor course, notes/highlights, reminders/tasks/progress, preview/publish/schedule, mobile |
+| Research operational quality | Released; native permission repair needs live retest | Resolve cross-file recovery; real DAV/ACL, file edits, projections, maps, permissions and rollback tests |
+| Pulsar real Research project | Project 208 created; five notes and one map preserved | Authorized existing-project inspection, real source material, notes/maps/synthesis and end-to-end validation |
+| LMS course acceptance | Learner persistence and instructor draft/preview/schedule verified; remaining acceptance open | Actual learner/instructor course, notes/highlights, reminders/tasks/progress, preview/publish/schedule, mobile |
 | Topic | Blocked; no upload or publication performed | Sajad approves Topic Template before preparation is applied/published |
-| Daily reporting | Implementation candidate; needs review/retest | Platform and connected Telegram live confirm/edit/cancel/replay, manager ACL and daily scheduling |
+| Daily reporting | Released; native permission repair needs live retest | Platform and connected Telegram live confirm/edit/cancel/replay, manager ACL and daily scheduling |
 
 The exact final graph artifact has been identified and its extracted content
 confirms Final QA ↔ Revision (T19–T26). The design is DONE; this does not close
 the live Research Project or final production-cycle validation task. Do
 not mark LMS, Research or Pulsar operationally complete until real evidence is
-attached. Do not infer Topic approval. Task mutations against the production
-database have not been performed in this session.
+attached. Do not infer Topic approval. Production task reconciliation preserves design completion, assigns Ahmad the
+Skill dependency and Sajad the Topic review, and keeps composite execution pending.
 
 ## Verification scope
 
@@ -152,20 +154,19 @@ They cover conditional conflicts, projection import, IDs, migration counts,
 viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
 correction history, dependency completion and reminder idempotency.
 Existing backend tests run against isolated test settings.
-The final full backend suite passes: 613 backend tests plus 5 native checkpoint regressions; live acceptance is pending.
-One additional source-provisioning regression passes. Full acceptance evidence
-and remaining limitations are recorded in operational-workflows-report.md. Migration drift check reports no
-changes; new frontend modules pass JavaScript syntax checks.
-The API coverage checker reports the same 14 query-template false positives on the base commit;
-it is not a clean coverage result. Google authentication redirected to Workspace,
-but the browser then returned 502 / connection refused and account entitlement
-could not be verified. Independent HTTP checks returned 200 for Workspace and
-`status: ok, database: ok` for the health endpoint; the latest production monitor
-was successful. This does not establish an origin outage or authenticated
-acceptance. LMS, Pulsar, Telegram, mobile and Nextcloud acceptance remain
-unverified. Corrections now reject inaccessible, missing or unconfirmed original
-reports, and the task catalog includes description, priority, acceptance criteria
-and dependency IDs for better grounded proposals.
+The current full backend suite passes **627 tests**. Prior CI also passed nine
+native checkpoint checks with PostgreSQL16. JavaScript syntax and diff checks pass.
+Production matched native backup and isolated restore have passed repeatedly.
+The real platform report was edited and confirmed, with manager overview visible.
+LMS Note, Highlight, Reminder and Personal Task persisted after reload; draft,
+preview and schedule-save were verified, then the schedule was cleared. Immediate
+course publication was rejected by automatic approval review and remains pending
+explicit approval. Real browser/mobile, human Telegram reply, project permissions
+and remaining Research A–L items are individually qualified in the 19-part report.
+The first selected native acceptance failed HTTP403 before adoption committed.
+The fix gives the existing exclusive service account a native ceiling and approved
+editors a separate ceiling only after complete root ACL readback, leaving viewers
+read-only. Unit tests are not a substitute for the native rerun.
 
 References: [HTTP conditional requests](https://www.rfc-editor.org/rfc/rfc9110.html#name-conditional-requests),
 [Nextcloud WebDAV](https://docs.nextcloud.com/server/latest/developer_manual/client_apis/WebDAV/index.html).
