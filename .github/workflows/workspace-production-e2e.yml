@@ -20,12 +20,17 @@ jobs:
     timeout-minutes: 12
     env:
       DOMAIN: gravitasplus.com
+      E2E_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      E2E_SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      E2E_SSH_USER: ${{ secrets.DEPLOY_USER }}
+      E2E_SSH_PORT: ${{ secrets.DEPLOY_PORT }}
     steps:
+      - uses: actions/checkout@v4
       - name: Verify private workspace lifecycle in production
         shell: bash
         run: |
           set -euo pipefail
-          RUN="${{ github.run_id }}"
+          RUN="${{ github.run_id }}-${{ github.run_attempt }}"
           EMAIL_A="workspace-a-$RUN@example.com"
           EMAIL_B="workspace-b-$RUN@example.com"
           PASSWORD="E2E-${RUN}-$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')-aA1!"
@@ -34,11 +39,15 @@ jobs:
           BASE="https://$DOMAIN"
           REFERER="$BASE/workspace"
 
+          source ops/e2e-identity.sh
           signup() {
-            local jar="$1" email="$2" csrf
+            local jar="$1" email="$2" csrf link
+            link="$(prepare_e2e_identity "$email" "$PASSWORD")"
+            echo "::add-mask::$link"
+            curl -4 -fsS -o /dev/null "$link"
             curl -4 -fsS -c "$jar" "$BASE/api/auth/csrf/" >/dev/null
             csrf="$(awk '$6=="csrftoken" {print $7}' "$jar" | tail -n1)"
-            curl -4 -fsS -b "$jar" -c "$jar" -X POST "$BASE/api/auth/signup/" \
+            curl -4 -fsS -b "$jar" -c "$jar" -X POST "$BASE/api/auth/login/" \
               -H 'Content-Type: application/json' -H "X-CSRFToken: $csrf" -H "Referer: $REFERER" \
               --data "{\"name\":\"Workspace E2E\",\"email\":\"$email\",\"password\":\"$PASSWORD\"}" >/dev/null
           }

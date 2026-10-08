@@ -15,12 +15,17 @@ jobs:
     timeout-minutes: 10
     env:
       DOMAIN: gravitasplus.com
+      E2E_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      E2E_SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      E2E_SSH_USER: ${{ secrets.DEPLOY_USER }}
+      E2E_SSH_PORT: ${{ secrets.DEPLOY_PORT }}
     steps:
+      - uses: actions/checkout@v4
       - name: Verify production account lifecycle over HTTPS
         shell: bash
         run: |
           set -euo pipefail
-          EMAIL="auth-e2e-${{ github.run_id }}@example.com"
+          EMAIL="auth-e2e-${{ github.run_id }}-${{ github.run_attempt }}@example.com"
           PASSWORD="E2E-${{ github.run_id }}-$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')-aA1!"
           COOKIE_JAR="$RUNNER_TEMP/gravitas-auth-cookies.txt"
           REFERER="https://$DOMAIN/login"
@@ -29,16 +34,19 @@ jobs:
           CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
           test -n "$CSRF"
 
+          source ops/e2e-identity.sh
+          VERIFICATION_URL="$(prepare_e2e_identity "$EMAIL" "$PASSWORD")"
+          echo "::add-mask::$VERIFICATION_URL"
+          curl -4 -fsS -o /dev/null "$VERIFICATION_URL"
           SIGNUP="$(curl -4 -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
-            -X POST "https://$DOMAIN/api/auth/signup/" \
-            -H 'Accept: application/json' \
-            -H 'Content-Type: application/json' \
-            -H "X-CSRFToken: $CSRF" \
-            -H "Referer: $REFERER" \
-            --data "{\"name\":\"Production E2E\",\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"newsletter\":true}")"
+            -X POST "https://$DOMAIN/api/auth/login/" \
+            -H 'Content-Type: application/json' -H "X-CSRFToken: $CSRF" -H "Referer: $REFERER" \
+            --data "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
           printf '%s' "$SIGNUP" | grep -q '"ok": true'
           ME="$(curl -4 -fsS -b "$COOKIE_JAR" "https://$DOMAIN/api/auth/me/")"
           printf '%s' "$ME" | grep -q '"authenticated": true'
+          echo "TEST_EMAIL=$EMAIL" >> "$GITHUB_ENV"
+          echo "TEST_PASSWORD=$PASSWORD" >> "$GITHUB_ENV"
 
           EXPORT="$(curl -4 -fsS -b "$COOKIE_JAR" "https://$DOMAIN/api/auth/export/")"
           printf '%s' "$EXPORT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["account"]["email"] == sys.argv[1]; assert isinstance(d["comments"], list); assert isinstance(d["lab_progress"], list)' "$EMAIL"
@@ -99,14 +107,27 @@ jobs:
     timeout-minutes: 15
     env:
       DOMAIN: gravitasplus.com
+      E2E_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      E2E_SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      E2E_SSH_USER: ${{ secrets.DEPLOY_USER }}
+      E2E_SSH_PORT: ${{ secrets.DEPLOY_PORT }}
       BROWSER_EMAIL: browser-e2e-${{ github.run_id }}-${{ github.run_attempt }}@example.com
     steps:
+      - uses: actions/checkout@v4
       - name: Prepare one-run browser credential
         shell: bash
         run: |
           set -euo pipefail
           printf 'BROWSER_PASSWORD=E2E-%s-%s-aA1!\n' \
             '${{ github.run_id }}' "$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')" >> "$GITHUB_ENV"
+
+      - name: Prepare pending account and its real confirmation link
+        shell: bash
+        run: |
+          source ops/e2e-identity.sh
+          LINK="$(prepare_e2e_identity "$BROWSER_EMAIL" "$BROWSER_PASSWORD")"
+          echo "::add-mask::$LINK"
+          printf 'BROWSER_VERIFY_URL=%s\n' "$LINK" >> "$GITHUB_ENV"
 
       - name: Install Chromium browser harness
         shell: bash
@@ -204,11 +225,14 @@ jobs:
             await assertNoHorizontalBreakage();
             await page.screenshot({ path: path.join(artifacts, '01-signup-desktop.png'), fullPage: true, animations: 'disabled' });
 
-            await page.locator('#up-name').fill('Browser Production E2E');
-            await page.locator('#up-mail').fill(email);
-            await page.locator('#up-pass').fill(password);
-            await page.locator('#p-up button[type="submit"]').click();
-            await page.waitForURL(url => url.origin === base && url.pathname === '/workspace', { timeout: 20000 });
+            // Public signup now requires email confirmation; do not expect an
+            // unverified registration to authenticate automatically.
+            await page.goto(process.env.BROWSER_VERIFY_URL, { waitUntil: 'domcontentloaded' });
+            await page.goto(`${base}/login`, { waitUntil: 'domcontentloaded' });
+            await page.locator('#in-mail').fill(email);
+            await page.locator('#in-pass').fill(password);
+            await page.locator('#p-in button[type="submit"]').click();
+            await page.waitForURL(url => url.origin === base && url.pathname.startsWith('/workspace'), { timeout: 20000 });
             await settle();
             await assertWorkspaceShell();
             await assertNoHorizontalBreakage();
@@ -245,7 +269,7 @@ jobs:
             await page.locator('#in-mail').fill(email);
             await page.locator('#in-pass').fill(password);
             await page.locator('#p-in button[type="submit"]').click();
-            await page.waitForURL(url => url.origin === base && url.pathname === '/workspace', { timeout: 20000 });
+            await page.waitForURL(url => url.origin === base && url.pathname.startsWith('/workspace'), { timeout: 20000 });
             await settle();
             await assertWorkspaceShell();
             await page.screenshot({ path: path.join(artifacts, '04-workspace-after-login.png'), fullPage: true, animations: 'disabled' });
