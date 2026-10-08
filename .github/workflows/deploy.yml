@@ -85,6 +85,8 @@ jobs:
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh
+          printf 'Host *\n  ServerAliveInterval 15\n  ServerAliveCountMax 6\n' > ~/.ssh/config
+          chmod 600 ~/.ssh/config
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
           chmod 600 ~/.ssh/gravitas_deploy
           ssh-keygen -y -f ~/.ssh/gravitas_deploy >/dev/null
