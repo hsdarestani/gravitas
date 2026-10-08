@@ -118,3 +118,59 @@ class NativeAclBoundaryTests(TestCase):
         self.assertEqual(write.call_args_list[1].args[2], {'etag': '"v1"', 'rules': []})
         self.assertEqual(request.call_args.kwargs['expected'], {403})
         self.assertEqual(request.call_args.kwargs['auth'], ('owner', 'test'))
+
+
+class ReviewedAclIncidentTests(TestCase):
+    setUp = fixtures.CanonicalProjectTests.setUp
+
+    def incident(self):
+        import uuid
+        from . import cloud
+        batch = str(uuid.uuid4()); root = cloud.project_mountpoint(self.project)
+        path = root + '/06_Archive/CanonicalTransactions/' + batch + '.json'
+        old = {'rules': [{'type': 'group', 'id': 'existing', 'mask': 31, 'permissions': 1}], 'etag': '"before"'}
+        desired = [{'type': 'user', 'id': 'service', 'mask': 31, 'permissions': 31}]
+        current = {'rules': desired, 'etag': '"written"'}
+        manifest = {'schema': 1, 'batch_id': batch, 'project_id': self.project.pk, 'state': 'pending',
+            'operations': [{'kind': 'acl', 'path': root, 'before': old, 'rules': desired, 'written': None}]}
+        self.dav.write(path, json.dumps(manifest))
+        review = {'batch_id': batch, 'resolution': 'restore_previous_root_acl', 'reason': 'Reviewed native representation incident'}
+        return path, manifest, review, old, current
+
+    def test_reviewed_single_root_acl_conditionally_rolls_back_and_replays(self):
+        from .canonical_models import CanonicalWriteCommit
+        path, manifest, review, old, current = self.incident()
+        def read(target):
+            return {'rules': [dict(r) for r in current['rules']], 'etag': current['etag']}
+        def write(target, rules, expected):
+            self.assertEqual(expected, current)
+            current.update(rules=rules, etag='"restored"')
+            return read(target)
+        with patch('core.canonical_acl.read_acl', side_effect=read), patch('core.canonical_acl.write_acl', side_effect=write) as update, \
+             patch('core.canonical_acl.desired_rules', return_value=current['rules']), patch('core.nextcloud_bridge._project_root_roles', return_value={}), \
+             patch('core.cloud.canonical_native_groups', return_value={}):
+            module = acceptance_module()
+            self.assertEqual(module.review_selected_root_acl_recovery(self.project, review), 'rolled_back')
+            self.assertEqual(module.review_selected_root_acl_recovery(self.project, review), 'already_rolled_back')
+        update.assert_called_once()
+        self.assertEqual(current['rules'], old['rules'])
+        saved = json.loads(self.dav.files[path]['content'])
+        self.assertEqual(saved['state'], 'rolled_back')
+        self.assertTrue(saved['operational_review']['permission_policy_matched'])
+        self.assertFalse(CanonicalWriteCommit.objects.exists())
+
+    def test_external_acl_or_additional_file_operations_are_not_reviewed_away(self):
+        from .canonical_journal import RecoveryRequired
+        path, manifest, review, old, current = self.incident()
+        original = self.dav.files[path]['content']
+        with patch('core.canonical_acl.read_acl', return_value=old), patch('core.canonical_acl.desired_rules', return_value=current['rules']), \
+             patch('core.nextcloud_bridge._project_root_roles', return_value={}), patch('core.cloud.canonical_native_groups', return_value={}), \
+             patch('core.canonical_acl.write_acl') as write:
+            with self.assertRaises(RecoveryRequired):
+                acceptance_module().review_selected_root_acl_recovery(self.project, review)
+        write.assert_not_called(); self.assertEqual(self.dav.files[path]['content'], original)
+        manifest['operations'].append({'kind': 'put', 'path': 'extra'})
+        self.dav.external(path, json.dumps(manifest)); original = self.dav.files[path]['content']
+        with self.assertRaises(RecoveryRequired):
+            acceptance_module().review_selected_root_acl_recovery(self.project, review)
+        self.assertEqual(self.dav.files[path]['content'], original)

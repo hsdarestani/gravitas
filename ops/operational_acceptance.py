@@ -35,6 +35,60 @@ def verify_native_acl_boundary(project, identity):
     return boundary.status_code
 
 
+def review_selected_root_acl_recovery(project, review):
+    """Explicit reviewed incident only; normal ambiguous recovery stays closed.
+
+    The native incident evidence showed one root ACL operation, no file writes,
+    and exact desired rules after the compressed journal ETag failed. Recheck
+    that those rules equal the current selected project's permission policy,
+    record a reviewed write receipt conditionally, then restore the old rules
+    using the existing native CAS recovery. The fresh checkpoint wrapper is
+    required before this function is invoked by the apply command.
+    """
+    import uuid
+    from django.db import transaction
+    from core import cloud, nextcloud_bridge
+    from core.canonical_models import CanonicalWriteCommit
+    from core.canonical_projects import dav_read, dav_write
+    from core.canonical_acl import desired_rules, normalize, read_acl
+    from core.canonical_journal import recover_journal, RecoveryRequired
+    if set(review) != {'batch_id', 'resolution', 'reason'} or review['resolution'] != 'restore_previous_root_acl' or not review['reason']:
+        raise ValueError('Invalid reviewed ACL recovery plan')
+    batch_id = str(uuid.UUID(review['batch_id']))
+    root = cloud.project_mountpoint(project)
+    path = root + '/06_Archive/CanonicalTransactions/' + batch_id + '.json'
+    with transaction.atomic():
+        type(project).objects.select_for_update().get(pk=project.pk)
+        remote = dav_read(path)
+        if not remote:
+            raise RecoveryRequired('Reviewed incident journal is missing')
+        manifest = json.loads(remote['content'])
+        if manifest.get('schema') != 1 or manifest.get('batch_id') != batch_id or manifest.get('project_id') != project.pk:
+            raise RecoveryRequired('Reviewed incident journal identity differs')
+        if manifest.get('state') == 'rolled_back':
+            return 'already_rolled_back'
+        operations = manifest.get('operations', [])
+        if manifest.get('state') != 'pending' or len(operations) != 1 or CanonicalWriteCommit.objects.filter(pk=batch_id).exists():
+            raise RecoveryRequired('Reviewed incident shape or database witness differs')
+        op = operations[0]
+        if op.get('kind') != 'acl' or op.get('path') != root or op.get('not_written') or op.get('restored'):
+            raise RecoveryRequired('Reviewed incident is not the selected root ACL write')
+        if not op.get('written'):
+            current = read_acl(root)
+            policy = desired_rules(cloud.project_group_id(project), nextcloud_bridge._project_root_roles(project),
+                'project', cloud.canonical_native_groups(project).values())
+            if current['rules'] != normalize(op['rules']) or current['rules'] != policy:
+                raise RecoveryRequired('Current root ACL differs from reviewed incident and current permission policy')
+            op['written'] = current
+            manifest['operational_review'] = {'resolution': review['resolution'], 'reason': review['reason'],
+                'source': 'explicit_selected_recovery_plan', 'permission_policy_matched': True}
+            if not dav_write(path, json.dumps(manifest, ensure_ascii=False), remote['etag']):
+                raise RecoveryRequired('Reviewed incident journal changed')
+        elif manifest.get('operational_review', {}).get('source') != 'explicit_selected_recovery_plan':
+            raise RecoveryRequired('Incident receipt is not from this reviewed recovery')
+        return recover_journal(path)
+
+
 def reconcile_tasks(owner):
     """Bind the explicit Topic/Video dependencies without closing execution."""
     from core.operating_models import OperatingTask, WorkStatus
@@ -158,6 +212,10 @@ def main():
     if receipt.exists():
         print('Selected acceptance already completed; native writes and Telegram delivery are not repeated. Task dependencies reconciled idempotently.')
         return
+    telegram_delivery = send_owner_checkin(owner, hashlib.sha256(plan_bytes).hexdigest())
+    print('Linked owner Telegram acceptance check-in: ' + telegram_delivery, flush=True)
+    if plan.get('reviewed_acl_recovery'):
+        print('Reviewed root ACL incident recovery: ' + review_selected_root_acl_recovery(project, plan['reviewed_acl_recovery']))
     identities = {(obj.__class__.__name__, obj.pk) for obj in project_objects(project)}
     # The explicit CLI plan authorizes only this selected adoption. The global
     # setting remains false; the HTTP adoption endpoint stays unavailable.
@@ -269,7 +327,7 @@ def main():
         'private_outsider_denied': True, 'manager_overview_status': overview_status,
         'pending_owner_reports': DailyWorkReport.objects.filter(user=owner, status='pending').count(),
         'browser_acceptance_complete': False, 'telegram_human_confirmation_complete': False, 'task_reconciliation': task_results,
-        'telegram_owner_checkin': send_owner_checkin(owner, hashlib.sha256(plan_bytes).hexdigest()),
+        'telegram_owner_checkin': telegram_delivery,
         'pulsar_provider_synthesis_verified': provider_verified, 'pulsar_http_status': answer.status_code,
         'pulsar_source_count': len(answer_data.get('sources') or [])}
     temporary = receipt.with_suffix('.tmp')
