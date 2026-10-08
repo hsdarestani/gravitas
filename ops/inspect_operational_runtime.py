@@ -119,7 +119,7 @@ print(json.dumps({'telegram_runtime': telegram}, sort_keys=True))
 
 if plan_path.is_file() and project:
     # Read-only evidence from the failed selected acceptance transaction.
-    journal_path = cloud.project_mountpoint(project) + '/06_Archive/CanonicalTransactions/564fc8fe-87c7-4160-b8a0-0f2164b8badf.json'
+    journal_path = cloud.project_mountpoint(project) + '/06_Archive/CanonicalTransactions/ff3336a1-1f67-4c63-b6bc-60e00030f68c.json'
     try:
         first = cloud._request('GET', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 404})
         second = cloud._request('GET', cloud._admin_dav_url(journal_path), auth=cloud._admin_auth(), expected={200, 404}, headers={'Accept-Encoding': 'identity'})
@@ -128,6 +128,8 @@ if plan_path.is_file() and project:
             'identity_etag_weak': second.headers.get('ETag', '').startswith('W/'),
             'default_encoding': first.headers.get('Content-Encoding', ''),
             'identity_encoding': second.headers.get('Content-Encoding', ''),
+            'native_file_id_present': bool(second.headers.get('OC-FileId')),
+            'native_file_id_stable': first.headers.get('OC-FileId') == second.headers.get('OC-FileId'),
             'etag_same': first.headers.get('ETag') == second.headers.get('ETag')}
         if second.status_code == 200:
             for label, response in [('default', first), ('identity', second)]:
