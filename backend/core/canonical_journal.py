@@ -167,7 +167,7 @@ def guarded_delete(project, path, etag):
 
 def dav_delete(path, etag):
     response = cloud._request('DELETE', cloud._admin_dav_url(path), auth=cloud._admin_auth(),
-        expected={204, 404, 412}, headers={'If-Match': etag})
+        expected={204, 404, 412}, headers={'Accept-Encoding': 'identity', 'If-Match': etag})
     return response.status_code != 412
 
 
