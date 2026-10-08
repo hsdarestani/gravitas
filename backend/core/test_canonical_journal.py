@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch
 from django.test import TransactionTestCase
 from .test_canonical_projects import MemoryDAV
-from .canonical_journal import WriteBatch, recover_journal, RecoveryRequired, commit_witness, write_batch
+from .canonical_journal import WriteBatch, recover_journal, RecoveryRequired, commit_witness, write_batch, recover_project
 from .canonical_models import CanonicalWriteCommit
 
 
@@ -16,12 +16,39 @@ class CanonicalJournalTests(TransactionTestCase):
             ('core.canonical_projects.dav_write', {'side_effect': self.dav.write}),
             ('core.canonical_journal.dav_delete', {'side_effect': self.dav.delete}),
             ('core.canonical_journal.cloud.project_mountpoint', {'return_value': 'project'}),
+            ('core.canonical_journal.cloud._admin_auth', {'return_value': ('service', 'fixture')}),
+            ('core.canonical_journal.cloud._admin_dav_url', {'side_effect': lambda path: path}),
             ('core.canonical_journal.cloud.project_group_id', {'return_value': 'group'}),
             ('core.canonical_journal.cloud.admin_make_folder', {}),
             ('core.canonical_journal.cloud.set_team_folder_acl', {}),
             ('core.canonical_acl.protect_service_folder', {}),
         ]:
             p = patch(target, **kwargs); p.start(); self.addCleanup(p.stop)
+
+    def test_recovery_preserves_active_batch_and_recovers_previous_crashed_batch(self):
+        from types import SimpleNamespace
+        from xml.sax.saxutils import escape
+        old_path = 'project/02_Working/Research/notes/previous.md'
+        before = self.dav.write(old_path, 'original')
+        crashed = WriteBatch()
+        crashed.put(self.project, old_path, 'crashed edit', before['etag'])
+        with write_batch() as active:
+            current_path = 'project/project.md'
+            active.put(self.project, current_path, 'current edit', None)
+            paths = [crashed.journals[71]['path'], active.journals[71]['path']]
+            listing = '<d:multistatus xmlns:d="DAV:">' + ''.join(
+                '<d:response><d:href>' + escape(path) + '</d:href></d:response>'
+                for path in paths) + '</d:multistatus>'
+            with patch('core.canonical_journal.cloud._request', return_value=SimpleNamespace(
+                    status_code=207, content=listing.encode())):
+                recover_project(self.project)
+            self.assertEqual(self.dav.files[old_path]['content'], 'original')
+            self.assertEqual(self.dav.files[current_path]['content'], 'current edit')
+            self.assertEqual(json.loads(self.dav.files[paths[0]]['content'])['state'], 'rolled_back')
+            self.assertEqual(json.loads(self.dav.files[paths[1]]['content'])['state'], 'pending')
+            active.persist(active.journals[71])
+            commit_witness(active)
+        self.assertEqual(json.loads(self.dav.files[paths[1]]['content'])['state'], 'committed')
 
     def test_native_acl_revision_can_rebase_only_unchanged_persisted_journal(self):
         batch = WriteBatch(); journal = batch.journal(self.project)
