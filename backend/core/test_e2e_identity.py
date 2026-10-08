@@ -36,3 +36,11 @@ class DisposableIdentityTests(TestCase):
             with self.subTest(email=email), self.assertRaises(ValueError):
                 self.provision(email)
         self.assertEqual(get_user_model().objects.count(), 0)
+
+    def test_operating_fixture_matches_existing_strict_core_grant_identity(self):
+        email = 'operating-e2e-234-3@example.com'
+        self.provision(email)
+        user = get_user_model().objects.get(email=email)
+        self.assertEqual(user.first_name, 'Operating Production E2E')
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
