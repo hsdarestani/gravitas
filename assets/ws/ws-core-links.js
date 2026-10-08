@@ -11,8 +11,8 @@
    already linked to are on screen together.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20260914-7';
-import * as K from './ws-admin-kit.js?v=20261002-admin1';
+import * as P from './ws-platform.js?v=20261008-operational2';
+import * as K from './ws-admin-kit.js?v=20261008-operational2';
 
 const { el } = K;
 

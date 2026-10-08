@@ -30,4 +30,7 @@ with transaction.atomic():
     inventory['nextcloud_configured'] = bool(getattr(settings, 'NEXTCLOUD_ADMIN_USER', '') and getattr(settings, 'NEXTCLOUD_ADMIN_PASSWORD', ''))
     inventory['canonical_adoption_enabled'] = bool(getattr(settings, 'GRAVITAS_CANONICAL_ADOPTION_ENABLED', False))
     inventory['database_read_only'] = True
+    from django.db.models import Count
+    reports = apps.get_model('core', 'DailyWorkReport')
+    inventory['report_states'] = dict(reports.objects.values_list('status').annotate(total=Count('pk')))
 print(json.dumps(inventory, sort_keys=True))

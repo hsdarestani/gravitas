@@ -1,6 +1,6 @@
-import * as P from './ws-platform.js?v=20260914-7';
-import * as K from './ws-admin-kit.js?v=20261002-admin1';
-import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261002-notebook1';
+import * as P from './ws-platform.js?v=20261008-operational2';
+import * as K from './ws-admin-kit.js?v=20261008-operational2';
+import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261008-operational2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {

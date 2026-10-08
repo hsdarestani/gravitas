@@ -19,6 +19,7 @@ class CanonicalJournalTests(TransactionTestCase):
             ('core.canonical_journal.cloud.project_group_id', {'return_value': 'group'}),
             ('core.canonical_journal.cloud.admin_make_folder', {}),
             ('core.canonical_journal.cloud.set_team_folder_acl', {}),
+            ('core.canonical_acl.protect_service_folder', {}),
         ]:
             p = patch(target, **kwargs); p.start(); self.addCleanup(p.stop)
 
@@ -108,6 +109,21 @@ class CanonicalJournalTests(TransactionTestCase):
         with self.assertRaises(RecoveryRequired):
             batch.finalize()
         self.assertEqual(state['rules'][0]['id'], 'external-owner')
+
+    def test_root_acl_uses_etag_after_its_descendant_journal_write(self):
+        before = {'rules': [{'type': 'group', 'id': 'group', 'mask': 31, 'permissions': 1}], 'etag': 'old'}
+        current = dict(before, etag='after-journal')
+        with patch('core.canonical_acl.read_acl', side_effect=[before, current]), patch('core.canonical_acl.write_acl', return_value={'rules': [], 'etag': 'written'}) as write:
+            WriteBatch().acl(self.project, 'project', [])
+        write.assert_called_once_with('project', [], 'after-journal')
+
+    def test_external_acl_change_between_journal_and_write_is_preserved(self):
+        before = {'rules': [], 'etag': 'old'}
+        external = {'rules': [{'type': 'user', 'id': 'external', 'mask': 31, 'permissions': 31}], 'etag': 'changed'}
+        with patch('core.canonical_acl.read_acl', side_effect=[before, external]), patch('core.canonical_acl.write_acl') as write:
+            with self.assertRaises(RecoveryRequired):
+                WriteBatch().acl(self.project, 'project', [{'type': 'group', 'id': 'group', 'mask': 31, 'permissions': 1}])
+        write.assert_not_called()
 
     def test_ambiguous_acl_write_stops_for_review(self):
         path, old, state = self.acl_store()

@@ -27,9 +27,9 @@
        every long form a save bar that stays in reach.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20260919-planning1';
-import * as K from './ws-admin-kit.js?v=20261002-admin1';
-import { courseCover } from './ws-course-cover.js?v=20261001-cover1';
+import * as P from './ws-platform.js?v=20261008-operational2';
+import * as K from './ws-admin-kit.js?v=20261008-operational2';
+import { courseCover } from './ws-course-cover.js?v=20261008-operational2';
 
 const { el, label, C } = K;
 const date = (value) => P.formatDate(value);

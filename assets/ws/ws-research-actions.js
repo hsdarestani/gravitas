@@ -16,8 +16,8 @@
    The installer is idempotent and survives client-side route redraws.
    ========================================================================== */
 
-import { platform } from './ws-platform.js?v=20260914-7';
-import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
+import { platform } from './ws-platform.js?v=20261008-operational2';
+import { observeSurface } from './ws-runtime-performance.js?v=20261008-operational2';
 
 const API = '/api';
 const DATASET_ACCEPT = '.csv,.tsv,.xlsx,.xls,.json,.jsonl,.zip,.parquet,.xml';

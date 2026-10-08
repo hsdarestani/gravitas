@@ -363,7 +363,8 @@ def adopt_project(project, actor):
     # Backup folder is service-only BEFORE content is written, preventing an
     # intermediate inherited folder from exposing restricted note bodies.
     cloud.admin_make_folder(str(PurePosixPath(backup_path).parent))
-    cloud.set_team_folder_acl(cloud.project_mountpoint(project), '06_Archive/CanonicalMigration', cloud.project_group_id(project), {}, 'private')
+    from .canonical_acl import protect_service_folder
+    protect_service_folder(project, '06_Archive/CanonicalMigration')
     if not dav_write(backup_path, backup):
         raise cloud.CloudError('migration_backup_failed')
     for obj in objects:
@@ -372,7 +373,7 @@ def adopt_project(project, actor):
         # Deny inherited access before the first write; replace with exact ACL
         # only after successful file content/readback validation.
         if path != 'project.md':
-            cloud.set_team_folder_acl(cloud.project_mountpoint(project), str(PurePosixPath(path).parent), cloud.project_group_id(project), {}, 'private')
+            protect_service_folder(project, str(PurePosixPath(path).parent))
         export_object(obj, actor, adopting=True)
     if CanonicalFile.objects.filter(project=project, deleted=False).count() != len(objects):
         raise ValueError('migration_count_mismatch')

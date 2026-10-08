@@ -1,5 +1,5 @@
-import { renderWorkReports } from './ws-work-reports.js?v=20261007-report1';
-import * as P from './ws-platform.js?v=20260919-planning1';
+import { renderWorkReports } from './ws-work-reports.js?v=20261008-operational2';
+import * as P from './ws-platform.js?v=20261008-operational2';
 import {
   renderCertificates,
   renderCourse,
@@ -9,9 +9,9 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20261002-tabs1';
-import { renderMemberProgress } from './ws-member-progress.js?v=20260924-unify1';
-import { renderMemberSupport } from './ws-support.js?v=20260920-dashboard3';
+} from './ws-member-lms.js?v=20261008-operational2';
+import { renderMemberProgress } from './ws-member-progress.js?v=20261008-operational2';
+import { renderMemberSupport } from './ws-support.js?v=20261008-operational2';
 import {
   renderAdminActivity,
   renderAdminCourseEditor,
@@ -26,10 +26,10 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261002-admin2';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261002-admin1';
-import { renderCoreLinks } from './ws-core-links.js?v=20261002-admin1';
-import { renderResearchProject } from './ws-project.js?v=20261007-canonical1';
+} from './ws-admin.js?v=20261008-operational2';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261008-operational2';
+import { renderCoreLinks } from './ws-core-links.js?v=20261008-operational2';
+import { renderResearchProject } from './ws-project.js?v=20261008-operational2';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);

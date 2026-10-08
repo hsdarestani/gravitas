@@ -1,6 +1,6 @@
-import * as P from './ws-platform.js?v=20260923-checklist1';
-import { renderCoreTasks } from './ws-views.js?v=20260923-checklist1';
-import { observeSurface } from './ws-runtime-performance.js?v=20260920-perf1';
+import * as P from './ws-platform.js?v=20261008-operational2';
+import { renderCoreTasks } from './ws-views.js?v=20261008-operational2';
+import { observeSurface } from './ws-runtime-performance.js?v=20261008-operational2';
 
 const state = {
   observer: null,

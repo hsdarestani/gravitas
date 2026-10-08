@@ -2,7 +2,7 @@
  * This surface edits proposals, never tasks directly. The server binds every
  * approval to a proposal revision and a task revision. Confirmed reports are
  * immutable; corrections are new reports referring to their predecessor. */
-import { call } from './ws-platform.js?v=20260914-6';
+import { call } from './ws-platform.js?v=20261008-operational2';
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const button = (text, fn) => { const b = el('button', 'ws-btn', text); b.type = 'button'; b.onclick = fn; return b; };
 

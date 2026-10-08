@@ -56,6 +56,7 @@ class CanonicalProjectTests(TestCase):
             ('core.canonical_projects.file_acl', {}),
             ('core.canonical_projects.cloud.admin_make_folder', {}),
             ('core.canonical_projects.cloud.set_team_folder_acl', {}),
+            ('core.canonical_acl.protect_service_folder', {}),
             ('core.canonical_projects.nextcloud_bridge.ensure_project_space', {}),
             ('core.canonical_journal.recover_project', {}),
             ('core.canonical_journal.dav_delete', {'side_effect': self.dav.delete}),
@@ -86,6 +87,15 @@ class CanonicalProjectTests(TestCase):
         self.assertIn(self.full(relative_path(self.note)), self.dav.files)
         count = len(self.dav.files); self.adopt(); self.assertEqual(count, len(self.dav.files))
         self.assertEqual(KnowledgeResource.objects.filter(project=self.project).count(), 1)
+
+    @override_settings(NEXTCLOUD_ADMIN_USER='canonical-service')
+    def test_private_migration_and_journal_folders_keep_service_access(self):
+        with patch('core.canonical_acl.protect_service_folder') as acl:
+            self.adopt()
+        private_calls = acl.call_args_list
+        self.assertTrue(private_calls)
+        self.assertTrue(any('CanonicalTransactions' in call.args[1] for call in private_calls))
+        self.assertTrue(any('CanonicalMigration' in call.args[1] for call in private_calls))
 
     def test_note_surface_write_updates_canonical_and_external_edit_updates_projection(self):
         from .canonical_journal import canonical_operation
