@@ -53,22 +53,23 @@ def read_acl(path):
 
 
 def write_acl(path, rules, expected):
-    root = ET.Element(D + 'propertyupdate')
-    acl = ET.SubElement(ET.SubElement(ET.SubElement(root, D + 'set'), D + 'prop'), N + 'acl-list')
-    for rule in normalize(rules):
-        item = ET.SubElement(acl, N + 'acl')
-        for key, value in [('acl-mapping-type', rule['type']), ('acl-mapping-id', rule['id']),
-                           ('acl-mapping-display-name', rule['id']), ('acl-mask', rule['mask']),
-                           ('acl-permissions', rule['permissions'])]:
-            ET.SubElement(item, N + key).text = str(value)
-    response = cloud._request('PROPPATCH', cloud._admin_dav_url(path), auth=cloud._admin_auth(),
-        expected={207, 412}, headers={'If-Match': expected, 'Content-Type': 'application/xml'},
-        data=ET.tostring(root, encoding='utf-8', xml_declaration=True))
-    if response.status_code == 412:
+    """Compare full ACL snapshot inside the native PostgreSQL transaction.
+
+    Sabre DAV only compares If-Match for IFile, so collection PROPPATCH cannot
+    use that header. Never replace it with an unconditional folder write.
+    """
+    import json
+    if not isinstance(expected, dict) or not expected.get('etag') or 'rules' not in expected:
+        raise cloud.CloudError('canonical_acl_expected_snapshot_required')
+    response = cloud._request('POST', settings.NEXTCLOUD_INTERNAL_URL + '/ocs/v2.php/apps/gravitascanonical/api/v1/acl',
+        auth=cloud._admin_auth(), expected={200, 409},
+        headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'},
+        data={'path': path, 'expected_etag': expected['etag'],
+              'expected_rules': json.dumps(normalize(expected['rules'])), 'rules': json.dumps(normalize(rules))})
+    if response.status_code == 409:
         return None
-    parsed = ET.fromstring(response.content)
-    statuses = [p.findtext(D + 'status') or '' for p in parsed.findall('.//' + D + 'propstat')]
-    if not statuses or any(' 200 ' not in status for status in statuses):
+    result = cloud._ocs_data(response, 'Could not conditionally update native ACL')
+    if not isinstance(result, dict) or result.get('applied') is not True:
         raise cloud.CloudError('canonical_acl_property_write_failed')
     saved = read_acl(path)
     if saved['rules'] != normalize(rules):
@@ -85,5 +86,5 @@ def protect_service_folder(project, relative_path):
     path = cloud.project_mountpoint(project) + '/' + relative_path
     before = read_acl(path)
     rules = desired_rules(cloud.project_group_id(project), {}, 'private', cloud.canonical_native_groups(project).values())
-    if before['rules'] != rules and write_acl(path, rules, before['etag']) is None:
+    if before['rules'] != rules and write_acl(path, rules, before) is None:
         raise cloud.CloudError('canonical_private_folder_changed')

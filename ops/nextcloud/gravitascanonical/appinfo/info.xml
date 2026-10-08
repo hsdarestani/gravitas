@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <id>gravitascanonical</id>
+  <name>Gravitas canonical ACL bridge</name>
+  <summary>Conditional writes for existing Gravitas Team Folder permissions</summary>
+  <description>Service-only compare-and-swap of GroupFolders ACLs inside a native database transaction.</description>
+  <version>1.0.0</version>
+  <licence>agpl</licence>
+  <author>Gravitas</author>
+  <namespace>GravitasCanonical</namespace>
+  <category>integration</category>
+  <dependencies><nextcloud min-version="34" max-version="34"/></dependencies>
+</info>

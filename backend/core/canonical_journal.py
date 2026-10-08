@@ -81,7 +81,7 @@ class WriteBatch:
             op['not_written'] = True
             self.persist(journal)
             raise RecoveryRequired('canonical_acl_changed')
-        result = write_acl(path, rules, current['etag'])
+        result = write_acl(path, rules, current)
         if result is None:
             op['not_written'] = True
         else:
@@ -242,7 +242,7 @@ def recover_journal(path):
                 elif not op.get('written') or current['rules'] != op['written']['rules']:
                     raise RecoveryRequired('canonical_acl_recovery_review_required:' + path)
                 else:
-                    if not write_acl(op['path'], op['before']['rules'], current['etag']):
+                    if not write_acl(op['path'], op['before']['rules'], current):
                         raise RecoveryRequired('canonical_acl_recovery_conflict:' + path)
                     op['restored'] = True
                 saved = dav_write(path, json.dumps(manifest, ensure_ascii=False), remote['etag'])

@@ -35,6 +35,25 @@ with transaction.atomic():
     inventory['report_states'] = dict(reports.objects.values_list('status').annotate(total=Count('pk')))
     from core.pulsar import configured
     inventory['managed_ai_configured'] = bool(configured())
+    from core.work_reports import my_tasks
+    from core import work_reports
+    from django.contrib.auth import get_user_model
+    open_owner_ids = apps.get_model('core', 'OperatingTask').objects.exclude(status__in=['done', 'archived']).values_list('owner_id', flat=True)
+    states = []
+    for user in get_user_model().objects.filter(is_active=True, pk__in=open_owner_ids):
+        try:
+            tasks = my_tasks(user)
+        except PermissionError:
+            continue
+        if any(t.status not in {'done', 'archived'} for t in tasks):
+            states.append(work_reports.checkin_status(user, tasks) if hasattr(work_reports, 'checkin_status') else {'telegram_connected': preference.objects.filter(user=user, telegram_enabled=True, telegram_chat_id__isnull=False).exists(), 'confirmed': reports.objects.filter(user=user, report_date=work_reports.report_day(), status='confirmed').exists(), 'due': False})
+    inventory['daily_reporting'] = {'timezone': getattr(settings, 'GRAVITAS_DAILY_REPORT_TIMEZONE', 'Asia/Tehran'),
+        'hour': getattr(settings, 'GRAVITAS_DAILY_REPORT_HOUR', 18), 'platform_requests_deployed': hasattr(work_reports, 'checkin_status'), 'eligible_members': len(states),
+        'telegram_connected_members': sum(s['telegram_connected'] for s in states),
+        'confirmed_today': sum(s['confirmed'] for s in states), 'awaiting_reports': sum(s['due'] for s in states)}
+    outbox = apps.get_model('core', 'TaskNotificationOutbox')
+    inventory['daily_checkin_delivery_states'] = dict(outbox.objects.filter(event_type='daily.checkin').values_list('status').annotate(total=Count('pk')))
+
     from pathlib import Path
     plan_path = Path('/var/www/gravitas/ops/operational_acceptance.json')
     if plan_path.is_file():
@@ -49,4 +68,21 @@ with transaction.atomic():
                 inventory['selected_owner_native_root_status'] = response.status_code
             except cloud.CloudError:
                 inventory['selected_owner_native_root_status'] = 'native_request_failed'
+    if plan_path.is_file() and project:
+        from core import cloud
+        from core.canonical_acl import read_acl
+        for label, suffix in [('root', ''), ('journal', '/06_Archive/CanonicalTransactions')]:
+            target = cloud.project_mountpoint(project) + suffix
+            try:
+                first, second = read_acl(target), read_acl(target)
+                etag = second['etag']
+                conditional = cloud._request('HEAD', cloud._admin_dav_url(target), auth=cloud._admin_auth(),
+                    expected={200, 207, 301, 302, 403, 404, 405, 412}, headers={'If-Match': etag})
+                inventory['native_acl_' + label] = {'rules_count': len(second['rules']),
+                    'etag_quoted': etag.startswith('"') and etag.endswith('"'),
+                    'etag_stable': first['etag'] == etag,
+                    'conditional_head_status': conditional.status_code,
+                    'head_etag_matches': conditional.headers.get('ETag') == etag}
+            except cloud.CloudError:
+                inventory['native_acl_' + label] = 'snapshot_unavailable'
 print(json.dumps(inventory, sort_keys=True))

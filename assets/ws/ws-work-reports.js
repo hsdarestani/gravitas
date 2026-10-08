@@ -14,6 +14,12 @@ export async function renderWorkReports(host, { go }) {
   let data;
   try { data = await call('/platform/work-reports/'); } catch (e) { status.textContent = e.message; doc.append(button('Retry', () => renderWorkReports(host, { go }))); return; }
   status.textContent = data.date;
+  const reminder = el('p', 'fl-muted'); doc.append(reminder);
+  function paintReminder() {
+    const checkin = data.checkin || {};
+    reminder.textContent = checkin.confirmed ? 'Today’s report is confirmed.' : `${checkin.due ? 'Pulsar is asking: What did you work on today?' : `Daily reporting starts at ${checkin.hour}:00 (${checkin.timezone}).`} ${checkin.telegram_connected ? `Telegram delivery: ${checkin.telegram_delivery}.` : 'Telegram is not connected. You can submit your report here.'}`;
+  }
+  paintReminder();
   const work = el('section', 'fl-panel'); work.append(el('h2', null, 'What should I work on now?'));
   function paintWork() {
   work.replaceChildren(el('h2', null, 'What should I work on now?'));
@@ -39,10 +45,19 @@ export async function renderWorkReports(host, { go }) {
     try { const result = await call('/platform/work-reports/', { method: 'POST', body: { text: input.value, source_key: crypto.randomUUID(), supersedes: correction } }); data.reports.unshift(result.report); input.value = ''; correction = null; redraw(); status.textContent = 'Proposal ready. Tasks have not changed.'; }
     catch (e) { status.textContent = e.message; } finally { submit.disabled = false; }
   };
-  const history = el('div'); doc.append(history);
+  const history = el('div');
+  const filters = el('div', 'fl-row');
+  const dateFilter = el('input', 'v-input fl-input'); dateFilter.type = 'date'; dateFilter.setAttribute('aria-label', 'Filter reports by date');
+  const stateFilter = el('select', 'v-input fl-input'); stateFilter.setAttribute('aria-label', 'Filter reports by status');
+  for (const [value, label] of [['', 'All reports'], ['pending', 'Needs confirmation'], ['confirmed', 'Confirmed'], ['cancelled', 'Cancelled']]) {
+    const option = el('option', null, label); option.value = value; stateFilter.append(option);
+  }
+  dateFilter.onchange = stateFilter.onchange = () => redraw();
+  filters.append(dateFilter, stateFilter, button('Clear filters', () => { dateFilter.value = stateFilter.value = ''; redraw(); }));
+  doc.append(filters, history);
   function redraw() {
     history.replaceChildren();
-    for (const report of data.reports) {
+    for (const report of data.reports.filter(r => (!dateFilter.value || r.date === dateFilter.value) && (!stateFilter.value || r.status === stateFilter.value))) {
       const card = el('section', 'fl-panel'); card.append(el('h2', null, `${report.date} · ${report.status}`), el('p', 'fl-muted', `${report.source} · ${report.created_at}`), el('p', null, report.original_text));
       if (report.supersedes) card.append(el('small', null, 'Correction of an earlier confirmed report'));
       const draft = structuredClone(report.interpretation);
@@ -75,7 +90,8 @@ export async function renderWorkReports(host, { go }) {
         try {
           const result = await call(`/platform/work-reports/${report.id}/`, { method: 'POST', body: { action, revision: report.revision, interpretation: draft } });
           const at = data.reports.findIndex(r => r.id === report.id); data.reports[at] = result.report;
-          data.tasks = (await call('/platform/work-reports/')).tasks;
+          const refreshed = await call('/platform/work-reports/');
+          data.tasks = refreshed.tasks; data.checkin = refreshed.checkin; paintReminder();
           paintWork();
           redraw(); status.textContent = action === 'edit' ? 'Revised proposal saved. Review it, then confirm.' : `Report ${result.report.status}.`;
         } catch (e) { status.textContent = e.message; for (const b of tools.querySelectorAll('button')) b.disabled = false; }
@@ -95,6 +111,8 @@ export async function renderWorkReports(host, { go }) {
     const overview = await call('/platform/work-reports/overview/');
     const panel = el('section', 'fl-panel'); panel.append(el('h2', null, 'Team activity today'));
     for (const report of overview.reports) panel.append(el('p', null, `${report.user}: ${report.interpretation.summary || report.original_text}`));
+    panel.append(el('h3', null, 'Daily reporting coverage'));
+    for (const member of overview.checkins || []) panel.append(el('p', null, `${member.user}: ${member.confirmed ? 'Confirmed today' : member.due ? 'Awaiting report' : 'Not due yet'} · ${member.telegram_connected ? `Telegram: ${member.telegram_delivery}` : 'Platform only · Telegram not connected'}`));
     panel.append(el('h3', null, 'Active blockers'));
     for (const t of overview.blockers) panel.append(el('p', null, `${t.owner} · ${t.title}: ${t.reason || t.dependency}`));
     panel.append(el('h3', null, 'No update in three days'));

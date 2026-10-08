@@ -134,3 +134,70 @@ class DailyWorkReportTests(TestCase):
         self.assertEqual(enqueue_daily_checkins(), 1)
         self.assertEqual(enqueue_daily_checkins(), 0)
         self.assertEqual(TaskNotificationOutbox.objects.filter(event_type='daily.checkin').count(), 1)
+
+
+    @override_settings(GRAVITAS_DAILY_REPORT_HOUR=18)
+    def test_tehran_boundary_platform_request_and_later_telegram_connection(self):
+        from datetime import datetime, timezone as tz
+        from .work_report_models import DailyCheckIn
+        with patch('core.work_reports.timezone.now', return_value=datetime(2026, 10, 8, 14, 29, tzinfo=tz.utc)):
+            self.assertEqual(enqueue_daily_checkins(), 0)
+            self.assertFalse(self.client.get('/api/platform/work-reports/').json()['checkin']['due'])
+        with patch('core.work_reports.timezone.now', return_value=datetime(2026, 10, 8, 14, 30, tzinfo=tz.utc)):
+            self.assertEqual(enqueue_daily_checkins(), 1)
+            self.assertEqual(DailyCheckIn.objects.get().report_date.isoformat(), '2026-10-08')
+            self.assertFalse(TaskNotificationOutbox.objects.exists())
+            state = self.client.get('/api/platform/work-reports/').json()['checkin']
+            self.assertTrue(state['due']); self.assertFalse(state['telegram_connected'])
+            TaskNotificationPreference.objects.create(user=self.user, telegram_enabled=True, telegram_chat_id=123)
+            self.assertEqual(enqueue_daily_checkins(), 0)
+            self.assertEqual(TaskNotificationOutbox.objects.filter(event_type='daily.checkin').count(), 1)
+            self.assertEqual(enqueue_daily_checkins(), 0)
+            self.assertEqual(TaskNotificationOutbox.objects.count(), 1)
+
+    @override_settings(GRAVITAS_DAILY_REPORT_HOUR=0)
+    def test_inactive_and_completed_owners_receive_no_request(self):
+        from .work_report_models import DailyCheckIn
+        self.user.is_active = False; self.user.save()
+        self.assertEqual(enqueue_daily_checkins(), 0)
+        self.user.is_active = True; self.user.save()
+        self.task.status = 'done'; self.task.save()
+        self.assertEqual(enqueue_daily_checkins(), 0)
+        self.assertFalse(DailyCheckIn.objects.exists())
+
+    @override_settings(GRAVITAS_DAILY_REPORT_HOUR=0)
+    def test_confirmed_today_suppresses_request_but_tomorrow_requests_again(self):
+        report = self.propose(); decide(self.user, report.pk, 1, 'confirm')
+        self.assertEqual(enqueue_daily_checkins(), 0)
+        self.assertTrue(self.client.get('/api/platform/work-reports/').json()['checkin']['confirmed'])
+        with patch('core.work_reports.timezone.now', return_value=timezone.now() + timezone.timedelta(days=1)):
+            self.assertEqual(enqueue_daily_checkins(), 1)
+            self.assertTrue(self.client.get('/api/platform/work-reports/').json()['checkin']['due'])
+
+
+    @override_settings(GRAVITAS_DAILY_REPORT_HOUR=0)
+    def test_manager_coverage_includes_platform_only_member_and_confirmed_state(self):
+        state = self.client.get('/api/platform/work-reports/overview/').json()['checkins']
+        self.assertEqual(len(state), 1)
+        self.assertTrue(state[0]['due']); self.assertFalse(state[0]['telegram_connected'])
+        report = self.propose(); decide(self.user, report.pk, 1, 'confirm')
+        state = self.client.get('/api/platform/work-reports/overview/').json()['checkins'][0]
+        self.assertTrue(state['confirmed']); self.assertFalse(state['due'])
+
+    @override_settings(GRAVITAS_DAILY_REPORT_HOUR=0)
+    def test_daily_delivery_opens_plain_language_report_session_without_auto_confirmation(self):
+        from .task_notifications import deliver_pending
+        from .operating_models import TelegramPulsarSession
+        TaskNotificationPreference.objects.create(user=self.user, telegram_enabled=True, telegram_chat_id=123)
+        enqueue_daily_checkins()
+        with patch('core.task_notifications._telegram_api', return_value={'ok': True}) as send:
+            self.assertEqual(deliver_pending()['sent'], 1)
+            self.assertEqual(deliver_pending()['sent'], 0)
+        send.assert_called_once()
+        self.assertEqual(send.call_args.args[1]['chat_id'], 123)
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'daily_checkin')
+        with patch('core.work_reports.interpret', return_value=self.raw):
+            preview = handle_report_message(self.user, 'I retested lessons', 'private:message')
+        self.assertIn('Confirm', str(preview))
+        self.assertEqual(DailyWorkReport.objects.get().status, 'pending')
+        self.task.refresh_from_db(); self.assertEqual(self.task.status, 'active')

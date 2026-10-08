@@ -1,7 +1,7 @@
 # Operational workflows engineering candidate
 
 Status: implementation released through PR154. Selected native acceptance exposed
-a Nextcloud permission-ceiling failure; the follow-up repair passes 627 backend
+a Nextcloud permission-ceiling failure; the follow-up repair passes 636 backend
 tests and awaits deployment/native retest. Existing LMS and approved video designs
 are preserved. Operational composite tasks remain open.
 
@@ -27,7 +27,7 @@ conditional rename/move and recoverable archival of unreferenced user files.
 Domain deletion retains a tombstone and private recovery content in its journal;
 project hard deletion is rejected in favor of archival.
 
-Writes use HTTP `If-Match` with the remote ETag; creation uses
+File content writes use HTTP `If-Match` with the remote ETag; creation uses
 `If-None-Match: *`. Three-way text/field merging accepts disjoint edits only.
 Overlap returns base, local and remote versions. The editor supports manual
 merge, keep remote, or explicit keep mine against the displayed current ETag.
@@ -154,7 +154,7 @@ They cover conditional conflicts, projection import, IDs, migration counts,
 viewer/outside denial, the adoption gate, approval/replay/concurrent-task checks,
 correction history, dependency completion and reminder idempotency.
 Existing backend tests run against isolated test settings.
-The current full backend suite passes **627 tests**. Prior CI also passed nine
+The current full backend suite passes **636 tests**. Prior CI also passed nine
 native checkpoint checks with PostgreSQL16. JavaScript syntax and diff checks pass.
 Production matched native backup and isolated restore have passed repeatedly.
 The real platform report was edited and confirmed, with manager overview visible.
@@ -170,3 +170,28 @@ read-only. Unit tests are not a substitute for the native rerun.
 
 References: [HTTP conditional requests](https://www.rfc-editor.org/rfc/rfc9110.html#name-conditional-requests),
 [Nextcloud WebDAV](https://docs.nextcloud.com/server/latest/developer_manual/client_apis/WebDAV/index.html).
+
+
+### Native ACL collection preconditions and daily reporting follow-up
+
+Native Nextcloud 34 returned 412 for stable quoted folder ETags: Sabre DAV only
+compares If-Match for IFile, not collections. ACL writes therefore use the
+service-only gravitascanonical OCS bridge, with a PostgreSQL transaction and
+SHARE ROW EXCLUSIVE lock on the native ACL table. Both the full rule snapshot
+and ETag must match before any native rule changes; empty ACLs also exclude
+phantom inserts. Conflicts never fall back to unconditional writes. Native
+rule managers perform the writes and an exact readback precedes commit.
+The app accepts only the existing configured service, its native ACL-manager
+entitlement, Nextcloud 34 and PostgreSQL. The deployment installs only this
+owned app after the full matched checkpoint; live acceptance must still pass.
+
+Daily requests now cover every active, authorized Core task owner with open
+work, including members without a connected Telegram account. Platform requests
+appear on Daily work reports; connected private accounts also receive one
+outbox message per Tehran date from the existing one-minute worker after 18:00.
+Late same-day Telegram connection queues the still-missing Telegram message.
+Today's confirmed report suppresses requests; tomorrow starts a new cycle.
+AI proposals require the individual's review and confirmation before changing
+tasks. The manager sees member coverage, account connection and delivery state.
+Personal history can be filtered by date and status. Human account linking and
+real replies remain necessary for full Telegram end-to-end acceptance.

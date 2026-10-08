@@ -242,7 +242,8 @@ def reports_api(request):
             return JsonResponse({'ok': True, 'report': report_json(report)}, status=201)
         reports = DailyWorkReport.objects.filter(user=request.user).select_related('user')[:100]
         return JsonResponse({'ok': True, 'reports': [report_json(r) for r in reports], 'tasks': catalog(request.user),
-                             'statuses': list(WorkStatus.choices), 'date': report_day().isoformat()})
+                             'statuses': list(WorkStatus.choices), 'date': report_day().isoformat(),
+                             'checkin': checkin_status(request.user, tasks)})
     except (PermissionError, PulsarPermissionError) as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=403)
     except (ValueError, TypeError, ValidationError) as exc:
@@ -285,12 +286,38 @@ def report_overview_api(request):
         if any(u.get('task_id') and u['task_id'] not in allowed for u in report.interpretation.get('updates', [])):
             continue
         visible.append(report_json(report))
+    coverage = []
+    owners = {t.owner_id: t.owner for t in tasks if t.owner_id in member_ids and t.status not in {'done', 'archived'}}
+    for owner in sorted(owners.values(), key=lambda u: (u.get_full_name() or u.get_username()).casefold()):
+        try:
+            owner_tasks = my_tasks(owner)
+        except PermissionError:
+            continue
+        if not any(t.status not in {'done', 'archived'} for t in owner_tasks):
+            continue
+        state = checkin_status(owner, owner_tasks)
+        coverage.append({'user': owner.get_full_name() or owner.get_username(), **state})
     cutoff = timezone.now() - timedelta(days=3)
-    return JsonResponse({'ok': True, 'date': report_day().isoformat(), 'reports': visible,
+    return JsonResponse({'ok': True, 'date': report_day().isoformat(), 'reports': visible, 'checkins': coverage,
         'blockers': [{'id': t.pk, 'title': t.title, 'owner': t.owner.get_full_name() or t.owner.get_username(), 'status': t.status,
                       'reason': t.blocked_reason, 'dependency': t.dependency.title if t.dependency_id and can_view(request.user, t.dependency) else ''} for t in tasks if t.status in {'blocked', 'waiting'}],
         'stale_tasks': [{'id': t.pk, 'title': t.title, 'updated_at': t.updated_at.isoformat()} for t in tasks if t.status not in {'done', 'draft'} and t.updated_at < cutoff],
         'recently_completed': [{'id': t.pk, 'title': t.title} for t in tasks if t.status == 'done' and t.completed_at and t.completed_at >= cutoff]})
+
+
+def checkin_status(user, tasks):
+    """Platform requests remain available when Telegram is not connected."""
+    now = timezone.localtime(timezone.now(), ZoneInfo(getattr(settings, 'GRAVITAS_DAILY_REPORT_TIMEZONE', 'Asia/Tehran')))
+    hour = getattr(settings, 'GRAVITAS_DAILY_REPORT_HOUR', 18)
+    eligible = any(t.status not in {'done', 'archived'} for t in tasks)
+    confirmed = DailyWorkReport.objects.filter(user=user, report_date=now.date(), status='confirmed').exists()
+    pref = TaskNotificationPreference.objects.filter(user=user).first()
+    delivery = TaskNotificationOutbox.objects.filter(recipient=user, event_type='daily.checkin',
+        event_key=f'daily-report:{now.date()}', channel='telegram').first()
+    return {'due': eligible and not confirmed and now.hour >= hour, 'confirmed': confirmed,
+        'hour': hour, 'timezone': str(now.tzinfo),
+        'telegram_connected': bool(pref and pref.telegram_enabled and pref.telegram_chat_id),
+        'telegram_delivery': delivery.status if delivery and delivery.last_error != 'skipped_by_current_preference' else ('skipped' if delivery else 'not_queued')}
 
 
 def enqueue_daily_checkins():
@@ -299,21 +326,25 @@ def enqueue_daily_checkins():
     hour = getattr(settings, 'GRAVITAS_DAILY_REPORT_HOUR', 18)
     if now.hour < hour:
         return 0
+    from django.contrib.auth import get_user_model
+    owner_ids = OperatingTask.objects.exclude(status__in=['done', 'archived']).values_list('owner_id', flat=True)
     count = 0
-    for pref in TaskNotificationPreference.objects.filter(telegram_enabled=True, telegram_chat_id__isnull=False, user__is_active=True).select_related('user'):
+    for user in get_user_model().objects.filter(is_active=True, pk__in=owner_ids):
         try:
-            tasks = my_tasks(pref.user)
+            tasks = my_tasks(user)
         except PermissionError:
             continue
-        if not any(t.status not in {'done', 'archived'} for t in tasks) or DailyWorkReport.objects.filter(user=pref.user, report_date=now.date(), status='confirmed').exists():
+        if not any(t.status not in {'done', 'archived'} for t in tasks) or DailyWorkReport.objects.filter(user=user, report_date=now.date(), status='confirmed').exists():
             continue
         with transaction.atomic():
-            checkin, created = DailyCheckIn.objects.get_or_create(user=pref.user, report_date=now.date())
-            if not created:
-                continue
-            TaskNotificationOutbox.objects.get_or_create(recipient=pref.user, channel='telegram', event_key=f'daily-report:{now.date()}',
-                defaults={'event_type': 'daily.checkin', 'subject': 'Pulsar · Daily work report',
-                          'body': 'What did you work on today? Reply with /report followed by your update.\nامروز روی چه کاری کار کردی؟ گزارش را بعد از /report بنویس.\nYou will review and confirm before any task changes.',
-                          'payload': {'report_date': str(now.date())}})
-            count += 1
+            # Every eligible member receives a platform request. Each connected
+            # private Telegram account additionally receives one outbox message.
+            _, created = DailyCheckIn.objects.get_or_create(user=user, report_date=now.date())
+            count += int(created)
+            pref = TaskNotificationPreference.objects.filter(user=user, telegram_enabled=True, telegram_chat_id__isnull=False).first()
+            if pref:
+                TaskNotificationOutbox.objects.get_or_create(recipient=user, channel='telegram', event_key=f'daily-report:{now.date()}',
+                    defaults={'event_type': 'daily.checkin', 'subject': 'Pulsar · Daily work report',
+                              'body': 'What did you work on today? Reply with /report followed by your update.\nامروز روی چه کاری کار کردی؟ گزارش را بعد از /report بنویس.\nYou will review and confirm before any task changes.',
+                              'payload': {'report_date': str(now.date())}})
     return count

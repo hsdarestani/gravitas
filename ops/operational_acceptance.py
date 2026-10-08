@@ -12,6 +12,29 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 
+def verify_native_acl_boundary(project, identity):
+    from django.conf import settings
+    from core import cloud
+    root = cloud.project_mountpoint(project)
+    # Real native permission CAS must reject both stale ETags and a stale rule
+    # snapshot with the same ETag; neither probe changes permissions.
+    from core.canonical_acl import read_acl, write_acl
+    acl_before = read_acl(root)
+    if not acl_before['rules']:
+        raise ValueError('Adopted project root has no direct permission rules')
+    if write_acl(root, acl_before['rules'], dict(acl_before, etag='"stale-native-acceptance"')) is not None:
+        raise ValueError('Native ACL accepted a stale ETag')
+    if write_acl(root, acl_before['rules'], dict(acl_before, rules=[])) is not None:
+        raise ValueError('Native ACL accepted a stale permission snapshot')
+    if read_acl(root) != acl_before:
+        raise ValueError('Rejected native ACL probes changed permissions')
+    boundary = cloud._request('POST', settings.NEXTCLOUD_INTERNAL_URL + '/ocs/v2.php/apps/gravitascanonical/api/v1/acl',
+        auth=cloud._auth(identity), expected={403}, headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'},
+        data={'path': root, 'expected_etag': acl_before['etag'], 'expected_rules': json.dumps(acl_before['rules']), 'rules': json.dumps(acl_before['rules'])})
+
+    return boundary.status_code
+
+
 def reconcile_tasks(owner):
     """Bind the explicit Topic/Video dependencies without closing execution."""
     from core.operating_models import OperatingTask, WorkStatus
@@ -158,6 +181,8 @@ def main():
     if native.content.decode('utf-8') != encode(project):
         raise ValueError('Owner native project Markdown differs')
 
+    boundary_status = verify_native_acl_boundary(project, identity)
+
     # Keep QA writes in their own evidence note, preserving all source material.
     key = 'operational-canonical-acceptance-v1'
     with canonical_operation(owner):
@@ -239,7 +264,7 @@ def main():
                     metadata={'acceptance_key': 'operational-pulsar-synthesis-v1', 'pulsar_run_id': answer_data.get('run_id'), 'sources': answer_data['sources']})
                 policy_for(output, create=True, created_by=owner, default_visibility='inherit')
     result = {'project_id': project.pk, 'canonical_adoption': True, 'global_adoption_enabled': bool(settings.GRAVITAS_CANONICAL_ADOPTION_ENABLED),
-        'existing_domain_ids_preserved': True, 'owner_native_markdown_read': True, 'canonical_files_verified': CanonicalFile.objects.filter(project=project, deleted=False).count(),
+        'existing_domain_ids_preserved': True, 'native_acl_stale_snapshots_rejected': True, 'native_acl_service_boundary_status': boundary_status, 'owner_native_markdown_read': True, 'canonical_files_verified': CanonicalFile.objects.filter(project=project, deleted=False).count(),
         'external_owner_dav_edit_imported': True, 'overlapping_conflict_rejected': True, 'manual_resolution_persisted': True,
         'private_outsider_denied': True, 'manager_overview_status': overview_status,
         'pending_owner_reports': DailyWorkReport.objects.filter(user=owner, status='pending').count(),
