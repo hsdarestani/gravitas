@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: gravitas-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   DOMAIN: gravitasplus.com
