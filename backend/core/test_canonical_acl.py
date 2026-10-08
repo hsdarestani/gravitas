@@ -37,3 +37,15 @@ class CanonicalACLTests(SimpleTestCase):
             write_acl('GRV-000001/path', rules, 'old')
             self.assertIn(b'user&amp;&lt;name', request.call_args.kwargs['data'])
             self.assertEqual(request.call_args.kwargs['headers']['If-Match'], 'old')
+
+    def test_empty_native_acl_requires_positive_manager_and_mount_witnesses(self):
+        xml = '<d:multistatus xmlns:d="DAV:" xmlns:n="http://nextcloud.org/ns"><d:response><d:propstat><d:prop><d:getetag>fresh</d:getetag><n:acl-enabled>1</n:acl-enabled><n:acl-can-manage>{manage}</n:acl-can-manage><n:group-folder-id>{folder}</n:group-folder-id></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat><d:propstat><d:prop><n:acl-list/></d:prop><d:status>HTTP/1.1 {status}</d:status></d:propstat></d:response></d:multistatus>'
+        for manage, folder, status in [('1', '208', '404 Not Found'), ('0', '208', '404 Not Found'), ('1', '0', '404 Not Found'), ('1', '208', '403 Forbidden')]:
+            with self.subTest(manage=manage, folder=folder, status=status):
+                reply = Mock(content=xml.format(manage=manage, folder=folder, status=status).encode())
+                with patch('core.canonical_acl.cloud._request', return_value=reply):
+                    if manage == '1' and folder == '208' and status.startswith('404'):
+                        self.assertEqual(read_acl('GRV-000208/new-folder'), {'rules': [], 'etag': 'fresh'})
+                    else:
+                        with self.assertRaises(CloudError):
+                            read_acl('GRV-000208/new-folder')

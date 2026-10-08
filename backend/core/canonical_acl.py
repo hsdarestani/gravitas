@@ -24,7 +24,7 @@ def desired_rules(group_id, roles, visibility, extra_groups=()):
 
 
 def read_acl(path):
-    body = b'<d:propfind xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns"><d:prop><d:getetag/><nc:acl-list/></d:prop></d:propfind>'
+    body = b'<d:propfind xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns"><d:prop><d:getetag/><nc:acl-list/><nc:acl-enabled/><nc:acl-can-manage/><nc:group-folder-id/></d:prop></d:propfind>'
     response = cloud._request('PROPFIND', cloud._admin_dav_url(path), auth=cloud._admin_auth(),
         expected={207}, headers={'Depth': '0', 'Content-Type': 'application/xml'}, data=body)
     root = ET.fromstring(response.content)
@@ -32,8 +32,20 @@ def read_acl(path):
              if ' 200 ' in (p.findtext(D + 'status') or '')]
     acl = next((p.find(N + 'acl-list') for p in props if p is not None and p.find(N + 'acl-list') is not None), None)
     etag = next((p.findtext(D + 'getetag') for p in props if p is not None and p.findtext(D + 'getetag')), '')
-    if acl is None or not etag:
+    if not etag:
         raise cloud.CloudError('canonical_acl_snapshot_unavailable')
+    if acl is None:
+        # GroupFolders returns null for a path with no direct rules; Sabre DAV
+        # represents that requested property as 404, not an empty list. Accept
+        # this only with independent positive mount/ACL/manager witnesses.
+        values = {key: next((p.findtext(N + key) for p in props if p is not None and p.findtext(N + key)), '')
+                  for key in ('acl-enabled', 'acl-can-manage', 'group-folder-id')}
+        missing = any(' 404 ' in (p.findtext(D + 'status') or '') and p.find(D + 'prop/' + N + 'acl-list') is not None
+                      for p in root.findall('.//' + D + 'propstat'))
+        if not (missing and values['acl-enabled'] in {'true', '1'} and values['acl-can-manage'] in {'true', '1'}
+                and values['group-folder-id'].isdigit() and int(values['group-folder-id']) > 0):
+            raise cloud.CloudError('canonical_acl_snapshot_unavailable')
+        return {'rules': [], 'etag': etag}
     rules = [{'type': item.findtext(N + 'acl-mapping-type'), 'id': item.findtext(N + 'acl-mapping-id'),
               'mask': item.findtext(N + 'acl-mask'), 'permissions': item.findtext(N + 'acl-permissions')}
              for item in acl.findall(N + 'acl')]
