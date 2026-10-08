@@ -52,8 +52,15 @@ export async function renderWorkReports(host, { go }) {
   for (const [value, label] of [['', 'All reports'], ['pending', 'Needs confirmation'], ['confirmed', 'Confirmed'], ['cancelled', 'Cancelled']]) {
     const option = el('option', null, label); option.value = value; stateFilter.append(option);
   }
-  dateFilter.onchange = stateFilter.onchange = () => redraw();
-  filters.append(dateFilter, stateFilter, button('Clear filters', () => { dateFilter.value = stateFilter.value = ''; redraw(); }));
+  async function filterHistory() {
+    const query = new URLSearchParams();
+    if (dateFilter.value) query.set('date', dateFilter.value);
+    if (stateFilter.value) query.set('status', stateFilter.value);
+    try { data.reports = (await call(`/platform/work-reports/?${query}`)).reports; redraw(); }
+    catch (error) { status.textContent = `Report history unavailable: ${error.message}`; }
+  }
+  dateFilter.onchange = stateFilter.onchange = filterHistory;
+  filters.append(dateFilter, stateFilter, button('Clear filters', () => { dateFilter.value = stateFilter.value = ''; filterHistory(); }));
   doc.append(filters, history);
   function redraw() {
     history.replaceChildren();

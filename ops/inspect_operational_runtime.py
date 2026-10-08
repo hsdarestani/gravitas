@@ -86,3 +86,14 @@ with transaction.atomic():
             except cloud.CloudError:
                 inventory['native_acl_' + label] = 'snapshot_unavailable'
 print(json.dumps(inventory, sort_keys=True))
+
+# Native Telegram metadata only; no bot token, chat identity or webhook secret
+# is emitted. A healthy webhook does not certify a human response.
+from core.task_notifications import _telegram_api
+try:
+    info = _telegram_api('getWebhookInfo', {}).get('result', {})
+    telegram = {'webhook_matches_platform': info.get('url') == settings.PUBLIC_BASE_URL.rstrip('/') + '/api/task-notifications/telegram/webhook/',
+        'pending_updates': info.get('pending_update_count', 0), 'has_last_error': bool(info.get('last_error_date'))}
+except RuntimeError:
+    telegram = {'inspection': 'native_request_failed'}
+print(json.dumps({'telegram_runtime': telegram}, sort_keys=True))

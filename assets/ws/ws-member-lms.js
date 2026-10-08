@@ -535,6 +535,23 @@ export async function renderMemberOverview(host, { go }) {
       ],
     });
 
+    if (P.canOpenCore()) {
+      try {
+        const reportState = await P.call('/platform/work-reports/');
+        if (reportState.checkin?.due) {
+          const daily = section('Pulsar · Daily work report', 'What did you work on today? Review and confirm your update.');
+          daily.body.append(link(go, 'Write today’s report', '/workspace/core/work-reports', true));
+          wrap.append(daily.box);
+        }
+      } catch (error) {
+        if (error.status !== 403) {
+          const daily = section('Daily work reports', 'Reporting status is temporarily unavailable.');
+          daily.body.append(link(go, 'Open reports', '/workspace/core/work-reports'));
+          wrap.append(daily.box);
+        }
+      }
+    }
+
     /* One grid for the whole screen. The spans read 2·6 / 8·4 / 4·4·4 /
        8·4, so every card edge falls on the gridline at 4 or 8 and the
        columns run straight down the page. */

@@ -47,6 +47,8 @@ def handle_report_message(user, text, source_key=None):
         if not report:
             return [{'text': 'No pending report.'}]
         return handle_report_callback(user, f'wr:c:{report.pk.hex}:{report.revision}')
+    if text.startswith('/') and not text.startswith('/report'):
+        return None
     if not text.startswith('/report') and not state.get('mode') == 'daily_checkin':
         return None
     value = text.split(maxsplit=1)[1] if text.startswith('/report') and len(text.split(maxsplit=1)) == 2 else ('' if text.startswith('/report') else text)

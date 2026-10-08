@@ -52,6 +52,8 @@ class Command(BaseCommand):
             ('setMyCommands', {'commands': [
                 {'command': 'new', 'description': 'Create tasks with Pulsar'},
                 {'command': 'tasks', 'description': 'Show my open Core tasks'},
+                {'command': 'report', 'description': 'Write and review my daily report'},
+                {'command': 'reportedit', 'description': 'Correct my pending report proposal'},
                 {'command': 'cancel', 'description': 'Cancel the current Pulsar draft'},
                 {'command': 'help', 'description': 'How to use Pulsar'},
             ]}),
