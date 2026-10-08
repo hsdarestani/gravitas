@@ -23,6 +23,26 @@ def acceptance_module():
 class OperationalAcceptanceTests(TestCase):
     setUp = fixtures.CanonicalProjectTests.setUp
 
+    def test_outsider_probe_has_research_access_and_cleans_up_without_real_user_changes(self):
+        from django.contrib.auth import get_user_model
+        from .layer_models import ModuleGrant
+        users = set(get_user_model().objects.values_list('pk', flat=True))
+        grants = list(ModuleGrant.objects.values_list('pk', 'user_id', 'enabled', 'access_level'))
+        def denied(request, project_id):
+            actor = request.user
+            self.assertFalse(actor.has_usable_password())
+            self.assertFalse(actor.is_staff or actor.is_superuser)
+            self.assertTrue(ModuleGrant.objects.filter(user=actor, module='research', enabled=True, access_level='edit').exists())
+            return JsonResponse({}, status=403)
+        with patch('core.canonical_api.project_file_content', side_effect=denied):
+            self.assertEqual(acceptance_module().verify_private_outsider(self.project, '/probe'), 403)
+        self.assertEqual(set(get_user_model().objects.values_list('pk', flat=True)), users)
+        self.assertEqual(list(ModuleGrant.objects.values_list('pk', 'user_id', 'enabled', 'access_level')), grants)
+        with patch('core.canonical_api.project_file_content', return_value=JsonResponse({}, status=200)):
+            with self.assertRaisesMessage(ValueError, 'not denied'):
+                acceptance_module().verify_private_outsider(self.project, '/probe')
+        self.assertEqual(set(get_user_model().objects.values_list('pk', flat=True)), users)
+
     @override_settings(GRAVITAS_CANONICAL_ADOPTION_ENABLED=False)
     def test_selected_plan_preserves_sources_and_exercises_external_edit_conflict(self):
         for index in range(5):
