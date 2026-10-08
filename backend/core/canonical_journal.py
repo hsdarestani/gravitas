@@ -213,7 +213,14 @@ def recover_project(project):
             ident = uuid.UUID(name[:-5])
         except ValueError:
             continue
-        recover_journal(folder + '/' + str(ident) + '.json')
+        path = folder + '/' + str(ident) + '.json'
+        active = _batch.get()
+        active_journal = active.journals.get(project.pk) if active else None
+        # The current operation has not committed its DB witness yet. Recover
+        # older crashed operations, but never roll back our own live journal.
+        if active_journal and active_journal['path'] == path:
+            continue
+        recover_journal(path)
 
 
 def recover_journal(path):
