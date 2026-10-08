@@ -27,6 +27,7 @@ jobs:
           set -euo pipefail
           EMAIL="auth-e2e-${{ github.run_id }}-${{ github.run_attempt }}@example.com"
           PASSWORD="E2E-${{ github.run_id }}-$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')-aA1!"
+          echo "::add-mask::$PASSWORD"
           COOKIE_JAR="$RUNNER_TEMP/gravitas-auth-cookies.txt"
           REFERER="https://$DOMAIN/login"
 
@@ -118,8 +119,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          printf 'BROWSER_PASSWORD=E2E-%s-%s-aA1!\n' \
-            '${{ github.run_id }}' "$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')" >> "$GITHUB_ENV"
+          PASSWORD="E2E-${{ github.run_id }}-$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')-aA1!"
+          echo "::add-mask::$PASSWORD"
+          echo "BROWSER_PASSWORD=$PASSWORD" >> "$GITHUB_ENV"
 
       - name: Prepare pending account and its real confirmation link
         shell: bash
