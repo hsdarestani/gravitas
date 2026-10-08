@@ -71,7 +71,7 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         runtime = (ROOT / 'assets' / 'ws' / 'ws-design-runtime.js').read_text(encoding='utf-8')
 
         for marker in (
-            '/assets/ws/ws-app.js?v=20261008-operational2',
+            '/assets/ws/ws-app.js?v=20261008-native3',
             '/assets/ws/ws-five-layer.js?v=20261008-reports1',
             '/assets/ws/ws-nextcloud-native.js?v=20261008-operational2',
             '/assets/ws/ws-unified-design.css?v=20261002-file1',

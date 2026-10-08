@@ -475,7 +475,7 @@ def list_team_folders():
     return list(data.values()) if isinstance(data, dict) else []
 
 
-def ensure_team_folder(mountpoint, group_id):
+def ensure_team_folder(mountpoint, group_id, *, group_permissions=None):
     mountpoint = safe_filename(mountpoint)
     ensure_group(group_id)
     admin_username, _ = _admin_auth()
@@ -512,7 +512,7 @@ def ensure_team_folder(mountpoint, group_id):
         auth=_admin_auth(),
         expected={200},
         headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'},
-        data={'permissions': NC_PERMISSION_READ | NC_PERMISSION_UPDATE | NC_PERMISSION_CREATE | NC_PERMISSION_DELETE},
+        data={'permissions': group_permissions if group_permissions is not None else NC_PERMISSION_READ | NC_PERMISSION_UPDATE | NC_PERMISSION_CREATE | NC_PERMISSION_DELETE},
     )
     _ocs_data(response, 'Could not configure Team Folder group permissions')
     response = _request(
@@ -525,6 +525,84 @@ def ensure_team_folder(mountpoint, group_id):
     )
     _ocs_data(response, 'Could not enable Team Folder advanced permissions')
     return {'id': folder_id, 'mount_point': mountpoint, 'group_id': group_id}
+
+
+def canonical_native_groups(project):
+    group = project_group_id(project)
+    return {'service': group + '-service', 'writers': group + '-writers'}
+
+
+def group_users(group_id):
+    response = _request('GET', f'{settings.NEXTCLOUD_INTERNAL_URL}/ocs/v1.php/cloud/groups/{quote(group_id, safe="")}/users',
+        auth=_admin_auth(), expected={200}, headers={'OCS-APIRequest': 'true', 'Accept': 'application/json'})
+    users = (_ocs_data(response, 'Could not read native group members') or {}).get('users')
+    if not isinstance(users, list) or any(not isinstance(user, str) for user in users):
+        raise CloudError('Invalid native group membership snapshot')
+    return set(users)
+
+
+def _attach_permission_ceiling(folder_id, group_id, permissions):
+    endpoint = f'{settings.NEXTCLOUD_INTERNAL_URL}/index.php/apps/groupfolders/folders/{int(folder_id)}/groups'
+    headers = {'OCS-APIRequest': 'true', 'Accept': 'application/json'}
+    folder = next((row for row in list_team_folders() if int(row['id']) == int(folder_id)), None)
+    if folder is None:
+        raise CloudError('Native permission ceiling folder missing')
+    existing = (folder.get('groups') or {}).get(group_id)
+    if isinstance(existing, dict):
+        existing = existing.get('permissions')
+    if existing is not None and int(existing) == permissions:
+        return
+    if group_id not in (folder.get('groups') or {}):
+        response = _request('POST', endpoint, auth=_admin_auth(), expected={200}, headers=headers, data={'group': group_id})
+        _ocs_data(response, 'Could not attach native permission ceiling')
+    response = _request('POST', endpoint + '/' + quote(group_id, safe=''), auth=_admin_auth(), expected={200},
+        headers=headers, data={'permissions': permissions})
+    _ocs_data(response, 'Could not configure native permission ceiling')
+    folder = next((row for row in list_team_folders() if int(row['id']) == int(folder_id)), None)
+    actual = (folder.get('groups') or {}).get(group_id) if folder else None
+    if isinstance(actual, dict):
+        actual = actual.get('permissions')
+    if actual is None or int(actual) != permissions:
+        raise CloudError('Native permission ceiling readback differs')
+
+
+def prepare_canonical_service_access(project, folder_id):
+    """Only the existing service identity may bootstrap private journals.
+
+    Native group ceilings cap ACL allows. A separate exclusive service group
+    avoids giving viewers write permissions to make journal creation possible.
+    The writer group exists empty before root deny rules reference it.
+    """
+    groups = canonical_native_groups(project)
+    admin, _ = _admin_auth()
+    ensure_group(groups['service'])
+    if group_users(groups['service']) - {admin}:
+        raise CloudError('Canonical service group contains another user')
+    add_user_to_group(admin, groups['service'])
+    if group_users(groups['service']) != {admin}:
+        raise CloudError('Canonical service group membership not verified')
+    ensure_group(groups['writers'])
+    _attach_permission_ceiling(folder_id, groups['service'], NC_PERMISSION_ALL)
+
+
+def sync_canonical_writer_access(project, folder_id, roles, *, root_rules):
+    """Apply ceilings only after verified root deny/explicit-user ACLs exist."""
+    from .canonical_acl import read_acl
+    if read_acl(project_mountpoint(project))['rules'] != root_rules:
+        raise CloudError('Canonical root ACL changed before writer ceiling')
+    group = canonical_native_groups(project)['writers']
+    admin, _ = _admin_auth()
+    eligible = {username for username, role in roles.items() if role in {'edit', 'manage'} and username != admin}
+    current = group_users(group)
+    for username in sorted(current - eligible):
+        remove_user_from_group(username, group)
+    for username in sorted(eligible - current):
+        add_user_to_group(username, group)
+    if group_users(group) != eligible:
+        raise CloudError('Canonical writer group membership not verified')
+    _attach_permission_ceiling(folder_id, group, NC_PERMISSION_READ | NC_PERMISSION_UPDATE | NC_PERMISSION_CREATE | NC_PERMISSION_DELETE)
+    if read_acl(project_mountpoint(project))['rules'] != root_rules:
+        raise CloudError('Canonical root ACL changed during writer ceiling')
 
 
 def set_team_folder_acl(mountpoint, relative_path, group_id, user_roles, visibility='specific'):

@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 from django.test import TestCase, override_settings
+from django.http import JsonResponse
 from . import test_canonical_projects as fixtures
 from .models import KnowledgeResource, WorkspaceMembership
 from .platform_models import MindMap
@@ -46,7 +47,8 @@ class OperationalAcceptanceTests(TestCase):
                  patch('core.nextcloud_bridge.ensure_user', return_value=identity), \
                  patch('core.cloud._dav_url', side_effect=lambda identity, path: path), \
                  patch('core.cloud._auth', return_value=('test', 'test')), patch('core.cloud._request', side_effect=native), \
-                 patch.object(module, 'reconcile_tasks', return_value={'tested_separately': True}), patch.object(module, 'send_owner_checkin', return_value='tested_separately'):
+                 patch.object(module, 'reconcile_tasks', return_value={'tested_separately': True}), patch.object(module, 'send_owner_checkin', return_value='tested_separately'), \
+                 patch('core.assistant_api.assistant_ask', return_value=JsonResponse({'provider': 'fallback', 'sources': []})):
                 module.main()
                 evidence = KnowledgeResource.objects.get(project=self.project, metadata__acceptance_key='operational-canonical-acceptance-v1')
                 self.assertIn('Reviewed conflict resolution verified.', evidence.body)

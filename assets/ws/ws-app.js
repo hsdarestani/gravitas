@@ -19,7 +19,7 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20261008-operational2';
+import * as api from './ws-api.js?v=20261008-native3';
 import * as P from './ws-platform.js?v=20261008-operational2';
 import * as views from './ws-views.js?v=20261008-operational2';
 import * as meetings from './ws-meetings.js?v=20261008-operational2';
@@ -34,7 +34,7 @@ import {
 import { renderDashboard, stopClock } from './ws-home.js?v=20261008-operational2';
 import { renderSettings } from './ws-settings.js?v=20261008-operational2';
 import { mountPalette, openPalette } from './ws-palette.js';
-import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-operational2';
+import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-native3';
 import { installSelects } from './ws-select.js?v=20261008-operational2';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');

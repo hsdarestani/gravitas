@@ -522,17 +522,17 @@ export async function ask(question, context = {}) {
   try {
     return await request('/platform/ai/ask/', { method: 'POST', body });
   } catch {
-    // Fall through to the local answer rather than showing a dead end.
+    // A refused connection, authorization failure or temporary service error
+    // cannot establish whether a language model is configured.
+    const hits = search(question);
+    return {
+      grounded: false,
+      answer: hits.length
+        ? `Pulsar could not answer this request. Please try again. Local search found ${hits.length === 1 ? 'one related page' : hits.length + ' related pages'}.`
+        : 'Pulsar could not answer this request. Please try again.',
+      sources: hits.slice(0, 6).map((h) => ({ id: h.id, title: h.title })),
+    };
   }
-
-  const hits = search(question);
-  return {
-    grounded: false,
-    answer: hits.length
-      ? `No language model is configured on this deployment, so this is a search rather than an answer. ${hits.length === 1 ? 'One page mentions' : hits.length + ' pages mention'} that.`
-      : 'No language model is configured on this deployment, and no page mentions that.',
-    sources: hits.slice(0, 6).map((h) => ({ id: h.id, title: h.title })),
-  };
 }
 
 /* ---- Adoption -----------------------------------------------------------

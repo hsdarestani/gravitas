@@ -33,4 +33,20 @@ with transaction.atomic():
     from django.db.models import Count
     reports = apps.get_model('core', 'DailyWorkReport')
     inventory['report_states'] = dict(reports.objects.values_list('status').annotate(total=Count('pk')))
+    from core.pulsar import configured
+    inventory['managed_ai_configured'] = bool(configured())
+    from pathlib import Path
+    plan_path = Path('/var/www/gravitas/ops/operational_acceptance.json')
+    if plan_path.is_file():
+        plan = json.loads(plan_path.read_text())
+        project = apps.get_model('core', 'ResearchProject').objects.filter(pk=plan.get('project_id'), title=plan.get('expected_title')).first()
+        identity = apps.get_model('core', 'NextcloudIdentity').objects.filter(user_id=project.owner_id).first() if project else None
+        if identity:
+            from core import cloud
+            try:
+                response = cloud._request('PROPFIND', cloud._dav_url(identity, cloud.project_mountpoint(project)), auth=cloud._auth(identity),
+                    expected={207, 403, 404}, headers={'Depth': '0'})
+                inventory['selected_owner_native_root_status'] = response.status_code
+            except cloud.CloudError:
+                inventory['selected_owner_native_root_status'] = 'native_request_failed'
 print(json.dumps(inventory, sort_keys=True))

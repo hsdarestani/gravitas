@@ -21,10 +21,12 @@ def reconcile_tasks(owner):
     from core.canonical_journal import canonical_operation
     from core.layer_access import record_activity
     from core.layer_models import ActivityEvent
+    from core.platform_runtime_v3 import ensure_platform_workspaces
+    core = ensure_platform_workspaces(owner)['core']
     titles = {'video': 'Document the end-to-end video production workflow through a real Research Project',
         'topic': 'Create a real topic in the platform and test the new structure',
         'skill': 'Build reusable Claude Skill from the approved Video Production workflow'}
-    selected = {key: OperatingTask.objects.select_related('initiative__key_result', 'owner').get(title=title) for key, title in titles.items()}
+    selected = {key: OperatingTask.objects.filter(workspace=core).exclude(status=WorkStatus.ARCHIVED).select_related('initiative__key_result', 'owner').get(title=title) for key, title in titles.items()}
     video, topic, skill = (selected[key] for key in ('video', 'topic', 'skill'))
     if video.owner_id != owner.pk or topic.owner_id != owner.pk or any(not can_edit(owner, task) for task in selected.values()):
         raise ValueError('Selected task ownership/access changed')
@@ -115,6 +117,7 @@ def main():
     from core.canonical_api import listing, project_file_content
     from core.work_report_models import DailyWorkReport
     from core.work_reports import report_overview_api
+    from core.assistant_api import assistant_ask
 
     receipt_dir = Path(settings.CORE_UPLOAD_ROOT) / '.operations'
     receipt_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -219,13 +222,30 @@ def main():
         raise ValueError('Private project outsider access was not denied')
     overview = factory.get('/api/operating/work-reports/overview/'); overview.user = owner
     overview_status = report_overview_api(overview).status_code
+    question = 'Summarize the existing Pulsar implementation sources in this project and distinguish implemented behavior from remaining operational acceptance.'
+    synthesis = factory.post('/api/platform/ai/ask/', json.dumps({'question': question, 'surface': 'research', 'project_id': project.pk, 'thread_id': 'primary'}), content_type='application/json')
+    synthesis.user = owner
+    answer = assistant_ask(synthesis)
+    answer_data = json.loads(answer.content)
+    provider_verified = answer.status_code == 200 and answer_data.get('provider') not in {None, 'fallback'} and bool(answer_data.get('sources'))
+    if provider_verified:
+        with canonical_operation(owner):
+            output = KnowledgeResource.objects.filter(project=project, metadata__acceptance_key='operational-pulsar-synthesis-v1').first()
+            if output is None:
+                output = KnowledgeResource.objects.create(workspace=project.workspace, project=project, owner=owner, kind='note',
+                    title='Pulsar source synthesis · operational acceptance',
+                    body='# Pulsar synthesis of existing implementation\n\nSuggested by Pulsar; acceptance output, not a task-completion decision.\n\n' + answer_data['answer'],
+                    metadata={'acceptance_key': 'operational-pulsar-synthesis-v1', 'pulsar_run_id': answer_data.get('run_id'), 'sources': answer_data['sources']})
+                policy_for(output, create=True, created_by=owner, default_visibility='inherit')
     result = {'project_id': project.pk, 'canonical_adoption': True, 'global_adoption_enabled': bool(settings.GRAVITAS_CANONICAL_ADOPTION_ENABLED),
         'existing_domain_ids_preserved': True, 'owner_native_markdown_read': True, 'canonical_files_verified': CanonicalFile.objects.filter(project=project, deleted=False).count(),
         'external_owner_dav_edit_imported': True, 'overlapping_conflict_rejected': True, 'manual_resolution_persisted': True,
         'private_outsider_denied': True, 'manager_overview_status': overview_status,
         'pending_owner_reports': DailyWorkReport.objects.filter(user=owner, status='pending').count(),
         'browser_acceptance_complete': False, 'telegram_human_confirmation_complete': False, 'task_reconciliation': task_results,
-        'telegram_owner_checkin': send_owner_checkin(owner, hashlib.sha256(plan_bytes).hexdigest())}
+        'telegram_owner_checkin': send_owner_checkin(owner, hashlib.sha256(plan_bytes).hexdigest()),
+        'pulsar_provider_synthesis_verified': provider_verified, 'pulsar_http_status': answer.status_code,
+        'pulsar_source_count': len(answer_data.get('sources') or [])}
     temporary = receipt.with_suffix('.tmp')
     with temporary.open('w') as handle:
         json.dump(result, handle); handle.flush(); os.fsync(handle.fileno())
