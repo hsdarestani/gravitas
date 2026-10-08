@@ -1,4 +1,4 @@
-import { renderWorkReports } from './ws-work-reports.js?v=20261008-reports2';
+import { renderWorkReports } from './ws-work-reports.js?v=20261008-reports4';
 import * as P from './ws-platform.js?v=20261008-operational2';
 import {
   renderCertificates,
