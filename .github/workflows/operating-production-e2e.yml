@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TEST_PASSWORD="$(python3 -c 'import secrets; print("Operating-E2E-" + secrets.token_urlsafe(24) + "Aa1!")')"
+          TEST_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(64) + "Aa1!")')"
           printf 'TEST_PASSWORD=%s\n' "$TEST_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Register production Operating E2E account
