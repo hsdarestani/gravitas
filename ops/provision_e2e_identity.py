@@ -29,4 +29,12 @@ with override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBack
     links = [line for message in mail.outbox for line in message.body.splitlines() if '/api/auth/email-confirm/?token=' in line]
     if len(links) != 1:
         raise RuntimeError('Expected one actual signup confirmation message')
+    if email.startswith(('workspace-a-', 'workspace-b-')):
+        from django.contrib.auth import get_user_model
+        from core.layer_models import ModuleGrant
+        # The public signup remains a community account. Only these scoped
+        # disposable fixtures exercise Research; object ACLs still apply.
+        user = get_user_model().objects.get(email=email)
+        ModuleGrant.objects.update_or_create(user=user, module=ModuleGrant.Module.RESEARCH,
+            defaults={'enabled': True, 'access_level': ModuleGrant.AccessLevel.EDIT, 'source': ModuleGrant.Source.SYSTEM})
     print(json.dumps({'verification_url': links[0]}))
