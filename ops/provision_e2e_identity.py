@@ -24,7 +24,8 @@ with override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBack
     request = RequestFactory().post('/api/auth/signup/', json.dumps({**payload, 'name': 'Operating Production E2E' if email.startswith('operating-e2e-') else 'Disposable production verification'}), content_type='application/json')
     response = auth_signup(request)
     if response.status_code != 201 or not json.loads(response.content).get('pending_confirmation'):
-        raise RuntimeError('Disposable signup did not require confirmation')
+        error = json.loads(response.content).get('error', 'unexpected_response')
+        raise RuntimeError(f'Disposable signup failed: status={response.status_code}, error={error}')
     links = [line for message in mail.outbox for line in message.body.splitlines() if '/api/auth/email-confirm/?token=' in line]
     if len(links) != 1:
         raise RuntimeError('Expected one actual signup confirmation message')
