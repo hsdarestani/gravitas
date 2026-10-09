@@ -220,7 +220,6 @@
 }
 .adm-foot .v-note { margin-left: auto; text-align: right; }
 .adm-foot__danger { margin-left: 4px; }
-#ws-view .adm .ws-btn[data-danger] { color: var(--g-signal-critical); border-color: color-mix(in srgb, var(--g-signal-critical) 45%, transparent); }
 .adm-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .adm-card-actions .v-note { margin-left: auto; }
 

@@ -22,23 +22,23 @@
   <link rel="stylesheet" href="/assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/chat.css?v=20260924-pulsar7">
-  <link rel="stylesheet" href="/assets/ws/ws.css?v=20261009-inbox1">
+  <link rel="stylesheet" href="/assets/ws/ws.css?v=20261009-buttons1">
   <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20261008-sessionfix1">
-  <link rel="stylesheet" href="/assets/ws/ws-work-reports.css?v=20261009-reports2">
+  <link rel="stylesheet" href="/assets/ws/ws-work-reports.css?v=20261009-buttons1">
   <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20261001-cosmos1">
-  <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20261002-notebook1">
+  <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20261009-buttons1">
   <link rel="stylesheet" href="/assets/ws/ws-space-integration.css?v=20260917-1">
-  <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20260915-1">
+  <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20261009-buttons1">
   <link rel="stylesheet" href="/assets/ws/ws-mindmap-editor.css?v=20261006-editor2">
   <link rel="stylesheet" href="/assets/ws/ws-math.css?v=20260919-1">
   <link rel="stylesheet" href="/assets/ws/ws-lms-advanced.css?v=20261002-tabs1">
-  <link rel="stylesheet" href="/assets/ws/ws-research-intelligence.css?v=20261001-source-manager1">
-  <script src="/assets/gravitas-icons.js?v=20261002-marks1" defer></script>
+  <link rel="stylesheet" href="/assets/ws/ws-research-intelligence.css?v=20261009-buttons1">
+  <script src="/assets/gravitas-icons.js?v=20261009-report1" defer></script>
   <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
   <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
-  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261002-file1">
+  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261009-buttons1">
   <!-- Platform Admin parts; after the unified sheet, which never styles adm-. -->
-  <link rel="stylesheet" href="/assets/ws/ws-admin.css?v=20261002-admin2">
+  <link rel="stylesheet" href="/assets/ws/ws-admin.css?v=20261009-buttons1">
   <style>
     /* A selected page/folder node is the active destination. Do not also
        paint its top-level module row as selected. */
@@ -130,7 +130,7 @@
   </noscript>
 
   <script type="module">
-    import { start } from '/assets/ws/ws-app.js?v=20261009-inbox1';
+    import { start } from '/assets/ws/ws-app.js?v=20261009-report1';
     import { platform } from '/assets/ws/ws-platform.js?v=20261008-operational2';
     import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20261009-reports5';
     import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20261008-operational2';
@@ -214,7 +214,7 @@
     else addEventListener('load', bootWorkspace, { once: true });
   </script>
   <script type="module" src="/assets/ws/ws-actionable-ui.js?v=20261008-operational2"></script>
-  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20261008-operational2"></script>
+  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20261009-buttons1"></script>
   <script src="/assets/production-bridge.js?v=20260924-seen1" defer></script>
   <!-- Pulsar: the same floating assistant as the rest of the site. ws-ai.js
        configures it for the workspace once both have loaded. -->

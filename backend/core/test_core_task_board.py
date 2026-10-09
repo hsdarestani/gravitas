@@ -356,6 +356,7 @@ class CoreTaskBoardFrontendContractTests(TestCase):
         root = Path(__file__).resolve().parents[2]
         views = (root / 'assets/ws/ws-views.js').read_text(encoding='utf-8')
         css = (root / 'assets/ws/ws.css').read_text(encoding='utf-8')
+        design = (root / 'assets/ws/ws-unified-design.css').read_text(encoding='utf-8')
         platform = (root / 'assets/ws/ws-platform.js').read_text(encoding='utf-8')
 
         self.assertIn('task-trello-board', views)
@@ -373,7 +374,7 @@ class CoreTaskBoardFrontendContractTests(TestCase):
         self.assertIn('detailData.can_delete', views)
         self.assertIn("remove.classList.add('ws-btn--danger')", views)
         self.assertIn('.task-board__top-scroll', css)
-        self.assertIn('.ws-btn--danger', css)
+        self.assertIn('.ws-btn--danger', design)
         self.assertIn('.task-card-dialog', css)
         self.assertIn('.task-checklist__item', css)
         self.assertIn("export const operatingTaskBoard", platform)

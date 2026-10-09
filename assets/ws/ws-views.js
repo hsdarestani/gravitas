@@ -9,7 +9,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261008-operational2';
-import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261008-operational2';
+import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261009-report1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -167,6 +167,8 @@ export function openCoreTask(taskId, { go, onTaskChange } = {}) {
 
 export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = null }) {
   const doc = docShell(host, 'Tasks & Execution', 'Manager-defined execution. Create tasks manually from existing Key Results and optional Milestones.');
+  // ws-task-deck-mirror.js looks for this to know the board is already drawn.
+  doc.dataset.coreTasksNative = 'true';
   const holder = el('div');
   doc.append(holder);
   skeleton(8, holder);
@@ -863,12 +865,27 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     return closest.element;
   }
 
+  /* `state` is the board payload, or a function that fetches it when the card
+     is opened from outside the board. The frame goes up before anything is
+     awaited and both requests run side by side: a click that shows nothing for
+     a second gets clicked again, and each of those clicks used to become its
+     own dialog. A second click on a task whose card is already up focuses it. */
   async function openTaskDialog(taskId, state, reloadBoard) {
+    const existing = document.querySelector(`.task-card-dialog[data-task-id="${taskId}"]`);
+    if (existing) {
+      existing.focus();
+      return;
+    }
     const { dialog, body, head } = makeDialog('Loading task…');
+    dialog.dataset.taskId = String(taskId);
     body.append(skeleton(6));
 
     try {
-      const detailData = await P.operatingTaskCard(taskId);
+      const [detailData, boardState] = await Promise.all([
+        P.operatingTaskCard(taskId),
+        typeof state === 'function' ? state() : state,
+      ]);
+      state = boardState;
       const task = detailData.task;
       head.querySelector('h2').textContent = task.title;
       if (detailData.can_delete) {
@@ -1557,20 +1574,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   }
 
   /* Opened from the dock, the reader wants the card, not the board under it.
-     The dialog still needs the board payload — members, key results and the
-     task list it offers as dependencies — so that loads first; if it cannot,
-     the board route is the honest fallback, since it shows what failed. */
+     The dialog still needs the board payload (statuses, priorities and the
+     task list it offers as dependencies), so it fetches that alongside the
+     card instead of before it; a failure of either shows in the card with a
+     retry. */
   if (openTaskId) {
-    return (async () => {
-      let data;
-      try {
-        data = await P.operatingTaskBoard();
-      } catch {
-        go(`/workspace/core/tasks?task=${openTaskId}`);
-        return;
-      }
-      await openTaskDialog(openTaskId, data, async () => { await onTaskChange?.(); });
-    })();
+    return openTaskDialog(openTaskId, () => P.operatingTaskBoard(), async () => { await onTaskChange?.(); });
   }
 
   return guard(holder, 'Core tasks', async () => {

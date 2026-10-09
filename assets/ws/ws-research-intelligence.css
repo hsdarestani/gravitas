@@ -92,21 +92,8 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--g-signal-positive) 16%, transparent);
   }
 
-  .ri__refresh {
-    min-height: 30px;
-    padding: 0 11px;
-    border: 1px solid var(--g-border);
-    border-radius: var(--ws-r-control);
-    color: var(--g-text);
-    background: var(--g-surface-raised);
-    font: inherit;
-    font-size: var(--ws-fs-sm);
-    cursor: pointer;
-    transition: border-color 160ms var(--ws-ease), background 160ms var(--ws-ease);
-  }
-
-  .ri__refresh:hover { border-color: var(--g-border-strong); background: var(--g-surface-hover); }
-  .ri__refresh:disabled { cursor: wait; opacity: .62; }
+  /* .ri__refresh is drawn by the button system in ws-unified-design.css. */
+  .ri__refresh:disabled { cursor: wait; }
 
   .ri__metrics {
     display: grid;
@@ -318,19 +305,6 @@
     padding-top: 2px;
   }
 
-  .ri-card__open {
-    display: inline-flex;
-    align-items: center;
-    min-height: 28px;
-    padding: 0 9px;
-    border: 1px solid var(--g-border);
-    border-radius: var(--ws-r-control);
-    color: var(--g-text);
-    text-decoration: none;
-    font-size: var(--ws-fs-xs);
-  }
-
-  .ri-card__open:hover { background: var(--g-surface-hover); border-color: var(--g-border-strong); }
 
   .ri__source-note {
     margin-left: auto;
@@ -453,8 +427,7 @@
   cursor: pointer;
   font-weight: var(--g-w-medium);
 }
-.ri-filter--toggle[aria-pressed="true"],
-.ri-card__save[aria-pressed="true"] {
+.ri-filter--toggle[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--g-accent) 58%, var(--g-border));
   background: color-mix(in srgb, var(--g-accent) 11%, var(--g-surface-raised));
   color: var(--g-text);
@@ -523,26 +496,6 @@
   font-weight: var(--g-w-medium);
 }
 
-.ri__weights-reset,
-.ri-card__save {
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--g-border);
-  border-radius: var(--ws-r-control);
-  background: transparent;
-  color: var(--g-text);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--ws-fs-xs);
-  font-weight: var(--g-w-medium);
-  transition: border-color 150ms var(--ws-ease), background 150ms var(--ws-ease);
-}
-.ri__weights-reset:hover,
-.ri-card__save:hover {
-  border-color: var(--g-border-strong);
-  background: var(--g-surface-hover);
-}
-
 /* Funding cards: less copy density, stronger scanning hierarchy. */
 .ri-card {
   gap: 9px;
@@ -576,7 +529,6 @@
   padding-top: 4px;
 }
 .ri-card__save { margin-right: 0; }
-.ri-card__open { min-height: 30px; }
 .ri-card .ri__source-note {
   margin-left: auto;
   min-height: 24px;

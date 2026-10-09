@@ -30,7 +30,7 @@ import * as research from './ws-research.js?v=20261008-operational2';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20261008-operational2';
+} from './ws-nav.js?v=20261009-report1';
 import { renderDashboard, stopClock } from './ws-home.js?v=20261008-operational2';
 import { renderSettings } from './ws-settings.js?v=20261008-operational2';
 import { mountPalette, openPalette } from './ws-palette.js';
@@ -1190,10 +1190,13 @@ function renderDockTasks(body) {
       // list from bootstrap, and the board too when it is what sits beneath.
       onClick: () => views.openCoreTask(task.id, {
         go,
-        onTaskChange: async () => {
-          await P.loadBootstrap();
-          if (location.pathname === '/workspace/core/tasks') render();
-          else renderDock();
+        // Not awaited: the dialog waits on this after every save, and the
+        // list beside it can catch up without holding the card.
+        onTaskChange: () => {
+          P.loadBootstrap().then(() => {
+            if (location.pathname === '/workspace/core/tasks') render();
+            else renderDock();
+          }).catch(() => {});
         },
       }),
     }));

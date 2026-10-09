@@ -89,6 +89,12 @@
     alert: "<g transform=\"translate(1.226 -0.929) scale(0.897866)\" stroke-width=\"1.893\"><path d=\"M10.3 4.2a2 2 0 0 1 3.4 0l8 13.8a2 2 0 0 1-1.7 3H4a2 2 0 0 1-1.7-3z\"/><path d=\"M12 9.4v4.2\"/><circle cx=\"12\" cy=\"17.2\" r=\"1.726\" fill=\"currentColor\" stroke=\"none\"/></g>",
     star: "<g transform=\"translate(0.707 0.124) scale(0.941115)\" stroke-width=\"1.806\"><path d=\"M12.00 2.60 14.59 9.04 21.51 9.51 16.18 13.96 17.88 20.69 12.00 17.00 6.12 20.69 7.82 13.96 2.49 9.51 9.41 9.04Z\"/><circle cx=\"12\" cy=\"12.9\" r=\"1.647\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
+    /* Daily work reports shared the Tasks checklist, so two adjacent Core
+       rows wore one drawing. A clipboard is the day's entry rather than the
+       list it reports on; the dot is the line just written. Drawn on the
+       same 19.6 cap and 1.7 stroke as the rest. */
+    report: "<g transform=\"translate(-0.360 -0.360) scale(1.030000)\" stroke-width=\"1.650\"><path d=\"M8.6 4H6.6a2 2 0 0 0-2 2v13.4a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2\"/><rect x=\"8.6\" y=\"2.4\" width=\"6.8\" height=\"3.4\" rx=\"1.2\"/><path d=\"M8.4 11h7.2\"/><path d=\"M8.4 14.6h4.6\"/><circle cx=\"15.4\" cy=\"17.6\" r=\"1.553\" fill=\"currentColor\" stroke=\"none\"/></g>",
+
     /* Five workspace destinations are the public sections themselves seen
        from inside: Topics, Magazine, the Interactive Lab, Learning Paths and
        the Newsletter. They take the product-set mark exactly as the site

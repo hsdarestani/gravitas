@@ -359,10 +359,13 @@ async function renderCoreDeckSurface() {
   }
 }
 
+/* renderCoreDeckSurface is no longer called. ws-task-deck-mirror.js owns
+   /workspace/core/tasks and always restores the native board, so this layer
+   used to wipe a freshly drawn board, start two Nextcloud requests, and have
+   the mirror draw the board — and fetch it — a second time over the top. */
 function reconcile() {
   dedupeSelectedNavigation();
   ensureResearchActions();
-  renderCoreDeckSurface().catch((error) => console.error('Core Deck surface failed', error));
 }
 
 function schedule() {

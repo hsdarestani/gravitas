@@ -76,8 +76,6 @@
   display: block; margin-bottom: 4px;
   color: var(--g-text-subtle); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
 }
-#ws-view .wr .ws-btn--ghost { border-color: transparent; color: var(--g-text-muted); }
-#ws-view .wr .ws-btn--ghost:hover { color: var(--g-text); background: var(--g-surface-hover); }
 
 /* ---- Composer -------------------------------------------------------- */
 #ws-view .wr-compose {
@@ -104,7 +102,6 @@
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px;
 }
 #ws-view .wr-compose__hint { color: var(--g-text-subtle); font-size: var(--ws-fs-xs); }
-#ws-view .wr-compose__foot .ws-btn--solid { height: 34px; padding: 0 16px; }
 
 /* ---- History --------------------------------------------------------- */
 #ws-view .wr-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

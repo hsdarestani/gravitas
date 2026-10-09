@@ -102,24 +102,8 @@
   font-weight: var(--g-w-semibold);
   letter-spacing: var(--g-track-head);
 }
-#ws-view .nb-new {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px 0 9px;
-  border: 1px solid var(--g-border);
-  border-radius: 8px;
-  background: var(--g-surface-raised);
-  color: var(--g-text);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: var(--g-w-medium);
-  cursor: pointer;
-  transition: background-color var(--g-dur-fast) linear, border-color var(--g-dur-fast) linear;
-}
-#ws-view .nb-new:hover { border-color: var(--g-border-strong); background: var(--g-surface-hover); }
-#ws-view .nb-new:disabled { opacity: .55; cursor: progress; }
+/* .nb-new is drawn by the button system in ws-unified-design.css. */
+#ws-view .nb-new:disabled { cursor: progress; }
 #ws-view .nb-new .nb-glyph { width: 14px; height: 14px; }
 
 #ws-view .nb-search {

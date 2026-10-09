@@ -180,12 +180,14 @@ function mountMirror() {
 
   state.mounting = true;
   try {
-    // Re-render the authoritative Gravitas task view. The older Deck-first
-    // layer may already have replaced it; this deliberately restores the
-    // native page instead of trying to reconstruct its rows here.
-    Promise.resolve(renderCoreTasks(host, { go })).catch((error) => {
-      console.error('Core task view failed', error);
-    });
+    // Render the authoritative Gravitas task view only if something else
+    // replaced it. When ws-app has just drawn it, drawing again would fetch
+    // the whole board a second time and throw the first one away.
+    if (!host.querySelector('[data-core-tasks-native]')) {
+      Promise.resolve(renderCoreTasks(host, { go })).catch((error) => {
+        console.error('Core task view failed', error);
+      });
+    }
 
     const doc = host.querySelector('.ws-doc');
     const head = doc?.querySelector(':scope > .ws-doc__head');

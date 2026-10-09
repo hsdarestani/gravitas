@@ -86,7 +86,7 @@ export async function renderWorkReports(host, { go }) {
   const correctionBar = el('div', 'wr-compose__correction'); correctionBar.hidden = true;
   const input = el('textarea', 'v-input wr-compose__input'); input.rows = 5; input.maxLength = 16000; input.setAttribute('aria-label', 'What did you work on today?'); input.placeholder = 'What did you work on, what changed, and what comes next?';
   const foot = el('div', 'wr-compose__foot');
-  const submit = el('button', 'ws-btn ws-btn--solid', 'Review with Pulsar'); submit.type = 'submit';
+  const submit = el('button', 'ws-btn ws-btn--solid ws-btn--lg', 'Review with Pulsar'); submit.type = 'submit';
   foot.append(el('small', 'wr-compose__hint', 'Pulsar drafts the task updates. Nothing changes until you confirm.'), submit);
   form.append(composeHead, prompt, correctionBar, input, foot);
   main.append(form);

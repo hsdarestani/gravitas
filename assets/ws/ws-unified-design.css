@@ -238,10 +238,6 @@ html .ws-action-dialog .v-input:focus {
   border-color: var(--g-accent);
 }
 
-#ws-view :is(.ws-btn, .v-mini-btn, .ri__refresh, .ri-card__open) {
-  border-radius: var(--ws-cohesion-control-r);
-}
-
 #ws-view :is(.fl-badge, .v-badge, .ri-chip, .nc-note-badge, .nc-mirror-state) {
   border-radius: var(--g-radius-pill);
 }
@@ -815,7 +811,6 @@ html .au-modal :is(input, textarea, select):focus {
   outline-offset: 1px;
 }
 
-#ws-view :is(.ws-btn, .v-mini-btn, .ri__refresh, .ri-card__open),
 html .au-modal button {
   border-radius: 8px !important;
 }
@@ -1188,45 +1183,187 @@ html .au-modal {
   margin: 0 0 0 auto;
 }
 
-/* A file input is the one control the browser still draws itself: a grey
-   "Choose File" bevel that ignores the theme and sits in a .v-input box like a
-   foreign object. The box stays; the button inside it becomes a .ws-btn, and
-   the "No file chosen" text drops to the muted tone every other hint uses. */
-#ws-view input[type="file"],
-html .ws-action-dialog input[type="file"],
-html .au-modal input[type="file"] {
+/* ==========================================================================
+   BUTTON SYSTEM · 2026-10-09
+   Every text button in the workspace is one of four variants in one of three
+   sizes. Nothing else.
+
+     variant   .ws-btn            outline: the everyday action
+               .ws-btn--solid     the one primary action of a form or screen
+               .ws-btn--ghost     quiet secondary action beside a primary
+               .ws-btn--danger    delete, archive, remove
+     size      .ws-btn--sm        24px  inline, in rows and card feet
+               (default)          30px  toolbars, heads, forms
+               .ws-btn--lg        36px  the submit of a composer or dialog
+
+   Before this, the same .ws-btn was 28px in the shell, 30px in dialog heads,
+   34px in the report composer, and .ws-btn--tiny was 20px in one rule and
+   28px in another. Modules that never adopted .ws-btn drew their own
+   (.v-mini-btn, .nb-new, .ri__refresh, .ri-card__*), each a pixel or two off
+   the next, and danger was spelled three ways, two of which drew nothing.
+   Dialogs mounted on <body> sat outside every `#ws-view` patch, so the same
+   button had a different radius in a dialog than on the page behind it.
+
+   So the system is unscoped and unlayered: it reaches #ws-view and every
+   dialog alike, and a module sheet may still place a button (width, flex,
+   margin) but never resize or recolour it. .ws-btn--tiny stays as an alias
+   of --sm because forty call sites already pass `tiny`. Icon buttons
+   (.ws-ibtn, .nb-ibtn, the rail) are a separate, square shape and are not
+   part of this scale. Text links (.v-back, .v-more) are not buttons.
+   ========================================================================== */
+:root {
+  --ws-btn-h-sm: 24px;
+  --ws-btn-h: 30px;
+  --ws-btn-h-lg: 36px;
+  --ws-btn-r: 8px;
+}
+@media (pointer: coarse) {
+  /* A finger needs more than a cursor; the steps keep their ratio. */
+  :root {
+    --ws-btn-h-sm: 30px;
+    --ws-btn-h: 36px;
+    --ws-btn-h-lg: 42px;
+  }
+}
+
+:is(.ws-btn, .v-mini-btn, .nb-new, .ri__refresh, .ri-card__open, .ri-card__save, .ri__weights-reset) {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: var(--ws-btn-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--g-border);
+  border-radius: var(--ws-btn-r);
+  background: transparent;
+  color: var(--g-text);
+  font: inherit;
+  font-size: var(--ws-fs-sm);
+  font-weight: var(--g-w-medium);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--g-dur-fast) var(--ws-ease),
+              border-color var(--g-dur-fast) var(--ws-ease),
+              color var(--g-dur-fast) var(--ws-ease),
+              transform var(--g-dur-fast) var(--ws-ease);
+}
+:is(.ws-btn, .v-mini-btn, .nb-new, .ri__refresh, .ri-card__open, .ri-card__save, .ri__weights-reset) svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+:is(.ws-btn, .v-mini-btn, .nb-new, .ri__refresh, .ri-card__open, .ri-card__save, .ri__weights-reset):hover {
+  background: var(--g-surface-hover);
+  border-color: var(--g-border-strong);
+  color: var(--g-text);
+}
+:is(.ws-btn, .v-mini-btn, .nb-new, .ri__refresh, .ri-card__open, .ri-card__save, .ri__weights-reset):active {
+  transform: scale(0.97);
+}
+
+/* Sizes */
+:is(.ws-btn--sm, .ws-btn--tiny, .v-mini-btn, .ri-card__open, .ri-card__save) {
+  height: var(--ws-btn-h-sm);
+  padding: 0 9px;
+  font-size: var(--ws-fs-xs);
+}
+.ws-btn--lg {
+  height: var(--ws-btn-h-lg);
+  padding: 0 16px;
+  font-size: var(--ws-fs);
+}
+
+/* Variants */
+.ws-btn--solid {
+  background: var(--g-solid-bg);
+  border-color: transparent;
+  color: var(--g-solid-fg);
+}
+.ws-btn--solid:hover {
+  background: var(--g-solid-bg-hover);
+  border-color: transparent;
+  color: var(--g-solid-fg-hover);
+}
+.ws-btn--ghost {
+  border-color: transparent;
+  color: var(--g-text-muted);
+}
+.ws-btn--ghost:hover {
+  border-color: transparent;
+}
+/* The attribute forms are what the helpers emitted before they added the
+   class; they stay matched so a module still in a browser cache under its
+   old ?v= token draws the same red. */
+:is(.ws-btn--danger, .ws-btn[data-danger], .ws-btn[data-tone="bad"]) {
+  border-color: color-mix(in srgb, var(--g-signal-critical) 45%, var(--g-border));
+  color: var(--g-signal-critical);
+}
+:is(.ws-btn--danger, .ws-btn[data-danger], .ws-btn[data-tone="bad"]):hover {
+  background: color-mix(in srgb, var(--g-signal-critical) 10%, transparent);
+  border-color: var(--g-signal-critical);
+  color: var(--g-signal-critical);
+}
+
+/* States. A toggle (view switcher, saved/unsaved) is the outline button with
+   the accent edge, not a fifth variant. */
+:is(.ws-btn, .v-mini-btn, .ri-card__save)[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--g-accent) 11%, transparent);
+  border-color: color-mix(in srgb, var(--g-accent) 58%, var(--g-border));
+  color: var(--g-text);
+}
+:is(.ws-btn, .v-mini-btn, .nb-new, .ri__refresh, .ri-card__open, .ri-card__save, .ri__weights-reset):is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.ws-btn, .v-mini-btn, .nb-new, .ri__refresh, .ri-card__open, .ri-card__save, .ri__weights-reset):active {
+    transform: none;
+  }
+}
+
+/* A file input is the one control the browser still draws itself: a grey
+   "Choose File" bevel that ignores the theme. The previous rule was scoped to
+   #ws-view and two dialog classes, so the task card, meeting and attachment
+   dialogs, all mounted on <body>, still showed the native bevel. This sheet
+   loads only on workspace.html, so the rule is unscoped: the button inside
+   becomes a small .ws-btn and "No file chosen" takes the muted hint tone. */
+input[type="file"] {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
   padding: 3px 10px 3px 3px !important;
   color: var(--g-text-muted) !important;
   font: inherit;
   font-size: var(--ws-fs-sm);
   cursor: pointer;
 }
-#ws-view input[type="file"]::file-selector-button,
-html .ws-action-dialog input[type="file"]::file-selector-button,
-html .au-modal input[type="file"]::file-selector-button {
-  height: 26px;
+input[type="file"]::file-selector-button {
+  height: var(--ws-btn-h-sm);
   margin: 0 10px 0 0;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 1px solid var(--g-border);
-  border-radius: 6px;
-  background: var(--g-surface-raised, transparent);
+  border-radius: calc(var(--ws-btn-r) - 2px);
+  background: var(--g-surface-raised);
   color: var(--g-text);
   font: inherit;
+  font-size: var(--ws-fs-xs);
   font-weight: var(--g-w-medium);
   cursor: pointer;
   transition: background-color var(--g-dur-fast) var(--ws-ease),
               border-color var(--g-dur-fast) var(--ws-ease);
 }
-#ws-view input[type="file"]:hover::file-selector-button,
-html .ws-action-dialog input[type="file"]:hover::file-selector-button,
-html .au-modal input[type="file"]:hover::file-selector-button {
+input[type="file"]:hover::file-selector-button {
   background: var(--g-surface-hover);
   border-color: var(--g-border-strong);
 }
-#ws-view input[type="file"]:disabled,
-#ws-view input[type="file"]:disabled::file-selector-button {
+input[type="file"]:disabled,
+input[type="file"]:disabled::file-selector-button {
   cursor: not-allowed;
   opacity: 0.6;
 }

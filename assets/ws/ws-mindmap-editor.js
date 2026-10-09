@@ -44,9 +44,8 @@ const svg = (tag, attrs = {}) => {
 };
 
 function button(label, handler, { solid = false, danger = false, tiny = false } = {}) {
-  const node = el('button', `ws-btn${solid ? ' ws-btn--solid' : ''}${tiny ? ' ws-btn--tiny' : ''}`, label);
+  const node = el('button', `ws-btn${solid ? ' ws-btn--solid' : ''}${tiny ? ' ws-btn--tiny' : ''}${danger ? ' ws-btn--danger' : ''}`, label);
   node.type = 'button';
-  if (danger) node.dataset.tone = 'bad';
   node.addEventListener('click', handler);
   return node;
 }

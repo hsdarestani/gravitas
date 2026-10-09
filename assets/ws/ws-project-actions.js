@@ -35,9 +35,8 @@ function go(path) {
 }
 
 function button(label, handler, { solid = false, tiny = false, danger = false } = {}) {
-  const node = el('button', `${solid ? 'ws-btn ws-btn--solid' : 'ws-btn'}${tiny ? ' ws-btn--tiny' : ''}`, label);
+  const node = el('button', `${solid ? 'ws-btn ws-btn--solid' : 'ws-btn'}${tiny ? ' ws-btn--tiny' : ''}${danger ? ' ws-btn--danger' : ''}`, label);
   node.type = 'button';
-  if (danger) node.dataset.tone = 'bad';
   node.addEventListener('click', handler);
   return node;
 }

@@ -96,9 +96,8 @@ export function failure(host, title, error, retry) {
 /* ---- Controls ------------------------------------------------------------ */
 
 export function button(text, handler, { solid = false, tiny = false, danger = false, type = 'button' } = {}) {
-  const node = el('button', `ws-btn${solid ? ' ws-btn--solid' : ''}${tiny ? ' ws-btn--tiny' : ''}`, text);
+  const node = el('button', `ws-btn${solid ? ' ws-btn--solid' : ''}${tiny ? ' ws-btn--tiny' : ''}${danger ? ' ws-btn--danger' : ''}`, text);
   node.type = type;
-  if (danger) node.dataset.danger = '';
   if (handler) node.addEventListener('click', handler);
   return node;
 }

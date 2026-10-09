@@ -90,7 +90,7 @@ export const CORE_SECTIONS = [
     id: 'core-work-reports',
     label: 'Daily work reports',
     hint: 'Progress, blockers and next actions',
-    icon: 'tasks',
+    icon: 'report',
     path: '/workspace/core/work-reports',
     match: under('/workspace/core/work-reports'),
   },

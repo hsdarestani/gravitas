@@ -39,11 +39,6 @@ html .ws-action-dialog__head h2 {
   letter-spacing: -0.01em;
 }
 
-html .ws-action-dialog__head .ws-btn {
-  min-height: 30px;
-  padding: 4px 10px;
-}
-
 html .ws-action-dialog__grid {
   gap: 13px;
 }
