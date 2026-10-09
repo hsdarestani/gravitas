@@ -56,11 +56,13 @@ function actions() {
     },
     {
       group: 'Actions',
-      label: "Open today in Calendar",
+      label: "Open today's note",
       icon: 'meeting',
       run: async () => {
-        const journal = await context.api.openJournal(new Date());
-        context.go(`/workspace/page/${journal.id}`);
+        // A day is a note in Notes, saved to Nextcloud like every other note.
+        const now = new Date();
+        const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        context.go(`/workspace/research/notes?day=${key}`);
       },
     },
     {

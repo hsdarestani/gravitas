@@ -13,6 +13,8 @@ Gravitas category the user is actually entitled to use.
 
 import hashlib
 import json
+import re
+from datetime import date
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -41,6 +43,13 @@ MIRROR_KEY = 'nextcloud_notes'
 DELETE_PENDING_ACTION = 'note.nextcloud_delete_pending'
 DELETE_DONE_ACTION = 'note.nextcloud_deleted'
 DELETE_OBJECT_TYPE = 'nextcloud_note_tombstone'
+# Folders are Nextcloud Notes categories below the space's own category, so a
+# folder made in Gravitas is a folder in the Notes app and in Files, and one
+# made in Nextcloud comes back as a folder here.
+JOURNAL_FOLDER = 'Journal'
+FOLDER_DEPTH = 6
+FOLDER_SEGMENT = 80
+DAY = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 
 class NotesError(Exception):
@@ -142,12 +151,55 @@ def _space(resource):
     return value if value in SPACE_CATEGORY else 'research'
 
 
+def clean_folder(value):
+    """Normalise a folder path, or return '' for none.
+
+    Segments are trimmed, empty and dot segments dropped, and the depth and
+    length bounded. A backslash or a control character is never a folder name
+    on the Nextcloud side, so they are removed rather than escaped.
+    """
+    parts = []
+    for raw in str(value or '').replace('\\', '/').split('/'):
+        part = re.sub(r'[\x00-\x1f]', '', raw).strip()[:FOLDER_SEGMENT].strip()
+        if part and part not in {'.', '..'}:
+            parts.append(part)
+    return '/'.join(parts[:FOLDER_DEPTH])
+
+
+def _folder(resource):
+    return clean_folder((resource.metadata or {}).get('ws_folder'))
+
+
 def _category(resource):
-    return SPACE_CATEGORY[_space(resource)]
+    base = SPACE_CATEGORY[_space(resource)]
+    folder = _folder(resource)
+    return f'{base}/{folder}' if folder else base
+
+
+def _split_category(category):
+    """Return (space, folder) for a native category, or (None, '') outside Gravitas."""
+    value = str(category or '').strip().strip('/')
+    for base, space in CATEGORY_SPACE.items():
+        if value == base:
+            return space, ''
+        if value.startswith(base + '/'):
+            return space, clean_folder(value[len(base) + 1:])
+    return None, ''
 
 
 def _remote_space(remote):
-    return CATEGORY_SPACE.get(str((remote or {}).get('category') or '').strip())
+    return _split_category((remote or {}).get('category'))[0]
+
+
+def _journal_date(value):
+    value = str(value or '').strip()[:10]
+    if not DAY.match(value):
+        return None
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return None
+    return value
 
 
 def _favorite(resource):
@@ -364,6 +416,11 @@ def _pull_remote(resource, remote):
     # rich blocks and risking destructive formatting changes.
     metadata['ws_blocks'] = [{'id': f'b-{resource.pk}-native', 'type': 'p', 'text': content}]
     metadata['ws_space'] = target_space
+    folder = _split_category(remote.get('category'))[1]
+    if folder:
+        metadata['ws_folder'] = folder
+    else:
+        metadata.pop('ws_folder', None)
 
     resource.title = title
     resource.body = content
@@ -433,7 +490,7 @@ def sync_note_to_nextcloud(resource, *, identity=None):
 
 
 def _adopt_remote(user, remote):
-    space = _remote_space(remote)
+    space, folder = _split_category((remote or {}).get('category'))
     if not space or not _allowed_space(user, space):
         return None
     workspace = provision_personal_workspace(user)
@@ -452,6 +509,7 @@ def _adopt_remote(user, remote):
                 'ws_parent': None,
                 'ws_bookmarked': bool(remote.get('favorite')),
                 'ws_blocks': [{'id': 'b-native-1', 'type': 'p', 'text': content}],
+                **({'ws_folder': folder} if folder else {}),
             },
         )
         metadata = dict(resource.metadata or {})
@@ -584,6 +642,9 @@ def _json(resource, user=None):
         'content': resource.body or '',
         'space': space,
         'category': _category(resource),
+        'folder': _folder(resource),
+        'kind': str((resource.metadata or {}).get('ws_kind') or 'note'),
+        'journal_date': _journal_date((resource.metadata or {}).get('ws_journal_date')),
         'favorite': _favorite(resource),
         'updated': resource.updated_at.isoformat(),
         'project_id': resource.project_id,
@@ -624,20 +685,41 @@ def native_notes(request):
         space = str(data.get('space') or 'research').strip().lower()
         if space not in SPACE_CATEGORY or not _allowed_space(request.user, space):
             return JsonResponse({'ok': False, 'error': 'space_access_required'}, status=403)
+        folder = clean_folder(data.get('folder'))
+        # A day opened from the calendar is one note per day, whichever surface
+        # opens it and however often. Clicking a day twice used to make a
+        # second note, which Nextcloud then renamed "… (2)".
+        journal_date = None
+        if str(data.get('kind') or '') == 'journal':
+            journal_date = _journal_date(data.get('journal_date'))
+            if not journal_date:
+                return JsonResponse({'ok': False, 'error': 'invalid_journal_date'}, status=400)
+            existing = KnowledgeResource.objects.filter(
+                owner=request.user, kind=KnowledgeResource.Kind.NOTE,
+                metadata__ws_kind='journal', metadata__ws_journal_date=journal_date,
+            ).order_by('pk').first()
+            if existing:
+                return JsonResponse({'ok': True, 'existing': True, 'item': _json(existing, request.user)})
+            folder = folder or JOURNAL_FOLDER
         workspace = provision_personal_workspace(request.user)
+        metadata = {
+            'ws_space': space,
+            'ws_kind': 'journal' if journal_date else 'note',
+            'ws_parent': None,
+            'ws_bookmarked': bool(data.get('favorite')),
+            'ws_blocks': [{'id': 'b-native-1', 'type': 'p', 'text': content}],
+        }
+        if folder:
+            metadata['ws_folder'] = folder
+        if journal_date:
+            metadata['ws_journal_date'] = journal_date
         resource = KnowledgeResource.objects.create(
             workspace=workspace,
             owner=request.user,
             kind=KnowledgeResource.Kind.NOTE,
             title=title,
             body=content,
-            metadata={
-                'ws_space': space,
-                'ws_kind': 'note',
-                'ws_parent': None,
-                'ws_bookmarked': bool(data.get('favorite')),
-                'ws_blocks': [{'id': 'b-native-1', 'type': 'p', 'text': content}],
-            },
+            metadata=metadata,
         )
         KnowledgeActivity.objects.create(
             workspace=workspace, actor=request.user, resource=resource,
@@ -713,6 +795,12 @@ def native_note_detail(request, resource_id):
         if space not in SPACE_CATEGORY or not _allowed_space(request.user, space):
             return JsonResponse({'ok': False, 'error': 'space_access_required'}, status=403)
         metadata['ws_space'] = space
+    if 'folder' in data:
+        folder = clean_folder(data.get('folder'))
+        if folder:
+            metadata['ws_folder'] = folder
+        else:
+            metadata.pop('ws_folder', None)
     resource.metadata = metadata
     resource.save(update_fields=['title', 'body', 'metadata', 'updated_at'])
     KnowledgeActivity.objects.create(

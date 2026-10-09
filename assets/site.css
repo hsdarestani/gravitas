@@ -44,11 +44,11 @@
    degrade, so it is locked at its intrinsic width and the row sheds controls
    instead, in this order:
 
-     under 880px   the nav collapses into the menu, and "Sign in" goes with it
-     under 400px   "Join Us" follows, and the header keeps logo + theme + menu
+     under 880px   the nav, Sign in, Join Us, theme and saved items all move
+                   into the full-screen menu, and the header keeps logo + menu
 
-   Both live in the dropdown at every width below the breakpoint, so nothing
-   is ever merely hidden. The 880 figure is measured, not guessed: logo 149 +
+   Nothing is ever merely hidden: every control has a place in the sheet.
+   The 880 figure is measured, not guessed: logo 149 +
    nav 351 + actions 248 + two 24px gaps + gutters needs 864px, so the full
    row is only offered where it actually fits. */
 .g-logo { flex: none; }
@@ -72,129 +72,212 @@
 .g-header__inner { position: relative; }
 .lp-header__actions { display: flex; align-items: center; gap: var(--g-space-2xs); flex: none; flex-wrap: nowrap; }
 
-/* In the dropdown only. On desktop these two sit in the header itself. */
-.gh-nav-signin, .gh-nav-join, .g-nav__sep { display: none; }
+/* In the phone menu only. On desktop these sit in the header itself. */
+.gh-nav-signin, .gh-nav-join, .g-nav__sep, .g-nav__foot { display: none; }
 /* Likewise the nav marks: shipped in the markup on every page, revealed by the
-   dropdown's own media query below. */
+   menu's own media query below. */
 .g-nav__ic { display: none; }
 
-@media (max-width: 880px) {
-  /* Collapse the CTA to a circular icon button that sits beside the hamburger.
-     (The old rule targeted `.lp-header__cta .g-btn span`, but the class is on the
-     button itself, so it never matched, the full label stayed, and the burger
-     wrapped onto a second line.) */
-  .lp-header__cta span { display: none; }
-  .lp-header__cta {
-    width: var(--gh-control); height: var(--gh-control); padding: 0;
-    border-radius: var(--g-radius-pill); flex: none;
+/* ---- Desktop header: one capsule, quiet tools ---------------------------
+   The row used to be five underlined words, then Sign in, Join Us and two
+   outlined circles, four different treatments side by side. Now the sections
+   sit together in one faint capsule, with the current page as a filled pill
+   inside it. Saved and theme lose their rings and become plain marks, and a
+   hairline separates them from the account pair. The only filled object left
+   is Join Us, which is the one control that should be loud. Height and
+   --g-header-h do not change. */
+@media (min-width: 881px) {
+  .g-header .g-nav {
+    gap: var(--g-space-3xs); padding: 4px;
+    border: 1px solid var(--g-hairline); border-radius: var(--g-radius-pill);
+    background: rgb(var(--g-tint) / 0.04);
   }
-  .lp-header__cta .g-btn__icon { width: var(--gh-control-icon); height: var(--gh-control-icon); }
+  .g-header .g-nav__link {
+    padding: 0.45rem 0.95rem; border-bottom: 0; border-radius: var(--g-radius-pill);
+    transition: background-color var(--g-dur) var(--g-ease-orbit), color var(--g-dur) var(--g-ease-orbit);
+  }
+  .g-header .g-nav__link:hover { background: rgb(var(--g-tint) / 0.08); }
+  .g-header .g-nav__link[aria-current="page"] { background: rgb(var(--g-tint) / 0.12); color: var(--g-text); }
+
+  .gh-actions .theme-toggle,
+  .gh-actions .rl-trigger { border-color: transparent; background: transparent; color: var(--g-text-muted); }
+  .gh-actions .theme-toggle:hover,
+  .gh-actions .rl-trigger:hover { border-color: transparent; background: rgb(var(--g-tint) / 0.1); color: var(--g-text); }
+  /* Tools first, then the account pair: order instead of DOM moves, because
+     production-bridge mounts the saved trigger beside the theme toggle. */
+  .gh-actions .rl-trigger { order: 1; }
+  .gh-actions .theme-toggle { order: 2; }
+  .gh-actions .gh-signin { order: 3; position: relative; margin-left: var(--g-space-xs); }
+  .gh-actions .gh-signin::before {
+    content: ''; position: absolute; left: calc(var(--g-space-xs) * -1 - 1px); top: 25%; bottom: 25%;
+    width: 1px; background: var(--g-hairline);
+  }
+  .gh-actions .lp-header__cta { order: 4; }
+}
+/* The capsule's padding costs about 120px over the old underlined row, and
+   the row was measured to just fit at 881px. Between there and where the full
+   row fits again, the pills tighten and Sign in keeps only its mark. The label
+   stays in the accessibility tree, and the mark is the same glyph the phone
+   menu uses for it. */
+@media (min-width: 881px) and (max-width: 1080px) {
+  .g-header__inner { gap: var(--g-space-sm); }
+  .g-header .g-nav__link { padding-inline: 0.6rem; }
+  .gh-actions .gh-signin { width: var(--gh-control); padding: 0; justify-content: center; }
+  .gh-actions .gh-signin .g-btn__icon { margin: 0; }
+  .gh-actions .gh-signin span {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+}
+
+@media (max-width: 880px) {
+  /* The phone header is the logo and one button. It used to be the logo plus
+     up to four circled controls (saved, theme, join, menu), and a row of
+     outlined circles reads as a toolbar, not as a header; everything they did
+     is in the sheet now (site.js moves or proxies it there). */
+  .gh-actions .lp-header__cta,
+  .gh-actions .gh-signin,
+  .gh-actions .theme-toggle,
+  .gh-actions .rl-trigger { display: none; }
+
+  /* No outline at rest. The one remaining control does not need a ring to be
+     found, and the ring was what made the header look like a row of buttons. */
   .lp-menu-btn {
+    position: relative;
     display: inline-flex; align-items: center; justify-content: center;
     width: var(--gh-control); height: var(--gh-control); flex: none;
+    margin-right: calc(var(--g-space-2xs) * -1);
     border-radius: var(--g-radius-pill);
+    border: 0; background: transparent; color: var(--g-text);
+    cursor: pointer;
+    transition: background-color var(--g-dur) var(--g-ease-orbit);
+  }
+  .lp-menu-btn:hover,
+  .lp-menu-btn[aria-expanded="true"] { background: rgb(var(--g-tint) / 0.1); }
+  .lp-menu-btn svg { width: 1.375rem; height: 1.375rem; display: block; }
+  .lp-menu-btn .gh-ic-close,
+  .lp-menu-btn[aria-expanded="true"] .gh-ic-burger { display: none; }
+  .lp-menu-btn[aria-expanded="true"] .gh-ic-close { display: block; }
+  /* Unseen saved items: the bookmark's badge had nowhere to go once the
+     bookmark left the header, so the menu button carries a dot instead. */
+  .lp-menu-btn[data-saved-new]::after {
+    content: ''; position: absolute; top: 0.55rem; right: 0.55rem;
+    width: 0.5rem; height: 0.5rem; border-radius: 50%;
+    background: var(--g-accent); box-shadow: 0 0 0 2px var(--g-bg);
+  }
+  .lp-menu-btn[aria-expanded="true"]::after { display: none; }
+
+  /* The sheet: everything below the header, opaque, scrolling on its own. It
+     is position: fixed inside the header, and the header's backdrop-filter
+     would make the header its containing block, confining the sheet to a
+     73px strip, so the filter comes off while it is open. The header turns
+     opaque at the same moment, so the seam between the two disappears. */
+  .g-nav {
+    display: none;
+    position: fixed; top: var(--g-header-h); left: 0; right: 0; bottom: 0;
+    flex-direction: column; align-items: stretch; gap: 0;
+    padding: var(--g-space-xs) var(--g-gutter) calc(var(--g-space-md) + env(safe-area-inset-bottom, 0px));
+    background: var(--g-bg);
+    overflow-y: auto; overscroll-behavior: contain;
+  }
+  .g-nav.is-open { display: flex; animation: gh-sheet-in 240ms var(--g-ease-orbit); }
+  .g-nav.is-open .g-nav__link { animation: gh-row-in 320ms var(--g-ease-orbit) backwards; }
+  .g-nav.is-open .g-nav__link:nth-child(2) { animation-delay: 25ms; }
+  .g-nav.is-open .g-nav__link:nth-child(3) { animation-delay: 50ms; }
+  .g-nav.is-open .g-nav__link:nth-child(4) { animation-delay: 75ms; }
+  .g-nav.is-open .g-nav__link:nth-child(5) { animation-delay: 100ms; }
+  @keyframes gh-sheet-in { from { opacity: 0; } }
+  @keyframes gh-row-in { from { opacity: 0; transform: translateY(-6px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .g-nav.is-open, .g-nav.is-open .g-nav__link { animation: none; }
+  }
+  /* The header is a stacking context (sticky + z-index + backdrop-filter), so
+     the sheet's own z-index cannot climb out of it and an open Pulsar panel
+     covered the menu. The whole header is lifted instead, only while open. */
+  .g-header.is-menu-open {
+    z-index: calc(var(--g-z-overlay) + 1);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    background: var(--g-bg);
+  }
+  html.gh-menu-locked { overflow: hidden; }
+
+  /* Sections as large, full-width rows: the sheet has the whole screen, so the
+     targets can be the size of a thumb and the labels the size of headings.
+     The marks stay: in a vertical list they are what make the rows scannable. */
+  .g-nav .g-nav__link {
+    display: flex; align-items: center; gap: var(--g-space-sm);
+    min-height: 4rem; padding: 0 var(--g-space-3xs);
+    font-size: var(--g-fs-h3); font-weight: var(--g-w-semibold);
+    letter-spacing: -0.015em; color: var(--g-text);
+    border-bottom: 1px solid var(--g-hairline); border-radius: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .g-nav .g-nav__ic {
+    display: block; width: 1.5rem; height: 1.5rem; flex: none;
+    color: var(--g-ic-dim); opacity: var(--g-ic-dim-a);
+  }
+  .g-nav .g-nav__link:hover,
+  .g-nav .g-nav__link:active { color: var(--g-text); background: transparent; }
+  .g-nav .g-nav__link:hover .g-nav__ic { color: var(--g-text); opacity: 1; }
+  .g-nav .g-nav__link[aria-current="page"] { color: var(--g-accent); border-bottom-color: var(--g-accent); }
+  .g-nav .g-nav__link[aria-current="page"] .g-nav__ic { color: var(--g-accent); opacity: 1; }
+
+  /* The foot: settings on one row, the account on the next. Pinned to the
+     bottom of the sheet by margin-top: auto, where a thumb rests. */
+  .g-nav__foot {
+    display: grid; grid-template-columns: 1fr 1fr; gap: var(--g-space-2xs);
+    margin-top: auto; padding-top: var(--g-space-lg);
+  }
+  .g-nav__foot > * {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: var(--g-space-2xs); min-height: 3rem; width: 100%; margin: 0;
+    padding: 0 var(--g-space-sm);
+    font: inherit; font-size: var(--g-fs-body); font-weight: var(--g-w-medium);
+    line-height: 1; text-decoration: none; white-space: nowrap;
+    border-radius: var(--g-radius-pill);
+  }
+  /* Sign in is still a .g-nav__link and Join a .g-btn, and both rules outrank
+     the one above; pulled back to the foot's pill here, one height for all. */
+  .g-nav .g-nav__foot > .g-nav__link,
+  .g-nav .g-nav__foot > .g-btn {
+    height: 3rem; min-height: 3rem;
+    font-size: var(--g-fs-body); font-weight: var(--g-w-medium); letter-spacing: 0;
+    border-radius: var(--g-radius-pill); animation: none;
+  }
+  .g-nav .g-nav__foot > .g-nav__link { padding: 0 var(--g-space-sm); border: 1px solid var(--g-border); }
+  .g-nav__foot svg { width: 1.125rem; height: 1.125rem; flex: none; display: block; }
+  .g-nav__tool,
+  .g-nav__foot .gh-nav-signin {
     border: 1px solid var(--g-border); background: transparent; color: var(--g-text);
     cursor: pointer;
   }
-  /* Beats the width/height attributes on the inline SVG, so the three glyphs
-     carry the same optical weight and not just the same circle. */
-  .lp-menu-btn svg { width: var(--gh-control-icon); height: var(--gh-control-icon); }
-  .lp-menu-btn[aria-expanded="true"] { background: rgb(var(--g-tint) / 0.12); border-color: var(--g-border-strong); }
-
-  /* The dropdown panel lives entirely in CSS so nothing leaks back to desktop.
-     Only the .is-open class is toggled, no inline styles. */
-  .g-nav {
-    display: none;
-    position: absolute; top: calc(100% + 0.5rem); right: 0;
-    flex-direction: column; align-items: stretch; gap: 0;
-    min-width: 12rem;
-    background: var(--g-surface-raised);
-    border: 1px solid var(--g-hairline);
-    border-radius: var(--g-radius);
-    box-shadow: var(--g-shadow);
-    padding: var(--g-space-2xs);
-    z-index: var(--g-z-overlay);
-  }
-  .g-nav.is-open { display: flex; }
-  /* Row whitespace is set from the *ink*, not from the boxes. A mark's box is
-     20px but its drawing stops about 1.8px short on each side, so a 1rem inset
-     and a 0.5rem gap measured box-to-box actually read as 17.8px of air on the
-     left and 9.8px between the mark and its label — the mark ends up nearly
-     twice as far from the panel edge as from the word it belongs to, which is
-     why it looked stuck to the text. At 0.75rem each, both whitespaces come to
-     13.8px of ink-to-ink air, and the icon column separates cleanly. The label
-     lands at 44px, unchanged, so nothing else in the panel moves. */
-  .g-nav .g-nav__link {
-    padding: var(--g-space-2xs) var(--g-space-xs);
-    border-bottom: 0; border-radius: var(--g-radius-sm);
-    display: flex; align-items: center; gap: var(--g-space-xs);
-  }
-  /* The marks appear here and nowhere else in the header. On the desktop row
-     the nav is five words in a line, where an icon in front of each one turns
-     navigation into a toolbar; in a vertical panel the same marks are what
-     make the rows scannable at arm's length. Same markup, one display switch. */
-  /* Dimmed via --g-ic-dim, not --g-text-subtle: see that token's note. An icon
-     is several stroked paths, and a per-path alpha lights up every crossing. */
-  .g-nav .g-nav__ic { display: block; color: var(--g-ic-dim); opacity: var(--g-ic-dim-a); }
-  /* Sign in is the one mark whose drawing is not symmetric about the box: a
-     solid dot on one side, an open bracket on the other, so the centroid rule
-     that positions every mark leaves its *bounding box* 2.4 units left of
-     centre. On a plate that is right and invisible. In a fixed-width column it
-     is visible, because the eye aligns the drawings, not the boxes — the mark
-     sat 2px left of the other five and 2px further from its own label.
-
-     So in a row it is centred on its box instead. Whole pixels, deliberately:
-     a fractional margin puts a 1.7 stroke on a half-pixel grid and softens the
-     one mark it was meant to fix. This is a row-context correction only; on the
-     plate the mark keeps its centroid position. */
-  .g-nav .g-ic--signin { margin-left: 2px; }
-  .g-nav .g-nav__link:hover .g-nav__ic,
-  .g-nav .g-nav__link[aria-current="page"] .g-nav__ic { color: var(--g-accent); opacity: 1; }
-  /* Sign in used to be indented by hand to reach the text column the five
-     marked rows share. It has its own mark now, so the indent is gone and the
-     alignment comes from the same box the others use. */
-  .g-nav .g-nav__link:hover,
-  .g-nav .g-nav__link[aria-current="page"] {
-    background: rgb(var(--g-tint) / 0.1); color: var(--g-text);
+  .g-nav__tool:hover,
+  .g-nav__foot .gh-nav-signin:hover { background: rgb(var(--g-tint) / 0.08); color: var(--g-text); }
+  /* Reading order is set here, not by the DOM. site.js puts Saved before
+     Theme and Join before Sign in, so that when the first of a pair is absent
+     the second can take the whole row with a plain sibling selector: Saved
+     until production-bridge mounts its trigger, Join once a member is
+     signed in. */
+  .g-nav__foot .theme-toggle { order: 1; }
+  .g-nav__saved { order: 2; }
+  .g-nav__foot .gh-nav-signin { order: 3; }
+  .g-nav__foot .gh-nav-join { order: 4; }
+  .g-nav__foot > [hidden] { display: none; }
+  .g-nav__saved[hidden] + .theme-toggle,
+  .g-nav__foot .gh-nav-join.is-hidden + .gh-nav-signin { grid-column: 1 / -1; }
+  /* The theme proxy is a .theme-toggle, so it picks up the header circle's
+     fixed size and muted colour; undone here, keeping the moon/sun swap. */
+  .g-nav__foot .theme-toggle { width: 100%; height: auto; color: var(--g-text); }
+  .g-nav__saved b:empty { display: none; }
+  .g-nav__saved b {
+    min-width: 1.25rem; height: 1.25rem; padding: 0 0.35rem;
+    border-radius: var(--g-radius-pill);
+    background: var(--g-accent); color: var(--g-bg);
+    font-size: var(--g-fs-caption); font-weight: var(--g-w-semibold);
+    display: inline-flex; align-items: center; justify-content: center;
   }
 
-  /* Sign in leaves the header here and becomes a menu item. The hairline
-     above it separates account actions from navigation, which is the only
-     grouping the panel needs. */
-  .gh-actions .gh-signin { display: none; }
-  .gh-nav-signin { display: block; }
-  .g-nav__sep {
-    display: block; height: 1px; margin: var(--g-space-2xs) var(--g-space-3xs);
-    background: var(--g-hairline);
-  }
-
-  /* A phone header has room for the mark and two controls, no more. The gap
-     tightens with it so the logo keeps its full width down to 320px. */
   .g-header__inner { gap: var(--g-space-sm); }
-}
-
-@media (max-width: 400px) {
-  .gh-actions .lp-header__cta { display: none; }
-  /* Join Us drops out of the header and becomes the last row of the menu. It
-     stays a filled pill, because it is still the one loud control, but it stops
-     behaving like a standalone button: a full-width button centres its
-     contents, so its mark floated in the middle of the panel while the six
-     above it sat in a column at the left edge. That is one icon out of seven
-     out of line, and it is the first thing the eye finds.
-
-     So it is set to the menu's column rather than to its own centre. The rows
-     put their label at 0.75rem of padding + a 1.25rem mark + a 0.75rem gap =
-     2.75rem from the panel's content edge, and the button reproduces that.
-
-     Its padding and gap are restated rather than inherited: at --sm the button
-     is built on 1rem and 0.5rem, and it needs the rows' 0.75rem and 0.75rem.
-     Setting padding-inline outright also retires the optical lead-shift, which
-     exists to balance a *centred* label and is simply wrong for a flush one. */
-  .gh-nav-join { display: inline-flex; width: 100%; margin-top: var(--g-space-3xs);
-                 justify-content: flex-start; }
-  .g-nav .gh-nav-join { gap: var(--g-space-xs); }
-  .g-nav .gh-nav-join.g-btn--lead { padding-inline: var(--g-space-xs); }
-  .gh-nav-join .g-btn__icon { width: 1.25rem; height: 1.25rem; }
 }
 
 /* ---- Optical centring for buttons with a leading icon --------------------

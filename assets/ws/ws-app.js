@@ -32,8 +32,8 @@ import {
   WORKSPACES, availableWorkspaces, spaceOf,
 } from './ws-nav.js?v=20261009-copy1';
 import { renderDashboard, stopClock } from './ws-home.js?v=20261010-tasks1';
-import { renderSettings } from './ws-settings.js?v=20261008-operational2';
-import { mountPalette, openPalette } from './ws-palette.js?v=20261010-tasks1';
+import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261010-settings1';
+import { mountPalette, openPalette } from './ws-palette.js?v=20261010-notes1';
 import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-native3';
 import { installSelects } from './ws-select.js?v=20261008-operational2';
 
@@ -155,7 +155,7 @@ const ROUTES = [
   [/^\/workspace\/people\/?$/,                      () => ({ view: 'people' })],
   [/^\/workspace\/community\/?$/,                   () => ({ view: 'community' })],
   [/^\/workspace\/shared\/?$/,                      () => ({ view: 'shared' })],
-  [/^\/workspace\/settings\/?$/,                    () => ({ view: 'settings' })],
+  [/^\/workspace\/settings(?:\/([a-z-]+))?\/?$/,   (m) => ({ view: 'settings', section: settingsSection(m[1]).id })],
 
   [/^\/workspace\/page\/([^/]+)\/?$/,               (m) => ({ view: 'editor', pageId: m[1] })],
   [/^\/workspace\/folder\/([^/]+)\/?$/,             (m) => ({ view: 'folder', folderId: m[1] })],
@@ -214,8 +214,10 @@ function renderHandoff() {
 }
 
 function parse(path) {
+  // Routes name paths; a query (?day=, ?task=) is for the screen to read.
+  const bare = String(path).split(/[?#]/)[0];
   for (const [pattern, build] of ROUTES) {
-    const match = path.match(pattern);
+    const match = bare.match(pattern);
     if (match) return build(match);
   }
   return { view: 'home' };
@@ -424,6 +426,30 @@ function renderIndex() {
   const body = $('#ws-index-body');
   const foot = $('#ws-index-count');
   body.innerHTML = '';
+
+  /* Settings belongs to the account rather than to a workspace, so its
+     index is its own: the sections of the screen, each one a route. The
+     pane used to be hidden here and every form stacked in one column, which
+     put the password two screens below the picture and notifications below
+     that, with nothing on screen to say either was there. */
+  if (ui.route?.view === 'settings') {
+    title.textContent = 'Settings';
+    const list = document.createElement('div');
+    list.className = 'ws-tree';
+    for (const section of SETTINGS_SECTIONS) {
+      list.append(sectionRow({
+        label: section.label,
+        hint: section.hint,
+        mark: section.icon,
+        depth: 0,
+        active: ui.route.section === section.id,
+        onClick: () => go(section.path),
+      }));
+    }
+    body.append(list);
+    foot.textContent = P.platform.user?.email || '';
+    return;
+  }
 
   if (ui.area === 'home') {
     title.textContent = 'Workspaces';
@@ -699,6 +725,14 @@ function renderEditor(host) {
     return;
   }
 
+  // A day is written in Notes, the same Markdown note in Nextcloud whichever
+  // calendar opened it. An old link to a day page lands there.
+  const day = journalDateOf(ui.page);
+  if (day) {
+    go(dayNotePath(day), { replace: true });
+    return;
+  }
+
   const doc = document.createElement('article');
   doc.className = 'ws-doc';
 
@@ -731,20 +765,9 @@ function renderEditor(host) {
 
   const meta = document.createElement('p');
   meta.className = 'ws-doc__meta';
-  /* A day page's title already is its date, so the crumb ("Calendar / Fri, 9
-     Oct 2026") only repeated it. It says what the page is instead, and the
-     neighbouring days sit beside it so a week can be read without going back
-     to the calendar for every day. */
-  const day = journalDateOf(ui.page);
-  meta.textContent = day
-    ? `Journal · edited ${relative(ui.page.updated)}`
-    : `${crumbPath(ui.page.id).join(' / ')} · edited ${relative(ui.page.updated)}`;
+  meta.textContent = `${crumbPath(ui.page.id).join(' / ')} · edited ${relative(ui.page.updated)}`;
 
   head.append(title, meta);
-  if (day) {
-    head.classList.add('ws-doc__head--day');
-    head.append(dayNav(day));
-  }
   doc.append(head);
 
   /* Three groups, in the order a writer reaches for them: what to add, what
@@ -997,7 +1020,7 @@ function blockEl(block) {
     // The only block on the page carries the invitation to write; a hint on
     // every empty line of a longer page would be noise.
     if (tag === 'p' && ui.page.blocks.length === 1) {
-      node.dataset.placeholder = journalDateOf(ui.page) ? 'What happened today…' : 'Start writing…';
+      node.dataset.placeholder = 'Start writing…';
       node.toggleAttribute('data-empty', !block.text);
     }
     node.addEventListener('input', () => {
@@ -1454,13 +1477,13 @@ function renderDockInbox(body) {
 function renderDockJournal(body) {
   body.append(calendarEl());
 
-  const days = api.journalDays().sort().reverse();
+  const days = [...writtenDays()].sort().reverse();
   const heading = el('p', 'ws-pane__title', 'Written days');
   heading.style.cssText = 'padding:12px 12px 4px;border-top:1px solid var(--g-hairline);margin-top:8px';
   body.append(heading);
 
   if (!days.length) {
-    body.append(views.empty('No entries yet', 'Pick a day above to start its page. Days that have one are underlined.'));
+    body.append(views.empty('No day notes yet', 'Pick a day above to write its note. Days that have one are underlined.'));
     return;
   }
 
@@ -1470,7 +1493,7 @@ function renderDockJournal(body) {
     const date = new Date(day + 'T00:00:00');
     list.append(views.row({
       title: date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
-      onClick: () => go(`/workspace/page/${api.journalId(date)}`),
+      onClick: () => openDay(date),
     }));
   }
   body.append(list);
@@ -1497,14 +1520,19 @@ async function renderDockLinks(body) {
   body.append(list);
 }
 
-async function openDay(date) {
+/* Every calendar opens a day the same way: as that day's note in Notes,
+   which is Markdown in the reader's Nextcloud. There used to be a separate
+   day editor here with its own save path; a day clicked twice could become
+   two notes. Notes asks the server for the day, and the server answers with
+   the note that already exists. */
+function dayNotePath(date) {
+  return `/workspace/research/notes?day=${localDayKey(date)}`;
+}
+
+function openDay(date) {
   ui.selectedDay = date;
   ui.calMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-  const journal = await api.openJournal(date);
-  if (!ui.nodes.some((node) => node.id === journal.id)) {
-    ui.nodes.push({ id: journal.id, title: journal.title, kind: 'journal', parent: 'journal', phantom: false });
-  }
-  go(`/workspace/page/${journal.id}`);
+  go(dayNotePath(date));
 }
 
 /* The date a day page belongs to, or null for any other page. Server pages
@@ -1516,37 +1544,10 @@ function journalDateOf(page) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/* Yesterday and tomorrow in the page head, plus Today when the page is not
-   today's. The neighbours are named by date rather than "previous" and
-   "next", so the reader knows where a click lands before making it. */
-function dayNav(date) {
-  const nav = el('nav', 'ws-daynav');
-  nav.setAttribute('aria-label', 'Neighbouring days');
-  const short = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-  const step = (offset) => {
-    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
-    const btn = el('button', 'ws-btn ws-btn--sm ws-btn--ghost ws-daynav__step');
-    btn.type = 'button';
-    btn.setAttribute('aria-label', target.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }));
-    const mark = el('span', 'ws-daynav__chev');
-    mark.innerHTML = icon('chevron');
-    if (offset < 0) mark.style.transform = 'rotate(180deg)';
-    const label = el('span', null, short(target));
-    if (offset < 0) btn.append(mark, label); else btn.append(label, mark);
-    btn.addEventListener('click', () => openDay(target));
-    return btn;
-  };
-  nav.append(step(-1));
-  const now = new Date();
-  if (date.toDateString() !== now.toDateString()) {
-    const today = el('button', 'ws-btn ws-btn--sm ws-daynav__today', 'Today');
-    today.type = 'button';
-    today.addEventListener('click', () => openDay(new Date(now.getFullYear(), now.getMonth(), now.getDate())));
-    nav.append(today);
-  }
-  nav.append(step(1));
-  return nav;
-}
+// Days written this session, reported by Notes, so the calendar marks a new
+// day without waiting for the page index to be fetched again.
+const notedDays = new Set();
+const writtenDays = () => new Set([...api.journalDays(), ...notedDays]);
 
 /* Monday first. The workspace is used from Germany, where the week does not
    start on Sunday, and a calendar that disagrees with the wall is worse than
@@ -1579,7 +1580,7 @@ function calendarEl() {
   const month = ui.calMonth.getMonth();
   const lead = (new Date(year, month, 1).getDay() + 6) % 7;   // Monday first
   const start = new Date(year, month, 1 - lead);
-  const written = new Set(api.journalDays());
+  const written = writtenDays();
   const today = new Date().toDateString();
 
   for (let i = 0; i < 42; i += 1) {
@@ -1663,7 +1664,8 @@ function renderCrumbs() {
     // workspace in the trail here would claim these preferences are scoped
     // to it, and they are not.
     crumbs.push({ label: 'Home', path: '/workspace/my-work' });
-    crumbs.push({ label: 'Settings' });
+    crumbs.push({ label: 'Settings', path: '/workspace/settings' });
+    crumbs.push({ label: settingsSection(ui.route.section).label });
   } else if (ui.area === 'home') {
     crumbs.push({ label: 'Home' });
   } else {
@@ -1750,10 +1752,10 @@ function viewContext() {
     pagesOnServer: () => api.state.mode === 'server',
     pathOf: (id) => crumbPath(id).join(' / '),
     when: relative,
+    // Days open in Notes; the Research calendar only needs to know it went.
     openJournal: async (date) => {
-      const page = await api.openJournal(date);
-      if (page) go(`/workspace/page/${page.id}`);
-      return page;
+      openDay(date);
+      return { date: localDayKey(date) };
     },
 
     /* One creator for all three workspaces. It lands the page in the space
@@ -1801,7 +1803,7 @@ function paintPaneState() {
   const shell = $('#ws');
   if (!shell) return;
   shell.dataset.dock = ui.dock ? 'on' : 'off';
-  shell.dataset.index = ui.index && ui.route?.view !== 'settings' ? 'on' : 'off';
+  shell.dataset.index = ui.index ? 'on' : 'off';
   const indexToggle = $('#ws-toggle-index');
   const dockToggle = $('#ws-toggle-dock');
   if (indexToggle) indexToggle.setAttribute('aria-pressed', String(ui.index));
@@ -2145,6 +2147,17 @@ export async function start() {
     renderIndex();
   };
   addEventListener('ws:navigate', syncShellIndex);
+
+  // Notes reports the day it opened: the calendar shows it selected and marked.
+  addEventListener('ws:journal-day', (event) => {
+    const key = String(event.detail?.date || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
+    notedDays.add(key);
+    const date = new Date(key + 'T00:00:00');
+    ui.selectedDay = date;
+    ui.calMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    if (ui.dockTab === 'journal') renderDock();
+  });
 
   addEventListener('popstate', () => {
     // ws-five-layer owns these routes and also listens to popstate. Letting

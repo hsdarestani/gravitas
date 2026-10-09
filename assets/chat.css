@@ -9,7 +9,11 @@
    ========================================================================= */
 
 .gchat {
-  position: fixed; right: clamp(1rem, 3vw, 1.75rem); bottom: clamp(1rem, 3vw, 1.75rem);
+  --gchat-edge: clamp(1rem, 3vw, 1.75rem);
+  /* A page with its own bottom chrome (the workspace's status bar, or its
+     rail on a phone) sets --gchat-bottom to clear it; the panel's ceiling
+     below is computed from the same figure, so the two cannot disagree. */
+  position: fixed; right: var(--gchat-edge); bottom: var(--gchat-bottom, var(--gchat-edge));
   z-index: var(--g-z-overlay);
   font-family: var(--g-font); line-height: 0;
 }
@@ -89,8 +93,14 @@
   position: absolute; right: 0; bottom: 0;
   display: flex; flex-direction: column; line-height: var(--g-lh-body);
   width: min(23.5rem, calc(100vw - 2rem));
-  height: min(34rem, calc(100vh - 4rem));
-  height: min(34rem, calc(100dvh - 4rem));
+  /* The ceiling is the sticky header, not the top of the viewport. A flat
+     `100dvh - 4rem` put the panel's top 3rem down on a short phone screen,
+     inside a header 4.5rem tall, so the two drew over each other. Now the
+     panel stops a gap below the measured header (--g-header-h, site.css),
+     whatever the viewport. The fallback covers pages without site.css. */
+  --gchat-ceiling: calc(var(--g-header-h, 4.5rem) + var(--gchat-bottom, var(--gchat-edge)) + 0.75rem);
+  height: min(34rem, calc(100vh - var(--gchat-ceiling)));
+  height: min(34rem, calc(100dvh - var(--gchat-ceiling)));
   background: var(--g-surface-raised);
   border: 1px solid var(--g-border);
   border-radius: var(--g-radius-lg);

@@ -22,11 +22,11 @@
   }
   function apply(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    var btn = document.querySelector('.theme-toggle');
-    if (btn) {
+    // Every copy: the phone menu carries a second toggle (see mobile menu).
+    [].forEach.call(document.querySelectorAll('.theme-toggle'), function (btn) {
       btn.setAttribute('aria-pressed', String(theme === 'light'));
       btn.setAttribute('title', theme === 'light' ? 'Switch to dark' : 'Switch to light');
-    }
+    });
     // Canvases can't inherit a CSS colour, so the simulations listen for this
     // and re-read their palette. Without it the hero keeps painting white
     // lines on a cream page.
@@ -79,20 +79,99 @@
     applyDepth(b.dataset.depth);
   });
 
-  /* ---- mobile menu ----------------------------------------------------- */
+  /* ---- mobile menu -----------------------------------------------------
+     A full-screen sheet under the header, not a card floating off the
+     hamburger. The card had to share a phone header with four circled
+     controls (saved, theme, join, menu) and still read as an afterthought;
+     now the header row is the logo and one button, and everything else -
+     the five sections, theme, saved items, sign in, join - lives in the sheet.
+
+     The account controls are moved, not copied: production-bridge relabels
+     Sign in as Workspace and hides Join for members by finding them by class,
+     so there must stay exactly one of each. Theme and Saved are thin proxies
+     onto the real header controls, which keep owning their state. */
   var mb = document.querySelector('.lp-menu-btn');
   var nav = document.querySelector('.g-nav');
   if (mb && nav) {
+    var header = nav.closest('.g-header');
+    var actions = document.querySelector('.gh-actions');
+
+    mb.innerHTML =
+      '<svg class="gh-ic-burger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg>' +
+      '<svg class="gh-ic-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    mb.setAttribute('aria-controls', nav.id || (nav.id = 'g-nav'));
+
+    var foot = document.createElement('div');
+    foot.className = 'g-nav__foot';
+    var themeTool = null;
+    if (actions && actions.querySelector('.theme-toggle')) {
+      // A real .theme-toggle, so the delegated handler above flips it and
+      // apply() keeps its aria-pressed in step with the header's.
+      themeTool = document.createElement('button');
+      themeTool.type = 'button';
+      themeTool.className = 'theme-toggle g-nav__tool';
+      themeTool.setAttribute('aria-pressed', String(resolved() === 'light'));
+      themeTool.innerHTML = actions.querySelector('.theme-toggle').innerHTML + '<span>Theme</span>';
+    }
+    var savedTool = document.createElement('button');
+    savedTool.type = 'button';
+    savedTool.className = 'g-nav__tool g-nav__saved';
+    savedTool.hidden = true;  // until production-bridge mounts the drawer trigger
+    savedTool.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.75h12a1.25 1.25 0 0 1 1.25 1.25v15.25L12 15.9l-7.25 4.35V5A1.25 1.25 0 0 1 6 3.75Z"/></svg><span>Saved</span><b></b>';
+    // Each pair goes in absent-first (Saved before Theme, Join before Sign in)
+    // so the survivor can widen with a sibling selector; CSS restores the
+    // reading order.
+    foot.appendChild(savedTool);
+    if (themeTool) foot.appendChild(themeTool);
+    ['.gh-nav-join', '.gh-nav-signin'].forEach(function (sel) {
+      var el = nav.querySelector(sel);
+      if (el) foot.appendChild(el);
+    });
+    var sep = nav.querySelector('.g-nav__sep');
+    if (sep) sep.remove();
+    nav.appendChild(foot);
+
+    // The saved-items count used to sit on the header's bookmark button. That
+    // button is gone from a phone header, so a dot on the menu button carries
+    // "something new" and the number moves into the sheet.
+    var syncSaved = function () {
+      var trigger = actions && actions.querySelector('.rl-trigger');
+      savedTool.hidden = !trigger;
+      if (!trigger) return;
+      var fresh = trigger.dataset.rlEmpty === 'false';
+      var badge = trigger.querySelector('b');
+      savedTool.querySelector('b').textContent = fresh && badge ? badge.textContent : '';
+      savedTool.setAttribute('aria-label', trigger.getAttribute('aria-label') || 'Saved items');
+      mb.toggleAttribute('data-saved-new', fresh);
+    };
+    if (actions && window.MutationObserver) {
+      new MutationObserver(syncSaved).observe(actions, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-rl-empty'] });
+    }
+    syncSaved();
+
     var setMenu = function (open) {
+      var was = nav.classList.contains('is-open');
       nav.classList.toggle('is-open', open);
       mb.setAttribute('aria-expanded', String(open));
+      mb.setAttribute('aria-label', open ? 'Close menu' : 'Menu');
+      // The sheet lives inside the header's stacking context, which sits
+      // below the Pulsar widget; the header is lifted while open so the sheet
+      // is never drawn underneath an open chat panel (site.css).
+      if (header) header.classList.toggle('is-menu-open', open);
+      document.documentElement.classList.toggle('gh-menu-locked', open);
+      if (was && !open && nav.contains(document.activeElement)) mb.focus();
     };
     mb.addEventListener('click', function (e) { e.stopPropagation(); setMenu(!nav.classList.contains('is-open')); });
     nav.addEventListener('click', function (e) { if (e.target.closest('a')) setMenu(false); });
+    savedTool.addEventListener('click', function () {
+      var trigger = actions && actions.querySelector('.rl-trigger');
+      setMenu(false);
+      if (trigger) trigger.click();
+    });
     document.addEventListener('click', function (e) {
       if (nav.classList.contains('is-open') && !nav.contains(e.target) && !mb.contains(e.target)) setMenu(false);
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMenu(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && nav.classList.contains('is-open')) setMenu(false); });
     var mq = window.matchMedia('(min-width: 881px)');
     var onWide = function () { if (mq.matches) setMenu(false); };
     if (mq.addEventListener) mq.addEventListener('change', onWide);

@@ -8,6 +8,14 @@
    signed in on a borrowed machine should not be enough to lock the owner
    out. The picture is resized in the browser before it is sent, so what
    leaves is a 256px square rather than whatever came off a phone camera.
+
+   The screen is split into sections, each its own route under
+   /workspace/settings/, listed in the shell's index pane. It was one column
+   of five panels, and the reader who came to change a password had to
+   scroll past a profile form to find out whether the page could do it at
+   all. Splitting it also means each section loads only what it needs: an
+   account without research access used to get a failure for the whole
+   screen, theme switch included, because the profile request went first.
    ========================================================================== */
 
 import * as P from './ws-platform.js';
@@ -55,6 +63,34 @@ function note(text, tone) {
   return line;
 }
 
+/* An on/off setting: what it does on the left, the switch on the right.
+   The native checkbox stays in the DOM, visually hidden, with role=switch,
+   so keyboard and screen readers get a real control and the track is only
+   paint. The description is part of the label, so it is announced too. */
+function toggle(label, help, checked) {
+  const row = el('label', 'v-toggle');
+  const text = el('span', 'v-toggle__text');
+  text.append(el('span', 'v-toggle__label', label));
+  if (help) text.append(el('span', 'v-toggle__help', help));
+
+  const input = el('input', 'v-toggle__input');
+  input.type = 'checkbox';
+  input.setAttribute('role', 'switch');
+  input.checked = !!checked;
+
+  const track = el('span', 'v-toggle__track');
+  track.setAttribute('aria-hidden', 'true');
+
+  row.append(text, input, track);
+  row.input = input;
+  return row;
+}
+
+/* A short sentence under a panel's title saying what the panel is for. */
+function lede(text) {
+  return el('p', 'v-settings__lede', text);
+}
+
 /* ==========================================================================
    AVATAR
    ========================================================================== */
@@ -66,7 +102,7 @@ function note(text, tone) {
    they dismissed the dialog. */
 
 function avatarPanel(profile, onSaved) {
-  const box = panel('Profile picture');
+  const box = panel('Picture');
   const body = el('div', 'v-avatar-edit');
 
   const preview = el('div', 'v-avatar-lg');
@@ -101,7 +137,6 @@ function avatarPanel(profile, onSaved) {
   clear.hidden = !profile.avatar;
 
   const status = note('PNG, JPEG, WebP or GIF. You frame it here, and it is resized to a 256 pixel square before it is sent.');
-
   const save = async (uri) => {
     status.textContent = 'Saving…';
     status.dataset.tone = '';
@@ -193,22 +228,30 @@ const MESSAGES = {
    ========================================================================== */
 
 function profilePanel(profile, onSaved) {
-  const box = panel('Profile');
+  const box = panel('Details');
   const form = el('form', 'v-form');
 
   const headline = field({ label: 'Headline', value: profile.headline, help: 'One line. It appears beside your name in the research network.' });
-  const bio = field({ label: 'About', type: 'textarea', value: profile.bio });
-  const institution = field({ label: 'Institution', value: profile.institution });
-  const phone = field({ label: 'Mobile', value: profile.phone, help: 'Optional. You can add or update it at any time.' });
+  const bio = field({ label: 'About', type: 'textarea', value: profile.bio, help: 'A few sentences on what you work on.' });
+  const institution = field({ label: 'Institution', value: profile.institution, autocomplete: 'organization' });
+  const phone = field({ label: 'Mobile', value: profile.phone, help: 'Optional.' });
   phone.input.type = 'tel';
   phone.input.autocomplete = 'tel';
   const orcid = field({ label: 'ORCID', value: profile.orcid, help: 'Optional. The identifier only, not the full address.' });
+  orcid.input.placeholder = '0000-0000-0000-0000';
+  orcid.input.spellcheck = false;
 
-  const visible = el('label', 'v-check-row');
-  const box2 = el('input', 'ws-check');
-  box2.type = 'checkbox';
-  box2.checked = !!profile.is_public;
-  visible.append(box2, el('span', null, 'Show my profile in the research network'));
+  // Mobile and ORCID are short and both optional, so they share a row on
+  // a wide screen and stack on a narrow one.
+  const pair = el('div', 'v-field-pair');
+  pair.append(phone, orcid);
+
+  const visible = toggle(
+    'Show my profile in the research network',
+    'When this is off, other researchers cannot find your profile.',
+    profile.is_public,
+  );
+  const box2 = visible.input;
 
   const save = el('button', 'ws-btn ws-btn--solid', 'Save profile');
   save.type = 'submit';
@@ -242,7 +285,7 @@ function profilePanel(profile, onSaved) {
     }
   });
 
-  form.append(headline, bio, institution, phone, orcid, visible, foot(save, status));
+  form.append(headline, bio, institution, pair, visible, foot(save, status));
   box.body.append(form);
   return box;
 }
@@ -257,87 +300,44 @@ function foot(...nodes) {
    TASK NOTIFICATIONS
    ========================================================================== */
 
-function notificationToggle(label, checked) {
-  const row = el('label', 'v-check-row');
-  const input = el('input', 'ws-check');
-  input.type = 'checkbox';
-  input.checked = !!checked;
-  row.append(input, el('span', null, label));
-  row.input = input;
-  return row;
-}
-
-async function taskNotificationsPanel() {
-  const box = panel('Task notifications');
-  const body = el('div', 'v-form');
-  const status = note('Loading notification settings…');
-  body.append(status);
-  box.body.append(body);
+/* Two panels from one request: what to be told about and where, then the
+   Telegram link, which has a state of its own (connected, not connected,
+   not configured on the server) and actions that save immediately. Mixing
+   those immediate buttons into the form that waits for Save made it
+   unclear which clicks had already taken effect. */
+function notificationPanels() {
+  const holder = el('div', 'v-settings__stack');
+  skeleton(4, holder);
 
   const draw = async () => {
-    body.innerHTML = '';
     let data;
     try {
       data = await P.call('/task-notifications/settings/');
     } catch (err) {
-      body.append(note('Task notification settings could not be loaded.', 'bad'));
+      holder.innerHTML = '';
+      holder.append(failure('your notification settings', err, draw));
       return;
     }
+    holder.innerHTML = '';
 
     const settings = data.settings || {};
-    const email = notificationToggle('Email notifications', settings.email_enabled);
-    const telegram = notificationToggle('Telegram notifications', settings.telegram_enabled);
-    const changes = notificationToggle('Notify me when my tasks change', settings.task_changes_enabled);
-    const reminders = notificationToggle('Deadline reminders one day before and on the due date', settings.due_reminders_enabled);
 
-    body.append(
-      email,
-      telegram,
-      changes,
-      reminders,
-      el('p', 'v-field__help', 'Task changes are sent to the assigned person. Changes you make to your own task are not echoed back to you.')
-    );
+    /* ---- What and where ---- */
+    const prefs = panel('Task notifications');
+    const form = el('div', 'v-form');
 
-    const telegramBox = el('div', 'v-field');
-    telegramBox.append(el('span', 'v-field__label', 'Telegram connection'));
-    const tgStatus = settings.telegram_connected
-      ? ('Connected' + (settings.telegram_username ? ' as @' + settings.telegram_username : ''))
-      : settings.telegram_bot_configured
-        ? 'Not connected'
-        : 'Bot configuration is not active on the server yet';
-    telegramBox.append(el('p', 'v-note', tgStatus));
-
-    const telegramActions = el('div', 'v-form__foot');
-    if (!settings.telegram_connected && settings.telegram_connect_url) {
-      const connect = el('a', 'ws-btn ws-btn--solid', 'Connect Telegram');
-      connect.href = settings.telegram_connect_url;
-      connect.target = '_blank';
-      connect.rel = 'noopener';
-      telegramActions.append(connect);
-    }
-    if (settings.telegram_connected) {
-      const disconnect = el('button', 'ws-btn', 'Disconnect Telegram');
-      disconnect.type = 'button';
-      disconnect.addEventListener('click', async () => {
-        disconnect.disabled = true;
-        try {
-          await P.call('/task-notifications/settings/', {
-            method: 'PATCH',
-            body: { disconnect_telegram: true },
-          });
-          await draw();
-        } catch {
-          disconnect.disabled = false;
-        }
-      });
-      telegramActions.append(disconnect);
-    }
-    const refresh = el('button', 'ws-btn', 'Refresh status');
-    refresh.type = 'button';
-    refresh.addEventListener('click', draw);
-    telegramActions.append(refresh);
-    telegramBox.append(telegramActions);
-    body.append(telegramBox);
+    const changes = toggle('Changes to my tasks',
+      'When someone else edits a task assigned to you. Your own edits are not echoed back.',
+      settings.task_changes_enabled);
+    const reminders = toggle('Deadline reminders',
+      'One day before a task is due, and on the due date.',
+      settings.due_reminders_enabled);
+    const email = toggle('Email',
+      P.platform.user?.email ? 'Sent to ' + P.platform.user.email + '.' : 'Sent to your account address.',
+      settings.email_enabled);
+    const telegram = toggle('Telegram',
+      settings.telegram_connected ? 'Sent to your connected Telegram account.' : 'Connect Telegram below first.',
+      settings.telegram_enabled);
 
     const save = el('button', 'ws-btn ws-btn--solid', 'Save notification settings');
     save.type = 'button';
@@ -365,11 +365,69 @@ async function taskNotificationsPanel() {
         save.disabled = false;
       }
     });
-    body.append(foot(save, saveStatus));
+
+    form.append(
+      el('h3', 'v-settings__group', 'Notify me about'),
+      changes,
+      reminders,
+      el('h3', 'v-settings__group', 'Send them by'),
+      email,
+      telegram,
+      foot(save, saveStatus),
+    );
+    prefs.body.append(form);
+
+    /* ---- Telegram ---- */
+    const link = panel('Telegram');
+    const linkBody = el('div', 'v-form');
+    const state = settings.telegram_connected
+      ? ['ok', 'Connected' + (settings.telegram_username ? ' as @' + settings.telegram_username : '') + '.']
+      : settings.telegram_bot_configured
+        ? ['', 'Not connected.']
+        : ['warn', 'The Telegram bot is not set up on the server yet, so this cannot be connected.'];
+    linkBody.append(note(state[1], state[0]));
+
+    const actions = el('div', 'v-form__foot');
+    if (!settings.telegram_connected && settings.telegram_connect_url) {
+      const connect = el('a', 'ws-btn ws-btn--solid', 'Connect Telegram');
+      connect.href = settings.telegram_connect_url;
+      connect.target = '_blank';
+      connect.rel = 'noopener';
+      actions.append(connect);
+    }
+    if (settings.telegram_connected) {
+      const disconnect = el('button', 'ws-btn', 'Disconnect');
+      disconnect.type = 'button';
+      disconnect.addEventListener('click', async () => {
+        disconnect.disabled = true;
+        try {
+          await P.call('/task-notifications/settings/', {
+            method: 'PATCH',
+            body: { disconnect_telegram: true },
+          });
+          await draw();
+        } catch {
+          disconnect.disabled = false;
+        }
+      });
+      actions.append(disconnect);
+    }
+    const refresh = el('button', 'ws-btn', 'Check again');
+    refresh.type = 'button';
+    refresh.addEventListener('click', draw);
+    actions.append(refresh);
+    linkBody.append(actions);
+    if (!settings.telegram_connected && settings.telegram_connect_url) {
+      linkBody.append(el('p', 'v-field__help',
+        'Connecting opens Telegram in a new tab. Come back here and choose Check again once you have started the bot.'));
+    }
+    link.body.append(linkBody);
+
+    holder.append(prefs, link);
   };
 
-  await draw();
-  return box;
+  draw();
+  return holder;
 }
 
 /* ==========================================================================
@@ -440,23 +498,24 @@ function passwordPanel() {
    PREFERENCES
    These live in this browser rather than on the account, which is the honest
    place for them: they are about this screen, and there is no endpoint that
-   stores them.
+   stores them. Each panel says so, because a theme that does not follow the
+   reader to another machine is otherwise reported as a bug.
    ========================================================================== */
 
-function preferencesPanel(ctx) {
-  const box = panel('This browser');
+function themePanel(ctx) {
+  const box = panel('Theme');
   const form = el('div', 'v-form');
+  form.append(lede('Saved in this browser only.'));
 
-  // Theme
-  const theme = el('div', 'v-field');
-  theme.append(el('span', 'v-field__label', 'Theme'));
   const group = el('div', 'v-choices');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Theme');
+  const saved = (() => { try { return localStorage.getItem('gravitas-theme'); } catch { return null; } })();
+  const currently = saved || 'system';
   for (const [value, text] of [['dark', 'Dark'], ['light', 'Light'], ['system', 'Match the system']]) {
     const btn = el('button', 'v-choice', text);
     btn.type = 'button';
-    const saved = (() => { try { return localStorage.getItem('gravitas-theme'); } catch { return null; } })();
-    const currently = saved || 'system';
-    if (currently === value) btn.setAttribute('aria-pressed', 'true');
+    btn.setAttribute('aria-pressed', String(currently === value));
     btn.addEventListener('click', () => {
       try {
         if (value === 'system') localStorage.removeItem('gravitas-theme');
@@ -466,19 +525,25 @@ function preferencesPanel(ctx) {
         ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
         : value;
       document.documentElement.setAttribute('data-theme', resolved);
-      for (const other of group.children) other.removeAttribute('aria-pressed');
+      for (const other of group.children) other.setAttribute('aria-pressed', 'false');
       btn.setAttribute('aria-pressed', 'true');
       ctx.refreshTheme?.();
     });
     group.append(btn);
   }
-  theme.append(group);
-  form.append(theme);
+  form.append(group);
 
-  // Weather
+  box.body.append(form);
+  return box;
+}
+
+function weatherPanel() {
+  const box = panel('Weather on the dashboard');
+  const form = el('div', 'v-form');
+
   const place = el('div', 'v-field');
   const id = 'pref-place';
-  const tag = el('label', 'v-field__label', 'Weather on the dashboard');
+  const tag = el('label', 'v-field__label', 'City');
   tag.htmlFor = id;
 
   const select = el('select', 'v-input');
@@ -492,6 +557,8 @@ function preferencesPanel(ctx) {
     select.append(option);
   }
   select.value = weatherEnabled() ? weatherPlace() : 'off';
+
+  const status = note('');
   select.addEventListener('change', () => {
     try {
       if (select.value === 'off') {
@@ -500,13 +567,41 @@ function preferencesPanel(ctx) {
         localStorage.setItem('gravitas.ws.weather', 'on');
         localStorage.setItem('gravitas.ws.place', select.value);
       }
-    } catch { /* denied */ }
+      status.textContent = 'Saved in this browser.';
+      status.dataset.tone = 'ok';
+    } catch {
+      status.textContent = 'This browser is not letting the page store settings.';
+      status.dataset.tone = 'bad';
+    }
   });
 
   place.append(tag, select);
   place.append(el('p', 'v-field__help',
     'The forecast comes from Open-Meteo. It sends the coordinates of the chosen city and nothing else: no account, no page, no browser location prompt.'));
-  form.append(place);
+  form.append(place, status);
+
+  box.body.append(form);
+  return box;
+}
+
+/* ==========================================================================
+   SIGN OUT
+   ========================================================================== */
+
+function sessionPanel() {
+  const box = panel('Session');
+  const form = el('div', 'v-form');
+  const who = P.platform.user?.email;
+  form.append(note(who ? `Signed in as ${who}.` : 'Signed in.'));
+
+  const signOut = el('button', 'ws-btn', 'Sign out');
+  signOut.type = 'button';
+  signOut.addEventListener('click', async () => {
+    signOut.disabled = true;
+    try { await P.call('/auth/logout/', { method: 'POST' }); } catch { /* going anyway */ }
+    location.href = '/';
+  });
+  form.append(foot(signOut));
 
   box.body.append(form);
   return box;
@@ -516,43 +611,89 @@ function preferencesPanel(ctx) {
    THE SCREEN
    ========================================================================== */
 
+/* The sections, in the order the index lists them. The shell reads this
+   list to draw the index pane and the crumbs, and the router uses
+   settingsSection() to turn an unknown or missing segment into Profile
+   rather than into a blank screen. */
+export const SETTINGS_SECTIONS = [
+  {
+    id: 'profile', label: 'Profile', icon: 'people',
+    hint: 'Picture and public details',
+    lede: 'How you appear to other researchers in the research network.',
+  },
+  {
+    id: 'security', label: 'Security', icon: 'secure',
+    hint: 'Password and sign-out',
+    lede: 'Your password and this session.',
+  },
+  {
+    id: 'notifications', label: 'Notifications', icon: 'alert',
+    hint: 'Task updates, email, Telegram',
+    lede: 'What you are told about, and where it is sent.',
+  },
+  {
+    id: 'appearance', label: 'Appearance', icon: 'theme',
+    hint: 'Theme and dashboard weather',
+    lede: 'How the workspace looks in this browser.',
+  },
+].map((section) => ({ ...section, path: `/workspace/settings/${section.id}` }));
+
+export function settingsSection(id) {
+  return SETTINGS_SECTIONS.find((section) => section.id === id) || SETTINGS_SECTIONS[0];
+}
+
+/* On a narrow screen the index pane is closed by default, and a settings
+   screen whose only way to the other sections is a pane the reader may
+   not know to open is a dead end. The same list is drawn here as tabs;
+   CSS shows it only while the index pane is closed, so it never appears
+   twice. */
+function sectionTabs(active, go) {
+  const nav = el('nav', 'v-settings__tabs');
+  nav.setAttribute('aria-label', 'Settings sections');
+  for (const section of SETTINGS_SECTIONS) {
+    const link = el('a', 'v-settings__tab', section.label);
+    link.href = section.path;
+    if (section.id === active.id) link.setAttribute('aria-current', 'page');
+    link.addEventListener('click', (event) => { event.preventDefault(); go(section.path); });
+    nav.append(link);
+  }
+  return nav;
+}
+
 export function renderSettings(host, ctx) {
+  const section = settingsSection(location.pathname.split('/')[3]);
+
   host.innerHTML = '';
-  const doc = el('div', 'ws-doc ws-doc--narrow');
+  const doc = el('div', 'ws-doc ws-doc--narrow v-settings');
   const head = el('header', 'ws-doc__head');
-  head.append(el('h1', 'ws-doc__title', 'Settings'));
-  head.append(el('p', 'ws-doc__meta', P.platform.user?.email || ''));
-  doc.append(head);
+  head.append(el('h1', 'ws-doc__title', section.label));
+  head.append(el('p', 'ws-doc__meta', section.lede));
+  doc.append(sectionTabs(section, ctx.go), head);
   host.append(doc);
 
-  const holder = el('div');
+  const holder = el('div', 'v-settings__stack');
   doc.append(holder);
-  skeleton(6, holder);
 
-  const draw = async () => {
-    try {
-      const data = await P.myProfile();
-      holder.innerHTML = '';
-      const profile = data.profile || {};
-      holder.append(avatarPanel(profile, ctx.onProfileChange));
-      holder.append(profilePanel(profile, ctx.onProfileChange));
-      holder.append(passwordPanel());
-      holder.append(await taskNotificationsPanel());
-      holder.append(preferencesPanel(ctx));
-
-      const out = el('div', 'v-form__foot');
-      const signOut = el('button', 'ws-btn', 'Sign out');
-      signOut.type = 'button';
-      signOut.addEventListener('click', async () => {
-        try { await P.call('/auth/logout/', { method: 'POST' }); } catch { /* going anyway */ }
-        location.href = '/';
-      });
-      out.append(signOut);
-      holder.append(out);
-    } catch (err) {
-      holder.innerHTML = '';
-      holder.append(failure('your settings', err, draw));
-    }
-  };
-  draw();
+  if (section.id === 'profile') {
+    skeleton(6, holder);
+    const draw = async () => {
+      try {
+        const data = await P.myProfile();
+        holder.innerHTML = '';
+        const profile = data.profile || {};
+        holder.append(avatarPanel(profile, ctx.onProfileChange));
+        holder.append(profilePanel(profile, ctx.onProfileChange));
+      } catch (err) {
+        holder.innerHTML = '';
+        holder.append(failure('your profile', err, draw));
+      }
+    };
+    draw();
+  } else if (section.id === 'security') {
+    holder.append(passwordPanel(), sessionPanel());
+  } else if (section.id === 'notifications') {
+    holder.append(notificationPanels());
+  } else {
+    holder.append(themePanel(ctx), weatherPanel());
+  }
 }

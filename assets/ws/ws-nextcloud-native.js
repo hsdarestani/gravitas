@@ -1,6 +1,7 @@
 import * as P from './ws-platform.js?v=20261008-operational2';
 import * as K from './ws-admin-kit.js?v=20261008-operational2';
 import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261008-operational2';
+import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261010-notes1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {
@@ -257,12 +258,27 @@ async function renderMirrorAdmin(host, info) {
    - The Space index is a view of the main pane, opened from the sidebar.
      ws-space-integration.js fills it when it is opened, instead of walking
      every managed Markdown file in Nextcloud before the first note shows.
+
+   Then the notebook became the one place a researcher writes:
+   - A day picked on any calendar opens its note here (/notes?day=…), in the
+     Journal folder. There used to be a second editor for days, with its own
+     toolbar and its own save path, and a day clicked twice became two notes
+     that Nextcloud told apart as "… (2)". The server now finds a day's note
+     before making one, so whichever calendar opens it, it is the same file.
+   - Notes can be filed in folders. A folder is a Nextcloud Notes category
+     under Gravitas/Research, so it is a folder in the Notes app and in Files
+     too, and one made there shows up here. Folders exist while they hold a
+     note, as in Nextcloud; "New folder" therefore starts its first note.
+   - The list is a tree of titles. Three-line rows of "Empty note" made a
+     notebook of nine notes a long scroll; the preview now shows in search
+     results, where it decides which row to open.
    ------------------------------------------------------------------------- */
 
 const notebooks = new Map();
 const book = {
   info: null, root: null, data: null, items: [],
   mode: 'edit', query: '', view: 'note', refs: {}, editor: null,
+  naming: null, journalAll: false, collapsed: null,
 };
 
 const SYNC = {
@@ -278,6 +294,58 @@ const same = (a, b) => a != null && b != null && String(a) === String(b);
 const syncOf = (item) => SYNC[item?.sync_state || 'pending'] || [String(item?.sync_state), 'quiet'];
 const needsAttention = (item) => ['error', 'conflict', 'blocked'].includes(item?.sync_state);
 const stamp = (value) => Date.parse(value || '') || 0;
+
+/* ---- Days and folders ---------------------------------------------------- */
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+const JOURNAL_SHOWN = 7;
+const pad = (n) => String(n).padStart(2, '0');
+const dayKey = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const dayDate = (key) => new Date(`${key}T00:00:00`);
+const dayTitle = (key) => dayDate(key).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const dayShort = (key) => dayDate(key).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const shiftDay = (key, by) => {
+  const date = dayDate(key);
+  return dayKey(new Date(date.getFullYear(), date.getMonth(), date.getDate() + by));
+};
+const isJournal = (item) => item?.kind === 'journal' && DAY_KEY.test(item?.journal_date || '');
+const isOwn = (item) => !item?.project_id && item?.scope !== 'shared';
+// Mirrors clean_folder() in nextcloud_notes.py, so what is shown while the
+// request is in flight is what the server will store.
+const cleanFolder = (value) => String(value || '').replace(/\\/g, '/').split('/')
+  .map((part) => part.replace(/[\x00-\x1f]/g, '').trim().slice(0, 80).trim())
+  .filter((part) => part && part !== '.' && part !== '..')
+  .slice(0, 6)
+  .join('/');
+
+function allFolders() {
+  const paths = new Set();
+  for (const item of book.items) {
+    if (!isOwn(item) || isJournal(item)) continue;
+    const parts = cleanFolder(item.folder).split('/').filter(Boolean);
+    parts.forEach((_, index) => paths.add(parts.slice(0, index + 1).join('/')));
+  }
+  return [...paths].sort((a, b) => a.localeCompare(b));
+}
+
+/* Which groups are folded is remembered per space in this browser only. It
+   is a convenience; losing it costs one click. */
+function collapsedSet() {
+  if (book.collapsed) return book.collapsed;
+  let stored = [];
+  try { stored = JSON.parse(localStorage.getItem(`gq.notes.collapsed.${book.info.space}`) || '[]'); } catch { stored = []; }
+  book.collapsed = new Set(Array.isArray(stored) ? stored : []);
+  return book.collapsed;
+}
+function setCollapsed(key, folded) {
+  const set = collapsedSet();
+  if (folded) set.add(key);
+  else set.delete(key);
+  try { localStorage.setItem(`gq.notes.collapsed.${book.info.space}`, JSON.stringify([...set])); } catch { /* private window */ }
+}
+function revealFolder(path) {
+  const parts = cleanFolder(path).split('/').filter(Boolean);
+  parts.forEach((_, index) => setCollapsed(`f:${parts.slice(0, index + 1).join('/')}`, false));
+}
 
 function glyph(name) {
   const node = el('span', 'nb-glyph');
@@ -385,7 +453,8 @@ function failedNotebook(host, info, error) {
 function mountNotebook(host, info, state) {
   const { root, side, main } = frame(host, info);
   book.editor = null;
-  Object.assign(book, { info, root, data: state.data, items: state.items, view: 'note' });
+  if (book.info?.space !== info.space) book.collapsed = null;
+  Object.assign(book, { info, root, data: state.data, items: state.items, view: 'note', naming: null });
 
   const head = el('div', 'nb-side__head');
   const name = el('div', 'nb-side__name');
@@ -504,6 +573,9 @@ function applyData(data) {
   const local = busy ? book.items.find((item) => same(item.id, editor.id)) : null;
   const fresh = (Array.isArray(data.items) ? data.items : []).filter((item) => item.space === space);
   book.items = fresh.map((item) => (local && same(item.id, local.id) ? local : item));
+  // A note created while this list was in flight is not in it yet; the one
+  // being written stays in the list rather than vanishing until the next sync.
+  if (local && !fresh.some((item) => same(item.id, local.id))) book.items.unshift(local);
   book.data = data;
   remember();
   setStatus(data.available === false ? 'Nextcloud is unavailable. Notes save here and mirror later.' : syncSummary(data));
@@ -513,11 +585,18 @@ function applyData(data) {
   if (!editor || !selected || !same(selected.id, editor.id) || !editor.shows(selected)) drawMain();
 }
 
-function noteRow(item, active) {
-  const row = el('button', 'nb-row');
+/* A row is a title. In search results it also carries the first words and
+   where the note lives, because there the reader is choosing between rows
+   they cannot otherwise tell apart. */
+function noteRow(item, active, { full = false, depth = 0 } = {}) {
+  if (same(book.naming?.note, item.id)) return renameRow(item, depth);
+  const row = el('button', `nb-row${full ? ' nb-row--full' : ''}`);
   row.type = 'button';
+  row.dataset.id = item.id;
+  if (depth) row.style.setProperty('--depth', depth);
   if (active) row.setAttribute('aria-current', 'page');
   const top = el('span', 'nb-row__top');
+  top.append(glyph(isJournal(item) ? 'calendar' : 'notes'));
   const title = el('span', 'nb-row__title', String(item.title || '').trim() || 'Untitled');
   title.dir = 'auto';
   top.append(title);
@@ -529,67 +608,257 @@ function noteRow(item, active) {
     dot.setAttribute('aria-label', syncOf(item)[0]);
     top.append(dot);
   }
+  row.append(top);
   const preview = snippetOf(item);
-  const snippet = el('span', 'nb-row__snippet', preview || 'Empty note');
-  snippet.dir = 'auto';
-  if (!preview) snippet.dataset.empty = '';
-  const context = item.project_title
-    ? `${item.project_title} · `
-    : item.scope === 'shared' ? 'Shared · ' : 'Personal · ';
-  const when = el('span', 'nb-row__when', `${context}${ago(item.updated)}`);
-  when.title = item.project_title
-    ? `${item.project_title} · ${fullDate(item.updated)}`
-    : `${item.scope === 'shared' ? 'Shared' : 'Personal'} note · ${fullDate(item.updated)}`;
-  row.append(top, snippet, when);
+  const place = item.project_title || (item.scope === 'shared' ? 'Shared' : cleanFolder(item.folder) || (isJournal(item) ? 'Journal' : 'Notes'));
+  if (full) {
+    const snippet = el('span', 'nb-row__snippet', preview || 'Empty note');
+    snippet.dir = 'auto';
+    if (!preview) snippet.dataset.empty = '';
+    row.append(snippet, el('span', 'nb-row__when', `${place} · ${ago(item.updated)}`));
+  }
+  row.title = `${preview ? `${preview}\n\n` : ''}${place} · edited ${fullDate(item.updated)}`;
   row.addEventListener('click', () => choose(item.id));
-  return row;
+
+  // Only the reader's own notes can be filed; project notes live in their
+  // project and shared notes in someone else's notebook.
+  if (isOwn(item) && !isJournal(item) && item.can_edit !== false) {
+    row.draggable = true;
+    row.addEventListener('dragstart', (event) => {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/x-gravitas-note', String(item.id));
+      row.dataset.dragging = '';
+    });
+    row.addEventListener('dragend', () => delete row.dataset.dragging);
+  }
+
+  // Every row carries its own menu, shown when the row is pointed at, open
+  // or reached by keyboard, as in Nextcloud Notes and Notion.
+  const wrap = el('div', 'nb-item');
+  const more = iconButton('more', `Actions for ${String(item.title || '').trim() || 'Untitled'}`, (event) => {
+    event.stopPropagation();
+    openRowMenu(item, more);
+  }, 'nb-item__more');
+  more.setAttribute('aria-haspopup', 'menu');
+  wrap.append(row, more);
+  return wrap;
+}
+
+function dropTarget(node, folder) {
+  node.addEventListener('dragover', (event) => {
+    if (!event.dataTransfer.types.includes('text/x-gravitas-note')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    node.dataset.drop = '';
+  });
+  node.addEventListener('dragleave', () => delete node.dataset.drop);
+  node.addEventListener('drop', (event) => {
+    delete node.dataset.drop;
+    const id = event.dataTransfer.getData('text/x-gravitas-note');
+    if (!id) return;
+    event.preventDefault();
+    moveNote(id, folder);
+  });
+}
+
+/* A group in the sidebar: a header that folds it, an optional count and
+   actions, and its rows. Folding is remembered by `key`. */
+function section(label, key, { count = null, actions = [], folder = null } = {}) {
+  const wrap = el('section', 'nb-group');
+  const folded = collapsedSet().has(key);
+  const head = el('div', 'nb-group__head');
+  const toggle = el('button', 'nb-group__label');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', String(!folded));
+  toggle.append(glyph('chevron'), el('span', 'nb-group__name', label));
+  if (count != null) toggle.append(el('span', 'nb-group__count', String(count)));
+  toggle.addEventListener('click', () => { setCollapsed(key, !folded); drawList(); });
+  head.append(toggle, ...actions);
+  if (folder != null) dropTarget(head, folder);
+  const body = el('div', 'nb-group__body');
+  body.hidden = folded;
+  wrap.append(head, body);
+  book.refs.list.append(wrap);
+  return body;
+}
+
+function folderTree(items) {
+  const root = { name: '', path: '', folders: new Map(), notes: [] };
+  for (const item of items) {
+    let node = root;
+    for (const part of cleanFolder(item.folder).split('/').filter(Boolean)) {
+      const path = node.path ? `${node.path}/${part}` : part;
+      if (!node.folders.has(part)) node.folders.set(part, { name: part, path, folders: new Map(), notes: [] });
+      node = node.folders.get(part);
+    }
+    node.notes.push(item);
+  }
+  return root;
+}
+
+const treeCount = (node) => node.notes.length + [...node.folders.values()].reduce((sum, child) => sum + treeCount(child), 0);
+
+function folderEl(node, depth, selectedId) {
+  const key = `f:${node.path}`;
+  const folded = collapsedSet().has(key);
+  const wrap = el('div', 'nb-folder');
+  const head = el('div', 'nb-folder__head');
+  head.style.setProperty('--depth', depth);
+  if (book.naming?.rename === node.path) {
+    head.append(glyph('projects'), nameInput(node.name, (name) => renameFolder(node.path, name)));
+    wrap.append(head);
+    return wrap;
+  }
+  const toggle = el('button', 'nb-folder__toggle');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', String(!folded));
+  toggle.title = 'Double-click to rename';
+  const name = el('span', 'nb-folder__name', node.name);
+  name.dir = 'auto';
+  toggle.append(glyph('chevron'), glyph('projects'), name, el('span', 'nb-folder__count', String(treeCount(node))));
+  toggle.addEventListener('click', () => { setCollapsed(key, !folded); drawList(); });
+  toggle.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    book.naming = { rename: node.path };
+    drawList();
+  });
+  const add = iconButton('plus', `New note in ${node.name}`, (event) => {
+    event.stopPropagation();
+    createNote(add, { folder: node.path });
+  }, 'nb-folder__add');
+  head.append(toggle, add);
+  dropTarget(head, node.path);
+  wrap.append(head);
+  if (!folded) {
+    const kids = el('div', 'nb-folder__kids');
+    for (const child of [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name))) kids.append(folderEl(child, depth + 1, selectedId));
+    node.notes.forEach((item) => kids.append(noteRow(item, same(item.id, selectedId), { depth: depth + 1 })));
+    wrap.append(kids);
+  }
+  return wrap;
+}
+
+/* The one inline field the sidebar has: naming a new folder, or renaming
+   one. Enter keeps it, Escape or leaving the field drops it. */
+function nameInput(value, done) {
+  const input = el('input', 'nb-name');
+  // The list is redrawn when a background sync lands, which rebuilds this
+  // field. What was typed lives on book.naming so the new field keeps it.
+  const naming = book.naming;
+  input.value = naming?.draft ?? value;
+  input.placeholder = 'Folder name';
+  input.setAttribute('aria-label', 'Folder name');
+  let settled = false;
+  const finish = (keep) => {
+    if (settled) return;
+    settled = true;
+    book.naming = null;
+    const name = cleanFolder(input.value);
+    drawList();
+    if (keep && name) done(name);
+  };
+  input.addEventListener('input', () => { if (naming) naming.draft = input.value; });
+  input.addEventListener('keydown', (event) => {
+    if (event.isComposing) return;
+    if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+    if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+  });
+  // Losing focus keeps the name, unless the field lost it by being redrawn
+  // away: that is not the reader leaving, and must not submit half a name.
+  input.addEventListener('blur', () => { if (input.isConnected) finish(true); });
+  requestAnimationFrame(() => {
+    input.focus();
+    const end = input.value.length;
+    if (naming?.draft != null) input.setSelectionRange(end, end);
+    else input.select();
+  });
+  return input;
 }
 
 function drawList() {
   const { list } = book.refs;
   if (!list) return;
+  closeRowMenu();
   list.innerHTML = '';
   book.refs.index?.setAttribute('aria-pressed', String(book.view === 'index'));
-  if (!book.items.length) {
-    list.append(el('p', 'nb-list__empty', 'No notes yet. Start one with New.'));
-    return;
-  }
-  const query = book.query.trim().toLowerCase();
-  const sorted = [...book.items].sort((a, b) => stamp(b.updated) - stamp(a.updated));
-  const matches = query
-    ? sorted.filter((item) => `${item.title || ''}\n${item.content || ''}\n${item.project_title || ''}`.toLowerCase().includes(query))
-    : sorted;
-  if (!matches.length) {
-    list.append(el('p', 'nb-list__empty', `Nothing matches “${book.query.trim()}”.`));
-    return;
-  }
   const selectedId = book.view === 'note' ? selections.get(book.info.space) : null;
-  const group = (label, rows) => {
-    if (!rows.length) return;
-    const section = el('div', 'nb-group');
-    const heading = el('h2', 'nb-group__label', label);
-    heading.append(el('span', 'nb-group__count', String(rows.length)));
-    section.append(heading);
-    rows.forEach((item) => section.append(noteRow(item, same(item.id, selectedId))));
-    list.append(section);
-  };
-  group('Pinned', matches.filter((item) => item.favorite));
-  const ordinary = matches.filter((item) => !item.favorite);
+  const query = book.query.trim().toLowerCase();
+
   if (query) {
-    group('Results', ordinary);
+    const found = [...book.items]
+      .sort((a, b) => stamp(b.updated) - stamp(a.updated))
+      .filter((item) => `${item.title || ''}\n${item.content || ''}\n${item.project_title || ''}\n${item.folder || ''}`.toLowerCase().includes(query));
+    if (!found.length) {
+      list.append(el('p', 'nb-list__empty', `Nothing matches “${book.query.trim()}”.`));
+      return;
+    }
+    const body = section('Results', 's:results', { count: found.length });
+    found.forEach((item) => body.append(noteRow(item, same(item.id, selectedId), { full: true })));
     return;
   }
-  group('Personal', ordinary.filter((item) => !item.project_id && item.scope !== 'shared'));
-  group('Shared', ordinary.filter((item) => !item.project_id && item.scope === 'shared'));
+
+  const byRecent = (a, b) => stamp(b.updated) - stamp(a.updated);
+  const own = book.items.filter(isOwn);
+
+  const pinned = book.items.filter((item) => item.favorite).sort(byRecent);
+  if (pinned.length) {
+    const body = section('Pinned', 's:pinned', { count: pinned.length });
+    pinned.forEach((item) => body.append(noteRow(item, same(item.id, selectedId))));
+  }
+
+  // Journal: one note per day, newest day first, the last week in view.
+  const days = own.filter(isJournal).sort((a, b) => b.journal_date.localeCompare(a.journal_date));
+  const today = iconButton('calendar', 'Open today', () => openDay(dayKey(new Date())), 'nb-group__action');
+  const journal = section('Journal', 's:journal', { count: days.length || null, actions: [today] });
+  if (!days.length) {
+    journal.append(el('p', 'nb-list__hint', 'Pick a day on the calendar, or open today, to start a day note.'));
+  } else {
+    const shown = book.journalAll ? days : days.slice(0, JOURNAL_SHOWN);
+    shown.forEach((item) => journal.append(noteRow(item, same(item.id, selectedId))));
+    if (days.length > JOURNAL_SHOWN) {
+      const more = el('button', 'nb-list__more', book.journalAll ? 'Show fewer' : `Show all ${days.length} days`);
+      more.type = 'button';
+      more.addEventListener('click', () => { book.journalAll = !book.journalAll; drawList(); });
+      journal.append(more);
+    }
+  }
+
+  // Notes: the reader's own notes, filed in folders or loose at the root.
+  const filed = own.filter((item) => !isJournal(item)).sort(byRecent);
+  const newFolder = iconButton('projects', 'New folder', () => {
+    setCollapsed('s:notes', false);
+    book.naming = { create: true };
+    drawList();
+  }, 'nb-group__action');
+  const notes = section('Notes', 's:notes', { count: filed.length || null, actions: [newFolder], folder: '' });
+  if (book.naming?.create) {
+    const row = el('div', 'nb-folder__head nb-folder__head--new');
+    row.append(glyph('projects'), nameInput('', (name) => createNote(null, { folder: name })));
+    notes.append(row);
+  }
+  const tree = folderTree(filed);
+  for (const child of [...tree.folders.values()].sort((a, b) => a.name.localeCompare(b.name))) notes.append(folderEl(child, 0, selectedId));
+  tree.notes.forEach((item) => notes.append(noteRow(item, same(item.id, selectedId))));
+  if (!filed.length && !book.naming?.create) notes.append(el('p', 'nb-list__hint', 'No notes yet. Start one with New.'));
+
+  const shared = book.items.filter((item) => !item.project_id && item.scope === 'shared').sort(byRecent);
+  if (shared.length) {
+    const body = section('Shared with you', 's:shared', { count: shared.length });
+    shared.forEach((item) => body.append(noteRow(item, same(item.id, selectedId))));
+  }
+
   const projects = new Map();
-  ordinary.filter((item) => item.project_id).forEach((item) => {
+  book.items.filter((item) => item.project_id).sort(byRecent).forEach((item) => {
     const key = String(item.project_id);
-    if (!projects.has(key)) projects.set(key, { title: item.project_title || 'Project', items: [] });
+    if (!projects.has(key)) projects.set(key, { id: key, title: item.project_title || 'Project', items: [] });
     projects.get(key).items.push(item);
   });
   [...projects.values()]
     .sort((a, b) => a.title.localeCompare(b.title))
-    .forEach((project) => group(project.title, project.items));
+    .forEach((project) => {
+      const body = section(project.title, `p:${project.id}`, { count: project.items.length });
+      project.items.forEach((item) => body.append(noteRow(item, same(item.id, selectedId))));
+    });
 }
 
 function choose(id) {
@@ -598,40 +867,529 @@ function choose(id) {
   book.editor?.flush();
   selections.set(book.info.space, id);
   book.view = 'note';
+  const item = book.items.find((other) => same(other.id, id));
+  if (item?.folder) revealFolder(item.folder);
   drawList();
   drawMain();
+  book.refs.list?.querySelector('.nb-row[aria-current="page"]')?.scrollIntoView({ block: 'nearest' });
 }
 
-async function createNote(trigger) {
+/* Adds a note the server just returned and opens it. */
+function adopt(item, options) {
+  book.items = [item, ...book.items.filter((other) => !same(other.id, item.id))];
+  remember();
+  selections.set(book.info.space, item.id);
+  book.view = 'note';
+  book.mode = 'edit';
+  book.query = '';
+  if (book.refs.search) book.refs.search.value = '';
+  book.root.dataset.pane = 'note';
+  if (item.folder) revealFolder(item.folder);
+  drawList();
+  drawMain(options);
+}
+
+async function createNote(trigger, { folder = '' } = {}) {
   const { info } = book;
   if (trigger) trigger.disabled = true;
   book.editor?.flush();
   try {
-    const result = await P.call('/platform/nextcloud/notes/', {
-      method: 'POST',
-      body: { title: 'Untitled note', content: '', space: info.space },
-    });
+    const body = { title: 'Untitled note', content: '', space: info.space };
+    if (folder) {
+      body.folder = folder;
+      setStatus(`Creating ${folder}…`);
+    }
+    const result = await P.call('/platform/nextcloud/notes/', { method: 'POST', body });
     if (!book.root?.isConnected || book.info !== info) return;
     const item = result?.item;
     if (!item) {
       await refreshNotebook(info);
       return;
     }
-    book.items = [item, ...book.items.filter((other) => !same(other.id, item.id))];
-    remember();
-    selections.set(info.space, item.id);
-    book.view = 'note';
-    book.mode = 'edit';
-    book.query = '';
-    book.refs.search.value = '';
-    book.root.dataset.pane = 'note';
-    drawList();
-    drawMain({ fresh: true });
+    adopt(item, { fresh: true });
+    // A server from before folders answers without a folder field and files
+    // the note at the root. Say so, instead of leaving the reader to wonder
+    // where their folder went.
+    if (folder && !('folder' in item)) setStatus('Folders need the latest server update. The note was created without one.', 'warn');
+    else if (folder) setStatus(`Created ${cleanFolder(item.folder) || folder}`);
   } catch (error) {
     setStatus(error?.data?.detail || error?.message || 'The note could not be created.', 'bad');
+    drawList();
   } finally {
     if (trigger) trigger.disabled = false;
   }
+}
+
+/* A day's note: found in the list when it exists, otherwise asked for. The
+   server answers with the existing note when there is one, so two calendars
+   or two tabs opening the same day still land on one file. */
+async function openDay(key) {
+  if (!DAY_KEY.test(key || '') || !book.info) return;
+  const { info } = book;
+  const found = book.items.find((item) => isJournal(item) && isOwn(item) && item.journal_date === key);
+  announceDay(key);
+  if (found) {
+    if (book.query) { book.query = ''; book.refs.search.value = ''; }
+    choose(found.id);
+    return;
+  }
+  book.editor?.flush();
+  setStatus(`Opening ${dayTitle(key)}…`);
+  try {
+    const result = await P.call('/platform/nextcloud/notes/', {
+      method: 'POST',
+      body: { title: dayTitle(key), content: '', space: info.space, kind: 'journal', journal_date: key },
+    });
+    if (!book.root?.isConnected || book.info !== info || !result?.item) return;
+    setStatus(syncSummary(book.data));
+    adopt(result.item, { write: true });
+  } catch (error) {
+    setStatus(error?.data?.detail || error?.message || 'That day could not be opened.', 'bad');
+  }
+}
+
+/* ---- A note's own menu ----------------------------------------------------
+   Pinning, sharing, filing, renaming and deleting, from the list, without
+   opening the note first. One popover at a time, fixed to the viewport so the
+   list's scrolling cannot clip it; it closes on a click elsewhere, Escape, or
+   the list scrolling out from under it. */
+const pop = { node: null, anchor: null, cleanup: null };
+
+function closeRowMenu() {
+  pop.cleanup?.();
+  pop.node?.remove();
+  pop.anchor?.setAttribute('aria-expanded', 'false');
+  pop.anchor?.closest('.nb-item')?.removeAttribute('data-menu');
+  Object.assign(pop, { node: null, anchor: null, cleanup: null });
+}
+
+function popItem(icon, label, handler, { tone = '', note = '', look = '' } = {}) {
+  const item = el('button', 'nb-menu__item');
+  item.type = 'button';
+  item.setAttribute('role', 'menuitem');
+  const text = el('span', 'nb-menu__text', label);
+  item.append(glyph(icon), text);
+  if (note) item.append(el('span', 'nb-menu__note', note));
+  if (tone) item.dataset.tone = tone;
+  if (look) item.dataset.look = look;
+  item.addEventListener('click', () => handler(item, text));
+  return item;
+}
+
+function placePop(node, anchor) {
+  const box = anchor.getBoundingClientRect();
+  const width = node.offsetWidth;
+  const height = node.offsetHeight;
+  const left = Math.max(8, Math.min(box.right - width, innerWidth - width - 8));
+  const below = box.bottom + 4;
+  const top = below + height > innerHeight - 8 ? Math.max(8, box.top - height - 4) : below;
+  node.style.left = `${Math.round(left)}px`;
+  node.style.top = `${Math.round(top)}px`;
+}
+
+function openRowMenu(item, anchor) {
+  if (pop.anchor === anchor) { closeRowMenu(); return; }
+  closeRowMenu();
+  const node = el('div', 'nb-menu nb-pop');
+  node.setAttribute('role', 'menu');
+  book.root.append(node);
+  Object.assign(pop, { node, anchor });
+  anchor.setAttribute('aria-expanded', 'true');
+  anchor.closest('.nb-item')?.setAttribute('data-menu', '');
+  fillRowMenu(item, node);
+  placePop(node, anchor);
+  node.querySelector('button')?.focus();
+
+  const outside = (event) => { if (!node.contains(event.target) && event.target !== anchor && !anchor.contains(event.target)) closeRowMenu(); };
+  const keys = (event) => {
+    if (event.key === 'Escape') { event.stopPropagation(); closeRowMenu(); anchor.focus(); return; }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    const items = [...node.querySelectorAll('button')];
+    const at = items.indexOf(document.activeElement);
+    event.preventDefault();
+    items[(at + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+  };
+  const scrolled = () => closeRowMenu();
+  document.addEventListener('pointerdown', outside, true);
+  document.addEventListener('keydown', keys, true);
+  book.refs.list?.addEventListener('scroll', scrolled, { passive: true });
+  pop.cleanup = () => {
+    document.removeEventListener('pointerdown', outside, true);
+    document.removeEventListener('keydown', keys, true);
+    book.refs.list?.removeEventListener('scroll', scrolled);
+  };
+}
+
+function fillRowMenu(item, node) {
+  node.replaceChildren();
+  const editable = item.can_edit !== false && !item.readonly;
+  const own = isOwn(item);
+
+  node.append(popItem('star', item.favorite ? 'Remove from favorites' : 'Add to favorites', () => {
+    closeRowMenu();
+    setFavorite(item, !item.favorite);
+  }, { look: 'star' }));
+  if (own && editable) {
+    node.append(popItem('share', 'Share…', () => { closeRowMenu(); openShare(item); }));
+  }
+  // Where the note lives, as in Nextcloud; for a filable note it opens the
+  // folder list.
+  const where = [book.info.area, ...(item.project_title ? [item.project_title] : isJournal(item) ? ['Journal'] : cleanFolder(item.folder).split('/').filter(Boolean))].join(' / ');
+  const filable = own && editable && !isJournal(item);
+  const location = popItem('projects', where, () => { if (filable) folderList(item, node); }, { note: filable ? 'Move' : '' });
+  if (!filable) location.disabled = true;
+  node.append(location);
+  if (editable) {
+    node.append(popItem('notes', 'Rename', () => {
+      closeRowMenu();
+      startRename(item);
+    }));
+  }
+  if (item.native_url) {
+    node.append(popItem('external', 'Open in Nextcloud Notes', () => { closeRowMenu(); openNative(item.native_url); }));
+  }
+  if (editable) {
+    node.append(el('div', 'nb-menu__sep'));
+    let armed = false;
+    node.append(popItem('close', 'Delete note', async (button, text) => {
+      if (!armed) {
+        armed = true;
+        text.textContent = 'Delete from Gravitas and Nextcloud?';
+        return;
+      }
+      button.disabled = true;
+      await deleteNote(item, (message) => { text.textContent = message; button.disabled = false; armed = false; });
+    }, { tone: 'bad' }));
+  }
+}
+
+function folderList(item, node) {
+  const here = cleanFolder(item.folder);
+  node.replaceChildren(el('p', 'nb-menu__label', 'Move to'));
+  for (const path of ['', ...allFolders()]) {
+    const option = popItem(path ? 'projects' : 'notes', path ? path.split('/').join(' / ') : 'No folder', () => {
+      closeRowMenu();
+      moveNote(item.id, path);
+    });
+    if (path === here) option.setAttribute('aria-current', 'true');
+    node.append(option);
+  }
+  const field = el('input', 'nb-menu__input');
+  field.placeholder = 'New folder, e.g. Thesis/Chapter 1';
+  field.setAttribute('aria-label', 'New folder');
+  field.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    const path = cleanFolder(field.value);
+    if (!path) return;
+    closeRowMenu();
+    moveNote(item.id, path);
+  });
+  node.append(field);
+  placePop(node, pop.anchor);
+  (node.querySelector('[aria-current="true"]') || field).focus();
+}
+
+async function setFavorite(item, on) {
+  const before = !!item.favorite;
+  item.favorite = on;
+  drawList();
+  if (same(book.editor?.id, item.id)) book.editor.refresh();
+  try {
+    const result = await P.call(`/platform/nextcloud/notes/${item.id}/`, { method: 'PATCH', body: { favorite: on } });
+    Object.assign(item, result?.item || {});
+  } catch (error) {
+    item.favorite = before;
+    setStatus(error?.data?.detail || error?.message || 'Could not change favorites.', 'bad');
+  }
+  remember();
+  drawList();
+  if (same(book.editor?.id, item.id)) book.editor.refresh();
+}
+
+/* The open note is renamed in its own title, where the reader already is;
+   any other note in place in the list. */
+function startRename(item) {
+  if (same(book.editor?.id, item.id) && book.view === 'note') {
+    book.editor.focusTitle();
+    return;
+  }
+  book.naming = { note: item.id };
+  drawList();
+}
+
+function renameRow(item, depth) {
+  const row = el('div', 'nb-row nb-row--rename');
+  if (depth) row.style.setProperty('--depth', depth);
+  const top = el('span', 'nb-row__top');
+  const input = el('input', 'nb-name');
+  input.value = String(item.title || '').trim();
+  input.setAttribute('aria-label', 'Note title');
+  input.dir = 'auto';
+  let settled = false;
+  const finish = async (keep) => {
+    if (settled) return;
+    settled = true;
+    book.naming = null;
+    const title = input.value.trim().slice(0, 240);
+    if (!keep || !title || title === item.title) { drawList(); return; }
+    const before = item.title;
+    item.title = title;
+    drawList();
+    try {
+      const result = await P.call(`/platform/nextcloud/notes/${item.id}/`, { method: 'PATCH', body: { title } });
+      Object.assign(item, result?.item || {});
+    } catch (error) {
+      item.title = before;
+      setStatus(error?.data?.detail || error?.message || 'The note could not be renamed.', 'bad');
+    }
+    remember();
+    drawList();
+  };
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+    if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+  top.append(glyph(isJournal(item) ? 'calendar' : 'notes'), input);
+  row.append(top);
+  requestAnimationFrame(() => { input.focus(); input.select(); });
+  return row;
+}
+
+async function deleteNote(item, report) {
+  if (same(book.editor?.id, item.id)) book.editor.cancel();
+  try {
+    await P.call(`/platform/nextcloud/notes/${item.id}/`, { method: 'DELETE' });
+  } catch (error) {
+    report(error?.data?.detail || error?.message || 'Delete failed');
+    return;
+  }
+  closeRowMenu();
+  book.items = book.items.filter((other) => !same(other.id, item.id));
+  remember();
+  if (same(selections.get(book.info.space), item.id)) {
+    selections.delete(book.info.space);
+    const next = [...book.items].sort((a, b) => stamp(b.updated) - stamp(a.updated))[0];
+    if (next) selections.set(book.info.space, next.id);
+    book.editor = null;
+    drawMain();
+  }
+  drawList();
+  setStatus(`Deleted “${String(item.title || '').trim() || 'Untitled'}”`);
+}
+
+/* ---- Sharing ---------------------------------------------------------------
+   A note is shared with people, by email and role, through the same sharing
+   service as projects and files (/platform/share/, type "resource"). There
+   is no link sharing here: nothing serves a /shared/ page yet, and a link
+   that opens a 404 is worse than no link. */
+const SHARE_ROLES = [['view', 'Can view'], ['comment', 'Can comment'], ['edit', 'Can edit']];
+const SHARE_ERRORS = {
+  user_not_found: 'No Gravitas account uses that email.',
+  permission_denied: 'Only the note’s owner can share it.',
+  project_membership_required: 'That person has to be in the project first.',
+  cloud_acl_sync_failed: 'Nextcloud did not accept the change. Nothing was shared; try again.',
+};
+const shareError = (error) => SHARE_ERRORS[error?.data?.error] || error?.data?.detail || error?.data?.error || error?.message || 'Sharing failed.';
+
+function openShare(item) {
+  book.root.querySelector('.nb-dialog')?.remove();
+  const name = String(item.title || '').trim() || 'Untitled';
+  const shade = el('div', 'nb-dialog');
+  const box = el('section', 'nb-dialog__box');
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-modal', 'true');
+  box.setAttribute('aria-label', `Share ${name}`);
+  const head = el('header', 'nb-dialog__head');
+  const heading = el('h2', 'nb-dialog__title', `Share “${name}”`);
+  heading.dir = 'auto';
+  const close = iconButton('close', 'Close', () => done());
+  head.append(heading, close);
+
+  const form = el('form', 'nb-share__form');
+  const email = el('input', 'nb-share__email');
+  email.type = 'email';
+  email.required = true;
+  email.placeholder = 'Email of a Gravitas member';
+  email.setAttribute('aria-label', 'Email');
+  const role = el('select', 'nb-share__role');
+  role.setAttribute('aria-label', 'Role');
+  for (const [value, label] of SHARE_ROLES) role.append(new Option(label, value, value === 'edit', value === 'edit'));
+  const invite = el('button', 'ws-btn ws-btn--solid', 'Share');
+  invite.type = 'submit';
+  form.append(email, role, invite);
+
+  const message = el('p', 'nb-share__message');
+  message.setAttribute('role', 'status');
+  const people = el('div', 'nb-share__people');
+  box.append(head, form, message, el('p', 'nb-share__label', 'People with access'), people);
+  shade.append(box);
+  book.root.append(shade);
+  email.focus();
+
+  function done() {
+    shade.remove();
+    document.removeEventListener('keydown', onKey, true);
+  }
+  function onKey(event) {
+    if (event.key === 'Escape') { event.stopPropagation(); done(); }
+  }
+  document.addEventListener('keydown', onKey, true);
+  shade.addEventListener('mousedown', (event) => { if (event.target === shade) done(); });
+
+  async function load() {
+    people.replaceChildren(el('p', 'nb-share__empty', 'Loading…'));
+    let data;
+    try {
+      data = await P.call(`/platform/share/?type=resource&id=${encodeURIComponent(item.id)}`);
+    } catch (error) {
+      people.replaceChildren(el('p', 'nb-share__empty', shareError(error)));
+      return;
+    }
+    people.replaceChildren();
+    const owner = el('div', 'nb-share__person');
+    owner.append(el('span', 'nb-share__who', 'You'), el('span', 'nb-share__what', 'Owner'));
+    people.append(owner);
+    for (const grant of data.grants || []) {
+      const row = el('div', 'nb-share__person');
+      const who = el('span', 'nb-share__who');
+      who.append(el('strong', null, grant.name || grant.email), el('small', null, grant.email));
+      const label = SHARE_ROLES.find(([value]) => value === grant.role)?.[1] || grant.role;
+      const remove = el('button', 'ws-btn ws-btn--sm ws-btn--ghost', 'Remove');
+      remove.type = 'button';
+      remove.addEventListener('click', async () => {
+        remove.disabled = true;
+        try {
+          await P.call('/platform/share/', { method: 'POST', body: { type: 'resource', id: item.id, action: 'revoke', grant_id: grant.id } });
+          load();
+        } catch (error) {
+          message.textContent = shareError(error);
+          remove.disabled = false;
+        }
+      });
+      row.append(who, el('span', 'nb-share__what', label), remove);
+      people.append(row);
+    }
+    if (!(data.grants || []).length) people.append(el('p', 'nb-share__empty', 'Only you can open this note.'));
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const address = email.value.trim();
+    if (!address) return;
+    invite.disabled = true;
+    message.removeAttribute('data-tone');
+    message.textContent = '';
+    try {
+      await P.call('/platform/share/', { method: 'POST', body: { type: 'resource', id: item.id, action: 'grant', email: address, role: role.value } });
+      message.textContent = `Shared with ${address}.`;
+      email.value = '';
+      load();
+    } catch (error) {
+      message.dataset.tone = 'bad';
+      message.textContent = shareError(error);
+    } finally {
+      invite.disabled = false;
+    }
+  });
+
+  load();
+}
+
+/* Yesterday and tomorrow beside a day note, named by date so the reader knows
+   where a click lands, and Today when the note is not today's. */
+function dayNav(key) {
+  const nav = el('nav', 'nb-daynav');
+  nav.setAttribute('aria-label', 'Neighbouring days');
+  const step = (by) => {
+    const target = shiftDay(key, by);
+    const button = el('button', 'nb-daynav__step');
+    button.type = 'button';
+    button.setAttribute('aria-label', dayDate(target).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }));
+    const mark = glyph('chevron');
+    if (by < 0) mark.dataset.flip = '';
+    const label = el('span', null, dayShort(target));
+    if (by < 0) button.append(mark, label);
+    else button.append(label, mark);
+    button.addEventListener('click', () => openDay(target));
+    return button;
+  };
+  nav.append(step(-1));
+  const todayKey = dayKey(new Date());
+  if (key !== todayKey) {
+    const today = el('button', 'nb-daynav__today', 'Today');
+    today.type = 'button';
+    today.addEventListener('click', () => openDay(todayKey));
+    nav.append(today);
+  }
+  nav.append(step(1));
+  return nav;
+}
+
+/* Another screen asks for a note by URL: /notes?day=2026-10-11 from a
+   calendar, /notes?note=42 from a link. The query is taken off the address
+   at once so a reload shows the notebook rather than repeating the request. */
+function takeRequest() {
+  const params = new URLSearchParams(location.search);
+  const day = params.get('day');
+  const note = params.get('note');
+  if (!day && !note) return null;
+  history.replaceState(history.state, '', location.pathname + location.hash);
+  return { day: DAY_KEY.test(day || '') ? day : null, note };
+}
+
+function serveRequest(request) {
+  if (!request || !book.root?.isConnected) return;
+  if (request.day) openDay(request.day);
+  else if (request.note && book.items.some((item) => same(item.id, request.note))) choose(request.note);
+}
+
+// The dock calendar marks days that have a note; this tells it which day is
+// open and that it now has one.
+function announceDay(key) {
+  dispatchEvent(new CustomEvent('ws:journal-day', { detail: { date: key } }));
+}
+
+async function moveNote(id, folder) {
+  const item = book.items.find((other) => same(other.id, id));
+  const target = cleanFolder(folder);
+  if (!item || cleanFolder(item.folder) === target) return;
+  if (same(book.editor?.id, id)) book.editor.flush();
+  const before = item.folder;
+  item.folder = target;
+  if (target) revealFolder(target);
+  drawList();
+  try {
+    const result = await P.call(`/platform/nextcloud/notes/${item.id}/`, { method: 'PATCH', body: { folder: target } });
+    Object.assign(item, result?.item || {});
+    setStatus(target ? `Moved to ${target}` : 'Moved out of its folder');
+  } catch (error) {
+    item.folder = before;
+    setStatus(error?.data?.detail || error?.message || 'The note could not be moved.', 'bad');
+  }
+  remember();
+  drawList();
+  if (same(book.editor?.id, id)) book.editor.refresh();
+}
+
+async function renameFolder(path, name) {
+  const parent = path.split('/').slice(0, -1).join('/');
+  const next = cleanFolder(parent ? `${parent}/${name}` : name);
+  if (!next || next === path) { drawList(); return; }
+  const moved = book.items.filter((item) => isOwn(item) && (item.folder === path || String(item.folder || '').startsWith(`${path}/`)));
+  setStatus(`Renaming ${path}…`);
+  const results = await Promise.allSettled(moved.map((item) => {
+    const target = next + String(item.folder).slice(path.length);
+    return P.call(`/platform/nextcloud/notes/${item.id}/`, { method: 'PATCH', body: { folder: target } })
+      .then((result) => Object.assign(item, result?.item || { folder: target }));
+  }));
+  const failed = results.filter((result) => result.status === 'rejected').length;
+  setStatus(failed ? `${failed} of ${moved.length} notes could not be moved. Try again.` : `Renamed to ${next}`, failed ? 'bad' : '');
+  revealFolder(next);
+  remember();
+  drawList();
+  book.editor?.refresh();
 }
 
 function drawMain(options = {}) {
@@ -684,38 +1442,10 @@ function drawIndex(main) {
 }
 
 /* ---- Editing helpers -------------------------------------------------------
-   Every programmatic edit goes through insertText, so Ctrl+Z undoes a bold or
-   a continued list the way it undoes typing. Assigning .value would empty the
-   browser's undo stack, which in a writing surface is losing work. */
-function replaceRange(area, start, end, text, caret = null, caretEnd = caret) {
-  area.focus();
-  area.setSelectionRange(start, end);
-  let done = false;
-  try {
-    done = text ? document.execCommand('insertText', false, text) : document.execCommand('delete');
-  } catch {
-    done = false;
-  }
-  if (!done) {
-    area.setRangeText(text, start, end, 'end');
-    area.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-  if (caret != null) area.setSelectionRange(caret, caretEnd);
-}
-
-function wrapSelection(area, mark) {
-  const { selectionStart: s, selectionEnd: e, value } = area;
-  const chosen = value.slice(s, e);
-  const n = mark.length;
-  if (chosen.length >= 2 * n && chosen.startsWith(mark) && chosen.endsWith(mark)) {
-    replaceRange(area, s, e, chosen.slice(n, -n), s, e - 2 * n);
-  } else if (value.slice(s - n, s) === mark && value.slice(e, e + n) === mark) {
-    replaceRange(area, s - n, e + n, chosen, s - n, e - n);
-  } else {
-    replaceRange(area, s, e, `${mark}${chosen}${mark}`, s + n, e + n);
-  }
-}
-
+   replaceRange and wrapSelection live in ws-notes-commands.js with the block
+   menu and the selection toolbar, which use them too. Every programmatic edit
+   goes through insertText there, so Ctrl+Z undoes a bold or a continued list
+   the way it undoes typing. */
 const LIST_LINE = /^(\s*)([-*+]|\d+[.)])(\s+)(\[[ xX]\]\s+)?/;
 
 /* Enter on a list item starts the next one, numbered and unticked; Enter on
@@ -806,7 +1536,7 @@ function conflictBox(note, report) {
   return box;
 }
 
-function drawEditor(main, note, { fresh = false } = {}) {
+function drawEditor(main, note, { fresh = false, write = false } = {}) {
   const { info } = book;
   const locked = note.can_edit === false || !!note.readonly || note.sync_state === 'blocked';
 
@@ -820,7 +1550,16 @@ function drawEditor(main, note, { fresh = false } = {}) {
   const crumbs = el('div', 'nb-bar__crumbs');
   const here = el('span', 'nb-bar__here', String(note.title || '').trim() || 'Untitled');
   here.dir = 'auto';
-  crumbs.append(el('span', null, info.area), el('span', 'nb-bar__sep', '/'), here);
+  function drawCrumbs() {
+    const trail = [info.area];
+    if (note.project_title) trail.push(note.project_title);
+    else if (isJournal(note)) trail.push('Journal');
+    else trail.push(...cleanFolder(note.folder).split('/').filter(Boolean));
+    crumbs.replaceChildren();
+    for (const part of trail) crumbs.append(el('span', null, part), el('span', 'nb-bar__sep', '/'));
+    crumbs.append(here);
+  }
+  drawCrumbs();
   const saveState = el('span', 'nb-save');
   saveState.setAttribute('role', 'status');
   const modes = el('div', 'nb-modes');
@@ -858,7 +1597,9 @@ function drawEditor(main, note, { fresh = false } = {}) {
   const meta = el('div', 'nb-meta');
   const body = el('textarea', 'nb-body');
   body.value = note.content || '';
-  body.placeholder = 'Start writing. Markdown works: # heading, - list, - [ ] task, [[another note]], #tag, $E = mc^2$';
+  body.placeholder = isJournal(note)
+    ? 'What happened today? Type / for headings, lists, to-dos, tables and equations.'
+    : 'Write something. Type / for headings, lists, to-dos, tables and equations.';
   body.dir = 'auto';
   body.spellcheck = true;
   body.readOnly = locked;
@@ -871,8 +1612,10 @@ function drawEditor(main, note, { fresh = false } = {}) {
 
   const foot = el('footer', 'nb-foot');
   const counts = el('span', 'nb-foot__counts');
-  foot.append(counts, el('span', 'nb-foot__hint', 'Markdown · Ctrl+B bold · Ctrl+I italic · Ctrl+E read · Ctrl+S save'));
+  foot.append(counts, el('span', 'nb-foot__hint', '/ blocks · select text to format · Ctrl+K link · Ctrl+E read · Saved as Markdown in Nextcloud'));
   main.append(bar, scroll, foot);
+  // "+" and the grip sit beside each line of the page, not in the bar.
+  const commands = locked ? null : attachCommands(body, { scroller: scroll, gutterHost: page });
 
   /* ---- State and saving ---- */
   let timer = null;
@@ -896,8 +1639,10 @@ function drawEditor(main, note, { fresh = false } = {}) {
     edited.title = fullDate(note.updated);
     meta.append(pill, edited);
     if (note.project_title) meta.append(el('span', null, `Project · ${note.project_title}`));
-    else meta.append(el('span', null, note.scope === 'shared' ? `Shared · ${note.owner_name || 'Collaborator'}` : 'Personal'));
+    else if (note.scope === 'shared') meta.append(el('span', null, `Shared · ${note.owner_name || 'Collaborator'}`));
+    else if (!isJournal(note)) meta.append(el('span', null, cleanFolder(note.folder) ? `In ${cleanFolder(note.folder).replace(/\//g, ' / ')}` : 'Personal'));
     if (note.favorite) meta.append(el('span', null, 'Pinned'));
+    if (isJournal(note)) meta.append(dayNav(note.journal_date));
     star.disabled = locked;
     star.dataset.on = note.favorite ? '1' : '';
     star.setAttribute('aria-pressed', String(!!note.favorite));
@@ -996,6 +1741,7 @@ function drawEditor(main, note, { fresh = false } = {}) {
     editMode.setAttribute('aria-pressed', String(mode === 'edit'));
     readMode.setAttribute('aria-pressed', String(mode === 'read'));
     if (mode === 'read') {
+      commands?.close();
       reader.replaceChildren(body.value.trim()
         ? renderNoteMarkdown(body.value, hooks)
         : el('p', 'nb-reader__empty', 'Nothing written yet.'));
@@ -1029,6 +1775,7 @@ function drawEditor(main, note, { fresh = false } = {}) {
   }
   more.addEventListener('click', () => {
     if (!menu.hidden) { closeMenu(); return; }
+    menu.replaceChildren(...baseItems);
     menu.hidden = false;
     more.setAttribute('aria-expanded', 'true');
     document.addEventListener('pointerdown', outside, true);
@@ -1049,6 +1796,9 @@ function drawEditor(main, note, { fresh = false } = {}) {
       closeMenu();
       openNative(note.native_url);
     }));
+  }
+  if (!locked && isOwn(note)) {
+    menu.append(menuItem('share', 'Share…', () => { closeMenu(); openShare(note); }));
   }
   menu.append(menuItem('notes', 'Copy as Markdown', async () => {
     closeMenu();
@@ -1091,7 +1841,39 @@ function drawEditor(main, note, { fresh = false } = {}) {
     }
   });
   remove.dataset.tone = 'bad';
+  /* Filing: the menu turns into the list of folders, with a field for a new
+     one at the bottom. Day notes stay in the Journal and project notes in
+     their project, so neither offers it. */
+  if (!locked && isOwn(note) && !isJournal(note)) {
+    menu.append(menuItem('projects', 'Move to folder…', () => {
+      const here = cleanFolder(note.folder);
+      const options = ['', ...allFolders()];
+      menu.replaceChildren(el('p', 'nb-menu__label', 'Move to'));
+      for (const path of options) {
+        const item = menuItem(path ? 'projects' : 'notes', path ? path.split('/').join(' / ') : 'No folder', () => {
+          closeMenu();
+          moveNote(note.id, path);
+        });
+        if (path === here) item.setAttribute('aria-current', 'true');
+        menu.append(item);
+      }
+      const field = el('input', 'nb-menu__input');
+      field.placeholder = 'New folder, e.g. Thesis/Chapter 1';
+      field.setAttribute('aria-label', 'New folder');
+      field.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        const path = cleanFolder(field.value);
+        if (!path) return;
+        closeMenu();
+        moveNote(note.id, path);
+      });
+      menu.append(field);
+      (menu.querySelector('[aria-current="true"]') || field).focus();
+    }));
+  }
   if (!locked) menu.append(remove);
+  const baseItems = [...menu.children];
 
   star.addEventListener('click', () => {
     note.favorite = !note.favorite;
@@ -1152,7 +1934,15 @@ function drawEditor(main, note, { fresh = false } = {}) {
     focused: () => page.contains(document.activeElement),
     shows: (item) => item.title === title.value && (item.content || '') === body.value && item.sync_state === shownState && !!item.favorite === !!note.favorite,
     flush,
-    destroy: () => resize.disconnect(),
+    // A note deleted from the list must not be saved again by this editor.
+    focusTitle: () => {
+      if (page.dataset.mode === 'read') setMode('edit');
+      title.focus();
+      title.select();
+    },
+    cancel: () => { clearTimeout(timer); timer = null; dirty = false; queued = false; },
+    destroy: () => { resize.disconnect(); commands?.destroy(); },
+    refresh: () => { drawCrumbs(); drawMeta(); },
     toggleMode: () => {
       setMode(page.dataset.mode === 'read' ? 'edit' : 'read');
       if (page.dataset.mode === 'edit') body.focus();
@@ -1168,6 +1958,9 @@ function drawEditor(main, note, { fresh = false } = {}) {
     if (fresh) {
       title.focus();
       title.select();
+    } else if (write && !locked) {
+      body.focus();
+      body.setSelectionRange(body.value.length, body.value.length);
     }
   });
 }
@@ -1178,16 +1971,24 @@ async function renderNativeNotes(host, info) {
     return;
   }
 
-  // Already showing this notebook (a background sync asked for a repaint):
-  // update it in place rather than tearing down the note being written.
+  const request = takeRequest();
+
+  // Already showing this notebook (a background sync asked for a repaint, or
+  // the calendar asked for a day): update it in place rather than tearing
+  // down the note being written.
   if (book.root?.isConnected && host.contains(book.root) && book.info?.space === info.space) {
+    serveRequest(request);
     await refreshNotebook(info);
     return;
   }
 
   const cached = notebooks.get(info.space);
-  if (cached) mountNotebook(host, info, cached);
-  else loadingNotebook(host, info);
+  if (cached) {
+    mountNotebook(host, info, cached);
+    serveRequest(request);
+  } else {
+    loadingNotebook(host, info);
+  }
 
   let data;
   try {
@@ -1205,6 +2006,7 @@ async function renderNativeNotes(host, info) {
   const items = (Array.isArray(data.items) ? data.items : []).filter((item) => item.space === info.space);
   notebooks.set(info.space, { data, items });
   mountNotebook(host, info, { data, items });
+  serveRequest(request);
 }
 
 function schedule() {

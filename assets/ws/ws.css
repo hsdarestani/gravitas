@@ -956,8 +956,81 @@
    use. The one thing the workspace changes is the height of that corner: the
    status bar runs along the bottom here, and the launcher sits above it rather
    than on it. Unlayered on purpose, since chat.css is unlayered and a layered
-   rule loses to it whatever its specificity. */
-body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25rem)); }
+   rule loses to it whatever its specificity.
+
+   Below 640px the status bar is gone and the rail is the bottom bar, at a
+   z-index above the widget's, because it is the phone's navigation. The
+   offset used to keep naming the status bar there, so the launcher sat on the
+   rail and the open panel slid under it. Both edges come from the measured
+   chrome now: the floor is the rail, the ceiling is the topbar (chat.css
+   reads --g-header-h, which the public header sets and the workspace has to
+   set for itself). */
+body .gchat {
+  --g-header-h: var(--ws-topbar-h, 48px);
+  --gchat-bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25rem));
+}
+@media (max-width: 640px) {
+  body .gchat { --gchat-bottom: calc(var(--ws-rail-h, 52px) + var(--ws-safe-b, 0px) + 0.75rem); }
+}
+
+/* ---- The phone tab bar ----------------------------------------------------
+   Below 640px the rail is the bottom bar, and it used to be the desktop rail
+   turned sideways: bare marks bunched in the middle, a standing rule between
+   them, and a 2px dash over the current one. Four line drawings and an
+   avatar with no words gave a first-time reader nothing to go on, and the
+   dash was too small to find at arm's length.
+
+   Now it is a tab bar. The items share the width, each with its name under
+   its mark, and the current one has a filled pill behind the mark. The names
+   come from aria-label through attr(), so the two scripts that build the
+   rail (ws-app.js first paint, ws-five-layer.js after bootstrap) needed no
+   change and cannot drift from what a screen reader says. The bar is taller
+   to hold the names; --ws-rail-h is the one figure everything that clears
+   the rail reads, Pulsar included.
+
+   Unlayered, like the Pulsar rule above, because ws-unified-design.css sets
+   the rail buttons round and unlayered, which beats any layered rule. */
+@media (max-width: 640px) {
+  :root { --ws-rail-h: 64px; }
+  .ws .ws-rail {
+    justify-content: space-around;
+    gap: 0;
+    background: rgb(var(--g-chrome) / 0.92);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
+  .ws .ws-rail__rule { display: none; }
+  .ws .ws-rail .ws-rail__btn {
+    flex: 1 1 0; max-width: 96px; min-width: 60px;
+    width: auto; height: var(--ws-rail-h);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    border-radius: 0; background: transparent; opacity: 1;
+    color: var(--g-text-muted);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ws .ws-rail .ws-rail__btn:hover { background: transparent; }
+  .ws .ws-rail .ws-rail__btn > svg,
+  .ws .ws-rail .ws-rail__btn > img,
+  .ws .ws-rail .ws-rail__btn > .ws-rail__initial { position: relative; z-index: 1; width: 22px; height: 22px; flex: none; }
+  .ws .ws-rail .ws-rail__btn::after {
+    content: attr(aria-label);
+    font-family: var(--g-font); font-size: 11px; line-height: 1; font-weight: var(--g-w-medium);
+    letter-spacing: 0.01em; white-space: nowrap;
+  }
+  .ws .ws-rail .ws-rail__btn[aria-current="page"] { color: var(--g-text); }
+  .ws .ws-rail .ws-rail__btn[aria-current="page"]::after { font-weight: var(--g-w-semibold); }
+  /* The pill sits behind the mark only, not the whole item: a fill under the
+     label as well would turn the current tab into a button, and it is the
+     one item on the bar that is not waiting to be pressed. */
+  .ws .ws-rail .ws-rail__btn[aria-current="page"]::before {
+    top: calc(50% - 22.5px); left: 50%; bottom: auto; transform: translateX(-50%);
+    width: 52px; height: 30px; border-radius: var(--g-radius-pill);
+    background: rgb(var(--g-tint) / 0.14);
+  }
+  .ws .ws-rail .ws-rail__btn--account { overflow: visible; }
+  @media (prefers-reduced-motion: no-preference) {
+    .ws .ws-rail .ws-rail__btn::before { transition: background-color var(--g-dur-fast) var(--ws-ease); }
+  }
+}
 
 /* ==========================================================================
    8. STATE VIEWS
@@ -1838,6 +1911,103 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
   .v-choice[aria-pressed="true"] { background: var(--g-solid-bg); color: var(--g-solid-fg); }
   @media (hover: hover) and (pointer: fine) {
     .v-choice:not([aria-pressed="true"]):hover { color: var(--g-text); background: var(--g-surface-hover); }
+  }
+
+  /* ---- Settings ---------------------------------------------------------- */
+  /* One section per screen, its panels stacked with even spacing. The gap
+     replaces the panel's own bottom margin so the last panel does not leave
+     a stray band above the page foot. */
+  .v-settings__stack { display: flex; flex-direction: column; gap: var(--g-space-md); }
+  .v-settings__stack > .v-panel,
+  .v-settings__stack > .v-settings__stack > .v-panel { margin: 0; }
+
+  .v-settings__lede { margin: 0; font-size: var(--ws-fs-sm); color: var(--g-text-subtle); line-height: 1.5; }
+
+  /* A group heading inside a form: quieter than a panel title, with room
+     above it so each group reads as its own block. */
+  .v-settings__group {
+    margin: 6px 0 -4px;
+    font-size: var(--ws-fs-xs); font-weight: var(--g-w-medium);
+    color: var(--g-text-subtle); letter-spacing: 0.02em;
+  }
+  .v-settings__group:first-child { margin-top: 0; }
+
+  /* Tabs for the sections, shown only while the index pane is closed —
+     the pane carries the same list, and two copies on one screen is one
+     too many. Scrolls sideways rather than wrapping on a phone. */
+  .v-settings__tabs {
+    display: flex; gap: 2px;
+    margin: 0 0 var(--g-space-md);
+    padding: 2px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-control);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .v-settings__tabs::-webkit-scrollbar { display: none; }
+  .ws[data-index="on"] .v-settings__tabs { display: none; }
+  .v-settings__tab {
+    flex: 1 0 auto;
+    padding: 6px 12px;
+    border-radius: 4px;
+    color: var(--g-text-muted); text-decoration: none; text-align: center;
+    font-size: var(--ws-fs-sm); white-space: nowrap;
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                color var(--g-dur-fast) var(--ws-ease);
+  }
+  .v-settings__tab[aria-current="page"] { background: var(--g-solid-bg); color: var(--g-solid-fg); }
+  @media (hover: hover) and (pointer: fine) {
+    .v-settings__tab:not([aria-current="page"]):hover { color: var(--g-text); background: var(--g-surface-hover); }
+  }
+
+  /* Two short fields side by side; one column below 520px. */
+  .v-field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 520px) { .v-field-pair { grid-template-columns: minmax(0, 1fr); } }
+
+  /* On/off row. The checkbox is visually hidden but still the control;
+     the track is drawn from its state with the sibling selector. */
+  .v-toggle {
+    position: relative;
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--g-hairline);
+    border-radius: var(--ws-r-control);
+    cursor: pointer;
+    transition: border-color var(--g-dur-fast) var(--ws-ease);
+  }
+  .v-toggle + .v-toggle { margin-top: -6px; }
+  @media (hover: hover) and (pointer: fine) {
+    .v-toggle:hover { border-color: var(--g-border); }
+  }
+  .v-toggle__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .v-toggle__label { font-size: var(--ws-fs); color: var(--g-text); }
+  .v-toggle__help { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); line-height: 1.45; }
+  .v-toggle__input {
+    position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0;
+    pointer-events: none;
+  }
+  .v-toggle__track {
+    position: relative; flex: 0 0 34px;
+    width: 34px; height: 20px;
+    border-radius: var(--g-radius-pill);
+    background: var(--g-surface-sunken);
+    border: 1px solid var(--g-border);
+    transition: background-color var(--g-dur-fast) var(--ws-ease),
+                border-color var(--g-dur-fast) var(--ws-ease);
+  }
+  .v-toggle__track::after {
+    content: '';
+    position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--g-text-muted);
+    transition: transform var(--g-dur-fast) var(--ws-ease),
+                background-color var(--g-dur-fast) var(--ws-ease);
+  }
+  .v-toggle__input:checked + .v-toggle__track { background: var(--g-accent); border-color: var(--g-accent); }
+  .v-toggle__input:checked + .v-toggle__track::after { transform: translateX(14px); background: var(--g-solid-fg); }
+  .v-toggle__input:focus-visible + .v-toggle__track { outline: 2px solid var(--g-accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    .v-toggle__track, .v-toggle__track::after { transition: none; }
   }
 
   /* ---- Avatar ------------------------------------------------------------ */
@@ -3686,20 +3856,6 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
     content: attr(data-placeholder);
     position: absolute; top: 0; left: 0;
     color: var(--g-text-subtle); pointer-events: none;
-  }
-
-  .ws-doc__head--day {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: 16px; align-items: center;
-  }
-  .ws-doc__head--day > .ws-doc__title,
-  .ws-doc__head--day > .ws-doc__meta { grid-column: 1; }
-  .ws-doc__head--day > .ws-daynav { grid-column: 2; grid-row: 1 / span 2; }
-  .ws-daynav { display: flex; align-items: center; gap: 4px; }
-  .ws-daynav__chev { display: inline-flex; }
-  @media (max-width: 640px) {
-    .ws-doc__head--day { grid-template-columns: minmax(0, 1fr); }
-    .ws-doc__head--day > .ws-daynav { grid-column: 1; grid-row: auto; margin-top: 10px; margin-left: -9px; }
   }
 
   .ws-inbox__clear {
