@@ -13,8 +13,8 @@
 
 import * as P from './ws-platform.js?v=20261008-operational2';
 import * as C from './ws-charts.js?v=20261008-operational2';
-import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261009-tree1';
-import { availableWorkspaces } from './ws-nav.js?v=20261009-report1';
+import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261009-copy1';
+import { availableWorkspaces } from './ws-nav.js?v=20261009-copy1';
 import * as K from './ws-kms.js';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
@@ -841,7 +841,7 @@ function renderResearchIntelligence(host) {
   const metrics = el('div', 'ri__metrics');
   metrics.append(
     intelligenceMetric(0, 'Funding calls', 0),
-    intelligenceMetric(0, 'Papers & tools', 1),
+    intelligenceMetric(0, 'Papers & Tools', 1),
     intelligenceMetric(0, 'AI developments', 2),
     intelligenceMetric(0, 'History events', 3),
   );
@@ -1047,7 +1047,7 @@ function renderResearchIntelligence(host) {
 
     const groups = [
       ['funding', 'Funding'],
-      ['papers_tools', 'Papers & tools'],
+      ['papers_tools', 'Papers & Tools'],
       ['developments', 'Developments'],
     ];
     for (const [kind, label] of groups) {
@@ -1370,7 +1370,7 @@ function renderResearchIntelligence(host) {
       metrics.innerHTML = '';
       metrics.append(
         intelligenceMetric((payload.funding || []).length, 'Funding calls', 0),
-        intelligenceMetric((payload.papers_tools || []).length, 'Papers & tools', 1),
+        intelligenceMetric((payload.papers_tools || []).length, 'Papers & Tools', 1),
         intelligenceMetric((payload.developments || []).length, 'AI developments', 2),
         intelligenceMetric((payload.history || []).length, 'History events', 3),
       );

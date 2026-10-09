@@ -77,8 +77,8 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
             "Checkout enabled",
             "Checkout URL",
             "section('Course payments'",
-            "Path nodes",
-            "Path edges",
+            "Path steps",
+            "Path connections",
             "All lessons",
             "dateFrom",
             "dateTo",
@@ -151,7 +151,7 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         self.assertIn('def _normalize_learning_graph', api)
         self.assertIn("['course', 'Course']", admin)
         self.assertIn("['choice', 'Choice / branch']", admin)
-        self.assertIn("section('Path edges'", admin)
+        self.assertIn("section('Path connections'", admin)
 
 
     def test_interactive_learning_and_scoped_pulsar_contract(self):

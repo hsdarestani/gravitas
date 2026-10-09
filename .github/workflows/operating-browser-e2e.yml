@@ -142,7 +142,7 @@ jobs:
             await page.screenshot({ path: path.join(artifacts, '01-core-desktop.png'), fullPage: true, animations: 'disabled' });
             await openSection('/workspace/core/tasks', 'Tasks');
             await openSection('/workspace/core/meetings', 'Meetings');
-            await openSection('/workspace/core/work-reports', 'Daily work reports');
+            await openSection('/workspace/core/work-reports', 'Daily Work Reports');
             await page.locator('textarea').first().waitFor({ state: 'visible', timeout: 15000 });
             await page.screenshot({ path: path.join(artifacts, '02-daily-reports-desktop.png'), fullPage: true, animations: 'disabled' });
 

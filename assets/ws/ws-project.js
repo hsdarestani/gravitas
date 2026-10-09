@@ -323,7 +323,7 @@ function filesView(doc, cockpit) {
   }
   doc.append(structure.box);
 
-  const box = section('Files & secure data room', 'Project files are backed by Nextcloud and remain inside the project ACL.');
+  const box = section('Files & Data Room', 'Project files are backed by Nextcloud and remain inside the project ACL.');
   if (!items.length) box.body.append(empty('No files yet', 'Files attached to this project appear here.'));
   items.forEach((item) => box.body.append(resourceRow(item)));
   doc.append(box.box);

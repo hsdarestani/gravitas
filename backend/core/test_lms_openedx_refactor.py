@@ -653,7 +653,7 @@ class OpenEdXLmsFrontendContractTests(SimpleTestCase):
             'Learning paths',
             'Learning analytics',
             'Activity overview',
-            'AI tutor uses',
+            'AI Tutor uses',
             'Lab uses',
         ]:
             self.assertIn(needle, js)

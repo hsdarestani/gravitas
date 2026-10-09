@@ -58,7 +58,7 @@ export async function renderAdminOverview(host, { go }) {
     const wrap = K.page(host, {
       title: 'Platform Admin',
       meta: 'Accounts and access, the public site, learning, research and Core execution — one place to run the platform.',
-      actions: [link(go, 'Users & access', `${ADMIN}/users`, true), link(go, 'Activity', `${ADMIN}/activity`)],
+      actions: [link(go, 'Users & Access', `${ADMIN}/users`, true), link(go, 'Activity', `${ADMIN}/activity`)],
     });
 
     const users = overview.users || {};
@@ -699,7 +699,7 @@ function renderLearningPathsAdmin(paths, courses, refresh) {
 
   const nodeEditor = (initial = {}) => {
     nodeCounter += 1;
-    const card = K.sub(initial.title || initial.id || 'Node');
+    const card = K.sub(initial.title || initial.id || 'Step');
     const nodeId = K.input(initial.id || ('node-' + nodeCounter), 'text', 'node-id');
     const nodeType = K.select([
       ['course', 'Course'],
@@ -707,12 +707,12 @@ function renderLearningPathsAdmin(paths, courses, refresh) {
       ['milestone', 'Milestone'],
       ['choice', 'Choice / branch'],
     ], initial.type || (initial.course_id ? 'course' : 'milestone'));
-    const nodeTitle = K.input(initial.title || '', 'text', 'Node title');
+    const nodeTitle = K.input(initial.title || '', 'text', 'Step title');
     const nodeCourse = K.select(courseOptions, initial.course_id || '');
     const nodeDescription = K.textarea(initial.description || '', 2);
-    card.head.querySelector('.adm-sub__tools').append(K.button('Remove node', () => card.remove(), { tiny: true, danger: true }));
+    card.head.querySelector('.adm-sub__tools').append(K.button('Remove step', () => card.remove(), { tiny: true, danger: true }));
     card.append(
-      K.fields([K.field('Node ID', nodeId), K.field('Type', nodeType), K.field('Title', nodeTitle), K.field('Course', nodeCourse)]),
+      K.fields([K.field('Step ID', nodeId), K.field('Type', nodeType), K.field('Title', nodeTitle), K.field('Course', nodeCourse)]),
       K.field('Description', nodeDescription),
     );
     card._fields = { nodeId, nodeType, nodeTitle, nodeCourse, nodeDescription };
@@ -720,17 +720,17 @@ function renderLearningPathsAdmin(paths, courses, refresh) {
   };
 
   const edgeEditor = (initial = {}) => {
-    const card = K.sub('Edge', { meta: initial.from ? `${initial.from} → ${initial.to}` : '' });
-    const from = K.input(initial.from || '', 'text', 'from node ID');
-    const to = K.input(initial.to || '', 'text', 'to node ID');
+    const card = K.sub('Connection', { meta: initial.from ? `${initial.from} → ${initial.to}` : '' });
+    const from = K.input(initial.from || '', 'text', 'from step ID');
+    const to = K.input(initial.to || '', 'text', 'to step ID');
     const rule = K.select([
-      ['complete', 'Complete source'],
-      ['pass', 'Pass source assessment'],
+      ['complete', 'Complete the previous step'],
+      ['pass', 'Pass the previous step’s assessment'],
       ['manual', 'Manual approval'],
       ['any', 'Any / informational'],
     ], initial.rule || 'complete');
-    const edgeLabel = K.input(initial.label || '', 'text', 'Edge label / branch condition');
-    card.head.querySelector('.adm-sub__tools').append(K.button('Remove edge', () => card.remove(), { tiny: true, danger: true }));
+    const edgeLabel = K.input(initial.label || '', 'text', 'Label / branch condition');
+    card.head.querySelector('.adm-sub__tools').append(K.button('Remove connection', () => card.remove(), { tiny: true, danger: true }));
     card.append(K.fields([K.field('From', from), K.field('To', to), K.field('Rule', rule), K.field('Label', edgeLabel)]));
     card._fields = { from, to, rule, edgeLabel };
     return card;
@@ -750,17 +750,17 @@ function renderLearningPathsAdmin(paths, courses, refresh) {
   });
 
   const graphEditor = ({ initialNodes = [], initialEdges = [] } = {}) => {
-    const nodesBox = section('Path nodes', 'Course nodes link to actual courses; gate, milestone and choice nodes model branching.', 6);
+    const nodesBox = section('Path steps', 'Course steps link to actual courses; gate, milestone and choice steps model branching.', 6);
     const nodeHost = K.stack();
     for (const item of initialNodes) nodeHost.append(nodeEditor(item));
     if (!initialNodes.length) nodeHost.append(nodeEditor({ type: 'course' }));
-    nodesBox.body.append(nodeHost, K.cardActions([K.button('Add node', () => nodeHost.append(nodeEditor()), { tiny: true })]));
+    nodesBox.body.append(nodeHost, K.cardActions([K.button('Add step', () => nodeHost.append(nodeEditor()), { tiny: true })]));
 
-    const edgesBox = section('Path edges', 'Connect nodes by ID. Several outgoing or incoming edges make branches and convergence.', 6);
+    const edgesBox = section('Path connections', 'Connect steps by ID. Several outgoing or incoming connections make branches and convergence.', 6);
     const edgeHost = K.stack();
     for (const item of initialEdges) edgeHost.append(edgeEditor(item));
-    if (!initialEdges.length) edgeHost.append(K.empty('No edges yet. A single node needs none.'));
-    edgesBox.body.append(edgeHost, K.cardActions([K.button('Add edge', () => {
+    if (!initialEdges.length) edgeHost.append(K.empty('No connections yet. A single step needs none.'));
+    edgesBox.body.append(edgeHost, K.cardActions([K.button('Add connection', () => {
       edgeHost.querySelector('.adm-empty')?.remove();
       edgeHost.append(edgeEditor());
     }, { tiny: true })]));
@@ -824,7 +824,7 @@ function renderLearningPathsAdmin(paths, courses, refresh) {
 
   const box = section(
     'Learning paths',
-    'Paths are graphs: nodes are courses, gates, milestones or choices; edges define completion and branching.',
+    'Paths are graphs: steps are courses, gates, milestones or choices; connections define completion and branching.',
     12,
   );
   const editorHost = el('div');
@@ -928,7 +928,7 @@ function lmsAnalytics(courses, analytics) {
       K.tile({ value: payload.summary?.enrollments || 0, label: 'Enrollments', icon: 'team', featured: true, note: 'In this filter' }),
       K.tile({ value: `${Math.round(Number(payload.summary?.average_progress) || 0)}%`, label: 'Average progress', icon: 'progress', note: 'Across enrollments' }),
       K.tile({ value: kinds['lesson.view']?.count || 0, label: 'Lesson views', icon: 'overview', note: `${kinds['lesson.skip']?.count || 0} skips` }),
-      K.tile({ value: Math.round((kinds['lesson.dwell']?.duration_seconds || 0) / 60), label: 'Dwell', icon: 'cycle', note: 'minutes' }),
+      K.tile({ value: Math.round((kinds['lesson.dwell']?.duration_seconds || 0) / 60), label: 'Time in lessons', icon: 'cycle', note: 'minutes' }),
       K.tile({ value: kinds['ai.use']?.count || 0, label: 'AI uses', icon: 'pulsar', note: 'Tutor questions' }),
       K.tile({ value: kinds['lab.use']?.count || 0, label: 'Lab uses', icon: 'lab', note: 'Interactive sessions' }),
     ]);
@@ -1036,7 +1036,7 @@ export async function renderAdminLms(host, { go }) {
       K.tile({ value: courses.courses.length, label: 'Courses', icon: 'course', featured: true, note: `${courses.courses.filter((c) => c.status === 'published').length} published` }),
       K.tile({ value: all.filter((item) => item.status === 'active').length, label: 'Active enrollments', icon: 'team', note: `${all.length} in total` }),
       K.tile({ value: all.filter((item) => item.status === 'completed').length, label: 'Completed', icon: 'certificate', note: `${all.filter((item) => item.certificate?.valid).length} with certificate` }),
-      K.tile({ value: analytics.summary?.by_kind?.['ai.use']?.count || 0, label: 'AI tutor uses', icon: 'pulsar', note: 'All courses' }),
+      K.tile({ value: analytics.summary?.by_kind?.['ai.use']?.count || 0, label: 'AI Tutor uses', icon: 'pulsar', note: 'All courses' }),
       K.tile({ value: analytics.summary?.by_kind?.['lab.use']?.count || 0, label: 'Lab uses', icon: 'lab', note: 'All courses' }),
     ]));
 
@@ -1205,7 +1205,7 @@ async function coverDataUri(file) {
 function courseCoverEditor(course) {
   const box = section(
     'Cover image',
-    'Shown on the course page, in the catalog and in My learning. Cropped to 16:9 and resized to 1280×720. Without one, the course gets a generated Gravitas+ cover.',
+    'Shown on the course page, in the catalog and in My Learning. Cropped to 16:9 and resized to 1280×720. Without one, the course gets a generated Gravitas+ cover.',
     12,
   );
   if (!course) {
@@ -1496,7 +1496,7 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
     const jupyterUrl = K.input(learningConfig.jupyter_url || '', 'url', 'https://jupyter.example/…');
     const mathematicaUrl = K.input(learningConfig.mathematica_url || '', 'url', 'https://wolfram.example/…');
 
-    const tutor = section('AI tutor', 'How much the course tutor may reveal, and any instructions of your own.', 6);
+    const tutor = section('AI Tutor', 'How much the course tutor may reveal, and any instructions of your own.', 6);
     tutor.body.append(
       K.switches([aiEnabled]),
       K.field('AI guidance mode', guidanceMode),
@@ -1997,7 +1997,7 @@ export async function renderAdminResearch(host, { go }) {
     const wrap = K.page(host, {
       title: 'Research Admin',
       meta: 'Project policy and membership, without making Core administrators Research participants.',
-      actions: [link(go, 'Research workspace', '/workspace/research')],
+      actions: [link(go, 'Research Workspace', '/workspace/research')],
     });
     const count = (fn) => projects.filter(fn).length;
     wrap.append(K.tiles([
@@ -2224,10 +2224,10 @@ export async function renderAdminDeck(host) {
    ========================================================================== */
 
 export async function renderAdminTickets(host) {
-  K.loading(host, 'Support tickets', { tiles: 0, cards: [4, 8] });
+  K.loading(host, 'Support Tickets', { tiles: 0, cards: [4, 8] });
   try {
     const wrap = K.page(host, {
-      title: 'Support tickets',
+      title: 'Support Tickets',
       meta: 'Member conversations with the Gravitas+ team. Only Core administrators can read or reply.',
     });
     const list = section('Tickets', '', 4);
@@ -2315,7 +2315,7 @@ export async function renderAdminTickets(host) {
     const tickets = await reload();
     if (tickets[0]) await openTicket(tickets[0].id);
   } catch (error) {
-    K.failure(host, 'Support tickets', error, () => renderAdminTickets(host));
+    K.failure(host, 'Support Tickets', error, () => renderAdminTickets(host));
   }
 }
 

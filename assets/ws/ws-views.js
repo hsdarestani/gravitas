@@ -9,7 +9,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261008-operational2';
-import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261009-report1';
+import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261009-copy1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -518,7 +518,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     const svg = document.createElementNS(ns, 'svg');
     svg.setAttribute('class', 'task-graph');
     svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', 'Objective to key result to task graph');
+    svg.setAttribute('aria-label', 'Graph of objectives, key results and tasks');
     const xObjective = 20;
     const xKr = 350;
     const xTask = 710;
@@ -1661,7 +1661,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         () => openTaskNotificationsDialog(state, load),
       );
       if (notificationData.unread_count) notifications.classList.add('task-notification-button--unread');
-      const add = makeButton('New task from KR', () => openCreateDialog(state, load), true);
+      const add = makeButton('New task from key result', () => openCreateDialog(state, load), true);
       if (!data.can_edit) {
         add.disabled = true;
       }
@@ -2285,7 +2285,7 @@ export function renderResearchProject(host, id, { go }) {
 
 const RESOURCE_VIEWS = {
   file:    ['Files & Data Rooms', 'Secure project files, backed by Nextcloud.'],
-  dataset: ['Datasets', 'Research data, with project level access.'],
+  dataset: ['Datasets', 'Research data, with project-level access.'],
   note:    ['Research Notes', 'Notes attached to projects, and private notes.'],
 };
 
@@ -2619,7 +2619,7 @@ export function renderCollaboration(host) {
     const box = panel('Connected storage');
     box.body.append(row({
       title: status.connected ? 'Nextcloud connected' : 'Nextcloud not connected',
-      sub: status.url || 'Per user identity, project level access control.',
+      sub: status.url || 'Per user identity, project-level access control.',
     }));
     if (status.quota || status.used) {
       box.body.append(row({ title: 'Storage', sub: P.meta([status.used, status.quota]) }));
@@ -2768,7 +2768,7 @@ export function renderNotes(host, ctx) {
       files.body.innerHTML = '';
       const items = data.items || [];
       if (!items.length) {
-        files.body.append(empty('No files', 'Add a file and it is stored on your Nextcloud account, with project level access.'));
+        files.body.append(empty('No files', 'Add a file and it is stored on your Nextcloud account, with project-level access.'));
         return;
       }
       for (const item of items) {

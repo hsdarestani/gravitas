@@ -163,7 +163,7 @@ function seed() {
       {
         id: 'p-learning',
         title: 'Learning how to learn',
-        aim: 'Run the capture → distil → recall loop without thinking about it, and be able to teach it to a new team member.',
+        aim: 'Run the capture → distill → recall loop without thinking about it, and be able to teach it to a new team member.',
         owner: 'Everyone',
         skill: 'learning',
         steps: [
@@ -208,7 +208,7 @@ function seed() {
        is a claim the workspace can defend rather than one somebody set
        optimistically in March. */
     skills: [
-      { id: 'learning',  name: 'Deliberate learning', target: 3, note: 'Capture, distil, rehearse, and know when to stop.' },
+      { id: 'learning',  name: 'Deliberate learning', target: 3, note: 'Capture, distill, rehearse, and know when to stop.' },
       { id: 'evidence',  name: 'Reading evidence',    target: 4, note: 'Judging what a study is worth to an argument.' },
       { id: 'operating', name: 'Operating the studio', target: 3, note: 'Turning an approved blueprint into work with owners.' },
     ],

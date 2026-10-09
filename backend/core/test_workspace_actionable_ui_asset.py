@@ -11,7 +11,7 @@ ASSET = ROOT / 'assets' / 'ws' / 'ws-actionable-ui.js'
 class WorkspaceActionableUiAssetTests(SimpleTestCase):
     def test_workspace_loads_actionable_ui(self):
         html = WORKSPACE.read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-actionable-ui.js?v=20261008-operational2', html)
+        self.assertIn('/assets/ws/ws-actionable-ui.js?v=20261009-copy1', html)
 
     def test_actionable_ui_exposes_real_actions(self):
         source = ASSET.read_text(encoding='utf-8')

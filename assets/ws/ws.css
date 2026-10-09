@@ -2338,6 +2338,7 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
   .ws-editor-outline > strong {
     margin-bottom: 7px; font-size: var(--ws-fs-xs); font-weight: var(--g-w-medium);
     color: var(--g-text-subtle); letter-spacing: var(--g-track-eyebrow);
+    text-transform: uppercase;
   }
   .ws-editor-outline button {
     padding: 5px 0; border: 0; background: transparent; color: var(--g-text-muted);

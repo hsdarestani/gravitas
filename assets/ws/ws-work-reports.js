@@ -42,7 +42,7 @@ export async function renderWorkReports(host, { go }) {
 
   const head = el('header', 'wr-head');
   const intro = el('div', 'wr-head__intro');
-  intro.append(el('h1', 'ws-doc__title', 'Daily work reports'), el('p', 'ws-doc__meta', 'Tell Pulsar what changed. Review the proposal before confirming any task updates.'));
+  intro.append(el('h1', 'ws-doc__title', 'Daily Work Reports'), el('p', 'ws-doc__meta', 'Tell Pulsar what changed. Review the proposal before confirming any task updates.'));
   const chips = el('div', 'wr-head__chips');
   head.append(intro, chips);
   doc.append(head);

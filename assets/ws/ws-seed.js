@@ -71,7 +71,7 @@ export const seed = {
     { id: 'k-spaced',    title: 'Spaced repetition',    kind: 'note',   parent: 'k-concepts', phantom: false },
     { id: 'k-bayes',     title: 'Evidence and priors',  kind: 'note',   parent: 'k-concepts', phantom: false },
     { id: 'k-methods',   title: 'Methods',              kind: 'folder', parent: null, space: 'kms', phantom: false },
-    { id: 'k-distil',    title: 'How to distil a source', kind: 'note', parent: 'k-methods',  phantom: false },
+    { id: 'k-distil',    title: 'How to distill a source', kind: 'note', parent: 'k-methods',  phantom: false },
     { id: 'k-field',     title: 'Field notes',          kind: 'folder', parent: null, space: 'kms', phantom: false },
     { id: 'k-ph-interf', title: 'Interference and forgetting', kind: 'note', parent: 'k-concepts', phantom: true },
   ],
@@ -187,7 +187,7 @@ export const seed = {
         b('h2', 'Why not one Notes section'),
         b('p', 'We tried it. Within a month the tree held a client deliverable, a payroll question and somebody’s reading notes on attention, sorted by nothing. The cost is not tidiness, it is retrieval: you stop opening the tree because you do not expect to find anything in it.'),
         b('h2', 'What crosses the line'),
-        b('p', 'A page moves between spaces by being moved, and the move is deliberate. A research note becomes a knowledge note when the project it served is finished and the lesson survives it. See [[How to distil a source]].'),
+        b('p', 'A page moves between spaces by being moved, and the move is deliberate. A research note becomes a knowledge note when the project it served is finished and the lesson survives it. See [[How to distill a source]].'),
       ],
     },
 
@@ -225,7 +225,7 @@ export const seed = {
     },
 
     'k-distil': {
-      id: 'k-distil', title: 'How to distil a source', kind: 'note', parent: 'k-methods',
+      id: 'k-distil', title: 'How to distill a source', kind: 'note', parent: 'k-methods',
       created: iso(35), updated: iso(3),
       blocks: [
         b('h2', 'Four passes, and the fourth is the only one that counts'),

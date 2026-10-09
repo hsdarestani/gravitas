@@ -216,7 +216,7 @@ async function renderMirrorAdmin(host, info) {
 
   const contract = K.card({ title: 'Mirror contract', note: 'What each surface owns, and how it is kept in step.' });
   const rows = [
-    ['Files / Team Folders', 'Files, project folders, storage paths and project ACLs', 'Bidirectional storage + ACL reconciliation'],
+    ['Files & Team Folders', 'Files, project folders, storage paths and project ACLs', 'Bidirectional storage + ACL reconciliation'],
     ['Notes', 'Core and Research personal notes', 'Bidirectional with ETag conflict protection'],
     ['Deck', 'Core task title, execution lane/status and due date', 'Bidirectional safe execution fields'],
     ['Gravitas only', 'LMS rules, certificates, research metadata, cross-layer links, audit history and object policies', 'Canonical relational context; linked to native Nextcloud objects rather than flattened into them'],

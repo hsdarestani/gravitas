@@ -1,4 +1,4 @@
-import { renderWorkReports } from './ws-work-reports.js?v=20261009-reports5';
+import { renderWorkReports } from './ws-work-reports.js?v=20261009-copy1';
 import * as P from './ws-platform.js?v=20261008-operational2';
 import {
   renderCertificates,
@@ -9,7 +9,7 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20261008-reports3';
+} from './ws-member-lms.js?v=20261009-copy1';
 import { renderMemberProgress } from './ws-member-progress.js?v=20261008-operational2';
 import { renderMemberSupport } from './ws-support.js?v=20261008-operational2';
 import {
@@ -26,10 +26,10 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261008-operational2';
+} from './ws-admin.js?v=20261009-copy1';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261008-operational2';
 import { renderCoreLinks } from './ws-core-links.js?v=20261008-operational2';
-import { renderResearchProject } from './ws-project.js?v=20261008-sessionfix1';
+import { renderResearchProject } from './ws-project.js?v=20261009-copy1';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -46,25 +46,25 @@ const DASHBOARD_INDEX = [
 const LEARNING_INDEX = [
   ['Overview', '/workspace/learning', 'overview', 'Where your learning stands'],
   ['Library', '/workspace/learning/library', 'library', 'What you saved from the site'],
-  ['Course catalog', '/workspace/learning/catalog', 'catalog', 'Browse courses you can join'],
-  ['My learning', '/workspace/learning/my', 'learning', 'Courses you are taking'],
+  ['Course Catalog', '/workspace/learning/catalog', 'catalog', 'Browse courses you can join'],
+  ['My Learning', '/workspace/learning/my', 'learning', 'Courses you are taking'],
   ['Certificates', '/workspace/learning/certificates', 'certificate', 'Courses you have completed'],
 ];
 
 const ADMIN_INDEX = [
-  ['Admin overview', '/workspace/core/admin', 'overview', 'The whole platform at a glance'],
+  ['Admin Overview', '/workspace/core/admin', 'overview', 'The whole platform at a glance'],
   ['Users & Access', '/workspace/core/admin/users', 'team', 'Accounts, roles and permissions'],
   ['Topics', '/workspace/core/admin/content', 'topic', 'Write and publish site topics'],
   ['Moderation', '/workspace/core/admin/moderation', 'moderation', 'Review public comments'],
   ['Newsletter', '/workspace/core/admin/newsletter', 'mail', 'Subscribers and campaigns'],
-  ['Support tickets', '/workspace/core/admin/tickets', 'support', 'Reply to member requests'],
+  ['Support Tickets', '/workspace/core/admin/tickets', 'support', 'Reply to member requests'],
   ['Interactive Lab', '/workspace/core/admin/labs', 'lab', 'Build interactive experiments'],
-  ['LMS Admin', '/workspace/core/admin/lms', 'course', 'Courses, lessons and enrolments'],
+  ['LMS Admin', '/workspace/core/admin/lms', 'course', 'Courses, lessons and enrollments'],
   ['Research Admin', '/workspace/core/admin/research', 'space-research', 'Every research project'],
   ['Cross-layer Links', '/workspace/core/admin/links', 'link', 'Connect items across workspaces'],
   ['Activity', '/workspace/core/admin/activity', 'activity', 'Who changed what, and when'],
   ['Nextcloud Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
-  ['Back to Core Ops', '/workspace/core', 'space-core', 'Return to the Core workspace'],
+  ['Back to Core', '/workspace/core', 'space-core', 'Return to the Core workspace'],
 ];
 
 function navigate(path, { replace = false } = {}) {
@@ -254,7 +254,7 @@ function indexButton(title, path, mark = 'overview', series = '1', active = null
 
 /* Exactly one entry is lit: the one whose path is the longest prefix of the
    URL. Each entry used to test the prefix on its own, so the workspace root
-   ("Overview", "Dashboard", "Admin overview") matched every page below it —
+   ("Overview", "Dashboard", "Admin Overview") matched every page below it —
    opening a course lit Overview, and Catalog lit both Catalog and Overview.
    `ancestor` overrides that for pages that belong under an entry their URL
    does not start with: a course lives at /learning/courses/… but sits in
@@ -545,7 +545,7 @@ async function renderCustom() {
 
   if (route.kind === 'learning') {
     drawLearningIndex(route);
-    const titles = { library: 'Library', catalog: 'Course catalog', my: 'My learning', certificates: 'Certificates', 'course-author': 'Edit course' };
+    const titles = { library: 'Library', catalog: 'Course Catalog', my: 'My Learning', certificates: 'Certificates', 'course-author': 'Edit course' };
     if (route.page !== 'course') {
       setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, ...(route.page === 'overview' ? [] : [{ label: titles[route.page] }])]);
     }
@@ -557,7 +557,7 @@ async function renderCustom() {
     if (route.page === 'course') {
       // The course screen names its own trail once it knows the course and
       // the lesson; until then the trail says where it is going.
-      setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, { label: 'My learning', path: '/workspace/learning/my' }, { label: 'Course' }]);
+      setCrumbs([{ label: 'Learning', path: '/workspace/learning' }, { label: 'My Learning', path: '/workspace/learning/my' }, { label: 'Course' }]);
       await renderCourse(host, route.id, {
         ...ctx,
         lesson: route.lesson,
@@ -577,7 +577,7 @@ async function renderCustom() {
   }
 
   if (route.kind === 'work-reports') {
-    setCrumbs([{ label: 'Core', path: '/workspace/core' }, { label: 'Daily work reports' }]);
+    setCrumbs([{ label: 'Core', path: '/workspace/core' }, { label: 'Daily Work Reports' }]);
     await renderWorkReports(host, ctx); return true;
   }
   if (route.kind === 'research-project') {
@@ -624,7 +624,7 @@ function labelRole(value) {
 function adminTitle(page) {
   return {
     users: 'Users & Access', user: 'Account', content: 'Topics', 'content-editor': 'Topic', moderation: 'Moderation',
-    newsletter: 'Newsletter', tickets: 'Support tickets', labs: 'Interactive Lab',
+    newsletter: 'Newsletter', tickets: 'Support Tickets', labs: 'Interactive Lab',
     lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck', nextcloud: 'Nextcloud Mirror',
   }[page] || 'Admin';
 }

@@ -545,7 +545,7 @@ export async function renderMemberOverview(host, { go }) {
         }
       } catch (error) {
         if (error.status !== 403) {
-          const daily = section('Daily work reports', 'Reporting status is temporarily unavailable.');
+          const daily = section('Daily Work Reports', 'Reporting status is temporarily unavailable.');
           daily.body.append(link(go, 'Open reports', '/workspace/core/work-reports'));
           wrap.append(daily.box);
         }
@@ -746,8 +746,8 @@ export async function renderLearningOverview(host, { go }) {
       name: greeting(),
       detail: longDate(),
       actions: [
-        link(go, 'My learning', '/workspace/learning/my', true),
-        link(go, 'Course catalog', '/workspace/learning/catalog'),
+        link(go, 'My Learning', '/workspace/learning/my', true),
+        link(go, 'Course Catalog', '/workspace/learning/catalog'),
       ],
     });
 
@@ -780,7 +780,7 @@ export async function renderLearningOverview(host, { go }) {
       note: 'Courses you are enrolled in',
       span: 8,
       tone: 'accent',
-      action: linkButton(go, 'My learning', '/workspace/learning/my'),
+      action: linkButton(go, 'My Learning', '/workspace/learning/my'),
     });
     current.box.dataset.span = '8';
     if (active.length) {
@@ -929,10 +929,10 @@ function courseTiles(items) {
 }
 
 export async function renderLearningCatalog(host, { go }) {
-  loading(host, 'Course catalog');
+  loading(host, 'Course Catalog');
   try {
     const data = await P.lmsCourses();
-    const wrap = doc(host, 'Course catalog', 'Published Gravitas+ courses. Enrollment and Research access remain separate.');
+    const wrap = doc(host, 'Course Catalog', 'Published Gravitas+ courses. Enrollment and Research access remain separate.');
     const toolbar = el('div', 'fl-toolbar');
     const search = el('input', 'v-input fl-input');
     search.type = 'search';
@@ -961,15 +961,15 @@ export async function renderLearningCatalog(host, { go }) {
     draw();
     wrap.append(results);
   } catch (error) {
-    errorView(host, 'Course catalog', error, () => renderLearningCatalog(host, { go }));
+    errorView(host, 'Course Catalog', error, () => renderLearningCatalog(host, { go }));
   }
 }
 
 export async function renderMyLearning(host, { go }) {
-  loading(host, 'My learning');
+  loading(host, 'My Learning');
   try {
     const data = await P.lmsMe();
-    const wrap = doc(host, 'My learning', 'All course enrollments and completion state.');
+    const wrap = doc(host, 'My Learning', 'All course enrollments and completion state.');
     const items = data.enrollments || [];
     if (!items.length) {
       wrap.append(empty('No enrollments yet', 'Open the catalog to start a course.'));
@@ -986,7 +986,7 @@ export async function renderMyLearning(host, { go }) {
       flag: label(item.status),
     }))));
   } catch (error) {
-    errorView(host, 'My learning', error, () => renderMyLearning(host, { go }));
+    errorView(host, 'My Learning', error, () => renderMyLearning(host, { go }));
   }
 }
 
@@ -1541,7 +1541,7 @@ async function pulsarAccessPanel(course) {
       const line = el('div', 'fl-pulsar-access__row');
       const main = el('div', 'fl-pulsar-access__main');
       main.append(el('strong', null, project.title));
-      main.append(el('small', 'fl-muted', project.can_edit ? 'Your project access: edit' : 'Your project access: read'));
+      main.append(el('small', 'fl-muted', project.can_edit ? 'You can edit this project' : 'You can view this project'));
 
       const enabled = el('input');
       enabled.type = 'checkbox';
@@ -3616,8 +3616,8 @@ export async function renderCourse(host, id, ctx = {}) {
 
     ctx.outline?.(course, done);
     const parent = course.enrolled
-      ? { label: 'My learning', path: '/workspace/learning/my' }
-      : { label: 'Course catalog', path: '/workspace/learning/catalog' };
+      ? { label: 'My Learning', path: '/workspace/learning/my' }
+      : { label: 'Course Catalog', path: '/workspace/learning/catalog' };
     ctx.crumbs?.(ctx.lesson
       ? [parent, { label: course.title, path: base }, { label: current?.lesson.title || 'Lesson' }]
       : [parent, { label: course.title }]);

@@ -21,17 +21,17 @@
 
 import * as api from './ws-api.js?v=20261008-native3';
 import * as P from './ws-platform.js?v=20261008-operational2';
-import * as views from './ws-views.js?v=20261009-tree1';
+import * as views from './ws-views.js?v=20261009-copy1';
 import * as meetings from './ws-meetings.js?v=20261008-operational2';
-import * as assets from './ws-core-assets.js?v=20261008-operational2';
+import * as assets from './ws-core-assets.js?v=20261009-copy1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js?v=20261008-operational2';
 import * as research from './ws-research.js?v=20261008-operational2';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20261009-report1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261008-operational2';
+} from './ws-nav.js?v=20261009-copy1';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261009-copy1';
 import { renderSettings } from './ws-settings.js?v=20261008-operational2';
 import { mountPalette, openPalette } from './ws-palette.js';
 import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-native3';
@@ -828,7 +828,7 @@ function renderEditor(host) {
   const layout = document.createElement('div'); layout.className = 'ws-editor-layout';
   const canvas = document.createElement('div'); canvas.className = 'ws-editor-canvas';
   const outline = document.createElement('aside'); outline.className = 'ws-editor-outline';
-  outline.append(el('strong', null, 'ON THIS NOTE'));
+  outline.append(el('strong', null, 'On this note'));
   for (const block of ui.page.blocks.filter((item) => item.type === 'h2' || item.type === 'h3')) {
     const jump = document.createElement('button'); jump.type = 'button'; jump.textContent = block.text || 'Untitled heading';
     jump.addEventListener('click', () => $(`.ws-block[data-id="${block.id}"] [contenteditable]`)?.focus()); outline.append(jump);

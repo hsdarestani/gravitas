@@ -245,7 +245,7 @@ async function renderBase() {
     status.textContent = 'Saved to your account';
     body.innerHTML = '';
     if (!pages.length) {
-      body.append(notice('Nothing distilled yet', 'Create a note here, or distil a source into your own words. New notes open directly in the editor.'));
+      body.append(notice('Nothing distilled yet', 'Create a note here, or distill a source into your own words. New notes open directly in the editor.'));
       return;
     }
     pages.sort((a, b) => String(b.updated || '').localeCompare(String(a.updated || '')));

@@ -1,5 +1,5 @@
 import * as P from './ws-platform.js?v=20261008-operational2';
-import { renderCoreTasks } from './ws-views.js?v=20261009-tree1';
+import { renderCoreTasks } from './ws-views.js?v=20261009-copy1';
 import { observeSurface } from './ws-runtime-performance.js?v=20261008-operational2';
 
 const state = {
