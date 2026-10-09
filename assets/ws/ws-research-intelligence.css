@@ -15,7 +15,6 @@
     border: 1px solid var(--g-border);
     border-radius: var(--ws-r-panel);
     background:
-      radial-gradient(circle at 88% -20%, rgb(var(--g-tint) / 0.08), transparent 38%),
       var(--g-surface-sunken);
     overflow: hidden;
   }
@@ -223,7 +222,7 @@
     border: 1px solid var(--g-hairline);
     border-radius: var(--g-radius-pill);
     color: var(--g-text-subtle);
-    font-size: 10px;
+    font-size: var(--ws-fs-xs);
     font-weight: var(--g-w-medium);
     letter-spacing: .04em;
     white-space: nowrap;
@@ -243,7 +242,7 @@
     margin-left: auto;
     color: var(--g-text-subtle);
     font-family: var(--g-font-mono);
-    font-size: 10px;
+    font-size: var(--ws-fs-xs);
     white-space: nowrap;
   }
 
@@ -309,7 +308,7 @@
   .ri__source-note {
     margin-left: auto;
     color: var(--g-text-subtle);
-    font-size: 10px;
+    font-size: var(--ws-fs-xs);
   }
 
   .ri__empty,
@@ -332,7 +331,7 @@
     align-items: center;
     gap: 10px;
     color: var(--g-text-subtle);
-    font-size: 10px;
+    font-size: var(--ws-fs-xs);
   }
 
   .ri__foot [data-errors]:not(:empty)::before {
@@ -393,7 +392,7 @@
 .ri-filter-label {
   padding-left: 2px;
   color: var(--g-text-subtle);
-  font-size: 10px;
+  font-size: var(--ws-fs-xs);
   font-weight: var(--g-w-semibold);
   letter-spacing: .055em;
   text-transform: uppercase;
@@ -492,7 +491,7 @@
 .ri-weight strong {
   color: var(--g-text);
   font-family: var(--g-font-mono);
-  font-size: 10px;
+  font-size: var(--ws-fs-xs);
   font-weight: var(--g-w-medium);
 }
 
@@ -540,7 +539,7 @@
   color: var(--g-text-muted);
   background: var(--g-surface-sunken);
   font-family: var(--g-font-mono);
-  font-size: 9px;
+  font-size: var(--ws-fs-xs);
   white-space: nowrap;
 }
 
@@ -672,7 +671,7 @@
 }
 .ri__source-name small {
   color: var(--g-text-subtle);
-  font-size: 9px;
+  font-size: var(--ws-fs-xs);
   font-weight: var(--g-w-medium);
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -680,7 +679,7 @@
 .ri__source-desc {
   overflow: hidden;
   color: var(--g-text-subtle);
-  font-size: 10px;
+  font-size: var(--ws-fs-xs);
   line-height: 1.45;
   text-overflow: ellipsis;
 }

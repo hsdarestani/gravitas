@@ -250,10 +250,7 @@ html .ws-action-dialog .v-input:focus {
   border: 1px solid var(--g-hairline);
   border-radius: var(--ws-cohesion-r);
   background:
-    radial-gradient(120% 130% at 100% 0%,
-      color-mix(in srgb, var(--g-accent) 12%, transparent) 0%,
-      transparent 60%),
-    var(--g-surface-raised);
+    color-mix(in srgb, var(--g-accent) 6%, var(--g-surface-raised));
 }
 
 #ws-view .ri::before {
@@ -660,6 +657,14 @@ html .ws-action-dialog__actions {
   color: inherit !important;
   text-align: left;
 }
+/* The rule above pins the background with !important, so a stat that is a
+   button (the Team counts) had no hover at all. A wash of the text colour
+   lifts it the same step in both themes. */
+#ws-view :is(button.v-stat, button.fl-metric, button.au-team__stat, button.ri__metric) { cursor: pointer; }
+#ws-view :is(button.v-stat, button.fl-metric, button.au-team__stat, button.ri__metric):hover {
+  border-color: var(--g-border) !important;
+  background: color-mix(in srgb, var(--g-text) 5%, var(--g-surface-raised)) !important;
+}
 
 #ws-view :is(.v-stat__value, .fl-metric__value, .au-team__stat strong, .ri__metric strong) {
   font-family: var(--g-font) !important;
@@ -726,10 +731,7 @@ html .ws-action-dialog__actions {
   border: 1px solid color-mix(in srgb, var(--wc-2) 30%, transparent) !important;
   border-radius: var(--wc-r, 16px) !important;
   background:
-    radial-gradient(120% 130% at 100% 0%,
-      color-mix(in srgb, var(--wc-2) 14%, transparent) 0%,
-      transparent 60%),
-    var(--g-surface-raised) !important;
+    color-mix(in srgb, var(--wc-2) 4%, var(--g-surface-raised)) !important;
 }
 
 /* Research Intelligence is a Dashboard card, with its internal result cards
@@ -908,7 +910,7 @@ html .au-modal {
   box-shadow: none !important;
 }
 #ws-view .wc-item:is(.fl-row, .v-row):hover {
-  background: var(--g-surface-hover) !important;
+  background: color-mix(in srgb, var(--g-text) 7%, transparent) !important;
 }
 #ws-view .wc-tile:is(.fl-metric, .v-stat) {
   min-height: 118px !important;
@@ -931,10 +933,7 @@ html .au-modal {
   padding: var(--wc-pad, 16px) !important;
   border-color: color-mix(in srgb, var(--wc-2) 30%, transparent) !important;
   background:
-    radial-gradient(120% 130% at 100% 0%,
-      color-mix(in srgb, var(--wc-2) 14%, transparent) 0%,
-      transparent 60%),
-    var(--g-surface-raised) !important;
+    color-mix(in srgb, var(--wc-2) 4%, var(--g-surface-raised)) !important;
 }
 #ws-view .v-focus.wc-card .v-focus__head,
 #ws-view .v-focus.wc-card .v-focus__foot {
@@ -958,9 +957,14 @@ html .au-modal {
 /* The Dashboard's featured tile must stay featured even when a legacy class
    such as ri__metric/fl-metric is present on the same node. */
 #ws-view .wc-tile[data-featured] {
-  background: var(--g-solid-bg) !important;
+  background: var(--g-cosmos-600) !important;
   border-color: transparent !important;
-  color: var(--g-solid-fg) !important;
+  color: var(--g-white-tint) !important;
+}
+/* The rule above is !important, so it also beat the tile's own :hover in
+   ws-charts.css and the featured tile had no hover at all. */
+#ws-view .wc-tile[data-featured].wc-tile--button:hover {
+  background: var(--g-cosmos-500) !important;
 }
 #ws-view .wc-tile[data-featured] :is(
   .wc-tile__label,
@@ -983,17 +987,14 @@ html .au-modal {
 #ws-view .wc-card.wc-card--accent {
   border-color: color-mix(in srgb, var(--wc-2) 30%, transparent) !important;
   background:
-    radial-gradient(120% 130% at 100% 0%,
-      color-mix(in srgb, var(--wc-2) 14%, transparent) 0%,
-      transparent 60%),
-    var(--g-surface-raised) !important;
+    color-mix(in srgb, var(--wc-2) 4%, var(--g-surface-raised)) !important;
 }
 
 /* Research index: two mental buckets instead of nested Editor/Folder trees. */
 #ws-index-body .ws-index-group {
   padding: 14px 12px 6px;
   color: var(--g-text-subtle);
-  font-size: 10px;
+  font-size: var(--ws-fs-xs);
   font-weight: var(--g-w-semibold);
   letter-spacing: var(--g-track-eyebrow);
   text-transform: uppercase;

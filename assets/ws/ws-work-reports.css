@@ -81,8 +81,7 @@
 #ws-view .wr-compose {
   display: grid; gap: 12px; padding-bottom: 14px;
   background:
-    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--g-accent) 10%, transparent) 0%, transparent 60%),
-    var(--g-surface-raised);
+    color-mix(in srgb, var(--g-accent) 5%, var(--g-surface-raised));
 }
 #ws-view .wr-compose > .wr-card__head { padding-bottom: 0; }
 #ws-view .wr-compose__prompt { margin: 0 16px; color: var(--g-text-muted); font-size: var(--ws-fs); }
@@ -186,7 +185,7 @@
 }
 #ws-view .wr-task__title:hover { color: var(--g-accent); text-decoration: underline; text-underline-offset: 3px; }
 #ws-view .wr-task__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--g-text-muted); font-size: var(--ws-fs-xs); }
-#ws-view .wr-task__meta .wr-chip { height: 18px; padding: 0 6px; font-family: var(--g-font-mono); font-size: 10px; }
+#ws-view .wr-task__meta .wr-chip { height: 18px; padding: 0 6px; font-family: var(--g-font-mono); font-size: var(--ws-fs-xs); }
 #ws-view .wr-task__meta .wr-chip::before { display: none; }
 #ws-view .wr-task__due[data-overdue="true"] { color: var(--g-signal-critical); }
 #ws-view .wr-task__trace { margin: 0; color: var(--g-text-subtle); font-size: var(--ws-fs-xs); line-height: 1.5; }

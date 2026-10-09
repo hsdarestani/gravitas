@@ -40,12 +40,19 @@
     --g-cosmos-300: #1c6288;  /* pressed, active rails */
 
     /* ---- Semantic colour --------------------------------------------- */
-    --g-bg:                var(--g-cosmos-700);
-    --g-bg-deep:           var(--g-cosmos-900);
-    --g-surface:           var(--g-cosmos-600);
-    --g-surface-raised:    var(--g-cosmos-500);
-    --g-surface-hover:     var(--g-cosmos-400);
-    --g-surface-sunken:    var(--g-cosmos-800);
+    /* v2 (2026-10-09). The surfaces used to be the ramp itself, ground at
+       700 and cards at 600 and 500, which put everything inside a few points
+       of lightness of brand blue: cards did not lift off the page, and the
+       whole screen read as one murky slab. The ground now sits deeper and
+       each step above it is a clear, even lift, so a card is visibly a card
+       without a glow. Same hue throughout; the ramp above is unchanged and
+       Cosmos Blue itself is kept for the one featured object on a screen. */
+    --g-bg:                #00141f;
+    --g-bg-deep:           #000b11;
+    --g-surface:           #011b29;
+    --g-surface-raised:    #022232;
+    --g-surface-hover:     #052c40;
+    --g-surface-sunken:    #00101a;
 
     --g-text:              var(--g-white-tint);
     --g-text-muted:        var(--g-sisal);
@@ -62,7 +69,8 @@
        colour on its *container* rather than on the mark — the tree twist, the
        workspace card's arrow — missed the opt-in and let the alpha back in.
        So the alpha is baked in here instead: 0.62 of the tint composited over
-       the raised surface (#013a58), the lightest ground this text sits on.
+       the raised surface (then #013a58; since v2 the raised surface is darker,
+       so the same colour now measures higher), the lightest ground this text sits on.
        Every other surface is darker, so the flattened value reads at or above
        the contrast the alpha version measured there, and no crossing anywhere
        in the system can brighten again. */
@@ -115,10 +123,13 @@
     --g-lh-snug:  1.35;
     --g-lh-body:  1.65;
 
-    --g-track-display: -0.03em;
-    --g-track-head:    -0.02em;
+    /* v2: eased off. At -0.03em the heavy display cuts touched ("Is the
+       universe computable?" read as one word-mass); this keeps them tight
+       without the letters colliding. */
+    --g-track-display: -0.022em;
+    --g-track-head:    -0.014em;
     --g-track-body:    0;
-    --g-track-eyebrow: 0.18em;
+    --g-track-eyebrow: 0.1em;  /* v2: was 0.18em, which read as shouting */
 
     --g-measure: 68ch;   /* long-form line length */
 
@@ -142,8 +153,12 @@
     /* ---- Elevation ------------------------------------------------------
        On a dark field, depth reads as emitted light, not as cast shadow.
        Elevation = a lighter surface + a hairline + a soft glow.          */
-    --g-glow-sm: 0 0 24px -6px rgb(241 239 236 / 0.10);
-    --g-glow-md: 0 0 48px -8px rgb(241 239 236 / 0.14);
+    /* v2: the small and medium glows were pale halos around every card;
+       with surfaces that now step clearly in lightness, a plain shadow is
+       enough to lift something and does not haze the edge. The large glow
+       stays: it belongs to the hero bodies, not to interface objects. */
+    --g-glow-sm: 0 1px 2px rgb(0 0 0 / 0.30);
+    --g-glow-md: 0 10px 28px -14px rgb(0 0 0 / 0.70);
     --g-glow-lg: 0 0 120px 12px rgb(241 239 236 / 0.10);
     --g-shadow:  0 18px 40px -24px rgb(3 3 3 / 0.85);
 
@@ -187,14 +202,20 @@
 
     /* Sticky chrome (header, topic sub-nav), a translucent slab of the page
        background rather than a fixed colour. */
+    /* Kept at the old ground (#00263a), not the v2 one: the header is part
+       of the hero, and against the deeper page it reads as a band of night
+       sky carried down the page rather than a gap in it. */
     --g-chrome: 0 38 58;
     --g-chrome-a: 0.72;
 
-    /* Solid controls: pressed chips, primary buttons, selected tabs. */
-    --g-solid-bg: var(--g-white-tint);
-    --g-solid-fg: var(--g-cosmos-600);
-    --g-solid-bg-hover: var(--g-cosmos-600);
-    --g-solid-fg-hover: var(--g-white-tint);
+    /* Solid controls: pressed chips, primary buttons, selected tabs.
+       v2: Sisal rather than White Tint. A near-white slab was the brightest
+       thing on every dark screen, brighter than the headline it served;
+       Sisal is still the clear primary and keeps the warmth of the brand. */
+    --g-solid-bg: var(--g-sisal);
+    --g-solid-fg: var(--g-cosmos-900);
+    --g-solid-bg-hover: var(--g-white-tint);
+    --g-solid-fg-hover: var(--g-cosmos-900);
 
     /* Canvas ink, read by hero.js. Canvases can't inherit CSS colour, so the
        three hero simulations pull these at paint time and repaint on change. */
@@ -203,6 +224,31 @@
     --g-canvas-body-b: 212 201 190;
     --g-canvas-body-c: 111 169 206;
     --g-canvas-core: 255 255 255;
+
+    /* ---- Aliases -------------------------------------------------------
+       Names that modules reached for but that this file never defined. An
+       undefined var() is not an error in CSS, it is silence: with a literal
+       fallback the module painted a fixed light colour (#fff panels and a
+       #e7ecef media well on the dark theme, a #64727b timeline text that fell
+       to 3.8:1); with no fallback the border or background simply vanished.
+       Each name now points at the real token, so it follows the theme. Do not
+       use these in new code; use the token on the right. */
+    --g-muted:            var(--g-text-muted);
+    --g-line:             var(--g-hairline);
+    --g-surface-2:        var(--g-surface-sunken);
+    --g-surface-3:        var(--g-surface-hover);
+    --g-danger:           var(--g-signal-critical);
+    --g-warning:          var(--g-signal-caution);
+    --g-signal-success:   var(--g-signal-positive);
+    --g-signal-warning:   var(--g-signal-caution);
+    --ws-panel:           var(--g-surface-raised);
+    --ws-bg:              var(--g-bg);
+    --ws-line:            var(--g-hairline);
+    --ws-border:          var(--g-border);
+    --ws-border-strong:   var(--g-border-strong);
+    --ws-muted:           var(--g-text-muted);
+    --ws-danger:          var(--g-signal-critical);
+    --ws-success:         var(--g-signal-positive);
 
     color-scheme: dark;
   }
@@ -214,24 +260,29 @@
      rendering as grey noise on paper. What survives is the structure: Cosmos
      Blue as ink, White Tint as ground, Sisal darkened to bronze as accent.  */
   :root[data-theme="light"] {
-    --g-bg:                #f5f3ef;
-    --g-bg-deep:           #eae5dd;
-    --g-surface:           #ffffff;
-    --g-surface-raised:    #ffffff;
-    --g-surface-hover:     #fbfaf7;
-    --g-surface-sunken:    #eeebe4;
+    /* v2: the ground is White Tint itself, the brand paper, and cards are a
+       warm off-white rather than pure #fff, which glared against it. */
+    --g-bg:                #f1efec;
+    --g-bg-deep:           #e7e2db;
+    --g-surface:           #fbfaf8;
+    --g-surface-raised:    #fdfcfa;
+    --g-surface-hover:     #ffffff;
+    --g-surface-sunken:    #e9e5df;
 
     --g-text:              #002236;
     --g-text-muted:        #3c5464;
-    --g-text-subtle:       #5d7280;
+    /* v2: #5d7280 cleared 4.5:1 on the old #f5f3ef ground but fell to 4.37
+       on White Tint and 3.90 on bg-deep (the footer). #4f6370 is the same hue
+       at 5.46 on the ground and 4.86 on bg-deep. */
+    --g-text-subtle:       #4f6370;
     /* Opaque already, so nothing to flatten: the icon takes it at full alpha. */
-    --g-ic-dim:            #5d7280;
+    --g-ic-dim:            #4f6370;
     --g-ic-dim-a:          1;
     --g-text-inverse:      var(--g-white-tint);
 
     --g-tint:              0 48 73;
-    --g-accent:            #7b6242;
-    --g-chrome:            245 243 239;
+    --g-accent:            #735b3d;  /* v2: was #7b6242, 4.44:1 on bg-deep; now 4.95 */
+    --g-chrome:            241 239 236;
     --g-chrome-a:          0.82;
 
     --g-solid-bg:          var(--g-cosmos-600);
@@ -239,8 +290,11 @@
     --g-solid-bg-hover:    var(--g-cosmos-400);
     --g-solid-fg-hover:    var(--g-white-tint);
 
-    --g-hairline:          rgb(0 48 73 / 0.13);
-    --g-border:            rgb(0 48 73 / 0.24);
+    /* v2: lines are Sisal-warm, not blue-grey. On paper the blue lines made
+       every card look like a form field; the warm rule is what the brand
+       ground was asking for. Strong borders stay ink-blue: they are controls. */
+    --g-hairline:          rgb(110 90 70 / 0.20);
+    --g-border:            rgb(110 90 70 / 0.32);
     --g-border-strong:     rgb(0 48 73 / 0.46);
     --g-focus:             var(--g-cosmos-600);
 

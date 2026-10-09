@@ -71,7 +71,7 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         self.assertIn("openNodeCanvasEditor", editor)
         self.assertIn("openEdgeCanvasEditor", editor)
         self.assertIn("dblclick", editor)
-        self.assertIn("/assets/ws/ws-mindmap-editor.css?v=20261006-editor2", workspace)
+        self.assertIn("/assets/ws/ws-mindmap-editor.css?v=20261009-ds2", workspace)
 
     def test_project_actions_use_canonical_endpoints(self):
         root = Path(__file__).resolve().parents[2]

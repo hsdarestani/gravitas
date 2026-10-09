@@ -91,10 +91,14 @@
      It is filled with the solid-control pair, the same navy as the active
      tab above it, not the bronze accent: a slab of bronze was the loudest
      thing on the screen and belonged to nothing else on it. */
+  /* v2: Cosmos Blue in both themes rather than the solid-control pair. On
+     dark the solid pair is a light slab, and a cream tile in a row of dark
+     ones read as a selected state, not as the headline number. Brand blue
+     lifts off the deeper v2 ground and is navy on paper, as before. */
   .wc-tile[data-featured] {
-    background: var(--g-solid-bg);
+    background: var(--g-cosmos-600);
     border-color: transparent;
-    color: var(--g-solid-fg);
+    color: var(--g-white-tint);
   }
   .wc-tile[data-featured] .wc-tile__label,
   .wc-tile[data-featured] .wc-tile__note,
@@ -103,7 +107,7 @@
   .wc-tile[data-featured] .wc-tile__go { border-color: color-mix(in srgb, currentColor 34%, transparent); }
   .wc-tile[data-featured] .wc-tile__value { font-size: 34px; }
   .wc-tile[data-featured].wc-tile--button:hover {
-    background: color-mix(in srgb, var(--g-solid-bg) 90%, var(--g-solid-fg));
+    background: var(--g-cosmos-500);
     border-color: transparent;
   }
 
@@ -245,7 +249,7 @@
     text-align: left;
   }
   .wc-bar--button { cursor: pointer; }
-  .wc-bar--button:hover { background: var(--g-surface-hover); }
+  .wc-bar--button:hover { background: color-mix(in srgb, var(--g-text) 7%, transparent); }
   .wc-bar__label {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -365,10 +369,7 @@
   .wc-card--accent {
     border-color: color-mix(in srgb, var(--wc-2) 30%, transparent);
     background:
-      radial-gradient(120% 130% at 100% 0%,
-        color-mix(in srgb, var(--wc-2) 14%, transparent) 0%,
-        transparent 60%),
-      var(--g-surface-raised);
+      color-mix(in srgb, var(--wc-2) 4%, var(--g-surface-raised));
   }
   .wc-card__head {
     display: flex;
@@ -414,7 +415,11 @@
     text-align: left;
   }
   .wc-item--button { cursor: pointer; }
-  .wc-item--button:hover { background: var(--g-surface-hover); }
+  /* A wash of the text colour, not --g-surface-hover. A row sits on a card,
+     and a tinted card can be as light as the hover surface itself, which left
+     the hover invisible there (Continue learning). An overlay lifts the row by
+     the same step on any card it sits on. */
+  .wc-item--button:hover { background: color-mix(in srgb, var(--g-text) 7%, transparent); }
   .wc-item__main { display: grid; gap: 2px; min-width: 0; }
   .wc-item__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ws-fs); font-weight: var(--g-w-medium); }
   .wc-item__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--g-text-subtle); font-size: var(--ws-fs-xs); }
@@ -668,10 +673,7 @@
     border-radius: var(--wc-r);
     border-color: color-mix(in srgb, var(--g-accent) 36%, transparent);
     background:
-      radial-gradient(120% 130% at 100% 0%,
-        color-mix(in srgb, var(--g-accent) 22%, transparent) 0%,
-        transparent 60%),
-      var(--g-surface-raised);
+      color-mix(in srgb, var(--g-accent) 11%, var(--g-surface-raised));
   }
   .v-hero { margin-bottom: var(--ws-gutter); padding-bottom: var(--ws-gutter); }
 

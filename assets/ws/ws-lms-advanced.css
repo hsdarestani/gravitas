@@ -308,7 +308,7 @@
 .flc-tools__group {
   padding: 10px 6px 4px;
   color: var(--g-text-subtle);
-  font-size: 10px;
+  font-size: var(--ws-fs-xs);
   font-weight: var(--g-w-semibold);
   letter-spacing: var(--g-track-eyebrow);
   text-transform: uppercase;
@@ -435,8 +435,7 @@
   border: 1px solid color-mix(in srgb, var(--g-accent) 30%, var(--g-hairline));
   border-radius: var(--wc-r, 16px);
   background:
-    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--g-accent) 16%, transparent) 0%, transparent 62%),
-    var(--g-surface-raised);
+    color-mix(in srgb, var(--g-accent) 8%, var(--g-surface-raised));
 }
 .flc-next__text { display: grid; gap: 3px; min-width: 0; }
 .flc-next__title { font-size: 16px; }
@@ -657,7 +656,7 @@
   overflow: hidden;
   padding: 8px 8px 2px;
   color: var(--g-text-subtle);
-  font-size: 10px;
+  font-size: var(--ws-fs-xs);
   font-weight: var(--g-w-semibold);
   letter-spacing: var(--g-track-eyebrow);
   text-overflow: ellipsis;
@@ -928,7 +927,7 @@
   top: 8px;
   right: 10px;
   color: var(--g-text-subtle);
-  font-size: 9.5px;
+  font-size: var(--ws-fs-xs);
   letter-spacing: var(--g-track-eyebrow);
   text-transform: uppercase;
 }
@@ -958,7 +957,7 @@
   bottom: 10px;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(3, 3, 3, .55);
+  background: rgba(3, 3, 3, .7);
   color: #f1efec;
   font-size: 11px;
   backdrop-filter: blur(6px);

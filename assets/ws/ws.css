@@ -324,7 +324,7 @@
 
   kbd {
     font-family: var(--g-font-mono);
-    font-size: 10px;
+    font-size: var(--ws-fs-xs);
     padding: 2px 5px;
     border: 1px solid var(--g-hairline);
     border-radius: 4px;
@@ -352,7 +352,7 @@
   .ws-ibtn[aria-pressed="true"] { background: var(--g-surface-raised); color: var(--g-text); }
 
   @media (hover: hover) and (pointer: fine) {
-    .ws-ibtn:hover { background: var(--g-surface-hover); color: var(--g-text); }
+    .ws-ibtn:hover { background: color-mix(in srgb, var(--g-text) 8%, transparent); color: var(--g-text); }
   }
 
   /* ---- Left rail --------------------------------------------------------
@@ -660,7 +660,7 @@
   }
   .ws-block__lang {
     display: flex; align-items: center; justify-content: space-between;
-    font-family: var(--g-font-mono); font-size: 10px;
+    font-family: var(--g-font-mono); font-size: var(--ws-fs-xs);
     text-transform: uppercase; letter-spacing: 0.1em;
     color: var(--g-text-subtle); margin-bottom: 4px;
   }
@@ -692,7 +692,7 @@
     flex: 0 0 auto; padding: 3px 7px;
     border-radius: var(--ws-r-control);
     background: var(--g-surface-sunken);
-    font-family: var(--g-font-mono); font-size: 10px;
+    font-family: var(--g-font-mono); font-size: var(--ws-fs-xs);
     text-transform: uppercase; letter-spacing: 0.08em;
     color: var(--g-text-muted);
   }
@@ -750,7 +750,7 @@
   .ws-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
   .ws-cal__dow {
     display: grid; place-items: center; height: 20px;
-    font-size: 10px; color: var(--g-text-subtle);
+    font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
   }
   .ws-cal__day {
     display: grid; place-items: center;
@@ -833,7 +833,7 @@
 
   .ws-palette__group {
     padding: 8px 8px 4px;
-    font-size: 10px; text-transform: uppercase;
+    font-size: var(--ws-fs-xs); text-transform: uppercase;
     letter-spacing: var(--g-track-eyebrow);
     color: var(--g-text-subtle);
   }
@@ -872,7 +872,7 @@
 
   .ws-ai__turn { font-size: var(--ws-fs); line-height: var(--g-lh-body); }
   .ws-ai__who {
-    font-size: 10px; text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
+    font-size: var(--ws-fs-xs); text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
     color: var(--g-text-subtle); margin-bottom: 4px;
   }
   .ws-ai__turn[data-who="you"] .ws-ai__text {
@@ -2677,11 +2677,11 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   background: color-mix(in srgb, var(--g-accent) 5%, transparent);
 }
 .task-trello-card__path { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; align-items: baseline; min-width: 0; }
-.task-trello-card__path small { color: var(--g-text-subtle); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.task-trello-card__path small { color: var(--g-text-subtle); font-size: var(--ws-fs-xs); letter-spacing: .08em; text-transform: uppercase; }
 .task-trello-card__path strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ws-fs-xs); font-weight: 600; color: var(--g-text-muted); }
 .task-trello-card__path--kr strong { color: var(--g-text); }
 .task-comment__mentions { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0; }
-.task-comment__mention { font-size: 10px; }
+.task-comment__mention { font-size: var(--ws-fs-xs); }
 .task-comment__form { gap: 9px; }
 .task-comment__picker {
   display: grid; gap: 8px; padding: 10px;
@@ -2777,7 +2777,7 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   display: grid; gap: 3px; min-width: 0; padding: 9px 10px;
   border: 1px solid var(--g-hairline); border-radius: 9px; background: var(--g-surface);
 }
-.task-hierarchy-dialog__detail small { color: var(--g-text-subtle); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+.task-hierarchy-dialog__detail small { color: var(--g-text-subtle); font-size: var(--ws-fs-xs); text-transform: uppercase; letter-spacing: .07em; }
 .task-hierarchy-dialog__detail strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ws-fs-sm); }
 .task-hierarchy-dialog__progress {
   height: 7px; overflow: hidden; border-radius: 999px; background: var(--g-surface-sunken);
@@ -2839,8 +2839,7 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; align-items: center;
   padding: 10px 14px 10px 8px;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--g-accent) 10%, transparent), transparent 70%),
-    var(--g-surface-raised);
+    color-mix(in srgb, var(--g-accent) 5%, var(--g-surface-raised));
   border-bottom: 1px solid var(--g-hairline);
 }
 .task-tree__objective[data-collapsed] .task-tree__objective-bar { border-bottom: 0; }
@@ -2872,7 +2871,7 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
 .task-tree__counts { color: var(--g-text-subtle); font-size: var(--ws-fs-xs); white-space: nowrap; }
 .task-tree__type {
   flex: 0 0 auto; color: var(--g-text-subtle);
-  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  font-size: var(--ws-fs-xs); letter-spacing: .1em; text-transform: uppercase;
 }
 .task-tree__type--kr {
   padding: 2px 6px; border: 1px solid var(--g-hairline); border-radius: 5px;
@@ -2949,7 +2948,7 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
 .task-tree__avatar {
   flex: 0 0 22px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
   background: color-mix(in srgb, var(--g-accent) 20%, var(--g-surface-sunken)); color: var(--g-text);
-  font-size: 9.5px; font-weight: var(--g-w-semibold); letter-spacing: .02em;
+  font-size: var(--ws-fs-xs); font-weight: var(--g-w-semibold); letter-spacing: .02em;
 }
 .task-tree__owner-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-tree__none { color: var(--g-text-subtle); font-style: italic; }
@@ -3504,6 +3503,10 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
 
 /* ==========================================================================
    DRAFTING GRID
+   v2 keeps it, a touch fainter: on the deeper v2 ground the same alpha
+   reads stronger, so the ink is lowered to stay a texture rather than a
+   pattern the cards have to compete with.
+
    The public hero's lattice, under the document pane, at a fraction of its
    ink. On the public site the grid is spacetime being bent; here it is the
    cutting mat: the same 52px cell, perfectly straight, there to say "this is
@@ -3518,7 +3521,7 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
    ========================================================================== */
 @layer ws-panes {
   .ws-main {
-    --ws-grid-ink: rgb(var(--g-canvas-line) / 0.045);
+    --ws-grid-ink: rgb(var(--g-canvas-line) / 0.035);
     background-color: var(--g-bg);
     background-image:
       radial-gradient(120% 95% at 50% 0%, transparent 30%, var(--g-bg) 100%),
@@ -3527,7 +3530,7 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
     background-size: 100% 100%, 52px 52px, 52px 52px;
     background-position: 0 0, center top, center top;
   }
-  :root[data-theme="light"] .ws-main { --ws-grid-ink: rgb(var(--g-canvas-line) / 0.06); }
+  :root[data-theme="light"] .ws-main { --ws-grid-ink: rgb(var(--g-canvas-line) / 0.05); }
 }
 
 /* ==========================================================================

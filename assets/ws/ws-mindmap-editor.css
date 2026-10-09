@@ -36,7 +36,7 @@ body > .mindmap-editor-layer {
 
 .mindmap-editor__heading { min-width: 0; display: grid; gap: 2px; }
 .mindmap-editor__heading h2 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
-.mindmap-editor__eyebrow { color: var(--g-text-subtle); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+.mindmap-editor__eyebrow { color: var(--g-text-subtle); font-size: var(--ws-fs-xs); font-weight: 700; letter-spacing: .12em; }
 .mindmap-editor__head-actions { display: flex; align-items: center; gap: 8px; }
 .mindmap-editor__status { color: var(--g-text-subtle); font-size: 12px; }
 .mindmap-editor__status[data-tone="bad"] { color: var(--g-danger, #d95454); }
@@ -131,7 +131,7 @@ body > .mindmap-editor-layer {
   background: var(--g-surface-raised);
   color: var(--g-text-subtle);
   font: inherit;
-  font-size: 10px;
+  font-size: var(--ws-fs-xs);
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -172,7 +172,7 @@ body > .mindmap-editor-layer {
 .mindmap-editor__node[data-dragging="1"] { cursor: grabbing; z-index: 3; }
 .mindmap-editor__node strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .mindmap-editor__node small { color: var(--g-text-subtle); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.mindmap-editor__node-kind { color: var(--g-accent); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.mindmap-editor__node-kind { color: var(--g-accent); font-size: var(--ws-fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .mindmap-editor__node[data-kind="question"] .mindmap-editor__node-kind { color: var(--g-signal-info, var(--g-accent)); }
 .mindmap-editor__node[data-kind="hypothesis"] .mindmap-editor__node-kind { color: var(--g-signal-warning, var(--g-accent)); }
 .mindmap-editor__node[data-kind="dataset"] .mindmap-editor__node-kind,
@@ -274,7 +274,7 @@ body > .mindmap-editor-layer {
 }
 .mindmap-editor__connection > div { min-width: 0; display: grid; gap: 2px; }
 .mindmap-editor__connection strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.mindmap-editor__connection small { color: var(--g-text-subtle); font-size: 10px; }
+.mindmap-editor__connection small { color: var(--g-text-subtle); font-size: var(--ws-fs-xs); }
 .mindmap-editor__loading { padding: 28px; color: var(--g-text-subtle); }
 .mindmap-editor__loading[data-tone="bad"] { color: var(--g-danger, #d95454); }
 
