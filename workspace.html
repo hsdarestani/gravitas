@@ -36,7 +36,7 @@
   <script src="/assets/gravitas-icons.js?v=20261009-report1" defer></script>
   <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
   <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
-  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261009-buttons1">
+  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261009-buttons2">
   <!-- Platform Admin parts; after the unified sheet, which never styles adm-. -->
   <link rel="stylesheet" href="/assets/ws/ws-admin.css?v=20261009-buttons1">
   <style>
@@ -130,7 +130,7 @@
   </noscript>
 
   <script type="module">
-    import { start } from '/assets/ws/ws-app.js?v=20261009-report1';
+    import { start } from '/assets/ws/ws-app.js?v=20261009-inbox2';
     import { platform } from '/assets/ws/ws-platform.js?v=20261008-operational2';
     import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20261009-reports5';
     import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20261008-operational2';
@@ -214,7 +214,7 @@
     else addEventListener('load', bootWorkspace, { once: true });
   </script>
   <script type="module" src="/assets/ws/ws-actionable-ui.js?v=20261008-operational2"></script>
-  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20261009-buttons1"></script>
+  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20261009-buttons2"></script>
   <script src="/assets/production-bridge.js?v=20260924-seen1" defer></script>
   <!-- Pulsar: the same floating assistant as the rest of the site. ws-ai.js
        configures it for the workspace once both have loaded. -->

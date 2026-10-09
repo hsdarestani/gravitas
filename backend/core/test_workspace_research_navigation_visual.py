@@ -71,11 +71,11 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         runtime = (ROOT / 'assets' / 'ws' / 'ws-design-runtime.js').read_text(encoding='utf-8')
 
         for marker in (
-            '/assets/ws/ws-app.js?v=20261009-report1',
+            '/assets/ws/ws-app.js?v=20261009-inbox2',
             '/assets/ws/ws-five-layer.js?v=20261009-reports5',
             '/assets/ws/ws-nextcloud-native.js?v=20261008-operational2',
-            '/assets/ws/ws-unified-design.css?v=20261009-buttons1',
-            '/assets/ws/ws-design-runtime.js?v=20261009-buttons1',
+            '/assets/ws/ws-unified-design.css?v=20261009-buttons2',
+            '/assets/ws/ws-design-runtime.js?v=20261009-buttons2',
         ):
             self.assertIn(marker, html)
 
@@ -84,4 +84,4 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         self.assertIn("./ws-home.js?v=20261008-operational2", app)
         self.assertIn("./ws-member-lms.js?v=20261008-reports3", five)
         self.assertIn("./ws-member-progress.js?v=20261008-operational2", five)
-        self.assertIn("DESIGN_VERSION = '20261009-buttons1'", runtime)
+        self.assertIn("DESIGN_VERSION = '20261009-buttons2'", runtime)

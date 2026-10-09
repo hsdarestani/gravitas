@@ -57,7 +57,7 @@ const ui = {
   booting: true,
   area: 'home',
   route: null,
-  dockTab: 'tasks',
+  dockTab: 'inbox',
   index: true,
   dock: true,
   openSections: new Set(),
@@ -1121,11 +1121,17 @@ function renderFolder(host) {
    DOCK
    ========================================================================== */
 
+/* Notifications lead, and the dock opens on them at every load. They are the
+   one tab whose contents change without the reader doing anything, so they
+   are what the panel is for when it first appears; the others answer
+   questions the reader brings. The tab picked during a visit holds until the
+   next load and is deliberately not restored after it, since a remembered
+   "Tasks" would hide new notifications behind a click every day. */
 const DOCK_TABS = [
+  { id: 'inbox',     label: 'Notifications' },
   { id: 'tasks',     label: 'Tasks' },
   { id: 'journal',   label: 'Calendar' },
   { id: 'links',     label: 'Links' },
-  { id: 'inbox',     label: 'Notifications' },
 ];
 
 function renderDock() {
@@ -1141,7 +1147,6 @@ function renderDock() {
     btn.setAttribute('aria-selected', String(ui.dockTab === tab.id));
     btn.addEventListener('click', () => {
       ui.dockTab = tab.id;
-      writePrefs({ dockTab: tab.id });
       renderDock();
       renderRail();
       if (tab.id === 'inbox') refreshInbox();
@@ -1931,7 +1936,6 @@ export async function start() {
   const prefs = readPrefs();
   if (Array.isArray(prefs.openSections)) ui.openSections = new Set(prefs.openSections);
   if (Array.isArray(prefs.openNodes)) ui.openNodes = new Set(prefs.openNodes);
-  if (DOCK_TABS.some((tab) => tab.id === prefs.dockTab)) ui.dockTab = prefs.dockTab;
   if (typeof prefs.dock === 'boolean') ui.dock = prefs.dock;
   if (prefs['--ws-index-w']) document.documentElement.style.setProperty('--ws-index-w', prefs['--ws-index-w']);
   if (prefs['--ws-dock-w']) document.documentElement.style.setProperty('--ws-dock-w', prefs['--ws-dock-w']);

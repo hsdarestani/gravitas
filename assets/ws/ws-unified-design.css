@@ -1332,21 +1332,30 @@ html .au-modal {
    #ws-view and two dialog classes, so the task card, meeting and attachment
    dialogs, all mounted on <body>, still showed the native bevel. This sheet
    loads only on workspace.html, so the rule is unscoped: the button inside
-   becomes a small .ws-btn and "No file chosen" takes the muted hint tone. */
+   becomes a small .ws-btn and "No file chosen" takes the muted hint tone.
+   The browser does not centre that button in a fixed-height box (.v-input
+   is 30px, 38px on touch), so it hugged the top edge. The box instead wraps
+   the button with even padding: 2 + 24 + 2 plus the border is 30px, the
+   height of the fields beside it. */
 input[type="file"] {
-  display: inline-flex;
-  align-items: center;
+  box-sizing: border-box;
   max-width: 100%;
-  padding: 3px 10px 3px 3px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 2px 10px 2px 2px !important;
+  line-height: var(--ws-btn-h-sm);
   color: var(--g-text-muted) !important;
   font: inherit;
   font-size: var(--ws-fs-sm);
   cursor: pointer;
 }
 input[type="file"]::file-selector-button {
+  box-sizing: border-box;
   height: var(--ws-btn-h-sm);
   margin: 0 10px 0 0;
   padding: 0 10px;
+  vertical-align: middle;
+  line-height: 1;
   border: 1px solid var(--g-border);
   border-radius: calc(var(--ws-btn-r) - 2px);
   background: var(--g-surface-raised);
