@@ -803,15 +803,15 @@
   .ws-palette {
     position: fixed; inset: 0; z-index: var(--g-z-modal);
     display: grid; place-items: start center;
-    padding-top: 14vh;
-    background: rgb(1 18 28 / 0.5);
+    padding: 12vh 16px 16px;
+    background: rgb(1 18 28 / 0.55);
   }
   :root[data-theme="light"] .ws-palette { background: rgb(0 34 54 / 0.28); }
   .ws-palette[hidden] { display: none; }
 
   .ws-palette__box {
-    width: min(560px, calc(100vw - 32px));
-    max-height: 62vh;
+    width: min(640px, 100%);
+    max-height: min(580px, 72vh);
     display: flex; flex-direction: column;
     border: 1px solid var(--g-border);
     border-radius: var(--ws-r-panel);
@@ -820,47 +820,67 @@
     overflow: hidden;
   }
 
+  /* The field, its glass and the list are flex children of a box with a
+     max-height. Without flex: none the field is the one that gave way when
+     the list was long: it shrank to the height of its text and the
+     placeholder sat on the top border. The field and the foot are fixed;
+     only the list scrolls. */
+  .ws-palette__field {
+    flex: none;
+    display: flex; align-items: center; gap: 12px;
+    height: 60px; padding: 0 20px;
+    border-bottom: 1px solid var(--g-hairline);
+    cursor: text;
+  }
+  .ws-palette__glass { flex: none; display: grid; place-items: center; color: var(--g-text-subtle); }
+  .ws-palette__glass svg { width: 19px; height: 19px; }
   .ws-palette__input {
-    height: 44px; padding: 0 14px;
-    border: 0; border-bottom: 1px solid var(--g-hairline);
-    background: transparent; color: var(--g-text);
-    font: inherit; font-size: 15px;
+    flex: 1; min-width: 0; height: 100%; padding: 0;
+    border: 0; background: transparent; color: var(--g-text);
+    font: inherit; font-size: 17px; letter-spacing: -0.005em;
   }
   .ws-palette__input::placeholder { color: var(--g-text-subtle); }
   .ws-palette__input:focus { outline: none; }
 
-  .ws-palette__list { flex: 1; min-height: 0; overflow: auto; padding: 6px; }
+  .ws-palette__list { flex: 1; min-height: 0; overflow: auto; padding: 6px 10px 10px; scroll-padding: 10px; }
 
   .ws-palette__group {
-    padding: 8px 8px 4px;
+    margin: 0; padding: 16px 12px 6px;
     font-size: var(--ws-fs-xs); text-transform: uppercase;
     letter-spacing: var(--g-track-eyebrow);
     color: var(--g-text-subtle);
   }
+  .ws-palette__group:first-child { padding-top: 10px; }
 
   .ws-opt {
-    display: flex; align-items: center; gap: 10px;
-    width: 100%; padding: 7px 8px;
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; min-height: 40px; padding: 9px 12px;
     border: 0; border-radius: var(--ws-r-control);
     background: transparent; color: var(--g-text-muted);
     font: inherit; font-size: var(--ws-fs); text-align: left;
     cursor: pointer;
   }
+  .ws-opt + .ws-opt { margin-top: 2px; }
   /* Selection follows the keyboard, so it is an attribute rather than
      :hover. The pointer sets the same attribute on move, which keeps one
      highlight on screen instead of two fighting. */
   .ws-opt[data-active] { background: var(--g-surface-hover); color: var(--g-text); }
-  .ws-opt__icon { flex: 0 0 16px; display: grid; place-items: center; color: var(--g-ic-dim); opacity: var(--g-ic-dim-a); }
-  .ws-opt__icon svg { width: 15px; height: 15px; }
+  .ws-opt__icon { flex: 0 0 18px; display: grid; place-items: center; color: var(--g-ic-dim); opacity: var(--g-ic-dim-a); }
+  .ws-opt[data-active] .ws-opt__icon { opacity: 1; }
+  .ws-opt__icon svg { width: 17px; height: 17px; }
   .ws-opt__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ws-opt__hint { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); }
+  .ws-opt__hint { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ws-fs-xs); color: var(--g-text-subtle); }
 
   .ws-palette__foot {
-    display: flex; align-items: center; gap: var(--g-space-sm);
-    padding: 7px 12px;
+    flex: none;
+    display: flex; align-items: center; gap: 18px;
+    padding: 10px 20px;
     border-top: 1px solid var(--g-hairline);
+    background: var(--g-surface);
     font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
   }
+  .ws-palette__foot span { display: inline-flex; align-items: center; gap: 6px; }
+  .ws-palette__foot kbd + kbd { margin-left: -2px; }
 }
 
 /* ==========================================================================
@@ -1090,7 +1110,7 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
     }
     .ws-search:hover { border-color: transparent; }
     .ws-search:active { transform: scale(0.96); }
-    .ws-search__label, .ws-search kbd { display: none; }
+    .ws-search__label { display: none; }
     .theme-toggle { border-color: transparent; }
 
     .ws[data-index="on"]::after {
@@ -1184,8 +1204,10 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
        it sits higher and taller: the on-screen keyboard takes half the
        screen the moment the field is focused. dvh, because that keyboard is
        exactly what makes vh lie. */
-    .ws-palette { padding-top: 7vh; }
-    .ws-palette__box { width: calc(100vw - 20px); max-height: 72dvh; }
+    .ws-palette { padding: 7vh 10px 10px; }
+    .ws-palette__box { width: 100%; max-height: 72dvh; }
+    .ws-palette__field { height: 56px; padding: 0 16px; }
+    .ws-palette__foot { display: none; }
 
     /* A sideways board on a phone is a carousel whether it admits it or not,
        so the columns are card-width and snap. A 168px column on a 390px
@@ -1256,7 +1278,7 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
     .ws-search .g-wi { width: 19px; height: 19px; }
     .ws-tab { padding: 12px 10px 11px; }
     .ws-cal__day { min-height: 34px; }
-    .ws-opt { padding: 10px 8px; }
+    .ws-opt { min-height: 44px; padding: 10px 12px; }
     .v-row { padding: 10px 8px; }
     .v-choice { padding: 9px 14px; }
     .v-more { padding: 10px 8px; }
@@ -2407,7 +2429,41 @@ body .gchat { bottom: calc(var(--ws-status-h, 26px) + clamp(0.75rem, 2vw, 1.25re
    controls size to their content instead of each taking a whole row. */
 .task-board__toolbar .task-board__input[type="search"] { flex: 1 1 260px; width: auto; min-width: min(260px, 100%) !important; max-width: 420px; }
 .task-board__toolbar select.task-board__input { flex: 0 0 auto; width: auto; min-width: 150px !important; max-width: 240px; }
-.task-board__toolbar .v-toolbar__count { margin-left: 4px; }
+.task-board__toolbar .v-toolbar__count { margin-left: auto; padding-left: 4px; white-space: nowrap; }
+
+/* The page head carries the one primary action, New task, level with the
+   title. Title and description stay in the first column; the button takes
+   the second and centres on both lines, so it never pushes the description
+   onto a narrower measure than the page around it. */
+.task-board__head {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px; align-items: center;
+}
+.task-board__head > :not(.task-board__new) { grid-column: 1; }
+.task-board__head > .task-board__new { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+@media (max-width: 640px) {
+  .task-board__head { grid-template-columns: minmax(0, 1fr); row-gap: 12px; }
+  .task-board__head > .task-board__new { grid-column: 1; grid-row: auto; justify-self: start; }
+}
+
+/* Four counts are a summary line on this screen, not the subject of it.
+   At the dashboard's 118px tile they took a quarter of the first screen
+   and pushed the board, which is the subject, below the fold. Label and
+   number sit on one line in a 64px tile. The id-and-three-classes selector
+   outranks the unified #ws-view .wc-tile rule, which is !important too. */
+#ws-view [data-core-tasks-native] .v-stats.wc-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px !important; margin-bottom: 14px; }
+#ws-view [data-core-tasks-native] .v-stat.wc-tile {
+  min-height: 0 !important;
+  display: flex !important; align-items: center !important; justify-content: space-between !important;
+  padding: 14px 16px !important;
+}
+#ws-view [data-core-tasks-native] .v-stat.wc-tile .v-stat__value { font-size: 22px !important; }
+/* ws-actionable-ui marks "Open tasks" with a corner arrow; in a one-line
+   tile the corner is where the number is. */
+#ws-view [data-core-tasks-native] .v-stat.wc-tile::after { content: none; }
+@media (max-width: 640px) {
+  #ws-view [data-core-tasks-native] .v-stats.wc-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 640px) {
   .task-board__toolbar select.task-board__input { flex: 1 1 140px; max-width: none; }
 }
@@ -2804,18 +2860,6 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   .task-comment__picker-top { align-items: flex-start; }
 }
 
-.task-notification-button--unread { border-color: var(--g-accent) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--g-accent) 12%, transparent); }
-.task-notification-list { display: grid; gap: 8px; }
-.task-notification {
-  display: grid; gap: 4px; width: 100%; padding: 11px 12px; text-align: left;
-  border: 1px solid var(--g-hairline); border-radius: 10px; background: var(--g-surface);
-  color: var(--g-text); cursor: pointer;
-}
-.task-notification[data-unread="true"] {
-  border-color: color-mix(in srgb, var(--g-accent) 52%, var(--g-border));
-  background: color-mix(in srgb, var(--g-accent) 7%, var(--g-surface));
-}
-.task-notification span { color: var(--g-text-muted); font-size: var(--ws-fs-sm); }
 .task-board__surface--tree,
 .task-board__surface--graph { min-width: 0; }
 
@@ -2988,13 +3032,9 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   background: var(--g-surface-raised); color: var(--g-text);
   box-shadow: 0 0 0 1px var(--g-hairline), 0 1px 2px rgb(0 0 0 / .18);
 }
-.task-board__actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.task-board__actions .v-toolbar__count { margin-right: 4px; }
 @media (max-width: 640px) {
   .task-view-switch { width: 100%; }
   .task-view-switch__option { flex: 1; }
-  .task-board__actions { width: 100%; margin-left: 0; }
-  .task-board__actions .ws-btn { flex: 1; justify-content: center; }
 }
 .task-graph-wrap {
   overflow: auto; max-height: min(72vh, 860px); padding: 8px;
@@ -3619,3 +3659,67 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   }
   .ws-inbox__time { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); }
 }
+
+/* ==========================================================================
+   DAY PAGES, THE EDITOR TOOLBAR AND THE EMPTY INBOX
+   A day opened from the calendar is an ordinary page, and it was where the
+   editor's rough edges showed most: a new day arrives with no blocks, so the
+   reader met thirteen outlined chips above nothing, and an outline column
+   titled "On this note" with nothing under it.
+   ========================================================================== */
+@layer ws-components {
+  .ws-editor-tools {
+    align-items: center; gap: 4px 0;
+    margin-bottom: 20px; padding: 4px;
+  }
+  .ws-editor-tools__group { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 4px; }
+  .ws-editor-tools__group + .ws-editor-tools__group { border-left: 1px solid var(--g-hairline); }
+  /* The page's own controls sit apart from the writing ones. */
+  .ws-editor-tools__group:last-child { margin-left: auto; }
+
+  .ws-editor-layout[data-solo] { grid-template-columns: minmax(0, 1fr); }
+
+  /* The invitation to write. Absolutely placed so the caret starts at the
+     left edge rather than after the hint. */
+  .ws-block p[data-placeholder][data-empty] { position: relative; }
+  .ws-block p[data-placeholder][data-empty]::before {
+    content: attr(data-placeholder);
+    position: absolute; top: 0; left: 0;
+    color: var(--g-text-subtle); pointer-events: none;
+  }
+
+  .ws-doc__head--day {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 16px; align-items: center;
+  }
+  .ws-doc__head--day > .ws-doc__title,
+  .ws-doc__head--day > .ws-doc__meta { grid-column: 1; }
+  .ws-doc__head--day > .ws-daynav { grid-column: 2; grid-row: 1 / span 2; }
+  .ws-daynav { display: flex; align-items: center; gap: 4px; }
+  .ws-daynav__chev { display: inline-flex; }
+  @media (max-width: 640px) {
+    .ws-doc__head--day { grid-template-columns: minmax(0, 1fr); }
+    .ws-doc__head--day > .ws-daynav { grid-column: 1; grid-row: auto; margin-top: 10px; margin-left: -9px; }
+  }
+
+  .ws-inbox__clear {
+    display: grid; justify-items: center; gap: 6px;
+    padding: 44px 20px 36px; text-align: center;
+  }
+  .ws-inbox__clear-mark {
+    display: grid; place-items: center;
+    width: 44px; height: 44px; margin-bottom: 8px;
+    border: 1px solid var(--g-hairline); border-radius: 50%;
+    background: var(--g-surface-sunken); color: var(--g-text-muted);
+  }
+  .ws-inbox__clear-mark svg { width: 20px; height: 20px; }
+  .ws-inbox__clear-title { margin: 0; font-size: var(--ws-fs); font-weight: var(--g-w-medium); color: var(--g-text); }
+  .ws-inbox__clear-body {
+    margin: 0; max-width: 30ch;
+    font-size: var(--ws-fs-sm); line-height: var(--g-lh-body); color: var(--g-text-subtle);
+  }
+}
+
+/* Unlayered, like the button system it adjusts: a layered rule cannot reach
+   an unlayered .ws-btn. A pressed toolbar button (Bookmarked) reads as on. */
+.ws-editor-tools .ws-btn[aria-pressed="true"] { color: var(--g-accent); }

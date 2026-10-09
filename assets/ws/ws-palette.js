@@ -1,6 +1,13 @@
 /* ==========================================================================
    GRAVITAS+ WORKSPACE  ·  COMMAND PALETTE
-   Search and every action that has a keyboard route, in one surface.
+   Search, every quick action and every section, in one surface.
+
+   The rows used to carry Ctrl N, Ctrl J and Ctrl T, and the header button
+   a ⌘K. Chrome and Edge keep Ctrl N, Ctrl T and Ctrl J for a new window, a
+   new tab and Downloads before a page ever sees them, and ⌘K is not a key
+   on the Windows keyboards this team uses. Every label promised something
+   the keyboard did not do, so the labels and their bindings are gone. The
+   palette opens from the Search button.
 
    It does not animate. Not the box, not the backdrop, not the list. This
    is the single most-repeated interaction in the whole workspace, opened
@@ -35,7 +42,6 @@ function actions() {
     {
       group: 'Actions',
       label: 'New page',
-      hint: 'Ctrl N',
       icon: 'plus',
       run: async () => {
         /* Beside the page you are reading when there is one, and in the
@@ -51,7 +57,6 @@ function actions() {
     {
       group: 'Actions',
       label: "Open today in Calendar",
-      hint: 'Ctrl J',
       icon: 'meeting',
       run: async () => {
         const journal = await context.api.openJournal(new Date());
@@ -61,7 +66,6 @@ function actions() {
     {
       group: 'Actions',
       label: 'New task from selection',
-      hint: 'Ctrl T',
       icon: 'tasks',
       run: async () => {
         const text = String(getSelection() || '').trim();
@@ -313,6 +317,13 @@ export function mountPalette(ctx) {
   const box = document.createElement('div');
   box.className = 'ws-palette__box';
 
+  const field = document.createElement('label');
+  field.className = 'ws-palette__field';
+  const glass = document.createElement('span');
+  glass.className = 'ws-palette__glass';
+  glass.setAttribute('aria-hidden', 'true');
+  glass.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10.6" cy="10.6" r="7.4"/><path d="m16 16 5 5"/></svg>';
+
   input = document.createElement('input');
   input.className = 'ws-palette__input';
   input.type = 'text';
@@ -322,6 +333,7 @@ export function mountPalette(ctx) {
   input.setAttribute('role', 'combobox');
   input.setAttribute('aria-expanded', 'true');
   input.setAttribute('aria-controls', 'ws-palette-list');
+  field.append(glass, input);
 
   list = document.createElement('div');
   list.className = 'ws-palette__list';
@@ -335,7 +347,7 @@ export function mountPalette(ctx) {
     '<span><kbd>Enter</kbd> run</span>' +
     '<span><kbd>Esc</kbd> close</span>';
 
-  box.append(input, list, foot);
+  box.append(field, list, foot);
   root.append(box);
   document.body.append(root);
 
@@ -378,33 +390,4 @@ export function mountPalette(ctx) {
     input.focus();
   });
 
-  addEventListener('keydown', globalKeys);
-}
-
-function globalKeys(event) {
-  const mod = event.metaKey || event.ctrlKey;
-  if (!mod) return;
-
-  const key = event.key.toLowerCase();
-
-  if (key === 'k') {
-    event.preventDefault();
-    root.hidden ? openPalette() : close();
-    return;
-  }
-
-  // The rest only fire when the palette is closed, so Ctrl N inside the
-  // search field does not create a page behind the reader's back.
-  if (!root.hidden) return;
-
-  if (key === 'n') { event.preventDefault(); runByLabel('New page'); }
-  else if (key === 'j') { event.preventDefault(); runByLabel("Open today in Calendar"); }
-  else if (key === 't') { event.preventDefault(); runByLabel('New task from selection'); }
-}
-
-async function runByLabel(label) {
-  const found = actions().find((action) => action.label === label);
-  if (!found) return;
-  const result = await found.run();
-  if (result?.toast) announce(result.toast);
 }

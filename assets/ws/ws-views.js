@@ -169,6 +169,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   const doc = docShell(host, 'Tasks & Execution', 'Manager-defined execution. Create tasks manually from existing Key Results and optional Milestones.');
   // ws-task-deck-mirror.js looks for this to know the board is already drawn.
   doc.dataset.coreTasksNative = 'true';
+  const head = doc.querySelector(':scope > .ws-doc__head');
+  head.classList.add('task-board__head');
   const holder = el('div');
   doc.append(holder);
   skeleton(8, holder);
@@ -800,57 +802,6 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     } catch (error) {
       body.innerHTML = '';
       body.append(el('p', 'v-note', error?.message || 'This planning item could not be opened.'));
-    }
-  }
-
-  async function openTaskNotificationsDialog(state, reloadBoard) {
-    const { dialog, body, head } = makeDialog('Notifications');
-    const markAll = makeButton('Mark all read', async () => {
-      markAll.disabled = true;
-      try {
-        await P.markTaskInAppNotificationsRead([], true);
-        await draw();
-      } finally {
-        markAll.disabled = false;
-      }
-    });
-    head.insertBefore(markAll, head.querySelector('button'));
-
-    const draw = async () => {
-      body.innerHTML = '';
-      const data = await P.taskInAppNotifications();
-      if (!(data.notifications || []).length) {
-        body.append(el('p', 'v-note', 'No task notifications yet.'));
-        return;
-      }
-      const list = el('div', 'task-notification-list');
-      for (const notice of data.notifications || []) {
-        const item = el('button', 'task-notification');
-        item.type = 'button';
-        if (!notice.read) item.dataset.unread = 'true';
-        item.append(
-          el('strong', null, notice.title),
-          el('span', null, notice.body.split('\n').filter(Boolean)[0] || ''),
-          el('small', 'fl-muted', P.formatDate(notice.created_at)),
-        );
-        item.addEventListener('click', async () => {
-          if (!notice.read) await P.markTaskInAppNotificationsRead([notice.id], false).catch(() => {});
-          if (notice.task_id) {
-            closeDialog(dialog);
-            openTaskDialog(notice.task_id, state, reloadBoard);
-          } else {
-            await draw();
-          }
-        });
-        list.append(item);
-      }
-      body.append(list);
-    };
-
-    try {
-      await draw();
-    } catch (error) {
-      body.append(el('p', 'v-note', error?.message || 'Notifications unavailable.'));
     }
   }
 
@@ -1591,10 +1542,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     let deepLinkedTaskOpened = false;
 
     const load = async ({ keepDialog = false } = {}) => {
-      const [data, notificationData] = await Promise.all([
-        P.operatingTaskBoard(),
-        P.taskInAppNotifications().catch(() => ({ unread_count: 0, notifications: [] })),
-      ]);
+      const data = await P.operatingTaskBoard();
       state = data;
       if (filters.owner === null) {
         const me = P.platform.user?.user || P.platform.user;
@@ -1656,20 +1604,21 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         viewFilter.append(option);
       }
       const count = el('span', 'v-toolbar__count');
-      const notifications = makeButton(
-        notificationData.unread_count ? `Notifications · ${notificationData.unread_count}` : 'Notifications',
-        () => openTaskNotificationsDialog(state, load),
-      );
-      if (notificationData.unread_count) notifications.classList.add('task-notification-button--unread');
-      const add = makeButton('New task from key result', () => openCreateDialog(state, load), true);
-      if (!data.can_edit) {
-        add.disabled = true;
-      }
       ownerFilter.setAttribute('aria-label', 'Filter by owner');
       priorityFilter.setAttribute('aria-label', 'Filter by priority');
-      const actions = el('div', 'task-board__actions');
-      actions.append(count, notifications, add);
-      toolbar.append(viewFilter, search, ownerFilter, priorityFilter, sortFilter, actions);
+      toolbar.append(viewFilter, search, ownerFilter, priorityFilter, sortFilter, count);
+
+      /* Creating a task is the page's one primary action, so it sits in the
+         page head beside the title, where every other workspace screen keeps
+         its primary action, rather than at the tail of the filter row where
+         it wrapped onto a line of its own. Notifications are not repeated
+         here: the dock already carries them on every screen. */
+      head.querySelector('.task-board__new')?.remove();
+      const add = makeButton('New task', () => openCreateDialog(state, load), true);
+      add.classList.add('task-board__new');
+      add.title = 'Create a task under an existing key result';
+      add.disabled = !data.can_edit;
+      head.append(add);
 
       const topScroll = el('div', 'task-board__top-scroll');
       topScroll.setAttribute('aria-label', 'Horizontal task board scroll');

@@ -1,5 +1,5 @@
 import * as P from './ws-platform.js?v=20261008-operational2';
-import { renderCoreTasks } from './ws-views.js?v=20261009-copy1';
+import { renderCoreTasks } from './ws-views.js?v=20261010-tasks1';
 import { observeSurface } from './ws-runtime-performance.js?v=20261008-operational2';
 
 const state = {
@@ -40,16 +40,24 @@ function installStyle() {
   const style = document.createElement('style');
   style.id = 'ws-task-deck-mirror-style';
   style.textContent = `
-    .ws-core-deck-mirror { margin:0 0 18px; }
-    /* The lead lives in the body rather than a .v-panel__head, so the body
-       carries the head's padding itself; the #ws-view prefix outranks the
-       unified 0 6px 10px body padding meant for row lists. */
+    .ws-core-deck-mirror { margin:0 0 14px; }
+    /* One row: what the panel is and where the sync stands on the left, the
+       three actions on the right. It was a full card with a paragraph and its
+       own button row, which put the board below the fold before the reader
+       had seen a single task. The lead lives in the body rather than a
+       .v-panel__head, so the body carries the padding itself; the #ws-view
+       prefix outranks the unified 0 6px 10px body padding meant for row lists. */
     #ws-view .ws-core-deck-mirror .v-panel__body,
-    .ws-core-deck-mirror .v-panel__body { display:grid; gap:12px; padding:16px 18px; }
-    .ws-core-deck-mirror .v-toolbar { margin:0; }
-    .ws-core-deck-mirror__lead { display:grid; gap:4px; }
-    .ws-core-deck-mirror__lead h2 { margin:0; font-size:1rem; }
-    .ws-core-deck-mirror__lead p { margin:0; max-width:900px; }
+    .ws-core-deck-mirror .v-panel__body {
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:10px 20px; padding:12px 14px 12px 18px;
+    }
+    .ws-core-deck-mirror .v-toolbar { margin:0; gap:8px; flex-wrap:wrap; }
+    .ws-core-deck-mirror__lead { display:grid; gap:3px; min-width:0; flex:1 1 320px; }
+    .ws-core-deck-mirror__title { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 12px; }
+    .ws-core-deck-mirror__lead h2 { margin:0; font-size:14px; font-weight:var(--g-w-semibold); }
+    .ws-core-deck-mirror__lead p { margin:0; max-width:72ch; font-size:var(--ws-fs-sm); }
+    .ws-core-deck-mirror__status { font-size:var(--ws-fs-xs); }
     .ws-core-deck-mirror__status[data-tone="bad"] { color:var(--danger,#d92d20); }
     .ws-core-deck-mirror__status[data-tone="ok"] { color:var(--success,#2e7d32); }
   `;
@@ -65,14 +73,15 @@ function mirrorPanel() {
 
   const body = el('div', 'v-panel__body');
   const lead = el('div', 'ws-core-deck-mirror__lead');
+  const title = el('div', 'ws-core-deck-mirror__title');
+  const status = el('span', 'v-toolbar__count ws-core-deck-mirror__status', 'Connecting to Nextcloud…');
+  title.append(el('h2', '', 'Synced with Nextcloud Deck'), status);
   lead.append(
-    el('h2', '', 'Gravitas ↔ Nextcloud Deck'),
-    el('p', 'v-note', 'Tasks stay available in both places. Title, status/lane and due date are synchronized in both directions; Gravitas keeps the project, initiative, owner and research context.'),
+    title,
+    el('p', 'v-note', 'Title, lane and due date sync both ways. Gravitas keeps the project, initiative, owner and research context.'),
   );
 
   const actions = el('div', 'v-toolbar');
-  const status = el('span', 'v-toolbar__count ws-core-deck-mirror__status', 'Connecting to Nextcloud…');
-  actions.append(status);
   body.append(lead, actions);
   panel.append(body);
   panel._actions = actions;
@@ -144,7 +153,7 @@ async function hydratePanel(panel) {
 
     actions.innerHTML = '';
     if (deckUrl) {
-      actions.append(button('Open Nextcloud Deck', () => window.open(deckUrl, '_blank', 'noopener'), false));
+      actions.append(button('Open Deck', () => window.open(deckUrl, '_blank', 'noopener'), false));
     }
     actions.append(button('Planning & Projects', () => go('/workspace/operating')));
 
@@ -166,7 +175,6 @@ async function hydratePanel(panel) {
         ? 'Tasks are visible here and in Deck. A Core admin can run reconciliation.'
         : 'Nextcloud Deck is not configured yet.';
     }
-    actions.append(status);
   } catch (error) {
     status.dataset.tone = 'bad';
     status.textContent = 'Nextcloud status could not be loaded. Gravitas tasks remain available here.';

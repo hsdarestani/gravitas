@@ -33,8 +33,8 @@ class WorkspaceTaskDeckFixContractTests(SimpleTestCase):
     def test_core_tasks_keep_native_gravitas_and_bidirectional_deck_mirror(self):
         js = self.read('assets/ws/ws-task-deck-mirror.js')
         self.assertIn('renderCoreTasks(host, { go })', js)
-        self.assertIn('Gravitas ↔ Nextcloud Deck', js)
-        self.assertIn('Tasks stay available in both places', js)
+        self.assertIn('Synced with Nextcloud Deck', js)
+        self.assertIn('Title, lane and due date sync both ways', js)
         self.assertIn("panel.dataset.coreDeckSurface = 'true'", js)
         self.assertIn("P.call('/platform/nextcloud/')", js)
         self.assertIn("P.call('/platform/admin/deck/sync/'", js)

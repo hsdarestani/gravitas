@@ -21,7 +21,7 @@
 
 import * as api from './ws-api.js?v=20261008-native3';
 import * as P from './ws-platform.js?v=20261008-operational2';
-import * as views from './ws-views.js?v=20261009-copy1';
+import * as views from './ws-views.js?v=20261010-tasks1';
 import * as meetings from './ws-meetings.js?v=20261008-operational2';
 import * as assets from './ws-core-assets.js?v=20261009-copy1';
 import * as kms from './ws-kms-views.js';
@@ -31,9 +31,9 @@ import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
 } from './ws-nav.js?v=20261009-copy1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261009-copy1';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261010-tasks1';
 import { renderSettings } from './ws-settings.js?v=20261008-operational2';
-import { mountPalette, openPalette } from './ws-palette.js';
+import { mountPalette, openPalette } from './ws-palette.js?v=20261010-tasks1';
 import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-native3';
 import { installSelects } from './ws-select.js?v=20261008-operational2';
 
@@ -731,22 +731,49 @@ function renderEditor(host) {
 
   const meta = document.createElement('p');
   meta.className = 'ws-doc__meta';
-  meta.textContent = `${crumbPath(ui.page.id).join(' / ')} · edited ${relative(ui.page.updated)}`;
+  /* A day page's title already is its date, so the crumb ("Calendar / Fri, 9
+     Oct 2026") only repeated it. It says what the page is instead, and the
+     neighbouring days sit beside it so a week can be read without going back
+     to the calendar for every day. */
+  const day = journalDateOf(ui.page);
+  meta.textContent = day
+    ? `Journal · edited ${relative(ui.page.updated)}`
+    : `${crumbPath(ui.page.id).join(' / ')} · edited ${relative(ui.page.updated)}`;
 
   head.append(title, meta);
+  if (day) {
+    head.classList.add('ws-doc__head--day');
+    head.append(dayNav(day));
+  }
   doc.append(head);
 
+  /* Three groups, in the order a writer reaches for them: what to add, what
+     to do to the block under the caret, and the page itself. Thirteen equal
+     outlined chips in one wrapping row gave no hint of that, and outweighed
+     the empty page they sat above. */
   const tools = document.createElement('div');
   tools.className = 'v-toolbar ws-editor-tools';
+  tools.setAttribute('role', 'toolbar');
+  tools.setAttribute('aria-label', 'Editor');
+  const group = (label) => {
+    const set = el('div', 'ws-editor-tools__group');
+    set.setAttribute('role', 'group');
+    set.setAttribute('aria-label', label);
+    tools.append(set);
+    return set;
+  };
+  const addGroup = group('Add a block');
+  const blockGroup = group('Selected block');
+  const pageGroup = group('Page');
   const insert = (label, type, text = '') => {
     const control = document.createElement('button');
-    control.className = 'ws-btn ws-btn--tiny'; control.type = 'button'; control.textContent = label;
+    control.className = 'ws-btn ws-btn--sm ws-btn--ghost'; control.type = 'button'; control.textContent = label;
     control.addEventListener('click', () => {
       ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type, text });
       queueSave(); render();
       requestAnimationFrame(() => doc.querySelector('.ws-block:last-child [contenteditable]')?.focus());
     });
-    tools.append(control);
+    addGroup.append(control);
   };
   insert('Text', 'p'); insert('Heading', 'h2'); insert('Bullet', 'ul'); insert('Code', 'code'); insert('Quote', 'quote'); insert('Equation', 'equation');
 
@@ -767,15 +794,15 @@ function renderEditor(host) {
   };
 
   const historyButton = document.createElement('button');
-  historyButton.className = 'ws-btn ws-btn--tiny'; historyButton.type = 'button'; historyButton.textContent = 'History';
+  historyButton.className = 'ws-btn ws-btn--sm ws-btn--ghost'; historyButton.type = 'button'; historyButton.textContent = 'History';
   historyButton.addEventListener('click', () => showMenu('Recently viewed', recentPages()));
 
   const bookmarksButton = document.createElement('button');
-  bookmarksButton.className = 'ws-btn ws-btn--tiny'; bookmarksButton.type = 'button'; bookmarksButton.textContent = 'Bookmarks';
+  bookmarksButton.className = 'ws-btn ws-btn--sm ws-btn--ghost'; bookmarksButton.type = 'button'; bookmarksButton.textContent = 'Bookmarks';
   bookmarksButton.addEventListener('click', () => showMenu('Bookmarked notes', Object.values(ui.pagesById).filter((page) => page.bookmarked)));
 
   const highlight = document.createElement('button');
-  highlight.className = 'ws-btn ws-btn--tiny'; highlight.type = 'button'; highlight.textContent = 'Highlight';
+  highlight.className = 'ws-btn ws-btn--sm ws-btn--ghost'; highlight.type = 'button'; highlight.textContent = 'Highlight';
   highlight.addEventListener('click', () => {
     const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
     if (!block) return;
@@ -785,7 +812,7 @@ function renderEditor(host) {
   });
 
   const linkButton = document.createElement('button');
-  linkButton.className = 'ws-btn ws-btn--tiny'; linkButton.type = 'button'; linkButton.textContent = 'Link';
+  linkButton.className = 'ws-btn ws-btn--sm ws-btn--ghost'; linkButton.type = 'button'; linkButton.textContent = 'Link';
   linkButton.addEventListener('click', () => {
     const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
     if (!block || block.type === 'attach') return;
@@ -796,7 +823,7 @@ function renderEditor(host) {
   });
 
   const comment = document.createElement('button');
-  comment.className = 'ws-btn ws-btn--tiny'; comment.type = 'button'; comment.textContent = 'Comment';
+  comment.className = 'ws-btn ws-btn--sm ws-btn--ghost'; comment.type = 'button'; comment.textContent = 'Comment';
   comment.addEventListener('click', () => {
     const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
     if (!block) return;
@@ -806,7 +833,7 @@ function renderEditor(host) {
   });
 
   const picker = document.createElement('input'); picker.type = 'file'; picker.hidden = true;
-  const attach = document.createElement('button'); attach.className = 'ws-btn ws-btn--tiny'; attach.type = 'button'; attach.textContent = 'Attach file';
+  const attach = document.createElement('button'); attach.className = 'ws-btn ws-btn--sm ws-btn--ghost'; attach.type = 'button'; attach.textContent = 'Attach file';
   attach.addEventListener('click', () => picker.click());
   picker.addEventListener('change', async () => {
     const file = picker.files?.[0]; picker.value = ''; if (!file) return;
@@ -820,22 +847,39 @@ function renderEditor(host) {
       queueSave(); render();
     } catch { attach.disabled = false; attach.textContent = 'Upload failed — retry'; }
   });
-  const bookmark = document.createElement('button'); bookmark.className = 'ws-btn ws-btn--tiny'; bookmark.type = 'button';
+  const bookmark = document.createElement('button'); bookmark.className = 'ws-btn ws-btn--sm ws-btn--ghost'; bookmark.type = 'button';
   bookmark.textContent = ui.page.bookmarked ? 'Bookmarked' : 'Bookmark';
+  bookmark.setAttribute('aria-pressed', String(Boolean(ui.page.bookmarked)));
   bookmark.addEventListener('click', async () => { ui.page.bookmarked = !ui.page.bookmarked; await api.savePage(ui.page.id, { bookmarked: ui.page.bookmarked }); render(); });
-  tools.append(linkButton, highlight, comment, attach, picker, bookmark, bookmarksButton, historyButton); doc.append(tools, menu);
+  blockGroup.append(linkButton, highlight, comment, attach, picker);
+  pageGroup.append(bookmark, bookmarksButton, historyButton);
+  doc.append(tools, menu);
+
+  /* A page with no blocks had nothing to click into: a new day page arrives
+     from the server empty, and the reader faced a toolbar over a void. One
+     empty paragraph is offered instead. It is saved only once typed into. */
+  if (!ui.page.blocks.length) ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'p', text: '' });
 
   const layout = document.createElement('div'); layout.className = 'ws-editor-layout';
   const canvas = document.createElement('div'); canvas.className = 'ws-editor-canvas';
-  const outline = document.createElement('aside'); outline.className = 'ws-editor-outline';
-  outline.append(el('strong', null, 'On this note'));
-  for (const block of ui.page.blocks.filter((item) => item.type === 'h2' || item.type === 'h3')) {
-    const jump = document.createElement('button'); jump.type = 'button'; jump.textContent = block.text || 'Untitled heading';
-    jump.addEventListener('click', () => $(`.ws-block[data-id="${block.id}"] [contenteditable]`)?.focus()); outline.append(jump);
-  }
-
   for (const block of ui.page.blocks) canvas.append(blockEl(block));
-  layout.append(canvas, outline); doc.append(layout);
+  layout.append(canvas);
+
+  // The outline exists only when there is something to outline. An empty
+  // "On this note" column floated mid-page beside a blank canvas.
+  const headings = ui.page.blocks.filter((item) => item.type === 'h2' || item.type === 'h3');
+  if (headings.length) {
+    const outline = document.createElement('aside'); outline.className = 'ws-editor-outline';
+    outline.append(el('strong', null, 'On this note'));
+    for (const block of headings) {
+      const jump = document.createElement('button'); jump.type = 'button'; jump.textContent = block.text || 'Untitled heading';
+      jump.addEventListener('click', () => $(`.ws-block[data-id="${block.id}"] [contenteditable]`)?.focus()); outline.append(jump);
+    }
+    layout.append(outline);
+  } else {
+    layout.dataset.solo = '';
+  }
+  doc.append(layout);
   host.append(doc);
 }
 
@@ -950,7 +994,17 @@ function blockEl(block) {
     node.contentEditable = 'plaintext-only';
     node.spellcheck = tag === 'p';
     renderInline(node, block.text);
-    node.addEventListener('input', () => { block.text = node.textContent; queueSave(); });
+    // The only block on the page carries the invitation to write; a hint on
+    // every empty line of a longer page would be noise.
+    if (tag === 'p' && ui.page.blocks.length === 1) {
+      node.dataset.placeholder = journalDateOf(ui.page) ? 'What happened today…' : 'Start writing…';
+      node.toggleAttribute('data-empty', !block.text);
+    }
+    node.addEventListener('input', () => {
+      block.text = node.textContent;
+      if (node.dataset.placeholder) node.toggleAttribute('data-empty', !block.text);
+      queueSave();
+    });
     // Links are re-rendered on blur only: doing it per keystroke moves the
     // caret out from under whoever is typing.
     node.addEventListener('blur', () => renderInline(node, block.text));
@@ -1335,6 +1389,22 @@ function renderDockInbox(body) {
     return;
   }
 
+  /* An empty inbox says one thing once. It used to print "All caught up" as
+     the list's head and "Nothing yet" as its body, two verdicts on the same
+     empty list that read as a contradiction. */
+  if (!inbox.rows.length && !inbox.error) {
+    const clear = el('div', 'ws-inbox__clear');
+    const mark = el('span', 'ws-inbox__clear-mark');
+    mark.innerHTML = icon('inbox');
+    clear.append(
+      mark,
+      el('p', 'ws-inbox__clear-title', 'All caught up'),
+      el('p', 'ws-inbox__clear-body', 'Comments on your tasks, mentions, replies and deadline reminders land here.'),
+    );
+    body.append(clear);
+    return;
+  }
+
   const head = el('div', 'ws-inbox__head');
   head.append(el('span', 'ws-inbox__state', inbox.error
     ? 'Could not refresh'
@@ -1358,7 +1428,7 @@ function renderDockInbox(body) {
   body.append(head);
 
   if (!inbox.rows.length) {
-    body.append(views.empty('Nothing yet', 'Comments on your tasks, mentions, replies and deadline reminders will appear here.'));
+    body.append(views.empty('Nothing loaded', 'The inbox could not be reached. It refreshes on its own when the connection returns.'));
     return;
   }
 
@@ -1427,6 +1497,57 @@ async function renderDockLinks(body) {
   body.append(list);
 }
 
+async function openDay(date) {
+  ui.selectedDay = date;
+  ui.calMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+  const journal = await api.openJournal(date);
+  if (!ui.nodes.some((node) => node.id === journal.id)) {
+    ui.nodes.push({ id: journal.id, title: journal.title, kind: 'journal', parent: 'journal', phantom: false });
+  }
+  go(`/workspace/page/${journal.id}`);
+}
+
+/* The date a day page belongs to, or null for any other page. Server pages
+   carry journal_date; local ones also encode it in their id. */
+function journalDateOf(page) {
+  const key = page?.journal_date || /^journal-(\d{4}-\d{2}-\d{2})$/.exec(page?.id || '')?.[1];
+  if (!key || (page.kind && page.kind !== 'journal')) return null;
+  const date = new Date(key + 'T00:00:00');
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/* Yesterday and tomorrow in the page head, plus Today when the page is not
+   today's. The neighbours are named by date rather than "previous" and
+   "next", so the reader knows where a click lands before making it. */
+function dayNav(date) {
+  const nav = el('nav', 'ws-daynav');
+  nav.setAttribute('aria-label', 'Neighbouring days');
+  const short = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const step = (offset) => {
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
+    const btn = el('button', 'ws-btn ws-btn--sm ws-btn--ghost ws-daynav__step');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', target.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }));
+    const mark = el('span', 'ws-daynav__chev');
+    mark.innerHTML = icon('chevron');
+    if (offset < 0) mark.style.transform = 'rotate(180deg)';
+    const label = el('span', null, short(target));
+    if (offset < 0) btn.append(mark, label); else btn.append(label, mark);
+    btn.addEventListener('click', () => openDay(target));
+    return btn;
+  };
+  nav.append(step(-1));
+  const now = new Date();
+  if (date.toDateString() !== now.toDateString()) {
+    const today = el('button', 'ws-btn ws-btn--sm ws-daynav__today', 'Today');
+    today.type = 'button';
+    today.addEventListener('click', () => openDay(new Date(now.getFullYear(), now.getMonth(), now.getDate())));
+    nav.append(today);
+  }
+  nav.append(step(1));
+  return nav;
+}
+
 /* Monday first. The workspace is used from Germany, where the week does not
    start on Sunday, and a calendar that disagrees with the wall is worse than
    no calendar. */
@@ -1485,14 +1606,7 @@ function calendarEl() {
     if (written.has(localDayKey(date))) btn.setAttribute('data-has', '');
     btn.setAttribute('aria-pressed', String(date.toDateString() === ui.selectedDay.toDateString()));
     btn.setAttribute('aria-label', date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }));
-    btn.addEventListener('click', async () => {
-      ui.selectedDay = date;
-      const journal = await api.openJournal(date);
-      if (!ui.nodes.some((node) => node.id === journal.id)) {
-        ui.nodes.push({ id: journal.id, title: journal.title, kind: 'journal', parent: 'journal', phantom: false });
-      }
-      go(`/workspace/page/${journal.id}`);
-    });
+    btn.addEventListener('click', () => openDay(date));
     grid.append(btn);
   }
 
