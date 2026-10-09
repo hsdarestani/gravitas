@@ -13,6 +13,7 @@ from .content_api import _poll_definitions
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .models import Comment, ContentItem, ContentTranslation
+from .notifications import notify_site_comment_published
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
 
 
@@ -346,4 +347,8 @@ def admin_site_comment_detail(request, comment_id):
         object_id=comment.pk,
         detail={'from': before, 'to': status, 'content_key': comment.content_key},
     )
+    # Replies and mentions are announced when the comment becomes public, not
+    # when it is submitted: a pending comment may never be shown.
+    if status == Comment.Status.PUBLISHED and before != Comment.Status.PUBLISHED:
+        notify_site_comment_published(comment, moderator=request.user)
     return JsonResponse({'ok': True, 'comment': _comment_json(comment)})

@@ -159,6 +159,10 @@ def _recipient_ids(task, action, actor, detail):
             old = owner_change.get('from')
             if isinstance(old, dict) and old.get('id'):
                 ids.add(int(old['id']))
+    elif action == 'task.comment_added':
+        # A comment is a reply to everyone who already spoke on the task, not
+        # only to its owner.
+        ids.update(task.board_comments.order_by().values_list('author_id', flat=True).distinct())
     excluded = set()
     for value in (detail or {}).get('exclude_user_ids') or []:
         try:

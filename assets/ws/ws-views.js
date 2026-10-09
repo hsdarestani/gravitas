@@ -158,7 +158,14 @@ function docShell(host, title, subtitle) {
    CORE
    ========================================================================== */
 
-export function renderCoreTasks(host, { go }) {
+/* One task card as a dialog over whatever screen is open. It reuses the board's
+   dialog through renderCoreTasks rather than a copy of it, on a host that is
+   never attached, so there is one task card in the workspace, not two. */
+export function openCoreTask(taskId, { go, onTaskChange } = {}) {
+  return renderCoreTasks(document.createElement('div'), { go, openTaskId: taskId, onTaskChange });
+}
+
+export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = null }) {
   const doc = docShell(host, 'Tasks & Execution', 'Manager-defined execution. Create tasks manually from existing Key Results and optional Milestones.');
   const holder = el('div');
   doc.append(holder);
@@ -351,55 +358,100 @@ export function renderCoreTasks(host, { go }) {
     }));
   }
 
+  /* The tree reads as a table grouped by Objective and KR: one row per task,
+     with status, priority, owner and due date in fixed columns so the eye can
+     run down any one of them. It used to be bullet points with all four
+     packed into one grey line under each title, which made "who is late" a
+     reading exercise. Each group carries done-of-total, a count of rows the
+     payload holds rather than a percentage it does not. */
+  const TREE_TONES = { blocked: 'critical', waiting: 'caution', needs_review: 'caution', retest: 'caution', active: 'accent', ready: 'accent', done: 'positive', archived: 'muted', draft: 'muted' };
+  const treeCollapsed = new Set();
+
+  function localToday() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+
+  function treeProgress(tasks) {
+    const done = tasks.filter((task) => task.status === 'done').length;
+    const wrap = el('span', 'task-tree__progress');
+    const bar = el('span', 'task-tree__bar');
+    bar.style.setProperty('--done', tasks.length ? String(done / tasks.length) : '0');
+    wrap.append(bar, el('span', 'task-tree__ratio', `${done}/${tasks.length} done`));
+    return wrap;
+  }
+
+  // A head opens its Objective or KR card, unless the group is the
+  // "No objective" bucket, which has no card to open.
+  function hierarchyHead(node, kind, id, titleText, openHierarchy) {
+    if (!id || String(id) === 'none') return;
+    node.tabIndex = 0;
+    node.setAttribute('role', 'button');
+    node.setAttribute('aria-label', `Open ${kind === 'kr' ? 'key result' : 'objective'}: ${titleText}`);
+    node.addEventListener('click', () => openHierarchy(kind, id));
+    node.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openHierarchy(kind, id);
+      }
+    });
+  }
+
   function renderTaskTree(host, tasks, openCard, openHierarchy) {
     const tree = el('div', 'task-tree');
     const hierarchy = taskHierarchy(tasks);
+    const today = localToday();
+    if (hierarchy.length) {
+      const columns = el('div', 'task-tree__columns');
+      columns.setAttribute('aria-hidden', 'true');
+      for (const text of ['Task', 'Status', 'Priority', 'Owner', 'Due']) columns.append(el('span', null, text));
+      tree.append(columns);
+    }
     for (const objective of hierarchy) {
+      const objectiveKey = String(objective.id || objective.title || 'none');
+      const objectiveTitle = objective.title || 'Untitled objective';
       const objectiveNode = el('section', 'task-tree__objective');
+      const allTasks = objective.key_results.flatMap((kr) => kr.tasks);
+
+      const toggle = el('button', 'task-tree__toggle');
+      toggle.type = 'button';
+      toggle.innerHTML = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const paintCollapsed = () => {
+        const shut = treeCollapsed.has(objectiveKey);
+        objectiveNode.toggleAttribute('data-collapsed', shut);
+        toggle.setAttribute('aria-expanded', String(!shut));
+        toggle.setAttribute('aria-label', `${shut ? 'Expand' : 'Collapse'} ${objectiveTitle}`);
+      };
+      toggle.addEventListener('click', () => {
+        if (treeCollapsed.has(objectiveKey)) treeCollapsed.delete(objectiveKey);
+        else treeCollapsed.add(objectiveKey);
+        paintCollapsed();
+      });
+
       const objectiveHead = el('div', 'task-tree__objective-head');
-      const objectiveInteractive = objective.id && String(objective.id) !== 'none';
-      if (objectiveInteractive) {
-        objectiveHead.tabIndex = 0;
-        objectiveHead.setAttribute('role', 'button');
-        objectiveHead.setAttribute('aria-label', `Open objective: ${objective.title || 'Untitled objective'}`);
-        objectiveHead.addEventListener('click', () => openHierarchy('objective', objective.id));
-        objectiveHead.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            openHierarchy('objective', objective.id);
-          }
-        });
-      }
-      const objectiveTaskCount = objective.key_results.reduce((sum, kr) => sum + kr.tasks.length, 0);
-      objectiveHead.append(
-        el('span', 'task-tree__type', 'Objective'),
-        el('h3', null, objective.title || 'Untitled objective'),
-        el('span', 'v-badge', String(objectiveTaskCount) + ' tasks'),
+      hierarchyHead(objectiveHead, 'objective', objective.id, objectiveTitle, openHierarchy);
+      objectiveHead.append(el('span', 'task-tree__type', 'Objective'), el('h3', null, objectiveTitle));
+      const krCount = objective.key_results.length;
+      const objectiveMeta = el('div', 'task-tree__objective-meta');
+      objectiveMeta.append(
+        el('span', 'task-tree__counts', `${krCount} KR${krCount === 1 ? '' : 's'} · ${allTasks.length} task${allTasks.length === 1 ? '' : 's'}`),
+        treeProgress(allTasks),
       );
-      objectiveNode.append(objectiveHead);
+      const bar = el('div', 'task-tree__objective-bar');
+      bar.append(toggle, objectiveHead, objectiveMeta);
+      objectiveNode.append(bar);
+      paintCollapsed();
 
       const krList = el('div', 'task-tree__kr-list');
       for (const kr of objective.key_results) {
         const krNode = el('section', 'task-tree__kr');
         const krHead = el('div', 'task-tree__kr-head');
-        const krInteractive = kr.id && String(kr.id) !== 'none';
-        if (krInteractive) {
-          krHead.tabIndex = 0;
-          krHead.setAttribute('role', 'button');
-          krHead.setAttribute('aria-label', `Open key result: ${kr.title || 'Untitled key result'}`);
-          krHead.addEventListener('click', () => openHierarchy('kr', kr.id));
-          krHead.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              openHierarchy('kr', kr.id);
-            }
-          });
-        }
+        const krTitle = kr.title || 'Untitled key result';
+        hierarchyHead(krHead, 'kr', kr.id, krTitle, openHierarchy);
         krHead.append(
-          el('span', 'task-tree__connector'),
-          el('span', 'task-tree__type', 'KR'),
-          el('strong', null, kr.title || 'Untitled key result'),
-          el('span', 'v-badge', String(kr.tasks.length)),
+          el('span', 'task-tree__type task-tree__type--kr', 'KR'),
+          el('strong', null, krTitle),
+          treeProgress(kr.tasks),
         );
         krNode.append(krHead);
 
@@ -415,24 +467,30 @@ export function renderCoreTasks(host, { go }) {
         const appendTask = (task, depth = 0) => {
           if (visited.has(task.id)) return;
           visited.add(task.id);
-          const button = el('button', 'task-tree__task');
-          button.type = 'button';
-          button.style.setProperty('--task-depth', String(depth));
-          button.dataset.status = task.status;
-          const main = el('span', 'task-tree__task-main');
-          main.append(
-            el('strong', null, task.title),
-            el('small', 'fl-muted', P.meta([
-              P.label(task.status),
-              P.label(task.priority),
-              task.owner?.name || task.owner?.email,
-              P.formatDate(task.due_date),
-            ])),
-          );
-          const edge = el('span', 'task-tree__task-edge', depth ? '↳' : '•');
-          button.append(edge, main);
-          button.addEventListener('click', () => openCard(task.id));
-          taskHost.append(button);
+          const row = el('button', 'task-tree__task');
+          row.type = 'button';
+          row.style.setProperty('--task-depth', String(depth));
+          row.dataset.depth = String(depth);
+          row.dataset.status = task.status;
+          row.dataset.tone = TREE_TONES[task.status] || '';
+          const name = el('span', 'task-tree__name');
+          name.append(el('span', 'task-tree__dot'), el('span', 'task-tree__title', task.title));
+          if (depth) row.title = 'Waits on the task above';
+          const priority = el('span', 'task-tree__priority', String(task.priority || '').toUpperCase());
+          priority.dataset.priority = task.priority || '';
+          const ownerName = task.owner?.name || task.owner?.email || '';
+          const owner = el('span', 'task-tree__owner');
+          if (ownerName) {
+            const initials = ownerName.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+            owner.append(el('span', 'task-tree__avatar', initials), el('span', 'task-tree__owner-name', ownerName));
+          } else {
+            owner.append(el('span', 'task-tree__none', 'Unassigned'));
+          }
+          const due = el('span', 'task-tree__due', P.formatDate(task.due_date) || '—');
+          if (task.due_date && task.due_date < today && !['done', 'archived'].includes(task.status)) due.dataset.overdue = '';
+          row.append(name, el('span', 'task-tree__state', P.label(task.status)), priority, owner, due);
+          row.addEventListener('click', () => openCard(task.id));
+          taskHost.append(row);
           for (const child of children.get(String(task.id)) || []) appendTask(child, depth + 1);
         };
         for (const root of children.get('') || []) appendTask(root, 0);
@@ -1498,9 +1556,29 @@ export function renderCoreTasks(host, { go }) {
     body.append(form);
   }
 
+  /* Opened from the dock, the reader wants the card, not the board under it.
+     The dialog still needs the board payload — members, key results and the
+     task list it offers as dependencies — so that loads first; if it cannot,
+     the board route is the honest fallback, since it shows what failed. */
+  if (openTaskId) {
+    return (async () => {
+      let data;
+      try {
+        data = await P.operatingTaskBoard();
+      } catch {
+        go(`/workspace/core/tasks?task=${openTaskId}`);
+        return;
+      }
+      await openTaskDialog(openTaskId, data, async () => { await onTaskChange?.(); });
+    })();
+  }
+
   return guard(holder, 'Core tasks', async () => {
     let state = null;
-    let filters = { q: '', owner: '', priority: '', sort: 'manual', view: 'tree' };
+    // The board opens on the reader's own work as cards; owner stays null
+    // until the member list arrives, so a reader who is not a member of this
+    // workspace falls back to everyone rather than to an empty board.
+    let filters = { q: '', owner: null, priority: '', sort: 'manual', view: 'board' };
     let deepLinkedTaskOpened = false;
 
     const load = async ({ keepDialog = false } = {}) => {
@@ -1509,6 +1587,11 @@ export function renderCoreTasks(host, { go }) {
         P.taskInAppNotifications().catch(() => ({ unread_count: 0, notifications: [] })),
       ]);
       state = data;
+      if (filters.owner === null) {
+        const me = P.platform.user?.user || P.platform.user;
+        const mine = me?.id != null && (data.members || []).some((member) => String(member.id) === String(me.id));
+        filters.owner = mine ? String(me.id) : '';
+      }
       holder._taskBoardResizeObserver?.disconnect?.();
       holder.innerHTML = '';
 
@@ -1543,12 +1626,26 @@ export function renderCoreTasks(host, { go }) {
         ['created_asc', 'Created · oldest'],
       ], filters.sort);
       sortFilter.setAttribute('aria-label', 'Sort tasks');
-      const viewFilter = select([
-        ['tree', 'Tree view'],
-        ['board', 'Board view'],
-        ['graph', 'Graph view'],
-      ], filters.view || 'tree');
+      // Three views are a choice the reader switches between, not a filter,
+      // so they read as a segmented control. It keeps a select's contract —
+      // `.value` and a `change` event — so draw() reads it like the others.
+      const viewFilter = el('div', 'task-view-switch');
+      viewFilter.setAttribute('role', 'group');
       viewFilter.setAttribute('aria-label', 'Task view');
+      viewFilter.value = filters.view || 'board';
+      for (const [value, text] of [['tree', 'Tree'], ['board', 'Board'], ['graph', 'Graph']]) {
+        const option = el('button', 'task-view-switch__option', text);
+        option.type = 'button';
+        option.dataset.view = value;
+        option.setAttribute('aria-pressed', String(viewFilter.value === value));
+        option.addEventListener('click', () => {
+          if (viewFilter.value === value) return;
+          viewFilter.value = value;
+          for (const other of viewFilter.children) other.setAttribute('aria-pressed', String(other.dataset.view === value));
+          viewFilter.dispatchEvent(new Event('change'));
+        });
+        viewFilter.append(option);
+      }
       const count = el('span', 'v-toolbar__count');
       const notifications = makeButton(
         notificationData.unread_count ? `Notifications · ${notificationData.unread_count}` : 'Notifications',
@@ -1561,7 +1658,9 @@ export function renderCoreTasks(host, { go }) {
       }
       ownerFilter.setAttribute('aria-label', 'Filter by owner');
       priorityFilter.setAttribute('aria-label', 'Filter by priority');
-      toolbar.append(search, ownerFilter, priorityFilter, sortFilter, viewFilter, count, notifications, add);
+      const actions = el('div', 'task-board__actions');
+      actions.append(count, notifications, add);
+      toolbar.append(viewFilter, search, ownerFilter, priorityFilter, sortFilter, actions);
 
       const topScroll = el('div', 'task-board__top-scroll');
       topScroll.setAttribute('aria-label', 'Horizontal task board scroll');

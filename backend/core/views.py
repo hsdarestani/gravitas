@@ -23,6 +23,7 @@ from . import cloud
 from .email_verification import is_email_verified, mark_email_verified, send_account_verification
 from .layer_models import CommunityProfile
 from .models import Comment, CommentLike, LabProgress, NewsletterSubscriber
+from .notifications import notify_site_comment_liked
 from .platform_models import ResearcherProfile
 from .topic_progress import mark_topic_progress_by_slug
 
@@ -617,6 +618,7 @@ def comment_like(request, content_key, comment_id):
     like, created = CommentLike.objects.get_or_create(comment=comment, user=request.user)
     if created:
         liked = True
+        notify_site_comment_liked(comment, request.user)
     else:
         like.delete()
         liked = False

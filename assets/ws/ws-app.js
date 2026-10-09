@@ -21,7 +21,7 @@
 
 import * as api from './ws-api.js?v=20261008-native3';
 import * as P from './ws-platform.js?v=20261008-operational2';
-import * as views from './ws-views.js?v=20261008-operational2';
+import * as views from './ws-views.js?v=20261009-tree1';
 import * as meetings from './ws-meetings.js?v=20261008-operational2';
 import * as assets from './ws-core-assets.js?v=20261008-operational2';
 import * as kms from './ws-kms-views.js';
@@ -183,6 +183,14 @@ function fiveLayerOwns(path = location.pathname) {
     || /^\/workspace\/research\/projects\/\d+(?:\/[a-z-]+)?\/?$/.test(path);
 }
 
+/* Daily work reports is drawn by ws-five-layer but listed in CORE_SECTIONS,
+   so its index is the ordinary Core index and only the view is handed off.
+   Treating its index as five-layer's too left the shell's last drawing in
+   place: arriving from Tasks kept Tasks lit and the reports row dark. */
+function shellDrawsIndex(path = location.pathname) {
+  return /^\/workspace\/core\/work-reports(?:\/|$)/.test(path);
+}
+
 function fiveLayerName(path = location.pathname) {
   if (path.startsWith('/workspace/core/work-reports')) return 'Core';
   if (path.startsWith('/workspace/learning')) return 'Learning';
@@ -194,9 +202,11 @@ function fiveLayerName(path = location.pathname) {
 function renderHandoff() {
   if (!ui.booting) return;
   const name = fiveLayerName();
-  $('#ws-index-title').textContent = name;
-  views.skeleton(4, $('#ws-index-body'));
-  $('#ws-index-count').textContent = '';
+  if (!shellDrawsIndex()) {
+    $('#ws-index-title').textContent = name;
+    views.skeleton(4, $('#ws-index-body'));
+    $('#ws-index-count').textContent = '';
+  }
   const crumbs = $('#ws-crumbs');
   crumbs.innerHTML = '';
   crumbs.append(el('span', '', name));
@@ -409,7 +419,7 @@ function attachTip(host, text) {
 function renderIndex() {
   // A tree change (Pulsar filing a note, say) must not redraw the Research
   // tree over the Learning or Dashboard index.
-  if (fiveLayerOwns()) return;
+  if (fiveLayerOwns() && !shellDrawsIndex()) return;
   const title = $('#ws-index-title');
   const body = $('#ws-index-body');
   const foot = $('#ws-index-count');
@@ -1115,6 +1125,7 @@ const DOCK_TABS = [
   { id: 'tasks',     label: 'Tasks' },
   { id: 'journal',   label: 'Calendar' },
   { id: 'links',     label: 'Links' },
+  { id: 'inbox',     label: 'Notifications' },
 ];
 
 function renderDock() {
@@ -1125,6 +1136,7 @@ function renderDock() {
     btn.className = 'ws-tab';
     btn.type = 'button';
     btn.textContent = tab.label;
+    btn.dataset.tab = tab.id;
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', String(ui.dockTab === tab.id));
     btn.addEventListener('click', () => {
@@ -1132,15 +1144,18 @@ function renderDock() {
       writePrefs({ dockTab: tab.id });
       renderDock();
       renderRail();
+      if (tab.id === 'inbox') refreshInbox();
     });
     tabs.append(btn);
   }
+  paintInboxBadges();
 
   const body = $('#ws-dock-body');
   body.innerHTML = '';
 
   if (ui.dockTab === 'journal') renderDockJournal(body);
   else if (ui.dockTab === 'links') renderDockLinks(body);
+  else if (ui.dockTab === 'inbox') renderDockInbox(body);
   // Anything else, including 'assistant' saved by the dock that used to
   // hold Pulsar, falls back to Tasks.
   else renderDockTasks(body);
@@ -1171,8 +1186,189 @@ function renderDockTasks(body) {
     list.append(views.row({
       title: task.title,
       sub: P.meta([P.label(task.priority), P.formatDate(task.due_date)]),
-      onClick: () => go('/workspace/core/tasks'),
+      // The card opens over the current screen; an edit there refreshes this
+      // list from bootstrap, and the board too when it is what sits beneath.
+      onClick: () => views.openCoreTask(task.id, {
+        go,
+        onTaskChange: async () => {
+          await P.loadBootstrap();
+          if (location.pathname === '/workspace/core/tasks') render();
+          else renderDock();
+        },
+      }),
     }));
+  }
+  body.append(list);
+}
+
+/* Notifications are the reader's own feed: comments and mentions on their
+   tasks, replies, mentions and likes on their site comments, comments on Core
+   content cards, deadline reminders. They come from one table on the server,
+   whatever wrote them, so there is one unread count and it is the server's.
+
+   The list is fetched once the shell is signed in and then once a minute
+   while the tab is visible, so the unread badge on the tab and on the panel
+   toggle is right even when the panel is shut. A hidden tab does not poll:
+   nobody reads a badge in a background tab, and it comes back up to date on
+   the visibilitychange that brings it forward. A failure keeps whatever was
+   last shown and says so only on the tab itself, because a badge that drops
+   to zero on a network blip is a false "you are all caught up". */
+const inbox = { rows: null, unread: 0, error: '', loading: null, timer: 0 };
+const INBOX_POLL_MS = 60_000;
+
+function refreshInbox() {
+  if (!P.platform.user) return Promise.resolve();
+  if (inbox.loading) return inbox.loading;
+  inbox.loading = P.taskInAppNotifications()
+    .then((data) => {
+      inbox.rows = data.notifications || [];
+      inbox.unread = Number(data.unread_count) || 0;
+      inbox.error = '';
+    })
+    .catch((error) => {
+      inbox.error = error?.message || 'Notifications could not be loaded.';
+    })
+    .finally(() => {
+      inbox.loading = null;
+      paintInboxBadges();
+      if (ui.dockTab === 'inbox') {
+        const body = $('#ws-dock-body');
+        if (body) { body.innerHTML = ''; renderDockInbox(body); }
+      }
+    });
+  return inbox.loading;
+}
+
+function startInbox() {
+  if (!P.platform.user || inbox.timer) return;
+  refreshInbox();
+  inbox.timer = setInterval(() => {
+    if (document.visibilityState === 'visible') refreshInbox();
+  }, INBOX_POLL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshInbox();
+  });
+}
+
+function paintInboxBadges() {
+  const count = inbox.unread > 99 ? '99+' : String(inbox.unread);
+  const tab = $('#ws-dock-tabs [data-tab="inbox"]');
+  if (tab) {
+    tab.querySelector('.ws-tab__count')?.remove();
+    if (inbox.unread) tab.append(el('span', 'ws-tab__count', count));
+    tab.setAttribute('aria-label', inbox.unread ? `Notifications, ${inbox.unread} unread` : 'Notifications');
+  }
+  const toggle = $('#ws-toggle-dock');
+  if (toggle) toggle.toggleAttribute('data-unread', inbox.unread > 0);
+}
+
+function timeAgo(iso) {
+  const then = new Date(iso);
+  const seconds = Math.round((Date.now() - then.getTime()) / 1000);
+  if (!Number.isFinite(seconds)) return '';
+  if (seconds < 60) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days} d ago`;
+  return then.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+/* The body is written for email and Telegram as well, so it carries the task
+   name again and an "Open task:" link. The panel shows the first two lines
+   that are not either of those. */
+function noticeSummary(notice) {
+  return String(notice.body || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !/^Open (task|Gravitas\+):/.test(line) && !line.startsWith('Task: '))
+    .slice(0, 2)
+    .join(' · ');
+}
+
+function openNotice(notice) {
+  if (!notice.read) {
+    notice.read = true;
+    inbox.unread = Math.max(0, inbox.unread - 1);
+    paintInboxBadges();
+    P.markTaskInAppNotificationsRead([notice.id], false).catch(() => {});
+  }
+  const raw = notice.payload?.url || (notice.task_id ? `/workspace/core/tasks?task=${notice.task_id}` : '');
+  if (!raw) { renderDock(); return; }
+  let target;
+  try { target = new URL(raw, location.origin); } catch { renderDock(); return; }
+  // Links are written with the public base URL so they work from an email.
+  // Inside the shell only the path matters, which also keeps the preview
+  // server on its own origin.
+  const path = target.pathname + target.search;
+  if (target.pathname.startsWith('/workspace')) go(path);
+  else location.assign(path + target.hash);
+}
+
+function renderDockInbox(body) {
+  if (!P.platform.user) {
+    body.append(views.empty('Not connected', 'Notifications need a signed in session.'));
+    return;
+  }
+  if (inbox.rows === null) {
+    if (inbox.error) {
+      body.append(views.empty('Notifications unavailable', inbox.error));
+      const retry = el('button', 'ws-btn', 'Try again');
+      retry.type = 'button';
+      retry.style.margin = '0 12px';
+      retry.addEventListener('click', () => { body.innerHTML = ''; views.skeleton(4, body); refreshInbox(); });
+      body.append(retry);
+    } else {
+      views.skeleton(4, body);
+      refreshInbox();
+    }
+    return;
+  }
+
+  const head = el('div', 'ws-inbox__head');
+  head.append(el('span', 'ws-inbox__state', inbox.error
+    ? 'Could not refresh'
+    : (inbox.unread ? `${inbox.unread} unread` : 'All caught up')));
+  if (inbox.unread) {
+    const all = el('button', 'ws-inbox__all', 'Mark all read');
+    all.type = 'button';
+    all.addEventListener('click', async () => {
+      all.disabled = true;
+      try {
+        await P.markTaskInAppNotificationsRead([], true);
+        for (const row of inbox.rows) row.read = true;
+        inbox.unread = 0;
+        renderDock();
+      } catch {
+        all.disabled = false;
+      }
+    });
+    head.append(all);
+  }
+  body.append(head);
+
+  if (!inbox.rows.length) {
+    body.append(views.empty('Nothing yet', 'Comments on your tasks, mentions, replies and deadline reminders will appear here.'));
+    return;
+  }
+
+  const list = el('div', 'ws-inbox');
+  for (const notice of inbox.rows) {
+    const item = el('button', 'ws-inbox__item');
+    item.type = 'button';
+    if (!notice.read) item.dataset.unread = '';
+    const main = el('span', 'ws-inbox__main');
+    main.append(el('span', 'ws-inbox__title', notice.title));
+    const summary = noticeSummary(notice);
+    if (summary) main.append(el('span', 'ws-inbox__body', summary));
+    const time = el('time', 'ws-inbox__time', timeAgo(notice.created_at));
+    time.dateTime = notice.created_at;
+    main.append(time);
+    item.append(el('span', 'ws-inbox__dot'), main);
+    item.addEventListener('click', () => openNotice(notice));
+    list.append(item);
   }
   body.append(list);
 }
@@ -1817,11 +2013,26 @@ export async function start() {
      only has to set the state. */
   addEventListener('ws:navigate', closeOverlays);
 
+  /* ws-five-layer navigates to its routes without waking apply(), so a
+     route whose index the shell still draws has to be told here. */
+  const syncShellIndex = () => {
+    if (!shellDrawsIndex()) return;
+    ui.area = areaOf(location.pathname);
+    ui.pageId = null;
+    ui.folderId = null;
+    renderRail();
+    renderIndex();
+  };
+  addEventListener('ws:navigate', syncShellIndex);
+
   addEventListener('popstate', () => {
     // ws-five-layer owns these routes and also listens to popstate. Letting
     // the legacy router parse them first caused stale/Home/Research content to
     // flash or remain in the center pane.
-    if (fiveLayerOwns(location.pathname)) return;
+    if (fiveLayerOwns(location.pathname)) {
+      syncShellIndex();
+      return;
+    }
     apply(location.pathname);
   });
 
@@ -1851,6 +2062,7 @@ export async function start() {
   // The rail shows the profile picture, so it needs the profile. Fired
   // without awaiting: the shell must not wait on a decoration.
   P.myProfile().then((data) => { ui.profile = data.profile; renderRail(); }).catch(() => {});
+  startInbox();
 
   if (P.platform.error === 'signed-out') {
     // Deliberately not a redirect. The old shell bounced to /login from

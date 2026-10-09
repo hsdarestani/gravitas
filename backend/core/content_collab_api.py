@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 
 from .layer_access import module_access
 from .layer_models import ModuleGrant
+from .notifications import notify_content_work_comment
 from .platform_models import ContentWorkAttachment, ContentWorkComment, ContentWorkItem
 
 
@@ -77,6 +78,7 @@ def content_comments(request, item_id):
     if not body or len(body) > 10000:
         return JsonResponse({'ok': False, 'error': 'invalid_comment'}, status=400)
     row = ContentWorkComment.objects.create(item=item, author=request.user, body=body)
+    notify_content_work_comment(item, row)
     return JsonResponse({'ok': True, 'comment': _comment_json(row)}, status=201)
 
 

@@ -359,7 +359,7 @@ async function detailItemPanel(item, redraw, onClose) {
       }
       if (!(data.comments || []).length) comments.body.append(el('p', 'fl-muted', 'No comments yet.'));
       const form = el('form', 'fl-form');
-      const body = textarea('', 3, 'Add a comment to this card…');
+      const body = textarea('', 3, 'Add a comment to this card. Type @name to mention a teammate…');
       const send = action('Comment', null, true); send.type = 'submit';
       const line = statusLine();
       form.append(body, send, line);
