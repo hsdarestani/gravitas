@@ -15,11 +15,16 @@ class ResearchWorkspaceActionContractTests(SimpleTestCase):
         self.assertIn('ws-research-actions.js', html)
         self.assertIn('installResearchWorkspaceActions()', html)
 
-    def test_empty_notes_are_seeded_through_the_real_editor_action(self):
+    def test_page_urls_open_notes_instead_of_the_removed_block_editor(self):
+        # The block page editor is gone; every /workspace/page/ URL opens the
+        # same note in Notes, so nothing may patch the old editor any more.
         js = self.read('assets/ws/ws-research-actions.js')
-        self.assertIn("route().startsWith('/workspace/page/')", js)
-        self.assertIn("button.textContent.trim() === 'Text'", js)
-        self.assertIn('textButton.click()', js)
+        app = self.read('assets/ws/ws-app.js')
+        self.assertNotIn('repairEmptyEditor', js)
+        self.assertNotIn('ws-editor-canvas', js)
+        self.assertIn("if (route.view === 'editor' && route.pageId) {", app)
+        self.assertIn('go(notePathFor(route.pageId), { replace: true });', app)
+        self.assertNotIn('function renderEditor', app)
 
     def test_folder_branch_does_not_repeat_editor_page_tree(self):
         js = self.read('assets/ws/ws-research-actions.js')

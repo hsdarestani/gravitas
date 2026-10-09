@@ -41,17 +41,13 @@ function actions() {
   return [
     {
       group: 'Actions',
-      label: 'New page',
+      label: 'New note',
       icon: 'plus',
       run: async () => {
-        /* Beside the page you are reading when there is one, and in the
-           workspace you are standing in otherwise. Creating it at the root
-           of the research tree from a Core screen, which is what this did,
-           put the page somewhere the reader was not looking. */
-        await context.newNote({
-          space: context.space(),
-          parent: page?.parent || undefined,
-        });
+        /* A new note in Notes, in the notebook of the workspace you are
+           standing in, saved as Markdown in Nextcloud. It used to open the
+           old block page editor, which is gone. */
+        await context.newNote({ space: context.space() });
       },
     },
     {

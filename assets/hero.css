@@ -124,6 +124,22 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
 .lp-orbit canvas {
   display: block; width: 100%; aspect-ratio: 1 / 1; position: relative;
 }
+/* The community disc lets the pointer drag members well out of their lanes,
+   and a canvas the size of the stage cut them off at a hard edge in mid-air.
+   So that canvas bleeds far past the stage on every side and only the hero's
+   own overflow clips it, at the edge of the screen. The stage keeps the
+   layout box, community-hero.js keeps framing the disc to the stage, and the
+   bleed is inert to the pointer so the copy column under it stays clickable.
+   The size is explicit, not inset with width: auto: a canvas is a replaced
+   element, so auto takes its bitmap size instead of stretching, and every
+   resize then fed the bitmap back into the box and grew it until the disc
+   was off screen. */
+.cm-swarm .lp-orbit__stage { aspect-ratio: 1 / 1; }
+.cm-swarm canvas {
+  position: absolute; left: -60%; top: -60%;
+  width: 220%; height: 220%; aspect-ratio: auto;
+  pointer-events: none;
+}
 
 /* ---- Touch play area ------------------------------------------------------
    On a touch screen there is no hover, so the third mass is driven by a finger

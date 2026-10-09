@@ -172,7 +172,6 @@ function enhancerActive() {
   const path = route();
   return researchActive()
     || path.startsWith('/workspace/research')
-    || path.startsWith('/workspace/page/')
     || path === '/workspace/people'
     || path === '/workspace/shared';
 }
@@ -239,24 +238,6 @@ function repairResearchIndex() {
       if (!STATIC_FOLDER_CHILDREN.has(label)) row.remove();
     }
   }
-}
-
-/* --------------------------------------------------------------------------
-   EMPTY NOTE REPAIR
-   A zero-block page is a valid legacy/server state. The editor previously
-   rendered a toolbar and an empty canvas, which looked broken and had no caret.
-   Use the editor's own Text action once so the page is saved through its normal
-   code path rather than manufacturing state outside the editor.
-   -------------------------------------------------------------------------- */
-function repairEmptyEditor() {
-  if (!route().startsWith('/workspace/page/')) return;
-  const canvas = document.querySelector('#ws-view .ws-editor-canvas');
-  if (!canvas || canvas.querySelector('.ws-block') || canvas.dataset.seedRequested === '1') return;
-  const textButton = [...document.querySelectorAll('#ws-view .ws-editor-tools button')]
-    .find((button) => button.textContent.trim() === 'Text');
-  if (!textButton) return;
-  canvas.dataset.seedRequested = '1';
-  textButton.click();
 }
 
 /* --------------------------------------------------------------------------
@@ -642,7 +623,6 @@ function reconcile() {
   requestAnimationFrame(() => {
     scheduled = false;
     repairResearchIndex();
-    repairEmptyEditor();
     enhanceResources();
     enhanceProjects();
     enhanceMindMaps();

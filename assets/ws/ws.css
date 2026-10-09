@@ -624,47 +624,6 @@
   }
   .ws-doc__meta { font-size: var(--ws-fs-sm); color: var(--g-text-subtle); }
 
-  /* ---- Blocks -----------------------------------------------------------
-     Every block carries a grip and an insert control that appear on hover
-     of that block only. They are absolutely positioned in the left margin,
-     so revealing them never moves the text the reader is aiming at. */
-  .ws-block { position: relative; padding: 2px 0; }
-  .ws-block__gutter {
-    position: absolute; left: -46px; top: 2px;
-    display: flex; gap: 2px;
-    opacity: 0;
-    transition: opacity var(--g-dur-fast) var(--ws-ease);
-  }
-  .ws-block:hover .ws-block__gutter,
-  .ws-block:focus-within .ws-block__gutter { opacity: 1; }
-  .ws-block__gutter .ws-ibtn { width: 20px; height: 20px; color: var(--g-text-subtle); }
-  .ws-block__gutter .ws-ibtn svg { width: 13px; height: 13px; }
-
-  .ws-block__body { min-height: 22px; }
-  .ws-block__body:focus-visible { outline: none; }
-  .ws-block[data-focus] { background: var(--g-surface-hover); border-radius: var(--ws-r-control); }
-
-  .ws-block p { margin: 0 0 6px; line-height: var(--g-lh-body); font-size: 14px; }
-  .ws-block h2 { font-size: 17px; font-weight: var(--g-w-medium); margin: 18px 0 6px; letter-spacing: var(--g-track-head); }
-  .ws-block h3 { font-size: 15px; font-weight: var(--g-w-medium); margin: 14px 0 4px; }
-  .ws-block ul, .ws-block ol { margin: 0 0 6px; padding-left: 20px; }
-  .ws-block li { line-height: var(--g-lh-body); font-size: 14px; margin-bottom: 2px; }
-
-  .ws-block pre {
-    margin: 6px 0; padding: 10px 12px;
-    background: var(--g-surface-sunken);
-    border: 1px solid var(--g-hairline);
-    border-radius: var(--ws-r-panel);
-    font-family: var(--g-font-mono); font-size: var(--ws-fs-sm);
-    line-height: 1.6; overflow-x: auto;
-  }
-  .ws-block__lang {
-    display: flex; align-items: center; justify-content: space-between;
-    font-family: var(--g-font-mono); font-size: var(--ws-fs-xs);
-    text-transform: uppercase; letter-spacing: 0.1em;
-    color: var(--g-text-subtle); margin-bottom: 4px;
-  }
-
   /* Internal page link. Solid when the page exists, italic when it is a
      name somebody has written but not yet filled in. Same rule as the tree,
      so the two views never contradict each other. */
@@ -677,27 +636,6 @@
   }
   .ws-link:hover { border-color: var(--g-accent); background: var(--g-surface-hover); }
   .ws-link[data-phantom] { font-style: italic; color: var(--g-text-subtle); border-bottom-style: dashed; }
-
-  /* ---- Attachment card -------------------------------------------------- */
-  .ws-attach {
-    display: flex; align-items: center; gap: 10px;
-    margin: 8px 0; padding: 10px 12px;
-    border: 1px solid var(--g-hairline);
-    border-radius: var(--ws-r-panel);
-    background: var(--g-surface);
-    transition: border-color var(--g-dur-fast) var(--ws-ease);
-  }
-  .ws-attach:hover { border-color: var(--g-border); }
-  .ws-attach__kind {
-    flex: 0 0 auto; padding: 3px 7px;
-    border-radius: var(--ws-r-control);
-    background: var(--g-surface-sunken);
-    font-family: var(--g-font-mono); font-size: var(--ws-fs-xs);
-    text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--g-text-muted);
-  }
-  .ws-attach__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ws-fs); }
-  .ws-attach__meta { font-size: var(--ws-fs-xs); color: var(--g-text-subtle); }
 
   /* ---- Generic list rows (tasks, backlinks, search results) ------------- */
   .ws-list { padding: 4px 6px 12px; }
@@ -1159,7 +1097,6 @@ body .gchat {
     }
     .ws-grip { display: none; }
     .ws-doc { padding-inline: var(--g-space-sm); padding-top: 20px; }
-    .ws-block__gutter { display: none; }   /* no hover target on touch */
 
     /* The search field collapses to its icon. The dock toggle stays: on a
        phone the assistant and the task list are the reason the panel
@@ -1191,11 +1128,6 @@ body .gchat {
       background: rgb(1 18 28 / 0.4);
       z-index: calc(var(--g-z-overlay) - 1);
     }
-
-    /* The editor's outline is a second copy of the document's headings.
-       Beside the text it is navigation; under it, it is duplication. */
-    .ws-editor-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
-    .ws-editor-outline { display: none; }
   }
 
   /* The breadcrumb is the first thing to go: the page title is the first
@@ -1367,20 +1299,6 @@ body .gchat {
     .ws-palette__input { font-size: 16px; }
     .v-input:not(textarea) { height: 38px; }
     .ws-ai__input { min-height: 40px; }
-
-    /* Document text at 14px is an interface size, not a reading size. On a
-       phone held at arm's length it is the difference between reading the
-       page and pinching it. */
-    .ws-block p, .ws-block li, .ws-block__body { font-size: 16px; }
-    /* Raised with it: a 15px h3 over 16px body is a heading that has stopped
-       being one. */
-    .ws-block h2 { font-size: 20px; }
-    .ws-block h3 { font-size: 17px; }
-    .ws-block pre { font-size: 13.5px; }
-
-    /* A tap does not hover, so anything whose only entrance is a hover has
-       to be there already. */
-    .ws-block__gutter { opacity: 1; }
   }
 }
 
@@ -2499,55 +2417,6 @@ body .gchat {
   }
   .v-skill__advice { margin: 2px 0 0; font-size: var(--ws-fs-sm); line-height: 1.5; color: var(--g-text-subtle); }
 
-  /* ---- Block editor ------------------------------------------------------ */
-  .ws-editor-tools {
-    position: sticky; top: 0; z-index: 4;
-    display: flex; gap: 5px; flex-wrap: wrap;
-    margin: 0 0 24px; padding: 8px;
-    border: 1px solid var(--g-hairline); border-radius: var(--ws-r-control);
-    background: color-mix(in srgb, var(--g-surface) 94%, transparent);
-    backdrop-filter: blur(10px);
-  }
-  .ws-editor-menu { display:grid; gap:2px; max-width:420px; margin:-16px 0 20px; padding:8px; border:1px solid var(--g-hairline); border-radius:var(--ws-r-control); background:var(--g-surface-raised); }
-  .ws-editor-menu[hidden] { display:none; }
-  .ws-editor-menu__title { padding:5px 8px; font-size:var(--ws-fs-xs); color:var(--g-text-subtle); text-transform:uppercase; letter-spacing:var(--g-track-eyebrow); }
-  .ws-block[draggable="true"] { cursor:grab; }
-  .ws-block[data-dragging] { opacity:.42; }
-  .ws-block[data-highlight="amber"] { background:color-mix(in srgb, #e6b84a 20%, transparent); }
-  .ws-block[data-highlight="green"] { background:color-mix(in srgb, #73a875 18%, transparent); }
-  .ws-block[data-highlight="blue"] { background:color-mix(in srgb, #5f8fc7 18%, transparent); }
-  .ws-block[data-highlight] { border-radius:var(--ws-r-control); padding-inline:6px; }
-  .ws-block__comment { margin:6px 0 4px; padding:7px 9px; border-left:2px solid var(--g-accent); color:var(--g-text-muted); font-size:var(--ws-fs-sm); background:var(--g-surface-sunken); }
-  .ws-attach__image { display:block; max-height:520px; object-fit:contain; border-radius:var(--ws-r-control); }
-  .ws-attach:has(.ws-attach__image) { align-items:flex-start; flex-wrap:wrap; }
-  .ws-editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 38px; }
-  .ws-editor-canvas { min-width: 0; }
-  .ws-editor-outline {
-    position: sticky; top: 60px; align-self: start;
-    display: grid; gap: 2px; padding-left: 14px;
-    border-left: 1px solid var(--g-hairline);
-  }
-  .ws-editor-outline > strong {
-    margin-bottom: 7px; font-size: var(--ws-fs-xs); font-weight: var(--g-w-medium);
-    color: var(--g-text-subtle); letter-spacing: var(--g-track-eyebrow);
-    text-transform: uppercase;
-  }
-  .ws-editor-outline button {
-    padding: 5px 0; border: 0; background: transparent; color: var(--g-text-muted);
-    font: inherit; font-size: var(--ws-fs-sm); text-align: left; cursor: pointer;
-  }
-  .ws-block__quote {
-    padding: 9px 14px; border-left: 2px solid var(--g-accent);
-    color: var(--g-text-muted); font-style: italic;
-  }
-  .ws-block__equation {
-    padding: 16px; border: 1px solid var(--g-hairline); border-radius: var(--ws-r-control);
-    background: var(--g-surface); font-family: var(--g-font-mono); text-align: center;
-  }
-  .ws-block__quote:empty::before, .ws-block__equation:empty::before {
-    content: attr(data-placeholder); color: var(--g-text-subtle);
-  }
-  .ws-attach[href] { color: inherit; text-decoration: none; }
   .rkms-timeline__bar { position:absolute; top:50%; height:8px; border-radius:999px; background:var(--g-accent); transform:translateY(-50%); }
   .rkms-graph__cluster { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px; border:1px solid var(--g-hairline); border-radius:var(--ws-r-panel); }
   .rkms-month { max-width: 680px; margin-bottom: 18px; padding: 16px; }
@@ -2561,11 +2430,6 @@ body .gchat {
   .rkms-month__day[data-journal]::after {
     content: ''; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px;
     border-radius: 50%; background: var(--g-accent); transform: translateX(-50%);
-  }
-
-  @media (max-width: 920px) {
-    .ws-editor-layout { grid-template-columns: minmax(0, 1fr); }
-    .ws-editor-outline { display: none; }
   }
 }
 
@@ -3831,33 +3695,9 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
 }
 
 /* ==========================================================================
-   DAY PAGES, THE EDITOR TOOLBAR AND THE EMPTY INBOX
-   A day opened from the calendar is an ordinary page, and it was where the
-   editor's rough edges showed most: a new day arrives with no blocks, so the
-   reader met thirteen outlined chips above nothing, and an outline column
-   titled "On this note" with nothing under it.
+   THE EMPTY INBOX
    ========================================================================== */
 @layer ws-components {
-  .ws-editor-tools {
-    align-items: center; gap: 4px 0;
-    margin-bottom: 20px; padding: 4px;
-  }
-  .ws-editor-tools__group { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 4px; }
-  .ws-editor-tools__group + .ws-editor-tools__group { border-left: 1px solid var(--g-hairline); }
-  /* The page's own controls sit apart from the writing ones. */
-  .ws-editor-tools__group:last-child { margin-left: auto; }
-
-  .ws-editor-layout[data-solo] { grid-template-columns: minmax(0, 1fr); }
-
-  /* The invitation to write. Absolutely placed so the caret starts at the
-     left edge rather than after the hint. */
-  .ws-block p[data-placeholder][data-empty] { position: relative; }
-  .ws-block p[data-placeholder][data-empty]::before {
-    content: attr(data-placeholder);
-    position: absolute; top: 0; left: 0;
-    color: var(--g-text-subtle); pointer-events: none;
-  }
-
   .ws-inbox__clear {
     display: grid; justify-items: center; gap: 6px;
     padding: 44px 20px 36px; text-align: center;
@@ -3876,6 +3716,3 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   }
 }
 
-/* Unlayered, like the button system it adjusts: a layered rule cannot reach
-   an unlayered .ws-btn. A pressed toolbar button (Bookmarked) reads as on. */
-.ws-editor-tools .ws-btn[aria-pressed="true"] { color: var(--g-accent); }

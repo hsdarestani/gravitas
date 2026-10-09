@@ -919,26 +919,27 @@
   position: absolute;
   z-index: 3;
   display: flex;
+  align-items: center;
   gap: 2px;
 }
 .nbc-gutter[hidden], .nbc-drop[hidden] { display: none; }
 .nbc-gutter__btn {
   display: inline-grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  flex: none;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--g-text-subtle);
-  font: inherit;
-  font-size: 17px;
-  line-height: 1;
+  color: color-mix(in srgb, var(--g-text) 45%, transparent);
   cursor: pointer;
+  transition: background-color var(--g-dur-fast) linear, color var(--g-dur-fast) linear;
 }
+.nbc-gutter__btn svg { display: block; width: 18px; height: 18px; }
 .nbc-gutter__btn:hover { background: var(--g-surface-hover); color: var(--g-text); }
-.nbc-gutter__grip { font-size: 12px; letter-spacing: -2px; cursor: grab; touch-action: none; }
+.nbc-gutter__grip { cursor: grab; touch-action: none; }
 [data-dragging] .nbc-gutter__grip { cursor: grabbing; }
 .nbc-drop {
   position: absolute;

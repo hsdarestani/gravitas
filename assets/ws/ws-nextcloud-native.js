@@ -1,7 +1,7 @@
 import * as P from './ws-platform.js?v=20261008-operational2';
 import * as K from './ws-admin-kit.js?v=20261008-operational2';
 import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261008-operational2';
-import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261010-notes1';
+import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261010-notes2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {
@@ -20,6 +20,7 @@ function route() {
   if (path === '/workspace/research/notes' || path === '/workspace/research/editor') {
     return { kind: 'notes', space: 'research', title: 'Research Notes', area: 'Research' };
   }
+  if (path === '/workspace/kms/notes') return { kind: 'notes', space: 'kms', title: 'Knowledge Notes', area: 'Knowledge' };
   if (path === '/workspace/core/admin/nextcloud') {
     return { kind: 'admin', title: 'Nextcloud Mirror', area: 'Core Admin' };
   }
@@ -889,12 +890,12 @@ function adopt(item, options) {
   drawMain(options);
 }
 
-async function createNote(trigger, { folder = '' } = {}) {
+async function createNote(trigger, { folder = '', title = 'Untitled note' } = {}) {
   const { info } = book;
   if (trigger) trigger.disabled = true;
   book.editor?.flush();
   try {
-    const body = { title: 'Untitled note', content: '', space: info.space };
+    const body = { title, content: '', space: info.space };
     if (folder) {
       body.folder = folder;
       setStatus(`Creating ${folder}…`);
@@ -1334,15 +1335,25 @@ function takeRequest() {
   const params = new URLSearchParams(location.search);
   const day = params.get('day');
   const note = params.get('note');
-  if (!day && !note) return null;
+  const fresh = params.get('new');
+  if (!day && !note && fresh == null) return null;
   history.replaceState(history.state, '', location.pathname + location.hash);
-  return { day: DAY_KEY.test(day || '') ? day : null, note };
+  return { day: DAY_KEY.test(day || '') ? day : null, note: note ? note.replace(/^p-/, '') : null, fresh };
 }
 
-function serveRequest(request) {
+async function serveRequest(request) {
   if (!request || !book.root?.isConnected) return;
-  if (request.day) openDay(request.day);
-  else if (request.note && book.items.some((item) => same(item.id, request.note))) choose(request.note);
+  if (request.day) { openDay(request.day); return; }
+  if (request.fresh != null) {
+    createNote(null, { title: String(request.fresh).trim().slice(0, 240) || 'Untitled note' });
+    return;
+  }
+  if (!request.note) return;
+  // A note made a moment ago on another screen is not in a list fetched
+  // before it; ask once more before giving up on it.
+  if (!book.items.some((item) => same(item.id, request.note))) await refreshNotebook(book.info);
+  if (book.items.some((item) => same(item.id, request.note))) choose(request.note);
+  else setStatus('That note is not in this notebook, or is no longer shared with you.', 'warn');
 }
 
 // The dock calendar marks days that have a note; this tells it which day is
@@ -1966,7 +1977,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
 }
 
 async function renderNativeNotes(host, info) {
-  if ((info.space === 'core' && !P.canOpenCore()) || (info.space === 'research' && !P.canOpenResearch() && !P.canOpenCore())) {
+  if ((info.space === 'core' && !P.canOpenCore()) || (info.space !== 'core' && !P.canOpenResearch() && !P.canOpenCore())) {
     location.replace('/workspace/dashboard');
     return;
   }

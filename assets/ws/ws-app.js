@@ -33,7 +33,7 @@ import {
 } from './ws-nav.js?v=20261009-copy1';
 import { renderDashboard, stopClock } from './ws-home.js?v=20261010-tasks1';
 import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261010-settings1';
-import { mountPalette, openPalette } from './ws-palette.js?v=20261010-notes1';
+import { mountPalette, openPalette } from './ws-palette.js?v=20261010-notes2';
 import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-native3';
 import { installSelects } from './ws-select.js?v=20261008-operational2';
 
@@ -83,17 +83,6 @@ const readPrefs = () => {
 const writePrefs = (patch) => {
   try { localStorage.setItem(PREFS, JSON.stringify({ ...readPrefs(), ...patch })); } catch { /* optional */ }
 };
-const RECENT_PAGES = 'gravitas.ws.recent-pages.v1';
-function recentPages() {
-  try { return JSON.parse(localStorage.getItem(RECENT_PAGES) || '[]'); } catch { return []; }
-}
-function rememberPage(page) {
-  if (!page) return;
-  const next = [{ id: String(page.id), title: page.title, seen: new Date().toISOString() },
-    ...recentPages().filter((item) => String(item.id) !== String(page.id))].slice(0, 20);
-  try { localStorage.setItem(RECENT_PAGES, JSON.stringify(next)); } catch { /* optional */ }
-}
-
 /* ---- Where a pane stops being a column ----------------------------------
    These two widths are section 9 of ws.css, restated. The stylesheet decides
    whether a pane floats over the page; this file decides whether it may be
@@ -130,6 +119,7 @@ const ROUTES = [
   [/^\/workspace\/operating(?:\/.*)?$/,             () => ({ view: 'core-planning' })],
 
   [/^\/workspace\/kms\/?$/,                         () => ({ view: 'kms' })],
+  [/^\/workspace\/kms\/notes\/?$/,                  () => ({ view: 'notes' })],
   [/^\/workspace\/kms\/library\/?$/,                () => ({ view: 'kms-library' })],
   [/^\/workspace\/kms\/paths\/([^/]+)\/?$/,         (m) => ({ view: 'kms-path', id: m[1] })],
   [/^\/workspace\/kms\/paths\/?$/,                  () => ({ view: 'kms-paths' })],
@@ -267,31 +257,34 @@ async function apply(path) {
   const { section } = activeSection(ui.area, path);
   if (section) ui.openSections.add(section.id);
 
+  /* There is one place to write: Notes, where a note is Markdown in the
+     reader's Nextcloud. The block page editor that used to open here had its
+     own toolbar, its own save path and its own idea of a day, and readers
+     kept landing in it from search, links and "New page". Every page URL
+     now opens the same note in Notes; a [[link]] to a note that does not
+     exist yet opens Notes on a new note with that title. */
   if (route.view === 'editor' && route.pageId) {
-    ui.page = await api.page(route.pageId);
-    if (!ui.page) {
-      const node = ui.nodes.find((n) => n.id === route.pageId);
-      if (node) {
-        const journal = node.kind === 'journal' && node.journal_date;
-        ui.page = await api.createPage({
-          title: node.title,
-          parent: journal ? null : node.parent,
-          kind: journal ? 'journal' : 'note',
-          space: node.space || 'research',
-          journal_date: journal ? node.journal_date : null,
-        });
-        if (ui.page && node.phantom) {
-          ui.nodes = ui.nodes.filter((item) => item.id !== node.id);
-          ui.nodes.push({ id: ui.page.id, title: ui.page.title, kind: ui.page.kind, parent: journal ? 'journal' : ui.page.parent, space: ui.page.space, phantom: false });
-          go(`/workspace/page/${ui.page.id}`, { replace: true });
-          return;
-        }
-      }
-    }
-    rememberPage(ui.page);
+    go(notePathFor(route.pageId), { replace: true });
+    return;
   }
 
   render();
+}
+
+function notePathFor(pageId) {
+  const id = decodeURIComponent(String(pageId));
+  const node = ui.nodes.find((item) => item.id === id);
+  const space = api.spaceOfNode(ui.nodes, id) || node?.space || 'research';
+  const base = notesPath(space);
+  if (node?.kind === 'journal' && node.journal_date) return `/workspace/research/notes?day=${node.journal_date}`;
+  const day = /^journal-(\d{4}-\d{2}-\d{2})$/.exec(id)?.[1];
+  if (day) return `/workspace/research/notes?day=${day}`;
+  if (id.startsWith('phantom-')) return `${base}?new=${encodeURIComponent(node?.title || 'Untitled note')}`;
+  return `${base}?note=${encodeURIComponent(id.replace(/^p-/, ''))}`;
+}
+
+function notesPath(space) {
+  return space === 'core' ? '/workspace/core/notes' : space === 'kms' ? '/workspace/kms/notes' : '/workspace/research/notes';
 }
 
 /* ==========================================================================
@@ -712,449 +705,6 @@ function pageNode(node, depth) {
   return wrap;
 }
 
-/* ==========================================================================
-   EDITOR
-   contenteditable per block. One big contenteditable is less code and much
-   worse: the browser then owns block structure, and every paste becomes an
-   argument about what markup it may leave behind.
-   ========================================================================== */
-
-function renderEditor(host) {
-  if (!ui.page) {
-    host.append(views.empty('Nothing open', 'Pick a page from the index, or press Command K to search everything.'));
-    return;
-  }
-
-  // A day is written in Notes, the same Markdown note in Nextcloud whichever
-  // calendar opened it. An old link to a day page lands there.
-  const day = journalDateOf(ui.page);
-  if (day) {
-    go(dayNotePath(day), { replace: true });
-    return;
-  }
-
-  const doc = document.createElement('article');
-  doc.className = 'ws-doc';
-
-  const head = document.createElement('header');
-  head.className = 'ws-doc__head';
-
-  const title = document.createElement('h1');
-  title.className = 'ws-doc__title';
-  title.contentEditable = 'plaintext-only';
-  title.spellcheck = false;
-  title.textContent = ui.page.title;
-  title.setAttribute('role', 'textbox');
-  title.setAttribute('aria-label', 'Page title');
-  title.addEventListener('blur', () => {
-    const next = title.textContent.trim();
-    if (next && next !== ui.page.title) {
-      ui.page.title = next;
-      const node = ui.nodes.find((n) => n.id === ui.page.id);
-      if (node) node.title = next;
-      queueSave();
-      renderIndex();
-      renderCrumbs();
-    } else {
-      title.textContent = ui.page.title;   // an empty title is refused, quietly
-    }
-  });
-  title.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') { event.preventDefault(); title.blur(); }
-  });
-
-  const meta = document.createElement('p');
-  meta.className = 'ws-doc__meta';
-  meta.textContent = `${crumbPath(ui.page.id).join(' / ')} · edited ${relative(ui.page.updated)}`;
-
-  head.append(title, meta);
-  doc.append(head);
-
-  /* Three groups, in the order a writer reaches for them: what to add, what
-     to do to the block under the caret, and the page itself. Thirteen equal
-     outlined chips in one wrapping row gave no hint of that, and outweighed
-     the empty page they sat above. */
-  const tools = document.createElement('div');
-  tools.className = 'v-toolbar ws-editor-tools';
-  tools.setAttribute('role', 'toolbar');
-  tools.setAttribute('aria-label', 'Editor');
-  const group = (label) => {
-    const set = el('div', 'ws-editor-tools__group');
-    set.setAttribute('role', 'group');
-    set.setAttribute('aria-label', label);
-    tools.append(set);
-    return set;
-  };
-  const addGroup = group('Add a block');
-  const blockGroup = group('Selected block');
-  const pageGroup = group('Page');
-  const insert = (label, type, text = '') => {
-    const control = document.createElement('button');
-    control.className = 'ws-btn ws-btn--sm ws-btn--ghost'; control.type = 'button'; control.textContent = label;
-    control.addEventListener('click', () => {
-      ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type, text });
-      queueSave(); render();
-      requestAnimationFrame(() => doc.querySelector('.ws-block:last-child [contenteditable]')?.focus());
-    });
-    addGroup.append(control);
-  };
-  insert('Text', 'p'); insert('Heading', 'h2'); insert('Bullet', 'ul'); insert('Code', 'code'); insert('Quote', 'quote'); insert('Equation', 'equation');
-
-  const menu = document.createElement('div');
-  menu.className = 'ws-editor-menu';
-  menu.hidden = true;
-  const showMenu = (titleText, items) => {
-    menu.innerHTML = '';
-    menu.append(el('strong', 'ws-editor-menu__title', titleText));
-    if (!items.length) menu.append(el('span', 'v-note', 'Nothing here yet.'));
-    for (const item of items) {
-      const row = document.createElement('button'); row.type = 'button'; row.className = 'v-row';
-      row.append(el('span', 'v-row__main', item.title));
-      row.addEventListener('click', () => { menu.hidden = true; go(`/workspace/page/${item.id}`); });
-      menu.append(row);
-    }
-    menu.hidden = false;
-  };
-
-  const historyButton = document.createElement('button');
-  historyButton.className = 'ws-btn ws-btn--sm ws-btn--ghost'; historyButton.type = 'button'; historyButton.textContent = 'History';
-  historyButton.addEventListener('click', () => showMenu('Recently viewed', recentPages()));
-
-  const bookmarksButton = document.createElement('button');
-  bookmarksButton.className = 'ws-btn ws-btn--sm ws-btn--ghost'; bookmarksButton.type = 'button'; bookmarksButton.textContent = 'Bookmarks';
-  bookmarksButton.addEventListener('click', () => showMenu('Bookmarked notes', Object.values(ui.pagesById).filter((page) => page.bookmarked)));
-
-  const highlight = document.createElement('button');
-  highlight.className = 'ws-btn ws-btn--sm ws-btn--ghost'; highlight.type = 'button'; highlight.textContent = 'Highlight';
-  highlight.addEventListener('click', () => {
-    const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
-    if (!block) return;
-    const colors = ['', 'amber', 'green', 'blue'];
-    block.highlight = colors[(colors.indexOf(block.highlight || '') + 1) % colors.length];
-    queueSave(); render();
-  });
-
-  const linkButton = document.createElement('button');
-  linkButton.className = 'ws-btn ws-btn--sm ws-btn--ghost'; linkButton.type = 'button'; linkButton.textContent = 'Link';
-  linkButton.addEventListener('click', () => {
-    const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
-    if (!block || block.type === 'attach') return;
-    const target = prompt('Page title to link');
-    if (!target?.trim()) return;
-    block.text = `${block.text || ''}${block.text ? ' ' : ''}[[${target.trim()}]]`;
-    queueSave(); render();
-  });
-
-  const comment = document.createElement('button');
-  comment.className = 'ws-btn ws-btn--sm ws-btn--ghost'; comment.type = 'button'; comment.textContent = 'Comment';
-  comment.addEventListener('click', () => {
-    const block = ui.page.blocks.find((item) => item.id === ui.activeBlockId);
-    if (!block) return;
-    const value = prompt('Annotation for this block', block.comment || '');
-    if (value === null) return;
-    block.comment = value.trim(); queueSave(); render();
-  });
-
-  const picker = document.createElement('input'); picker.type = 'file'; picker.hidden = true;
-  const attach = document.createElement('button'); attach.className = 'ws-btn ws-btn--sm ws-btn--ghost'; attach.type = 'button'; attach.textContent = 'Attach file';
-  attach.addEventListener('click', () => picker.click());
-  picker.addEventListener('change', async () => {
-    const file = picker.files?.[0]; picker.value = ''; if (!file) return;
-    attach.disabled = true; attach.textContent = 'Uploading…';
-    const form = new FormData(); form.append('file', file);
-    try {
-      const response = await fetch(`/api/workspace/pages/${encodeURIComponent(ui.page.id)}/attachments/`, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': cookie('csrftoken') }, body: form });
-      const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'upload_failed');
-      const item = data.item || {};
-      ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'attach', text: item.original_name || file.name, kind: (item.mime_type || 'file').split('/').at(-1).toUpperCase(), mime: item.mime_type || file.type, meta: P.formatBytes ? P.formatBytes(item.file_size) : `${item.file_size || file.size} bytes`, resourceId: item.id });
-      queueSave(); render();
-    } catch { attach.disabled = false; attach.textContent = 'Upload failed — retry'; }
-  });
-  const bookmark = document.createElement('button'); bookmark.className = 'ws-btn ws-btn--sm ws-btn--ghost'; bookmark.type = 'button';
-  bookmark.textContent = ui.page.bookmarked ? 'Bookmarked' : 'Bookmark';
-  bookmark.setAttribute('aria-pressed', String(Boolean(ui.page.bookmarked)));
-  bookmark.addEventListener('click', async () => { ui.page.bookmarked = !ui.page.bookmarked; await api.savePage(ui.page.id, { bookmarked: ui.page.bookmarked }); render(); });
-  blockGroup.append(linkButton, highlight, comment, attach, picker);
-  pageGroup.append(bookmark, bookmarksButton, historyButton);
-  doc.append(tools, menu);
-
-  /* A page with no blocks had nothing to click into: a new day page arrives
-     from the server empty, and the reader faced a toolbar over a void. One
-     empty paragraph is offered instead. It is saved only once typed into. */
-  if (!ui.page.blocks.length) ui.page.blocks.push({ id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'p', text: '' });
-
-  const layout = document.createElement('div'); layout.className = 'ws-editor-layout';
-  const canvas = document.createElement('div'); canvas.className = 'ws-editor-canvas';
-  for (const block of ui.page.blocks) canvas.append(blockEl(block));
-  layout.append(canvas);
-
-  // The outline exists only when there is something to outline. An empty
-  // "On this note" column floated mid-page beside a blank canvas.
-  const headings = ui.page.blocks.filter((item) => item.type === 'h2' || item.type === 'h3');
-  if (headings.length) {
-    const outline = document.createElement('aside'); outline.className = 'ws-editor-outline';
-    outline.append(el('strong', null, 'On this note'));
-    for (const block of headings) {
-      const jump = document.createElement('button'); jump.type = 'button'; jump.textContent = block.text || 'Untitled heading';
-      jump.addEventListener('click', () => $(`.ws-block[data-id="${block.id}"] [contenteditable]`)?.focus()); outline.append(jump);
-    }
-    layout.append(outline);
-  } else {
-    layout.dataset.solo = '';
-  }
-  doc.append(layout);
-  host.append(doc);
-}
-
-function blockEl(block) {
-  const wrap = document.createElement('div');
-  wrap.className = 'ws-block';
-  wrap.dataset.id = block.id;
-  wrap.draggable = true;
-  if (block.highlight) wrap.dataset.highlight = block.highlight;
-  wrap.addEventListener('dragstart', (event) => {
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', block.id);
-    wrap.dataset.dragging = '';
-  });
-  wrap.addEventListener('dragend', () => delete wrap.dataset.dragging);
-  wrap.addEventListener('dragover', (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; });
-  wrap.addEventListener('drop', (event) => {
-    event.preventDefault();
-    const sourceId = event.dataTransfer.getData('text/plain');
-    if (!sourceId || sourceId === block.id) return;
-    const source = ui.page.blocks.findIndex((item) => item.id === sourceId);
-    const target = ui.page.blocks.findIndex((item) => item.id === block.id);
-    if (source < 0 || target < 0) return;
-    const [moved] = ui.page.blocks.splice(source, 1);
-    ui.page.blocks.splice(target, 0, moved);
-    queueSave(); render();
-  });
-  wrap.addEventListener('focusin', () => { ui.activeBlockId = block.id; });
-
-  const gutter = document.createElement('div');
-  gutter.className = 'ws-block__gutter';
-  const add = document.createElement('button');
-  add.className = 'ws-ibtn';
-  add.type = 'button';
-  add.innerHTML = icon('plus');
-  add.setAttribute('aria-label', 'Add a block below');
-  add.addEventListener('click', () => insertAfter(block.id));
-  gutter.append(add);
-  wrap.append(gutter);
-
-  const body = document.createElement('div');
-  body.className = 'ws-block__body';
-
-  if (block.type === 'attach') {
-    body.append(attachmentEl(block));
-    if (block.comment) body.append(el('p', 'ws-block__comment', block.comment));
-    wrap.append(body);
-    return wrap;
-  }
-
-  if (block.type === 'code') {
-    const label = document.createElement('div');
-    label.className = 'ws-block__lang';
-    label.textContent = block.lang || 'text';
-
-    const copy = document.createElement('button');
-    copy.className = 'ws-btn ws-btn--tiny';
-    copy.type = 'button';
-    copy.textContent = 'Copy';
-    copy.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(block.text);
-        copy.textContent = 'Copied';
-      } catch {
-        copy.textContent = 'Blocked';   // never a false success
-      }
-      setTimeout(() => { copy.textContent = 'Copy'; }, 1400);
-    });
-    label.append(copy);
-
-    const pre = document.createElement('pre');
-    const code = document.createElement('code');
-    code.textContent = block.text;
-    code.contentEditable = 'plaintext-only';
-    code.spellcheck = false;
-    code.addEventListener('input', () => { block.text = code.textContent; queueSave(); });
-    pre.append(code);
-
-    body.append(label, pre);
-    wrap.append(body);
-    return wrap;
-  }
-
-  if (block.type === 'quote' || block.type === 'equation') {
-    const node = document.createElement(block.type === 'quote' ? 'blockquote' : 'div');
-    node.className = block.type === 'quote' ? 'ws-block__quote' : 'ws-block__equation';
-    node.contentEditable = 'plaintext-only'; node.textContent = block.text;
-    node.dataset.placeholder = block.type === 'quote' ? 'Quote…' : 'LaTeX equation…';
-    node.addEventListener('input', () => { block.text = node.textContent; queueSave(); });
-    body.append(node);
-    if (block.comment) body.append(el('p', 'ws-block__comment', block.comment));
-    wrap.append(body); return wrap;
-  }
-
-  const tag = block.type === 'h2' ? 'h2' : block.type === 'h3' ? 'h3' : block.type === 'ul' ? 'ul' : 'p';
-
-  if (tag === 'ul') {
-    const list = document.createElement('ul');
-    for (const line of block.text.split('\n')) {
-      const item = document.createElement('li');
-      item.contentEditable = 'plaintext-only';
-      renderInline(item, line);
-      list.append(item);
-    }
-    list.addEventListener('input', () => {
-      block.text = [...list.children].map((li) => li.textContent).join('\n');
-      queueSave();
-    });
-    body.append(list);
-  } else {
-    const node = document.createElement(tag);
-    node.contentEditable = 'plaintext-only';
-    node.spellcheck = tag === 'p';
-    renderInline(node, block.text);
-    // The only block on the page carries the invitation to write; a hint on
-    // every empty line of a longer page would be noise.
-    if (tag === 'p' && ui.page.blocks.length === 1) {
-      node.dataset.placeholder = 'Start writing…';
-      node.toggleAttribute('data-empty', !block.text);
-    }
-    node.addEventListener('input', () => {
-      block.text = node.textContent;
-      if (node.dataset.placeholder) node.toggleAttribute('data-empty', !block.text);
-      queueSave();
-    });
-    // Links are re-rendered on blur only: doing it per keystroke moves the
-    // caret out from under whoever is typing.
-    node.addEventListener('blur', () => renderInline(node, block.text));
-    node.addEventListener('focus', () => { node.textContent = block.text; });
-    node.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); insertAfter(block.id); }
-      else if (event.key === 'Backspace' && !block.text && ui.page.blocks.length > 1) {
-        event.preventDefault(); removeBlock(block.id);
-      }
-    });
-    body.append(node);
-  }
-
-  if (block.comment) body.append(el('p', 'ws-block__comment', block.comment));
-  wrap.append(body);
-  return wrap;
-}
-
-/* [[Page name]] becomes a link. Deliberately the wiki syntax: people already
-   type it, and it survives a copy into any plain text tool. */
-function renderInline(host, text) {
-  host.textContent = '';
-  const pattern = /\[\[([^\]]+)\]\]/g;
-  let last = 0;
-  let match;
-
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > last) host.append(text.slice(last, match.index));
-
-    const name = match[1];
-    const target = api.resolveLink(name);
-    const link = document.createElement('a');
-    link.className = 'ws-link';
-    link.textContent = name;
-    link.contentEditable = 'false';
-    link.href = target.id ? `/workspace/page/${target.id}` : '#';
-    if (target.phantom) {
-      link.setAttribute('data-phantom', '');
-      link.title = `${name} has no file yet. Opening it creates one.`;
-    }
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      if (target.id) { go(`/workspace/page/${target.id}`); return; }
-      api.createPage({ title: name, parent: ui.page?.parent || null }).then((made) => {
-        ui.nodes.push({ id: made.id, title: made.title, kind: 'note', parent: made.parent, phantom: false });
-        go(`/workspace/page/${made.id}`);
-      });
-    });
-    host.append(link);
-    last = pattern.lastIndex;
-  }
-
-  if (last < text.length) host.append(text.slice(last));
-  if (!text) host.append(document.createElement('br'));
-}
-
-function insertAfter(id) {
-  const at = ui.page.blocks.findIndex((block) => block.id === id);
-  const made = { id: 'b-' + Math.random().toString(36).slice(2, 9), type: 'p', text: '' };
-  ui.page.blocks.splice(at + 1, 0, made);
-  queueSave();
-  render();
-  requestAnimationFrame(() => $(`.ws-block[data-id="${made.id}"] [contenteditable]`)?.focus());
-}
-
-function removeBlock(id) {
-  const at = ui.page.blocks.findIndex((block) => block.id === id);
-  ui.page.blocks.splice(at, 1);
-  queueSave();
-  render();
-  requestAnimationFrame(() => {
-    const previous = ui.page.blocks[Math.max(0, at - 1)];
-    const node = $(`.ws-block[data-id="${previous.id}"] [contenteditable]`);
-    if (!node) return;
-    node.focus();
-    // Caret to the end, so backspacing through blocks feels continuous.
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    range.collapse(false);
-    const selection = getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-  });
-}
-
-function attachmentEl(block) {
-  const card = document.createElement('div');
-  card.className = 'ws-attach';
-  const url = block.resourceId ? `/api/workspace/files/${block.resourceId}/download/` : '';
-  if (url && block.mime?.startsWith('image/')) {
-    const preview = document.createElement('img');
-    preview.className = 'ws-attach__image'; preview.src = url; preview.alt = block.text || '';
-    preview.style.width = `${block.width || 100}%`;
-    const size = document.createElement('input'); size.type = 'range'; size.min = '30'; size.max = '100'; size.value = String(block.width || 100);
-    size.setAttribute('aria-label', 'Image width');
-    size.addEventListener('input', () => { block.width = Number(size.value); preview.style.width = `${block.width}%`; queueSave(); });
-    card.append(preview, size);
-  }
-  card.append(el('span', 'ws-attach__kind', block.kind || 'FILE'));
-  card.append(el('span', 'ws-attach__name', block.text));
-  card.append(el('span', 'ws-attach__meta', block.meta || ''));
-  if (url) {
-    const download = document.createElement('a'); download.className = 'ws-btn ws-btn--tiny'; download.href = url; download.textContent = 'Download';
-    const open = document.createElement('button'); open.className = 'ws-btn ws-btn--tiny'; open.type = 'button'; open.textContent = 'Open with…';
-    open.addEventListener('click', () => window.open(url, '_blank', 'noopener'));
-    card.append(download, open);
-  }
-  return card;
-}
-
-/* Debounced save. The status bar is told the truth at each step. A save
-   indicator that only ever says "saved" is decoration. */
-let saveTimer = 0;
-
-function queueSave() {
-  setSave('saving');
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    try {
-      await api.savePage(ui.page.id, { title: ui.page.title, blocks: ui.page.blocks });
-      setSave(api.state.mode === 'server' ? 'saved' : 'offline');
-    } catch {
-      setSave('error');
-    }
-  }, 700);
-}
-
 function setSave(next) {
   ui.save = next;
   const node = $('#ws-save');
@@ -1535,13 +1085,21 @@ function openDay(date) {
   go(dayNotePath(date));
 }
 
-/* The date a day page belongs to, or null for any other page. Server pages
-   carry journal_date; local ones also encode it in their id. */
-function journalDateOf(page) {
-  const key = page?.journal_date || /^journal-(\d{4}-\d{2}-\d{2})$/.exec(page?.id || '')?.[1];
-  if (!key || (page.kind && page.kind !== 'journal')) return null;
-  const date = new Date(key + 'T00:00:00');
-  return Number.isNaN(date.getTime()) ? null : date;
+/* Prefilled blocks become the Markdown a note is stored as, so a heading is
+   a heading in Notes, in Nextcloud and in Obsidian. */
+function blocksToMarkdown(blocks = []) {
+  return (blocks || []).map((block) => {
+    const text = String(block.text || '');
+    switch (block.type) {
+      case 'h2': return `## ${text}`;
+      case 'h3': return `### ${text}`;
+      case 'ul': return text.split('\n').map((line) => `- ${line}`).join('\n');
+      case 'quote': return text.split('\n').map((line) => `> ${line}`).join('\n');
+      case 'code': return `\`\`\`\n${text}\n\`\`\``;
+      case 'equation': return `$$\n${text}\n$$`;
+      default: return text;
+    }
+  }).join('\n\n').trim();
 }
 
 // Days written this session, reported by Notes, so the calendar marks a new
@@ -1766,25 +1324,21 @@ function viewContext() {
 
        It returns the page, so a caller that needs the id (to link a source
        to it) does not have to guess it or re-read the tree. */
-    newNote: async ({ space, title = 'Untitled', parent, blocks, open = true } = {}) => {
+    newNote: async ({ space, title = 'Untitled note', blocks, open = true } = {}) => {
       const target = space || spaceOf(ui.area);
-      const root = parent || defaultRoot(target);
-      const made = await api.createPage({ title, parent: root, space: target });
-      if (!made) return null;
-
-      if (blocks?.length) {
-        const filled = blocks.map((block) => ({
-          id: 'b-' + Math.random().toString(36).slice(2, 9),
-          type: block.type || 'p',
-          text: block.text || '',
-        }));
-        Object.assign(made, await api.savePage(made.id, { blocks: filled }) || {});
+      let result;
+      try {
+        result = await P.call('/platform/nextcloud/notes/', {
+          method: 'POST',
+          body: { title, content: blocksToMarkdown(blocks), space: target },
+        });
+      } catch {
+        return null;
       }
-
-      ui.nodes.push({ id: made.id, title: made.title, kind: 'note', parent: made.parent, phantom: false });
-      ui.pagesById[made.id] = made;
-      if (open) go(`/workspace/page/${made.id}`);
-      else renderIndex();
+      const item = result?.item;
+      if (!item) return null;
+      const made = { id: String(item.id), title: item.title, space: target };
+      if (open) go(`${notesPath(target)}?note=${made.id}`);
       return made;
     },
 
@@ -1811,6 +1365,8 @@ function paintPaneState() {
   shell.dataset.area = ui.area;
 }
 
+const NOTEBOOK_VIEWS = new Set(['notes', 'core-notes']);
+
 function render() {
   paintPaneState();
 
@@ -1827,6 +1383,19 @@ function render() {
   }
 
   const host = $('#ws-view');
+
+  /* Notes is drawn by ws-nextcloud-native.js, the notebook backed by
+     Nextcloud. This router used to draw its own older Notes screen first —
+     a list over the browser-only page store, with a warning that the page
+     service was not deployed — and the notebook replaced it only when its
+     data arrived, so every refresh showed the wrong screen for seconds. The
+     router now leaves the notebook in place, or holds an empty pane for it. */
+  if (NOTEBOOK_VIEWS.has(ui.route?.view)) {
+    stopClock();
+    if (!host.querySelector(':scope > .nc-notes')) host.replaceChildren();
+    updateStatus();
+    return;
+  }
   host.innerHTML = '';
 
   // The clock on the dashboard runs on an interval. Every path out of the
@@ -1850,7 +1419,6 @@ function render() {
   else if (view === 'core-content') views.renderCoreContent(host, ctx);
   else if (view === 'core-team') views.renderCoreTeam(host, ctx);
   else if (view === 'core-planning') views.renderCorePlanning(host, ctx);
-  else if (view === 'core-notes') views.renderCoreNotes(host, ctx);
   else if (view === 'core-assets') assets.renderCoreAssets(host, ctx);
   else if (view === 'core-blueprint') assets.renderContentStudioBlueprint(host, ctx);
   else if (view === 'kms-library') library.renderLibrary(host, ctx);
@@ -1869,8 +1437,6 @@ function render() {
   else if (view === 'community') views.renderCommunity(host, ctx);
   else if (view === 'shared') views.renderShared(host, ctx);
   else if (view === 'settings') renderSettings(host, ctx);
-  else if (view === 'notes') views.renderNotes(host, ctx);
-  else if (view === 'editor') renderEditor(host);
   else if (view === 'folder') renderFolder(host);
 
   updateStatus();

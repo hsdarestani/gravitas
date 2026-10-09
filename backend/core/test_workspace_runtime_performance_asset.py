@@ -44,13 +44,13 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
 
     def test_workspace_cache_busts_all_performance_modules(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-research-actions.js?v=20261008-operational2', html)
+        self.assertIn('/assets/ws/ws-research-actions.js?v=20261010-notes2', html)
         self.assertIn('/assets/ws/ws-task-deck-mirror.js?v=20261010-tasks1', html)
         self.assertIn('/assets/ws/ws-actionable-ui.js?v=20261009-copy1', html)
         self.assertIn('/assets/ws/ws-project-actions.js?v=20261008-operational2', html)
         self.assertIn('/assets/ws/ws-task-deck-fixes.js?v=20261008-operational2', html)
+        self.assertIn('/assets/ws/ws-notes-performance.js?v=20261010-notes2', html)
         for name in (
-            'ws-notes-performance.js',
             'ws-space-integration.js',
         ):
             self.assertIn(f'/assets/ws/{name}?v=20261008-operational2', html)

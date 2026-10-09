@@ -142,7 +142,10 @@
     W = r.width; H = r.height; cx = W / 2; cy = H / 2;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    scale = Math.min(W, H) / SPAN;
+    // The canvas bleeds past its stage (hero.css) so a member pulled out of
+    // its lane is not cut off in mid-air; the framing still follows the stage.
+    var stage = canvas.parentElement.getBoundingClientRect();
+    scale = Math.min(stage.width || W, stage.height || H) / SPAN;
     if (reduce || !running) render(t0);
   }
 

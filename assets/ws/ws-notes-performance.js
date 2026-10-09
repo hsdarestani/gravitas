@@ -14,6 +14,7 @@ function routeInfo() {
   const path = location.pathname.replace(/\/$/, '');
   if (path === '/workspace/research/editor' || path === '/workspace/research/notes') return { space: 'research', canonical: '/workspace/research/notes' };
   if (path === '/workspace/core/notes') return { space: 'core', canonical: '/workspace/core/notes' };
+  if (path === '/workspace/kms/notes') return { space: 'kms', canonical: '/workspace/kms/notes' };
   return null;
 }
 

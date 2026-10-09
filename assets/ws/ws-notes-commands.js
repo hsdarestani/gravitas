@@ -268,6 +268,16 @@ function place(pop, point, { above = false } = {}) {
   pop.style.top = `${Math.round(Math.max(8, top))}px`;
 }
 
+/* The gutter's two controls are drawn, not typed: a "+" and a "⋮⋮" set in
+   the text font sat on its baseline at its size, small and out of line with
+   each other. Both icons share one box and one stroke, centred on the
+   block's first line. */
+const GUTTER_SIZE = 26;
+const GUTTER_ICONS = {
+  plus: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  grip: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+};
+
 /* ---- Attach -------------------------------------------------------------- */
 export function attachCommands(area, { scroller = null, gutterHost = null } = {}) {
   const menu = el('div', 'nbc-menu');
@@ -472,8 +482,8 @@ export function attachCommands(area, { scroller = null, gutterHost = null } = {}
     const first = boxes[block.start];
     const line = parseFloat(getComputedStyle(area).lineHeight) || first.height;
     gutter.hidden = false;
-    gutter.style.top = `${Math.round(hostTop() + first.top + (Math.min(line, first.height) - 24) / 2)}px`;
-    gutter.style.left = `${Math.round(area.offsetLeft - 54)}px`;
+    gutter.style.top = `${Math.round(hostTop() + first.top + (Math.min(line, first.height) - GUTTER_SIZE) / 2)}px`;
+    gutter.style.left = `${Math.round(area.offsetLeft - GUTTER_SIZE * 2 - 6)}px`;
   }
 
   function hideGutter() {
@@ -490,11 +500,13 @@ export function attachCommands(area, { scroller = null, gutterHost = null } = {}
   if (gutter) {
     gutter.hidden = true;
     drop.hidden = true;
-    const add = el('button', 'nbc-gutter__btn', '+');
+    const add = el('button', 'nbc-gutter__btn');
+    add.innerHTML = GUTTER_ICONS.plus;
     add.type = 'button';
     add.title = 'Add a block below';
     add.setAttribute('aria-label', 'Add a block below');
-    const grip = el('button', 'nbc-gutter__btn nbc-gutter__grip', '⋮⋮');
+    const grip = el('button', 'nbc-gutter__btn nbc-gutter__grip');
+    grip.innerHTML = GUTTER_ICONS.grip;
     grip.type = 'button';
     grip.title = 'Drag to move · click to select';
     grip.setAttribute('aria-label', 'Move block');

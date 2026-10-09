@@ -91,14 +91,16 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         self.assertIn("const dateKey = localDateKey(date)", api)
         self.assertNotIn("const dateKey = date.toISOString().slice(0, 10)", api)
 
-    def test_zip_reference_editor_interactions_are_wired(self):
-        app = self.read('assets/ws/ws-app.js')
-        for contract in (
-            'Recently viewed', 'Bookmarked notes', "block.highlight",
-            "block.comment", "wrap.draggable = true", "Open with…",
-            "type = 'range'", "Page title to link",
-        ):
-            self.assertIn(contract, app)
+    def test_notes_editor_interactions_are_wired(self):
+        # Writing happens in Notes. Its editor carries what the removed block
+        # editor offered: a block menu, per-line add and drag, inline
+        # formatting, and a per-note menu with favorites, sharing and moving.
+        commands = self.read('assets/ws/ws-notes-commands.js')
+        notes = self.read('assets/ws/ws-nextcloud-native.js')
+        for contract in ('export const COMMANDS', 'export function moveBlock', "'Add a block below'", "'Format selection'"):
+            self.assertIn(contract, commands)
+        for contract in ('function openRowMenu', 'Add to favorites', "'Share…'", 'Move to', 'function openShare'):
+            self.assertIn(contract, notes)
 
     def test_zip_reference_tree_and_task_interactions_are_wired(self):
         api = self.read('assets/ws/ws-api.js')
