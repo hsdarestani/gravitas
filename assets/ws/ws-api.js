@@ -19,7 +19,7 @@
    and then gets out of the way.
    ========================================================================== */
 
-import { seed } from './ws-seed.js';
+import { seed } from './ws-seed.js?v=20261011-r2';
 
 const API = '/api';
 /* Bumped to v5 with the three-space page store. A browser holding a v4 store

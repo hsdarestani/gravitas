@@ -23,22 +23,22 @@
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-ds2">
   <link rel="stylesheet" href="/assets/chat.css?v=20261010-pulsar8">
   <link rel="stylesheet" href="/assets/ws/ws.css?v=20261011-r1">
-  <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20261008-sessionfix1">
-  <link rel="stylesheet" href="/assets/ws/ws-work-reports.css?v=20261009-ds2">
-  <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20261009-ds2">
-  <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20261010-notes2">
-  <link rel="stylesheet" href="/assets/ws/ws-space-integration.css?v=20260917-1">
-  <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20261009-buttons1">
-  <link rel="stylesheet" href="/assets/ws/ws-mindmap-editor.css?v=20261009-ds2">
-  <link rel="stylesheet" href="/assets/ws/ws-math.css?v=20260919-1">
-  <link rel="stylesheet" href="/assets/ws/ws-lms-advanced.css?v=20261009-ds2">
-  <link rel="stylesheet" href="/assets/ws/ws-research-intelligence.css?v=20261009-ds2">
+  <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-work-reports.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-space-integration.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-mindmap-editor.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-math.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-lms-advanced.css?v=20261011-r2">
+  <link rel="stylesheet" href="/assets/ws/ws-research-intelligence.css?v=20261011-r2">
   <script src="/assets/gravitas-icons.js?v=20261009-report1" defer></script>
   <!-- Root-absolute: nginx serves this file for every /workspace/* route. -->
   <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
-  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261011-r1">
+  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261011-r2">
   <!-- Platform Admin parts; after the unified sheet, which never styles adm-. -->
-  <link rel="stylesheet" href="/assets/ws/ws-admin.css?v=20261009-buttons1">
+  <link rel="stylesheet" href="/assets/ws/ws-admin.css?v=20261011-r2">
   <style>
     /* A selected page/folder node is the active destination. Do not also
        paint its top-level module row as selected. */
@@ -129,16 +129,15 @@
   </noscript>
 
   <script type="module">
-    import { start } from '/assets/ws/ws-app.js?v=20261011-r1';
-    import { platform } from '/assets/ws/ws-platform.js?v=20261008-operational2';
-    import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20261011-r1';
-    import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20261011-r1';
-    import { installNotesPerformance } from '/assets/ws/ws-notes-performance.js?v=20261010-notes2';
-    import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20261008-sessionfix1';
-    import { installLiveKms } from '/assets/ws/ws-kms-live.js?v=20261009-copy1';
-    import { installResearchProjectActions } from '/assets/ws/ws-project-actions.js?v=20261008-operational2';
-    import { installSpaceWorkspaceIntegration } from '/assets/ws/ws-space-integration.js?v=20261011-r1';
-    import { installMathRendering } from '/assets/ws/ws-math.js?v=20261008-operational2';
+    import { start } from '/assets/ws/ws-app.js?v=20261011-r2';
+    import { platform } from '/assets/ws/ws-platform.js?v=20261011-r2';
+    import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20261011-r2';
+    import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20261011-r2';
+    import { installNotesPerformance } from '/assets/ws/ws-notes-performance.js?v=20261011-r2';
+    import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20261011-r2';
+    import { installResearchProjectActions } from '/assets/ws/ws-project-actions.js?v=20261011-r2';
+    import { installSpaceWorkspaceIntegration } from '/assets/ws/ws-space-integration.js?v=20261011-r2';
+    import { installMathRendering } from '/assets/ws/ws-math.js?v=20261011-r2';
 
     function isNodeRoute(path = location.pathname) {
       return path === '/workspace/folder' || path.startsWith('/workspace/folder/')
@@ -171,12 +170,8 @@
       // the critical first-paint path.
       installNotesPerformance();
 
-      // Own the two legacy KMS routes before ws-app gets its first chance to
-      // draw the old local/sample renderer. installLiveKms schedules its live
-      // account-backed render in the same task, so seeded content never makes
-      // it to a browser paint. The SSO wrapper is also installed before any
-      // native-app launcher can open a raw Nextcloud URL.
-      installLiveKms();
+      // The SSO wrapper is installed before any native-app launcher can open
+      // a raw Nextcloud URL.
       installNextcloudSsoBridge();
 
       // start() paints the shell synchronously and then waits on account
@@ -204,7 +199,7 @@
     if (window.GravitasIcons) bootWorkspace();
     else addEventListener('load', bootWorkspace, { once: true });
   </script>
-  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20261011-r1"></script>
+  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20261011-r2"></script>
   <script src="/assets/production-bridge.js?v=20260924-seen1" defer></script>
   <!-- Pulsar: the same floating assistant as the rest of the site. ws-ai.js
        configures it for the workspace once both have loaded. -->

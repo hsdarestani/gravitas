@@ -26,8 +26,8 @@
    and falls back to search rather than to invention.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20261008-native3';
-import * as P from './ws-platform.js';
+import * as api from './ws-api.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r2';
 
 let context = null;
 

@@ -22,14 +22,36 @@
    means the path you are furthest into and the cards that are overdue.
    ========================================================================== */
 
-import * as K from './ws-kms.js';
-import { el, panel, row, stats, empty, linkButton } from './ws-views.js';
+import * as K from './ws-kms.js?v=20261011-r2';
+import { el, panel, row, stats, empty, linkButton } from './ws-views.js?v=20261011-r2';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
 const KIND_LABEL = { paper: 'Paper', book: 'Book', video: 'Video', course: 'Course', talk: 'Talk' };
 const STATE_LABEL = { queued: 'Not started', reading: 'Reading', distilled: 'Distilled', parked: 'Parked' };
 const STEP_LABEL = { read: 'Read', note: 'Write', recall: 'Rehearse', build: 'Apply' };
+
+/* Every Knowledge screen reads the account store, which arrives over the
+   network. A screen asked for before it has arrived draws a loading shape,
+   then draws itself once the store is in memory — unless the reader has
+   moved on, which the placeholder's presence in the host tells us. */
+function whenReady(host, title, draw) {
+  if (K.isReady()) return false;
+  const doc = docShell(host, title, '');
+  const wait = el('div');
+  wait.dataset.kmsWaiting = '';
+  doc.append(wait);
+  const bars = el('div', 'ws-skel');
+  for (let i = 0; i < 5; i += 1) bars.append(el('i'));
+  wait.append(bars);
+  K.ready().then(() => {
+    if (wait.isConnected) draw();
+  }).catch(() => {
+    if (!wait.isConnected) return;
+    wait.replaceChildren(empty('Knowledge is unavailable', 'Your sources, cards and paths are kept in your account, and the account did not answer. Nothing was changed.'));
+  });
+  return true;
+}
 
 function docShell(host, title, subtitle) {
   host.innerHTML = '';
@@ -71,6 +93,7 @@ function meter(percent, tone) {
    ========================================================================== */
 
 export function renderKmsOverview(host, ctx) {
+  if (whenReady(host, 'Knowledge', () => renderKmsOverview(host, ctx))) return;
   const doc = docShell(
     host,
     'Knowledge',
@@ -204,6 +227,7 @@ function loopStrip(ctx) {
    ========================================================================== */
 
 export function renderKmsPaths(host, ctx) {
+  if (whenReady(host, 'Paths', () => renderKmsPaths(host, ctx))) return;
   const doc = docShell(
     host,
     'Learning Paths',
@@ -287,6 +311,7 @@ function field(form, label, help) {
 }
 
 export function renderKmsPath(host, id, ctx) {
+  if (whenReady(host, 'Path', () => renderKmsPath(host, id, ctx))) return;
   const item = K.path(id);
   if (!item) {
     docShell(host, 'Path not found', 'It may have been removed. The list of paths is still there.')
@@ -393,6 +418,7 @@ export function renderKmsPath(host, id, ctx) {
    ========================================================================== */
 
 export function renderKmsSources(host, ctx) {
+  if (whenReady(host, 'Sources', () => renderKmsSources(host, ctx))) return;
   const doc = docShell(
     host,
     'Sources',
@@ -553,6 +579,7 @@ function sourceForm(onSave, onCancel) {
    ========================================================================== */
 
 export function renderKmsBase(host, ctx) {
+  if (whenReady(host, 'Knowledge Base', () => renderKmsBase(host, ctx))) return;
   const doc = docShell(
     host,
     'Knowledge Base',
@@ -651,6 +678,7 @@ export function renderKmsBase(host, ctx) {
    ========================================================================== */
 
 export function renderKmsRecall(host, ctx) {
+  if (whenReady(host, 'Recall', () => renderKmsRecall(host, ctx))) return;
   const doc = docShell(
     host,
     'Recall & Review',
@@ -788,6 +816,7 @@ function gradeButton(label, hint, onClick, solid) {
    ========================================================================== */
 
 export function renderKmsSkills(host, ctx) {
+  if (whenReady(host, 'Skills', () => renderKmsSkills(host, ctx))) return;
   const doc = docShell(
     host,
     'Skills',

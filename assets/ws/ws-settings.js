@@ -18,10 +18,10 @@
    screen, theme switch included, because the profile request went first.
    ========================================================================== */
 
-import * as P from './ws-platform.js';
-import { el, panel, empty, skeleton, failure } from './ws-views.js';
-import { WEATHER_PLACES, weatherPlace, weatherEnabled } from './ws-home.js';
-import { cropAvatar } from './ws-avatar-crop.js';
+import * as P from './ws-platform.js?v=20261011-r2';
+import { el, panel, empty, skeleton, failure } from './ws-views.js?v=20261011-r2';
+import { WEATHER_PLACES, weatherPlace, weatherEnabled } from './ws-home.js?v=20261011-r2';
+import { cropAvatar } from './ws-avatar-crop.js?v=20261011-r2';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 

@@ -11,12 +11,12 @@
    trust in the rest of the numbers on it.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261008-operational2';
-import * as C from './ws-charts.js?v=20261008-operational2';
-import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261011-r1';
-import { availableWorkspaces } from './ws-nav.js?v=20261011-r1';
-import * as K from './ws-kms.js';
-import { openNewProject, openNewTask } from './ws-research-create.js?v=20261011-r1';
+import * as P from './ws-platform.js?v=20261011-r2';
+import * as C from './ws-charts.js?v=20261011-r2';
+import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261011-r2';
+import { availableWorkspaces } from './ws-nav.js?v=20261011-r2';
+import * as K from './ws-kms.js?v=20261011-r2';
+import { openNewProject, openNewTask } from './ws-research-create.js?v=20261011-r2';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -522,8 +522,19 @@ function renderHomeBody(doc, ctx, boot) {
    up no more room than that: a permanent "keep learning!" card is an advert
    and gets tuned out within a week. */
 function learningPanel(ctx) {
-  const counts = K.queueCounts();
   const box = panel('Learning', linkBtn('Knowledge', '/workspace/kms', ctx));
+  skeleton(2, box.body);
+  // The queue lives in the account. Without Learning access it cannot be
+  // read, and then the panel is not shown rather than shown empty.
+  K.ready().then(() => {
+    box.body.replaceChildren();
+    fillLearning(box, ctx);
+  }).catch(() => box.remove());
+  return box;
+}
+
+function fillLearning(box, ctx) {
+  const counts = K.queueCounts();
 
   if (counts.due) {
     const node = row({
@@ -544,7 +555,6 @@ function learningPanel(ctx) {
       box.body.append(empty('Nothing due', 'The review queue is empty and every path is finished.'));
     }
   }
-  return box;
 }
 
 /* ---- Core --------------------------------------------------------------- */

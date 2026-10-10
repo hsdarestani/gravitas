@@ -20,7 +20,7 @@
    links and bookmarks keep working.
    ========================================================================== */
 
-import { canOpenCore, canOpenLms, canOpenResearch, isCoreAdmin } from './ws-platform.js';
+import { canOpenCore, canOpenLms, canOpenResearch, isCoreAdmin } from './ws-platform.js?v=20261011-r2';
 
 /* The workspaces, in the order the rail offers them. Core comes first for
    the people who can open it, because they are the ones who live in it. */
@@ -127,17 +127,16 @@ export const CORE_SECTIONS = [
     match: under('/workspace/operating'),
   },
   {
-    /* Core's own pages: meeting notes, decisions, and the draft of a
-       standard before it has earned its way into a blueprint. Same editor
-       and same link graph as every other note in the product, a different
-       branch of the tree. */
+    /* Core's notebook: meeting notes, decisions, and the draft of a
+       standard before it has earned its way into a blueprint. It is the
+       Notes notebook for the Core space, with its own sidebar of notes, so
+       the index no longer draws a page tree under it. */
     id: 'core-notes',
     label: 'Notes',
     hint: 'Meeting notes and decisions',
     icon: 'notes',
     path: '/workspace/core/notes',
     match: under('/workspace/core/notes'),
-    tree: true,
     space: 'core',
   },
   {
@@ -295,7 +294,6 @@ export const KMS_SECTIONS = [
     icon: 'notes',
     path: '/workspace/kms/base',
     match: under('/workspace/kms/base'),
-    tree: true,
     space: 'kms',
   },
   {

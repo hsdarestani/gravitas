@@ -1,6 +1,6 @@
-import * as P from './ws-platform.js?v=20261008-operational2';
-import { observeSurface } from './ws-runtime-performance.js?v=20261008-operational2';
-import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261008-operational2';
+import * as P from './ws-platform.js?v=20261011-r2';
+import { observeSurface } from './ws-runtime-performance.js?v=20261011-r2';
+import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261011-r2';
 
 const state = { installed: false, scheduled: false, loading: new Set(), observer: null };
 const PROJECT_STATUS = [['intake', 'Intake'], ['active', 'Active'], ['review', 'Review'], ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['closed', 'Closed']];

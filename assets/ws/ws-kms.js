@@ -1,8 +1,7 @@
 /* ==========================================================================
    GRAVITAS+ WORKSPACE  ·  KNOWLEDGE (KMS) DATA LAYER
-   The learning workspace's own store. Same contract as ws-api.js: a view
-   asks for data and always receives data, the server is used when the route
-   exists, and the browser keeps the work when it does not.
+   The learning workspace's own store: sources, cards, skills and paths,
+   held in the reader's account.
 
    Why a second store rather than an extension of the page store. Pages are
    documents; these are schedules. A card has a due date, a path has an
@@ -11,10 +10,7 @@
    or a card that cannot be written in, and both were tried in the previous
    build.
 
-   Nothing here invents a backend that does not exist. `sync()` posts to
-   /api/platform/kms/ when a build carries it and is a no-op otherwise, so
-   the day those routes land the workspace starts using them without a
-   rewrite at every call site.
+   The store is the account (/platform/kms/state/); see STORE below.
 
    THE MODEL, in the order the workspace uses it:
 
@@ -29,8 +25,9 @@
    others, and a path is the only place a person is asked to plan.
    ========================================================================== */
 
+import * as P from './ws-platform.js?v=20261011-r2';
+
 const LS_KEY = 'gravitas.ws.kms.v1';
-const API = '/api';
 
 /* ---- Scheduling ---------------------------------------------------------
    A Leitner ladder rather than SM-2. SM-2 needs a per-card ease factor that
@@ -54,213 +51,128 @@ const daysUntil = (stamp) => Math.round((new Date(stamp + 'T00:00:00').getTime()
 const uid = (prefix) => prefix + '-' + Math.random().toString(36).slice(2, 9);
 
 /* ==========================================================================
-   SEED
-   Real material rather than filler. Somebody opening the knowledge
-   workspace cold should see what a distilled source, a scheduled card and a
-   half-finished path actually look like, because none of the three are
-   self-explanatory from an empty state.
+   STORE
+   The account is the store. Everything here lives in /platform/kms/state/,
+   so a card graded on a laptop is due on the phone, and nothing a person
+   sees here was put there by the build.
+
+   It used to be localStorage with a seeded sample workspace — four sources,
+   five cards, three paths and three skills, real material written to show
+   what the method looks like — and a "sync" that sent the wrong body
+   without a CSRF token and so never reached the account. A second module,
+   ws-kms-live.js, then took over two of the six screens to read the real
+   account state, which left Sources, Paths and Skills showing samples that
+   existed only in one browser. Now all six read this one store.
+
+   Reads stay synchronous: views call ready() once, then read the in-memory
+   copy. Writes change the copy at once and are saved a moment later; a save
+   that fails is reported through saveState(), never by throwing into a view.
    ========================================================================== */
 
-function seed() {
-  return {
-    sources: [
-      {
-        id: 's-ebbinghaus',
-        title: 'Memory: A Contribution to Experimental Psychology',
-        author: 'Hermann Ebbinghaus',
-        kind: 'book',
-        question: 'How fast is forgetting when nothing is done about it?',
-        state: 'distilled',
-        pageId: 'k-spaced',
-        added: plusDays(-58),
-      },
-      {
-        id: 's-roediger',
-        title: 'The Critical Role of Retrieval Practice in Long-Term Retention',
-        author: 'Roediger & Butler',
-        kind: 'paper',
-        question: 'Does testing beat re-reading, and by how much?',
-        state: 'reading',
-        pageId: null,
-        added: plusDays(-11),
-      },
-      {
-        id: 's-interference',
-        title: 'Retrieval-induced forgetting, thirty years on',
-        author: 'Anderson (review)',
-        kind: 'paper',
-        question: 'Is forgetting interference or decay?',
-        state: 'queued',
-        pageId: null,
-        added: plusDays(-4),
-      },
-      {
-        id: 's-tufte',
-        title: 'The Visual Display of Quantitative Information',
-        author: 'Edward Tufte',
-        kind: 'book',
-        question: 'What makes a chart honest?',
-        state: 'queued',
-        pageId: null,
-        added: plusDays(-2),
-      },
-    ],
+const EMPTY = () => ({ sources: [], cards: [], paths: [], skills: [], log: [] });
 
-    cards: [
-      {
-        id: 'c-1',
-        front: 'What does spaced repetition claim does the work: the repetition, or the interval?',
-        back: 'The interval. Retrieving a fact at the edge of forgetting strengthens it more than re-reading it while it is still fresh.',
-        pageId: 'k-spaced',
-        skill: 'learning',
-        rung: 3,
-        due: plusDays(-1),
-        lapses: 1,
-      },
-      {
-        id: 'c-2',
-        front: 'Why does the workspace show a review queue instead of a list of everything learned?',
-        back: 'A list of everything is a list nobody opens. A queue of the six things about to be forgotten can be finished before coffee.',
-        pageId: 'k-spaced',
-        skill: 'learning',
-        rung: 4,
-        due: plusDays(0),
-        lapses: 0,
-      },
-      {
-        id: 'c-3',
-        front: 'In the distillation method, which pass is the one that counts?',
-        back: 'The fourth: closing the source and writing the answer from memory. A note copied from an open paper feels like understanding and tests as nothing.',
-        pageId: 'k-distil',
-        skill: 'learning',
-        rung: 4,
-        due: plusDays(0),
-        lapses: 0,
-      },
-      {
-        id: 'c-4',
-        front: 'What is the useful half of Bayes for editorial work?',
-        back: 'Asking what you believed before the paper arrived, and by how much it should move you. A study that could not have changed your mind has told you nothing.',
-        pageId: 'k-bayes',
-        skill: 'evidence',
-        rung: 4,
-        due: plusDays(6),
-        lapses: 0,
-      },
-      {
-        id: 'c-5',
-        front: 'Why may a blueprint section have two owners while a task may not?',
-        back: 'Shared task ownership produces the state where each owner believes the other is doing it, and that state is invisible on a board until the deadline passes.',
-        pageId: 'c-std-owner',
-        skill: 'operating',
-        rung: 4,
-        due: plusDays(0),
-        lapses: 0,
-      },
-    ],
+// The ids the old seed used. A browser that kept the seeded workspace holds
+// these alongside anything its owner made; only the latter is worth keeping.
+const SAMPLE_IDS = new Set([
+  's-ebbinghaus', 's-roediger', 's-interference', 's-tufte',
+  'c-1', 'c-2', 'c-3', 'c-4', 'c-5',
+  'p-learning', 'p-evidence', 'p-operating',
+  'learning', 'evidence', 'operating',
+]);
 
-    paths: [
-      {
-        id: 'p-learning',
-        title: 'Learning how to learn',
-        aim: 'Run the capture → distill → recall loop without thinking about it, and be able to teach it to a new team member.',
-        owner: 'Everyone',
-        skill: 'learning',
-        steps: [
-          { id: 'st-1', title: 'Read Ebbinghaus on the forgetting curve', kind: 'read',   ref: 's-ebbinghaus', done: true },
-          { id: 'st-2', title: 'Distil it into a note in your own words',  kind: 'note',   ref: 'k-spaced',    done: true },
-          { id: 'st-3', title: 'Cut three cards from that note',           kind: 'recall', ref: null,          done: true },
-          { id: 'st-4', title: 'Read Roediger & Butler on retrieval practice', kind: 'read', ref: 's-roediger', done: false },
-          { id: 'st-5', title: 'Write the method up as a standard',        kind: 'note',   ref: 'k-distil',    done: false },
-          { id: 'st-6', title: 'Teach it in a weekly and collect objections', kind: 'build', ref: null,        done: false },
-        ],
-      },
-      {
-        id: 'p-evidence',
-        title: 'Reading evidence like an editor',
-        aim: 'Judge whether a paper should move the dossier, and say why in one paragraph a reader can check.',
-        owner: 'Sajad',
-        skill: 'evidence',
-        steps: [
-          { id: 'se-1', title: 'Priors, and what would change them', kind: 'note',   ref: 'k-bayes', done: true },
-          { id: 'se-2', title: 'Write the strongest version of an opposing case', kind: 'build', ref: 'cu-against', done: true },
-          { id: 'se-3', title: 'Review: sample size is not evidence strength', kind: 'recall', ref: null, done: false },
-          { id: 'se-4', title: 'Audit one live dossier claim against its primary source', kind: 'build', ref: null, done: false },
-        ],
-      },
-      {
-        id: 'p-operating',
-        title: 'Running the content studio',
-        aim: 'Take a section of the Content Studio Blueprint from approved scope to shipped tasks without a second meeting.',
-        owner: 'Core team',
-        skill: 'operating',
-        steps: [
-          { id: 'so-1', title: 'Read the blueprint end to end', kind: 'read', ref: null, done: true },
-          { id: 'so-2', title: 'Learn the one-owner-per-task standard', kind: 'note', ref: 'c-std-owner', done: true },
-          { id: 'so-3', title: 'Cut one section into tasks with named owners', kind: 'build', ref: null, done: false },
-          { id: 'so-4', title: 'Run it through a cycle and log what broke', kind: 'build', ref: null, done: false },
-        ],
-      },
-    ],
-
-    /* Skills are declared, but their level is never typed in. It is computed
-       from cards held and path steps finished, so the number on the screen
-       is a claim the workspace can defend rather than one somebody set
-       optimistically in March. */
-    skills: [
-      { id: 'learning',  name: 'Deliberate learning', target: 3, note: 'Capture, distill, rehearse, and know when to stop.' },
-      { id: 'evidence',  name: 'Reading evidence',    target: 4, note: 'Judging what a study is worth to an argument.' },
-      { id: 'operating', name: 'Operating the studio', target: 3, note: 'Turning an approved blueprint into work with owners.' },
-    ],
-
-    log: [],
-  };
+function normalize(value) {
+  const out = EMPTY();
+  if (!value || typeof value !== 'object') return out;
+  for (const key of Object.keys(out)) {
+    if (Array.isArray(value[key])) out[key] = value[key].filter((item) => item && typeof item === 'object');
+  }
+  for (const path of out.paths) if (!Array.isArray(path.steps)) path.steps = [];
+  return out;
 }
 
-/* ==========================================================================
-   STORE
-   ========================================================================== */
+const isEmpty = (state) => Object.values(state).every((items) => !items.length);
 
-function load() {
+/* What a person made in this browser before the account held it: the old
+   local store, minus the seed. Read once, when the account is still empty. */
+function browserLeftovers() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      // A stored shape from an older build is merged over the seed rather
-      // than trusted whole, so a field added here does not arrive undefined
-      // in a browser that already has data.
-      return { ...seed(), ...parsed };
-    }
+    if (!raw) return null;
+    const old = normalize(JSON.parse(raw));
+    const mine = (items) => items.filter((item) => !SAMPLE_IDS.has(item.id));
+    const cards = mine(old.cards);
+    const kept = new Set(cards.map((card) => card.id));
+    const state = {
+      sources: mine(old.sources),
+      cards,
+      paths: mine(old.paths),
+      skills: mine(old.skills),
+      log: old.log.filter((entry) => kept.has(entry.card)),
+    };
+    return isEmpty(state) ? null : state;
   } catch {
-    // Storage denied. The session still works; it just will not outlive the tab.
+    return null;
   }
-  return seed();
 }
 
-let store = load();
-let timer = 0;
+let store = EMPTY();
+const sync = { ready: false, loading: null, timer: 0, saving: null, again: false, error: '' };
+
+/* Resolves once the account state is in memory. Every view awaits it before
+   drawing, so a screen never shows an empty workspace that is only empty
+   because the request has not answered yet. */
+export function ready() {
+  if (sync.ready) return Promise.resolve();
+  if (sync.loading) return sync.loading;
+  sync.loading = (async () => {
+    const payload = await P.call('/platform/kms/state/');
+    store = normalize(payload.state);
+    if (isEmpty(store)) {
+      const leftovers = browserLeftovers();
+      if (leftovers) {
+        store = leftovers;
+        await save();
+      }
+    }
+    sync.ready = true;
+  })().finally(() => { sync.loading = null; });
+  return sync.loading;
+}
+
+export const isReady = () => sync.ready;
+
+async function save() {
+  // Saving before the account has been read would replace the account with
+  // whatever happens to be in memory — at worst one new source.
+  if (!sync.ready && !sync.loading) return null;
+  if (sync.saving) { sync.again = true; return sync.saving; }
+  sync.saving = (async () => {
+    try {
+      const payload = await P.call('/platform/kms/state/', { method: 'PUT', body: { state: store } });
+      // The server cleans what it stores; adopt that, but keep local edits
+      // made while the request was in flight.
+      if (!sync.again) store = normalize(payload.state);
+      sync.error = '';
+    } catch (error) {
+      sync.error = error?.message || 'save_failed';
+    }
+    dispatchEvent(new CustomEvent('ws:kms-saved', { detail: { ok: !sync.error } }));
+  })().finally(() => {
+    sync.saving = null;
+    if (sync.again) { sync.again = false; save(); }
+  });
+  return sync.saving;
+}
 
 function persist() {
-  clearTimeout(timer);
-  timer = setTimeout(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch { /* quota or denied */ }
-    sync();
-  }, 300);
+  clearTimeout(sync.timer);
+  sync.timer = setTimeout(save, 300);
 }
 
-/* Fire-and-forget upload for the day the routes exist. It must never reject
-   into a view: a knowledge workspace that throws because an optional
-   endpoint is missing is worse than one that quietly keeps working. */
-function sync() {
-  fetch(API + '/platform/kms/state/', {
-    method: 'PUT',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(store),
-  }).catch(() => { /* not deployed on this build */ });
-}
+/* '' when the last save reached the account, otherwise why it did not. */
+export const saveState = () => sync.error;
 
-export const kmsOnServer = () => false;
+export const kmsOnServer = () => sync.ready;
 
 /* ==========================================================================
    READS

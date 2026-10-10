@@ -35,6 +35,6 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
 
     def test_workspace_cache_busts_all_performance_modules(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-project-actions.js?v=20261008-operational2', html)
-        self.assertIn('/assets/ws/ws-notes-performance.js?v=20261010-notes2', html)
-        self.assertIn('/assets/ws/ws-space-integration.js?v=20261011-r1', html)
+        self.assertIn('/assets/ws/ws-project-actions.js?v=20261011-r2', html)
+        self.assertIn('/assets/ws/ws-notes-performance.js?v=20261011-r2', html)
+        self.assertIn('/assets/ws/ws-space-integration.js?v=20261011-r2', html)

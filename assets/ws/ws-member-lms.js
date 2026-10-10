@@ -1,7 +1,7 @@
-import * as P from './ws-platform.js?v=20261008-operational2';
-import * as C from './ws-charts.js?v=20261008-operational2';
-import { courseCover } from './ws-course-cover.js?v=20261008-operational2';
-import { dateTimeField } from './ws-datetime.js?v=20261008-operational2';
+import * as P from './ws-platform.js?v=20261011-r2';
+import * as C from './ws-charts.js?v=20261011-r2';
+import { courseCover } from './ws-course-cover.js?v=20261011-r2';
+import { dateTimeField } from './ws-datetime.js?v=20261011-r2';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);

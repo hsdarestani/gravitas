@@ -36,9 +36,9 @@
    concluding their saves were thrown away.
    ========================================================================== */
 
-import * as P from './ws-platform.js';
-import * as K from './ws-kms.js';
-import { el, panel, row, stats, empty, failure, skeleton } from './ws-views.js';
+import * as P from './ws-platform.js?v=20261011-r2';
+import * as K from './ws-kms.js?v=20261011-r2';
+import { el, panel, row, stats, empty, failure, skeleton } from './ws-views.js?v=20261011-r2';
 
 /* The guest store, read-only. Same key as the public site's. */
 const GUEST_KEY = 'gravitas.reader.v1';
@@ -252,7 +252,8 @@ function savedRow(item, ctx, redraw) {
   if (item.kind === 'path') {
     actions.append(miniButton('Open in Paths', () => ctx.go('/workspace/kms/paths')));
   } else {
-    actions.append(miniButton('Add to Sources', () => {
+    actions.append(miniButton('Add to Sources', async () => {
+      try { await K.ready(); } catch { return; }
       K.addSource({
         title: item.title,
         author: 'Gravitas+',

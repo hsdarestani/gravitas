@@ -19,25 +19,25 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20261008-native3';
-import * as P from './ws-platform.js?v=20261008-operational2';
-import { renderCoreTeam } from './ws-core-team.js?v=20261011-r1';
-import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r1';
-import * as views from './ws-views.js?v=20261011-r1';
-import * as meetings from './ws-meetings.js?v=20261008-operational2';
-import * as assets from './ws-core-assets.js?v=20261009-copy1';
-import * as kms from './ws-kms-views.js';
-import * as library from './ws-library.js?v=20261008-operational2';
-import * as research from './ws-research.js?v=20261011-r1';
+import * as api from './ws-api.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r2';
+import { renderCoreTeam } from './ws-core-team.js?v=20261011-r2';
+import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r2';
+import * as views from './ws-views.js?v=20261011-r2';
+import * as meetings from './ws-meetings.js?v=20261011-r2';
+import * as assets from './ws-core-assets.js?v=20261011-r2';
+import * as kms from './ws-kms-views.js?v=20261011-r2';
+import * as library from './ws-library.js?v=20261011-r2';
+import * as research from './ws-research.js?v=20261011-r2';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20261011-r1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261011-r1';
-import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261010-settings1';
-import { mountPalette, openPalette } from './ws-palette.js?v=20261010-notes2';
-import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-native3';
-import { installSelects } from './ws-select.js?v=20261008-operational2';
+} from './ws-nav.js?v=20261011-r2';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261011-r2';
+import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261011-r2';
+import { mountPalette, openPalette } from './ws-palette.js?v=20261011-r2';
+import { installAssistant, askAssistant } from './ws-ai.js?v=20261011-r2';
+import { installSelects } from './ws-select.js?v=20261011-r2';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);

@@ -7,14 +7,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class LiveKMSFrontendContractTests(SimpleTestCase):
-    def test_exposed_learning_views_use_live_account_state(self):
-        source = (ROOT / 'assets/ws/ws-kms-live.js').read_text(encoding='utf-8')
-        self.assertIn("request('/platform/kms/state/'", source)
-        self.assertIn("request('/workspace/pages/'", source)
-        self.assertIn("space: 'kms'", source)
-        self.assertIn('No demo cards were substituted.', source)
-        self.assertNotIn('What does spaced repetition claim', source)
-        self.assertNotIn('Hermann Ebbinghaus', source)
+    def test_every_knowledge_view_reads_the_account_store(self):
+        # ws-kms.js held a seeded localStorage workspace and ws-kms-live.js
+        # took over two of its six screens; one account store serves all six.
+        store = (ROOT / 'assets/ws/ws-kms.js').read_text(encoding='utf-8')
+        views = (ROOT / 'assets/ws/ws-kms-views.js').read_text(encoding='utf-8')
+        self.assertIn("P.call('/platform/kms/state/')", store)
+        self.assertIn("method: 'PUT', body: { state: store }", store)
+        self.assertIn('if (!sync.ready && !sync.loading) return null;', store)
+        self.assertNotIn('function seed()', store)
+        self.assertNotIn('What does spaced repetition claim', store)
+        self.assertNotIn('Memory: A Contribution', store)
+        self.assertEqual(views.count('if (whenReady(host,'), 7)
+        self.assertFalse((ROOT / 'assets/ws/ws-kms-live.js').exists())
 
     def test_nextcloud_tabs_are_wrapped_by_authenticated_sso_launcher(self):
         bridge = (ROOT / 'assets/ws/ws-nextcloud-sso.js').read_text(encoding='utf-8')
