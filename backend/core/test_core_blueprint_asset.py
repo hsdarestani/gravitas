@@ -53,7 +53,7 @@ class WorkspaceShellContractTests(SimpleTestCase):
     def test_workspace_html_boots_the_v4_shell(self):
         html = self.read('workspace.html')
         self.assertIn('/assets/ws/ws.css', html)
-        self.assertIn("import { start } from '/assets/ws/ws-app.js?v=20261011-r3", html)
+        self.assertIn("import { start } from '/assets/ws/ws-app.js?v=20261011-r4", html)
 
 
 class CoreBlueprintContractTests(SimpleTestCase):

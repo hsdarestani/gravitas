@@ -1,9 +1,9 @@
-import * as P from './ws-platform.js?v=20261011-r3';
-import * as K from './ws-admin-kit.js?v=20261011-r3';
-import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261011-r3';
-import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261011-r3';
-import { startNotesSync } from './ws-notes-performance.js?v=20261011-r3';
-import { renderSpaceIndex } from './ws-space-integration.js?v=20261011-r3';
+import * as P from './ws-platform.js?v=20261011-r4';
+import * as K from './ws-admin-kit.js?v=20261011-r4';
+import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261011-r4';
+import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261011-r4';
+import { startNotesSync } from './ws-notes-performance.js?v=20261011-r4';
+import { renderSpaceIndex } from './ws-space-integration.js?v=20261011-r4';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {
@@ -1362,8 +1362,17 @@ async function moveNote(id, folder) {
     Object.assign(item, result?.item || {});
     setStatus(target ? `Moved to ${target}` : 'Moved out of its folder');
   } catch (error) {
-    item.folder = before;
-    setStatus(error?.data?.detail || error?.message || 'The note could not be moved.', 'bad');
+    // A 409 is a move that was saved on a note in conflict with Nextcloud:
+    // the conflict is kept, the move stands. Undoing it here put the note
+    // back out of the folder once the round trip came back, though the
+    // server had filed it.
+    if (error?.status === 409 && error.data?.item) {
+      Object.assign(item, error.data.item);
+      setStatus(`${target ? `Moved to ${target}` : 'Moved out of its folder'} · conflict kept`, 'bad');
+    } else {
+      item.folder = before;
+      setStatus(error?.data?.detail || error?.message || 'The note could not be moved.', 'bad');
+    }
   }
   remember();
   drawList();
@@ -1379,7 +1388,12 @@ async function renameFolder(path, name) {
   const results = await Promise.allSettled(moved.map((item) => {
     const target = next + String(item.folder).slice(path.length);
     return P.call(`/platform/nextcloud/notes/${item.id}/`, { method: 'PATCH', body: { folder: target } })
-      .then((result) => Object.assign(item, result?.item || { folder: target }));
+      .then((result) => Object.assign(item, result?.item || { folder: target }))
+      .catch((error) => {
+        // Saved, conflict kept; see moveNote.
+        if (error?.status === 409 && error.data?.item) return Object.assign(item, error.data.item);
+        throw error;
+      });
   }));
   const failed = results.filter((result) => result.status === 'rejected').length;
   setStatus(failed ? `${failed} of ${moved.length} notes could not be moved. Try again.` : `Renamed to ${next}`, failed ? 'bad' : '');

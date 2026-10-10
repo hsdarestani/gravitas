@@ -13,7 +13,7 @@
    change whom; the screen hides only what it knows the server will refuse.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r3';
+import * as P from './ws-platform.js?v=20261011-r4';
 
 const VERSION = '20260915-1';
 const page = { host: null, go: null };

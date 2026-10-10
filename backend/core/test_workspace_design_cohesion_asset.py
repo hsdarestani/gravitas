@@ -11,7 +11,7 @@ COHESION = ROOT / 'assets' / 'ws' / 'ws-unified-design.css'
 class WorkspaceDesignCohesionAssetTests(SimpleTestCase):
     def test_workspace_loads_cohesion_layer_last(self):
         html = WORKSPACE.read_text(encoding='utf-8')
-        marker = '/assets/ws/ws-unified-design.css?v=20261011-r3'
+        marker = '/assets/ws/ws-unified-design.css?v=20261011-r4'
         self.assertIn(marker, html)
         # The public site's override sheet and auth bridge are not loaded here.
         self.assertNotIn('/assets/production-overrides.css', html)

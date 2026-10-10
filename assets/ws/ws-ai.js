@@ -26,8 +26,8 @@
    when the request fails, local note search answers instead of invention.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r3';
-import * as notes from './ws-notes-store.js?v=20261011-r3';
+import * as P from './ws-platform.js?v=20261011-r4';
+import * as notes from './ws-notes-store.js?v=20261011-r4';
 
 /* The question goes to /platform/ai/ask/ with whatever context the screen
    offers. This lived in ws-api.js, the old page store, which is gone; a

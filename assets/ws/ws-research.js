@@ -7,10 +7,10 @@
    service is named as unavailable and a successful mutation is read back.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r3';
-import * as C from './ws-charts.js?v=20261011-r3';
-import { researchCreateBar, spaceProjectToolbar } from './ws-research-create.js?v=20261011-r3';
-import { teamPanel, teamRow } from './ws-core-team.js?v=20261011-r3';
+import * as P from './ws-platform.js?v=20261011-r4';
+import * as C from './ws-charts.js?v=20261011-r4';
+import { researchCreateBar, spaceProjectToolbar } from './ws-research-create.js?v=20261011-r4';
+import { teamPanel, teamRow } from './ws-core-team.js?v=20261011-r4';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);

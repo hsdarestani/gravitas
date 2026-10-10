@@ -14,7 +14,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
     def test_workspace_boots_the_v4_module_runtime(self):
         html = self.read('workspace.html')
         self.assertIn('/assets/ws/ws.css', html)
-        self.assertIn("import { start } from '/assets/ws/ws-app.js?v=20261011-r3", html)
+        self.assertIn("import { start } from '/assets/ws/ws-app.js?v=20261011-r4", html)
         self.assertNotIn('/assets/dialog-compat.js', html)
         self.assertNotIn('function add(src,onload)', html)
 
@@ -60,7 +60,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
             '/workspace/kms/base',
         ):
             self.assertIn(route, nav)
-        self.assertIn("from './ws-nav.js?v=20261011-r3", app)
+        self.assertIn("from './ws-nav.js?v=20261011-r4", app)
         # Search stays routable for old links but is intentionally not a
         # sidebar destination; the global workspace search owns discovery.
         self.assertNotIn("path: '/workspace/research/search'", nav)

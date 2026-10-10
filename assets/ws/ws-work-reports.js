@@ -11,7 +11,7 @@
  * main column with the history under it, the open tasks are a reference
  * rail beside it, and a settled report reads as text rather than as a form
  * of disabled inputs, because nothing on it can change any more. */
-import { call, label, formatDate } from './ws-platform.js?v=20261011-r3';
+import { call, label, formatDate } from './ws-platform.js?v=20261011-r4';
 
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const button = (text, fn, variant = '') => { const b = el('button', `ws-btn${variant ? ` ws-btn--${variant}` : ''}`, text); b.type = 'button'; b.onclick = fn; return b; };

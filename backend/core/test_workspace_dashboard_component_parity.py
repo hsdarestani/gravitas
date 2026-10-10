@@ -13,7 +13,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
 
     def test_progress_is_built_from_dashboard_kit(self):
         source = self.read('ws-member-progress.js')
-        self.assertIn("import * as C from './ws-charts.js?v=20261011-r3", source)
+        self.assertIn("import * as C from './ws-charts.js?v=20261011-r4", source)
         self.assertIn('const layout = C.bento()', source)
         self.assertIn('C.statTile({', source)
         self.assertIn("C.card({ title", source)
@@ -28,7 +28,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
 
     def test_core_and_research_overviews_use_dashboard_bento(self):
         source = self.read('ws-home.js')
-        self.assertIn("import * as C from './ws-charts.js?v=20261011-r3", source)
+        self.assertIn("import * as C from './ws-charts.js?v=20261011-r4", source)
         self.assertIn("label: 'Open tasks'", source)
         self.assertIn("label: 'Active projects'", source)
         self.assertIn("today.dataset.span = '8'", source)
@@ -49,7 +49,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         # chart kit's card() and rows as wc-items.
         admin = self.read('ws-admin.js')
         kit = self.read('ws-admin-kit.js')
-        self.assertIn("./ws-admin-kit.js?v=20261011-r3", admin)
+        self.assertIn("./ws-admin-kit.js?v=20261011-r4", admin)
         self.assertIn('C.card(', kit)
         self.assertIn("'adm-row wc-item'", kit)
 
@@ -69,23 +69,23 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
 
     def test_workspace_force_loads_rebuilt_renderers(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-app.js?v=20261011-r3', html)
+        self.assertIn('/assets/ws/ws-app.js?v=20261011-r4', html)
         app = (ROOT / 'assets' / 'ws' / 'ws-app.js').read_text(encoding='utf-8')
-        self.assertIn("from './ws-five-layer.js?v=20261011-r3'", app)
-        self.assertIn('/assets/ws/ws-charts.css?v=20261011-r3', html)
-        self.assertIn('/assets/ws/ws-unified-design.css?v=20261011-r3', html)
+        self.assertIn("from './ws-five-layer.js?v=20261011-r4'", app)
+        self.assertIn('/assets/ws/ws-charts.css?v=20261011-r4', html)
+        self.assertIn('/assets/ws/ws-unified-design.css?v=20261011-r4', html)
 
         app = self.read('ws-app.js')
-        self.assertIn("./ws-home.js?v=20261011-r3", app)
-        self.assertIn("./ws-views.js?v=20261011-r3", app)
-        self.assertIn("./ws-meetings.js?v=20261011-r3", app)
-        self.assertIn("./ws-core-assets.js?v=20261011-r3", app)
+        self.assertIn("./ws-home.js?v=20261011-r4", app)
+        self.assertIn("./ws-views.js?v=20261011-r4", app)
+        self.assertIn("./ws-meetings.js?v=20261011-r4", app)
+        self.assertIn("./ws-core-assets.js?v=20261011-r4", app)
 
         five = self.read('ws-five-layer.js')
         for marker in (
-            "./ws-member-lms.js?v=20261011-r3",
-            "./ws-member-progress.js?v=20261011-r3",
-            "./ws-admin.js?v=20261011-r3",
-            "./ws-project.js?v=20261011-r3",
+            "./ws-member-lms.js?v=20261011-r4",
+            "./ws-member-progress.js?v=20261011-r4",
+            "./ws-admin.js?v=20261011-r4",
+            "./ws-project.js?v=20261011-r4",
         ):
             self.assertIn(marker, five)

@@ -10,7 +10,7 @@
    are the overlays' own, moved here unchanged.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r3';
+import * as P from './ws-platform.js?v=20261011-r4';
 
 let go = (path) => location.assign(path);
 

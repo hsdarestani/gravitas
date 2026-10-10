@@ -19,27 +19,27 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as notes from './ws-notes-store.js?v=20261011-r3';
-import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261011-r3';
-import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261011-r3';
-import * as P from './ws-platform.js?v=20261011-r3';
-import { renderCoreTeam } from './ws-core-team.js?v=20261011-r3';
-import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r3';
-import * as views from './ws-views.js?v=20261011-r3';
-import * as meetings from './ws-meetings.js?v=20261011-r3';
-import * as assets from './ws-core-assets.js?v=20261011-r3';
-import * as kms from './ws-kms-views.js?v=20261011-r3';
-import * as library from './ws-library.js?v=20261011-r3';
-import * as research from './ws-research.js?v=20261011-r3';
+import * as notes from './ws-notes-store.js?v=20261011-r4';
+import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261011-r4';
+import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261011-r4';
+import * as P from './ws-platform.js?v=20261011-r4';
+import { renderCoreTeam } from './ws-core-team.js?v=20261011-r4';
+import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r4';
+import * as views from './ws-views.js?v=20261011-r4';
+import * as meetings from './ws-meetings.js?v=20261011-r4';
+import * as assets from './ws-core-assets.js?v=20261011-r4';
+import * as kms from './ws-kms-views.js?v=20261011-r4';
+import * as library from './ws-library.js?v=20261011-r4';
+import * as research from './ws-research.js?v=20261011-r4';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf, SPACE_LABEL,
-} from './ws-nav.js?v=20261011-r3';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261011-r3';
-import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261011-r3';
-import { mountPalette, openPalette } from './ws-palette.js?v=20261011-r3';
-import { installAssistant, askAssistant } from './ws-ai.js?v=20261011-r3';
-import { installSelects } from './ws-select.js?v=20261011-r3';
+} from './ws-nav.js?v=20261011-r4';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261011-r4';
+import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261011-r4';
+import { mountPalette, openPalette } from './ws-palette.js?v=20261011-r4';
+import { installAssistant, askAssistant } from './ws-ai.js?v=20261011-r4';
+import { installSelects } from './ws-select.js?v=20261011-r4';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);

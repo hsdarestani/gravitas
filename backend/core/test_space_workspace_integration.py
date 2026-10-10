@@ -199,7 +199,7 @@ class SpaceWorkspaceAssetContractTests(TestCase):
         root = Path(__file__).resolve().parents[2]
         workspace = (root / 'workspace.html').read_text(encoding='utf-8')
         script = (root / 'assets' / 'ws' / 'ws-space-integration.js').read_text(encoding='utf-8')
-        self.assertIn('ws-space-integration.css?v=20261011-r3', workspace)
+        self.assertIn('ws-space-integration.css?v=20261011-r4', workspace)
         self.assertNotIn('installSpaceWorkspaceIntegration', workspace)
         notes = (root / 'assets' / 'ws' / 'ws-nextcloud-native.js').read_text(encoding='utf-8')
         self.assertIn('renderSpaceIndex(slot)', notes)

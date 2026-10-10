@@ -485,7 +485,7 @@ class DemoReadinessTests(TestCase):
                 self.assertIn(route, navigation)
 
         self.assertIn('/assets/ws/ws.css', shell)
-        self.assertIn("import { start } from '/assets/ws/ws-app.js?v=20261011-r3", shell)
+        self.assertIn("import { start } from '/assets/ws/ws-app.js?v=20261011-r4", shell)
 
         runtime_assets = [
             'ws-app.js',

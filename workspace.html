@@ -22,23 +22,23 @@
   <link rel="stylesheet" href="/assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-ds2">
   <link rel="stylesheet" href="/assets/chat.css?v=20261010-pulsar8">
-  <link rel="stylesheet" href="/assets/ws/ws.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-work-reports.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-space-integration.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-mindmap-editor.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-math.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-lms-advanced.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-research-intelligence.css?v=20261011-r3">
+  <link rel="stylesheet" href="/assets/ws/ws.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-work-reports.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-nextcloud-native.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-space-integration.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-action-dialog.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-mindmap-editor.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-math.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-lms-advanced.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-research-intelligence.css?v=20261011-r4">
   <script src="/assets/gravitas-icons.js?v=20261009-report1" defer></script>
-  <link rel="stylesheet" href="/assets/ws/ws-admin.css?v=20261011-r3">
-  <link rel="stylesheet" href="/assets/ws/ws-boot-styles.css?v=20261011-r3">
+  <link rel="stylesheet" href="/assets/ws/ws-admin.css?v=20261011-r4">
+  <link rel="stylesheet" href="/assets/ws/ws-boot-styles.css?v=20261011-r4">
   <!-- Last on purpose: the unified sheet is the authoritative layer, which
        a runtime script used to enforce by moving it here. -->
-  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261011-r3">
+  <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261011-r4">
 </head>
 <body>
   <a class="g-skip-link" href="#ws-view">Skip to the page</a>
@@ -120,10 +120,10 @@
   </noscript>
 
   <script type="module">
-    import { start } from '/assets/ws/ws-app.js?v=20261011-r3';
-    import { platform } from '/assets/ws/ws-platform.js?v=20261011-r3';
-    import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20261011-r3';
-    import { installMathRendering } from '/assets/ws/ws-math.js?v=20261011-r3';
+    import { start } from '/assets/ws/ws-app.js?v=20261011-r4';
+    import { platform } from '/assets/ws/ws-platform.js?v=20261011-r4';
+    import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20261011-r4';
+    import { installMathRendering } from '/assets/ws/ws-math.js?v=20261011-r4';
 
     function isNodeRoute(path = location.pathname) {
       return path === '/workspace/folder' || path.startsWith('/workspace/folder/')

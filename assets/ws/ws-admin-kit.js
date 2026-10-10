@@ -32,8 +32,8 @@
    at the top never means hunting for the button.
    ========================================================================== */
 
-import * as C from './ws-charts.js?v=20261011-r3';
-import { label as platformLabel } from './ws-platform.js?v=20261011-r3';
+import * as C from './ws-charts.js?v=20261011-r4';
+import { label as platformLabel } from './ws-platform.js?v=20261011-r4';
 
 export const el = (tag, cls, text) => {
   const node = document.createElement(tag);
