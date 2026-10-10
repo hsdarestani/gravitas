@@ -33,7 +33,7 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         # one token for the whole workspace keeps every module single.
         import re
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        tokens = set(re.findall(r'/assets/ws/ws-[a-z0-9-]+\.(?:js|css)\?v=([A-Za-z0-9._-]+)', html))
+        tokens = set(re.findall(r'/assets/ws/ws(?:-[a-z0-9-]+)?\.(?:js|css)\?v=([A-Za-z0-9._-]+)', html))
         for name in WS.glob('ws-*.js'):
             source = name.read_text(encoding='utf-8')
             tokens |= set(re.findall(r"\./ws-[a-z0-9-]+\.js\?v=([A-Za-z0-9._-]+)", source))

@@ -68,14 +68,12 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         app = APP.read_text(encoding='utf-8')
         five = (ROOT / 'assets' / 'ws' / 'ws-five-layer.js').read_text(encoding='utf-8')
-        runtime = (ROOT / 'assets' / 'ws' / 'ws-design-runtime.js').read_text(encoding='utf-8')
 
         for marker in (
             '/assets/ws/ws-app.js?v=20261011-r2',
             '/assets/ws/ws-five-layer.js?v=20261011-r2',
             '/assets/ws/ws-nextcloud-native.js?v=20261011-r2',
             '/assets/ws/ws-unified-design.css?v=20261011-r2',
-            '/assets/ws/ws-design-runtime.js?v=20261011-r2',
         ):
             self.assertIn(marker, html)
 
@@ -84,4 +82,4 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         self.assertIn("./ws-home.js?v=20261011-r2", app)
         self.assertIn("./ws-member-lms.js?v=20261011-r2", five)
         self.assertIn("./ws-member-progress.js?v=20261011-r2", five)
-        self.assertIn("DESIGN_VERSION = '20261011-r2'", runtime)
+        self.assertFalse((ROOT / 'assets' / 'ws' / 'ws-design-runtime.js').exists())

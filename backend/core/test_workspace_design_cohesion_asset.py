@@ -17,7 +17,9 @@ class WorkspaceDesignCohesionAssetTests(SimpleTestCase):
             html.index(marker),
             html.index('/assets/production-overrides.css'),
         )
-        self.assertIn('/assets/ws/ws-design-runtime.js?v=20261011-r2', html)
+        # Its place in the head is the cascade order; nothing moves it at runtime.
+        self.assertNotIn('ws-design-runtime', html)
+        self.assertGreater(html.index('/assets/ws/ws-admin.css'), html.index(marker))
 
     def test_cohesion_layer_adopts_all_workspace_surface_families(self):
         source = COHESION.read_text(encoding='utf-8')

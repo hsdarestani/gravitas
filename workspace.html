@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="/assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09">
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-ds2">
   <link rel="stylesheet" href="/assets/chat.css?v=20261010-pulsar8">
-  <link rel="stylesheet" href="/assets/ws/ws.css?v=20261011-r1">
+  <link rel="stylesheet" href="/assets/ws/ws.css?v=20261011-r2">
   <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20261011-r2">
   <link rel="stylesheet" href="/assets/ws/ws-work-reports.css?v=20261011-r2">
   <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20261011-r2">
@@ -39,15 +39,6 @@
   <link id="ws-unified-design" rel="stylesheet" href="/assets/ws/ws-unified-design.css?v=20261011-r2">
   <!-- Platform Admin parts; after the unified sheet, which never styles adm-. -->
   <link rel="stylesheet" href="/assets/ws/ws-admin.css?v=20261011-r2">
-  <style>
-    /* A selected page/folder node is the active destination. Do not also
-       paint its top-level module row as selected. */
-    .ws[data-node-route]:not([data-area="research"]) .ws-tree > .ws-node > .ws-node__row[aria-current="page"] {
-      background: transparent;
-      color: var(--g-text-muted);
-      font-weight: inherit;
-    }
-  </style>
 </head>
 <body>
   <a class="g-skip-link" href="#ws-view">Skip to the page</a>
@@ -190,7 +181,6 @@
     if (window.GravitasIcons) bootWorkspace();
     else addEventListener('load', bootWorkspace, { once: true });
   </script>
-  <script type="module" src="/assets/ws/ws-design-runtime.js?v=20261011-r2"></script>
   <script src="/assets/production-bridge.js?v=20260924-seen1" defer></script>
   <!-- Pulsar: the same floating assistant as the rest of the site. ws-ai.js
        configures it for the workspace once both have loaded. -->
