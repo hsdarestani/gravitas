@@ -351,6 +351,36 @@ class NativeNotesMirrorTests(TestCase):
         self.assertEqual(resource.metadata['ws_space'], 'research')
 
     @patch('core.nextcloud_notes.ensure_user', return_value=object())
+    @patch('core.nextcloud_notes._request')
+    def test_a_stale_copy_does_not_undo_a_move_made_meanwhile(self, request, _ensure):
+        # A notebook refresh loads every note, then spends seconds on round
+        # trips. A note dragged into a folder in that window used to fall back
+        # out when the refresh reached it, and show as a conflict.
+        resource = self.note()
+        original = {
+            'id': 54, 'etag': 'etag-a', 'readonly': False, 'title': resource.title, 'content': resource.body,
+            'category': 'Gravitas/Research', 'favorite': False, 'modified': 10,
+        }
+        metadata = dict(resource.metadata)
+        metadata['nextcloud_notes'] = _snapshot(original, _local_fingerprint(resource))
+        KnowledgeResource.objects.filter(pk=resource.pk).update(metadata=metadata)
+        stale = KnowledgeResource.objects.get(pk=resource.pk)
+
+        # The move is saved; its own push to Nextcloud has not happened yet.
+        moved = KnowledgeResource.objects.get(pk=resource.pk)
+        moved.metadata = dict(moved.metadata, ws_folder='sakam')
+        moved.save(update_fields=['metadata'])
+        filed = dict(original, etag='etag-b', category='Gravitas/Research/sakam')
+        request.side_effect = [(200, original, {}), (200, filed, {})]
+
+        sync_note_to_nextcloud(stale)
+
+        resource.refresh_from_db()
+        self.assertEqual(resource.metadata['ws_folder'], 'sakam')
+        self.assertEqual(request.call_args.kwargs['body']['category'], 'Gravitas/Research/sakam')
+        self.assertEqual(resource.metadata['nextcloud_notes']['state'], 'synced')
+
+    @patch('core.nextcloud_notes.ensure_user', return_value=object())
     @patch('core.nextcloud_notes._list_remote')
     def test_native_subfolders_are_adopted_into_their_folder(self, list_remote, _ensure):
         list_remote.return_value = [{

@@ -437,9 +437,34 @@ def sync_note_to_nextcloud(resource, *, identity=None):
     if resource.project_id and active(resource.project):
         return export_object(resource)
 
-    """Reconcile one Gravitas note against its mapped native Notes note."""
+    """Reconcile one Gravitas note against its mapped native Notes note.
+
+    Three callers sync the same note at once: the request that saved it, the
+    post_save worker, and the reconcile behind every notebook refresh. The
+    reconcile loads all notes up front and then spends a Nextcloud round trip
+    on each, so its copy of a note can be seconds old; every mirror write
+    stores the whole metadata dict, so syncing that copy put a note dragged
+    into a folder meanwhile straight back out and marked it a conflict. Each
+    sync therefore holds the row and works on what the database has now.
+    """
     if resource.kind != KnowledgeResource.Kind.NOTE:
         return None
+    failure = None
+    with transaction.atomic():
+        current = KnowledgeResource.objects.select_for_update().filter(pk=resource.pk).first()
+        if current is None:
+            return None
+        resource.title, resource.body, resource.metadata = current.title, current.body, current.metadata
+        try:
+            return _sync_held_note(resource, identity)
+        except NotesError as exc:
+            # Raised outside the block, so the conflict or error just marked
+            # on the mirror is committed rather than rolled back with it.
+            failure = exc
+    raise failure
+
+
+def _sync_held_note(resource, identity):
     if not _allowed_space(resource.owner, _space(resource)):
         _mark(resource, 'blocked', 'space_access_required')
         raise NotesError('space_access_required')
@@ -556,6 +581,11 @@ def reconcile_notes(user, *, adopt=True):
     }
 
     for resource in local_items:
+        # Loaded before the first round trip; a note may have moved since.
+        try:
+            resource.refresh_from_db(fields=['title', 'body', 'metadata'])
+        except KnowledgeResource.DoesNotExist:
+            continue
         before = _mirror(resource)
         before_id = before.get('id')
         before_local = _local_fingerprint(resource)
