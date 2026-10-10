@@ -60,16 +60,19 @@ class NotesFastFirstPaintApiTests(TestCase):
 
 
 class NotesFastFirstPaintAssetTests(TestCase):
-    def test_workspace_installs_non_blocking_notes_layer(self):
+    def test_notebook_starts_its_own_background_sync(self):
+        # The sync used to be an overlay that watched for the notebook; the
+        # notebook now starts it after loading, off the first paint.
         root = Path(__file__).resolve().parents[2]
-        workspace = (root / 'workspace.html').read_text(encoding='utf-8')
+        notes = (root / 'assets' / 'ws' / 'ws-nextcloud-native.js').read_text(encoding='utf-8')
         script = (root / 'assets' / 'ws' / 'ws-notes-performance.js').read_text(encoding='utf-8')
 
-        self.assertIn('installNotesPerformance', workspace)
-        self.assertIn('/workspace/research/editor', script)
-        self.assertIn('/workspace/research/notes', script)
+        self.assertIn('export function startNotesSync(', script)
         self.assertIn("'/platform/nextcloud/notes/sync/'", script)
-        self.assertIn('Local notes ready', script)
-        self.assertIn('45000', script)
+        self.assertIn('MIN_GAP = 45000', script)
+        self.assertIn('scheduleIdle(', script)
+        self.assertNotIn('observeSurface', script)
+        self.assertIn('syncInBackground(info);', notes)
+        self.assertIn("'/workspace/research/editor'", notes)
         self.assertNotIn('.showModal(', script)
         self.assertNotIn("createElement('dialog')", script)

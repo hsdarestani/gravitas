@@ -2,6 +2,8 @@ import * as P from './ws-platform.js?v=20261011-r2';
 import * as K from './ws-admin-kit.js?v=20261011-r2';
 import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261011-r2';
 import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261011-r2';
+import { startNotesSync } from './ws-notes-performance.js?v=20261011-r2';
+import { renderSpaceIndex } from './ws-space-integration.js?v=20261011-r2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {
@@ -1462,7 +1464,7 @@ function drawIndex(main) {
   page.append(slot);
   scroll.append(page);
   main.append(bar, scroll);
-  dispatchEvent(new CustomEvent('ws:space-index'));
+  renderSpaceIndex(slot).catch((error) => console.warn('Space index unavailable', error));
 }
 
 /* ---- Editing helpers -------------------------------------------------------
@@ -2028,12 +2030,23 @@ async function renderNativeNotes(host, info) {
   if (route()?.space !== info.space) return;
   if (cached && book.root?.isConnected && book.info === info) {
     applyData(data);
+    syncInBackground(info);
     return;
   }
   const items = (Array.isArray(data.items) ? data.items : []).filter((item) => item.space === info.space);
   notebooks.set(info.space, { data, items });
   mountNotebook(host, info, { data, items });
   serveRequest(request);
+  syncInBackground(info);
+}
+
+function syncInBackground(info) {
+  startNotesSync({
+    space: info.space,
+    busy: () => !!book.editor && (book.editor.dirty() || book.editor.focused()),
+    status: (text, tone = '') => { if (book.info?.space === info.space) setStatus(text, tone); },
+    synced: () => { if (book.root?.isConnected && book.info?.space === info.space) refreshNotebook(info); },
+  });
 }
 
 function schedule() {
@@ -2042,6 +2055,9 @@ function schedule() {
   queueMicrotask(async () => {
     router.scheduled = false;
     injectAdminMirrorEntry();
+    if (location.pathname.replace(/\/$/, '') === '/workspace/research/editor') {
+      history.replaceState(history.state, '', `/workspace/research/notes${location.search}${location.hash}`);
+    }
     const info = route();
     // Leaving a note mid-sentence still saves it: the editor's closures
     // outlive the DOM the next screen replaced.

@@ -17,22 +17,25 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         self.assertIn('node.nodeType === Node.ELEMENT_NODE', source)
         self.assertIn('subtree,', source)
 
-    def test_heavy_enhancers_do_not_watch_nested_workspace_mutations(self):
-        for name in (
-            'ws-space-integration.js',
-            'ws-notes-performance.js',
-        ):
-            source = self.read(name)
-            self.assertIn('observeSurface', source, name)
-            self.assertIn('subtree: false', source, name)
+    def test_no_module_watches_the_view_to_patch_it(self):
+        # Every screen draws itself; nothing observes #ws-view to repaint it.
+        for name in ('ws-space-integration.js', 'ws-notes-performance.js', 'ws-project-actions.js', 'ws-core-content-actions.js'):
+            self.assertNotIn('observeSurface', self.read(name), name)
+            self.assertNotIn('new MutationObserver', self.read(name), name)
 
     def test_notes_remote_sync_is_idle_scheduled(self):
         source = self.read('ws-notes-performance.js')
         self.assertIn('scheduleIdle', source)
-        self.assertIn("'syncScheduled'", source)
-        self.assertIn('editorIsBusy()', source)
+        self.assertIn('if (busy())', source)
 
-    def test_workspace_cache_busts_all_performance_modules(self):
+    def test_every_workspace_asset_carries_one_release_token(self):
+        # The same module under two URLs is two modules with two states;
+        # one token for the whole workspace keeps every module single.
+        import re
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-notes-performance.js?v=20261011-r2', html)
-        self.assertIn('/assets/ws/ws-space-integration.js?v=20261011-r2', html)
+        tokens = set(re.findall(r'/assets/ws/ws-[a-z0-9-]+\.(?:js|css)\?v=([A-Za-z0-9._-]+)', html))
+        for name in WS.glob('ws-*.js'):
+            source = name.read_text(encoding='utf-8')
+            tokens |= set(re.findall(r"\./ws-[a-z0-9-]+\.js\?v=([A-Za-z0-9._-]+)", source))
+            self.assertNotRegex(source, r"from '\./ws-[a-z0-9-]+\.js'", name.name)
+        self.assertEqual(len(tokens), 1, tokens)

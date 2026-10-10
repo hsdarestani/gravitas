@@ -5,18 +5,14 @@
  * - Every managed Markdown sidecar is visible from Notes.
  * - Project-note annotations are threaded without flattening metadata files
  *   into the native Nextcloud Notes app.
+ *
+ * The notebook calls renderSpaceIndex() when its Space index view opens. This
+ * module used to watch #ws-view and the navigation events for the slot to
+ * appear and fill it from outside.
  */
 
-import { observeSurface } from './ws-runtime-performance.js?v=20261011-r2';
 
 const API = '/api';
-const state = { observer: null, timer: null };
-
-function activeRoute() {
-  const path = location.pathname.replace(/\/$/, '');
-  return path === '/workspace/research/notes'
-    || path === '/workspace/core/notes';
-}
 
 function el(tag, cls = '', text = '') {
   const node = document.createElement(tag);
@@ -97,10 +93,6 @@ function field(label, control, hint = '') {
   wrap.append(el('span', 'fl-field__label', label), control);
   if (hint) wrap.append(el('small', 'fl-muted', hint));
   return wrap;
-}
-
-function route() {
-  return location.pathname.replace(/\/$/, '');
 }
 
 function statusLine() {
@@ -280,10 +272,7 @@ async function openAnnotationDrawer(item) {
    is one of its views: the notebook draws an empty [data-space-index-slot]
    when the reader opens it and announces that with ws:space-index. Nothing is
    fetched until then. */
-async function enhanceMarkdownIndex() {
-  if (!['/workspace/research/notes', '/workspace/core/notes'].includes(route())) return;
-  const doc = document.querySelector('#ws-view .nc-notes');
-  const slot = doc?.querySelector('[data-space-index-slot]');
+export async function renderSpaceIndex(slot) {
   if (!slot || slot.querySelector('[data-space-markdown-index]')) return;
 
   const panel = el('section', 'fl-panel space-md-index');
@@ -293,7 +282,7 @@ async function enhanceMarkdownIndex() {
   copy.append(el('h2', 'fl-panel__title', 'Markdown files'));
   copy.append(el('p', 'fl-muted', 'Managed @space, @category, @project, @task, @note and repository sidecars.'));
   const tools = el('div', 'space-md-index__tools');
-  const refresh = action('Refresh', () => { panel.remove(); schedule(); });
+  const refresh = action('Refresh', () => { panel.remove(); renderSpaceIndex(slot); });
   tools.append(refresh);
   panelHead.append(copy, tools);
   const body = el('div', 'fl-panel__body');
@@ -331,7 +320,7 @@ async function enhanceMarkdownIndex() {
     try {
       const result = await request('/platform/space/sync/', { method: 'POST', body: {} });
       setStatus(syncState, result.conflicts?.length ? `${result.conflicts.length} conflicts need review.` : 'Space synchronized.', result.conflicts?.length ? 'bad' : 'ok');
-      setTimeout(() => { panel.remove(); schedule(); }, 500);
+      setTimeout(() => { panel.remove(); renderSpaceIndex(slot); }, 500);
     } catch (error) {
       setStatus(syncState, error.status === 409 ? 'A Nextcloud edit conflicts with Gravitas; nothing was overwritten.' : error.message.replaceAll('_', ' '), 'bad');
       sync.disabled = false;
@@ -353,7 +342,7 @@ async function enhanceMarkdownIndex() {
     try {
       const result = await request('/platform/space/reconcile/', { method: 'POST', body: { confirmed: true } });
       setStatus(syncState, `Reconciled ${result.updated?.length || 0} updated and ${result.imported?.length || 0} imported items.`, 'ok');
-      setTimeout(() => { panel.remove(); schedule(); }, 600);
+      setTimeout(() => { panel.remove(); renderSpaceIndex(slot); }, 600);
     } catch (error) {
       setStatus(syncState, error.message.replaceAll('_', ' '), 'bad');
       reconcile.disabled = false;
@@ -385,32 +374,3 @@ async function enhanceMarkdownIndex() {
   renderRows();
 }
 
-async function enhance() {
-  try {
-    await enhanceMarkdownIndex();
-  } catch (error) {
-    console.warn('Space workspace enhancement skipped', error);
-  }
-}
-
-function schedule() {
-  if (!activeRoute()) return;
-  clearTimeout(state.timer);
-  state.timer = setTimeout(enhance, 30);
-}
-
-export function installSpaceWorkspaceIntegration() {
-  if (state.observer) return;
-  state.observer = observeSurface({
-    target: document.getElementById('ws-view') || document.body,
-    active: activeRoute,
-    callback: schedule,
-    // The renderer swaps the top-level document. Watching every nested edit
-    // caused Space enhancement work to run while typing in Notes.
-    subtree: false,
-  });
-  addEventListener('popstate', schedule);
-  addEventListener('ws:navigate', schedule);
-  addEventListener('ws:space-index', schedule);
-  schedule();
-}

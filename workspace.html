@@ -133,9 +133,7 @@
     import { platform } from '/assets/ws/ws-platform.js?v=20261011-r2';
     import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20261011-r2';
     import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20261011-r2';
-    import { installNotesPerformance } from '/assets/ws/ws-notes-performance.js?v=20261011-r2';
     import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20261011-r2';
-    import { installSpaceWorkspaceIntegration } from '/assets/ws/ws-space-integration.js?v=20261011-r2';
     import { installMathRendering } from '/assets/ws/ws-math.js?v=20261011-r2';
 
     function isNodeRoute(path = location.pathname) {
@@ -164,10 +162,6 @@
     }
 
     async function bootWorkspace() {
-      // Normalize the legacy Research/Editor alias before any route owner paints
-      // it. The Notes performance layer then keeps remote reconciliation off
-      // the critical first-paint path.
-      installNotesPerformance();
 
       // The SSO wrapper is installed before any native-app launcher can open
       // a raw Nextcloud URL.
@@ -183,7 +177,6 @@
       await waitForPlatform();
       installFiveLayer();
       installNextcloudNativeRouter();
-      installSpaceWorkspaceIntegration();
       installMathRendering();
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/workspace-sw.js', { scope: '/workspace/' }).catch(() => {});
