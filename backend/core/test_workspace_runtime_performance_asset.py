@@ -19,7 +19,6 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
 
     def test_heavy_enhancers_do_not_watch_nested_workspace_mutations(self):
         for name in (
-            'ws-project-actions.js',
             'ws-space-integration.js',
             'ws-notes-performance.js',
         ):
@@ -35,6 +34,5 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
 
     def test_workspace_cache_busts_all_performance_modules(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-project-actions.js?v=20261011-r2', html)
         self.assertIn('/assets/ws/ws-notes-performance.js?v=20261011-r2', html)
         self.assertIn('/assets/ws/ws-space-integration.js?v=20261011-r2', html)

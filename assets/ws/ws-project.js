@@ -1,5 +1,6 @@
 import { renderProjectStructure } from './ws-project-files.js?v=20261011-r2';
 import * as P from './ws-platform.js?v=20261011-r2';
+import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261011-r2';
 
 const TABS = [
   ['structure', 'Project folder'],
@@ -79,8 +80,12 @@ function row({ title, meta = '', body = '', badges = [], actions = [], onClick =
   return node;
 }
 
-function metric(value, title, note = '') {
-  const node = el('div', 'fl-metric wc-tile');
+function metric(value, title, note = '', onClick = null) {
+  const node = el(onClick ? 'button' : 'div', `fl-metric wc-tile${onClick ? ' wc-tile--button' : ''}`);
+  if (onClick) {
+    node.type = 'button';
+    node.addEventListener('click', onClick);
+  }
   node.append(el('strong', 'fl-metric__value wc-tile__value', String(value ?? 0)), el('span', 'fl-metric__title wc-tile__label', title));
   if (note) node.append(el('small', 'fl-muted', note));
   return node;
@@ -150,17 +155,19 @@ function attention(cockpit) {
   return box.box;
 }
 
-function overviewView(doc, cockpit) {
+function overviewView(doc, cockpit, { go, projectId } = {}) {
+  let graph = null;
   const project = cockpit.project;
   const counts = cockpit.counts || {};
+  const open = (tab) => (go ? () => go(`/workspace/research/projects/${projectId}/${tab}`) : null);
   const metrics = el('div', 'fl-metrics');
   metrics.append(
-    metric(counts.tasks, 'Tasks'),
-    metric(counts.notes, 'Notes'),
-    metric((counts.files || 0) + (counts.datasets || 0), 'Files & datasets'),
-    metric(counts.deliverables, 'Deliverables'),
-    metric(counts.members, 'Members'),
-    metric(counts.connections, 'Connections'),
+    metric(counts.tasks, 'Tasks', '', open('tasks')),
+    metric(counts.notes, 'Notes', '', open('notes')),
+    metric((counts.files || 0) + (counts.datasets || 0), 'Files & datasets', '', open('files')),
+    metric(counts.deliverables, 'Deliverables', '', open('experiments')),
+    metric(counts.members, 'Members', '', project.permissions?.can_manage ? () => openProjectAccess(projectId) : null),
+    metric(counts.connections, 'Connections', '', () => graph.box.scrollIntoView({ behavior: 'smooth', block: 'start' })),
   );
   doc.append(metrics);
 
@@ -187,6 +194,7 @@ function overviewView(doc, cockpit) {
   doc.append(cols);
 
   const connections = section('Knowledge graph', 'Explicit relationships between the project, evidence, deliverables, tasks and research requests.');
+  graph = connections;
   if (!cockpit.connections.length) connections.body.append(empty('No explicit connections yet', 'Relationships created between project objects appear here.'));
   for (const item of cockpit.connections.slice(0, 12)) {
     connections.body.append(row({
@@ -280,7 +288,7 @@ function sourcesView(doc, cockpit) {
   if (!cockpit.mindmaps.length) maps.body.append(empty('No mind maps', 'Create a map to organise the research visually.'));
   for (const map of cockpit.mindmaps) {
     const open = action(map.can_edit ? 'Edit map' : 'View map', () => {
-      dispatchEvent(new CustomEvent('ws:mindmap-open', { detail: { mapId: map.id } }));
+      openProjectMindMap(map.id);
     }, false, true);
     const actions = [open];
     if (map.can_edit) {
@@ -500,9 +508,11 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     const project = cockpit.project;
     const doc = projectShell(host, project, projectId, tab, go);
     const rerender = () => renderResearchProject(host, projectId, tab, { go });
+    const head = doc.querySelector('.fl-project-head');
+    head.insertBefore(projectActionBar({ projectId, tab, cockpit, go, refresh: rerender }), head.querySelector('.fl-tabs'));
 
     if (tab === 'structure') await renderProjectStructure(doc, projectId);
-    else if (tab === 'overview') overviewView(doc, cockpit);
+    else if (tab === 'overview') overviewView(doc, cockpit, { go, projectId });
     else if (tab === 'milestones') milestonesView(doc, results[1].milestones || []);
     else if (tab === 'tasks') tasksView(doc, cockpit);
     else if (tab === 'notes') notesView(doc, cockpit);
@@ -511,7 +521,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'discussions') discussionView(doc, projectId, results[1].messages || [], project, rerender);
     else if (tab === 'experiments') experimentsView(doc, projectId, results[1].experiments || [], cockpit, rerender);
     else if (tab === 'activity') activityView(doc, cockpit);
-    else overviewView(doc, cockpit);
+    else overviewView(doc, cockpit, { go, projectId });
   } catch (error) {
     failure(host, projectId, tab, go, error);
   }

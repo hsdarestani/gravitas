@@ -1,8 +1,23 @@
+/* ==========================================================================
+   GRAVITAS+ WORKSPACE  ·  RESEARCH PROJECT ACTIONS
+   The action bar of a research project's page: edit and access for those
+   who manage it, and per tab the things one creates or edits there — tasks,
+   notes, milestones, sources, files, messages, experiments, deliverables —
+   each a dialog that writes through the project's own endpoints.
+
+   It used to mount itself. It watched #ws-view until the cockpit appeared,
+   fetched the whole cockpit a second time, pushed a toolbar into the head
+   and made the overview tiles clickable by their position. The cockpit
+   (ws-project.js) now asks for the bar with the data it already has, and
+   draws its own tiles as buttons.
+   ========================================================================== */
+
 import * as P from './ws-platform.js?v=20261011-r2';
-import { observeSurface } from './ws-runtime-performance.js?v=20261011-r2';
 import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261011-r2';
 
-const state = { installed: false, scheduled: false, loading: new Set(), observer: null };
+// The page the bar belongs to: how to navigate, and how to redraw it after
+// a change. Set each time the cockpit asks for a bar.
+let page = { go: null, refresh: null };
 const PROJECT_STATUS = [['intake', 'Intake'], ['active', 'Active'], ['review', 'Review'], ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['closed', 'Closed']];
 const PROJECT_VISIBILITY = [['private', 'Private'], ['invite', 'Invite only'], ['community', 'Community'], ['public', 'Public']];
 const PROJECT_CATEGORY = [['internal', 'Internal'], ['client', 'Client'], ['community', 'Community']];
@@ -21,18 +36,6 @@ const el = (tag, cls = '', text = '') => {
   if (text !== '') node.textContent = text;
   return node;
 };
-
-function routeInfo() {
-  const match = location.pathname.match(/^\/workspace\/research\/projects\/(\d+)(?:\/([a-z-]+))?\/?$/);
-  return match ? { projectId: Number(match[1]), tab: match[2] || 'overview' } : null;
-}
-
-function go(path) {
-  if (path === location.pathname) return;
-  history.pushState({}, '', path);
-  dispatchEvent(new PopStateEvent('popstate'));
-  schedule();
-}
 
 function button(label, handler, { solid = false, tiny = false, danger = false } = {}) {
   const node = el('button', `${solid ? 'ws-btn ws-btn--solid' : 'ws-btn'}${tiny ? ' ws-btn--tiny' : ''}${danger ? ' ws-btn--danger' : ''}`, label);
@@ -141,9 +144,12 @@ function modal(title, build, submitLabel = '', onSubmit = null) {
   return { layer, form, grid, fields, status };
 }
 
+function go(path) {
+  if (page.go) page.go(path);
+}
+
 function refreshProject() {
-  dispatchEvent(new CustomEvent('ws:navigate'));
-  schedule();
+  if (page.refresh) page.refresh();
 }
 
 const canEditProject = (project) => !!project?.permissions?.can_edit;
@@ -646,78 +652,20 @@ function actionSet(info, cockpit, project) {
   return actions;
 }
 
-function activateNode(node, handler) {
-  if (!node || node.dataset.projectActionBound) return;
-  node.dataset.projectActionBound = '1';
-  node.setAttribute('role', 'button');
-  node.tabIndex = 0;
-  node.style.cursor = 'pointer';
-  node.addEventListener('click', handler);
-  node.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handler(); } });
+/* The bar for one tab of one project. The cockpit's own "structure" view is
+   the project's front page, so it gets the overview's actions. */
+export function projectActionBar({ projectId, tab, cockpit, go: navigate, refresh }) {
+  page = { go: navigate, refresh };
+  const info = { projectId: Number(projectId), tab: tab === 'structure' ? 'overview' : tab };
+  const toolbar = el('div', 'v-toolbar fl-project-actionbar');
+  for (const node of actionSet(info, cockpit, cockpit.project || {})) toolbar.append(node);
+  return toolbar;
 }
 
-function wireOverviewMetrics(info, cockpit, project) {
-  if (info.tab !== 'overview') return;
-  const doc = document.querySelector('#ws-view .fl-project-doc');
-  if (!doc) return;
-  const topMetrics = [...doc.querySelectorAll(':scope > .fl-metrics > .fl-metric')];
-  const destinations = ['tasks', 'notes', 'files', 'experiments'];
-  destinations.forEach((tab, index) => activateNode(topMetrics[index], () => go(`/workspace/research/projects/${info.projectId}/${tab}`)));
-  if (topMetrics[4] && canManageProject(project)) activateNode(topMetrics[4], () => manageAccess(info.projectId).catch(console.error));
-  if (topMetrics[5]) activateNode(topMetrics[5], () => [...doc.querySelectorAll('.fl-panel__title')].find((node) => node.textContent.trim() === 'Knowledge graph')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  for (const item of doc.querySelectorAll('.fl-metrics--compact .fl-metric')) activateNode(item, () => go(`/workspace/research/projects/${info.projectId}/tasks`));
+export function openProjectAccess(projectId) {
+  return manageAccess(Number(projectId)).catch(console.error);
 }
 
-async function mountForCurrentRoute() {
-  const info = routeInfo();
-  if (!info) return;
-  const head = document.querySelector('#ws-view .fl-project-head');
-  if (!head || head.querySelector('[data-project-actions]')) return;
-  const key = `${info.projectId}:${info.tab}`;
-  if (state.loading.has(key)) return;
-  state.loading.add(key);
-  try {
-    const cockpit = await P.projectCockpit(info.projectId);
-    const current = routeInfo();
-    if (!current || current.projectId !== info.projectId || current.tab !== info.tab) return;
-    const project = cockpit.project || {};
-    const toolbar = el('div', 'v-toolbar fl-project-actionbar');
-    toolbar.dataset.projectActions = '1';
-    for (const actionNode of actionSet(info, cockpit, project)) toolbar.append(actionNode);
-    const tabs = head.querySelector('.fl-tabs');
-    if (tabs) head.insertBefore(toolbar, tabs); else head.append(toolbar);
-    wireOverviewMetrics(info, cockpit, project);
-  } catch (error) {
-    console.error('Research project actions could not load', error);
-  } finally {
-    state.loading.delete(key);
-  }
-}
-
-function schedule() {
-  if (!routeInfo() || state.scheduled) return;
-  state.scheduled = true;
-  queueMicrotask(() => {
-    state.scheduled = false;
-    mountForCurrentRoute().catch((error) => console.error('Research project action mount failed', error));
-  });
-}
-
-export function installResearchProjectActions() {
-  if (state.installed) return;
-  state.installed = true;
-  addEventListener('popstate', schedule);
-  addEventListener('ws:navigate', schedule);
-  addEventListener('ws:mindmap-open', (event) => {
-    const mapId = Number(event.detail?.mapId);
-    if (mapId) openMindMapEditor(mapId, { onChanged: refreshProject });
-  });
-  const view = document.getElementById('ws-view');
-  state.observer = observeSurface({
-    target: view,
-    active: () => !!routeInfo(),
-    callback: schedule,
-    subtree: false,
-  });
-  schedule();
+export function openProjectMindMap(mapId) {
+  return openMindMapEditor(Number(mapId), { onChanged: refreshProject });
 }

@@ -1245,7 +1245,6 @@ function render() {
   else if (view === 'kms-recall') kms.renderKmsRecall(host, ctx);
   else if (view === 'kms-skills') kms.renderKmsSkills(host, ctx);
   else if (view === 'projects') research.renderProjects(host, ctx);
-  else if (view === 'project') views.renderResearchProject(host, ui.route.id, ctx);
   else if (view === 'resources') views.renderResources(host, ui.route.kind);
   else if (view === 'mindmaps') views.renderMindMaps(host, ctx);
   else if (view === 'collaboration') views.renderCollaboration(host, ctx);

@@ -4,11 +4,16 @@ from django.test import SimpleTestCase
 
 
 class ResearchProjectActionsAssetTests(SimpleTestCase):
-    def test_workspace_loads_project_action_controller(self):
+    def test_the_cockpit_draws_its_own_action_bar(self):
+        # The bar used to mount itself over the cockpit and fetch it twice.
         root = Path(__file__).resolve().parents[2]
         workspace = (root / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('installResearchProjectActions', workspace)
-        self.assertIn('/assets/ws/ws-project-actions.js?v=20261011-r2', workspace)
+        project = (root / 'assets/ws/ws-project.js').read_text(encoding='utf-8')
+        actions = (root / 'assets/ws/ws-project-actions.js').read_text(encoding='utf-8')
+        self.assertNotIn('installResearchProjectActions', workspace)
+        self.assertIn("head.insertBefore(projectActionBar({ projectId, tab, cockpit, go, refresh: rerender }), head.querySelector('.fl-tabs'));", project)
+        self.assertIn('export function projectActionBar(', actions)
+        self.assertNotIn('observeSurface', actions)
 
     def test_project_tabs_expose_mutations_without_native_dialog(self):
         root = Path(__file__).resolve().parents[2]
@@ -56,8 +61,8 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
         workspace = (root / 'workspace.html').read_text(encoding='utf-8')
 
         self.assertIn("openMindMapEditor", actions)
-        self.assertIn("ws:mindmap-open", actions)
-        self.assertIn("ws:mindmap-open", project)
+        self.assertIn('export function openProjectMindMap(', actions)
+        self.assertIn('openProjectMindMap(map.id);', project)
         self.assertIn("Delete map", project)
         self.assertIn("/platform/mindmaps/${map.id}/", project)
         self.assertIn("method: 'DELETE'", project)
