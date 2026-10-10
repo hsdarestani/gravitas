@@ -37,7 +37,6 @@ let restoreFocus = null;
    unambiguous request for that page. */
 
 function actions() {
-  const page = context.currentPage();
   return [
     {
       group: 'Actions',
@@ -140,12 +139,12 @@ function compute(query) {
      half-remember is exactly the moment you do not know which one it is in.
      The hint carries the workspace, because "Editorial brief" exists in
      more than one of them and the title alone cannot tell them apart. */
-  const pages = context.api.search(query).map((hit) => ({
-    group: 'Pages',
+  const pages = context.searchNotes(query).map((hit) => ({
+    group: 'Notes',
     label: hit.title,
-    hint: [SPACE_LABEL[context.api.spaceOfNode(context.nodes(), hit.id)], hit.hint].filter(Boolean).join(' · '),
-    icon: 'notes',
-    run: () => context.go(`/workspace/page/${hit.id}`),
+    hint: [SPACE_LABEL[hit.space], hit.hint].filter(Boolean).join(' · '),
+    icon: hit.kind === 'journal' ? 'calendar' : 'notes',
+    run: () => context.go(context.notePath(hit)),
   }));
 
   // Grouped explicitly rather than by however the array above happens to be

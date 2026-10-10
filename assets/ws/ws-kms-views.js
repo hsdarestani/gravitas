@@ -608,7 +608,7 @@ export function renderKmsBase(host, ctx) {
         title: page.title,
         sub: `${ctx.pathOf(page.id)} · ${ctx.when(page.updated)}`,
         badges: cardCount ? [`${cardCount} ${cardCount === 1 ? 'card' : 'cards'}`] : ['No cards yet'],
-        onClick: () => ctx.go(`/workspace/page/${page.id}`),
+        onClick: () => ctx.go(ctx.notePath(page)),
       });
       notes.body.append(node);
     }
@@ -662,12 +662,7 @@ export function renderKmsBase(host, ctx) {
   }
   doc.append(cut);
 
-  const where = el('p', 'v-note');
-  where.dataset.tone = ctx.pagesOnServer() ? 'ok' : 'warn';
-  where.textContent = ctx.pagesOnServer()
-    ? 'Notes are saved to your account. Cards and paths are saved in this browser.'
-    : 'Notes, cards and paths are all saved in this browser on this build. They will not follow you to another machine.';
-  doc.append(where);
+  doc.append(el('p', 'v-note', 'Notes are Markdown in your Nextcloud; cards and paths are kept in your account. Both follow you to any device.'));
 }
 
 /* ==========================================================================

@@ -742,8 +742,7 @@ export function renderSearch(host, ctx) {
         [project.title, project.description, project.research_question, project.client_name]
           .filter(Boolean).some((value) => String(value).toLowerCase().includes(needle)));
       const pages = ctx.pages('research').filter((page) =>
-        [page.title, ...(page.blocks || []).map((block) => block.text)]
-          .filter(Boolean).some((value) => String(value).toLowerCase().includes(needle)));
+        [page.title, page.content].filter(Boolean).some((value) => String(value).toLowerCase().includes(needle)));
 
       results.innerHTML = '';
       const total = projects.length + resources.length + pages.length;
@@ -771,7 +770,7 @@ export function renderSearch(host, ctx) {
         panel.append(el('h2', 'v-panel__title', `Workspace notes · ${pages.length}`));
         for (const page of pages) {
           const item = el('button', 'v-row'); item.type = 'button';
-          item.addEventListener('click', () => ctx.go(`/workspace/page/${page.id}`));
+          item.addEventListener('click', () => ctx.go(ctx.notePath(page)));
           const main = el('span', 'v-row__main');
           main.append(el('strong', null, page.title), el('small', null, ctx.pathOf(page.id)));
           item.append(main); panel.append(item);

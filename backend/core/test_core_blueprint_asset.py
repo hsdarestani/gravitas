@@ -157,25 +157,23 @@ class KnowledgeWorkspaceContractTests(SimpleTestCase):
         ):
             self.assertIn('kms.%s(' % view, app)
 
-    def test_pages_are_scoped_by_workspace(self):
+    def test_notes_are_scoped_by_workspace(self):
         nav = self.read('assets/ws/ws-nav.js')
-        api = self.read('assets/ws/ws-api.js')
-        # Core and Knowledge still expose page trees. Research intentionally
-        # keeps its page tree out of the sidebar, but new pages are still
-        # assigned to the Research space by the shared space resolver.
+        store = self.read('assets/ws/ws-notes-store.js')
         self.assertIn("space: 'core'", nav)
         self.assertIn("space: 'kms'", nav)
         self.assertIn("if (area === 'research') return 'research';", nav)
-        self.assertIn("under('/workspace/page')", nav)
-        # And a page with no declared space stays where it always was.
-        self.assertIn('export function spaceOfNode', api)
-        self.assertIn("return 'research';", api)
+        # Each space opens its own notebook; a note with no space is Research.
+        self.assertIn("core: '/workspace/core/notes', kms: '/workspace/kms/notes', research: '/workspace/research/notes'", store)
+        self.assertIn("space: item.space || 'research'", store)
 
     def test_core_has_its_own_notes_section(self):
         nav = self.read('assets/ws/ws-nav.js')
         views = self.read('assets/ws/ws-views.js')
         self.assertIn("path: '/workspace/core/notes'", nav)
-        self.assertIn('export function renderCoreNotes', views)
+        # Drawn by the Notes notebook for the Core space, not a ws-views screen.
+        self.assertNotIn('export function renderCoreNotes', views)
+        self.assertIn("if (path === '/workspace/core/notes') return { kind: 'notes', space: 'core'", self.read('assets/ws/ws-nextcloud-native.js'))
 
     def test_a_level_is_computed_from_two_ingredients(self):
         js = self.read('assets/ws/ws-kms.js')

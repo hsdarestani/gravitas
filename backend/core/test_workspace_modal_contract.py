@@ -21,7 +21,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
     def test_v4_runtime_modules_exist(self):
         modules = [
             'ws-app.js',
-            'ws-api.js',
+            'ws-notes-store.js',
             'ws-nav.js',
             'ws-platform.js',
             'ws-views.js',
@@ -32,7 +32,6 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
             'ws-palette.js',
             'ws-settings.js',
             'ws-ai.js',
-            'ws-seed.js',
         ]
         for module in modules:
             with self.subTest(module=module):
@@ -86,10 +85,18 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         self.assertIn('Use Nextcloud version', research)
 
     def test_journal_keys_use_the_readers_local_calendar_date(self):
-        api = self.read('assets/ws/ws-api.js')
-        self.assertIn('function localDateKey(date)', api)
-        self.assertIn("const dateKey = localDateKey(date)", api)
-        self.assertNotIn("const dateKey = date.toISOString().slice(0, 10)", api)
+        app = self.read('assets/ws/ws-app.js')
+        notes = self.read('assets/ws/ws-nextcloud-native.js')
+        self.assertIn("const localDayKey = (date) => `${date.getFullYear()}-", app)
+        self.assertIn("const dayKey = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;", notes)
+        self.assertNotIn("toISOString().slice(0, 10)", app)
+
+    def test_no_page_store_or_sample_pages_remain(self):
+        # ws-api.js kept a second copy of every page and opened offline on
+        # sample pages from ws-seed.js; the notes index replaced both.
+        for name in ('ws-api.js', 'ws-seed.js'):
+            self.assertFalse((WS / name).exists(), name)
+        self.assertIn("import * as notes from './ws-notes-store.js", self.read('assets/ws/ws-app.js'))
 
     def test_notes_editor_interactions_are_wired(self):
         # Writing happens in Notes. Its editor carries what the removed block
@@ -103,12 +110,11 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
             self.assertIn(contract, notes)
 
     def test_zip_reference_tree_and_task_interactions_are_wired(self):
-        api = self.read('assets/ws/ws-api.js')
         research = self.read('assets/ws/ws-research.js')
         nav = self.read('assets/ws/ws-nav.js')
-        self.assertIn('decoratedServerNodes', api)
-        self.assertIn("id: 'journal'", api)
-        self.assertIn('phantom-', api)
+        app = self.read('assets/ws/ws-app.js')
+        # A [[link]] to an unwritten note still opens Notes on a new one.
+        self.assertIn("if (id.startsWith('phantom-'))", app)
         self.assertIn("go(`/workspace/page/${item.id}`)", research)
         self.assertIn("Sort: due date", research)
         self.assertIn("rkms-timeline__bar", research)
@@ -121,6 +127,3 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         self.assertIn('/api/platform/files/${item.id}/download/', views)
         self.assertIn('Open with…', views)
 
-    def test_server_notes_only_use_real_space_folders_as_default_parents(self):
-        app = self.read('assets/ws/ws-app.js')
-        self.assertIn("if (api.state.mode === 'server') return null", app)

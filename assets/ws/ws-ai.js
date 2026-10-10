@@ -22,12 +22,33 @@
    linked correction log, and an assistant that produces a fluent paragraph
    nobody can check would contradict the editorial standard the rest of the
    site is built on. So every answer carries the pages it came from, and
-   when no language model is configured api.ask() says that in those words
-   and falls back to search rather than to invention.
+   when no language model is configured the server says that in those words;
+   when the request fails, local note search answers instead of invention.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20261011-r2';
 import * as P from './ws-platform.js?v=20261011-r2';
+import * as notes from './ws-notes-store.js?v=20261011-r2';
+
+/* The question goes to /platform/ai/ask/ with whatever context the screen
+   offers. This lived in ws-api.js, the old page store, which is gone; a
+   refused request now falls back to the notes index rather than its pages. */
+async function requestAnswer(question, extra = {}) {
+  const body = { question };
+  for (const key of ['surface', 'project_id', 'workspace_id', 'thread_id']) if (extra?.[key]) body[key] = extra[key];
+  try {
+    return await P.call('/platform/ai/ask/', { method: 'POST', body });
+  } catch {
+    await notes.load();
+    const hits = notes.search(question, 6);
+    return {
+      grounded: false,
+      answer: hits.length
+        ? `Pulsar could not answer this request. Please try again. Note search found ${hits.length === 1 ? 'one related note' : `${hits.length} related notes`}.`
+        : 'Pulsar could not answer this request. Please try again.',
+      sources: hits.map((hit) => ({ id: hit.id, title: hit.title, href: notes.pathFor(hit) })),
+    };
+  }
+}
 
 let context = null;
 
@@ -77,7 +98,7 @@ async function ask(question) {
         ? context.pulsarContext()
         : {}
     );
-    reply = await api.ask(question, requestContext);
+    reply = await requestAnswer(question, requestContext);
   } catch {
     return {
       reply: 'That request did not go through. Pulsar may be down; nothing was changed in your pages.',

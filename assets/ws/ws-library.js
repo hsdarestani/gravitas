@@ -23,10 +23,8 @@
 
    WHY THERE IS NO LOCAL FALLBACK HERE
 
-   `ws-api.js` keeps a localStorage store because a page you are writing must
-   never be lost to a failed request. This screen is the opposite case: the
-   local store is the *guest's*, the account's copy is the server's, and
-   inventing rows here would tell a reader their saved items are safe when
+   The saved list is the account's, kept on the server: the local copy on the
+   public site belongs to a guest, and inventing rows here would tell a reader their saved items are safe when
    they are not. When the call fails the screen says which call failed and
    offers to run it again, like every other platform-backed view.
 

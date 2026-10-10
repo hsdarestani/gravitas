@@ -491,7 +491,7 @@ class DemoReadinessTests(TestCase):
             'ws-app.js',
             'ws-nav.js',
             'ws-platform.js',
-            'ws-api.js',
+            'ws-notes-store.js',
             'ws-views.js',
             'ws-core-assets.js',
             'ws-kms.js',

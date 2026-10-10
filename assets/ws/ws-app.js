@@ -19,7 +19,7 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as api from './ws-api.js?v=20261011-r2';
+import * as notes from './ws-notes-store.js?v=20261011-r2';
 import * as P from './ws-platform.js?v=20261011-r2';
 import { renderCoreTeam } from './ws-core-team.js?v=20261011-r2';
 import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r2';
@@ -31,7 +31,7 @@ import * as library from './ws-library.js?v=20261011-r2';
 import * as research from './ws-research.js?v=20261011-r2';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
-  WORKSPACES, availableWorkspaces, spaceOf,
+  WORKSPACES, availableWorkspaces, spaceOf, SPACE_LABEL,
 } from './ws-nav.js?v=20261011-r2';
 import { renderDashboard, stopClock } from './ws-home.js?v=20261011-r2';
 import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261011-r2';
@@ -63,14 +63,10 @@ const ui = {
   index: true,
   dock: true,
   openSections: new Set(),
-  openNodes: new Set(['dossiers', 'd-cu', 'method', 'journal', 'c-decisions', 'c-standards', 'k-concepts', 'k-methods']),
-  nodes: [],
-  page: null,
-  pagesById: {},
-  save: 'saved',
   calMonth: new Date(),
   selectedDay: new Date(),
-  activeBlockId: null,
+  // The note open in Notes, reported by the notebook, for the dock's backlinks.
+  openNote: null,
 };
 
 /* ---- Layout memory ------------------------------------------------------
@@ -150,7 +146,6 @@ const ROUTES = [
   [/^\/workspace\/settings(?:\/([a-z-]+))?\/?$/,   (m) => ({ view: 'settings', section: settingsSection(m[1]).id })],
 
   [/^\/workspace\/page\/([^/]+)\/?$/,               (m) => ({ view: 'editor', pageId: m[1] })],
-  [/^\/workspace\/folder\/([^/]+)\/?$/,             (m) => ({ view: 'folder', folderId: m[1] })],
 ];
 
 /* The inverse of ws-nav's spaceOf. Kept next to the router because the
@@ -243,8 +238,6 @@ async function apply(path) {
   }
 
   ui.route = route;
-  ui.pageId = route.pageId || null;
-  ui.folderId = route.folderId || null;
 
   /* A page URL carries no workspace, so the area is read off the page
      itself. Without this, opening a Core meeting note from search dropped
@@ -252,8 +245,6 @@ async function apply(path) {
      rail claimed they had changed workspace. The page decides, because the
      page is the thing they asked for. */
   ui.area = areaOf(path);
-  const held = route.pageId || route.folderId;
-  if (held) ui.area = AREA_OF_SPACE[api.spaceOfNode(ui.nodes, held)] || ui.area;
 
   // Keep the section containing the current route open in the index.
   const { section } = activeSection(ui.area, path);
@@ -266,6 +257,8 @@ async function apply(path) {
      now opens the same note in Notes; a [[link]] to a note that does not
      exist yet opens Notes on a new note with that title. */
   if (route.view === 'editor' && route.pageId) {
+    // The note's space decides which notebook opens it, so ask the index.
+    await notes.load();
     go(notePathFor(route.pageId), { replace: true });
     return;
   }
@@ -275,14 +268,14 @@ async function apply(path) {
 
 function notePathFor(pageId) {
   const id = decodeURIComponent(String(pageId));
-  const node = ui.nodes.find((item) => item.id === id);
-  const space = api.spaceOfNode(ui.nodes, id) || node?.space || 'research';
-  const base = notesPath(space);
-  if (node?.kind === 'journal' && node.journal_date) return `/workspace/research/notes?day=${node.journal_date}`;
   const day = /^journal-(\d{4}-\d{2}-\d{2})$/.exec(id)?.[1];
   if (day) return `/workspace/research/notes?day=${day}`;
-  if (id.startsWith('phantom-')) return `${base}?new=${encodeURIComponent(node?.title || 'Untitled note')}`;
-  return `${base}?note=${encodeURIComponent(id.replace(/^p-/, ''))}`;
+  // A [[link]] to a page nobody had written yet was a phantom node; its
+  // title is the part of the id after the prefix.
+  if (id.startsWith('phantom-')) return `${notesPath('research')}?new=${encodeURIComponent(id.slice(8) || 'Untitled note')}`;
+  const note = notes.find(id);
+  if (note?.kind === 'journal' && note.journal_date) return `/workspace/research/notes?day=${note.journal_date}`;
+  return `${notesPath(note?.space || 'research')}?note=${encodeURIComponent(id.replace(/^p-/, ''))}`;
 }
 
 function notesPath(space) {
@@ -473,11 +466,7 @@ function renderIndex() {
     }
     const isOpen = ui.openSections.has(section.id);
     const visibleChildren = (section.children || []).filter((child) => !child.when || child.when());
-    const hasTreeChildren = !!(section.tree && ui.nodes.some((node) => (
-      node.parent === null
-      && (!section.space || api.spaceOfNode(ui.nodes, node.id) === section.space)
-    )));
-    const hasChildren = !!(visibleChildren.length || hasTreeChildren);
+    const hasChildren = !!visibleChildren.length;
     const active = section.match(location.pathname);
 
     const row = sectionRow({
@@ -514,31 +503,11 @@ function renderIndex() {
       }));
     }
 
-    // A tree section expands into its own branch of the page store rather
-    // than into more links, and only into its own: `space` is what keeps a
-    // Core standard out of the knowledge base without needing three editors.
-    if (section.tree) group.append(...pageBranch(null, 1, section.space));
-
     tree.append(group);
   }
 
   body.append(tree);
-
-  /* The count describes the branch that is open, not the whole store. It
-     read "26 pages" under the research tree while showing eleven of them,
-     which is the sort of small lie that makes a person stop trusting the
-     rest of the numbers on the screen. */
-  const openTree = sectionsFor(ui.area).find((section) => section.tree && ui.openSections.has(section.id));
-  if (openTree) {
-    const mine = ui.nodes.filter((node) => api.spaceOfNode(ui.nodes, node.id) === openTree.space);
-    const pages = mine.filter((node) => !node.phantom).length;
-    const phantoms = mine.filter((node) => node.phantom).length;
-    foot.textContent = phantoms
-      ? `${pages} pages · ${phantoms} linked, not written`
-      : `${pages} pages`;
-  } else {
-    foot.textContent = '';
-  }
+  foot.textContent = '';
 }
 
 /* Home's workspace list.
@@ -622,127 +591,6 @@ function sectionRow({ label, hint = '', mark, depth, active, expandable, expande
 
   wrap.append(twist, row);
   return wrap;
-}
-
-/* ---- The page tree ------------------------------------------------------ */
-
-/* `space` is only consulted at the top of a branch. Below the roots every
-   node has already been filtered by its ancestor, and re-testing each child
-   would walk the parent chain once per row for no new answer. */
-function pageBranch(parentId, depth, space) {
-  return ui.nodes
-    .filter((node) => node.parent === parentId)
-    .filter((node) => !space || parentId !== null || api.spaceOfNode(ui.nodes, node.id) === space)
-    .map((node) => pageNode(node, depth));
-}
-
-function pageNode(node, depth) {
-  const kids = ui.nodes.filter((n) => n.parent === node.id);
-  const open = ui.openNodes.has(node.id);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'ws-node';
-  if (open) wrap.setAttribute('data-open', '');
-
-  const row = document.createElement('button');
-  row.className = 'ws-node__row';
-  row.type = 'button';
-  row.style.setProperty('--depth', depth);
-  if (node.phantom) {
-    row.setAttribute('data-phantom', '');
-    row.title = `${node.title} is linked from another page but has no file yet. Opening it creates one.`;
-  }
-  if (node.id === ui.pageId || node.id === ui.folderId) row.setAttribute('aria-current', 'page');
-
-  // A button, and a sibling of the row rather than a child: see sectionRow.
-  const twist = document.createElement(kids.length ? 'button' : 'span');
-  twist.className = 'ws-node__twist' + (kids.length ? '' : ' ws-node__twist--leaf');
-  twist.innerHTML = icon('chevron');
-  twist.style.setProperty('--depth', depth);
-  if (kids.length) {
-    twist.type = 'button';
-    twist.setAttribute('aria-expanded', String(open));
-    twist.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} ${node.title}`);
-    twist.addEventListener('click', (event) => {
-      event.stopPropagation();
-      ui.openNodes.has(node.id) ? ui.openNodes.delete(node.id) : ui.openNodes.add(node.id);
-      writePrefs({ openNodes: [...ui.openNodes] });
-      renderIndex();
-    });
-  }
-
-  const glyph = document.createElement('span');
-  glyph.className = 'ws-node__icon';
-  glyph.innerHTML = icon(node.kind === 'folder' ? 'projects' : node.kind === 'journal' ? 'calendar' : 'notes');
-
-  const text = document.createElement('span');
-  text.className = 'ws-node__label';
-  text.textContent = node.title;
-
-  row.append(glyph, text);
-  row.addEventListener('click', () => {
-    if (node.kind === 'folder') {
-      ui.openNodes.add(node.id);
-      go(`/workspace/folder/${node.id}`);
-    } else {
-
-      go(`/workspace/page/${node.id}`);
-    }
-  });
-  row.addEventListener('keydown', (event) => {
-    if (event.key === 'ArrowRight' && kids.length && !open) { event.preventDefault(); ui.openNodes.add(node.id); renderIndex(); }
-    if (event.key === 'ArrowLeft' && open) { event.preventDefault(); ui.openNodes.delete(node.id); renderIndex(); }
-  });
-
-  wrap.append(twist, row);
-
-  if (kids.length && open) {
-    const group = document.createElement('div');
-    group.className = 'ws-node__kids';
-    group.style.setProperty('--depth', depth);
-    group.append(...pageBranch(node.id, depth + 1));
-    wrap.append(group);
-  }
-  return wrap;
-}
-
-function setSave(next) {
-  ui.save = next;
-  const node = $('#ws-save');
-  if (!node) return;
-  node.dataset.state = next;
-  node.textContent = {
-    saved: 'Saved', saving: 'Saving', error: 'Not saved', offline: 'Saved in this browser',
-  }[next];
-}
-
-/* ==========================================================================
-   PAGES AND FOLDERS
-   ========================================================================== */
-
-function renderFolder(host) {
-  const folder = ui.nodes.find((node) => node.id === ui.folderId);
-  const kids = ui.nodes.filter((node) => node.parent === ui.folderId);
-
-  const doc = document.createElement('div');
-  doc.className = 'ws-doc';
-  doc.append(el('h1', 'ws-doc__title', folder ? folder.title : 'Folder'));
-  doc.append(el('p', 'ws-doc__meta', `${kids.length} item${kids.length === 1 ? '' : 's'}`));
-
-  if (!kids.length) {
-    doc.append(views.empty('Empty folder', 'Nothing has been filed here yet.'));
-  } else {
-    const list = views.panel(folder ? folder.title : 'Contents');
-    for (const kid of kids) {
-      list.body.append(views.row({
-        title: kid.title,
-        sub: kid.phantom ? 'Linked, no file yet' : P.label(kid.kind),
-        onClick: () => go(kid.kind === 'folder' ? `/workspace/folder/${kid.id}` : `/workspace/page/${kid.id}`),
-      }));
-    }
-    doc.append(list);
-  }
-  host.append(doc);
 }
 
 /* ==========================================================================
@@ -1050,23 +898,25 @@ function renderDockJournal(body) {
   body.append(list);
 }
 
+/* Which notes point at the one open in Notes, by [[its title]]. */
 async function renderDockLinks(body) {
-  if (!ui.page) {
-    body.append(views.empty('No page open', 'Backlinks show which pages point at the one you are reading.'));
+  const open = ui.openNote;
+  if (!open || !location.pathname.includes('/notes')) {
+    body.append(views.empty('No note open', 'Open a note in Notes to see which notes link to it.'));
     return;
   }
   views.skeleton(3, body);
-  const links = await api.backlinks(ui.page.id);
+  await notes.load();
   body.innerHTML = '';
-
+  const links = notes.backlinksTo(open.title, open.id);
   if (!links.length) {
-    body.append(views.empty('No backlinks', `Nothing links to ${ui.page.title} yet. Write [[${ui.page.title}]] in another page to make one.`));
+    body.append(views.empty('No backlinks', `Nothing links to ${open.title} yet. Write [[${open.title}]] in another note to make one.`));
     return;
   }
   const list = document.createElement('div');
   list.className = 'ws-list';
   for (const link of links) {
-    list.append(views.row({ title: link.title, sub: link.excerpt, onClick: () => go(`/workspace/page/${link.id}`) }));
+    list.append(views.row({ title: link.title, sub: link.excerpt, onClick: () => go(notes.pathFor(link)) }));
   }
   body.append(list);
 }
@@ -1106,7 +956,7 @@ function blocksToMarkdown(blocks = []) {
 // Days written this session, reported by Notes, so the calendar marks a new
 // day without waiting for the page index to be fetched again.
 const notedDays = new Set();
-const writtenDays = () => new Set([...api.journalDays(), ...notedDays]);
+const writtenDays = () => new Set([...notes.journalDays(), ...notedDays]);
 
 /* Monday first. The workspace is used from Germany, where the week does not
    start on Sunday, and a calendar that disagrees with the wall is worse than
@@ -1185,18 +1035,6 @@ function el(tag, className, text) {
   return node;
 }
 
-function crumbNodes(id) {
-  const out = [];
-  let node = ui.nodes.find((n) => n.id === id);
-  while (node) {
-    out.unshift(node);
-    node = ui.nodes.find((n) => n.id === node.parent);
-  }
-  return out;
-}
-
-const crumbPath = (id) => crumbNodes(id).map((node) => node.title);
-
 function relative(stamp) {
   if (!stamp) return 'never';
   const seconds = (Date.now() - new Date(stamp)) / 1000;
@@ -1236,8 +1074,6 @@ function renderCrumbs() {
     if (section) crumbs.push({ label: section.label, path: section.path });
     if (child) crumbs.push({ label: child.label, path: child.path });
 
-    const pageId = ui.pageId || ui.folderId;
-    if (pageId) for (const node of crumbNodes(pageId)) crumbs.push({ label: node.title });
   }
 
   crumbs.forEach((crumb, index) => {
@@ -1263,28 +1099,6 @@ function renderCrumbs() {
    Views get this rather than importing the shell, which keeps the direction
    of dependency one way: the shell knows about views, views do not know
    about the shell. */
-/* Where a new page lands in each workspace. The first root of that space in
-   the tree, with a named preference where the space has an obvious inbox —
-   research notes belong under Dossiers, knowledge under Concepts. If the
-   space has no roots at all the page is created as a root itself, which is
-   the only outcome that cannot lose it. */
-const PREFERRED_ROOT = { research: 'dossiers', core: 'c-meetings', kms: 'k-concepts' };
-
-function defaultRoot(space) {
-  /* Server parents must be an explicitly selected note or Space category.
-     The named roots below belong to the browser seed, while the server tree
-     also contains non-category Space nodes that are rendered as folders.
-     Guessing either as a parent makes New note fail with `invalid_parent`.
-     The Notes screen therefore creates at the workspace root; folder-aware
-     actions pass their validated parent explicitly. */
-  if (api.state.mode === 'server') return null;
-
-  const wanted = PREFERRED_ROOT[space];
-  if (ui.nodes.some((node) => node.id === wanted)) return wanted;
-  const root = ui.nodes.find((node) => !node.parent && api.spaceOfNode(ui.nodes, node.id) === space);
-  return root ? root.id : null;
-}
-
 function viewContext() {
   return {
     go,
@@ -1304,12 +1118,13 @@ function viewContext() {
        no space returns every page, which only the palette wants: search is
        the one place where finding a page in another workspace is the point
        rather than a leak. */
-    pages: (space) => Object.values(ui.pagesById)
-      .filter((page) => !space || api.spaceOfNode(ui.nodes, page.id) === space)
-      .sort((a, b) => (b.updated || '').localeCompare(a.updated || '')),
-
-    pagesOnServer: () => api.state.mode === 'server',
-    pathOf: (id) => crumbPath(id).join(' / '),
+    pages: (space) => notes.bySpace(space),
+    pagesOnServer: () => true,
+    pathOf: (id) => {
+      const note = notes.find(id);
+      return note ? (note.folder ? note.folder.split('/').join(' / ') : SPACE_LABEL[note.space] || 'Notes') : '';
+    },
+    notePath: (note) => notes.pathFor(note),
     when: relative,
     // Days open in Notes; the Research calendar only needs to know it went.
     openJournal: async (date) => {
@@ -1438,26 +1253,16 @@ function render() {
   else if (view === 'community') views.renderCommunity(host, ctx);
   else if (view === 'shared') views.renderShared(host, ctx);
   else if (view === 'settings') renderSettings(host, ctx);
-  else if (view === 'folder') renderFolder(host);
 
   updateStatus();
 }
 
 function updateStatus() {
-  /* Save state, word count and the pages-storage note belong to the editor.
-     On a Core dashboard there is no page open, and a status bar reading
-     "Saved" beside somebody else's project list is claiming something about
-     data it has nothing to do with. */
-  const editing = ui.route?.view === 'editor' && !!ui.page;
-
+  // Saving and word counts are the notebook's; the shell's bar says who is signed in.
   const save = $('#ws-save');
-  save.hidden = !editing;
-  if (editing) setSave(ui.save);
-
-  const words = editing
-    ? ui.page.blocks.reduce((sum, block) => sum + (block.text || '').split(/\s+/).filter(Boolean).length, 0)
-    : 0;
-  $('#ws-words').textContent = editing ? `${words} words` : '';
+  if (save) save.hidden = true;
+  const words = $('#ws-words');
+  if (words) words.textContent = '';
 
   const mode = $('#ws-mode');
   if (P.platform.error === 'signed-out') {
@@ -1480,10 +1285,7 @@ function updateStatus() {
   }
 
   const pages = $('#ws-pages-mode');
-  if (pages) {
-    pages.textContent = editing && api.state.mode !== 'server' ? 'Pages: this browser' : '';
-    pages.title = api.state.reason;
-  }
+  if (pages) pages.textContent = '';
 }
 
 /* ==========================================================================
@@ -1618,7 +1420,6 @@ export async function start() {
 
   const prefs = readPrefs();
   if (Array.isArray(prefs.openSections)) ui.openSections = new Set(prefs.openSections);
-  if (Array.isArray(prefs.openNodes)) ui.openNodes = new Set(prefs.openNodes);
   if (typeof prefs.dock === 'boolean') ui.dock = prefs.dock;
   if (prefs['--ws-index-w']) document.documentElement.style.setProperty('--ws-index-w', prefs['--ws-index-w']);
   if (prefs['--ws-dock-w']) document.documentElement.style.setProperty('--ws-dock-w', prefs['--ws-dock-w']);
@@ -1708,12 +1509,16 @@ export async function start() {
   const syncShellIndex = () => {
     if (!shellDrawsIndex()) return;
     ui.area = areaOf(location.pathname);
-    ui.pageId = null;
-    ui.folderId = null;
     renderRail();
     renderIndex();
   };
   addEventListener('ws:navigate', syncShellIndex);
+
+  // Notes reports the note it shows, for the dock's backlinks.
+  addEventListener('ws:note-open', (event) => {
+    ui.openNote = event.detail?.id ? { id: String(event.detail.id), title: String(event.detail.title || '') } : null;
+    if (ui.dockTab === 'links') renderDock();
+  });
 
   // Notes reports the day it opened: the calendar shows it selected and marked.
   addEventListener('ws:journal-day', (event) => {
@@ -1784,22 +1589,15 @@ export async function start() {
     return;
   }
 
-  // The user is handed over rather than fetched again: loadBootstrap has
-  // already asked who this is.
-  await api.boot({ user: P.platform.user });
-  ui.nodes = await api.tree();
-
-  /* One call, not one per page. The tree response carries every page in full,
-     so this reads the cache tree() just filled instead of walking the rows and
-     awaiting a request for each. That loop was the boot delay: it ran in
-     series, and apply() below — the call that finally draws the screen the
-     reader asked for — sat behind the last of it. */
-  ui.pagesById = api.allPages();
+  /* The notes index feeds the calendar marks, search and the Knowledge Base.
+     It is a local read, and it is awaited so those screens draw once rather
+     than drawing empty and again. */
+  await notes.load();
 
   mountPalette({
-    go, api, platform: P,
-    nodes: () => ui.nodes,
-    currentPage: () => ui.page,
+    go, platform: P,
+    searchNotes: (query) => notes.search(query),
+    notePath: (note) => notes.pathFor(note),
     // The palette can be opened from anywhere, so it asks rather than
     // assumes: a page made with Ctrl N in the Knowledge workspace belongs
     // to the knowledge base, not to whichever tree happens to be default.

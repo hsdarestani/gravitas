@@ -141,12 +141,11 @@ class PulsarWeek1ReleaseTests(TestCase):
 
     def test_workspace_widget_sends_live_surface_and_project_context(self):
         root = Path(settings.BASE_DIR).parent
-        api_js = (root / 'assets/ws/ws-api.js').read_text(encoding='utf-8')
         ai_js = (root / 'assets/ws/ws-ai.js').read_text(encoding='utf-8')
         app_js = (root / 'assets/ws/ws-app.js').read_text(encoding='utf-8')
 
-        self.assertIn("if (context.surface) body.surface = context.surface;", api_js)
-        self.assertIn("if (context.project_id) body.project_id = context.project_id;", api_js)
+        self.assertIn("for (const key of ['surface', 'project_id', 'workspace_id', 'thread_id']) if (extra?.[key]) body[key] = extra[key];", ai_js)
+        self.assertIn("P.call('/platform/ai/ask/', { method: 'POST', body })", ai_js)
         self.assertIn("context.pulsarContext()", ai_js)
         self.assertIn("surface: area === 'core' ? 'core'", app_js)
         self.assertIn("project_id: currentProjectId || undefined", app_js)

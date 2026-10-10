@@ -876,7 +876,18 @@ function choose(id) {
 }
 
 /* Adds a note the server just returned and opens it. */
+/* The rest of the workspace keeps a light index of notes (ws-notes-store.js)
+   for the calendar, search and backlinks. It is told what changed here
+   rather than reading the list again. */
+function announceChange(item) {
+  if (item?.id != null) dispatchEvent(new CustomEvent('ws:notes-changed', { detail: { item } }));
+}
+function announceRemoval(id) {
+  dispatchEvent(new CustomEvent('ws:notes-changed', { detail: { removed: String(id) } }));
+}
+
 function adopt(item, options) {
+  announceChange(item);
   book.items = [item, ...book.items.filter((other) => !same(other.id, item.id))];
   remember();
   selections.set(book.info.space, item.id);
@@ -1140,6 +1151,7 @@ function renameRow(item, depth) {
     try {
       const result = await P.call(`/platform/nextcloud/notes/${item.id}/`, { method: 'PATCH', body: { title } });
       Object.assign(item, result?.item || {});
+      announceChange(item);
     } catch (error) {
       item.title = before;
       setStatus(error?.data?.detail || error?.message || 'The note could not be renamed.', 'bad');
@@ -1167,6 +1179,7 @@ async function deleteNote(item, report) {
     return;
   }
   closeRowMenu();
+  announceRemoval(item.id);
   book.items = book.items.filter((other) => !same(other.id, item.id));
   remember();
   if (same(selections.get(book.info.space), item.id)) {
@@ -1548,6 +1561,7 @@ function conflictBox(note, report) {
 }
 
 function drawEditor(main, note, { fresh = false, write = false } = {}) {
+  dispatchEvent(new CustomEvent('ws:note-open', { detail: { id: String(note.id), title: String(note.title || '').trim(), space: note.space } }));
   const { info } = book;
   const locked = note.can_edit === false || !!note.readonly || note.sync_state === 'blocked';
 
@@ -1681,6 +1695,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
         body: { title: title.value.trim() || 'Untitled note', content: body.value, favorite: !!note.favorite, space: info.space },
       });
       Object.assign(note, result.item || {});
+      announceChange(note);
       setSave(note.sync_state === 'error' ? 'Saved · mirror pending' : 'Saved');
     } catch (error) {
       if (error?.status === 409) {
@@ -1836,6 +1851,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
     item.disabled = true;
     try {
       await P.call(`/platform/nextcloud/notes/${note.id}/`, { method: 'DELETE' });
+      announceRemoval(note.id);
       closeMenu();
       book.items = book.items.filter((other) => !same(other.id, note.id));
       remember();
