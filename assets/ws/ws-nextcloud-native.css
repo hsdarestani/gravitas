@@ -481,6 +481,7 @@
   color: var(--g-text);
   caret-color: var(--g-accent);
   font: inherit;
+  font-family: var(--g-font-read);
   font-size: 16px;
   line-height: 1.75;
   resize: none;
@@ -529,6 +530,7 @@
 #ws-view .nb-reader {
   min-height: 46vh;
   color: var(--g-text);
+  font-family: var(--g-font-read);
   font-size: 16px;
   line-height: 1.75;
   overflow-wrap: anywhere;
@@ -538,6 +540,8 @@
 #ws-view .nb-reader__empty { color: var(--g-text-subtle); font-style: italic; }
 #ws-view .nb-md > :first-child { margin-top: 0; }
 #ws-view .nb-md p { margin: 0 0 .9em; }
+#ws-view .nb-md { font-family: var(--g-font-read); }
+#ws-view .nb-md :is(h1, h2, h3, h4, h5, h6, table, figcaption) { font-family: var(--g-font); }
 #ws-view .nb-md :is(h2, h3, h4, h5, h6) {
   margin: 1.5em 0 .45em;
   color: var(--g-text);

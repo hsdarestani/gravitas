@@ -904,7 +904,9 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 .art__meta { display:flex; flex-wrap:wrap; gap:1rem; font-family:var(--g-font);
   font-size:var(--g-fs-caption); color:var(--g-text-subtle);
   border-top:1px solid var(--g-hairline); padding-top:var(--g-space-sm); }
-.art { font-size:var(--g-fs-lead); line-height:1.68; padding-block: var(--g-space-lg); }
+.art { font-size:var(--g-fs-lead); line-height:1.68; padding-block: var(--g-space-lg); font-family: var(--g-font-read); }
+/* Headings and the technical aside stay in the interface voice. */
+.art :is(h2, h3, h4, .art__aside, .art__sources, figcaption) { font-family: var(--g-font); }
 .art > * + * { margin-top: var(--g-space-md); }
 .art h2 { font-size: clamp(1.25rem,1.05rem+.8vw,1.6rem); margin-top: var(--g-space-xl); }
 .art__lede { font-size: 1.18em; color: var(--g-text); }

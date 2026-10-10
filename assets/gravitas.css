@@ -101,6 +101,13 @@
     /* DM Mono is DM Sans's sibling. Scoped strictly to code, data and
        physics notation, the one place a single sans can't do the job. */
     --g-font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    /* The reading face (v2). DM Sans stays the voice of the interface and of
+       every heading; Literata is for text somebody reads for minutes rather
+       than seconds: essays, articles, notes. It was drawn for long reading on
+       screens, has an optical-size axis like DM Sans, and covers Greek. It is
+       scoped to those bodies on purpose; a serif label or button would make
+       the page speak in two voices again. */
+    --g-font-read: "Literata", Georgia, "Times New Roman", serif;
 
     --g-w-thin: 100;  --g-w-extralight: 200; --g-w-light: 300;
     --g-w-regular: 400; --g-w-medium: 500;   --g-w-semibold: 600;
@@ -900,7 +907,8 @@
   }
 
   /* ---- Prose, long-form article body ---------------------------------------- */
-  .g-prose { max-width: var(--g-measure); font-size: var(--g-fs-lead); }
+  .g-prose { max-width: var(--g-measure); font-size: var(--g-fs-lead); font-family: var(--g-font-read); }
+  .g-prose :is(h1, h2, h3, h4, h5, h6, figcaption, .g-eyebrow) { font-family: var(--g-font); }
   .g-prose > * + * { margin-top: var(--g-space-sm); }
   .g-prose h2 { margin-top: var(--g-space-xl); }
   .g-prose h3 { margin-top: var(--g-space-lg); }
