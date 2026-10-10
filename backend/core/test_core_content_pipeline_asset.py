@@ -16,7 +16,7 @@ class CoreContentPipelineAssetTests(SimpleTestCase):
         app = self.read('assets/ws/ws-app.js')
         views = self.read('assets/ws/ws-views.js')
         js = self.read('assets/ws/ws-core-content-actions.js')
-        self.assertIn("import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r2", app)
+        self.assertIn("import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r3", app)
         self.assertIn("else if (view === 'core-content') renderCoreContent(host);", app)
         self.assertIn('export function renderCoreContent(host)', js)
         self.assertNotIn('new MutationObserver', js)

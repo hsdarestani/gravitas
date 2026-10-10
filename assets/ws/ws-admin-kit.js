@@ -32,8 +32,8 @@
    at the top never means hunting for the button.
    ========================================================================== */
 
-import * as C from './ws-charts.js?v=20261011-r2';
-import { label as platformLabel } from './ws-platform.js?v=20261011-r2';
+import * as C from './ws-charts.js?v=20261011-r3';
+import { label as platformLabel } from './ws-platform.js?v=20261011-r3';
 
 export const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -280,63 +280,6 @@ export function toolbar(start = [], end = []) {
 
 export function count(n, one, many = `${one}s`) {
   return el('span', 'adm-count', `${n} ${n === 1 ? one : many}`);
-}
-
-/* ---- Dialog -------------------------------------------------------------- */
-
-/* A form in a dialog, drawn with the shared ws-action-dialog styles. `build`
-   fills the field grid and returns whatever the submit handler needs;
-   `onSubmit` throws to keep the dialog open with its message shown, and
-   returns to close it. Escape, the backdrop and Cancel all close it.
-   Screens used to carry their own copy of this, each a little different. */
-export function dialog(title, build, { submit = '', onSubmit = null, danger = false } = {}) {
-  document.querySelector('.ws-action-dialog-layer[data-kit-dialog]')?.remove();
-  const layer = el('div', 'ws-action-dialog-layer');
-  layer.dataset.kitDialog = '';
-  const box = el('section', 'ws-action-dialog');
-  box.setAttribute('role', 'dialog');
-  box.setAttribute('aria-modal', 'true');
-  box.setAttribute('aria-label', title);
-  const form = el('form', 'ws-action-dialog__body');
-  const head = el('div', 'ws-action-dialog__head');
-  head.append(el('h2', null, title));
-  const grid = el('div', 'ws-action-dialog__grid');
-  const line = el('p', 'ws-action-dialog__error');
-  line.setAttribute('aria-live', 'polite');
-  const bar = el('div', 'ws-action-dialog__actions');
-  const close = () => { document.removeEventListener('keydown', onKey); layer.remove(); };
-  const onKey = (event) => { if (event.key === 'Escape') close(); };
-  const cancel = button(submit ? 'Cancel' : 'Close', close);
-  bar.append(cancel);
-  let send = null;
-  if (submit && onSubmit) {
-    send = button(submit, null, { solid: !danger, danger, type: 'submit' });
-    bar.append(send);
-  }
-  const refs = build(grid, { close, line }) || {};
-  form.append(head, grid, line, bar);
-  box.append(form);
-  layer.append(box);
-  document.body.append(layer);
-  document.addEventListener('keydown', onKey);
-  layer.addEventListener('pointerdown', (event) => { if (event.target === layer) close(); });
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!send) return;
-    line.textContent = '';
-    send.disabled = true;
-    cancel.disabled = true;
-    try {
-      await onSubmit(refs, { close, line });
-      close();
-    } catch (error) {
-      line.textContent = error?.data?.messages?.join(' ') || error?.data?.detail || error?.message || 'That did not go through.';
-      send.disabled = false;
-      cancel.disabled = false;
-    }
-  });
-  queueMicrotask(() => form.querySelector('input:not([type="hidden"]):not([disabled]), select, textarea')?.focus());
-  return { close, line };
 }
 
 /* ---- Boxes --------------------------------------------------------------- */

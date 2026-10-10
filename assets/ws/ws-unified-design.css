@@ -560,7 +560,7 @@ html .ws-action-dialog__actions {
 
 /* Dashboard page composition: one centered reading width and compact vertical
    rhythm. */
-#ws-view :is(.ws-doc--wide, .fl-doc, .nc-notes) {
+#ws-view :is(.ws-doc--wide, .fl-doc, .nc-notes, .au-team) {
   width: min(100%, 1120px);
   max-width: 1120px;
   margin-inline: auto;
@@ -588,6 +588,7 @@ html .ws-action-dialog__actions {
 #ws-view :is(
   .v-panel,
   .fl-panel,
+  .au-panel,
   .v-card,
   .v-project,
   .v-workspace,
@@ -615,14 +616,14 @@ html .ws-action-dialog__actions {
 }
 
 /* Card titles are inside the card, never on a separate sunken header strip. */
-#ws-view :is(.v-panel__head, .fl-panel__head) {
+#ws-view :is(.v-panel__head, .fl-panel__head, .au-panel__head) {
   min-height: 0 !important;
   padding: 14px 16px 8px !important;
   border-bottom: 0 !important;
   background: transparent !important;
 }
 
-#ws-view :is(.v-panel__head h2, .fl-panel__title) {
+#ws-view :is(.v-panel__head h2, .fl-panel__title, .au-panel__head h2) {
   margin: 0;
   font-size: 14px !important;
   line-height: 1.25;
@@ -630,12 +631,12 @@ html .ws-action-dialog__actions {
   letter-spacing: var(--g-track-head);
 }
 
-#ws-view :is(.v-panel__body, .fl-panel__body) {
+#ws-view :is(.v-panel__body, .fl-panel__body, .au-panel__body) {
   padding: 0 6px 10px;
 }
 
 /* Metric tiles are now the exact Dashboard proportion. */
-#ws-view :is(.v-stats, .fl-metrics, .ri__metrics) {
+#ws-view :is(.v-stats, .fl-metrics, .au-team__stats, .ri__metrics) {
   display: grid;
   gap: 12px !important;
   border: 0 !important;
@@ -643,7 +644,7 @@ html .ws-action-dialog__actions {
   overflow: visible !important;
 }
 
-#ws-view :is(.v-stat, .fl-metric, .ri__metric) {
+#ws-view :is(.v-stat, .fl-metric, .au-team__stat, .ri__metric) {
   position: relative;
   display: grid !important;
   align-content: space-between !important;
@@ -659,13 +660,13 @@ html .ws-action-dialog__actions {
 /* The rule above pins the background with !important, so a stat that is a
    button (the Team counts) had no hover at all. A wash of the text colour
    lifts it the same step in both themes. */
-#ws-view :is(button.v-stat, button.fl-metric, button.ri__metric) { cursor: pointer; }
-#ws-view :is(button.v-stat, button.fl-metric, button.ri__metric):hover {
+#ws-view :is(button.v-stat, button.fl-metric, button.au-team__stat, button.ri__metric) { cursor: pointer; }
+#ws-view :is(button.v-stat, button.fl-metric, button.au-team__stat, button.ri__metric):hover {
   border-color: var(--g-border) !important;
   background: color-mix(in srgb, var(--g-text) 5%, var(--g-surface-raised)) !important;
 }
 
-#ws-view :is(.v-stat__value, .fl-metric__value, .ri__metric strong) {
+#ws-view :is(.v-stat__value, .fl-metric__value, .au-team__stat strong, .ri__metric strong) {
   font-family: var(--g-font) !important;
   font-size: 28px !important;
   font-weight: var(--g-w-semibold) !important;
@@ -674,7 +675,7 @@ html .ws-action-dialog__actions {
   font-variant-numeric: tabular-nums;
 }
 
-#ws-view :is(.v-stat__label, .fl-metric__title, .ri__metric span) {
+#ws-view :is(.v-stat__label, .fl-metric__title, .au-team__stat span, .ri__metric span) {
   order: -1;
   color: var(--g-text-subtle) !important;
   font-size: var(--ws-fs-sm) !important;
@@ -682,27 +683,28 @@ html .ws-action-dialog__actions {
 }
 
 /* Dashboard rows: whitespace and a quiet hover instead of table bands. */
-#ws-view :is(.v-row, .fl-row, .nc-note-row, .space-md-row) {
+#ws-view :is(.v-row, .fl-row, .au-row, .nc-note-row, .space-md-row) {
   border: 0 !important;
   border-radius: 10px !important;
   background: transparent !important;
 }
 
-#ws-view :is(.v-row, .fl-row) {
+#ws-view :is(.v-row, .fl-row, .au-row) {
   padding: 9px 10px !important;
 }
 
+#ws-view .au-row,
 #ws-view .nc-note-row,
 #ws-view .space-md-row {
   margin-inline: 6px !important;
   width: calc(100% - 12px) !important;
 }
 
-#ws-view :is(.v-row + .v-row, .fl-row + .fl-row, .nc-note-row + .nc-note-row, .space-md-row + .space-md-row) {
+#ws-view :is(.v-row + .v-row, .fl-row + .fl-row, .au-row + .au-row, .nc-note-row + .nc-note-row, .space-md-row + .space-md-row) {
   box-shadow: inset 0 1px 0 var(--g-hairline) !important;
 }
 
-#ws-view :is(button.v-row, button.fl-row, .nc-note-row, .space-md-row):hover {
+#ws-view :is(button.v-row, button.fl-row, .au-row, .nc-note-row, .space-md-row):hover {
   background: var(--g-surface-hover) !important;
 }
 
@@ -714,6 +716,7 @@ html .ws-action-dialog__actions {
   .fl-card-grid,
   .fl-admin-grid,
   .fl-stack,
+  .au-team,
   .nc-notes__layout,
   .nc-mirror-grid,
   .rkms-board,
@@ -724,7 +727,7 @@ html .ws-action-dialog__actions {
 }
 
 /* Focus / "Up next" surfaces use the Dashboard's single accented-card rule. */
-#ws-view :is(.v-focus) {
+#ws-view :is(.v-focus, .au-focus-panel) {
   border: 1px solid color-mix(in srgb, var(--wc-2) 30%, transparent) !important;
   border-radius: var(--wc-r, 16px) !important;
   background:
@@ -793,7 +796,8 @@ html .ws-action-dialog__actions {
 
 /* Forms/controls share the compact Dashboard control language. */
 #ws-view :is(.v-input, .fl-input, .fl-textarea, .nc-note-content),
-html .ws-action-dialog .v-input {
+html .ws-action-dialog .v-input,
+html .au-modal :is(input, textarea, select) {
   border: 1px solid var(--g-border) !important;
   border-radius: 8px !important;
   background: var(--g-bg) !important;
@@ -802,10 +806,15 @@ html .ws-action-dialog .v-input {
 }
 
 #ws-view :is(.v-input, .fl-input):focus,
-html .ws-action-dialog .v-input:focus {
+html .ws-action-dialog .v-input:focus,
+html .au-modal :is(input, textarea, select):focus {
   border-color: var(--g-accent) !important;
   outline: 2px solid color-mix(in srgb, var(--g-accent) 24%, transparent) !important;
   outline-offset: 1px;
+}
+
+html .au-modal button {
+  border-radius: 8px !important;
 }
 
 /* Tabs become the same compact segmented control used by the radar. */
@@ -826,21 +835,38 @@ html .ws-action-dialog .v-input:focus {
   box-shadow: 0 0 0 1px var(--g-hairline) !important;
 }
 
+/* Team/admin screens were runtime-styled and previously escaped the design
+   system; explicitly adopt them here. */
+#ws-view .au-team { gap: 12px !important; }
+#ws-view .au-team__toolbar { margin-bottom: 0; }
+#ws-view .au-team__stat::after { top: 14px !important; right: 14px !important; }
+#ws-view .au-badge {
+  border-color: var(--g-hairline) !important;
+  color: var(--g-text-subtle) !important;
+}
+html .au-modal {
+  border: 1px solid var(--g-border) !important;
+  border-radius: var(--wc-r, 16px) !important;
+  background: var(--g-surface-raised) !important;
+  color: var(--g-text) !important;
+  box-shadow: 0 28px 90px rgb(0 0 0 / .42) !important;
+}
+
 /* Responsive behavior matches the Dashboard: tiles collapse before content
    becomes cramped, while editor/forms retain usable touch targets. */
 @media (max-width: 900px) {
-  #ws-view :is(.v-stats, .fl-metrics, .ri__metrics) {
+  #ws-view :is(.v-stats, .fl-metrics, .au-team__stats, .ri__metrics) {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 @media (max-width: 620px) {
-  #ws-view :is(.ws-doc--wide, .fl-doc, .nc-notes) {
+  #ws-view :is(.ws-doc--wide, .fl-doc, .nc-notes, .au-team) {
     padding-inline: 12px;
   }
-  #ws-view :is(.v-stats, .fl-metrics, .ri__metrics) {
+  #ws-view :is(.v-stats, .fl-metrics, .au-team__stats, .ri__metrics) {
     grid-template-columns: 1fr !important;
   }
-  #ws-view :is(.v-stat, .fl-metric, .ri__metric) {
+  #ws-view :is(.v-stat, .fl-metric, .au-team__stat, .ri__metric) {
     min-height: 92px !important;
     padding: 13px !important;
   }
@@ -1092,8 +1118,9 @@ html .ws-action-dialog .v-input:focus {
   border-radius: 50%;
 }
 
-/* The toolbar under an overview's head, where pageHead() puts an
-   overview's actions. */
+/* The toolbar under an overview's head. Research got one injected by
+   ws-task-deck-fixes.js and the Dashboard kept its buttons inside the head;
+   pageHead() now gives every overview the Research arrangement. */
 #ws-view .wc-workspace-head + .v-toolbar {
   display: flex;
   flex-wrap: wrap;

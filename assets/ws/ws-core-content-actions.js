@@ -13,7 +13,7 @@
    renderCoreContent() directly, and the read-only board is gone.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r3';
 
 const STATUS = [
   ['idea', 'Idea'],

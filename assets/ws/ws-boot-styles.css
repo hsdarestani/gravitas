@@ -1,0 +1,91 @@
+/* ==========================================================================
+   GRAVITAS+ WORKSPACE  ·  STYLES THE OLD OVERLAYS INJECTED AT BOOT
+   Three modules — ws-actionable-ui.js, ws-task-deck-fixes.js and
+   ws-task-deck-mirror.js — used to append these as <style> blocks when the
+   workspace started, and ws-design-runtime.js then moved the unified sheet
+   after them. The modules are gone; the screens they patched now draw
+   themselves with the same markup, so the same rules live here, verbatim,
+   loaded at the same point in the cascade: after every other workspace
+   sheet and before ws-unified-design.css, which still comes last.
+   ========================================================================== */
+
+/* ---- ws-task-deck-fixes.js: dialogs ------------------------------------- */
+.ws-action-dialog-layer { position:fixed; inset:0; z-index:1200; display:grid; place-items:center; padding:16px; overflow:auto; background:rgba(0,0,0,.42); }
+.ws-action-dialog { width:min(620px,calc(100vw - 32px)); max-height:min(90vh,820px); overflow:auto; border:1px solid var(--line,#d5d9df); border-radius:14px; padding:0; background:var(--panel,#fff); color:inherit; box-shadow:0 24px 80px rgba(0,0,0,.28); }
+.ws-action-dialog__body { padding:20px; display:grid; gap:14px; }
+.ws-action-dialog__head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.ws-action-dialog__head h2 { margin:0; font-size:1.15rem; }
+.ws-action-dialog__grid { display:grid; gap:12px; }
+.ws-action-dialog__field { display:grid; gap:6px; font-size:.86rem; }
+.ws-action-dialog__field > span { font-weight:600; }
+.ws-action-dialog textarea { min-height:88px; resize:vertical; }
+.ws-action-dialog__actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.ws-action-dialog__error { margin:0; min-height:1.2em; color:var(--danger,#b42318); font-size:.84rem; }
+.ws-core-deck-surface { display:grid; gap:16px; }
+.ws-core-deck-hero { padding:22px; }
+.ws-core-deck-hero h2 { margin:0 0 8px; }
+.ws-core-deck-hero p { max-width:760px; }
+
+/* ---- ws-task-deck-mirror.js: the Deck row above Core Tasks -------------- */
+.ws-core-deck-mirror { margin:0 0 14px; }
+/* One row: what the panel is and where the sync stands on the left, the
+   three actions on the right. It was a full card with a paragraph and its
+   own button row, which put the board below the fold before the reader
+   had seen a single task. The lead lives in the body rather than a
+   .v-panel__head, so the body carries the padding itself; the #ws-view
+   prefix outranks the unified 0 6px 10px body padding meant for row lists. */
+#ws-view .ws-core-deck-mirror .v-panel__body,
+.ws-core-deck-mirror .v-panel__body {
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:10px 20px; padding:12px 14px 12px 18px;
+}
+.ws-core-deck-mirror .v-toolbar { margin:0; gap:8px; flex-wrap:wrap; }
+.ws-core-deck-mirror__lead { display:grid; gap:3px; min-width:0; flex:1 1 320px; }
+.ws-core-deck-mirror__title { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 12px; }
+.ws-core-deck-mirror__lead h2 { margin:0; font-size:14px; font-weight:var(--g-w-semibold); }
+.ws-core-deck-mirror__lead p { margin:0; max-width:72ch; font-size:var(--ws-fs-sm); }
+.ws-core-deck-mirror__status { font-size:var(--ws-fs-xs); }
+.ws-core-deck-mirror__status[data-tone="bad"] { color:var(--danger,#d92d20); }
+.ws-core-deck-mirror__status[data-tone="ok"] { color:var(--success,#2e7d32); }
+
+/* ---- ws-actionable-ui.js: Team & Access and tiles that open something ---- */
+.v-stat[data-actionable], .fl-metric[data-actionable] { position: relative; cursor: pointer; outline: none; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+.v-stat[data-actionable]::after, .fl-metric[data-actionable]::after { content: '→'; position: absolute; top: 10px; right: 12px; opacity: .48; font-size: 13px; }
+.v-stat[data-actionable]:hover, .fl-metric[data-actionable]:hover, .v-stat[data-actionable]:focus-visible, .fl-metric[data-actionable]:focus-visible { border-color: color-mix(in srgb, currentColor 34%, transparent); background: color-mix(in srgb, currentColor 5%, transparent); transform: translateY(-1px); }
+.v-row[data-actionable], .fl-row[data-actionable] { cursor: pointer; outline: none; }
+.v-row[data-actionable]:hover, .fl-row[data-actionable]:hover, .v-row[data-actionable]:focus-visible, .fl-row[data-actionable]:focus-visible { background: color-mix(in srgb, currentColor 5%, transparent); }
+.au-team { display: grid; gap: 18px; }
+.au-team__toolbar, .au-panel__head, .au-row__actions, .au-modal__actions, .au-filterbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.au-team__toolbar { justify-content: space-between; }
+.au-team__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)); gap: 10px; }
+.au-team__stat { min-height: 94px; text-align: left; border: 1px solid var(--ws-line, rgba(255,255,255,.12)); border-radius: 12px; background: transparent; color: inherit; padding: 14px; cursor: pointer; position: relative; }
+.au-team__stat::after { content: '→'; position: absolute; top: 12px; right: 12px; opacity: .45; }
+.au-team__stat strong { display: block; font-size: 25px; line-height: 1; margin-bottom: 9px; }
+.au-team__stat span { font-size: 12px; opacity: .72; }
+.au-panel { border: 1px solid var(--ws-line, rgba(255,255,255,.12)); border-radius: 14px; overflow: hidden; }
+.au-panel__head { justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--ws-line, rgba(255,255,255,.1)); }
+.au-panel__head h2 { margin: 0; font-size: 15px; }
+.au-panel__body { display: grid; }
+.au-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 13px 16px; border-top: 1px solid var(--ws-line, rgba(255,255,255,.08)); }
+.au-row:first-child { border-top: 0; }
+.au-row__main { min-width: 0; }
+.au-row__main strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.au-row__meta { display: block; margin-top: 4px; font-size: 12px; opacity: .68; overflow-wrap: anywhere; }
+.au-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.au-badge { font-size: 10px; letter-spacing: .02em; border: 1px solid var(--ws-line, rgba(255,255,255,.12)); border-radius: 999px; padding: 3px 7px; opacity: .78; }
+.au-empty { padding: 18px 16px; opacity: .68; }
+.au-modal-layer { position: fixed; inset: 0; z-index: 1400; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.56); }
+.au-modal { width: min(640px, 100%); max-height: min(780px, calc(100vh - 36px)); overflow: auto; border: 1px solid var(--ws-line, rgba(255,255,255,.16)); border-radius: 16px; background: var(--ws-surface, #071f2a); color: inherit; box-shadow: 0 24px 80px rgba(0,0,0,.38); padding: 18px; }
+.au-modal__head { display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 14px; }
+.au-modal__head h2 { margin: 0; font-size: 18px; }
+.au-form { display: grid; gap: 12px; }
+.au-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 10px; }
+.au-field { display: grid; gap: 6px; font-size: 12px; }
+.au-field > span { opacity: .72; }
+.au-check { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.au-status { min-height: 18px; margin: 0; font-size: 12px; opacity: .75; }
+.au-status[data-tone='bad'] { color: #ff9d9d; opacity: 1; }
+.au-status[data-tone='ok'] { color: #9ce5b0; opacity: 1; }
+.au-focus-panel { margin-top: 14px; }
+.au-filter-note { margin: 8px 0 14px; padding: 10px 12px; border: 1px solid var(--ws-line, rgba(255,255,255,.1)); border-radius: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+@media (max-width: 700px) { .au-row { grid-template-columns: 1fr; } .au-row__actions { justify-content: flex-start; } }

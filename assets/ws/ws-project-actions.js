@@ -12,8 +12,8 @@
    draws its own tiles as buttons.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r2';
-import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r3';
+import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261011-r3';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
 // a change. Set each time the cockpit asks for a bar.
@@ -652,11 +652,13 @@ function actionSet(info, cockpit, project) {
   return actions;
 }
 
-/* The bar for one tab of one project. The cockpit's own "structure" view is
-   the project's front page, so it gets the overview's actions. */
+/* The bar for one tab of one project. The project's bare address draws the
+   folder structure as its front page, and gets the overview's actions; the
+   Project folder tab, opened by name, keeps its own short set. */
 export function projectActionBar({ projectId, tab, cockpit, go: navigate, refresh }) {
   page = { go: navigate, refresh };
-  const info = { projectId: Number(projectId), tab: tab === 'structure' ? 'overview' : tab };
+  const named = /\/projects\/\d+\/[a-z-]+\/?$/.test(location.pathname);
+  const info = { projectId: Number(projectId), tab: tab === 'structure' && !named ? 'overview' : tab };
   const toolbar = el('div', 'v-toolbar fl-project-actionbar');
   for (const node of actionSet(info, cockpit, cockpit.project || {})) toolbar.append(node);
   return toolbar;

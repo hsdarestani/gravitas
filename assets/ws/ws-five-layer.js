@@ -1,5 +1,5 @@
-import { renderWorkReports } from './ws-work-reports.js?v=20261011-r2';
-import * as P from './ws-platform.js?v=20261011-r2';
+import { renderWorkReports } from './ws-work-reports.js?v=20261011-r3';
+import * as P from './ws-platform.js?v=20261011-r3';
 import {
   renderCertificates,
   renderCourse,
@@ -9,9 +9,9 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20261011-r2';
-import { renderMemberProgress } from './ws-member-progress.js?v=20261011-r2';
-import { renderMemberSupport } from './ws-support.js?v=20261011-r2';
+} from './ws-member-lms.js?v=20261011-r3';
+import { renderMemberProgress } from './ws-member-progress.js?v=20261011-r3';
+import { renderMemberSupport } from './ws-support.js?v=20261011-r3';
 import {
   renderAdminActivity,
   renderAdminCourseEditor,
@@ -26,10 +26,10 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261011-r2';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261011-r2';
-import { renderCoreLinks } from './ws-core-links.js?v=20261011-r2';
-import { renderResearchProject } from './ws-project.js?v=20261011-r2';
+} from './ws-admin.js?v=20261011-r3';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261011-r3';
+import { renderCoreLinks } from './ws-core-links.js?v=20261011-r3';
+import { renderResearchProject } from './ws-project.js?v=20261011-r3';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -68,7 +68,9 @@ const ADMIN_INDEX = [
   ['Research', '/workspace/core/admin/research', 'space-research', 'Every research project'],
   ['Links', '/workspace/core/admin/links', 'link', 'Connect items across workspaces'],
   ['Activity', '/workspace/core/admin/activity', 'activity', 'Who changed what, and when'],
-  ['Nextcloud Mirror', '/workspace/core/admin/nextcloud', 'storage', 'Files, Notes and Deck in sync'],
+  // Fixed series, outside the count: it joined the list after the others
+  // had their colours, and they keep them.
+  ['Nextcloud Mirror', '/workspace/core/admin/nextcloud', 'storage', 'Files, Notes and Deck in sync', '3'],
   ['Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
   ['Core', '/workspace/core', 'space-core', 'Return to the Core workspace'],
 ];
@@ -198,9 +200,11 @@ function renderIndex(title, items, footer = '', { ancestor = '', branches = new 
   nav.className = 'fl-index-nav';
   nav.setAttribute('aria-label', `${title} sections`);
   const lit = ancestor ? '' : activeEntry(items);
-  items.forEach(([name, path, mark, hint], index) => {
+  let counted = 0;
+  items.forEach(([name, path, mark, hint, fixed]) => {
     const clean = path.replace(/\/$/, '');
-    const node = indexButton(name, path, mark, String((index % 4) + 1), clean === lit, hint);
+    const series = fixed || String((counted++ % 4) + 1);
+    const node = indexButton(name, path, mark, series, clean === lit, hint);
     nav.append(node);
     const branch = branches.get(path);
     if (clean === ancestor) node.dataset.ancestor = 'true';
@@ -378,6 +382,23 @@ export function coreAdminEntry(navigate) {
   return wrap;
 }
 
+/* The Mirror page has always carried its own plain trail, the one the
+   Nextcloud module drew before this module drew the admin pages. */
+function mirrorCrumbs() {
+  const crumbs = $('#ws-crumbs');
+  if (!crumbs) return;
+  const parent = document.createElement('span');
+  parent.className = 'ws-crumbs__plain';
+  parent.textContent = 'Core Admin';
+  const sep = document.createElement('span');
+  sep.className = 'ws-crumbs__sep';
+  sep.textContent = '/';
+  const here = document.createElement('span');
+  here.className = 'ws-crumbs__here';
+  here.textContent = 'Nextcloud Mirror';
+  crumbs.replaceChildren(parent, sep, here);
+}
+
 function setCrumbs(parts) {
   const crumbs = $('#ws-crumbs');
   if (!crumbs) return;
@@ -503,7 +524,8 @@ export async function renderFiveLayer(hostNode, { go: navigate, renderNotesMirro
       return true;
     }
     renderIndex('Platform Admin', ADMIN_INDEX, 'Core owner/admin only');
-    setCrumbs([{ label: 'Core', path: '/workspace/core' }, { label: 'Platform Admin', path: '/workspace/core/admin' }, ...(route.page === 'overview' ? [] : [{ label: adminTitle(route.page) }])]);
+    if (route.page === 'nextcloud') mirrorCrumbs();
+    else setCrumbs([{ label: 'Core', path: '/workspace/core' }, { label: 'Platform Admin', path: '/workspace/core/admin' }, ...(route.page === 'overview' ? [] : [{ label: adminTitle(route.page) }])]);
     if (route.page === 'overview') await renderAdminOverview(host, ctx);
     if (route.page === 'users') await renderAdminUsers(host, ctx);
     if (route.page === 'user') await renderAdminUser(host, route.id, ctx);

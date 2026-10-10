@@ -7,9 +7,10 @@
    service is named as unavailable and a successful mutation is read back.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r2';
-import * as C from './ws-charts.js?v=20261011-r2';
-import { openNewProject, openNewTask } from './ws-research-create.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r3';
+import * as C from './ws-charts.js?v=20261011-r3';
+import { researchCreateBar, spaceProjectToolbar } from './ws-research-create.js?v=20261011-r3';
+import { teamPanel, teamRow } from './ws-core-team.js?v=20261011-r3';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -31,11 +32,6 @@ function shell(host, title, subtitle, actions = []) {
   host.append(doc); return doc;
 }
 
-// The two ways into new research work, on every screen that lists it.
-const createActions = (go) => [
-  button('New project', () => openNewProject({ go }), true),
-  button('New task', () => openNewTask({ go })),
-];
 
 function notice(title, detail, bad = false) {
   const node = el('div', 'ws-alert');
@@ -201,7 +197,8 @@ export function renderCalendar(host, ctx) {
 }
 
 export function renderProjects(host, { go }) {
-  const doc = shell(host, 'Research Projects', 'Portfolio views built from the same live projects, tasks, links and activity.', createActions(go));
+  const doc = shell(host, 'Research Projects', 'Portfolio views built from the same live projects, tasks, links and activity.');
+  spaceProjectToolbar(doc.querySelector(':scope > .ws-doc__head'), { go, onCreated: () => { host.innerHTML = ''; renderProjects(host, { go }); } });
   const body = el('div'); doc.append(body); body.append(notice('Loading projects', 'Reading accessible projects and their cockpits…'));
   projectData().then((records) => {
     body.innerHTML = '';
@@ -244,9 +241,6 @@ export function renderProjects(host, { go }) {
     const KINDS = [['', 'All types'], ['internal', 'Internal'], ['client', 'Client'], ['community', 'Community']];
     let kind = new URLSearchParams(location.search).get('category') || '';
     if (!KINDS.some(([key]) => key === kind)) kind = '';
-    const kindSelect = el('select', 'v-input');
-    kindSelect.setAttribute('aria-label', 'Project type');
-    for (const [key, label] of KINDS) kindSelect.append(new Option(label, key, false, key === kind));
     const count = el('span', 'v-toolbar__count');
     const shown = () => records.filter(({ project }) => !kind || project.category === kind);
     const select = (view) => {
@@ -256,12 +250,11 @@ export function renderProjects(host, { go }) {
       count.textContent = kind ? `${list.length} of ${records.length} projects` : `${records.length} projects`;
       drawProjectView(content, list, view, go);
     };
-    kindSelect.addEventListener('change', () => { kind = kindSelect.value; select(active); });
     for (const [key, label] of views) {
       const node = button(label, () => select(key), key === active);
       node.setAttribute('aria-pressed', String(key === active)); buttons.set(key, node); bar.append(node);
     }
-    bar.append(kindSelect, count);
+    bar.append(count);
     body.append(bar, content); select(active);
   }).catch(() => { body.innerHTML = ''; body.append(notice('Projects unavailable', 'The live project service did not answer.', true)); });
 }
@@ -607,10 +600,8 @@ function taskList(body, records, go) {
 
 export function renderTasks(host, { go }) {
   if (new URLSearchParams(location.search).get('show') === 'requests') return renderRequests(host, { go });
-  const doc = shell(host, 'Research Tasks', 'One board aggregated from tasks in every accessible research project.', [
-    ...createActions(go),
-    button('Requests', () => go('/workspace/research/tasks?show=requests')),
-  ]);
+  const doc = shell(host, 'Research Tasks', 'One board aggregated from tasks in every accessible research project.');
+  doc.querySelector(':scope > .ws-doc__head').after(researchCreateBar({ go }));
   const body = el('div'); doc.append(body); body.append(notice('Loading tasks', 'Reading project cockpits…'));
   projectData().then((rows) => {
     body.innerHTML = '';
@@ -667,32 +658,36 @@ export function renderTasks(host, { go }) {
 }
 
 /* Requests and handoffs waiting for research, opened from the Core and
-   Research dashboards. This was drawn by ws-actionable-ui.js over the task
-   board after the board had appeared; it is its own view of Tasks now. */
+   Research dashboards. ws-actionable-ui.js used to draw this over the task
+   board; it is a view of Tasks now, with the same markup. */
 function renderRequests(host, { go }) {
-  const doc = shell(host, 'Research Requests', 'Requests and handoffs waiting for research action.', [
-    button('All tasks', () => go('/workspace/research/tasks')),
-  ]);
-  const body = el('div');
-  doc.append(body);
-  body.append(notice('Loading requests', 'Reading research requests…'));
+  const doc = shell(host, 'Research Requests', 'Requests and handoffs waiting for research action.');
+  const root = el('div', 'au-team');
+  root.dataset.auRequests = '20260915-1';
+  const toolbar = el('div', 'au-team__toolbar');
+  toolbar.append(button('Tasks', () => go('/workspace/research/tasks')), button('Refresh', () => { host.innerHTML = ''; renderRequests(host, { go }); }));
+  const wait = el('div', 'ws-skel', 'Loading requests…');
+  root.append(toolbar, wait);
+  doc.append(root);
   P.researchRequests().then((data) => {
-    body.innerHTML = '';
+    if (!root.isConnected) return;
+    wait.remove();
     const requests = data.requests || data.items || [];
-    const box = C.card({ title: 'Requests', note: `${requests.length} total` });
-    if (!requests.length) box.body.append(C.note('No research requests are waiting.'));
+    const panel = teamPanel('Requests', `${requests.length} total`);
+    if (!requests.length) panel.body.append(el('div', 'au-empty', 'No research requests are waiting.'));
     for (const item of requests) {
-      box.body.append(C.listItem({
-        title: item.title || 'Untitled request',
-        meta: P.meta([P.label(item.status), P.label(item.priority), item.project_title, item.assignee, item.due_date ? P.formatDate(item.due_date) : '']),
-        icon: 'inbox',
-        onClick: item.project_id ? () => go(`/workspace/research/projects/${item.project_id}`) : null,
-      }));
+      const actions = [];
+      if (item.project_id) {
+        const open = button('Project', () => go(`/workspace/research/projects/${item.project_id}`));
+        open.classList.add('ws-btn--tiny');
+        actions.push(open);
+      }
+      panel.body.append(teamRow(item.title || 'Untitled request', P.meta?.([P.label(item.status), item.project_title, item.assignee, item.due_date ? P.formatDate(item.due_date) : '']) || '', [P.label(item.priority || ''), P.label(item.status || '')], actions));
     }
-    body.append(C.bento([box.box]));
-  }).catch(() => {
-    body.innerHTML = '';
-    body.append(notice('Requests unavailable', 'Research requests could not be loaded. Nothing was changed.', true));
+    root.append(panel.box);
+  }).catch((error) => {
+    wait.remove();
+    root.append(el('div', 'ws-alert', error?.message || 'Research requests could not be loaded.'));
   });
 }
 

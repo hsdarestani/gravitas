@@ -16,7 +16,7 @@
    backlinks and the Knowledge Base all read that copy. They read this now.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r3';
 
 const SPACE_PATH = { core: '/workspace/core/notes', kms: '/workspace/kms/notes', research: '/workspace/research/notes' };
 const index = { items: [], loaded: false, loading: null };

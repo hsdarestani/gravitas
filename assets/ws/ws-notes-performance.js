@@ -13,8 +13,8 @@
    Now the notebook passes in how to tell it what happened.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r2';
-import { scheduleIdle } from './ws-runtime-performance.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r3';
+import { scheduleIdle } from './ws-runtime-performance.js?v=20261011-r3';
 
 const state = { lastSync: new Map(), inFlight: new Set(), timer: 0, idle: false };
 const MIN_GAP = 45000;

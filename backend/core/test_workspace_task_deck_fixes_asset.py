@@ -18,7 +18,7 @@ class WorkspaceTaskDeckContractTests(SimpleTestCase):
 
     def test_core_tasks_insert_the_deck_row_themselves(self):
         views = self.read('assets/ws/ws-views.js')
-        self.assertIn("import { deckPanel } from './ws-deck-sync.js?v=20261011-r2", views)
+        self.assertIn("import { deckPanel } from './ws-deck-sync.js?v=20261011-r3", views)
         self.assertIn('if (host.isConnected) head.after(deckPanel(', views)
 
     def test_deck_row_syncs_both_ways(self):
@@ -31,5 +31,5 @@ class WorkspaceTaskDeckContractTests(SimpleTestCase):
         self.assertNotIn('observeSurface', js)
 
     def test_deck_row_styles_are_in_the_stylesheet(self):
-        self.assertIn('.ws-core-deck-mirror__status', self.read('assets/ws/ws.css'))
+        self.assertIn('.ws-core-deck-mirror__status', self.read('assets/ws/ws-boot-styles.css'))
         self.assertNotIn("createElement('style')", self.read('assets/ws/ws-deck-sync.js'))

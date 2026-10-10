@@ -11,12 +11,12 @@
    trust in the rest of the numbers on it.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r2';
-import * as C from './ws-charts.js?v=20261011-r2';
-import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261011-r2';
-import { availableWorkspaces } from './ws-nav.js?v=20261011-r2';
-import * as K from './ws-kms.js?v=20261011-r2';
-import { openNewProject, openNewTask } from './ws-research-create.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r3';
+import * as C from './ws-charts.js?v=20261011-r3';
+import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261011-r3';
+import { availableWorkspaces } from './ws-nav.js?v=20261011-r3';
+import * as K from './ws-kms.js?v=20261011-r3';
+import { researchCreateBar } from './ws-research-create.js?v=20261011-r3';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -95,9 +95,8 @@ function heroEl(user) {
 }
 
 /* The shared overview head (C.pageHead), the one the Dashboard and Learning
-   use too. Research carries its New project / New task here, where pageHead
-   puts actions; another module used to inject them after the fact. */
-function workspaceOverviewHead(scope, user, go) {
+   use too. Research's New project / New task row sits under it. */
+function workspaceOverviewHead(scope, user) {
   const isCore = scope === 'core';
   const now = new Date();
   return C.pageHead({
@@ -110,18 +109,7 @@ function workspaceOverviewHead(scope, user, go) {
     detail: now.toLocaleDateString('en-GB', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     }),
-    actions: isCore || !go ? [] : [
-      overviewButton('New project', () => openNewProject({ go }), true),
-      overviewButton('New task', () => openNewTask({ go })),
-    ],
   });
-}
-
-function overviewButton(label, handler, solid = false) {
-  const node = el('button', `ws-btn${solid ? ' ws-btn--solid' : ''}`, label);
-  node.type = 'button';
-  node.addEventListener('click', handler);
-  return node;
 }
 
 /* ---- Weather ------------------------------------------------------------
@@ -458,7 +446,8 @@ export function renderDashboard(host, ctx, scope) {
   if (scope === 'home') {
     doc.append(heroEl(P.platform.user));
   } else {
-    doc.append(workspaceOverviewHead(scope, P.platform.user, ctx.go));
+    doc.append(workspaceOverviewHead(scope, P.platform.user));
+    if (scope === 'research') doc.append(researchCreateBar({ go: ctx.go }));
   }
   doc.append(focusEl(boot.my_work.tasks || [], ctx));
 

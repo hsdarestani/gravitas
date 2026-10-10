@@ -1,6 +1,6 @@
-import { renderProjectStructure } from './ws-project-files.js?v=20261011-r2';
-import * as P from './ws-platform.js?v=20261011-r2';
-import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261011-r2';
+import { renderProjectStructure } from './ws-project-files.js?v=20261011-r3';
+import * as P from './ws-platform.js?v=20261011-r3';
+import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261011-r3';
 
 const TABS = [
   ['structure', 'Project folder'],
@@ -81,10 +81,15 @@ function row({ title, meta = '', body = '', badges = [], actions = [], onClick =
 }
 
 function metric(value, title, note = '', onClick = null) {
-  const node = el(onClick ? 'button' : 'div', `fl-metric wc-tile${onClick ? ' wc-tile--button' : ''}`);
+  const node = el('div', 'fl-metric wc-tile');
+  // The markup the old project-actions overlay gave a clickable tile.
   if (onClick) {
-    node.type = 'button';
+    node.dataset.projectActionBound = '1';
+    node.setAttribute('role', 'button');
+    node.tabIndex = 0;
+    node.style.cursor = 'pointer';
     node.addEventListener('click', onClick);
+    node.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } });
   }
   node.append(el('strong', 'fl-metric__value wc-tile__value', String(value ?? 0)), el('span', 'fl-metric__title wc-tile__label', title));
   if (note) node.append(el('small', 'fl-muted', note));
@@ -140,7 +145,7 @@ function failure(host, projectId, tab, go, error) {
   host.append(doc);
 }
 
-function attention(cockpit) {
+function attention(cockpit, openTasks = null) {
   const a = cockpit.attention || {};
   const values = [
     [a.overdue_tasks, 'Overdue tasks'],
@@ -150,7 +155,7 @@ function attention(cockpit) {
   ];
   const box = section('Attention');
   const metrics = el('div', 'fl-metrics fl-metrics--compact');
-  values.forEach(([value, title]) => metrics.append(metric(value || 0, title)));
+  values.forEach(([value, title]) => metrics.append(metric(value || 0, title, '', openTasks)));
   box.body.append(metrics);
   return box.box;
 }
@@ -176,7 +181,7 @@ function overviewView(doc, cockpit, { go, projectId } = {}) {
     question.body.append(el('p', 'fl-prose fl-prose--lead', project.research_question));
     doc.append(question.box);
   }
-  doc.append(attention(cockpit));
+  doc.append(attention(cockpit, open('tasks')));
 
   const cols = el('div', 'fl-columns');
   const about = section('About');

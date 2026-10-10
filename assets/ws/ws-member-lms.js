@@ -1,7 +1,7 @@
-import * as P from './ws-platform.js?v=20261011-r2';
-import * as C from './ws-charts.js?v=20261011-r2';
-import { courseCover } from './ws-course-cover.js?v=20261011-r2';
-import { dateTimeField } from './ws-datetime.js?v=20261011-r2';
+import * as P from './ws-platform.js?v=20261011-r3';
+import * as C from './ws-charts.js?v=20261011-r3';
+import { courseCover } from './ws-course-cover.js?v=20261011-r3';
+import { dateTimeField } from './ws-datetime.js?v=20261011-r3';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -60,10 +60,20 @@ function badge(text, tone = '') {
 /* A number. With `onClick` it is a button that opens what it counts; that
    used to be wired on afterwards by ws-actionable-ui.js matching labels. */
 function metric(value, title, note = '', onClick = null) {
-  const node = el(onClick ? 'button' : 'div', `fl-metric wc-tile${onClick ? ' wc-tile--button' : ''}`);
+  const node = el('div', 'fl-metric wc-tile');
+  // Same markup and attribute ws-actionable-ui.js gave these tiles, so they
+  // keep its arrow and hover styling (ws.css, [data-actionable]).
   if (onClick) {
-    node.type = 'button';
+    node.dataset.actionable = '20260915-1';
+    node.tabIndex = 0;
+    node.setAttribute('role', 'button');
+    node.setAttribute('aria-label', `Open ${title}`);
     node.addEventListener('click', onClick);
+    node.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      onClick();
+    });
   }
   const head = el('div', 'wc-tile__head');
   head.append(el('span', 'fl-metric__title wc-tile__label', title));
@@ -631,53 +641,51 @@ export async function renderMemberLibrary(host, { go }) {
   }
 }
 
-export async function renderMemberDiscussions(host) {
+export async function renderMemberDiscussions(host, { go } = {}) {
   loading(host, 'Discussions');
   try {
     const data = await P.memberDashboard();
     const wrap = doc(host, 'Discussions', 'Your contributions on published Gravitas+ material.');
-    // The tiles filter the list beneath them. ?status= still works, because
-    // the dashboards link here with it.
-    let status = new URLSearchParams(location.search).get('status') || '';
-    const matches = (item) => {
-      const word = label(item.status).toLowerCase();
-      return !status || (status === 'published' ? word.includes('published') : word.includes('pending'));
-    };
-    const box = section('Recent contributions');
-    const draw = () => {
-      box.body.replaceChildren();
-      const shown = data.discussions.recent.filter(matches);
-      if (status) {
-        const note = el('div', 'fl-filter-note');
-        note.append(el('span', null, `${shown.length} ${status === 'published' ? 'published' : 'pending'} contribution${shown.length === 1 ? '' : 's'}`));
-        const clear = action('Show all', () => { status = ''; draw(); });
-        clear.classList.add('ws-btn--tiny');
-        note.append(clear);
-        box.body.append(note);
-      }
-      if (!shown.length) {
-        box.body.append(empty(status ? 'Nothing in this state' : 'No discussions yet', status ? 'Try another filter.' : 'Comments you post on public material appear here.'));
-        return;
-      }
-      for (const item of shown) {
-        box.body.append(row({
-          title: item.content_key.replace(/-/g, ' '),
-          meta: P.meta([label(item.status), date(item.updated_at)]),
-          body: item.body,
-        }));
-      }
-    };
-    const pick = (next) => () => { status = next; draw(); box.box.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    // The tiles open the list filtered by ?status=, and the dashboards link
+    // here the same way. Markup and wording are what ws-actionable-ui.js
+    // used to add over this screen.
+    const open = (query) => (go ? () => go(`/workspace/dashboard/discussions${query}`) : null);
     const metrics = el('div', 'fl-metrics');
     metrics.append(
-      metric(data.discussions.total, 'Contributions', '', pick('')),
-      metric(data.discussions.published, 'Published', '', pick('published')),
-      metric(data.discussions.pending, 'Pending review', '', pick('pending')),
+      metric(data.discussions.total, 'Contributions', '', open('')),
+      metric(data.discussions.published, 'Published', '', open('?status=published')),
+      metric(data.discussions.pending, 'Pending review', '', open('?status=pending')),
     );
-    wrap.append(metrics, box.box);
-    draw();
+    wrap.append(metrics);
+    const box = section('Recent contributions');
+    if (!data.discussions.recent.length) box.body.append(empty('No discussions yet', 'Comments you post on public material appear here.'));
+    for (const item of data.discussions.recent) {
+      box.body.append(row({
+        title: item.content_key.replace(/-/g, ' '),
+        meta: P.meta([label(item.status), date(item.updated_at)]),
+        body: item.body,
+      }));
+    }
+    wrap.append(box.box);
+
+    const status = new URLSearchParams(location.search).get('status');
+    if (status) {
+      const wanted = status === 'published' ? 'published' : 'pending review';
+      let visible = 0;
+      for (const item of box.box.querySelectorAll('.fl-row')) {
+        const show = (item.textContent || '').toLowerCase().includes(wanted);
+        item.hidden = !show;
+        if (show) visible += 1;
+      }
+      const note = el('div', 'au-filter-note');
+      note.append(el('span', '', `${visible} ${status === 'published' ? 'published' : 'pending'} contribution${visible === 1 ? '' : 's'}`));
+      const clear = action('Clear', () => go?.('/workspace/dashboard/discussions'));
+      clear.classList.add('ws-btn--tiny');
+      note.append(clear);
+      box.box.before(note);
+    }
   } catch (error) {
-    errorView(host, 'Discussions', error, () => renderMemberDiscussions(host));
+    errorView(host, 'Discussions', error, () => renderMemberDiscussions(host, { go }));
   }
 }
 

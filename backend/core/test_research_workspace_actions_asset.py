@@ -30,7 +30,9 @@ class ResearchWorkspaceActionContractTests(SimpleTestCase):
         self.assertNotIn('function renderEditor', app)
 
     def test_file_and_dataset_views_upload_in_place(self):
-        js = self.read('assets/ws/ws-views.js')
+        views = self.read('assets/ws/ws-views.js')
+        self.assertIn("uploadToolbar(doc.querySelector(':scope > .ws-doc__head'), kind, { onUploaded: () => renderResources(host, kind) })", views)
+        js = self.read('assets/ws/ws-research-tools.js')
         self.assertIn("P.upload('/platform/files/upload/', form)", js)
         self.assertIn("'Upload dataset'", js)
         self.assertIn("'Upload file'", js)
@@ -42,13 +44,14 @@ class ResearchWorkspaceActionContractTests(SimpleTestCase):
         create = self.read('assets/ws/ws-research-create.js')
         research = self.read('assets/ws/ws-research.js')
         home = self.read('assets/ws/ws-home.js')
-        self.assertIn("P.call('/platform/projects/', { method: 'POST'", create)
+        self.assertIn("P.call('/platform/projects/', {\n      method: 'POST',", create)
         self.assertIn('space_category_id', create)
         self.assertIn("P.call(`/platform/projects/${projectId}/tasks/`", create)
         self.assertNotIn('location.reload()', create)
-        for source in (research, home):
-            self.assertIn('openNewProject({ go })', source)
-            self.assertIn('openNewTask({ go })', source)
+        self.assertIn("if (scope === 'research') doc.append(researchCreateBar({ go: ctx.go }));", home)
+        self.assertIn("doc.querySelector(':scope > .ws-doc__head').after(researchCreateBar({ go }));", research)
+        self.assertIn('spaceProjectToolbar(', research)
+        self.assertIn('export function spaceProjectToolbar(head', create)
         self.assertNotIn('enhanceProjectCreate', self.read('assets/ws/ws-space-integration.js'))
 
     def test_mind_maps_have_one_editor(self):
@@ -57,8 +60,9 @@ class ResearchWorkspaceActionContractTests(SimpleTestCase):
             self.assertIn(f"action:'{action}'", js)
 
     def test_researcher_profile_is_editable(self):
-        js = self.read('assets/ws/ws-views.js')
-        self.assertIn("P.call('/platform/researchers/me/', { method: 'PATCH'", js)
+        self.assertIn('profileToolbar(', self.read('assets/ws/ws-views.js'))
+        js = self.read('assets/ws/ws-research-tools.js')
+        self.assertIn("P.call('/platform/researchers/me/', {\n            method: 'PATCH',", js)
         self.assertIn("'Edit my profile'", js)
 
     def test_shared_with_me_is_explicitly_read_only(self):

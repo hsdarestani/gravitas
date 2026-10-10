@@ -22,8 +22,8 @@
    means the path you are furthest into and the cards that are overdue.
    ========================================================================== */
 
-import * as K from './ws-kms.js?v=20261011-r2';
-import { el, panel, row, stats, empty, linkButton } from './ws-views.js?v=20261011-r2';
+import * as K from './ws-kms.js?v=20261011-r3';
+import { el, panel, row, stats, empty, linkButton } from './ws-views.js?v=20261011-r3';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -62,14 +62,6 @@ function docShell(host, title, subtitle) {
   doc.append(head);
   host.append(doc);
   return doc;
-}
-
-function dueLabel(card) {
-  const days = K.daysUntil(card.due);
-  if (days < 0) return `${-days} ${-days === 1 ? 'day' : 'days'} overdue`;
-  if (days === 0) return 'Due today';
-  if (days === 1) return 'Due tomorrow';
-  return `In ${days} days`;
 }
 
 /* A bar, not a doughnut. The comparison people make with these is between
@@ -579,228 +571,144 @@ function sourceForm(onSave, onCancel) {
    ========================================================================== */
 
 export function renderKmsBase(host, ctx) {
-  if (whenReady(host, 'Knowledge Base', () => renderKmsBase(host, ctx))) return;
-  const doc = docShell(
-    host,
-    'Knowledge Base',
-    'What you have written in your own words. Filed by what it is, not by what it was for.',
-  );
-
-  const bar = el('div', 'v-toolbar');
+  const doc = docShell(host, 'Knowledge Base', 'Personal learning notes stored in your account. Turn any note into real recall cards when it is ready.');
+  const status = el('span', 'v-note', 'Loading notes…');
   const add = el('button', 'ws-btn ws-btn--solid', 'New note');
   add.type = 'button';
-  add.addEventListener('click', () => ctx.newNote({ space: 'kms' }));
-  bar.append(add);
-  doc.append(bar);
-
-  const pages = ctx.pages('kms');
-  const notes = panel('Notes');
-
-  if (!pages.length) {
-    notes.body.append(empty(
-      'Nothing distilled yet',
-      'Start from a source you have finished reading. Sources has a button that opens the note with the right headings already in it.',
-    ));
-  } else {
-    for (const page of pages) {
-      const cardCount = K.cards().filter((card) => card.pageId === page.id).length;
-      const node = row({
-        title: page.title,
-        sub: `${ctx.pathOf(page.id)} · ${ctx.when(page.updated)}`,
-        badges: cardCount ? [`${cardCount} ${cardCount === 1 ? 'card' : 'cards'}`] : ['No cards yet'],
-        onClick: () => ctx.go(ctx.notePath(page)),
-      });
-      notes.body.append(node);
-    }
-  }
-  doc.append(notes);
-
-  /* Cutting a card is the action that connects this screen to the next one.
-     It is a form rather than a button because a card is a question and an
-     answer, and asking for both here is what stops people writing cards
-     that are really just headings. */
-  const cut = panel('Cut a recall card');
-  const form = el('form', 'v-form');
-  const which = el('div', 'v-field');
-  which.append(el('label', 'v-field__label', 'From which note'));
-  const select = el('select', 'v-input v-field__input');
-  for (const page of pages) {
-    const option = el('option', null, page.title);
-    option.value = page.id;
-    select.append(option);
-  }
-  which.append(select);
-  form.append(which);
-
-  const front = field(form, 'The question', 'Write it so that answering it needs the idea, not the wording.');
-  const back = field(form, 'The answer', 'One or two sentences. A card that needs a paragraph is two cards.');
-
-  const foot = el('div', 'v-form__foot');
-  const save = el('button', 'ws-btn ws-btn--solid', 'Add to the queue');
-  save.type = 'submit';
-  foot.append(save);
-  form.append(foot);
-
-  const said = el('p', 'v-note');
-  said.hidden = true;
-
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    if (!front.value.trim() || !pages.length) return;
-    K.addCard({ front: front.value.trim(), back: back.value.trim(), pageId: select.value });
-    front.value = '';
-    back.value = '';
-    said.hidden = false;
-    said.dataset.tone = 'ok';
-    said.textContent = 'Added. It is due today, and the interval grows every time you get it right.';
+  add.addEventListener('click', async () => {
+    add.disabled = true;
+    status.textContent = 'Creating note…';
+    const made = await ctx.newNote({ space: 'kms' });
+    if (made) return;
+    status.textContent = 'Note could not be created. Try again.';
+    add.disabled = false;
   });
+  const actions = el('div', 'v-toolbar');
+  actions.append(add, status);
+  doc.append(actions);
 
-  cut.body.append(form, said);
-  if (!pages.length) {
-    cut.body.innerHTML = '';
-    cut.body.append(empty('Write a note first', 'A card cut from nothing is a fact you will not be able to place when it comes back.'));
-  }
-  doc.append(cut);
+  const box = el('section', 'v-panel');
+  const head = el('div', 'v-panel__head');
+  head.append(el('h2', 'v-panel__title', 'Notes'));
+  const body = el('div', 'v-panel__body');
+  box.append(head, body);
+  doc.append(box);
 
-  doc.append(el('p', 'v-note', 'Notes are Markdown in your Nextcloud; cards and paths are kept in your account. Both follow you to any device.'));
+  K.ready().then(() => {
+    if (!body.isConnected) return;
+    status.textContent = 'Saved to your account';
+    const pages = ctx.pages('kms');
+    if (!pages.length) {
+      body.append(notice('Nothing distilled yet', 'Create a note here, or distill a source into your own words. New notes open directly in the editor.'));
+      return;
+    }
+    for (const page of pages) {
+      const item = el('div', 'v-row');
+      const main = el('button', 'v-row__main');
+      main.type = 'button';
+      main.append(el('strong', null, page.title || 'Untitled'));
+      main.append(el('small', null, [ctx.pathOf(page.id), ctx.when(page.updated)].filter(Boolean).join(' · ')));
+      main.addEventListener('click', () => ctx.go(ctx.notePath(page)));
+      const card = el('button', 'ws-btn ws-btn--tiny', 'Make recall card');
+      card.type = 'button';
+      card.addEventListener('click', () => {
+        const front = prompt('Question / prompt for this recall card', page.title || '');
+        if (!front?.trim()) { status.textContent = 'Card not created'; return; }
+        const back = prompt('Answer', '');
+        if (back == null) { status.textContent = 'Card not created'; return; }
+        K.addCard({ front: front.trim(), back: back.trim(), pageId: String(page.id) });
+        status.textContent = 'Recall card saved';
+      });
+      item.append(main, card);
+      body.append(item);
+    }
+  }).catch(() => {
+    if (!body.isConnected) return;
+    status.textContent = 'Unavailable';
+    body.append(notice('Knowledge base unavailable', 'The account-backed note service did not answer. No sample notes were substituted.', true));
+  });
+}
+
+/* Loading and empty are not failures; only a failure gets the red rule. */
+function notice(title, detail, bad = false) {
+  const node = el('div', 'ws-alert');
+  node.dataset.tone = bad ? 'bad' : 'quiet';
+  node.append(el('strong', 'ws-alert__title', title), el('p', null, detail));
+  return node;
 }
 
 /* ==========================================================================
    RECALL & REVIEW
-   One card at a time, full width, three buttons. Everything else on the
-   screen is deliberately absent: a queue with a sidebar is a queue people
-   read instead of answer.
+   One card at a time and three grades. Every grade moves the card on the
+   schedule kept in the account, so the queue is the same on every device.
    ========================================================================== */
 
 export function renderKmsRecall(host, ctx) {
-  if (whenReady(host, 'Recall', () => renderKmsRecall(host, ctx))) return;
-  const doc = docShell(
-    host,
-    'Recall & Review',
-    'The cards you are closest to forgetting. Answer before you turn the card over; reading the answer first teaches nothing.',
-  );
+  const doc = docShell(host, 'Recall & Review', 'Account-backed spaced review. Every grade changes the real review schedule and is available on your other devices.');
+  const body = el('div');
+  doc.append(body);
+  body.append(notice('Loading review queue', 'Reading your saved recall schedule…'));
 
-  const holder = el('div');
-  doc.append(holder);
-
-  let queue = K.dueCards();
-  let index = 0;
-  let revealed = false;
-
-  const draw = () => {
-    holder.innerHTML = '';
-
-    if (!queue.length) {
-      const counts = K.queueCounts();
-      holder.append(stats([
-        ['Reviewed today', K.reviewedToday()],
-        ['Day streak', K.reviewStreak()],
-        ['Due in a week', counts.soon],
-        ['Held', `${counts.held}/${counts.total}`],
-      ]));
-      holder.append(empty(
-        'Nothing due',
-        'The queue is empty until something is close to being forgotten again. Coming back to an empty queue is the system working, not a wasted trip.',
-      ));
-      const next = el('button', 'ws-btn', 'Back to the overview');
-      next.type = 'button';
-      next.addEventListener('click', () => ctx.go('/workspace/kms'));
-      holder.append(next);
-      return;
-    }
-
-    if (index >= queue.length) {
-      holder.append(el('p', 'v-next__kicker', 'Done'));
-      holder.append(el('h2', 'v-next__title', `${queue.length} ${queue.length === 1 ? 'card' : 'cards'} reviewed`));
-      holder.append(el('p', 'v-next__body', 'Anything you marked "again" is back in today’s queue. Everything else has moved out to its next interval.'));
-
-      const again = el('button', 'ws-btn ws-btn--solid', 'Check for more');
-      again.type = 'button';
-      again.addEventListener('click', () => { queue = K.dueCards(); index = 0; revealed = false; draw(); });
-      holder.append(again);
-      return;
-    }
-
-    const card = queue[index];
-
-    const progress = el('div', 'v-review__progress');
-    progress.append(el('span', null, `${index + 1} of ${queue.length}`));
-    progress.append(meter(((index) / queue.length) * 100));
-    holder.append(progress);
-
-    const face = el('section', 'v-review');
-    face.append(el('p', 'v-review__due', dueLabel(card)));
-    face.append(el('h2', 'v-review__front', card.front));
-
-    if (revealed) {
-      face.append(el('p', 'v-review__back', card.back || 'No answer was written on this card.'));
-
-      const verdicts = el('div', 'v-review__actions');
-      const gradeIt = (verdict) => {
-        K.grade(card.id, verdict);
-        index += 1;
-        revealed = false;
-        draw();
-      };
-      /* Three, in the order of how the last minute went. "Again" first
-         because it is the honest answer most often, and putting it last
-         behind two easier ones is how review systems quietly inflate. */
-      verdicts.append(gradeButton('Again', 'Did not have it', () => gradeIt('again')));
-      verdicts.append(gradeButton('Hard', 'Got there slowly', () => gradeIt('hard')));
-      verdicts.append(gradeButton('Good', 'Straight away', () => gradeIt('good'), true));
-      face.append(verdicts);
-
-      if (card.pageId) {
-        const source = el('button', 'v-mini-btn', 'Open the note this came from');
-        source.type = 'button';
-        source.addEventListener('click', () => ctx.go(`/workspace/page/${card.pageId}`));
-        face.append(source);
+  K.ready().then(() => {
+    if (!body.isConnected) return;
+    let queue = K.dueCards();
+    let revealed = false;
+    const draw = () => {
+      body.innerHTML = '';
+      if (!queue.length) {
+        const done = notice('Review queue clear', K.cards().length
+          ? 'Nothing else is due today.'
+          : 'You have no recall cards yet. Create one from Personal learning notes.');
+        const open = el('button', 'ws-btn ws-btn--solid', 'Open personal learning notes');
+        open.type = 'button';
+        open.addEventListener('click', () => ctx.go('/workspace/kms/base'));
+        done.append(open);
+        body.append(done);
+        return;
       }
-    } else {
-      const show = el('button', 'ws-btn ws-btn--solid', 'Show the answer');
-      show.type = 'button';
-      show.addEventListener('click', () => { revealed = true; draw(); });
-      face.append(show);
-    }
+      const card = queue[0];
+      const progress = el('div', 'v-toolbar');
+      progress.append(el('span', 'v-toolbar__count', `1 of ${queue.length}`));
+      const due = K.daysUntil(card.due || K.iso(new Date()));
+      progress.append(el('span', 'v-note', due < 0 ? `${Math.abs(due)} days overdue` : 'Due today'));
+      body.append(progress);
 
-    holder.append(face);
-  };
-
-  /* Space reveals, then 1-2-3 grade. The whole point of a review queue is
-     that it can be run without the hand leaving the keyboard; a queue that
-     needs the mouse for every card takes twice as long and gets skipped. */
-  const keys = (event) => {
-    if (!queue.length || index >= queue.length) return;
-    if (event.target.closest('input, textarea, [contenteditable]')) return;
-    if (event.key === ' ' && !revealed) { event.preventDefault(); revealed = true; draw(); return; }
-    if (!revealed) return;
-    const map = { 1: 'again', 2: 'hard', 3: 'good' };
-    const verdict = map[event.key];
-    if (!verdict) return;
-    event.preventDefault();
-    K.grade(queue[index].id, verdict);
-    index += 1;
-    revealed = false;
+      const face = el('section', 'v-panel kms-recall-card');
+      const faceBody = el('div', 'v-panel__body');
+      faceBody.append(el('h2', 'ws-doc__title', card.front || 'Untitled card'));
+      if (!revealed) {
+        const show = el('button', 'ws-btn ws-btn--solid', 'Show the answer');
+        show.type = 'button';
+        show.addEventListener('click', () => { revealed = true; draw(); });
+        faceBody.append(show);
+      } else {
+        faceBody.append(el('div', 'kms-recall-answer', card.back || 'No answer was saved for this card.'));
+        const grading = el('div', 'v-toolbar');
+        for (const [verdict, label] of [['again', 'Again'], ['hard', 'Hard'], ['good', 'Good']]) {
+          const grade = el('button', `ws-btn${verdict === 'good' ? ' ws-btn--solid' : ''}`, label);
+          grade.type = 'button';
+          grade.addEventListener('click', () => {
+            K.grade(card.id, verdict);
+            queue = K.dueCards();
+            // Again stays due and comes back later in the sitting rather
+            // than trapping the reader on the same card.
+            if (verdict === 'again' && queue.length > 1) queue.push(queue.shift());
+            revealed = false;
+            draw();
+          });
+          grading.append(grade);
+        }
+        faceBody.append(grading);
+      }
+      face.append(faceBody);
+      body.append(face);
+    };
     draw();
-  };
-  addEventListener('keydown', keys);
-  // The shell empties #ws-view on every navigation, so the listener is
-  // removed when this subtree leaves the document rather than being left to
-  // grade cards on a screen that is no longer open.
-  new MutationObserver((records, self) => {
-    if (!host.isConnected || !doc.isConnected) { removeEventListener('keydown', keys); self.disconnect(); }
-  }).observe(host, { childList: true });
-
-  draw();
-}
-
-function gradeButton(label, hint, onClick, solid) {
-  const button = el('button', 'v-verdict' + (solid ? ' v-verdict--good' : ''));
-  button.type = 'button';
-  button.append(el('strong', null, label));
-  button.append(el('small', null, hint));
-  button.addEventListener('click', onClick);
-  return button;
+  }).catch(() => {
+    if (!body.isConnected) return;
+    body.innerHTML = '';
+    body.append(notice('Review queue unavailable', 'Your saved KMS state could not be loaded. No demo cards were substituted.', true));
+  });
 }
 
 /* ==========================================================================

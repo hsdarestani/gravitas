@@ -70,16 +70,16 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         five = (ROOT / 'assets' / 'ws' / 'ws-five-layer.js').read_text(encoding='utf-8')
 
         for marker in (
-            '/assets/ws/ws-app.js?v=20261011-r2',
-            '/assets/ws/ws-unified-design.css?v=20261011-r2',
+            '/assets/ws/ws-app.js?v=20261011-r3',
+            '/assets/ws/ws-unified-design.css?v=20261011-r3',
         ):
             self.assertIn(marker, html)
 
-        self.assertIn("./ws-research.js?v=20261011-r2", app)
-        self.assertIn("./ws-five-layer.js?v=20261011-r2", app)
-        self.assertIn("./ws-nextcloud-native.js?v=20261011-r2", app)
-        self.assertIn("./ws-nav.js?v=20261011-r2", app)
-        self.assertIn("./ws-home.js?v=20261011-r2", app)
-        self.assertIn("./ws-member-lms.js?v=20261011-r2", five)
-        self.assertIn("./ws-member-progress.js?v=20261011-r2", five)
+        self.assertIn("./ws-research.js?v=20261011-r3", app)
+        self.assertIn("./ws-five-layer.js?v=20261011-r3", app)
+        self.assertIn("./ws-nextcloud-native.js?v=20261011-r3", app)
+        self.assertIn("./ws-nav.js?v=20261011-r3", app)
+        self.assertIn("./ws-home.js?v=20261011-r3", app)
+        self.assertIn("./ws-member-lms.js?v=20261011-r3", five)
+        self.assertIn("./ws-member-progress.js?v=20261011-r3", five)
         self.assertFalse((ROOT / 'assets' / 'ws' / 'ws-design-runtime.js').exists())
