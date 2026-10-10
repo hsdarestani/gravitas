@@ -21,17 +21,19 @@
 
 import * as api from './ws-api.js?v=20261008-native3';
 import * as P from './ws-platform.js?v=20261008-operational2';
-import * as views from './ws-views.js?v=20261010-tasks1';
+import { renderCoreTeam } from './ws-core-team.js?v=20261011-r1';
+import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r1';
+import * as views from './ws-views.js?v=20261011-r1';
 import * as meetings from './ws-meetings.js?v=20261008-operational2';
 import * as assets from './ws-core-assets.js?v=20261009-copy1';
 import * as kms from './ws-kms-views.js';
 import * as library from './ws-library.js?v=20261008-operational2';
-import * as research from './ws-research.js?v=20261008-operational2';
+import * as research from './ws-research.js?v=20261011-r1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf,
-} from './ws-nav.js?v=20261009-copy1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261010-tasks1';
+} from './ws-nav.js?v=20261011-r1';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261011-r1';
 import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261010-settings1';
 import { mountPalette, openPalette } from './ws-palette.js?v=20261010-notes2';
 import { installAssistant, askAssistant } from './ws-ai.js?v=20261008-native3';
@@ -566,8 +568,7 @@ function workspaceChoice(workspace) {
    section's name. The product is new to most people who open it, and a
    column of bare nouns — Assets, Planning, Opportunities — asks them to
    click each one to find out, which reads as a test rather than a welcome.
-   The label keeps its own span, untouched, because ws-actionable-ui and
-   ws-research-actions read `.ws-node__label` to recognise a section. */
+   The label keeps its own span so a long hint never wraps into the name. */
 function sectionRow({ label, hint = '', mark, depth, active, expandable, expanded, onToggle, onClick, series = '' }) {
   const wrap = document.createElement('div');
   wrap.className = 'ws-node';
@@ -1416,8 +1417,8 @@ function render() {
   else if (view === 'kms') kms.renderKmsOverview(host, ctx);
   else if (view === 'core-tasks') views.renderCoreTasks(host, ctx);
   else if (view === 'core-meetings') meetings.renderCoreMeetings(host, ctx);
-  else if (view === 'core-content') views.renderCoreContent(host, ctx);
-  else if (view === 'core-team') views.renderCoreTeam(host, ctx);
+  else if (view === 'core-content') renderCoreContent(host);
+  else if (view === 'core-team') renderCoreTeam(host, ctx);
   else if (view === 'core-planning') views.renderCorePlanning(host, ctx);
   else if (view === 'core-assets') assets.renderCoreAssets(host, ctx);
   else if (view === 'core-blueprint') assets.renderContentStudioBlueprint(host, ctx);

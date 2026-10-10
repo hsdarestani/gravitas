@@ -201,7 +201,9 @@ class SpaceWorkspaceAssetContractTests(TestCase):
         script = (root / 'assets' / 'ws' / 'ws-space-integration.js').read_text(encoding='utf-8')
         self.assertIn('ws-space-integration.css?v=20260917-1', workspace)
         self.assertIn('installSpaceWorkspaceIntegration', workspace)
-        self.assertIn('space_category_id', script)
+        # Projects are filed in a Space category by the one New project dialog.
+        create = (root / 'assets' / 'ws' / 'ws-research-create.js').read_text(encoding='utf-8')
+        self.assertIn('space_category_id', create)
         self.assertIn('/platform/space/notes/?remote=1', script)
         self.assertIn('/platform/space/reconcile/', script)
         self.assertIn('/platform/annotations/', script)

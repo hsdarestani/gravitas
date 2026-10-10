@@ -9,7 +9,9 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261008-operational2';
-import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261009-copy1';
+import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261011-r1';
+import * as K from './ws-admin-kit.js?v=20261011-r1';
+import { deckPanel } from './ws-deck-sync.js?v=20261011-r1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -167,10 +169,11 @@ export function openCoreTask(taskId, { go, onTaskChange } = {}) {
 
 export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = null }) {
   const doc = docShell(host, 'Tasks & Execution', 'Manager-defined execution. Create tasks manually from existing Key Results and optional Milestones.');
-  // ws-task-deck-mirror.js looks for this to know the board is already drawn.
-  doc.dataset.coreTasksNative = 'true';
   const head = doc.querySelector(':scope > .ws-doc__head');
   head.classList.add('task-board__head');
+  // The Deck row belongs to the board on screen, not to the copy openCoreTask
+  // draws off-screen to reuse the task dialog.
+  if (host.isConnected) head.after(deckPanel({ go, onPulled: () => renderCoreTasks(host, { go, openTaskId, onTaskChange }) }));
   const holder = el('div');
   doc.append(holder);
   skeleton(8, holder);
@@ -1776,71 +1779,6 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   });
 }
 
-/* The pipeline is the one genuinely two-dimensional screen in the workspace,
-   so it stays a board. Six columns, scrolling sideways as one unit rather
-   than each column scrolling on its own. */
-const PIPELINE = ['idea', 'research', 'script', 'production', 'edit', 'published'];
-
-function inStage(item, stage) {
-  if (stage === 'research') return ['research', 'brief', 'scientific_review'].includes(item.status);
-  if (stage === 'production') return ['production', 'qa'].includes(item.status);
-  return item.status === stage;
-}
-
-export function renderCoreContent(host) {
-  const doc = docShell(host, 'Content Pipeline', 'Videos, articles, design and production, and the handoff into research.');
-  const holder = el('div');
-  doc.append(holder);
-  skeleton(5, holder);
-
-  return guard(holder, 'the content pipeline', async () => {
-    const data = await P.content();
-    holder.innerHTML = '';
-    const items = data.items || [];
-
-    if (!items.length) {
-      holder.append(empty('The pipeline is empty', 'Content items appear here as the team creates them.'));
-      return;
-    }
-
-    /* The board scrolls sideways at narrow widths, and a scrollable region
-       whose contents are not focusable is unreachable by keyboard. Made a
-       labelled, focusable group so arrow keys can pan it. */
-    const board = el('div', 'v-board');
-    board.tabIndex = 0;
-    board.setAttribute('role', 'group');
-    board.setAttribute('aria-label', 'Content pipeline, by stage');
-    for (const stage of PIPELINE) {
-      const matches = items.filter((item) => inStage(item, stage));
-      const column = el('section', 'v-column');
-
-      const head = el('div', 'v-column__head');
-      head.append(el('strong', null, P.label(stage)));
-      head.append(el('span', 'v-column__count', String(matches.length)));
-      column.append(head);
-
-      if (!matches.length) {
-        // A dashed outline rather than words: six columns each explaining
-        // that they are empty is noise, and the shape already says it.
-        column.append(el('div', 'v-column__empty'));
-      }
-
-      for (const item of matches) {
-        const card = el('article', 'v-card');
-        card.append(el('h3', null, item.title));
-        if (item.description) card.append(el('p', null, item.description.slice(0, 120)));
-        const foot = el('div', 'v-card__meta');
-        foot.append(el('span', null, P.label(item.kind)));
-        if (item.due_date) foot.append(el('span', null, P.formatDate(item.due_date)));
-        card.append(foot);
-        column.append(card);
-      }
-      board.append(column);
-    }
-    holder.append(board);
-  });
-}
-
 export function renderCorePlanning(host, { go }) {
   const doc = docShell(host, 'Planning', 'A simple manager view of Objectives, Key Results and Milestones.');
   const holder = el('div');
@@ -2078,37 +2016,6 @@ export function renderCorePlanning(host, { go }) {
   });
 }
 
-export function renderCoreTeam(host) {
-  const doc = docShell(host, 'Team & Access', 'Core members, their roles and their storage.');
-  const holder = el('div');
-  doc.append(holder);
-  skeleton(6, holder);
-
-  return guard(holder, 'the team', async () => {
-    const data = await P.team();
-    holder.innerHTML = '';
-    const members = data.members || data.team || [];
-
-    if (!members.length) {
-      holder.append(empty('No members listed', 'Core members appear here once they are provisioned.'));
-      return;
-    }
-
-    const list = panel('Core team');
-    for (const member of members) {
-      const name = member.name || member.email || 'Member';
-      const avatar = el('span', 'v-avatar', name.charAt(0).toUpperCase());
-      const node = row({
-        title: name,
-        sub: P.meta([member.email, P.label(member.role)]),
-      });
-      node.prepend(avatar);
-      list.body.append(node);
-    }
-    holder.append(list);
-  });
-}
-
 /* ==========================================================================
    RESEARCH
    ========================================================================== */
@@ -2257,9 +2164,68 @@ function resourceRow(item) {
   return node;
 }
 
-export function renderResources(host, kind) {
+/* Uploading is part of the screen. It used to be a toolbar another module
+   pasted under the head once the list had drawn, and a finished upload
+   reloaded the whole workspace to show the new row. */
+const DATASET_ACCEPT = '.csv,.tsv,.xlsx,.xls,.json,.jsonl,.zip,.parquet,.xml';
+const UPLOAD_ERRORS = {
+  unsupported_dataset_type: `That file type is not a dataset format. Use ${DATASET_ACCEPT.replaceAll('.', '').replaceAll(',', ', ')}.`,
+  file_exists: 'A file with this name already exists there.',
+  quota_exceeded: 'Your storage quota is full.',
+  cloud_unavailable: 'Nextcloud is unavailable right now. Nothing was uploaded.',
+  permission_denied: 'You cannot upload to that project.',
+};
+
+function uploadBar(kind, onUploaded) {
+  const bar = el('div', 'v-toolbar');
+  const project = el('select', 'v-input');
+  project.setAttribute('aria-label', 'Where the upload goes');
+  project.append(new Option('My private research workspace', ''));
+  P.projects().then((data) => {
+    for (const item of data.projects || []) project.append(new Option(item.title, String(item.id)));
+  }).catch(() => {});
+  const picker = el('input');
+  picker.type = 'file';
+  picker.hidden = true;
+  if (kind === 'dataset') picker.accept = DATASET_ACCEPT;
+  const start = el('button', 'ws-btn ws-btn--solid', kind === 'dataset' ? 'Upload dataset' : 'Upload file');
+  start.type = 'button';
+  start.addEventListener('click', () => picker.click());
+  const line = el('span', 'v-toolbar__count');
+  line.setAttribute('role', 'status');
+  picker.addEventListener('change', async () => {
+    const file = picker.files?.[0];
+    picker.value = '';
+    if (!file) return;
+    start.disabled = true;
+    project.disabled = true;
+    line.textContent = `Uploading ${file.name}…`;
+    delete line.dataset.tone;
+    const form = new FormData();
+    form.append('file', file);
+    form.append('kind', kind);
+    if (project.value) form.append('project_id', project.value);
+    else if (P.platform.boot?.workspaces?.research?.id) form.append('workspace_id', String(P.platform.boot.workspaces.research.id));
+    try {
+      await P.upload('/platform/files/upload/', form);
+      onUploaded(file.name);
+    } catch (error) {
+      line.textContent = UPLOAD_ERRORS[error?.message] || 'The upload failed. Nothing was changed.';
+      line.dataset.tone = 'bad';
+      start.disabled = false;
+      project.disabled = false;
+    }
+  });
+  bar.append(start, project, picker, line);
+  return bar;
+}
+
+export function renderResources(host, kind, { justUploaded = '' } = {}) {
   const [title, subtitle] = RESOURCE_VIEWS[kind] || RESOURCE_VIEWS.file;
   const doc = docShell(host, title, subtitle);
+  const bar = uploadBar(kind, (name) => renderResources(host, kind, { justUploaded: name }));
+  if (justUploaded) bar.querySelector('.v-toolbar__count').textContent = `${justUploaded} uploaded.`;
+  doc.append(bar);
   const holder = el('div');
   doc.append(holder);
   skeleton(7, holder);
@@ -2466,7 +2432,7 @@ export function renderShared(host) {
     holder.innerHTML = '';
     const items = data.items || [];
     if (!items.length) {
-      holder.append(empty('Nothing shared yet', 'Items shared directly with your account appear here.'));
+      holder.append(empty('Nothing shared yet', 'This view is read-only by design. Items appear here when someone shares a project, file, note, map or task directly with you.'));
       return;
     }
     const list = panel('Shared items');
@@ -2482,6 +2448,7 @@ export function renderShared(host) {
 
 export function renderPeople(host) {
   const doc = docShell(host, 'Researchers', 'Researcher profiles and the collaboration network.');
+  const redraw = () => renderPeople(host);
   const holder = el('div');
   doc.append(holder);
   skeleton(6, holder);
@@ -2521,9 +2488,38 @@ export function renderPeople(host) {
     self.body.append(el('small', null, profile.is_public
       ? 'Visible in the research network.'
       : 'Private. Only you can see this profile.'));
+    // The panel used to say "Add a headline" with nothing to add it with.
+    const edit = el('button', 'ws-btn ws-btn--solid', 'Edit my profile');
+    edit.type = 'button';
+    edit.addEventListener('click', () => editResearcherProfile(profile, redraw));
+    self.body.append(edit);
 
     columns.append(list, self);
     holder.append(columns);
+  });
+}
+
+function editResearcherProfile(current, onSaved) {
+  K.dialog('My researcher profile', (grid) => {
+    const headline = K.input(current.headline || '', 'text', 'What you research, in a line');
+    const institution = K.input(current.institution || '', 'text', 'Institution');
+    const skills = K.input((current.skills || []).join(', '), 'text', 'Comma-separated');
+    const bio = K.textarea(current.bio || '', 5, 'Background and interests');
+    const visible = K.toggle(current.is_public, 'Show me in the researcher network', 'Off keeps the profile visible to you only.');
+    grid.append(K.fields([K.field('Headline', headline), K.field('Institution', institution)], 2), K.field('Skills', skills, '', { wide: true }), K.field('Bio', bio, '', { wide: true }), visible.wrap);
+    return { headline, institution, skills, bio, visible };
+  }, {
+    submit: 'Save profile',
+    onSubmit: async (f) => {
+      await P.call('/platform/researchers/me/', { method: 'PATCH', body: {
+        headline: f.headline.value.trim(),
+        institution: f.institution.value.trim(),
+        skills: f.skills.value.split(',').map((item) => item.trim()).filter(Boolean),
+        bio: f.bio.value.trim(),
+        is_public: f.visible.input.checked,
+      } });
+      onSaved();
+    },
   });
 }
 

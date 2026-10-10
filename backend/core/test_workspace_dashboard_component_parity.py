@@ -34,7 +34,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         self.assertIn("today.dataset.span = '8'", source)
         self.assertIn("projects.dataset.span = '8'", source)
         self.assertIn("const section = el('section', 'ri wc-card')", source)
-        self.assertIn('workspaceOverviewHead(scope, P.platform.user)', source)
+        self.assertIn('workspaceOverviewHead(scope, P.platform.user, ctx.go)', source)
 
     def test_shared_renderers_emit_real_dashboard_classes(self):
         shared = self.read('ws-views.js')
@@ -49,7 +49,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         # chart kit's card() and rows as wc-items.
         admin = self.read('ws-admin.js')
         kit = self.read('ws-admin-kit.js')
-        self.assertIn("./ws-admin-kit.js?v=20261008-operational2", admin)
+        self.assertIn("./ws-admin-kit.js?v=20261011-r1", admin)
         self.assertIn('C.card(', kit)
         self.assertIn("'adm-row wc-item'", kit)
 
@@ -69,22 +69,22 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
 
     def test_workspace_force_loads_rebuilt_renderers(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-app.js?v=20261010-notes2', html)
-        self.assertIn('/assets/ws/ws-five-layer.js?v=20261009-copy1', html)
+        self.assertIn('/assets/ws/ws-app.js?v=20261011-r1', html)
+        self.assertIn('/assets/ws/ws-five-layer.js?v=20261011-r1', html)
         self.assertIn('/assets/ws/ws-charts.css?v=20261009-ds2', html)
-        self.assertIn('/assets/ws/ws-unified-design.css?v=20261009-ds2', html)
+        self.assertIn('/assets/ws/ws-unified-design.css?v=20261011-r1', html)
 
         app = self.read('ws-app.js')
-        self.assertIn("./ws-home.js?v=20261010-tasks1", app)
-        self.assertIn("./ws-views.js?v=20261010-tasks1", app)
+        self.assertIn("./ws-home.js?v=20261011-r1", app)
+        self.assertIn("./ws-views.js?v=20261011-r1", app)
         self.assertIn("./ws-meetings.js?v=20261008-operational2", app)
         self.assertIn("./ws-core-assets.js?v=20261009-copy1", app)
 
         five = self.read('ws-five-layer.js')
         for marker in (
-            "./ws-member-lms.js?v=20261009-copy1",
+            "./ws-member-lms.js?v=20261011-r1",
             "./ws-member-progress.js?v=20261008-operational2",
-            "./ws-admin.js?v=20261009-copy1",
+            "./ws-admin.js?v=20261011-r1",
             "./ws-project.js?v=20261009-copy1",
         ):
             self.assertIn(marker, five)

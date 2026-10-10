@@ -12,7 +12,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261008-operational2';
-import * as K from './ws-admin-kit.js?v=20261008-operational2';
+import * as K from './ws-admin-kit.js?v=20261011-r1';
 
 const { el } = K;
 

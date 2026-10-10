@@ -57,8 +57,14 @@ function badge(text, tone = '') {
   return node;
 }
 
-function metric(value, title, note = '') {
-  const node = el('div', 'fl-metric wc-tile');
+/* A number. With `onClick` it is a button that opens what it counts; that
+   used to be wired on afterwards by ws-actionable-ui.js matching labels. */
+function metric(value, title, note = '', onClick = null) {
+  const node = el(onClick ? 'button' : 'div', `fl-metric wc-tile${onClick ? ' wc-tile--button' : ''}`);
+  if (onClick) {
+    node.type = 'button';
+    node.addEventListener('click', onClick);
+  }
   const head = el('div', 'wc-tile__head');
   head.append(el('span', 'fl-metric__title wc-tile__label', title));
   node.append(head);
@@ -572,10 +578,15 @@ export async function renderMemberLibrary(host, { go }) {
     const data = await P.memberDashboard();
     const wrap = doc(host, 'Library', 'Material saved and followed from the public Gravitas+ site.');
     const metrics = el('div', 'fl-metrics');
-    metrics.append(metric(data.library.saved_count, 'Saved'), metric(data.library.following_count, 'Following'));
+    const reveal = (box) => () => box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const saved = section('Saved');
+    const following = section('Following');
+    metrics.append(
+      metric(data.library.saved_count, 'Saved', '', reveal(saved.box)),
+      metric(data.library.following_count, 'Following', '', reveal(following.box)),
+    );
     wrap.append(metrics);
 
-    const saved = section('Saved');
     if (!data.library.recent_saved.length) saved.body.append(empty('Your library is empty', 'Use Save on public articles, dossiers and learning material.'));
     for (const item of data.library.recent_saved) {
       const tools = [];
@@ -600,7 +611,6 @@ export async function renderMemberLibrary(host, { go }) {
     }
     wrap.append(saved.box);
 
-    const following = section('Following');
     if (!data.library.following.length) following.body.append(empty('Not following anything yet', 'Follow a topic on the public site to keep it in your account.'));
     for (const item of data.library.following) {
       const tools = [];
@@ -626,23 +636,46 @@ export async function renderMemberDiscussions(host) {
   try {
     const data = await P.memberDashboard();
     const wrap = doc(host, 'Discussions', 'Your contributions on published Gravitas+ material.');
+    // The tiles filter the list beneath them. ?status= still works, because
+    // the dashboards link here with it.
+    let status = new URLSearchParams(location.search).get('status') || '';
+    const matches = (item) => {
+      const word = label(item.status).toLowerCase();
+      return !status || (status === 'published' ? word.includes('published') : word.includes('pending'));
+    };
+    const box = section('Recent contributions');
+    const draw = () => {
+      box.body.replaceChildren();
+      const shown = data.discussions.recent.filter(matches);
+      if (status) {
+        const note = el('div', 'fl-filter-note');
+        note.append(el('span', null, `${shown.length} ${status === 'published' ? 'published' : 'pending'} contribution${shown.length === 1 ? '' : 's'}`));
+        const clear = action('Show all', () => { status = ''; draw(); });
+        clear.classList.add('ws-btn--tiny');
+        note.append(clear);
+        box.body.append(note);
+      }
+      if (!shown.length) {
+        box.body.append(empty(status ? 'Nothing in this state' : 'No discussions yet', status ? 'Try another filter.' : 'Comments you post on public material appear here.'));
+        return;
+      }
+      for (const item of shown) {
+        box.body.append(row({
+          title: item.content_key.replace(/-/g, ' '),
+          meta: P.meta([label(item.status), date(item.updated_at)]),
+          body: item.body,
+        }));
+      }
+    };
+    const pick = (next) => () => { status = next; draw(); box.box.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     const metrics = el('div', 'fl-metrics');
     metrics.append(
-      metric(data.discussions.total, 'Contributions'),
-      metric(data.discussions.published, 'Published'),
-      metric(data.discussions.pending, 'Pending review'),
+      metric(data.discussions.total, 'Contributions', '', pick('')),
+      metric(data.discussions.published, 'Published', '', pick('published')),
+      metric(data.discussions.pending, 'Pending review', '', pick('pending')),
     );
-    wrap.append(metrics);
-    const box = section('Recent contributions');
-    if (!data.discussions.recent.length) box.body.append(empty('No discussions yet', 'Comments you post on public material appear here.'));
-    for (const item of data.discussions.recent) {
-      box.body.append(row({
-        title: item.content_key.replace(/-/g, ' '),
-        meta: P.meta([label(item.status), date(item.updated_at)]),
-        body: item.body,
-      }));
-    }
-    wrap.append(box.box);
+    wrap.append(metrics, box.box);
+    draw();
   } catch (error) {
     errorView(host, 'Discussions', error, () => renderMemberDiscussions(host));
   }

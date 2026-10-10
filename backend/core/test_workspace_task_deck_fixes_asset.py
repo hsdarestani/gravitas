@@ -6,37 +6,30 @@ from django.test import SimpleTestCase
 ROOT = Path(__file__).resolve().parents[2]
 
 
-class WorkspaceTaskDeckFixContractTests(SimpleTestCase):
+class WorkspaceTaskDeckContractTests(SimpleTestCase):
+    """Core Tasks draws its own Deck row (ws-deck-sync.js).
+
+    It used to be inserted by the ws-task-deck-mirror.js overlay, which also
+    redrew the board when it thought another overlay had replaced it.
+    """
+
     def read(self, relative_path):
         return (ROOT / relative_path).read_text(encoding='utf-8')
 
-    def test_workspace_loads_fix_and_mirror_layers(self):
-        html = self.read('workspace.html')
-        self.assertIn('ws-task-deck-fixes.js', html)
-        self.assertIn('installWorkspaceTaskDeckFixes()', html)
-        self.assertIn('ws-task-deck-mirror.js', html)
-        self.assertIn('installTaskDeckMirror()', html)
+    def test_core_tasks_insert_the_deck_row_themselves(self):
+        views = self.read('assets/ws/ws-views.js')
+        self.assertIn("import { deckPanel } from './ws-deck-sync.js", views)
+        self.assertIn('if (host.isConnected) head.after(deckPanel(', views)
 
-    def test_duplicate_active_index_entries_are_collapsed_to_deepest_match(self):
-        js = self.read('assets/ws/ws-task-deck-fixes.js')
-        self.assertIn('dedupeSelectedNavigation', js)
-        self.assertIn("current.slice(0, -1)", js)
-        self.assertIn("removeAttribute('aria-current')", js)
-
-    def test_research_surface_exposes_project_and_task_creation(self):
-        js = self.read('assets/ws/ws-task-deck-fixes.js')
-        self.assertIn("'New project'", js)
-        self.assertIn("'New task'", js)
-        self.assertIn("P.call('/platform/projects/'", js)
-        self.assertIn("/tasks/`,", js)
-
-    def test_core_tasks_keep_native_gravitas_and_bidirectional_deck_mirror(self):
-        js = self.read('assets/ws/ws-task-deck-mirror.js')
-        self.assertIn('renderCoreTasks(host, { go })', js)
+    def test_deck_row_syncs_both_ways(self):
+        js = self.read('assets/ws/ws-deck-sync.js')
         self.assertIn('Synced with Nextcloud Deck', js)
         self.assertIn('Title, lane and due date sync both ways', js)
-        self.assertIn("panel.dataset.coreDeckSurface = 'true'", js)
         self.assertIn("P.call('/platform/nextcloud/')", js)
         self.assertIn("P.call('/platform/admin/deck/sync/'", js)
-        self.assertIn("dispatchEvent(new PopStateEvent('popstate'))", js)
-        self.assertNotIn('child.remove()', js)
+        self.assertNotIn('MutationObserver', js)
+        self.assertNotIn('observeSurface', js)
+
+    def test_deck_row_styles_are_in_the_stylesheet(self):
+        self.assertIn('.ws-core-deck-mirror__status', self.read('assets/ws/ws.css'))
+        self.assertNotIn("createElement('style')", self.read('assets/ws/ws-deck-sync.js'))

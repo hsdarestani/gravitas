@@ -80,7 +80,7 @@ export const CORE_SECTIONS = [
   },
   {
     id: 'core-tasks',
-    label: 'Tasks & Execution',
+    label: 'Tasks',
     hint: 'Who is doing what, and by when',
     icon: 'tasks',
     path: '/workspace/core/tasks',
@@ -104,7 +104,7 @@ export const CORE_SECTIONS = [
   },
   {
     id: 'core-content',
-    label: 'Content Pipeline',
+    label: 'Content',
     hint: 'Videos and articles, idea to published',
     icon: 'content',
     path: '/workspace/core/content',
@@ -142,7 +142,7 @@ export const CORE_SECTIONS = [
   },
   {
     id: 'core-team',
-    label: 'Team & Access',
+    label: 'Team',
     hint: 'Members and what they can open',
     icon: 'team',
     path: '/workspace/core/team',
@@ -274,7 +274,7 @@ export const KMS_SECTIONS = [
   },
   {
     id: 'kms-paths',
-    label: 'Learning Paths',
+    label: 'Paths',
     hint: 'What to study next',
     icon: 'path',
     path: '/workspace/kms/paths',
@@ -290,7 +290,7 @@ export const KMS_SECTIONS = [
   },
   {
     id: 'kms-base',
-    label: 'Knowledge Base',
+    label: 'Knowledge',
     hint: 'Notes in your own words',
     icon: 'notes',
     path: '/workspace/kms/base',
@@ -300,7 +300,7 @@ export const KMS_SECTIONS = [
   },
   {
     id: 'kms-recall',
-    label: 'Recall & Review',
+    label: 'Recall',
     hint: 'Rehearse what you have learned',
     icon: 'cycle',
     path: '/workspace/kms/recall',

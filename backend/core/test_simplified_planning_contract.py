@@ -23,7 +23,7 @@ class SimplifiedPlanningContractTests(SimpleTestCase):
     def test_planning_is_simple_okr_kr_milestone_dashboard(self):
         views = self.read('assets/ws/ws-views.js')
         start = views.index('export function renderCorePlanning')
-        end = views.index('export function renderCoreTeam', start)
+        end = views.index('export function renderResearchProjects', start)
         planning = views[start:end]
         self.assertIn("'Objectives'", planning)
         self.assertIn("'Key Results'", planning)

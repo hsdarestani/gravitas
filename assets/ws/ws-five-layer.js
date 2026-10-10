@@ -9,7 +9,7 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20261009-copy1';
+} from './ws-member-lms.js?v=20261011-r1';
 import { renderMemberProgress } from './ws-member-progress.js?v=20261008-operational2';
 import { renderMemberSupport } from './ws-support.js?v=20261008-operational2';
 import {
@@ -26,9 +26,9 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261009-copy1';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261008-operational2';
-import { renderCoreLinks } from './ws-core-links.js?v=20261008-operational2';
+} from './ws-admin.js?v=20261011-r1';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261011-r1';
+import { renderCoreLinks } from './ws-core-links.js?v=20261011-r1';
 import { renderResearchProject } from './ws-project.js?v=20261009-copy1';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
@@ -46,25 +46,25 @@ const DASHBOARD_INDEX = [
 const LEARNING_INDEX = [
   ['Overview', '/workspace/learning', 'overview', 'Where your learning stands'],
   ['Library', '/workspace/learning/library', 'library', 'What you saved from the site'],
-  ['Course Catalog', '/workspace/learning/catalog', 'catalog', 'Browse courses you can join'],
-  ['My Learning', '/workspace/learning/my', 'learning', 'Courses you are taking'],
+  ['Catalog', '/workspace/learning/catalog', 'catalog', 'Browse courses you can join'],
+  ['My courses', '/workspace/learning/my', 'learning', 'Courses you are taking'],
   ['Certificates', '/workspace/learning/certificates', 'certificate', 'Courses you have completed'],
 ];
 
 const ADMIN_INDEX = [
-  ['Admin Overview', '/workspace/core/admin', 'overview', 'The whole platform at a glance'],
-  ['Users & Access', '/workspace/core/admin/users', 'team', 'Accounts, roles and permissions'],
+  ['Overview', '/workspace/core/admin', 'overview', 'The whole platform at a glance'],
+  ['Users', '/workspace/core/admin/users', 'team', 'Accounts, roles and permissions'],
   ['Topics', '/workspace/core/admin/content', 'topic', 'Write and publish site topics'],
   ['Moderation', '/workspace/core/admin/moderation', 'moderation', 'Review public comments'],
   ['Newsletter', '/workspace/core/admin/newsletter', 'mail', 'Subscribers and campaigns'],
   ['Support Tickets', '/workspace/core/admin/tickets', 'support', 'Reply to member requests'],
   ['Interactive Lab', '/workspace/core/admin/labs', 'lab', 'Build interactive experiments'],
-  ['LMS Admin', '/workspace/core/admin/lms', 'course', 'Courses, lessons and enrollments'],
-  ['Research Admin', '/workspace/core/admin/research', 'space-research', 'Every research project'],
-  ['Cross-layer Links', '/workspace/core/admin/links', 'link', 'Connect items across workspaces'],
+  ['LMS', '/workspace/core/admin/lms', 'course', 'Courses, lessons and enrollments'],
+  ['Research', '/workspace/core/admin/research', 'space-research', 'Every research project'],
+  ['Links', '/workspace/core/admin/links', 'link', 'Connect items across workspaces'],
   ['Activity', '/workspace/core/admin/activity', 'activity', 'Who changed what, and when'],
-  ['Nextcloud Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
-  ['Back to Core', '/workspace/core', 'space-core', 'Return to the Core workspace'],
+  ['Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
+  ['Core', '/workspace/core', 'space-core', 'Return to the Core workspace'],
 ];
 
 function navigate(path, { replace = false } = {}) {
@@ -223,9 +223,8 @@ function normalizeRail() {
    the index looks like one component whichever workspace drew it.
 
    `hint` is the short line under the name saying what the section holds,
-   for a reader meeting the product for the first time. The name stays the
-   button's direct text node: ws-actionable-ui shortens long names by
-   rewriting exactly that node, and the hint is a span beside it. */
+   for a reader meeting the product for the first time. The name is the
+   button's direct text node and the hint a span beside it. */
 function indexButton(title, path, mark = 'overview', series = '1', active = null, hint = '') {
   const node = document.createElement('button');
   node.className = 'fl-index-link';
@@ -463,7 +462,7 @@ function ensureCoreAdminEntry() {
   if (!body || body.querySelector('.fl-core-admin-entry')) return;
   const wrap = document.createElement('div');
   wrap.className = 'fl-core-admin-entry';
-  wrap.append(indexButton('Platform Admin', '/workspace/core/admin', 'team', '1', null, 'Owner and admin tools'));
+  wrap.append(indexButton('Admin', '/workspace/core/admin', 'team', '1', null, 'Owner and admin tools'));
   body.prepend(wrap);
 }
 

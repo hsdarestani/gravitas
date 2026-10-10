@@ -19,22 +19,13 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
 
     def test_heavy_enhancers_do_not_watch_nested_workspace_mutations(self):
         for name in (
-            'ws-actionable-ui.js',
-            'ws-research-actions.js',
             'ws-project-actions.js',
             'ws-space-integration.js',
             'ws-notes-performance.js',
-            'ws-task-deck-mirror.js',
         ):
             source = self.read(name)
             self.assertIn('observeSurface', source, name)
             self.assertIn('subtree: false', source, name)
-
-    def test_task_fix_no_longer_observes_document_attributes(self):
-        source = self.read('ws-task-deck-fixes.js')
-        self.assertNotIn('document.documentElement', source)
-        self.assertNotIn("attributeFilter: ['aria-current']", source)
-        self.assertIn('observeSurface', source)
 
     def test_notes_remote_sync_is_idle_scheduled(self):
         source = self.read('ws-notes-performance.js')
@@ -44,13 +35,6 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
 
     def test_workspace_cache_busts_all_performance_modules(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
-        self.assertIn('/assets/ws/ws-research-actions.js?v=20261010-notes2', html)
-        self.assertIn('/assets/ws/ws-task-deck-mirror.js?v=20261010-tasks1', html)
-        self.assertIn('/assets/ws/ws-actionable-ui.js?v=20261009-copy1', html)
         self.assertIn('/assets/ws/ws-project-actions.js?v=20261008-operational2', html)
-        self.assertIn('/assets/ws/ws-task-deck-fixes.js?v=20261008-operational2', html)
         self.assertIn('/assets/ws/ws-notes-performance.js?v=20261010-notes2', html)
-        for name in (
-            'ws-space-integration.js',
-        ):
-            self.assertIn(f'/assets/ws/{name}?v=20261008-operational2', html)
+        self.assertIn('/assets/ws/ws-space-integration.js?v=20261011-r1', html)

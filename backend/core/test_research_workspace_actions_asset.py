@@ -7,61 +7,64 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class ResearchWorkspaceActionContractTests(SimpleTestCase):
+    """Research screens draw their own actions.
+
+    These used to be painted on by ws-research-actions.js, ws-task-deck-fixes.js
+    and ws-space-integration.js after the screens had drawn; all three overlays
+    are gone and the actions live in the renderers that own each screen.
+    """
+
     def read(self, relative_path):
         return (ROOT / relative_path).read_text(encoding='utf-8')
 
-    def test_workspace_loads_research_action_layer(self):
+    def test_no_research_overlay_is_loaded(self):
         html = self.read('workspace.html')
-        self.assertIn('ws-research-actions.js', html)
-        self.assertIn('installResearchWorkspaceActions()', html)
+        for name in ('ws-research-actions.js', 'ws-task-deck-fixes.js', 'ws-task-deck-mirror.js'):
+            self.assertNotIn(name, html)
+            self.assertFalse((ROOT / 'assets' / 'ws' / name).exists(), name)
 
     def test_page_urls_open_notes_instead_of_the_removed_block_editor(self):
-        # The block page editor is gone; every /workspace/page/ URL opens the
-        # same note in Notes, so nothing may patch the old editor any more.
-        js = self.read('assets/ws/ws-research-actions.js')
         app = self.read('assets/ws/ws-app.js')
-        self.assertNotIn('repairEmptyEditor', js)
-        self.assertNotIn('ws-editor-canvas', js)
         self.assertIn("if (route.view === 'editor' && route.pageId) {", app)
         self.assertIn('go(notePathFor(route.pageId), { replace: true });', app)
         self.assertNotIn('function renderEditor', app)
 
-    def test_folder_branch_does_not_repeat_editor_page_tree(self):
-        js = self.read('assets/ws/ws-research-actions.js')
-        for label in ('Files & Data Rooms', 'Datasets', 'Mind Maps', 'Shared with me'):
-            self.assertIn(label, js)
-        self.assertIn("owner !== 'Folder'", js)
-        self.assertIn('row.remove()', js)
-
-    def test_file_and_dataset_views_expose_real_uploads(self):
-        js = self.read('assets/ws/ws-research-actions.js')
-        self.assertIn('/platform/files/upload/', js)
+    def test_file_and_dataset_views_upload_in_place(self):
+        js = self.read('assets/ws/ws-views.js')
+        self.assertIn("P.upload('/platform/files/upload/', form)", js)
         self.assertIn("'Upload dataset'", js)
         self.assertIn("'Upload file'", js)
-        self.assertIn('project_id', js)
+        self.assertIn("form.append('project_id', project.value)", js)
         self.assertIn('workspace_id', js)
+        self.assertNotIn('location.reload()', js)
 
-    def test_projects_can_be_created_from_research_workspace(self):
-        js = self.read('assets/ws/ws-research-actions.js')
-        self.assertIn("route() !== '/workspace/research/projects'", js)
-        self.assertIn("request('/platform/projects/'", js)
-        self.assertIn("'New project'", js)
+    def test_projects_and_tasks_are_created_from_one_module(self):
+        create = self.read('assets/ws/ws-research-create.js')
+        research = self.read('assets/ws/ws-research.js')
+        home = self.read('assets/ws/ws-home.js')
+        self.assertIn("P.call('/platform/projects/', { method: 'POST'", create)
+        self.assertIn('space_category_id', create)
+        self.assertIn("P.call(`/platform/projects/${projectId}/tasks/`", create)
+        self.assertNotIn('location.reload()', create)
+        for source in (research, home):
+            self.assertIn('openNewProject({ go })', source)
+            self.assertIn('openNewTask({ go })', source)
+        self.assertNotIn('enhanceProjectCreate', self.read('assets/ws/ws-space-integration.js'))
 
-    def test_mind_maps_expose_create_node_and_edge_actions(self):
-        js = self.read('assets/ws/ws-research-actions.js')
-        self.assertIn("request('/platform/mindmaps/'", js)
-        self.assertIn("action: 'node.create'", js)
-        self.assertIn("action: 'edge.create'", js)
-        self.assertIn("action: 'node.delete'", js)
-        self.assertIn("action: 'edge.delete'", js)
+    def test_mind_maps_have_one_editor(self):
+        js = self.read('assets/ws/ws-views.js')
+        for action in ('node.create', 'node.update', 'node.delete', 'edge.create', 'edge.delete'):
+            self.assertIn(f"action:'{action}'", js)
 
     def test_researcher_profile_is_editable(self):
-        js = self.read('assets/ws/ws-research-actions.js')
-        self.assertIn("route() !== '/workspace/people'", js)
-        self.assertIn("request('/platform/researchers/me/'", js)
-        self.assertIn("method: 'PATCH'", js)
+        js = self.read('assets/ws/ws-views.js')
+        self.assertIn("P.call('/platform/researchers/me/', { method: 'PATCH'", js)
+        self.assertIn("'Edit my profile'", js)
 
     def test_shared_with_me_is_explicitly_read_only(self):
-        js = self.read('assets/ws/ws-research-actions.js')
-        self.assertIn("route() !== '/workspace/shared'", js)
-        self.assertIn('read-only by design', js)
+        self.assertIn('read-only by design', self.read('assets/ws/ws-views.js'))
+
+    def test_research_requests_are_a_view_of_tasks(self):
+        research = self.read('assets/ws/ws-research.js')
+        self.assertIn("get('show') === 'requests') return renderRequests(host, { go })", research)
+        self.assertIn('P.researchRequests()', research)

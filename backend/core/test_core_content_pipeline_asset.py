@@ -10,10 +10,18 @@ class CoreContentPipelineAssetTests(SimpleTestCase):
     def read(self, relative_path):
         return (ROOT / relative_path).read_text(encoding='utf-8')
 
-    def test_workspace_loads_operational_content_pipeline(self):
-        html = self.read('workspace.html')
-        self.assertIn('ws-core-content-actions.js', html)
-        self.assertIn('installCoreContentActions()', html)
+    def test_router_draws_the_operational_pipeline_directly(self):
+        # It used to mount over a read-only ws-views board via a subtree
+        # MutationObserver; the router now calls it and the copy is gone.
+        app = self.read('assets/ws/ws-app.js')
+        views = self.read('assets/ws/ws-views.js')
+        js = self.read('assets/ws/ws-core-content-actions.js')
+        self.assertIn("import { renderCoreContent } from './ws-core-content-actions.js", app)
+        self.assertIn("else if (view === 'core-content') renderCoreContent(host);", app)
+        self.assertIn('export function renderCoreContent(host)', js)
+        self.assertNotIn('new MutationObserver', js)
+        self.assertNotIn('export function renderCoreContent', views)
+        self.assertNotIn('installCoreContentActions', self.read('workspace.html'))
 
     def test_pipeline_uses_canonical_content_api_for_crud(self):
         js = self.read('assets/ws/ws-core-content-actions.js')

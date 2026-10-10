@@ -1,11 +1,16 @@
 /* ========================================================================== 
    GRAVITAS+ · CORE CONTENT PIPELINE
 
-   Layer 5 owns the production flow. The backend already exposes the canonical
-   ContentWorkItem lifecycle, but the previous Core view was read-only. This
-   module makes that same data operational without introducing another board
-   model: create, edit, move, request research, publish metadata and archive
-   all write through /api/platform/content/.
+   Layer 5 owns the production flow, and this module draws it: the board, the
+   card dialog, and create, edit, move, request research, publish metadata
+   and archive, all through /api/platform/content/.
+
+   It used to be an overlay. ws-views drew a read-only board of the same
+   items, and this module watched the whole workspace with a subtree
+   MutationObserver until that board appeared, then deleted it and drew its
+   own. Every visit showed the wrong board first, and every change anywhere
+   in the workspace woke the observer. The router now calls
+   renderCoreContent() directly, and the read-only board is gone.
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261008-operational2';
@@ -102,10 +107,6 @@ function panel(title, note = '') {
   const body = el('div', 'v-panel__body fl-panel__body');
   box.append(head, body);
   return { box, head, body };
-}
-
-function routeActive() {
-  return location.pathname.replace(/\/$/, '') === '/workspace/core/content';
 }
 
 function formatDate(value) {
@@ -532,36 +533,14 @@ async function renderPipeline(root) {
   }
 }
 
-function mount() {
-  if (!routeActive()) return;
-  const doc = document.querySelector('#ws-view .ws-doc');
-  if (!doc || doc.querySelector('[data-core-content-actions]')) return;
-  const head = doc.querySelector(':scope > .ws-doc__head');
-  if (!head) return;
-
-  const root = el('div', 'core-content-actions');
-  root.dataset.coreContentActions = '1';
-  // The legacy view is a read-only rendering of the same endpoint. Once this
-  // operational surface mounts, remove the detached read-only holder so users
-  // never see two versions of one pipeline.
-  for (const child of [...doc.children]) if (child !== head) child.remove();
-  doc.append(root);
-  renderPipeline(root);
-}
-
-let queued = false;
-function reconcile() {
-  if (queued) return;
-  queued = true;
-  requestAnimationFrame(() => { queued = false; mount(); });
-}
-
-export function installCoreContentActions() {
-  if (window.__gravitasCoreContentActionsInstalled) return;
-  window.__gravitasCoreContentActionsInstalled = true;
-  const root = document.getElementById('ws');
-  if (!root) return;
-  new MutationObserver(reconcile).observe(root, { childList: true, subtree: true });
-  addEventListener('popstate', reconcile);
-  reconcile();
+export function renderCoreContent(host) {
+  host.innerHTML = '';
+  const doc = el('div', 'ws-doc ws-doc--wide');
+  const head = el('header', 'ws-doc__head');
+  head.append(el('h1', 'ws-doc__title', 'Content Pipeline'));
+  head.append(el('p', 'ws-doc__meta', 'Videos, articles, design and production, and the handoff into research.'));
+  const body = el('div', 'core-content-actions');
+  doc.append(head, body);
+  host.append(doc);
+  return renderPipeline(body);
 }

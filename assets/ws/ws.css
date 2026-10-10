@@ -3716,3 +3716,37 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   }
 }
 
+
+/* ==========================================================================
+   CORE TASKS · THE DECK ROW
+   What the row is and where the sync stands on the left, its actions on the
+   right, on one line above the board. Moved here from a <style> block the
+   old ws-task-deck-mirror.js overlay injected at runtime.
+   ========================================================================== */
+@layer ws-components {
+  .ws-core-deck-mirror { margin: 0 0 14px; }
+  #ws-view .ws-core-deck-mirror .v-panel__body,
+  .ws-core-deck-mirror .v-panel__body {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px 20px; padding: 12px 14px 12px 18px;
+  }
+  .ws-core-deck-mirror .v-toolbar { margin: 0; gap: 8px; flex-wrap: wrap; }
+  .ws-core-deck-mirror__lead { display: grid; gap: 3px; min-width: 0; flex: 1 1 320px; }
+  .ws-core-deck-mirror__title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+  .ws-core-deck-mirror__lead h2 { margin: 0; font-size: 14px; font-weight: var(--g-w-semibold); }
+  .ws-core-deck-mirror__lead p { margin: 0; max-width: 72ch; font-size: var(--ws-fs-sm); }
+  .ws-core-deck-mirror__status { font-size: var(--ws-fs-xs); }
+  .ws-core-deck-mirror__status[data-tone="bad"] { color: var(--g-signal-critical); }
+  .ws-core-deck-mirror__status[data-tone="ok"] { color: var(--g-signal-positive); }
+}
+
+/* The note above a filtered list: how many are shown, and the way back to
+   all of them. Discussions uses it when a tile filters the list. */
+@layer ws-components {
+  .fl-filter-note {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin: 0 0 8px; padding: 8px 12px;
+    border: 1px solid var(--g-hairline); border-radius: var(--ws-r-control);
+    color: var(--g-text-subtle); font-size: var(--ws-fs-sm);
+  }
+}
