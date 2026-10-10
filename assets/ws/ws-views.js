@@ -169,6 +169,8 @@ export function openCoreTask(taskId, { go, onTaskChange } = {}) {
 
 export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = null }) {
   const doc = docShell(host, 'Tasks & Execution', 'Manager-defined execution. Create tasks manually from existing Key Results and optional Milestones.');
+  // ws.css styles this board's compact tiles through this attribute.
+  doc.dataset.coreTasksNative = 'true';
   const head = doc.querySelector(':scope > .ws-doc__head');
   head.classList.add('task-board__head');
   // The Deck row belongs to the board on screen, not to the copy openCoreTask

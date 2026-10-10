@@ -33,7 +33,12 @@ import { renderResearchProject } from './ws-project.js?v=20261011-r2';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
-const state = { installed: false, scheduled: false, drawn: '' };
+/* ws-app is the one router. It calls renderFiveLayer() for the routes
+   pathKind() recognises and hands over its own go(); this module used to
+   listen to popstate and ws:navigate itself, rebuild the rail ws-app had
+   drawn, and add an Admin entry to ws-app's Core index from a
+   MutationObserver — three ways of drawing over another module's work. */
+let go = (path) => location.assign(path);
 
 const DASHBOARD_INDEX = [
   ['Dashboard', '/workspace/dashboard', 'dashboard', 'Your day at a glance'],
@@ -47,7 +52,7 @@ const LEARNING_INDEX = [
   ['Overview', '/workspace/learning', 'overview', 'Where your learning stands'],
   ['Library', '/workspace/learning/library', 'library', 'What you saved from the site'],
   ['Catalog', '/workspace/learning/catalog', 'catalog', 'Browse courses you can join'],
-  ['My courses', '/workspace/learning/my', 'learning', 'Courses you are taking'],
+  ['Learning', '/workspace/learning/my', 'learning', 'Courses you are taking'],
   ['Certificates', '/workspace/learning/certificates', 'certificate', 'Courses you have completed'],
 ];
 
@@ -63,32 +68,10 @@ const ADMIN_INDEX = [
   ['Research', '/workspace/core/admin/research', 'space-research', 'Every research project'],
   ['Links', '/workspace/core/admin/links', 'link', 'Connect items across workspaces'],
   ['Activity', '/workspace/core/admin/activity', 'activity', 'Who changed what, and when'],
+  ['Nextcloud Mirror', '/workspace/core/admin/nextcloud', 'storage', 'Files, Notes and Deck in sync'],
   ['Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
   ['Core', '/workspace/core', 'space-core', 'Return to the Core workspace'],
 ];
-
-function navigate(path, { replace = false } = {}) {
-  // Public learning paths and public-site content deliberately leave the
-  // workspace shell. Treating those URLs as SPA routes made ws-app fall back
-  // to its home route and looked like the link did nothing.
-  if (!String(path || '').startsWith('/workspace')) {
-    location.href = path;
-    return;
-  }
-  if (path === location.pathname && !location.search && !location.hash) return;
-  history[replace ? 'replaceState' : 'pushState']({}, '', path);
-  var owned = pathKind(path);
-  // Five-layer pages have their own renderer. Sending a synthetic popstate
-  // here also woke the legacy router, which treats unknown routes as Home and
-  // could repaint Research/Home over the requested page. Only legacy routes
-  // need the old router; five-layer routes emit the lightweight navigation
-  // event and render once.
-  dispatchEvent(new CustomEvent('ws:navigate'));
-  if (!owned || owned.kind === 'learning-legacy') {
-    dispatchEvent(new PopStateEvent('popstate'));
-  }
-  schedule();
-}
 
 function pathKind(path = location.pathname) {
   if (path === '/workspace' || path === '/workspace/' || path === '/workspace/my-work' || path === '/workspace/my-work/') {
@@ -150,74 +133,6 @@ function pathKind(path = location.pathname) {
   return null;
 }
 
-function topArea(path = location.pathname) {
-  if (path.startsWith('/workspace/core') || path.startsWith('/workspace/operating')) return 'core';
-  if (path.startsWith('/workspace/research') || path.startsWith('/workspace/people') || path.startsWith('/workspace/community') || path.startsWith('/workspace/shared')) return 'research';
-  if (path.startsWith('/workspace/learning') || path.startsWith('/workspace/kms')) return 'learning';
-  if (path.startsWith('/workspace/dashboard') || path === '/workspace' || path.startsWith('/workspace/my-work')) return 'dashboard';
-  return '';
-}
-
-function railButton(mark, label, active, path) {
-  const button = document.createElement('button');
-  button.className = 'ws-rail__btn fl-rail-button';
-  button.type = 'button';
-  button.innerHTML = icon(mark);
-  button.setAttribute('aria-label', label);
-  button.title = label;
-  button.dataset.fiveLayer = label.toLowerCase().replace(/\s+/g, '-');
-  if (active) button.setAttribute('aria-current', 'page');
-  button.addEventListener('click', () => navigate(path));
-  return button;
-}
-
-/* Dashboard and Learning are drawn here, not by ws-app, so ws-app never
-   redraws the rail on the way into them. Built once and left alone, the
-   rail kept lighting whichever workspace the reader came from. Once built,
-   the rail is re-lit from the URL on every render instead. */
-function syncRail(rail) {
-  const area = topArea();
-  for (const button of rail.querySelectorAll('.fl-rail-button')) {
-    if (button.dataset.fiveLayer === area) button.setAttribute('aria-current', 'page');
-    else button.removeAttribute('aria-current');
-  }
-  if (area) {
-    const settings = [...rail.querySelectorAll('button')].find((node) => node.getAttribute('aria-label') === 'Settings');
-    if (settings) settings.removeAttribute('aria-current');
-  }
-}
-
-function normalizeRail() {
-  const rail = $('#ws-rail');
-  if (!rail) return;
-  if (rail.querySelector('.fl-rail-button')) {
-    syncRail(rail);
-    return;
-  }
-
-  // Keep ws-app's account button because its closure owns profile state.
-  // Everything above it is the old top-level model. Pulsar used to have a
-  // rail button here too; it is the floating widget now (assets/chat.js).
-  const settings = [...rail.querySelectorAll('button')].find((node) => node.getAttribute('aria-label') === 'Settings');
-  if (settings) settings.remove();
-  rail.innerHTML = '';
-
-  const area = topArea();
-  rail.append(railButton('dashboard', 'Dashboard', area === 'dashboard', '/workspace/dashboard'));
-  const rule = document.createElement('div');
-  rule.className = 'ws-rail__rule';
-  rail.append(rule);
-
-  if (P.canOpenLms() || area === 'learning') rail.append(railButton('space-knowledge', 'Learning', area === 'learning', '/workspace/learning'));
-  if (P.canOpenResearch() || area === 'research') rail.append(railButton('space-research', 'Research', area === 'research', '/workspace/research'));
-  if (P.canOpenCore() || area === 'core') rail.append(railButton('space-core', 'Core', area === 'core', '/workspace/core'));
-
-  const spacer = document.createElement('div');
-  spacer.className = 'ws-rail__spacer';
-  rail.append(spacer);
-  if (settings) rail.append(settings);
-}
-
 /* `series` gives the link the same tinted round mark the Research and Core
    index rows carry (ws-app.js sectionRow), in the same position order, so
    the index looks like one component whichever workspace drew it.
@@ -247,7 +162,7 @@ function indexButton(title, path, mark = 'overview', series = '1', active = null
     active = here === target || (target !== '/workspace/core' && here.startsWith(target + '/'));
   }
   if (active) node.setAttribute('aria-current', 'page');
-  node.addEventListener('click', () => navigate(path));
+  node.addEventListener('click', () => go(path));
   return node;
 }
 
@@ -351,7 +266,7 @@ function treeRow(cls, text, { path = '', mark = '', current = false, state = '',
     small.textContent = meta;
     node.append(small);
   }
-  if (path) node.addEventListener('click', () => navigate(path));
+  if (path) node.addEventListener('click', () => go(path));
   return node;
 }
 
@@ -453,17 +368,14 @@ function setCourseOutline(course, done = new Set()) {
   }
 }
 
-function ensureCoreAdminEntry() {
-  if (!P.isCoreAdmin()) return;
-  const route = pathKind();
-  if (route?.kind === 'admin') return;
-  if (topArea() !== 'core') return;
-  const body = $('#ws-index-body');
-  if (!body || body.querySelector('.fl-core-admin-entry')) return;
+/* The Platform Admin entry at the top of the Core index, for owners and
+   admins. ws-app puts it there when it draws that index. */
+export function coreAdminEntry(navigate) {
+  if (navigate) go = navigate;
   const wrap = document.createElement('div');
   wrap.className = 'fl-core-admin-entry';
   wrap.append(indexButton('Admin', '/workspace/core/admin', 'team', '1', null, 'Owner and admin tools'));
-  body.prepend(wrap);
+  return wrap;
 }
 
 function setCrumbs(parts) {
@@ -482,7 +394,7 @@ function setCrumbs(parts) {
       button.type = 'button';
       button.className = 'fl-crumb';
       button.textContent = part.label;
-      button.addEventListener('click', () => navigate(part.path));
+      button.addEventListener('click', () => go(part.path));
       crumbs.append(button);
     } else {
       const span = document.createElement('span');
@@ -492,32 +404,32 @@ function setCrumbs(parts) {
   });
 }
 
-function rendererContext() {
-  return { go: navigate };
+/* What this module draws for a path: null for routes it does not own. */
+export function fiveLayerRoute(path = location.pathname) {
+  return pathKind(path);
 }
 
-async function renderCustom() {
-  normalizeRail();
+/* Draws the screen, its index and its trail for the current path. Returns
+   true when it drew the view; false for the Knowledge tools, whose views
+   ws-app draws under this module's Learning index. */
+export async function renderFiveLayer(hostNode, { go: navigate, renderNotesMirror = null } = {}) {
+  if (navigate) go = navigate;
   const route = pathKind();
-  state.drawn = route && route.kind !== 'redirect' && route.kind !== 'learning-legacy' ? location.pathname : '';
-  if (!route) {
-    ensureCoreAdminEntry();
-    return false;
-  }
+  if (!route) return false;
   if (route.kind === 'redirect') {
-    navigate(route.to, { replace: true });
+    go(route.to, { replace: true });
     return true;
   }
   if (route.kind === 'learning' && !P.canOpenLms()) {
-    navigate('/workspace/dashboard', { replace: true });
+    go('/workspace/dashboard', { replace: true });
     return true;
   }
   if (route.kind === 'learning-legacy' && !P.canOpenLms()) {
-    navigate('/workspace/dashboard', { replace: true });
+    go('/workspace/dashboard', { replace: true });
     return true;
   }
   if (route.kind === 'research-project' && !P.canOpenResearch() && !P.canOpenCore()) {
-    navigate('/workspace/dashboard', { replace: true });
+    go('/workspace/dashboard', { replace: true });
     return true;
   }
   if (route.kind === 'learning-legacy') {
@@ -526,9 +438,9 @@ async function renderCustom() {
     return false;
   }
 
-  const host = $('#ws-view');
+  const host = hostNode || $('#ws-view');
   if (!host) return false;
-  const ctx = rendererContext();
+  const ctx = { go };
 
   if (route.kind === 'dashboard') {
     renderIndex('Dashboard', DASHBOARD_INDEX, P.communityRole() ? labelRole(P.communityRole()) : 'Member');
@@ -587,7 +499,7 @@ async function renderCustom() {
 
   if (route.kind === 'admin') {
     if (!P.isCoreAdmin()) {
-      navigate('/workspace/core', { replace: true });
+      go('/workspace/core', { replace: true });
       return true;
     }
     renderIndex('Platform Admin', ADMIN_INDEX, 'Core owner/admin only');
@@ -608,9 +520,8 @@ async function renderCustom() {
     if (route.page === 'links') await renderCoreLinks(host, ctx);
     if (route.page === 'activity') await renderAdminActivity(host, ctx);
     if (route.page === 'deck') await renderAdminDeck(host, ctx);
-    // The native-app router owns the Nextcloud Mirror body. Recognizing this
-    // route here still gives it the correct Platform Admin index and guard.
-    if (route.page === 'nextcloud') host.innerHTML = '<div class="fl-skeleton"></div>';
+    // The Mirror's body is drawn by the Notes module, which owns the mirror.
+    if (route.page === 'nextcloud' && renderNotesMirror) await renderNotesMirror(host);
     return true;
   }
   return false;
@@ -626,40 +537,4 @@ function adminTitle(page) {
     newsletter: 'Newsletter', tickets: 'Support Tickets', labs: 'Interactive Lab',
     lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck', nextcloud: 'Nextcloud Mirror',
   }[page] || 'Admin';
-}
-
-function schedule() {
-  if (state.scheduled) return;
-  state.scheduled = true;
-  queueMicrotask(async () => {
-    state.scheduled = false;
-    await renderCustom();
-  });
-}
-
-export function installFiveLayer() {
-  if (state.installed) return;
-  state.installed = true;
-
-  addEventListener('popstate', schedule);
-  // workspace.html sends one `settle` navigation when ws-app finishes
-  // booting, for the overlays whose legacy routes start() may have redrawn.
-  // ws-app no longer touches the routes drawn here, so redrawing one that is
-  // already on screen only flashed its loading state a second time.
-  addEventListener('ws:navigate', (event) => {
-    if (event.detail?.settle && state.drawn === location.pathname) return;
-    schedule();
-  });
-
-  const rail = $('#ws-rail');
-  const index = $('#ws-index-body');
-  const observer = new MutationObserver(() => {
-    normalizeRail();
-    ensureCoreAdminEntry();
-  });
-  if (rail) observer.observe(rail, { childList: true });
-  if (index) observer.observe(index, { childList: true, subtree: false });
-  state.observer = observer;
-
-  schedule();
 }

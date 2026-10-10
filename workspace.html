@@ -120,8 +120,6 @@
   <script type="module">
     import { start } from '/assets/ws/ws-app.js?v=20261011-r2';
     import { platform } from '/assets/ws/ws-platform.js?v=20261011-r2';
-    import { installFiveLayer } from '/assets/ws/ws-five-layer.js?v=20261011-r2';
-    import { installNextcloudNativeRouter } from '/assets/ws/ws-nextcloud-native.js?v=20261011-r2';
     import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20261011-r2';
     import { installMathRendering } from '/assets/ws/ws-math.js?v=20261011-r2';
 
@@ -156,24 +154,16 @@
       // a raw Nextcloud URL.
       installNextcloudSsoBridge();
 
-      // start() paints the shell synchronously and then waits on account
-      // bootstrap before fetching the heavier page tree. Install the layered
-      // navigation as soon as that entitlement bootstrap settles instead of
-      // making menus wait for every page to hydrate. The old boot path also
-      // called loadBootstrap() a second time here; that redundant request is
-      // intentionally gone.
+      // start() is the one router: it paints the shell at once, loads the
+      // account bootstrap, and draws every route, including the screens
+      // ws-five-layer and the Notes module provide.
       const workspaceReady = start();
       await waitForPlatform();
-      installFiveLayer();
-      installNextcloudNativeRouter();
       installMathRendering();
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/workspace-sw.js', { scope: '/workspace/' }).catch(() => {});
       }
       await workspaceReady;
-      // start() may finish by rendering a legacy route after an overlay was
-      // installed. Re-run route owners once with the fully hydrated tree.
-      dispatchEvent(new CustomEvent('ws:navigate', { detail: { settle: true } }));
     }
 
     if (window.GravitasIcons) bootWorkspace();

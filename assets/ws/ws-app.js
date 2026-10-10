@@ -20,6 +20,8 @@
    ========================================================================== */
 
 import * as notes from './ws-notes-store.js?v=20261011-r2';
+import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261011-r2';
+import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261011-r2';
 import * as P from './ws-platform.js?v=20261011-r2';
 import { renderCoreTeam } from './ws-core-team.js?v=20261011-r2';
 import { renderCoreContent } from './ws-core-content-actions.js?v=20261011-r2';
@@ -163,12 +165,13 @@ const AREA_OF_SPACE = { core: 'core', research: 'research', kms: 'kms' };
    placeholder with the right workspace name, and later renders leave the
    index, the trail and the view to their owner. */
 function fiveLayerOwns(path = location.pathname) {
-  return /^\/workspace\/dashboard(?:\/|$)/.test(path)
-    || /^\/workspace\/core\/work-reports(?:\/|$)/.test(path)
-    || /^\/workspace\/learning(?:\/|$)/.test(path)
-    || /^\/workspace\/core\/admin(?:\/|$)/.test(path)
-    || /^\/workspace\/research\/projects\/\d+(?:\/[a-z-]+)?\/?$/.test(path);
+  const kind = fiveLayerRoute(path.split(/[?#]/)[0])?.kind;
+  return !!kind && kind !== 'redirect' && kind !== 'learning-legacy';
 }
+
+/* The Knowledge tools are drawn here but sit under ws-five-layer's Learning
+   index, so that index and trail are its, not the Knowledge sections'. */
+const learningIndexFor = (path = location.pathname) => fiveLayerRoute(path.split(/[?#]/)[0])?.kind === 'learning-legacy';
 
 /* Daily work reports is drawn by ws-five-layer but listed in CORE_SECTIONS,
    so its index is the ordinary Core index and only the view is handed off.
@@ -211,6 +214,12 @@ function parse(path) {
 }
 
 export function go(path, { replace = false } = {}) {
+  // Public pages and paths leave the workspace shell rather than falling
+  // through to its Home route.
+  if (!String(path || '').startsWith('/workspace')) {
+    location.href = path;
+    return;
+  }
   if (replace) history.replaceState({}, '', path);
   else history.pushState({}, '', path);
   dispatchEvent(new CustomEvent('ws:navigate'));
@@ -218,6 +227,11 @@ export function go(path, { replace = false } = {}) {
 }
 
 async function apply(path) {
+  const owned = fiveLayerRoute(String(path).split(/[?#]/)[0]);
+  if (owned?.kind === 'redirect') {
+    go(owned.to, { replace: true });
+    return;
+  }
   const route = parse(path);
 
   /* Core is refused rather than merely hidden. Someone can arrive on a Core
@@ -349,15 +363,20 @@ function renderRail() {
   rail.append(settings);
 }
 
+/* A workspace button. The markup is the one ws-five-layer.js used when it
+   rebuilt this rail, which is what the rail has looked like: a native title
+   rather than the shell's tooltip, and the fl-rail-button class the rail's
+   styles address. */
 function railButton(mark, label, active, onClick) {
   const btn = document.createElement('button');
-  btn.className = 'ws-rail__btn';
+  btn.className = 'ws-rail__btn fl-rail-button';
   btn.type = 'button';
   btn.innerHTML = icon(mark);
   btn.setAttribute('aria-label', label);
+  btn.title = label;
+  btn.dataset.fiveLayer = label.toLowerCase().replace(/\s+/g, '-');
   if (active) btn.setAttribute('aria-current', 'page');
   btn.addEventListener('click', onClick);
-  attachTip(btn, label);
   return btn;
 }
 
@@ -407,9 +426,9 @@ function attachTip(host, text) {
    ========================================================================== */
 
 function renderIndex() {
-  // A tree change (Pulsar filing a note, say) must not redraw the Research
-  // tree over the Learning or Dashboard index.
-  if (fiveLayerOwns() && !shellDrawsIndex()) return;
+  // Dashboard, Learning and Admin draw their own index; so does the Learning
+  // index the Knowledge tools sit under.
+  if ((fiveLayerOwns() && !shellDrawsIndex()) || learningIndexFor()) return;
   const title = $('#ws-index-title');
   const body = $('#ws-index-body');
   const foot = $('#ws-index-count');
@@ -469,8 +488,10 @@ function renderIndex() {
     const hasChildren = !!visibleChildren.length;
     const active = section.match(location.pathname);
 
+    // The index row carries the short name (Tasks, Team); the trail and the
+    // page title keep the full one.
     const row = sectionRow({
-      label: section.label,
+      label: section.menu || section.label,
       hint: section.hint,
       mark: section.icon,
       depth: 0,
@@ -507,6 +528,8 @@ function renderIndex() {
   }
 
   body.append(tree);
+  // Owners and admins reach Platform Admin from the top of the Core index.
+  if (ui.area === 'core' && P.isCoreAdmin()) body.prepend(coreAdminEntry(go));
   foot.textContent = '';
 }
 
@@ -1051,7 +1074,7 @@ function relative(stamp) {
 /* The breadcrumb is Home / Workspace / Section, which is the platform's real
    hierarchy. Inside Pages it continues into the page's own path. */
 function renderCrumbs() {
-  if (fiveLayerOwns()) return;
+  if (fiveLayerOwns() || learningIndexFor()) return;
   const host = $('#ws-crumbs');
   host.innerHTML = '';
 
@@ -1191,14 +1214,20 @@ function render() {
   renderIndex();
   renderDock();
 
+  const host = $('#ws-view');
+
+  /* Dashboard, Learning, Admin, Daily Work Reports and project pages are
+     drawn by ws-five-layer, called from here. Before the account bootstrap
+     answers every access check reads "no access", so until then the shell
+     holds a placeholder rather than letting a screen redirect the reader. */
   if (fiveLayerOwns()) {
     stopClock();
-    renderHandoff();
+    leaveNotes();
+    if (ui.booting) renderHandoff();
+    else renderFiveLayer(host, { go, renderNotesMirror: renderMirrorRoute });
     updateStatus();
     return;
   }
-
-  const host = $('#ws-view');
 
   /* Notes is drawn by ws-nextcloud-native.js, the notebook backed by
      Nextcloud. This router used to draw its own older Notes screen first —
@@ -1209,10 +1238,13 @@ function render() {
   if (NOTEBOOK_VIEWS.has(ui.route?.view)) {
     stopClock();
     if (!host.querySelector(':scope > .nc-notes')) host.replaceChildren();
+    if (!ui.booting) renderNotesRoute(host);
     updateStatus();
     return;
   }
+  leaveNotes();
   host.innerHTML = '';
+  if (learningIndexFor() && !ui.booting) renderFiveLayer(host, { go });
 
   // The clock on the dashboard runs on an interval. Every path out of the
   // dashboard goes through here, so this is the one place that can promise
@@ -1503,16 +1535,6 @@ export async function start() {
      only has to set the state. */
   addEventListener('ws:navigate', closeOverlays);
 
-  /* ws-five-layer navigates to its routes without waking apply(), so a
-     route whose index the shell still draws has to be told here. */
-  const syncShellIndex = () => {
-    if (!shellDrawsIndex()) return;
-    ui.area = areaOf(location.pathname);
-    renderRail();
-    renderIndex();
-  };
-  addEventListener('ws:navigate', syncShellIndex);
-
   // Notes reports the note it shows, for the dock's backlinks.
   addEventListener('ws:note-open', (event) => {
     ui.openNote = event.detail?.id ? { id: String(event.detail.id), title: String(event.detail.title || '') } : null;
@@ -1530,19 +1552,15 @@ export async function start() {
     if (ui.dockTab === 'journal') renderDock();
   });
 
-  addEventListener('popstate', () => {
-    // ws-five-layer owns these routes and also listens to popstate. Letting
-    // the legacy router parse them first caused stale/Home/Research content to
-    // flash or remain in the center pane.
-    if (fiveLayerOwns(location.pathname)) {
-      syncShellIndex();
-      return;
-    }
-    apply(location.pathname);
-  });
+  // One router: back, forward and every module that navigates by popstate.
+  addEventListener('popstate', () => apply(location.pathname + location.search));
 
   ui.index = !NARROW.matches && prefs.index !== false;
   ui.dock = !DOCK_FLOATS.matches && prefs.dock !== false;
+  // An address that only redirects (/workspace, /workspace/kms) is replaced
+  // before the first paint, so that paint is the destination, not Home.
+  const redirect = fiveLayerRoute(location.pathname);
+  if (redirect?.kind === 'redirect') history.replaceState({}, '', redirect.to);
   ui.route = parse(location.pathname);
   ui.area = areaOf(location.pathname);
 

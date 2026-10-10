@@ -26,7 +26,7 @@ class WorkspaceActionableUiAssetTests(SimpleTestCase):
 
     def test_menus_carry_their_short_names(self):
         nav = self.read('ws-nav.js')
-        for label in ("label: 'Tasks',", "label: 'Content',", "label: 'Team',"):
+        for label in ("menu: 'Tasks',", "menu: 'Content',", "menu: 'Team',"):
             self.assertIn(label, nav)
         five = self.read('ws-five-layer.js')
         for entry in ("['Catalog', '/workspace/learning/catalog'", "['Users', '/workspace/core/admin/users'", "['Deck', '/workspace/core/admin/deck'"):

@@ -14,7 +14,6 @@ const el = (tag, cls, text) => {
 };
 
 const selections = new Map();
-const router = { installed: false, scheduled: false };
 
 function route() {
   const path = location.pathname.replace(/\/$/, '');
@@ -67,34 +66,6 @@ function navTo(path) {
   history.pushState({}, '', path);
   dispatchEvent(new PopStateEvent('popstate'));
   dispatchEvent(new CustomEvent('ws:navigate'));
-}
-
-/* The Mirror is not in five-layer's ADMIN_INDEX, so it is added here. It is
-   built the way indexButton() builds an entry — series, hint, direct text
-   node for the name — because an entry without them fell outside the
-   index's own styling and read as a stray heading between Activity and
-   Deck. */
-function injectAdminMirrorEntry() {
-  if (!P.isCoreAdmin() || !location.pathname.startsWith('/workspace/core/admin')) return;
-  const nav = $('.fl-index-nav');
-  if (!nav || nav.querySelector('[data-nextcloud-mirror-link]')) return;
-  const button = el('button', 'fl-index-link');
-  button.type = 'button';
-  button.dataset.nextcloudMirrorLink = '1';
-  button.dataset.series = '3';
-  const glyph = el('span', 'fl-index-link__icon');
-  glyph.innerHTML = window.GravitasIcons?.icon('storage', 'g-wi') || '';
-  button.append(glyph, document.createTextNode('Nextcloud Mirror'));
-  if ($('.fl-index-link__hint', nav)) {
-    button.append(el('span', 'fl-index-link__hint', 'Files, Notes and Deck in sync'));
-    button.dataset.hinted = '';
-  }
-  if (location.pathname.replace(/\/$/, '') === '/workspace/core/admin/nextcloud') button.setAttribute('aria-current', 'page');
-  button.addEventListener('click', () => navTo('/workspace/core/admin/nextcloud'));
-  const named = (node, pattern) => [...node.childNodes].some((child) => child.nodeType === Node.TEXT_NODE && pattern.test(child.nodeValue));
-  const deck = [...nav.children].find((node) => named(node, /Deck/));
-  if (deck) deck.before(button);
-  else nav.append(button);
 }
 
 /* ---- Platform Admin · Nextcloud Mirror ------------------------------------
@@ -2049,34 +2020,26 @@ function syncInBackground(info) {
   });
 }
 
-function schedule() {
-  if (router.scheduled) return;
-  router.scheduled = true;
-  queueMicrotask(async () => {
-    router.scheduled = false;
-    injectAdminMirrorEntry();
-    if (location.pathname.replace(/\/$/, '') === '/workspace/research/editor') {
-      history.replaceState(history.state, '', `/workspace/research/notes${location.search}${location.hash}`);
-    }
-    const info = route();
-    // Leaving a note mid-sentence still saves it: the editor's closures
-    // outlive the DOM the next screen replaced.
-    if (info?.kind !== 'notes') book.editor?.flush();
-    if (!info) return;
-    setCrumbs(info);
-    const host = $('#ws-view');
-    if (!host) return;
-    if (info.kind === 'admin') await renderMirrorAdmin(host, info);
-    else await renderNativeNotes(host, info);
-    injectAdminMirrorEntry();
-  });
+/* ws-app is the one router; it calls these. This module used to listen to
+   popstate and ws:navigate on its own and draw into the view whenever the
+   path looked like a notebook, beside the two other routers doing the same. */
+export function renderNotesRoute(host) {
+  if (location.pathname.replace(/\/$/, '') === '/workspace/research/editor') {
+    history.replaceState(history.state, '', `/workspace/research/notes${location.search}${location.hash}`);
+  }
+  const info = route();
+  if (!info || info.kind !== 'notes') return Promise.resolve();
+  setCrumbs(info);
+  return renderNativeNotes(host, info);
 }
 
-export function installNextcloudNativeRouter() {
-  if (router.installed) return;
-  router.installed = true;
-  addEventListener('popstate', schedule);
-  addEventListener('ws:navigate', schedule);
-  addEventListener('pagehide', () => book.editor?.flush());
-  schedule();
+export function renderMirrorRoute(host) {
+  return renderMirrorAdmin(host, { kind: 'admin', title: 'Nextcloud Mirror', area: 'Core Admin' });
 }
+
+/* Leaving a note mid-sentence still saves it: ws-app calls this whenever it
+   draws anything other than a notebook, and the page calls it on the way out. */
+export function leaveNotes() {
+  book.editor?.flush();
+}
+addEventListener('pagehide', leaveNotes);

@@ -33,4 +33,10 @@ class LiveKMSFrontendContractTests(SimpleTestCase):
         self.assertNotIn('import { loadBootstrap }', shell)
         self.assertIn('const workspaceReady = start();', shell)
         self.assertIn('await waitForPlatform();', shell)
-        self.assertLess(shell.index('installFiveLayer();'), shell.index('await workspaceReady;'))
+        # One router: ws-app draws every route, calling the renderers itself.
+        self.assertNotIn('installFiveLayer', shell)
+        self.assertNotIn('installNextcloudNativeRouter', shell)
+        app = (ROOT / 'assets/ws/ws-app.js').read_text(encoding='utf-8')
+        self.assertIn('renderFiveLayer(host, { go, renderNotesMirror: renderMirrorRoute })', app)
+        self.assertIn('renderNotesRoute(host)', app)
+        self.assertIn("addEventListener('popstate', () => apply(location.pathname + location.search));", app)

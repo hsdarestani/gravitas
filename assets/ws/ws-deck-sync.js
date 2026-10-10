@@ -51,13 +51,14 @@ function describe(result) {
 /* `onPulled` redraws the board when Deck changed something in Gravitas. */
 export function deckPanel({ go, onPulled } = {}) {
   const panel = el('section', 'v-panel ws-core-deck-mirror');
+  panel.dataset.coreDeckSurface = 'true';
+  panel.dataset.coreDeckMirror = 'true';
   const body = el('div', 'v-panel__body');
   const lead = el('div', 'ws-core-deck-mirror__lead');
   const title = el('div', 'ws-core-deck-mirror__title');
   const status = el('span', 'v-toolbar__count ws-core-deck-mirror__status', 'Connecting to Nextcloud…');
-  status.setAttribute('role', 'status');
   title.append(el('h2', null, 'Synced with Nextcloud Deck'), status);
-  lead.append(title, el('p', 'v-note', 'Title, lane and due date sync both ways. Gravitas keeps the project, key result, owner and research context.'));
+  lead.append(title, el('p', 'v-note', 'Title, lane and due date sync both ways. Gravitas keeps the project, initiative, owner and research context.'));
   const actions = el('div', 'v-toolbar');
   body.append(lead, actions);
   panel.append(body);
@@ -71,7 +72,7 @@ export function deckPanel({ go, onPulled } = {}) {
     if (sync.inFlight) return sync.inFlight;
     if (syncButton) syncButton.disabled = true;
     delete status.dataset.tone;
-    status.textContent = automatic ? 'Syncing with Deck…' : 'Syncing Gravitas and Deck…';
+    status.textContent = automatic ? 'Auto-syncing Gravitas and Deck…' : 'Syncing Gravitas and Deck…';
     sync.inFlight = P.call('/platform/admin/deck/sync/', { method: 'POST', body: {} });
     try {
       const result = await sync.inFlight;
@@ -105,7 +106,7 @@ export function deckPanel({ go, onPulled } = {}) {
       if (!panel.isConnected) return;
       actions.replaceChildren();
       if (deckUrl) actions.append(button('Open Deck', () => window.open(deckUrl, '_blank', 'noopener')));
-      if (go) actions.append(button('Planning', () => go('/workspace/operating')));
+      actions.append(button('Planning & Projects', () => go?.('/workspace/operating')));
       if (deck) {
         canSync = true;
         syncButton = button('Sync now', () => run(), true);
@@ -120,13 +121,13 @@ export function deckPanel({ go, onPulled } = {}) {
         }, 15000);
       } else {
         status.textContent = deckUrl
-          ? 'Tasks are visible here and in Deck. A Core admin can run the sync.'
+          ? 'Tasks are visible here and in Deck. A Core admin can run reconciliation.'
           : 'Nextcloud Deck is not configured yet.';
       }
     } catch {
       if (!panel.isConnected) return;
       status.dataset.tone = 'bad';
-      status.textContent = 'Nextcloud did not answer. The Gravitas tasks below are unaffected.';
+      status.textContent = 'Nextcloud status could not be loaded. Gravitas tasks remain available here.';
     }
   })();
 

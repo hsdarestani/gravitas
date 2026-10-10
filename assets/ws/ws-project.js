@@ -277,7 +277,7 @@ function notesView(doc, cockpit) {
   doc.append(box.box);
 }
 
-function sourcesView(doc, cockpit) {
+function sourcesView(doc, cockpit, rerender = () => {}) {
   const items = resourcesByKind(cockpit.resources, ['paper', 'dataset']);
   const box = section('Sources & evidence', 'Papers and datasets attached to this project.');
   if (!items.length) box.body.append(empty('No sources yet', 'Attach papers or datasets to establish the project evidence base.'));
@@ -297,7 +297,7 @@ function sourcesView(doc, cockpit) {
         remove.disabled = true;
         try {
           await P.call(`/platform/mindmaps/${map.id}/`, { method: 'DELETE' });
-          dispatchEvent(new CustomEvent('ws:navigate'));
+          rerender();
         } catch (error) {
           remove.disabled = false;
           window.alert(error?.data?.error || error?.message || 'Mind map could not be deleted.');
@@ -516,7 +516,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'milestones') milestonesView(doc, results[1].milestones || []);
     else if (tab === 'tasks') tasksView(doc, cockpit);
     else if (tab === 'notes') notesView(doc, cockpit);
-    else if (tab === 'sources') sourcesView(doc, cockpit);
+    else if (tab === 'sources') sourcesView(doc, cockpit, rerender);
     else if (tab === 'files') filesView(doc, cockpit);
     else if (tab === 'discussions') discussionView(doc, projectId, results[1].messages || [], project, rerender);
     else if (tab === 'experiments') experimentsView(doc, projectId, results[1].experiments || [], cockpit, rerender);

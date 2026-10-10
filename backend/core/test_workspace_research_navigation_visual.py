@@ -71,13 +71,13 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
 
         for marker in (
             '/assets/ws/ws-app.js?v=20261011-r2',
-            '/assets/ws/ws-five-layer.js?v=20261011-r2',
-            '/assets/ws/ws-nextcloud-native.js?v=20261011-r2',
             '/assets/ws/ws-unified-design.css?v=20261011-r2',
         ):
             self.assertIn(marker, html)
 
         self.assertIn("./ws-research.js?v=20261011-r2", app)
+        self.assertIn("./ws-five-layer.js?v=20261011-r2", app)
+        self.assertIn("./ws-nextcloud-native.js?v=20261011-r2", app)
         self.assertIn("./ws-nav.js?v=20261011-r2", app)
         self.assertIn("./ws-home.js?v=20261011-r2", app)
         self.assertIn("./ws-member-lms.js?v=20261011-r2", five)
