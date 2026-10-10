@@ -244,6 +244,24 @@
   .ws-topbar__brand { display: flex; align-items: center; text-decoration: none; color: var(--g-text); }
   .ws-topbar__brand svg,
   .ws-topbar__brand .g-mark { height: 16px; width: auto; display: block; }
+  /* The mask itself. The public pages get this contract from
+     production-overrides.css; the workspace does not load that public sheet
+     (or the public auth bridge), so it states the contract here. */
+  .ws .g-mark {
+    background-color: currentColor;
+    -webkit-mask: no-repeat center / contain;
+    mask: no-repeat center / contain;
+  }
+  .ws .g-mark--logotype {
+    aspect-ratio: 658.7 / 118.45;
+    -webkit-mask-image: url("../logos/Logotype_Black.svg");
+    mask-image: url("../logos/Logotype_Black.svg");
+  }
+  .ws .g-mark--logo {
+    aspect-ratio: 118.44 / 118.45;
+    -webkit-mask-image: url("../logos/Logo_Black.svg");
+    mask-image: url("../logos/Logo_Black.svg");
+  }
 
   /* ---- Theme toggle -----------------------------------------------------
      The same control as the public header: same class, same two marks, same

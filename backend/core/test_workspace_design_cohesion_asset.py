@@ -13,10 +13,9 @@ class WorkspaceDesignCohesionAssetTests(SimpleTestCase):
         html = WORKSPACE.read_text(encoding='utf-8')
         marker = '/assets/ws/ws-unified-design.css?v=20261011-r2'
         self.assertIn(marker, html)
-        self.assertGreater(
-            html.index(marker),
-            html.index('/assets/production-overrides.css'),
-        )
+        # The public site's override sheet and auth bridge are not loaded here.
+        self.assertNotIn('/assets/production-overrides.css', html)
+        self.assertNotIn('/assets/production-bridge.js', html)
         # Its place in the head is the cascade order; nothing moves it at runtime.
         self.assertNotIn('ws-design-runtime', html)
         self.assertGreater(html.index('/assets/ws/ws-admin.css'), html.index(marker))
