@@ -1,6 +1,9 @@
 name: Inspect GRV-000208 Canonical Journal
 
 on:
+  push:
+    branches: [feature/project-command-center-20261013]
+    paths: ['.github/workflows/canonical-208-inspect.yml']
   workflow_dispatch:
 
 permissions:
