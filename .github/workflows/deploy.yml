@@ -113,12 +113,16 @@ jobs:
         env:
           GRAVITAS_TELEGRAM_BOT_TOKEN: ${{ secrets.GRAVITAS_TELEGRAM_BOT_TOKEN }}
           GRAVITAS_TELEGRAM_BOT_USERNAME: ${{ secrets.GRAVITAS_TELEGRAM_BOT_USERNAME }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
         run: |
           set -euo pipefail
           TELEGRAM_TOKEN_B64="$(printf '%s' "$GRAVITAS_TELEGRAM_BOT_TOKEN" | base64 -w0)"
           TELEGRAM_USERNAME_B64="$(printf '%s' "$GRAVITAS_TELEGRAM_BOT_USERNAME" | base64 -w0)"
+          GOOGLE_ID_B64="$(printf '%s' "$GOOGLE_OAUTH_CLIENT_ID" | base64 -w0)"
+          GOOGLE_SECRET_B64="$(printf '%s' "$GOOGLE_OAUTH_CLIENT_SECRET" | base64 -w0)"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
-            bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" "$BACKEND_PATH" "$TELEGRAM_TOKEN_B64" "$TELEGRAM_USERNAME_B64" <<'REMOTE'
+            bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" "$BACKEND_PATH" "$TELEGRAM_TOKEN_B64" "$TELEGRAM_USERNAME_B64" "$GOOGLE_ID_B64" "$GOOGLE_SECRET_B64" <<'REMOTE'
           set -euo pipefail
 
           DOMAIN="$1"
@@ -127,6 +131,8 @@ jobs:
           BACKEND_PATH="$4"
           TELEGRAM_TOKEN_B64="${5:-}"
           TELEGRAM_USERNAME_B64="${6:-}"
+          GOOGLE_ID_B64="${7:-}"
+          GOOGLE_SECRET_B64="${8:-}"
 
           if [ "$(id -u)" -eq 0 ]; then
             SUDO=""
@@ -208,6 +214,15 @@ jobs:
           upsert_secret_env DJANGO_CSRF_TRUSTED_ORIGINS "https://$DOMAIN,https://www.$DOMAIN"
           upsert_secret_env GRAVITAS_OIDC_ISSUER "https://$DOMAIN/api/oidc"
           upsert_secret_env GOOGLE_OAUTH_REDIRECT_URI "https://$DOMAIN/api/auth/google/callback/"
+          # Keep the deployed Google OAuth client in sync with repository secrets.
+          # Never clear existing production credentials when a secret is absent.
+          if [ -n "$GOOGLE_ID_B64" ] && [ -n "$GOOGLE_SECRET_B64" ]; then
+            upsert_secret_env GOOGLE_OAUTH_CLIENT_ID "$(printf '%s' "$GOOGLE_ID_B64" | base64 -d)"
+            upsert_secret_env GOOGLE_OAUTH_CLIENT_SECRET "$(printf '%s' "$GOOGLE_SECRET_B64" | base64 -d)"
+            echo "Google OAuth credentials refreshed from GitHub Actions secrets."
+          else
+            echo "::warning::Google OAuth credentials were not both supplied as GitHub Actions secrets; retaining any existing server credentials."
+          fi
 
           if [ -n "$TELEGRAM_TOKEN_B64" ]; then
             TELEGRAM_TOKEN="$(printf '%s' "$TELEGRAM_TOKEN_B64" | base64 -d)"
