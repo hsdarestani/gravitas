@@ -236,11 +236,21 @@ class PulsarToolExecutor:
             skill='project_task',
             max_resources=min(max(int(args.get('limit') or 8), 1), 12),
         )
+        text = package.text
+        sources = list(package.sources)
+        metadata = dict(package.metadata)
+        if args.get('project_id') not in (None, ''):
+            tasks = self._tasks_read(actor, {
+                'project_id': args['project_id'], 'limit': 40,
+            })
+            text += '\n\n## Current tasks and verified work-log minutes\n' + tasks.content
+            sources.extend(tasks.sources)
+            metadata['task_time_overview'] = tasks.data
         return ToolExecutionResult(
             tool='projects.read',
-            content=package.text,
-            data=package.metadata,
-            sources=package.sources,
+            content=text,
+            data=metadata,
+            sources=sources,
         )
 
     def _tasks_read(self, actor, args):
@@ -290,9 +300,9 @@ class PulsarToolExecutor:
             from core.models import KnowledgeResource
             from core.project_time_log import _parse
             task_map = {row['id']: row for row in rows}
-            for item in task_map.values():
-                item['tracked_minutes'] = 0
             if args.get('project_id') not in (None, ''):
+                for item in task_map.values():
+                    item['tracked_minutes'] = 0
                 logs = KnowledgeResource.objects.filter(
                     project_id=int(args['project_id']),
                     kind=KnowledgeResource.Kind.NOTE,
