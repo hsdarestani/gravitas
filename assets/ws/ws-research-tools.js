@@ -7,7 +7,7 @@
    screen instead of reloading the whole workspace.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r4';
+import * as P from './ws-platform.js?v=20261014-r5';
 
 const DATASET_ACCEPT = '.csv,.tsv,.xlsx,.xls,.json,.jsonl,.zip,.parquet,.xml';
 

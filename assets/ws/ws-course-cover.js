@@ -9,7 +9,7 @@
    the deep-space gradient (Royal Black into Cosmos Blue), a well of light
    where the grid bends, the Spacetime Well texture at low opacity, a few
    Sisal contour rings for the one warm note, a sparse starfield, and the
-   faceted G monogram as the watermark in the top corner. Nothing outside
+   GraviQuest mark as the watermark in the top corner. Nothing outside
    the four brand colours and the Cosmos tints the guideline derives.
 
    It is seeded from the course id and title, so a course keeps the same
@@ -23,8 +23,11 @@ const W = 1600;
 const H = 900;
 const cache = new Map();
 
-/* The supplied monogram, unaltered: assets/logos in the brand kit. */
-const MONOGRAM = 'M491.17,433.95l-57.19,57.26c-57.04-33.03-122.2-50.49-188.39-50.49s-131.47,17.46-188.35,50.46L0,433.95c33-56.87,50.46-122,50.46-188.35S33,114.13,0,57.26L57.19,0c57.07,33.03,122.2,50.46,188.39,50.46S377.08,33.03,433.95.02l42.04,72.41c-69.65,40.41-149.3,61.78-230.41,61.78-44.2,0-88.05-6.39-130.09-18.75,12.34,42.01,18.72,85.87,18.72,130.14s-6.36,88.08-18.72,130.09c42.01-12.36,85.84-18.7,130.09-18.7s88.05,6.36,130.11,18.75c-8.45-28.73-14.08-58.31-16.83-88.27h-113.28v-83.76h195.15v41.89c0,66.34,17.44,131.47,50.44,188.35Z';
+/* The supplied mark, unaltered: assets/logos/Logo_White.svg, two quarter-
+   rings on a 100-unit square. Drawn as path data rather than loaded from the
+   file because the cover is one self-contained data URI. */
+const MONOGRAM = 'M39.64,100h20.71c0-21.86,17.78-39.64,39.64-39.64v-20.71c-33.28,0-60.36,27.08-60.36,60.36Z'
+  + 'M60.36,0h-20.71c0,21.86-17.78,39.64-39.64,39.64v20.71c33.28,0,60.36-27.08,60.36-60.36Z';
 
 function hash(text) {
   let h = 2166136261;
@@ -117,7 +120,7 @@ export function generatedCoverSvg(seedText) {
     + `<g transform="rotate(${tilt} ${r1(fx)} ${r1(fy)})" fill="none" stroke="#f1efec" stroke-width="1.3" stroke-opacity=".2">${gridLines(fx, fy, strength, reach, gap)}</g>`
     + `<g fill="none" stroke="#d4c9be" stroke-width="1.6" transform="rotate(${tilt} ${r1(fx)} ${r1(fy)})">${rings.join('')}</g>`
     + `<rect width="${W}" height="${H}" fill="url(#g)"/>`
-    + `<g transform="translate(${W - mono - 64} 56) scale(${r1(mono / 491.2 * 100) / 100})" fill="#f1efec" opacity=".72"><path d="${MONOGRAM}"/></g>`
+    + `<g transform="translate(${W - mono - 64} 56) scale(${mono / 100})" fill="#f1efec" opacity=".72"><path d="${MONOGRAM}"/></g>`
     + '</svg>';
 }
 

@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20261011-r4';
+import * as P from './ws-platform.js?v=20261014-r5';
 
 const el = (tag, cls = '', text = '') => {
   const node = document.createElement(tag);

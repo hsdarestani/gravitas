@@ -120,45 +120,20 @@
     'space-knowledge': "<g transform=\"translate(-2.735 -0.185) scale(1.118773)\" stroke-width=\"1.52\"><path d=\"M11.69 8.51C12.91 8.16 14.46 8.51 15.51 9.61C16.56 10.71 17.03 12.54 16.46 14.23C15.9 15.91 14.29 17.38 12.27 17.72C10.26 18.07 7.93 17.24 6.51 15.43C5.09 13.62 4.66 10.88 5.67 8.53C6.68 6.17 9.12 4.31 11.93 4.04C14.74 3.77 17.82 5.13 19.56 7.68C21.3 10.23 21.61 13.88 20.1 16.87\"/><circle cx=\"12\" cy=\"12\" r=\"1.385\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     /* ---- Pulsar -----------------------------------------------------------
-       The workspace assistant is called Pulsar (the name once nodded to the
-       plus in Gravitas+, the brand's earlier name, and no longer does), and
-       the shape everyone already reads that name as is a diamond. So this
-       is a diamond, not the brand logo traced: the first cut of this mark was
-       the logo silhouette carried across literally, and axis-aligned with a
-       flat top and flat sides it read as a rounded square. Correct geometry,
-       wrong word.
+       The workspace assistant's mark is Pulsar's own artwork, not a drawing
+       made for the icon set: four quarter-rings, one on each corner of the
+       square, around a solid dot. assets/logos/Pulsar_White.svg is the
+       source and chat.js draws the same paths, so the rail, the tutor panel
+       and the launcher on the public site show one mark.
 
-       What the logo does contribute is the curve. Its four edges bow inward
-       by 12.17/118.45 of the side, which is the whole idea of the brand —
-       space bent by a mass — and the same bow is on these four edges at half
-       that rate. Half, because a diamond meets its neighbours at 90 degrees
-       where the logo meets them at 45, so the logo depth over these shorter
-       chords pinched the waist until the mark turned into the four-pointed
-       sparkle every other product uses for its assistant. Half keeps the
-       bend legible at 16px and keeps the silhouette a diamond.
+       It is the one solid mark that was drawn elsewhere, so it is fitted the
+       way the book fits solid shapes rather than redrawn as an outline: the
+       100-unit artwork scaled to the 17.4 solid cap (0.174) and centred on
+       (12, 12). It is point-symmetric, so its ink centroid is its centre and
+       no centroid solve is needed. A stroked copy would have been a second
+       Pulsar mark. */
 
-       The accent dot is the mass the edges bend around, and it is the counter
-       the logo leaves open at its own centre.
-
-       Cap 19.2, under the 19.6 the outline marks share rather than over it.
-       The reasoning that put this mark above its neighbours was the usual
-       one — a diamond carries no ink at the corners of its box, so it should
-       be drawn a little large to match. It is wrong here, and two rounds of
-       looking at the rail on a phone said so: 21.0 read as a different,
-       larger icon, and 19.9 still read big. The reason is where the ink
-       sits, not how much of it there is. A diamond puts its four points on
-       the cardinal axes, exactly where the cube, the orbit and the spiral
-       either side of it present flat edges, so at a matched cap it is the
-       only mark in the column that reaches past the others at top, bottom
-       and sides. Pulling it under the shared cap is what lines those extremes
-       up. The corner void never mattered; nothing in the rail is close enough
-       to a corner for the eye to miss it.
-
-       The geometry below is still stated at the original 21.0 cap and fitted
-       down by the transform, the same way the marks above are, so the drawn
-       path stays the one the curve rationale describes. Stroke is
-       counter-scaled to land on a true 1.7. */
-    pulsar: "<g transform=\"translate(1.029 1.029) scale(0.914286)\" stroke-width=\"1.859\"><path d=\"M12 1.5C14.54 5.96 18.04 9.46 22.5 12C18.04 14.54 14.54 18.04 12 22.5C9.46 18.04 5.96 14.54 1.5 12C5.96 9.46 9.46 5.96 12 1.5Z\"/><circle cx=\"12\" cy=\"12\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    pulsar: "<g transform=\"translate(3.3 3.3) scale(0.174)\" fill=\"currentColor\" stroke=\"none\"><path d=\"M0,50v-20.71c16.15,0,29.29-13.14,29.29-29.29h20.71c0,27.57-22.43,50-50,50Z\"/><path d=\"M50,100h-20.71c0-16.15-13.14-29.29-29.29-29.29v-20.71c27.57,0,50,22.43,50,50Z\"/><path d=\"M100,50c-27.57,0-50-22.43-50-50h20.71c0,16.15,13.14,29.29,29.29,29.29v20.71Z\"/><path d=\"M70.71,100h-20.71c0-27.57,22.43-50,50-50v20.71c-16.15,0-29.29,13.14-29.29,29.29Z\"/><circle cx=\"50\" cy=\"50\" r=\"10.36\"/></g>",
 
     plus: "<g transform=\"translate(-2.099 -2.094) scale(1.174958)\" stroke-width=\"1.447\"><path d=\"M12 4.4v15.2\"/><path d=\"M4.4 12h15.2\"/></g>",
     /* The one mark where the centroid rule had to give way. Fitting solves the

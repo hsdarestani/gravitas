@@ -28,10 +28,10 @@
    The token is the row's height, not just the circles' diameter: the buttons
    take it as a min-height and centre their label in it, so a change to the
    type scale or the button padding cannot pull the row out of line again.
-   2.75rem below 880px is the larger of the two circle sizes already in use and
+   2.75rem below 905px is the larger of the two circle sizes already in use and
    clears the 44px touch target. */
 :root { --gh-control: 2.5rem; --gh-control-icon: 1.125rem; }
-@media (max-width: 880px) { :root { --gh-control: 2.75rem; } }
+@media (max-width: 904px) { :root { --gh-control: 2.75rem; } }
 
 /* The pills: same height as the circles, their own width. */
 .gh-actions .g-btn { min-height: var(--gh-control); }
@@ -44,13 +44,17 @@
    degrade, so it is locked at its intrinsic width and the row sheds controls
    instead, in this order:
 
-     under 880px   the nav, Sign in, Join Us, theme and saved items all move
+     under 905px   the nav, Sign in, Join Us, theme and saved items all move
                    into the full-screen menu, and the header keeps logo + menu
 
    Nothing is ever merely hidden: every control has a place in the sheet.
-   The 880 figure is measured, not guessed: logo 149 +
-   nav 351 + actions 248 + two 24px gaps + gutters needs 864px, so the full
-   row is only offered where it actually fits. */
+   The 905 figure is measured, not guessed. In the compact row below 1080px
+   the logotype is 163px, the nav 365 and the actions 260, with two 16px gaps:
+   820px of content. The gutters at that width add about 69, and a classic
+   15px scrollbar comes out of the same viewport, so the row needs 904px of
+   window before it fits inside its own container. It was 880 until the
+   GraviQuest logotype (163px against 149) and a grown nav and actions row
+   pushed the right end of the row into the gutter between 881 and 904. */
 .g-logo { flex: none; }
 
 .lp-header__cta { display: inline-flex; }
@@ -86,7 +90,7 @@
    hairline separates them from the account pair. The only filled object left
    is Join Us, which is the one control that should be loud. Height and
    --g-header-h do not change. */
-@media (min-width: 881px) {
+@media (min-width: 905px) {
   .g-header .g-nav {
     gap: var(--g-space-3xs); padding: 4px;
     border: 1px solid var(--g-hairline); border-radius: var(--g-radius-pill);
@@ -115,11 +119,11 @@
   .gh-actions .lp-header__cta { order: 4; }
 }
 /* The capsule's padding costs about 120px over the old underlined row, and
-   the row was measured to just fit at 881px. Between there and where the full
+   the row was measured to just fit at 905px. Between there and where the full
    row fits again, the pills tighten and Sign in keeps only its mark. The label
    stays in the accessibility tree, and the mark is the same glyph the phone
    menu uses for it. */
-@media (min-width: 881px) and (max-width: 1080px) {
+@media (min-width: 905px) and (max-width: 1080px) {
   .g-header__inner { gap: var(--g-space-sm); }
   .g-header .g-nav__link { padding-inline: 0.6rem; }
   .gh-actions .gh-signin { width: var(--gh-control); padding: 0; justify-content: center; }
@@ -130,7 +134,7 @@
   }
 }
 
-@media (max-width: 880px) {
+@media (max-width: 904px) {
   /* The phone header is the logo and one button. It used to be the logo plus
      up to four circled controls (saved, theme, join, menu), and a row of
      outlined circles reads as a toolbar, not as a header; everything they did
@@ -300,7 +304,7 @@
 .g-btn--lead.g-btn--lg { padding-left: calc(2rem   - var(--_shift)); padding-right: calc(2rem   + var(--_shift)); }
 .g-btn--lead.g-btn--sm { padding-left: calc(1rem   - var(--_shift)); padding-right: calc(1rem   + var(--_shift)); }
 /* the header CTA collapses to an icon-only circle on mobile, no label to centre */
-@media (max-width: 880px) { .lp-header__cta.g-btn--lead { padding: 0; } }
+@media (max-width: 904px) { .lp-header__cta.g-btn--lead { padding: 0; } }
 
 /* ---- Topic filter row (PBS season selector) ---- */
 .lp-filters { display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); margin-bottom: var(--g-space-lg); }

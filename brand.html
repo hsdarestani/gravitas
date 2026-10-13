@@ -16,16 +16,16 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <title>Brand &middot; GraviQuest</title>
 <meta name="description" content="The GraviQuest brand book and design system: personality, voice, logo, colour, typography, components and the rules the site is built from.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="mask-icon" href="assets/logos/Logo_Black.svg" color="#003049">
+<link rel="mask-icon" href="assets/logos/Logo_White.svg" color="#003049">
 <meta name="theme-color" content="#00263a">
 <meta name="robots" content="noindex, follow">
 <link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
-<link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds4">
+<link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds5">
 
-<link rel="stylesheet" href="assets/brand.css?v=up-f706806e3a02-g1df6ff09">
+<link rel="stylesheet" href="assets/brand.css?v=up-f706806e3a02-g1df6ff09-gq3">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
-<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl2">
+<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -63,8 +63,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       system (the tokens, components and rules the site is actually built from). Written for
       designers, writers and developers, in that order of appearance.</p>
     <div class="bk-meta">
-      <span><b>Version</b> 2.1</span>
-      <span><b>Updated</b> August 2026</span>
+      <span><b>Version</b> 3.0</span>
+      <span><b>Updated</b> October 2026</span>
       <span><b>Source of truth</b> assets/gravitas.css</span>
       <span><b>Status</b> living document</span>
     </div>
@@ -115,10 +115,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
   <h3>The Name</h3>
   <p>From the Latin <em>gravitas</em>: weight, seriousness, gravity, joined to <em>quest</em>. The
-    visual identity takes the second meaning literally, as spacetime bending under a mass, and the
-    whole system falls out of that one image: a G whose sides curve inward, a grid pulled into a
-    well, a dark field with light in it. The name is one word with two capitals, GraviQuest, and
-    replaces the earlier name Gravitas+.</p>
+    visual identity takes the second meaning literally, as space shaped by mass, and the whole
+    system falls out of that one image: a mark cut from the fields of two masses, a grid pulled
+    into a well, a dark field with light in it. The name is one word with two capitals,
+    GraviQuest, and replaces the earlier name Gravitas+.</p>
 
   <h3>The Promise</h3>
   <p class="bk-rule-line">Curiosity brings people in. Capability keeps them here.</p>
@@ -471,20 +471,26 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <section class="bk-sec" id="logo">
   <span class="bk-sec__n">05</span>
   <h2>Logo</h2>
-  <p class="g-lead">Two marks, one idea: something heavy is warping the space around it.</p>
+  <p class="g-lead">One mark, one idea: two masses, and the space between them shaped by both.</p>
 
-  <h3>The Monogram</h3>
-  <p>A bespoke capital G whose four sides pull inward into concave curves, giving a four-pointed
-    silhouette with a squared counter. It reads at once as a G and as a gravity well distorting a
-    square of space. This is the primary icon: profile pictures, favicons, app icons, the thumbnail
-    watermark and loading states. Pulsar, the assistant, has a mark of its own.</p>
+  <h3>The Mark</h3>
+  <p>Two quarter-rings on a square. One is centred on the bottom-right corner and one on the
+    top-left, and each runs from the midpoint of one side to the midpoint of the next. Read it as two bodies on opposite corners and a ring of each
+    one's field, kept where it falls inside the square. That is the construction, not a gloss on
+    it: the logo motion below derives the mark exactly this way.</p>
+  <p>The proportions are fixed by one number. Each ring is (&radic;2&nbsp;&minus;&nbsp;1)&nbsp;/&nbsp;2
+    of the side wide, 20.71 units on a 100-unit square, and its centre line sits at half the side,
+    so its radii are 39.64 and 60.36. At that width the two rings leave a channel between them on
+    the diagonal exactly as wide as each ring. Nothing about the shape is free to drift.</p>
+  <p>This is the primary icon: profile pictures, favicons, app icons, the thumbnail and course
+    cover watermark, and loading states. "Logo" in file names means this mark.</p>
 
   <h3>The Logotype</h3>
-  <p>The faceted G as the initial, then "ravitas" in a custom lowercase drawn to harmonise with it,
-    closed by a full-size plus sitting on the lowercase, not raised above it. Use it wherever the
-    brand needs to be named: site header and
-    footer, channel art, video intros, partnerships. It is not DM Sans and must never be rebuilt in
-    a font.</p>
+  <p>The mark, then "GraviQuest" set as one word with two capitals. The tail of the Q leaves the
+    bowl as a curve and ends level, the one place the wordmark answers the arcs of the mark. Use
+    the logotype wherever the brand needs to be named: site header and footer, channel art, video
+    intros, partnerships. It is supplied as artwork. Never retype it, rebuild it in DM Sans or any
+    other font, or set the mark beside live text as a substitute.</p>
 
   <div class="bk-marks">
     <div class="bk-mark bk-mark--onblue">
@@ -504,19 +510,44 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <span class="bk-mark__cap">Cosmos on Sisal</span>
     </div>
     <div class="bk-mark bk-mark--icon bk-mark--onblue">
-      <span class="g-mark g-mark--logo" role="img" aria-label="GraviQuest monogram, white on Cosmos Blue"></span>
-      <span class="bk-mark__cap">Monogram, default</span>
+      <span class="g-mark g-mark--logo" role="img" aria-label="GraviQuest mark, white on Cosmos Blue"></span>
+      <span class="bk-mark__cap">Mark, default</span>
     </div>
     <div class="bk-mark bk-mark--icon bk-mark--onblack">
-      <span class="g-mark g-mark--logo" role="img" aria-label="GraviQuest monogram, white on Royal Black"></span>
+      <span class="g-mark g-mark--logo" role="img" aria-label="GraviQuest mark, white on Royal Black"></span>
       <span class="bk-mark__cap">On space imagery</span>
     </div>
     <div class="bk-mark bk-mark--icon bk-mark--onlight">
-      <span class="g-mark g-mark--logo" role="img" aria-label="GraviQuest monogram, Cosmos Blue on White Tint"></span>
+      <span class="g-mark g-mark--logo" role="img" aria-label="GraviQuest mark, Cosmos Blue on White Tint"></span>
       <span class="bk-mark__cap">On light surfaces</span>
     </div>
     <div class="bk-mark bk-mark--icon">
-      <span class="g-mark g-mark--logo" role="img" aria-label="GraviQuest monogram following the page theme"></span>
+      <span class="g-mark g-mark--logo" role="img" aria-label="GraviQuest mark following the page theme"></span>
+      <span class="bk-mark__cap">currentColor, follows theme</span>
+    </div>
+  </div>
+
+  <h3>Pulsar's Mark</h3>
+  <p>Pulsar, the assistant, has a mark of its own drawn from the same quarter-ring: four of them,
+    one on each corner of the square, around a solid dot. The rings are the brand's; the dot is
+    the pulse. It appears on the Ask Pulsar launcher, in the assistant panel and in the workspace,
+    and only there. It is never used as the GraviQuest mark, and the GraviQuest mark is never
+    used for the assistant.</p>
+  <div class="bk-marks">
+    <div class="bk-mark bk-mark--icon bk-mark--onblue">
+      <svg viewBox="0 0 100 100" fill="currentColor" role="img" aria-label="Pulsar mark, white on Cosmos Blue"><path d="M0,50v-20.71c16.15,0,29.29-13.14,29.29-29.29h20.71c0,27.57-22.43,50-50,50Z"/><path d="M50,100h-20.71c0-16.15-13.14-29.29-29.29-29.29v-20.71c27.57,0,50,22.43,50,50Z"/><path d="M100,50c-27.57,0-50-22.43-50-50h20.71c0,16.15,13.14,29.29,29.29,29.29v20.71Z"/><path d="M70.71,100h-20.71c0-27.57,22.43-50,50-50v20.71c-16.15,0-29.29,13.14-29.29,29.29Z"/><circle cx="50" cy="50" r="10.36"/></svg>
+      <span class="bk-mark__cap">Launcher, default</span>
+    </div>
+    <div class="bk-mark bk-mark--icon bk-mark--onblack">
+      <svg viewBox="0 0 100 100" fill="currentColor" role="img" aria-label="Pulsar mark, white on Royal Black"><path d="M0,50v-20.71c16.15,0,29.29-13.14,29.29-29.29h20.71c0,27.57-22.43,50-50,50Z"/><path d="M50,100h-20.71c0-16.15-13.14-29.29-29.29-29.29v-20.71c27.57,0,50,22.43,50,50Z"/><path d="M100,50c-27.57,0-50-22.43-50-50h20.71c0,16.15,13.14,29.29,29.29,29.29v20.71Z"/><path d="M70.71,100h-20.71c0-27.57,22.43-50,50-50v20.71c-16.15,0-29.29,13.14-29.29,29.29Z"/><circle cx="50" cy="50" r="10.36"/></svg>
+      <span class="bk-mark__cap">On space imagery</span>
+    </div>
+    <div class="bk-mark bk-mark--icon bk-mark--onlight">
+      <svg viewBox="0 0 100 100" fill="currentColor" role="img" aria-label="Pulsar mark, Cosmos Blue on White Tint"><path d="M0,50v-20.71c16.15,0,29.29-13.14,29.29-29.29h20.71c0,27.57-22.43,50-50,50Z"/><path d="M50,100h-20.71c0-16.15-13.14-29.29-29.29-29.29v-20.71c27.57,0,50,22.43,50,50Z"/><path d="M100,50c-27.57,0-50-22.43-50-50h20.71c0,16.15,13.14,29.29,29.29,29.29v20.71Z"/><path d="M70.71,100h-20.71c0-27.57,22.43-50,50-50v20.71c-16.15,0-29.29,13.14-29.29,29.29Z"/><circle cx="50" cy="50" r="10.36"/></svg>
+      <span class="bk-mark__cap">On light surfaces</span>
+    </div>
+    <div class="bk-mark bk-mark--icon">
+      <svg viewBox="0 0 100 100" fill="currentColor" role="img" aria-label="Pulsar mark following the page theme"><path d="M0,50v-20.71c16.15,0,29.29-13.14,29.29-29.29h20.71c0,27.57-22.43,50-50,50Z"/><path d="M50,100h-20.71c0-16.15-13.14-29.29-29.29-29.29v-20.71c27.57,0,50,22.43,50,50Z"/><path d="M100,50c-27.57,0-50-22.43-50-50h20.71c0,16.15,13.14,29.29,29.29,29.29v20.71Z"/><path d="M70.71,100h-20.71c0-27.57,22.43-50,50-50v20.71c-16.15,0-29.29,13.14-29.29,29.29Z"/><circle cx="50" cy="50" r="10.36"/></svg>
       <span class="bk-mark__cap">currentColor, follows theme</span>
     </div>
   </div>
@@ -533,6 +564,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       </tbody>
     </table>
   </div>
+  <p>The files themselves are drawn in pure white, <code>#ffffff</code>, so that they are visible
+    when opened on their own. That is a property of the file, not a fifth brand colour: on the site
+    the colour comes from the page, and in finished artwork White means White Tint.</p>
 
   <h4>On the Web, Use currentColor</h4>
   <p>A fixed fill breaks the light theme: a white logo on a cream page is nothing at all. Inline the
@@ -542,9 +576,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     on itself will override its container and paint dark ink on a dark fill.</p>
 
   <h3>Clear Space</h3>
-  <p>Keep a margin equal to the cap height of the G around the logotype, and 25% of the icon width
-    around the monogram. Nothing enters that zone: no text, no edges, no other logos, no busy
-    imagery.</p>
+  <p>Keep a margin equal to the cap height of the G around the logotype, about two thirds of the
+    mark's height, and 25% of the mark's width around the mark on its own. Nothing enters that
+    zone: no text, no edges, no other logos, no busy imagery.</p>
   <div class="bk-clear">
     <div class="bk-clear__box">
       <span class="bk-clear__dim bk-clear__dim--top" aria-hidden="true"><i></i><b>x</b><i></i></span>
@@ -558,9 +592,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
   <h3>Minimum Sizes</h3>
   <ul>
-    <li><b>Monogram:</b> 24px on screen. 16px is acceptable for favicons only.</li>
-    <li><b>Logotype:</b> 120px wide on screen, 25mm in print. Below that the plus and the lowercase
-      detail break down, so switch to the monogram instead.</li>
+    <li><b>Mark:</b> 24px on screen. 16px is acceptable for favicons only, where each ring is still
+      over 3px wide.</li>
+    <li><b>Logotype:</b> 120px wide on screen, 25mm in print. Below that the counters of the
+      lowercase and the tail of the Q start to fill in, so switch to the mark instead.</li>
     <li>Reference sizes in production: header logotype 1.75rem tall, footer logotype 9rem wide,
       watermark and assistant mark 1.5rem.</li>
   </ul>
@@ -571,13 +606,15 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     allowed to shrink so that something beside it can stay. The row sheds its own contents
     instead, in a stated order.</p>
   <p>Everything left in the row is one height, taken from <code>--gh-control</code>: 2.5rem on a
-    desktop, 2.75rem below 880px where it also has to clear a 44px touch target. That holds for the
+    desktop, 2.75rem below 905px where it also has to clear a 44px touch target. That holds for the
     pills as well as the circles.</p>
-  <p>In the site header that order is: below 880px the navigation collapses into the menu and
-    <b>Sign in</b> goes with it; below 400px <b>Join Us</b> follows, leaving the mark, the theme
-    control and the menu. Both keep working from inside the menu, so nothing is merely hidden.
-    The 880 figure is measured rather than chosen: logotype 149px, navigation 351px, actions
-    248px, two gaps and the gutters need 864px, so the full row is only offered where it fits.</p>
+  <p>In the site header that order is: below 905px the navigation, <b>Sign in</b>, <b>Join Us</b>,
+    the theme control and saved items all move into the menu, leaving the logotype and the menu
+    button. Everything keeps working from inside the menu, so nothing is merely hidden. The 905
+    figure is measured rather than chosen: in the compact row the logotype is 163px, the
+    navigation 365px and the actions 260px, which with two gaps and the gutters needs about 889px
+    of page, and a classic 15px scrollbar comes out of the same window. The breakpoint was 880
+    until the GraviQuest logotype arrived 14px wider than the one before it.</p>
 
   <h3>Placing the Mark on Imagery</h3>
   <p>Space photography is busy. Prefer the white variant over a darker region, or add a radial
@@ -590,13 +627,15 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     <div class="bk-dd__cell bk-dd__cell--do">
       <h4>Do</h4>
       <p>Use the supplied files at their own proportions, in one of the four brand colours.</p>
-      <p>Switch to the monogram when the logotype would fall below its minimum.</p>
+      <p>Switch to the mark when the logotype would fall below its minimum.</p>
       <p>Give the mark room, and let the background do the contrast work.</p>
     </div>
     <div class="bk-dd__cell bk-dd__cell--dont">
       <h4>Do not</h4>
-      <p>Rebuild the wordmark in DM Sans or any other font, or drop the plus.</p>
-      <p>Stretch, condense, rotate, skew, outline, emboss or add a gradient or shadow to the mark.
+      <p>Retype the wordmark in DM Sans or any other font, or move the mark to the other side of
+        it.</p>
+      <p>Stretch, condense, rotate, mirror, skew, outline, emboss or add a gradient or shadow to
+        the mark. Mirrored, the two rings pass the other way and it is a different mark.
         Glow behind a focal subject is fine. Effects on the mark are not.</p>
       <p>Recolour outside the palette, reduce the opacity of a header or hero logo, or place the
         white mark on light imagery with no darkening.</p>
@@ -1006,7 +1045,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <p>The <b>grid well</b> is a square grid pulled into a funnel, and on the web it is one file,
     <code>assets/spacetime-well.svg</code>, drawn in White Tint strokes and inverted by CSS on the
     light theme. The <b>contour well</b> is a set of concentric rings distorted around a centre,
-    used behind a face or the monogram. Both come from the same idea: space bending toward the
+    used behind a face or the mark. Both come from the same idea: space bending toward the
     subject.</p>
 
   <div class="bk-wells">
@@ -1471,30 +1510,33 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <h3>Brand Motion: The Logo Sequence</h3>
   <p class="bk-rule-line">The mark is not drawn. It is derived.</p>
   <p>The animation's whole argument is that the logo is a consequence of the idea rather than a
-    decoration on top of it. A coordinate field appears, a mass curves it, and the curvature that
-    results <em>is</em> the concave side of the G. Anchor points land on the mark's real vertices,
-    the outline draws along the real path data, and only then does the stroke hand over to a fill.
-    Nothing in the sequence is a stand-in: if the path changes, the animation changes with it.</p>
+    decoration on top of it. Two masses land on opposite corners of a square, each sends out a
+    field of rings, and two neighbouring rings of each field, cut by the square, <em>are</em> the
+    mark. The rings are spaced by the mark's own band width, so the radii the mark is made of are
+    members of the field rather than lines added to it. The outline draws along the real path
+    data, and only then does the stroke hand over to a fill. Nothing in the sequence is a
+    stand-in: the wordmark and the mark are read from the logo files, so if the artwork changes,
+    the animation changes with it.</p>
 
   <div class="bk-motion">
-    <iframe src="assets/logo-motion.html" title="The GraviQuest logo constructing itself from a curved spacetime field, then resolving into the wordmark" loading="lazy"></iframe>
+    <iframe src="assets/logo-motion.html" title="The GraviQuest mark derived from the fields of two masses, then resolving into the wordmark" loading="lazy"></iframe>
   </div>
   <p class="bk-motion__cap">Sound is off until asked for, and it is synthesised rather than
     recorded. <a href="assets/logo-motion.html" target="_blank" rel="noopener">Open it on its
-    own</a> for a clean recording surface.</p>
+    own</a> for a clean recording surface, or add <code>?t=</code> and a time in seconds to the
+    address for a still of any beat.</p>
 
   <h4>The Beats</h4>
   <div class="bk-tablewrap">
     <table class="bk-table">
       <thead><tr><th>Beat</th><th>Time</th><th>What happens</th></tr></thead>
       <tbody>
-        <tr><td>The field</td><td>0.0 to 1.2s</td><td>A hyperbolic field draws outward from the centre. It is measured off the mark, not invented: along the mark's curve the quantity x&sup2; minus y&sup2; holds to within 5%, which makes the family hyperbolas sharing the diagonals as asymptotes.</td></tr>
-        <tr><td>Anchor points</td><td>1.05 to 2.05s</td><td>Eleven outer vertices snap on in sequence, each one a real coordinate from the path.</td></tr>
-        <tr><td>Contour</td><td>1.95 to 3.15s</td><td>The outline draws as a single stroke along the actual path length.</td></tr>
-        <tr><td>Counter form</td><td>3.05 to 4.05s</td><td>The inner anchors and the counter arrive, which is the moment the G becomes legible as a letter.</td></tr>
-        <tr><td>Resolve</td><td>4.0 to 4.75s</td><td>Stroke hands over to fill, a shockwave passes through the field, and the scaffolding retires while the mark is still centred.</td></tr>
-        <tr><td>GraviQuest</td><td>4.85 to 6.1s</td><td>The camera pulls back and the mark turns out to have been the wordmark's G all along. The remaining glyphs arrive left to right, like writing.</td></tr>
-        <tr><td>Settle</td><td>6.1 to 7.4s</td><td>The lock-up holds. Total runtime 7.4 seconds.</td></tr>
+        <tr><td>The field</td><td>0.0 to 1.3s</td><td>Two masses land on opposite corners of the mark's square, and a field of rings spreads out from each. The rings are spaced by the mark's band width, 20.71 units, and phased so that 39.64 and 60.36 are among them.</td></tr>
+        <tr><td>Two radii</td><td>1.2 to 2.2s</td><td>Those two rings are picked out around each mass, and the square that will cut them appears. This is the construction, shown before the shape.</td></tr>
+        <tr><td>Contour</td><td>2.1 to 3.3s</td><td>The outline of each band inside the square draws as a stroke along the actual path length.</td></tr>
+        <tr><td>Resolve</td><td>3.3 to 4.1s</td><td>Stroke hands over to fill, a shockwave leaves each mass, and the scaffolding retires while the mark is still centred.</td></tr>
+        <tr><td>GraviQuest</td><td>4.2 to 5.5s</td><td>The camera pulls back to the lock-up, and the wordmark's glyphs arrive left to right, like writing.</td></tr>
+        <tr><td>Settle</td><td>5.5 to 6.8s</td><td>The lock-up holds. Total runtime 6.8 seconds.</td></tr>
       </tbody>
     </table>
   </div>
@@ -1514,7 +1556,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
   <h4>Sound</h4>
   <p>Every tone is synthesised at runtime rather than sampled, so the piece carries no licence and
-    no audio file. A low drone fades in under the opening, anchor points ring as struck bells pitched
+    no audio file. A low drone fades in under the opening, each mass and each picked-out ring sounds as a struck bell pitched
     from a D minor pentatonic, and the sequence ends on an open fifth left hanging rather than
     resolved. That choice is the brand in audio form: unresolved is the honest ending for a project
     about open questions.</p>
@@ -1639,7 +1681,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <h3>Page Head</h3>
   <pre class="g-code"><code>&lt;title&gt;Page &middot; GraviQuest&lt;/title&gt;
 &lt;link rel="icon" href="assets/favicon.svg" type="image/svg+xml"&gt;
-&lt;link rel="mask-icon" href="assets/logos/Logo_Black.svg" color="#003049"&gt;
+&lt;link rel="mask-icon" href="assets/logos/Logo_White.svg" color="#003049"&gt;
 &lt;meta name="theme-color" content="#00263a"&gt;</code></pre>
   <p>The <code>theme-color</code> must not split on colour scheme. Dark is the default whatever the
     operating system says, and a scheme-split meta lets the browser chrome go cream on a dark
@@ -1673,8 +1715,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <section class="bk-sec" id="assets">
   <span class="bk-sec__n">15</span>
   <h2>Assets</h2>
-  <p class="g-lead">Everything in one archive, or one file at a time. "Logo" means the monogram,
-    "Logotype" means the full wordmark.</p>
+  <p class="g-lead">Everything in one archive, or one file at a time. "Logo" means the mark,
+    "Logotype" means the mark with the wordmark.</p>
 
   <div class="bk-pack">
     <span class="bk-pack__specimen" aria-hidden="true">
@@ -1682,18 +1724,18 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </span>
     <div class="bk-pack__body">
       <h3>The Logo Pack</h3>
-      <p>The monogram (Black) and the logotype (White) as SVG, plus a README with the rules on one page.
-        These two files are the source the site itself draws from: recolour by changing the fill,
-        never by keeping a second copy of the drawing.</p>
+      <p>The logotype, the mark, Pulsar's mark and the favicon as SVG, plus a README with the
+        rules on one page. These are the files the site itself draws from: recolour by changing
+        the fill, never by keeping a second copy of the drawing.</p>
     </div>
     <div class="bk-pack__foot">
       <dl class="bk-pack__specs">
         <div><dt>Format</dt><dd>ZIP</dd></div>
-        <div><dt>Size</dt><dd>3 KB</dd></div>
-        <div><dt>Files</dt><dd>3</dd></div>
+        <div><dt>Size</dt><dd>5 KB</dd></div>
+        <div><dt>Files</dt><dd>5</dd></div>
         <div><dt>Inside</dt><dd>SVG &middot; TXT</dd></div>
       </dl>
-      <a class="g-btn g-btn--primary" href="assets/gravitas-logos.zip" download>Download the pack</a>
+      <a class="g-btn g-btn--primary" href="assets/graviquest-logos.zip" download>Download the pack</a>
     </div>
   </div>
 
@@ -1702,16 +1744,20 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     markup.</p>
   <div class="bk-dl">
     <a href="assets/logos/Logotype_White.svg" download>
-      <span class="bk-dl__mark"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></span>
+      <span class="bk-dl__mark"><span class="g-mark g-mark--logo" aria-hidden="true"></span></span>
       <span class="bk-dl__name">Logotype, White <span class="bk-dl__hex">#FFFFFF</span></span><span class="bk-dl__type">SVG</span>
     </a>
-    <a href="assets/logos/Logo_Black.svg" download>
+    <a href="assets/logos/Logo_White.svg" download>
       <span class="bk-dl__mark"><span class="g-mark g-mark--logo" aria-hidden="true"></span></span>
-      <span class="bk-dl__name">Logo, Black <span class="bk-dl__hex">#030303</span></span><span class="bk-dl__type">SVG</span>
+      <span class="bk-dl__name">Logo, the mark, White <span class="bk-dl__hex">#FFFFFF</span></span><span class="bk-dl__type">SVG</span>
+    </a>
+    <a href="assets/logos/Pulsar_White.svg" download>
+      <span class="bk-dl__mark"><svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d="M0,50v-20.71c16.15,0,29.29-13.14,29.29-29.29h20.71c0,27.57-22.43,50-50,50Z"/><path d="M50,100h-20.71c0-16.15-13.14-29.29-29.29-29.29v-20.71c27.57,0,50,22.43,50,50Z"/><path d="M100,50c-27.57,0-50-22.43-50-50h20.71c0,16.15,13.14,29.29,29.29,29.29v20.71Z"/><path d="M70.71,100h-20.71c0-27.57,22.43-50,50-50v20.71c-16.15,0-29.29,13.14-29.29,29.29Z"/><circle cx="50" cy="50" r="10.36"/></svg></span>
+      <span class="bk-dl__name">Pulsar's mark, White <span class="bk-dl__hex">#FFFFFF</span></span><span class="bk-dl__type">SVG</span>
     </a>
     <a href="assets/favicon.svg" download>
       <span class="bk-dl__mark"><span class="g-mark g-mark--logo" aria-hidden="true"></span></span>
-      <span class="bk-dl__name">Favicon, white G on a Cosmos Blue disc</span><span class="bk-dl__type">SVG</span>
+      <span class="bk-dl__name">Favicon, the mark in white on a Cosmos Blue disc</span><span class="bk-dl__type">SVG</span>
     </a>
     <a href="assets/gravitas-icons.zip" download>
       <span class="bk-dl__mark"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg></span>
@@ -1737,8 +1783,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <thead><tr><th>Format</th><th>Use it for</th><th>Do not use it for</th></tr></thead>
       <tbody>
         <tr><td>SVG</td><td>Web, slides, anything that will be resized, and anything you want to recolour by editing one value.</td><td>Handing to a printer who has asked for print-ready art.</td></tr>
-        <tr><td>PDF</td><td>Print, and sending to a partner or a printer. Vector, self-contained, opens everywhere.</td><td>Embedding in a web page.</td></tr>
-        <tr><td>AI</td><td>Producing a new colour variant or a lock-up. The geometry is final: open these to change colour, not shape.</td><td>Sharing outside the project.</td></tr>
+        <tr><td>PDF</td><td>Not in the pack. For print, export one from the SVG so the printer gets vector art, self-contained and opening everywhere.</td><td>Embedding in a web page.</td></tr>
         <tr><td>PNG</td><td>Not supplied on purpose. Export one at the size you need from the SVG, so it is never resampled.</td><td>Anything, if a vector will do.</td></tr>
       </tbody>
     </table>
@@ -1772,6 +1817,18 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <p class="g-lead">This document changes when the product does. Corrections are logged, not
     quietly applied.</p>
   <div class="bk-log">
+    <div class="bk-log__row">
+      <div class="bk-log__when">3.0 &middot; Oct 2026</div>
+      <div class="bk-log__what">The GraviQuest identity. The faceted G and the Gravitas+ wordmark
+        are retired everywhere: header, footer, favicon, the workspace, course cover watermarks and
+        the logo pack. The new mark is two quarter-rings on a square, documented with the
+        construction that fixes its proportions; the logotype is the mark with "GraviQuest". Pulsar
+        takes a mark of its own from the same ring, in the public launcher and in the workspace.
+        The logo motion is rebuilt to derive the new mark from two fields of rings, and gains a
+        <code>?t=</code> still for any beat. The pack is renamed <code>graviquest-logos.zip</code>
+        and ships its files in white. The header breakpoint moves from 880 to 905px, measured
+        against the wider logotype.</div>
+    </div>
     <div class="bk-log__row">
       <div class="bk-log__when">2.5 &middot; Oct 2026</div>
       <div class="bk-log__what">Eighteen destination marks join the workspace set, and five
@@ -1873,7 +1930,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </div>
   </div>
 </footer>
-<script src="assets/site.js?v=20261010-menu1"></script>
+<script src="assets/site.js?v=20261014-menu2"></script>
 <script src="assets/brand.js?v=up-f706806e3a02-g1df6ff09" defer></script>
 <script src="assets/chat.js?v=20261013-pulsar6" defer></script>
 </body>

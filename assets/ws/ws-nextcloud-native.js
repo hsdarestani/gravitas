@@ -1,9 +1,9 @@
-import * as P from './ws-platform.js?v=20261011-r4';
-import * as K from './ws-admin-kit.js?v=20261011-r4';
-import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261011-r4';
-import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261011-r4';
-import { startNotesSync } from './ws-notes-performance.js?v=20261011-r4';
-import { renderSpaceIndex } from './ws-space-integration.js?v=20261011-r4';
+import * as P from './ws-platform.js?v=20261014-r5';
+import * as K from './ws-admin-kit.js?v=20261014-r5';
+import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261014-r5';
+import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261014-r5';
+import { startNotesSync } from './ws-notes-performance.js?v=20261014-r5';
+import { renderSpaceIndex } from './ws-space-integration.js?v=20261014-r5';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {

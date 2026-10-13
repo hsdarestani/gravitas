@@ -82,8 +82,16 @@ function called() {
       const re = /(?:request|call|fetch)\(\s*[`'"]([^`'"]+)/g;
       let m;
       while ((m = re.exec(line))) {
-        const raw = m[1];
+        let raw = m[1];
         if (!raw.startsWith('/')) continue;
+        /* A trailing `${all ? '?all=1' : ''}` adds a query string, not a
+           segment. The capture stops at the quote inside it, so it arrives
+           here unterminated, and norm() used to keep "${all ? " as a path
+           segment: fourteen working routes were reported dead that way. When
+           the quote it stopped at opens a query string, the interpolation is
+           dropped; any other unterminated one is still compared as written. */
+        const rest = line.slice(re.lastIndex);
+        if (/\$\{[^}]*$/.test(raw) && /^[`'"]\?/.test(rest)) raw = raw.replace(/\$\{[^}]*$/, '');
         const full = raw.startsWith('/api/') ? raw : '/api' + raw;
         const key = norm(full);
         if (!hits.has(key)) hits.set(key, []);

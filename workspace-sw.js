@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'gravitas-workspace-static-v10';
+const STATIC_CACHE = 'gravitas-workspace-static-v11';
 const SHELL = [
   '/workspace/',
   '/workspace.html',
@@ -12,7 +12,7 @@ const SHELL = [
   '/assets/ws/ws-core-assets.js',
   '/assets/ws/ws-math.js',
   '/assets/ws/ws-math.css',
-  '/assets/gravitas-icons.js?v=20261002-marks1',
+  '/assets/gravitas-icons.js?v=20261014-pulsar1',
 ];
 
 self.addEventListener('install', (event) => {

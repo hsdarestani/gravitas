@@ -172,7 +172,7 @@
       if (nav.classList.contains('is-open') && !nav.contains(e.target) && !mb.contains(e.target)) setMenu(false);
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && nav.classList.contains('is-open')) setMenu(false); });
-    var mq = window.matchMedia('(min-width: 881px)');
+    var mq = window.matchMedia('(min-width: 905px)');
     var onWide = function () { if (mq.matches) setMenu(false); };
     if (mq.addEventListener) mq.addEventListener('change', onWide);
     window.addEventListener('resize', onWide);

@@ -8,10 +8,10 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261011-r4';
-import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261011-r4';
-import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261011-r4';
-import { deckPanel } from './ws-deck-sync.js?v=20261011-r4';
+import * as P from './ws-platform.js?v=20261014-r5';
+import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261014-r5';
+import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261014-r5';
+import { deckPanel } from './ws-deck-sync.js?v=20261014-r5';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 

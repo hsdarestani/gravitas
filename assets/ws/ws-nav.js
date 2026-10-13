@@ -20,7 +20,7 @@
    links and bookmarks keep working.
    ========================================================================== */
 
-import { canOpenCore, canOpenLms, canOpenResearch, isCoreAdmin } from './ws-platform.js?v=20261011-r4';
+import { canOpenCore, canOpenLms, canOpenResearch, isCoreAdmin } from './ws-platform.js?v=20261014-r5';
 
 /* The workspaces, in the order the rail offers them. Core comes first for
    the people who can open it, because they are the ones who live in it. */

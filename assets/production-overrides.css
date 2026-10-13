@@ -26,9 +26,9 @@
   mask-image: url("logos/Logotype_White.svg");
 }
 .g-mark--logo {
-  aspect-ratio: 118.44 / 118.45;
-  -webkit-mask-image: url("logos/Logo_Black.svg");
-  mask-image: url("logos/Logo_Black.svg");
+  aspect-ratio: 1 / 1;
+  -webkit-mask-image: url("logos/Logo_White.svg");
+  mask-image: url("logos/Logo_White.svg");
 }
 .g-logo .g-mark--logotype { height: 1.75rem; }
 .g-logo .g-mark--logo { height: 2rem; }
