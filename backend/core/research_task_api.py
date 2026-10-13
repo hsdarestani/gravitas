@@ -7,6 +7,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_http_methods
 
 from . import operating_api as operating_base
+from .canonical_projects import active as canonical_active
 from .models import ProjectMembership, ResearchProject
 from .operating_models import (
     Initiative,
@@ -226,6 +227,10 @@ def project_task_detail(request, project_id, task_id):
                'blocked_reason', 'due_date', 'owner_id', 'dependency_id'}
     if not payload or set(payload) - allowed:
         return _error('invalid_task_fields')
+    # The v1 canonical JSON currently does not serialize owner and dependency.
+    # Never accept a UI mutation that the authoritative file cannot represent.
+    if canonical_active(project) and {'owner_id', 'dependency_id'}.intersection(payload):
+        return _error('canonical_task_schema_upgrade_required', 409)
     updates = {}
     for field in ('title', 'description', 'definition_of_done', 'blocked_reason'):
         if field in payload:
