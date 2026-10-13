@@ -1,0 +1,47 @@
+name: Graviquest canonical domain migration (staging)
+
+# Run once on a dedicated branch, never directly on main.
+on:
+  push:
+    branches:
+      - chore/graviquest-domain-cutover-20261013
+    paths:
+      - scripts/migrate_graviquest_domain.py
+      - .github/workflows/graviquest-domain-cutover.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.ref == 'refs/heads/chore/graviquest-domain-cutover-20261013'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Update all tracked canonical hostnames
+        run: python3 scripts/migrate_graviquest_domain.py
+      - name: Check diff and migration integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python3 -m compileall -q backend/gravitas_backend
+          grep -q 'DOMAIN: graviquest.com' .github/workflows/deploy.yml
+          grep -q 'CLOUD_DOMAIN: cloud.graviquest.com' .github/workflows/nextcloud.yml
+          grep -q 'LMS_HOST: learn.graviquest.com' .github/workflows/install-openedx.yml
+          grep -q 'graviquest.com/sitemap.xml' robots.txt
+          git status --short
+      - name: Save staged migration without triggering production deploys
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Graviquest migration automation"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git diff --cached --quiet && { echo "No domain changes to commit"; exit 0; }
+          git commit -m "chore: migrate site and service hostnames to graviquest.com [skip ci]"
+          git push origin HEAD:chore/graviquest-domain-cutover-20261013
