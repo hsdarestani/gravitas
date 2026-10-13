@@ -1,0 +1,47 @@
+name: Inspect GRV-000208 Canonical Journal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      HOST: ${{ secrets.DEPLOY_HOST }}
+      LOGIN: ${{ secrets.DEPLOY_USER }}
+      PORT: ${{ secrets.DEPLOY_PORT }}
+    steps:
+      - name: Verify read-only inspection host credentials
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/inspect_project208
+          chmod 600 ~/.ssh/inspect_project208
+          ssh-keyscan -p "${PORT:-22}" -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Inspect the exact failed native transaction (never apply)
+        run: |
+          set -euo pipefail
+          OPTS=(-i ~/.ssh/inspect_project208 -p "${PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10)
+          TARGET="${LOGIN:-deploy}"
+          if ! ssh "${OPTS[@]}" "$TARGET@$HOST" true 2>/dev/null; then
+            ssh "${OPTS[@]}" "root@$HOST" true
+            TARGET=root
+          fi
+          ssh "${OPTS[@]}" "$TARGET@$HOST" bash -s <<'REMOTE'
+          set -euo pipefail
+          BACKEND=/opt/gravitas-backend
+          test -x "$BACKEND/.venv/bin/python"
+          test -f /etc/gravitas/backend.env
+          echo 'Inspecting GRV-000208, transaction 8f5cea56-3c4e-4365-a8ad-2d0106d063f5'
+          sudo -u gravitas env PYTHONPATH="$BACKEND" DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            bash -c 'set -a; . /etc/gravitas/backend.env; set +a; exec "$1" -m django recover_canonical_transaction 208 8f5cea56-3c4e-4365-a8ad-2d0106d063f5' \
+            bash "$BACKEND/.venv/bin/python"
+          REMOTE
+          echo 'Read-only inspection complete. No recovery was attempted.'
