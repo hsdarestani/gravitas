@@ -41,6 +41,12 @@ const css = `
 .pm-note{font-size:12px;opacity:.75;margin:8px 0}
 .pm-ai textarea{width:100%;min-height:84px}
 .pm-ai pre{white-space:pre-wrap;font:inherit}
+.pm-gantt{display:grid;gap:8px;overflow-x:auto}
+.pm-gantt-row{display:grid;grid-template-columns:minmax(180px,260px) minmax(280px,1fr);gap:12px;align-items:center;padding:8px;border:1px solid var(--fl-border,#445);border-radius:8px}
+.pm-gantt-track{position:relative;height:26px;border-radius:6px;background:var(--fl-border,#394149)}
+.pm-gantt-bar{position:absolute;top:3px;bottom:3px;border-radius:6px;background:var(--fl-accent,#7f93db)}
+.pm-gantt-date{font-size:12px;opacity:.78}
+.pm-schedule-editor{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border:1px solid var(--fl-border,#445);border-radius:9px;margin:10px 0}
 `;
 function ensureStyle() {
   if (document.getElementById('pm-cockpit-style')) return;
@@ -55,6 +61,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   ensureStyle();
   let tasks = [...(cockpit.tasks || [])];
   let timeSummary = null;
+  let scheduleMap = null;
   const members = cockpit.members || [];
   const current = { view: 'board', text: '', status: '', owner: '', priority: '', onlyOverdue: false };
   const today = dayKey(new Date());
@@ -67,6 +74,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     tasks = latest.tasks || [];
     try { timeSummary = await P.call('/platform/projects/'+projectId+'/work-time/'); }
     catch(e) { notice.textContent = 'Work-time summary unavailable: '+e.message; }
+    try { const plans=await P.call('/platform/projects/'+projectId+'/schedules/'); scheduleMap=new Map(plans.schedules.map(x=>[Number(x.task_id),x])); }
+    catch(e){notice.textContent='Gantt schedule unavailable: '+e.message;}
     paint();
   }
   const notice = node('p', 'pm-note', 'All views use the same project tasks; Nextcloud remains the source for adopted projects.');
@@ -209,9 +218,30 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     }else if(current.view==='list'){
       const list=node('div','pm-list');n.forEach(t=>{const line=node('div','pm-task');line.append(node('span','',t.title+' · '+format(t)),btn('Details',()=>openEditor(t)));list.append(line);});body.append(list);
     }else if(current.view==='timeline'){
-      body.append(node('p','pm-note','Deadline timeline. Task start dates and actual duration are not yet tracked, so this is not a duration-based Gantt chart.'));
-      const list=node('div','pm-list');
-      [...n].sort((a,b)=>day(a.due_date).localeCompare(day(b.due_date))).forEach(t=>{const line=node('div','pm-task');line.append(node('span','',day(t.due_date)||'No deadline'),tile(t));list.append(line);});body.append(list);
+      body.append(node('p','pm-note','Gantt uses explicitly planned start/end dates from versioned Markdown schedule notes. Unscheduled tasks are shown separately. Due dates remain independent. Click Plan to edit.'));
+      const scheduled=n.filter(t=>scheduleMap?.has(t.id));
+      const starts=scheduled.map(t=>Date.parse(scheduleMap.get(t.id).start_date+'T00:00:00Z'));
+      const ends=scheduled.map(t=>Date.parse(scheduleMap.get(t.id).end_date+'T00:00:00Z'));
+      const origin=starts.length?Math.min(...starts):Date.now();
+      const extent=ends.length?Math.max(...ends):origin+86400000;
+      const span=Math.max(86400000,extent-origin+86400000);
+      const chart=node('div','pm-gantt');
+      scheduled.sort((a,b)=>scheduleMap.get(a.id).start_date.localeCompare(scheduleMap.get(b.id).start_date)).forEach(task=>{
+        const plan=scheduleMap.get(task.id), row=node('div','pm-gantt-row');
+        const left=node('div');left.append(node('strong','',task.title),node('p','pm-gantt-date',plan.start_date+' → '+plan.end_date+' · '+(plan.estimated_minutes/60).toFixed(1)+'h estimate'));
+        if(task.can_edit)left.append(btn('Edit plan',()=>editSchedule(task)));
+        const track=node('div','pm-gantt-track'),bar=node('div','pm-gantt-bar');
+        const leftPercent=(Date.parse(plan.start_date+'T00:00:00Z')-origin)/span*100;
+        const widthPercent=(Date.parse(plan.end_date+'T00:00:00Z')-Date.parse(plan.start_date+'T00:00:00Z')+86400000)/span*100;
+        bar.style.left=leftPercent+'%';bar.style.width=Math.max(1,widthPercent)+'%';
+        bar.title=task.title+' · '+plan.start_date+' to '+plan.end_date;
+        track.append(bar);row.append(left,track);chart.append(row);
+      });
+      n.filter(t=>!scheduleMap?.has(t.id)).forEach(task=>{
+        const row=node('div','pm-task');row.append(node('span','',task.title+' · no plan set'));
+        if(task.can_edit)row.append(btn('Plan',()=>editSchedule(task)));chart.append(row);
+      });
+      body.append(chart);
     }else if(current.view==='week'){
       body.append(node('p','pm-note','Next seven days grouped by due date; this is not a time-block calendar.'));
       const days=node('div','pm-planner');
@@ -232,6 +262,25 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
         assigned.forEach(t=>c.append(tile(t)));cols.append(c);});body.append(cols);
     }
     if(cockpit.project?.permissions?.can_edit) body.append(newTask());
+  }
+  function editSchedule(task){
+    editor.replaceChildren();
+    const box=node('section','pm-schedule-editor'),plan=scheduleMap?.get(task.id);
+    const start=control('input','date','Planned start');start.value=plan?.start_date||dayKey(new Date());
+    const end=control('input','date','Planned end');end.value=plan?.end_date||day(task.due_date)||start.value;
+    const minutes=control('input','number','Estimated minutes');minutes.min='0';minutes.max='525600';minutes.value=String(plan?.estimated_minutes??120);
+    const message=node('p','pm-note','Stored in a human editable, versioned Markdown schedule note in Nextcloud.');
+    const save=btn('Save plan',async()=>{
+      try {
+        const data=await P.call('/platform/projects/'+projectId+'/schedules/',{method:'POST',body:{
+          task_id:task.id,start_date:start.value,end_date:end.value,estimated_minutes:Number(minutes.value)
+        }});
+        scheduleMap=scheduleMap||new Map();scheduleMap.set(task.id,data);
+        editor.replaceChildren();paint();notice.textContent='Gantt plan saved to canonical Markdown.';
+      } catch(e){message.textContent=e.message;}
+    });
+    box.append(node('h3','','Plan · '+task.title),start,end,minutes,save,btn('Close',()=>editor.replaceChildren()),message);
+    editor.append(box);
   }
   function newTask(){
     const box=node('div','pm-new');box.append(node('h3','','Create task'));
@@ -268,6 +317,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     ai.append(q,btn('Ask Pulsar',()=>run(false)),out,actions);
   }
   buildPulsar();paint();
+  P.call('/platform/projects/'+projectId+'/schedules/').then(data=>{scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint();}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
   P.call('/platform/projects/'+projectId+'/work-time/').then(data=>{timeSummary=data;paint();}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
   const linkedId = new URLSearchParams(location.search).get('task');
   if(linkedId && /^\d+$/.test(linkedId)){
