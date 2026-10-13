@@ -50,7 +50,7 @@ def _parse(note):
     if metadata.get('owner_id') != note.owner_id:
         raise ValueError('work_log_owner_mismatch')
     rows = note.body.splitlines()
-    if len(rows) < 5 or rows[2:4] != [HEADER, DIVIDER]:
+    if len(rows) < 4 or rows[2:4] != [HEADER, DIVIDER]:
         raise ValueError('work_log_format_invalid')
     entries = []
     for line in rows[4:]:
