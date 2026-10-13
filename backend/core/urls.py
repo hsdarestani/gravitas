@@ -99,7 +99,7 @@ from core.research_project_tools import (
     project_experiments,
     project_milestones,
 )
-from core.research_task_api import project_tasks as research_project_tasks
+from core.research_task_api import project_tasks as research_project_tasks, project_task_detail as research_project_task_detail
 from core.nextcloud_api import (
     nextcloud_client_credentials,
     nextcloud_status,
@@ -338,6 +338,7 @@ urlpatterns = [
     path('platform/projects/<int:project_id>/', require_research_or_core(platform_project_detail)),
     path('platform/projects/<int:project_id>/cockpit/', require_research_or_core(project_cockpit)),
     path('platform/projects/<int:project_id>/tasks/', require_research_or_core(research_project_tasks)),
+    path('platform/projects/<int:project_id>/tasks/<int:task_id>/', require_research_or_core(research_project_task_detail)),
     path('platform/projects/<int:project_id>/access-candidates/', require_research_or_core(project_access_candidates)),
     path('platform/projects/<int:project_id>/milestones/', require_research_or_core(project_milestones)),
     path('platform/projects/<int:project_id>/experiments/', require_research_or_core(project_experiments)),
