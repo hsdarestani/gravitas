@@ -63,8 +63,14 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
   text-wrap: balance;
 }
 /* gravitas.css keeps headline emphasis upright on purpose. Here the two
-   italic words are the name itself, gravity + question, so they lean. */
-.lp-hero__title em { font-style: italic; }
+   italic words are the name itself, gravity + question, so they lean, and in
+   Literata, the reading face. At the headline's 900 a serif italic goes
+   blotchy beside DM Sans, so it drops to 650; its shorter x-height needs 5%
+   more size to stand level, and the display's tight tracking crowds serifs. */
+.lp-hero__title em {
+  font-family: var(--g-font-read); font-style: italic;
+  font-weight: 650; font-size: 1.05em; letter-spacing: -0.01em;
+}
 @supports (container-type: inline-size) {
   .lp-hero__col { container-type: inline-size; }
   .lp-hero__title { font-size: clamp(2.6rem, 10.8cqw, 4.5rem); }
