@@ -212,6 +212,21 @@ class CanonicalJournalTests(TransactionTestCase):
             batch.finalize()
         self.assertEqual(self.dav.files[path]['content'], 'external recreation')
 
+    def test_unchanged_original_with_acl_etag_rebase_needs_no_rollback_write(self):
+        path = 'project/project.md'
+        before = self.dav.write(path, 'original')
+        batch = WriteBatch()
+        batch.put(self.project, path, 'temporary edit', before['etag'])
+        # External/native actions restored the original bytes but changed ETag.
+        # This cannot justify another write; recovery may only mark restored.
+        self.dav.files[path]['content'] = 'original'
+        self.dav.files[path]['etag'] = '"native-acl-etag"'
+        with patch('core.canonical_projects.dav_write', wraps=self.dav.write) as write:
+            self.assertEqual(recover_journal(batch.journals[71]['path']), 'rolled_back')
+        self.assertEqual(self.dav.files[path]['content'], 'original')
+        self.assertEqual(self.dav.files[path]['etag'], '"native-acl-etag"')
+        self.assertFalse(any(call.args[0] == path for call in write.call_args_list))
+
     def test_external_edit_is_never_overwritten_by_recovery(self):
         before = self.dav.write('project/project.md', 'original')
         batch = WriteBatch(); batch.put(self.project, 'project/project.md', 'edited', before['etag'])
