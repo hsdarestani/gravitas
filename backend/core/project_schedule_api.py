@@ -18,7 +18,7 @@ from .platform_access import can_edit, can_view, policy_for, INHERIT_VISIBILITY
 
 HEADER = '| Start date | End date | Estimated minutes |'
 DIVIDER = '| --- | --- | ---: |'
-PATTERN = re.compile(r'^\\| (\\d{4}-\\d{2}-\\d{2}) \\| (\\d{4}-\\d{2}-\\d{2}) \\| (\\d+) \\|$')
+PATTERN = re.compile(r'^\| (\d{4}-\d{2}-\d{2}) \| (\d{4}-\d{2}-\d{2}) \| (\d+) \|$')
 
 
 def _parse(item):
@@ -103,8 +103,8 @@ def project_task_schedules(request, project_id):
             description='Canonical human-editable Markdown project task schedule.',
             metadata={'pm_type': 'task_schedule_v1', 'task_id': task.pk},
         )
-        note.body = (f'# Schedule for task #{task.pk}\\n\\n{HEADER}\\n{DIVIDER}\\n'
-                     f'| {start.isoformat()} | {end.isoformat()} | {minutes} |\\n')
+        note.body = (f'# Schedule for task #{task.pk}\n\n{HEADER}\n{DIVIDER}\n'
+                     f'| {start.isoformat()} | {end.isoformat()} | {minutes} |\n')
         note.save()
         if not notes:
             policy_for(note, create=True, created_by=request.user,
