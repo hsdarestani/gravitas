@@ -1,0 +1,80 @@
+name: Sync Existing Pulsar Research Project
+
+on:
+  workflow_dispatch:
+    inputs:
+      actor_email:
+        description: "Active user with manage permission on the existing Pulsar Research project"
+        required: true
+        type: string
+      apply:
+        description: "Create only missing source notes (false = inspect only)"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-pulsar-research-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      OPERATIONS_HOST: ${{ secrets.DEPLOY_HOST }}
+      OPERATIONS_LOGIN: ${{ secrets.DEPLOY_USER }}
+      OPERATIONS_PORT: ${{ secrets.DEPLOY_PORT }}
+      ACTOR_EMAIL: ${{ inputs.actor_email }}
+      APPLY: ${{ inputs.apply }}
+    steps:
+      - name: Ensure safe existing-project sync prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$OPERATIONS_HOST"
+          [[ "$ACTOR_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo 'Invalid actor email'; exit 1; }
+          test "$APPLY" = true || test "$APPLY" = false
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/pulsar_research
+          chmod 600 ~/.ssh/pulsar_research
+          ssh-keyscan -p "${OPERATIONS_PORT:-22}" -H "$OPERATIONS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Inspect or synchronize only existing Pulsar Research project
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOGIN="${OPERATIONS_LOGIN:-deploy}"
+          PORT="${OPERATIONS_PORT:-22}"
+          OPTS=(-i ~/.ssh/pulsar_research -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$LOGIN@$OPERATIONS_HOST" true 2>/dev/null; then
+            ssh "${OPTS[@]}" "root@$OPERATIONS_HOST" true
+            LOGIN=root
+          fi
+          ssh "${OPTS[@]}" "$LOGIN@$OPERATIONS_HOST" bash -s -- "$ACTOR_EMAIL" "$APPLY" <<'REMOTE'
+          set -euo pipefail
+          ACTOR="$1"
+          APPLY="$2"
+          ROOT=/var/www/gravitas
+          BACKEND=/opt/gravitas-backend
+          test -f "$ROOT/docs/project-command-center-architecture.md"
+          test -x "$BACKEND/.venv/bin/python"
+          test -f /etc/gravitas/backend.env
+          ARGS=(--actor "$ACTOR" --existing-only --source-root "$ROOT")
+          if [ "$APPLY" = true ]; then
+            ARGS+=(--apply)
+          fi
+          sudo -u gravitas env PYTHONPATH="$BACKEND" DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            bash -c 'set -a; . /etc/gravitas/backend.env; set +a; exec "$1" -m django setup_pulsar_research_project "${@:2}"' \
+            bash "$BACKEND/.venv/bin/python" "${ARGS[@]}"
+          REMOTE
+
+      - name: Report limited scope
+        run: |
+          echo 'Existing project only; no project creation or replacement of edited source notes.'
+          echo 'For adopted projects, native Nextcloud write conditions and journal protections remain active.'
