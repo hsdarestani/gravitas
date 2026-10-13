@@ -192,7 +192,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       ['Completed', n.filter(done).length],
       ['Time logged', timeSummary ? (timeSummary.total_minutes/60).toFixed(1)+'h' : '—']
     ].forEach(([k,v])=>{const c=node('div','pm-stat');c.append(node('strong','',String(v)),node('small','',k));stat.append(c);});
-    ['board','list','timeline','week','team','work logs'].forEach(mode=>{
+    ['board','list','timeline','week','team','work logs','matrix','review'].forEach(mode=>{
       const b=btn(mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint();});
       b.setAttribute('aria-pressed',String(current.view===mode));views.append(b);
     });
@@ -248,6 +248,43 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);const key=dayKey(d);
         const c=node('div','pm-day');c.append(node('strong','',key));n.filter(t=>day(t.due_date)===key).forEach(t=>c.append(tile(t)));days.append(c);}
       body.append(days);
+    }else if(current.view==='matrix'){
+      body.append(node('p','pm-note','Priority matrix uses an explicit heuristic: important = P0/P1, urgent = due within seven days. This view does not change task priorities or source files.'));
+      const horizon=new Date();horizon.setDate(horizon.getDate()+7);
+      const urgentDue=dayKey(horizon);
+      const active=n.filter(t=>!done(t));
+      const urgent=t=>!!t.due_date&&day(t.due_date)<=urgentDue;
+      const important=t=>['p0','p1'].includes(t.priority);
+      const cells=node('div','pm-columns');
+      [
+        ['Important + urgent',t=>important(t)&&urgent(t)],
+        ['Important, not urgent',t=>important(t)&&!urgent(t)],
+        ['Urgent, lower priority',t=>!important(t)&&urgent(t)],
+        ['Other backlog',t=>!important(t)&&!urgent(t)]
+      ].forEach(([title,match])=>{
+        const c=node('div','pm-column'),found=active.filter(match);
+        c.append(node('h3','',title+' ('+found.length+')'));
+        found.forEach(t=>c.append(tile(t)));cells.append(c);
+      });body.append(cells);
+    }else if(current.view==='review'){
+      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-7);
+      const reviewed=n.filter(t=>t.completed_at&&new Date(t.completed_at)>=cutoff);
+      const due=n.filter(t=>overdue(t,today));
+      const blocked=n.filter(t=>t.status==='blocked');
+      const planned=n.reduce((total,t)=>total+(scheduleMap?.get(t.id)?.estimated_minutes||0),0);
+      const actual=n.reduce((total,t)=>total+(timeSummary?.task_minutes?.[String(t.id)]||0),0);
+      body.append(node('h3','','Weekly project review'));
+      body.append(node('p','pm-note','Current source-backed snapshot. Completed tasks use the past 7 days; estimated and tracked hours cover visible tasks, not just this week.'));
+      const overview=node('div','pm-stats');
+      [['Done this week',reviewed.length],['Overdue',due.length],['Blocked',blocked.length],['Estimated hours',(planned/60).toFixed(1)],['Recorded hours',(actual/60).toFixed(1)]].forEach(([label,value])=>{
+        const c=node('div','pm-stat');c.append(node('strong','',String(value)),node('small','',label));overview.append(c);
+      });body.append(overview);
+      const rows=node('div','pm-list');
+      [['Attention: overdue tasks',due],['Attention: blockers',blocked],['Completed this week',reviewed]].forEach(([title,items])=>{
+        rows.append(node('h4','',title));
+        if(!items.length)rows.append(node('p','pm-note','No tasks'));
+        items.forEach(task=>rows.append(tile(task)));
+      });body.append(rows);
     }else if(current.view==='work logs'){
       const logs=node('div','pm-list');
       if(!timeSummary){logs.append(node('p','pm-note','Loading work logs from Nextcloud…'));}
