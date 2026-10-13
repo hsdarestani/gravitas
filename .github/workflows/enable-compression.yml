@@ -56,6 +56,6 @@ jobs:
           sleep 2
           curl -4 -fsS -D "$RUNNER_TEMP/headers" -o /dev/null \
             -H 'Accept-Encoding: gzip' \
-            https://gravitasplus.com/assets/site.css
+            https://graviquest.com/assets/site.css
           tr -d '\r' < "$RUNNER_TEMP/headers" | grep -qi '^content-encoding: gzip'
           echo gravitas-gzip-enabled

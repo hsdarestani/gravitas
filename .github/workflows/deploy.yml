@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOMAIN: gravitasplus.com
+  DOMAIN: graviquest.com
   DEPLOY_PATH: /var/www/gravitas
   BACKEND_PATH: /opt/gravitas-backend
 
@@ -200,6 +200,13 @@ jobs:
             printf '%s=%s\n' "$KEY" "$VALUE" >> "$TMP_FILE"
             $SUDO mv "$TMP_FILE" /etc/gravitas/backend.env
           }
+
+          # Update canonical web origins in persisted runtime config on each deploy.
+          # Do not touch SMTP or the existing Nextcloud public URL before subdomain DNS is ready.
+          upsert_secret_env PUBLIC_BASE_URL "https://$DOMAIN"
+          upsert_secret_env DJANGO_ALLOWED_HOSTS "$DOMAIN,www.$DOMAIN,127.0.0.1,localhost"
+          upsert_secret_env DJANGO_CSRF_TRUSTED_ORIGINS "https://$DOMAIN,https://www.$DOMAIN"
+          upsert_secret_env GRAVITAS_OIDC_ISSUER "https://$DOMAIN/api/oidc"
 
           if [ -n "$TELEGRAM_TOKEN_B64" ]; then
             TELEGRAM_TOKEN="$(printf '%s' "$TELEGRAM_TOKEN_B64" | base64 -d)"

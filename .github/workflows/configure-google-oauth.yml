@@ -72,7 +72,7 @@ jobs:
           $SUDO grep -vE '^GOOGLE_OAUTH_(CLIENT_ID|CLIENT_SECRET|REDIRECT_URI)=' "$ENV_FILE" > "$TMP" || true
           printf 'GOOGLE_OAUTH_CLIENT_ID=%s\n' "$CLIENT_ID" >> "$TMP"
           printf 'GOOGLE_OAUTH_CLIENT_SECRET=%s\n' "$CLIENT_SECRET" >> "$TMP"
-          printf 'GOOGLE_OAUTH_REDIRECT_URI=https://gravitasplus.com/api/auth/google/callback/\n' >> "$TMP"
+          printf 'GOOGLE_OAUTH_REDIRECT_URI=https://graviquest.com/api/auth/google/callback/\n' >> "$TMP"
           $SUDO install -o root -g gravitas -m 640 "$TMP" "$ENV_FILE"
           rm -f "$TMP"
           $SUDO systemctl restart gravitas-backend
@@ -85,11 +85,11 @@ jobs:
         run: |
           set -euo pipefail
           HEADERS="$RUNNER_TEMP/google-oauth-start.headers"
-          curl -4 -sS -D "$HEADERS" -o /dev/null "https://gravitasplus.com/api/auth/google/start/"
+          curl -4 -sS -D "$HEADERS" -o /dev/null "https://graviquest.com/api/auth/google/start/"
           grep -Eq '^HTTP/.* 302' "$HEADERS"
           grep -Eqi '^location: https://accounts\.google\.com/o/oauth2/v2/auth\?' "$HEADERS"
           grep -Eqi 'redirect_uri=https%3A%2F%2Fgravitasplus\.com%2Fapi%2Fauth%2Fgoogle%2Fcallback%2F' "$HEADERS"
-          curl -4 -fsS "https://gravitasplus.com/login" -o "$RUNNER_TEMP/gravitas-login.html"
+          curl -4 -fsS "https://graviquest.com/login" -o "$RUNNER_TEMP/gravitas-login.html"
           grep -q 'Continue with Google' "$RUNNER_TEMP/gravitas-login.html"
           echo "Production Google OAuth start endpoint and UI are live."
 
@@ -98,7 +98,7 @@ jobs:
         run: |
           if [ "${{ steps.oauth.outputs.configured }}" = "true" ]; then
             echo "### Google OAuth connected to Gravitas+" >> "$GITHUB_STEP_SUMMARY"
-            echo "Authorized redirect URI: https://gravitasplus.com/api/auth/google/callback/" >> "$GITHUB_STEP_SUMMARY"
+            echo "Authorized redirect URI: https://graviquest.com/api/auth/google/callback/" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "### Google OAuth code is ready, credentials are missing" >> "$GITHUB_STEP_SUMMARY"
             echo "Add repository secrets GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, then run this workflow manually." >> "$GITHUB_STEP_SUMMARY"

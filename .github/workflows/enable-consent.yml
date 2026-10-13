@@ -32,23 +32,23 @@ jobs:
           cat > /tmp/gravitas-consent.conf <<'EOF'
           map $host $gravitas_body_close {
               default "</body>";
-              gravitasplus.com '<script src="/assets/production-cleanup.js"></script><script src="/assets/cms-live.js"></script><script src="/assets/cms-links.js"></script><script src="/assets/consent.js"></script></body>';
+              graviquest.com '<script src="/assets/production-cleanup.js"></script><script src="/assets/cms-live.js"></script><script src="/assets/cms-links.js"></script><script src="/assets/consent.js"></script></body>';
           }
 
           map $uri $gravitas_head_close {
               default '<link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              / '<link rel="canonical" href="https://gravitasplus.com/"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /index.html '<link rel="canonical" href="https://gravitasplus.com/"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /about.html '<link rel="canonical" href="https://gravitasplus.com/about.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /dossiers.html '<link rel="canonical" href="https://gravitasplus.com/dossiers.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /magazine.html '<link rel="canonical" href="https://gravitasplus.com/magazine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /lab.html '<link rel="canonical" href="https://gravitasplus.com/lab.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /learn.html '<link rel="canonical" href="https://gravitasplus.com/learn.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /community.html '<link rel="canonical" href="https://gravitasplus.com/community.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /dossier-machine-hypothesis.html '<link rel="canonical" href="https://gravitasplus.com/dossier-machine-hypothesis.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /dossier-computable-universe.html '<link rel="canonical" href="https://gravitasplus.com/dossier-computable-universe.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /article-hypothesis-or-sentence.html '<link rel="canonical" href="https://gravitasplus.com/article-hypothesis-or-sentence.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /game-hypothesis-machine.html '<link rel="canonical" href="https://gravitasplus.com/game-hypothesis-machine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              / '<link rel="canonical" href="https://graviquest.com/"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /index.html '<link rel="canonical" href="https://graviquest.com/"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /about.html '<link rel="canonical" href="https://graviquest.com/about.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossiers.html '<link rel="canonical" href="https://graviquest.com/dossiers.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /magazine.html '<link rel="canonical" href="https://graviquest.com/magazine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /lab.html '<link rel="canonical" href="https://graviquest.com/lab.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /learn.html '<link rel="canonical" href="https://graviquest.com/learn.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /community.html '<link rel="canonical" href="https://graviquest.com/community.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossier-machine-hypothesis.html '<link rel="canonical" href="https://graviquest.com/dossier-machine-hypothesis.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /dossier-computable-universe.html '<link rel="canonical" href="https://graviquest.com/dossier-computable-universe.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /article-hypothesis-or-sentence.html '<link rel="canonical" href="https://graviquest.com/article-hypothesis-or-sentence.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
+              /game-hypothesis-machine.html '<link rel="canonical" href="https://graviquest.com/game-hypothesis-machine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
           }
 
           sub_filter_once on;
@@ -71,18 +71,18 @@ jobs:
         run: |
           set -euo pipefail
           sleep 2
-          curl -4 -fsSL https://gravitasplus.com/assets/consent.js | grep -q 'gravitas:consent:v1'
-          curl -4 -fsSL https://gravitasplus.com/assets/production-cleanup.js | grep -q '312K'
-          curl -4 -fsSL https://gravitasplus.com/assets/cms-live.js | grep -q '/api/content/'
-          curl -4 -fsSL https://gravitasplus.com/assets/cms-links.js | grep -q '/content/'
-          curl -4 -fsSL https://gravitasplus.com/assets/cms-public.css | grep -q 'g-cms-grid'
-          curl -4 -fsSL 'https://gravitasplus.com/api/content/?kind=dossier&limit=1' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True and isinstance(d.get("items"), list)'
-          HOME_HTML="$(curl -4 -fsSL https://gravitasplus.com/)"
+          curl -4 -fsSL https://graviquest.com/assets/consent.js | grep -q 'gravitas:consent:v1'
+          curl -4 -fsSL https://graviquest.com/assets/production-cleanup.js | grep -q '312K'
+          curl -4 -fsSL https://graviquest.com/assets/cms-live.js | grep -q '/api/content/'
+          curl -4 -fsSL https://graviquest.com/assets/cms-links.js | grep -q '/content/'
+          curl -4 -fsSL https://graviquest.com/assets/cms-public.css | grep -q 'g-cms-grid'
+          curl -4 -fsSL 'https://graviquest.com/api/content/?kind=dossier&limit=1' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True and isinstance(d.get("items"), list)'
+          HOME_HTML="$(curl -4 -fsSL https://graviquest.com/)"
           printf '%s' "$HOME_HTML" | grep -q '/assets/consent.js'
           printf '%s' "$HOME_HTML" | grep -q '/assets/production-cleanup.js'
           printf '%s' "$HOME_HTML" | grep -q '/assets/cms-live.js'
           printf '%s' "$HOME_HTML" | grep -q '/assets/cms-links.js'
-          printf '%s' "$HOME_HTML" | grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">'
+          printf '%s' "$HOME_HTML" | grep -Fq '<link rel="canonical" href="https://graviquest.com/">'
           printf '%s' "$HOME_HTML" | grep -Fq '<meta name="robots" content="noindex, nofollow">'
           ! printf '%s' "$HOME_HTML" | grep -q 'fonts.googleapis.com'
           ! printf '%s' "$HOME_HTML" | grep -q 'fonts.gstatic.com'
