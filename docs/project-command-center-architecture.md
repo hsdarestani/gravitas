@@ -26,8 +26,8 @@ the migration work below.
 | --- | --- |
 | Project gallery / portfolio KPIs | Existing Research/Cockpit; cross-project team portfolio requires scoped aggregation |
 | Nested task list and subtasks | Existing tasks and checklists; richer hierarchy needs canonical schema |
-| Kanban | New Command center board is read/write via existing task object, without drag/drop yet |
-| Search, status/owner filters | New Command center basic filters; saveable multi-facet filters pending |
+| Kanban | New Command center board reads/writes existing tasks, with accessible details and drag/drop status changes |
+| Search, status/owner filters | New search, status, owner, priority and overdue filters; stored filters pending |
 | Project task details | New scoped update endpoint: status, priority, owner, due date, blocker, dependencies |
 | Timeline / Gantt | New **deadline timeline**, NOT duration Gantt; start/duration/dependency drag pending |
 | Week planner | New seven-day due-date planner; time-block scheduling not implemented |
@@ -35,7 +35,7 @@ the migration work below.
 | Time tracking / work logs | Existing daily work reports are distinct; per-task stopwatch and approved time log pending |
 | Milestones / dependencies | Existing typed relationships; dependency editing supported in scoped API |
 | Nextcloud & Markdown editor | Existing canonical project-file UI, DAV concurrency controls, explicit adoption |
-| AI project assistant | New project-scoped Pulsar panel using the established agent runtime and approval flow |
+| AI project assistant | New scoped Pulsar panel with approval preview, project-wide ACL-filtered task metrics (bounded at 3000 scanned records), up to 45 prioritized details and task citations |
 | Calendar sync, urgent-important, budget, balance, reviews | Planned, require explicit schema and acceptance tests |
 
 ## Pulsar boundary
@@ -46,7 +46,7 @@ for the user, project, task and every source. The runtime currently limits
 project context and should progressively retrieve ACL-verified files and task
 summaries rather than concatenate entire team corpora into prompts.
 
-Summaries must cite actual project/task sources. Write operations require the
+Summaries must cite actual project/task sources. When exceeding the 3000-task project scan bound, the summary marks itself incomplete instead of implying total coverage. Write operations require the
 existing ActionPolicy approval checks, explicit action preview, and canonical
 journal commits. Never grant Pulsar broader permissions than its invoking user.
 
@@ -91,3 +91,24 @@ the target's Nextcloud, project.md, ACL and editor read/write with two users.
    `setup_pulsar_research_project` command, after actor/project verification.
 
 No "fully released" claim should be made until production acceptance passes.
+
+
+## Additional delivery checkpoints
+
+- 2026-10-13: Drag/drop statuses, priority and overdue filters, and deep-linked
+  task details are implemented in the draft branch. Core statuses use the real
+  `needs_review` enum; canonical projects visibly lock fields not yet
+  serialized to text instead of allowing silently diverging owner changes.
+- Pulsar Research materials are available through a new **manual** sync
+  workflow: `.github/workflows/pulsar-research-sync.yml`. It defaults to
+  read-only inspection; applying requires an active managing actor and a
+  uniquely identified **existing** Pulsar project. Human-edited source notes
+  are never replaced. This workflow has not yet been executed in production.
+- GRV-000208: a manual read-only workflow
+  `.github/workflows/canonical-208-inspect.yml` inspects exactly the
+  known pending journal. It cannot run `--apply`, and does not bypass
+  conditional recovery or native ACL verification.
+- CI and production are separate gates: keep PR #175 draft until all tests
+  pass, native journal inspection resolves project 208, an isolated checkpoint
+  is available, and browser/editor/Nextcloud concurrency checks are run.
+
