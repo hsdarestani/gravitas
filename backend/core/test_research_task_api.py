@@ -145,3 +145,59 @@ class ResearchProjectTaskApiTests(TestCase):
             data={'project_id': 999}, content_type='application/json',
         )
         self.assertEqual(reassignment.status_code, 400, reassignment.content)
+
+
+    def _time(self, user, task_id, action=None, **fields):
+        self.client.force_login(user)
+        url = f'/api/platform/projects/{self.project.pk}/tasks/{task_id}/time/'
+        if action is None:
+            return self.client.get(url)
+        return self.client.post(
+            url, data={'action': action, **fields}, content_type='application/json')
+
+    def test_work_log_is_one_human_editable_note_with_cross_device_timer(self):
+        from core.models import KnowledgeResource
+        task_id = self.create_task(self.owner).json()['task']['id']
+        first = self._time(self.owner, task_id, 'start')
+        self.assertEqual(first.status_code, 200, first.content)
+        self.assertTrue(first.json()['my_active_started_at'])
+        repeated = self._time(self.owner, task_id, 'start')
+        self.assertEqual(repeated.status_code, 409)
+        stopped = self._time(self.owner, task_id, 'stop', note='Drafted research findings')
+        self.assertEqual(stopped.status_code, 200, stopped.content)
+        self.assertEqual(stopped.json()['entry_count'], 1)
+        self.assertIsNone(stopped.json()['my_active_started_at'])
+        note = KnowledgeResource.objects.get(project=self.project, metadata__pm_type='task_time_log_v1')
+        self.assertEqual(note.metadata['task_id'], task_id)
+        self.assertIn('Drafted research findings', note.body)
+        self.assertEqual(KnowledgeResource.objects.filter(project=self.project, metadata__pm_type='task_time_log_v1').count(), 1)
+
+    def test_manual_work_log_and_team_visibility(self):
+        task_id = self.create_task(self.owner).json()['task']['id']
+        written = self._time(self.owner, task_id, 'log', minutes=35, date='2026-09-29', note='Analysis | review')
+        self.assertEqual(written.status_code, 200, written.content)
+        self.assertEqual(written.json()['total_minutes'], 35)
+        self.assertEqual(written.json()['entries'][0]['note'], 'Analysis | review')
+        viewed = self._time(self.viewer, task_id)
+        self.assertEqual(viewed.status_code, 200, viewed.content)
+        self.assertEqual(viewed.json()['total_minutes'], 35)
+        rejected = self._time(self.viewer, task_id, 'log', minutes=25, date='2026-09-29')
+        self.assertEqual(rejected.status_code, 403, rejected.content)
+
+    def test_work_log_rejects_invalid_external_markdown_without_rewriting(self):
+        from core.models import KnowledgeResource
+        task_id = self.create_task(self.owner).json()['task']['id']
+        self._time(self.owner, task_id, 'log', minutes=10, date='2026-09-29')
+        note = KnowledgeResource.objects.get(project=self.project, metadata__pm_type='task_time_log_v1')
+        note.body += '\nnot a valid time log row'
+        note.save()
+        response = self._time(self.owner, task_id)
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()['error'], 'work_log_entry_invalid')
+
+    def test_work_log_rejects_future_manual_date_and_overlong_duration(self):
+        task_id = self.create_task(self.owner).json()['task']['id']
+        invalid = self._time(self.owner, task_id, 'log', minutes=721, date='2026-09-29')
+        self.assertEqual(invalid.status_code, 400)
+        future = self._time(self.owner, task_id, 'log', minutes=10, date='2099-01-01')
+        self.assertEqual(future.status_code, 400)
