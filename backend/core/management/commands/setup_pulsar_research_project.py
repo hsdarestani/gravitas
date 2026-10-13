@@ -12,6 +12,8 @@ from django.contrib.contenttypes.models import ContentType
 from core.canonical_journal import canonical_operation
 
 MATERIAL = ('docs/five-layer-platform-architecture.md', 'backend/core/pulsar_runtime/context.py', 'backend/core/pulsar_runtime/harness.py', 'backend/core/pulsar_task_service.py', 'backend/core/telegram_pulsar.py')
+# Optional add-ons may not exist on an older split frontend deployment.
+EXTRA_MATERIAL = ('docs/project-command-center-architecture.md', 'backend/core/pulsar_runtime/agent.py', 'assets/ws/ws-project-pm.js', 'backend/core/research_task_api.py')
 
 
 class Command(BaseCommand):
@@ -21,6 +23,7 @@ class Command(BaseCommand):
         parser.add_argument('--project', type=int)
         parser.add_argument('--source-root', type=Path, help='Deployed frontend/repository root containing docs; backend sources use this installed backend if split.')
         parser.add_argument('--apply', action='store_true')
+        parser.add_argument('--existing-only', action='store_true', help='Never create a new Pulsar Research project; require the existing one.')
         parser.add_argument('--adopt', action='store_true')
     def handle(self, *args, **options):
         with canonical_operation():
@@ -35,17 +38,24 @@ class Command(BaseCommand):
         if matches.count() > 1:
             raise CommandError('Several Pulsar projects exist; select --project')
         project = matches.first()
+        if not project and options.get('existing_only'):
+            raise CommandError('Existing Pulsar Research project required')
         if project and not can_manage(actor, project):
             raise CommandError('Project manage access required')
         root = options.get('source_root') or Path(__file__).resolve().parents[4]
         backend_root = Path(__file__).resolve().parents[3]
-        source_paths = {path: root / path for path in MATERIAL}
-        for path in MATERIAL:
+        source_paths = {path: root / path for path in MATERIAL + EXTRA_MATERIAL}
+        for path in MATERIAL + EXTRA_MATERIAL:
             if not source_paths[path].is_file() and path.startswith('backend/'):
                 source_paths[path] = backend_root / path.removeprefix('backend/')
-            if not source_paths[path].is_file():
+            if not source_paths[path].is_file() and path in MATERIAL:
                 raise CommandError(f'Existing source material missing: {path}')
-        self.stdout.write(f'project={project.pk if project else "not_defined"} source_files={len(MATERIAL)}')
+        # Load the new module as one versioned package. An older split
+        # frontend with only baseline docs must keep the legacy five-source
+        # inventory rather than importing half of an unavailable feature.
+        add_ons_ready = source_paths['docs/project-command-center-architecture.md'].is_file()
+        available = list(MATERIAL) + ([path for path in EXTRA_MATERIAL if source_paths[path].is_file()] if add_ons_ready else [])
+        self.stdout.write(f'project={project.pk if project else "not_defined"} source_files={len(available)}')
         if not options['apply']:
             return
         if not project:
@@ -55,7 +65,7 @@ class Command(BaseCommand):
             policy_for(project, create=True, created_by=actor, default_visibility='private')
         ensure_project_folder_structure(project, actor)
         notes = []
-        for path in MATERIAL:
+        for path in available:
             key = f'repository-source:{path}'
             existing = KnowledgeResource.objects.filter(project=project, metadata__canonical_source_key=key).first()
             if existing:

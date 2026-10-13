@@ -21,6 +21,15 @@ class PulsarProjectProvisioningTests(TestCase):
         self.assertEqual(KnowledgeResource.objects.filter(project=project).count(), 5)
         self.assertIn('Actual split deployment architecture', KnowledgeResource.objects.get(project=project, description='docs/five-layer-platform-architecture.md').body)
 
+    def test_existing_only_prevents_accidental_duplicate_pulsar_project(self):
+        from django.core.management.base import CommandError
+        actor = get_user_model().objects.create_superuser(
+            'project-sync-owner', 'project-sync-owner@example.test', 'test-only'
+        )
+        with self.assertRaisesMessage(CommandError, 'Existing Pulsar Research project required'):
+            call_command('setup_pulsar_research_project', actor=actor.email, apply=True, existing_only=True, stdout=StringIO())
+        self.assertFalse(ResearchProject.objects.filter(title='Pulsar').exists())
+
     def test_repeat_provisioning_preserves_existing_note_edits_and_source_links(self):
         actor = get_user_model().objects.create_superuser('source-owner', 'source-owner@example.test', 'test-only')
         with patch('core.management.commands.setup_pulsar_research_project.ensure_project_folder_structure'):

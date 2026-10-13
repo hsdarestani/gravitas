@@ -1,3 +1,4 @@
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
@@ -6,6 +7,7 @@ from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.db import connection
 from django.db.models import Q
+from django.utils import timezone
 from django.utils.html import strip_tags
 
 from .errors import PulsarPermissionError
@@ -188,27 +190,93 @@ class PulsarContextEngine:
                     'href': f'/workspace/research/projects/{project.pk}',
                 })
 
-            tasks = (
-                OperatingTask.objects
-                .filter(project=project)
-                .exclude(status__in=[WorkStatus.DONE, WorkStatus.ARCHIVED])
+            # One scoped source, two scales: an exact project-level overview
+            # plus a bounded list of actionable records for the prompt. Do not
+            # silently imply that the first twenty tasks are the entire team.
+            # Check per-item ACLs before counting or showing an item.
+            from collections import Counter
+            from datetime import timedelta
+            current_day = timezone.localdate()
+            horizon = current_day + timedelta(days=7)
+            totals = Counter()
+            candidates = []
+            examined = 0
+            task_queryset = (
+                OperatingTask.objects.filter(project=project)
                 .select_related('owner', 'dependency')
-                .order_by('due_date', 'id')[:20]
+                .order_by('id')
             )
-            if tasks:
-                task_rows = []
-                for task in tasks:
-                    if not can_view(user, task):
-                        continue
-                    owner = (
-                        task.owner.get_full_name() or task.owner.email
-                        if task.owner_id else 'Unassigned'
+            for task in task_queryset.iterator(chunk_size=200):
+                examined += 1
+                if examined > 3000:
+                    totals['scan_limited'] = 1
+                    break
+                if not can_view(user, task):
+                    continue
+                totals['visible'] += 1
+                totals['status:' + task.status] += 1
+                if task.status in [WorkStatus.DONE, WorkStatus.ARCHIVED]:
+                    totals['complete'] += 1
+                    continue
+                totals['open'] += 1
+                if task.status == WorkStatus.BLOCKED:
+                    totals['blocked'] += 1
+                if not task.due_date:
+                    totals['unscheduled'] += 1
+                elif task.due_date < current_day:
+                    totals['overdue'] += 1
+                elif task.due_date <= horizon:
+                    totals['due_7d'] += 1
+                if task.owner_id:
+                    totals['owner:' + str(task.owner_id)] += 1
+                weight = (
+                    0 if task.status == WorkStatus.BLOCKED else
+                    1 if task.due_date and task.due_date < current_day else
+                    2 if task.due_date and task.due_date <= horizon else 3
+                )
+                candidates.append((weight, task.due_date or horizon, task.pk, task))
+            blocks.append(
+                'Project task coverage (ACL-filtered, source=live canonical projection): '
+                + json.dumps({
+                    'visible': totals['visible'],
+                    'open': totals['open'],
+                    'completed': totals['complete'],
+                    'blocked': totals['blocked'],
+                    'overdue': totals['overdue'],
+                    'due_within_7_days': totals['due_7d'],
+                    'unscheduled': totals['unscheduled'],
+                    'status_counts': {
+                        key[7:]: count for key, count in totals.items()
+                        if key.startswith('status:')
+                    },
+                    'scan_limit_reached': bool(totals['scan_limited']),
+                    'as_of': current_day.isoformat(),
+                }, ensure_ascii=False)
+            )
+            if candidates:
+                rows = []
+                for _, _, _, task in sorted(candidates, key=lambda row: row[:3])[:45]:
+                    owner = (task.owner.get_full_name() or task.owner.email) if task.owner_id else 'Unassigned'
+                    dependency = (
+                        '#' + str(task.dependency_id)
+                        if task.dependency_id and can_view(user, task.dependency) else '—'
                     )
-                    task_rows.append(
-                        f'- {task.title} | owner={owner} | due={task.due_date or "—"} | status={task.status} | priority={task.priority} | blocker={task.blocked_reason[:500]} | dependency={task.dependency.title if task.dependency_id and can_view(user, task.dependency) else "—"}'
+                    rows.append(
+                        f'- #{task.pk}: {task.title[:180]} | owner={owner} | due={task.due_date or "—"} '
+                        f'| status={task.status} | priority={task.priority} '
+                        f'| blocker={task.blocked_reason[:220]} | dependency={dependency}'
                     )
-                if task_rows:
-                    blocks.append('Open project tasks:\n' + '\n'.join(task_rows))
+                    sources.append({
+                        'id': str(task.pk),
+                        'title': f'Task #{task.pk}: {task.title[:160]}',
+                        'kind': 'project_task',
+                        'href': f'/workspace/research/projects/{project.pk}/management?task={task.pk}',
+                    })
+                blocks.append(
+                    f'Priority task details (up to 45 of {len(candidates)} open; '
+                    'refer to live task tools for additional items):\n'
+                    + '\n'.join(rows)
+                )
             from core.research_models import ProjectDiscussionMessage, ResearchExperiment
             from core.platform_models import MindMap
             from core.models import ProjectMembership

@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .models import KnowledgeActivity, KnowledgeResource, ProjectMembership, ResearchProject
+from .canonical_projects import active as canonical_active
 from .operating_models import OperatingTask
 from .platform_access import can_edit, can_manage, can_view, content_type_for, effective_role
 from .platform_api import _auth, _project_json, _request_json, _resource_json
@@ -50,6 +51,11 @@ def _task_json(item, user):
         'priority': item.priority,
         'due_date': item.due_date.isoformat() if item.due_date else None,
         'definition_of_done': item.definition_of_done,
+        'blocked_reason': item.blocked_reason,
+        'dependency_id': item.dependency_id,
+        'milestone_id': item.milestone_id,
+        'completed_at': item.completed_at.isoformat() if item.completed_at else None,
+        'canonical_path': f'02_Working/Research/tasks/OperatingTask-{item.pk}/content.json',
         'owner': _person(item.owner),
         'owner_id': item.owner_id,
         'initiative': item.initiative.title if item.initiative else None,
@@ -300,7 +306,7 @@ def project_cockpit(request, project_id):
 
     return JsonResponse({
         'ok': True,
-        'project': _project_json(project, request.user, include_detail=True),
+        'project': {**_project_json(project, request.user, include_detail=True), 'canonical_enabled': canonical_active(project)},
         'counts': counts,
         'attention': {
             'overdue_tasks': overdue_tasks,

@@ -1,12 +1,14 @@
 import json
 
 from django.db import transaction
+from django.utils import timezone
 from django.http import JsonResponse
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_http_methods
 
 from . import operating_api as operating_base
-from .models import ResearchProject
+from .canonical_projects import active as canonical_active
+from .models import ProjectMembership, ResearchProject
 from .operating_models import (
     Initiative,
     KeyResult,
@@ -200,3 +202,99 @@ def project_tasks(request, project_id):
         )
 
     return JsonResponse({'ok': True, 'task': _task_json(task, request.user)}, status=201)
+
+
+@require_http_methods(['PATCH'])
+def project_task_detail(request, project_id, task_id):
+    """Edit the existing Core/Research task, not a second project-specific copy.
+
+    Changes pass through the canonical middleware and the existing model
+    signals, so an adopted project's Nextcloud file remains authoritative.
+    """
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    project = _project(request, project_id, 'edit')
+    if project is None:
+        return _error('project_edit_required', 403)
+    task = (OperatingTask.objects.select_related('owner', 'initiative', 'dependency')
+            .filter(pk=task_id, project=project).first())
+    if task is None or not can_edit(request.user, task):
+        return _error('task_edit_required', 403)
+    payload = _body(request)
+    if not isinstance(payload, dict):
+        return _error('invalid_payload')
+    allowed = {'title', 'description', 'definition_of_done', 'status', 'priority',
+               'blocked_reason', 'due_date', 'owner_id', 'dependency_id'}
+    if not payload or set(payload) - allowed:
+        return _error('invalid_task_fields')
+    # The v1 canonical JSON currently does not serialize owner and dependency.
+    # Never accept a UI mutation that the authoritative file cannot represent.
+    if canonical_active(project) and {'owner_id', 'dependency_id'}.intersection(payload):
+        return _error('canonical_task_schema_upgrade_required', 409)
+    updates = {}
+    for field in ('title', 'description', 'definition_of_done', 'blocked_reason'):
+        if field in payload:
+            value = str(payload[field] or '').strip()
+            if field in {'title', 'definition_of_done'} and not value:
+                return _error('required_task_field')
+            if field == 'title' and len(value) > 240:
+                return _error('title_too_long')
+            updates[field] = value
+    if 'status' in payload:
+        value = str(payload['status']).lower()
+        if value not in WorkStatus.values:
+            return _error('invalid_status')
+        updates['status'] = value
+    if 'priority' in payload:
+        value = str(payload['priority']).lower()
+        if value not in Priority.values:
+            return _error('invalid_priority')
+        updates['priority'] = value
+    if 'due_date' in payload:
+        value = parse_date(str(payload['due_date'] or '')) if payload['due_date'] else None
+        if payload['due_date'] and value is None:
+            return _error('invalid_due_date')
+        if value is None and task.cycle_id is None:
+            return _error('due_date_required_without_cycle')
+        updates['due_date'] = value
+    if 'owner_id' in payload:
+        owner_id = str(payload['owner_id'] or '')
+        membership = (ProjectMembership.objects
+                      .filter(project=project, user_id=owner_id, user__is_active=True)
+                      .select_related('user').first()) if owner_id.isdecimal() else None
+        if membership is None:
+            return _error('owner_must_be_project_member')
+        updates['owner'] = membership.user
+    if 'dependency_id' in payload:
+        raw = payload['dependency_id']
+        dependency = None
+        if raw not in (None, ''):
+            if not str(raw).isdecimal():
+                return _error('invalid_dependency')
+            dependency = OperatingTask.objects.filter(pk=int(raw), project=project).first()
+            if dependency is None or not can_view(request.user, dependency):
+                return _error('invalid_dependency')
+            seen = {task.pk}
+            cursor = dependency
+            while cursor is not None:
+                if cursor.pk in seen:
+                    return _error('dependency_cycle')
+                seen.add(cursor.pk)
+                cursor = cursor.dependency
+        updates['dependency'] = dependency
+    previous = {field: (getattr(task, field + '_id') if field in {'owner', 'dependency'}
+                         else str(getattr(task, field) or '')) for field in updates}
+    with transaction.atomic():
+        for field, value in updates.items():
+            setattr(task, field, value)
+        if task.status == WorkStatus.DONE:
+            task.completed_at = task.completed_at or timezone.now()
+        elif 'status' in updates:
+            task.completed_at = None
+        task.save()
+        ProjectAuditEvent.objects.create(
+            project=project, actor=request.user, action='task_updated',
+            object_type='OperatingTask', object_id=str(task.pk),
+            detail={'fields': list(updates), 'previous': previous},
+        )
+    return JsonResponse({'ok': True, 'task': _task_json(task, request.user)})

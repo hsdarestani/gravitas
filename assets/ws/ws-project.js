@@ -1,4 +1,5 @@
 import { renderProjectStructure } from './ws-project-files.js?v=20261011-r4';
+import { renderProjectManagement } from './ws-project-pm.js?v=20261011-r4';
 import * as P from './ws-platform.js?v=20261011-r4';
 import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261011-r4';
 
@@ -7,6 +8,7 @@ const TABS = [
   ['overview', 'Overview'],
   ['milestones', 'Milestones'],
   ['tasks', 'Tasks'],
+  ['management', 'Command center'],
   ['notes', 'Notes'],
   ['sources', 'Sources'],
   ['files', 'Attachments'],
@@ -520,6 +522,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'overview') overviewView(doc, cockpit, { go, projectId });
     else if (tab === 'milestones') milestonesView(doc, results[1].milestones || []);
     else if (tab === 'tasks') tasksView(doc, cockpit);
+    else if (tab === 'management') renderProjectManagement(doc, projectId, cockpit, { go, refresh: rerender });
     else if (tab === 'notes') notesView(doc, cockpit);
     else if (tab === 'sources') sourcesView(doc, cockpit, rerender);
     else if (tab === 'files') filesView(doc, cockpit);
