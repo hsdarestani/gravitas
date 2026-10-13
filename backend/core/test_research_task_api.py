@@ -223,3 +223,46 @@ class ResearchProjectTaskApiTests(TestCase):
         self.client.force_login(self.owner)
         response = self.client.get(f'/api/platform/projects/{self.project.pk}/work-time/')
         self.assertEqual(response.status_code, 409, response.content)
+
+
+    def test_canonical_gantt_schedule_is_a_single_markdown_note(self):
+        from core.models import KnowledgeResource
+        task_id = self.create_task(self.owner).json()['task']['id']
+        url = f'/api/platform/projects/{self.project.pk}/schedules/'
+        self.client.force_login(self.owner)
+        payload = {'task_id': task_id, 'start_date': '2026-09-28',
+                   'end_date': '2026-10-02', 'estimated_minutes': 360}
+        created = self.client.post(url, data=payload, content_type='application/json')
+        self.assertEqual(created.status_code, 200, created.content)
+        note = KnowledgeResource.objects.get(
+            project=self.project, metadata__pm_type='task_schedule_v1')
+        self.assertEqual(note.metadata['task_id'], task_id)
+        self.assertIn('| 2026-09-28 | 2026-10-02 | 360 |', note.body)
+        payload['estimated_minutes'] = 600
+        updated = self.client.post(url, data=payload, content_type='application/json')
+        self.assertEqual(updated.status_code, 200, updated.content)
+        self.assertEqual(KnowledgeResource.objects.filter(
+            project=self.project, metadata__pm_type='task_schedule_v1').count(), 1)
+        self.client.force_login(self.viewer)
+        listing = self.client.get(url)
+        self.assertEqual(listing.status_code, 200, listing.content)
+        self.assertEqual(listing.json()['schedules'][0]['estimated_minutes'], 600)
+        denied = self.client.post(url, data=payload, content_type='application/json')
+        self.assertEqual(denied.status_code, 403)
+
+    def test_bad_gantt_schedule_is_rejected_not_silently_truncated(self):
+        from core.models import KnowledgeResource
+        task_id = self.create_task(self.owner).json()['task']['id']
+        url = f'/api/platform/projects/{self.project.pk}/schedules/'
+        self.client.force_login(self.owner)
+        bad = self.client.post(url, data={'task_id': task_id, 'start_date': '2026-10-20',
+            'end_date': '2026-10-01', 'estimated_minutes': 60}, content_type='application/json')
+        self.assertEqual(bad.status_code, 400)
+        created = self.client.post(url, data={'task_id': task_id, 'start_date': '2026-10-01',
+            'end_date': '2026-10-20', 'estimated_minutes': 60}, content_type='application/json')
+        self.assertEqual(created.status_code, 200)
+        note = KnowledgeResource.objects.get(project=self.project, metadata__pm_type='task_schedule_v1')
+        note.body = '# Schedule for task #999\n\nIncorrect file edited in Nextcloud'
+        note.save()
+        result = self.client.get(url)
+        self.assertEqual(result.status_code, 409)
