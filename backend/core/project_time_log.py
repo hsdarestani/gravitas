@@ -207,3 +207,46 @@ def project_task_time(request, project_id, task_id):
         log.metadata = meta
         log.save(update_fields=['metadata', 'body', 'updated_at'])
     return JsonResponse({'ok': True, **_session_data(request, task, project)})
+
+
+@require_http_methods(['GET'])
+def project_time_summary(request, project_id):
+    """Team overview derived exclusively from ACL-visible native work-log notes."""
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    project = ResearchProject.objects.filter(pk=project_id, archived=False).first()
+    if not project or not can_view(request.user, project):
+        return _error('not_found', 404)
+    visible = {
+        task.pk for task in OperatingTask.objects.filter(project=project)
+        if can_view(request.user, task)
+    }
+    by_task, by_owner, by_date = {}, {}, {}
+    active = 0
+    entries = 0
+    notes = KnowledgeResource.objects.filter(
+        project=project, kind=KnowledgeResource.Kind.NOTE,
+        metadata__pm_type='task_time_log_v1',
+    ).select_related('owner')
+    for note in notes:
+        task_id = (note.metadata or {}).get('task_id')
+        if task_id not in visible or not can_view(request.user, note):
+            continue
+        try:
+            logged = _parse(note)
+        except ValueError as exc:
+            return _error(str(exc), 409)
+        minutes = sum(entry['minutes'] for entry in logged)
+        by_task[str(task_id)] = by_task.get(str(task_id), 0) + minutes
+        by_owner[str(note.owner_id)] = by_owner.get(str(note.owner_id), 0) + minutes
+        for row in logged:
+            key = row['start'][:10]
+            by_date[key] = by_date.get(key, 0) + row['minutes']
+        active += bool((note.metadata or {}).get('active_started_at'))
+        entries += len(logged)
+    return JsonResponse({
+        'ok': True, 'total_minutes': sum(by_task.values()),
+        'entry_count': entries, 'active_timer_count': active,
+        'task_minutes': by_task, 'owner_minutes': by_owner,
+        'daily_minutes': by_date,
+    })
