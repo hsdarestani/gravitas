@@ -201,3 +201,25 @@ class ResearchProjectTaskApiTests(TestCase):
         self.assertEqual(invalid.status_code, 400)
         future = self._time(self.owner, task_id, 'log', minutes=10, date='2099-01-01')
         self.assertEqual(future.status_code, 400)
+
+
+    def test_project_work_time_summary_uses_authorized_markdown_logs(self):
+        task_id = self.create_task(self.owner).json()['task']['id']
+        self._time(self.owner, task_id, 'log', minutes=90, date='2026-09-29', note='Study')
+        self.client.force_login(self.viewer)
+        response = self.client.get(f'/api/platform/projects/{self.project.pk}/work-time/')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['total_minutes'], 90)
+        self.assertEqual(response.json()['task_minutes'][str(task_id)], 90)
+        self.assertEqual(response.json()['owner_minutes'][str(self.owner.pk)], 90)
+        self.assertEqual(response.json()['daily_minutes']['2026-09-29'], 90)
+
+    def test_work_time_summary_fails_closed_on_invalid_native_log(self):
+        from core.models import KnowledgeResource
+        task_id = self.create_task(self.owner).json()['task']['id']
+        self._time(self.owner, task_id, 'log', minutes=20, date='2026-09-29')
+        note = KnowledgeResource.objects.get(project=self.project, metadata__pm_type='task_time_log_v1')
+        note.body += 'broken row\n'; note.save()
+        self.client.force_login(self.owner)
+        response = self.client.get(f'/api/platform/projects/{self.project.pk}/work-time/')
+        self.assertEqual(response.status_code, 409, response.content)
