@@ -11,7 +11,7 @@ from core.platform_models import MindMap, MindMapNode, MindMapEdge
 from django.contrib.contenttypes.models import ContentType
 from core.canonical_journal import canonical_operation
 
-MATERIAL = ('docs/five-layer-platform-architecture.md', 'backend/core/pulsar_runtime/context.py', 'backend/core/pulsar_runtime/harness.py', 'backend/core/pulsar_task_service.py', 'backend/core/telegram_pulsar.py')
+MATERIAL = ('docs/five-layer-platform-architecture.md', 'docs/project-command-center-architecture.md', 'backend/core/pulsar_runtime/context.py', 'backend/core/pulsar_runtime/harness.py', 'backend/core/pulsar_task_service.py', 'backend/core/pulsar_runtime/agent.py', 'backend/core/telegram_pulsar.py', 'assets/ws/ws-project-pm.js', 'backend/core/research_task_api.py')
 
 
 class Command(BaseCommand):
