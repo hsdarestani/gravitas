@@ -518,6 +518,22 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$OPERATIONS_HOST" bash -s -- "$CHECKPOINT_SCRIPT" <<'REMOTE'
           set -euo pipefail
           CHECKPOINT_SCRIPT="$1"
+          # pause() stops the backend units and Nextcloud before capturing. If
+          # an earlier run died after that and its resume() failed too, every
+          # later deploy stopped at the first `occ status` with the app still
+          # down. Bring the recorded runtime back first, loudly. The repository
+          # is public, so print container state and disk use, not container logs.
+          if ! sudo docker exec -u www-data gravitas-nextcloud php occ status --output=json >/dev/null 2>&1; then
+            echo "Nextcloud is not answering occ status; resuming the recorded runtime before checkpointing."
+            df -h / /var/backups || true
+            sudo docker ps -a --filter name=gravitas --format '{{.Names}}\t{{.Status}}' || true
+            sudo docker inspect -f 'State={{.State.Status}} ExitCode={{.State.ExitCode}} OOMKilled={{.State.OOMKilled}} Error={{.State.Error}}' gravitas-nextcloud || true
+            if sudo test -f /var/backups/gravitas-canonical/runtime.json; then
+              sudo python3 "$CHECKPOINT_SCRIPT" resume --apply
+            else
+              sudo docker start gravitas-nextcloud
+            fi
+          fi
           CHECKPOINT_OUTPUT="$(sudo python3 "$CHECKPOINT_SCRIPT" backup --apply)"
           printf '%s\n' "$CHECKPOINT_OUTPUT"
           CHECKPOINT_PATH="$(printf '%s\n' "$CHECKPOINT_OUTPUT" | sed -n 's/^Checkpoint: //p')"
