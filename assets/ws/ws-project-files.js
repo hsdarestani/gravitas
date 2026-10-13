@@ -4,7 +4,7 @@
 import { call, upload } from './ws-platform.js?v=20261011-r4';
 import { nextcloudSsoUrl } from './ws-nextcloud-sso.js?v=20261011-r4';
 import { renderNoteMarkdown } from './ws-notes-markdown.js?v=20261011-r4';
-import { showProjectFileHistory } from './ws-project-history.js?v=20261014-r1';
+import { showProjectFileHistory } from './ws-project-history.js?v=20261011-r4';
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const button = (text, fn) => { const n = el('button', 'ws-btn', text); n.type = 'button'; n.onclick = fn; return n; };
 export async function renderProjectStructure(doc, projectId) {
