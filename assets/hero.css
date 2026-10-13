@@ -62,6 +62,9 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
   /* Even the rag out rather than leaving a two-word orphan on the last line. */
   text-wrap: balance;
 }
+/* gravitas.css keeps headline emphasis upright on purpose. Here the two
+   italic words are the name itself, gravity + question, so they lean. */
+.lp-hero__title em { font-style: italic; }
 @supports (container-type: inline-size) {
   .lp-hero__col { container-type: inline-size; }
   .lp-hero__title { font-size: clamp(2.6rem, 10.8cqw, 4.5rem); }
