@@ -19,17 +19,28 @@ EXTRA_MATERIAL = ('docs/project-command-center-architecture.md', 'backend/core/p
 class Command(BaseCommand):
     help = 'Inspect/create a Pulsar Research project from existing repository material; never replace existing source notes.'
     def add_arguments(self, parser):
-        parser.add_argument('--actor', required=True)
+        parser.add_argument('--actor', help='Active manager email; use --actor-project-owner for an explicitly selected existing project')
         parser.add_argument('--project', type=int)
         parser.add_argument('--source-root', type=Path, help='Deployed frontend/repository root containing docs; backend sources use this installed backend if split.')
         parser.add_argument('--apply', action='store_true')
         parser.add_argument('--existing-only', action='store_true', help='Never create a new Pulsar Research project; require the existing one.')
+        parser.add_argument('--actor-project-owner', action='store_true', help='Use active owner of an explicitly selected existing project; requires --existing-only and --project.')
         parser.add_argument('--adopt', action='store_true')
     def handle(self, *args, **options):
         with canonical_operation():
             self.provision(options)
 
     def provision(self, options):
+        if options['actor_project_owner']:
+            if not options.get('project') or not options.get('existing_only'):
+                raise CommandError('Project-owner mode requires explicit --project and --existing-only')
+            selected = ResearchProject.objects.select_related('owner').filter(
+                pk=options['project'], archived=False).first()
+            if selected is None or not selected.owner or not selected.owner.is_active:
+                raise CommandError('Existing project with active owner required')
+            options['actor'] = selected.owner.email
+        if not options.get('actor'):
+            raise CommandError('Explicit actor required')
         users = get_user_model().objects.filter(email__iexact=options['actor'], is_active=True)
         if users.count() != 1:
             raise CommandError('Unique active actor required')
