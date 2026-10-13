@@ -11,6 +11,7 @@ from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from . import cloud, nextcloud_bridge
 from .canonical_models import CanonicalFile
+from .canonical_journal import journal_transaction
 from .canonical_projects import CanonicalConflict, ROOT, active, adopt_project, acl_object, apply, cache, dav_read, dav_write, decode, object_for, refresh_project, merge_content
 from .models import ResearchProject
 from .models import KnowledgeResource
@@ -137,7 +138,7 @@ def project_files(request, project_id):
         return error(exc)
 
 
-@transaction.atomic
+@journal_transaction
 @require_http_methods(['GET', 'PUT'])
 def project_file_content(request, project_id):
     try:
@@ -216,4 +217,52 @@ def project_file_content(request, project_id):
         return JsonResponse({'ok': True, 'content': saved['content'], 'etag': saved['etag'], 'path': path})
     except (CanonicalConflict, PermissionError, ValueError, cloud.CloudError, ImproperlyConfigured, ValidationError) as exc:
         transaction.set_rollback(True)
+        return error(exc)
+
+
+@require_http_methods(['GET'])
+def project_file_revisions(request, project_id):
+    """Read permission-scoped canonical revision snapshots, never an editable second store.
+
+    The current document still lives in Nextcloud; these snapshots are the
+    version provenance/merge base captured on successful DAV readbacks.
+    """
+    try:
+        project = _project(request, project_id)
+        path = clean_path(request.GET.get('path', 'project.md'))
+        file = CanonicalFile.objects.filter(project=project, path=path, deleted=False).first()
+        obj = object_for(file) if file else None
+        if not file or not obj:
+            raise ValueError('canonical_file_missing')
+        if not can_view(request.user, acl_object(obj)):
+            raise PermissionError('file_access_required')
+        revision_id = request.GET.get('revision_id')
+        if revision_id is not None:
+            if not revision_id.isdecimal() or len(revision_id) > 20:
+                raise ValueError('invalid_revision_id')
+            revision = file.revisions.filter(pk=int(revision_id)).first()
+            if not revision:
+                raise ValueError('revision_not_found')
+            return JsonResponse({
+                'ok': True, 'path': path, 'revision': {
+                    'id': revision.pk, 'content': revision.content,
+                    'etag': revision.etag, 'source': revision.source,
+                    'created_at': revision.created_at.isoformat(),
+                },
+            })
+        # Avoid exposing a stale cache as if it were the live file. The source
+        # of truth, current content and its ETag must always come from DAV.
+        remote = dav_read(cloud.project_mountpoint(project) + '/' + path)
+        if not remote:
+            raise ValueError('canonical_file_missing')
+        versions = file.revisions.order_by('-created_at', '-pk')[:50]
+        return JsonResponse({
+            'ok': True, 'path': path, 'current_etag': remote['etag'],
+            'revisions': [
+                {'id': r.pk, 'etag': r.etag, 'source': r.source,
+                 'actor_id': r.actor_id, 'created_at': r.created_at.isoformat()}
+                for r in versions
+            ],
+        })
+    except (CanonicalConflict, PermissionError, ValueError, cloud.CloudError, ImproperlyConfigured, ValidationError) as exc:
         return error(exc)

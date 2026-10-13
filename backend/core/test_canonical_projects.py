@@ -338,6 +338,34 @@ class CanonicalProjectTests(TestCase):
         self.assertEqual(resolved.status_code, 200, resolved.content)
         self.assertTrue(CanonicalFileRevision.objects.filter(file__project=self.project, content__startswith='REMOTE').exists())
 
+    def test_canonical_editor_preserves_versions_and_enforces_read_acl(self):
+        self.adopt()
+        content_url = f'/api/platform/projects/{self.project.pk}/file-content/?path=project.md'
+        history_url = f'/api/platform/projects/{self.project.pk}/file-revisions/?path=project.md'
+        original = self.client.get(content_url).json()
+        draft = original['content'].replace('one', 'new draft')
+        saved = self.client.put(content_url,
+            json.dumps({'content': draft, 'etag': original['etag']}),
+            content_type='application/json')
+        self.assertEqual(saved.status_code, 200, saved.content)
+        self.assertEqual(saved.json()['content'], draft)
+        history = self.client.get(history_url)
+        self.assertEqual(history.status_code, 200, history.content)
+        self.assertEqual(history.json()['current_etag'], saved.json()['etag'])
+        versions = history.json()['revisions']
+        self.assertTrue(any(v['etag'] == original['etag'] for v in versions))
+        prior = next(v for v in versions if v['etag'] == original['etag'])
+        snapshot = self.client.get(history_url + '&revision_id=' + str(prior['id']))
+        self.assertEqual(snapshot.status_code, 200)
+        self.assertEqual(snapshot.json()['revision']['content'], original['content'])
+        self.client.force_login(self.viewer)
+        self.assertEqual(self.client.get(history_url).status_code, 200)
+        self.assertEqual(self.client.put(content_url,
+            json.dumps({'content': 'override', 'etag': saved.json()['etag']}),
+            content_type='application/json').status_code, 403)
+        self.client.force_login(self.outsider)
+        self.assertEqual(self.client.get(history_url).status_code, 403)
+
     def test_wrong_identity_rejected_without_mutating_database(self):
         self.adopt(); path = self.full(relative_path(self.note))
         value = self.dav.files[path]['content'].replace(f'"project_id": {self.project.pk}', '"project_id": 999999')
