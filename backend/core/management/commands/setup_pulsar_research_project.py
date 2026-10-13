@@ -23,6 +23,7 @@ class Command(BaseCommand):
         parser.add_argument('--project', type=int)
         parser.add_argument('--source-root', type=Path, help='Deployed frontend/repository root containing docs; backend sources use this installed backend if split.')
         parser.add_argument('--apply', action='store_true')
+        parser.add_argument('--existing-only', action='store_true', help='Never create a new Pulsar Research project; require the existing one.')
         parser.add_argument('--adopt', action='store_true')
     def handle(self, *args, **options):
         with canonical_operation():
@@ -37,6 +38,8 @@ class Command(BaseCommand):
         if matches.count() > 1:
             raise CommandError('Several Pulsar projects exist; select --project')
         project = matches.first()
+        if not project and options.get('existing_only'):
+            raise CommandError('Existing Pulsar Research project required')
         if project and not can_manage(actor, project):
             raise CommandError('Project manage access required')
         root = options.get('source_root') or Path(__file__).resolve().parents[4]
