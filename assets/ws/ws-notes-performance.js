@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  NOTES ⇄ NEXTCLOUD, IN THE BACKGROUND
+   GRAVIQUEST WORKSPACE  ·  NOTES ⇄ NEXTCLOUD, IN THE BACKGROUND
    The notebook opens on what the database already holds (a plain GET of
    /platform/nextcloud/notes/ never waits on Nextcloud). Reconciling with
    the Nextcloud Notes app — pulling edits made there, pushing ones made

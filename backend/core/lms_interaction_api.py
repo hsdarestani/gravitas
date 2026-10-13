@@ -105,7 +105,7 @@ def _note_payload(item):
         parts.append(quoted)
     if item.body:
         parts.append(item.body)
-    parts.append(f'Gravitas course: /workspace/learning/courses/{course.pk}')
+    parts.append(f'GraviQuest course: /workspace/learning/courses/{course.pk}')
     return title, '\n\n'.join(value for value in parts if value).strip()
 
 

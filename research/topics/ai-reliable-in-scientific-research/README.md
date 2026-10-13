@@ -16,7 +16,7 @@ AI reliability in science is not a stable property of a model. It is an emergent
 
 ## Research status
 
-This folder is the internal Research Pack for the first Gravitas+ Topic.
+This folder is the internal Research Pack for the first GraviQuest Topic.
 
 It is intentionally deeper than the public page. The website should select from this material rather than become the only place where the research exists.
 
@@ -32,7 +32,7 @@ It is intentionally deeper than the public page. The website should select from 
 | Case studies | 04-case-studies.md | AlphaFold, GNoME, Co-Scientist, formal mathematics, Paper2Agent, AI Scientist |
 | Governance | 05-governance-and-integrity.md | Journals, review, hallucinated references, accountability |
 | Timeline | 06-timeline.md | Historical development of the question |
-| Video | 07-video.md | Reserved for Gravitas+ original video |
+| Video | 07-video.md | Reserved for GraviQuest original video |
 | Simulation | 08-simulation.md | Interactive Trust Test + executable prototype |
 | Viewpoints | 09-viewpoints.md | Best competing interpretations |
 | Open questions | 10-open-questions.md | Unsettled questions and research gaps |

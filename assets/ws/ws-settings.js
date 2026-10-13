@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  SETTINGS
+   GRAVIQUEST WORKSPACE  ·  SETTINGS
    Profile picture, profile fields, password, and the preferences that live
    in this browser.
 
@@ -217,7 +217,7 @@ const MESSAGES = {
   avatar_unsupported_type: 'Use a PNG, JPEG, WebP or GIF.',
   avatar_not_base64: 'That file could not be read as an image.',
   avatar_too_large: 'That picture is still too large after resizing. Try a smaller one.',
-  research_access_required: 'This account cannot edit a profile yet. Ask a Gravitas+ administrator for research access.',
+  research_access_required: 'This account cannot edit a profile yet. Ask a GraviQuest administrator for research access.',
   current_password_incorrect: 'That is not your current password.',
   password_rejected: 'That password was rejected. Use something longer and less common.',
   authentication_required: 'Your session has ended. Sign in again.',

@@ -192,7 +192,7 @@ class FiveLayerCompletionTests(TestCase):
     @override_settings(NEXTCLOUD_ADMIN_USER='admin', NEXTCLOUD_ADMIN_PASSWORD='secret')
     @patch('core.nextcloud_deck._find_board')
     def test_deck_status_is_available_to_core_admin(self, find_board):
-        find_board.return_value = {'id': 42, 'title': 'Gravitas+ Execution'}
+        find_board.return_value = {'id': 42, 'title': 'GraviQuest Execution'}
         response = self.client.get('/api/platform/admin/deck/')
         self.assertEqual(response.status_code, 200, response.content)
         self.assertTrue(response.json()['available'])
@@ -201,7 +201,7 @@ class FiveLayerCompletionTests(TestCase):
     @patch('core.nextcloud_deck.sync_tasks_to_deck')
     def test_deck_sync_records_audit_event(self, sync_tasks):
         sync_tasks.return_value = {
-            'board': {'id': 9, 'title': 'Gravitas+ Execution', 'url': 'https://example.invalid/deck/9'},
+            'board': {'id': 9, 'title': 'GraviQuest Execution', 'url': 'https://example.invalid/deck/9'},
             'stacks': {'Backlog': 1, 'Active': 2, 'Blocked': 3, 'Done': 4},
             'tasks': 3,
             'changes': {

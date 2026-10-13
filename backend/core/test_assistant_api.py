@@ -69,7 +69,7 @@ class AssistantApiTests(TestCase):
         self.assertEqual(kwargs['skill'], 'project_task')
         self.assertNotIn('ACL-checked', kwargs['system'])
         self.assertNotIn('ACL-checked', kwargs['user'])
-        self.assertIn('Accessible Gravitas context', kwargs['user'])
+        self.assertIn('Accessible GraviQuest context', kwargs['user'])
         self.assertIn('authoritative current date is 2026-10-06', kwargs['system'])
         self.assertIn('Current date: 2026-10-06', kwargs['user'])
         self.assertIn('only treat items explicitly assigned to the authenticated current user as theirs', kwargs['system'])

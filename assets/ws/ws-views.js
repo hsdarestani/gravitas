@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  VIEWS
+   GRAVIQUEST WORKSPACE  ·  VIEWS
    Home, and the two workspaces. Every number and every row on these screens
    comes from the backend; nothing here invents data when a call fails.
 
@@ -227,7 +227,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     return wrap;
   };
 
-  const formatActor = (actor) => actor?.name || actor?.email || 'Gravitas+';
+  const formatActor = (actor) => actor?.name || actor?.email || 'GraviQuest';
 
   function closeDialog(dialog) {
     dialog?.remove();
@@ -1219,7 +1219,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           const mentionTitle = el('div');
           mentionTitle.append(
             el('strong', null, 'Mention teammates'),
-            el('small', 'fl-muted', 'They will be notified in Gravitas, email and Telegram when connected.'),
+            el('small', 'fl-muted', 'They will be notified in GraviQuest, email and Telegram when connected.'),
           );
           const togglePicker = makeButton('@ Add people', () => {});
           togglePicker.classList.add('ws-btn--tiny', 'task-comment__add-people');

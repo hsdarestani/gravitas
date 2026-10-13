@@ -850,7 +850,7 @@ def personalized_learning_paths(request):
     if use_template:
         nodes = list(template.nodes or [])
         edges = list(template.edges or [])
-        rationale = template.summary or f'Following the published Gravitas+ path “{template.title}”.'
+        rationale = template.summary or f'Following the published GraviQuest path “{template.title}”.'
         generated_by_ai = False
     else:
         nodes, edges, rationale = _fallback_path(goal, courses, enrollment_state)
@@ -1212,7 +1212,7 @@ def course_git(request, course_id):
     branch = str(data.get('branch') or 'main').strip()[:160]
     path = str(data.get('path') or '').strip().strip('/')[:600]
     content = str(data.get('content') or '')
-    message = str(data.get('message') or f'Update {path or "Gravitas exercise"}').strip()[:240]
+    message = str(data.get('message') or f'Update {path or "GraviQuest exercise"}').strip()[:240]
     if not owner or not repository or not path:
         return _error('repository_owner_and_path_required')
 

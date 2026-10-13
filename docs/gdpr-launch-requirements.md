@@ -1,4 +1,4 @@
-# Gravitas+ GDPR / TDDDG launch requirements
+# GraviQuest GDPR / TDDDG launch requirements
 
 Status: implementation checklist for production launch. This is not a substitute for legal review.
 
@@ -9,7 +9,7 @@ Status: implementation checklist for production launch. This is not a substitute
 - Community: authenticated user, comment body, moderation status, timestamps.
 - Interactive Lab: authenticated user, lab key, JSON progress/result, score/completion state, timestamps.
 - KPI: aggregated product activity; do not store raw IP addresses or browser fingerprints for KPI purposes.
-- System email: STRATO SMTP, sent from the Gravitas+ domain.
+- System email: STRATO SMTP, sent from the GraviQuest domain.
 
 ## Consent boundary
 

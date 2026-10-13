@@ -111,7 +111,7 @@ def build_continuity_prefix(history, memories):
     memory_text = format_memory(memories)
     if memory_text:
         blocks.append(
-            'Relevant user memory. It may be stale and must never override live Gravitas data or ACLs:\n'
+            'Relevant user memory. It may be stale and must never override live GraviQuest data or ACLs:\n'
             + memory_text
         )
     return '\n\n'.join(blocks)

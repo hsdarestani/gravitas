@@ -45,7 +45,7 @@ const DASHBOARD_INDEX = [
   ['Library', '/workspace/dashboard/library', 'library', 'What you saved from the site'],
   ['Discussions', '/workspace/dashboard/discussions', 'discussion', 'Your comments and replies'],
   ['Progress', '/workspace/dashboard/progress', 'progress', 'Courses and research you are in'],
-  ['Support', '/workspace/dashboard/support', 'support', 'Ask the Gravitas+ team for help'],
+  ['Support', '/workspace/dashboard/support', 'support', 'Ask the GraviQuest team for help'],
 ];
 
 const LEARNING_INDEX = [

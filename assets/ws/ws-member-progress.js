@@ -187,7 +187,7 @@ export async function renderMemberProgress(host, { go }) {
 
     const publicPaths = dashboardCard(
       'Public learning paths',
-      'Progress from the public Gravitas+ site follows the same account here.',
+      'Progress from the public GraviQuest site follows the same account here.',
       6,
     );
     const paths = data.public_paths?.items || [];

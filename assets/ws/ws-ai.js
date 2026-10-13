@@ -1,12 +1,12 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  PULSAR
+   GRAVIQUEST WORKSPACE  ·  PULSAR
    The workspace assistant. It answers questions about the pages in this
    workspace and cites which ones it read.
 
    It is named rather than labelled "Assistant" because it is one thing with
-   one behaviour, not a generic slot. The name is the plus in Gravitas+, so
-   the panel reads as Gravitas answering rather than as a third party bolted
-   on.
+   one behaviour, not a generic slot. Pulsar is the brand's own character, so
+   the panel reads as GraviQuest answering rather than as a third party
+   bolted on.
 
    Where it lives. It used to be a tab in the dock, opened from the foot of
    the left rail, which put it bottom-left in the workspace and bottom-right

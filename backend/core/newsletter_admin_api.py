@@ -77,7 +77,7 @@ def admin_newsletter(request):
         )
         message.attach_alternative(
             '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;line-height:1.65">'
-            '<h2 style="margin-bottom:20px">Gravitas+</h2>'
+            '<h2 style="margin-bottom:20px">GraviQuest</h2>'
             f'<div>{safe_body}</div>'
             '</div>',
             'text/html',

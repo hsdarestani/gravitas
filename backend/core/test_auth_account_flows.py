@@ -112,7 +112,7 @@ class PasswordResetEmailTests(TestCase):
         })
         self.assertEqual(requested.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].subject, 'Reset your Gravitas+ password')
+        self.assertEqual(mail.outbox[0].subject, 'Reset your GraviQuest password')
 
         link = next(
             line for line in mail.outbox[0].body.splitlines()

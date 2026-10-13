@@ -160,18 +160,18 @@ def _send_password_setup(user):
     token = default_token_generator.make_token(user)
     link = f'{settings.PUBLIC_BASE_URL}/account.html?reset_uid={quote(uid)}&reset_token={quote(token)}#reset'
     text = (
-        'Set or reset your Gravitas+ password\n\n'
+        'Set or reset your GraviQuest password\n\n'
         'Use the link below to choose a password for your account:\n'
         f'{link}\n\n'
-        'If you did not expect this message, contact a Gravitas administrator.'
+        'If you did not expect this message, contact a GraviQuest administrator.'
     )
     html = (
-        '<h2>Set your Gravitas+ password</h2>'
-        '<p>An administrator created or updated access for your Gravitas account.</p>'
+        '<h2>Set your GraviQuest password</h2>'
+        '<p>An administrator created or updated access for your GraviQuest account.</p>'
         f'<p><a href="{link}">Choose a new password</a></p>'
-        '<p>If you did not expect this message, contact a Gravitas administrator.</p>'
+        '<p>If you did not expect this message, contact a GraviQuest administrator.</p>'
     )
-    _send_system_email('Set your Gravitas+ password', user.email, text, html)
+    _send_system_email('Set your GraviQuest password', user.email, text, html)
 
 
 @require_http_methods(['GET', 'POST'])

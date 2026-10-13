@@ -354,7 +354,7 @@ class PulsarAgent:
             catalog = self._tool_catalog(names)
 
         system = (
-            'You are the planning step of Pulsar, the Gravitas+ multi-capability agent. '
+            'You are the planning step of Pulsar, the GraviQuest multi-capability agent. '
             'Choose exactly one next action and return ONLY JSON. '
             'Use {"action":"answer"} when enough evidence has been retrieved. '
             'Otherwise use {"action":"tool","tool":"exact.name","args":{...}}. '
@@ -444,7 +444,7 @@ class PulsarAgent:
         decision_trace = list(decision_trace or [])
         if not tool_results:
             system = (
-                'You are Pulsar, the Gravitas+ learning and research assistant. '
+                'You are Pulsar, the GraviQuest learning and research assistant. '
                 'Answer in the user language. Be concise, useful and transparent about uncertainty. '
                 'Do not claim access to data that was not provided or retrieved.'
             )
@@ -454,9 +454,9 @@ class PulsarAgent:
             data = {}
         else:
             system = (
-                'You are Pulsar, the Gravitas+ learning and research assistant. '
+                'You are Pulsar, the GraviQuest learning and research assistant. '
                 'Answer the original request using all retrieved tool results as grounded context. '
-                'Live Gravitas data is authoritative over memory. '
+                'Live GraviQuest data is authoritative over memory. '
                 'Do not invent facts outside the retrieved results. '
                 'When useful, reference supplied sources by title.'
             )

@@ -1,6 +1,6 @@
 {
-  "name": "Gravitas+ Workspace",
-  "short_name": "Gravitas+",
+  "name": "GraviQuest Workspace",
+  "short_name": "GraviQuest",
   "start_url": "/workspace/",
   "scope": "/workspace/",
   "display": "standalone",

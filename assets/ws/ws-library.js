@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  LIBRARY  (what the reader kept from the site)
+   GRAVIQUEST WORKSPACE  ·  LIBRARY  (what the reader kept from the site)
 
    This is the other end of a deliberate funnel. On the public site a visitor
    can keep an article, follow a topic and tick off steps of a learning path
@@ -221,7 +221,7 @@ export function renderLibrary(host, ctx) {
     if (following.length) {
       const box = panel(`Following · ${following.length}`);
       box.body.append(el('p', 'ws-doc__meta',
-        'Topics you asked for more of. New dossiers and essays under them are what the Gravitas+ newsletter leads with.'));
+        'Topics you asked for more of. New dossiers and essays under them are what the GraviQuest newsletter leads with.'));
       for (const item of following) box.body.append(followRow(item, draw));
       holder.append(box);
     }
@@ -254,7 +254,7 @@ function savedRow(item, ctx, redraw) {
       try { await K.ready(); } catch { return; }
       K.addSource({
         title: item.title,
-        author: 'Gravitas+',
+        author: 'GraviQuest',
         kind: SOURCE_KIND[item.kind] || 'paper',
         question: '',
       });

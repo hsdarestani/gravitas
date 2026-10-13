@@ -64,7 +64,7 @@ Executable HTML/CSS/JS prototype exists in 08-simulation.md with explicit QA rul
 Still requires integration and browser testing on the live Topic page.
 
 ### 12. Video — INTENTIONALLY OPEN
-External video removed. Awaiting original Gravitas+ video.
+External video removed. Awaiting original GraviQuest video.
 
 ### 13. Public correction system — DESIGN COMPLETE
 corrections.md defines the public correction format.

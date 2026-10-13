@@ -127,7 +127,7 @@ class DecisionRouter:
                 'model_tier': {
                     'type': 'choice',
                     'instructions': (
-                        'Choose the minimum model tier that is likely to complete this Gravitas Pulsar '
+                        'Choose the minimum model tier that is likely to complete this GraviQuest Pulsar '
                         'operation reliably. Prefer cheaper/faster tiers when capability is sufficient.'
                     ),
                     'criteria': {
@@ -225,7 +225,7 @@ class DecisionRouter:
                 'next_action': {
                     'type': 'choice',
                     'instructions': (
-                        'Choose the single best next action for the Gravitas Pulsar agent. '
+                        'Choose the single best next action for the GraviQuest Pulsar agent. '
                         'Choose answer if enough grounded information is already available. '
                         'Otherwise choose exactly one available tool. Never choose a tool '
                         'only because it exists; use the minimum necessary next step.'

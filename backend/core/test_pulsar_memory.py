@@ -112,7 +112,7 @@ class PulsarMemoryContinuityTests(TestCase):
         )
         sent = gateway.calls[0]['user']
         self.assertIn('Relevant user memory', sent)
-        self.assertIn('must never override live Gravitas data or ACLs', sent)
+        self.assertIn('must never override live GraviQuest data or ACLs', sent)
         self.assertIn('Prefer concise research summaries', sent)
 
     def test_memory_api_can_add_and_disable_memory(self):

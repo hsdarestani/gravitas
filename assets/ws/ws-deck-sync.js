@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  CORE TASKS ⇄ NEXTCLOUD DECK
+   GRAVIQUEST WORKSPACE  ·  CORE TASKS ⇄ NEXTCLOUD DECK
    One row above the Core task board: where the Deck sync stands, and the
    three things to do about it (open Deck, go to Planning, sync now).
 
@@ -58,7 +58,7 @@ export function deckPanel({ go, onPulled } = {}) {
   const title = el('div', 'ws-core-deck-mirror__title');
   const status = el('span', 'v-toolbar__count ws-core-deck-mirror__status', 'Connecting to Nextcloud…');
   title.append(el('h2', null, 'Synced with Nextcloud Deck'), status);
-  lead.append(title, el('p', 'v-note', 'Title, lane and due date sync both ways. Gravitas keeps the project, initiative, owner and research context.'));
+  lead.append(title, el('p', 'v-note', 'Title, lane and due date sync both ways. GraviQuest keeps the project, initiative, owner and research context.'));
   const actions = el('div', 'v-toolbar');
   body.append(lead, actions);
   panel.append(body);
@@ -72,7 +72,7 @@ export function deckPanel({ go, onPulled } = {}) {
     if (sync.inFlight) return sync.inFlight;
     if (syncButton) syncButton.disabled = true;
     delete status.dataset.tone;
-    status.textContent = automatic ? 'Auto-syncing Gravitas and Deck…' : 'Syncing Gravitas and Deck…';
+    status.textContent = automatic ? 'Auto-syncing GraviQuest and Deck…' : 'Syncing GraviQuest and Deck…';
     sync.inFlight = P.call('/platform/admin/deck/sync/', { method: 'POST', body: {} });
     try {
       const result = await sync.inFlight;
@@ -127,7 +127,7 @@ export function deckPanel({ go, onPulled } = {}) {
     } catch {
       if (!panel.isConnected) return;
       status.dataset.tone = 'bad';
-      status.textContent = 'Nextcloud status could not be loaded. Gravitas tasks remain available here.';
+      status.textContent = 'Nextcloud status could not be loaded. GraviQuest tasks remain available here.';
     }
   })();
 

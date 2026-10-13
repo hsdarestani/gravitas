@@ -56,9 +56,9 @@ def public_pulsar_ask(request):
         try:
             result = run_text(
                 system=(
-                    'You are Pulsar, the Gravitas+ assistant on the public website. '
+                    'You are Pulsar, the GraviQuest assistant on the public website. '
                     'Answer in the language the visitor used. Be concise and useful. '
-                    'Use the supplied platform/content context when making claims about Gravitas+. '
+                    'Use the supplied platform/content context when making claims about GraviQuest. '
                     'If the context does not establish something, say so instead of inventing it. '
                     'Never claim access to a visitor account or private workspace from this public chat.\n\n'
                     + PLATFORM_CONTEXT
@@ -66,7 +66,7 @@ def public_pulsar_ask(request):
                 user=(
                     f'Current page: {page or "/"}\n'
                     + ('Recent conversation:\n' + '\n'.join(recent) + '\n' if recent else '')
-                    + f'Published Gravitas+ content:\n{public_context}\n\n'
+                    + f'Published GraviQuest content:\n{public_context}\n\n'
                     + f'Visitor question: {message}'
                 ),
                 surface='public',

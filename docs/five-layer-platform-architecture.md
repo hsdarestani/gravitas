@@ -1,18 +1,18 @@
-# Gravitas+ five-layer platform architecture
+# GraviQuest five-layer platform architecture
 
 Status: **implemented and covered by platform validation**. This document supersedes older workspace descriptions when they conflict with the model below.
 
 ## Product model
 
-Gravitas+ is one platform with five product layers. A layer is a product surface, **not** a user role.
+GraviQuest is one platform with five product layers. A layer is a product surface, **not** a user role.
 
 | Layer | Product surface | Audience / purpose | Implemented surface |
 |---|---|---|---|
 | 1 | Shell / Showcase | Public website, landing pages, articles, dossiers and published material. | Existing public Gravitas site + Core CMS/translation/comment-moderation control plane. |
 | 2 | Member Dashboard | Account home, saved/followed material, discussions and cross-layer progress. | Dashboard, Library, Discussions, public learning-path progress, LMS progress/certificates and Research participation. |
-| 3 | LMS | Courses, modules, lessons, assessments, enrollment, completion and Gravitas+ certificates. | Catalog, course reader, lesson progress, assessments, certificates and Core authoring/enrollment administration. |
+| 3 | LMS | Courses, modules, lessons, assessments, enrollment, completion and GraviQuest certificates. | Catalog, course reader, lesson progress, assessments, certificates and Core authoring/enrollment administration. |
 | 4 | Research Workspace | Research projects, notes, sources, files/data rooms, journal, tasks, collaboration and activity. | Journal, editor, folders, portfolio cards/table/timeline/graph/activity, tasks/search/collaboration and full project cockpit. |
-| 5 | Core Workspace | Internal Gravitas+ operating system and control plane. | Operations, content pipeline, blueprints/assets, team/access, platform admin, CMS, LMS/Research admin, audit, cross-layer task links and Nextcloud Deck adapter. |
+| 5 | Core Workspace | Internal GraviQuest operating system and control plane. | Operations, content pipeline, blueprints/assets, team/access, platform admin, CMS, LMS/Research admin, audit, cross-layer task links and Nextcloud Deck adapter. |
 
 Layers 3 and 4 are independent. A user can have LMS access without Research, Research without LMS, both, or neither. There is no artificial `Learner -> Researcher` prerequisite chain.
 
@@ -24,7 +24,7 @@ Community role describes a person's place in the community. It does not grant au
 2. **Member** — registered community member.
 3. **Learner** — community identity for people primarily participating in learning.
 4. **Researcher** — community identity for people primarily participating in research.
-5. **Gravitas+ Team** — internal community identity.
+5. **GraviQuest Team** — internal community identity.
 
 A Researcher can have no LMS access. A Learner can have project-specific Research access. A Team role does not silently create Core authorization.
 
@@ -119,7 +119,7 @@ A project remains a security boundary. Broad Research availability never reveals
 
 ## Layer 5 — Core Workspace
 
-Core is the operating system for Gravitas+, not only a task board. Existing Core operations remain and the five-layer control plane is added on top.
+Core is the operating system for GraviQuest, not only a task board. Existing Core operations remain and the five-layer control plane is added on top.
 
 ### Platform administration
 
@@ -167,7 +167,7 @@ The relation manager is available in Core Platform Admin. Removing a relation re
 
 ### Nextcloud Deck
 
-Gravitas remains the canonical task store. The Deck adapter creates/reconciles a `Gravitas+ Execution` board with Backlog, Active, Blocked and Done stacks. Stable Gravitas task identifiers are embedded in Deck cards so synchronization is idempotent. Removed canonical tasks are archived in Deck rather than left appearing active.
+Gravitas remains the canonical task store. The Deck adapter creates/reconciles a `GraviQuest Execution` board with Backlog, Active, Blocked and Done stacks. Stable Gravitas task identifiers are embedded in Deck cards so synchronization is idempotent. Removed canonical tasks are archived in Deck rather than left appearing active.
 
 ## API surface added/completed
 

@@ -1,4 +1,4 @@
-# Gravitas+ Production Launch Gate
+# GraviQuest Production Launch Gate
 
 ## Infrastructure
 - [x] graviquest.com points to Strato production server.

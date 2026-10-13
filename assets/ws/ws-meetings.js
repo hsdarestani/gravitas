@@ -254,7 +254,7 @@ export async function renderCoreMeetings(host) {
   const head = el('header', 'ws-doc__head');
   head.append(
     el('h1', 'ws-doc__title', 'Meetings'),
-    el('p', 'ws-doc__meta', 'Only meetings from your GravitasPlus Google Calendar appear here. Keep shared minutes, files and reference links in Gravitas+.'),
+    el('p', 'ws-doc__meta', 'Only meetings from your GravitasPlus Google Calendar appear here. Keep shared minutes, files and reference links in GraviQuest.'),
   );
   doc.append(head);
   const holder = el('div');
@@ -277,7 +277,7 @@ export async function renderCoreMeetings(host) {
         : code === 'google_calendar_api_disabled'
           ? 'Google Calendar API is disabled for the Google Cloud project used by Gravitas.'
           : code === 'calendar_permission_required'
-            ? 'Reconnect Google once so Gravitas can find the GravitasPlus calendar in your calendar list.'
+            ? 'Reconnect Google once so GraviQuest can find the GravitasPlus calendar in your calendar list.'
             : code === 'gravitas_calendar_not_found'
               ? 'The connected Google account does not have a calendar named GravitasPlus. Add or subscribe to that calendar, then reload.'
               : code === 'calendar_permission_denied'
@@ -307,7 +307,7 @@ export async function renderCoreMeetings(host) {
       const empty = el('div', 'ws-empty');
       empty.append(
         el('p', 'ws-empty__title', 'Connect Google Calendar'),
-        el('p', 'ws-empty__body', 'Connect once to show only the meetings from your GravitasPlus calendar and keep their minutes in Gravitas+.'),
+        el('p', 'ws-empty__body', 'Connect once to show only the meetings from your GravitasPlus calendar and keep their minutes in GraviQuest.'),
         button('Connect Google Calendar', () => {
           location.href = '/api/calendar/google/connect/?next=' + encodeURIComponent('/workspace/core/meetings');
         }, true),

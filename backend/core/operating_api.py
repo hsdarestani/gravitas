@@ -60,7 +60,7 @@ PROCESS_DEFAULTS = {
 }
 
 MEETING_CALENDAR = [
-    {'kind': 'weekly_gravitas', 'name': 'Gravitas Weekly', 'cadence': 'Every Saturday', 'purpose': 'Portfolio health, previous commitments, blockers, decisions, weekly priorities and OKR progress'},
+    {'kind': 'weekly_gravitas', 'name': 'GraviQuest Weekly', 'cadence': 'Every Saturday', 'purpose': 'Portfolio health, previous commitments, blockers, decisions, weekly priorities and OKR progress'},
     {'kind': 'content_editorial', 'name': 'Content Editorial', 'cadence': 'Every Saturday', 'purpose': 'Topics, pipeline, owners and weekly outputs'},
     {'kind': 'active_project_review', 'name': 'Active Project Review', 'cadence': 'Saturday when needed', 'purpose': 'Only active scientific / commercial projects'},
     {'kind': 'scientific_review', 'name': 'Scientific Review', 'cadence': 'Every Wednesday', 'purpose': 'Research and scientific outputs ready for decision'},

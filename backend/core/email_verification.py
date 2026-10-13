@@ -48,23 +48,23 @@ def send_account_verification(user):
         raise ValueError('email_required')
     link = _verification_link(user)
     text = (
-        'Confirm your Gravitas+ email address\n\n'
+        'Confirm your GraviQuest email address\n\n'
         'Click the link below within 48 hours to confirm your account email:\n'
         f'{link}\n\n'
-        'If you did not create a Gravitas+ account, you can ignore this email.'
+        'If you did not create a GraviQuest account, you can ignore this email.'
     )
     html = (
         '<div style="margin:0;padding:32px 16px;background:#eef2f4;font-family:Arial,sans-serif;color:#15303d">'
         '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:18px;padding:32px;border:1px solid #d9e1e5">'
-        '<div style="font-size:24px;font-weight:800;letter-spacing:.02em;margin-bottom:22px">Gravitas+</div>'
+        '<div style="font-size:24px;font-weight:800;letter-spacing:.02em;margin-bottom:22px">GraviQuest</div>'
         '<h2 style="margin:0 0 12px;font-size:24px">Confirm your email address</h2>'
         '<p style="margin:0 0 22px;line-height:1.6;color:#52636c">One click confirms your account and protects your research workspace. This link is valid for 48 hours.</p>'
         f'<p style="margin:0 0 24px"><a href="{link}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#003049;color:#fff;text-decoration:none;font-weight:700">Confirm email address</a></p>'
-        '<p style="margin:0;font-size:13px;line-height:1.6;color:#718089">If you did not create a Gravitas+ account, you can safely ignore this message.</p>'
+        '<p style="margin:0;font-size:13px;line-height:1.6;color:#718089">If you did not create a GraviQuest account, you can safely ignore this message.</p>'
         '</div></div>'
     )
     message = EmailMultiAlternatives(
-        subject='Confirm your Gravitas+ email',
+        subject='Confirm your GraviQuest email',
         body=text,
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[email],

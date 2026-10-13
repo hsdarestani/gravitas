@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  RESEARCH · TOOLBARS
+   GRAVIQUEST WORKSPACE  ·  RESEARCH · TOOLBARS
    The upload bar on Files and Datasets, the bar above Mind maps, and
    "Edit my profile" on Researchers. ws-research-actions.js used to paste
    these under each screen's head after it had drawn; the screens now insert

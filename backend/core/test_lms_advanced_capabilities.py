@@ -142,7 +142,7 @@ class AdvancedLmsCapabilityContractTests(SimpleTestCase):
         api = self.read('backend/core/lms_extended_api.py')
         learner = self.read('assets/ws/ws-member-lms.js')
         self.assertIn('def lms_certificate_download', api)
-        self.assertIn('GRAVITAS+', api)
+        self.assertIn('GRAVIQUEST', api)
         self.assertIn('Download certificate', learner)
 
     def test_learning_path_admin_edits_graph_objects_not_raw_json(self):

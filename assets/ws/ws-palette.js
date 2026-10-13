@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  COMMAND PALETTE
+   GRAVIQUEST WORKSPACE  ·  COMMAND PALETTE
    Search, every quick action and every section, in one surface.
 
    The rows used to carry Ctrl N, Ctrl J and Ctrl T, and the header button

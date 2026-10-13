@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  TOPIC ADMIN
+   GRAVIQUEST WORKSPACE  ·  TOPIC ADMIN
    The Topics list and the Topic editor under Platform Admin.
 
    A Topic is the public site's unit: a question, its videos, essays,

@@ -414,7 +414,7 @@
       renderVideos(data) + renderEssays(data) + renderSources(data) + renderTimeline(data) +
       renderSimulations(data) + renderViewpoints(data) + renderDiscussion() + '</div>';
 
-    document.title = item.title + ' — Gravitas+';
+    document.title = item.title + ' — GraviQuest';
     document.querySelectorAll('[data-topic-depth]').forEach(function (button) {
       button.addEventListener('click', function () {
         var depth = button.getAttribute('data-topic-depth');

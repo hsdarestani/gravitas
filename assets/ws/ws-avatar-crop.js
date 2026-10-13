@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  AVATAR CROPPER
+   GRAVIQUEST WORKSPACE  ·  AVATAR CROPPER
    The dialog that stands between "choose a picture" and the PATCH that
    saves one.
 

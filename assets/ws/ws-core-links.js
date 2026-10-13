@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  CROSS-LAYER LINKS
+   GRAVIQUEST WORKSPACE  ·  CROSS-LAYER LINKS
    Connect one canonical Core task to the Research project, LMS course or
    lesson, public-site content or production item it belongs to.
 

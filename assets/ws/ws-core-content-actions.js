@@ -1,5 +1,5 @@
 /* ========================================================================== 
-   GRAVITAS+ · CORE CONTENT PIPELINE
+   GRAVIQUEST · CORE CONTENT PIPELINE
 
    Layer 5 owns the production flow, and this module draws it: the board, the
    card dialog, and create, edit, move, request research, publish metadata

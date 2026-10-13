@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Local preview server for the Gravitas+ frontend.
+/* Local preview server for the GraviQuest frontend.
 
    Serves this working tree the way the production nginx config in
    .github/workflows/deploy.yml does, so /workspace/my-work and /login resolve
@@ -313,7 +313,7 @@ await chooseTransport();
 
 server.listen(PORT, HOST, () => {
   const base = 'http://' + (HOST === '0.0.0.0' ? 'localhost' : HOST) + ':' + PORT;
-  console.log('\nGravitas+ preview  ' + base);
+  console.log('\nGraviQuest preview  ' + base);
   console.log('  files      ' + ROOT);
   console.log('  backend    ' + (PROXY_ON ? UPSTREAM.origin + '  (/api/, /admin/, /content/)' : 'disabled (--api off)'));
   if (PROXY_ON) console.log('  transport  ' + transport + (transport === 'curl' ? '  (Node is refused a direct connection)' : ''));

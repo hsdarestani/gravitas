@@ -3,7 +3,7 @@
 WHY THIS EXISTS AT ALL
 
 An online shop lets you fill a basket before it asks who you are, and only
-makes you sign up at the till. The public Gravitas+ archive works the same
+makes you sign up at the till. The public GraviQuest archive works the same
 way on purpose: a visitor can browse, keep an article, follow a topic and
 tick off steps of a learning path without an account, because asking for an
 email address before the visitor has decided the site is worth anything is

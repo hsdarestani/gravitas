@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  CORE · TEAM & ACCESS
+   GRAVIQUEST WORKSPACE  ·  CORE · TEAM & ACCESS
    Who is in Core, what role they hold, whether they can sign in, how much
    storage they use, and who could be brought in.
 

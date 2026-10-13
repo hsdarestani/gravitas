@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
-    help = 'Configure the Gravitas+ Pulsar Telegram bot, commands, and webhook.'
+    help = 'Configure the GraviQuest Pulsar Telegram bot, commands, and webhook.'
 
     def handle(self, *args, **options):
         token = settings.GRAVITAS_TELEGRAM_BOT_TOKEN
@@ -40,11 +40,11 @@ class Command(BaseCommand):
         setup_calls = [
             ('setMyName', {'name': 'Pulsar'}),
             ('setMyShortDescription', {
-                'short_description': 'Pulsar · your Gravitas+ AI assistant for tasks, research, and reminders.',
+                'short_description': 'Pulsar · your GraviQuest AI assistant for tasks, research, and reminders.',
             }),
             ('setMyDescription', {
                 'description': (
-                    'Pulsar is the Gravitas+ assistant in Telegram. Send tasks naturally, '
+                    'Pulsar is the GraviQuest assistant in Telegram. Send tasks naturally, '
                     'let Pulsar suggest the right KR/project/links, and confirm before creation. '
                     'Task reminders continue here too.'
                 ),

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  RESEARCH · CREATING THINGS
+   GRAVIQUEST WORKSPACE  ·  RESEARCH · CREATING THINGS
    New project and New task, as the Research screens have always offered
    them: a short dialog for each from the overview and the task board, and
    the full filing form under the toolbar on Projects.

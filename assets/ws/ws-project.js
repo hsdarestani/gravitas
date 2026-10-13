@@ -325,7 +325,7 @@ function sourcesView(doc, cockpit, rerender = () => {}) {
 function filesView(doc, cockpit) {
   const items = resourcesByKind(cockpit.resources, ['file']);
   const folders = cockpit.folders || [];
-  const structure = section('Project structure', 'The same project folders are used by Gravitas and the Nextcloud data room.');
+  const structure = section('Project structure', 'The same project folders are used by GraviQuest and the Nextcloud data room.');
   if (!folders.length) structure.body.append(empty('Project structure is being prepared', 'Open Data room to reconcile this project with Nextcloud.'));
   for (const folder of folders) {
     structure.body.append(row({

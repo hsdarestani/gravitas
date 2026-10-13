@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  ADMIN KIT
+   GRAVIQUEST WORKSPACE  ·  ADMIN KIT
    The parts every Platform Admin screen is built from.
 
    Why a kit. Platform Admin is fourteen screens in four modules

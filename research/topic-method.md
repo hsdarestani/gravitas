@@ -1,8 +1,8 @@
-# Gravitas+ Topic Research Method v1.0
+# GraviQuest Topic Research Method v1.0
 
 ## Purpose
 
-A Gravitas+ Topic is not a content page assembled from a few links. It is a small research project whose public page is the final interface over a traceable research pack.
+A GraviQuest Topic is not a content page assembled from a few links. It is a small research project whose public page is the final interface over a traceable research pack.
 
 The method has four goals:
 

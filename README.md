@@ -1,4 +1,4 @@
-# Gravitas+ — site architecture
+# GraviQuest — site architecture
 
 Open `index.html`. Static files, no build step, no dependencies. A GitHub Pages
 workflow is included in `.github/workflows/deploy.yml`.

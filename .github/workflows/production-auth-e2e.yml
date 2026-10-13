@@ -218,7 +218,7 @@ jobs:
           try {
             await page.goto(`${base}/signup`, { waitUntil: 'networkidle', timeout: 30000 });
             await settle();
-            assert.match(await page.title(), /Gravitas\+/);
+            assert.match(await page.title(), /GraviQuest/);
             await visible('#p-up');
             await visible('#up-name');
             await visible('#up-mail');

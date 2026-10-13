@@ -98,7 +98,7 @@ def provider_summary(user):
         'managed': {
             'id': 'managed',
             'provider': 'cloudflare-workers-ai',
-            'label': 'Gravitas managed AI',
+            'label': 'GraviQuest managed AI',
             'model': str(getattr(settings, 'CLOUDFLARE_AI_MODEL', '') or '@cf/meta/llama-3.3-70b-instruct-fp8-fast'),
             'available': bool(getattr(settings, 'CLOUDFLARE_AI_ACCOUNT_ID', '') and getattr(settings, 'CLOUDFLARE_AI_API_TOKEN', '')),
         },

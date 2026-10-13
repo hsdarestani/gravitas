@@ -191,7 +191,7 @@ def _event_payload(meeting):
         .exclude(status='archived')
         .order_by('due_date', 'id')[:40]
     )
-    description = ['Gravitas+ meeting']
+    description = ['GraviQuest meeting']
     if meeting.notes:
         description.extend(['', meeting.notes.strip()])
     if meeting.decisions:
@@ -476,7 +476,7 @@ def _google_task_payload(task):
         raise GoogleCalendarError('task_due_date_required')
     owner = task.owner.get_full_name() or task.owner.email
     notes = [
-        'Gravitas+ task',
+        'GraviQuest task',
         '',
         f'Owner: {owner}',
         f'Status: {task.status}',

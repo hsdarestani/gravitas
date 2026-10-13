@@ -38,7 +38,7 @@ function ticketRow(ticket, open) {
 }
 
 export async function renderMemberSupport(host) {
-  const doc = shell(host, 'Support', 'Talk directly with the Gravitas+ team. Replies stay attached to one ticket.');
+  const doc = shell(host, 'Support', 'Talk directly with the GraviQuest team. Replies stay attached to one ticket.');
   const layout = el('div', 'fl-columns');
   const list = el('section', 'fl-panel wc-card');
   const listHead = el('div', 'fl-panel__head wc-card__head');
@@ -105,7 +105,7 @@ export async function renderMemberSupport(host) {
       const thread = el('div', 'g-stack g-stack--sm');
       for (const message of ticket.messages || []) {
         const card = el('article', 'callout');
-        card.append(el('strong', '', message.is_team_reply ? 'Gravitas+ Team' : 'You'));
+        card.append(el('strong', '', message.is_team_reply ? 'GraviQuest Team' : 'You'));
         card.append(el('p', '', message.body));
         card.append(el('small', 'fl-muted', P.formatDate(message.created_at)));
         thread.append(card);

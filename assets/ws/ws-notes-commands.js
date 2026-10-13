@@ -1,4 +1,4 @@
-/* Gravitas+ Notes · commands in the writing surface
+/* GraviQuest Notes · commands in the writing surface
  *
  * A note is Markdown, because it lives in the Nextcloud Notes app and has to
  * read the same there, in Files and in Obsidian. The editor is therefore a

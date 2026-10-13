@@ -287,7 +287,7 @@
     var note = document.querySelector('[data-form-note]');
     if (!note) return;
     note.textContent = value === '1'
-      ? 'Email confirmed. You are subscribed to Gravitas+.'
+      ? 'Email confirmed. You are subscribed to GraviQuest.'
       : 'That confirmation link is invalid or expired. Subscribe again to receive a new link.';
   }
 

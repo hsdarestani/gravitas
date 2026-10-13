@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  CHART KIT
+   GRAVIQUEST WORKSPACE  ·  CHART KIT
    Small drawing primitives for the workspace screens: stat tiles, an arc
    gauge, progress rings, horizontal bars, columns and stacked meters.
 

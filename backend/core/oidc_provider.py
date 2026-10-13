@@ -209,7 +209,7 @@ def oidc_token(request):
     supplied_id, supplied_secret = _client_credentials(request)
     if supplied_id != _client_id() or not secrets.compare_digest(supplied_secret, configured_secret):
         response = _oauth_error('invalid_client', 'Client authentication failed', 401)
-        response['WWW-Authenticate'] = 'Basic realm="Gravitas OIDC"'
+        response['WWW-Authenticate'] = 'Basic realm="GraviQuest OIDC"'
         return response
     if str(request.POST.get('grant_type') or '') != 'authorization_code':
         return _oauth_error('unsupported_grant_type', 'Only authorization_code is supported')

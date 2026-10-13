@@ -1,5 +1,5 @@
 /* =========================================================================
-   GRAVITAS+ · BRAND PAGE
+   GRAVIQUEST · BRAND PAGE
    Two behaviours, both optional: the page is complete and readable with the
    script blocked. Nothing here re-implements anything site.js already does.
    ========================================================================= */

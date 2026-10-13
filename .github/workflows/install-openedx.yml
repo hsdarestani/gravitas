@@ -156,7 +156,7 @@ jobs:
             --set "LMS_HOST=$LMS_HOST" \
             --set "CMS_HOST=$CMS_HOST" \
             --set "MFE_HOST=$MFE_HOST" \
-            --set 'PLATFORM_NAME=Gravitas+' \
+            --set 'PLATFORM_NAME=GraviQuest' \
             --set 'CONTACT_EMAIL=webmaster@gravitasplus.com' \
             --set ENABLE_HTTPS=true \
             --set ENABLE_WEB_PROXY=false \
@@ -172,7 +172,7 @@ jobs:
             --set 'INDIGO_WELCOME_MESSAGE=Research starts connected.' \
             --set 'INDIGO_PRIMARY_COLOR="#003049"' \
             --set 'INDIGO_ENABLE_DARK_TOGGLE=true' \
-            --set 'INDIGO_FOOTER_NAV_LINKS=[{"title":"Gravitas+","url":"https://graviquest.com"},{"title":"Learning","url":"https://graviquest.com/learn.html"},{"title":"Community","url":"https://graviquest.com/community.html"}]'
+            --set 'INDIGO_FOOTER_NAV_LINKS=[{"title":"GraviQuest","url":"https://graviquest.com"},{"title":"Learning","url":"https://graviquest.com/learn.html"},{"title":"Community","url":"https://graviquest.com/community.html"}]'
 
           tutor_local launch -I -p
           tutor_local do settheme indigo || true

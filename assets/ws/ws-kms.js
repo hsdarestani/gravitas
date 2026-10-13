@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  KNOWLEDGE (KMS) DATA LAYER
+   GRAVIQUEST WORKSPACE  ·  KNOWLEDGE (KMS) DATA LAYER
    The learning workspace's own store: sources, cards, skills and paths,
    held in the reader's account.
 

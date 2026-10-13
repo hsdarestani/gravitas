@@ -373,7 +373,7 @@
 
   if (params.get('email_verified') === '1') {
     var ev1 = document.querySelector('[data-form-note]');
-    if (ev1) ev1.textContent = 'Email confirmed. Your Gravitas+ account is verified.';
+    if (ev1) ev1.textContent = 'Email confirmed. Your GraviQuest account is verified.';
   } else if (params.get('email_verified') === '0') {
     var ev0 = document.querySelector('[data-form-note]');
     if (ev0) ev0.textContent = 'That account confirmation link is invalid or has expired.';

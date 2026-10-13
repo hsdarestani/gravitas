@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  PLATFORM ADMIN
+   GRAVIQUEST WORKSPACE  ·  PLATFORM ADMIN
    Users & Access, Moderation, Newsletter, Support tickets, Interactive Lab,
    LMS, Research, Activity and Nextcloud Deck. Topics live in
    ws-topic-admin.js, Links in ws-core-links.js, the Mirror in
@@ -248,7 +248,7 @@ export async function renderAdminUser(host, id, { go }) {
     /* Identity ---------------------------------------------------------- */
     const identity = section('Account', 'Who this person is in the community, and whether they can sign in at all.', 4);
     const role = K.select([
-      ['member', 'Member'], ['learner', 'Learner'], ['researcher', 'Researcher'], ['team', 'Gravitas+ Team'],
+      ['member', 'Member'], ['learner', 'Learner'], ['researcher', 'Researcher'], ['team', 'GraviQuest Team'],
     ], user.community_role);
     const status = K.select([['invited', 'Invited'], ['active', 'Active'], ['suspended', 'Suspended']], user.community_status);
     const active = K.toggle(user.account_active, 'Account can sign in', 'Off blocks sign-in without deleting anything.');
@@ -1021,7 +1021,7 @@ export async function renderAdminLms(host, { go }) {
     const studioUrl = openedx.cms_url || 'https://studio.graviquest.com';
     const wrap = K.page(host, {
       title: 'LMS Admin',
-      meta: 'Open edX-backed learning with Gravitas+ AI, Lab, source management, exports and analytics.',
+      meta: 'Open edX-backed learning with GraviQuest AI, Lab, source management, exports and analytics.',
       actions: [
         link(go, 'New course', `${ADMIN}/lms/courses/new`, true),
         K.anchor('Open learner LMS', lmsUrl),
@@ -1042,7 +1042,7 @@ export async function renderAdminLms(host, { go }) {
 
     const build = (key) => {
       if (key === 'courses') {
-        const engine = section('Open edX engine', 'Tutor/Open edX is the standards-based engine; Gravitas+ stays the learner and admin experience.', 4);
+        const engine = section('Open edX engine', 'Tutor/Open edX is the standards-based engine; GraviQuest stays the learner and admin experience.', 4);
         engine.body.append(
           K.cardActions([
             K.badge(engineState.reachable ? 'Reachable' : 'Not reachable yet', engineState.reachable ? 'ok' : 'warn'),
@@ -1205,7 +1205,7 @@ async function coverDataUri(file) {
 function courseCoverEditor(course) {
   const box = section(
     'Cover image',
-    'Shown on the course page, in the catalog and in My Learning. Cropped to 16:9 and resized to 1280×720. Without one, the course gets a generated Gravitas+ cover.',
+    'Shown on the course page, in the catalog and in My Learning. Cropped to 16:9 and resized to 1280×720. Without one, the course gets a generated GraviQuest cover.',
     12,
   );
   if (!course) {
@@ -1344,8 +1344,8 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
     const price = K.input(course?.price || '', 'number');
     price.step = '0.01';
     const currency = K.input(course?.currency || 'EUR');
-    const certEnabled = K.toggle(course?.certificate_enabled !== false, 'Issue Gravitas+ certificate on completion');
-    const provider = K.select([['native', 'Gravitas native'], ['openedx', 'Open edX']], course?.provider || 'native');
+    const certEnabled = K.toggle(course?.certificate_enabled !== false, 'Issue GraviQuest certificate on completion');
+    const provider = K.select([['native', 'GraviQuest native'], ['openedx', 'Open edX']], course?.provider || 'native');
     const openedxKey = K.input(course?.openedx_course_key || '');
     const openedxUrl = K.input(course?.openedx_launch_url || '', 'url');
     const openedxStudio = K.input(course?.openedx_studio_url || '', 'url');
@@ -1382,9 +1382,9 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
     );
 
     /* Integration --------------------------------------------------------- */
-    const openedx = section('Open edX mapping', 'Map this course to an Open edX course run while keeping the Gravitas+ learner experience.');
+    const openedx = section('Open edX mapping', 'Map this course to an Open edX course run while keeping the GraviQuest learner experience.');
     openedx.body.append(K.fields([
-      K.field('Course key', openedxKey, 'Example: course-v1:Gravitas+Research101+2026'),
+      K.field('Course key', openedxKey, 'Example: course-v1:GraviQuest+Research101+2026'),
       K.field('Learner URL', openedxUrl),
       K.field('Studio URL', openedxStudio),
     ]));
@@ -2179,7 +2179,7 @@ export async function renderAdminDeck(host) {
     const data = await P.adminDeck();
     const wrap = K.page(host, {
       title: 'Nextcloud Deck',
-      meta: 'Gravitas stays the source of truth. Deck is the native execution surface for Core tasks.',
+      meta: 'GraviQuest stays the source of truth. Deck is the native execution surface for Core tasks.',
       actions: data.board?.url ? [K.anchor('Open Deck', data.board.url)] : [],
     });
     const state = data.configured ? (data.available ? ['Deck adapter ready', 'ok'] : ['Deck unavailable', 'bad']) : ['Credentials not configured', 'warn'];
@@ -2203,7 +2203,7 @@ export async function renderAdminDeck(host) {
       K.defs([
         ['Board', data.board ? data.board.title : (data.error || 'Created on the first sync.')],
         ['Canonical tasks', data.board ? String(data.task_count) : '—'],
-        ['Mode', data.mirror_mode === 'bidirectional-execution' ? 'Two-way for execution fields' : 'Gravitas → Deck'],
+        ['Mode', data.mirror_mode === 'bidirectional-execution' ? 'Two-way for execution fields' : 'GraviQuest → Deck'],
       ]),
       K.cardActions([sync, data.board?.url ? K.anchor('Open Deck', data.board.url) : null], line),
     );
@@ -2211,7 +2211,7 @@ export async function renderAdminDeck(host) {
     contract.body.append(K.defs([
       ['Canonical data', 'Title, owner, status, priority, due date, description and definition of done originate in Gravitas.'],
       ['Native execution', 'Tasks are mirrored into Backlog, Active, Blocked and Done stacks in Deck.'],
-      ['Safe reconciliation', 'Every card carries a stable Gravitas marker. Deleted tasks are archived in Deck, not left live.'],
+      ['Safe reconciliation', 'Every card carries a stable GraviQuest marker. Deleted tasks are archived in Deck, not left live.'],
     ]));
     wrap.append(K.bento([connection.box, contract.box]));
   } catch (error) {
@@ -2228,7 +2228,7 @@ export async function renderAdminTickets(host) {
   try {
     const wrap = K.page(host, {
       title: 'Support Tickets',
-      meta: 'Member conversations with the Gravitas+ team. Only Core administrators can read or reply.',
+      meta: 'Member conversations with the GraviQuest team. Only Core administrators can read or reply.',
     });
     const list = section('Tickets', '', 4);
     const detail = section('Conversation', 'Choose a ticket to read and reply.', 8);
@@ -2257,7 +2257,7 @@ export async function renderAdminTickets(host) {
           const bubble = el('article', 'adm-msg');
           if (message.is_team_reply) bubble.dataset.team = '';
           const who = el('div', 'adm-msg__who');
-          who.append(el('strong', null, message.is_team_reply ? 'Gravitas+ Team' : message.author), el('span', null, date(message.created_at)));
+          who.append(el('strong', null, message.is_team_reply ? 'GraviQuest Team' : message.author), el('span', null, date(message.created_at)));
           bubble.append(who, el('p', 'adm-msg__body', message.body));
           thread.append(bubble);
         }
@@ -2266,7 +2266,7 @@ export async function renderAdminTickets(host) {
         const form = el('form', 'adm-form');
         const reply = K.textarea('', 4, 'Reply to this ticket…');
         const status = K.select([
-          ['open', 'Open'], ['waiting_member', 'Waiting for member'], ['waiting_team', 'Waiting for Gravitas+'],
+          ['open', 'Open'], ['waiting_member', 'Waiting for member'], ['waiting_team', 'Waiting for GraviQuest'],
           ['resolved', 'Resolved'], ['closed', 'Closed'],
         ], ticket.status);
         status.setAttribute('aria-label', 'Ticket status');

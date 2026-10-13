@@ -41,7 +41,7 @@ class Course(models.Model):
         PAID = 'paid', 'Paid'
 
     class Provider(models.TextChoices):
-        NATIVE = 'native', 'Gravitas native'
+        NATIVE = 'native', 'GraviQuest native'
         OPENEDX = 'openedx', 'Open edX'
 
     slug = models.SlugField(max_length=190, unique=True)

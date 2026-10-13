@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  THE NOTES INDEX
+   GRAVIQUEST WORKSPACE  ·  THE NOTES INDEX
    What the rest of the workspace needs to know about notes without opening
    the notebook: which exist in a space, which days have a day note, which
    notes mention a title, and where a note opens.

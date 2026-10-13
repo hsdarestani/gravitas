@@ -586,7 +586,7 @@ export async function renderMemberLibrary(host, { go }) {
   loading(host, 'Library');
   try {
     const data = await P.memberDashboard();
-    const wrap = doc(host, 'Library', 'Material saved and followed from the public Gravitas+ site.');
+    const wrap = doc(host, 'Library', 'Material saved and followed from the public GraviQuest site.');
     const metrics = el('div', 'fl-metrics');
     const reveal = (box) => () => box.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const saved = section('Saved');
@@ -645,7 +645,7 @@ export async function renderMemberDiscussions(host, { go } = {}) {
   loading(host, 'Discussions');
   try {
     const data = await P.memberDashboard();
-    const wrap = doc(host, 'Discussions', 'Your contributions on published Gravitas+ material.');
+    const wrap = doc(host, 'Discussions', 'Your contributions on published GraviQuest material.');
     // The tiles open the list filtered by ?status=, and the dashboards link
     // here the same way. Markup and wording are what ws-actionable-ui.js
     // used to add over this screen.
@@ -973,7 +973,7 @@ export async function renderLearningCatalog(host, { go }) {
   loading(host, 'Course Catalog');
   try {
     const data = await P.lmsCourses();
-    const wrap = doc(host, 'Course Catalog', 'Published Gravitas+ courses. Enrollment and Research access remain separate.');
+    const wrap = doc(host, 'Course Catalog', 'Published GraviQuest courses. Enrollment and Research access remain separate.');
     const toolbar = el('div', 'fl-toolbar');
     const search = el('input', 'v-input fl-input');
     search.type = 'search';
@@ -1035,13 +1035,13 @@ export async function renderCertificates(host, { go }) {
   loading(host, 'Certificates');
   try {
     const data = await P.lmsMe();
-    const wrap = doc(host, 'Certificates', 'Certificates issued for completed Gravitas+ courses.');
+    const wrap = doc(host, 'Certificates', 'Certificates issued for completed GraviQuest courses.');
     const certs = (data.enrollments || []).filter((item) => item.certificate);
     const grid = el('div', 'fl-card-grid');
     if (!certs.length) wrap.append(empty('No certificates yet', 'A certificate appears here when a certificate-enabled course is completed.'));
     for (const item of certs) {
       const card = el('article', 'fl-certificate');
-      card.append(el('span', 'fl-eyebrow', item.certificate.valid ? 'GRAVITAS+ CERTIFICATE' : 'REVOKED CERTIFICATE'));
+      card.append(el('span', 'fl-eyebrow', item.certificate.valid ? 'GRAVIQUEST CERTIFICATE' : 'REVOKED CERTIFICATE'));
       card.append(el('h2', null, item.course_title));
       card.append(el('p', 'fl-muted', `Issued ${date(item.certificate.issued_at)}`));
       card.append(el('code', 'fl-code', item.certificate.code));
@@ -2660,7 +2660,7 @@ function gitPanel(course) {
         if (item.review_status === 'approved' && course.learning_config?.social_publish_enabled !== false) {
           for (const provider of ['linkedin', 'medium']) {
             const publish = action('Publish to ' + label(provider), async () => {
-              const draft = 'I completed an approved Gravitas+ exercise in “' + course.title + '”. Repository: ' + (item.html_url || (item.owner + '/' + item.repository));
+              const draft = 'I completed an approved GraviQuest exercise in “' + course.title + '”. Repository: ' + (item.html_url || (item.owner + '/' + item.repository));
               const text = prompt('Post text:', draft);
               if (text == null || !text.trim()) return;
               publish.disabled = true;
@@ -2710,7 +2710,7 @@ function gitPanel(course) {
         branch: branch.value.trim() || 'main',
         path: path.value.trim(),
         content: content.value,
-        message: message.value.trim() || 'Update Gravitas exercise',
+        message: message.value.trim() || 'Update GraviQuest exercise',
       });
       state.textContent = 'Pushed · ' + (result.repository?.last_commit_sha || '').slice(0, 10) + ' · pending review';
       state.dataset.tone = 'ok';
@@ -2776,7 +2776,7 @@ function pkmExportPanel(course) {
 }
 
 function personalizedPathPanel(go) {
-  const box = section('Personal learning path', 'Describe a research goal and Gravitas+ builds an ordered multi-course route from the published catalog.');
+  const box = section('Personal learning path', 'Describe a research goal and GraviQuest builds an ordered multi-course route from the published catalog.');
   const form = el('form', 'fl-form');
   const goal = el('textarea', 'v-input fl-input fl-textarea'); goal.rows = 4; goal.placeholder = 'Example: I want to learn how to design and validate a reproducible causal-inference study.';
   const build = action('Build my path', () => {}, true); build.type = 'submit';
@@ -3057,7 +3057,7 @@ function courseBadges(course) {
   if (course.enrolled && course.enrollment_status) tags.append(badge(label(course.enrollment_status), 'ok'));
   tags.append(badge(label(course.access_type)));
   if (course.status && course.status !== 'published') tags.append(badge(label(course.status)));
-  if (course.certificate_enabled) tags.append(badge('Gravitas+ Certificate'));
+  if (course.certificate_enabled) tags.append(badge('GraviQuest Certificate'));
   (course.tags || []).forEach((item) => tags.append(badge(item.name)));
   return tags;
 }
@@ -3499,7 +3499,7 @@ function courseTabs(course, data, options) {
       parts.push(instructorsPanel(course));
       if (live) parts.push(await coursePlanPanel(course, openLesson));
       if (course.certificate) {
-        const cert = section('Gravitas+ Certificate');
+        const cert = section('GraviQuest Certificate');
         cert.body.append(row({
           title: course.certificate.valid ? 'Certificate issued' : 'Certificate revoked',
           meta: P.meta([course.certificate.code, date(course.certificate.issued_at)]),

@@ -214,7 +214,7 @@ jobs:
             EMAIL_HOST="${EMAIL_HOST_VALUE:-smtp.strato.de}" \
             EMAIL_PORT="${EMAIL_PORT_VALUE:-465}" \
             EMAIL_USE_SSL="${EMAIL_SSL_VALUE:-1}" \
-            DEFAULT_FROM_EMAIL="${DEFAULT_FROM:-Gravitas+ <webmaster@gravitasplus.com>}" \
+            DEFAULT_FROM_EMAIL="${DEFAULT_FROM:-GraviQuest <webmaster@gravitasplus.com>}" \
             PUBLIC_BASE_URL="${PUBLIC_BASE:-https://graviquest.com}" \
             "$BACKEND_PATH/.venv/bin/django-admin" send_account_verification_by_email_hash \
               --email-sha256 "$TARGET_HASH")"

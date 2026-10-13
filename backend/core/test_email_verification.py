@@ -29,7 +29,7 @@ class AccountEmailVerificationTests(TestCase):
             })
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].subject, 'Confirm your Gravitas+ email')
+        self.assertEqual(mail.outbox[0].subject, 'Confirm your GraviQuest email')
 
         link = next(line for line in mail.outbox[0].body.splitlines() if line.startswith('http'))
         confirm = self.client.get(urlparse(link).path + '?' + urlparse(link).query)

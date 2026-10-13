@@ -111,7 +111,7 @@ EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', '1') == '1'
 EMAIL_USE_TLS = False
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'webmaster@gravitasplus.com')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Graviquest <webmaster@gravitasplus.com>')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'GraviQuest <webmaster@gravitasplus.com>')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'https://graviquest.com').rstrip('/')
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', '3600'))

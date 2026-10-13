@@ -1,4 +1,4 @@
-/* Live Community and Lab integrations for Gravitas+. */
+/* Live Community and Lab integrations for GraviQuest. */
 (function () {
   'use strict';
 

@@ -81,7 +81,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
         self.assertIn("error.data = data", platform)
         self.assertIn("P.syncSpace({ force: true, confirmed: true })", research)
         self.assertIn('P.reconcileSpace()', research)
-        self.assertIn('Keep Gravitas version', research)
+        self.assertIn('Keep GraviQuest version', research)
         self.assertIn('Use Nextcloud version', research)
 
     def test_journal_keys_use_the_readers_local_calendar_date(self):

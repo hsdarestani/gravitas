@@ -1,4 +1,4 @@
-/* Gravitas+ Space integration
+/* GraviQuest Space integration
  *
  * Keeps the relational workspace and Nextcloud filesystem on one contract:
  * - Research projects are filed under an explicit personal Space category.
@@ -322,7 +322,7 @@ export async function renderSpaceIndex(slot) {
       setStatus(syncState, result.conflicts?.length ? `${result.conflicts.length} conflicts need review.` : 'Space synchronized.', result.conflicts?.length ? 'bad' : 'ok');
       setTimeout(() => { panel.remove(); renderSpaceIndex(slot); }, 500);
     } catch (error) {
-      setStatus(syncState, error.status === 409 ? 'A Nextcloud edit conflicts with Gravitas; nothing was overwritten.' : error.message.replaceAll('_', ' '), 'bad');
+      setStatus(syncState, error.status === 409 ? 'A Nextcloud edit conflicts with GraviQuest; nothing was overwritten.' : error.message.replaceAll('_', ' '), 'bad');
       sync.disabled = false;
     }
   });

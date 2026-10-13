@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  KNOWLEDGE (KMS) VIEWS
+   GRAVIQUEST WORKSPACE  ·  KNOWLEDGE (KMS) VIEWS
    The learning workspace. Six screens, and the order of them in the index
    is the loop they form:
 

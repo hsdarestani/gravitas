@@ -59,7 +59,7 @@ The evidence is observational, and institutional incentives predate AI.
 
 ---
 
-## Gravitas+ position
+## GraviQuest position
 
 The Topic should not select one viewpoint as universally correct.
 

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  v4
+   GRAVIQUEST WORKSPACE  ·  v4
    One stylesheet for the whole workspace shell. It replaces twenty-two
    sheets that had grown on top of each other (platform-v2, platform-v3,
    then four more files whose names all began with "fix"), and it adds no
@@ -3188,7 +3188,7 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
 }
 
 
-/* ---- Open edX / Gravitas+ learning experience -------------------------- */
+/* ---- Open edX / GraviQuest learning experience -------------------------- */
 .fl-course-embed {
   display: block;
   width: 100%;

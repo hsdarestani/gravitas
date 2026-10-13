@@ -5,13 +5,13 @@ source: gravitas_original
 
 # Video
 
-Reserved for the original Gravitas+ video.
+Reserved for the original GraviQuest video.
 
 No external YouTube video should be embedded in the Topic.
 
 ## Editorial requirement
 
-When the Gravitas+ video is ready, this file should contain:
+When the GraviQuest video is ready, this file should contain:
 
 - final title;
 - video ID / asset;

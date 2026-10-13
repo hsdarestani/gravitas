@@ -27,7 +27,11 @@ from .operating_models import OperatingTask, WorkStatus
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
 
 
-BOARD_TITLE = 'Gravitas+ Execution'
+BOARD_TITLE = 'GraviQuest Execution'
+# The board is found by title, so the name it carried before the rebrand must
+# still match; otherwise the first sync after the rename would create a second,
+# empty board and orphan every card on the live one.
+LEGACY_BOARD_TITLES = ('Gravitas+ Execution',)
 BOARD_COLOR = '202124'
 STACKS = [
     ('Backlog', {WorkStatus.DRAFT}),
@@ -104,9 +108,20 @@ def _request(method, path, *, expected=(200,), json=None):
 
 
 def _find_board():
-    boards = _request('GET', '/boards', expected=(200,)) or []
+    boards = [b for b in (_request('GET', '/boards', expected=(200,)) or []) if not b.get('archived')]
     for board in boards:
-        if str(board.get('title') or '').strip() == BOARD_TITLE and not board.get('archived'):
+        if str(board.get('title') or '').strip() == BOARD_TITLE:
+            return board
+    for board in boards:
+        if str(board.get('title') or '').strip() in LEGACY_BOARD_TITLES:
+            # Rename in place, best effort: a failed rename leaves a working
+            # board under its old title, which is still found next time.
+            try:
+                _request('PUT', f"/boards/{board['id']}", expected=(200,),
+                         json={'title': BOARD_TITLE, 'color': board.get('color') or BOARD_COLOR, 'archived': False})
+                board = {**board, 'title': BOARD_TITLE}
+            except DeckError:
+                pass
             return board
     return None
 
@@ -165,7 +180,7 @@ def _description(task):
         f'**Status:** {task.get_status_display()}',
         f'**Definition of done:** {task.definition_of_done}',
         '',
-        f'[Open in Gravitas]({settings.PUBLIC_BASE_URL}/workspace/core/tasks)',
+        f'[Open in GraviQuest]({settings.PUBLIC_BASE_URL}/workspace/core/tasks)',
         f'<!-- gravitas-task:{task.pk} -->',
         f'<!-- gravitas-task-updated:{task.updated_at.timestamp():.6f} -->',
     ]

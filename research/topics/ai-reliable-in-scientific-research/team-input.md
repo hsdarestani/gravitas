@@ -34,6 +34,6 @@ Research treatment:
 
 Several YouTube links were supplied as research leads.
 
-Per current editorial decision, the public Video layer is reserved for the original Gravitas+ video.
+Per current editorial decision, the public Video layer is reserved for the original GraviQuest video.
 
 External videos can remain internal research leads but should not occupy the Topic’s Video slot.

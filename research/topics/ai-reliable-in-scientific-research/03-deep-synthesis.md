@@ -139,7 +139,7 @@ Paper2Agent turns papers, code, data and workflows into executable agent tools a
 
 Repeatedly failing tools are excluded.
 
-This is close to the architecture Gravitas+ should care about: not merely giving an LLM access to papers, but converting research artifacts into testable capabilities.
+This is close to the architecture GraviQuest should care about: not merely giving an LLM access to papers, but converting research artifacts into testable capabilities.
 
 ---
 

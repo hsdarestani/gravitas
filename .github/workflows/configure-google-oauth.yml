@@ -97,7 +97,7 @@ jobs:
         shell: bash
         run: |
           if [ "${{ steps.oauth.outputs.configured }}" = "true" ]; then
-            echo "### Google OAuth connected to Gravitas+" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Google OAuth connected to GraviQuest" >> "$GITHUB_STEP_SUMMARY"
             echo "Authorized redirect URI: https://graviquest.com/api/auth/google/callback/" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "### Google OAuth code is ready, credentials are missing" >> "$GITHUB_STEP_SUMMARY"

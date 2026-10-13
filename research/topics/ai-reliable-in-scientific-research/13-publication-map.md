@@ -7,7 +7,7 @@ Source:
 07-video.md
 
 Status:
-waiting for original Gravitas+ video.
+waiting for original GraviQuest video.
 
 ## Public Layer 02 — Short answer
 Source:

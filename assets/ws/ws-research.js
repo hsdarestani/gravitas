@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ RESEARCH WORKSPACE · KMS SURFACES
+   GRAVIQUEST RESEARCH WORKSPACE · KMS SURFACES
 
    The reference artifact is used here as an information architecture, not a
    skin. Every count and row below comes from the platform, Project Cockpit,
@@ -385,8 +385,8 @@ export function renderFolders(host, { go }) {
         );
         box.dataset.syncConflict = '';
         const actions = el('div', 'v-toolbar');
-        const keepLocal = button('Keep Gravitas version', async () => {
-          keepLocal.disabled = true; useCloud.disabled = true; status.textContent = 'Writing Gravitas versions…';
+        const keepLocal = button('Keep GraviQuest version', async () => {
+          keepLocal.disabled = true; useCloud.disabled = true; status.textContent = 'Writing GraviQuest versions…';
           try { await P.syncSpace({ force: true, confirmed: true }); await load(); }
           catch { status.textContent = 'Conflict could not be resolved'; keepLocal.disabled = false; useCloud.disabled = false; }
         }, true);

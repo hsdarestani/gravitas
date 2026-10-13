@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE ICONS
+   GRAVIQUEST WORKSPACE ICONS
    Fifty-six marks for the product interface, drawn to the same geometry as the
    sixteen in the brand book (section 11) so the workspace and the public site
    speak with one hand.
@@ -120,8 +120,9 @@
     'space-knowledge': "<g transform=\"translate(-2.735 -0.185) scale(1.118773)\" stroke-width=\"1.52\"><path d=\"M11.69 8.51C12.91 8.16 14.46 8.51 15.51 9.61C16.56 10.71 17.03 12.54 16.46 14.23C15.9 15.91 14.29 17.38 12.27 17.72C10.26 18.07 7.93 17.24 6.51 15.43C5.09 13.62 4.66 10.88 5.67 8.53C6.68 6.17 9.12 4.31 11.93 4.04C14.74 3.77 17.82 5.13 19.56 7.68C21.3 10.23 21.61 13.88 20.1 16.87\"/><circle cx=\"12\" cy=\"12\" r=\"1.385\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     /* ---- Pulsar -----------------------------------------------------------
-       The workspace assistant is called Pulsar, after the plus in Gravitas+,
-       and the shape everyone already reads that name as is a diamond. So this
+       The workspace assistant is called Pulsar (the name once nodded to the
+       plus in Gravitas+, the brand's earlier name, and no longer does), and
+       the shape everyone already reads that name as is a diamond. So this
        is a diamond, not the brand logo traced: the first cut of this mark was
        the logo silhouette carried across literally, and axis-aligned with a
        flat top and flat sides it read as a rounded square. Correct geometry,

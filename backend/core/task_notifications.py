@@ -82,7 +82,7 @@ def _change_lines(detail):
 
 
 def _event_copy(task, action, actor, detail):
-    actor_name = _user_name(actor) if actor else 'Gravitas+'
+    actor_name = _user_name(actor) if actor else 'GraviQuest'
     title = task.title
     link = _task_url(task.pk)
 
@@ -258,7 +258,7 @@ def enqueue_pulsar_reminder(run):
         'scheduled_for': run.wait_until.isoformat() if run.wait_until else None,
     }
     event_key = f'pulsar-reminder:{run.run_id}'
-    body = f'{message}\n\nOpen Gravitas+: {url}'
+    body = f'{message}\n\nOpen GraviQuest: {url}'
     return _enqueue_for_user(
         user,
         None,
@@ -289,7 +289,7 @@ def enqueue_task_mentions(task, actor, mentioned_users, *, comment_id, comment_p
     users = [user for user in mentioned_users if user and user.is_active and (not actor or user.pk != actor.pk)]
     if not users:
         return 0
-    actor_name = _user_name(actor) if actor else 'Gravitas+'
+    actor_name = _user_name(actor) if actor else 'GraviQuest'
     subject = f'You were mentioned: {task.title}'
     link = _task_url(task.pk)
     preview = str(comment_preview or '').strip()
@@ -364,7 +364,7 @@ def _email_html(row):
     return (
         '<div style="margin:0;padding:32px 16px;background:#eef2f4;font-family:Arial,sans-serif;color:#15303d">'
         '<div style="max-width:620px;margin:0 auto;background:#fff;border-radius:18px;padding:30px;border:1px solid #d9e1e5">'
-        '<div style="font-size:22px;font-weight:800;margin-bottom:18px">Gravitas+</div>'
+        '<div style="font-size:22px;font-weight:800;margin-bottom:18px">GraviQuest</div>'
         f'<h2 style="margin:0 0 16px;font-size:22px">{html.escape(row.subject)}</h2>'
         f'<div style="line-height:1.65;color:#435761">{escaped}</div>'
         f'<p style="margin:24px 0 0"><a href="{url}" style="display:inline-block;padding:11px 16px;border-radius:10px;background:#003049;color:#fff;text-decoration:none;font-weight:700">Open task</a></p>'
@@ -634,7 +634,7 @@ def _bind_telegram_start(chat_id, chat, code):
             return existing
         _telegram_api('sendMessage', {
             'chat_id': chat_id,
-            'text': 'This Gravitas+ connection link is invalid or expired. Please create a new link in Settings.',
+            'text': 'This GraviQuest connection link is invalid or expired. Please create a new link in Settings.',
         })
         return None
 
@@ -644,7 +644,7 @@ def _bind_telegram_start(chat_id, chat, code):
     if conflict:
         _telegram_api('sendMessage', {
             'chat_id': chat_id,
-            'text': 'This Telegram account is already connected to another Gravitas+ account.',
+            'text': 'This Telegram account is already connected to another GraviQuest account.',
         })
         return None
 
@@ -727,7 +727,7 @@ def telegram_notification_webhook(request):
         try:
             _telegram_api('sendMessage', {
                 'chat_id': chat_id,
-                'text': 'Connect this Telegram account from Gravitas+ Settings first, then talk to Pulsar here.',
+                'text': 'Connect this Telegram account from GraviQuest Settings first, then talk to Pulsar here.',
             })
         except Exception:
             logger.exception('Could not send unconnected Telegram Pulsar response')

@@ -108,7 +108,7 @@ async function renderMirrorAdmin(host, info) {
 
   const doc = K.page(host, {
     title: info.title,
-    meta: 'Gravitas and Nextcloud are two synchronized surfaces of one workspace: Files and Team Folders for storage, Notes for writing, Deck for execution.',
+    meta: 'GraviQuest and Nextcloud are two synchronized surfaces of one workspace: Files and Team Folders for storage, Notes for writing, Deck for execution.',
     actions: [
       action('Open Nextcloud', () => openNative(cloudData?.nextcloud?.url), { solid: true }),
       action('Refresh status', () => renderMirrorAdmin(host, info)),
@@ -155,7 +155,7 @@ async function renderMirrorAdmin(host, info) {
   }, { tiny: true });
   const notes = mirrorCard(
     'Notes', noteState[0], noteState[1],
-    'Core and Research notes use the official Nextcloud Notes app as a native writing surface while staying indexed in Gravitas for links, search and AI.',
+    'Core and Research notes use the official Nextcloud Notes app as a native writing surface while staying indexed in GraviQuest for links, search and AI.',
     [`${noteItems.length} mapped notes`, noteStates.conflict ? `${noteStates.conflict} conflicts preserved` : '', noteStates.error ? `${noteStates.error} retrying` : ''],
     [syncNotes, action('Open Notes', () => openNative(notesData?.native_url), { tiny: true })],
   );
@@ -185,7 +185,7 @@ async function renderMirrorAdmin(host, info) {
   const identity = mirrorCard(
     'Identity, SSO & native apps',
     identityReady ? 'Connected' : 'Pending', identityReady ? 'ok' : 'warn',
-    'The same Gravitas account maps to a Nextcloud identity. Project access becomes Nextcloud groups and Team Folder ACLs instead of a second manual permission system.',
+    'The same GraviQuest account maps to a Nextcloud identity. Project access becomes Nextcloud groups and Team Folder ACLs instead of a second manual permission system.',
     [enabledApps.has('notes') ? 'Notes' : '', enabledApps.has('deck') ? 'Deck' : '', enabledApps.has('groupfolders') ? 'Team Folders' : '', enabledApps.has('collectives') ? 'Collectives' : '', enabledApps.has('spreed') ? 'Talk' : ''],
   );
 
@@ -194,7 +194,7 @@ async function renderMirrorAdmin(host, info) {
     ['Files & Team Folders', 'Files, project folders, storage paths and project ACLs', 'Bidirectional storage + ACL reconciliation'],
     ['Notes', 'Core and Research personal notes', 'Bidirectional with ETag conflict protection'],
     ['Deck', 'Core task title, execution lane/status and due date', 'Bidirectional safe execution fields'],
-    ['Gravitas only', 'LMS rules, certificates, research metadata, cross-layer links, audit history and object policies', 'Canonical relational context; linked to native Nextcloud objects rather than flattened into them'],
+    ['GraviQuest only', 'LMS rules, certificates, research metadata, cross-layer links, audit history and object policies', 'Canonical relational context; linked to native Nextcloud objects rather than flattened into them'],
   ];
   contract.body.append(K.list(rows.map(([surface, data, mode], index) => K.row({
     title: surface, meta: mode, body: data,
@@ -419,7 +419,7 @@ function failedNotebook(host, info, error) {
   const box = el('div', 'nb-empty');
   box.append(glyph('alert'));
   box.append(el('h2', 'nb-empty__title', 'Notes could not be loaded.'));
-  box.append(el('p', 'nb-empty__text', error?.message || 'The Nextcloud mirror did not answer. Saved Gravitas data was not deleted.'));
+  box.append(el('p', 'nb-empty__text', error?.message || 'The Nextcloud mirror did not answer. Saved GraviQuest data was not deleted.'));
   box.append(action('Retry', () => renderNativeNotes(host, info), { solid: true }));
   main.append(box);
 }
@@ -1039,7 +1039,7 @@ function fillRowMenu(item, node) {
     node.append(popItem('close', 'Delete note', async (button, text) => {
       if (!armed) {
         armed = true;
-        text.textContent = 'Delete from Gravitas and Nextcloud?';
+        text.textContent = 'Delete from GraviQuest and Nextcloud?';
         return;
       }
       button.disabled = true;
@@ -1173,7 +1173,7 @@ async function deleteNote(item, report) {
    that opens a 404 is worse than no link. */
 const SHARE_ROLES = [['view', 'Can view'], ['comment', 'Can comment'], ['edit', 'Can edit']];
 const SHARE_ERRORS = {
-  user_not_found: 'No Gravitas account uses that email.',
+  user_not_found: 'No GraviQuest account uses that email.',
   permission_denied: 'Only the note’s owner can share it.',
   project_membership_required: 'That person has to be in the project first.',
   cloud_acl_sync_failed: 'Nextcloud did not accept the change. Nothing was shared; try again.',
@@ -1198,7 +1198,7 @@ function openShare(item) {
   const email = el('input', 'nb-share__email');
   email.type = 'email';
   email.required = true;
-  email.placeholder = 'Email of a Gravitas member';
+  email.placeholder = 'Email of a GraviQuest member';
   email.setAttribute('aria-label', 'Email');
   const role = el('select', 'nb-share__role');
   role.setAttribute('aria-label', 'Role');
@@ -1424,7 +1424,7 @@ function drawEmpty(main) {
   const box = el('div', 'nb-empty');
   box.append(glyph('notes'));
   box.append(el('h2', 'nb-empty__title', 'Start your notebook'));
-  box.append(el('p', 'nb-empty__text', 'Personal, shared and project notes live in one Research notebook. Your own notes mirror to Nextcloud; shared content follows its Gravitas ACL.'));
+  box.append(el('p', 'nb-empty__text', 'Personal, shared and project notes live in one Research notebook. Your own notes mirror to Nextcloud; shared content follows its GraviQuest ACL.'));
   const create = action('New note', () => createNote(create), { solid: true });
   box.append(create);
   main.append(box);
@@ -1508,12 +1508,12 @@ function conflictBox(note, report) {
     box.append(el('strong', 'nb-alert__title', remoteDeleted
       ? 'The Nextcloud copy was deleted.'
       : movedOut
-        ? 'The Nextcloud copy moved outside your allowed Gravitas space.'
+        ? 'The Nextcloud copy moved outside your allowed GraviQuest space.'
         : 'This note changed in both places.'));
     box.append(el('p', null, remoteDeleted
-      ? 'Choose whether to restore the Gravitas copy to Nextcloud or accept the Nextcloud deletion.'
+      ? 'Choose whether to restore the GraviQuest copy to Nextcloud or accept the Nextcloud deletion.'
       : movedOut
-        ? 'No data was overwritten. Move the native note back to an allowed Gravitas category, or keep the Gravitas copy.'
+        ? 'No data was overwritten. Move the native note back to an allowed GraviQuest category, or keep the GraviQuest copy.'
         : 'Neither side was overwritten. Compare both versions, then choose the copy that should win.'));
     const tools = el('div', 'nb-alert__tools');
     const resolve = (winner) => async () => {
@@ -1533,7 +1533,7 @@ function conflictBox(note, report) {
         take.disabled = false;
       }
     };
-    const keep = action('Keep Gravitas version', resolve('gravitas'), { solid: true, tiny: true });
+    const keep = action('Keep GraviQuest version', resolve('gravitas'), { solid: true, tiny: true });
     const take = action(remoteDeleted ? 'Accept deletion' : 'Use Nextcloud version', resolve('nextcloud'), { tiny: true });
     tools.append(keep, take);
     if (!remoteDeleted) tools.append(action('Open Nextcloud copy', () => openNative(note.native_url), { tiny: true }));
@@ -1541,7 +1541,7 @@ function conflictBox(note, report) {
   } else {
     box.append(el('strong', 'nb-alert__title', note.sync_state === 'blocked'
       ? 'This note is outside your current workspace access.'
-      : 'Saved in Gravitas; the Nextcloud mirror is pending.'));
+      : 'Saved in GraviQuest; the Nextcloud mirror is pending.'));
     box.append(el('p', null, note.sync_error || 'The background mirror will retry automatically.'));
   }
   return box;
@@ -1827,7 +1827,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   const remove = menuItem('close', 'Delete note', async (item, text) => {
     if (!armed) {
       armed = true;
-      text.textContent = 'Delete from Gravitas and Nextcloud?';
+      text.textContent = 'Delete from GraviQuest and Nextcloud?';
       clearTimeout(armTimer);
       armTimer = setTimeout(() => { armed = false; text.textContent = 'Delete note'; }, 5000);
       return;

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  NAVIGATION MODEL
+   GRAVIQUEST WORKSPACE  ·  NAVIGATION MODEL
    Three workspaces and one Home. The rail is the top level of the product,
    so it is the top level of this file too, and every other surface — the
    index tree, the breadcrumb, the command palette, the router — reads its
@@ -29,10 +29,10 @@ export const WORKSPACES = {
     id: 'core',
     name: 'Core Workspace',
     blurb: 'Internal team operations',
-    long: 'Run Gravitas+: projects, tasks, content production, operating assets and priorities.',
+    long: 'Run GraviQuest: projects, tasks, content production, operating assets and priorities.',
     icon: 'space-core',
     home: '/workspace/core',
-    note: 'Internal Gravitas+ workspace. Projects, execution, content and team planning. Visible only to members of the core team.',
+    note: 'Internal GraviQuest workspace. Projects, execution, content and team planning. Visible only to members of the core team.',
   },
   research: {
     id: 'research',

@@ -1,4 +1,4 @@
-/* Gravitas+ Notes · Markdown reader
+/* GraviQuest Notes · Markdown reader
  *
  * The Read view of a research note. Notes are stored as Markdown in the
  * official Nextcloud Notes app, so the Read view has to show what Nextcloud

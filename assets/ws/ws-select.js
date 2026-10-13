@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  SELECT
+   GRAVIQUEST WORKSPACE  ·  SELECT
    One Gravitas-styled option list for every <select> in the workspace.
 
    The list a browser draws for <select> belongs to the operating system: on

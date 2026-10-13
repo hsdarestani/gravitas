@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  SHELL
+   GRAVIQUEST WORKSPACE  ·  SHELL
    Home plus three workspaces — Core, Research and Knowledge — in a three
    pane shell.
 
@@ -790,7 +790,7 @@ function noticeSummary(notice) {
   return String(notice.body || '')
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => line && !/^Open (task|Gravitas\+):/.test(line) && !line.startsWith('Task: '))
+    .filter((line) => line && !/^Open (task|GraviQuest|Gravitas\+):/.test(line) && !line.startsWith('Task: '))
     .slice(0, 2)
     .join(' · ');
 }

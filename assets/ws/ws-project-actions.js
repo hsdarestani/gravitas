@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  RESEARCH PROJECT ACTIONS
+   GRAVIQUEST WORKSPACE  ·  RESEARCH PROJECT ACTIONS
    The action bar of a research project's page: edit and access for those
    who manage it, and per tab the things one creates or edits there — tasks,
    notes, milestones, sources, files, messages, experiments, deliverables —

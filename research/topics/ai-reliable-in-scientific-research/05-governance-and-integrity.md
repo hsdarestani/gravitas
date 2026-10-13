@@ -62,7 +62,7 @@ Several 2026 preprints report that hallucinated references have entered preprint
 
 These studies are useful signals but must remain labeled as preprints until peer-reviewed or independently replicated.
 
-For Gravitas+:
+For GraviQuest:
 - use them to show the failure mode is measurable;
 - do not present their largest estimates as settled global prevalence;
 - preserve corpus, venue and detection-method context.
@@ -73,12 +73,12 @@ Sources: S013, S014.
 
 The newest SciSlopBench work argues that scientific slop is not adequately captured by token-level “AI detection.” It proposes dimensions involving structure, argument and artifacts.
 
-This is aligned with the Gravitas+ editorial position:
+This is aligned with the GraviQuest editorial position:
 **quality control must evaluate scientific coherence, not writing fingerprints.**
 
 Source: S015.
 
-## Proposed Gravitas+ minimum standard for AI-assisted research
+## Proposed GraviQuest minimum standard for AI-assisted research
 
 Any AI-assisted research artifact intended for publication should, where applicable, retain:
 
@@ -93,4 +93,4 @@ Any AI-assisted research artifact intended for publication should, where applica
 - verification steps;
 - correction history.
 
-This is an editorial standard for Gravitas+, not a claim about universal current journal policy.
+This is an editorial standard for GraviQuest, not a claim about universal current journal policy.

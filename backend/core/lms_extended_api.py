@@ -518,7 +518,7 @@ def lms_ai_tutor(request, course_id):
     }[guidance_mode]
 
     system = (
-        'You are Pulsar acting through the Learning skill inside Gravitas+. '
+        'You are Pulsar acting through the Learning skill inside GraviQuest. '
         'You are a learning and research assistant, not a generic answer bot. '
         'Teach rather than merely answer. Use the language of the learner. '
         'Base factual claims on the supplied accessible course, learner, project and selected-source context. '
@@ -1025,13 +1025,13 @@ def lms_certificate_download(request, code):
     status_note = (
         'This certificate has been revoked.'
         if certificate.revoked_at
-        else 'This certifies successful completion of the Gravitas+ course.'
+        else 'This certifies successful completion of the GraviQuest course.'
     )
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="990" viewBox="0 0 1400 990">
       <rect width="1400" height="990" fill="#f7f4ec"/>
       <rect x="46" y="46" width="1308" height="898" rx="18" fill="none" stroke="#123f56" stroke-width="4"/>
       <rect x="72" y="72" width="1256" height="846" rx="12" fill="none" stroke="#9a7b43" stroke-width="1.5"/>
-      <text x="700" y="170" text-anchor="middle" font-family="Georgia, serif" font-size="44" fill="#123f56">GRAVITAS+</text>
+      <text x="700" y="170" text-anchor="middle" font-family="Georgia, serif" font-size="44" fill="#123f56">GRAVIQUEST</text>
       <text x="700" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" letter-spacing="7" fill="#6d6251">{escape(status)}</text>
       <text x="700" y="345" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#4b4b4b">{escape(status_note)}</text>
       <text x="700" y="445" text-anchor="middle" font-family="Georgia, serif" font-size="50" fill="#111111">{escape(learner)}</text>

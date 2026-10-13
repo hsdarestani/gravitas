@@ -171,7 +171,7 @@ class OperatingWorkPackage(models.Model):
 
 class OperatingMeeting(models.Model):
     class Kind(models.TextChoices):
-        WEEKLY = 'weekly_gravitas', 'Gravitas Weekly'
+        WEEKLY = 'weekly_gravitas', 'GraviQuest Weekly'
         EDITORIAL = 'content_editorial', 'Content Editorial'
         ACTIVE_PROJECT = 'active_project_review', 'Active Project Review'
         SCIENTIFIC = 'scientific_review', 'Scientific Review'

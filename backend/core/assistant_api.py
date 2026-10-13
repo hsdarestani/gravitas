@@ -55,7 +55,7 @@ def assistant_ask(request):
         try:
             result = run_text(
                 system=(
-                    'You are Pulsar inside the authenticated Gravitas+ workspace. '
+                    'You are Pulsar inside the authenticated GraviQuest workspace. '
                     'Pulsar is a multi-capability learning and research assistant. '
                     'Answer in the same language as the user. Be concise, precise and useful. '
                     f'The authoritative current date is {current_date.isoformat()}. '
@@ -63,7 +63,7 @@ def assistant_ask(request):
                     f'The authenticated current user is {current_user_label}. '
                     'When the user says my tasks, my work, or equivalent wording, only treat items explicitly assigned to the authenticated current user as theirs. '
                     'Do not recommend another team member\'s assigned task as the current user\'s own task. '
-                    'For claims about the user\'s own work, use only the supplied accessible Gravitas context. '
+                    'For claims about the user\'s own work, use only the supplied accessible GraviQuest context. '
                     'Do not invent notes, projects, files, tasks or results. '
                     'Do not expose internal implementation labels such as ACL checks, context packages, tools or routing unless the user explicitly asks. '
                     'If the context is insufficient, say that clearly. '
@@ -75,9 +75,9 @@ def assistant_ask(request):
                     f'Authenticated user: {current_user_label}\n'
                     f'Question: {question}\n\n'
                     + (
-                        'Accessible Gravitas context:\n' + package.text
+                        'Accessible GraviQuest context:\n' + package.text
                         if package.text
-                        else 'Accessible Gravitas context: no matching material was found.'
+                        else 'Accessible GraviQuest context: no matching material was found.'
                     )
                 ),
                 max_tokens=1200,
@@ -116,7 +116,7 @@ def assistant_ask(request):
             'ok': True,
             'grounded': True,
             'answer': (
-                'I could not find this in the Gravitas material you are allowed to access, '
+                'I could not find this in the GraviQuest material you are allowed to access, '
                 'and the managed AI service is temporarily unavailable.'
             ),
             'sources': [],
@@ -126,7 +126,7 @@ def assistant_ask(request):
     return JsonResponse({
         'ok': True,
         'grounded': True,
-        'answer': 'I found the following in your accessible Gravitas context:\n\n' + package.text[:2400],
+        'answer': 'I found the following in your accessible GraviQuest context:\n\n' + package.text[:2400],
         'sources': package.sources,
         'provider': 'fallback',
     })

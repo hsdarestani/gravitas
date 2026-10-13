@@ -360,7 +360,7 @@ class SupportNewsletterAndLabCompletionTests(TestCase):
 
         mail.outbox.clear()
         sent = self.post_json('/api/platform/admin/newsletter/', {
-            'subject': 'Gravitas+ update',
+            'subject': 'GraviQuest update',
             'body': 'A new issue is ready.',
         })
         self.assertEqual(sent.status_code, 201, sent.content)

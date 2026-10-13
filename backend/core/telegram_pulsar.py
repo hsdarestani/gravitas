@@ -168,7 +168,7 @@ def _interpret(user, text, ctx):
     if not configured():
         return {'intent': 'create_tasks', 'reply': '', 'tasks': _fallback_tasks(text)}
     system = (
-        'You are Pulsar, the authenticated Gravitas+ assistant in Telegram. '
+        'You are Pulsar, the authenticated GraviQuest assistant in Telegram. '
         'The user may chat normally or ask to create one or more Core execution tasks. '
         'Return ONLY JSON and never invent IDs. Use only IDs from the authorized catalog. '
         'Reply in the user language. Keep task titles/descriptions/DoD concise professional English. '
@@ -439,7 +439,7 @@ def _edit(user, draft, instruction, ctx):
     try:
         payload = _json_answer(complete(
             system=(
-                'Update the Gravitas task draft from the edit instruction. Return ONLY the full JSON draft. '
+                'Update the GraviQuest task draft from the edit instruction. Return ONLY the full JSON draft. '
                 'Keep unchanged fields unchanged. Use only IDs from the supplied catalog. Null removes optional project/dependency.'
             ),
             user=(
@@ -511,8 +511,8 @@ def help_message(lang='fa'):
 def welcome_message(user, lang='fa'):
     return {'text': _say(
         lang,
-        f'سلام {_name(user)}. من Pulsar هستم و به Gravitas+ شما وصل شدم. تسک‌ها و ایده‌ها رو همینجا طبیعی بفرست؛ قبل از ساخت هر چیزی تأیید می‌گیرم.',
-        f'Hi {_name(user)}. I am Pulsar and I am connected to your Gravitas+ account. Send tasks and ideas naturally; I confirm before creating anything.',
+        f'سلام {_name(user)}. من Pulsar هستم و به GraviQuest شما وصل شدم. تسک‌ها و ایده‌ها رو همینجا طبیعی بفرست؛ قبل از ساخت هر چیزی تأیید می‌گیرم.',
+        f'Hi {_name(user)}. I am Pulsar and I am connected to your GraviQuest account. Send tasks and ideas naturally; I confirm before creating anything.',
     )}
 
 

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  DASHBOARD
+   GRAVIQUEST WORKSPACE  ·  DASHBOARD
    Home, and the Overview of each workspace. One module, because the three
    screens are the same screen with different sources: greeting, focus, what
    is due today, what is next, and what is running.

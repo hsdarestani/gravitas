@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  PLATFORM DATA
+   GRAVIQUEST WORKSPACE  ·  PLATFORM DATA
    The five product layers share one account and one backend. Product-layer
    access is independent from community role; the server remains authoritative
    for every request and every object ACL.

@@ -65,7 +65,7 @@ SITE_COMMENT_PAGES = {
 
 def _name(user):
     if not user:
-        return 'Gravitas+'
+        return 'GraviQuest'
     return user.get_full_name() or user.first_name or (user.email or '').split('@')[0] or user.get_username()
 
 

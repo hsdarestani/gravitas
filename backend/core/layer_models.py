@@ -15,7 +15,7 @@ class CommunityProfile(models.Model):
         MEMBER = 'member', 'Member'
         LEARNER = 'learner', 'Learner'
         RESEARCHER = 'researcher', 'Researcher'
-        TEAM = 'team', 'Gravitas+ Team'
+        TEAM = 'team', 'GraviQuest Team'
 
     class Status(models.TextChoices):
         INVITED = 'invited', 'Invited'

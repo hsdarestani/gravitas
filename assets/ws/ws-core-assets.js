@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GRAVITAS+ WORKSPACE  ·  CORE · ASSETS
+   GRAVIQUEST WORKSPACE  ·  CORE · ASSETS
    Shared team files live here. The visible Assets page is deliberately a
    simple upload folder backed by the Core team's Nextcloud Team Folder.
 
@@ -25,8 +25,8 @@ const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
    filter would silently lose it the day somebody reorders the array. */
 
 export const SECTIONS = [
-  { id: 'strategy',     n: '01', title: 'Content Strategy & Objectives',        short: 'Strategy',            owner: 'Ahmad',            band: 'flow',       desc: 'Defines why Gravitas+ creates content, who it is for, which themes matter, and what success should look like.', scope: ['Purpose & North Star', 'Audience & pillars', 'Strategic value'] },
-  { id: 'formats',      n: '02', title: 'Content Types & Formats',              short: 'Types & Formats',     owner: 'Ahmad + Kiarash',  band: 'support',    desc: 'Defines the content formats Gravitas+ can produce and when each format should be used across channels.', scope: ['Format catalog', 'Use case by format', 'Channel fit'] },
+  { id: 'strategy',     n: '01', title: 'Content Strategy & Objectives',        short: 'Strategy',            owner: 'Ahmad',            band: 'flow',       desc: 'Defines why GraviQuest creates content, who it is for, which themes matter, and what success should look like.', scope: ['Purpose & North Star', 'Audience & pillars', 'Strategic value'] },
+  { id: 'formats',      n: '02', title: 'Content Types & Formats',              short: 'Types & Formats',     owner: 'Ahmad + Kiarash',  band: 'support',    desc: 'Defines the content formats GraviQuest can produce and when each format should be used across channels.', scope: ['Format catalog', 'Use case by format', 'Channel fit'] },
   { id: 'discovery',    n: '03', title: 'Idea & Content Discovery',             short: 'Discovery',           owner: 'Ahmad',            band: 'flow',       desc: 'Creates a repeatable way to find, capture and prioritise strong content ideas from signals, questions and opportunities.', scope: ['Signals & sources', 'Idea intake', 'Prioritisation'] },
   { id: 'research',     n: '04', title: 'Research & Scientific Validation',     short: 'Research',            owner: 'Sajad',           band: 'flow',       desc: 'Turns an approved idea into evidence-backed material and checks scientific accuracy before production moves forward.', scope: ['Research process', 'Evidence standard', 'Scientific validation'] },
   { id: 'planning',     n: '05', title: 'Content Planning',                     short: 'Planning',            owner: 'Ahmad',            band: 'flow',       desc: 'Converts the idea and research into a clear brief, required resources, production approach and expected deliverables.', scope: ['Brief', 'Resources', 'Production plan'] },

@@ -16,7 +16,7 @@ class SkillDefinition:
 DEFAULT_SKILLS = (
     SkillDefinition(
         name='public',
-        description='Public Gravitas navigation and published-content assistance.',
+        description='Public GraviQuest navigation and published-content assistance.',
         surfaces=('public', 'website'),
         capabilities=('answer', 'navigate', 'explain_public_content'),
         requires_auth=False,

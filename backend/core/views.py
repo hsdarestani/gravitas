@@ -93,18 +93,18 @@ def _send_newsletter_confirmation(email):
     token = signing.dumps({'email': email}, salt=NEWSLETTER_SIGNING_SALT, compress=True)
     link = f"{settings.PUBLIC_BASE_URL}/api/newsletter/confirm/?token={quote(token)}"
     text = (
-        'Confirm your Gravitas+ newsletter subscription\n\n'
+        'Confirm your GraviQuest newsletter subscription\n\n'
         'Click the link below within 48 hours to confirm your email address:\n'
         f'{link}\n\n'
         'If you did not request this, you can ignore this email.'
     )
     html = (
-        '<h2>Confirm your Gravitas+ subscription</h2>'
+        '<h2>Confirm your GraviQuest subscription</h2>'
         '<p>One last step: confirm your email address within 48 hours.</p>'
         f'<p><a href="{link}">Confirm subscription</a></p>'
         '<p>If you did not request this, you can ignore this email.</p>'
     )
-    _send_system_email('Confirm your Gravitas+ subscription', email, text, html)
+    _send_system_email('Confirm your GraviQuest subscription', email, text, html)
 
 
 def health(request):
@@ -505,7 +505,7 @@ def password_reset_request(request):
         token = default_token_generator.make_token(user)
         link = f'{settings.PUBLIC_BASE_URL}/account.html?reset_uid={quote(uid)}&reset_token={quote(token)}#reset'
         text = (
-            'Reset your Gravitas+ password\n\n'
+            'Reset your GraviQuest password\n\n'
             'Use the link below within one hour to choose a new password:\n'
             f'{link}\n\n'
             'If you did not request this, you can ignore this email.'
@@ -513,7 +513,7 @@ def password_reset_request(request):
         html = (
             '<div style="margin:0;padding:32px 16px;background:#eef2f4;font-family:Arial,sans-serif;color:#15303d">'
             '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:18px;padding:32px;border:1px solid #d9e1e5">'
-            '<div style="font-size:24px;font-weight:800;margin-bottom:22px">Gravitas+</div>'
+            '<div style="font-size:24px;font-weight:800;margin-bottom:22px">GraviQuest</div>'
             '<h2 style="margin:0 0 12px">Reset your password</h2>'
             '<p style="line-height:1.6;color:#52636c">Use the button below within one hour to choose a new password.</p>'
             f'<p style="margin:22px 0"><a href="{link}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#003049;color:#fff;text-decoration:none;font-weight:700">Choose a new password</a></p>'
@@ -521,7 +521,7 @@ def password_reset_request(request):
             '</div></div>'
         )
         try:
-            _send_system_email('Reset your Gravitas+ password', email, text, html)
+            _send_system_email('Reset your GraviQuest password', email, text, html)
         except Exception:
             return JsonResponse({'ok': False, 'error': 'email_delivery_failed'}, status=502)
 

@@ -38,7 +38,7 @@
           '<section class="g-section"><div class="g-container"><article class="g-prose" data-cms-article></article></div></section>';
         var article = main.querySelector('[data-cms-article]');
         article.innerHTML = item.body || '';
-        document.title = item.title + ' · Gravitas+';
+        document.title = item.title + ' · GraviQuest';
       }).catch(function () {
         var main = document.getElementById('main');
         main.innerHTML = '<section class="page-head"><div class="g-container"><h1>Article unavailable</h1><p class="g-lead">This article is not published or could not be loaded.</p></div></section>';
@@ -92,7 +92,7 @@
         a.innerHTML =
           '<span class="entry__type">' + esc(item.type) + '</span><div>' +
           '<h3>' + esc(item.title) + '</h3><p>' + esc(item.summary) + '</p>' +
-          '<div class="entry__meta"><span>' + esc(item.meta || 'Gravitas+') + '</span></div></div>';
+          '<div class="entry__meta"><span>' + esc(item.meta || 'GraviQuest') + '</span></div></div>';
         list.prepend(a);
       });
       window.dispatchEvent(new Event('input'));
@@ -115,7 +115,7 @@
         a.innerHTML =
           '<span class="path-card__tag">Course</span>' +
           '<h3>' + esc(course.title) + '</h3>' +
-          '<p>' + esc(course.summary || 'Structured Gravitas+ learning course.') + '</p>' +
+          '<p>' + esc(course.summary || 'Structured GraviQuest learning course.') + '</p>' +
           '<p class="path-card__meta">' + esc([
             course.lesson_count != null ? course.lesson_count + ' lessons' : '',
             course.certificate_enabled ? 'Certificate' : '',
@@ -133,7 +133,7 @@
       ['Members', 'Save content, comment, vote and track personal Topic progress.'],
       ['Learners', 'Members with Learning access: courses, assessments, certificates and learning progress.'],
       ['Researchers', 'Members with Research access: research projects, evidence, journal and collaboration.'],
-      ['Gravitas+ Team', 'Internal Core workspace for operating, production and administration.']
+      ['GraviQuest Team', 'Internal Core workspace for operating, production and administration.']
     ];
 
     var roleGrid = document.querySelector('.roles');
@@ -201,7 +201,7 @@
           '<h1>' + esc(item.title) + '</h1><p class="g-lead">' + esc(item.summary || item.description || '') + '</p></div></section>' +
           '<section class="g-section"><div class="g-container"><iframe title="' + esc(item.title) + '" src="' + esc(item.run_url) + '" ' +
           'style="width:100%;min-height:70vh;border:1px solid var(--g-hairline);border-radius:1rem;background:#fff" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe></div></section>';
-        document.title = item.title + ' · Interactive Lab · Gravitas+';
+        document.title = item.title + ' · Interactive Lab · GraviQuest';
       }).catch(function () {});
       return;
     }

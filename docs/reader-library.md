@@ -1,7 +1,7 @@
 # The reader's library — browse first, sign up at the till
 
 An online shop lets you fill a basket before it asks who you are, and only
-makes you register at checkout. The public Gravitas+ archive works the same way
+makes you register at checkout. The public GraviQuest archive works the same way
 on purpose. A visitor can:
 
 - **save** any topic, dossier, essay, learning path or interactive,

@@ -198,7 +198,7 @@ class SupportTicket(models.Model):
     class Status(models.TextChoices):
         OPEN = 'open', 'Open'
         WAITING_MEMBER = 'waiting_member', 'Waiting for member'
-        WAITING_TEAM = 'waiting_team', 'Waiting for Gravitas+'
+        WAITING_TEAM = 'waiting_team', 'Waiting for GraviQuest'
         RESOLVED = 'resolved', 'Resolved'
         CLOSED = 'closed', 'Closed'
 

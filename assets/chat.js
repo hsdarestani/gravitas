@@ -1,5 +1,5 @@
 /* =========================================================================
-   GRAVITAS+, ASK GRAVITAS
+   GRAVIQUEST, ASK GRAVITAS
    A floating assistant available on every page.
 
    On the honesty of it: there is no backend here, and a widget that invents
@@ -74,7 +74,7 @@
     },
     {
       k: 'about who what is gravitas team behind contact mission why',
-      a: 'Gravitas+ is a media project, an interactive lab and a community, working on how science actually gets made, and on what AI is doing to research and teaching. The About page has the editorial rules, which are the interesting part.',
+      a: 'GraviQuest is a media project, an interactive lab and a community, working on how science actually gets made, and on what AI is doing to research and teaching. The About page has the editorial rules, which are the interesting part.',
       l: [['About', 'about.html']]
     },
     {
