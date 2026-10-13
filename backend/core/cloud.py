@@ -7,6 +7,7 @@ from urllib.parse import quote, urlencode, urlparse
 from xml.etree import ElementTree
 
 import requests
+import time
 from cryptography.fernet import Fernet, InvalidToken
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -73,20 +74,33 @@ def _request(method, url, *, auth, expected, **kwargs):
         if public_host:
             headers.setdefault('Host', public_host)
             headers.setdefault('X-Forwarded-Proto', 'https')
-    try:
-        response = requests.request(
-            method,
-            url,
-            auth=auth,
-            timeout=(settings.NEXTCLOUD_CONNECT_TIMEOUT, settings.NEXTCLOUD_READ_TIMEOUT),
-            headers=headers,
-            **kwargs,
-        )
-    except requests.RequestException as exc:
-        raise CloudError('Cloud storage is temporarily unavailable') from exc
-    if response.status_code not in expected:
+    # Retrying a DAV conditional PUT/DELETE risks replaying an ambiguous
+    # mutation. Only safe read methods can retry short transient outages.
+    safe_read = str(method).upper() in {'GET', 'HEAD', 'PROPFIND'}
+    attempts = 3 if safe_read else 1
+    for attempt in range(attempts):
+        try:
+            response = requests.request(
+                method,
+                url,
+                auth=auth,
+                timeout=(settings.NEXTCLOUD_CONNECT_TIMEOUT, settings.NEXTCLOUD_READ_TIMEOUT),
+                headers=headers,
+                **kwargs,
+            )
+        except requests.RequestException as exc:
+            if attempt + 1 == attempts:
+                raise CloudError('Cloud storage is temporarily unavailable') from exc
+            time.sleep(0.2 * (attempt + 1))
+            continue
+        if response.status_code in expected:
+            return response
+        if safe_read and response.status_code in {502, 503, 504} and attempt + 1 < attempts:
+            response.close()
+            time.sleep(0.2 * (attempt + 1))
+            continue
         raise CloudError(f'Cloud storage returned HTTP {response.status_code}')
-    return response
+    raise CloudError('Cloud storage is temporarily unavailable')
 
 
 def _ocs_data(response, message='Invalid response from Nextcloud'):
