@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=https://gravitasplus.com
+          BASE=https://graviquest.com
 
           TTFB="$(curl -4 -fsS -o /dev/null -w '%{time_starttransfer}' "$BASE/")"
           echo "Homepage TTFB: ${TTFB}s"
@@ -58,6 +58,6 @@ jobs:
           HEADER_FILE="$RUNNER_TEMP/headers.txt"
           curl -4 -fsS -D "$HEADER_FILE" -o /dev/null \
             -H 'Accept-Encoding: gzip' \
-            https://gravitasplus.com/assets/site.css
+            https://graviquest.com/assets/site.css
           tr -d '\r' < "$HEADER_FILE" | grep -qi '^content-encoding: gzip'
           echo gzip-enabled

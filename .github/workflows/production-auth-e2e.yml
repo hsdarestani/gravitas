@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      DOMAIN: gravitasplus.com
+      DOMAIN: graviquest.com
       E2E_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       E2E_SSH_HOST: ${{ secrets.DEPLOY_HOST }}
       E2E_SSH_USER: ${{ secrets.DEPLOY_USER }}
@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      DOMAIN: gravitasplus.com
+      DOMAIN: graviquest.com
       E2E_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       E2E_SSH_HOST: ${{ secrets.DEPLOY_HOST }}
       E2E_SSH_USER: ${{ secrets.DEPLOY_USER }}

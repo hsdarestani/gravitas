@@ -21,20 +21,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=https://gravitasplus.com
+          BASE=https://graviquest.com
           curl -4 -fsSL "$BASE/" > "$RUNNER_TEMP/home.html"
           curl -4 -fsSL "$BASE/dossiers.html" > "$RUNNER_TEMP/dossiers.html"
           curl -4 -fsSL "$BASE/robots.txt" > "$RUNNER_TEMP/robots.txt"
           curl -4 -fsSL "$BASE/sitemap.xml" > "$RUNNER_TEMP/sitemap.xml"
 
-          grep -Fq '<link rel="canonical" href="https://gravitasplus.com/">' "$RUNNER_TEMP/home.html"
-          grep -Fq '<link rel="canonical" href="https://gravitasplus.com/dossiers.html">' "$RUNNER_TEMP/dossiers.html"
+          grep -Fq '<link rel="canonical" href="https://graviquest.com/">' "$RUNNER_TEMP/home.html"
+          grep -Fq '<link rel="canonical" href="https://graviquest.com/dossiers.html">' "$RUNNER_TEMP/dossiers.html"
           grep -Fq '<meta name="robots" content="noindex, nofollow">' "$RUNNER_TEMP/home.html"
 
-          grep -Fq 'Sitemap: https://gravitasplus.com/sitemap.xml' "$RUNNER_TEMP/robots.txt"
+          grep -Fq 'Sitemap: https://graviquest.com/sitemap.xml' "$RUNNER_TEMP/robots.txt"
           grep -Fq 'Disallow: /admin/' "$RUNNER_TEMP/robots.txt"
           grep -Fq 'Disallow: /api/' "$RUNNER_TEMP/robots.txt"
-          grep -Fq '<loc>https://gravitasplus.com/</loc>' "$RUNNER_TEMP/sitemap.xml"
+          grep -Fq '<loc>https://graviquest.com/</loc>' "$RUNNER_TEMP/sitemap.xml"
           ! grep -q '/admin/' "$RUNNER_TEMP/sitemap.xml"
           ! grep -q '/api/' "$RUNNER_TEMP/sitemap.xml"
           ! grep -q '/account' "$RUNNER_TEMP/sitemap.xml"

@@ -215,7 +215,7 @@ jobs:
             EMAIL_PORT="${EMAIL_PORT_VALUE:-465}" \
             EMAIL_USE_SSL="${EMAIL_SSL_VALUE:-1}" \
             DEFAULT_FROM_EMAIL="${DEFAULT_FROM:-Gravitas+ <webmaster@gravitasplus.com>}" \
-            PUBLIC_BASE_URL="${PUBLIC_BASE:-https://gravitasplus.com}" \
+            PUBLIC_BASE_URL="${PUBLIC_BASE:-https://graviquest.com}" \
             "$BACKEND_PATH/.venv/bin/django-admin" send_account_verification_by_email_hash \
               --email-sha256 "$TARGET_HASH")"
           printf '%s\n' "$OUTPUT"
@@ -226,4 +226,4 @@ jobs:
       - name: Verify public app
         run: |
           set -euo pipefail
-          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 https://gravitasplus.com/api/health/ | grep -q '"status": "ok"'
+          curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 https://graviquest.com/api/health/ | grep -q '"status": "ok"'
