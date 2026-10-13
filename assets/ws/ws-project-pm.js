@@ -54,6 +54,7 @@ function control(tag, type, placeholder = '') {
 export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }) {
   ensureStyle();
   let tasks = [...(cockpit.tasks || [])];
+  let timeSummary = null;
   const members = cockpit.members || [];
   const current = { view: 'board', text: '', status: '', owner: '', priority: '', onlyOverdue: false };
   const today = dayKey(new Date());
@@ -64,6 +65,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   async function reload() {
     const latest = await P.projectCockpit(projectId);
     tasks = latest.tasks || [];
+    try { timeSummary = await P.call('/platform/projects/'+projectId+'/work-time/'); }
+    catch(e) { notice.textContent = 'Work-time summary unavailable: '+e.message; }
     paint();
   }
   const notice = node('p', 'pm-note', 'All views use the same project tasks; Nextcloud remains the source for adopted projects.');
@@ -84,6 +87,51 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       notice.textContent = err.message === 'canonical_task_schema_upgrade_required' ? 'This task field is locked until its canonical text schema supports it.' : err.message + (err.data?.detail ? ': ' + err.data.detail : '');
     }
   }
+  // The active timer lives in the canonical Markdown note, not the browser.
+  async function showTime(task, container) {
+    container.replaceChildren(node('p','pm-note','Loading versioned work log…'));
+    const url = '/platform/projects/' + projectId + '/tasks/' + task.id + '/time/';
+    let state;
+    try { state=await P.call(url); }
+    catch (error) { container.replaceChildren(node('p','pm-note','Work log unavailable: '+error.message)); return; }
+    container.replaceChildren();
+    container.append(node('h4','','Time tracking · Task #'+task.id));
+    container.append(node('p','pm-note',(state.total_minutes/60).toFixed(2)+' hours recorded · '+state.entry_count+' entries · versioned Markdown in Nextcloud'));
+    if (state.my_active_started_at) {
+      const since=new Date(state.my_active_started_at);
+      const elapsed=Math.max(0,Math.floor((Date.now()-since.getTime())/60000));
+      container.append(node('p','pm-notice-warning','Timer active since '+since.toLocaleString()+' ('+elapsed+' minutes elapsed)'));
+    }
+    const actions=node('div','pm-views');
+    const comment=control('input','text','What did you work on?');
+    const manual=control('input','number','Minutes (1–720)');manual.min='1';manual.max='720';
+    const workday=control('input','date','Work date');workday.value=dayKey(new Date());
+    async function change(action, fields={}){
+      actions.querySelectorAll('button').forEach(b=>b.disabled=true);
+      try {
+        await P.call(url,{method:'POST',body:{action,...fields}});
+        notice.textContent='Work session saved in project Markdown.';
+        await showTime(task,container);
+      } catch(error){
+        notice.textContent='Work log: '+error.message;
+        actions.querySelectorAll('button').forEach(b=>b.disabled=false);
+      }
+    }
+    if(task.can_edit){
+      if(state.my_active_started_at){
+        actions.append(btn('Stop and save',()=>change('stop',{note:comment.value})),
+          btn('Discard timer',()=>{if(confirm('Discard the active timer without recording hours?'))change('discard');}));
+      } else actions.append(btn('Start timer',()=>change('start')));
+      actions.append(btn('Add manual minutes',()=>change('log',{minutes:Number(manual.value),date:workday.value,note:comment.value})));
+      container.append(comment,manual,workday,actions);
+    }
+    const recent=node('div','pm-list');
+    state.entries.slice(0,30).forEach(entry=>{
+      const person=members.find(m=>String(m.user_id)===String(entry.owner_id));
+      recent.append(node('p','pm-note',day(entry.start)+' · '+entry.minutes+'m · '+(person?.name||'Member')+' · '+entry.note));
+    });
+    container.append(recent);
+  }
   function openEditor(task) {
     editor.replaceChildren();
     const panel = node('div', 'pm-editor');
@@ -103,7 +151,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       ...(owner.disabled?[node('p','pm-note','Owner and dependency changes are read only for adopted projects until these relations are present in the canonical text schema.')]:[]),
       btn('Save changes', () => { const data = { title: title.value, due_date:deadline.value, status:status.value, priority:priority.value, blocked_reason:blocked.value }; if(!owner.disabled && owner.value && owner.value !== String(task.owner_id)) data.owner_id = owner.value; patch(task, data); }),
       btn('Close', () => editor.replaceChildren()));
+    const time = node('section','pm-editor');panel.append(time);
     editor.append(panel);
+    showTime(task,time);
   }
   function tile(task) {
     const t = btn('#' + task.id + ' · ' + task.title, () => { if(task.can_edit) openEditor(task); else notice.textContent='Read only task'; });
@@ -130,9 +180,10 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       ['Overdue', n.filter(x=>overdue(x,today)).length],
       ['Blocked', n.filter(x=>x.status==='blocked').length],
       ['Unscheduled', n.filter(x=>!x.due_date&&!done(x)).length],
-      ['Completed', n.filter(done).length]
+      ['Completed', n.filter(done).length],
+      ['Time logged', timeSummary ? (timeSummary.total_minutes/60).toFixed(1)+'h' : '—']
     ].forEach(([k,v])=>{const c=node('div','pm-stat');c.append(node('strong','',String(v)),node('small','',k));stat.append(c);});
-    ['board','list','timeline','week','team'].forEach(mode=>{
+    ['board','list','timeline','week','team','work logs'].forEach(mode=>{
       const b=btn(mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint();});
       b.setAttribute('aria-pressed',String(current.view===mode));views.append(b);
     });
@@ -167,9 +218,17 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);const key=dayKey(d);
         const c=node('div','pm-day');c.append(node('strong','',key));n.filter(t=>day(t.due_date)===key).forEach(t=>c.append(tile(t)));days.append(c);}
       body.append(days);
+    }else if(current.view==='work logs'){
+      const logs=node('div','pm-list');
+      if(!timeSummary){logs.append(node('p','pm-note','Loading work logs from Nextcloud…'));}
+      else{Object.entries(timeSummary.daily_minutes||{}).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,60).forEach(([date,minutes])=>{
+        logs.append(node('div','pm-task',date+' · '+(minutes/60).toFixed(2)+' hours'));
+      });if(!Object.keys(timeSummary.daily_minutes||{}).length) logs.append(node('p','pm-note','No recorded work yet.'));}
+      body.append(logs);
     }else{
       const cols=node('div','pm-columns');members.forEach(m=>{const assigned=n.filter(t=>String(t.owner_id)===String(m.user_id));const c=node('div','pm-column');
-        c.append(node('h3','',m.name),node('p','pm-note',`${assigned.filter(t=>!done(t)).length} open · ${assigned.filter(t=>overdue(t,today)).length} overdue`));
+        const logged=timeSummary?.owner_minutes?.[String(m.user_id)];
+        c.append(node('h3','',m.name),node('p','pm-note',`${assigned.filter(t=>!done(t)).length} open · ${assigned.filter(t=>overdue(t,today)).length} overdue · ${logged===undefined?'—':(logged/60).toFixed(1)+'h'} logged`));
         assigned.forEach(t=>c.append(tile(t)));cols.append(c);});body.append(cols);
     }
     if(cockpit.project?.permissions?.can_edit) body.append(newTask());
@@ -209,6 +268,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     ai.append(q,btn('Ask Pulsar',()=>run(false)),out,actions);
   }
   buildPulsar();paint();
+  P.call('/platform/projects/'+projectId+'/work-time/').then(data=>{timeSummary=data;paint();}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
   const linkedId = new URLSearchParams(location.search).get('task');
   if(linkedId && /^\d+$/.test(linkedId)){
     const selected = tasks.find(t=>String(t.id)===linkedId);

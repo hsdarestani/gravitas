@@ -236,11 +236,21 @@ class PulsarToolExecutor:
             skill='project_task',
             max_resources=min(max(int(args.get('limit') or 8), 1), 12),
         )
+        text = package.text
+        sources = list(package.sources)
+        metadata = dict(package.metadata)
+        if args.get('project_id') not in (None, ''):
+            tasks = self._tasks_read(actor, {
+                'project_id': args['project_id'], 'limit': 40,
+            })
+            text += '\n\n## Current tasks and verified work-log minutes\n' + tasks.content
+            sources.extend(tasks.sources)
+            metadata['task_time_overview'] = tasks.data
         return ToolExecutionResult(
             tool='projects.read',
-            content=package.text,
-            data=package.metadata,
-            sources=package.sources,
+            content=text,
+            data=metadata,
+            sources=sources,
         )
 
     def _tasks_read(self, actor, args):
@@ -281,10 +291,45 @@ class PulsarToolExecutor:
             if len(rows) >= min(max(int(args.get('limit') or 20), 1), 40):
                 break
 
+        # Attach actual work logged in the versioned project Markdown notes.
+        # Read through object ACLs; never treat time summaries as an
+        # independent datastore or silently invent hours for invalid notes.
+        log_errors = []
+        sources = []
+        if rows:
+            from core.models import KnowledgeResource
+            from core.project_time_log import _parse
+            task_map = {row['id']: row for row in rows}
+            if args.get('project_id') not in (None, ''):
+                for item in task_map.values():
+                    item['tracked_minutes'] = 0
+                logs = KnowledgeResource.objects.filter(
+                    project_id=int(args['project_id']),
+                    kind=KnowledgeResource.Kind.NOTE,
+                    metadata__pm_type='task_time_log_v1',
+                ).select_related('owner')
+                for log in logs:
+                    log_task_id = (log.metadata or {}).get('task_id')
+                    if log_task_id not in task_map or not can_view(actor, log):
+                        continue
+                    try:
+                        entries = _parse(log)
+                    except ValueError:
+                        log_errors.append({'task_id': log_task_id, 'log_id': log.pk})
+                        continue
+                    task_map[log_task_id]['tracked_minutes'] += sum(x['minutes'] for x in entries)
+                    sources.append({
+                        'title': log.title, 'type': 'note', 'id': log.pk,
+                        'href': '/workspace/research/projects/' + str(log.project_id) + '/structure',
+                    })
+        payload = {'tasks': rows, 'count': len(rows),
+                   'work_log_review_required': log_errors,
+                   'time_source_count': len(sources)}
         return ToolExecutionResult(
             tool='tasks.read',
-            content=json.dumps(rows, ensure_ascii=False),
-            data={'tasks': rows, 'count': len(rows)},
+            content=json.dumps(payload, ensure_ascii=False),
+            data=payload,
+            sources=sources[:30],
         )
 
 

@@ -265,7 +265,17 @@ def main():
         if not remote.get('etag') or not remote.get('file_id'):
             raise ValueError(f'Canonical readback failed: object={obj.__class__.__name__}:{obj.pk} path={file.path} reason=missing_native_identity')
         if remote['content'] != encode(obj):
-            raise ValueError(f'Canonical readback failed: object={obj.__class__.__name__}:{obj.pk} path={file.path} reason=content_divergence')
+            # Preserve the native bytes. Identify only mismatching *field
+            # names*, never customer text or any file body in CI logs.
+            from core.canonical_projects import decode
+            expected = decode(obj, encode(obj))
+            try:
+                actual = decode(obj, remote['content'])
+                changed = sorted(key for key in expected if actual.get(key) != expected[key])
+                reason = 'projected_fields=' + ','.join(changed) if changed else 'serialization_only'
+            except (ValueError, TypeError):
+                reason = 'invalid_native_structure'
+            raise ValueError(f'Canonical readback failed: object={obj.__class__.__name__}:{obj.pk} path={file.path} reason={reason}')
     names = {row['name'] for row in listing(project, owner, '')}
     from core.platform_api import PROJECT_FOLDERS
     if not set(PROJECT_FOLDERS).issubset(names) or 'project.md' not in names:
