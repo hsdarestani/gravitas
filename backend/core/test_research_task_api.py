@@ -102,3 +102,46 @@ class ResearchProjectTaskApiTests(TestCase):
         response = self.create_task(self.owner, due_date='')
         self.assertEqual(response.status_code, 400, response.content)
         self.assertEqual(response.json()['error'], 'due_date_required')
+
+
+    def test_project_editor_updates_the_existing_task_without_creating_a_copy(self):
+        created = self.create_task(self.owner)
+        task_id = created.json()['task']['id']
+        self.client.force_login(self.editor)
+        response = self.client.patch(
+            f'/api/platform/projects/{self.project.pk}/tasks/{task_id}/',
+            data={'status': 'blocked', 'blocked_reason': 'Awaiting source verification'},
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(OperatingTask.objects.filter(project=self.project).count(), 1)
+        task = OperatingTask.objects.get(pk=task_id)
+        self.assertEqual(task.status, 'blocked')
+        self.assertEqual(task.blocked_reason, 'Awaiting source verification')
+
+    def test_project_viewer_cannot_mutate_project_task(self):
+        created = self.create_task(self.owner)
+        task_id = created.json()['task']['id']
+        self.client.force_login(self.viewer)
+        response = self.client.patch(
+            f'/api/platform/projects/{self.project.pk}/tasks/{task_id}/',
+            data={'status': 'done'}, content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertNotEqual(OperatingTask.objects.get(pk=task_id).status, 'done')
+
+    def test_rejects_dependency_cycle_and_project_reassignment(self):
+        created = self.create_task(self.owner)
+        task_id = created.json()['task']['id']
+        self.client.force_login(self.owner)
+        circular = self.client.patch(
+            f'/api/platform/projects/{self.project.pk}/tasks/{task_id}/',
+            data={'dependency_id': task_id}, content_type='application/json',
+        )
+        self.assertEqual(circular.status_code, 400, circular.content)
+        self.assertEqual(circular.json()['error'], 'dependency_cycle')
+        reassignment = self.client.patch(
+            f'/api/platform/projects/{self.project.pk}/tasks/{task_id}/',
+            data={'project_id': 999}, content_type='application/json',
+        )
+        self.assertEqual(reassignment.status_code, 400, reassignment.content)
