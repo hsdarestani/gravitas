@@ -32,7 +32,7 @@ the migration work below.
 | Timeline / Gantt | New **deadline timeline**, NOT duration Gantt; start/duration/dependency drag pending |
 | Week planner | New seven-day due-date planner; time-block scheduling not implemented |
 | Team load / attention | New member grouping and overdue/blocked counts |
-| Time tracking / work logs | Existing daily work reports are distinct; per-task stopwatch and approved time log pending |
+| Time tracking / work logs | New task stopwatch and manual entries stored in one human-editable versioned Markdown note per task and member; team reporting and Pulsar are linked. Formal time-sheet approval and budget comparisons remain pending |
 | Milestones / dependencies | Existing typed relationships; dependency editing supported in scoped API |
 | Nextcloud & Markdown editor | Existing canonical project-file UI, DAV concurrency controls, explicit adoption |
 | AI project assistant | New scoped Pulsar panel with approval preview, project-wide ACL-filtered task metrics (bounded at 3000 scanned records), up to 45 prioritized details and task citations |
@@ -77,8 +77,8 @@ the target's Nextcloud, project.md, ACL and editor read/write with two users.
    readback/backups and preserve external Nextcloud edits. No double writes.
 2. Implement real Gantt (bar editing, milestone grouping, dependencies),
    calendar time-block planning and weekly planner with date/time zones.
-3. Persist approved per-task time sessions, budget vs actual, daily work log
-   reconciliation, weekly review, blockers, and portfolio analytics.
+3. Implement formal approval of recorded work sessions, planned budget vs actual,
+   daily work report reconciliation, time-block weekly review and cross-project portfolio analytics.
 4. Team dashboard showing member load and schedule with project ACLs; build
    full Zim-style multi-facet filters and stored filters.
 5. Expand Pulsar retrieval beyond 20 open tasks using paginated, ACL-aware
@@ -86,7 +86,7 @@ the target's Nextcloud, project.md, ACL and editor read/write with two users.
 6. Agent read, draft and mutation tool contracts with confirmation,
    idempotency, conflict surfacing, undo/audit and evaluation suites.
 7. Nextcloud native DAV edits + platform UI + Pulsar three-way concurrency
-   acceptance; load tests, failed jobs and production deployment/recovery.
+   acceptance for task logs; live load tests and project 208 canonical readback recovery.
 8. Research/Pulsar project sync with existing
    `setup_pulsar_research_project` command, after actor/project verification.
 
@@ -112,3 +112,16 @@ No "fully released" claim should be made until production acceptance passes.
   pass, native journal inspection resolves project 208, an isolated checkpoint
   is available, and browser/editor/Nextcloud concurrency checks are run.
 
+
+## Task work-log v1 format
+
+Each (task, member) has exactly one versioned `KnowledgeResource` note with
+`metadata.pm_type=task_time_log_v1`, `task_id`, `owner_id`, and optional
+`active_started_at`. Its body is a Markdown table containing UTC start/end,
+whole minutes and a short note. The note file is canonical in Nextcloud and
+editable from the platform or Nextcloud; invalid manual edits fail closed with
+a clear 409. The server-side timer survives closing a browser and is protected
+against duplicate starts and concurrent same-task mutations. Manual sessions
+cannot exceed 12 hours and cannot be dated in the future. Project time
+summaries are derived from the same notes, not written to a second store.
+The timer does not yet provide audited payroll approval or calendar slots.
