@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="${1:-gravitasplus.com}"
+DOMAIN="${1:-graviquest.com}"
 MODE="${2:-repair}"
 ENV_FILE=/etc/gravitas/nextcloud.env
 CREDS=/etc/gravitas/nextcloud-admin-credentials

@@ -156,8 +156,8 @@ class PasswordResetEmailTests(TestCase):
 @override_settings(
     GOOGLE_OAUTH_CLIENT_ID='test-client.apps.googleusercontent.com',
     GOOGLE_OAUTH_CLIENT_SECRET='test-secret',
-    GOOGLE_OAUTH_REDIRECT_URI='https://gravitasplus.com/api/auth/google/callback/',
-    PUBLIC_BASE_URL='https://gravitasplus.com',
+    GOOGLE_OAUTH_REDIRECT_URI='https://graviquest.com/api/auth/google/callback/',
+    PUBLIC_BASE_URL='https://graviquest.com',
 )
 class GoogleOAuthFlowTests(TestCase):
     def test_google_start_uses_configured_client_and_secure_state(self):
@@ -170,7 +170,7 @@ class GoogleOAuthFlowTests(TestCase):
         self.assertEqual(query['client_id'], ['test-client.apps.googleusercontent.com'])
         self.assertEqual(
             query['redirect_uri'],
-            ['https://gravitasplus.com/api/auth/google/callback/'],
+            ['https://graviquest.com/api/auth/google/callback/'],
         )
         self.assertEqual(query['scope'], ['openid email profile'])
         self.assertTrue(query['state'][0])
@@ -203,7 +203,7 @@ class GoogleOAuthFlowTests(TestCase):
             {'code': 'authorization-code', 'state': state},
         )
         self.assertEqual(callback.status_code, 302)
-        self.assertEqual(callback['Location'], 'https://gravitasplus.com/workspace')
+        self.assertEqual(callback['Location'], 'https://graviquest.com/workspace')
 
         user = User.objects.get(email='google-new@gravitas.test')
         self.assertFalse(user.has_usable_password())
@@ -219,7 +219,7 @@ class GoogleOAuthFlowTests(TestCase):
         self.assertTrue(self.client.get('/api/auth/me/').json()['authenticated'])
         self.assertEqual(
             token_post.call_args.kwargs['data']['redirect_uri'],
-            'https://gravitasplus.com/api/auth/google/callback/',
+            'https://graviquest.com/api/auth/google/callback/',
         )
 
     @patch('core.views.requests.get')

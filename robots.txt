@@ -9,4 +9,4 @@ Disallow: /article-hypothesis-or-sentence.html
 Disallow: /game-hypothesis-machine.html
 Disallow: /path-ai-in-research.html
 
-Sitemap: https://gravitasplus.com/sitemap.xml
+Sitemap: https://graviquest.com/sitemap.xml

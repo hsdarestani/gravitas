@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-The Gravitas+ site (`gravitasplus.com`): a static public frontend, a signed-in
+The Gravitas+ site (`graviquest.com`): a static public frontend, a signed-in
 workspace built as ES modules, and a Django backend under `backend/`. Deployed
 by SSH/rsync to a Strato VPS via `.github/workflows/deploy.yml` on every push to
 `main`, which also bootstraps nginx, PostgreSQL, certbot and the systemd units.

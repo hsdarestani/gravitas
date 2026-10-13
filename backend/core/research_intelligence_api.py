@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 CACHE_TTL_SECONDS = 30 * 60
 REQUEST_TIMEOUT = (3.5, 8)
-USER_AGENT = "Gravitas-Research-Radar/1.0 (+https://gravitasplus.com/)"
+USER_AGENT = "Gravitas-Research-Radar/1.0 (+https://graviquest.com/)"
 
 GRANTS_SEARCH = "https://api.grants.gov/v1/api/search2"
 GRANTS_DETAIL = "https://api.grants.gov/v1/api/fetchOpportunity"

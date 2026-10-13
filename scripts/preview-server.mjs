@@ -3,7 +3,7 @@
 
    Serves this working tree the way the production nginx config in
    .github/workflows/deploy.yml does, so /workspace/my-work and /login resolve
-   to the same files they do on gravitasplus.com. Requests under /api/, /admin/
+   to the same files they do on graviquest.com. Requests under /api/, /admin/
    and /content/ are proxied to a real backend (production by default), which is
    what lets the dashboard and workspace load with live data while every HTML,
    CSS and JS file comes from this checkout.
@@ -31,7 +31,7 @@ function arg(name, fallback) {
 
 const PORT = Number(arg('port', 4173));
 const HOST = arg('host', '127.0.0.1');
-const API = arg('api', 'https://gravitasplus.com').replace(/\/$/, '');
+const API = arg('api', 'https://graviquest.com').replace(/\/$/, '');
 const PROXY_ON = API !== 'off' && API !== 'none';
 const UPSTREAM = PROXY_ON ? new URL(API) : null;
 const CURL = arg('curl', process.platform === 'win32'
@@ -117,7 +117,7 @@ function readBody(req) {
   });
 }
 
-/* gravitasplus.com resets Node's TLS connections while accepting curl's, so the
+/* graviquest.com resets Node's TLS connections while accepting curl's, so the
    proxy falls back to curl as its transport. Windows ships curl.exe, and the
    decision is made once on the first upstream request. */
 let transport = 'fetch';

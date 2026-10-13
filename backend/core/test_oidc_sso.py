@@ -44,11 +44,11 @@ class NextcloudOIDCSSOTests(TestCase):
             first_name='Researcher',
         )
         self.settings = override_settings(
-            GRAVITAS_OIDC_ISSUER='https://gravitasplus.com/api/oidc',
+            GRAVITAS_OIDC_ISSUER='https://graviquest.com/api/oidc',
             GRAVITAS_OIDC_CLIENT_ID='gravitas-nextcloud',
             GRAVITAS_OIDC_CLIENT_SECRET='test-client-secret',
             GRAVITAS_OIDC_PRIVATE_KEY_B64=self.key_b64,
-            NEXTCLOUD_PUBLIC_URL='https://cloud.gravitasplus.com',
+            NEXTCLOUD_PUBLIC_URL='https://cloud.graviquest.com',
             NEXTCLOUD_OIDC_PROVIDER_ID='7',
         )
         self.settings.enable()
@@ -64,7 +64,7 @@ class NextcloudOIDCSSOTests(TestCase):
         challenge = _b64url(hashlib.sha256(verifier.encode('ascii')).digest())
         return '/api/oidc/authorize/?' + '&'.join([
             'client_id=gravitas-nextcloud',
-            'redirect_uri=https%3A%2F%2Fcloud.gravitasplus.com%2Fapps%2Fuser_oidc%2Fcode',
+            'redirect_uri=https%3A%2F%2Fcloud.graviquest.com%2Fapps%2Fuser_oidc%2Fcode',
             'response_type=code',
             'scope=openid%20email%20profile',
             'state=state-123',
@@ -89,7 +89,7 @@ class NextcloudOIDCSSOTests(TestCase):
             data={
                 'grant_type': 'authorization_code',
                 'code': code,
-                'redirect_uri': 'https://cloud.gravitasplus.com/apps/user_oidc/code',
+                'redirect_uri': 'https://cloud.graviquest.com/apps/user_oidc/code',
                 'code_verifier': verifier,
             },
             HTTP_AUTHORIZATION=f'Basic {credentials}',
@@ -99,7 +99,7 @@ class NextcloudOIDCSSOTests(TestCase):
         response = self.client.get('/api/oidc/.well-known/openid-configuration')
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload['issuer'], 'https://gravitasplus.com/api/oidc')
+        self.assertEqual(payload['issuer'], 'https://graviquest.com/api/oidc')
         self.assertEqual(payload['code_challenge_methods_supported'], ['S256'])
         self.assertEqual(payload['id_token_signing_alg_values_supported'], ['RS256'])
         self.assertEqual(payload['token_endpoint_auth_methods_supported'], ['client_secret_basic', 'client_secret_post'])
@@ -162,10 +162,10 @@ class NextcloudOIDCSSOTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(
             '/api/platform/nextcloud/sso/',
-            {'next': 'https://cloud.gravitasplus.com/index.php/apps/notes/?note=12'},
+            {'next': 'https://cloud.graviquest.com/index.php/apps/notes/?note=12'},
         )
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response['Location'].startswith('https://cloud.gravitasplus.com/index.php/apps/user_oidc/login/7?'))
+        self.assertTrue(response['Location'].startswith('https://cloud.graviquest.com/index.php/apps/user_oidc/login/7?'))
         params = parse_qs(urlparse(response['Location']).query)
         self.assertEqual(params['redirectUrl'], ['/index.php/apps/notes/?note=12'])
 

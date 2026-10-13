@@ -4,7 +4,7 @@
    future native apps consistent without maintaining four login implementations. */
 
 const SSO_PATH = '/api/platform/nextcloud/sso/';
-const CLOUD_HOST = 'cloud.gravitasplus.com';
+const CLOUD_HOST = 'cloud.graviquest.com';
 let installed = false;
 
 export function nextcloudSsoUrl(url) {

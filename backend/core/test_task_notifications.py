@@ -148,8 +148,8 @@ class TaskNotificationTests(TestCase):
             'recipient': self.user,
             'event_type': 'task.updated',
             'subject': 'Task updated: Example',
-            'body': 'A teammate updated your task.\n\nOpen task: https://gravitasplus.com/workspace/core/tasks',
-            'payload': {'url': 'https://gravitasplus.com/workspace/core/tasks'},
+            'body': 'A teammate updated your task.\n\nOpen task: https://graviquest.com/workspace/core/tasks',
+            'payload': {'url': 'https://graviquest.com/workspace/core/tasks'},
         }
         TaskNotificationOutbox.objects.create(
             **common,

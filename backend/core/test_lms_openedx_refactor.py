@@ -439,8 +439,8 @@ class OpenEdXLmsRefactorTests(TestCase):
             slug='openedx-course',
             provider='openedx',
             openedx_course_key='course-v1:Gravitas+Research101+2026',
-            openedx_course_url='https://learn.gravitasplus.com/courses/course-v1:Gravitas+Research101+2026/course/',
-            openedx_studio_url='https://studio.gravitasplus.com/course/course-v1:Gravitas+Research101+2026',
+            openedx_course_url='https://learn.graviquest.com/courses/course-v1:Gravitas+Research101+2026/course/',
+            openedx_studio_url='https://studio.graviquest.com/course/course-v1:Gravitas+Research101+2026',
         )
         enrollment = self.enroll_learner(course['id'])
         allow_enrollment.assert_called_once_with(

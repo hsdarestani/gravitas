@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="${1:-gravitasplus.com}"
+DOMAIN="${1:-graviquest.com}"
 TARGET=/etc/nginx/sites-available/gravitas
 GUARD=/usr/local/sbin/gravitas-nextcloud-nginx-route
 PUBLIC_URL_FILE=/etc/gravitas/nextcloud-public-url

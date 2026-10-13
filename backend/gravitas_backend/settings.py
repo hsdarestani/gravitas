@@ -15,11 +15,11 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'change-me-in-production')
 DEBUG = os.environ.get('DJANGO_DEBUG', '0') == '1'
 ALLOWED_HOSTS = _csv_env(
     'DJANGO_ALLOWED_HOSTS',
-    ['gravitasplus.com', 'www.gravitasplus.com', '127.0.0.1', 'localhost'],
+    ['graviquest.com', 'www.graviquest.com', '127.0.0.1', 'localhost'],
 )
 CSRF_TRUSTED_ORIGINS = _csv_env(
     'DJANGO_CSRF_TRUSTED_ORIGINS',
-    ['https://gravitasplus.com', 'https://www.gravitasplus.com'],
+    ['https://graviquest.com', 'https://www.graviquest.com'],
 )
 
 INSTALLED_APPS = [
@@ -111,9 +111,9 @@ EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', '1') == '1'
 EMAIL_USE_TLS = False
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'webmaster@gravitasplus.com')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Gravitas+ <webmaster@gravitasplus.com>')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Graviquest <webmaster@gravitasplus.com>')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
-PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'https://gravitasplus.com').rstrip('/')
+PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'https://graviquest.com').rstrip('/')
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', '3600'))
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
@@ -142,8 +142,8 @@ LMS_MATHEMATICA_EXEC_URL = os.environ.get('LMS_MATHEMATICA_EXEC_URL', '').rstrip
 LMS_MATHEMATICA_EXEC_TOKEN = os.environ.get('LMS_MATHEMATICA_EXEC_TOKEN', '')
 LMS_LINKEDIN_API_VERSION = os.environ.get('LMS_LINKEDIN_API_VERSION', '202609')
 OPENEDX_ENABLED = os.environ.get('OPENEDX_ENABLED', '0') == '1'
-OPENEDX_LMS_URL = os.environ.get('OPENEDX_LMS_URL', 'https://learn.gravitasplus.com').rstrip('/')
-OPENEDX_CMS_URL = os.environ.get('OPENEDX_CMS_URL', 'https://studio.gravitasplus.com').rstrip('/')
+OPENEDX_LMS_URL = os.environ.get('OPENEDX_LMS_URL', 'https://learn.graviquest.com').rstrip('/')
+OPENEDX_CMS_URL = os.environ.get('OPENEDX_CMS_URL', 'https://studio.graviquest.com').rstrip('/')
 OPENEDX_INTERNAL_URL = os.environ.get('OPENEDX_INTERNAL_URL', 'http://127.0.0.1:8181').rstrip('/')
 OPENEDX_CLIENT_ID = os.environ.get('OPENEDX_CLIENT_ID', '')
 OPENEDX_CLIENT_SECRET = os.environ.get('OPENEDX_CLIENT_SECRET', '')

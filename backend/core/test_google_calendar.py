@@ -35,8 +35,8 @@ User = get_user_model()
 @override_settings(
     GOOGLE_OAUTH_CLIENT_ID='calendar-test.apps.googleusercontent.com',
     GOOGLE_OAUTH_CLIENT_SECRET='calendar-secret',
-    GOOGLE_OAUTH_REDIRECT_URI='https://gravitasplus.com/api/auth/google/callback/',
-    PUBLIC_BASE_URL='https://gravitasplus.com',
+    GOOGLE_OAUTH_REDIRECT_URI='https://graviquest.com/api/auth/google/callback/',
+    PUBLIC_BASE_URL='https://graviquest.com',
 )
 class GoogleCalendarIntegrationTests(TestCase):
     def setUp(self):
@@ -65,7 +65,7 @@ class GoogleCalendarIntegrationTests(TestCase):
         self.assertEqual(query['prompt'], ['consent'])
         self.assertEqual(
             query['redirect_uri'],
-            ['https://gravitasplus.com/api/auth/google/callback/'],
+            ['https://graviquest.com/api/auth/google/callback/'],
         )
         session = self.client.session
         self.assertEqual(session['google_oauth_flow'], 'calendar')

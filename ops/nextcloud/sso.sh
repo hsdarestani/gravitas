@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MAIN_DOMAIN="${1:-gravitasplus.com}"
-CLOUD_DOMAIN="${2:-cloud.gravitasplus.com}"
+MAIN_DOMAIN="${1:-graviquest.com}"
+CLOUD_DOMAIN="${2:-cloud.graviquest.com}"
 BACKEND_ENV=/etc/gravitas/backend.env
 NC_CONTAINER="${NC_CONTAINER:-gravitas-nextcloud}"
 CLIENT_ID=gravitas-nextcloud

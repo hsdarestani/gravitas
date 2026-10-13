@@ -1017,8 +1017,8 @@ export async function renderAdminLms(host, { go }) {
     ]);
     const refresh = () => renderAdminLms(host, { go });
     const engineState = openedx.openedx || {};
-    const lmsUrl = openedx.lms_url || 'https://learn.gravitasplus.com';
-    const studioUrl = openedx.cms_url || 'https://studio.gravitasplus.com';
+    const lmsUrl = openedx.lms_url || 'https://learn.graviquest.com';
+    const studioUrl = openedx.cms_url || 'https://studio.graviquest.com';
     const wrap = K.page(host, {
       title: 'LMS Admin',
       meta: 'Open edX-backed learning with Gravitas+ AI, Lab, source management, exports and analytics.',

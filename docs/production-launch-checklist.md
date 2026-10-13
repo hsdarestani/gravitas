@@ -1,7 +1,7 @@
 # Gravitas+ Production Launch Gate
 
 ## Infrastructure
-- [x] gravitasplus.com points to Strato production server.
+- [x] graviquest.com points to Strato production server.
 - [x] HTTPS / Let's Encrypt enabled.
 - [x] Nginx + Gunicorn + systemd production environment.
 - [x] Automated GitHub deployment.
@@ -9,7 +9,7 @@
 - [x] Daily backups.
 - [x] Uptime / TLS / health monitoring.
 - [x] Backend log error monitor.
-- [x] Staging environment at staging.gravitasplus.com.
+- [x] Staging environment at staging.graviquest.com.
 
 ## Product platform
 - [x] Account signup/login/logout/session backend and production UI.

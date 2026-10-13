@@ -196,10 +196,10 @@ class NextcloudV4ApiTests(NextcloudV4AccessTests):
     @patch('core.nextcloud_api.nextcloud_bridge.create_native_client_credentials')
     def test_current_user_can_generate_device_specific_nextcloud_credentials(self, create_credentials):
         create_credentials.return_value = {
-            'server': 'https://gravitasplus.com/nextcloud',
+            'server': 'https://graviquest.com/nextcloud',
             'username': f'gravitas-u-{self.owner.pk}',
             'app_password': 'one-time-device-secret',
-            'web_url': 'https://gravitasplus.com/nextcloud/',
+            'web_url': 'https://graviquest.com/nextcloud/',
             'note': 'shown once',
         }
         self.client.force_login(self.owner)

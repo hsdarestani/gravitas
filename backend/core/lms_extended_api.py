@@ -1040,7 +1040,7 @@ def lms_certificate_download(request, code):
       <text x="700" y="615" text-anchor="middle" font-family="Georgia, serif" font-size="38" fill="#123f56">{escape(course)}</text>
       <text x="700" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" fill="#595959">Issued {escape(issued)}</text>
       <text x="700" y="790" text-anchor="middle" font-family="monospace" font-size="18" fill="#595959">Credential {escape(str(certificate.code))}</text>
-      <text x="700" y="875" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#756b5c">gravitasplus.com</text>
+      <text x="700" y="875" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#756b5c">graviquest.com</text>
     </svg>'''
     response = HttpResponse(svg, content_type='image/svg+xml; charset=utf-8')
     response['Content-Disposition'] = content_disposition_header(

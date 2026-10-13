@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MAIN_DOMAIN="${1:-gravitasplus.com}"
-CLOUD_DOMAIN="${2:-cloud.gravitasplus.com}"
+MAIN_DOMAIN="${1:-graviquest.com}"
+CLOUD_DOMAIN="${2:-cloud.graviquest.com}"
 PUBLIC_URL_FILE=/etc/gravitas/nextcloud-public-url
 CREDS=/etc/gravitas/nextcloud-admin-credentials
 ENV_FILE=/etc/gravitas/nextcloud.env

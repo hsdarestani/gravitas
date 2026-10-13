@@ -1409,7 +1409,7 @@ function wireGrip(grip, { variable, min, max, from, close }) {
 /* ==========================================================================
    THEME
    Same control and same two marks as the public site, so the workspace and
-   gravitasplus.com switch theme with the same button.
+   graviquest.com switch theme with the same button.
    ========================================================================== */
 
 function initTheme() {
