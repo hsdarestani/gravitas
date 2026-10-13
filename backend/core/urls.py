@@ -101,6 +101,7 @@ from core.research_project_tools import (
 )
 from core.research_task_api import project_tasks as research_project_tasks, project_task_detail as research_project_task_detail
 from core.project_time_log import project_task_time, project_time_summary
+from core.project_schedule_api import project_task_schedules
 from core.nextcloud_api import (
     nextcloud_client_credentials,
     nextcloud_status,
@@ -342,6 +343,7 @@ urlpatterns = [
     path('platform/projects/<int:project_id>/tasks/<int:task_id>/', require_research_or_core(research_project_task_detail)),
     path('platform/projects/<int:project_id>/tasks/<int:task_id>/time/', require_research_or_core(project_task_time)),
     path('platform/projects/<int:project_id>/work-time/', require_research_or_core(project_time_summary)),
+    path('platform/projects/<int:project_id>/schedules/', require_research_or_core(project_task_schedules)),
     path('platform/projects/<int:project_id>/access-candidates/', require_research_or_core(project_access_candidates)),
     path('platform/projects/<int:project_id>/milestones/', require_research_or_core(project_milestones)),
     path('platform/projects/<int:project_id>/experiments/', require_research_or_core(project_experiments)),
