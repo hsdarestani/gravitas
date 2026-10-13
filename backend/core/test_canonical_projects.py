@@ -150,6 +150,7 @@ class CanonicalProjectTests(TestCase):
             'ws_space': 'research',
             'nextcloud_notes': {'id': 42, 'etag': 'old', 'state': 'synced'},
         }
+        self.note.save(update_fields=['metadata'])
         self.adopt()
         path = self.full(relative_path(self.note))
         native = self.dav.files[path]['content']
@@ -157,13 +158,13 @@ class CanonicalProjectTests(TestCase):
         self.assertEqual(decode(self.note, native)['metadata'], {'ws_space': 'research'})
 
         # Simulate a legacy .md header containing an obsolete mirror snapshot.
-        header, _, body = native.partition('\\n')
+        header, _, body = native.partition('\n')
         legacy = json.loads(header[len('<!-- gravitas:'):-len(' -->')])
         legacy['fields']['metadata']['nextcloud_notes'] = {
             'id': 42, 'etag': 'obsolete', 'state': 'synced',
         }
         legacy_content = '<!-- gravitas:' + json.dumps(
-            legacy, ensure_ascii=False, sort_keys=True) + ' -->\\n' + body
+            legacy, ensure_ascii=False, sort_keys=True) + ' -->\n' + body
         self.dav.external(path, legacy_content)
 
         # The independent Notes connector legitimately advances its mirror
@@ -186,14 +187,15 @@ class CanonicalProjectTests(TestCase):
 
     def test_native_user_metadata_edits_still_flow_into_projection(self):
         self.note.metadata = {'ws_space': 'research', 'nextcloud_notes': {'etag': 'local'}}
+        self.note.save(update_fields=['metadata'])
         self.adopt()
         path = self.full(relative_path(self.note))
         original = self.dav.files[path]['content']
-        header, _, body = original.partition('\\n')
+        header, _, body = original.partition('\n')
         payload = json.loads(header[len('<!-- gravitas:'):-len(' -->')])
         payload['fields']['metadata']['ws_folder'] = 'Reviewed'
         self.dav.external(path, '<!-- gravitas:' + json.dumps(
-            payload, ensure_ascii=False, sort_keys=True) + ' -->\\n' + body)
+            payload, ensure_ascii=False, sort_keys=True) + ' -->\n' + body)
         refresh_project(self.project, self.owner)
         self.note.refresh_from_db()
         self.assertEqual(self.note.metadata['ws_folder'], 'Reviewed')
