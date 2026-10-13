@@ -144,6 +144,33 @@ class CanonicalProjectTests(TestCase):
         self.assertEqual(reloaded.status_code, 200, reloaded.content)
         self.assertEqual(reloaded.json()['entries'][0]['note'], 'Nextcloud edited note')
 
+    def test_schedule_planner_roundtrips_to_native_nextcloud_markdown(self):
+        self.adopt()
+        created = self.client.post(
+            f'/api/platform/projects/{self.project.pk}/tasks/',
+            data={'title': 'Plan scientific review', 'due_date': '2026-10-20'},
+            content_type='application/json',
+        )
+        self.assertEqual(created.status_code, 201, created.content)
+        task_id = created.json()['task']['id']
+        endpoint = f'/api/platform/projects/{self.project.pk}/schedules/'
+        result = self.client.post(endpoint, data={
+            'task_id': task_id, 'start_date': '2026-10-14',
+            'end_date': '2026-10-19', 'estimated_minutes': 420,
+        }, content_type='application/json')
+        self.assertEqual(result.status_code, 200, result.content)
+        schedule = KnowledgeResource.objects.get(
+            project=self.project, metadata__pm_type='task_schedule_v1')
+        path = self.full(relative_path(schedule))
+        self.assertIn('| 2026-10-14 | 2026-10-19 | 420 |', self.dav.files[path]['content'])
+        self.dav.external(path, self.dav.files[path]['content'].replace(
+            '| 2026-10-14 | 2026-10-19 | 420 |',
+            '| 2026-10-15 | 2026-10-18 | 300 |'))
+        listing = self.client.get(endpoint)
+        self.assertEqual(listing.status_code, 200, listing.content)
+        self.assertEqual(listing.json()['schedules'][0]['start_date'], '2026-10-15')
+        self.assertEqual(listing.json()['schedules'][0]['estimated_minutes'], 300)
+
     def test_nextcloud_notes_mirror_is_not_canonical_user_content(self):
         from .canonical_journal import canonical_operation
         self.note.metadata = {
