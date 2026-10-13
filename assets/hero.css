@@ -62,13 +62,14 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
   /* Even the rag out rather than leaving a two-word orphan on the last line. */
   text-wrap: balance;
 }
-/* gravitas.css keeps headline emphasis upright on purpose. Here the two
-   italic words are the name itself, gravity + question, so they lean, and in
-   Literata, the reading face. At the headline's 900 a serif italic goes
-   blotchy beside DM Sans, so it drops to 650; its shorter x-height needs 5%
-   more size to stand level, and the display's tight tracking crowds serifs. */
+/* The two emphasised words are the name itself, gravity + question, so they
+   change face to Literata, the reading face, and stay upright like all
+   headline emphasis in gravitas.css (italic was tried and dropped). At the
+   headline's 900 a serif goes blotchy beside DM Sans, so it drops to 650; its
+   shorter x-height needs 5% more size to stand level, and the display's tight
+   tracking crowds serifs. */
 .lp-hero__title em {
-  font-family: var(--g-font-read); font-style: italic;
+  font-family: var(--g-font-read); font-style: normal;
   font-weight: 650; font-size: 1.05em; letter-spacing: -0.01em;
 }
 @supports (container-type: inline-size) {
