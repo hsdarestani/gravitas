@@ -1089,10 +1089,7 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 .join__role { font-family: var(--g-font); font-size: var(--g-fs-caption);
   letter-spacing: .1em; text-transform: uppercase; color: var(--g-text-muted);
   border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
-  padding: .34rem .85rem; transition: color var(--g-dur) var(--g-ease-orbit),
-  border-color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit); }
-.join__role:hover { color: var(--g-text); border-color: var(--g-border-strong);
-  background: rgb(var(--g-tint) / .08); }
+  padding: .34rem .85rem; cursor: default; }
 .join__act { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; }
 .join__fine { font-family: var(--g-font); font-size: var(--g-fs-caption);
   color: var(--g-text-subtle); margin: var(--g-space-md) 0 0; }
