@@ -13,7 +13,7 @@ from core.canonical_journal import canonical_operation
 
 MATERIAL = ('docs/five-layer-platform-architecture.md', 'backend/core/pulsar_runtime/context.py', 'backend/core/pulsar_runtime/harness.py', 'backend/core/pulsar_task_service.py', 'backend/core/telegram_pulsar.py')
 # Optional add-ons may not exist on an older split frontend deployment.
-EXTRA_MATERIAL = ('docs/project-command-center-architecture.md', 'backend/core/pulsar_runtime/agent.py', 'assets/ws/ws-project-pm.js', 'backend/core/research_task_api.py', 'backend/core/project_time_log.py')
+EXTRA_MATERIAL = ('docs/project-command-center-architecture.md', 'backend/core/pulsar_runtime/agent.py', 'assets/ws/ws-project-pm.js', 'backend/core/research_task_api.py', 'backend/core/project_time_log.py', 'backend/core/project_schedule_api.py')
 
 
 class Command(BaseCommand):

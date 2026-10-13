@@ -125,3 +125,26 @@ against duplicate starts and concurrent same-task mutations. Manual sessions
 cannot exceed 12 hours and cannot be dated in the future. Project time
 summaries are derived from the same notes, not written to a second store.
 The timer does not yet provide audited payroll approval or calendar slots.
+
+## Canonical Gantt schedule v1 (new)
+
+Task-specific schedule objects are human-readable Markdown `KnowledgeResource` notes with
+`metadata.pm_type=task_schedule_v1`, a stable `task_id`, and an editable
+row containing planned start date, end date and estimated minutes. The
+project API never invents start dates from task due dates. The Timeline UI
+plots horizontal duration bars only for explicitly scheduled tasks and
+provides a direct edit form; unscheduled tasks remain visibly separate.
+Source files are protected by existing project ACL, DAV revisions and
+conflict handling. A formal calendar time-block planner, resource leveling,
+and parent-child critical-path calculations remain further work.
+
+## Derived views added with the Gantt rollout
+
+The urgency/importance matrix is a read-only view: P0/P1 means important;
+a deadline in the next seven days (including overdue) means urgent. Tasks
+can be edited with existing canonical task permissions. It is a heuristic,
+not an asserted human judgment. Weekly review lists actual completed
+items from the last seven days, blockers and overdue tasks, and contrasts
+a task's total estimated minutes against total recorded minutes. A formal
+signed weekly review note, capacity/resource leveling and archived review
+snapshots are not implemented yet.

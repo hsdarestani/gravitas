@@ -322,8 +322,35 @@ class PulsarToolExecutor:
                         'title': log.title, 'type': 'note', 'id': log.pk,
                         'href': '/workspace/research/projects/' + str(log.project_id) + '/structure',
                     })
+        schedule_errors = []
+        if rows and args.get('project_id') not in (None, ''):
+            from core.project_schedule_api import _parse as parse_schedule
+            schedules = KnowledgeResource.objects.filter(
+                project_id=int(args['project_id']),
+                kind=KnowledgeResource.Kind.NOTE,
+                metadata__pm_type='task_schedule_v1',
+            )
+            for note in schedules:
+                task_id = (note.metadata or {}).get('task_id')
+                if task_id not in task_map or not can_view(actor, note):
+                    continue
+                try:
+                    plan = parse_schedule(note)
+                except ValueError:
+                    schedule_errors.append({'task_id': task_id, 'note_id': note.pk})
+                    continue
+                task_map[task_id].update({
+                    'planned_start': plan['start_date'],
+                    'planned_end': plan['end_date'],
+                    'estimated_minutes': plan['estimated_minutes'],
+                })
+                sources.append({
+                    'title': note.title, 'type': 'note', 'id': note.pk,
+                    'href': '/workspace/research/projects/' + str(note.project_id) + '/structure',
+                })
         payload = {'tasks': rows, 'count': len(rows),
                    'work_log_review_required': log_errors,
+                   'schedule_review_required': schedule_errors,
                    'time_source_count': len(sources)}
         return ToolExecutionResult(
             tool='tasks.read',
