@@ -1,0 +1,65 @@
+name: Sync Pulsar Research After Accepted Deploy
+
+on:
+  workflow_run:
+    workflows: ['Selected Operational Project Acceptance']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-pulsar-research-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: >-
+      ${{ github.repository == 'hsdarestani/gravitas' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      HOST: ${{ secrets.DEPLOY_HOST }}
+      LOGIN: ${{ secrets.DEPLOY_USER }}
+      PORT: ${{ secrets.DEPLOY_PORT }}
+      ACCEPTED_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Verify accepted revision remains deployed main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          HEAD="$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq '.object.sha')"
+          test "$HEAD" = "$ACCEPTED_SHA"
+          test -n "$SSH_KEY" && test -n "$HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/pulsar_safe_sync
+          chmod 600 ~/.ssh/pulsar_safe_sync
+          ssh-keyscan -p "${PORT:-22}" -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Reconcile only source notes of the existing accepted project 208
+        shell: bash
+        run: |
+          set -euo pipefail
+          OPTS=(-i ~/.ssh/pulsar_safe_sync -p "${PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10)
+          TARGET="${LOGIN:-deploy}"
+          if ! ssh "${OPTS[@]}" "$TARGET@$HOST" true 2>/dev/null; then
+            ssh "${OPTS[@]}" "root@$HOST" true
+            TARGET=root
+          fi
+          ssh "${OPTS[@]}" "$TARGET@$HOST" bash -s <<'REMOTE'
+          set -euo pipefail
+          BACKEND=/opt/gravitas-backend
+          ROOT=/var/www/gravitas
+          test -x "$BACKEND/.venv/bin/python"
+          test -f "$ROOT/docs/project-command-center-architecture.md"
+          test -f /etc/gravitas/backend.env
+          # Uses the existing owner; never creates a new Research project.
+          # Uses guarded canonical operation / file readback / ACL checks.
+          sudo -u gravitas env PYTHONPATH="$BACKEND" DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            bash -c 'set -a; . /etc/gravitas/backend.env; set +a; exec "$1" -m django setup_pulsar_research_project --actor-project-owner --project 208 --existing-only --source-root /var/www/gravitas --apply' \
+            bash "$BACKEND/.venv/bin/python"
+          REMOTE
