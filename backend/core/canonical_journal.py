@@ -192,7 +192,10 @@ def journal_transaction(func):
     def guarded(*args, **kwargs):
         with write_batch() as batch, transaction.atomic():
             result = func(*args, **kwargs)
-            commit_witness(batch)
+            # A handled API error can mark the transaction rollback-only.
+            # Never write a durable commit witness for rolled-back projections.
+            if not transaction.get_rollback():
+                commit_witness(batch)
             return result
     return guarded
 
