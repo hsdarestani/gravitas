@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .lms_models import Course, CourseEnrollment, CourseModule, LearningInteraction, Lesson
-from .models import KnowledgeResource, Workspace, WorkspaceMembership
+from .models import KnowledgeResource, Workspace, WorkspaceMembership, ResearchProject
 from .operating_models import KeyResult, StrategicObjective
 from .pulsar_runtime.context import PulsarContextEngine
 from .pulsar_runtime.profiles import snapshot
@@ -194,6 +194,39 @@ class PulsarContextAndProfileTests(TestCase):
         self.assertFalse(
             any(row['id'] == str(other.pk) for row in package.sources)
         )
+
+    def test_project_summary_counts_more_than_first_twenty_tasks_and_cites_ids(self):
+        spaces = ensure_platform_workspaces(self.user)
+        project = ResearchProject.objects.create(
+            workspace=spaces['research'], owner=self.user,
+            title='Large project task sample', description='Live workspace source',
+        )
+        for index in range(26):
+            response = self.client.post(
+                f'/api/platform/projects/{project.pk}/tasks/',
+                data=json.dumps({
+                    'title': f'Project execution item {index + 1}',
+                    'due_date': '2026-10-10',
+                    'priority': 'p1',
+                }),
+                content_type='application/json',
+            )
+            self.assertEqual(response.status_code, 201, response.content)
+
+        package = PulsarContextEngine().workspace(
+            self.user,
+            'Summarize every task, blockers and deadlines in this project',
+            project_id=project.pk, skill='project_task',
+        )
+        self.assertIn('"visible": 26', package.text)
+        self.assertIn('"open": 26', package.text)
+        self.assertIn('Project execution item 26', package.text)
+        source_tasks = [row for row in package.sources if row.get('kind') == 'project_task']
+        self.assertEqual(len(source_tasks), 26)
+        self.assertTrue(all(
+            row['href'].startswith(f'/workspace/research/projects/{project.pk}/management?task=')
+            for row in source_tasks
+        ))
 
     def test_workspace_learning_context_includes_enrollment_progress(self):
         course = Course.objects.create(
