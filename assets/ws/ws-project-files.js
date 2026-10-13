@@ -4,6 +4,7 @@
 import { call, upload } from './ws-platform.js?v=20261011-r4';
 import { nextcloudSsoUrl } from './ws-nextcloud-sso.js?v=20261011-r4';
 import { renderNoteMarkdown } from './ws-notes-markdown.js?v=20261011-r4';
+import { showProjectFileHistory } from './ws-project-history.js?v=20261014-r1';
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const button = (text, fn) => { const n = el('button', 'ws-btn', text); n.type = 'button'; n.onclick = fn; return n; };
 export async function renderProjectStructure(doc, projectId) {
@@ -78,7 +79,7 @@ export async function renderProjectStructure(doc, projectId) {
           conflicts.append(button('Keep mine', () => { etag = conflict.etag; save(); }), button('Keep remote', () => { input.value = conflict.remote; etag = conflict.etag; status.textContent = 'Remote version loaded. Your previous version remains visible below.'; }), button('Manual merge in editor', () => { etag = conflict.etag; input.focus(); status.textContent = 'Merge in the editor, then Save. The remote revision will be checked again.'; }));
         }
       };
-      if (!generic) editor.append(button('View version history', () => { status.textContent = 'Version snapshots are available at /api' + endpoint + '/file-revisions/?path=' + encodeURIComponent(path); }));
+      if (!generic) editor.append(button('Version history', () => showProjectFileHistory({ endpoint, path, editor, input, etag, canEdit: file.can_edit, repaint: paint, report: message => { status.textContent = message; } })));
       if (file.can_edit) editor.append(button('Save', save));
     } catch (e) { status.textContent = e.message; }
   }
