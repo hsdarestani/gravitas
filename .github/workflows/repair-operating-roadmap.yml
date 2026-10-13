@@ -62,7 +62,7 @@ jobs:
           node --check assets/production-bridge.js
           python -m django test core.test_email_verification core.test_operating_demo_repair core.test_roadmap_assignment core.test_roadmap_calendar core.test_roadmap_agile --verbosity 2
           grep -q '/assets/ws/ws-app.js' workspace.html
-          grep -q '/assets/ws/ws-five-layer.js' workspace.html
+          grep -q "from './ws-five-layer.js" assets/ws/ws-app.js
 
   production:
     # Automatic roadmap execution repair is disabled. Planning is manager-driven now.
