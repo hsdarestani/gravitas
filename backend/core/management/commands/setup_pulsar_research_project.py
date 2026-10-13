@@ -11,7 +11,9 @@ from core.platform_models import MindMap, MindMapNode, MindMapEdge
 from django.contrib.contenttypes.models import ContentType
 from core.canonical_journal import canonical_operation
 
-MATERIAL = ('docs/five-layer-platform-architecture.md', 'docs/project-command-center-architecture.md', 'backend/core/pulsar_runtime/context.py', 'backend/core/pulsar_runtime/harness.py', 'backend/core/pulsar_task_service.py', 'backend/core/pulsar_runtime/agent.py', 'backend/core/telegram_pulsar.py', 'assets/ws/ws-project-pm.js', 'backend/core/research_task_api.py')
+MATERIAL = ('docs/five-layer-platform-architecture.md', 'backend/core/pulsar_runtime/context.py', 'backend/core/pulsar_runtime/harness.py', 'backend/core/pulsar_task_service.py', 'backend/core/telegram_pulsar.py')
+# Optional add-ons may not exist on an older split frontend deployment.
+EXTRA_MATERIAL = ('docs/project-command-center-architecture.md', 'backend/core/pulsar_runtime/agent.py', 'assets/ws/ws-project-pm.js', 'backend/core/research_task_api.py')
 
 
 class Command(BaseCommand):
@@ -39,13 +41,14 @@ class Command(BaseCommand):
             raise CommandError('Project manage access required')
         root = options.get('source_root') or Path(__file__).resolve().parents[4]
         backend_root = Path(__file__).resolve().parents[3]
-        source_paths = {path: root / path for path in MATERIAL}
-        for path in MATERIAL:
+        source_paths = {path: root / path for path in MATERIAL + EXTRA_MATERIAL}
+        for path in MATERIAL + EXTRA_MATERIAL:
             if not source_paths[path].is_file() and path.startswith('backend/'):
                 source_paths[path] = backend_root / path.removeprefix('backend/')
-            if not source_paths[path].is_file():
+            if not source_paths[path].is_file() and path in MATERIAL:
                 raise CommandError(f'Existing source material missing: {path}')
-        self.stdout.write(f'project={project.pk if project else "not_defined"} source_files={len(MATERIAL)}')
+        available = [path for path in MATERIAL + EXTRA_MATERIAL if source_paths[path].is_file()]
+        self.stdout.write(f'project={project.pk if project else "not_defined"} source_files={len(available)}')
         if not options['apply']:
             return
         if not project:
@@ -55,7 +58,7 @@ class Command(BaseCommand):
             policy_for(project, create=True, created_by=actor, default_visibility='private')
         ensure_project_folder_structure(project, actor)
         notes = []
-        for path in MATERIAL:
+        for path in available:
             key = f'repository-source:{path}'
             existing = KnowledgeResource.objects.filter(project=project, metadata__canonical_source_key=key).first()
             if existing:
