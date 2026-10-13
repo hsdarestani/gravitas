@@ -1,0 +1,99 @@
+name: Recover GRV-000208 After Hotfix Deployment
+
+on:
+  workflow_run:
+    workflows: ['Deploy Gravitas to Strato']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-project-208-single-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    # Only the unique hotfix deployment, after its native matched backup
+    # and restore rehearsal passed, can run this one-time guarded recovery.
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          contains(github.event.workflow_run.head_commit.message, 'hotfix: GRV208 native ETag safe recovery') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      HOST: ${{ secrets.DEPLOY_HOST }}
+      LOGIN: ${{ secrets.DEPLOY_USER }}
+      PORT: ${{ secrets.DEPLOY_PORT }}
+    steps:
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/canonical_recovery
+          chmod 600 ~/.ssh/canonical_recovery
+          ssh-keyscan -p "${PORT:-22}" -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Verify identity, original bytes and commit witness then use guarded recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          OPTS=(-i ~/.ssh/canonical_recovery -p "${PORT:-22}" -o BatchMode=yes -o ConnectTimeout=10)
+          TARGET="${LOGIN:-deploy}"
+          if ! ssh "${OPTS[@]}" "$TARGET@$HOST" true 2>/dev/null; then
+            ssh "${OPTS[@]}" "root@$HOST" true
+            TARGET=root
+          fi
+          ssh "${OPTS[@]}" "$TARGET@$HOST" bash -s <<'REMOTE'
+          set -euo pipefail
+          BACKEND=/opt/gravitas-backend
+          test -x "$BACKEND/.venv/bin/python"
+          sudo -u gravitas env PYTHONPATH="$BACKEND" DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            bash -c 'set -a; . /etc/gravitas/backend.env; set +a; "$1" -' bash "$BACKEND/.venv/bin/python" <<'PY'
+          import json
+          import uuid
+          import django
+          django.setup()
+          from core.models import ResearchProject
+          from core import cloud
+          from core.canonical_projects import dav_read
+          from core.canonical_models import CanonicalWriteCommit
+          project = ResearchProject.objects.get(pk=208)
+          batch = uuid.UUID('8f5cea56-3c4e-4365-a8ad-2d0106d063f5')
+          root = cloud.project_mountpoint(project)
+          journal = dav_read(root + '/06_Archive/CanonicalTransactions/' + str(batch) + '.json')
+          if not journal:
+              raise RuntimeError('expected_journal_missing')
+          manifest = json.loads(journal['content'])
+          if manifest.get('state') == 'rolled_back':
+              print('Already safely rolled back. No changes required.')
+              raise SystemExit(0)
+          if manifest.get('project_id') != 208 or manifest.get('batch_id') != str(batch):
+              raise RuntimeError('journal_identity_mismatch')
+          if manifest.get('state') != 'pending' or len(manifest['operations']) != 1:
+              raise RuntimeError('unexpected_journal_shape')
+          if CanonicalWriteCommit.objects.filter(pk=batch).exists():
+              raise RuntimeError('database_commit_witness_present')
+          op = manifest['operations'][0]
+          if op.get('kind') != 'put' or op.get('restored') or op.get('not_written'):
+              raise RuntimeError('unexpected_operation')
+          target = op.get('path', '')
+          if not (target == root + '/project.md' or target.startswith(root + '/02_Working/Research/')):
+              raise RuntimeError('invalid_project_target')
+          before = op.get('before')
+          current = dav_read(target)
+          if not (current and before and current.get('file_id') and
+                  current['file_id'] == before.get('file_id') and
+                  current.get('content') == before.get('content')):
+              raise RuntimeError('original_file_content_or_identity_changed')
+          print('Safe original confirmed; existing file contents will not be overwritten.')
+          PY
+          # Recovery is idempotent, conditional on live DAV ETags, and refuses
+          # changed bytes/identity; only journal state may change in this case.
+          sudo -u gravitas env PYTHONPATH="$BACKEND" DJANGO_SETTINGS_MODULE=gravitas_backend.settings \
+            bash -c 'set -a; . /etc/gravitas/backend.env; set +a; exec "$1" -m django recover_canonical_transaction 208 8f5cea56-3c4e-4365-a8ad-2d0106d063f5 --apply' \
+            bash "$BACKEND/.venv/bin/python"
+          REMOTE
