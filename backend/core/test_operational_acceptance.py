@@ -45,9 +45,10 @@ class OperationalAcceptanceTests(TestCase):
 
     @override_settings(GRAVITAS_CANONICAL_ADOPTION_ENABLED=False)
     def test_selected_plan_preserves_sources_and_exercises_external_edit_conflict(self):
+        from core.management.commands.setup_pulsar_research_project import MATERIAL
         for index in range(5):
             KnowledgeResource.objects.create(workspace=self.project.workspace, project=self.project, owner=self.owner,
-                kind='note', title=f'Existing source {index}', body=f'Preserved source {index}', metadata={'canonical_source_key': str(index)})
+                kind='note', title=f'Existing source {index}', body=f'Preserved source {index}', metadata={'canonical_source_key': 'repository-source:' + MATERIAL[index]})
         MindMap.objects.create(workspace=self.project.workspace, project=self.project, owner=self.owner, title='Pulsar · Existing implementation sources')
         WorkspaceMembership.objects.create(workspace=self.project.workspace, user=self.outsider, role='member')
         source_ids = set(KnowledgeResource.objects.filter(project=self.project).values_list('pk', flat=True))
