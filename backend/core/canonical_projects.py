@@ -101,6 +101,12 @@ def encode(obj):
     payload = {'schema': 1, 'type': name, 'id': obj.pk, 'project_id': project_for(obj).pk,
                'fields': {field: getattr(obj, field) for field in SPECS[name][1]}}
     if name == 'KnowledgeResource':
+        # Native Notes mirror bookkeeping changes independently of content.
+        # It belongs in the DB projection, not the canonical text document.
+        payload['fields']['metadata'] = {
+            key: value for key, value in (obj.metadata or {}).items()
+            if key != 'nextcloud_notes'
+        }
         payload['kind'] = obj.kind
         payload['attachment_path'] = obj.storage_path
         if obj.kind == 'note':
@@ -138,6 +144,13 @@ def decode(obj, content):
     if name == 'KnowledgeResource' and (data.get('kind') != obj.kind or data.get('attachment_path') != obj.storage_path):
         raise ValueError('canonical_ownership_or_attachment_changed')
     fields = data.get('fields')
+    # Backward compatible with canonical notes created before mirror separation.
+    if name == 'KnowledgeResource' and isinstance(fields, dict) and isinstance(fields.get('metadata'), dict):
+        fields = dict(fields)
+        fields['metadata'] = {
+            key: value for key, value in fields['metadata'].items()
+            if key != 'nextcloud_notes'
+        }
     if not isinstance(fields, dict) or set(fields) != set(SPECS[name][1]):
         raise ValueError('invalid_canonical_fields')
     for field, value in fields.items():
@@ -214,13 +227,46 @@ def merge_text(base, mine, remote):
     return ''.join(merged)
 
 
+def without_ephemeral_note_mirror(obj, content):
+    """Normalize old native Notes headers without changing actual note text."""
+    if not isinstance(obj, KnowledgeResource) or obj.kind != 'note':
+        return content
+    header, separator, body = content.partition('\\n')
+    if not separator or not header.startswith('<!-- gravitas:') or not header.endswith(' -->'):
+        return content
+    try:
+        data = json.loads(header[len('<!-- gravitas:'):-len(' -->')])
+    except (ValueError, TypeError):
+        return content
+    metadata = (data.get('fields') or {}).get('metadata')
+    if not isinstance(metadata, dict) or 'nextcloud_notes' not in metadata:
+        return content
+    data['fields']['metadata'] = {key: value for key, value in metadata.items()
+                                  if key != 'nextcloud_notes'}
+    return '<!-- gravitas:' + json.dumps(data, cls=DjangoJSONEncoder,
+        ensure_ascii=False, sort_keys=True) + ' -->\\n' + body
+
+
 def merge_content(obj, base, mine, remote):
+    if isinstance(obj, KnowledgeResource) and obj.kind == 'note':
+        base, mine, remote = (
+            without_ephemeral_note_mirror(obj, content)
+            for content in (base, mine, remote)
+        )
     if mine == base or mine == remote:
         return remote
     if remote == base:
         return mine
-    if isinstance(obj, ResearchProject) or isinstance(obj, KnowledgeResource) and obj.kind == 'note':
+    if isinstance(obj, ResearchProject):
         return merge_text(base, mine, remote)
+    if isinstance(obj, KnowledgeResource) and obj.kind == 'note':
+        # A legacy mirror change must never appear to be a conflicting
+        # human edit to the note header during three-way merging.
+        return merge_text(
+            without_ephemeral_note_mirror(obj, base),
+            without_ephemeral_note_mirror(obj, mine),
+            without_ephemeral_note_mirror(obj, remote),
+        )
     try:
         b, m, r = (decode(obj, value) for value in (base, mine, remote))
         fields = {}
@@ -239,6 +285,12 @@ def merge_content(obj, base, mine, remote):
 
 def apply(obj, content):
     fields = decode(obj, content)
+    if isinstance(obj, KnowledgeResource) and 'metadata' in fields:
+        # Preserve up-to-date local Notes sync state while applying native
+        # edits to canonical title, body and meaningful metadata keys.
+        mirror = (obj.metadata or {}).get('nextcloud_notes')
+        if mirror is not None:
+            fields['metadata'] = {**fields['metadata'], 'nextcloud_notes': mirror}
     with suppress():
         for field, value in fields.items():
             setattr(obj, field, obj._meta.get_field(field).to_python(value))

@@ -265,12 +265,17 @@ def main():
         if not remote.get('etag') or not remote.get('file_id'):
             raise ValueError(f'Canonical readback failed: object={obj.__class__.__name__}:{obj.pk} path={file.path} reason=missing_native_identity')
         if remote['content'] != encode(obj):
-            # Preserve the native bytes. Identify only mismatching *field
-            # names*, never customer text or any file body in CI logs.
+            # Legacy note snapshots contain Nextcloud Notes mirror bookkeeping,
+            # which is not canonical user content. Compare validated decoded
+            # source fields before declaring a genuine readback divergence.
             from core.canonical_projects import decode
             expected = decode(obj, encode(obj))
             try:
                 actual = decode(obj, remote['content'])
+                if actual == expected:
+                    # An unchanged note with obsolete mirror metadata is safe:
+                    # no destructive rewrite and no false acceptance failure.
+                    continue
                 changed = sorted(key for key in expected if actual.get(key) != expected[key])
                 reason = 'projected_fields=' + ','.join(changed) if changed else 'serialization_only'
                 if changed == ['metadata'] and isinstance(expected.get('metadata'), dict) and isinstance(actual.get('metadata'), dict):
