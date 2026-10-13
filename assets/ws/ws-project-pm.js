@@ -95,7 +95,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     owner.value=String(task.owner_id);
     const blocked = control('input','text','Blocker or waiting reason'); blocked.value=task.blocked_reason || '';
     panel.append(title, deadline, status, priority, owner, blocked,
-      btn('Save changes', () => patch(task, { title: title.value, due_date:deadline.value, status:status.value, priority:priority.value, owner_id:owner.value, blocked_reason:blocked.value })),
+      btn('Save changes', () => { const data = { title: title.value, due_date:deadline.value, status:status.value, priority:priority.value, blocked_reason:blocked.value }; if(owner.value && owner.value !== String(task.owner_id)) data.owner_id = owner.value; patch(task, data); }),
       btn('Close', () => editor.replaceChildren()));
     editor.append(panel);
   }
