@@ -47,7 +47,11 @@ class Command(BaseCommand):
                 source_paths[path] = backend_root / path.removeprefix('backend/')
             if not source_paths[path].is_file() and path in MATERIAL:
                 raise CommandError(f'Existing source material missing: {path}')
-        available = [path for path in MATERIAL + EXTRA_MATERIAL if source_paths[path].is_file()]
+        # Load the new module as one versioned package. An older split
+        # frontend with only baseline docs must keep the legacy five-source
+        # inventory rather than importing half of an unavailable feature.
+        add_ons_ready = source_paths['docs/project-command-center-architecture.md'].is_file()
+        available = list(MATERIAL) + ([path for path in EXTRA_MATERIAL if source_paths[path].is_file()] if add_ons_ready else [])
         self.stdout.write(f'project={project.pk if project else "not_defined"} source_files={len(available)}')
         if not options['apply']:
             return
