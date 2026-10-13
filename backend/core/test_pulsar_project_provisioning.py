@@ -47,3 +47,40 @@ class PulsarProjectProvisioningTests(TestCase):
         self.assertEqual(node_ids, set(source_map.nodes.values_list('pk', flat=True)))
         self.assertEqual(ids, set(source_map.nodes.exclude(linked_object_id=None).values_list('linked_object_id', flat=True)))
         self.assertFalse(project.canonical_storage.enabled if hasattr(project, 'canonical_storage') else False)
+
+
+    def test_existing_project_owner_mode_adds_only_missing_sources(self):
+        from .platform_runtime_v3 import ensure_platform_workspaces
+        actor = get_user_model().objects.create_superuser(
+            'existing-pulsar-owner', 'existing-pulsar-owner@example.test', 'test-only'
+        )
+        spaces = ensure_platform_workspaces(actor)
+        project = ResearchProject.objects.create(
+            workspace=spaces['research'], owner=actor,
+            title='Pulsar Development Project', description='Preserve this description'
+        )
+        with patch('core.management.commands.setup_pulsar_research_project.ensure_project_folder_structure'):
+            call_command('setup_pulsar_research_project', project=project.pk,
+                         actor_project_owner=True, existing_only=True,
+                         apply=True, stdout=StringIO())
+            first = KnowledgeResource.objects.filter(project=project).count()
+            self.assertGreaterEqual(first, 5)
+            first_id = KnowledgeResource.objects.filter(project=project).first().pk
+            KnowledgeResource.objects.filter(pk=first_id).update(body='Do not overwrite annotation')
+            call_command('setup_pulsar_research_project', project=project.pk,
+                         actor_project_owner=True, existing_only=True,
+                         apply=True, stdout=StringIO())
+        self.assertEqual(KnowledgeResource.objects.filter(project=project).count(), first)
+        self.assertEqual(KnowledgeResource.objects.get(pk=first_id).body, 'Do not overwrite annotation')
+        project.refresh_from_db()
+        self.assertEqual(project.description, 'Preserve this description')
+        self.assertFalse(ResearchProject.objects.filter(title='Pulsar').exists())
+
+    def test_owner_mode_requires_explicit_existing_project_and_active_owner(self):
+        from django.core.management.base import CommandError
+        with self.assertRaisesMessage(CommandError, 'Project-owner mode requires explicit'):
+            call_command('setup_pulsar_research_project', actor_project_owner=True,
+                         existing_only=True, apply=True, stdout=StringIO())
+        with self.assertRaisesMessage(CommandError, 'Existing project with active owner required'):
+            call_command('setup_pulsar_research_project', actor_project_owner=True,
+                         existing_only=True, project=987654, apply=True, stdout=StringIO())
