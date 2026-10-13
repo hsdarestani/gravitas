@@ -16,6 +16,8 @@ const btn = (label, onClick) => {
 const day = value => value ? String(value).slice(0, 10) : '';
 const done = task => ['done', 'archived'].includes(task.status);
 const overdue = (task, today) => !done(task) && !!task.due_date && day(task.due_date) < today;
+const dayKey = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+const statusNames = [['draft','Backlog'],['active','Doing'],['ready','Ready'],['waiting','Waiting'],['needs_review','Needs review'],['retest','Retest'],['blocked','Blocked'],['done','Done'],['archived','Archived']];
 const css = `
 .pm-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
 .pm-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px}
@@ -29,6 +31,7 @@ const css = `
 .pm-column{padding:12px;border:1px solid var(--fl-border,#445);border-radius:12px;min-height:140px}
 .pm-card{display:block;text-align:left;width:100%;border:1px solid var(--fl-border,#445);border-radius:10px;padding:10px;margin:8px 0;background:transparent;color:inherit}
 .pm-card small{display:block;margin-top:5px;opacity:.75}
+.pm-card[draggable=true]{cursor:grab}.pm-column.pm-drop{outline:2px dashed currentColor;outline-offset:-5px}.pm-source{display:flex;flex-wrap:wrap;gap:8px;margin-top:7px}.pm-notice-warning{font-weight:600}
 .pm-list{display:grid;gap:7px}
 .pm-task{padding:10px;border:1px solid var(--fl-border,#445);border-radius:9px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .pm-editor,.pm-new,.pm-ai{display:grid;gap:9px;padding:12px;margin:12px 0;border:1px solid var(--fl-border,#445);border-radius:12px}
@@ -52,8 +55,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   ensureStyle();
   let tasks = [...(cockpit.tasks || [])];
   const members = cockpit.members || [];
-  const current = { view: 'board', text: '', status: '', owner: '' };
-  const today = new Date().toLocaleDateString('en-CA');
+  const current = { view: 'board', text: '', status: '', owner: '', priority: '', onlyOverdue: false };
+  const today = dayKey(new Date());
   const root = node('section', 'fl-panel wc-card');
   const wrap = node('div', 'fl-panel__body wc-card__body');
   root.append(wrap); doc.append(root);
@@ -63,10 +66,10 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     tasks = latest.tasks || [];
     paint();
   }
-  const notice = node('p', 'pm-note', 'All views use the same project tasks and canonical Nextcloud records.');
+  const notice = node('p', 'pm-note', 'All views use the same project tasks; Nextcloud remains the source for adopted projects.');
   const heading = node('div', 'pm-head');
   heading.append(node('h2', '', 'Project command center'),
-    btn('Open Markdown files', () => go('/workspace/research/projects/' + projectId)),
+    btn('Source files / editor', () => go('/workspace/research/projects/' + projectId + '/structure')),
     btn('Refresh from source', async () => { try { await reload(); } catch(e) { notice.textContent = e.message; } }));
   const stat = node('div', 'pm-stats'), views = node('div', 'pm-views'), filters = node('div', 'pm-filters');
   const body = node('div'), editor = node('div'), ai = node('div', 'pm-ai');
@@ -78,7 +81,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       notice.textContent = 'Saved to the existing project task; canonical synchronization is enforced by the server.';
       await reload();
     } catch (err) {
-      notice.textContent = err.message + (err.data?.detail ? ': ' + err.data.detail : '');
+      notice.textContent = err.message === 'canonical_task_schema_upgrade_required' ? 'This task field is locked until its canonical text schema supports it.' : err.message + (err.data?.detail ? ': ' + err.data.detail : '');
     }
   }
   function openEditor(task) {
@@ -88,7 +91,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     const title = control('input', 'text', 'Task title'); title.value = task.title;
     const deadline = control('input', 'date', 'Due date'); deadline.value = day(task.due_date);
     const status = node('select'), priority = node('select'), owner = node('select');
-    [['draft','Draft'],['active','Doing'],['ready','Ready'],['waiting','Waiting'],['review','Review'],['retest','Retest'],['blocked','Blocked'],['done','Done'],['archived','Archived']].forEach(([v,n])=>{const op=node('option','',n);op.value=v;status.append(op);});
+    [['draft','Draft'],['active','Doing'],['ready','Ready'],['waiting','Waiting'],['needs_review','Needs review'],['retest','Retest'],['blocked','Blocked'],['done','Done'],['archived','Archived']].forEach(([v,n])=>{const op=node('option','',n);op.value=v;status.append(op);});
     ['p0','p1','p2','p3'].forEach(v=>{const op=node('option','',v.toUpperCase());op.value=v;priority.append(op);});
     status.value=task.status; priority.value=task.priority;
     members.forEach(m=>{const op=node('option','',m.name);op.value=m.user_id;owner.append(op);});
@@ -100,16 +103,21 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     editor.append(panel);
   }
   function tile(task) {
-    const t = btn(task.title, () => { if(task.can_edit) openEditor(task); else notice.textContent='Read only task'; });
+    const t = btn('#' + task.id + ' · ' + task.title, () => { if(task.can_edit) openEditor(task); else notice.textContent='Read only task'; });
     t.className = 'pm-card';
     t.append(node('small','',format(task)));
+    if(task.dependency_id) t.append(node('small','','Depends on #' + task.dependency_id));
     if(task.blocked_reason) t.append(node('small','','Blocker: '+task.blocked_reason));
+    t.draggable = !!task.can_edit;
+    t.addEventListener('dragstart',ev=>{ if(!task.can_edit){ev.preventDefault();return;}ev.dataTransfer?.setData('text/plain',String(task.id)); });
     return t;
   }
   const filtered = () => tasks.filter(t =>
     (!current.text || (t.title+' '+t.description+' '+t.owner).toLowerCase().includes(current.text.toLowerCase())) &&
     (!current.status || t.status === current.status) &&
-    (!current.owner || String(t.owner_id) === current.owner));
+    (!current.owner || String(t.owner_id) === current.owner) &&
+    (!current.priority || t.priority === current.priority) &&
+    (!current.onlyOverdue || overdue(t,today)));
 
   function paint() {
     stat.replaceChildren(); views.replaceChildren(); filters.replaceChildren(); body.replaceChildren();
@@ -127,16 +135,22 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     });
     const search=control('input','search','Search tasks');search.value=current.text;
     search.addEventListener('input',()=>{current.text=search.value;paint(); const fresh=filters.querySelector('input');fresh?.focus();fresh?.setSelectionRange(current.text.length,current.text.length);});
-    const status=control('select'),own=control('select');
-    [['','All statuses'],...['draft','active','ready','waiting','review','retest','blocked','done','archived'].map(v=>[v,v])].forEach(([value,label])=>{const o=node('option','',label);o.value=value;status.append(o);});
+    const status=control('select'),own=control('select'), pr=control('select');
+    [['','All statuses'],...statusNames].forEach(([value,label])=>{const o=node('option','',label);o.value=value;status.append(o);});
     [['','All owners'],...members.map(m=>[String(m.user_id),m.name])].forEach(([value,label])=>{const o=node('option','',label);o.value=value;own.append(o);});
-    status.value=current.status;own.value=current.owner;
-    status.onchange=()=>{current.status=status.value;paint();};own.onchange=()=>{current.owner=own.value;paint();};
-    filters.append(search,status,own);
+    [['','Any priority'],...['p0','p1','p2','p3'].map(v=>[v,v.toUpperCase()])].forEach(([v,label])=>{const o=node('option','',label);o.value=v;pr.append(o);});
+    status.value=current.status;own.value=current.owner;pr.value=current.priority;
+    status.onchange=()=>{current.status=status.value;paint();};own.onchange=()=>{current.owner=own.value;paint();};pr.onchange=()=>{current.priority=pr.value;paint();};
+    const overdueOnly=btn(current.onlyOverdue?'Overdue only ✓':'Overdue only',()=>{current.onlyOverdue=!current.onlyOverdue;paint();});overdueOnly.setAttribute('aria-pressed',String(current.onlyOverdue));
+    filters.append(search,status,own,pr,overdueOnly);
     if(current.view==='board'){
       const cols=node('div','pm-columns');
-      [['Backlog',x=>x.status==='draft'],['Doing',x=>['active','ready'].includes(x.status)],['Waiting / review',x=>['waiting','review','retest','blocked'].includes(x.status)],['Done',done]].forEach(([label,test])=>{
-        const c=node('div','pm-column');c.append(node('h3','',label+' ('+n.filter(test).length+')'));n.filter(test).forEach(t=>c.append(tile(t)));cols.append(c);
+      [['Backlog','draft',x=>x.status==='draft'],['Doing','active',x=>['active','ready'].includes(x.status)],['Waiting / review','needs_review',x=>['waiting','needs_review','retest','blocked'].includes(x.status)],['Done','done',done]].forEach(([label,target,test])=>{
+        const c=node('div','pm-column');c.append(node('h3','',label+' ('+n.filter(test).length+')'));n.filter(test).forEach(t=>c.append(tile(t)));
+        c.addEventListener('dragover',ev=>{ev.preventDefault();c.classList.add('pm-drop');});
+        c.addEventListener('dragleave',()=>c.classList.remove('pm-drop'));
+        c.addEventListener('drop',ev=>{ev.preventDefault();c.classList.remove('pm-drop');const id=Number(ev.dataTransfer?.getData('text/plain'));const task=tasks.find(t=>t.id===id);if(task?.can_edit && task.status!==target)patch(task,{status:target});});
+        cols.append(c);
       });body.append(cols);
     }else if(current.view==='list'){
       const list=node('div','pm-list');n.forEach(t=>{const line=node('div','pm-task');line.append(node('span','',t.title+' · '+format(t)),btn('Details',()=>openEditor(t)));list.append(line);});body.append(list);
@@ -147,7 +161,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     }else if(current.view==='week'){
       body.append(node('p','pm-note','Next seven days grouped by due date; this is not a time-block calendar.'));
       const days=node('div','pm-planner');
-      for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'),key=`${y}-${m}-${dd}`;
+      for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);const key=dayKey(d);
         const c=node('div','pm-day');c.append(node('strong','',key));n.filter(t=>day(t.due_date)===key).forEach(t=>c.append(tile(t)));days.append(c);}
       body.append(days);
     }else{
@@ -183,12 +197,18 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
           thread_id:'project-'+projectId,metadata:{project_id:Number(projectId)}
         }});
         out.textContent=res.reply||'Pulsar returned no explanation.';
+        if(res.sources?.length){const cited=node('div','pm-source');cited.append(node('small','','Verified sources:'));res.sources.slice(0,12).forEach(source=>{if(source.href?.startsWith('/workspace/'))cited.append(btn(source.title||'Source',()=>go(source.href)));});actions.append(cited);}
         pending=!!res.approval_required;
-        if(pending)actions.append(btn('Approve proposed action',()=>run(true)),btn('Cancel',async()=>{await P.call('/platform/pulsar/agent/',{method:'POST',body:{cancel:true,message:'',thread_id:'project-'+projectId,skill:'project_task',surface:'projects',metadata:{project_id:Number(projectId)}}});out.textContent='Action cancelled.';actions.replaceChildren();}));
+        if(pending){const preview=node('p','pm-notice-warning','Proposed action: '+String(res.tool||'unknown')+' · '+JSON.stringify(res.tool_args||{}).slice(0,800));actions.append(preview,btn('Approve proposed action',()=>run(true)),btn('Cancel',async()=>{await P.call('/platform/pulsar/agent/',{method:'POST',body:{cancel:true,message:'',thread_id:'project-'+projectId,skill:'project_task',surface:'projects',metadata:{project_id:Number(projectId)}}});out.textContent='Action cancelled.';actions.replaceChildren();}));}
         if(confirm&&!pending)await reload();
       }catch(e){out.textContent=e.message;}
     }
     ai.append(q,btn('Ask Pulsar',()=>run(false)),out,actions);
   }
   buildPulsar();paint();
+  const linkedId = new URLSearchParams(location.search).get('task');
+  if(linkedId && /^\d+$/.test(linkedId)){
+    const selected = tasks.find(t=>String(t.id)===linkedId);
+    if(selected){if(selected.can_edit)openEditor(selected);else notice.textContent='Task #' + linkedId + ' is read only.';}
+  }
 }
