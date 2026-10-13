@@ -39,8 +39,18 @@ nginx -t
 systemctl reload nginx
 
 CERT_DIR="/etc/letsencrypt/live/$CLOUD_DOMAIN"
-if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
-    if ! certbot --nginx -d "$CLOUD_DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
+CERT_VALID=0
+if [ -s "$CERT_DIR/fullchain.pem" ] && [ -s "$CERT_DIR/privkey.pem" ] && \
+   openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -checkhost "$CLOUD_DOMAIN" >/dev/null 2>&1 && \
+   openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -checkend 86400 >/dev/null 2>&1; then
+    CERT_VALID=1
+fi
+if [ "$CERT_VALID" -eq 0 ]; then
+    # Existing-but-mismatched or near-expiry certificates are not usable.
+    # Renew via ACME, never bypass hostname verification with curl -k.
+    CERTBOT_ARGS=()
+    if [ -f "$CERT_DIR/fullchain.pem" ]; then CERTBOT_ARGS+=(--force-renewal); fi
+    if ! certbot --nginx -d "$CLOUD_DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect "${CERTBOT_ARGS[@]}"; then
         echo "Nextcloud subdomain DNS/certificate is not ready; keeping https://$MAIN_DOMAIN/nextcloud/ active."
         rm -f /etc/nginx/sites-enabled/gravitas-nextcloud-cloud
         nginx -t
@@ -48,6 +58,11 @@ if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
         exit 0
     fi
 fi
+
+# Do not persist or advertise the cloud URL unless the actual certificate
+# covers the requested domain and remains valid for at least one day.
+openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -checkhost "$CLOUD_DOMAIN" >/dev/null
+openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -checkend 86400 >/dev/null
 
 cat > "$SITE" <<NGINX
 server {
