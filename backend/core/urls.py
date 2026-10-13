@@ -1,4 +1,4 @@
-from core.canonical_api import project_files, project_file_content
+from core.canonical_api import project_files, project_file_content, project_file_revisions
 from core.work_reports import reports_api, report_decision_api, report_overview_api
 from django.urls import path
 
@@ -252,6 +252,7 @@ from core.views import (
 urlpatterns = [
     path('platform/projects/<int:project_id>/structure/', project_files),
     path('platform/projects/<int:project_id>/file-content/', project_file_content),
+    path('platform/projects/<int:project_id>/file-revisions/', project_file_revisions),
     path('platform/work-reports/', reports_api),
     path('platform/work-reports/overview/', report_overview_api),
     path('platform/work-reports/<uuid:report_id>/', report_decision_api),
