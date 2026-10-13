@@ -270,7 +270,15 @@ def recover_journal(path):
                 continue
             current = dav_read(op['path'])
             before = op['before']
-            if current == before:
+            # A native ACL update may change DAV ETags without changing
+            # the original bytes or native file identity. In that exact case
+            # there is nothing to undo; never overwrite a changed payload.
+            original_unchanged = bool(
+                current and before and before.get('file_id')
+                and current.get('file_id') == before.get('file_id')
+                and current.get('content') == before.get('content')
+            )
+            if current == before or original_unchanged:
                 op['restored'] = True
                 continue
             if op.get('kind') == 'delete':
