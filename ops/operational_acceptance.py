@@ -257,8 +257,15 @@ def main():
     for obj in project_objects(project):
         file = CanonicalFile.objects.get(project=project, object_type=obj.__class__.__name__, object_id=obj.pk, deleted=False)
         remote = dav_read(root + '/' + file.path)
-        if not remote or remote['content'] != encode(obj) or not remote['etag'] or not remote.get('file_id'):
-            raise ValueError('Canonical content/identity readback failed')
+        # Report *which* canonical identity diverged, never private content.
+        # Do not automatically overwrite or rebase this file: a mismatch may
+        # represent a valid edit from another Nextcloud client.
+        if not remote:
+            raise ValueError(f'Canonical readback failed: object={obj.__class__.__name__}:{obj.pk} path={file.path} reason=missing_native_file')
+        if not remote.get('etag') or not remote.get('file_id'):
+            raise ValueError(f'Canonical readback failed: object={obj.__class__.__name__}:{obj.pk} path={file.path} reason=missing_native_identity')
+        if remote['content'] != encode(obj):
+            raise ValueError(f'Canonical readback failed: object={obj.__class__.__name__}:{obj.pk} path={file.path} reason=content_divergence')
     names = {row['name'] for row in listing(project, owner, '')}
     from core.platform_api import PROJECT_FOLDERS
     if not set(PROJECT_FOLDERS).issubset(names) or 'project.md' not in names:
