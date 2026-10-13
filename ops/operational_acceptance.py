@@ -234,7 +234,24 @@ def main():
         raise ValueError('Selected project identity/access changed')
     sources = KnowledgeResource.objects.filter(project=project, metadata__has_key='canonical_source_key')
     maps = MindMap.objects.filter(project=project, title='Pulsar · Existing implementation sources')
-    if sources.count() != plan['expected_source_notes'] or maps.count() != plan['expected_source_maps']:
+    # The reviewed five core sources remain mandatory. Extra implementation
+    # notes may be imported after a successful acceptance, but only from the
+    # explicit, maintained allowlist; arbitrary source inventory expansion is
+    # still rejected. User-edited note bodies are never rewritten here.
+    from core.management.commands.setup_pulsar_research_project import MATERIAL, EXTRA_MATERIAL
+    expected = int(plan['expected_source_notes'])
+    found = {
+        row.metadata.get('canonical_source_key')
+        for row in sources
+        if isinstance(row.metadata, dict)
+    }
+    allowed = {'repository-source:' + path for path in MATERIAL + EXTRA_MATERIAL}
+    mandatory = {'repository-source:' + path for path in MATERIAL}
+    if (len(found) != sources.count() or
+            sources.count() < expected or
+            not mandatory.issubset(found) or
+            not found.issubset(allowed) or
+            maps.count() != plan['expected_source_maps']):
         raise ValueError('Existing source inventory differs from the reviewed plan')
     task_results = reconcile_tasks(owner)
     if receipt.exists():
