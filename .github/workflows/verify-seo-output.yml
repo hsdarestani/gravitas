@@ -1,6 +1,15 @@
 name: Verify Gravitas SEO Output
 
 on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'dossiers.html'
+      - 'topics.html'
+      - 'robots.txt'
+      - 'sitemap.xml'
+      - 'ops/verify_seo_output.sh'
+      - '.github/workflows/verify-seo-output.yml'
   workflow_run:
     workflows: ["Deploy Gravitas to Strato"]
     types: [completed]
@@ -12,36 +21,30 @@ permissions:
   contents: read
 
 jobs:
+  source:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate current public metadata and verification script
+        run: |
+          set -euo pipefail
+          bash -n ops/verify_seo_output.sh
+          grep -Fq '<link rel="canonical" href="https://graviquest.com/">' index.html
+          grep -Fq '<link rel="canonical" href="https://graviquest.com/topics.html">' dossiers.html
+          grep -Fq '<meta name="robots" content="noindex, follow">' dossiers.html
+          grep -Fq 'Sitemap: https://graviquest.com/sitemap.xml' robots.txt
+
   verify:
-    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    if: >-
+      ${{ github.event_name != 'pull_request' &&
+          (github.event_name != 'workflow_run' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_branch == 'main')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - name: Verify public prelaunch SEO and privacy output
+      - uses: actions/checkout@v4
+      - name: Verify published canonical URLs and privacy gates
         shell: bash
-        run: |
-          set -euo pipefail
-          BASE=https://graviquest.com
-          curl -4 -fsSL "$BASE/" > "$RUNNER_TEMP/home.html"
-          curl -4 -fsSL "$BASE/dossiers.html" > "$RUNNER_TEMP/dossiers.html"
-          curl -4 -fsSL "$BASE/robots.txt" > "$RUNNER_TEMP/robots.txt"
-          curl -4 -fsSL "$BASE/sitemap.xml" > "$RUNNER_TEMP/sitemap.xml"
-
-          grep -Fq '<link rel="canonical" href="https://graviquest.com/">' "$RUNNER_TEMP/home.html"
-          grep -Fq '<link rel="canonical" href="https://graviquest.com/dossiers.html">' "$RUNNER_TEMP/dossiers.html"
-          grep -Fq '<meta name="robots" content="noindex, nofollow">' "$RUNNER_TEMP/home.html"
-
-          grep -Fq 'Sitemap: https://graviquest.com/sitemap.xml' "$RUNNER_TEMP/robots.txt"
-          grep -Fq 'Disallow: /admin/' "$RUNNER_TEMP/robots.txt"
-          grep -Fq 'Disallow: /api/' "$RUNNER_TEMP/robots.txt"
-          grep -Fq '<loc>https://graviquest.com/</loc>' "$RUNNER_TEMP/sitemap.xml"
-          ! grep -q '/admin/' "$RUNNER_TEMP/sitemap.xml"
-          ! grep -q '/api/' "$RUNNER_TEMP/sitemap.xml"
-          ! grep -q '/account' "$RUNNER_TEMP/sitemap.xml"
-
-          ! grep -q '312K' "$RUNNER_TEMP/home.html"
-          ! grep -q '418K views' "$RUNNER_TEMP/home.html"
-          ! grep -q 'fonts.googleapis.com' "$RUNNER_TEMP/home.html"
-          ! grep -q 'fonts.gstatic.com' "$RUNNER_TEMP/home.html"
-
-          echo gravitas-prelaunch-seo-gate-passed
+        run: bash ops/verify_seo_output.sh
