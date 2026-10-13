@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .models import KnowledgeActivity, KnowledgeResource, ProjectMembership, ResearchProject
+from .canonical_projects import active as canonical_active
 from .operating_models import OperatingTask
 from .platform_access import can_edit, can_manage, can_view, content_type_for, effective_role
 from .platform_api import _auth, _project_json, _request_json, _resource_json
@@ -305,7 +306,7 @@ def project_cockpit(request, project_id):
 
     return JsonResponse({
         'ok': True,
-        'project': _project_json(project, request.user, include_detail=True),
+        'project': {**_project_json(project, request.user, include_detail=True), 'canonical_enabled': canonical_active(project)},
         'counts': counts,
         'attention': {
             'overdue_tasks': overdue_tasks,
