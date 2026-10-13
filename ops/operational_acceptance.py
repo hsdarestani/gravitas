@@ -273,6 +273,16 @@ def main():
                 actual = decode(obj, remote['content'])
                 changed = sorted(key for key in expected if actual.get(key) != expected[key])
                 reason = 'projected_fields=' + ','.join(changed) if changed else 'serialization_only'
+                if changed == ['metadata'] and isinstance(expected.get('metadata'), dict) and isinstance(actual.get('metadata'), dict):
+                    old_keys = set(expected['metadata'])
+                    native_keys = set(actual['metadata'])
+                    edited = sorted(key for key in old_keys & native_keys if expected['metadata'][key] != actual['metadata'][key])
+                    # Keys only: never print a metadata value or file body.
+                    reason += ' metadata_missing_in_native=' + ','.join(sorted(old_keys - native_keys))
+                    reason += ' metadata_extra_in_native=' + ','.join(sorted(native_keys - old_keys))
+                    reason += ' metadata_changed_keys=' + ','.join(edited)
+                reason += ' cached_etag_matches_native=' + str(file.etag == remote['etag'])
+                reason += ' cached_file_id_matches_native=' + str(file.file_id == remote['file_id'])
             except (ValueError, TypeError):
                 reason = 'invalid_native_structure'
             raise ValueError(f'Canonical readback failed: object={obj.__class__.__name__}:{obj.pk} path={file.path} reason={reason}')

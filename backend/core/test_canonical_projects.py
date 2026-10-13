@@ -118,6 +118,32 @@ class CanonicalProjectTests(TestCase):
         refresh_project(self.project, self.owner)
         self.note.refresh_from_db(); self.assertEqual(self.note.body, 'External canonical note edit')
 
+    def test_task_work_log_survives_native_nextcloud_roundtrip(self):
+        from .models import KnowledgeResource
+        from .canonical_projects import relative_path
+        self.adopt()
+        task = self.client.post(
+            f'/api/platform/projects/{self.project.pk}/tasks/',
+            data={'title': 'Canonical timer task', 'due_date': '2026-10-20'},
+            content_type='application/json',
+        )
+        self.assertEqual(task.status_code, 201, task.content)
+        task_id = task.json()['task']['id']
+        url = f'/api/platform/projects/{self.project.pk}/tasks/{task_id}/time/'
+        started = self.client.post(url, data={'action': 'start'}, content_type='application/json')
+        self.assertEqual(started.status_code, 200, started.content)
+        note = KnowledgeResource.objects.get(project=self.project, metadata__pm_type='task_time_log_v1')
+        path = self.full(relative_path(note))
+        self.assertIn('active_started_at', self.dav.files[path]['content'])
+        stopped = self.client.post(url, data={'action': 'stop', 'note': 'Native time log'}, content_type='application/json')
+        self.assertEqual(stopped.status_code, 200, stopped.content)
+        self.assertEqual(stopped.json()['entry_count'], 1)
+        self.assertIn('Native time log', self.dav.files[path]['content'])
+        self.dav.external(path, self.dav.files[path]['content'].replace('Native time log', 'Nextcloud edited note'))
+        reloaded = self.client.get(url)
+        self.assertEqual(reloaded.status_code, 200, reloaded.content)
+        self.assertEqual(reloaded.json()['entries'][0]['note'], 'Nextcloud edited note')
+
     def test_background_write_rejected_before_sql_without_canonical_boundary(self):
         from .canonical_journal import RecoveryRequired
         self.adopt(); original = self.note.body
