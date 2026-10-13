@@ -54,6 +54,7 @@ function control(tag, type, placeholder = '') {
 export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }) {
   ensureStyle();
   let tasks = [...(cockpit.tasks || [])];
+  let timeSummary = null;
   const members = cockpit.members || [];
   const current = { view: 'board', text: '', status: '', owner: '', priority: '', onlyOverdue: false };
   const today = dayKey(new Date());
@@ -64,6 +65,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   async function reload() {
     const latest = await P.projectCockpit(projectId);
     tasks = latest.tasks || [];
+    try { timeSummary = await P.call('/platform/projects/'+projectId+'/work-time/'); }
+    catch(e) { notice.textContent = 'Work-time summary unavailable: '+e.message; }
     paint();
   }
   const notice = node('p', 'pm-note', 'All views use the same project tasks; Nextcloud remains the source for adopted projects.');
@@ -177,9 +180,10 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       ['Overdue', n.filter(x=>overdue(x,today)).length],
       ['Blocked', n.filter(x=>x.status==='blocked').length],
       ['Unscheduled', n.filter(x=>!x.due_date&&!done(x)).length],
-      ['Completed', n.filter(done).length]
+      ['Completed', n.filter(done).length],
+      ['Time logged', timeSummary ? (timeSummary.total_minutes/60).toFixed(1)+'h' : '—']
     ].forEach(([k,v])=>{const c=node('div','pm-stat');c.append(node('strong','',String(v)),node('small','',k));stat.append(c);});
-    ['board','list','timeline','week','team'].forEach(mode=>{
+    ['board','list','timeline','week','team','work logs'].forEach(mode=>{
       const b=btn(mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint();});
       b.setAttribute('aria-pressed',String(current.view===mode));views.append(b);
     });
@@ -214,9 +218,17 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);const key=dayKey(d);
         const c=node('div','pm-day');c.append(node('strong','',key));n.filter(t=>day(t.due_date)===key).forEach(t=>c.append(tile(t)));days.append(c);}
       body.append(days);
+    }else if(current.view==='work logs'){
+      const logs=node('div','pm-list');
+      if(!timeSummary){logs.append(node('p','pm-note','Loading work logs from Nextcloud…'));}
+      else{Object.entries(timeSummary.daily_minutes||{}).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,60).forEach(([date,minutes])=>{
+        logs.append(node('div','pm-task',date+' · '+(minutes/60).toFixed(2)+' hours'));
+      });if(!Object.keys(timeSummary.daily_minutes||{}).length) logs.append(node('p','pm-note','No recorded work yet.'));}
+      body.append(logs);
     }else{
       const cols=node('div','pm-columns');members.forEach(m=>{const assigned=n.filter(t=>String(t.owner_id)===String(m.user_id));const c=node('div','pm-column');
-        c.append(node('h3','',m.name),node('p','pm-note',`${assigned.filter(t=>!done(t)).length} open · ${assigned.filter(t=>overdue(t,today)).length} overdue`));
+        const logged=timeSummary?.owner_minutes?.[String(m.user_id)];
+        c.append(node('h3','',m.name),node('p','pm-note',`${assigned.filter(t=>!done(t)).length} open · ${assigned.filter(t=>overdue(t,today)).length} overdue · ${logged===undefined?'—':(logged/60).toFixed(1)+'h'} logged`));
         assigned.forEach(t=>c.append(tile(t)));cols.append(c);});body.append(cols);
     }
     if(cockpit.project?.permissions?.can_edit) body.append(newTask());
@@ -256,6 +268,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     ai.append(q,btn('Ask Pulsar',()=>run(false)),out,actions);
   }
   buildPulsar();paint();
+  P.call('/platform/projects/'+projectId+'/work-time/').then(data=>{timeSummary=data;paint();}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
   const linkedId = new URLSearchParams(location.search).get('task');
   if(linkedId && /^\d+$/.test(linkedId)){
     const selected = tasks.find(t=>String(t.id)===linkedId);
