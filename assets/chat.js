@@ -163,7 +163,7 @@
     // a point, which is the pulse. It used to borrow the brand G; the
     // assistant now has a mark of its own, drawn in currentColor so it
     // follows the launcher and the header in both themes.
-    spark: '<svg class="gchat__spark gchat__mark" viewBox="0 0 400 400" fill="currentColor" aria-hidden="true"><path d="M100,0c0,55.22-44.77,100-100,100v100c110.46,0,200-89.55,200-200h-100Z"/><path d="M300,0c0,55.22,44.77,100,100,100v100c-110.46,0-200-89.55-200-200h100Z"/><path d="M300,400c0-55.22,44.77-100,100-100v-100c-110.46,0-200,89.55-200,200h100Z"/><path d="M100,400c0-55.22-44.77-100-100-100v-100c110.46,0,200,89.55,200,200h-100Z"/><circle cx="200" cy="200" r="25"/></svg>',
+    spark: '<svg class="gchat__spark gchat__mark" viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d="M0,50v-20.71c16.15,0,29.29-13.14,29.29-29.29h20.71c0,27.57-22.43,50-50,50Z"/><path d="M50,100h-20.71c0-16.15-13.14-29.29-29.29-29.29v-20.71c27.57,0,50,22.43,50,50Z"/><path d="M100,50c-27.57,0-50-22.43-50-50h20.71c0,16.15,13.14,29.29,29.29,29.29v20.71Z"/><path d="M70.71,100h-20.71c0-27.57,22.43-50,50-50v20.71c-16.15,0-29.29,13.14-29.29,29.29Z"/><circle cx="50" cy="50" r="10.36"/></svg>',
     min: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>',
     x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',

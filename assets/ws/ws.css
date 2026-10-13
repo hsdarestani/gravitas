@@ -253,9 +253,9 @@
     mask: no-repeat center / contain;
   }
   .ws .g-mark--logotype {
-    aspect-ratio: 658.7 / 118.45;
-    -webkit-mask-image: url("../logos/Logotype_Black.svg");
-    mask-image: url("../logos/Logotype_Black.svg");
+    aspect-ratio: 581.23 / 100;
+    -webkit-mask-image: url("../logos/Logotype_White.svg");
+    mask-image: url("../logos/Logotype_White.svg");
   }
   .ws .g-mark--logo {
     aspect-ratio: 118.44 / 118.45;

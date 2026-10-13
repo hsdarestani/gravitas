@@ -21,9 +21,9 @@
      with mask-size:contain shows up as a sliver of dead space after the
      wordmark rather than as a wrong drawing — invisible, and it pushes
      whatever sits next to it. */
-  aspect-ratio: 658.7 / 118.45;
-  -webkit-mask-image: url("logos/Logotype_Black.svg");
-  mask-image: url("logos/Logotype_Black.svg");
+  aspect-ratio: 581.23 / 100;
+  -webkit-mask-image: url("logos/Logotype_White.svg");
+  mask-image: url("logos/Logotype_White.svg");
 }
 .g-mark--logo {
   aspect-ratio: 118.44 / 118.45;
