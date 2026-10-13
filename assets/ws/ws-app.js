@@ -20,7 +20,7 @@
    ========================================================================== */
 
 import * as notes from './ws-notes-store.js?v=20261011-r4';
-import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261011-r4';
+import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261013-pm1';
 import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261011-r4';
 import * as P from './ws-platform.js?v=20261011-r4';
 import { renderCoreTeam } from './ws-core-team.js?v=20261011-r4';
