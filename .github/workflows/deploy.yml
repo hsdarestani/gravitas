@@ -207,6 +207,7 @@ jobs:
           upsert_secret_env DJANGO_ALLOWED_HOSTS "$DOMAIN,www.$DOMAIN,127.0.0.1,localhost"
           upsert_secret_env DJANGO_CSRF_TRUSTED_ORIGINS "https://$DOMAIN,https://www.$DOMAIN"
           upsert_secret_env GRAVITAS_OIDC_ISSUER "https://$DOMAIN/api/oidc"
+          upsert_secret_env GOOGLE_OAUTH_REDIRECT_URI "https://$DOMAIN/api/auth/google/callback/"
 
           if [ -n "$TELEGRAM_TOKEN_B64" ]; then
             TELEGRAM_TOKEN="$(printf '%s' "$TELEGRAM_TOKEN_B64" | base64 -d)"
