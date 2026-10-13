@@ -78,6 +78,7 @@ export async function renderProjectStructure(doc, projectId) {
           conflicts.append(button('Keep mine', () => { etag = conflict.etag; save(); }), button('Keep remote', () => { input.value = conflict.remote; etag = conflict.etag; status.textContent = 'Remote version loaded. Your previous version remains visible below.'; }), button('Manual merge in editor', () => { etag = conflict.etag; input.focus(); status.textContent = 'Merge in the editor, then Save. The remote revision will be checked again.'; }));
         }
       };
+      if (!generic) editor.append(button('View version history', () => { status.textContent = 'Version snapshots are available at /api' + endpoint + '/file-revisions/?path=' + encodeURIComponent(path); }));
       if (file.can_edit) editor.append(button('Save', save));
     } catch (e) { status.textContent = e.message; }
   }
