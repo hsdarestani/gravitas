@@ -96,9 +96,12 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     status.value=task.status; priority.value=task.priority;
     members.forEach(m=>{const op=node('option','',m.name);op.value=m.user_id;owner.append(op);});
     owner.value=String(task.owner_id);
+    owner.disabled=!!cockpit.project?.canonical_enabled;
+    owner.title=owner.disabled?'Owner updates require the versioned canonical task schema upgrade.':'';
     const blocked = control('input','text','Blocker or waiting reason'); blocked.value=task.blocked_reason || '';
     panel.append(title, deadline, status, priority, owner, blocked,
-      btn('Save changes', () => { const data = { title: title.value, due_date:deadline.value, status:status.value, priority:priority.value, blocked_reason:blocked.value }; if(owner.value && owner.value !== String(task.owner_id)) data.owner_id = owner.value; patch(task, data); }),
+      ...(owner.disabled?[node('p','pm-note','Owner and dependency changes are read only for adopted projects until these relations are present in the canonical text schema.')]:[]),
+      btn('Save changes', () => { const data = { title: title.value, due_date:deadline.value, status:status.value, priority:priority.value, blocked_reason:blocked.value }; if(!owner.disabled && owner.value && owner.value !== String(task.owner_id)) data.owner_id = owner.value; patch(task, data); }),
       btn('Close', () => editor.replaceChildren()));
     editor.append(panel);
   }
