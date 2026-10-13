@@ -220,6 +220,10 @@ class CanonicalJournalTests(TransactionTestCase):
         # External/native actions restored the original bytes but changed ETag.
         # This cannot justify another write; recovery may only mark restored.
         self.dav.files[path]['content'] = 'original'
+        # MemoryDAV allocates a new native ID on every PUT, unlike a real
+        # overwrite. Restore the native identity to simulate an ACL-only
+        # ETag rebase on the exact same original file.
+        self.dav.files[path]['file_id'] = before['file_id']
         self.dav.files[path]['etag'] = '"native-acl-etag"'
         with patch('core.canonical_projects.dav_write', wraps=self.dav.write) as write:
             self.assertEqual(recover_journal(batch.journals[71]['path']), 'rolled_back')
