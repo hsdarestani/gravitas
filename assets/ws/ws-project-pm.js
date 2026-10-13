@@ -84,6 +84,51 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       notice.textContent = err.message === 'canonical_task_schema_upgrade_required' ? 'This task field is locked until its canonical text schema supports it.' : err.message + (err.data?.detail ? ': ' + err.data.detail : '');
     }
   }
+  // The active timer lives in the canonical Markdown note, not the browser.
+  async function showTime(task, container) {
+    container.replaceChildren(node('p','pm-note','Loading versioned work log…'));
+    const url = '/platform/projects/' + projectId + '/tasks/' + task.id + '/time/';
+    let state;
+    try { state=await P.call(url); }
+    catch (error) { container.replaceChildren(node('p','pm-note','Work log unavailable: '+error.message)); return; }
+    container.replaceChildren();
+    container.append(node('h4','','Time tracking · Task #'+task.id));
+    container.append(node('p','pm-note',(state.total_minutes/60).toFixed(2)+' hours recorded · '+state.entry_count+' entries · versioned Markdown in Nextcloud'));
+    if (state.my_active_started_at) {
+      const since=new Date(state.my_active_started_at);
+      const elapsed=Math.max(0,Math.floor((Date.now()-since.getTime())/60000));
+      container.append(node('p','pm-notice-warning','Timer active since '+since.toLocaleString()+' ('+elapsed+' minutes elapsed)'));
+    }
+    const actions=node('div','pm-views');
+    const comment=control('input','text','What did you work on?');
+    const manual=control('input','number','Minutes (1–720)');manual.min='1';manual.max='720';
+    const workday=control('input','date','Work date');workday.value=dayKey(new Date());
+    async function change(action, fields={}){
+      actions.querySelectorAll('button').forEach(b=>b.disabled=true);
+      try {
+        await P.call(url,{method:'POST',body:{action,...fields}});
+        notice.textContent='Work session saved in project Markdown.';
+        await showTime(task,container);
+      } catch(error){
+        notice.textContent='Work log: '+error.message;
+        actions.querySelectorAll('button').forEach(b=>b.disabled=false);
+      }
+    }
+    if(task.can_edit){
+      if(state.my_active_started_at){
+        actions.append(btn('Stop and save',()=>change('stop',{note:comment.value})),
+          btn('Discard timer',()=>{if(confirm('Discard the active timer without recording hours?'))change('discard');}));
+      } else actions.append(btn('Start timer',()=>change('start')));
+      actions.append(btn('Add manual minutes',()=>change('log',{minutes:Number(manual.value),date:workday.value,note:comment.value})));
+      container.append(comment,manual,workday,actions);
+    }
+    const recent=node('div','pm-list');
+    state.entries.slice(0,30).forEach(entry=>{
+      const person=members.find(m=>String(m.user_id)===String(entry.owner_id));
+      recent.append(node('p','pm-note',day(entry.start)+' · '+entry.minutes+'m · '+(person?.name||'Member')+' · '+entry.note));
+    });
+    container.append(recent);
+  }
   function openEditor(task) {
     editor.replaceChildren();
     const panel = node('div', 'pm-editor');
@@ -103,7 +148,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       ...(owner.disabled?[node('p','pm-note','Owner and dependency changes are read only for adopted projects until these relations are present in the canonical text schema.')]:[]),
       btn('Save changes', () => { const data = { title: title.value, due_date:deadline.value, status:status.value, priority:priority.value, blocked_reason:blocked.value }; if(!owner.disabled && owner.value && owner.value !== String(task.owner_id)) data.owner_id = owner.value; patch(task, data); }),
       btn('Close', () => editor.replaceChildren()));
+    const time = node('section','pm-editor');panel.append(time);
     editor.append(panel);
+    showTime(task,time);
   }
   function tile(task) {
     const t = btn('#' + task.id + ' · ' + task.title, () => { if(task.can_edit) openEditor(task); else notice.textContent='Read only task'; });
