@@ -2,7 +2,7 @@
 # Verify current GraviQuest canonical/public surface after deployment.
 # Temporary prelaunch noindex headers are managed in a separate workflow.
 set -euo pipefail
-BASE="\${1:-https://graviquest.com}"
+BASE="${1:-https://graviquest.com}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 fetch() {
