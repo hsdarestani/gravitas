@@ -137,3 +137,14 @@ provides a direct edit form; unscheduled tasks remain visibly separate.
 Source files are protected by existing project ACL, DAV revisions and
 conflict handling. A formal calendar time-block planner, resource leveling,
 and parent-child critical-path calculations remain further work.
+
+## Derived views added with the Gantt rollout
+
+The urgency/importance matrix is a read-only view: P0/P1 means important;
+a deadline in the next seven days (including overdue) means urgent. Tasks
+can be edited with existing canonical task permissions. It is a heuristic,
+not an asserted human judgment. Weekly review lists actual completed
+items from the last seven days, blockers and overdue tasks, and contrasts
+a task's total estimated minutes against total recorded minutes. A formal
+signed weekly review note, capacity/resource leveling and archived review
+snapshots are not implemented yet.
