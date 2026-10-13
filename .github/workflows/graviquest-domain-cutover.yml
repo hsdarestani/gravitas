@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git diff --check
+          git -c core.whitespace=cr-at-eol diff --check
           python3 -m compileall -q backend/gravitas_backend
           grep -q 'DOMAIN: graviquest.com' .github/workflows/deploy.yml
           grep -q 'CLOUD_DOMAIN: cloud.graviquest.com' .github/workflows/nextcloud.yml
