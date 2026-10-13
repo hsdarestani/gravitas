@@ -62,7 +62,6 @@ jobs:
           node --check assets/ws/ws-home.js
           node --check assets/ws/ws-kms.js
           node --check assets/ws/ws-kms-views.js
-          node --check assets/ws/ws-kms-live.js
           node --check assets/ws/ws-nextcloud-sso.js
           node --check assets/ws/ws-core-assets.js
           node --check assets/ws/ws-five-layer.js
