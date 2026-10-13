@@ -101,6 +101,12 @@ def encode(obj):
     payload = {'schema': 1, 'type': name, 'id': obj.pk, 'project_id': project_for(obj).pk,
                'fields': {field: getattr(obj, field) for field in SPECS[name][1]}}
     if name == 'KnowledgeResource':
+        # Native Notes mirror bookkeeping changes independently of content.
+        # It belongs in the DB projection, not the canonical text document.
+        payload['fields']['metadata'] = {
+            key: value for key, value in (obj.metadata or {}).items()
+            if key != 'nextcloud_notes'
+        }
         payload['kind'] = obj.kind
         payload['attachment_path'] = obj.storage_path
         if obj.kind == 'note':
@@ -138,6 +144,13 @@ def decode(obj, content):
     if name == 'KnowledgeResource' and (data.get('kind') != obj.kind or data.get('attachment_path') != obj.storage_path):
         raise ValueError('canonical_ownership_or_attachment_changed')
     fields = data.get('fields')
+    # Backward compatible with canonical notes created before mirror separation.
+    if name == 'KnowledgeResource' and isinstance(fields, dict) and isinstance(fields.get('metadata'), dict):
+        fields = dict(fields)
+        fields['metadata'] = {
+            key: value for key, value in fields['metadata'].items()
+            if key != 'nextcloud_notes'
+        }
     if not isinstance(fields, dict) or set(fields) != set(SPECS[name][1]):
         raise ValueError('invalid_canonical_fields')
     for field, value in fields.items():
@@ -239,6 +252,12 @@ def merge_content(obj, base, mine, remote):
 
 def apply(obj, content):
     fields = decode(obj, content)
+    if isinstance(obj, KnowledgeResource) and 'metadata' in fields:
+        # Preserve up-to-date local Notes sync state while applying native
+        # edits to canonical title, body and meaningful metadata keys.
+        mirror = (obj.metadata or {}).get('nextcloud_notes')
+        if mirror is not None:
+            fields['metadata'] = {**fields['metadata'], 'nextcloud_notes': mirror}
     with suppress():
         for field, value in fields.items():
             setattr(obj, field, obj._meta.get_field(field).to_python(value))
