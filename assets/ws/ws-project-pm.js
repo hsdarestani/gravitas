@@ -243,10 +243,13 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       });
       body.append(chart);
     }else if(current.view==='week'){
-      body.append(node('p','pm-note','Next seven days grouped by due date; this is not a time-block calendar.'));
+      body.append(node('p','pm-note','Next seven days: tasks active within an explicitly planned date range, plus unscheduled tasks due that day. These are date assignments, not hourly reservations.'));
       const days=node('div','pm-planner');
       for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);const key=dayKey(d);
-        const c=node('div','pm-day');c.append(node('strong','',key));n.filter(t=>day(t.due_date)===key).forEach(t=>c.append(tile(t)));days.append(c);}
+        const planned=n.filter(t=>{const p=scheduleMap?.get(t.id);return p&&p.start_date<=key&&p.end_date>=key;});
+        const due=n.filter(t=>!scheduleMap?.has(t.id)&&day(t.due_date)===key);
+        const c=node('div','pm-day');c.append(node('strong','',key),node('p','pm-note',planned.length+' scheduled · '+due.length+' due only'));
+        planned.forEach(t=>c.append(tile(t)));due.forEach(t=>c.append(tile(t)));days.append(c);}
       body.append(days);
     }else if(current.view==='matrix'){
       body.append(node('p','pm-note','Priority matrix uses an explicit heuristic: important = P0/P1, urgent = due within seven days. This view does not change task priorities or source files.'));
