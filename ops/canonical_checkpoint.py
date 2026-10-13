@@ -232,6 +232,37 @@ def rehearse(directory):
         shutil.rmtree(rehearsal)
 
 
+def prune(keep, protected=()):
+    """Remove all but the newest `keep` complete checkpoints.
+
+    Every deploy captures a full copy of both databases and every tree, and
+    nothing ever removed one, so on 2026-10-13 the disk reached 100% and the
+    next capture died half-way with the app paused. Incomplete captures and
+    leftover rehearsal trees are always removed; anything an interrupted
+    restore still names is never touched.
+    """
+    protected = {Path(p).resolve() for p in protected}
+    complete, removable = [], []
+    for entry in BASE.iterdir():
+        if not entry.is_dir() or entry.is_symlink() or entry.resolve() in protected:
+            continue
+        manifest = entry / 'manifest.json'
+        try:
+            state = json.loads(manifest.read_text()).get('state') if manifest.exists() else None
+        except ValueError:
+            state = None
+        if state == 'complete' and not entry.name.startswith('rehearsal-'):
+            complete.append((manifest.stat().st_mtime, entry))
+        else:
+            removable.append(entry)
+    complete.sort(reverse=True)
+    removable += [entry for _, entry in complete[keep:]]
+    for entry in removable:
+        print('Removing checkpoint ' + entry.name)
+        shutil.rmtree(entry)
+    print('Kept %d complete checkpoint(s)' % min(keep, len(complete)))
+
+
 def restore_files(directory, native_path, journal):
     staged = []
     # Validate and extract ALL archives before touching an existing directory.
@@ -278,8 +309,9 @@ def restore_files(directory, native_path, journal):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('backup', 'restore', 'verify', 'rehearse', 'resume'))
+    parser.add_argument('action', choices=('backup', 'restore', 'verify', 'rehearse', 'resume', 'prune'))
     parser.add_argument('--checkpoint', type=Path)
+    parser.add_argument('--keep', type=int, default=1)
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
     if args.action in {'restore', 'verify', 'rehearse'} and not args.checkpoint:
@@ -300,6 +332,10 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         pending = json.loads((BASE / 'restore.json').read_text()) if (BASE / 'restore.json').exists() else None
         interrupted = pending and pending.get('phase') != 'complete'
+        if args.action == 'prune':
+            if args.keep < 1:
+                parser.error('--keep must be at least 1')
+            prune(args.keep, [pending['safety'], pending['source']] if interrupted else []); return
         if args.action == 'rehearse':
             if interrupted:
                 raise ValueError('Complete interrupted restore before rehearsal')

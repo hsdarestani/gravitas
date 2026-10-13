@@ -122,6 +122,20 @@ class CheckpointTests(unittest.TestCase):
             self.assertFalse(any(any('ALTER DATABASE' in arg for arg in command) for command in calls))
             self.assertFalse(list(base.glob('rehearsal-*')))
 
+    def test_prune_keeps_newest_complete_and_protected_checkpoints(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            for index, (name, state) in enumerate([('old', 'complete'), ('safety', 'complete'), ('new', 'complete'), ('partial', 'pending')]):
+                (base / name).mkdir()
+                (base / name / 'manifest.json').write_text(json.dumps({'state': state}))
+                os.utime(base / name / 'manifest.json', (1000 + index, 1000 + index))
+            (base / 'empty').mkdir()
+            (base / 'rehearsal-x').mkdir()
+            (base / 'runtime.json').write_text('{}')
+            with patch.object(checkpoint, 'BASE', base):
+                checkpoint.prune(1, [base / 'safety'])
+            self.assertEqual(sorted(p.name for p in base.iterdir()), ['new', 'runtime.json', 'safety'])
+
 
 if __name__ == '__main__':
     unittest.main()

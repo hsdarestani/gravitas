@@ -518,6 +518,11 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$OPERATIONS_HOST" bash -s -- "$CHECKPOINT_SCRIPT" <<'REMOTE'
           set -euo pipefail
           CHECKPOINT_SCRIPT="$1"
+          # Checkpoints were never removed, and on 2026-10-13 they filled the
+          # disk. Keep the newest complete one (this run adds another), before
+          # anything below needs room to start a container or write a dump.
+          sudo python3 "$CHECKPOINT_SCRIPT" prune --keep 1 --apply
+          df -h /
           # pause() stops the backend units and Nextcloud before capturing. If
           # an earlier run died after that and its resume() failed too, every
           # later deploy stopped at the first `occ status` with the app still
