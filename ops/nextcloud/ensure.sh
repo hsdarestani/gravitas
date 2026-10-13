@@ -16,8 +16,16 @@ fi
 PUBLIC_URL="${PUBLIC_URL%/}"
 CANONICAL_CLOUD=0
 case "$PUBLIC_URL" in
-  https://cloud.*) CANONICAL_CLOUD=1 ;;
-  *) PUBLIC_URL="$LEGACY_PUBLIC_URL" ;;
+  "https://cloud.$DOMAIN") CANONICAL_CLOUD=1 ;;
+  "$LEGACY_PUBLIC_URL") ;;
+  https://cloud.*)
+    echo "Nextcloud public host does not match cloud.$DOMAIN; migrate with a verified certificate first." >&2
+    exit 1
+    ;;
+  *)
+    echo "Unexpected Nextcloud public URL; refusing to silently use another host." >&2
+    exit 1
+    ;;
 esac
 
 mkdir -p /opt/gravitas-nextcloud /etc/gravitas "$BACKUP_DIR"
