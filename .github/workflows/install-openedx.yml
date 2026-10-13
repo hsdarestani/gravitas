@@ -24,9 +24,9 @@ jobs:
     env:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
       CONFIGURED_USER: ${{ secrets.DEPLOY_USER || 'root' }}
-      LMS_HOST: learn.gravitasplus.com
-      CMS_HOST: studio.gravitasplus.com
-      MFE_HOST: apps.learn.gravitasplus.com
+      LMS_HOST: learn.graviquest.com
+      CMS_HOST: studio.graviquest.com
+      MFE_HOST: apps.learn.graviquest.com
     steps:
       - uses: actions/checkout@v4
 
@@ -172,7 +172,7 @@ jobs:
             --set 'INDIGO_WELCOME_MESSAGE=Research starts connected.' \
             --set 'INDIGO_PRIMARY_COLOR="#003049"' \
             --set 'INDIGO_ENABLE_DARK_TOGGLE=true' \
-            --set 'INDIGO_FOOTER_NAV_LINKS=[{"title":"Gravitas+","url":"https://gravitasplus.com"},{"title":"Learning","url":"https://gravitasplus.com/learn.html"},{"title":"Community","url":"https://gravitasplus.com/community.html"}]'
+            --set 'INDIGO_FOOTER_NAV_LINKS=[{"title":"Gravitas+","url":"https://graviquest.com"},{"title":"Learning","url":"https://graviquest.com/learn.html"},{"title":"Community","url":"https://graviquest.com/community.html"}]'
 
           tutor_local launch -I -p
           tutor_local do settheme indigo || true

@@ -105,4 +105,4 @@ jobs:
             'sudo docker exec -u www-data gravitas-nextcloud php occ status --output=json'
           ssh -i ~/.ssh/operational_inspection -p "${OPERATIONS_PORT:-22}" "${OPERATIONS_LOGIN:-deploy}@$OPERATIONS_HOST" \
             'sudo systemctl is-active gravitas-task-notifications.timer; sudo systemctl show gravitas-task-notifications.service --property=Result --property=ExecMainStatus; sudo systemctl list-timers gravitas-task-notifications.timer --no-pager'
-          curl -4 -fsS --max-time 20 https://gravitasplus.com/api/health/
+          curl -4 -fsS --max-time 20 https://graviquest.com/api/health/

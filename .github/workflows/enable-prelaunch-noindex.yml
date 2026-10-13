@@ -32,8 +32,8 @@ jobs:
           cat > /tmp/gravitas-prelaunch-noindex.conf <<'EOF'
           map $host $gravitas_robots_header {
               default "";
-              gravitasplus.com "noindex, nofollow";
-              staging.gravitasplus.com "noindex, nofollow";
+              graviquest.com "noindex, nofollow";
+              staging.graviquest.com "noindex, nofollow";
           }
 
           add_header X-Robots-Tag $gravitas_robots_header always;
@@ -49,6 +49,6 @@ jobs:
         run: |
           set -euo pipefail
           sleep 2
-          curl -4 -fsSI https://gravitasplus.com/ | tr -d '\r' | grep -qi '^X-Robots-Tag: noindex, nofollow$'
-          curl -4 -fsSI https://gravitasplus.com/dossiers.html | tr -d '\r' | grep -qi '^X-Robots-Tag: noindex, nofollow$'
+          curl -4 -fsSI https://graviquest.com/ | tr -d '\r' | grep -qi '^X-Robots-Tag: noindex, nofollow$'
+          curl -4 -fsSI https://graviquest.com/dossiers.html | tr -d '\r' | grep -qi '^X-Robots-Tag: noindex, nofollow$'
           echo gravitas-prelaunch-noindex-enabled

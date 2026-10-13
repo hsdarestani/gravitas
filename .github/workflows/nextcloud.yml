@@ -24,8 +24,8 @@ permissions:
   contents: write
 
 env:
-  DOMAIN: gravitasplus.com
-  CLOUD_DOMAIN: cloud.gravitasplus.com
+  DOMAIN: graviquest.com
+  CLOUD_DOMAIN: cloud.graviquest.com
 
 jobs:
   validate:
@@ -55,7 +55,7 @@ jobs:
           grep -q 'disable_account_creation' ops/nextcloud/sso.sh
           grep -q 'gravitas-nextcloud-nginx-guard.path' ops/nextcloud/nginx-guard.sh
           grep -q 'gravitas-nextcloud-mirror.timer' ops/nextcloud/mirror.sh
-          grep -q 'cloud.gravitasplus.com' .github/workflows/nextcloud.yml
+          grep -q 'cloud.graviquest.com' .github/workflows/nextcloud.yml
           echo 'Nextcloud code validation passed; production provisioning only runs after a successful Gravitas deploy or manual dispatch.'
 
   nextcloud:
@@ -219,7 +219,7 @@ jobs:
           sudo systemctl show gravitas-nextcloud-mirror.service --property=Result --value | grep -qx success
           PUBLIC_URL="$(sudo cat /etc/gravitas/nextcloud-public-url 2>/dev/null || true)"
           if printf '%s' "$PUBLIC_URL" | grep -q '^https://cloud\.'; then
-            sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritehost | grep -qx 'cloud.gravitasplus.com'
+            sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritehost | grep -qx 'cloud.graviquest.com'
             ! sudo docker exec -u www-data gravitas-nextcloud php occ config:system:get overwritewebroot 2>/dev/null | grep -q '/nextcloud'
             sudo test -f /etc/nginx/sites-available/gravitas-nextcloud-cloud
             sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+user_oidc:' >/dev/null

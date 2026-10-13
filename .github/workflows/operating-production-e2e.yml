@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      BASE_URL: https://gravitasplus.com
+      BASE_URL: https://graviquest.com
       E2E_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       E2E_SSH_HOST: ${{ secrets.DEPLOY_HOST }}
       E2E_SSH_USER: ${{ secrets.DEPLOY_USER }}
