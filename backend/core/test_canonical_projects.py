@@ -144,6 +144,61 @@ class CanonicalProjectTests(TestCase):
         self.assertEqual(reloaded.status_code, 200, reloaded.content)
         self.assertEqual(reloaded.json()['entries'][0]['note'], 'Nextcloud edited note')
 
+    def test_nextcloud_notes_mirror_is_not_canonical_user_content(self):
+        from .canonical_journal import canonical_operation
+        self.note.metadata = {
+            'ws_space': 'research',
+            'nextcloud_notes': {'id': 42, 'etag': 'old', 'state': 'synced'},
+        }
+        self.adopt()
+        path = self.full(relative_path(self.note))
+        native = self.dav.files[path]['content']
+        self.assertNotIn('nextcloud_notes', native)
+        self.assertEqual(decode(self.note, native)['metadata'], {'ws_space': 'research'})
+
+        # Simulate a legacy .md header containing an obsolete mirror snapshot.
+        header, _, body = native.partition('\\n')
+        legacy = json.loads(header[len('<!-- gravitas:'):-len(' -->')])
+        legacy['fields']['metadata']['nextcloud_notes'] = {
+            'id': 42, 'etag': 'obsolete', 'state': 'synced',
+        }
+        legacy_content = '<!-- gravitas:' + json.dumps(
+            legacy, ensure_ascii=False, sort_keys=True) + ' -->\\n' + body
+        self.dav.external(path, legacy_content)
+
+        # The independent Notes connector legitimately advances its mirror
+        # in SQL while the canonical document remains unchanged.
+        fresh_mirror = {'id': 42, 'etag': 'fresh', 'state': 'synced'}
+        KnowledgeResource.objects.filter(pk=self.note.pk).update(
+            metadata={'ws_space': 'research', 'nextcloud_notes': fresh_mirror})
+        refresh_project(self.project, self.owner)
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.metadata['nextcloud_notes'], fresh_mirror)
+        self.assertEqual(self.note.metadata['ws_space'], 'research')
+        self.assertEqual(encode(self.note), native)
+
+        # Even a real user edit must never leak the mirror into the source.
+        with canonical_operation(self.owner):
+            self.note.body = 'New user content'
+            self.note.save()
+        self.assertIn('New user content', self.dav.files[path]['content'])
+        self.assertNotIn('nextcloud_notes', self.dav.files[path]['content'])
+
+    def test_native_user_metadata_edits_still_flow_into_projection(self):
+        self.note.metadata = {'ws_space': 'research', 'nextcloud_notes': {'etag': 'local'}}
+        self.adopt()
+        path = self.full(relative_path(self.note))
+        original = self.dav.files[path]['content']
+        header, _, body = original.partition('\\n')
+        payload = json.loads(header[len('<!-- gravitas:'):-len(' -->')])
+        payload['fields']['metadata']['ws_folder'] = 'Reviewed'
+        self.dav.external(path, '<!-- gravitas:' + json.dumps(
+            payload, ensure_ascii=False, sort_keys=True) + ' -->\\n' + body)
+        refresh_project(self.project, self.owner)
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.metadata['ws_folder'], 'Reviewed')
+        self.assertEqual(self.note.metadata['nextcloud_notes'], {'etag': 'local'})
+
     def test_background_write_rejected_before_sql_without_canonical_boundary(self):
         from .canonical_journal import RecoveryRequired
         self.adopt(); original = self.note.body
