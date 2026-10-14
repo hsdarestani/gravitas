@@ -1902,6 +1902,19 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   if (!locked && isOwn(note)) {
     menu.append(menuItem('share', 'Share…', () => { closeMenu(); openShare(note); }));
   }
+  menu.append(menuItem('link', 'Copy direct note link', async () => {
+    closeMenu();
+    const url = new URL(`/workspace/${note.space === 'core' ? 'core' : note.space === 'kms' ? 'kms' : 'research'}/notes?note=${encodeURIComponent(note.id)}`, location.origin);
+    try { await navigator.clipboard.writeText(url.href); setSave('Link copied'); }
+    catch { setSave('Could not copy link', 'bad'); }
+  }));
+  menu.append(menuItem('link', 'Copy Markdown reference', async () => {
+    closeMenu();
+    const kind = isJournal(note) && note.journal_date ? `journal:${note.journal_date}` : `note:${note.id}`;
+    const safeTitle = (title.value.trim() || 'Untitled').replace(/[|\]]/g, '');
+    try { await navigator.clipboard.writeText(`[[${kind}|${safeTitle}]]`); setSave('Reference copied'); }
+    catch { setSave('Could not copy reference', 'bad'); }
+  }));
   menu.append(menuItem('notes', 'Copy as Markdown', async () => {
     closeMenu();
     try {
