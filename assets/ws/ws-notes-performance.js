@@ -55,7 +55,9 @@ export function startNotesSync({ space, busy = () => false, status = () => {}, s
       state.inFlight = false;
     }
   };
-  // Navigation and typing win CPU/network priority. A deliberate Sync now
-  // button still offers an immediate native round trip on demand.
-  scheduleIdle(state, 'idle', run, 12000);
+  // Give the initial navigation time to settle before the expensive
+  // full-account DAV sweep. requestIdleCallback alone often fires instantly,
+  // so an actual grace period is required.
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => scheduleIdle(state, 'idle', run, 3000), 12000);
 }
