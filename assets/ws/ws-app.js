@@ -1606,10 +1606,12 @@ export async function start() {
     return;
   }
 
-  /* The notes index feeds the calendar marks, search and the Knowledge Base.
-     It is a local read, and it is awaited so those screens draw once rather
-     than drawing empty and again. */
-  await notes.load();
+  /* Search and navigation must be interactive before Notes has loaded.
+     The old startup awaited a complete Notes GET before mounting the palette
+     or routing the page, making every unrelated Core/Research view feel frozen.
+     The local index hydrates in parallel, and only its dependent dock tab
+     repaints when it becomes available. */
+  const notesReady = notes.load();
 
   mountPalette({
     go, platform: P,
@@ -1625,4 +1627,8 @@ export async function start() {
   const path = location.pathname.replace(/\/$/, '');
   if (path === '/workspace') go('/workspace/my-work', { replace: true });
   else apply(location.pathname);
+
+  notesReady.then(() => {
+    if (ui.dockTab === 'journal' || ui.dockTab === 'links') renderDock();
+  }).catch(() => {});
 }

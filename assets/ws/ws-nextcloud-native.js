@@ -52,6 +52,7 @@ function openNative(url) {
 }
 
 function syncSummary(data) {
+  if (data?.sync?.deferred) return 'Notes loaded · Nextcloud sync runs separately';
   const counts = data?.sync?.counts || data?.counts || {};
   const bits = [];
   for (const [key, label] of [
@@ -63,7 +64,7 @@ function syncSummary(data) {
 }
 
 function navTo(path) {
-  if (path === location.pathname) return;
+  if (path === location.pathname + location.search + location.hash) return;
   history.pushState({}, '', path);
   dispatchEvent(new PopStateEvent('popstate'));
   dispatchEvent(new CustomEvent('ws:navigate'));
@@ -838,8 +839,21 @@ function drawList() {
     });
 }
 
+function noteDeepLink(id) {
+  if (route()?.kind !== 'notes') return;
+  const url = new URL(location.href);
+  // Keep the selected object in the address bar. Previously the notebook
+  // removed ?note= on open, so pasting/copying the URL lost the anchor.
+  url.searchParams.delete('day');
+  url.searchParams.delete('new');
+  if (id != null) url.searchParams.set('note', String(id));
+  else url.searchParams.delete('note');
+  history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+}
+
 function choose(id) {
   book.root.dataset.pane = 'note';
+  noteDeepLink(id);
   if (book.view === 'note' && same(id, selections.get(book.info.space)) && book.editor) return;
   book.editor?.flush();
   selections.set(book.info.space, id);
@@ -867,6 +881,7 @@ function adopt(item, options) {
   book.items = [item, ...book.items.filter((other) => !same(other.id, item.id))];
   remember();
   selections.set(book.info.space, item.id);
+  noteDeepLink(item.id);
   book.view = 'note';
   book.mode = 'edit';
   book.query = '';
@@ -1326,7 +1341,9 @@ function takeRequest() {
   const note = params.get('note');
   const fresh = params.get('new');
   if (!day && !note && fresh == null) return null;
-  history.replaceState(history.state, '', location.pathname + location.hash);
+  // Keep direct note links bookmarkable; a day/new request is temporary and
+  // becomes the canonical ?note=<id> when the server returns its note ID.
+  if (!note) history.replaceState(history.state, '', location.pathname + location.hash);
   return { day: DAY_KEY.test(day || '') ? day : null, note: note ? note.replace(/^p-/, '') : null, fresh };
 }
 
@@ -1560,6 +1577,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   const bar = el('header', 'nb-bar');
   const back = iconButton('chevron', 'Back to notes', () => {
     flush();
+    noteDeepLink(null);
     book.root.dataset.pane = 'list';
   }, 'nb-back');
   const crumbs = el('div', 'nb-bar__crumbs');
@@ -1787,6 +1805,26 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   /* ---- Read view ---- */
   const hooks = {
     wiki(name) {
+      // Canonical [[task:ID]], [[note:ID]] and [[journal:YYYY-MM-DD]]
+      // references work anywhere this Markdown note is displayed.
+      const taskId = /^task:(\d+)$/i.exec(name)?.[1];
+      if (taskId) return () => navTo(`/workspace/core/tasks?task=${taskId}`);
+      const fileId = /^file:(\d+)$/i.exec(name)?.[1];
+      if (fileId) return () => {
+        // The existing file download endpoint enforces access per object.
+        // Opening separately keeps the unsaved note in its current editor.
+        window.open(`/api/platform/files/${fileId}/download/`, '_blank', 'noopener');
+      };
+      const projectId = /^project:(\d+)$/i.exec(name)?.[1];
+      if (projectId) return () => navTo(`/workspace/research/projects/${projectId}`);
+      const noteId = /^note:(\d+)$/i.exec(name)?.[1];
+      if (noteId) {
+        const match = book.items.find(item => same(item.id, noteId));
+        if (match) return () => choose(match.id);
+        return () => navTo(`/workspace/research/notes?note=${noteId}`);
+      }
+      const dayId = /^journal:(\d{4}-\d{2}-\d{2})$/i.exec(name)?.[1];
+      if (dayId && DAY_KEY.test(dayId)) return () => navTo(`/workspace/research/notes?day=${dayId}`);
       const wanted = name.trim().toLowerCase();
       const target = book.items.find((item) => String(item.title || '').trim().toLowerCase() === wanted);
       return target ? () => choose(target.id) : null;
@@ -1872,6 +1910,19 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   if (!locked && isOwn(note)) {
     menu.append(menuItem('share', 'Share…', () => { closeMenu(); openShare(note); }));
   }
+  menu.append(menuItem('link', 'Copy direct note link', async () => {
+    closeMenu();
+    const url = new URL(`/workspace/${note.space === 'core' ? 'core' : note.space === 'kms' ? 'kms' : 'research'}/notes?note=${encodeURIComponent(note.id)}`, location.origin);
+    try { await navigator.clipboard.writeText(url.href); setSave('Link copied'); }
+    catch { setSave('Could not copy link', 'bad'); }
+  }));
+  menu.append(menuItem('link', 'Copy Markdown reference', async () => {
+    closeMenu();
+    const kind = isJournal(note) && note.journal_date ? `journal:${note.journal_date}` : `note:${note.id}`;
+    const safeTitle = (title.value.trim() || 'Untitled').replace(/[|\]]/g, '');
+    try { await navigator.clipboard.writeText(`[[${kind}|${safeTitle}]]`); setSave('Reference copied'); }
+    catch { setSave('Could not copy reference', 'bad'); }
+  }));
   menu.append(menuItem('notes', 'Copy as Markdown', async () => {
     closeMenu();
     try {

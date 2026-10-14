@@ -231,6 +231,13 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   const formatActor = (actor) => actor?.name || actor?.email || 'GraviQuest';
 
   function closeDialog(dialog) {
+    if (dialog?.dataset.taskId && location.pathname === '/workspace/core/tasks') {
+      const url = new URL(location.href);
+      if (url.searchParams.get('task') === dialog.dataset.taskId) {
+        url.searchParams.delete('task');
+        history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+      }
+    }
     dialog?.remove();
   }
 
@@ -835,6 +842,11 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     }
     const { dialog, body, head } = makeDialog('Loading task…');
     dialog.dataset.taskId = String(taskId);
+    if (location.pathname === '/workspace/core/tasks') {
+      const url = new URL(location.href);
+      url.searchParams.set('task', String(taskId));
+      history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+    }
     body.append(skeleton(6));
 
     try {
@@ -845,6 +857,19 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       state = boardState;
       const task = detailData.task;
       head.querySelector('h2').textContent = task.title;
+      const closeButton = head.querySelector('button');
+      const linkTask = makeButton('Copy link', async () => {
+        const url = new URL(`/workspace/core/tasks?task=${encodeURIComponent(task.id)}`, location.origin);
+        try { await navigator.clipboard.writeText(url.href); linkTask.textContent = 'Link copied'; }
+        catch { linkTask.textContent = 'Copy unavailable'; }
+      });
+      const refTask = makeButton('Copy reference', async () => {
+        const title = String(task.title || 'Task').replace(/[|\]]/g, '');
+        try { await navigator.clipboard.writeText(`[[task:${task.id}|${title}]]`); refTask.textContent = 'Reference copied'; }
+        catch { refTask.textContent = 'Copy unavailable'; }
+      });
+      head.insertBefore(linkTask, closeButton);
+      head.insertBefore(refTask, closeButton);
       // A project task is the SAME OperatingTask in Core and Research.
       // Open its existing planning views; never create a second task copy.
       if (task.project_id && go && (detailData.projects || boardState.projects || [])
@@ -1784,8 +1809,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         if (taskToOpen && data.tasks.some((row) => row.id === taskToOpen)) {
           window.setTimeout(() => openTaskDialog(taskToOpen, state, load), 0);
         }
-        if (params.has('task') || params.has('calendar_task') || params.has('calendar_connected') || params.has('calendar_error')) {
-          params.delete('task');
+        if (params.has('calendar_task') || params.has('calendar_connected') || params.has('calendar_error')) {
           params.delete('calendar_task');
           params.delete('calendar_connected');
           params.delete('calendar_error');

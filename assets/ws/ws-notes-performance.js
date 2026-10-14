@@ -16,8 +16,11 @@
 import * as P from './ws-platform.js?v=20261014-r5';
 import { scheduleIdle } from './ws-runtime-performance.js?v=20261014-r5';
 
-const state = { lastSync: new Map(), inFlight: new Set(), timer: 0, idle: false };
-const MIN_GAP = 45000;
+// Reconciliation spans ALL of a user's native Notes, not one workspace.
+ // Keep one global in-flight run and a conservative cooldown; Core and
+ // Research must not trigger the same expensive DAV sweep independently.
+const state = { lastSync: 0, inFlight: false, timer: 0, idle: false };
+const MIN_GAP = 150000;
 
 function summary(result) {
   const counts = result?.counts || {};
@@ -32,14 +35,15 @@ function summary(result) {
    have changed it. */
 export function startNotesSync({ space, busy = () => false, status = () => {}, synced = () => {} }) {
   const run = async () => {
+    if (document.visibilityState === 'hidden') return;
     if (busy()) {
       clearTimeout(state.timer);
-      state.timer = setTimeout(() => startNotesSync({ space, busy, status, synced }), 1200);
+      state.timer = setTimeout(() => startNotesSync({ space, busy, status, synced }), 10000);
       return;
     }
-    if (state.inFlight.has(space) || Date.now() - (state.lastSync.get(space) || 0) < MIN_GAP) return;
-    state.lastSync.set(space, Date.now());
-    state.inFlight.add(space);
+    if (state.inFlight || Date.now() - state.lastSync < MIN_GAP) return;
+    state.lastSync = Date.now();
+    state.inFlight = true;
     status('Syncing with Nextcloud in the background…');
     try {
       const result = await P.call('/platform/nextcloud/notes/sync/', { method: 'POST' });
@@ -48,8 +52,12 @@ export function startNotesSync({ space, busy = () => false, status = () => {}, s
     } catch {
       status('Nextcloud did not answer. Notes are saved here and will sync later.', 'warn');
     } finally {
-      state.inFlight.delete(space);
+      state.inFlight = false;
     }
   };
-  scheduleIdle(state, 'idle', run, 1200);
+  // Give the initial navigation time to settle before the expensive
+  // full-account DAV sweep. requestIdleCallback alone often fires instantly,
+  // so an actual grace period is required.
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => scheduleIdle(state, 'idle', run, 3000), 12000);
 }

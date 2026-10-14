@@ -59,7 +59,7 @@ export async function upload(path, formData, { method = 'POST' } = {}) {
   return data;
 }
 
-export async function call(path, { method = 'GET', body } = {}) {
+async function uncachedCall(path, { method = 'GET', body } = {}) {
   const verb = String(method || 'GET').toUpperCase();
   const unsafe = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(verb);
   const headers = { Accept: 'application/json' };
@@ -90,6 +90,44 @@ export async function call(path, { method = 'GET', body } = {}) {
     throw error;
   }
   return data;
+}
+
+// Only lightweight, read-only navigation snapshots are coalesced. Keep them
+// in JS memory (never Cache Storage) for a couple of seconds, and invalidate
+// before every mutation, so navigating back cannot trigger an API stampede.
+// The generation also prevents an old GET finishing after a PATCH from
+// restoring a stale note/task list.
+const fastReads = new Map();
+const readFlights = new Map();
+const READ_LIFETIME = {
+  '/platform/nextcloud/notes/': 2500,
+  '/operating/task-board/': 1000,
+};
+let readGeneration = 0;
+
+export function call(path, options = {}) {
+  const verb = String(options.method || 'GET').toUpperCase();
+  if (verb !== 'GET') {
+    readGeneration += 1;
+    fastReads.clear();
+    readFlights.clear();
+    return uncachedCall(path, options);
+  }
+  const lifetime = READ_LIFETIME[path];
+  if (!lifetime) return uncachedCall(path, options);
+  const cached = fastReads.get(path);
+  if (cached && cached.expires > Date.now()) return Promise.resolve(cached.data);
+  const flight = readFlights.get(path);
+  if (flight && flight.generation === readGeneration) return flight.promise;
+  const generation = readGeneration;
+  const promise = uncachedCall(path, options).then(data => {
+    if (readGeneration === generation) fastReads.set(path, { data, expires: Date.now() + lifetime });
+    return data;
+  }).finally(() => {
+    if (readFlights.get(path)?.promise === promise) readFlights.delete(path);
+  });
+  readFlights.set(path, { generation, promise });
+  return promise;
 }
 
 // ws-app and the five-layer rail historically imported this file with
