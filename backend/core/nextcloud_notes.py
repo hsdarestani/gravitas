@@ -774,21 +774,24 @@ def native_notes(request):
             _mark(resource, 'error', str(exc))
         return JsonResponse({'ok': True, 'item': _json(resource, request.user)}, status=201)
 
-    sync_result = None
-    available = True
-    try:
-        sync_result = reconcile_notes(request.user)
-    except Exception as exc:
-        available = False
-        sync_result = {'counts': {'errors': 1}, 'error': str(exc), 'native_url': _remote_url()}
+    # GET must be a fast database snapshot. The former implementation
+    # synchronously performed an entire native Nextcloud reconciliation for
+    # every navigation, sometimes issuing 2+ DAV requests PER NOTE while
+    # holding row locks. Opening an unrelated page could therefore take
+    # seconds, time out, and occasionally look like HTTP 500.
+    #
+    # Reconciliation still happens through the explicit POST /notes/sync/
+    # endpoint (or its idle scheduler). A read never mutates note content.
     items = [_json(resource, request.user) for resource in _visible_notes_for_user(request.user)]
-    return JsonResponse({
+    response = JsonResponse({
         'ok': True,
-        'available': available,
+        'available': True,
         'native_url': _remote_url(),
-        'sync': sync_result,
+        'sync': {'deferred': True, 'counts': {}},
         'items': items,
     })
+    response['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
