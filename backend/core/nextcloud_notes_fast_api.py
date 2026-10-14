@@ -29,7 +29,7 @@ def native_notes_fast(request):
 
     resources = _visible_notes_for_user(request.user)
     items = [_json(resource, request.user) for resource in resources]
-    return JsonResponse({
+    response = JsonResponse({
         'ok': True,
         'available': None,
         'sync_deferred': True,
@@ -37,3 +37,7 @@ def native_notes_fast(request):
         'sync': None,
         'items': items,
     })
+    # A note body is private and must never enter a CDN or shared proxy cache;
+    # the client has a short, session-local de-duplication window instead.
+    response['Cache-Control'] = 'private, no-store'
+    return response
