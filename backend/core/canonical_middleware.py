@@ -79,11 +79,13 @@ class CanonicalProjectMiddleware:
         if not relevant:
             return None
         project_ids = project_scope_for(request, view_kwargs)
-        if not project_ids:
+        if not project_ids and request.method in ('GET', 'HEAD', 'OPTIONS'):
             # A global list is a database snapshot, not an implicit full
-            # Nextcloud crawl. Writes to adopted objects remain guarded by
-            # canonical_signals and exact file ETags.
+            # Nextcloud crawl.
             return None
+        # Unscoped writes still get a journal/write_batch transaction: signals
+        # can guard a canonical object even when its project was not in the
+        # route. We simply skip the remote refresh of unrelated projects.
         try:
             with write_batch() as batch, transaction.atomic():
                 states = (
