@@ -167,6 +167,32 @@ def nextcloud():
             if keyword in low:
                 counters[keyword] += 1
     print("nextcloud_exception_buckets", dict(counters))
+    # Nextcloud's locking strategy is a major cause of stuck MOVE/rename
+    # operations. Report the NAME of the configured cache adapter, never the
+    # redis configuration object (which may contain a password).
+    for key in ("memcache.locking", "memcache.local", "memcache.distributed", "filelocking.enabled"):
+        output = run("sudo", "-n", "docker", "exec", "-u", "www-data",
+                     "gravitas-nextcloud", "php", "occ",
+                     "config:system:get", key, timeout=12).strip()
+        if key == "filelocking.enabled":
+            safe = "disabled" if output in {"0", "false", "False"} else "enabled" if output in {"1", "true", "True"} else "unknown"
+        elif "Redis" in output:
+            safe = "Redis"
+        elif "APCu" in output:
+            safe = "APCu"
+        elif not output:
+            safe = "unconfigured"
+        else:
+            # Never print arbitrary config contents.
+            safe = "configured_other"
+        print("nextcloud_config", key, safe)
+    # The native Notes API, WebDAV and the filesystem mirror can all be
+    # called by different writers. A stale maintenance mode or wrong lock
+    # backend is safer to detect than to automatically change.
+    maintenance = run("sudo", "-n", "docker", "exec", "-u", "www-data",
+                      "gravitas-nextcloud", "php", "occ",
+                      "config:system:get", "maintenance", timeout=12).strip()
+    print("nextcloud_maintenance", "on" if maintenance in {"1", "true", "True"} else "off_or_unknown")
 
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
