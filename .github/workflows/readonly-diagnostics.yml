@@ -1,0 +1,49 @@
+name: GraviQuest Read-only Production Diagnostics
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/readonly_runtime_diagnostics.py'
+      - '.github/workflows/readonly-diagnostics.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate diagnostic script syntax
+        run: python3 -m py_compile ops/readonly_runtime_diagnostics.py
+      - name: Capture anonymized production runtime signals
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          PORT="${SSH_PORT:-22}"
+          USER="${SSH_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/diagnose
+          chmod 600 ~/.ssh/diagnose
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/diagnose -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$USER@$SSH_HOST" true 2>/dev/null; then
+            if [ "$USER" != root ] && ssh "${OPTS[@]}" "root@$SSH_HOST" true 2>/dev/null; then
+              USER=root
+            else
+              echo "Could not authenticate to production" >&2
+              exit 1
+            fi
+          fi
+          REMOTE=/tmp/gravitas-diagnostics-$GITHUB_RUN_ID.py
+          scp -i ~/.ssh/diagnose -P "$PORT" ops/readonly_runtime_diagnostics.py "$USER@$SSH_HOST:$REMOTE"
+          ssh "${OPTS[@]}" "$USER@$SSH_HOST" "python3 '$REMOTE'; rm -f '$REMOTE'"
