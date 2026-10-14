@@ -30,6 +30,7 @@ let context = null;
 let options = [];
 let cursor = 0;
 let restoreFocus = null;
+let keyboardShortcutInstalled = false;
 
 /* ---- Actions ------------------------------------------------------------
    Static commands. Pages are searched separately and always rank above
@@ -333,13 +334,16 @@ export function mountPalette(ctx) {
 
   // Alt+K works on Windows keyboards and does not steal Ctrl+K from
   // browser search or in-note hyperlink editing.
-  document.addEventListener('keydown', (event) => {
-    if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      if (root && !root.hidden) close();
-      else openPalette();
-    }
-  });
+  if (!keyboardShortcutInstalled) {
+    keyboardShortcutInstalled = true;
+    document.addEventListener('keydown', (event) => {
+      if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        if (root && !root.hidden) close();
+        else openPalette();
+      }
+    });
+  }
 
   root = document.createElement('div');
   root.className = 'ws-palette';
