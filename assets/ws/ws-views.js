@@ -844,6 +844,16 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       state = boardState;
       const task = detailData.task;
       head.querySelector('h2').textContent = task.title;
+      // A project task is the SAME OperatingTask in Core and Research.
+      // Open its existing planning views; never create a second task copy.
+      if (task.project_id && go && (detailData.projects || boardState.projects || [])
+          .some((row) => String(row.id) === String(task.project_id))) {
+        const planning = makeButton('Open project planning', () => {
+          closeDialog(dialog);
+          go(`/workspace/research/projects/${task.project_id}/management?task=${task.id}`);
+        });
+        head.insertBefore(planning, head.querySelector('button'));
+      }
       if (detailData.can_delete) {
         const remove = makeButton('Delete task', async () => {
           if (!confirm(`Delete “${task.title}”? This cannot be undone.`)) return;
