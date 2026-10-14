@@ -96,7 +96,7 @@ class OperatingWorkspaceTests(TestCase):
             'owner_id': self.user.pk,
         })
         self.assertEqual(incomplete.status_code, 400)
-        self.assertEqual(incomplete.json()['error'], 'task_requires_title_owner_initiative_priority_and_done_definition')
+        self.assertEqual(incomplete.json()['error'], 'task_requires_title_owner_priority_and_done_definition')
 
         unscheduled = self.post_json('/api/operating/tasks/', {
             'initiative_id': initiative['id'],
