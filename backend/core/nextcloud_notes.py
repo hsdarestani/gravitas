@@ -843,9 +843,10 @@ def native_note_detail(request, resource_id):
     is_canonical = bool(resource.project_id and active(resource.project))
     context = canonical_operation(request.user) if is_canonical else transaction.atomic()
     with context:
-        resource = KnowledgeResource.objects.select_for_update().select_related(
-            'project', 'owner', 'workspace'
-        ).get(pk=resource.pk)
+        # PostgreSQL cannot apply FOR UPDATE to the nullable side of the
+        # OUTER JOIN introduced by select_related('project'). Lock ONLY the
+        # KnowledgeResource row; related data can be loaded lazily afterward.
+        resource = KnowledgeResource.objects.select_for_update().get(pk=resource.pk)
         if expected_updated is not None and resource.updated_at.isoformat() != expected_updated:
             return JsonResponse({
                 'ok': False,
