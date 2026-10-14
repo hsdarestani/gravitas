@@ -219,7 +219,7 @@ class OperatingRisk(models.Model):
 
 class OperatingTask(models.Model):
     workspace = models.ForeignKey('core.Workspace', on_delete=models.CASCADE, related_name='operating_tasks')
-    initiative = models.ForeignKey(Initiative, on_delete=models.CASCADE, related_name='tasks')
+    initiative = models.ForeignKey(Initiative, on_delete=models.SET_NULL, related_name='tasks', blank=True, null=True)
     milestone = models.ForeignKey(OperatingMilestone, on_delete=models.SET_NULL, related_name='tasks', blank=True, null=True)
     work_package = models.ForeignKey(OperatingWorkPackage, on_delete=models.SET_NULL, related_name='tasks', blank=True, null=True)
     cycle = models.ForeignKey(OperatingCycle, on_delete=models.SET_NULL, related_name='tasks', blank=True, null=True)
