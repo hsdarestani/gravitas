@@ -52,7 +52,11 @@ def project_scope_for(request, kwargs):
     # A create/move may name its project only in JSON. Read at most 256 KiB,
     # and do not parse multipart uploads or unrelated large requests.
     if request.method not in ('GET', 'HEAD') and (request.content_type or '').startswith('application/json'):
-        if 0 <= (request.content_length or 0) <= 262144:
+        try:
+            declared_size = int(request.META.get('CONTENT_LENGTH') or '0')
+        except (ValueError, TypeError):
+            declared_size = 262145
+        if 0 <= declared_size <= 262144:
             try:
                 import json
                 payload = json.loads(request.body or b'{}')
