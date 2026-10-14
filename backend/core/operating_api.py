@@ -211,11 +211,15 @@ def _meeting_json(obj):
 
 
 def _task_json(obj):
+    initiative = obj.initiative if obj.initiative_id else None
+    kr = initiative.key_result if initiative else None
+    objective = kr.objective if kr else None
+    process = initiative.process if initiative else None
     trace = {
-        'objective': {'id': obj.initiative.key_result.objective_id, 'title': obj.initiative.key_result.objective.title},
-        'key_result': {'id': obj.initiative.key_result_id, 'title': obj.initiative.key_result.title},
-        'initiative': {'id': obj.initiative_id, 'title': obj.initiative.title},
-        'process': {'id': obj.initiative.process_id, 'key': obj.initiative.process.key, 'name': obj.initiative.process.name},
+        'objective': {'id': objective.pk, 'title': objective.title} if objective else {'id': None, 'title': ''},
+        'key_result': {'id': kr.pk, 'title': kr.title} if kr else {'id': None, 'title': ''},
+        'initiative': {'id': initiative.pk, 'title': initiative.title} if initiative else {'id': None, 'title': ''},
+        'process': {'id': process.pk, 'key': process.key, 'name': process.name} if process else {'id': None, 'key': '', 'name': ''},
     }
     return {
         'id': obj.pk, 'title': obj.title, 'description': obj.description, 'owner': _person(obj.owner),
