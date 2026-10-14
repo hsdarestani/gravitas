@@ -33,6 +33,9 @@ jobs:
           from pathlib import Path
           entries = sorted(p.name for p in Path('backend/core/migrations').glob('[0-9]*.py'))
           print('Current core migration filenames:', entries[-8:])
+          import subprocess
+          result = subprocess.run(['git', 'grep', '-l', 'initiative', '--', 'backend/core/*.py'], capture_output=True, text=True)
+          print('Core Python files referencing Initiative:', result.stdout.splitlines()[:60])
           PY
       - name: Capture anonymized production runtime signals
         env:
