@@ -91,21 +91,15 @@ def _person(user):
 
 
 def _task_json(task):
+    initiative = task.initiative if task.initiative_id else None
+    kr = initiative.key_result if initiative else None
+    objective = kr.objective if kr else None
+    process = initiative.process if initiative else None
     trace = {
-        'objective': {
-            'id': task.initiative.key_result.objective_id,
-            'title': task.initiative.key_result.objective.title,
-        },
-        'key_result': {
-            'id': task.initiative.key_result_id,
-            'title': task.initiative.key_result.title,
-        },
-        'initiative': {'id': task.initiative_id, 'title': task.initiative.title},
-        'process': {
-            'id': task.initiative.process_id,
-            'key': task.initiative.process.key,
-            'name': task.initiative.process.name,
-        },
+        'objective': {'id': objective.pk, 'title': objective.title} if objective else {'id': None, 'title': ''},
+        'key_result': {'id': kr.pk, 'title': kr.title} if kr else {'id': None, 'title': ''},
+        'initiative': {'id': initiative.pk, 'title': initiative.title} if initiative else {'id': None, 'title': ''},
+        'process': {'id': process.pk, 'key': process.key, 'name': process.name} if process else {'id': None, 'key': '', 'name': ''},
     }
     return {
         'id': task.pk,
@@ -119,7 +113,7 @@ def _task_json(task):
         'blocked_reason': task.blocked_reason,
         'board_order': task.board_order,
         'initiative_id': task.initiative_id,
-        'initiative_title': task.initiative.title,
+        'initiative_title': task.initiative.title if task.initiative_id else '',
         'milestone_id': task.milestone_id,
         'milestone_title': task.milestone.title if task.milestone else '',
         'work_package_id': task.work_package_id,
@@ -382,7 +376,7 @@ def task_board_detail(request, task_id):
         )
         if payload.get('milestone_id') and not milestone:
             return _error('invalid_milestone')
-        if milestone and milestone.initiative.key_result_id != task.initiative.key_result_id:
+        if milestone and task.initiative_id and milestone.initiative.key_result_id != task.initiative.key_result_id:
             return _error('milestone_key_result_mismatch')
         task.milestone = milestone
         if milestone:
@@ -396,7 +390,7 @@ def task_board_detail(request, task_id):
         )
         if payload.get('work_package_id') and not task.work_package:
             return _error('invalid_work_package')
-        if task.work_package and task.work_package.milestone.initiative.key_result_id != task.initiative.key_result_id:
+        if task.work_package and task.initiative_id and task.work_package.milestone.initiative.key_result_id != task.initiative.key_result_id:
             return _error('work_package_key_result_mismatch')
         if task.work_package and not task.milestone:
             task.milestone = task.work_package.milestone
