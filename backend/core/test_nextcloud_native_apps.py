@@ -123,8 +123,9 @@ class NativeNotesMirrorTests(TestCase):
         self.assertEqual(mirror['id'], 41)
         self.assertEqual(mirror['etag'], 'etag-one')
         self.assertEqual(mirror['state'], 'synced')
-        self.assertEqual(request.call_args.args[:2], ('POST', '/notes'))
-        self.assertEqual(request.call_args.kwargs['body']['category'], 'Gravitas/Research')
+        posted = next(call for call in request.call_args_list if call.args[:2] == ('POST', '/notes'))
+        self.assertEqual(posted.kwargs['body']['category'], 'Gravitas/Research')
+        self.assertIn(('GET', '/notes/41'), [call.args[:2] for call in request.call_args_list])
 
     @patch('core.nextcloud_notes.ensure_user', return_value=object())
     @patch('core.nextcloud_notes._request')
@@ -321,7 +322,8 @@ class NativeNotesMirrorTests(TestCase):
 
         sync_note_to_nextcloud(resource)
 
-        self.assertEqual(request.call_args.kwargs['body']['category'], 'Gravitas/Research/Thesis/Chapter 1')
+        posted = next(call for call in request.call_args_list if call.args[:2] == ('POST', '/notes'))
+        self.assertEqual(posted.kwargs['body']['category'], 'Gravitas/Research/Thesis/Chapter 1')
         self.assertEqual(_json(resource, self.user)['folder'], 'Thesis/Chapter 1')
 
     def test_a_note_without_a_folder_keeps_its_fingerprint(self):
@@ -371,13 +373,14 @@ class NativeNotesMirrorTests(TestCase):
         moved.metadata = dict(moved.metadata, ws_folder='sakam')
         moved.save(update_fields=['metadata'])
         filed = dict(original, etag='etag-b', category='Gravitas/Research/sakam')
-        request.side_effect = [(200, original, {}), (200, filed, {})]
+        request.side_effect = [(200, original, {}), (200, filed, {}), (200, filed, {})]
 
         sync_note_to_nextcloud(stale)
 
         resource.refresh_from_db()
         self.assertEqual(resource.metadata['ws_folder'], 'sakam')
-        self.assertEqual(request.call_args.kwargs['body']['category'], 'Gravitas/Research/sakam')
+        posted = next(call for call in request.call_args_list if call.args[0] == 'PUT')
+        self.assertEqual(posted.kwargs['body']['category'], 'Gravitas/Research/sakam')
         self.assertEqual(resource.metadata['nextcloud_notes']['state'], 'synced')
 
     @patch('core.nextcloud_notes.ensure_user', return_value=object())
