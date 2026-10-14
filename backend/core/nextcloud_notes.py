@@ -664,9 +664,16 @@ def _visible_notes_for_user(user):
     candidates = KnowledgeResource.objects.filter(
         kind=KnowledgeResource.Kind.NOTE,
     ).select_related('owner', 'project', 'workspace').order_by('-updated_at')
+    # Owning the note or its project always confers edit rights in
+    # platform_access. Skip repeated content-type, policy and grant queries
+    # for those rows; they make a large personal notebook O(N) SQL round trips.
     return [
         resource for resource in candidates
-        if _allowed_space(user, _space(resource)) and can_view(user, resource)
+        if _allowed_space(user, _space(resource)) and (
+            resource.owner_id == user.pk or
+            (resource.project_id and resource.project.owner_id == user.pk) or
+            can_view(user, resource)
+        )
     ]
 
 
@@ -674,9 +681,13 @@ def _json(resource, user=None):
     mirror = _mirror(resource)
     space = _space(resource)
     viewer = user or resource.owner
-    editable = can_edit(viewer, resource)
     is_owner = getattr(viewer, 'pk', None) == resource.owner_id
     project = resource.project
+    # The owner/project-owner permission is deterministic. Recalculating it
+    # through generic policy ACL queries for every list row is unnecessary.
+    editable = bool(is_owner or (
+        project and project.owner_id == getattr(viewer, 'pk', None)
+    )) or can_edit(viewer, resource)
     return {
         'id': resource.pk,
         'title': resource.title,
