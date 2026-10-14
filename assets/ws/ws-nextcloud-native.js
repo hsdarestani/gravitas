@@ -432,7 +432,9 @@ function mountNotebook(host, info, state) {
 
   const head = el('div', 'nb-side__head');
   const name = el('div', 'nb-side__name');
-  name.append(el('span', 'nb-side__eyebrow', info.area), el('h1', 'nb-side__title', 'Notes'));
+  name.append(el('span', 'nb-side__eyebrow', info.area),
+    el('h1', 'nb-side__title', 'Notes'),
+    el('small', 'fl-muted', 'Markdown editor · open a note or click New to write'));
   const create = el('button', 'nb-new');
   create.type = 'button';
   create.title = 'New note';
