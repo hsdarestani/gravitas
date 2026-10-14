@@ -809,42 +809,86 @@ def native_note_detail(request, resource_id):
         return JsonResponse({'ok': True, 'deleted': True})
 
     data = _body(request)
-    metadata = dict(resource.metadata or {})
-    if 'title' in data:
-        title = str(data.get('title') or '').strip()[:240]
-        if not title:
-            return JsonResponse({'ok': False, 'error': 'title_required'}, status=400)
-        resource.title = title
-    if 'content' in data:
-        resource.body = str(data.get('content') or '')
-        metadata['ws_blocks'] = [{'id': f'b-{resource.pk}-native', 'type': 'p', 'text': resource.body}]
-    if 'favorite' in data:
-        metadata['ws_bookmarked'] = bool(data.get('favorite'))
-    if 'space' in data:
-        space = str(data.get('space') or '').strip().lower()
-        if space not in SPACE_CATEGORY or not _allowed_space(request.user, space):
-            return JsonResponse({'ok': False, 'error': 'space_access_required'}, status=403)
-        metadata['ws_space'] = space
-    if 'folder' in data:
-        folder = clean_folder(data.get('folder'))
-        if folder:
-            metadata['ws_folder'] = folder
-        else:
-            metadata.pop('ws_folder', None)
-    resource.metadata = metadata
-    resource.save(update_fields=['title', 'body', 'metadata', 'updated_at'])
-    KnowledgeActivity.objects.create(
-        workspace=resource.workspace, actor=request.user, resource=resource,
-        project=resource.project, action='note_edited',
-        detail={'title': resource.title, 'surface': 'nextcloud_notes'},
-    )
-    try:
-        sync_note_to_nextcloud(resource)
-    except NotesConflict as exc:
-        return JsonResponse({'ok': False, 'error': str(exc), 'item': _json(resource, request.user)}, status=409)
-    except Exception as exc:
-        _mark(resource, 'error', str(exc))
-    return JsonResponse({'ok': True, 'item': _json(resource, request.user)})
+    expected_updated = data.get('expected_updated')
+    if expected_updated is not None and not isinstance(expected_updated, str):
+        return JsonResponse({'ok': False, 'error': 'invalid_note_revision'}, status=400)
+
+    # A shared note has one identity in Core and Research. Serialise a save,
+    # its native mirror attempt and the readback so that a background reconcile
+    # or a second tab cannot overwrite the user's freshly saved text.
+    from .canonical_projects import active
+    from .canonical_journal import canonical_operation
+    is_canonical = bool(resource.project_id and active(resource.project))
+    context = canonical_operation(request.user) if is_canonical else transaction.atomic()
+    with context:
+        resource = KnowledgeResource.objects.select_for_update().select_related(
+            'project', 'owner', 'workspace'
+        ).get(pk=resource.pk)
+        if expected_updated is not None and resource.updated_at.isoformat() != expected_updated:
+            return JsonResponse({
+                'ok': False,
+                'error': 'note_changed_elsewhere',
+                'detail': 'This note changed after you opened it. Copy your draft or combine it with the current version before saving.',
+                'item': _json(resource, request.user),
+            }, status=409)
+        metadata = dict(resource.metadata or {})
+        if 'title' in data:
+            title = str(data.get('title') or '').strip()[:240]
+            if not title:
+                return JsonResponse({'ok': False, 'error': 'title_required'}, status=400)
+            resource.title = title
+        if 'content' in data:
+            resource.body = str(data.get('content') or '')
+            metadata['ws_blocks'] = [{'id': f'b-{resource.pk}-native', 'type': 'p', 'text': resource.body}]
+        if 'favorite' in data:
+            metadata['ws_bookmarked'] = bool(data.get('favorite'))
+        if 'space' in data:
+            space = str(data.get('space') or '').strip().lower()
+            if space not in SPACE_CATEGORY or not _allowed_space(request.user, space):
+                return JsonResponse({'ok': False, 'error': 'space_access_required'}, status=403)
+            # Do not silently relocate an existing note just because its
+            # editor was opened through the other workspace.
+            if space != _space(resource):
+                return JsonResponse({'ok': False, 'error': 'note_space_change_requires_explicit_move'}, status=409)
+        if 'folder' in data:
+            folder = clean_folder(data.get('folder'))
+            if folder:
+                metadata['ws_folder'] = folder
+            else:
+                metadata.pop('ws_folder', None)
+        resource.metadata = metadata
+        resource.save(update_fields=['title', 'body', 'metadata', 'updated_at'])
+        KnowledgeActivity.objects.create(
+            workspace=resource.workspace, actor=request.user, resource=resource,
+            project=resource.project, action='note_edited',
+            detail={'title': resource.title, 'surface': 'nextcloud_notes'},
+        )
+        sync_error = None
+        if not is_canonical:
+            try:
+                sync_note_to_nextcloud(resource)
+            except NotesConflict as exc:
+                sync_error = str(exc)
+            except Exception as exc:
+                _mark(resource, 'error', str(exc))
+                sync_error = str(exc)
+        # Canonical project notes are written by canonical_operation on commit,
+        # never via a second unmanaged Notes API save.
+    persisted = KnowledgeResource.objects.get(pk=resource.pk)
+    if ('content' in data and persisted.body != str(data['content'] or '')) or (
+            'title' in data and persisted.title != str(data['title'] or '').strip()[:240]):
+        return JsonResponse({'ok': False, 'error': 'note_readback_mismatch'}, status=409)
+    item = _json(persisted, request.user)
+    if is_canonical:
+        item['sync_state'] = 'synced'
+        item['sync_error'] = ''
+    if sync_error and item['sync_state'] != 'conflict':
+        item['sync_state'] = 'error'
+        item['sync_error'] = sync_error[:240]
+    if item['sync_state'] == 'conflict':
+        return JsonResponse({'ok': False, 'error': item['sync_error'] or 'note_conflict',
+                             'item': item}, status=409)
+    return JsonResponse({'ok': True, 'item': item})
 
 
 @require_http_methods(['POST'])
