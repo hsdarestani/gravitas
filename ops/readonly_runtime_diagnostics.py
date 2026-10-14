@@ -18,7 +18,7 @@ def run(*cmd, timeout=15):
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return ""
-    return result.stdout[-2_000_000:]
+    return result.stdout[-8_000_000:]
 
 def read_lines(path, max_bytes=2_000_000):
     try:
@@ -116,20 +116,31 @@ def web_status():
     print("nginx_upstream_error_buckets", dict(counts))
 
 def backend():
-    print("=== Django/Gunicorn errors (last 90 min, anonymized) ===")
-    log = run("sudo", "-n", "journalctl", "-u", "gravitas-backend", "--since", "90 minutes ago", "--no-pager", "-o", "cat")
+    print("=== Django/Gunicorn errors (last 8 hours, anonymized) ===")
+    log = run("sudo", "-n", "journalctl", "-u", "gravitas-backend", "--since", "8 hours ago", "--no-pager", "-o", "cat")
     if not log:
-        log = run("journalctl", "-u", "gravitas-backend", "--since", "90 minutes ago", "--no-pager", "-o", "cat")
+        log = run("journalctl", "-u", "gravitas-backend", "--since", "8 hours ago", "--no-pager", "-o", "cat")
     errors = collections.Counter()
     locations = collections.Counter()
+    generic = collections.Counter()
     for line in log.splitlines()[-18000:]:
         m = re.match(r"^(?:[a-zA-Z_][\w.]*)?(?:[A-Za-z]+Error|Exception|Timeout|OperationalError|IntegrityError|DatabaseError|ProgrammingError):", line.strip())
         if m:
             errors[m.group().split(":", 1)[0][-100:]] += 1
+        low = line.lower()
+        for label, signature in (
+            ('internal_server_error', 'internal server error:'),
+            ('gunicorn_worker_timeout', 'worker timeout'),
+            ('gunicorn_worker_killed', 'worker was sent sigkill'),
+            ('unhandled_traceback', 'traceback (most recent call last)'),
+        ):
+            if signature in low:
+                generic[label] += 1
         file = re.search(r'File "[^"]*/(core|gravitas_backend)/([A-Za-z_0-9/]+\.py)", line (\d+)', line)
         if file:
             locations[(file.group(1), file.group(2)[-110:], file.group(3))] += 1
     print("exception_types", dict(errors.most_common(20)))
+    print("server_error_signatures", dict(generic))
     print("traceback_locations", [
         dict(module=a, file=b, line=c, count=n) for (a,b,c),n in locations.most_common(12)
     ])
