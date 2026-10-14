@@ -17,6 +17,53 @@ from .platform_access import can_view
 from .canonical_journal import write_batch, commit_witness
 
 
+
+def project_scope_for(request, kwargs):
+    """Only refresh projects this request actually addresses.
+
+    Previously any GET of /notes, /tasks or the command palette refreshed
+    *every* canonical project and its *every* file over Nextcloud DAV while
+    holding the database transaction open. This can exceed the Gunicorn worker
+    timeout, and a single slow Nextcloud request blocks unrelated screens.
+    """
+    from .models import KnowledgeResource
+    from .operating_models import OperatingTask
+
+    values = set()
+
+    def add(value):
+        try:
+            if value not in (None, '') and int(value) > 0:
+                values.add(int(value))
+        except (ValueError, TypeError, OverflowError):
+            pass
+
+    for key in ('project_id', 'research_project_id'):
+        add(kwargs.get(key))
+    for key in ('project', 'project_id'):
+        add(request.GET.get(key))
+    if kwargs.get('resource_id'):
+        add(KnowledgeResource.objects.filter(pk=kwargs['resource_id'])
+            .values_list('project_id', flat=True).first())
+    if kwargs.get('task_id'):
+        add(OperatingTask.objects.filter(pk=kwargs['task_id'])
+            .values_list('project_id', flat=True).first())
+
+    # A create/move may name its project only in JSON. Read at most 256 KiB,
+    # and do not parse multipart uploads or unrelated large requests.
+    if request.method not in ('GET', 'HEAD') and (request.content_type or '').startswith('application/json'):
+        if 0 <= (request.content_length or 0) <= 262144:
+            try:
+                import json
+                payload = json.loads(request.body or b'{}')
+            except (ValueError, UnicodeDecodeError):
+                payload = {}
+            if isinstance(payload, dict):
+                add(payload.get('project_id'))
+                add(payload.get('research_project_id'))
+    return values
+
+
 class CanonicalProjectMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -31,12 +78,19 @@ class CanonicalProjectMiddleware:
         relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'assistant/', 'pulsar/', 'platform/share/', 'platform/folders/'))
         if not relevant:
             return None
+        project_ids = project_scope_for(request, view_kwargs)
+        if not project_ids:
+            # A global list is a database snapshot, not an implicit full
+            # Nextcloud crawl. Writes to adopted objects remain guarded by
+            # canonical_signals and exact file ETags.
+            return None
         try:
             with write_batch() as batch, transaction.atomic():
-                states = CanonicalProject.objects.select_for_update().filter(enabled=True).select_related('project')
-                project_id = view_kwargs.get('project_id') or request.GET.get('project')
-                if project_id:
-                    states = states.filter(project_id=project_id)
+                states = (
+                    CanonicalProject.objects.select_for_update()
+                    .filter(enabled=True, project_id__in=project_ids)
+                    .select_related('project')
+                )
                 for state in states:
                     if can_view(request.user, state.project):
                         refresh_project(state.project, request.user)
