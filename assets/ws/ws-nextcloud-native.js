@@ -52,6 +52,7 @@ function openNative(url) {
 }
 
 function syncSummary(data) {
+  if (data?.sync?.deferred) return 'Notes loaded · Nextcloud sync runs separately';
   const counts = data?.sync?.counts || data?.counts || {};
   const bits = [];
   for (const [key, label] of [
@@ -63,7 +64,7 @@ function syncSummary(data) {
 }
 
 function navTo(path) {
-  if (path === location.pathname) return;
+  if (path === location.pathname + location.search + location.hash) return;
   history.pushState({}, '', path);
   dispatchEvent(new PopStateEvent('popstate'));
   dispatchEvent(new CustomEvent('ws:navigate'));
@@ -1804,6 +1805,18 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   /* ---- Read view ---- */
   const hooks = {
     wiki(name) {
+      // Canonical [[task:ID]], [[note:ID]] and [[journal:YYYY-MM-DD]]
+      // references work anywhere this Markdown note is displayed.
+      const taskId = /^task:(\d+)$/i.exec(name)?.[1];
+      if (taskId) return () => navTo(`/workspace/core/tasks?task=${taskId}`);
+      const noteId = /^note:(\d+)$/i.exec(name)?.[1];
+      if (noteId) {
+        const match = book.items.find(item => same(item.id, noteId));
+        if (match) return () => choose(match.id);
+        return () => navTo(`/workspace/research/notes?note=${noteId}`);
+      }
+      const dayId = /^journal:(\d{4}-\d{2}-\d{2})$/i.exec(name)?.[1];
+      if (dayId && DAY_KEY.test(dayId)) return () => navTo(`/workspace/research/notes?day=${dayId}`);
       const wanted = name.trim().toLowerCase();
       const target = book.items.find((item) => String(item.title || '').trim().toLowerCase() === wanted);
       return target ? () => choose(target.id) : null;
