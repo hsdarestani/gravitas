@@ -2,6 +2,7 @@
  * objects; canonical Nextcloud documents remain the source of truth.
  * These views do not persist a competing task representation. */
 import * as P from './ws-platform.js?v=20261014-r5';
+import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261014-r5';
 
 const node = (tag, cls = '', content = '') => {
   const n = document.createElement(tag);
@@ -156,10 +157,19 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     owner.disabled=!!cockpit.project?.canonical_enabled;
     owner.title=owner.disabled?'Owner updates require the versioned canonical task schema upgrade.':'';
     const blocked = control('input','text','Blocker or waiting reason'); blocked.value=task.blocked_reason || '';
-    panel.append(title, deadline, status, priority, owner, blocked,
+    const description = control('textarea', null, 'Description'); description.rows=5; description.value=task.description || '';
+    const done = control('textarea', null, 'Definition of done'); done.rows=3; done.value=task.definition_of_done || '';
+    panel.append(title, description, done, deadline, status, priority, owner, blocked,
       ...(owner.disabled?[node('p','pm-note','Owner and dependency changes are read only for adopted projects until these relations are present in the canonical text schema.')]:[]),
-      btn('Save changes', () => { const data = { title: title.value, due_date:deadline.value, status:status.value, priority:priority.value, blocked_reason:blocked.value }; if(!owner.disabled && owner.value && owner.value !== String(task.owner_id)) data.owner_id = owner.value; patch(task, data); }),
+      btn('Save changes', () => { const data = { title: title.value, description:description.value, definition_of_done:done.value, due_date:deadline.value, status:status.value, priority:priority.value, blocked_reason:blocked.value }; if(!owner.disabled && owner.value && owner.value !== String(task.owner_id)) data.owner_id = owner.value; patch(task, data); }),
       btn('Close', () => editor.replaceChildren()));
+    mountAnchoredComments({ container: panel, kind: 'task', id: task.id, canEdit: task.can_edit,
+      fields: [
+        {key:'description', label:'Task description', element:description},
+        {key:'definition_of_done', label:'Definition of done', element:done},
+        {key:'blocked_reason', label:'Blocked reason', element:blocked},
+        {key:'title', label:'Title', element:title},
+      ] });
     const time = node('section','pm-editor');panel.append(time);
     editor.append(panel);
     showTime(task,time);
