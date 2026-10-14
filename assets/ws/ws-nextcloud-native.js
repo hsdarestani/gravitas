@@ -1809,6 +1809,14 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
       // references work anywhere this Markdown note is displayed.
       const taskId = /^task:(\d+)$/i.exec(name)?.[1];
       if (taskId) return () => navTo(`/workspace/core/tasks?task=${taskId}`);
+      const fileId = /^file:(\d+)$/i.exec(name)?.[1];
+      if (fileId) return () => {
+        // The existing file download endpoint enforces access per object.
+        // Opening separately keeps the unsaved note in its current editor.
+        window.open(`/api/platform/files/${fileId}/download/`, '_blank', 'noopener');
+      };
+      const projectId = /^project:(\d+)$/i.exec(name)?.[1];
+      if (projectId) return () => navTo(`/workspace/research/projects/${projectId}`);
       const noteId = /^note:(\d+)$/i.exec(name)?.[1];
       if (noteId) {
         const match = book.items.find(item => same(item.id, noteId));
