@@ -17,8 +17,14 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Validate diagnostic script syntax
-        run: python3 -m py_compile ops/readonly_runtime_diagnostics.py
+      - name: Validate diagnostic script and report current schema leaf
+        run: |
+          python3 -m py_compile ops/readonly_runtime_diagnostics.py
+          python3 - <<'PY'
+          from pathlib import Path
+          entries = sorted(p.name for p in Path('backend/core/migrations').glob('[0-9]*.py'))
+          print('Current core migration filenames:', entries[-8:])
+          PY
       - name: Capture anonymized production runtime signals
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
