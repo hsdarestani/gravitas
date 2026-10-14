@@ -67,7 +67,7 @@ def _execution_initiative(project, actor):
         .order_by('id')
         .first()
     )
-    if existing_task:
+    if existing_task and existing_task.initiative_id:
         return core, existing_task.initiative
 
     # A milestone may be the first execution object created for a project. Reuse
