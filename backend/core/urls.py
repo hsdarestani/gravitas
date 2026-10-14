@@ -110,6 +110,7 @@ from core.nextcloud_api import (
     project_nextcloud_sync,
     sharing_v4,
 )
+from core.anchored_comments import anchored_comments
 from core.nextcloud_deck import deck_status
 from core.nextcloud_deck_access import deck_sync_with_access
 from core.nextcloud_notes import (
@@ -372,6 +373,7 @@ urlpatterns = [
     path('platform/nextcloud/notes/sync/', require_research_or_core(native_notes_sync)),
     path('platform/nextcloud/notes/<int:resource_id>/resolve/', require_research_or_core(native_note_resolve)),
     path('platform/nextcloud/notes/<int:resource_id>/', require_research_or_core(native_note_detail)),
+    path('platform/anchored-comments/<str:kind>/<int:object_id>/', require_research_or_core(anchored_comments)),
     path('platform/content/', require_core(content_work_items_v3)),
     path('platform/content/<int:item_id>/', require_core(content_work_detail_v3)),
     path('platform/content/<int:item_id>/comments/', content_comments),
