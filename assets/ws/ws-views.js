@@ -1717,6 +1717,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         });
         count.textContent = `${visible.length} of ${data.tasks.length}`;
         board.innerHTML = '';
+        holder.querySelector('.task-board-view-note')?.remove();
         board.className = filters.view === 'board'
           ? 'task-board__surface task-trello-board'
           : filters.view === 'graph'
@@ -1790,8 +1791,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             column.append(header, items);
             board.append(column);
           }
-          const note = el('p', 'fl-muted', 'These Core views group the same tasks by due date. Project-specific Gantt start and end plans remain available from the linked project Command center.');
-          board.prepend(note);
+          const note = el('p', 'fl-muted task-board-view-note', 'These Core views group the same tasks by due date. Project-specific Gantt start/end plans remain in the linked project Command center.');
+          holder.insertBefore(note, board);
           window.requestAnimationFrame(syncTopScroll);
           return;
         }
