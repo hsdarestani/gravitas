@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase, override_settings
 
 from .models import KnowledgeResource
-from .nextcloud_notes import native_notes, native_notes_sync
+from .nextcloud_notes import native_notes_sync
+from .nextcloud_notes_fast_api import native_notes_fast
 from .platform_runtime_v3 import ensure_platform_workspaces
 
 
@@ -30,10 +31,11 @@ class FastNotesListingTests(TestCase):
         request.user = self.user
         with patch('core.nextcloud_notes.reconcile_notes') as reconcile, \
              patch('core.nextcloud_notes.cloud._request') as webdav:
-            result = native_notes(request)
+            result = native_notes_fast(request)
         self.assertEqual(result.status_code, 200)
         payload = json.loads(result.content)
-        self.assertTrue(payload['sync']['deferred'])
+        self.assertTrue(payload['sync_deferred'])
+        self.assertIsNone(payload['sync'])
         self.assertEqual(payload['items'][0]['content'], self.note.body)
         self.assertEqual(result['Cache-Control'], 'private, no-store')
         reconcile.assert_not_called()
