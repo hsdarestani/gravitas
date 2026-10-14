@@ -1612,7 +1612,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         const note = el('div', 'v-note');
         note.append(
           el('strong', null, 'No tasks yet.'),
-          document.createTextNode(' Start clean and create only the tasks you want to run against the current KRs.'),
+          document.createTextNode(' Start clean and create tasks independently or connect them to a Key Result or project later.'),
         );
         holder.append(note);
       }
@@ -1638,7 +1638,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       viewFilter.setAttribute('role', 'group');
       viewFilter.setAttribute('aria-label', 'Task view');
       viewFilter.value = filters.view || 'board';
-      for (const [value, text] of [['tree', 'Tree'], ['board', 'Board'], ['graph', 'Graph']]) {
+      for (const [value, text] of [['tree', 'Tree'], ['board', 'Board'], ['week', 'Week'], ['timeline', 'Timeline'], ['graph', 'Graph']]) {
         const option = el('button', 'task-view-switch__option', text);
         option.type = 'button';
         option.dataset.view = value;
@@ -1664,7 +1664,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       head.querySelector('.task-board__new')?.remove();
       const add = makeButton('New task', () => openCreateDialog(state, load), true);
       add.classList.add('task-board__new');
-      add.title = 'Create a task under an existing key result';
+      add.title = 'Create a task; linking to a Key Result is optional';
       add.disabled = !data.can_edit;
       head.append(add);
 
@@ -1717,6 +1717,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         });
         count.textContent = `${visible.length} of ${data.tasks.length}`;
         board.innerHTML = '';
+        holder.querySelector('.task-board-view-note')?.remove();
         board.className = filters.view === 'board'
           ? 'task-board__surface task-trello-board'
           : filters.view === 'graph'
@@ -1733,6 +1734,66 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         if (filters.view === 'graph') {
           renderTaskGraph(board, visible, openCard, openHierarchy);
           syncTopScroll();
+          return;
+        }
+        if (filters.view === 'week' || filters.view === 'timeline') {
+          const dueTasks = [...visible].sort((left, right) =>
+            String(left.due_date || '9999').localeCompare(String(right.due_date || '9999'))
+            || left.id - right.id);
+          const localIso = date => [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, '0'),
+            String(date.getDate()).padStart(2, '0'),
+          ].join('-');
+          const buckets = [];
+          if (filters.view === 'week') {
+            const first = new Date();
+            first.setHours(12, 0, 0, 0);
+            first.setDate(first.getDate() - (first.getDay() + 6) % 7);
+            for (let day = 0; day < 7; day += 1) {
+              const date = new Date(first);
+              date.setDate(first.getDate() + day);
+              const key = localIso(date);
+              buckets.push({
+                key, label: date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }),
+                tasks: dueTasks.filter(task => task.due_date === key),
+              });
+            }
+            const thisWeek = new Set(buckets.map(bucket => bucket.key));
+            buckets.unshift({
+              key: 'overdue', label: 'Earlier deadlines',
+              tasks: dueTasks.filter(task => task.due_date && task.due_date < buckets[0].key),
+            });
+            buckets.push({
+              key: 'outside', label: 'Later or unscheduled',
+              tasks: dueTasks.filter(task => !task.due_date || (!thisWeek.has(task.due_date) && task.due_date >= buckets[1].key)),
+            });
+          } else {
+            const byDate = new Map();
+            for (const task of dueTasks) {
+              const key = task.due_date || 'undated';
+              if (!byDate.has(key)) byDate.set(key, []);
+              byDate.get(key).push(task);
+            }
+            for (const [key, tasks] of byDate) {
+              buckets.push({ key, label: key === 'undated' ? 'Without due date' : key, tasks });
+            }
+          }
+          board.className = filters.view === 'week'
+            ? 'task-board__surface task-trello-board' : 'task-board__surface task-board__surface--tree';
+          for (const bucket of buckets) {
+            const column = el('section', 'task-trello-column');
+            const header = el('div', 'task-trello-column__head');
+            header.append(el('strong', null, bucket.label), el('span', 'v-column__count', String(bucket.tasks.length)));
+            const items = el('div', 'task-trello-column__body');
+            if (!bucket.tasks.length) items.append(el('p', 'fl-muted', 'No tasks'));
+            for (const task of bucket.tasks) items.append(taskCard(task, openCard, { draggable: false }));
+            column.append(header, items);
+            board.append(column);
+          }
+          const note = el('p', 'fl-muted task-board-view-note', 'These Core views group the same tasks by due date. Project-specific Gantt start/end plans remain in the linked project Command center.');
+          holder.insertBefore(note, board);
+          window.requestAnimationFrame(syncTopScroll);
           return;
         }
 
