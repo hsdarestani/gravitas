@@ -173,10 +173,13 @@ def project_tasks(request, project_id):
         definition_of_done = f'“{title}” is complete and documented in GRV-{project.pk:06d}.'
 
     with transaction.atomic():
-        core, initiative = _execution_initiative(project, request.user)
+        # Research tasks are the SAME OperatingTask, but do not imply any KR.
+        # Milestones still use the legacy execution initiative helper until
+        # their own schema is made optional.
+        core = ensure_platform_workspaces(request.user)['core']
         task = OperatingTask.objects.create(
             workspace=core,
-            initiative=initiative,
+            initiative=None,
             project=project,
             owner=request.user,
             title=title,
