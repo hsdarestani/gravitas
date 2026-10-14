@@ -89,7 +89,7 @@ def web_status():
             # Never log the original URL or query. Show broad endpoint group.
             group = safe_route(path)
             codes_by_bucket[(group, code)] += 1
-            match_time = re.search(r'\\[(\\d{2}/[A-Za-z]{3}/\\d{4}:\\d{2}:\\d{2}):\\d{2}', line)
+            match_time = re.search(r'\[(\d{2}/[A-Za-z]{3}/\d{4}:\d{2}:\d{2}):\d{2}', line)
             if match_time:
                 error_minute[(match_time.group(1), code)] += 1
     print("status_counts", dict(count))
@@ -148,7 +148,7 @@ def nextcloud():
         "sh", "-c", "tail -n 12000 /var/www/html/data/nextcloud.log 2>/dev/null",
         timeout=20,
     )
-    log += "\\n" + native_log
+    log += "\n" + native_log
     counters = collections.Counter()
     for row in log.splitlines():
         low = row.lower()
