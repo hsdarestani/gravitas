@@ -1,6 +1,7 @@
 import * as P from './ws-platform.js?v=20261014-r5';
 import * as K from './ws-admin-kit.js?v=20261014-r5';
 import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261014-r5';
+import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261014-r5';
 import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261014-r5';
 import { startNotesSync } from './ws-notes-performance.js?v=20261014-r5';
 import { renderSpaceIndex } from './ws-space-integration.js?v=20261014-r5';
@@ -1622,6 +1623,8 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   reader.hidden = true;
   if (['conflict', 'error', 'blocked'].includes(note.sync_state)) page.append(conflictBox(note, (text) => setSave(text, 'bad')));
   page.append(title, meta, body, reader);
+  mountAnchoredComments({ container: page, kind: 'note', id: note.id,
+    fields: [{key:'content', label:'Note body', element:body}, {key:'title', label:'Title', element:title}], canEdit: !locked });
   scroll.append(page);
 
   const foot = el('footer', 'nb-foot');
