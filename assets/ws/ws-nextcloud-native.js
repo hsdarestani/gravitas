@@ -1635,6 +1635,27 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   let queued = false;
   let dirty = false;
   let shownState = note.sync_state;
+  let baseUpdated = note.updated;
+  const draftKey = 'gq.notes.unsaved.' + note.id;
+  function storeDraft() {
+    try { sessionStorage.setItem(draftKey, JSON.stringify({
+      title: title.value, content: body.value, expected_updated: baseUpdated
+    })); } catch { /* private browsing may forbid storage */ }
+  }
+  function clearDraft() {
+    try { sessionStorage.removeItem(draftKey); } catch { /* storage unavailable */ }
+  }
+  try {
+    const recovered = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+    if (recovered && typeof recovered.content === 'string' && typeof recovered.title === 'string' &&
+        (recovered.content !== body.value || recovered.title !== title.value)) {
+      title.value = recovered.title;
+      body.value = recovered.content;
+      baseUpdated = recovered.expected_updated || baseUpdated;
+      dirty = true;
+      setTimeout(() => setSave('Unsaved draft restored · review and save', 'bad'), 0);
+    }
+  } catch { /* invalid draft must not break the notebook */ }
 
   function setSave(text, tone = '') {
     saveState.textContent = text;
@@ -1675,22 +1696,51 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
     if (!dirty) return;
     saving = true;
     dirty = false;
+    const submitted = {
+      title: title.value.trim() || 'Untitled note', content: body.value,
+      favorite: !!note.favorite, expected_updated: baseUpdated,
+    };
+    storeDraft();
     setSave('Saving…');
     try {
       const result = await P.call(`/platform/nextcloud/notes/${note.id}/`, {
-        method: 'PATCH',
-        body: { title: title.value.trim() || 'Untitled note', content: body.value, favorite: !!note.favorite, space: info.space },
+        method: 'PATCH', body: submitted,
       });
-      Object.assign(note, result.item || {});
+      if (!result.item || result.item.title !== submitted.title || result.item.content !== submitted.content) {
+        throw new Error('The server did not confirm the saved text');
+      }
+      Object.assign(note, result.item);
+      baseUpdated = note.updated;
       announceChange(note);
-      setSave(note.sync_state === 'error' ? 'Saved · mirror pending' : 'Saved');
+      if (title.value.trim() !== submitted.title || body.value !== submitted.content) {
+        dirty = true;
+        storeDraft();
+        setSave('Saving newer changes…');
+      } else {
+        clearDraft();
+        const state = note.sync_state;
+        setSave(state === 'synced' ? 'Saved in both places' :
+          state === 'error' || state === 'pending' ? 'Saved here · Nextcloud pending' :
+          'Saved here · check sync status', state === 'synced' ? '' : 'bad');
+      }
     } catch (error) {
+      // A server-side conflict may already have persisted our local version.
+      // Never replace the user's live textarea with a competing revision.
       if (error?.status === 409) {
-        if (error.data?.item) Object.assign(note, error.data.item);
-        setSave('Saved · conflict kept', 'bad');
+        if (error.data?.item) {
+          const latest = error.data.item;
+          Object.assign(note, { sync_state: latest.sync_state === 'conflict' ? 'conflict' : 'error',
+            sync_error: error.data.detail || error.data.error || 'Review the competing changes' });
+        }
+        dirty = true;
+        storeDraft();
+        queued = false;
+        setSave('Conflict · draft kept in this tab. Copy or merge before retrying.', 'bad');
       } else {
         dirty = true;
-        setSave('Not saved · Ctrl+S to retry', 'bad');
+        storeDraft();
+        queued = false;
+        setSave('Not confirmed · draft kept. Ctrl+S to retry', 'bad');
       }
     } finally {
       saving = false;
@@ -1698,12 +1748,16 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
       remember();
       if (book.editor?.id === note.id) drawMeta();
       if (book.root?.isConnected) drawList();
-      if (queued) { queued = false; save(); }
+      if (queued || dirty && !saveState.dataset.tone) {
+        queued = false;
+        save();
+      }
     }
   }
 
   function touch() {
     dirty = true;
+    storeDraft();
     setSave('Editing…');
     clearTimeout(timer);
     timer = setTimeout(save, 700);
