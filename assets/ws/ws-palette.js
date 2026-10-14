@@ -134,6 +134,33 @@ function destinations() {
 
 function compute(query) {
   const q = query.trim().toLowerCase();
+  // Exact IDs are deterministic and instant, even if an index is still
+  // loading. The server checks permissions on the destination.
+  const ref = /^(task|note|file|project):(\d+)$/i.exec(q) ||
+    /^(journal):(\d{4}-\d{2}-\d{2})$/i.exec(q);
+  const direct = ref ? [{
+    group: 'Jump directly',
+    label: `Open ${ref[1]} #${ref[2]}`,
+    hint: 'Exact object reference · permission checked at destination',
+    icon: ref[1] === 'task' ? 'tasks' : ref[1] === 'journal' ? 'calendar' : 'notes',
+    run: () => {
+      const kind = ref[1], id = encodeURIComponent(ref[2]);
+      if (kind === 'task') context.go(`/workspace/core/tasks?task=${id}`);
+      if (kind === 'note') context.go(`/workspace/research/notes?note=${id}`);
+      if (kind === 'journal') context.go(`/workspace/research/notes?day=${id}`);
+      if (kind === 'project') context.go(`/workspace/research/projects/${id}`);
+      if (kind === 'file') window.open(`/api/platform/files/${id}/download/`, '_blank', 'noopener');
+    },
+  }] : [];
+
+  const ownTasks = q.length >= 2 ? (context.platform.platform.boot?.my_work?.tasks || [])
+    .filter(item => String(item.title || '').toLowerCase().includes(q))
+    .slice(0, 12)
+    .map(item => ({
+      group: 'My tasks', label: item.title, hint: `Task #${item.id} · Core`,
+      icon: 'tasks',
+      run: () => context.go(`/workspace/core/tasks?task=${encodeURIComponent(item.id)}`),
+    })) : [];
 
   /* Search crosses all three workspaces on purpose: finding the note you
      half-remember is exactly the moment you do not know which one it is in.
@@ -157,7 +184,7 @@ function compute(query) {
 
   // With no query the palette is a menu, so commands lead. With a query it
   // is a search, so pages lead.
-  return q ? [...pages, ...commands] : [...commands, ...pages.slice(0, 5)];
+  return q ? [...direct, ...pages, ...ownTasks, ...commands] : [...commands, ...pages.slice(0, 5)];
 }
 
 /* ---- Rendering ---------------------------------------------------------- */
@@ -304,6 +331,16 @@ function close() {
 export function mountPalette(ctx) {
   context = ctx;
 
+  // Alt+K works on Windows keyboards and does not steal Ctrl+K from
+  // browser search or in-note hyperlink editing.
+  document.addEventListener('keydown', (event) => {
+    if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      if (root && !root.hidden) close();
+      else openPalette();
+    }
+  });
+
   root = document.createElement('div');
   root.className = 'ws-palette';
   root.hidden = true;
@@ -324,7 +361,7 @@ export function mountPalette(ctx) {
   input = document.createElement('input');
   input.className = 'ws-palette__input';
   input.type = 'text';
-  input.placeholder = 'Search pages, or type a command';
+  input.placeholder = 'Search notes and tasks, or type task:42 / note:17';
   input.autocomplete = 'off';
   input.spellcheck = false;
   input.setAttribute('role', 'combobox');
