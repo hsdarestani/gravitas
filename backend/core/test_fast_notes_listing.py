@@ -1,4 +1,5 @@
 """Notes listing is a low-latency local snapshot, never a full Nextcloud sync."""
+import json
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -31,8 +32,9 @@ class FastNotesListingTests(TestCase):
              patch('core.nextcloud_notes.cloud._request') as webdav:
             result = native_notes(request)
         self.assertEqual(result.status_code, 200)
-        self.assertTrue(result.json()['sync']['deferred'])
-        self.assertEqual(result.json()['items'][0]['content'], self.note.body)
+        payload = json.loads(result.content)
+        self.assertTrue(payload['sync']['deferred'])
+        self.assertEqual(payload['items'][0]['content'], self.note.body)
         self.assertEqual(result['Cache-Control'], 'private, no-store')
         reconcile.assert_not_called()
         webdav.assert_not_called()
