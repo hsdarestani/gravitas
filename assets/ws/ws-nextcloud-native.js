@@ -838,8 +838,21 @@ function drawList() {
     });
 }
 
+function noteDeepLink(id) {
+  if (route()?.kind !== 'notes') return;
+  const url = new URL(location.href);
+  // Keep the selected object in the address bar. Previously the notebook
+  // removed ?note= on open, so pasting/copying the URL lost the anchor.
+  url.searchParams.delete('day');
+  url.searchParams.delete('new');
+  if (id != null) url.searchParams.set('note', String(id));
+  else url.searchParams.delete('note');
+  history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+}
+
 function choose(id) {
   book.root.dataset.pane = 'note';
+  noteDeepLink(id);
   if (book.view === 'note' && same(id, selections.get(book.info.space)) && book.editor) return;
   book.editor?.flush();
   selections.set(book.info.space, id);
@@ -867,6 +880,7 @@ function adopt(item, options) {
   book.items = [item, ...book.items.filter((other) => !same(other.id, item.id))];
   remember();
   selections.set(book.info.space, item.id);
+  noteDeepLink(item.id);
   book.view = 'note';
   book.mode = 'edit';
   book.query = '';
@@ -1326,7 +1340,9 @@ function takeRequest() {
   const note = params.get('note');
   const fresh = params.get('new');
   if (!day && !note && fresh == null) return null;
-  history.replaceState(history.state, '', location.pathname + location.hash);
+  // Keep direct note links bookmarkable; a day/new request is temporary and
+  // becomes the canonical ?note=<id> when the server returns its note ID.
+  if (!note) history.replaceState(history.state, '', location.pathname + location.hash);
   return { day: DAY_KEY.test(day || '') ? day : null, note: note ? note.replace(/^p-/, '') : null, fresh };
 }
 
@@ -1560,6 +1576,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   const bar = el('header', 'nb-bar');
   const back = iconButton('chevron', 'Back to notes', () => {
     flush();
+    noteDeepLink(null);
     book.root.dataset.pane = 'list';
   }, 'nb-back');
   const crumbs = el('div', 'nb-bar__crumbs');
