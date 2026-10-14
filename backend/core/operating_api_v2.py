@@ -405,7 +405,7 @@ def tasks(request):
         key_result = milestone_kr
 
     if (
-        not key_result or not owner or not payload.get('title')
+        not owner or not payload.get('title')
         or not payload.get('definition_of_done') or priority not in Priority.values
     ):
         return base._error(
@@ -423,7 +423,8 @@ def tasks(request):
         return base._error('meeting_action_requires_deadline')
 
     initiative = milestone.initiative if milestone else (
-        legacy_initiative or base._execution_initiative_for_kr(workspace, key_result, owner)
+        legacy_initiative or (base._execution_initiative_for_kr(workspace, key_result, owner)
+                              if key_result else None)
     )
 
     work_package = OperatingWorkPackage.objects.select_related(
@@ -431,7 +432,7 @@ def tasks(request):
     ).filter(
         pk=payload.get('work_package_id'), workspace=workspace
     ).first() if payload.get('work_package_id') else None
-    if work_package and work_package.milestone.initiative.key_result_id != key_result.pk:
+    if work_package and key_result and work_package.milestone.initiative.key_result_id != key_result.pk:
         return base._error('work_package_key_result_mismatch')
     if work_package and milestone and work_package.milestone_id != milestone.pk:
         return base._error('work_package_milestone_mismatch')
