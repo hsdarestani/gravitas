@@ -45,6 +45,31 @@ def health():
             value = value.splitlines()[-1] if value else ""
         print(cmd[0], value[:350] if value else "unavailable")
 
+def safe_route(path):
+    path = path.split('?', 1)[0]
+    if path.startswith('/api/platform/nextcloud/notes/'):
+        return 'notes-api'
+    if path.startswith('/api/platform/projects/'):
+        return 'project-api'
+    if path.startswith('/api/platform/anchored-comments/'):
+        return 'comments-api'
+    if path.startswith('/api/operating/task-board/'):
+        return 'task-board-api'
+    if path.startswith('/api/operating/'):
+        return 'operating-api'
+    if path.startswith('/api/auth/'):
+        return 'auth-api'
+    if path.startswith('/api/health/'):
+        return 'health-api'
+    if path.startswith('/api/'):
+        return 'other-api'
+    if path.startswith('/workspace'):
+        return 'workspace'
+    if path.startswith('/nextcloud/'):
+        return 'nextcloud'
+    return 'public'
+
+
 def web_status():
     print("=== Nginx responses (tail, aggregate only) ===")
     path = "/var/log/nginx/access.log"
@@ -53,6 +78,7 @@ def web_status():
         rows = run("sudo", "-n", "tail", "-n", "20000", path).splitlines()
     count = collections.Counter()
     codes_by_bucket = collections.Counter()
+    error_minute = collections.Counter()
     for line in rows[-20000:]:
         match = re.search(r'"(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+([^\s"]+)\s+HTTP/[^"]+"\s+(\d{3})\b', line)
         if not match:
@@ -61,11 +87,33 @@ def web_status():
         count[code] += 1
         if code.startswith("5"):
             # Never log the original URL or query. Show broad endpoint group.
-            path = path.split("?", 1)[0]
-            group = "api" if path.startswith("/api/") else "nextcloud" if path.startswith("/nextcloud/") else "workspace" if path.startswith("/workspace") else "public"
+            group = safe_route(path)
             codes_by_bucket[(group, code)] += 1
+            match_time = re.search(r'\\[(\\d{2}/[A-Za-z]{3}/\\d{4}:\\d{2}:\\d{2}):\\d{2}', line)
+            if match_time:
+                error_minute[(match_time.group(1), code)] += 1
     print("status_counts", dict(count))
     print("server_errors_by_area", dict((f"{group}:{code}", num) for (group,code),num in codes_by_bucket.items()))
+    print("recent_5xx_minutes", [dict(minute=minute, status=code, count=count)
+                                  for (minute, code), count in error_minute.most_common(25)])
+    log = read_lines("/var/log/nginx/error.log")
+    if not log:
+        log = run("sudo", "-n", "tail", "-n", "16000", "/var/log/nginx/error.log").splitlines()
+    categories = {
+        "refused": "connect() failed",
+        "closed_upstream": "upstream prematurely closed",
+        "upstream_timeout": "upstream timed out",
+        "reset": "connection reset by peer",
+        "no_upstream": "no live upstreams",
+        "too_many_files": "too many open files",
+    }
+    counts = collections.Counter()
+    for row in log[-16000:]:
+        low = row.lower()
+        for key, needle in categories.items():
+            if needle in low:
+                counts[key] += 1
+    print("nginx_upstream_error_buckets", dict(counts))
 
 def backend():
     print("=== Django/Gunicorn errors (last 90 min, anonymized) ===")
@@ -92,6 +140,15 @@ def nextcloud():
         value = run("sudo", "-n", "docker", "inspect", "-f", "{{.State.Status}} {{.State.OOMKilled}} {{.State.ExitCode}}", name)
         print(name, value.strip() or "unknown")
     log = run("sudo", "-n", "docker", "logs", "--since", "90m", "--tail", "8000", "gravitas-nextcloud", timeout=20)
+    # Native Nextcloud application errors are ordinarily stored in its
+    # private data directory, not Docker stdout. Read it for aggregate
+    # diagnostic categories ONLY; never print or upload a full log line.
+    native_log = run(
+        "sudo", "-n", "docker", "exec", "-u", "www-data", "gravitas-nextcloud",
+        "sh", "-c", "tail -n 12000 /var/www/html/data/nextcloud.log 2>/dev/null",
+        timeout=20,
+    )
+    log += "\\n" + native_log
     counters = collections.Counter()
     for row in log.splitlines():
         low = row.lower()
