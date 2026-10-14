@@ -354,13 +354,20 @@ def task_board_detail(request, task_id):
     # or Cycle. Legacy relation IDs are still accepted to avoid breaking older
     # API clients and historical records.
     if 'key_result_id' in payload:
-        key_result = base.KeyResult.objects.select_related('objective', 'owner').filter(
-            pk=payload.get('key_result_id'), objective__workspace=workspace
-        ).first()
-        if not key_result:
-            return _error('key_result_not_found')
-        task.initiative = base._execution_initiative_for_kr(workspace, key_result, task.owner)
-        task.cycle = None
+        if payload.get('key_result_id') in (None, '', 0, '0'):
+            # An explicit unlink leaves the task itself untouched, removing
+            # only incompatible hierarchy links. Never create a fake KR.
+            task.initiative = None
+            task.milestone = None
+            task.work_package = None
+        else:
+            key_result = base.KeyResult.objects.select_related('objective', 'owner').filter(
+                pk=payload.get('key_result_id'), objective__workspace=workspace
+            ).first()
+            if not key_result:
+                return _error('key_result_not_found')
+            task.initiative = base._execution_initiative_for_kr(workspace, key_result, task.owner)
+            task.cycle = None
 
     if 'initiative_id' in payload:
         initiative = Initiative.objects.filter(pk=payload.get('initiative_id'), workspace=workspace).first()
