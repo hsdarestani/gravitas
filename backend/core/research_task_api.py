@@ -50,16 +50,82 @@ def _project(request, project_id, minimum='view'):
 
 
 def _execution_initiative(project, actor):
-    """Return the SAME Core task workspace without inventing OKR relationships.
+    """Return the canonical Core execution initiative for a Research project.
 
-    Research tasks are project-related, but their objective/key-result
-    relationships are optional. Previously this helper manufactured an
-    invisible objective, Key Result and initiative for every new project.
-    This made Research tasks look as if they belonged to KR planning when
-    users had not linked them. Existing tasks and their past relations remain
-    untouched; new Research tasks keep project_id and initiative_id=None.
+    Research and Core deliberately share one task object. A task or milestone
+    created from Research therefore still belongs to the Core operating model
+    while inheriting its project ACL from the Research project.
     """
-    return ensure_platform_workspaces(actor)['core'], None
+    spaces = ensure_platform_workspaces(actor)
+    core = spaces['core']
+    operating_base._ensure_processes(core)
+    process = OperatingProcess.objects.get(workspace=core, key=OperatingProcess.Key.RESEARCH)
+
+    existing_task = (
+        OperatingTask.objects.filter(project=project, workspace=core)
+        .select_related('initiative')
+        .order_by('id')
+        .first()
+    )
+    if existing_task and existing_task.initiative_id:
+        return core, existing_task.initiative
+
+    # A milestone may be the first execution object created for a project. Reuse
+    # its initiative so a later task does not fork the Core execution hierarchy
+    # if the Research project title has changed meanwhile.
+    existing_milestone = (
+        OperatingMilestone.objects.filter(project=project, workspace=core)
+        .select_related('initiative')
+        .order_by('id')
+        .first()
+    )
+    if existing_milestone:
+        return core, existing_milestone.initiative
+
+    objective = StrategicObjective.objects.filter(
+        workspace=core,
+        title=OBJECTIVE_TITLE,
+    ).order_by('id').first()
+    if not objective:
+        objective = StrategicObjective.objects.create(
+            workspace=core,
+            title=OBJECTIVE_TITLE,
+            description='Shared operating objective for task execution originating in Research projects.',
+            owner=actor,
+            status=WorkStatus.ACTIVE,
+        )
+
+    key_result = KeyResult.objects.filter(
+        objective=objective,
+        title=KEY_RESULT_TITLE,
+    ).order_by('id').first()
+    if not key_result:
+        key_result = KeyResult.objects.create(
+            objective=objective,
+            title=KEY_RESULT_TITLE,
+            owner=actor,
+            metric_name='Project execution',
+            unit='tasks',
+            status=WorkStatus.ACTIVE,
+        )
+
+    title = f'GRV-{project.pk:06d} · {project.title}'[:240]
+    initiative = Initiative.objects.filter(workspace=core, title=title).order_by('id').first()
+    if not initiative:
+        profile = getattr(project, 'platform_profile', None)
+        initiative = Initiative.objects.create(
+            workspace=core,
+            key_result=key_result,
+            process=process,
+            title=title,
+            description=f'Core execution container for Research project GRV-{project.pk:06d}.',
+            owner=actor,
+            priority=Priority.P2,
+            stage=(process.flow or ['Question'])[0],
+            status=WorkStatus.ACTIVE,
+            due_date=getattr(profile, 'deadline', None),
+        )
+    return core, initiative
 
 
 @require_http_methods(['GET', 'POST'])
@@ -107,10 +173,13 @@ def project_tasks(request, project_id):
         definition_of_done = f'“{title}” is complete and documented in GRV-{project.pk:06d}.'
 
     with transaction.atomic():
-        core, initiative = _execution_initiative(project, request.user)
+        # Research tasks are the SAME OperatingTask, but do not imply any KR.
+        # Milestones still use the legacy execution initiative helper until
+        # their own schema is made optional.
+        core = ensure_platform_workspaces(request.user)['core']
         task = OperatingTask.objects.create(
             workspace=core,
-            initiative=initiative,
+            initiative=None,
             project=project,
             owner=request.user,
             title=title,
