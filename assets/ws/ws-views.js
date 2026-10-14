@@ -1536,12 +1536,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     create.type = 'submit';
 
     const two = el('div', 'task-board__two');
-    two.append(field('Owner', owner), field('Key result', keyResult), field('Priority', priority), field('Status', status), field('Due date', due));
+    two.append(field('Owner', owner), field('Key result (optional)', keyResult), field('Priority', priority), field('Status', status), field('Due date', due));
     form.append(field('Title', title), field('Description', description), two, field('Definition of done', done), create, note);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!title.value.trim() || !owner.value || !keyResult.value || !done.value.trim()) {
-        note.textContent = 'Title, owner, key result and definition of done are required.';
+      if (!title.value.trim() || !owner.value || !done.value.trim()) {
+        note.textContent = 'Title, owner and definition of done are required.';
         return;
       }
       if (!due.value) {
@@ -1555,7 +1555,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           title: title.value.trim(),
           description: description.value.trim(),
           owner_id: Number(owner.value),
-          key_result_id: Number(keyResult.value),
+          ...(keyResult.value ? { key_result_id: Number(keyResult.value) } : {}),
           priority: priority.value,
           status: status.value,
           due_date: due.value,
