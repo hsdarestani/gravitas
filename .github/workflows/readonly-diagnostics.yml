@@ -10,12 +10,21 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 jobs:
   collect:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
+      - name: Publish diagnostic run link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state=pending -f context="gravitas/diagnostics" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            -f description="Anonymized read-only diagnostics are running" > /dev/null || true
       - uses: actions/checkout@v4
       - name: Validate diagnostic script and report current schema leaf
         run: |
@@ -53,3 +62,18 @@ jobs:
           REMOTE=/tmp/gravitas-diagnostics-$GITHUB_RUN_ID.py
           scp -i ~/.ssh/diagnose -P "$PORT" ops/readonly_runtime_diagnostics.py "$USER@$SSH_HOST:$REMOTE"
           ssh "${OPTS[@]}" "$USER@$SSH_HOST" "python3 '$REMOTE'; rm -f '$REMOTE'"
+
+      - name: Publish read-only diagnostics result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "${{ job.status }}" in
+            success) STATE=success ;;
+            failure) STATE=failure ;;
+            *) STATE=error ;;
+          esac
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state="$STATE" -f context="gravitas/diagnostics" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            -f description="Read-only production diagnostic job: $STATE" > /dev/null || true
