@@ -76,7 +76,7 @@ class ResearchProjectTaskApiTests(TestCase):
         self.assertEqual(task.workspace_id, self.spaces['core'].pk)
         self.assertEqual(task.project_id, self.project.pk)
         self.assertEqual(task.owner_id, self.owner.pk)
-        self.assertEqual(task.initiative.process.key, OperatingProcess.Key.RESEARCH)
+        self.assertIsNone(task.initiative_id, 'Research tasks must not silently acquire a fake KR')
         self.assertEqual(policy_for(task).visibility, INHERIT_VISIBILITY)
 
         cockpit = self.client.get(f'/api/platform/projects/{self.project.pk}/cockpit/')
