@@ -346,8 +346,15 @@ def _create_remote(identity, resource):
     )
     if status != 200 or not isinstance(note, dict) or note.get('id') is None:
         raise NotesError('notes_create_failed')
-    _write_mirror(resource, _snapshot(note, _local_fingerprint(resource)))
-    return note
+    # A successful PUT/POST is not enough to claim that both copies contain
+    # the same text. Read the native Notes file back before showing "synced".
+    verified = _get_remote(identity, note['id'])
+    if not verified or str(verified.get('content') or '') != (resource.body or ''):
+        _write_mirror(resource, _snapshot(verified or note, '', state='error',
+                                          error='notes_readback_mismatch'))
+        raise NotesError('notes_readback_mismatch')
+    _write_mirror(resource, _snapshot(verified, _local_fingerprint(resource)))
+    return verified
 
 
 def _update_remote(identity, resource, remote):
@@ -373,8 +380,12 @@ def _update_remote(identity, resource, remote):
         raise NotesConflict('deleted_in_nextcloud')
     if not isinstance(note, dict):
         raise NotesError('notes_update_failed')
-    _write_mirror(resource, _snapshot(note, _local_fingerprint(resource)))
-    return note
+    verified = _get_remote(identity, note['id'])
+    if not verified or str(verified.get('content') or '') != (resource.body or ''):
+        _mark(resource, 'error', 'notes_readback_mismatch', remote=verified or note)
+        raise NotesError('notes_readback_mismatch')
+    _write_mirror(resource, _snapshot(verified, _local_fingerprint(resource)))
+    return verified
 
 
 def _force_update_remote(identity, resource, remote):
