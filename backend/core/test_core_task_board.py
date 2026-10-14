@@ -92,6 +92,54 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
 
+    def test_standalone_task_without_key_result_keeps_one_shared_identity(self):
+        from datetime import date, timedelta
+
+        response = self.post_json('/api/operating/task-board/', {
+            'owner_id': self.user.pk,
+            'title': 'Independent Core task',
+            'description': 'No project or KR needed',
+            'definition_of_done': 'Completed and reviewed',
+            'priority': 'p2',
+            'status': 'draft',
+            'due_date': (date.today() + timedelta(days=3)).isoformat(),
+        })
+        self.assertEqual(response.status_code, 201, response.content)
+        task_id = response.json()['task']['id']
+        task = OperatingTask.objects.get(pk=task_id)
+        self.assertIsNone(task.initiative_id)
+        self.assertIsNone(task.project_id)
+
+        board = self.client.get('/api/operating/task-board/')
+        self.assertEqual(board.status_code, 200, board.content)
+        entry = next(item for item in board.json()['tasks'] if item['id'] == task_id)
+        self.assertIsNone(entry['trace']['key_result']['id'])
+        self.assertEqual(entry['initiative_title'], '')
+
+        details = self.client.get(f'/api/operating/task-board/{task_id}/')
+        self.assertEqual(details.status_code, 200, details.content)
+        updated = self.patch_json(f'/api/operating/task-board/{task_id}/', {
+            'description': 'Still the same object without KR',
+        })
+        self.assertEqual(updated.status_code, 200, updated.content)
+        self.assertIsNone(updated.json()['task']['initiative_id'])
+        task.refresh_from_db()
+        self.assertEqual(task.description, 'Still the same object without KR')
+
+        # Adding and then removing a KR does not replace the task ID.
+        kr = KeyResult.objects.filter(objective__workspace=self.workspace).first()
+        attached = self.patch_json(f'/api/operating/task-board/{task_id}/', {
+            'key_result_id': kr.pk,
+        })
+        self.assertEqual(attached.status_code, 200, attached.content)
+        self.assertIsNotNone(attached.json()['task']['initiative_id'])
+        unlinked = self.patch_json(f'/api/operating/task-board/{task_id}/', {
+            'key_result_id': None,
+        })
+        self.assertEqual(unlinked.status_code, 200, unlinked.content)
+        self.assertEqual(unlinked.json()['task']['id'], task_id)
+        self.assertIsNone(unlinked.json()['task']['initiative_id'])
+
     def test_task_change_by_teammate_enqueues_owner_email_notification(self):
         task_id = self.create_task()
         teammate = User.objects.create_user(
