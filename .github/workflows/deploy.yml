@@ -144,7 +144,7 @@ jobs:
           echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
 
       - name: Bootstrap production server
-        if: steps.change_scope.outputs.frontend_only != 'true'
+        if: ${{ steps.change_scope.outputs.frontend_only != 'true' }}
         shell: bash
         env:
           GRAVITAS_TELEGRAM_BOT_TOKEN: ${{ secrets.GRAVITAS_TELEGRAM_BOT_TOKEN }}
@@ -560,7 +560,7 @@ jobs:
           REMOTE
 
       - name: Capture and rehearse matched native checkpoint before deployment
-        if: steps.change_scope.outputs.frontend_only != 'true'
+        if: ${{ steps.change_scope.outputs.frontend_only != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -611,7 +611,7 @@ jobs:
             ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
 
       - name: Deploy and start backend
-        if: steps.change_scope.outputs.frontend_only != 'true'
+        if: ${{ steps.change_scope.outputs.frontend_only != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -678,7 +678,7 @@ jobs:
           REMOTE
 
       - name: Install native conditional ACL bridge
-        if: steps.change_scope.outputs.frontend_only != 'true'
+        if: ${{ steps.change_scope.outputs.frontend_only != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -686,7 +686,7 @@ jobs:
             'sudo bash /var/www/gravitas/ops/nextcloud/install-canonical.sh'
 
       - name: Apply selected idempotent operational delivery plan
-        if: steps.change_scope.outputs.frontend_only != 'true'
+        if: ${{ steps.change_scope.outputs.frontend_only != 'true' }}
         if: hashFiles('ops/operational_delivery.json') != ''
         shell: bash
         run: |
@@ -695,7 +695,7 @@ jobs:
             "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python /var/www/gravitas/ops/operational_delivery.py --plan /var/www/gravitas/ops/operational_delivery.json --source-root /var/www/gravitas'"
 
       - name: Ensure SSL and reload Nginx
-        if: steps.change_scope.outputs.frontend_only != 'true'
+        if: ${{ steps.change_scope.outputs.frontend_only != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
