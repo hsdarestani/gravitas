@@ -16,6 +16,11 @@ from core.operating_models import OperatingTask
 print(json.dumps({'core_tasks':OperatingTask.objects.filter(workspace_id=75).count(),'source_bound':OperatingTask.objects.filter(source_metadata__migration_run_id='team-docs-20261015-v1').count(),'qa_remaining':list(OperatingTask.objects.filter(pk__in=[728,729]).values_list('id',flat=True))}))
 from django.db.models import Count
 print(json.dumps({'task_project_counts':list(OperatingTask.objects.filter(workspace_id=75).values('project_id').annotate(count=Count('id')).order_by('project_id'))}))
+from core.canonical_models import CanonicalProject,CanonicalFile
+from django.db.models import Exists,OuterRef
+files=CanonicalFile.objects.filter(object_type='OperatingTask',deleted=False,project__workspace_id=76)
+missing=OperatingTask.objects.filter(workspace_id=75,source_key__isnull=False).exclude(source_key='').annotate(has_native=Exists(files.filter(project_id=OuterRef('project_id'),object_id=OuterRef('pk')))).filter(has_native=False).count()
+print(json.dumps({'canonical_health':{'active_project_ids':list(CanonicalProject.objects.filter(project__workspace_id=76,enabled=True).values_list('project_id',flat=True)),'source_tasks_missing_active_native_file':missing,'duplicate_active_task_file_groups':files.values('object_id').annotate(total=Count('id')).filter(total__gt=1).count()}}))
 from django.db import connection
 with connection.cursor() as cursor:
     cursor.execute("SELECT pid,state,wait_event_type,wait_event,pg_blocking_pids(pid),EXTRACT(EPOCH FROM (now()-xact_start))::integer FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()")
