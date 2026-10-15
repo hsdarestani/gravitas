@@ -18,4 +18,40 @@ for _ in range(20):
  time.sleep(1)
 if live:raise RuntimeError('worker_did_not_exit_no_force_kill')
 print(json.dumps({'worker_stopped':True}),flush=True)
-exec(compile(open('/opt/gravitas-backend/ops/inspect_reconciliation_progress.py').read(),'<inspect>','exec')) if os.path.exists('/opt/gravitas-backend/ops/inspect_reconciliation_progress.py') else None
+"""Read-only process/audit/DB progress; no credentials or source text."""
+import json,subprocess
+from pathlib import Path
+root=Path('/var/lib/gravitas-source-migrations/team-docs-20261015-v1')
+for p in sorted(root.glob('audit-*.json')):
+ try:
+  a=json.loads(p.read_text());print(json.dumps({'audit':p.name,'state':a.get('state','committed'),'created':a.get('created'),'updated':a.get('updated'),'matched':a.get('matched')}))
+ except Exception:print(json.dumps({'audit':p.name,'state':'unreadable'}))
+for pattern in ['graviquest-approved-','graviquest-finalize-']:
+ r=subprocess.run(['pgrep','-f',pattern],capture_output=True,text=True)
+ for pid in r.stdout.split():
+  if pid.isdigit():subprocess.run(['ps','-p',pid,'-o','pid,ppid,etime,stat,comm'])
+import django
+django.setup()
+from core.operating_models import OperatingTask
+print(json.dumps({'core_tasks':OperatingTask.objects.filter(workspace_id=75).count(),'source_bound':OperatingTask.objects.filter(source_metadata__migration_run_id='team-docs-20261015-v1').count(),'qa_remaining':list(OperatingTask.objects.filter(pk__in=[728,729]).values_list('id',flat=True))}))
+from django.db.models import Count
+print(json.dumps({'task_project_counts':list(OperatingTask.objects.filter(workspace_id=75).values('project_id').annotate(count=Count('id')).order_by('project_id'))}))
+from core.canonical_models import CanonicalProject,CanonicalFile
+from django.db.models import Exists,OuterRef
+files=CanonicalFile.objects.filter(object_type='OperatingTask',deleted=False,project__workspace_id=76)
+missing=OperatingTask.objects.filter(workspace_id=75,source_key__isnull=False).exclude(source_key='').annotate(has_native=Exists(files.filter(project_id=OuterRef('project_id'),object_id=OuterRef('pk')))).filter(has_native=False).count()
+print(json.dumps({'canonical_health':{'active_project_ids':list(CanonicalProject.objects.filter(project__workspace_id=76,enabled=True).values_list('project_id',flat=True)),'source_tasks_missing_active_native_file':missing,'duplicate_active_task_file_groups':files.values('object_id').annotate(total=Count('id')).filter(total__gt=1).count()}}))
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute("SELECT pid,state,wait_event_type,wait_event,pg_blocking_pids(pid),EXTRACT(EPOCH FROM (now()-xact_start))::integer FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()")
+    print(json.dumps({'database_waits':cursor.fetchall()},default=str))
+with connection.cursor() as cursor:
+    cursor.execute("SELECT pid,regexp_match(query, '(?i)(?:UPDATE|INTO|FROM)\\s+\"?([A-Za-z_]+)') FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'")
+    print(json.dumps({'blocked_statement_tables':cursor.fetchall()}))
+import requests
+from django.conf import settings
+try:
+    response=requests.get(settings.NEXTCLOUD_INTERNAL_URL+'/status.php',timeout=(2,5))
+    print(json.dumps({'native_status_http':response.status_code}))
+except requests.RequestException as exc:
+    print(json.dumps({'native_status_error':type(exc).__name__}))
