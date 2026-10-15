@@ -32,6 +32,10 @@ def main():
     plan = json.loads((ROOT/'plan.json').read_text())
     if not (ROOT/'after-apply.json').exists():
         raise ValueError('complete_import_required')
+    portfolio_path=ROOT/'portfolio-verification.json'
+    if not portfolio_path.exists():raise ValueError('complete_portfolio_verification_required')
+    portfolio=json.loads(portfolio_path.read_text())
+    if len(portfolio.get('tasks',[]))!=len(plan['tasks']) or portfolio.get('canonical_destinations_verified')!=17:raise ValueError('portfolio_canonical_verification_incomplete')
     actor = get_user_model().objects.get(pk=18)
     import sys
     sys.path.insert(0,str(ROOT))
