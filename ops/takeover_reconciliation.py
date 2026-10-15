@@ -1,6 +1,6 @@
 """Stop only the explicitly superseded portfolio migration, then inspect safely."""
 import os,signal,time,json
-targets={b'/tmp/graviquest-approved-38793232189-apply.py',b'/tmp/graviquest-approved-38800161441-apply.py'}
+targets={b'/tmp/graviquest-approved-38793232189-apply.py',b'/tmp/graviquest-approved-38800161441-apply.py',b'/tmp/graviquest-approved-38800861061-apply.py'}
 pids=[]
 for name in os.listdir('/proc'):
  if not name.isdigit():continue
