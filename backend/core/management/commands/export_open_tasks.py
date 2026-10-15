@@ -36,8 +36,8 @@ class Command(BaseCommand):
 
         tasks = []
         for task in rows:
-            kr = task.initiative.key_result
-            objective = kr.objective
+            kr = task.initiative.key_result if task.initiative_id else None
+            objective = kr.objective if kr else None
             overdue = bool(task.due_date and task.due_date < today)
             days_overdue = (today - task.due_date).days if overdue else 0
             tasks.append({
@@ -49,12 +49,12 @@ class Command(BaseCommand):
                 'priority': task.priority,
                 'owner': task.owner.get_full_name() or task.owner.email,
                 'owner_email': task.owner.email,
-                'objective': objective.title,
-                'key_result': kr.title,
-                'kr_metric': kr.metric_name,
-                'kr_current': str(kr.current_value) if kr.current_value is not None else None,
-                'kr_target': str(kr.target_value) if kr.target_value is not None else None,
-                'kr_unit': kr.unit,
+                'objective': objective.title if objective else '',
+                'key_result': kr.title if kr else '',
+                'kr_metric': kr.metric_name if kr else '',
+                'kr_current': str(kr.current_value) if kr and kr.current_value is not None else None,
+                'kr_target': str(kr.target_value) if kr and kr.target_value is not None else None,
+                'kr_unit': kr.unit if kr else '',
                 'milestone': task.milestone.title if task.milestone else '',
                 'work_package': task.work_package.title if task.work_package else '',
                 'project': task.project.title if task.project else '',
@@ -69,7 +69,7 @@ class Command(BaseCommand):
                 'attachment_count': task.attachment_count,
                 'created_at': task.created_at.isoformat(),
                 'updated_at': task.updated_at.isoformat(),
-                'legacy_initiative': task.initiative.title,
+                'legacy_initiative': task.initiative.title if task.initiative_id else '',
                 'legacy_cycle': task.cycle.name if task.cycle else '',
             })
 

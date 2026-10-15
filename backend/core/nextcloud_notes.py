@@ -364,7 +364,12 @@ def _create_remote(identity, resource):
         _write_mirror(resource, _snapshot(verified or note, '', state='error',
                                           error='notes_readback_mismatch'))
         raise NotesError('notes_readback_mismatch')
-    _write_mirror(resource, _snapshot(verified, _local_fingerprint(resource)))
+    # Notes may sanitize or suffix a duplicate title during creation. Its
+    # confirmed name must be our common base, not the originally requested name.
+    if str(verified.get('category') or '') != _category(resource):
+        _write_mirror(resource, _snapshot(verified, '', state='error', error='notes_category_mismatch'))
+        raise NotesError('notes_category_mismatch')
+    _pull_remote(resource, verified)
     return verified
 
 
@@ -376,8 +381,11 @@ def _update_remote(identity, resource, remote):
     # _sync_held_note has compared this fresh read with the last common
     # content. Keep the conditional write, using its current native revision.
     known_etag = str(remote.get('etag') or _mirror(resource).get('etag') or '')
-    if known_etag:
-        headers['If-Match'] = known_etag
+    if not known_etag:
+        raise NotesError('notes_revision_missing')
+    # Notes JSON contains the bare hash; its controller compares quoted HTTP
+    # entity tags. An unquoted value always returns 412, even without edits.
+    headers['If-Match'] = known_etag if known_etag.startswith('"') and known_etag.endswith('"') else '"' + known_etag + '"'
     status, note, _headers_out = _request(
         'PUT', f'/notes/{int(remote["id"])}', identity=identity,
         expected=(200, 404, 412), body=_local_payload(resource), headers=headers,
@@ -405,19 +413,9 @@ def _force_update_remote(identity, resource, remote):
     """Explicitly choose the Gravitas copy as the conflict winner."""
     if remote is None:
         return _create_remote(identity, resource)
-    if remote.get('readonly'):
-        _mark(resource, 'readonly', 'nextcloud_note_readonly', remote=remote)
-        raise NotesError('nextcloud_note_readonly')
-    status, note, _headers_out = _request(
-        'PUT', f'/notes/{int(remote["id"])}', identity=identity,
-        expected=(200, 404), body=_local_payload(resource), headers={},
-    )
-    if status == 404:
-        return _create_remote(identity, resource)
-    if not isinstance(note, dict):
-        raise NotesError('notes_update_failed')
-    _write_mirror(resource, _snapshot(note, _local_fingerprint(resource)))
-    return note
+    # Choosing a winner authorizes this revision, not another writer's later
+    # edit between the GET and PUT. Keep CAS and confirmed readback here too.
+    return _update_remote(identity, resource, remote)
 
 
 def _pull_remote(resource, remote):
@@ -493,8 +491,12 @@ def _sync_held_note(resource, identity):
         _mark(resource, 'blocked', 'space_access_required')
         raise NotesError('space_access_required')
 
-    identity = identity or ensure_user(resource.owner)
     mirror = _mirror(resource)
+    if mirror.get('state') == 'conflict':
+        # Automatic retries must never turn a recorded conflict into a write.
+        # The explicit resolve endpoint is the only path out of this state.
+        raise NotesConflict(str(mirror.get('error') or 'note_conflict'))
+    identity = identity or ensure_user(resource.owner)
     note_id = mirror.get('id')
     if not note_id:
         return _create_remote(identity, resource)

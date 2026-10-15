@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from .models import KnowledgeResource
-from .nextcloud_notes import NotesError, _local_fingerprint, _update_remote, native_note_detail
+from .nextcloud_notes import NotesConflict, NotesError, _force_update_remote, _local_fingerprint, _update_remote, native_note_detail
 from .platform_runtime_v3 import ensure_platform_workspaces
 
 
@@ -86,6 +86,36 @@ class SharedNoteSaveTests(TestCase):
 
 
 class NativeMirrorReadbackTests(SimpleTestCase):
+    def test_notes_json_etag_is_quoted_for_native_conditional_put(self):
+        resource = SimpleNamespace(pk=10, body='saved text', title='QA', metadata={'ws_space': 'core'})
+        confirmed = {'id': 50, 'etag': 'next', 'content': resource.body}
+        for etag in ('native-hash', '"native-hash"'):
+            with self.subTest(etag=etag), \
+                 patch('core.nextcloud_notes._request', return_value=(200, confirmed, {})) as request, \
+                 patch('core.nextcloud_notes._get_remote', return_value=confirmed), \
+                 patch('core.nextcloud_notes._write_mirror'):
+                _update_remote(None, resource, {'id': 50, 'etag': etag})
+                self.assertEqual(request.call_args.kwargs['headers']['If-Match'], '"native-hash"')
+
+    def test_explicit_resolution_still_rejects_a_later_native_edit(self):
+        resource = SimpleNamespace(pk=10, body='chosen version', title='QA', metadata={})
+        newer = {'id': 50, 'etag': 'newer', 'content': 'another writer'}
+        with patch('core.nextcloud_notes._request', return_value=(412, newer, {})) as request, \
+             patch('core.nextcloud_notes._mark') as mark, \
+             patch('core.nextcloud_notes._write_mirror') as write:
+            with self.assertRaises(NotesConflict):
+                _force_update_remote(None, resource, {'id': 50, 'etag': 'reviewed'})
+        self.assertEqual(request.call_args.kwargs['headers']['If-Match'], '"reviewed"')
+        mark.assert_called_once()
+        write.assert_not_called()
+
+    def test_missing_native_revision_cannot_make_an_unconditional_write(self):
+        resource = SimpleNamespace(pk=10, body='text', title='QA', metadata={})
+        with patch('core.nextcloud_notes._request') as request:
+            with self.assertRaisesMessage(NotesError, 'notes_revision_missing'):
+                _update_remote(None, resource, {'id': 50})
+        request.assert_not_called()
+
     def test_remote_put_must_read_back_written_content(self):
         resource = SimpleNamespace(
             pk=10, body='correct value', title='Test',
