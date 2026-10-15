@@ -393,6 +393,39 @@ class CanonicalProjectTests(TestCase):
                 self.adopt()
         self.assertFalse(CanonicalProject.objects.filter(project=self.project, enabled=True).exists())
 
+    def test_core_board_http_edit_uses_canonical_transaction_and_retains_history(self):
+        from .operating_models import OperatingTask
+        core=ensure_platform_workspaces(self.owner)['core']
+        task=OperatingTask.objects.create(workspace=core,project=self.project,owner=self.owner,
+            title='Historical implementation',status='done',definition_of_done='Reported output',
+            source_key='history:http-board',source_metadata={'activity_date_raw':'2026-09-07'})
+        self.adopt()
+        response=self.client.patch(f'/api/operating/task-board/{task.pk}/',
+            json.dumps({'priority':'p1'}),content_type='application/json')
+        self.assertEqual(response.status_code,200,response.content)
+        task.refresh_from_db()
+        native=json.loads(self.dav.files[self.full(relative_path(task))]['content'])
+        self.assertEqual(native['fields']['priority'],'p1')
+        self.assertEqual(native['fields']['source_key'],'history:http-board')
+        self.assertIsNone(task.due_date)
+        self.assertIsNone(task.completed_at)
+        readback=self.client.get(f'/api/operating/task-board/{task.pk}/')
+        self.assertEqual(readback.status_code,200,readback.content)
+        self.assertEqual(readback.json()['task']['priority'],'p1')
+
+    def test_core_board_http_creation_in_canonical_project_exports_native_file(self):
+        from .operating_models import OperatingTask
+        self.adopt()
+        response=self.client.post('/api/operating/task-board/',json.dumps({
+            'title':'Independent project work','project_id':self.project.pk,
+            'owner_id':self.owner.pk,'definition_of_done':'Reviewed result','status':'draft','priority':'p2',
+        }),content_type='application/json')
+        self.assertEqual(response.status_code,201,response.content)
+        task=OperatingTask.objects.get(pk=response.json()['task']['id'])
+        native=json.loads(self.dav.files[self.full(relative_path(task))]['content'])
+        self.assertEqual(native['fields']['title'],'Independent project work')
+        self.assertEqual(task.project_id,self.project.pk)
+
 
 @override_settings(NEXTCLOUD_ADMIN_USER='service', NEXTCLOUD_ADMIN_PASSWORD='fixture')
 class NativeCanonicalRepresentationTests(TestCase):
@@ -444,3 +477,4 @@ class NativeCanonicalRepresentationTests(TestCase):
             result = dav_read('GRV-000208/project.md', '"prior"')
         self.assertEqual(request.call_args.kwargs['headers'], {'Accept-Encoding': 'identity', 'If-None-Match': '"prior"'})
         self.assertEqual(result['etag'], '"native"')
+
