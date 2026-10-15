@@ -438,6 +438,24 @@ def refresh_project(project, user=None):
         refresh_file(file, user)
 
 
+@transaction.atomic
+def refresh_task_scope(project, user=None, task_id=None):
+    """Refresh the addressed Core task, without crawling unrelated history."""
+    if not active(project):
+        return
+    CanonicalProject.objects.select_for_update().get(project=project)
+    from .canonical_journal import recover_project
+    from django.db.models import Q
+    recover_project(project)
+    wanted=Q(object_type='ResearchProject',object_id=project.pk)
+    if task_id is not None:
+        wanted |= Q(object_type='OperatingTask',object_id=task_id)
+        if not CanonicalFile.objects.filter(project=project,object_type='OperatingTask',object_id=task_id,deleted=False).exists():
+            raise cloud.CloudError('canonical_task_projection_file_missing')
+    for file in CanonicalFile.objects.filter(wanted,project=project,deleted=False).select_related('project'):
+        refresh_file(file,user)
+
+
 def project_objects(project):
     yield project
     for name in SPECS:

@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError, ImproperlyConfigured
 from django.db import transaction
 from django.http import JsonResponse
 from . import cloud
-from .canonical_projects import CanonicalConflict, refresh_project, _pending
+from .canonical_projects import CanonicalConflict, refresh_project, refresh_task_scope, _pending
 from .canonical_models import CanonicalProject
 from .platform_access import can_view
 from .canonical_journal import write_batch, commit_witness
@@ -99,7 +99,10 @@ class CanonicalProjectMiddleware:
                 )
                 for state in states:
                     if can_view(request.user, state.project):
-                        refresh_project(state.project, request.user)
+                        if '/operating/task-board/' in request.path:
+                            refresh_task_scope(state.project,request.user,view_kwargs.get('task_id'))
+                        else:
+                            refresh_project(state.project, request.user)
                 pending = []
                 token = _pending.set(pending)
                 try:
