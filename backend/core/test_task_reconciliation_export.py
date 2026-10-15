@@ -18,6 +18,7 @@ class ReconciliationExportTests(TestCase):
         self.done = OperatingTask.objects.create(workspace=self.spaces['core'], owner=self.user, title='Historical work', status='done', project=self.project, definition_of_done='Evidence retained')
         self.done.checklist_items.create(title='Step', created_by=self.user, is_completed=True)
         self.done.board_comments.create(author=self.user, body='Source reference and context')
+        self.done.board_attachments.create(uploader=self.user, name='evidence.txt', storage_path='private/evidence.txt', size=12)
         self.note = KnowledgeResource.objects.create(workspace=self.spaces['research'], project=self.project, owner=self.user, kind='note', title='Strategy baseline', body='Do not export private note bodies', metadata={'private': 'excluded'})
 
     def test_closed_tasks_and_relations_included_without_writes_or_note_content(self):
@@ -31,6 +32,8 @@ class ReconciliationExportTests(TestCase):
         self.assertEqual(row['project_id'], self.project.pk)
         self.assertEqual(row['checklist'][0]['title'], 'Step')
         self.assertEqual(row['comments'][0]['body'], 'Source reference and context')
+        self.assertEqual(row['attachments'][0]['name'], 'evidence.txt')
+        self.assertNotIn('storage_path', row['attachments'][0])
         self.assertNotIn('body', data['notes'][0])
         self.assertNotIn('metadata', data['notes'][0])
 

@@ -42,7 +42,7 @@ def snapshot(workspace_id=None):
         row['owner_name'] = t.owner.get_full_name() or t.owner.username
         row['checklist'] = [{k: getattr(c, k) for k in ('id', 'title', 'is_completed', 'position', 'created_by_id', 'completed_at', 'created_at', 'updated_at')} for c in t.checklist_items.all()]
         row['comments'] = [{k: getattr(c, k) for k in ('id', 'author_id', 'body', 'created_at', 'updated_at')} for c in t.board_comments.all()]
-        row['attachments'] = [{k: getattr(c, k) for k in ('id', 'original_name', 'mime_type', 'file_size')} for c in t.board_attachments.all()]
+        row['attachments'] = [{k: getattr(c, k) for k in ('id', 'name', 'mime_type', 'size')} for c in t.board_attachments.all()]
         task_rows.append(row)
     project_rows = []
     for p in projects:
