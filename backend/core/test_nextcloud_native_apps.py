@@ -154,6 +154,18 @@ class NativeNotesMirrorTests(TestCase):
 
     @patch('core.nextcloud_notes.ensure_user', return_value=object())
     @patch('core.nextcloud_notes._request')
+    def test_native_assigned_duplicate_title_is_the_created_notes_common_revision(self, request, _ensure):
+        resource = self.note(title='Untitled note', body='')
+        native = dict(_local_payload(resource), id=52, etag='native', title='Untitled note (2)')
+        request.return_value = (200, native, {})
+        sync_note_to_nextcloud(resource)
+        resource.refresh_from_db()
+        self.assertEqual(resource.title, 'Untitled note (2)')
+        self.assertEqual(resource.metadata['nextcloud_notes']['local_fingerprint'], _local_fingerprint(resource))
+        self.assertEqual(_json(resource, self.user)['revision'], _local_fingerprint(resource))
+
+    @patch('core.nextcloud_notes.ensure_user', return_value=object())
+    @patch('core.nextcloud_notes._request')
     def test_etag_only_change_does_not_conflict_with_local_edit(self, request, _ensure):
         resource = self.note()
         remote = dict(_local_payload(resource), id=63, etag='etag-a', modified=10)
@@ -166,7 +178,7 @@ class NativeNotesMirrorTests(TestCase):
         request.side_effect = [(200, churned, {}), (200, confirmed, {}), (200, confirmed, {})]
         sync_note_to_nextcloud(resource)
         put = next(call for call in request.call_args_list if call.args[0] == 'PUT')
-        self.assertEqual(put.kwargs['headers']['If-Match'], 'etag-b')
+        self.assertEqual(put.kwargs['headers']['If-Match'], '"etag-b"')
         resource.refresh_from_db()
         self.assertEqual(resource.metadata['nextcloud_notes']['state'], 'synced')
 
@@ -199,6 +211,13 @@ class NativeNotesMirrorTests(TestCase):
         self.assertEqual(resource.metadata['nextcloud_notes']['state'], 'conflict')
         self.assertEqual(resource.metadata['nextcloud_notes']['remote_fingerprint'], _remote_fingerprint(changed_remote))
         self.assertEqual(request.call_count, 1, 'conflict detection must not PUT over either side')
+        request.reset_mock()
+        with self.assertRaises(NotesConflict):
+            sync_note_to_nextcloud(resource)
+        request.assert_not_called()
+        resource.refresh_from_db()
+        self.assertEqual(resource.body, 'Changed in Gravitas')
+        self.assertEqual(resource.metadata['nextcloud_notes']['state'], 'conflict')
 
     @patch('core.nextcloud_notes.ensure_user', return_value=object())
     @patch('core.nextcloud_notes._list_remote')

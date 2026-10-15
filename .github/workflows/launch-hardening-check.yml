@@ -100,6 +100,9 @@ jobs:
           core.test_kms_state_api
           core.test_kms_live_contract
           core.test_workspace_note_latency
+          core.test_notes_save_safety
+          core.test_nextcloud_native_apps
+          core.test_open_task_export
           core.test_nextcloud_credential_repair
           --noinput
       - name: Verify CMS translations Community and Lab schema
