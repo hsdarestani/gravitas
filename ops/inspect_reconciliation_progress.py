@@ -21,3 +21,5 @@ with connection.cursor() as cursor:
 with connection.cursor() as cursor:
     cursor.execute("SELECT pid,regexp_match(query, '(?i)(?:UPDATE|INTO|FROM)\\s+\"?([A-Za-z_]+)') FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'")
     print(json.dumps({'blocked_statement_tables':cursor.fetchall()}))
+
+# Check progress after the serialized migration resumed.
