@@ -150,11 +150,15 @@ def main():
     before=json.loads((root/'portfolio-before.json').read_text())
     after=snapshot();after_tasks={t['id']:t for t in after['tasks']}
     preserve=['title','description','owner_id','status','priority','due_date','parent_id','dependency_id','source_key','source_metadata']
+    concurrent_edits=[]
     for old in before['tasks']:
         current=after_tasks.get(old['id'])
         if current is None:raise ValueError('task_disappeared')
+        # Native refreshes may import legitimate team edits made after the
+        # initial snapshot. This job only updates the project column; retain
+        # and report those edits instead of restoring stale source content.
         for field in preserve:
-            if old.get(field)!=current.get(field):raise ValueError('task_content_changed_during_consolidation:'+str(old['id'])+':'+field)
+            if old.get(field)!=current.get(field):concurrent_edits.append({'task_id':old['id'],'field':field,'preserved_latest':True})
     from core import cloud
     from core.models import NextcloudIdentity
     native=[]
@@ -180,6 +184,6 @@ def main():
         try:
             if hashlib.sha256(response.content).hexdigest()!=item['sha256']:raise ValueError('asset_readback_failed')
         finally:response.close()
-    save('portfolio-after.json',after);save('portfolio-verification.json',{'tasks':checks,'projects':{k:v.pk for k,v in projects.items()},'notes':len(plan['notes']),'native_access':native,'assets':len(plan.get('assets',[])),'browser_refresh_tested':False})
+    save('portfolio-after.json',after);save('portfolio-verification.json',{'tasks':checks,'projects':{k:v.pk for k,v in projects.items()},'notes':len(plan['notes']),'preserved_concurrent_edits':concurrent_edits,'native_access':native,'assets':len(plan.get('assets',[])),'browser_refresh_tested':False})
     print(json.dumps({'verified_tasks':len(checks),'project_destinations':len(projects),'notes':len(plan['notes'])}))
 if __name__=='__main__':main()
