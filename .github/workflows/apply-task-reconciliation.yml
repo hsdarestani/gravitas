@@ -2,7 +2,7 @@ name: Apply Approved Team Task Reconciliation
 on:
   push:
     branches: [codex/team-task-reconciliation-20261015]
-    paths: ['ops/private-plan.encrypted.json']
+    paths: ['ops/private-plan.encrypted.json', 'ops/apply_task_reconciliation.py', '.github/workflows/apply-task-reconciliation.yml']
 permissions:
   contents: read
 jobs:
@@ -48,7 +48,7 @@ jobs:
           test -f /opt/gravitas-backend/core/migrations/0067_historical_source_tasks_without_fake_deadlines.py
           SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{print $2}' /etc/gravitas/backend.env)"
           cd /opt/gravitas-backend
-          sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings .venv/bin/python manage.py migrate --check
+          sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings .venv/bin/python -m django migrate --check
           if ! sudo test -f "$ROOT/plan.json"; then
             sudo -u gravitas .venv/bin/python "$STEM-transport.py" decrypt --envelope "$STEM-envelope.json" --output "$ROOT/plan.json"
           fi
