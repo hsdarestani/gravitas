@@ -165,8 +165,6 @@ def project_tasks(request, project_id):
         return _error('invalid_due_date')
     if due_date is None:
         due_date = getattr(getattr(project, 'platform_profile', None), 'deadline', None)
-    if due_date is None:
-        return _error('due_date_required')
 
     definition_of_done = str(payload.get('definition_of_done', '')).strip()
     if not definition_of_done:

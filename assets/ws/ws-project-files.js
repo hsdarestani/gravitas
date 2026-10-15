@@ -1,10 +1,10 @@
 /* Files are the default project surface. The existing Markdown reader is
  * reused, and all saves carry an exact remote revision. Conflict drafts stay
  * in the visible editor; choosing mine/remote is an explicit guarded save. */
-import { call, upload } from './ws-platform.js?v=20261014-r5';
-import { nextcloudSsoUrl } from './ws-nextcloud-sso.js?v=20261014-r5';
-import { renderNoteMarkdown } from './ws-notes-markdown.js?v=20261014-r5';
-import { showProjectFileHistory } from './ws-project-history.js?v=20261014-r5';
+import { call, upload } from './ws-platform.js?v=20261015-r1';
+import { nextcloudSsoUrl } from './ws-nextcloud-sso.js?v=20261015-r1';
+import { renderNoteMarkdown } from './ws-notes-markdown.js?v=20261015-r1';
+import { showProjectFileHistory } from './ws-project-history.js?v=20261015-r1';
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const button = (text, fn) => { const n = el('button', 'ws-btn', text); n.type = 'button'; n.onclick = fn; return n; };
 export async function renderProjectStructure(doc, projectId) {

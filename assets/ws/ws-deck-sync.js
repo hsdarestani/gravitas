@@ -17,7 +17,7 @@
    asks for this row itself, so neither guard is needed.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261014-r5';
+import * as P from './ws-platform.js?v=20261015-r1';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);

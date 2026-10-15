@@ -1,7 +1,7 @@
-import { renderProjectStructure } from './ws-project-files.js?v=20261014-r5';
-import { renderProjectManagement } from './ws-project-pm.js?v=20261014-r5';
-import * as P from './ws-platform.js?v=20261014-r5';
-import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261014-r5';
+import { renderProjectStructure } from './ws-project-files.js?v=20261015-r1';
+import { renderProjectManagement } from './ws-project-pm.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261015-r1';
+import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261015-r1';
 
 const TABS = [
   ['structure', 'Project folder'],

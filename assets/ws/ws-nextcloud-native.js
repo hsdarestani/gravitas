@@ -1,10 +1,10 @@
-import * as P from './ws-platform.js?v=20261014-r5';
-import * as K from './ws-admin-kit.js?v=20261014-r5';
-import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261014-r5';
-import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261014-r5';
-import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261014-r5';
-import { startNotesSync } from './ws-notes-performance.js?v=20261014-r5';
-import { renderSpaceIndex } from './ws-space-integration.js?v=20261014-r5';
+import * as P from './ws-platform.js?v=20261015-r1';
+import * as K from './ws-admin-kit.js?v=20261015-r1';
+import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261015-r1';
+import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261015-r1';
+import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261015-r1';
+import { startNotesSync } from './ws-notes-performance.js?v=20261015-r1';
+import { renderSpaceIndex } from './ws-space-integration.js?v=20261015-r1';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {
@@ -1659,10 +1659,11 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   let dirty = false;
   let shownState = note.sync_state;
   let baseUpdated = note.updated;
+  let baseRevision = note.revision;
   const draftKey = 'gq.notes.unsaved.' + note.id;
   function storeDraft() {
     try { sessionStorage.setItem(draftKey, JSON.stringify({
-      title: title.value, content: body.value, expected_updated: baseUpdated
+      title: title.value, content: body.value, expected_updated: baseUpdated, expected_revision: baseRevision
     })); } catch { /* private browsing may forbid storage */ }
   }
   function clearDraft() {
@@ -1675,6 +1676,9 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
       title.value = recovered.title;
       body.value = recovered.content;
       baseUpdated = recovered.expected_updated || baseUpdated;
+      // A recovered draft must keep the revision it was based on. Legacy
+      // drafts retain their timestamp guard instead of adopting a newer base.
+      baseRevision = recovered.expected_revision;
       dirty = true;
       setTimeout(() => setSave('Unsaved draft restored · review and save', 'bad'), 0);
     }
@@ -1688,7 +1692,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
 
   function drawMeta() {
     meta.innerHTML = '';
-    const [label, tone] = syncOf(note);
+    const [label, tone] = dirty || saving ? ['Unsaved changes', 'warn'] : syncOf(note);
     const pill = el('span', 'nb-pill', label);
     pill.dataset.tone = tone;
     const edited = el('span', null, note.updated ? `Edited ${ago(note.updated).toLowerCase()}` : 'Not saved yet');
@@ -1722,6 +1726,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
     const submitted = {
       title: title.value.trim() || 'Untitled note', content: body.value,
       favorite: !!note.favorite, expected_updated: baseUpdated,
+      ...(baseRevision ? { expected_revision: baseRevision } : {}),
     };
     storeDraft();
     setSave('Saving…');
@@ -1734,6 +1739,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
       }
       Object.assign(note, result.item);
       baseUpdated = note.updated;
+      baseRevision = note.revision;
       announceChange(note);
       if (title.value.trim() !== submitted.title || body.value !== submitted.content) {
         dirty = true;
@@ -1782,6 +1788,7 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
     dirty = true;
     storeDraft();
     setSave('Editing…');
+    drawMeta();
     clearTimeout(timer);
     timer = setTimeout(save, 700);
   }

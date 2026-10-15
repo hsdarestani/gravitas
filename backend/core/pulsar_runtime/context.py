@@ -158,7 +158,7 @@ class PulsarContextEngine:
             project.refresh_from_db()
 
             blocks.append(
-                f'Project: {project.title}\nDescription: {str(project.description or "")[:2200]}'
+                f'Active project ID: {project.pk}\nProject: {project.title}\nDescription: {str(project.description or "")[:2200]}'
             )
             sources.append({
                 'id': str(project.pk),

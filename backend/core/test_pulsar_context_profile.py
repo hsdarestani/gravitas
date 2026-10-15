@@ -218,6 +218,9 @@ class PulsarContextAndProfileTests(TestCase):
             'Summarize every task, blockers and deadlines in this project',
             project_id=project.pk, skill='project_task',
         )
+        self.assertIn(f'Active project ID: {project.pk}', package.text)
+        self.assertIn('Project: Large project task sample', package.text)
+        self.assertNotIn('Use the verified dataset', package.text)
         self.assertIn('"visible": 26', package.text)
         self.assertIn('"open": 26', package.text)
         self.assertIn('Project execution item 26', package.text)

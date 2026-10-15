@@ -247,7 +247,7 @@ class OperatingTask(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=Q(cycle__isnull=False) | Q(due_date__isnull=False),
+                condition=Q(initiative__isnull=True) | Q(cycle__isnull=False) | Q(due_date__isnull=False),
                 name='grav_task_cycle_or_due',
             ),
             models.CheckConstraint(

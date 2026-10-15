@@ -1,5 +1,5 @@
-import { renderWorkReports } from './ws-work-reports.js?v=20261014-r5';
-import * as P from './ws-platform.js?v=20261014-r5';
+import { renderWorkReports } from './ws-work-reports.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261015-r1';
 import {
   renderCertificates,
   renderCourse,
@@ -9,9 +9,9 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20261014-r5';
-import { renderMemberProgress } from './ws-member-progress.js?v=20261014-r5';
-import { renderMemberSupport } from './ws-support.js?v=20261014-r5';
+} from './ws-member-lms.js?v=20261015-r1';
+import { renderMemberProgress } from './ws-member-progress.js?v=20261015-r1';
+import { renderMemberSupport } from './ws-support.js?v=20261015-r1';
 import {
   renderAdminActivity,
   renderAdminCourseEditor,
@@ -26,10 +26,10 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261014-r5';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261014-r5';
-import { renderCoreLinks } from './ws-core-links.js?v=20261014-r5';
-import { renderResearchProject } from './ws-project.js?v=20261014-r5';
+} from './ws-admin.js?v=20261015-r1';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261015-r1';
+import { renderCoreLinks } from './ws-core-links.js?v=20261015-r1';
+import { renderResearchProject } from './ws-project.js?v=20261015-r1';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -104,7 +104,7 @@ function pathKind(path = location.pathname) {
 
   match = path.match(/^\/workspace\/research\/projects\/(\d+)(?:\/([a-z-]+))?\/?$/);
   if (match) {
-    const tabs = new Set(['structure', 'overview', 'milestones', 'tasks', 'notes', 'sources', 'files', 'discussions', 'experiments', 'activity']);
+    const tabs = new Set(['structure', 'overview', 'milestones', 'tasks', 'management', 'notes', 'sources', 'files', 'discussions', 'experiments', 'activity']);
     const tab = match[2] && tabs.has(match[2]) ? match[2] : 'structure';
     return { kind: 'research-project', id: match[1], tab };
   }

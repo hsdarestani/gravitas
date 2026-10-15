@@ -19,8 +19,8 @@
    public pages still read.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261014-r5';
-import * as K from './ws-admin-kit.js?v=20261014-r5';
+import * as P from './ws-platform.js?v=20261015-r1';
+import * as K from './ws-admin-kit.js?v=20261015-r1';
 
 const { el } = K;
 const ADMIN = '/workspace/core/admin';

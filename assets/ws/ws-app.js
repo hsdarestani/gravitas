@@ -19,27 +19,27 @@
    survivable: every view owns one container and redraws it whole from state.
    ========================================================================== */
 
-import * as notes from './ws-notes-store.js?v=20261014-r5';
-import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261014-r5';
-import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261014-r5';
-import * as P from './ws-platform.js?v=20261014-r5';
-import { renderCoreTeam } from './ws-core-team.js?v=20261014-r5';
-import { renderCoreContent } from './ws-core-content-actions.js?v=20261014-r5';
-import * as views from './ws-views.js?v=20261014-r5';
-import * as meetings from './ws-meetings.js?v=20261014-r5';
-import * as assets from './ws-core-assets.js?v=20261014-r5';
-import * as kms from './ws-kms-views.js?v=20261014-r5';
-import * as library from './ws-library.js?v=20261014-r5';
-import * as research from './ws-research.js?v=20261014-r5';
+import * as notes from './ws-notes-store.js?v=20261015-r1';
+import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261015-r1';
+import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261015-r1';
+import { renderCoreTeam } from './ws-core-team.js?v=20261015-r1';
+import { renderCoreContent } from './ws-core-content-actions.js?v=20261015-r1';
+import * as views from './ws-views.js?v=20261015-r1';
+import * as meetings from './ws-meetings.js?v=20261015-r1';
+import * as assets from './ws-core-assets.js?v=20261015-r1';
+import * as kms from './ws-kms-views.js?v=20261015-r1';
+import * as library from './ws-library.js?v=20261015-r1';
+import * as research from './ws-research.js?v=20261015-r1';
 import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf, SPACE_LABEL,
-} from './ws-nav.js?v=20261014-r5';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261014-r5';
-import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261014-r5';
-import { mountPalette, openPalette } from './ws-palette.js?v=20261014-r5';
-import { installAssistant, askAssistant } from './ws-ai.js?v=20261014-r5';
-import { installSelects } from './ws-select.js?v=20261014-r5';
+} from './ws-nav.js?v=20261015-r1';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261015-r1';
+import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261015-r1';
+import { mountPalette, openPalette } from './ws-palette.js?v=20261015-r1';
+import { installAssistant, askAssistant, assistantContext } from './ws-ai.js?v=20261015-r1';
+import { installSelects } from './ws-select.js?v=20261015-r1';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1440,12 +1440,9 @@ export async function start() {
     go,
     pulsarContext: () => {
       const area = railArea(location.pathname);
-      const currentProjectId = ui.route?.view === 'project' ? ui.route.id : null;
-      return {
-        surface: area === 'core' ? 'core' : (area === 'learning' ? 'learning' : 'research'),
-        project_id: currentProjectId || undefined,
-        thread_id: 'primary',
-      };
+      // Five-layer project pages do not use the legacy ui.route.view shape.
+      // Derive scope from the current URL on every question, including SPA moves.
+      return assistantContext(location.pathname, area);
     },
   });
 

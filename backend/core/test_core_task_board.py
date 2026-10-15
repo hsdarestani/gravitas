@@ -110,6 +110,11 @@ class CoreTaskBoardTests(TestCase):
         self.assertIsNone(task.initiative_id)
         self.assertIsNone(task.project_id)
 
+        cleared = self.patch_json(f'/api/operating/task-board/{task_id}/', {'due_date': None})
+        self.assertEqual(cleared.status_code, 200, cleared.content)
+        task.refresh_from_db()
+        self.assertIsNone(task.due_date)
+
         board = self.client.get('/api/operating/task-board/')
         self.assertEqual(board.status_code, 200, board.content)
         entry = next(item for item in board.json()['tasks'] if item['id'] == task_id)
@@ -130,6 +135,7 @@ class CoreTaskBoardTests(TestCase):
         kr = KeyResult.objects.filter(objective__workspace=self.workspace).first()
         attached = self.patch_json(f'/api/operating/task-board/{task_id}/', {
             'key_result_id': kr.pk,
+            'due_date': (date.today() + timedelta(days=3)).isoformat(),
         })
         self.assertEqual(attached.status_code, 200, attached.content)
         self.assertIsNotNone(attached.json()['task']['initiative_id'])

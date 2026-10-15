@@ -147,8 +147,8 @@ class PulsarWeek1ReleaseTests(TestCase):
         self.assertIn("for (const key of ['surface', 'project_id', 'workspace_id', 'thread_id']) if (extra?.[key]) body[key] = extra[key];", ai_js)
         self.assertIn("P.call('/platform/ai/ask/', { method: 'POST', body })", ai_js)
         self.assertIn("context.pulsarContext()", ai_js)
-        self.assertIn("surface: area === 'core' ? 'core'", app_js)
-        self.assertIn("project_id: currentProjectId || undefined", app_js)
+        self.assertIn("assistantContext(location.pathname, area)", app_js)
+        self.assertIn("project_id: projectId || undefined", ai_js)
 
     def test_runtime_status_exposes_skill_provider_and_recent_run_contract(self):
         harness = PulsarHarness(models=FakeGateway())

@@ -1,8 +1,8 @@
 /* Project command center. All views use the same ACL-scoped OperatingTask
  * objects; canonical Nextcloud documents remain the source of truth.
  * These views do not persist a competing task representation. */
-import * as P from './ws-platform.js?v=20261014-r5';
-import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261014-r5';
+import * as P from './ws-platform.js?v=20261015-r1';
+import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261015-r1';
 
 const node = (tag, cls = '', content = '') => {
   const n = document.createElement(tag);

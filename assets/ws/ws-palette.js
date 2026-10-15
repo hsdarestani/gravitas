@@ -19,7 +19,7 @@
    of motion is none.
    ========================================================================== */
 
-import { availableWorkspaces, sectionsFor, SPACE_LABEL } from './ws-nav.js?v=20261014-r5';
+import { availableWorkspaces, sectionsFor, SPACE_LABEL } from './ws-nav.js?v=20261015-r1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
