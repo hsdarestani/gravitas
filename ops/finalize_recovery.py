@@ -2,6 +2,15 @@
 import json
 import os
 from pathlib import Path
+import builtins
+
+def print(*args, **kwargs):
+    builtins.print(*args, **kwargs)
+    path=Path('/var/lib/gravitas-source-migrations/team-docs-20261015-v1/verification-progress.jsonl')
+    fd=os.open(path,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o600)
+    with os.fdopen(fd,'a') as out:
+        out.write(' '.join(str(x) for x in args)+'\n');out.flush()
+
 
 ROOT = Path('/var/lib/gravitas-source-migrations/team-docs-20261015-v1')
 
