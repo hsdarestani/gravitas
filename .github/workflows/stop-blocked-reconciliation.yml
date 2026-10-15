@@ -1,4 +1,4 @@
-name: Stop Own Blocked Reconciliation Worker
+name: Pause Own Portfolio Worker for Canonical Repair
 on:
   push:
     branches: [codex/team-task-reconciliation-20261015]
@@ -6,12 +6,12 @@ on:
 permissions:
   contents: read
 jobs:
-  migrate:
+  pause_exact_worker:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Apply reviewed encrypted plan after deployed schema validation
+      - name: Send SIGINT only to the verified portfolio process
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           SSH_HOST: ${{ secrets.DEPLOY_HOST }}
