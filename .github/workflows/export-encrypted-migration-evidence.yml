@@ -6,12 +6,12 @@ on:
 permissions:
   contents: read
 jobs:
-  migrate:
+  read_only_evidence:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Apply reviewed encrypted plan after deployed schema validation
+      - name: Read-only encrypted migration evidence snapshot
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           SSH_HOST: ${{ secrets.DEPLOY_HOST }}

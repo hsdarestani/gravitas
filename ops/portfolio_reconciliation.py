@@ -28,7 +28,7 @@ def main():
     from django.contrib.auth import get_user_model
     from django.core.serializers.json import DjangoJSONEncoder
     from core.task_source_migration import apply_plan,digest,task_snapshot
-    from core.canonical_projects import active,refresh_project,export_object,_pending,dav_read
+    from core.canonical_projects import active,refresh_project,refresh_task_scope,export_object,_pending,dav_read
     from core.canonical_signals import flush_pending
     from core.canonical_journal import journal_transaction
     from core.canonical_models import CanonicalFile
@@ -66,8 +66,9 @@ def main():
     @journal_transaction
     def consolidate(tasks):
         destination=projects[next(x['project'] for x in plan['tasks'] if x['source_key']==tasks[0].source_key)]
-        for old in {t.project_id for t in tasks}:refresh_project(ResearchProject.objects.get(pk=old),actor)
-        if destination.pk not in {t.project_id for t in tasks}:refresh_project(destination,actor)
+        for task in tasks:
+            refresh_task_scope(task.project,actor,task.pk);task.refresh_from_db()
+        refresh_task_scope(destination,actor)
         pending=[];token=_pending.set(pending)
         try:
             move_tree(tasks,destination,actor)
@@ -85,7 +86,7 @@ def main():
         if not can_edit(task.owner,destination):raise ValueError('existing_owner_project_access_missing')
         pending=[];token=_pending.set(pending)
         try:
-            refresh_project(destination,actor);move_tree([task],destination,actor)
+            refresh_task_scope(destination,actor);move_tree([task],destination,actor)
             flush_pending([x for x in pending if x[0]!='save' or x[1] is not OperatingTask],actor)
         finally:_pending.reset(token)
     for item in plan['existing_core_tasks']:route_existing(item)
@@ -95,7 +96,7 @@ def main():
         if KnowledgeResource.objects.filter(project=project,metadata__migration_key=item['key']).exists():return
         pending=[];token=_pending.set(pending)
         try:
-            refresh_project(project,actor)
+            refresh_task_scope(project,actor)
             note=KnowledgeResource.objects.create(workspace=project.workspace,project=project,owner=actor,kind='note',title=item['title'],body=item['body'],source_url=item['source_url'],metadata={'migration_key':item['key'],'portfolio_revision':plan['portfolio_revision'],'historical_reference':True})
             policy_for(note,create=True,created_by=actor,default_visibility=INHERIT_VISIBILITY)
             flush_pending(pending,actor)
@@ -127,7 +128,7 @@ def main():
             return
         pending=[];token=_pending.set(pending)
         try:
-            refresh_project(project,actor)
+            refresh_task_scope(project,actor)
             request=RequestFactory().post('/api/platform/files/upload/',{'file':SimpleUploadedFile(item['name'],data,content_type=item['mime_type']),'project_id':project.pk,'kind':'file','description':'Original source asset from '+item['source_library_id']})
             request.user=actor
             response=platform_file_upload(request)

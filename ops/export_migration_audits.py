@@ -32,7 +32,7 @@ def main():
         if connection.vendor=='postgresql':
             with connection.cursor() as cursor:cursor.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         current=snapshot(workspace_id=75)
-    paths=[ROOT/name for name in ['before-apply.json','timestamp-precision.json','qa-recovery-fixture.json','after-apply.json','verification.json','final-snapshot.json']]
+    paths=[ROOT/name for name in ['before-apply.json','timestamp-precision.json','qa-recovery-fixture.json','after-apply.json','verification.json','final-snapshot.json','portfolio-before.json','portfolio-after.json','portfolio-verification.json']]
     paths+=sorted(ROOT.glob('audit-*.json'))+sorted(ROOT.glob('control-pause-*.json'))
     buffer=io.BytesIO()
     with tarfile.open(fileobj=buffer,mode='w:gz') as archive:
