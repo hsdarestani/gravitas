@@ -14,3 +14,7 @@ import django
 django.setup()
 from core.operating_models import OperatingTask
 print(json.dumps({'core_tasks':OperatingTask.objects.filter(workspace_id=75).count(),'source_bound':OperatingTask.objects.filter(source_metadata__migration_run_id='team-docs-20261015-v1').count(),'qa_remaining':list(OperatingTask.objects.filter(pk__in=[728,729]).values_list('id',flat=True))}))
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute("SELECT pid,state,wait_event_type,wait_event,pg_blocking_pids(pid),EXTRACT(EPOCH FROM (now()-xact_start))::integer FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()")
+    print(json.dumps({'database_waits':cursor.fetchall()},default=str))
