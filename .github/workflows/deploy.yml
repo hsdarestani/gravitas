@@ -533,6 +533,13 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$OPERATIONS_HOST" bash -s -- "$CHECKPOINT_SCRIPT" <<'REMOTE'
           set -euo pipefail
           CHECKPOINT_SCRIPT="$1"
+          # A runner timeout can release the Actions concurrency lease while
+          # its remote migration is still finishing a canonical transaction.
+          # Never stop native services under that surviving production writer.
+          if pgrep -f '[/]tmp/graviquest-approved-[0-9]+-apply[.]py' >/dev/null; then
+            echo 'Active source migration still owns production writes; deployment stopped before native checkpoint.' >&2
+            exit 1
+          fi
           # Checkpoints were never removed, and on 2026-10-13 they filled the
           # disk. Keep the newest complete one (this run adds another), before
           # anything below needs room to start a container or write a dump.
