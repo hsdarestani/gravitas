@@ -445,14 +445,16 @@ def task_board_detail(request, task_id):
         if payload.get('dependency_id') and not task.dependency:
             return _error('invalid_dependency')
 
-    if task.initiative_id and not task.cycle and not task.due_date:
+    if task.initiative_id and not task.cycle and not task.due_date and not task.source_key:
         return _error('task_requires_due_date')
     if task.meeting and not task.due_date:
         return _error('meeting_action_requires_deadline')
     if not str(task.title or '').strip() or not str(task.definition_of_done or '').strip():
         return _error('title_and_done_definition_required')
 
-    if task.status == WorkStatus.DONE and not task.completed_at:
+    if task.status == WorkStatus.DONE and not task.completed_at and (
+        not task.source_key or (payload.get('status') == WorkStatus.DONE and before['status'] != WorkStatus.DONE)
+    ):
         task.completed_at = timezone.now()
     elif task.status != WorkStatus.DONE:
         task.completed_at = None

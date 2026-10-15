@@ -1045,6 +1045,30 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         task.milestone_title ? el('span', 'v-badge', task.milestone_title) : el('span'),
       );
 
+      const sourceHistory = el('section', 'task-card-dialog__source-history');
+      const sourceRecords = task.source_metadata?.records || [];
+      if (sourceRecords.length) {
+        sourceHistory.append(el('h3', '', 'Historical source'));
+        sourceHistory.append(el('p', 'v-note', 'Activity dates below are historical records, not deadlines. Source-reported Done does not confirm production acceptance.'));
+        sourceRecords.forEach((record) => {
+          const entry = el('div', 'v-note');
+          entry.append(el('strong', '', record.title || task.title));
+          entry.append(el('p', '', `Reported status: ${record.original_status || 'Not recorded'} · Activity: ${record.activity_date_raw || 'Not recorded'}`));
+          if (record.parent_title) entry.append(el('p', '', `Historical parent: ${record.parent_title}`));
+          try {
+            const reference = new URL(record.source_reference);
+            if (reference.protocol === 'https:' && reference.hostname === 'docs.google.com') {
+              const anchor = el('a', '', 'Open historical Google Docs record');
+              anchor.href = reference.href;
+              anchor.target = '_blank';
+              anchor.rel = 'noopener noreferrer';
+              entry.append(anchor);
+            }
+          } catch (_) { /* Retain source text when no navigable reference exists. */ }
+          sourceHistory.append(entry);
+        });
+      }
+
       const actions = el('div', 'task-card-dialog__actions');
       const save = makeButton('Save changes', () => {}, true);
       save.type = 'submit';
@@ -1060,6 +1084,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         field('Definition of done', done),
         field('Blocked reason', blocked),
         trace,
+        sourceHistory,
         actions,
         note,
       );
