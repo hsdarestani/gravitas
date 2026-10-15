@@ -86,3 +86,9 @@ if verification.exists():print(json.dumps({'verification_progress_tail':verifica
 if portfolio.exists():
  existing_remaining=sum(OperatingTask.objects.get(pk=x['task_id']).project_id!=projects[x['project']] for x in plan.get('existing_core_tasks',[]))
  print(json.dumps({'existing_core_task_routes_remaining':existing_remaining,'planned_notes':len(plan.get('notes',[])),'planned_assets':len(plan.get('assets',[])),'portfolio_output_present':(root/'portfolio-verification.json').exists()}),flush=True)
+
+if portfolio.exists():
+ from core.models import KnowledgeResource
+ note_count=sum(KnowledgeResource.objects.filter(project_id=projects[x['project']],metadata__migration_key=x['key']).exists() for x in plan.get('notes',[]))
+ asset_count=sum(KnowledgeResource.objects.filter(project_id=projects[x['project']],original_name=x['name'],checksum='sha256:'+x['sha256']).exists() for x in plan.get('assets',[]))
+ print(json.dumps({'confirmed_portfolio_notes':note_count,'confirmed_portfolio_assets':asset_count}),flush=True)
