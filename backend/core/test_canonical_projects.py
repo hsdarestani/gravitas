@@ -400,11 +400,19 @@ class CanonicalProjectTests(TestCase):
             title='Historical implementation',status='done',definition_of_done='Reported output',
             source_key='history:http-board',source_metadata={'activity_date_raw':'2026-09-07'})
         self.adopt()
+        original_note_body=self.note.body
+        self.note.body='An unrelated native note changed externally'
+        native_note=encode(self.note)
+        self.dav.external(self.full(relative_path(self.note)),native_note)
+        self.note.refresh_from_db()
         response=self.client.patch(f'/api/operating/task-board/{task.pk}/',
             json.dumps({'priority':'p1'}),content_type='application/json')
         self.assertEqual(response.status_code,200,response.content)
         task.refresh_from_db()
         native=json.loads(self.dav.files[self.full(relative_path(task))]['content'])
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.body,original_note_body)
+        self.assertEqual(self.dav.files[self.full(relative_path(self.note))]['content'],native_note)
         self.assertEqual(native['fields']['priority'],'p1')
         self.assertEqual(native['fields']['source_key'],'history:http-board')
         self.assertIsNone(task.due_date)
