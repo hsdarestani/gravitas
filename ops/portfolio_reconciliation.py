@@ -3,7 +3,8 @@ import json,os,argparse
 from pathlib import Path
 
 def move_tree(tasks,destination,actor):
-    from core.canonical_projects import export_object
+    from core.canonical_projects import export_object,active
+    if not active(destination):raise ValueError('destination_canonical_activation_required')
     from core.canonical_signals import archive_object
     from core.platform_models import ProjectAuditEvent
     from core.operating_models import OperatingTask
@@ -27,7 +28,7 @@ def main():
     import django;django.setup()
     from django.contrib.auth import get_user_model
     from django.core.serializers.json import DjangoJSONEncoder
-    from core.task_source_migration import apply_plan,digest,task_snapshot
+    from core.task_source_migration import apply_plan,digest,task_snapshot,validate
     from core.canonical_projects import active,refresh_project,refresh_task_scope,export_object,_pending,dav_read
     from core.canonical_signals import flush_pending
     from core.canonical_journal import journal_transaction
@@ -44,10 +45,14 @@ def main():
         path=root/name
         with path.open('x') as f:os.chmod(path,0o600);json.dump(value,f,cls=DjangoJSONEncoder,ensure_ascii=False);f.flush();os.fsync(f.fileno())
     if not (root/'portfolio-before.json').exists():save('portfolio-before.json',snapshot())
-    apply_plan(dict(schema=1,run_id=plan['run_id'],actor_id=18,workspace_id=75,projects=plan['projects'],tasks=[]))
+    project_plan=dict(schema=1,run_id=plan['run_id'],actor_id=18,workspace_id=75,projects=[dict(item,adopt_canonical=True) for item in plan['projects']],tasks=[])
+    _,_,_,before_projects=validate(project_plan)
+    adoption_repair=[key for key,project in before_projects.items() if not active(project)]
+    apply_plan(project_plan)
     projects={}
     for item in plan['projects']:
         projects[item['key']]=ResearchProject.objects.get(pk=item['id']) if item.get('id') else ResearchProject.objects.get(description__contains='<!-- gq-migration-project:'+item['key']+' -->')
+    if any(not active(project) for project in projects.values()):raise ValueError('portfolio_canonical_activation_required')
     source={t.source_key:t for t in OperatingTask.objects.filter(source_key__in=[x['source_key'] for x in plan['tasks']])}
     if len(source)!=len(plan['tasks']):raise ValueError('source_bindings_incomplete')
     target={x['source_key']:projects[x['project']].pk for x in plan['tasks']}
@@ -184,6 +189,6 @@ def main():
         try:
             if hashlib.sha256(response.content).hexdigest()!=item['sha256']:raise ValueError('asset_readback_failed')
         finally:response.close()
-    save('portfolio-after.json',after);save('portfolio-verification.json',{'tasks':checks,'projects':{k:v.pk for k,v in projects.items()},'notes':len(plan['notes']),'preserved_concurrent_edits':concurrent_edits,'native_access':native,'assets':len(plan.get('assets',[])),'browser_refresh_tested':False})
+    save('portfolio-after.json',after);save('portfolio-verification.json',{'tasks':checks,'projects':{k:v.pk for k,v in projects.items()},'notes':len(plan['notes']),'preserved_concurrent_edits':concurrent_edits,'native_access':native,'assets':len(plan.get('assets',[])),'browser_refresh_tested':False,'adopted_missing_destinations':adoption_repair,'canonical_destinations_verified':len(projects)})
     print(json.dumps({'verified_tasks':len(checks),'project_destinations':len(projects),'notes':len(plan['notes'])}))
 if __name__=='__main__':main()
