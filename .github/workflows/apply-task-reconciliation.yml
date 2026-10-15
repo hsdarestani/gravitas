@@ -3,6 +3,9 @@ on:
   push:
     branches: [codex/team-task-reconciliation-20261015]
     paths: ['ops/private-plan.encrypted.json', 'ops/apply_task_reconciliation.py', '.github/workflows/apply-task-reconciliation.yml']
+concurrency:
+  group: gravitas-production
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:

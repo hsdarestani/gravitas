@@ -68,7 +68,11 @@ def main():
                     # its auth_user lock was diagnosed; no source task committed.
                     preserved = root / 'audit-000.auth-lock-interrupted.json'
                     if preserved.exists():
-                        raise ValueError('further_prepared_failure_requires_review')
+                        # Reviewed connection refusal occurred before the first
+                        # native request while post-deploy acceptance checkpointed.
+                        preserved = root / 'audit-000.native-checkpoint-window.json'
+                        if preserved.exists():
+                            raise ValueError('further_prepared_failure_requires_review')
                 audit.rename(preserved)
             elif prior.get('plan_sha256') != digest(batch) or prior.get('state') == 'prepared':
                 raise ValueError('incomplete_batch_requires_review')
