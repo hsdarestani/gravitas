@@ -60,3 +60,7 @@ for project in ResearchProject.objects.filter(pk__in=[212,218,224]):
   if remote:
    manifest=json.loads(remote['content'])
    print(json.dumps({'project_id':project.pk,'journal':name,'state':manifest.get('state'),'operations':len(manifest.get('operations',[])),'modified_epoch':stamp}),flush=True)
+
+progress=root/'recovery-progress.jsonl'
+if progress.exists():
+ print(json.dumps({'recovery_progress_tail':progress.read_text().splitlines()[-12:]}),flush=True)
