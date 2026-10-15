@@ -53,6 +53,8 @@ def _task_json(item, user):
         'definition_of_done': item.definition_of_done,
         'blocked_reason': item.blocked_reason,
         'dependency_id': item.dependency_id,
+        'parent_id': item.parent_id,
+        'source_metadata': item.source_metadata,
         'milestone_id': item.milestone_id,
         'completed_at': item.completed_at.isoformat() if item.completed_at else None,
         'canonical_path': f'02_Working/Research/tasks/OperatingTask-{item.pk}/content.json',

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 
 class Health(models.TextChoices):
@@ -233,11 +234,38 @@ class OperatingTask(models.Model):
     due_date = models.DateField(blank=True, null=True)
     definition_of_done = models.TextField()
     dependency = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='dependants', blank=True, null=True)
+    parent = models.ForeignKey('self', on_delete=models.PROTECT, related_name='subtasks', blank=True, null=True)
+    source_key = models.CharField(max_length=240, unique=True, null=True, blank=True)
+    source_metadata = models.JSONField(default=dict, blank=True)
     blocked_reason = models.TextField(blank=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     board_order = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+        if not isinstance(self.source_metadata, dict):
+            raise ValidationError({'source_metadata': 'Source metadata must be an object.'})
+        seen = {self.pk} if self.pk else set()
+        cursor = self.parent
+        while cursor is not None:
+            if cursor.pk in seen:
+                raise ValidationError({'parent': 'A task hierarchy cannot contain a cycle.'})
+            seen.add(cursor.pk)
+            if cursor.workspace_id != self.workspace_id or cursor.project_id != self.project_id:
+                raise ValidationError({'parent': 'Parent and child must share workspace and project.'})
+            cursor = cursor.parent
+        if self.pk and self.subtasks.exclude(workspace_id=self.workspace_id, project_id=self.project_id).exists():
+            raise ValidationError({'project': 'Move the complete task family together.'})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        if self.pk:
+            prior = type(self).objects.filter(pk=self.pk).values_list('source_key', flat=True).first()
+            if prior and prior != self.source_key:
+                raise ValidationError({'source_key': 'A source binding is immutable.'})
+        return super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['priority', 'due_date', '-updated_at']
@@ -247,7 +275,7 @@ class OperatingTask(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=Q(initiative__isnull=True) | Q(cycle__isnull=False) | Q(due_date__isnull=False),
+                condition=Q(initiative__isnull=True) | Q(cycle__isnull=False) | Q(due_date__isnull=False) | Q(source_key__isnull=False),
                 name='grav_task_cycle_or_due',
             ),
             models.CheckConstraint(

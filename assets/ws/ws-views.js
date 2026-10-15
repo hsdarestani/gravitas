@@ -480,7 +480,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         const byId = new Map(kr.tasks.map((task) => [String(task.id), task]));
         const children = new Map();
         for (const task of kr.tasks) {
-          const parentId = task.dependency_id && byId.has(String(task.dependency_id)) ? String(task.dependency_id) : '';
+          const parentId = task.parent_id && byId.has(String(task.parent_id)) ? String(task.parent_id) : '';
           if (!children.has(parentId)) children.set(parentId, []);
           children.get(parentId).push(task);
         }
@@ -496,7 +496,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           row.dataset.tone = TREE_TONES[task.status] || '';
           const name = el('span', 'task-tree__name');
           name.append(el('span', 'task-tree__dot'), el('span', 'task-tree__title', task.title));
-          if (depth) row.title = 'Waits on the task above';
+          if (depth) row.title = 'Subtask of the task above';
           const priority = el('span', 'task-tree__priority', String(task.priority || '').toUpperCase());
           priority.dataset.priority = task.priority || '';
           const ownerName = task.owner?.name || task.owner?.email || '';

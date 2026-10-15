@@ -1,6 +1,9 @@
 import json
 
 from django.core.management.base import BaseCommand
+from django.core.management.base import CommandError
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db import connection, transaction
 from django.db.models import Count
 from django.utils import timezone
 
@@ -10,7 +13,25 @@ from core.operating_models import OperatingTask, WorkStatus
 class Command(BaseCommand):
     help = 'Export every open platform task as JSON for review.'
 
+    def add_arguments(self, parser):
+        parser.add_argument('--reconciliation', action='store_true', help='Read-only team snapshot including closed tasks, projects and source context.')
+        parser.add_argument('--workspace-id', type=int, help='Disambiguate the Core workspace for --reconciliation.')
+
     def handle(self, *args, **options):
+        if options['reconciliation']:
+            from core.task_reconciliation_export import snapshot
+            try:
+                with transaction.atomic():
+                    if connection.vendor == 'postgresql':
+                        with connection.cursor() as cursor:
+                            cursor.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+                    payload = snapshot(options['workspace_id'])
+            except ValueError as exc:
+                raise CommandError(str(exc)) from exc
+            self.stdout.write(json.dumps(payload, cls=DjangoJSONEncoder, ensure_ascii=False, separators=(',', ':')))
+            return
+        if options['workspace_id'] is not None:
+            raise CommandError('--workspace-id requires --reconciliation.')
         today = timezone.localdate()
         rows = (
             OperatingTask.objects
