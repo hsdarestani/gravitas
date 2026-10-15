@@ -35,3 +35,28 @@ try:
     print(json.dumps({'native_status_http':response.status_code}))
 except requests.RequestException as exc:
     print(json.dumps({'native_status_error':type(exc).__name__}))
+
+# Inspect only newest native journal counters; never print user content.
+from core import cloud
+from core.canonical_projects import dav_read
+from core.models import ResearchProject
+from xml.etree import ElementTree as ET
+from urllib.parse import unquote
+for project in ResearchProject.objects.filter(pk__in=[212,218,224]):
+ folder=cloud.project_mountpoint(project)+'/06_Archive/CanonicalTransactions'
+ response=cloud._request('PROPFIND',cloud._admin_dav_url(folder),auth=cloud._admin_auth(),expected={207,404},headers={'Depth':'1'})
+ if response.status_code!=207:continue
+ candidates=[]
+ for row in ET.fromstring(response.content).findall('{DAV:}response'):
+  href=unquote(row.findtext('{DAV:}href') or '')
+  if not href.rstrip('/').endswith('.json'):continue
+  modified=row.findtext('.//{DAV:}getlastmodified') or ''
+  from email.utils import parsedate_to_datetime
+  try:stamp=parsedate_to_datetime(modified).timestamp()
+  except ValueError:stamp=0
+  candidates.append((stamp,href.rstrip('/').rsplit('/',1)[-1]))
+ for stamp,name in sorted(candidates,reverse=True)[:2]:
+  remote=dav_read(folder+'/'+name)
+  if remote:
+   manifest=json.loads(remote['content'])
+   print(json.dumps({'project_id':project.pk,'journal':name,'state':manifest.get('state'),'operations':len(manifest.get('operations',[])),'modified_epoch':stamp}),flush=True)
