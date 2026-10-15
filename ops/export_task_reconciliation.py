@@ -25,3 +25,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# Produce a current checkpoint during the authorized migration.
