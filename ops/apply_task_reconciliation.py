@@ -55,9 +55,17 @@ def main():
         audit = root / f'audit-{index:03d}.json'
         if audit.exists():
             prior = json.loads(audit.read_text())
-            if prior.get('plan_sha256') != digest(batch) or prior.get('state') == 'prepared':
+            if index == 0 and prior.get('state') == 'prepared' and not OperatingTask.objects.filter(source_key__in=[i['source_key'] for i in batch['tasks']]).exists():
+                # Reviewed failure was before the first Nextcloud request:
+                # missing service environment. Preserve that prepared audit.
+                preserved = root / 'audit-000.before-env-fix.json'
+                if preserved.exists():
+                    raise ValueError('second_prepared_failure_requires_review')
+                audit.rename(preserved)
+            elif prior.get('plan_sha256') != digest(batch) or prior.get('state') == 'prepared':
                 raise ValueError('incomplete_batch_requires_review')
-            continue
+            else:
+                continue
         if not path.exists():
             save(path, batch)
         call_command('migrate_source_tasks', str(path))

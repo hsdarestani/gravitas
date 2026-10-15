@@ -52,7 +52,7 @@ jobs:
           if ! sudo test -f "$ROOT/plan.json"; then
             sudo -u gravitas .venv/bin/python "$STEM-transport.py" decrypt --envelope "$STEM-envelope.json" --output "$ROOT/plan.json"
           fi
-          sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH=/opt/gravitas-backend .venv/bin/python "$STEM-apply.py" --plan "$ROOT/plan.json" --expected-sha dd3040ab2e2370f7f9135e01ccbe0127a8fcef5b139e39177a0f67cc7eec316e
+          sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python "$@"' -- "$STEM-apply.py" --plan "$ROOT/plan.json" --expected-sha dd3040ab2e2370f7f9135e01ccbe0127a8fcef5b139e39177a0f67cc7eec316e
           rm -f "$STEM-transport.py" "$STEM-apply.py" "$STEM-envelope.json"
           REMOTE
           mkdir -m 700 results
