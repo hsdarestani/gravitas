@@ -405,6 +405,35 @@ class CoreTaskBoardTests(TestCase):
         self.assertFalse(OperatingTaskAttachment.objects.filter(pk=attachment_id).exists())
 
 
+    def historical_task(self, status='done'):
+        return OperatingTask.objects.create(workspace=self.workspace, initiative_id=self.initiative['id'],
+            owner=self.user, title='Historical implementation', definition_of_done='Source-reported output',
+            source_key='history:one', source_metadata={'activity_date_raw':'2026-09-07'}, status=status)
+
+    def test_source_history_can_be_edited_without_inventing_deadline_or_completion(self):
+        task=self.historical_task()
+        response=self.patch_json(f'/api/operating/task-board/{task.pk}/', {'priority':'p1','status':'done'})
+        self.assertEqual(response.status_code,200,response.content)
+        task.refresh_from_db()
+        self.assertIsNone(task.due_date)
+        self.assertIsNone(task.completed_at)
+        self.assertEqual(task.source_metadata['activity_date_raw'],'2026-09-07')
+
+    def test_explicit_new_completion_of_source_task_records_current_transition(self):
+        task=self.historical_task('active')
+        response=self.patch_json(f'/api/operating/task-board/{task.pk}/', {'status':'done'})
+        self.assertEqual(response.status_code,200,response.content)
+        task.refresh_from_db()
+        self.assertIsNotNone(task.completed_at)
+        self.assertIsNone(task.due_date)
+
+    def test_ordinary_initiative_task_still_requires_planning_date(self):
+        task_id=self.create_task()
+        response=self.patch_json(f'/api/operating/task-board/{task_id}/', {'due_date':None})
+        self.assertEqual(response.status_code,400)
+        self.assertEqual(response.json()['error'],'task_requires_due_date')
+
+
 class CoreTaskBoardFrontendContractTests(TestCase):
     def test_workspace_task_view_is_trello_board_with_collaboration(self):
         root = Path(__file__).resolve().parents[2]
