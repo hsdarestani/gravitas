@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from .layer_models import ActivityEvent, ModuleGrant
 from .models import KnowledgeResource, ProjectMembership, ResearchProject
@@ -28,6 +28,7 @@ from .platform_api import ensure_dual_workspaces
 from .workspace_api import provision_personal_workspace
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class NativeNotesMirrorTests(TestCase):
     def setUp(self):
         self.queue_patcher = patch('core.space_signals._queue_note_sync')
