@@ -21,5 +21,10 @@ with connection.cursor() as cursor:
 with connection.cursor() as cursor:
     cursor.execute("SELECT pid,regexp_match(query, '(?i)(?:UPDATE|INTO|FROM)\\s+\"?([A-Za-z_]+)') FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'")
     print(json.dumps({'blocked_statement_tables':cursor.fetchall()}))
-
-# Verify committed counts after subsequent batches.
+import requests
+from django.conf import settings
+try:
+    response=requests.get(settings.NEXTCLOUD_INTERNAL_URL+'/status.php',timeout=(2,5))
+    print(json.dumps({'native_status_http':response.status_code}))
+except requests.RequestException as exc:
+    print(json.dumps({'native_status_error':type(exc).__name__}))
