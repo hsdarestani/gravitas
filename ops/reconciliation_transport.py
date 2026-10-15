@@ -4,6 +4,7 @@ Only the public key leaves production. This key encrypts data in transit; it
 is not an authentication credential and grants no platform access.
 """
 import argparse
+import gzip
 import base64
 import hashlib
 import json
@@ -44,6 +45,8 @@ def decrypt(envelope, output):
         raise ValueError('wrong_recipient')
     dek = key.decrypt(base64.b64decode(data['wrapped_key']), padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None))
     raw = AESGCM(dek).decrypt(base64.b64decode(data['nonce']), base64.b64decode(data['ciphertext']), RUN.encode())
+    if data.get('compression') == 'gzip':
+        raw = gzip.decompress(raw)
     if hashlib.sha256(raw).hexdigest() != data['plaintext_sha256']:
         raise ValueError('invalid_plaintext_digest')
     plan = json.loads(raw)
