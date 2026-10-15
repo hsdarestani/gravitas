@@ -82,3 +82,7 @@ verification=root/'verification-progress.jsonl'
 if verification.exists():print(json.dumps({'verification_progress_tail':verification.read_text().splitlines()[-8:]}),flush=True)
 
 # Fresh diagnostic run after the prior run reached 50 attempts.
+
+if portfolio.exists():
+ existing_remaining=sum(OperatingTask.objects.get(pk=x['task_id']).project_id!=projects[x['project']] for x in plan.get('existing_core_tasks',[]))
+ print(json.dumps({'existing_core_task_routes_remaining':existing_remaining,'planned_notes':len(plan.get('notes',[])),'planned_assets':len(plan.get('assets',[])),'portfolio_output_present':(root/'portfolio-verification.json').exists()}),flush=True)
