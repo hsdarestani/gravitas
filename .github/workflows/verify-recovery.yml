@@ -49,3 +49,5 @@ jobs:
           echo 'Verification completed; collect results using the encrypted read-only evidence exporter.'
 
 # Verify only after the serialized per-family recovery finishes.
+
+# Native folder reuse changes provisioning requests only; verify all contents and ACLs.
