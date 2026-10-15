@@ -59,7 +59,7 @@ for project in ResearchProject.objects.filter(pk__in=[212,218,224]):
   remote=dav_read(folder+'/'+name)
   if remote:
    manifest=json.loads(remote['content'])
-   print(json.dumps({'project_id':project.pk,'journal':name,'state':manifest.get('state'),'operations':len(manifest.get('operations',[])),'modified_epoch':stamp}),flush=True)
+   print(json.dumps({'project_id':project.pk,'journal':name,'state':manifest.get('state'),'operations':len(manifest.get('operations',[])),'kinds':[o.get('kind') for o in manifest.get('operations',[])],'restored':sum(bool(o.get('restored')) for o in manifest.get('operations',[])),'commit_witness':__import__('core.canonical_models',fromlist=['CanonicalWriteCommit']).CanonicalWriteCommit.objects.filter(pk=manifest['batch_id']).exists(),'modified_epoch':stamp}),flush=True)
 
 progress=root/'recovery-progress.jsonl'
 if progress.exists():
