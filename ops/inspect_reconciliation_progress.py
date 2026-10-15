@@ -18,3 +18,6 @@ from django.db import connection
 with connection.cursor() as cursor:
     cursor.execute("SELECT pid,state,wait_event_type,wait_event,pg_blocking_pids(pid),EXTRACT(EPOCH FROM (now()-xact_start))::integer FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()")
     print(json.dumps({'database_waits':cursor.fetchall()},default=str))
+with connection.cursor() as cursor:
+    cursor.execute("SELECT pid,regexp_match(query, '(?i)(?:UPDATE|INTO|FROM)\\s+\"?([A-Za-z_]+)') FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'")
+    print(json.dumps({'blocked_statement_tables':cursor.fetchall()}))
