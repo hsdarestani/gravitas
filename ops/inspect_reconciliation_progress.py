@@ -64,3 +64,19 @@ for project in ResearchProject.objects.filter(pk__in=[212,218,224]):
 progress=root/'recovery-progress.jsonl'
 if progress.exists():
  print(json.dumps({'recovery_progress_tail':progress.read_text().splitlines()[-12:]}),flush=True)
+
+portfolio=root/'portfolio-plan.json'
+if portfolio.exists():
+ plan=json.loads(portfolio.read_text())
+ projects={}
+ for item in plan['projects']:
+  projects[item['key']]=item.get('id') or ResearchProject.objects.get(description__contains='<!-- gq-migration-project:'+item['key']+' -->').pk
+ rows={t.source_key:t for t in OperatingTask.objects.filter(source_key__in=[x['source_key'] for x in plan['tasks']])}
+ remaining=[rows[x['source_key']] for x in plan['tasks'] if rows[x['source_key']].project_id!=projects[x['project']]]
+ roots=set()
+ for task in remaining:
+  while task.parent_id:task=task.parent
+  roots.add(task.pk)
+ print(json.dumps({'remaining_task_routes':len(remaining),'remaining_family_routes':len(roots),'portfolio_verification_present':(root/'portfolio-verification.json').exists(),'final_verification_present':(root/'verification.json').exists()}),flush=True)
+verification=root/'verification-progress.jsonl'
+if verification.exists():print(json.dumps({'verification_progress_tail':verification.read_text().splitlines()[-8:]}),flush=True)
