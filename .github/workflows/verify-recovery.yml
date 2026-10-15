@@ -47,3 +47,5 @@ jobs:
           ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python \"\$1\"' -- '$STEM'"
           ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "rm -f '$STEM'"
           echo 'Verification completed; collect results using the encrypted read-only evidence exporter.'
+
+# Verify only after the serialized per-family recovery finishes.
