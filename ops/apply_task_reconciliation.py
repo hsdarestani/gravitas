@@ -20,6 +20,21 @@ def main():
     plan = json.loads(plan_path.read_text())
     if digest(plan) != args.expected_sha:
         raise ValueError('unreviewed_plan_digest')
+    # Export snapshots use DjangoJSONEncoder's millisecond precision. Resolve
+    # only that identical serialized instant to full DB precision, never accept
+    # a newer timestamp. The original encrypted plan digest was checked above.
+    from core.operating_models import OperatingTask
+    encoder = DjangoJSONEncoder()
+    resolved = []
+    for item in plan['tasks']:
+        if item.get('task_id'):
+            current = OperatingTask.objects.get(pk=item['task_id'])
+            if current.source_key == item['source_key']:
+                continue
+            if encoder.default(current.updated_at) != item['expected_updated_at']:
+                raise ValueError('live_task_changed_since_snapshot:' + str(current.pk))
+            resolved.append({'task_id':current.pk,'snapshot_timestamp':item['expected_updated_at'],'precise_timestamp':current.updated_at.isoformat()})
+            item['expected_updated_at'] = current.updated_at.isoformat()
     validate(plan)
     root = plan_path.parent
     def save(path, data):
@@ -27,6 +42,9 @@ def main():
             os.chmod(path, 0o600)
             output.write(json.dumps(data, cls=DjangoJSONEncoder, ensure_ascii=False))
             output.flush();os.fsync(output.fileno())
+    precision = root / 'timestamp-precision.json'
+    if not precision.exists():
+        save(precision, resolved)
     before = root / 'before-apply.json'
     if not before.exists():
         save(before, snapshot())
