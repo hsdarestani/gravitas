@@ -69,7 +69,7 @@ def main():
     verification={'qa_deleted':qa_ids,'native_notes':[],'canonical_task_readback':[], 'owner_access':[],'preserved_post_migration_edits':current_changes}
     for project in ResearchProject.objects.filter(pk__in=OperatingTask.objects.filter(source_metadata__migration_run_id=plan['run_id']).values('project_id')).distinct():
         journal_transaction(refresh_project)(project,actor)
-        for task in OperatingTask.objects.filter(project=project,source_metadata__migration_run_id=plan['run_id']).select_related('owner'):
+        for task in OperatingTask.objects.filter(project=project).select_related('owner'):
             access={'task_id':task.pk,'owner_id':task.owner_id,'can_view':can_view(task.owner,task),'can_edit':can_edit(task.owner,task)}
             if not access['can_view'] or not access['can_edit']:
                 raise ValueError('task_owner_access_failed')
@@ -82,7 +82,7 @@ def main():
     from core.models import NextcloudIdentity
     native_checks=[]
     seen=set()
-    for task in OperatingTask.objects.filter(source_metadata__migration_run_id=plan['run_id']).select_related('project'):
+    for task in OperatingTask.objects.filter(workspace_id=75,project__isnull=False).select_related('project'):
         pair=(task.project_id,task.owner_id)
         if pair in seen:
             continue
@@ -139,6 +139,20 @@ def main():
     reread=actual_route(request)
     if reread.status_code!=200 or json.loads(reread.content)['task']['priority']!=sample.priority:
         raise ValueError('board_edit_readback_failed')
+    research_checks=[]
+    for uid,key in [(455,'characters'),(454,'design'),(978,'funding'),(289,'revenue-20261015')]:
+        project=ResearchProject.objects.get(description__contains='<!-- gq-migration-project:'+key+' -->')
+        user=get_user_model().objects.get(pk=uid)
+        expected=set(OperatingTask.objects.filter(project=project,owner=user).values_list('id',flat=True))
+        request=factory.get('/api/platform/projects/'+str(project.pk)+'/tasks/');request.user=user
+        response=actual_route(request)
+        result=json.loads(response.content)
+        if response.status_code!=200 or not expected.issubset({t['id'] for t in result.get('tasks',[])}):raise ValueError('research_shared_task_visibility_failed')
+        request=factory.get('/api/platform/projects/'+str(project.pk)+'/cockpit/');request.user=user
+        response=actual_route(request);result=json.loads(response.content)
+        if response.status_code!=200 or not expected.issubset({t['id'] for t in result.get('tasks',[])}):raise ValueError('command_center_shared_task_visibility_failed')
+        research_checks.append({'project_id':project.pk,'user_id':uid,'own_core_task_ids':sorted(expected),'research_and_command_center_same_ids':True})
+    verification['research_core_integration']=research_checks
     verification['api_checks']={'ordinary_member_id':455,'own_tasks_visible':len(owned),'edit_readback_task_id':sample.pk,'result':'passed','route_layer_and_canonical_middleware':True,'browser_refresh_tested':False}
     save(ROOT/'verification.json',verification)
     save(ROOT/'final-snapshot.json',snapshot())
