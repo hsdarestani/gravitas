@@ -7,6 +7,7 @@ on:
       - 'backend/core/task_reconciliation_export.py'
       - 'backend/core/test_task_reconciliation_export.py'
       - 'ops/export_task_reconciliation.py'
+      - 'ops/reconciliation_transport.py'
       - '.github/workflows/task-reconciliation-evidence.yml'
   workflow_dispatch:
 
@@ -70,9 +71,13 @@ jobs:
           assert data['read_only'] is True
           print(f"Evidence: {data['count']} tasks, {len(data['projects'])} projects")
           PY
+          scp -i ~/.ssh/reconciliation -P "$PORT" ops/reconciliation_transport.py "$REMOTE_USER@$SSH_HOST:$STEM-transport.py"
+          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "sudo install -d -o gravitas -g gravitas -m 700 /var/lib/gravitas-source-migrations; sudo -u gravitas /opt/gravitas-backend/.venv/bin/python '$STEM-transport.py' public-key; rm -f '$STEM-transport.py'" > migration-transport-public.pem
       - uses: actions/upload-artifact@v4
         with:
           name: team-task-reconciliation-production
-          path: task-reconciliation.json
+          path: |
+            task-reconciliation.json
+            migration-transport-public.pem
           retention-days: 1
           if-no-files-found: error
