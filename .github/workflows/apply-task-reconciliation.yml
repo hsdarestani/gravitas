@@ -11,7 +11,7 @@ permissions:
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - name: Apply reviewed encrypted plan after deployed schema validation
@@ -43,6 +43,7 @@ jobs:
           STEM="/tmp/graviquest-approved-$GITHUB_RUN_ID"
           scp -i ~/.ssh/reconciliation -P "$PORT" ops/reconciliation_transport.py "$REMOTE_USER@$SSH_HOST:$STEM-transport.py"
           scp -i ~/.ssh/reconciliation -P "$PORT" ops/apply_task_reconciliation.py "$REMOTE_USER@$SSH_HOST:$STEM-apply.py"
+          scp -i ~/.ssh/reconciliation -P "$PORT" ops/reconciliation_notes.py "$REMOTE_USER@$SSH_HOST:$STEM-notes.py"
           scp -i ~/.ssh/reconciliation -P "$PORT" ops/private-plan.encrypted.json "$REMOTE_USER@$SSH_HOST:$STEM-envelope.json"
           ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "bash -s -- '$STEM' '$ROOT'" <<'REMOTE'
           set -euo pipefail
@@ -50,19 +51,13 @@ jobs:
           ROOT="$2"
           test -f /opt/gravitas-backend/core/migrations/0067_historical_source_tasks_without_fake_deadlines.py
           SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{print $2}' /etc/gravitas/backend.env)"
+          sudo install -o gravitas -g gravitas -m 600 "$STEM-notes.py" "$ROOT/reconciliation_notes.py"
           cd /opt/gravitas-backend
           sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings .venv/bin/python -m django migrate --check
           if ! sudo test -f "$ROOT/plan.json"; then
             sudo -u gravitas .venv/bin/python "$STEM-transport.py" decrypt --envelope "$STEM-envelope.json" --output "$ROOT/plan.json"
           fi
           sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python "$@"' -- "$STEM-apply.py" --plan "$ROOT/plan.json" --expected-sha dd3040ab2e2370f7f9135e01ccbe0127a8fcef5b139e39177a0f67cc7eec316e
-          rm -f "$STEM-transport.py" "$STEM-apply.py" "$STEM-envelope.json"
+          rm -f "$STEM-transport.py" "$STEM-apply.py" "$STEM-envelope.json" "$STEM-notes.py"
           REMOTE
-          mkdir -m 700 results
-          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "sudo bash -c 'cd "$ROOT" && tar -czf - before-apply.json after-apply.json audit-*.json'" > results/migration-results.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: approved-migration-results
-          path: results/
-          retention-days: 1
-          if-no-files-found: error
+          echo 'Migration completed; retrieve evidence through the encrypted evidence export workflow.'
