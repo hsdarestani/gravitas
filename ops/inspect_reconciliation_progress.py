@@ -80,3 +80,5 @@ if portfolio.exists():
  print(json.dumps({'remaining_task_routes':len(remaining),'remaining_family_routes':len(roots),'portfolio_verification_present':(root/'portfolio-verification.json').exists(),'final_verification_present':(root/'verification.json').exists()}),flush=True)
 verification=root/'verification-progress.jsonl'
 if verification.exists():print(json.dumps({'verification_progress_tail':verification.read_text().splitlines()[-8:]}),flush=True)
+
+# Fresh diagnostic run after the prior run reached 50 attempts.
