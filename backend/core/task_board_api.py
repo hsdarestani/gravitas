@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, JsonResponse
@@ -123,6 +124,8 @@ def _task_json(task):
         'project_id': task.project_id,
         'project_title': task.project.title if task.project else '',
         'dependency_id': task.dependency_id,
+        'parent_id': task.parent_id,
+        'source_metadata': task.source_metadata,
         'dependency_title': task.dependency.title if task.dependency else '',
         'comment_count': getattr(task, 'comment_count', 0),
         'attachment_count': getattr(task, 'attachment_count', 0),
@@ -332,6 +335,15 @@ def task_board_detail(request, task_id):
     payload = base._body(request)
     before = _task_json(task)
 
+    if 'parent_id' in payload:
+        from .platform_access import can_view
+        if payload['parent_id'] and not str(payload['parent_id']).isdecimal():
+            return _error('invalid_parent')
+        parent = OperatingTask.objects.filter(pk=payload['parent_id'], workspace=workspace).first() if payload['parent_id'] else None
+        if payload['parent_id'] and (parent is None or not can_view(request.user, parent)):
+            return _error('invalid_parent')
+        task.parent = parent
+
     for field in ['title', 'description', 'priority', 'status', 'definition_of_done', 'blocked_reason']:
         if field in payload:
             setattr(task, field, payload[field])
@@ -445,6 +457,10 @@ def task_board_detail(request, task_id):
     elif task.status != WorkStatus.DONE:
         task.completed_at = None
 
+    try:
+        task.clean()
+    except ValidationError:
+        return _error('invalid_task_hierarchy')
     task.save()
     task = _task_for(request, task.pk)[1]
     after = _task_json(task)

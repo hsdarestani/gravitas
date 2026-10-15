@@ -225,13 +225,10 @@ def project_task_detail(request, project_id, task_id):
     if not isinstance(payload, dict):
         return _error('invalid_payload')
     allowed = {'title', 'description', 'definition_of_done', 'status', 'priority',
-               'blocked_reason', 'due_date', 'owner_id', 'dependency_id'}
+               'blocked_reason', 'due_date', 'owner_id', 'dependency_id', 'parent_id'}
     if not payload or set(payload) - allowed:
         return _error('invalid_task_fields')
-    # The v1 canonical JSON currently does not serialize owner and dependency.
-    # Never accept a UI mutation that the authoritative file cannot represent.
-    if canonical_active(project) and {'owner_id', 'dependency_id'}.intersection(payload):
-        return _error('canonical_task_schema_upgrade_required', 409)
+    # Task canonical schema v2 now serializes owner, dependency and hierarchy.
     updates = {}
     for field in ('title', 'description', 'definition_of_done', 'blocked_reason'):
         if field in payload:
@@ -283,11 +280,23 @@ def project_task_detail(request, project_id, task_id):
                 seen.add(cursor.pk)
                 cursor = cursor.dependency
         updates['dependency'] = dependency
-    previous = {field: (getattr(task, field + '_id') if field in {'owner', 'dependency'}
+    if 'parent_id' in payload:
+        if payload['parent_id'] and not str(payload['parent_id']).isdecimal():
+            return _error('invalid_parent')
+        parent = OperatingTask.objects.filter(pk=payload['parent_id'], project=project, workspace=task.workspace).first() if payload['parent_id'] else None
+        if payload['parent_id'] and (parent is None or not can_view(request.user, parent)):
+            return _error('invalid_parent')
+        updates['parent'] = parent
+    previous = {field: (getattr(task, field + '_id') if field in {'owner', 'dependency', 'parent'}
                          else str(getattr(task, field) or '')) for field in updates}
     with transaction.atomic():
         for field, value in updates.items():
             setattr(task, field, value)
+        from django.core.exceptions import ValidationError
+        try:
+            task.clean()
+        except ValidationError:
+            return _error('invalid_task_hierarchy')
         if task.status == WorkStatus.DONE:
             task.completed_at = task.completed_at or timezone.now()
         elif 'status' in updates:

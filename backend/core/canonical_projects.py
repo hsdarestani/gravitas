@@ -35,7 +35,7 @@ ROOT = '02_Working/Research'
 SPECS = {
     'ResearchProjectProfile': ('metadata', ('category', 'status', 'research_question', 'client_name', 'requester_name', 'requester_email', 'deadline', 'budget', 'currency', 'required_skills', 'compensation_text')),
     'KnowledgeResource': ('notes', ('title', 'description', 'body', 'source_url', 'metadata')),
-    'OperatingTask': ('tasks', ('title', 'description', 'priority', 'status', 'due_date', 'definition_of_done', 'blocked_reason', 'completed_at')),
+    'OperatingTask': ('tasks', ('title', 'description', 'priority', 'status', 'due_date', 'definition_of_done', 'blocked_reason', 'completed_at', 'owner_id', 'dependency_id', 'parent_id', 'source_key', 'source_metadata')),
     'ProjectDiscussionMessage': ('discussions', ('body', 'resolved')),
     'ResearchExperiment': ('outputs', ('title', 'hypothesis', 'protocol', 'status', 'result_summary', 'metadata', 'started_at', 'completed_at')),
     'MindMap': ('mindmap', ('title', 'description')),
@@ -98,7 +98,7 @@ def encode(obj):
         header = {'schema': 1, 'type': 'ResearchProject', 'id': obj.pk, 'fields': {'title': obj.title}}
         return '<!-- gravitas:' + json.dumps(header, ensure_ascii=False, sort_keys=True) + ' -->\n' + obj.description
     name = obj.__class__.__name__
-    payload = {'schema': 1, 'type': name, 'id': obj.pk, 'project_id': project_for(obj).pk,
+    payload = {'schema': 2 if name == 'OperatingTask' else 1, 'type': name, 'id': obj.pk, 'project_id': project_for(obj).pk,
                'fields': {field: getattr(obj, field) for field in SPECS[name][1]}}
     if name == 'KnowledgeResource':
         # Native Notes mirror bookkeeping changes independently of content.
@@ -139,11 +139,17 @@ def decode(obj, content):
         data.get('fields', {})['body'] = body
     else:
         data = json.loads(content)
-    if not isinstance(data, dict) or data.get('schema') != 1 or data.get('id') != obj.pk or data.get('type') != name or data.get('project_id') != project_for(obj).pk:
+    if not isinstance(data, dict) or data.get('schema') not in ((1, 2) if name == 'OperatingTask' else (1,)) or data.get('id') != obj.pk or data.get('type') != name or data.get('project_id') != project_for(obj).pk:
         raise ValueError('canonical_identity_changed')
     if name == 'KnowledgeResource' and (data.get('kind') != obj.kind or data.get('attachment_path') != obj.storage_path):
         raise ValueError('canonical_ownership_or_attachment_changed')
     fields = data.get('fields')
+    if name == 'OperatingTask' and data['schema'] == 1:
+        new_fields = {'owner_id', 'dependency_id', 'parent_id', 'source_key', 'source_metadata'}
+        if not isinstance(fields, dict) or set(fields) != set(SPECS[name][1]) - new_fields:
+            raise ValueError('invalid_canonical_fields')
+        # A v1 file has no authority to erase relations/provenance it cannot encode.
+        fields = {**fields, **{key: getattr(obj, key) for key in new_fields}}
     # Backward compatible with canonical notes created before mirror separation.
     if name == 'KnowledgeResource' and isinstance(fields, dict) and isinstance(fields.get('metadata'), dict):
         fields = dict(fields)
@@ -155,6 +161,31 @@ def decode(obj, content):
         raise ValueError('invalid_canonical_fields')
     for field, value in fields.items():
         obj._meta.get_field(field).clean(value, obj)
+    if name == 'OperatingTask':
+        from .models import WorkspaceMembership, ProjectMembership
+        from .operating_models import OperatingTask
+        import copy
+        if obj.source_key and fields['source_key'] != obj.source_key:
+            raise ValueError('canonical_source_identity_changed')
+        if fields['owner_id'] != obj.owner_id:
+            if not WorkspaceMembership.objects.filter(workspace_id=obj.workspace_id, user_id=fields['owner_id'], user__is_active=True).exists():
+                raise ValueError('invalid_task_owner')
+            if not (project_for(obj).owner_id == fields['owner_id'] or ProjectMembership.objects.filter(project=project_for(obj), user_id=fields['owner_id']).exists()):
+                raise ValueError('owner_must_be_project_member')
+        dependency = fields['dependency_id']
+        seen = {obj.pk}
+        while dependency:
+            if dependency in seen:
+                raise ValueError('dependency_cycle')
+            seen.add(dependency)
+            row = OperatingTask.objects.filter(pk=dependency, project_id=obj.project_id, workspace_id=obj.workspace_id).first()
+            if row is None:
+                raise ValueError('invalid_dependency')
+            dependency = row.dependency_id
+        candidate = copy.copy(obj)
+        for key, value in fields.items():
+            setattr(candidate, key, value)
+        candidate.clean()
     return fields
 
 
