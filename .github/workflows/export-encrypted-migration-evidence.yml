@@ -1,0 +1,55 @@
+name: Export Encrypted Migration Evidence
+on:
+  push:
+    branches: [codex/team-task-reconciliation-20261015]
+    paths: ['ops/export_migration_audits.py', 'ops/migration-results-public.pem', '.github/workflows/export-encrypted-migration-evidence.yml']
+permissions:
+  contents: read
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply reviewed encrypted plan after deployed schema validation
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          PORT="${SSH_PORT:-22}"
+          REMOTE_USER="${SSH_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/reconciliation
+          chmod 600 ~/.ssh/reconciliation
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/reconciliation -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=30 -o ServerAliveCountMax=6)
+          if ! ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" true 2>/dev/null; then
+            if [ "$REMOTE_USER" != root ] && ssh "${OPTS[@]}" "root@$SSH_HOST" true 2>/dev/null; then
+              REMOTE_USER=root
+            else
+              echo 'Production SSH authentication failed' >&2
+              exit 1
+            fi
+          fi
+          STEM="/tmp/graviquest-audit-$GITHUB_RUN_ID"
+          scp -i ~/.ssh/reconciliation -P "$PORT" ops/export_migration_audits.py "$REMOTE_USER@$SSH_HOST:$STEM.py"
+          scp -i ~/.ssh/reconciliation -P "$PORT" ops/migration-results-public.pem "$REMOTE_USER@$SSH_HOST:$STEM-public.pem"
+          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python \"\$1\" --public-key \"\$2\"' -- '$STEM.py' '$STEM-public.pem'" > encrypted-migration-evidence.json
+          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "rm -f '$STEM.py' '$STEM-public.pem'"
+          python3 - <<'PYVALIDATE'
+          import json
+          data=json.load(open('encrypted-migration-evidence.json'))
+          assert data['kind']=='encrypted-audit-export'
+          print('Encrypted evidence collected; plaintext and private keys were not uploaded.')
+          PYVALIDATE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-migration-evidence
+          path: encrypted-migration-evidence.json
+          retention-days: 1
+          if-no-files-found: error
