@@ -26,8 +26,17 @@
    when the request fails, local note search answers instead of invention.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261014-r5';
-import * as notes from './ws-notes-store.js?v=20261014-r5';
+import * as P from './ws-platform.js?v=20261015-r1';
+import * as notes from './ws-notes-store.js?v=20261015-r1';
+
+export function assistantContext(path, area) {
+  const projectId = /^\/workspace\/research\/projects\/(\d+)(?:\/|$)/.exec(path)?.[1];
+  return {
+    surface: projectId ? 'projects' : (area === 'core' ? 'core' : (area === 'learning' ? 'learning' : 'research')),
+    project_id: projectId || undefined,
+    thread_id: projectId ? `project-${projectId}` : 'primary',
+  };
+}
 
 /* The question goes to /platform/ai/ask/ with whatever context the screen
    offers. This lived in ws-api.js, the old page store, which is gone; a
@@ -38,6 +47,11 @@ async function requestAnswer(question, extra = {}) {
   try {
     return await P.call('/platform/ai/ask/', { method: 'POST', body });
   } catch {
+    if (extra.project_id) return {
+      grounded: false,
+      answer: 'Pulsar could not read this project. Please try again. No project summary has been verified.',
+      sources: [],
+    };
     await notes.load();
     const hits = notes.search(question, 6);
     return {

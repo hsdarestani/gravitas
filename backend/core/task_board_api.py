@@ -433,7 +433,7 @@ def task_board_detail(request, task_id):
         if payload.get('dependency_id') and not task.dependency:
             return _error('invalid_dependency')
 
-    if not task.cycle and not task.due_date:
+    if task.initiative_id and not task.cycle and not task.due_date:
         return _error('task_requires_due_date')
     if task.meeting and not task.due_date:
         return _error('meeting_action_requires_deadline')

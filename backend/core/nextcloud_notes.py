@@ -220,6 +220,17 @@ def _local_fingerprint(resource):
     return 'sha256:' + hashlib.sha256(raw).hexdigest()
 
 
+def _remote_content_fingerprint(note):
+    """Compare editable fields, independently of native lock/ETag churn."""
+    raw = json.dumps({
+        'title': str(note.get('title') or ''),
+        'content': str(note.get('content') or ''),
+        'category': str(note.get('category') or ''),
+        'favorite': bool(note.get('favorite')),
+    }, sort_keys=True, ensure_ascii=False).encode('utf-8')
+    return 'sha256:' + hashlib.sha256(raw).hexdigest()
+
+
 def _mirror(resource):
     value = (resource.metadata or {}).get(MIRROR_KEY)
     return dict(value) if isinstance(value, dict) else {}
@@ -362,7 +373,9 @@ def _update_remote(identity, resource, remote):
         _mark(resource, 'readonly', 'nextcloud_note_readonly', remote=remote)
         raise NotesError('nextcloud_note_readonly')
     headers = {}
-    known_etag = str(_mirror(resource).get('etag') or '')
+    # _sync_held_note has compared this fresh read with the last common
+    # content. Keep the conditional write, using its current native revision.
+    known_etag = str(remote.get('etag') or _mirror(resource).get('etag') or '')
     if known_etag:
         headers['If-Match'] = known_etag
     status, note, _headers_out = _request(
@@ -498,6 +511,10 @@ def _sync_held_note(resource, identity):
     current_remote = _remote_fingerprint(remote)
     local_changed = bool(stored_local and local_hash != stored_local)
     remote_changed = bool(stored_remote and current_remote != stored_remote)
+    if remote_changed and stored_local and _remote_content_fingerprint(remote) == stored_local:
+        # Opening the native editor can change its ETag without editing any
+        # field. This is not a competing edit. A later write still uses CAS.
+        remote_changed = False
 
     if local_changed and remote_changed:
         _mark(resource, 'conflict', 'changed_in_nextcloud_and_gravitas', remote=remote)
@@ -699,6 +716,7 @@ def _json(resource, user=None):
         'journal_date': _journal_date((resource.metadata or {}).get('ws_journal_date')),
         'favorite': _favorite(resource),
         'updated': resource.updated_at.isoformat(),
+        'revision': _local_fingerprint(resource),
         'project_id': resource.project_id,
         'project_title': project.title if project else None,
         'scope': 'project' if project else ('personal' if is_owner else 'shared'),
@@ -832,6 +850,9 @@ def native_note_detail(request, resource_id):
 
     data = _body(request)
     expected_updated = data.get('expected_updated')
+    expected_revision = data.get('expected_revision')
+    if expected_revision is not None and not isinstance(expected_revision, str):
+        return JsonResponse({'ok': False, 'error': 'invalid_note_revision'}, status=400)
     if expected_updated is not None and not isinstance(expected_updated, str):
         return JsonResponse({'ok': False, 'error': 'invalid_note_revision'}, status=400)
 
@@ -847,7 +868,9 @@ def native_note_detail(request, resource_id):
         # OUTER JOIN introduced by select_related('project'). Lock ONLY the
         # KnowledgeResource row; related data can be loaded lazily afterward.
         resource = KnowledgeResource.objects.select_for_update().get(pk=resource.pk)
-        if expected_updated is not None and resource.updated_at.isoformat() != expected_updated:
+        stale = (_local_fingerprint(resource) != expected_revision if expected_revision is not None
+                 else expected_updated is not None and resource.updated_at.isoformat() != expected_updated)
+        if stale:
             return JsonResponse({
                 'ok': False,
                 'error': 'note_changed_elsewhere',

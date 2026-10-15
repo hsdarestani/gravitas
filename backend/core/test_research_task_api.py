@@ -98,10 +98,11 @@ class ResearchProjectTaskApiTests(TestCase):
         self.assertEqual(response.status_code, 403, response.content)
         self.assertFalse(OperatingTask.objects.filter(project=self.project, owner=self.viewer).exists())
 
-    def test_due_date_is_required_when_project_has_no_deadline(self):
+    def test_project_task_can_remain_unscheduled_without_a_deadline(self):
         response = self.create_task(self.owner, due_date='')
-        self.assertEqual(response.status_code, 400, response.content)
-        self.assertEqual(response.json()['error'], 'due_date_required')
+        self.assertEqual(response.status_code, 201, response.content)
+        task = OperatingTask.objects.get(pk=response.json()['task']['id'])
+        self.assertIsNone(task.due_date)
 
 
     def test_project_editor_updates_the_existing_task_without_creating_a_copy(self):

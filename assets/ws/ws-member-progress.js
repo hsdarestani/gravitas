@@ -1,5 +1,5 @@
-import * as P from './ws-platform.js?v=20261014-r5';
-import * as C from './ws-charts.js?v=20261014-r5';
+import * as P from './ws-platform.js?v=20261015-r1';
+import * as C from './ws-charts.js?v=20261015-r1';
 
 const el = (tag, cls = '', text = '') => {
   const node = document.createElement(tag);

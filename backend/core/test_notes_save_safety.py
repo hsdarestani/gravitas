@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from .models import KnowledgeResource
-from .nextcloud_notes import NotesError, _update_remote, native_note_detail
+from .nextcloud_notes import NotesError, _local_fingerprint, _update_remote, native_note_detail
 from .platform_runtime_v3 import ensure_platform_workspaces
 
 
@@ -55,6 +55,26 @@ class SharedNoteSaveTests(TestCase):
         self.assertEqual(item['content'], 'durable local change')
         self.note.refresh_from_db()
         self.assertEqual(self.note.body, 'durable local change')
+
+    def test_content_revision_survives_background_mirror_bookkeeping(self):
+        revision = _local_fingerprint(self.note)
+        self.note.metadata = {**self.note.metadata, 'nextcloud_notes': {'etag': 'new'}}
+        self.note.save(update_fields=['metadata', 'updated_at'])
+        with patch('core.nextcloud_notes.sync_note_to_nextcloud'):
+            result = self.update(content='user edit', expected_revision=revision)
+        self.assertEqual(result.status_code, 200, result.content)
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.body, 'user edit')
+
+    def test_content_revision_rejects_other_edit_even_without_timestamp_change(self):
+        revision = _local_fingerprint(self.note)
+        KnowledgeResource.objects.filter(pk=self.note.pk).update(body='another editor')
+        with patch('core.nextcloud_notes.sync_note_to_nextcloud') as sync:
+            result = self.update(content='stale edit', expected_revision=revision)
+        self.assertEqual(result.status_code, 409, result.content)
+        sync.assert_not_called()
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.body, 'another editor')
 
     def test_cross_workspace_implicit_move_is_not_a_save(self):
         with patch('core.nextcloud_notes.sync_note_to_nextcloud'):

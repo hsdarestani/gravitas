@@ -8,11 +8,11 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261014-r5';
-import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261014-r5';
-import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261014-r5';
-import { deckPanel } from './ws-deck-sync.js?v=20261014-r5';
-import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261014-r5';
+import * as P from './ws-platform.js?v=20261015-r1';
+import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261015-r1';
+import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261015-r1';
+import { deckPanel } from './ws-deck-sync.js?v=20261015-r1';
+import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261015-r1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -184,6 +184,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   const STATUS_COLUMNS = [
     ['draft', 'Backlog'],
     ['active', 'Active'],
+    ['ready', 'Ready'],
+    ['waiting', 'Waiting on owner'],
+    ['needs_review', 'Needs review'],
+    ['retest', 'Acceptance retest'],
     ['blocked', 'Blocked'],
     ['done', 'Done'],
     ['archived', 'Archived'],

@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20261014-r5';
+import * as P from './ws-platform.js?v=20261015-r1';
 
 const NODE_KINDS = [
   ['concept', 'Concept'],

@@ -154,6 +154,24 @@ class NativeNotesMirrorTests(TestCase):
 
     @patch('core.nextcloud_notes.ensure_user', return_value=object())
     @patch('core.nextcloud_notes._request')
+    def test_etag_only_change_does_not_conflict_with_local_edit(self, request, _ensure):
+        resource = self.note()
+        remote = dict(_local_payload(resource), id=63, etag='etag-a', modified=10)
+        resource.metadata['nextcloud_notes'] = _snapshot(remote, _local_fingerprint(resource))
+        KnowledgeResource.objects.filter(pk=resource.pk).update(metadata=resource.metadata)
+        resource.body = 'Local change after opening native editor'
+        resource.save(update_fields=['body', 'updated_at'])
+        churned = dict(remote, etag='etag-b', modified=20)
+        confirmed = dict(churned, content=resource.body, etag='etag-c')
+        request.side_effect = [(200, churned, {}), (200, confirmed, {}), (200, confirmed, {})]
+        sync_note_to_nextcloud(resource)
+        put = next(call for call in request.call_args_list if call.args[0] == 'PUT')
+        self.assertEqual(put.kwargs['headers']['If-Match'], 'etag-b')
+        resource.refresh_from_db()
+        self.assertEqual(resource.metadata['nextcloud_notes']['state'], 'synced')
+
+    @patch('core.nextcloud_notes.ensure_user', return_value=object())
+    @patch('core.nextcloud_notes._request')
     def test_concurrent_note_edits_become_conflict_without_overwrite(self, request, _ensure):
         resource = self.note()
         original_remote = {
