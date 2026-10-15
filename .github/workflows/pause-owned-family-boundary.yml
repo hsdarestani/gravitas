@@ -1,0 +1,45 @@
+name: Pause Owned Worker At Next Family Boundary
+on:
+  push:
+    branches: [codex/team-task-reconciliation-20261015]
+    paths: ['ops/pause_owned_worker_at_family.py', '.github/workflows/pause-owned-family-boundary.yml']
+permissions:
+  contents: read
+jobs:
+  read_only_progress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only task counts and native service health
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          PORT="${SSH_PORT:-22}"
+          REMOTE_USER="${SSH_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/reconciliation
+          chmod 600 ~/.ssh/reconciliation
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/reconciliation -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=30 -o ServerAliveCountMax=6)
+          if ! ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" true 2>/dev/null; then
+            if [ "$REMOTE_USER" != root ] && ssh "${OPTS[@]}" "root@$SSH_HOST" true 2>/dev/null; then
+              REMOTE_USER=root
+            else
+              echo 'Production SSH authentication failed' >&2
+              exit 1
+            fi
+          fi
+          ROOT=/var/lib/gravitas-source-migrations/team-docs-20261015-v1
+          STEM="/tmp/graviquest-finalize-$GITHUB_RUN_ID.py"
+          scp -i ~/.ssh/reconciliation -P "$PORT" ops/pause_owned_worker_at_family.py "$REMOTE_USER@$SSH_HOST:$STEM"
+          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python \"\$1\"' -- '$STEM'"
+          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "rm -f '$STEM'"
+          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "sudo docker ps -a --filter name=gravitas --format '{{.Names}} {{.Status}}'; sudo systemctl is-active gravitas-backend nginx postgresql || true"
+          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "sudo docker exec gravitas-nextcloud-db psql -U nextcloud -d nextcloud -At -c \"SELECT pid,state,wait_event_type,wait_event,pg_blocking_pids(pid),EXTRACT(EPOCH FROM (now()-xact_start))::integer FROM pg_stat_activity WHERE datname=current_database()\""
