@@ -1,13 +1,13 @@
 """Stop only the explicitly superseded portfolio migration, then inspect safely."""
 import os,signal,time,json
-target='/tmp/graviquest-approved-38793232189-apply.py'
+targets={b'/tmp/graviquest-approved-38793232189-apply.py',b'/tmp/graviquest-approved-38800161441-apply.py'}
 pids=[]
 for name in os.listdir('/proc'):
  if not name.isdigit():continue
  try:
   args=open('/proc/'+name+'/cmdline','rb').read().split(b'\0')
  except (FileNotFoundError,PermissionError):continue
- if target.encode() in args and any(b'python' in x for x in args[:1]):
+ if targets.intersection(args) and any(b'python' in x for x in args[:1]):
   pids.append(int(name))
 for pid in pids:
  os.kill(pid,signal.SIGTERM)
