@@ -27,7 +27,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/reconciliation
           chmod 600 ~/.ssh/reconciliation
           ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
-          OPTS=(-i ~/.ssh/reconciliation -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          OPTS=(-i ~/.ssh/reconciliation -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=30 -o ServerAliveCountMax=6)
           if ! ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" true 2>/dev/null; then
             if [ "$REMOTE_USER" != root ] && ssh "${OPTS[@]}" "root@$SSH_HOST" true 2>/dev/null; then
               REMOTE_USER=root

@@ -15,6 +15,10 @@ def main():
     from django.core.management import call_command
     from django.core.serializers.json import DjangoJSONEncoder
     from core.task_source_migration import validate, digest
+    import inspect
+    from core import cloud
+    if 'Reading an established identity' not in inspect.getsource(cloud.ensure_identity):
+        raise ValueError('identity_lock_fix_must_be_deployed_first')
     from core.task_reconciliation_export import snapshot
     plan_path = Path(args.plan)
     plan = json.loads(plan_path.read_text())
@@ -60,7 +64,11 @@ def main():
                 # missing service environment. Preserve that prepared audit.
                 preserved = root / 'audit-000.before-env-fix.json'
                 if preserved.exists():
-                    raise ValueError('second_prepared_failure_requires_review')
+                    # A second reviewed attempt was gracefully interrupted after
+                    # its auth_user lock was diagnosed; no source task committed.
+                    preserved = root / 'audit-000.auth-lock-interrupted.json'
+                    if preserved.exists():
+                        raise ValueError('further_prepared_failure_requires_review')
                 audit.rename(preserved)
             elif prior.get('plan_sha256') != digest(batch) or prior.get('state') == 'prepared':
                 raise ValueError('incomplete_batch_requires_review')
