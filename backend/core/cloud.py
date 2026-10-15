@@ -117,6 +117,11 @@ def _ocs_data(response, message='Invalid response from Nextcloud'):
 
 @transaction.atomic
 def ensure_identity(user, quota_bytes):
+    # Reading an established identity must not retain an auth_user row lock
+    # across a caller's canonical transaction and native HTTP callbacks.
+    existing = NextcloudIdentity.objects.filter(user=user).first()
+    if existing:
+        return existing
     # Project/note sync workers can reach provisioning at the same time as the
     # foreground request. Lock the stable user row because an identity row does
     # not exist yet; without this lock, competing workers generate different
