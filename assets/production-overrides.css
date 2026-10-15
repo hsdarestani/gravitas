@@ -16,21 +16,39 @@
   mask-size: contain;
 }
 .g-mark--logotype {
-  /* The checked-in viewBox, not a remembered one: the two logo files were
-     recut, and a stale ratio here leaves the mask short of its box, which
-     with mask-size:contain shows up as a sliver of dead space after the
-     wordmark rather than as a wrong drawing — invisible, and it pushes
-     whatever sits next to it. */
-  aspect-ratio: 581.23 / 100;
-  -webkit-mask-image: url("logos/Logotype_White.svg");
-  mask-image: url("logos/Logotype_White.svg");
+  /* The box is the letters only: 611.34 wide by 89.56, from the dot of the
+     i to the baseline. The drawing is 112.17 tall because the tail of the Q
+     hangs below the baseline, and a box that included it would centre the
+     wordmark high in every bar it sits in — align-items:center balances the
+     box, not the letters. So the box leaves the tail out, and the ::before
+     paints the whole drawing from the top edge and lets the tail overhang.
+     Both ratios are the checked-in file's, not remembered ones: a stale
+     ratio leaves the mask short of its box as dead space after the word. */
+  position: relative;
+  aspect-ratio: 611.34 / 89.56;
+  background-color: transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.g-mark--logotype::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 611.34 / 112.17;
+  background-color: currentColor;
+  -webkit-mask: url("logos/Logotype_White.svg") no-repeat top left / 100% auto;
+  mask: url("logos/Logotype_White.svg") no-repeat top left / 100% auto;
 }
 .g-mark--logo {
   aspect-ratio: 1 / 1;
   -webkit-mask-image: url("logos/Logo_White.svg");
   mask-image: url("logos/Logo_White.svg");
 }
-.g-logo .g-mark--logotype { height: 1.75rem; }
+/* 1.2rem of letters keeps the cap height of the G where the old 1.75rem
+   lockup put it; that box also held the two-arc mark, which this one drops. */
+.g-logo .g-mark--logotype { height: 1.2rem; }
 .g-logo .g-mark--logo { height: 2rem; }
 
 /* Homepage stats: the separators are literal middot characters in the DOM.
@@ -66,7 +84,7 @@
    public default has to step aside for the workspace here, in the same
    unlayered cascade that was overriding it. Scoped to .ws, which only
    workspace.html carries, so no public page moves. */
-.ws .g-logo .g-mark--logotype { height: 16px; }
+.ws .g-logo .g-mark--logotype { height: 18px; }
 .ws .g-logo .g-mark--logo { height: 18px; }
 
 /* ==========================================================================

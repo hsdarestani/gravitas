@@ -243,7 +243,7 @@
      theme with the text beside it and needs no second file and no swap. */
   .ws-topbar__brand { display: flex; align-items: center; text-decoration: none; color: var(--g-text); }
   .ws-topbar__brand svg,
-  .ws-topbar__brand .g-mark { height: 16px; width: auto; display: block; }
+  .ws-topbar__brand .g-mark { height: 18px; width: auto; display: block; }
   /* The mask itself. The public pages get this contract from
      production-overrides.css; the workspace does not load that public sheet
      (or the public auth bridge), so it states the contract here. */
@@ -252,10 +252,22 @@
     -webkit-mask: no-repeat center / contain;
     mask: no-repeat center / contain;
   }
+  /* Letters-only box with the Q's tail overhanging it, as on the public
+     header: production-overrides.css has the reasoning. */
   .ws .g-mark--logotype {
-    aspect-ratio: 581.23 / 100;
-    -webkit-mask-image: url("../logos/Logotype_White.svg");
-    mask-image: url("../logos/Logotype_White.svg");
+    position: relative;
+    aspect-ratio: 611.34 / 89.56;
+    background-color: transparent;
+    -webkit-mask: none;
+    mask: none;
+  }
+  .ws .g-mark--logotype::before {
+    content: "";
+    position: absolute; top: 0; left: 0; width: 100%;
+    aspect-ratio: 611.34 / 112.17;
+    background-color: currentColor;
+    -webkit-mask: url("../logos/Logotype_White.svg") no-repeat top left / 100% auto;
+    mask: url("../logos/Logotype_White.svg") no-repeat top left / 100% auto;
   }
   .ws .g-mark--logo {
     aspect-ratio: 1 / 1;
