@@ -1,5 +1,5 @@
-import { renderWorkReports } from './ws-work-reports.js?v=20261016-r2';
-import * as P from './ws-platform.js?v=20261016-r2';
+import { renderWorkReports } from './ws-work-reports.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1';
 import {
   renderCertificates,
   renderCourse,
@@ -9,9 +9,9 @@ import {
   renderMemberLibrary,
   renderMemberOverview,
   renderMyLearning,
-} from './ws-member-lms.js?v=20261016-r2';
-import { renderMemberProgress } from './ws-member-progress.js?v=20261016-r2';
-import { renderMemberSupport } from './ws-support.js?v=20261016-r2';
+} from './ws-member-lms.js?v=20261016-task1';
+import { renderMemberProgress } from './ws-member-progress.js?v=20261016-task1';
+import { renderMemberSupport } from './ws-support.js?v=20261016-task1';
 import {
   renderAdminActivity,
   renderAdminCourseEditor,
@@ -26,9 +26,9 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261016-r2';
-import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261016-r2';
-import { renderCoreLinks } from './ws-core-links.js?v=20261016-r2';
+} from './ws-admin.js?v=20261016-task1';
+import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261016-task1';
+import { renderCoreLinks } from './ws-core-links.js?v=20261016-task1';
 import { renderResearchProject } from './ws-project.js?v=20261016-task1';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';

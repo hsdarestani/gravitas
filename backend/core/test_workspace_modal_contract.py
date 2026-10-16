@@ -60,7 +60,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
             '/workspace/kms/base',
         ):
             self.assertIn(route, nav)
-        self.assertIn("from './ws-nav.js?v=20261016-r2", app)
+        self.assertIn("from './ws-nav.js?v=20261016-task1", app)
         # Search stays routable for old links but is intentionally not a
         # sidebar destination; the global workspace search owns discovery.
         self.assertNotIn("path: '/workspace/research/search'", nav)

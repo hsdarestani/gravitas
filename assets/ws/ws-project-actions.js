@@ -12,8 +12,8 @@
    draws its own tiles as buttons.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-r2';
-import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-r2';
+import * as P from './ws-platform.js?v=20261016-task1';
+import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-task1';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
 // a change. Set each time the cockpit asks for a bar.
@@ -343,7 +343,7 @@ function createTask(projectId) {
 
 export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
   if (P.canOpenCore()) {
-    const { openCoreTask } = await import('./ws-views.js?v=20261016-r2');
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1');
     return openCoreTask(task.id, { go, onTaskChange: refresh });
   }
   // Project participants do not need access to the internal Core board to
