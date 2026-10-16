@@ -14,7 +14,7 @@ class WorkspaceRuntimeContractTests(SimpleTestCase):
     def test_workspace_boots_the_v4_module_runtime(self):
         html = self.read('workspace.html')
         self.assertIn('/assets/ws/ws.css', html)
-        self.assertIn("import { start } from '/assets/ws/ws-app.js?v=20261016-r2", html)
+        self.assertIn("import { start } from '/assets/ws/ws-app.js?v=20261016-task1", html)
         self.assertNotIn('/assets/dialog-compat.js', html)
         self.assertNotIn('function add(src,onload)', html)
 

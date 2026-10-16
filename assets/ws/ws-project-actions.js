@@ -341,11 +341,27 @@ function createTask(projectId) {
   });
 }
 
-function editTask(cockpit) {
+export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
+  if (P.canOpenCore()) {
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-r2');
+    return openCoreTask(task.id, { go, onTaskChange: refresh });
+  }
+  // Project participants do not need access to the internal Core board to
+  // inspect a task they can already see in Research. Keep the project ACL.
+  modal(task.title, (grid) => {
+    grid.append(el('p', 'fl-muted', P.meta([task.owner, P.label(task.status), P.label(task.priority), task.due_date ? P.formatDate(task.due_date) : ''])));
+    grid.append(el('p', '', task.description || 'No description.'));
+    if (task.definition_of_done) grid.append(field('Definition of done', el('p', '', task.definition_of_done)));
+    if (task.blocked_reason) grid.append(field('Blocked reason', el('p', '', task.blocked_reason)));
+    if (task.can_edit) grid.append(button('Edit task', () => editTask(cockpit, task.id)));
+  });
+}
+
+function editTask(cockpit, taskId = null) {
   const items = (cockpit.tasks || []).filter((item) => item.can_edit);
   if (!items.length) return modal('Edit task', (grid) => { grid.append(el('p', 'fl-muted', 'There are no editable tasks in this project.')); });
   modal('Edit task', (grid) => {
-    const picker = select('task_id', items.map((item) => [String(item.id), item.title]), String(items[0].id));
+    const picker = select('task_id', items.map((item) => [String(item.id), item.title]), String(taskId || items[0].id));
     const title = input('title'); const due = input('due_date', '', 'date'); const priority = select('priority', PRIORITY, 'p2'); const status = select('status', TASK_STATUS, 'active');
     const done = textarea('definition_of_done', '', 3); const description = textarea('description', '', 3); const blocked = textarea('blocked_reason', '', 2, 'Why is this blocked?');
     const load = () => {
