@@ -26,8 +26,8 @@ const cache = new Map();
 /* The supplied mark, unaltered: assets/logos/Logo_White.svg, two quarter-
    rings on a 100-unit square. Drawn as path data rather than loaded from the
    file because the cover is one self-contained data URI. */
-const MONOGRAM = 'M39.64,100h20.71c0-21.86,17.78-39.64,39.64-39.64v-20.71c-33.28,0-60.36,27.08-60.36,60.36Z'
-  + 'M60.36,0h-20.71c0,21.86-17.78,39.64-39.64,39.64v20.71c33.28,0,60.36-27.08,60.36-60.36Z';
+const MONOGRAM = 'M39.39,100h20.2c0-22.32,18.09-40.41,40.41-40.41v-20.2c-33.47,0-60.61,27.14-60.61,60.61Z'
+  + 'M60.61,0h-20.2c0,22.32-18.09,40.41-40.41,40.41v20.2c33.47,0,60.61-27.14,60.61-60.61Z';
 
 function hash(text) {
   let h = 2166136261;
