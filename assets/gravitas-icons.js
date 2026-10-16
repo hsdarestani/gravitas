@@ -133,7 +133,7 @@
        no centroid solve is needed. A stroked copy would have been a second
        Pulsar mark. */
 
-    pulsar: "<g transform=\"translate(3.3 3.3) scale(0.174)\" fill=\"currentColor\" stroke=\"none\"><path d=\"M0,50v-20.71c16.15,0,29.29-13.14,29.29-29.29h20.71c0,27.57-22.43,50-50,50Z\"/><path d=\"M50,100h-20.71c0-16.15-13.14-29.29-29.29-29.29v-20.71c27.57,0,50,22.43,50,50Z\"/><path d=\"M100,50c-27.57,0-50-22.43-50-50h20.71c0,16.15,13.14,29.29,29.29,29.29v20.71Z\"/><path d=\"M70.71,100h-20.71c0-27.57,22.43-50,50-50v20.71c-16.15,0-29.29,13.14-29.29,29.29Z\"/><circle cx=\"50\" cy=\"50\" r=\"10.36\"/></g>",
+    pulsar: "<g transform=\"translate(3.3 3.3) scale(0.174)\" fill=\"currentColor\" stroke=\"none\"><path d=\"M0,50v-20.2c16.46,0,29.8-13.34,29.8-29.8h20.2c0,27.62-22.38,50-50,50Z\"/><path d=\"M50,100h-20.2c0-16.46-13.34-29.8-29.8-29.8v-20.2c27.62,0,50,22.38,50,50Z\"/><path d=\"M100,50c-27.62,0-50-22.38-50-50h20.2c0,16.46,13.34,29.8,29.8,29.8v20.2Z\"/><path d=\"M70.2,100h-20.2c0-27.62,22.38-50,50-50v20.2c-16.46,0-29.8,13.34-29.8,29.8Z\"/><circle cx=\"50\" cy=\"50\" r=\"10.1\"/></g>",
 
     plus: "<g transform=\"translate(-2.099 -2.094) scale(1.174958)\" stroke-width=\"1.447\"><path d=\"M12 4.4v15.2\"/><path d=\"M4.4 12h15.2\"/></g>",
     /* The one mark where the centroid rule had to give way. Fitting solves the
