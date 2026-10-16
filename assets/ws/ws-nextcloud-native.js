@@ -1,10 +1,10 @@
-import * as P from './ws-platform.js?v=20261015-r1';
-import * as K from './ws-admin-kit.js?v=20261015-r1';
-import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261015-r1';
-import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261015-r1';
-import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261015-r1';
-import { startNotesSync } from './ws-notes-performance.js?v=20261015-r1';
-import { renderSpaceIndex } from './ws-space-integration.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261016-r2';
+import * as K from './ws-admin-kit.js?v=20261016-r2';
+import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261016-r2';
+import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-r2';
+import { attachCommands, replaceRange, wrapSelection } from './ws-notes-commands.js?v=20261016-r2';
+import { startNotesSync } from './ws-notes-performance.js?v=20261016-r2';
+import { renderSpaceIndex } from './ws-space-integration.js?v=20261016-r2';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, cls, text) => {

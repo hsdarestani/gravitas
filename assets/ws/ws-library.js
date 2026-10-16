@@ -34,9 +34,9 @@
    concluding their saves were thrown away.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261015-r1';
-import * as K from './ws-kms.js?v=20261015-r1';
-import { el, panel, row, stats, empty, failure, skeleton } from './ws-views.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261016-r2';
+import * as K from './ws-kms.js?v=20261016-r2';
+import { el, panel, row, stats, empty, failure, skeleton } from './ws-views.js?v=20261016-r2';
 
 /* The guest store, read-only. Same key as the public site's. */
 const GUEST_KEY = 'gravitas.reader.v1';

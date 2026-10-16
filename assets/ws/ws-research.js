@@ -7,10 +7,11 @@
    service is named as unavailable and a successful mutation is read back.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261015-r1';
-import * as C from './ws-charts.js?v=20261015-r1';
-import { researchCreateBar, spaceProjectToolbar } from './ws-research-create.js?v=20261015-r1';
-import { teamPanel, teamRow } from './ws-core-team.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261016-r2';
+import * as C from './ws-charts.js?v=20261016-r2';
+import { researchCreateBar, spaceProjectToolbar } from './ws-research-create.js?v=20261016-r2';
+import { teamPanel, teamRow } from './ws-core-team.js?v=20261016-r2';
+import { loadProjectData } from './ws-project-data.js?v=20261016-r2';
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -51,15 +52,7 @@ const dayKey = (date) => {
   return `${y}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-async function projectData() {
-  const list = await P.projects();
-  const projects = list.projects || [];
-  const settled = await Promise.allSettled(projects.map((project) => P.projectCockpit(project.id)));
-  return projects.map((project, index) => ({
-    project,
-    cockpit: settled[index].status === 'fulfilled' ? settled[index].value : null,
-  }));
-}
+const projectData = (onList) => loadProjectData(P, onList);
 
 function dashboardSummary(specs = []) {
   const grid = C.bento();
@@ -199,8 +192,8 @@ export function renderCalendar(host, ctx) {
 export function renderProjects(host, { go }) {
   const doc = shell(host, 'Research Projects', 'Portfolio views built from the same live projects, tasks, links and activity.');
   spaceProjectToolbar(doc.querySelector(':scope > .ws-doc__head'), { go, onCreated: () => { host.innerHTML = ''; renderProjects(host, { go }); } });
-  const body = el('div'); doc.append(body); body.append(notice('Loading projects', 'Reading accessible projects and their cockpits…'));
-  projectData().then((records) => {
+  const body = el('div'); doc.append(body); body.append(notice('Loading projects', 'Reading accessible projects…'));
+  const draw = (records) => {
     body.innerHTML = '';
     const totals = records.reduce((acc, { cockpit }) => {
       acc.tasks += Number(cockpit?.counts?.tasks || 0);
@@ -212,13 +205,14 @@ export function renderProjects(host, { go }) {
 
     // One bento for the tiles and the activity card, so the space between
     // them is the grid's own gap rather than two grids butted together.
+    const complete = records.every(({ cockpit }) => cockpit);
     const summary = dashboardSummary([
       { value: records.length, label: 'Projects', icon: 'projects', note: 'Accessible portfolio' },
-      { value: totals.tasks, label: 'Tasks', icon: 'tasks', note: 'Across all projects' },
-      { value: totals.notes, label: 'Notes', icon: 'notes', note: 'Project knowledge' },
-      { value: totals.links, label: 'Connections', icon: 'link', note: 'Cross-project links' },
+      { value: complete ? totals.tasks : '…', label: 'Tasks', icon: 'tasks', note: 'Across all projects' },
+      { value: complete ? totals.notes : '…', label: 'Notes', icon: 'notes', note: 'Project knowledge' },
+      { value: complete ? totals.links : '…', label: 'Connections', icon: 'link', note: 'Cross-project links' },
     ]);
-    summary.append(
+    if (complete) summary.append(
       dashboardBars('Research activity', 'Live object counts across the accessible portfolio.', [
         { label: 'Tasks', value: totals.tasks, series: '1' },
         { label: 'Notes', value: totals.notes, series: '2' },
@@ -227,6 +221,7 @@ export function renderProjects(host, { go }) {
       ], 12),
     );
     body.append(summary);
+    if (records.some(({ unavailable }) => unavailable)) body.append(notice('Some statistics unavailable', 'Projects remain accessible. Reload to retry their statistics.', true));
 
     const bar = el('div', 'v-toolbar rkms-switcher');
     const content = el('div');
@@ -256,7 +251,8 @@ export function renderProjects(host, { go }) {
     }
     bar.append(count);
     body.append(bar, content); select(active);
-  }).catch(() => { body.innerHTML = ''; body.append(notice('Projects unavailable', 'The live project service did not answer.', true)); });
+  };
+  projectData(draw).then(draw).catch(() => { body.innerHTML = ''; body.append(notice('Projects unavailable', 'The live project service did not answer.', true)); });
 }
 
 function drawProjectView(host, records, view, go) {
@@ -270,7 +266,7 @@ function drawProjectView(host, records, view, go) {
       card.append(el('span', 'v-badge', P.label(project.category || project.status)), el('strong', 'v-project__title', project.title));
       if (project.research_question || project.description) card.append(el('p', 'v-project__question', project.research_question || project.description));
       card.append(el('small', null, P.meta([
-        `${cockpit?.counts?.tasks || 0} tasks`, `${cockpit?.counts?.notes || 0} notes`, `${cockpit?.counts?.connections || 0} links`,
+        cockpit ? `${cockpit.counts?.tasks || 0} tasks` : 'Statistics pending', cockpit ? `${cockpit.counts?.notes || 0} notes` : '', cockpit ? `${cockpit.counts?.connections || 0} links` : '',
       ])));
       grid.append(card);
     }
@@ -285,7 +281,7 @@ function drawProjectView(host, records, view, go) {
       const row = el('tr');
       const title = el('button', 'rkms-link', project.title); title.type = 'button'; title.addEventListener('click', () => go(`/workspace/research/projects/${project.id}`));
       const first = el('td'); first.append(title); row.append(first);
-      for (const value of [P.label(project.status), cockpit?.counts?.tasks || 0, cockpit?.counts?.notes || 0, cockpit?.counts?.files || 0, cockpit?.counts?.connections || 0, P.formatDate(project.updated_at)]) row.append(el('td', null, value));
+      for (const value of [P.label(project.status), ...['tasks', 'notes', 'files', 'connections'].map((key) => cockpit ? cockpit.counts?.[key] || 0 : '…'), P.formatDate(project.updated_at)]) row.append(el('td', null, value));
       tbody.append(row);
     }
     table.append(tbody); const wrap = el('div', 'rkms-table-wrap'); wrap.append(table); host.append(wrap); return;

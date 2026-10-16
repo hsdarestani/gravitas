@@ -267,7 +267,7 @@ export const dashboard = (workspace) => call(`/platform/dashboard/?workspace=${w
 export const projects = () => call('/platform/projects/');
 export const researchCalendar = () => call('/platform/research-calendar/');
 export const project = (id) => call(`/platform/projects/${id}/`);
-export const projectCockpit = (id) => call(`/platform/projects/${id}/cockpit/`);
+export const projectCockpit = (id, { snapshot = false } = {}) => call(`/platform/projects/${id}/cockpit/${snapshot ? '?read_mode=snapshot' : ''}`);
 export const projectMilestones = (id) => call(`/platform/projects/${id}/milestones/`);
 export const projectExperiments = (id) => call(`/platform/projects/${id}/experiments/`);
 export const createProjectExperiment = (id, body) => call(`/platform/projects/${id}/experiments/`, { method: 'POST', body });

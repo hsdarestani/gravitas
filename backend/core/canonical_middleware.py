@@ -82,6 +82,20 @@ class CanonicalProjectMiddleware:
         relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'task-board/', 'assistant/', 'pulsar/', 'platform/share/', 'platform/folders/'))
         if not relevant:
             return None
+        if request.method in ('GET', 'HEAD'):
+            # Portfolio/cockpit navigation reads the committed projection,
+            # just like the global task board. This is an explicit read mode,
+            # never a fallback after a failed native refresh. Item reads and
+            # every mutation retain their revision checks and journal boundary.
+            cockpit_snapshot = (
+                request.GET.get('read_mode') == 'snapshot'
+                and re.fullmatch(r'/api/platform/projects/\d+/(?:cockpit|schedules|work-time)/', request.path)
+            )
+            # The folder endpoint already performs a live, caller-scoped DAV
+            # listing. Reading every file first adds no listing correctness.
+            native_listing = re.fullmatch(r'/api/platform/projects/\d+/structure/', request.path)
+            if cockpit_snapshot or native_listing:
+                return None
         project_ids = project_scope_for(request, view_kwargs)
         if not project_ids and request.method in ('GET', 'HEAD', 'OPTIONS'):
             # A global list is a database snapshot, not an implicit full

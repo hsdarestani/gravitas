@@ -308,7 +308,8 @@ def project_cockpit(request, project_id):
 
     return JsonResponse({
         'ok': True,
-        'project': {**_project_json(project, request.user, include_detail=True), 'canonical_enabled': canonical_active(project)},
+        'read_mode': 'snapshot' if request.GET.get('read_mode') == 'snapshot' else 'native',
+        'project': {**_project_json(project, request.user, include_detail=True, read_only=request.GET.get('read_mode') == 'snapshot'), 'canonical_enabled': canonical_active(project)},
         'counts': counts,
         'attention': {
             'overdue_tasks': overdue_tasks,

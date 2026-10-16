@@ -25,7 +25,7 @@
    others, and a path is the only place a person is asked to plan.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261016-r2';
 
 const LS_KEY = 'gravitas.ws.kms.v1';
 
