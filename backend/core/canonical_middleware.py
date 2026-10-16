@@ -89,7 +89,7 @@ class CanonicalProjectMiddleware:
             # every mutation retain their revision checks and journal boundary.
             cockpit_snapshot = (
                 request.GET.get('read_mode') == 'snapshot'
-                and re.fullmatch(r'/api/platform/projects/\d+/cockpit/', request.path)
+                and re.fullmatch(r'/api/platform/projects/\d+/(?:cockpit|schedules|work-time)/', request.path)
             )
             # The folder endpoint already performs a live, caller-scoped DAV
             # listing. Reading every file first adds no listing correctness.

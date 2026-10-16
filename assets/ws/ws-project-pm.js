@@ -73,9 +73,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   async function reload() {
     const latest = await P.projectCockpit(projectId, { snapshot: true });
     tasks = latest.tasks || [];
-    try { timeSummary = await P.call('/platform/projects/'+projectId+'/work-time/'); }
+    try { timeSummary = await P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot'); }
     catch(e) { notice.textContent = 'Work-time summary unavailable: '+e.message; }
-    try { const plans=await P.call('/platform/projects/'+projectId+'/schedules/'); scheduleMap=new Map(plans.schedules.map(x=>[Number(x.task_id),x])); }
+    try { const plans=await P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot'); scheduleMap=new Map(plans.schedules.map(x=>[Number(x.task_id),x])); }
     catch(e){notice.textContent='Gantt schedule unavailable: '+e.message;}
     paint();
   }
@@ -367,8 +367,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     ai.append(q,btn('Ask Pulsar',()=>run(false)),out,actions);
   }
   buildPulsar();paint();
-  P.call('/platform/projects/'+projectId+'/schedules/').then(data=>{scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint();}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
-  P.call('/platform/projects/'+projectId+'/work-time/').then(data=>{timeSummary=data;paint();}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
+  P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot').then(data=>{scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint();}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
+  P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot').then(data=>{timeSummary=data;paint();}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
   const linkedId = new URLSearchParams(location.search).get('task');
   if(linkedId && /^\d+$/.test(linkedId)){
     const selected = tasks.find(t=>String(t.id)===linkedId);
