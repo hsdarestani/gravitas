@@ -1,8 +1,8 @@
 /* Project command center. All views use the same ACL-scoped OperatingTask
  * objects; canonical Nextcloud documents remain the source of truth.
  * These views do not persist a competing task representation. */
-import * as P from './ws-platform.js?v=20261015-r1';
-import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261016-r2';
+import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-r2';
 
 const node = (tag, cls = '', content = '') => {
   const n = document.createElement(tag);
@@ -71,7 +71,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   root.append(wrap); doc.append(root);
 
   async function reload() {
-    const latest = await P.projectCockpit(projectId);
+    const latest = await P.projectCockpit(projectId, { snapshot: true });
     tasks = latest.tasks || [];
     try { timeSummary = await P.call('/platform/projects/'+projectId+'/work-time/'); }
     catch(e) { notice.textContent = 'Work-time summary unavailable: '+e.message; }

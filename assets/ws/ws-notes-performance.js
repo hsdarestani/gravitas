@@ -13,8 +13,8 @@
    Now the notebook passes in how to tell it what happened.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261015-r1';
-import { scheduleIdle } from './ws-runtime-performance.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261016-r2';
+import { scheduleIdle } from './ws-runtime-performance.js?v=20261016-r2';
 
 // Reconciliation spans ALL of a user's native Notes, not one workspace.
  // Keep one global in-flight run and a conservative cooldown; Core and

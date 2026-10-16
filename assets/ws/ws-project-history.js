@@ -1,6 +1,6 @@
 /* Previous project file snapshots are read-only until explicitly copied
  * into an editor draft. Saving always goes through If-Match conflict checks. */
-import { call } from './ws-platform.js?v=20261015-r1';
+import { call } from './ws-platform.js?v=20261016-r2';
 
 const element = (tag, text = '') => {
   const node = document.createElement(tag);

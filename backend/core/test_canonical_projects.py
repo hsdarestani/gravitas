@@ -67,6 +67,45 @@ class CanonicalProjectTests(TestCase):
     def adopt(self):
         return adopt_project(self.project, self.owner)
 
+    def test_cockpit_snapshot_keeps_acl_without_crawling_native_project(self):
+        self.adopt()
+        url = f'/api/platform/projects/{self.project.pk}/cockpit/?read_mode=snapshot'
+        with patch('core.canonical_middleware.refresh_project') as refresh:
+            response = self.client.get(url)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['read_mode'], 'snapshot')
+        self.assertEqual(response.json()['counts']['notes'], 1)
+        self.assertEqual(response.json()['resources'][0]['id'], self.note.pk)
+        refresh.assert_not_called()
+        self.client.force_login(self.outsider)
+        self.assertNotEqual(self.client.get(url).status_code, 200)
+
+    def test_native_cockpit_read_still_refreshes_source(self):
+        self.adopt()
+        with patch('core.canonical_middleware.refresh_project') as refresh:
+            response = self.client.get(f'/api/platform/projects/{self.project.pk}/cockpit/')
+        self.assertEqual(response.status_code, 200)
+        refresh.assert_called_once()
+
+    def test_live_folder_listing_does_not_refresh_unrelated_file_contents(self):
+        self.adopt()
+        with patch('core.canonical_api.listing', return_value=[]), patch('core.canonical_middleware.refresh_project') as refresh:
+            response = self.client.get(f'/api/platform/projects/{self.project.pk}/structure/')
+        self.assertEqual(response.status_code, 200, response.content)
+        refresh.assert_not_called()
+
+    def test_snapshot_query_cannot_bypass_task_write_boundary(self):
+        from .operating_models import OperatingTask
+        with transaction.atomic():
+            task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'], project=self.project, owner=self.owner, title='Real task', definition_of_done='Saved task')
+        self.adopt()
+        with patch('core.canonical_middleware.refresh_task_scope') as refresh:
+            response = self.client.patch(f'/api/operating/task-board/{task.pk}/?read_mode=snapshot', data=json.dumps({'title': 'Edited task'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        refresh.assert_called_once()
+        task.refresh_from_db()
+        self.assertEqual(task.title, 'Edited task')
+
     def test_missing_cached_native_identity_is_refreshed_without_a_content_revision(self):
         self.adopt()
         file = CanonicalFile.objects.get(project=self.project, path='project.md')

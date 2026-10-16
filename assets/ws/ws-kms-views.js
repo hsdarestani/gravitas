@@ -22,8 +22,8 @@
    means the path you are furthest into and the cards that are overdue.
    ========================================================================== */
 
-import * as K from './ws-kms.js?v=20261015-r1';
-import { el, panel, row, stats, empty, linkButton } from './ws-views.js?v=20261015-r1';
+import * as K from './ws-kms.js?v=20261016-r2';
+import { el, panel, row, stats, empty, linkButton } from './ws-views.js?v=20261016-r2';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 

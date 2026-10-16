@@ -12,8 +12,8 @@
    draws its own tiles as buttons.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261015-r1';
-import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261015-r1';
+import * as P from './ws-platform.js?v=20261016-r2';
+import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-r2';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
 // a change. Set each time the cockpit asks for a bar.

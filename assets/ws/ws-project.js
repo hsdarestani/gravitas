@@ -1,7 +1,7 @@
-import { renderProjectStructure } from './ws-project-files.js?v=20261015-r1';
-import { renderProjectManagement } from './ws-project-pm.js?v=20261015-r1';
-import * as P from './ws-platform.js?v=20261015-r1';
-import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261015-r1';
+import { renderProjectStructure } from './ws-project-files.js?v=20261016-r2';
+import { renderProjectManagement } from './ws-project-pm.js?v=20261016-r2';
+import * as P from './ws-platform.js?v=20261016-r2';
+import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261016-r2';
 
 const TABS = [
   ['structure', 'Project folder'],
@@ -506,7 +506,7 @@ function activityView(doc, cockpit) {
 export async function renderResearchProject(host, projectId, tab = 'structure', { go }) {
   loading(host);
   try {
-    const needs = [P.projectCockpit(projectId)];
+    const needs = [P.projectCockpit(projectId, { snapshot: true })];
     if (tab === 'milestones') needs.push(P.projectMilestones(projectId));
     if (tab === 'discussions') needs.push(P.projectDiscussions(projectId));
     if (tab === 'experiments') needs.push(P.projectExperiments(projectId));

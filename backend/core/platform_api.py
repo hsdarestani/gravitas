@@ -251,7 +251,17 @@ def _workspace_json(workspace):
     }
 
 
-def _project_profile(project):
+def _project_profile(project, *, read_only=False):
+    if read_only:
+        # Legacy projects may not have a profile yet. A navigation snapshot
+        # must never create one outside the canonical write transaction.
+        return ResearchProjectProfile.objects.filter(project=project).first() or ResearchProjectProfile(
+            project=project,
+            category=ResearchProjectProfile.Category.INTERNAL,
+            visibility=ResearchProjectProfile.Visibility.PRIVATE,
+            status=ResearchProjectProfile.Status.ACTIVE,
+            nextcloud_root=f'GRV-{project.pk:06d}',
+        )
     profile, _ = ResearchProjectProfile.objects.get_or_create(
         project=project,
         defaults={
@@ -268,8 +278,8 @@ def _project_profile(project):
     return profile
 
 
-def _project_json(project, user=None, *, include_detail=False):
-    profile = _project_profile(project)
+def _project_json(project, user=None, *, include_detail=False, read_only=False):
+    profile = _project_profile(project, read_only=read_only)
     data = {
         'id': project.pk,
         'workspace_id': project.workspace_id,
