@@ -425,6 +425,9 @@ function attachTip(host, text) {
    it belongs to instead of beside it.
    ========================================================================== */
 
+// The section whose twist was just opened, for the one redraw that shows it.
+let justOpened = '';
+
 function renderIndex() {
   // Dashboard, Learning and Admin draw their own index; so does the Learning
   // index the Knowledge tools sit under.
@@ -499,9 +502,15 @@ function renderIndex() {
       expandable: hasChildren,
       expanded: isOpen,
       onToggle: () => {
-        ui.openSections.has(section.id) ? ui.openSections.delete(section.id) : ui.openSections.add(section.id);
+        if (ui.openSections.has(section.id)) {
+          ui.openSections.delete(section.id);
+        } else {
+          ui.openSections.add(section.id);
+          justOpened = section.id;
+        }
         writePrefs({ openSections: [...ui.openSections] });
         renderIndex();
+        justOpened = '';
       },
       onClick: () => go(section.path),
       series: String((sectionIndex % 4) + 1),
@@ -513,15 +522,20 @@ function renderIndex() {
     const group = document.createElement('div');
     group.className = 'ws-node__kids';
     group.style.setProperty('--depth', 0);
+    // Only the section just expanded animates its rows in; the rest were
+    // already open and are only being redrawn.
+    if (section.id === justOpened) group.dataset.entering = '';
 
-    for (const child of visibleChildren) {
-      group.append(sectionRow({
+    for (const [childIndex, child] of visibleChildren.entries()) {
+      const childRow = sectionRow({
         label: child.label,
         mark: child.icon,
         depth: 1,
         active: child.match(location.pathname),
         onClick: () => go(child.path),
-      }));
+      });
+      childRow.style.setProperty('--ws-i', String(Math.min(childIndex, 12)));
+      group.append(childRow);
     }
 
     tree.append(group);
@@ -1192,6 +1206,28 @@ function viewContext() {
   };
 }
 
+/* Plays the index's row entrance once, for an opening the reader asked for.
+   It is an attribute held for the length of the entrance rather than an
+   animation on the rows themselves, because the rows are rebuilt on every
+   navigation, and an entrance that replayed each time a link was followed
+   would be the index flickering, not arriving. The rows are numbered here
+   rather than with :nth-child steps so the stagger reaches however many
+   sections a workspace has, capped so a long list does not keep the last
+   row waiting. */
+let revealTimer = 0;
+function revealIndex() {
+  const pane = $('.ws__index');
+  if (!pane) return;
+  pane.querySelectorAll(':is(.ws-tree, .fl-index-nav) > *').forEach((row, index) => {
+    row.style.setProperty('--ws-i', String(Math.min(index, 12)));
+  });
+  pane.removeAttribute('data-revealing');
+  void pane.offsetWidth; // a second opening mid-entrance starts it again
+  pane.setAttribute('data-revealing', '');
+  clearTimeout(revealTimer);
+  revealTimer = setTimeout(() => pane.removeAttribute('data-revealing'), 700);
+}
+
 function paintPaneState() {
   const shell = $('#ws');
   if (!shell) return;
@@ -1485,10 +1521,12 @@ export async function start() {
      The toggles and the drag-to-close grips share these two, so a pane
      closed either way is remembered the same way. */
   const setIndex = (open) => {
+    const opening = open && !ui.index;
     ui.index = open;
     if (ui.index && NARROW.matches) ui.dock = false;
     if (!NARROW.matches) writePrefs({ index: ui.index });
     paintPaneState();
+    if (opening) revealIndex();
   };
   const setDock = (open) => {
     ui.dock = open;

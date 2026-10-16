@@ -60,6 +60,13 @@
     /* The brand's house easing, named locally so a reader of this file can
        see at a glance that the workspace does not invent its own motion. */
     --ws-ease: var(--g-ease-orbit);
+
+    /* How long a side pane takes to open or close. Every part of that one
+       movement reads this: the track, the pane's slide and fade, the drawer
+       at narrow widths, and the delay before a closed pane is hidden. They
+       used to carry separate durations, and the content went before the
+       track did. */
+    --ws-pane-dur: 340ms;
   }
 
   /* Light theme: subtle text is darkened, inside the workspace only.
@@ -188,12 +195,21 @@
   /* Relative, because each holds an absolutely positioned resize handle on
      its inner edge. */
   .ws__index, .ws__dock { overflow: hidden; position: relative; }
+
+  /* A closed pane is hidden only once its track has finished closing.
+     Hidden at once, as it was, the content vanished on the first frame and
+     what animated was an empty strip shrinking. Opening takes no delay:
+     the destination state's transition is the one that runs. */
+  .ws__index, .ws__dock { transition: visibility 0s linear 0s; }
   .ws[data-index="off"] .ws__index,
-  .ws[data-dock="off"]  .ws__dock { visibility: hidden; }
+  .ws[data-dock="off"]  .ws__dock {
+    visibility: hidden;
+    transition-delay: var(--ws-pane-dur);
+  }
 
   /* Width changes animate; a drag does not, or the pane lags the pointer. */
   .ws:not([data-resizing]) .ws__body {
-    transition: grid-template-columns var(--g-dur-slow) var(--ws-ease);
+    transition: grid-template-columns var(--ws-pane-dur) var(--ws-ease);
   }
 }
 
@@ -516,9 +532,49 @@
   }
   .ws[data-resizing] { cursor: col-resize; user-select: none; }
 
-  /* Dragged past its minimum, a pane dims to say release will close it. */
+  /* ---- Opening and closing ----------------------------------------------
+     The pane is drawn at its own width whatever its track is doing, and the
+     track only uncovers it. When the pane took the track's width, every
+     frame of the animation was a new layout: each two-line hint in the
+     index re-wrapped as the column grew, rows gained a line and lost it
+     again, and the list bounced up and down while the text appeared to pour
+     in. Laid out once at its final width, the content holds still.
+
+     The dock is pinned to its outer edge, so it arrives from the right
+     rather than being uncovered from the left. Both also slide a short way
+     and fade, so the pane reads as something entering rather than as a
+     curtain drawn back over text that was already there. */
+  .ws__index > .ws-pane { width: var(--ws-index-w); }
+  .ws__dock  > .ws-pane { width: var(--ws-dock-w); margin-left: auto; }
+
   .ws__index > .ws-pane,
-  .ws__dock  > .ws-pane { transition: opacity var(--g-dur-fast) linear; }
+  .ws__dock  > .ws-pane {
+    transition: opacity var(--g-dur) var(--ws-ease),
+                transform var(--ws-pane-dur) var(--ws-ease);
+  }
+  .ws[data-index="off"] .ws__index > .ws-pane { opacity: 0; transform: translateX(-14px); }
+  .ws[data-dock="off"]  .ws__dock  > .ws-pane { opacity: 0; transform: translateX(14px); }
+
+  /* The index's rows follow the pane in, a beat apart and top to bottom, so
+     the eye lands on the first section rather than on the whole column at
+     once. ws-app.js sets data-revealing for one opening and numbers the rows
+     with --ws-i; a redraw of the index on navigation is not an opening and
+     does not replay this. Rows open under a section arrive the same way. */
+  @keyframes ws-row-in {
+    from { opacity: 0; transform: translateX(-6px); }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .ws__index[data-revealing] :is(.ws-tree, .fl-index-nav) > *,
+    .ws-node__kids[data-entering] > * {
+      animation: ws-row-in 300ms var(--ws-ease) backwards;
+      animation-delay: calc(40ms + var(--ws-i, 0) * 24ms);
+    }
+    .ws-node__kids[data-entering] > * { animation-delay: calc(var(--ws-i, 0) * 30ms); }
+  }
+
+  /* Dragged past its minimum, a pane dims to say release will close it. */
+  .ws[data-resizing] .ws__index > .ws-pane,
+  .ws[data-resizing] .ws__dock  > .ws-pane { transition: opacity var(--g-dur-fast) linear; }
   .ws__index[data-closing] > .ws-pane,
   .ws__dock[data-closing]  > .ws-pane { opacity: 0.35; }
 
@@ -1073,15 +1129,28 @@ body .gchat {
     .ws[data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-index-w) minmax(0, 1fr) 0; }
     .ws[data-index="off"] .ws__body,
     .ws[data-index="off"][data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
-    .ws .ws__dock { visibility: hidden; }
-
-    .ws[data-dock="on"] .ws__dock {
-      visibility: visible;
+    /* The drawer is fixed in both states, so it can slide. It used to become
+       fixed only when opened and fall back into its zero track when closed,
+       which left nothing to animate between: it appeared and vanished. Out
+       of view it sits past the edge by its shadow's width as well, and is
+       hidden once it gets there. */
+    .ws .ws__dock {
+      visibility: hidden;
       position: fixed; inset-block: var(--ws-topbar-h) var(--ws-status-h);
       right: 0; width: min(360px, 88vw);
       z-index: var(--g-z-overlay);
       box-shadow: var(--g-shadow);
+      transform: translateX(calc(100% + 24px));
+      transition: transform var(--ws-pane-dur) var(--ws-ease),
+                  visibility 0s linear var(--ws-pane-dur);
     }
+    .ws[data-dock="on"] .ws__dock {
+      visibility: visible;
+      transform: none;
+      transition: transform var(--ws-pane-dur) var(--ws-ease), visibility 0s;
+    }
+    /* The drawer moves, so the pane inside it does not move as well. */
+    .ws .ws__dock > .ws-pane { width: 100%; margin-left: 0; opacity: 1; transform: none; }
     /* Nothing to drag once the pane is fixed. The index grip stays, because
        the index is still a real column at this width. */
     .ws__dock .ws-grip { display: none; }
@@ -1094,11 +1163,18 @@ body .gchat {
     /* A scrim, so the panel reads as a layer over the page rather than as a
        pane that has eaten it. Tapping it closes: the handler in ws-app.js
        treats a click landing on the shell itself as a click on the scrim. */
-    .ws[data-dock="on"]::after {
+    /* Always present and faded rather than created on opening, so it eases
+       in under the drawer instead of dropping over the page in one frame.
+       Closed, it takes no pointer, so the page underneath is what a tap
+       reaches. */
+    .ws::after {
       content: ""; position: fixed; inset: var(--ws-topbar-h) 0 0 0;
       background: rgb(1 18 28 / 0.4);
       z-index: calc(var(--g-z-overlay) - 1);
+      opacity: 0; pointer-events: none;
+      transition: opacity var(--ws-pane-dur) var(--ws-ease);
     }
+    .ws[data-dock="on"]::after { opacity: 1; pointer-events: auto; }
   }
 
   /* ---- 860px: the index floats too -------------------------------------- */
@@ -1106,13 +1182,28 @@ body .gchat {
     .ws .ws__body,
     .ws[data-index="on"] .ws__body,
     .ws[data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
-    .ws[data-index="on"] .ws__index {
-      visibility: visible;
+    /* The index drawer slides out from under the rail, which is where the
+       workspace it lists was chosen, so the rail has to sit above it — and
+       above the scrim, for the reason the topbar does. At 640px the rail
+       moves to the bottom and the drawer starts at the screen edge, which
+       the same translate clears. */
+    .ws-rail { position: relative; z-index: calc(var(--g-z-overlay) + 1); }
+    .ws .ws__index {
+      visibility: hidden;
       position: fixed; inset-block: var(--ws-topbar-h) var(--ws-status-h);
       left: var(--ws-rail-w); width: min(320px, 84vw);
       z-index: var(--g-z-overlay);
       box-shadow: var(--g-shadow);
+      transform: translateX(calc(-100% - 24px));
+      transition: transform var(--ws-pane-dur) var(--ws-ease),
+                  visibility 0s linear var(--ws-pane-dur);
     }
+    .ws[data-index="on"] .ws__index {
+      visibility: visible;
+      transform: none;
+      transition: transform var(--ws-pane-dur) var(--ws-ease), visibility 0s;
+    }
+    .ws .ws__index > .ws-pane { width: 100%; opacity: 1; transform: none; }
     .ws-grip { display: none; }
     .ws-doc { padding-inline: var(--g-space-sm); padding-top: 20px; }
 
@@ -1141,11 +1232,7 @@ body .gchat {
     .ws-search__label { display: none; }
     .theme-toggle { border-color: transparent; }
 
-    .ws[data-index="on"]::after {
-      content: ""; position: fixed; inset: var(--ws-topbar-h) 0 0 0;
-      background: rgb(1 18 28 / 0.4);
-      z-index: calc(var(--g-z-overlay) - 1);
-    }
+    .ws[data-index="on"]::after { opacity: 1; pointer-events: auto; }
   }
 
   /* The breadcrumb is the first thing to go: the page title is the first
@@ -1183,8 +1270,7 @@ body .gchat {
       z-index: calc(var(--g-z-overlay) + 1);
     }
     /* So the scrim darkens the page and nothing else. */
-    .ws[data-index="on"]::after,
-    .ws[data-dock="on"]::after { bottom: calc(var(--ws-rail-h) + var(--ws-safe-b)); }
+    .ws::after { bottom: calc(var(--ws-rail-h) + var(--ws-safe-b)); }
     .ws-rail::-webkit-scrollbar { display: none; }
     .ws-rail__btn { flex: 0 0 auto; }
     .ws-rail__spacer { display: none; }
@@ -1216,12 +1302,12 @@ body .gchat {
        not wasted page: it is the target that closes them, and a drawer with
        nothing beside it is a drawer whose only way out is a button in the
        corner. */
-    .ws[data-index="on"] .ws__index,
-    .ws[data-dock="on"] .ws__dock {
+    .ws .ws__index,
+    .ws .ws__dock {
       inset-block: var(--ws-topbar-h) calc(var(--ws-rail-h) + var(--ws-safe-b));
     }
-    .ws[data-index="on"] .ws__index { left: 0; width: min(320px, 84vw); }
-    .ws[data-dock="on"] .ws__dock { right: 0; width: min(340px, 84vw); }
+    .ws .ws__index { left: 0; width: min(320px, 84vw); }
+    .ws .ws__dock { right: 0; width: min(340px, 84vw); }
 
     /* The palette is opened by keyboard on a desktop and by thumb here, so
        it sits higher and taller: the on-screen keyboard takes half the
@@ -1327,6 +1413,16 @@ body .gchat {
    ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
   .ws:not([data-resizing]) .ws__body { transition: none; }
+  /* The panes and drawers stop travelling and only fade. Unlayered, so
+     these win over every layered rule above without !important. */
+  .ws .ws__index, .ws .ws__dock,
+  .ws .ws__index > .ws-pane, .ws .ws__dock > .ws-pane { transform: none; }
+  .ws .ws__index, .ws .ws__dock { transition: opacity 160ms linear, visibility 0s; }
+  .ws[data-index="off"] .ws__index,
+  .ws[data-dock="off"] .ws__dock {
+    opacity: 0;
+    transition: opacity 160ms linear, visibility 0s linear 160ms;
+  }
   .ws-tip { transition: opacity 120ms linear; transform: none; }
   .ws-tip[data-open] { transform: none; }
   .ws-tab::after { transition: opacity 120ms linear; transform: none; }
