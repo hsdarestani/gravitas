@@ -1,7 +1,7 @@
-import { renderProjectStructure } from './ws-project-files.js?v=20261016-r2';
-import { renderProjectManagement } from './ws-project-pm.js?v=20261016-r2';
-import * as P from './ws-platform.js?v=20261016-r2';
-import { projectActionBar, openProjectAccess, openProjectMindMap } from './ws-project-actions.js?v=20261016-r2';
+import { renderProjectStructure } from './ws-project-files.js?v=20261016-task1';
+import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1';
+import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1';
 
 const TABS = [
   ['structure', 'Project folder'],
@@ -226,7 +226,7 @@ function milestonesView(doc, milestones) {
   doc.append(box.box);
 }
 
-function tasksView(doc, cockpit) {
+function tasksView(doc, cockpit, context) {
   const box = section('Tasks', 'Project-linked execution remains one object whether it is viewed from Core or Research.');
   if (!cockpit.tasks.length) box.body.append(empty('No project tasks', 'Tasks linked to this project appear here.'));
   for (const item of cockpit.tasks) {
@@ -235,6 +235,7 @@ function tasksView(doc, cockpit) {
       meta: P.meta([item.owner, item.due_date ? `Due ${date(item.due_date)}` : '', label(item.priority)]),
       body: item.description,
       badges: [label(item.status), item.initiative],
+      onClick: () => openProjectTask(item, cockpit, context),
     }));
   }
   doc.append(box.box);
@@ -521,7 +522,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     if (tab === 'structure') await renderProjectStructure(doc, projectId);
     else if (tab === 'overview') overviewView(doc, cockpit, { go, projectId });
     else if (tab === 'milestones') milestonesView(doc, results[1].milestones || []);
-    else if (tab === 'tasks') tasksView(doc, cockpit);
+    else if (tab === 'tasks') tasksView(doc, cockpit, { go, refresh: rerender });
     else if (tab === 'management') renderProjectManagement(doc, projectId, cockpit, { go, refresh: rerender });
     else if (tab === 'notes') notesView(doc, cockpit);
     else if (tab === 'sources') sourcesView(doc, cockpit, rerender);

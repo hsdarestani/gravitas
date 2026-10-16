@@ -41,7 +41,7 @@
    uploading a headshot intends to publish their home address.
    ========================================================================== */
 
-import { el } from './ws-views.js?v=20261016-r2';
+import { el } from './ws-views.js?v=20261016-task1';
 
 const OUT_PX = 256;          // what is stored, and what every avatar slot wants
 const QUALITY = 0.86;
