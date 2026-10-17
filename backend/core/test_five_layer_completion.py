@@ -192,11 +192,14 @@ class FiveLayerCompletionTests(TestCase):
     @override_settings(NEXTCLOUD_ADMIN_USER='admin', NEXTCLOUD_ADMIN_PASSWORD='secret')
     @patch('core.nextcloud_deck._find_board')
     def test_deck_status_is_available_to_core_admin(self, find_board):
-        find_board.return_value = {'id': 42, 'title': 'GraviQuest Execution'}
+        # The dashboard must not wait for Nextcloud to enumerate boards.
+        # A real sync or direct Deck visit can verify current availability.
         response = self.client.get('/api/platform/admin/deck/')
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertTrue(response.json()['available'])
-        self.assertEqual(response.json()['board']['id'], 42)
+        self.assertTrue(response.json()['configured'])
+        self.assertIsNone(response.json()['available'])
+        self.assertIsNone(response.json()['board'])
+        find_board.assert_not_called()
 
     @patch('core.nextcloud_deck.sync_tasks_to_deck')
     def test_deck_sync_records_audit_event(self, sync_tasks):
