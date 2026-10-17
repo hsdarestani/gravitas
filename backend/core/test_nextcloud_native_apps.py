@@ -490,6 +490,16 @@ class NativeNotesMirrorTests(TestCase):
 
 
 class DeckBidirectionalMirrorTests(TestCase):
+    def setUp(self):
+        # These unit tests intentionally use SimpleNamespace tasks to exercise
+        # Deck's merge rules. Mirror the production row-lock lookup while the
+        # persisted-task/canonical-write behavior is tested separately.
+        self._mock_tasks = {}
+        lock = patch('core.nextcloud_deck.OperatingTask.objects.select_for_update')
+        selected = lock.start()
+        self.addCleanup(lock.stop)
+        selected.return_value.get.side_effect = lambda pk: self._mock_tasks[pk]
+
     def task(self, *, updated_at, status=WorkStatus.ACTIVE, title='Local task', due_date=date(2026, 9, 20), cycle_id=1):
         task = SimpleNamespace(
             pk=9,
@@ -501,6 +511,7 @@ class DeckBidirectionalMirrorTests(TestCase):
             completed_at=None,
         )
         task.save = MagicMock()
+        self._mock_tasks[task.pk] = task
         return task
 
     def current(self, task, *, stack='Active', title='Local task', due='2026-09-20T17:00:00+00:00', marker=None, modified=0):
