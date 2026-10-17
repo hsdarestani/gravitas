@@ -230,6 +230,8 @@ jobs:
           sudo systemctl is-active gravitas-nextcloud-nginx-guard.path
           sudo systemctl is-active gravitas-nextcloud-mirror.timer
           sudo systemctl is-enabled gravitas-nextcloud-mirror.timer >/dev/null
+          sudo systemctl is-active gravitas-nextcloud-notes-mirror.timer
+          sudo systemctl is-enabled gravitas-nextcloud-notes-mirror.timer >/dev/null
           sudo docker exec -u www-data gravitas-nextcloud php occ status | grep -q 'installed: true'
           sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+groupfolders:' >/dev/null
           sudo docker exec -u www-data gravitas-nextcloud php occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+notes:' >/dev/null
@@ -242,8 +244,9 @@ jobs:
             curl -fsS -u "$NC_ADMIN_USER:$NC_ADMIN_PASSWORD" -H "Accept: application/json" \
               http://127.0.0.1:8081/index.php/apps/notes/api/v1/notes >/dev/null
           '
-          # Do not settle for an enabled timer: exercise the actual Django ↔
-          # Notes/Deck/ACL reconciliation once and require a successful result.
+          # Verify Deck reconciliation independently, rather than treating
+          # unresolved user Notes conflicts as a failure of every Deck sync.
+          # Notes have their own 15-minute timer and report failures separately.
           sudo systemctl reset-failed gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
           sudo systemctl start gravitas-nextcloud-mirror.service
           sudo systemctl show gravitas-nextcloud-mirror.service --property=Result --value | grep -qx success
@@ -274,7 +277,7 @@ jobs:
             "sudo grep -Eq '^NEXTCLOUD_OIDC_PROVIDER_ID=[0-9]+$' /etc/gravitas/backend.env"; then
             SSO=enabled
           fi
-          printf 'status=live\nurl=%s/\nversion=%s\nteam_folders=enabled\nnotes=mirrored\ndeck=mirrored\nmirror_cadence=2m\nassistant=optional\nsso=%s\nnginx_guard=enabled\nverified_at=%s\n' \
+          printf 'status=live\nurl=%s/\nversion=%s\nteam_folders=enabled\nnotes=scheduled\ndeck=mirrored\nmirror_cadence=deck-2m-notes-15m\nassistant=optional\nsso=%s\nnginx_guard=enabled\nverified_at=%s\n' \
             "$PUBLIC_URL" "$VERSION" "$SSO" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .nextcloud-status
           git config user.name 'gravitas-nextcloud-bot'
           git config user.email 'actions@users.noreply.github.com'
