@@ -553,8 +553,14 @@ function renderCoreBody(doc, ctx, boot) {
   doc.append(holder);
   skeleton(6, holder);
 
-  return Promise.all([P.dashboard('core'), P.content(), P.call('/operating/meetings/').catch(() => ({}))])
-    .then(([board, pipeline, calendar]) => {
+  // The dashboard numbers/tasks are the primary request. Slow or unavailable
+  // content/meeting integrations must not keep the entire Core screen blank.
+  // Kick off optional requests concurrently, but draw the Core layout as soon
+  // as the board data arrives; each panel updates independently afterward.
+  const pipelineLoad = P.content().catch(() => ({ unavailable: true }));
+  const calendarLoad = P.call('/operating/meetings/').catch(() => ({ unavailable: true }));
+  return P.dashboard('core')
+    .then((board) => {
       holder.innerHTML = '';
       const layout = C.bento();
 
@@ -593,10 +599,20 @@ function renderCoreBody(doc, ctx, boot) {
 
       const today = todayPanel(board.tasks || [], ctx);
       today.dataset.span = '8';
-      const next = upNextPanel(calendar.meetings || calendar.results || [], ctx);
+      const next = upNextPanel([], ctx);
       next.dataset.span = '4';
       next.classList.add('wc-card--accent');
       layout.append(today, next);
+      calendarLoad.then((calendar) => {
+        if (!next.isConnected) return;
+        const fresh = upNextPanel(calendar.meetings || calendar.results || [], ctx);
+        fresh.dataset.span = '4';
+        fresh.classList.add('wc-card--accent');
+        if (calendar.unavailable) {
+          fresh.body?.append?.(C.note('Calendar temporarily unavailable.'));
+        }
+        next.replaceWith(fresh);
+      });
 
       const mix = C.card({
         title: 'Work mix',
@@ -613,19 +629,26 @@ function renderCoreBody(doc, ctx, boot) {
 
       const content = card('Content pipeline', 'Items in production', linkBtn('View pipeline', '/workspace/core/content', ctx));
       content.dataset.span = '6';
-      const items = pipeline.items || [];
-      if (items.length) {
-        collapsible(content.body, items, 5, (item) => C.listItem({
-          title: item.title,
-          meta: P.meta([P.label(item.kind), P.formatDate(item.due_date)]),
-          icon: 'content',
-          series: '3',
-          right: flagged(P.label(item.status)),
-        }));
-      } else {
-        content.body.append(C.note('Nothing in the pipeline yet.'));
-      }
+      content.body.append(skeleton(2));
       layout.append(content);
+      pipelineLoad.then((pipeline) => {
+        if (!content.isConnected) return;
+        content.body.replaceChildren();
+        const items = pipeline.items || [];
+        if (items.length) {
+          collapsible(content.body, items, 5, (item) => C.listItem({
+            title: item.title,
+            meta: P.meta([P.label(item.kind), P.formatDate(item.due_date)]),
+            icon: 'content',
+            series: '3',
+            right: flagged(P.label(item.status)),
+          }));
+        } else {
+          content.body.append(C.note(
+            pipeline.unavailable ? 'Content pipeline temporarily unavailable.' : 'Nothing in the pipeline yet.'
+          ));
+        }
+      });
 
       const planning = card('Planning', 'Objectives and milestones', linkBtn('Open', '/workspace/operating', ctx));
       planning.dataset.span = '4';
@@ -652,7 +675,10 @@ function renderCoreBody(doc, ctx, boot) {
     })
     .catch((err) => {
       holder.innerHTML = '';
-      holder.append(failure('the Core workspace', err, () => renderCoreBody(doc, ctx, boot)));
+      holder.append(failure('the Core workspace', err, () => {
+        holder.remove();
+        renderCoreBody(doc, ctx, boot);
+      }));
     });
 }
 
