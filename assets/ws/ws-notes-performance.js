@@ -4,7 +4,7 @@
    /platform/nextcloud/notes/ never waits on Nextcloud). Reconciling with
    the Nextcloud Notes app — pulling edits made there, pushing ones made
    here, adopting notes created there — happens afterwards, when the
-   browser is idle, at most once every 45 seconds per space, and never while
+   browser is idle, at most once per 15 minutes per browser, and never while
    someone is typing.
 
    The notebook starts this itself. It used to be an overlay that watched
@@ -20,7 +20,9 @@ import { scheduleIdle } from './ws-runtime-performance.js?v=20261016-task1';
  // Keep one global in-flight run and a conservative cooldown; Core and
  // Research must not trigger the same expensive DAV sweep independently.
 const state = { lastSync: 0, inFlight: false, timer: 0, idle: false };
-const MIN_GAP = 150000;
+// Host reconciliation already runs on its own timer. Avoid another complete
+// user-wide Notes scan every couple of minutes when switching workspaces.
+const MIN_GAP = 15 * 60 * 1000;
 
 function summary(result) {
   const counts = result?.counts || {};
@@ -59,5 +61,5 @@ export function startNotesSync({ space, busy = () => false, status = () => {}, s
   // full-account DAV sweep. requestIdleCallback alone often fires instantly,
   // so an actual grace period is required.
   clearTimeout(state.timer);
-  state.timer = setTimeout(() => scheduleIdle(state, 'idle', run, 3000), 12000);
+  state.timer = setTimeout(() => scheduleIdle(state, 'idle', run, 3000), 20000);
 }

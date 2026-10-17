@@ -272,24 +272,53 @@ def task_board(request):
                 _log(request, task, 'task.created', {'status': task.status})
         return response
 
-    tasks = (
+    # A task opened from Projects, a notification, or the dock only needs
+    # dependency names; loading the entire rich board delayed every popup.
+    if request.GET.get('mode') == 'dependencies':
+        return JsonResponse({
+            'ok': True,
+            'tasks': list(OperatingTask.objects.filter(workspace=workspace)
+                          .order_by('title', 'pk').values('id', 'title')),
+        })
+
+    tasks = list(
         OperatingTask.objects.filter(workspace=workspace)
         .select_related(
             'owner', 'initiative__process', 'initiative__key_result__objective',
             'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
         )
-        .annotate(
-            comment_count=Count('board_comments', distinct=True),
-            attachment_count=Count('board_attachments', distinct=True),
-            checklist_count=Count('checklist_items', distinct=True),
-            checklist_completed_count=Count(
-                'checklist_items',
-                filter=Q(checklist_items__is_completed=True),
-                distinct=True,
-            ),
-        )
         .order_by('status', 'board_order', 'priority', 'due_date', 'id')
     )
+    # Four DISTINCT counts across three joined collections multiply each
+    # task's rows (comments × attachments × checklist items). Aggregate each
+    # collection independently, then attach counts to the already loaded tasks.
+    # This is constant-query work even as projects and task sources grow.
+    if tasks:
+        ids = [task.pk for task in tasks]
+        comments = dict(
+            OperatingTaskComment.objects.filter(task_id__in=ids).values('task_id')
+            .annotate(total=Count('pk')).values_list('task_id', 'total')
+        )
+        attachments = dict(
+            OperatingTaskAttachment.objects.filter(task_id__in=ids).values('task_id')
+            .annotate(total=Count('pk')).values_list('task_id', 'total')
+        )
+        checklists = {
+            row['task_id']: row
+            for row in OperatingTaskChecklistItem.objects.filter(task_id__in=ids)
+            .values('task_id')
+            .annotate(
+                total=Count('pk'),
+                completed=Count('pk', filter=Q(is_completed=True)),
+            )
+        }
+        for task in tasks:
+            task.comment_count = comments.get(task.pk, 0)
+            task.attachment_count = attachments.get(task.pk, 0)
+            checklist = checklists.get(task.pk, {})
+            task.checklist_count = checklist.get('total', 0)
+            task.checklist_completed_count = checklist.get('completed', 0)
+
     return JsonResponse({
         'ok': True,
         'can_edit': base._editable(request, workspace),

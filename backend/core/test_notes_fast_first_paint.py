@@ -69,9 +69,9 @@ class NotesFastFirstPaintAssetTests(TestCase):
 
         self.assertIn('export function startNotesSync(', script)
         self.assertIn("'/platform/nextcloud/notes/sync/'", script)
-        self.assertIn('MIN_GAP = 150000', script)
+        self.assertIn('MIN_GAP = 15 * 60 * 1000', script)
         self.assertIn('setTimeout(() => scheduleIdle(', script)
-        self.assertIn('12000', script)
+        self.assertIn('20000', script)
         self.assertIn('scheduleIdle(', script)
         self.assertNotIn('observeSurface', script)
         self.assertIn('syncInBackground(info);', notes)

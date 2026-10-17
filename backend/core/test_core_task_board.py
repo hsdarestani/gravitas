@@ -92,6 +92,61 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
 
+    def test_task_dependency_picker_loads_only_ids_and_titles(self):
+        first = self.create_task('Task in Core')
+        second = self.create_task('Task from another project')
+        response = self.client.get('/api/operating/task-board/?mode=dependencies')
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual({row['id'] for row in data['tasks']}, {first, second})
+        self.assertTrue(all(set(row) == {'id', 'title'} for row in data['tasks']))
+        self.assertNotIn('key_results', data)
+        self.assertNotIn('members', data)
+        # The full board still supplies its complete, editable payload.
+        full = self.client.get('/api/operating/task-board/').json()
+        self.assertIn('members', full)
+        self.assertIn('key_results', full)
+        self.assertEqual({row['id'] for row in full['tasks']}, {first, second})
+
+    def test_board_aggregates_independent_comment_attachment_and_checklist_counts(self):
+        task_id = self.create_task('Counted task')
+        other_id = self.create_task('Another task')
+        for i in range(3):
+            response = self.post_json(f'/api/operating/tasks/{task_id}/comments/',
+                                      {'body': f'Comment {i}'})
+            self.assertEqual(response.status_code, 201, response.content)
+        for i in range(2):
+            response = self.client.post(
+                f'/api/operating/tasks/{task_id}/attachments/',
+                {'file': SimpleUploadedFile(f'source{i}.txt', b'content', content_type='text/plain')},
+            )
+            self.assertEqual(response.status_code, 201, response.content)
+        checklist_ids = []
+        for i in range(4):
+            response = self.post_json(f'/api/operating/tasks/{task_id}/checklist/',
+                                      {'title': f'Step {i}'})
+            self.assertEqual(response.status_code, 201, response.content)
+            checklist_ids.append(response.json()['item']['id'])
+        for item_id in checklist_ids[:2]:
+            response = self.patch_json(
+                f'/api/operating/tasks/{task_id}/checklist/{item_id}/',
+                {'is_completed': True},
+            )
+            self.assertEqual(response.status_code, 200, response.content)
+        response = self.client.get('/api/operating/task-board/')
+        self.assertEqual(response.status_code, 200, response.content)
+        rows = {row['id']: row for row in response.json()['tasks']}
+        self.assertEqual(
+            tuple(rows[task_id][key] for key in
+                  ('comment_count', 'attachment_count', 'checklist_count', 'checklist_completed_count')),
+            (3, 2, 4, 2),
+        )
+        self.assertEqual(
+            tuple(rows[other_id][key] for key in
+                  ('comment_count', 'attachment_count', 'checklist_count', 'checklist_completed_count')),
+            (0, 0, 0, 0),
+        )
+
     def test_standalone_task_without_key_result_keeps_one_shared_identity(self):
         from datetime import date, timedelta
 
