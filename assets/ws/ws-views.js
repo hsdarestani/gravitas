@@ -858,7 +858,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         P.operatingTaskCard(taskId),
         typeof state === 'function' ? state() : state,
       ]);
-      state = boardState;
+      // The detail response carries members, projects and selectors; the
+      // board/dependency response contributes only the task list. Merge both
+      // so off-board task dialogs keep every edit control functional.
+      state = { ...detailData, ...boardState };
       const task = detailData.task;
       head.querySelector('h2').textContent = task.title;
       const closeButton = head.querySelector('button');
@@ -1601,13 +1604,11 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     body.append(form);
   }
 
-  /* Opened from the dock, the reader wants the card, not the board under it.
-     The dialog still needs the board payload (statuses, priorities and the
-     task list it offers as dependencies), so it fetches that alongside the
-     card instead of before it; a failure of either shows in the card with a
-     retry. */
+  /* A direct task from the dock, Projects or a notification already fetches
+     its metadata in task_board_detail. Fetch only the tiny dependency index
+     instead of loading all card bodies, comments and board counts. */
   if (openTaskId) {
-    return openTaskDialog(openTaskId, () => P.operatingTaskBoard(), async () => { await onTaskChange?.(); });
+    return openTaskDialog(openTaskId, () => P.operatingTaskDependencies(), async () => { await onTaskChange?.(); });
   }
 
   return guard(holder, 'Core tasks', async () => {
@@ -1885,7 +1886,16 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         window.requestAnimationFrame(syncTopScroll);
       };
 
-      search.addEventListener('input', draw);
+      // Building nine columns and hundreds of cards on each keystroke makes
+      // the search field look frozen. Coalesce rapid typing into one redraw.
+      let searchTimer = null;
+      search.addEventListener('input', () => {
+        if (searchTimer) clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          searchTimer = null;
+          if (toolbar.isConnected) draw();
+        }, 120);
+      });
       ownerFilter.addEventListener('change', draw);
       priorityFilter.addEventListener('change', draw);
       sortFilter.addEventListener('change', draw);
