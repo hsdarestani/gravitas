@@ -101,7 +101,9 @@ const fastReads = new Map();
 const readFlights = new Map();
 const READ_LIFETIME = {
   '/platform/nextcloud/notes/': 2500,
-  '/operating/task-board/': 1000,
+  '/operating/task-board/': 1500,
+  '/operating/task-board/?mode=dependencies': 2500,
+  '/operating/dashboard/': 2500,
 };
 let readGeneration = 0;
 
@@ -356,6 +358,7 @@ export const deleteGoogleCalendarMinuteAttachment = (minuteId, attachmentId) => 
 );
 export const disconnectGoogleCalendar = () => call('/calendar/google/disconnect/', { method: 'DELETE' });
 export const operatingTaskBoard = () => call('/operating/task-board/');
+export const operatingTaskDependencies = () => call('/operating/task-board/?mode=dependencies');
 export const createOperatingTask = (body) => call('/operating/task-board/', { method: 'POST', body });
 export const operatingTaskCard = (id) => call(`/operating/task-board/${id}/`);
 export const updateOperatingTaskCard = (id, body) => call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
