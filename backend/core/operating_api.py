@@ -141,7 +141,12 @@ def _objective_json(obj):
         'id': obj.pk, 'title': obj.title, 'description': obj.description, 'owner': _person(obj.owner),
         'quarter': obj.quarter, 'start_date': obj.start_date.isoformat() if obj.start_date else None,
         'due_date': obj.due_date.isoformat() if obj.due_date else None, 'health': obj.health, 'status': obj.status,
-        'key_result_count': getattr(obj, 'key_result_count', obj.key_results.count()),
+        # getattr's fallback expression is evaluated eagerly; do not issue a
+        # COUNT query for every objective when the queryset already annotated it.
+        'key_result_count': (
+            obj.key_result_count if hasattr(obj, 'key_result_count')
+            else obj.key_results.count()
+        ),
     }
 
 
@@ -175,7 +180,11 @@ def _initiative_json(obj):
         'process': {'id': obj.process_id, 'key': obj.process.key, 'name': obj.process.name},
         'key_result': {'id': obj.key_result_id, 'title': obj.key_result.title},
         'objective': {'id': obj.key_result.objective_id, 'title': obj.key_result.objective.title},
-        'task_count': getattr(obj, 'task_count', obj.tasks.count()),
+        # Preserve the annotated count on planning and dashboard collections.
+        'task_count': (
+            obj.task_count if hasattr(obj, 'task_count')
+            else obj.tasks.count()
+        ),
     }
 
 
