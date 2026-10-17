@@ -82,8 +82,14 @@ export function deckPanel({ go, onPulled } = {}) {
       if ((result?.changes?.pulled || 0) > 0 && onPulled) onPulled();
       return result;
     } catch (error) {
+      // Do not hammer a failing backend every 15 seconds. Manual retries still
+      // remain available via the button; automatic retries wait one minute.
+      sync.lastAt = Date.now();
       status.dataset.tone = 'bad';
-      status.textContent = error?.data?.error || 'Deck sync failed.';
+      const detail = String(error?.data?.detail || '').slice(0, 180);
+      status.textContent = detail
+        ? `${error?.data?.error || 'Deck sync failed'}: ${detail}`
+        : (error?.data?.error || 'Deck sync failed.');
       return null;
     } finally {
       sync.inFlight = null;
