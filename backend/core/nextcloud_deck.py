@@ -21,6 +21,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from . import cloud
+from .canonical_journal import RecoveryRequired
+from .canonical_projects import CanonicalConflict
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .operating_models import OperatingTask, WorkStatus
@@ -316,38 +318,45 @@ def _safe_remote_diff(task, current):
 
 
 def _pull_card(task, current):
-    """Apply last-write-wins for Deck execution fields.
+    """Apply a newer Deck edit through the canonical project transaction.
 
-    Title, status/lane and due date are synchronized bidirectionally. When both
-    Gravitas and Deck changed, the side with the newest modification timestamp
-    wins automatically. Gravitas-only metadata such as relations, owner,
-    priority and definition of done is never imported from Deck.
+    An adopted research project's tasks cannot be saved outside a canonical
+    operation: the pre-save guard rejects it before SQL, and the project file
+    must be journaled together with the DB change. Keep the boundary scoped to
+    one changed task, never the whole (potentially slow) Deck reconciliation.
     """
     diff = _safe_remote_diff(task, current)
     if not diff:
         return 'unchanged'
 
-    card = current['card']
-    local_modified = task.updated_at.timestamp()
-    remote_modified = _card_modified(card)
-
-    # Last-write-wins. If Deck cannot provide a useful timestamp, or both sides
-    # are effectively tied, keep Gravitas as the deterministic tie-breaker.
-    if remote_modified <= local_modified + 0.001:
+    remote_modified = _card_modified(current['card'])
+    if remote_modified <= task.updated_at.timestamp() + 0.001:
         return 'local_newer'
 
-    for field, value in diff.items():
-        setattr(task, field, value)
-    update_fields = list(diff)
-    if 'status' in diff:
-        if diff['status'] == WorkStatus.DONE:
-            if task.completed_at is None:
-                task.completed_at = timezone.now()
+    from .canonical_journal import canonical_operation
+
+    with canonical_operation():
+        # A second sync or an editor may have changed this task since the
+        # board snapshot. Lock and compare it again before accepting the edit.
+        locked = OperatingTask.objects.select_for_update().get(pk=task.pk)
+        diff = _safe_remote_diff(locked, current)
+        if not diff:
+            return 'unchanged'
+        if remote_modified <= locked.updated_at.timestamp() + 0.001:
+            return 'local_newer'
+
+        for field, value in diff.items():
+            setattr(locked, field, value)
+        update_fields = list(diff)
+        if 'status' in diff:
+            if diff['status'] == WorkStatus.DONE:
+                if locked.completed_at is None:
+                    locked.completed_at = timezone.now()
+                    update_fields.append('completed_at')
+            elif locked.completed_at is not None:
+                locked.completed_at = None
                 update_fields.append('completed_at')
-        elif task.completed_at is not None:
-            task.completed_at = None
-            update_fields.append('completed_at')
-    task.save(update_fields=[*dict.fromkeys(update_fields), 'updated_at'])
+        locked.save(update_fields=[*dict.fromkeys(update_fields), 'updated_at'])
     return 'pulled'
 
 
@@ -455,7 +464,13 @@ def deck_sync(request):
         return _deny(request)
     try:
         result = sync_tasks_to_deck()
-    except (DeckError, cloud.CloudError) as exc:
+    except CanonicalConflict:
+        return JsonResponse({
+            'ok': False,
+            'error': 'deck_sync_conflict',
+            'detail': 'A task conflicts with the canonical project file. Resolve the conflict before retrying.',
+        }, status=409)
+    except (DeckError, cloud.CloudError, RecoveryRequired) as exc:
         return JsonResponse({'ok': False, 'error': 'deck_sync_failed', 'detail': str(exc)}, status=503)
     record_activity(
         layer=ActivityEvent.Layer.CORE,
