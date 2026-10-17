@@ -440,19 +440,15 @@ def deck_status(request):
     configured = bool(settings.NEXTCLOUD_ADMIN_USER and settings.NEXTCLOUD_ADMIN_PASSWORD)
     if not configured:
         return JsonResponse({'ok': True, 'configured': False, 'available': False, 'board': None})
-    try:
-        board = _find_board()
-    except DeckError as exc:
-        return JsonResponse({'ok': True, 'configured': True, 'available': False, 'error': str(exc), 'board': None})
+    # This is a dashboard read: do not synchronously contact Nextcloud to
+    # list boards. That previously made opening Tasks wait for the native API
+    # even when the task data was already available from PostgreSQL.
+    # The manual sync endpoint and background timer perform real reconciliation.
     return JsonResponse({
         'ok': True,
         'configured': True,
-        'available': True,
-        'board': {
-            'id': int(board['id']),
-            'title': board.get('title') or BOARD_TITLE,
-            'url': f'{settings.NEXTCLOUD_PUBLIC_URL}/index.php/apps/deck/#/board/{int(board["id"])}',
-        } if board else None,
+        'available': None,
+        'board': None,
         'task_count': OperatingTask.objects.count(),
         'mirror_mode': 'bidirectional-execution',
     })
