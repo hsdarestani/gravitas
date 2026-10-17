@@ -27,6 +27,9 @@ class WorkspaceTaskDeckContractTests(SimpleTestCase):
         self.assertIn('Title, lane and due date sync both ways', js)
         self.assertIn("P.call('/platform/nextcloud/')", js)
         self.assertIn("P.call('/platform/admin/deck/sync/'", js)
+        self.assertNotIn('queueMicrotask(() => run', js)
+        self.assertNotIn('setInterval(', js)
+        self.assertIn('background sync enabled', js)
         self.assertNotIn('MutationObserver', js)
         self.assertNotIn('observeSurface', js)
 

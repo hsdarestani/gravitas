@@ -22,6 +22,8 @@ fi
 # can immediately rebuild the private-gateway throttle we are trying to clear.
 systemctl stop gravitas-nextcloud-mirror.timer >/dev/null 2>&1 || true
 systemctl stop gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
+systemctl stop gravitas-nextcloud-notes-mirror.timer >/dev/null 2>&1 || true
+systemctl stop gravitas-nextcloud-notes-mirror.service >/dev/null 2>&1 || true
 
 # Nextcloud's brute-force protection records the address that reaches Apache.
 # With Docker port publishing that address is not guaranteed to equal the
@@ -129,7 +131,7 @@ EOF
 
 cat > /etc/systemd/system/gravitas-nextcloud-mirror.service <<EOF
 [Unit]
-Description=Reconcile Gravitas with native Nextcloud Notes and Deck
+Description=Reconcile GraviQuest execution tasks with Nextcloud Deck
 After=network-online.target gravitas-backend.service docker.service
 Wants=network-online.target
 Requires=gravitas-backend.service docker.service
@@ -142,13 +144,49 @@ WorkingDirectory=$BACKEND_PATH
 EnvironmentFile=$ENV_FILE
 Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
 Environment=PYTHONPATH=$BACKEND_PATH
-ExecStart=/usr/bin/flock -w 300 $IDENTITY_LOCK $BACKEND_PATH/.venv/bin/django-admin reconcile_nextcloud_native
+ExecStart=/usr/bin/flock -w 300 $IDENTITY_LOCK $BACKEND_PATH/.venv/bin/django-admin reconcile_nextcloud_native --deck-only
 Nice=5
+EOF
+
+cat > /etc/systemd/system/gravitas-nextcloud-notes-mirror.service <<EOF
+[Unit]
+Description=Reconcile GraviQuest notes with Nextcloud Notes
+After=network-online.target gravitas-backend.service docker.service
+Wants=network-online.target
+Requires=gravitas-backend.service docker.service
+
+[Service]
+Type=oneshot
+User=gravitas
+Group=gravitas
+WorkingDirectory=$BACKEND_PATH
+EnvironmentFile=$ENV_FILE
+Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+Environment=PYTHONPATH=$BACKEND_PATH
+ExecStart=/usr/bin/flock -w 300 $IDENTITY_LOCK $BACKEND_PATH/.venv/bin/django-admin reconcile_nextcloud_native --notes-only
+Nice=10
+EOF
+
+# Notes have persistent remote conflicts, which require user resolution.
+# Do not rerun 46 failing note operations every two minutes and block Deck
+# reconciliation behind them. Keep independent, visible Notes failures.
+cat > /etc/systemd/system/gravitas-nextcloud-notes-mirror.timer <<'EOF'
+[Unit]
+Description=Periodic independent GraviQuest Nextcloud Notes reconciliation
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Persistent=false
+
+[Install]
+WantedBy=timers.target
 EOF
 
 cat > /etc/systemd/system/gravitas-nextcloud-mirror.timer <<'EOF'
 [Unit]
-Description=Keep Gravitas and native Nextcloud apps mirrored
+Description=Keep GraviQuest execution tasks mirrored with Nextcloud Deck
 
 [Timer]
 OnBootSec=45s
@@ -262,6 +300,7 @@ reset_internal_bruteforce
 
 systemctl enable --now gravitas-operating-e2e-janitor.timer
 systemctl enable --now gravitas-nextcloud-mirror.timer
+systemctl enable --now gravitas-nextcloud-notes-mirror.timer
 systemctl reset-failed gravitas-nextcloud-mirror.service >/dev/null 2>&1 || true
 
 # Reconcile once now as part of deploy. Keep infrastructure provisioning
@@ -274,8 +313,10 @@ if ! systemctl start gravitas-nextcloud-mirror.service; then
 fi
 systemctl is-enabled gravitas-nextcloud-mirror.timer >/dev/null
 systemctl is-active gravitas-nextcloud-mirror.timer >/dev/null
+systemctl is-enabled gravitas-nextcloud-notes-mirror.timer >/dev/null
+systemctl is-active gravitas-nextcloud-notes-mirror.timer >/dev/null
 systemctl is-enabled gravitas-operating-e2e-janitor.timer >/dev/null
 systemctl is-active gravitas-operating-e2e-janitor.timer >/dev/null
 
-echo "Gravitas Nextcloud mirror timer installed (2 minute cadence)."
+echo "Gravitas Deck mirror installed (2 minute cadence); Notes reconciles independently every 15 minutes."
 echo "Gravitas Operating E2E janitor installed (2 minute cadence, 5 minute age guard, shared identity lock)."

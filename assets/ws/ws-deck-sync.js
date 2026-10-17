@@ -4,10 +4,9 @@
    three things to do about it (open Deck, go to Planning, sync now).
 
    Title, lane and due date sync both ways; Gravitas keeps the project, key
-   result, owner and research context. Opening the board syncs once if the
-   last sync is older than fifteen seconds, and while it stays open and
-   visible it syncs every minute, so the two surfaces agree without anyone
-   remembering to reconcile.
+   result, owner and research context. A host-side reconciliation timer keeps
+   the mirror current. Opening the board must NEVER start a blocking full
+   reconciliation: the user can explicitly request one with Sync now.
 
    This used to be ws-task-deck-mirror.js, an overlay that watched #ws-view,
    redrew the whole task board if it thought something else had replaced it,
@@ -33,8 +32,8 @@ const button = (label, handler, solid = false) => {
   return node;
 };
 
-// One sync at a time across redraws, and the last one remembered.
-const sync = { inFlight: null, lastAt: 0 };
+// Deduplicate explicit sync requests across redraws.
+const sync = { inFlight: null };
 
 function describe(result) {
   const changes = result?.changes || {};
@@ -65,26 +64,22 @@ export function deckPanel({ go, onPulled } = {}) {
 
   let canSync = false;
   let syncButton = null;
-  let timer = 0;
-
-  async function run({ automatic = false } = {}) {
+ 
+  async function run() {
     if (!canSync || !panel.isConnected) return null;
     if (sync.inFlight) return sync.inFlight;
     if (syncButton) syncButton.disabled = true;
     delete status.dataset.tone;
-    status.textContent = automatic ? 'Auto-syncing GraviQuest and Deck…' : 'Syncing GraviQuest and Deck…';
+    status.textContent = 'Syncing GraviQuest and Deck…';
     sync.inFlight = P.call('/platform/admin/deck/sync/', { method: 'POST', body: {} });
     try {
       const result = await sync.inFlight;
-      sync.lastAt = Date.now();
       status.dataset.tone = result?.changes?.conflicts ? 'bad' : 'ok';
       status.textContent = describe(result);
       if ((result?.changes?.pulled || 0) > 0 && onPulled) onPulled();
       return result;
     } catch (error) {
-      // Do not hammer a failing backend every 15 seconds. Manual retries still
-      // remain available via the button; automatic retries wait one minute.
-      sync.lastAt = Date.now();
+      // Background reconciliation is a separate host timer, not this request.
       status.dataset.tone = 'bad';
       const detail = String(error?.data?.detail || '').slice(0, 180);
       status.textContent = detail
@@ -117,14 +112,7 @@ export function deckPanel({ go, onPulled } = {}) {
         canSync = true;
         syncButton = button('Sync now', () => run(), true);
         actions.append(syncButton);
-        status.textContent = `${deck.task_count || 0} mirrored tasks · two-way sync`;
-        if (Date.now() - sync.lastAt > 15000) queueMicrotask(() => run({ automatic: true }));
-        // Every minute while the board is on screen; the interval ends itself
-        // once the board has been replaced by another screen.
-        timer = window.setInterval(() => {
-          if (!panel.isConnected) { window.clearInterval(timer); return; }
-          if (document.visibilityState === 'visible' && Date.now() - sync.lastAt >= 60000) run({ automatic: true });
-        }, 15000);
+        status.textContent = `${deck.task_count || 0} tasks · background sync enabled`;
       } else {
         status.textContent = deckUrl
           ? 'Tasks are visible here and in Deck. A Core admin can run reconciliation.'
