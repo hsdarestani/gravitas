@@ -28,6 +28,30 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         self.assertIn('scheduleIdle', source)
         self.assertIn('if (busy())', source)
 
+    def test_cross_workspace_task_dialog_avoids_full_board_request(self):
+        views = self.read('ws-views.js')
+        platform = self.read('ws-platform.js')
+        self.assertIn('P.operatingTaskDependencies()', views)
+        self.assertIn('state = { ...detailData, ...boardState }', views)
+        self.assertIn('const [detailData, boardState] = await Promise.all', views)
+        self.assertIn('setTimeout(() => {', views)
+        self.assertIn("'/operating/task-board/?mode=dependencies'", platform)
+
+    def test_core_overview_does_not_wait_for_optional_integrations(self):
+        home = self.read('ws-home.js')
+        core = home.split('function renderCoreBody(', 1)[1].split(
+            '/* ---- Research Intelligence', 1)[0]
+        self.assertIn("return P.dashboard('core')", core)
+        self.assertNotIn("Promise.all([P.dashboard('core')", core)
+        self.assertIn('pipelineLoad.then(', core)
+        self.assertIn('calendarLoad.then(', core)
+
+    def test_native_notes_full_scan_has_a_navigation_cooldown(self):
+        notes = self.read('ws-notes-performance.js')
+        self.assertIn('const MIN_GAP = 15 * 60 * 1000', notes)
+        self.assertIn('if (busy())', notes)
+        self.assertIn('scheduleIdle(', notes)
+
     def test_every_workspace_asset_carries_one_release_token(self):
         # The same module under two URLs is two modules with two states;
         # one token for the whole workspace keeps every module single.
