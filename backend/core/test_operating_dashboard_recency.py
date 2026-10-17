@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
 from core.operating_models import Initiative, KeyResult, OperatingProcess, Priority, StrategicObjective
+from django.db.models import Count
+from core import operating_api as operating_base
 from core.platform_runtime_v3 import ensure_platform_workspaces
 
 
@@ -63,3 +65,27 @@ class OperatingDashboardRecencyTests(TestCase):
         self.assertEqual(len(recent), 8)
         self.assertEqual(ids[0], newest.pk)
         self.assertIn(newest.pk, ids)
+
+    def test_annotated_planning_counts_do_not_trigger_an_n_plus_one_query(self):
+        objective = (
+            StrategicObjective.objects.select_related('owner')
+            .annotate(key_result_count=Count('key_results'))
+            .get(pk=self.objective.pk)
+        )
+        with self.assertNumQueries(0):
+            self.assertEqual(operating_base._objective_json(objective)['key_result_count'], 1)
+
+        initiative = Initiative.objects.create(
+            workspace=self.workspace,
+            key_result=self.kr,
+            process=self.process,
+            owner=self.user,
+            title='Annotated initiative',
+        )
+        row = (
+            Initiative.objects.select_related('owner', 'process', 'key_result__objective')
+            .annotate(task_count=Count('tasks'))
+            .get(pk=initiative.pk)
+        )
+        with self.assertNumQueries(0):
+            self.assertEqual(operating_base._initiative_json(row)['task_count'], 0)
