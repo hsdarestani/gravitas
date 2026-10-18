@@ -235,6 +235,8 @@ PULSAR_DECISION_MIN_CONFIDENCE = float(
 GRAVITAS_TELEGRAM_BOT_TOKEN = os.environ.get('GRAVITAS_TELEGRAM_BOT_TOKEN', '')
 GRAVITAS_TELEGRAM_BOT_USERNAME = os.environ.get('GRAVITAS_TELEGRAM_BOT_USERNAME', '')
 GRAVITAS_TELEGRAM_WEBHOOK_SECRET = os.environ.get('GRAVITAS_TELEGRAM_WEBHOOK_SECRET', '')
+# Explicit manager target for Pulsar tasks that cannot be mapped to a Key Result.
+GRAVITAS_PROJECT_MANAGER_EMAIL = os.environ.get('GRAVITAS_PROJECT_MANAGER_EMAIL', '')
 
 LOGGING = {
     'version': 1,
