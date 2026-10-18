@@ -104,6 +104,10 @@ jobs:
             core.test_pulsar_task_actions \
             core.test_pulsar_week1_release \
             core.test_telegram_pulsar \
+            core.test_work_reports \
+            core.test_canonical_scope_performance \
+            core.test_core_task_board \
+            core.test_research_task_api \
             core.test_assistant_api \
             core.test_lms_advanced_capabilities \
             core.test_lms_openedx_refactor
