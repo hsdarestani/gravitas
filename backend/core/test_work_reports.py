@@ -43,6 +43,18 @@ class DailyWorkReportTests(TestCase):
             self.assertEqual(response.status_code, 400, response.content)
         self.assertEqual(DailyWorkReport.objects.count(), 1)
 
+    def test_report_catalog_handles_task_without_any_kr(self):
+        from .work_reports import catalog
+        standalone = OperatingTask.objects.create(
+            workspace=self.task.workspace, owner=self.user,
+            title='Research without strategic KR',
+            definition_of_done='A reviewable source inventory exists.',
+        )
+        rows = catalog(self.user)
+        row = next(item for item in rows if item['id'] == standalone.pk)
+        self.assertEqual(row['key_result'], '')
+        self.assertEqual(row['objective'], '')
+
     def test_task_catalog_includes_acceptance_context(self):
         response = self.client.get('/api/platform/work-reports/')
         self.assertEqual(response.status_code, 200)
