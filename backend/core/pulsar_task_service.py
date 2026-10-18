@@ -61,6 +61,13 @@ def create_operating_task(
     title = ' '.join(str(draft.get('title') or '').split()).strip()[:240]
     if not title:
         raise ValueError('task_title_required')
+    source_key = str(draft.get('source_key') or '').strip()[:240] or None
+    if source_key:
+        existing = OperatingTask.objects.filter(source_key=source_key).first()
+        if existing:
+            if not can_view(user, existing):
+                raise PermissionError('existing_task_access_required')
+            return existing
 
     owner_id = _as_int(draft.get('owner_id')) or user.pk
     owner_link = (
@@ -157,6 +164,7 @@ def create_operating_task(
             due_date=due,
             definition_of_done=definition_of_done,
             dependency=dependency,
+            source_key=source_key,
         )
         if not key_result:
             manager_email = str(getattr(settings, 'GRAVITAS_PROJECT_MANAGER_EMAIL', '') or '').strip()
