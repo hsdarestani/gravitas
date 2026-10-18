@@ -206,10 +206,12 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         payload = {'file_id': 'telegram-asset-id', 'file_name': 'result.pdf',
                    'file_size': 22, 'mime_type': 'application/pdf'}
         with tempfile.TemporaryDirectory() as folder:
-            with override_settings(CORE_UPLOAD_ROOT=folder), \\
-                 patch('core.task_notifications._telegram_api',
-                       return_value={'result': {'file_path': 'documents/result.pdf'}}), \\
-                 patch('core.telegram_pulsar.requests.get', return_value=transport):
+            with (
+                override_settings(CORE_UPLOAD_ROOT=folder),
+                patch('core.task_notifications._telegram_api',
+                      return_value={'result': {'file_path': 'documents/result.pdf'}}),
+                patch('core.telegram_pulsar.requests.get', return_value=transport),
+            ):
                 answer = handle_document(self.user, payload, source_key='chat:12')
                 self.assertIn('Attached result.pdf', answer[0]['text'])
                 self.assertEqual(OperatingTaskAttachment.objects.filter(task=task).count(), 1)
