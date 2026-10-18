@@ -119,7 +119,8 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         next_messages = handle_message(self.user, '1')
         self.assertIn('KR', next_messages[0]['text'])
         session.refresh_from_db()
-        self.assertEqual(session.state['mode'], 'confirm')\n        self.assertIn('KR نامشخص', next_messages[0]['text'])
+        self.assertEqual(session.state['mode'], 'confirm')
+        self.assertIn('KR نامشخص', next_messages[0]['text'])
 
     @patch('core.telegram_pulsar.configured', return_value=True)
     @patch('core.telegram_pulsar.complete')
