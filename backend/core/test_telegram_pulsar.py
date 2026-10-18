@@ -119,7 +119,7 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         next_messages = handle_message(self.user, '1')
         self.assertIn('KR', next_messages[0]['text'])
         session.refresh_from_db()
-        self.assertEqual(session.state['mode'], 'ask_kr')
+        self.assertEqual(session.state['mode'], 'confirm')\n        self.assertIn('No KR match', next_messages[0]['text'])
 
     @patch('core.telegram_pulsar.configured', return_value=True)
     @patch('core.telegram_pulsar.complete')
@@ -131,4 +131,57 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         })
         messages = handle_message(self.user, 'سلام، چه کارهایی می‌تونی بکنی؟')
         self.assertIn('تعریف تسک', messages[0]['text'])
+        self.assertEqual(OperatingTask.objects.count(), 0)
+
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    def test_missing_kr_never_blocks_creation_and_does_not_require_due_date(self, complete, configured):
+        complete.return_value = json.dumps({
+            'intent': 'create_tasks',
+            'reply': '',
+            'tasks': [{'title': 'Prepare reviewable research notes',
+                       'definition_of_done': 'The research notes are delivered to the team.',
+                       'owner_id': self.user.pk, 'key_result_id': None, 'due_date': None}],
+        })
+        messages = handle_message(self.user, 'Prepare reviewable research notes')
+        self.assertIn('No KR match', messages[0]['text'])
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'confirm')
+        handle_callback(self.user, 'pulsar:create')
+        task = OperatingTask.objects.get(title='Prepare reviewable research notes')
+        self.assertIsNone(task.initiative_id)
+        self.assertIsNone(task.due_date)
+
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    def test_consecutive_new_messages_are_queued_not_lost(self, complete, configured):
+        def answer(**kwargs):
+            text = kwargs['user']
+            title = 'Draft first learning outline' if 'first' in text else 'Draft second learning outline'
+            return json.dumps({'intent': 'create_tasks', 'tasks': [
+                {'title': title, 'definition_of_done': 'A reviewable outline is delivered.',
+                 'owner_id': self.user.pk, 'key_result_id': None},
+            ]})
+        complete.side_effect = answer
+        handle_message(self.user, 'first')
+        queued = handle_message(self.user, 'second')
+        self.assertIn('queued', queued[0]['text'])
+        handle_callback(self.user, 'pulsar:create')
+        self.assertEqual(OperatingTask.objects.count(), 1)
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['draft']['title'], 'Draft second learning outline')
+        handle_callback(self.user, 'pulsar:create')
+        self.assertEqual(OperatingTask.objects.count(), 2)
+
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    @patch('core.work_reports.interpret')
+    def test_existing_work_routes_to_confirmable_report(self, interpret, complete, configured):
+        from .work_report_models import DailyWorkReport
+        interpret.return_value = {'summary': 'Documented results', 'updates': [],
+                                  'unmatched_work': 'Documented results'}
+        complete.return_value = json.dumps({'intent': 'log_update', 'tasks': [], 'reply': ''})
+        preview = handle_message(self.user, 'I documented the results', source_key='chat:1')
+        self.assertIn('Confirm', preview[0]['reply_markup']['inline_keyboard'][0][0]['text'])
+        self.assertEqual(DailyWorkReport.objects.count(), 1)
+        handle_message(self.user, 'I documented the results', source_key='chat:1')
+        self.assertEqual(DailyWorkReport.objects.count(), 1)
         self.assertEqual(OperatingTask.objects.count(), 0)
