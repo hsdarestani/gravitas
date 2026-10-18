@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from .models import Workspace
-from .operating_models import KeyResult, OperatingTask, StrategicObjective
+from .operating_models import KeyResult, OperatingTask, StrategicObjective, TaskInAppNotification
 from .platform_runtime_v3 import ensure_platform_workspaces
 from .pulsar_runtime.errors import PulsarApprovalRequired
 from .pulsar_runtime.tool_executor import PulsarToolExecutor
@@ -89,6 +89,17 @@ class PulsarTaskActionTests(TestCase):
         task = OperatingTask.objects.get(pk=result.data['task_id'])
         self.assertEqual(task.initiative.key_result_id, self.kr.pk)
         self.assertEqual(result.sources[0]['kind'], 'task')
+
+    def test_no_matching_kr_notifies_manager_including_self_reports(self):
+        unlinked = dict(self.draft, key_result_id=None, due_date=None)
+        with override_settings(GRAVITAS_PROJECT_MANAGER_EMAIL=self.user.email):
+            task = create_operating_task(self.user, unlinked, confirmed=True)
+        self.assertIsNone(task.initiative_id)
+        notices = TaskInAppNotification.objects.filter(
+            recipient=self.user,
+            event_key=f'pulsar-kr-unmatched:{task.pk}',
+        )
+        self.assertEqual(notices.count(), 1)
 
     def test_invalid_key_result_cannot_escape_core_workspace(self):
         other = get_user_model().objects.create_user(
