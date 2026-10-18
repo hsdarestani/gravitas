@@ -190,7 +190,9 @@ def create_operating_task(
                     title='Pulsar task needs KR review',
                     body=f'{task.title} was saved without a confident KR match.',
                     url=f'/workspace/core/tasks?task={task.pk}',
-                    actor=user,
+                    # The project manager may also be the reporter; never
+                    # suppress the reminder as a self-notification.
+                    actor=None,
                     task=task,
                 )
             else:
