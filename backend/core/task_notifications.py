@@ -749,7 +749,12 @@ def telegram_notification_webhook(request):
             )
             return JsonResponse({'ok': True})
         report_messages = handle_report_message(pref.user, text, source_key=f"{chat_id}:{message.get('message_id')}")
-        _send_telegram_pulsar_messages(chat_id, report_messages if report_messages is not None else handle_message(\n                        pref.user, text, source_key=f\"{chat_id}:{message.get('message_id')}\"\n                    ))
+        _send_telegram_pulsar_messages(
+            chat_id,
+            report_messages if report_messages is not None else handle_message(
+                pref.user, text, source_key=f"{chat_id}:{message.get('message_id')}"
+            ),
+        )
     except Exception:
         logger.exception('Telegram Pulsar message failed chat_id=%s user_id=%s', chat_id, pref.user_id)
         try:
