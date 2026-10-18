@@ -267,11 +267,13 @@ def _normalize(raw, user, ctx, source_text):
     }
 
 
-def _normalize_many(rows, user, ctx, source_text):
+def _normalize_many(rows, user, ctx, source_text, source_key=None):
     result = []
     for raw in rows if isinstance(rows, list) else []:
         item = _normalize(raw, user, ctx, source_text)
         if item:
+            if source_key:
+                item['source_key'] = f'pulsar-telegram:{str(source_key)[:170]}:{len(result) + 1}'
             result.append(item)
     return result[:8]
 
@@ -480,6 +482,7 @@ def _edit(user, draft, instruction, ctx):
         if updated:
             if not updated.get('source_urls'):
                 updated['source_urls'] = draft.get('source_urls') or []
+            updated['source_key'] = draft.get('source_key')
             return updated
     except PulsarError:
         logger.exception('Telegram Pulsar edit failed user_id=%s', user.pk)
@@ -644,7 +647,10 @@ def handle_message(user, text, source_key=None):
                 if incoming.get('intent') == 'log_update':
                     return [_report_proposal(user, text, source_key)]
                 if incoming.get('intent') == 'create_tasks':
-                    queued = _normalize_many(incoming.get('tasks'), user, ctx, text)
+                    queued = _normalize_many(incoming.get('tasks'), user, ctx, text, source_key)
+                    if queued:
+                        known = {x.get('source_key') for x in [state.get('draft'), *(state.get('queue') or [])] if x}
+                        queued = [x for x in queued if not x.get('source_key') or x['source_key'] not in known]
                     if queued:
                         state['queue'] = [*(state.get('queue') or []), *queued][:40]
                         _store(session, state)
@@ -663,9 +669,9 @@ def handle_message(user, text, source_key=None):
         reply = str(payload.get('reply') or '').strip() or _say(lang, 'بگو چه کمکی می‌خوای.', 'Tell me what you need.')
         return [{'text': reply[:4096]}]
 
-    candidates = _normalize_many(payload.get('tasks'), user, ctx, text)
+    candidates = _normalize_many(payload.get('tasks'), user, ctx, text, source_key)
     if not candidates:
-        candidates = _normalize_many(_fallback_tasks(text), user, ctx, text)
+        candidates = _normalize_many(_fallback_tasks(text), user, ctx, text, source_key)
     if len(candidates) > 1:
         _store(session, {'mode': 'select_tasks', 'language': lang, 'candidates': candidates})
         return [_candidate_message(candidates, lang)]
