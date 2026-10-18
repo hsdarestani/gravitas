@@ -710,7 +710,13 @@ def telegram_notification_webhook(request):
         return JsonResponse({'ok': True})
     chat_id = chat.get('id')
     text = str(message.get('text') or '').strip()
-    if not chat_id or not text:
+    document = message.get('document') if isinstance(message.get('document'), dict) else None
+    photos = message.get('photo') if isinstance(message.get('photo'), list) else []
+    if not document and photos:
+        biggest = photos[-1]
+        if isinstance(biggest, dict):
+            document = {**biggest, 'file_name': 'telegram-image.jpg', 'mime_type': 'image/jpeg'}
+    if not chat_id or (not text and not document):
         return JsonResponse({'ok': True})
 
     if text.startswith('/start'):
@@ -735,8 +741,13 @@ def telegram_notification_webhook(request):
 
     try:
         _telegram_api('sendChatAction', {'chat_id': chat_id, 'action': 'typing'})
-        from .telegram_pulsar import handle_message
+        from .telegram_pulsar import handle_document, handle_message
         from .telegram_work_reports import handle_report_message
+        if document and not text:
+            _send_telegram_pulsar_messages(
+                chat_id, handle_document(pref.user, document, source_key=f"{chat_id}:{message.get('message_id')}"),
+            )
+            return JsonResponse({'ok': True})
         report_messages = handle_report_message(pref.user, text, source_key=f"{chat_id}:{message.get('message_id')}")
         _send_telegram_pulsar_messages(chat_id, report_messages if report_messages is not None else handle_message(\n                        pref.user, text, source_key=f\"{chat_id}:{message.get('message_id')}\"\n                    ))
     except Exception:
