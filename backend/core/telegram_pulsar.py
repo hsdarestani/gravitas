@@ -85,7 +85,8 @@ def _context(user):
     tasks = [
         {
             'id': row.pk, 'title': row.title, 'owner_id': row.owner_id, 'owner': _name(row.owner),
-            'key_result_id': row.initiative.key_result_id,
+            'key_result_id': row.initiative.key_result_id if row.initiative_id else None,
+            'project_id': row.project_id,
             'due_date': row.due_date.isoformat() if row.due_date else None,
         }
         for row in OperatingTask.objects.filter(workspace=core)
@@ -169,13 +170,17 @@ def _interpret(user, text, ctx):
         return {'intent': 'create_tasks', 'reply': '', 'tasks': _fallback_tasks(text)}
     system = (
         'You are Pulsar, the authenticated GraviQuest assistant in Telegram. '
-        'The user may chat normally or ask to create one or more Core execution tasks. '
+        'The user may chat, describe progress on an existing task, or request new tasks. '
+        'Use intent log_update for work already performed, instead of creating a duplicate task. '
         'Return ONLY JSON and never invent IDs. Use only IDs from the authorized catalog. '
         'Reply in the user language. Keep task titles/descriptions/DoD concise professional English. '
-        'Split multi-item requests into separate tasks. Never invent a deadline. '
-        'If owner is unstated use the current user. Choose a KR only when relevant; otherwise use null and suggest up to 5 KR IDs. '
+        'Split only independent deliverables into tasks; merge small steps taking 15 minutes or less. '
+        'Every created task requires a concrete deliverable and should take more than 15 minutes. '
+        'Never invent a deadline. '
+        'If owner is unstated use the current user. Match a KR automatically only when confident; otherwise return null. '
+        'Never ask the user to choose a KR. No KR is valid and requires project manager review. '
         'Project, dependency and course references are optional and must be semantically relevant. '
-        'Schema: {"intent":"create_tasks"|"chat","reply":"string","tasks":[{"title":"string","description":"string",'
+        'Schema: {"intent":"create_tasks"|"log_update"|"chat","reply":"string","tasks":[{"title":"string","description":"string",'
         '"definition_of_done":"string","priority":"p0|p1|p2|p3","due_date":"YYYY-MM-DD|null","owner_id":1,'
         '"key_result_id":1,"key_result_suggestions":[1,2],"project_id":1,"dependency_id":1,'
         '"related_course_ids":[1,2],"confidence":{"key_result_id":0.0,"project_id":0.0,"dependency_id":0.0}}]}. '
@@ -400,18 +405,23 @@ def _preview(state, ctx):
     owner, kr = _get(ctx['members'], d.get('owner_id')), _get(ctx['key_results'], d.get('key_result_id'))
     project, dep = _get(ctx['projects'], d.get('project_id')), _get(ctx['tasks'], d.get('dependency_id'))
     lines = [
-        _say(lang, 'پیش‌نویس Pulsar:', 'Pulsar draft:'), '',
-        f'Title: {d["title"]}', f'Owner: {owner["name"] if owner else "—"}',
-        f'KR: {(kr["objective"] + " · " + kr["title"]) if kr else "—"}',
-        f'Project: {project["title"] if project else "—"}',
-        f'Dependency: {dep["title"] if dep else "—"}', f'Due: {d.get("due_date") or "—"}',
-        f'Priority: {d.get("priority", "p2").upper()}', f'DoD: {d["definition_of_done"]}',
+        _say(lang, '📋 تسک پیشنهادی:', '📋 Proposed task:'),
+        d['title'],
+        f'Output: {d["definition_of_done"][:300]}',
+        f'Project: {project["title"] if project else "Core"}',
     ]
+    if d.get('due_date'):
+        lines.append(f'Due: {d["due_date"]}')
+    if kr:
+        lines.append(f'KR: {kr["title"]}')
+    if not kr:
+        lines.append(_say(lang, 'KR نامشخص: برای بررسی به مدیر پروژه اطلاع داده می‌شود.',
+                          'No KR match: the project manager will be notified.'))
     links = _links(d, ctx)
     if links:
         lines += ['', _say(lang, 'لینک‌های پیشنهادی:', 'Suggested links:')]
         lines += [f'{i}. {row["label"]} — {row["url"]}' for i, row in enumerate(links, 1)]
-    lines += ['', _say(lang, 'اگر اوکیه تأیید کن؛ برای تغییر هم طبیعی بنویس.', 'Confirm to create, or describe a change naturally.')]
+    lines += ['', _say(lang, 'تأیید کن یا «اصلاح» رو بزن.', 'Confirm or tap Edit to change this task.')]
     return {
         'text': '\n'.join(lines),
         'reply_markup': {'inline_keyboard': [[
@@ -423,10 +433,9 @@ def _preview(state, ctx):
 
 
 def _advance(state, ctx):
-    if not state['draft'].get('key_result_id'):
-        state['mode'] = 'ask_kr'
-        return [_kr_question(state, ctx)]
-    if not state['draft'].get('due_date'):
+    # A missing KR is allowed. Pulsar must never interrupt the user to ask for
+    # strategy mapping; creation generates a manager-review notification.
+    if state['draft'].get('key_result_id') and not state['draft'].get('due_date'):
         state['mode'] = 'ask_due'
         return [_due_question(state, ctx)]
     state['mode'] = 'confirm'
@@ -503,8 +512,8 @@ def _cancelled(text):
 def help_message(lang='fa'):
     return {'text': _say(
         lang,
-        'من Pulsar هستم. کارها رو طبیعی بفرست؛ اگر چند تسک باشه جدا می‌کنم، KR و parent و لینک مرتبط پیشنهاد می‌دم و قبل از ساخت تأیید می‌گیرم.\n\n/new — تسک جدید\n/tasks — تسک‌های باز من\n/cancel — لغو پیش‌نویس\n/help — راهنما',
-        'I am Pulsar. Send work naturally; I can split multiple tasks, suggest KR/parents/links, and confirm before creation.\n\n/new — new task\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
+        'من Pulsar هستم. تسک‌های جدید رو پیشنهاد می‌دم و برای فعالیت‌های انجام‌شده لاگ قابل تأیید می‌سازم. KR رو خودم تطبیق می‌دم.\n\n/new — تسک جدید\n/report — ثبت فعالیت\n/tasks — تسک‌های باز من\n/cancel — لغو پیش‌نویس\n/help — راهنما',
+        'I am Pulsar. Send new tasks or progress updates naturally. I will match KRs and format activity logs for approval.\n\n/new — new task\n/report — log progress\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
     )}
 
 
@@ -516,7 +525,14 @@ def welcome_message(user, lang='fa'):
     )}
 
 
-def handle_message(user, text):
+def _report_proposal(user, text, source_key=None):
+    """Use the durable, revisioned daily report flow for existing task logs."""
+    from .telegram_work_reports import preview
+    from .work_reports import propose
+    return preview(propose(user, text, source='telegram', source_key=source_key))
+
+
+def handle_message(user, text, source_key=None):
     text, lang = str(text or '').strip(), _lang(text)
     if not text:
         return [help_message(lang)]
@@ -588,12 +604,28 @@ def handle_message(user, text):
         if mode in {'confirm', 'edit'}:
             if _confirmed(text) and mode == 'confirm':
                 return handle_callback(user, 'pulsar:create')
+            if mode == 'confirm':
+                # Incoming independent messages must not silently overwrite a
+                # pending draft. Queue new tasks; persist reports separately.
+                incoming = _interpret(user, text, ctx)
+                if incoming.get('intent') == 'log_update':
+                    return [_report_proposal(user, text, source_key)]
+                if incoming.get('intent') == 'create_tasks':
+                    queued = _normalize_many(incoming.get('tasks'), user, ctx, text)
+                    if queued:
+                        state['queue'] = [*(state.get('queue') or []), *queued][:40]
+                        _store(session, state)
+                        return [{'text': _say(lang, f'{len(queued)} مورد به صف اضافه شد؛ اول تسک فعلی را تأیید کن.',
+                                              f'{len(queued)} item(s) queued. Confirm the current task first.')},
+                                _preview(state, ctx)]
             state['draft'] = _edit(user, state['draft'], text, ctx)
             messages = _advance(state, ctx)
             _store(session, state)
             return messages
 
     payload = _interpret(user, text, ctx)
+    if payload.get('intent') == 'log_update':
+        return [_report_proposal(user, text, source_key)]
     if payload.get('intent') != 'create_tasks':
         reply = str(payload.get('reply') or '').strip() or _say(lang, 'بگو چه کمکی می‌خوای.', 'Tell me what you need.')
         return [{'text': reply[:4096]}]
