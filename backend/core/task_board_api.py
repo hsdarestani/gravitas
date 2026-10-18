@@ -67,21 +67,18 @@ def _task_for(request, task_id):
             'workspace', 'owner', 'initiative__process', 'initiative__key_result__objective',
             'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
         )
-        .annotate(
-            comment_count=Count('board_comments', distinct=True),
-            attachment_count=Count('board_attachments', distinct=True),
-            checklist_count=Count('checklist_items', distinct=True),
-            checklist_completed_count=Count(
-                'checklist_items',
-                filter=Q(checklist_items__is_completed=True),
-                distinct=True,
-            ),
-        )
         .filter(pk=task_id, workspace=workspace)
         .first()
     )
+    if task:
+        # Four reverse-relation JOINs previously multiplied comments, files
+        # and checklist rows before DISTINCT aggregates. Indexed count queries
+        # keep individual task reads and status PATCHes predictable.
+        task.comment_count = task.board_comments.count()
+        task.attachment_count = task.board_attachments.count()
+        task.checklist_count = task.checklist_items.count()
+        task.checklist_completed_count = task.checklist_items.filter(is_completed=True).count()
     return workspace, task
-
 
 def _person(user):
     return {

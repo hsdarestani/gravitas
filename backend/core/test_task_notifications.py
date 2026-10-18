@@ -87,6 +87,7 @@ class TaskNotificationTests(TestCase):
             data=json.dumps({
                 'message': {
                     'text': 'برای من یه تسک بساز',
+                    'message_id': 42,
                     'chat': {'id': 123456789, 'type': 'private', 'username': 'notify_person'},
                 },
             }),
@@ -94,7 +95,7 @@ class TaskNotificationTests(TestCase):
             HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='webhook-secret',
         )
         self.assertEqual(response.status_code, 200, response.content)
-        handle_message.assert_called_once_with(self.user, 'برای من یه تسک بساز')
+        handle_message.assert_called_once_with(self.user, 'برای من یه تسک بساز', source_key='123456789:42')
         payloads = [call.kwargs.get('json') for call in post.call_args_list]
         self.assertTrue(any(payload and payload.get('text') == 'Pulsar reply' for payload in payloads))
 

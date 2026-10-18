@@ -60,8 +60,9 @@ def catalog(user):
              'project': t.project.title if t.project_id else 'Core',
              'dependency_id': t.dependency_id if t.dependency_id and can_view(user, t.dependency) else None,
              'dependency': t.dependency.title if t.dependency_id and can_view(user, t.dependency) else '',
-             'blocked_reason': t.blocked_reason, 'key_result': t.initiative.key_result.title,
-             'objective': t.initiative.key_result.objective.title,
+             'blocked_reason': t.blocked_reason,
+             'key_result': t.initiative.key_result.title if t.initiative_id else '',
+             'objective': t.initiative.key_result.objective.title if t.initiative_id else '',
              'latest_progress': latest.get(str(t.pk), {})} for t in my_tasks(user)]
 
 

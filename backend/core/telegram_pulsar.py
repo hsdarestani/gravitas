@@ -1,7 +1,12 @@
+import hashlib
 import json
 import logging
 import re
 from datetime import timedelta
+from pathlib import Path
+
+import requests
+from django.db import transaction
 
 from django.conf import settings
 from django.utils import timezone
@@ -9,7 +14,7 @@ from django.utils.dateparse import parse_date
 
 from .lms_models import Course
 from .models import ResearchProject, WorkspaceMembership
-from .operating_models import KeyResult, OperatingTask, Priority, TelegramPulsarSession, WorkStatus
+from .operating_models import KeyResult, OperatingTask, OperatingTaskAttachment, Priority, TelegramPulsarSession, WorkStatus
 from .platform_runtime_v3 import core_access, ensure_platform_workspaces
 from .pulsar import PLATFORM_CONTEXT, PulsarError, PulsarPermissionError, complete, configured
 from .pulsar_runtime.profiles import assert_skill_allowed
@@ -85,7 +90,8 @@ def _context(user):
     tasks = [
         {
             'id': row.pk, 'title': row.title, 'owner_id': row.owner_id, 'owner': _name(row.owner),
-            'key_result_id': row.initiative.key_result_id,
+            'key_result_id': row.initiative.key_result_id if row.initiative_id else None,
+            'project_id': row.project_id,
             'due_date': row.due_date.isoformat() if row.due_date else None,
         }
         for row in OperatingTask.objects.filter(workspace=core)
@@ -169,16 +175,22 @@ def _interpret(user, text, ctx):
         return {'intent': 'create_tasks', 'reply': '', 'tasks': _fallback_tasks(text)}
     system = (
         'You are Pulsar, the authenticated GraviQuest assistant in Telegram. '
-        'The user may chat normally or ask to create one or more Core execution tasks. '
+        'The user may chat, describe progress on an existing task, or request new tasks. '
+        'Use intent log_update for work already performed, instead of creating a duplicate task. '
         'Return ONLY JSON and never invent IDs. Use only IDs from the authorized catalog. '
         'Reply in the user language. Keep task titles/descriptions/DoD concise professional English. '
-        'Split multi-item requests into separate tasks. Never invent a deadline. '
-        'If owner is unstated use the current user. Choose a KR only when relevant; otherwise use null and suggest up to 5 KR IDs. '
+        'Split only independent deliverables into tasks; merge small steps taking 15 minutes or less. '
+        'Every created task requires a concrete deliverable and should take more than 15 minutes. '
+        'Never invent a deadline. '
+        'If owner is unstated use the current user. Match a KR automatically only when confident; otherwise return null. '
+        'Never ask the user to choose a KR. No KR is valid and requires project manager review. '
         'Project, dependency and course references are optional and must be semantically relevant. '
-        'Schema: {"intent":"create_tasks"|"chat","reply":"string","tasks":[{"title":"string","description":"string",'
+        'Schema: {"intent":"create_tasks"|"log_update"|"chat","reply":"string","tasks":[{"title":"string","description":"string",'
         '"definition_of_done":"string","priority":"p0|p1|p2|p3","due_date":"YYYY-MM-DD|null","owner_id":1,'
         '"key_result_id":1,"key_result_suggestions":[1,2],"project_id":1,"dependency_id":1,'
-        '"related_course_ids":[1,2],"confidence":{"key_result_id":0.0,"project_id":0.0,"dependency_id":0.0}}]}. '
+        '"related_course_ids":[1,2],"requires_attachment":false,'
+        '"confidence":{"key_result_id":0.0,"project_id":0.0,"dependency_id":0.0}}]}. '
+        'Set requires_attachment true only when the user mentions a required file/evidence. '
         'For chat intent tasks must be empty.\n\n' + PLATFORM_CONTEXT
     )
     try:
@@ -251,14 +263,17 @@ def _normalize(raw, user, ctx, source_text):
         'definition_of_done': done, 'priority': priority, 'due_date': due, 'owner_id': owner,
         'key_result_id': kr, 'key_result_suggestions': suggestions[:5], 'project_id': project,
         'dependency_id': dependency, 'related_course_ids': courses[:5], 'source_urls': _urls(source_text),
+        'requires_attachment': raw.get('requires_attachment') is True,
     }
 
 
-def _normalize_many(rows, user, ctx, source_text):
+def _normalize_many(rows, user, ctx, source_text, source_key=None):
     result = []
     for raw in rows if isinstance(rows, list) else []:
         item = _normalize(raw, user, ctx, source_text)
         if item:
+            if source_key:
+                item['source_key'] = f'pulsar-telegram:{str(source_key)[:170]}:{len(result) + 1}'
             result.append(item)
     return result[:8]
 
@@ -400,18 +415,26 @@ def _preview(state, ctx):
     owner, kr = _get(ctx['members'], d.get('owner_id')), _get(ctx['key_results'], d.get('key_result_id'))
     project, dep = _get(ctx['projects'], d.get('project_id')), _get(ctx['tasks'], d.get('dependency_id'))
     lines = [
-        _say(lang, 'پیش‌نویس Pulsar:', 'Pulsar draft:'), '',
-        f'Title: {d["title"]}', f'Owner: {owner["name"] if owner else "—"}',
-        f'KR: {(kr["objective"] + " · " + kr["title"]) if kr else "—"}',
-        f'Project: {project["title"] if project else "—"}',
-        f'Dependency: {dep["title"] if dep else "—"}', f'Due: {d.get("due_date") or "—"}',
-        f'Priority: {d.get("priority", "p2").upper()}', f'DoD: {d["definition_of_done"]}',
+        _say(lang, '📋 تسک پیشنهادی:', '📋 Proposed task:'),
+        d['title'],
+        f'Output: {d["definition_of_done"][:300]}',
+        f'Project: {project["title"] if project else "Core"}',
     ]
+    if d.get('due_date'):
+        lines.append(f'Due: {d["due_date"]}')
+    if kr:
+        lines.append(f'KR: {kr["title"]}')
+    if not kr:
+        lines.append(_say(lang, 'KR نامشخص: برای بررسی به مدیر پروژه اطلاع داده می‌شود.',
+                          'No KR match: the project manager will be notified.'))
+    if d.get('requires_attachment'):
+        lines.append(_say(lang, 'پس از ایجاد تسک، فایل موردنیاز را ارسال کن.',
+                          'After creating the task, send its required attachment.'))
     links = _links(d, ctx)
     if links:
         lines += ['', _say(lang, 'لینک‌های پیشنهادی:', 'Suggested links:')]
         lines += [f'{i}. {row["label"]} — {row["url"]}' for i, row in enumerate(links, 1)]
-    lines += ['', _say(lang, 'اگر اوکیه تأیید کن؛ برای تغییر هم طبیعی بنویس.', 'Confirm to create, or describe a change naturally.')]
+    lines += ['', _say(lang, 'تأیید کن یا «اصلاح» رو بزن.', 'Confirm or tap Edit to change this task.')]
     return {
         'text': '\n'.join(lines),
         'reply_markup': {'inline_keyboard': [[
@@ -423,10 +446,9 @@ def _preview(state, ctx):
 
 
 def _advance(state, ctx):
-    if not state['draft'].get('key_result_id'):
-        state['mode'] = 'ask_kr'
-        return [_kr_question(state, ctx)]
-    if not state['draft'].get('due_date'):
+    # A missing KR is allowed. Pulsar must never interrupt the user to ask for
+    # strategy mapping; creation generates a manager-review notification.
+    if state['draft'].get('key_result_id') and not state['draft'].get('due_date'):
         state['mode'] = 'ask_due'
         return [_due_question(state, ctx)]
     state['mode'] = 'confirm'
@@ -460,6 +482,7 @@ def _edit(user, draft, instruction, ctx):
         if updated:
             if not updated.get('source_urls'):
                 updated['source_urls'] = draft.get('source_urls') or []
+            updated['source_key'] = draft.get('source_key')
             return updated
     except PulsarError:
         logger.exception('Telegram Pulsar edit failed user_id=%s', user.pk)
@@ -503,8 +526,8 @@ def _cancelled(text):
 def help_message(lang='fa'):
     return {'text': _say(
         lang,
-        'من Pulsar هستم. کارها رو طبیعی بفرست؛ اگر چند تسک باشه جدا می‌کنم، KR و parent و لینک مرتبط پیشنهاد می‌دم و قبل از ساخت تأیید می‌گیرم.\n\n/new — تسک جدید\n/tasks — تسک‌های باز من\n/cancel — لغو پیش‌نویس\n/help — راهنما',
-        'I am Pulsar. Send work naturally; I can split multiple tasks, suggest KR/parents/links, and confirm before creation.\n\n/new — new task\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
+        'من Pulsar هستم. تسک‌های جدید رو پیشنهاد می‌دم و برای فعالیت‌های انجام‌شده لاگ قابل تأیید می‌سازم. KR رو خودم تطبیق می‌دم.\n\n/new — تسک جدید\n/report — ثبت فعالیت\n/tasks — تسک‌های باز من\n/cancel — لغو پیش‌نویس\n/help — راهنما',
+        'I am Pulsar. Send new tasks or progress updates naturally. I will match KRs and format activity logs for approval.\n\n/new — new task\n/report — log progress\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
     )}
 
 
@@ -516,7 +539,14 @@ def welcome_message(user, lang='fa'):
     )}
 
 
-def handle_message(user, text):
+def _report_proposal(user, text, source_key=None):
+    """Use the durable, revisioned daily report flow for existing task logs."""
+    from .telegram_work_reports import preview
+    from .work_reports import propose
+    return preview(propose(user, text, source='telegram', source_key=source_key))
+
+
+def handle_message(user, text, source_key=None):
     text, lang = str(text or '').strip(), _lang(text)
     if not text:
         return [help_message(lang)]
@@ -534,6 +564,22 @@ def handle_message(user, text):
     if text.startswith('/cancel'):
         clear_session(user)
         return [{'text': _say(lang, 'پیش‌نویس لغو شد.', 'Draft cancelled.')}]
+    if text.startswith('/attach'):
+        pieces = text.split(maxsplit=1)
+        task_id = _as_int(pieces[1]) if len(pieces) == 2 else None
+        task = OperatingTask.objects.filter(pk=task_id, owner=user).first() if task_id else None
+        if not task:
+            return [{'text': _say(lang, 'شناسه تسک معتبر متعلق به خودت را بفرست: /attach 123',
+                                  'Provide your own valid task ID: /attach 123')}]
+        from .platform_access import can_edit
+        if not can_edit(user, task):
+            return [{'text': _say(lang, 'اجازه پیوست کردن به این تسک را نداری.',
+                                  'You cannot attach files to this task.')}]
+        session = _session(user)
+        _store(session, {'mode': 'await_attachment', 'task_id': task.pk, 'language': lang,
+                         'queue': (session.state or {}).get('queue') or []})
+        return [{'text': _say(lang, 'فایل را ارسال کن؛ وقتی تمام شد /done را بزن.',
+                              'Send the document or image, then send /done.')}]
     if text.startswith('/tasks'):
         mine = [x for x in ctx['tasks'] if x['owner_id'] == user.pk][:12]
         if not mine:
@@ -555,6 +601,12 @@ def handle_message(user, text):
 
     if state:
         mode, state_lang = state.get('mode'), state.get('language') or lang
+        if mode == 'await_attachment':
+            if text.lower() in {'/done', '/skip'}:
+                return handle_callback(user, 'pulsar:attachments_done')
+            return [{'text': _say(lang, 'فایل را بفرست یا /done را بزن.',
+                                  'Send the attachment or type /done.')}]
+
         if _cancelled(text):
             _store(session, {})
             return [{'text': _say(state_lang, 'لغو شد.', 'Cancelled.')}]
@@ -588,19 +640,38 @@ def handle_message(user, text):
         if mode in {'confirm', 'edit'}:
             if _confirmed(text) and mode == 'confirm':
                 return handle_callback(user, 'pulsar:create')
+            if mode == 'confirm':
+                # Incoming independent messages must not silently overwrite a
+                # pending draft. Queue new tasks; persist reports separately.
+                incoming = _interpret(user, text, ctx)
+                if incoming.get('intent') == 'log_update':
+                    return [_report_proposal(user, text, source_key)]
+                if incoming.get('intent') == 'create_tasks':
+                    queued = _normalize_many(incoming.get('tasks'), user, ctx, text, source_key)
+                    if queued:
+                        known = {x.get('source_key') for x in [state.get('draft'), *(state.get('queue') or [])] if x}
+                        queued = [x for x in queued if not x.get('source_key') or x['source_key'] not in known]
+                    if queued:
+                        state['queue'] = [*(state.get('queue') or []), *queued][:40]
+                        _store(session, state)
+                        return [{'text': _say(lang, f'{len(queued)} مورد به صف اضافه شد؛ اول تسک فعلی را تأیید کن.',
+                                              f'{len(queued)} item(s) queued. Confirm the current task first.')},
+                                _preview(state, ctx)]
             state['draft'] = _edit(user, state['draft'], text, ctx)
             messages = _advance(state, ctx)
             _store(session, state)
             return messages
 
     payload = _interpret(user, text, ctx)
+    if payload.get('intent') == 'log_update':
+        return [_report_proposal(user, text, source_key)]
     if payload.get('intent') != 'create_tasks':
         reply = str(payload.get('reply') or '').strip() or _say(lang, 'بگو چه کمکی می‌خوای.', 'Tell me what you need.')
         return [{'text': reply[:4096]}]
 
-    candidates = _normalize_many(payload.get('tasks'), user, ctx, text)
+    candidates = _normalize_many(payload.get('tasks'), user, ctx, text, source_key)
     if not candidates:
-        candidates = _normalize_many(_fallback_tasks(text), user, ctx, text)
+        candidates = _normalize_many(_fallback_tasks(text), user, ctx, text, source_key)
     if len(candidates) > 1:
         _store(session, {'mode': 'select_tasks', 'language': lang, 'candidates': candidates})
         return [_candidate_message(candidates, lang)]
@@ -615,6 +686,9 @@ def handle_callback(user, action):
     lang = state.get('language') or 'en'
     if not state:
         return [{'text': _say(lang, 'پیش‌نویس فعالی نیست.', 'There is no active draft.')}]
+    if action == 'pulsar:attachments_done' and state.get('mode') == 'await_attachment':
+        return [{'text': _say(lang, 'پیوست‌ها ثبت شدند.', 'Attachments finished.')},
+                *_next(user, state, ctx, session)]
     if action == 'pulsar:cancel':
         _store(session, {})
         return [{'text': _say(lang, 'پیش‌نویس لغو شد.', 'Draft cancelled.')}]
@@ -625,10 +699,90 @@ def handle_callback(user, action):
     if action != 'pulsar:create' or state.get('mode') != 'confirm':
         return [{'text': _say(lang, 'این اکشن معتبر نیست.', 'That action is not valid now.')}]
     task = _create(user, state['draft'], ctx)
+    needs_file = bool(state['draft'].get('requires_attachment'))
     base = settings.PUBLIC_BASE_URL.rstrip('/')
     created = {'text': _say(
         lang,
         f'✅ ساخته شد: {task.title}\n{base}/workspace/core/tasks?task={task.pk}',
         f'✅ Created: {task.title}\n{base}/workspace/core/tasks?task={task.pk}',
     )}
+    if needs_file:
+        _store(session, {'mode': 'await_attachment', 'task_id': task.pk,
+                         'language': lang, 'queue': state.get('queue') or []})
+        return [created, {'text': _say(lang, 'فایل مربوط به این تسک را بفرست، سپس /done را بزن.',
+                                      'Send the required task attachment, then type /done.')}]
     return [created, *_next(user, state, ctx, session)]
+
+def handle_document(user, document, source_key=None):
+    """Attach Telegram evidence to an explicitly selected, authorized task.
+
+    Uses the same local storage and attachment model as the task board. A
+    stable message key avoids duplicate rows on Telegram webhook retries.
+    """
+    state = _session(user).state or {}
+    lang = state.get('language') or 'en'
+    if state.get('mode') != 'await_attachment':
+        return [{'text': _say(lang, 'اول تسک را تأیید کن یا /attach ID بفرست.',
+                              'Confirm a task first or use /attach ID.')}]
+    from .platform_access import can_edit
+    task = OperatingTask.objects.filter(pk=state.get('task_id'), owner=user).first()
+    if not task or not can_edit(user, task):
+        return [{'text': _say(lang, 'دسترسی پیوست به این تسک وجود ندارد.',
+                              'Attachment access is not available for this task.')}]
+
+    fid = str(document.get('file_id') or '')
+    size = _as_int(document.get('file_size')) or 0
+    limit = int(settings.CONTENT_ATTACHMENT_MAX_BYTES)
+    if not fid or size <= 0 or size > limit:
+        return [{'text': _say(lang, 'فایل خالی یا بیش از حد بزرگ است.',
+                              'The file is empty or exceeds the attachment limit.')}]
+    from .task_board_api import _safe_filename
+    from .task_notifications import _telegram_api
+    name = _safe_filename(document.get('file_name') or 'telegram-image.jpg')
+    key = hashlib.sha256(str(source_key or fid).encode('utf-8')).hexdigest()[:24]
+    root = Path(settings.CORE_UPLOAD_ROOT) / 'tasks' / str(task.pk)
+    path = root / f'telegram-{key}-{name}'
+    existing = OperatingTaskAttachment.objects.filter(task=task, storage_path=str(path)).first()
+    if existing:
+        return [{'text': _say(lang, 'این فایل قبلاً ثبت شده.', 'Already attached.')}]
+    remote = _telegram_api('getFile', {'file_id': fid}).get('result') or {}
+    file_path = str(remote.get('file_path') or '')
+    if not file_path or '..' in file_path or not re.fullmatch(r'[A-Za-z0-9_./-]+', file_path):
+        raise ValueError('invalid_telegram_file_path')
+    root.mkdir(parents=True, exist_ok=True)
+    received = 0
+    try:
+        with requests.get(
+            f"https://api.telegram.org/file/bot{settings.GRAVITAS_TELEGRAM_BOT_TOKEN}/{file_path}",
+            stream=True, timeout=(5, 15),
+        ) as response:
+            response.raise_for_status()
+            with path.open('xb') as handle:
+                for chunk in response.iter_content(chunk_size=65536):
+                    received += len(chunk)
+                    if received > limit:
+                        raise ValueError('file_size_invalid')
+                    handle.write(chunk)
+        if received == 0:
+            raise ValueError('file_empty')
+        with transaction.atomic():
+            row, _ = OperatingTaskAttachment.objects.get_or_create(
+                task=task, storage_path=str(path),
+                defaults={'uploader': user, 'name': name,
+                          'mime_type': str(document.get('mime_type') or '')[:160],
+                          'size': received},
+            )
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    from .layer_access import record_activity
+    from .layer_models import ActivityEvent
+    record_activity(
+        layer=ActivityEvent.Layer.CORE, action='task.attachment_added',
+        actor=user, subject_user=user, object_type='operating_task',
+        object_id=task.pk, detail={'attachment_id': row.pk, 'name': name,
+                                   'source': 'telegram_pulsar'},
+    )
+    return [{'text': _say(lang, f'✅ {name} به تسک پیوست شد. فایل بعدی یا /done',
+                          f'✅ Attached {name}. Send another file or /done.')}]
+

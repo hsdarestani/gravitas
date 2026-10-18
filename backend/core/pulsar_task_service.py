@@ -1,5 +1,7 @@
 import logging
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils.dateparse import parse_date
 
@@ -7,6 +9,7 @@ from . import operating_api as operating_base
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .models import ResearchProject, WorkspaceMembership
+from .notifications import notify
 from .operating_models import KeyResult, OperatingTask, Priority, WorkStatus
 from .platform_access import can_view
 from .platform_runtime_v3 import core_access, ensure_platform_workspaces
@@ -58,6 +61,13 @@ def create_operating_task(
     title = ' '.join(str(draft.get('title') or '').split()).strip()[:240]
     if not title:
         raise ValueError('task_title_required')
+    source_key = str(draft.get('source_key') or '').strip()[:240] or None
+    if source_key:
+        existing = OperatingTask.objects.filter(source_key=source_key).first()
+        if existing:
+            if not can_view(user, existing):
+                raise PermissionError('existing_task_access_required')
+            return existing
 
     owner_id = _as_int(draft.get('owner_id')) or user.pk
     owner_link = (
@@ -80,8 +90,14 @@ def create_operating_task(
         .first()
     )
     due = parse_date(str(draft.get('due_date') or '').strip())
-    if not owner or not key_result or not due:
-        raise ValueError('task_missing_required_fields')
+    if not owner:
+        raise ValueError('task_owner_required')
+    if key_result_id and not key_result:
+        raise ValueError('invalid_key_result')
+    # KRs are optional in the canonical task model. A task without a KR can
+    # remain undated; a KR-linked task requires a date by database contract.
+    if key_result and not due:
+        raise ValueError('task_requires_due_date')
 
     project = None
     project_id = _as_int(draft.get('project_id'))
@@ -130,10 +146,9 @@ def create_operating_task(
             )
         )
 
-    initiative = operating_base._execution_initiative_for_kr(
-        core,
-        key_result,
-        owner,
+    initiative = (
+        operating_base._execution_initiative_for_kr(core, key_result, owner)
+        if key_result else None
     )
 
     with transaction.atomic():
@@ -149,7 +164,39 @@ def create_operating_task(
             due_date=due,
             definition_of_done=definition_of_done,
             dependency=dependency,
+            source_key=source_key,
         )
+        if not key_result:
+            manager_email = str(getattr(settings, 'GRAVITAS_PROJECT_MANAGER_EMAIL', '') or '').strip()
+            manager = (
+                get_user_model().objects.filter(email__iexact=manager_email, is_active=True).first()
+                if manager_email else None
+            )
+            if manager is None:
+                # Existing internal project manager; avoid notifying unrelated
+                # administrators or inferring an arbitrary KR.
+                membership = (WorkspaceMembership.objects.filter(
+                    workspace=core,
+                    role__in=[WorkspaceMembership.Role.ADMIN, WorkspaceMembership.Role.OWNER],
+                    user__first_name__iexact='Hossein',
+                    user__is_active=True,
+                ).select_related('user').first())
+                manager = membership.user if membership else None
+            if manager:
+                notify(
+                    manager,
+                    event_key=f'pulsar-kr-unmatched:{task.pk}',
+                    event_type='pulsar.kr_unmatched',
+                    title='Pulsar task needs KR review',
+                    body=f'{task.title} was saved without a confident KR match.',
+                    url=f'/workspace/core/tasks?task={task.pk}',
+                    # The project manager may also be the reporter; never
+                    # suppress the reminder as a self-notification.
+                    actor=None,
+                    task=task,
+                )
+            else:
+                logger.warning('Pulsar task %s lacks KR and project manager could not be resolved', task.pk)
         record_activity(
             layer=ActivityEvent.Layer.CORE,
             action='task.created',

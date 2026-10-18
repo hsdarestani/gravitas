@@ -113,8 +113,11 @@ class CanonicalProjectMiddleware:
                 )
                 for state in states:
                     if can_view(request.user, state.project):
-                        if '/operating/task-board/' in request.path:
-                            refresh_task_scope(state.project,request.user,view_kwargs.get('task_id'))
+                        if ('/operating/task-board/' in request.path or
+                                re.fullmatch(r'/api/platform/projects/\d+/tasks/\d+/', request.path)):
+                            # Updating one Research task must not refresh every
+                            # note, attachment and task in the project over DAV.
+                            refresh_task_scope(state.project, request.user, view_kwargs.get('task_id'))
                         else:
                             refresh_project(state.project, request.user)
                 pending = []

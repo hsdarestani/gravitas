@@ -6,7 +6,7 @@ from django.test import TestCase
 
 from .operating_models import KeyResult, OperatingTask, StrategicObjective, TelegramPulsarSession
 from .platform_runtime_v3 import ensure_platform_workspaces
-from .telegram_pulsar import handle_callback, handle_message
+from .telegram_pulsar import handle_callback, handle_message, handle_document
 
 
 User = get_user_model()
@@ -119,7 +119,8 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         next_messages = handle_message(self.user, '1')
         self.assertIn('KR', next_messages[0]['text'])
         session.refresh_from_db()
-        self.assertEqual(session.state['mode'], 'ask_kr')
+        self.assertEqual(session.state['mode'], 'confirm')
+        self.assertIn('KR نامشخص', next_messages[0]['text'])
 
     @patch('core.telegram_pulsar.configured', return_value=True)
     @patch('core.telegram_pulsar.complete')
@@ -132,3 +133,93 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         messages = handle_message(self.user, 'سلام، چه کارهایی می‌تونی بکنی؟')
         self.assertIn('تعریف تسک', messages[0]['text'])
         self.assertEqual(OperatingTask.objects.count(), 0)
+
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    def test_missing_kr_never_blocks_creation_and_does_not_require_due_date(self, complete, configured):
+        complete.return_value = json.dumps({
+            'intent': 'create_tasks',
+            'reply': '',
+            'tasks': [{'title': 'Prepare reviewable research notes',
+                       'definition_of_done': 'The research notes are delivered to the team.',
+                       'owner_id': self.user.pk, 'key_result_id': None, 'due_date': None}],
+        })
+        messages = handle_message(self.user, 'Prepare reviewable research notes')
+        self.assertIn('No KR match', messages[0]['text'])
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'confirm')
+        handle_callback(self.user, 'pulsar:create')
+        task = OperatingTask.objects.get(title='Prepare reviewable research notes')
+        self.assertIsNone(task.initiative_id)
+        self.assertIsNone(task.due_date)
+
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    def test_consecutive_new_messages_are_queued_not_lost(self, complete, configured):
+        def answer(**kwargs):
+            text = kwargs['user']
+            title = 'Draft first learning outline' if 'first' in text else 'Draft second learning outline'
+            return json.dumps({'intent': 'create_tasks', 'tasks': [
+                {'title': title, 'definition_of_done': 'A reviewable outline is delivered.',
+                 'owner_id': self.user.pk, 'key_result_id': None},
+            ]})
+        complete.side_effect = answer
+        handle_message(self.user, 'first')
+        queued = handle_message(self.user, 'second')
+        self.assertIn('queued', queued[0]['text'])
+        handle_callback(self.user, 'pulsar:create')
+        self.assertEqual(OperatingTask.objects.count(), 1)
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['draft']['title'], 'Draft second learning outline')
+        handle_callback(self.user, 'pulsar:create')
+        self.assertEqual(OperatingTask.objects.count(), 2)
+
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    @patch('core.work_reports.interpret')
+    def test_existing_work_routes_to_confirmable_report(self, interpret, complete, configured):
+        from .work_report_models import DailyWorkReport
+        interpret.return_value = {'summary': 'Documented results', 'updates': [],
+                                  'unmatched_work': 'Documented results'}
+        complete.return_value = json.dumps({'intent': 'log_update', 'tasks': [], 'reply': ''})
+        preview = handle_message(self.user, 'I documented the results', source_key='chat:1')
+        self.assertIn('Confirm', preview[0]['reply_markup']['inline_keyboard'][0][0]['text'])
+        self.assertEqual(DailyWorkReport.objects.count(), 1)
+        handle_message(self.user, 'I documented the results', source_key='chat:1')
+        self.assertEqual(DailyWorkReport.objects.count(), 1)
+        self.assertEqual(OperatingTask.objects.count(), 0)
+
+    def test_evidence_upload_attaches_to_selected_task_and_retries_safely(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import MagicMock
+        from django.test import override_settings
+        from .operating_models import OperatingTaskAttachment
+
+        task = OperatingTask.objects.create(
+            workspace=self.core, owner=self.user, title='Collect evidence',
+            definition_of_done='The evidence document is attached.',
+        )
+        session, _ = TelegramPulsarSession.objects.get_or_create(user=self.user)
+        session.state = {'mode': 'await_attachment', 'task_id': task.pk, 'language': 'en', 'queue': []}
+        session.save(update_fields=['state', 'updated_at'])
+        transport = MagicMock()
+        transport.__enter__.return_value = transport
+        transport.iter_content.return_value = [b'%PDF-1.4 test evidence']
+        payload = {'file_id': 'telegram-asset-id', 'file_name': 'result.pdf',
+                   'file_size': 22, 'mime_type': 'application/pdf'}
+        with tempfile.TemporaryDirectory() as folder:
+            with (
+                override_settings(CORE_UPLOAD_ROOT=folder),
+                patch('core.task_notifications._telegram_api',
+                      return_value={'result': {'file_path': 'documents/result.pdf'}}),
+                patch('core.telegram_pulsar.requests.get', return_value=transport),
+            ):
+                answer = handle_document(self.user, payload, source_key='chat:12')
+                self.assertIn('Attached result.pdf', answer[0]['text'])
+                self.assertEqual(OperatingTaskAttachment.objects.filter(task=task).count(), 1)
+                attachment = OperatingTaskAttachment.objects.get(task=task)
+                self.assertTrue(Path(attachment.storage_path).exists())
+                repeat = handle_document(self.user, payload, source_key='chat:12')
+                self.assertIn('Already attached', repeat[0]['text'])
+                self.assertEqual(OperatingTaskAttachment.objects.filter(task=task).count(), 1)
+        done = handle_callback(self.user, 'pulsar:attachments_done')
+        self.assertIn('Attachments finished', done[0]['text'])
