@@ -25,7 +25,7 @@ import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-
 import * as P from './ws-platform.js?v=20261016-task1';
 import { renderCoreTeam } from './ws-core-team.js?v=20261016-task1';
 import { renderCoreContent } from './ws-core-content-actions.js?v=20261016-task1';
-import * as views from './ws-views.js?v=20261019-task-card1';
+import * as views from './ws-views.js?v=20261016-task1&patch=20261019card1';
 import * as meetings from './ws-meetings.js?v=20261016-task1';
 import * as assets from './ws-core-assets.js?v=20261016-task1';
 import * as kms from './ws-kms-views.js?v=20261016-task1';
