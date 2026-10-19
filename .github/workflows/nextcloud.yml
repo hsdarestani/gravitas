@@ -215,6 +215,24 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo install -m 750 /tmp/gravitas-nextcloud-mirror /usr/local/sbin/gravitas-nextcloud-mirror-install && sudo rm -f /tmp/gravitas-nextcloud-mirror && sudo /usr/local/sbin/gravitas-nextcloud-mirror-install /opt/gravitas-backend"
 
+      - name: Verify repaired identity authenticates to native Nextcloud DAV
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" 'sudo bash -s' <<'REMOTE'
+          set -euo pipefail
+          /usr/bin/flock -w 300 /run/gravitas-nextcloud-identity.lock \
+            /usr/sbin/runuser -u gravitas -- bash -c '
+              set -a
+              . /etc/gravitas/backend.env
+              set +a
+              export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+              export PYTHONPATH=/opt/gravitas-backend
+              cd /opt/gravitas-backend
+              exec .venv/bin/django-admin verify_managed_nextcloud_dav --username gravitas-u-1190
+            '
+          REMOTE
+
       - name: Verify public endpoint
         shell: bash
         run: |
