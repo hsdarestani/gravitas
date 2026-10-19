@@ -24,3 +24,42 @@ assert.equal(opened[0].id,92);assert.equal(opened[1],cockpit);assert.equal(opene
 """
         result = subprocess.run(['node', '--input-type=module', '-e', script], cwd=root, capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_historical_provenance_is_optional_and_cannot_hide_task_card(self):
+        root = Path(__file__).resolve().parents[2]
+        script = r"""
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const source = fs.readFileSync('assets/ws/ws-views.js', 'utf8');
+const start = source.indexOf('export function taskSourceRecords(');
+const end = source.indexOf('\nexport function failure(', start);
+assert.ok(start > 0 && end > start, 'task source guard exists');
+const helper = source.slice(start, end).replace('export function', 'function');
+const records = new Function(helper + '\nreturn taskSourceRecords;')();
+assert.deepEqual(records(null), []);
+assert.deepEqual(records({}), []);
+assert.deepEqual(records({records: null}), []);
+assert.deepEqual(records({records: {title: 'Legacy object'}}), []);
+assert.deepEqual(records({records: 'legacy payload'}), []);
+assert.deepEqual(records({records: [{title: 'Valid'}, null, 'invalid', [], 42]}), [{title: 'Valid'}]);
+assert.match(source, /const sourceRecords = taskSourceRecords\(task\.source_metadata\);/);
+assert.match(source, /if \(detailForFallback && typeof detailForFallback === 'object'\)/);
+assert.match(source, /The saved task is available below/);
+assert.doesNotMatch(source, /The server did not answer\. Nothing has been changed\./);
+const project = fs.readFileSync('assets/ws/ws-project-actions.js', 'utf8');
+const boot = fs.readFileSync('assets/ws/ws-app.js', 'utf8');
+const page = fs.readFileSync('workspace.html', 'utf8');
+assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261019card1/);
+assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261019card1/);
+assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261019card1/);
+const five = fs.readFileSync('assets/ws/ws-five-layer.js', 'utf8');
+const projectView = fs.readFileSync('assets/ws/ws-project.js', 'utf8');
+assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261019card1/);
+assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261019card1/);
+assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261019card1/);
+"""
+        result = subprocess.run(
+            ['node', '--input-type=module', '-e', script],
+            cwd=root, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)

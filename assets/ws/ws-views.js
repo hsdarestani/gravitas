@@ -106,13 +106,29 @@ export function skeleton(count, host) {
 /* A failure says which request failed and offers to run it again. The old
    workspace rendered the raw error string into the page, which told the
    reader "operating_workspace_required" and left them there. */
+// Historic source imports can contain a missing, malformed or legacy-shaped
+// `records` field. Treat the optional provenance as optional UI data rather
+// than failing the whole task editor after the task detail API succeeded.
+export function taskSourceRecords(metadata) {
+  const records = metadata && typeof metadata === 'object' ? metadata.records : null;
+  return Array.isArray(records)
+    ? records.filter((record) => record && typeof record === 'object' && !Array.isArray(record))
+    : [];
+}
+
 export function failure(what, err, retry) {
   const wrap = el('div', 'ws-alert');
   wrap.append(el('p', 'ws-alert__title', `Could not load ${what}`));
 
+  const status = Number(err?.status || 0);
   const message = err instanceof P.AuthRequired
     ? 'Your session has ended. Sign in again to continue.'
-    : 'The server did not answer. Nothing has been changed.';
+    : status === 403 ? 'You do not have permission to open this item.'
+    : status === 404 ? 'This item is no longer available or you do not have access.'
+    : [502, 503, 504].includes(status) ? 'The service is temporarily unavailable. Please try again.'
+    : status >= 500 ? 'The server could not complete this request. Please try again.'
+    : status >= 400 ? 'This request could not be completed. No changes were saved.'
+    : 'The request could not be completed. Check the connection and try again.';
   wrap.append(el('p', null, message));
 
   const actions = el('div', 'ws-ai__actions');
@@ -852,6 +868,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       history.replaceState(history.state, '', url.pathname + url.search + url.hash);
     }
     body.append(skeleton(6));
+    let detailForFallback = null;
 
     try {
       const [detailData, boardState] = await Promise.all([
@@ -863,6 +880,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       // so off-board task dialogs keep every edit control functional.
       state = { ...detailData, ...boardState };
       const task = detailData.task;
+      detailForFallback = task;
       head.querySelector('h2').textContent = task.title;
       const closeButton = head.querySelector('button');
       const linkTask = makeButton('Copy link', async () => {
@@ -1049,7 +1067,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       );
 
       const sourceHistory = el('section', 'task-card-dialog__source-history');
-      const sourceRecords = task.source_metadata?.records || [];
+      const sourceRecords = taskSourceRecords(task.source_metadata);
       if (sourceRecords.length) {
         sourceHistory.append(el('h3', '', 'Historical source'));
         sourceHistory.append(el('p', 'v-note', 'Activity dates below are historical records, not deadlines. Source-reported Done does not confirm production acceptance.'));
@@ -1537,10 +1555,30 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       await Promise.all([loadChecklist(), loadComments(), loadAttachments(), loadHistory()]);
     } catch (error) {
       body.innerHTML = '';
-      body.append(failure('task card', error, () => {
-        closeDialog(dialog);
-        openTaskDialog(taskId, state, reloadBoard);
-      }));
+      if (detailForFallback && typeof detailForFallback === 'object') {
+        // The backend returned the task. A problem in an optional editor
+        // component must never make the authorized task itself disappear.
+        console.error('Research/Core task-card renderer failed', error);
+        const basic = el('section', 'task-card-dialog__main');
+        basic.append(
+          el('p', 'ws-alert__title', 'Some task details could not be displayed'),
+          el('p', 'fl-muted', 'The saved task is available below. The editor did not finish loading; no changes were made.'),
+          el('h3', '', detailForFallback.title || 'Task'),
+          el('p', '', detailForFallback.description || 'No description.'),
+          el('p', 'fl-muted', 'Status: ' + P.label(detailForFallback.status || 'unknown')),
+          el('p', '', 'Definition of done: ' + (detailForFallback.definition_of_done || 'Not set')),
+        );
+        basic.append(makeButton('Try again', () => {
+          closeDialog(dialog);
+          openTaskDialog(taskId, () => P.operatingTaskDependencies(), reloadBoard);
+        }));
+        body.append(basic);
+      } else {
+        body.append(failure('task card', error, () => {
+          closeDialog(dialog);
+          openTaskDialog(taskId, () => P.operatingTaskDependencies(), reloadBoard);
+        }));
+      }
     }
   }
 
