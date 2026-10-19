@@ -156,6 +156,9 @@ def project_provider(request, project_id, kind):
     try:
         if kind == 'private_git':
             resource = _git_repo(data.get('repository'))
+            approved = getattr(settings, 'GRAVITAS_PROJECT_GITHUB_ALLOWED_REPOS', {})
+            if not isinstance(approved, dict) or resource not in approved.get(alias, []):
+                return _err('repository_not_approved_for_alias', 403)
             remote = _private_github(f'/repos/{resource}', _aliases(kind)[alias])
             if not isinstance(remote, dict) or remote.get('private') is not True or remote.get('full_name') != resource:
                 return _err('private_repository_required', 422)
