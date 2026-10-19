@@ -30,6 +30,9 @@ from core.pulsar_schedule_api import pulsar_reminders, pulsar_reminder_detail
 from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
 from core.project_integrations import project_integration_catalog, start_first_research_project
+from core.project_external_datasets import external_datasets, external_dataset_rows
+from core.project_plugin_runtime import builtin_plugin_catalog, run_builtin_plugin
+from core.project_private_pulsar_merge import private_merge_proposal
 from core.project_provider_api import (
     project_provider_catalog, project_provider, project_private_git_commits, project_plugin_states,
 )
@@ -124,6 +127,12 @@ urlpatterns = [
     path('api/platform/projects/<int:project_id>/tools/providers/<str:kind>/', require_research_or_core(project_provider)),
     path('api/platform/projects/<int:project_id>/tools/private-git/commits/', require_research_or_core(project_private_git_commits)),
     path('api/platform/projects/<int:project_id>/tools/plugins/', require_research_or_core(project_plugin_states)),
+    path('api/platform/projects/<int:project_id>/tools/external/datasets/', require_research_or_core(external_datasets)),
+    path('api/platform/projects/<int:project_id>/tools/external/datasets/<str:dataset_id>/rows/', require_research_or_core(external_dataset_rows)),
+    path('api/platform/projects/<int:project_id>/tools/builtin/', require_research_or_core(builtin_plugin_catalog)),
+    path('api/platform/projects/<int:project_id>/tools/builtin/<str:plugin_id>/run/', require_research_or_core(run_builtin_plugin)),
+    path('api/platform/projects/<int:project_id>/drafts/<int:file_id>/private-merge/', require_research_or_core(private_merge_proposal)),
+
     path('api/platform/projects/<int:project_id>/drafts/', require_research_or_core(project_draft_files)),
     path('api/platform/projects/<int:project_id>/drafts/<int:file_id>/', require_research_or_core(project_draft)),
     path('api/platform/projects/<int:project_id>/drafts/<int:file_id>/push/', require_research_or_core(project_draft_push)),
