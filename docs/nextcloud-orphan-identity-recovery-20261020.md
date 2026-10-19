@@ -44,3 +44,12 @@ The one-off workflow invocation specifically names user \`1190\`; it is
 a no-op if that native user already exists. If the user is present yet OCS
 password reset fails, a separate admin-authentication investigation is
 needed instead of moving the account's files.
+
+## Deployment replay after concurrent main update
+
+The initial production deployment of PR #232 was cancelled during concurrent
+updates to main and cannot be treated as a successful restore. This record is
+also used to request a fresh standard production deployment against the
+currently merged main, followed by Nextcloud provisioning and authenticated
+DAV verification. Only a green **Provision Gravitas Nextcloud** production
+workflow (not its PR syntax-validation job) constitutes verified recovery.
