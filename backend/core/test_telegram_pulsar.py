@@ -291,7 +291,8 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         self.assertEqual(OperatingTask.objects.count(), 0)
         self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'confirm')
 
-    def test_multi_command_does_not_discard_existing_task_draft(self):
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    def test_multi_command_does_not_discard_existing_task_draft(self, configured):
         with patch('core.telegram_pulsar.complete', return_value=json.dumps({
             'intent': 'create_tasks',
             'tasks': [{'title': 'Draft a review outline',
