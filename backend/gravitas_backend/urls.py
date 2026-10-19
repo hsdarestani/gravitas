@@ -30,6 +30,12 @@ from core.pulsar_schedule_api import pulsar_reminders, pulsar_reminder_detail
 from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
 from core.project_integrations import project_integration_catalog, start_first_research_project
+from core.project_provider_api import (
+    project_provider_catalog, project_provider, project_private_git_commits, project_plugin_states,
+)
+from core.project_buffered_sync_api import (
+    project_draft_files, project_draft, project_draft_push,
+)
 from core.project_operational_tools import (
     operational_tool_status, project_git, project_git_commits,
     project_data_tables, project_data_table_detail, project_data_rows,
@@ -114,6 +120,13 @@ urlpatterns = [
     # A new verified account may inspect the public tool catalog before its first project.
     path('api/platform/project-integrations/', project_integration_catalog),
     path('api/platform/research/start-project/', start_first_research_project),
+    path('api/platform/projects/<int:project_id>/tools/providers/', require_research_or_core(project_provider_catalog)),
+    path('api/platform/projects/<int:project_id>/tools/providers/<str:kind>/', require_research_or_core(project_provider)),
+    path('api/platform/projects/<int:project_id>/tools/private-git/commits/', require_research_or_core(project_private_git_commits)),
+    path('api/platform/projects/<int:project_id>/tools/plugins/', require_research_or_core(project_plugin_states)),
+    path('api/platform/projects/<int:project_id>/drafts/', require_research_or_core(project_draft_files)),
+    path('api/platform/projects/<int:project_id>/drafts/<int:file_id>/', require_research_or_core(project_draft)),
+    path('api/platform/projects/<int:project_id>/drafts/<int:file_id>/push/', require_research_or_core(project_draft_push)),
     path('api/platform/projects/<int:project_id>/tools/status/', require_research_or_core(operational_tool_status)),
     path('api/platform/projects/<int:project_id>/tools/git/', require_research_or_core(project_git)),
     path('api/platform/projects/<int:project_id>/tools/git/commits/', require_research_or_core(project_git_commits)),
