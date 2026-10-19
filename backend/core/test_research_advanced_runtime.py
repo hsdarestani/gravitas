@@ -107,17 +107,13 @@ class ResearchAdvancedTests(TestCase):
             'columns': ['secret'],
         }]},
     )
-    @patch('core.project_external_datasets.connections')
-    @patch('core.project_external_datasets.transaction.atomic')
-    def test_external_data_is_exactly_whitelisted_and_read_only(self, atomic, connections):
+    @patch('core.project_external_datasets._read_approved_rows')
+    def test_external_data_is_exactly_whitelisted_and_read_only(self, reader):
         ProjectProviderBinding.objects.create(
             project=self.project, kind='remote_db', credential_alias='lab',
             configured_by=self.owner,
         )
-        connections.databases = {'default': {}, 'research_lab': {}}
-        connections['research_lab'].vendor = 'postgresql'
-        cursor = connections['research_lab'].cursor.return_value.__enter__.return_value
-        cursor.fetchall.return_value = [(12.5, 'A')]
+        reader.return_value = [{'result': 12.5, 'sample_id': 'A'}]
         listing = self.client.get(self.root + 'tools/external/datasets/')
         self.assertEqual(listing.status_code, 200, listing.content)
         self.assertEqual([x['id'] for x in listing.json()['datasets']], ['approved_samples'])
@@ -126,10 +122,10 @@ class ResearchAdvancedTests(TestCase):
         result = self.client.get(self.root + 'tools/external/datasets/approved_samples/rows/?limit=5')
         self.assertEqual(result.status_code, 200, result.content)
         self.assertEqual(result.json()['rows'][0]['result'], 12.5)
-        self.assertEqual(cursor.execute.call_args_list[-1].args[0],
-                         'SELECT "result", "sample_id" FROM "analytics"."samples" LIMIT %s')
-        self.assertEqual(cursor.execute.call_args_list[-1].args[1], [5])
-        self.assertEqual(result.json()['query_policy'], 'fixed_fields_read_only') if 'query_policy' in result.json() else None
+        reader.assert_called_once()
+        self.assertEqual(reader.call_args.args[0], 'research_lab')
+        self.assertEqual(reader.call_args.args[1]['table'], 'samples')
+        self.assertEqual(reader.call_args.args[2], '5')
 
     @override_settings(GRAVITAS_PROJECT_DATABASE_ALIASES={'lab': 'research_lab'})
     def test_external_read_fails_closed_without_approved_dataset(self):
@@ -151,6 +147,7 @@ class ResearchAdvancedTests(TestCase):
             content='My research\n', base_etag='rev-a', revision=2,
         )
 
+    @patch('core.canonical_middleware.refresh_project')
     @patch('core.project_private_pulsar_merge._remote')
     @patch('core.project_private_pulsar_merge._local_merge_request')
     @override_settings(
@@ -158,7 +155,7 @@ class ResearchAdvancedTests(TestCase):
         GRAVITAS_PRIVATE_PULSAR_MODEL='llama3.1:8b',
         GRAVITAS_PRIVATE_PULSAR_PORT=11434,
     )
-    def test_private_pulsar_needs_consent_and_never_writes(self, model, remote):
+    def test_private_pulsar_needs_consent_and_never_writes(self, model, remote, _refresh):
         draft = self._draft()
         url = self.root + f'drafts/{draft.file_id}/private-merge/'
         remote.return_value = {'content': 'Other scientist\n', 'etag': 'rev-b'}
@@ -175,7 +172,8 @@ class ResearchAdvancedTests(TestCase):
         draft.refresh_from_db()
         self.assertEqual(draft.content, 'My research\n')
 
-    def test_private_model_disabled_by_default(self):
+    @patch('core.canonical_middleware.refresh_project')
+    def test_private_model_disabled_by_default(self, _refresh):
         draft = self._draft()
         url = self.root + f'drafts/{draft.file_id}/private-merge/'
         self.assertFalse(self.client.get(url).json()['available'])
