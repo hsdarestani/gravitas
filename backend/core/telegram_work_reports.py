@@ -2,6 +2,7 @@
 from .operating_models import TelegramPulsarSession
 from .work_report_models import DailyWorkReport
 from .work_reports import decide, propose, interpret
+from .telegram_pulsar import is_information_request
 
 
 def preview(report):
@@ -25,6 +26,13 @@ def handle_report_message(user, text, source_key=None):
     duplicate = DailyWorkReport.objects.filter(user=user, source='telegram', source_key=source_key).first() if source_key else None
     if duplicate:
         return [preview(duplicate)] if duplicate.status == 'pending' else [{'text': f'This report is already {duplicate.status}. No duplicate changes.'}]
+    # A pending check-in can stay armed for hours. Do not hijack an
+    # unrelated informational question as today's activity report.
+    # The user can resume with an explicit /report command.
+    if (state.get('mode') in {'daily_checkin', 'daily_report_edit'} and is_information_request(text):
+        session.state = {}
+        session.save(update_fields=['state', 'updated_at'])
+        return None
     if text.startswith('/reportedit'):
         state['mode'] = 'daily_report_edit'; session.state = state; session.save(update_fields=['state', 'updated_at'])
         return [{'text': 'Describe the correction or name the matching task. I will show a new proposal to confirm. /cancel cancels this draft.'}]
