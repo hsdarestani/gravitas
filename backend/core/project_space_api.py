@@ -13,6 +13,7 @@ from django.views.decorators.http import require_http_methods
 
 from . import platform_api
 from .models import Collection, ProjectMembership, ResearchProject
+from .project_integrations import validate_project_tools
 from .platform_access import content_type_for
 from .platform_models import ObjectPolicy, ResearchProjectProfile
 from .space_fs import filesystem_name
@@ -58,6 +59,10 @@ def platform_projects_with_space(request):
     except ValueError as exc:
         return platform_api._error(str(exc))
 
+    try:
+        selected_integrations, requested_plugins = validate_project_tools(data)
+    except ValueError as exc:
+        return platform_api._error(str(exc))
     with transaction.atomic():
         project = ResearchProject.objects.create(
             workspace=research,
@@ -100,6 +105,8 @@ def platform_projects_with_space(request):
             deadline=deadline,
             compensation_text=str(data.get('compensation_text', '')).strip()[:240],
             required_skills=platform_api._list(data.get('required_skills')),
+            selected_integrations=selected_integrations,
+            requested_plugins=requested_plugins,
             application_open=bool(data.get('application_open')),
             public_slug=public_slug,
             # Kept for backwards compatibility. Native collaborative storage is
