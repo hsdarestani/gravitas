@@ -110,3 +110,46 @@ class AssistantApiTests(TestCase):
             self.client.post('/api/platform/ai/ask/', '{}', content_type='application/json').status_code,
             401,
         )
+
+    @patch('core.assistant_api.PulsarContextEngine')
+    @patch('core.assistant_api.run_text')
+    def test_workspace_navigation_has_one_real_link_and_no_research_rag(self, model, context):
+        response = self.client.post(
+            '/api/platform/ai/ask/',
+            json.dumps({'question': 'where is research intelligence'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()
+        self.assertEqual(payload['intent'], 'navigation')
+        self.assertEqual(payload['provider'], 'workspace_navigation')
+        self.assertEqual(len(payload['sources']), 1)
+        self.assertEqual(payload['sources'][0]['href'], '/workspace/research')
+        self.assertIn('not a separate item', payload['answer'])
+        self.assertLessEqual(len(payload['answer']), 180)
+        self.assertNotIn('historical source evidence', str(payload).lower())
+        context.assert_not_called()
+        model.assert_not_called()
+
+    @patch('core.assistant_api.run_text')
+    @patch('core.assistant_api.configured', return_value=True)
+    def test_pulsar_limits_generic_answers_and_source_links(self, configured, model):
+        with patch('core.assistant_api.PulsarContextEngine') as engine:
+            engine.return_value.workspace.return_value = SimpleNamespace(
+                text='A direct answer from a relevant user note.',
+                sources=[{'title': f'Source {i}', 'href': f'/workspace/page/{i}'} for i in range(8)],
+                metadata={},
+            )
+            model.return_value = SimpleNamespace(
+                text='A concise response.', provider='fake', run_id='run', skill='research',
+                model_tier='general',
+            )
+            response = self.client.post(
+                '/api/platform/ai/ask/',
+                json.dumps({'question': 'Summarize the findings from the source note.'}),
+                content_type='application/json',
+            )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(len(response.json()['sources']), 4)
+        self.assertEqual(model.call_args.kwargs['max_tokens'], 550)
+        self.assertIn('never infer menu locations from historic tasks', model.call_args.kwargs['system'])
