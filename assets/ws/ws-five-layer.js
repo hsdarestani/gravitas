@@ -104,7 +104,7 @@ function pathKind(path = location.pathname) {
 
   match = path.match(/^\/workspace\/research\/projects\/(\d+)(?:\/([a-z-]+))?\/?$/);
   if (match) {
-    const tabs = new Set(['structure', 'overview', 'milestones', 'tasks', 'management', 'notes', 'sources', 'files', 'discussions', 'experiments', 'database', 'drafts', 'activity']);
+    const tabs = new Set(['structure', 'overview', 'milestones', 'tasks', 'management', 'notes', 'sources', 'files', 'discussions', 'experiments', 'database', 'analysis', 'drafts', 'activity']);
     const tab = match[2] && tabs.has(match[2]) ? match[2] : 'structure';
     return { kind: 'research-project', id: match[1], tab };
   }
