@@ -107,12 +107,14 @@ class ResearchAdvancedTests(TestCase):
             'columns': ['secret'],
         }]},
     )
+    @patch('core.project_external_datasets.connections')
     @patch('core.project_external_datasets._read_approved_rows')
-    def test_external_data_is_exactly_whitelisted_and_read_only(self, reader):
+    def test_external_data_is_exactly_whitelisted_and_read_only(self, reader, connections):
         ProjectProviderBinding.objects.create(
             project=self.project, kind='remote_db', credential_alias='lab',
             configured_by=self.owner,
         )
+        connections.databases = {'default': {}, 'research_lab': {}}
         reader.return_value = [{'result': 12.5, 'sample_id': 'A'}]
         listing = self.client.get(self.root + 'tools/external/datasets/')
         self.assertEqual(listing.status_code, 200, listing.content)
