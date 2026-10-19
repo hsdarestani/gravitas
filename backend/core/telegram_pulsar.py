@@ -599,8 +599,12 @@ def welcome_message(user, lang='fa'):
 def _report_proposal(user, text, source_key=None):
     """Use the durable, revisioned daily report flow for existing task logs."""
     from .telegram_work_reports import preview
-    from .work_reports import propose
-    return preview(propose(user, text, source='telegram', source_key=source_key))
+    from .work_reports import propose, parse_work_date_prefix
+    try:
+        day, work = parse_work_date_prefix(text, user)
+    except ValueError as exc:
+        return {'text': f'Invalid work date: {exc}. Use YYYY-MM-DD or a recent relative date.'}
+    return preview(propose(user, work, source='telegram', source_key=source_key, report_date=day))
 
 
 def handle_message(user, text, source_key=None):
