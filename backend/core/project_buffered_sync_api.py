@@ -190,6 +190,7 @@ def project_draft_push(request, project_id, file_id):
         saved = guarded_put(project, cloud.project_mountpoint(project) + '/' + file.path, output, remote['etag'])
         if not saved:
             latest = _remote(project, file)
+            transaction.set_rollback(True)
             return _error('remote_conflict', 409, conflict={
                 'base': draft.base_content, 'mine': draft.content,
                 'remote': latest['content'] if latest else '',
