@@ -434,12 +434,10 @@ def _send_telegram(row):
     if row.event_type == 'daily.checkin':
         payload['reply_markup'] = {'inline_keyboard': [[{'text': 'Write daily report · گزارش روزانه', 'callback_data': 'wr:start'}]]}
     _telegram_api('sendMessage', payload)
-    if row.event_type == 'daily.checkin':
-        from .operating_models import TelegramPulsarSession
-        session, _ = TelegramPulsarSession.objects.get_or_create(user=row.recipient)
-        if not session.state:
-            session.state = {'mode': 'daily_checkin'}
-            session.save(update_fields=['state', 'updated_at'])
+    # Merely delivering an automatic reminder MUST NOT arm daily-report mode.
+    # Previously an idle notification silently turned the user's next
+    # unrelated Telegram question into an activity report. Only tapping
+    # the explicit Write daily report button or /report starts that workflow.
     return 'sent'
 
 
