@@ -116,6 +116,15 @@ export function taskSourceRecords(metadata) {
     : [];
 }
 
+// Every task editor can be opened without fetching the complete Core board.
+// Prefer explicit detail choices, then cached board choices, then the known
+// public enum labels. Missing optional metadata must not hide a saved task.
+export function taskCardOptions(detailValues, boardValues, fallbackRows) {
+  if (Array.isArray(detailValues) && detailValues.length) return detailValues;
+  if (Array.isArray(boardValues) && boardValues.length) return boardValues;
+  return fallbackRows.map(([value, label]) => ({ value, label }));
+}
+
 export function failure(what, err, retry) {
   const wrap = el('div', 'ws-alert');
   wrap.append(el('p', 'ws-alert__title', `Could not load ${what}`));
@@ -196,6 +205,13 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   const holder = el('div');
   doc.append(holder);
   skeleton(8, holder);
+
+  const PRIORITY_COLUMNS = [
+    ['p0', 'P0 · Critical'],
+    ['p1', 'P1 · High'],
+    ['p2', 'P2 · Normal'],
+    ['p3', 'P3 · Low'],
+  ];
 
   const STATUS_COLUMNS = [
     ['draft', 'Backlog'],
@@ -946,8 +962,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       const form = el('form', 'task-board__form');
       const title = input('text', task.title);
       const description = textarea(task.description, 5);
-      const priority = select((detailData.priorities || state.priorities).map((item) => [item.value, item.label]), task.priority);
-      const status = select((detailData.statuses || state.statuses).map((item) => [item.value, item.label]), task.status);
+      const priorityChoices = taskCardOptions(detailData.priorities, state.priorities, PRIORITY_COLUMNS);
+      const statusChoices = taskCardOptions(detailData.statuses, state.statuses, STATUS_COLUMNS);
+      const priority = select(priorityChoices.map((item) => [item.value, item.label]), task.priority);
+      const status = select(statusChoices.map((item) => [item.value, item.label]), task.status);
       const owner = select(optionRows(detailData.members || state.members, 'Choose owner', 'name'), task.owner?.id);
       const keyResult = select(
         [['', 'Choose key result'], ...(detailData.key_results || state.key_results || []).map((item) => [

@@ -342,6 +342,10 @@ def task_board_detail(request, task_id):
             'ok': True,
             'task': _task_json(task),
             'can_delete': _can_manage_workspace(request.user, workspace),
+            # The task detail dialog also opens directly from Research, where no
+            # full Core board was loaded to provide these select options.
+            'statuses': [{'value': value, 'label': label} for value, label in WorkStatus.choices],
+            'priorities': [{'value': value, 'label': label} for value, label in Priority.choices],
             **_choices(request, workspace, include_legacy=False),
         })
 
