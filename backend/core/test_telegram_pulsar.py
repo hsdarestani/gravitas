@@ -259,6 +259,51 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         self.assertNotIn('reply_markup', reply[0])
         self.assertEqual(OperatingTask.objects.count(), 0)
 
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    def test_multi_command_combines_related_telegram_messages_one_ai_context(self, complete, configured):
+        from .telegram_pulsar import handle_message
+        started = handle_message(self.user, '/multi')
+        self.assertIn('/done', started[0]['text'])
+        handle_message(self.user, 'Prepare a report of research tools')
+        added = handle_message(self.user, 'Include only confirmed tools and sources')
+        self.assertIn('2 messages', added[0]['text'])
+        complete.assert_not_called()
+        combined = 'Prepare a report of research tools\nInclude only confirmed tools and sources'
+
+        def answer(**kwargs):
+            self.assertIn(combined, kwargs['user'])
+            return json.dumps({
+                'intent': 'create_tasks',
+                'tasks': [{
+                    'title': 'Prepare validated tool report',
+                    'description': 'Research tools with verified sources',
+                    'definition_of_done': 'A report is shared',
+                    'owner_id': self.user.pk,
+                    'key_result_id': None,
+                }],
+            })
+
+        complete.side_effect = answer
+        result = handle_message(self.user, '/done', source_key='chat:combined:3')
+        self.assertIn('Prepare validated tool report', result[0]['text'])
+        self.assertEqual(complete.call_count, 1)
+        self.assertEqual(OperatingTask.objects.count(), 0)
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'confirm')
+
+    def test_multi_command_does_not_discard_existing_task_draft(self):
+        with patch('core.telegram_pulsar.complete', return_value=json.dumps({
+            'intent': 'create_tasks',
+            'tasks': [{'title': 'Draft a review outline',
+                       'definition_of_done': 'Outline complete',
+                       'owner_id': self.user.pk}],
+        })):
+            handle_message(self.user, 'Draft a review outline')
+        before = TelegramPulsarSession.objects.get(user=self.user).state.copy()
+        warning = handle_message(self.user, '/multi')
+        self.assertIn('current draft', warning[0]['text'])
+        self.assertEqual(before, TelegramPulsarSession.objects.get(user=self.user).state)
+
     def test_evidence_upload_attaches_to_selected_task_and_retries_safely(self):
         import tempfile
         from pathlib import Path
