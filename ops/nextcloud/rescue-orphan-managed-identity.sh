@@ -4,13 +4,13 @@
 set -euo pipefail
 umask 077
 
-USER_ID="\${1:-}"
+USER_ID="${1:-}"
 if [[ ! "$USER_ID" =~ ^gravitas-u-[0-9]+$ ]] || [[ "$(id -u)" -ne 0 ]]; then
   echo "Requires root and an explicit managed Nextcloud account" >&2
   exit 2
 fi
-NC_CONTAINER="\${NC_CONTAINER:-gravitas-nextcloud}"
-NC_DB_CONTAINER="\${NC_DB_CONTAINER:-gravitas-nextcloud-db}"
+NC_CONTAINER="${NC_CONTAINER:-gravitas-nextcloud}"
+NC_DB_CONTAINER="${NC_DB_CONTAINER:-gravitas-nextcloud-db}"
 exec 9>/run/gravitas-nextcloud-identity.lock
 flock -w 120 9
 occ() { docker exec -u www-data "$NC_CONTAINER" php occ "$@"; }
