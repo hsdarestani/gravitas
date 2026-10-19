@@ -11,7 +11,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261016-task1';
-import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261019-tools1';
+import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
 
 let go = (path) => location.assign(path);
 
