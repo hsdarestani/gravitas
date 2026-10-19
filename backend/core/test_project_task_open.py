@@ -87,7 +87,14 @@ assert.doesNotMatch(comments, /await reloadBoard\(/);
 const assistant = fs.readFileSync('assets/ws/ws-ai.js', 'utf8');
 assert.match(assistant, /reply\.intent === 'navigation' \? \[\]/);
 const boot = fs.readFileSync('workspace.html', 'utf8');
-assert.match(boot, /20261019taskpulsar2/);
+assert.match(boot, /ws-ai\\.js\\?v=20261016-task1&patch=20261019ri4/);
+const dashboard = fs.readFileSync('assets/ws/ws-home.js', 'utf8');
+assert.match(dashboard, /research-intelligence-title/);
+assert.match(dashboard, /sectionHeading\\.scrollIntoView/);
+assert.match(assistant, /Research Intelligence is in Research Workspace/);
+assert.match(assistant, /research-intelligence-title/);
+assert.match(assistant, /intent: 'navigation'/);
+assert.match(boot, /ws-home\\.js\\?v=20261016-task1&patch=20261019ri4/);
 """
         result = subprocess.run(
             ['node', '--input-type=module', '-e', script],
