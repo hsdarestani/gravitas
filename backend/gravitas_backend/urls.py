@@ -29,6 +29,7 @@ from core.pulsar_agent_api import pulsar_agent_run
 from core.pulsar_schedule_api import pulsar_reminders, pulsar_reminder_detail
 from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
+from core.project_integrations import project_integration_catalog, start_first_research_project
 from core.research_deliverable_api import project_deliverable_detail
 from core.research_intelligence_api import research_intelligence, research_intelligence_saved, research_intelligence_sources
 from core.research_milestone_api import project_milestone_detail, project_milestones
@@ -105,6 +106,9 @@ urlpatterns = [
     # Space-aware project creation is canonical for the workspace UI. Existing
     # integrations that omit space_category_id are delegated unchanged to the
     # legacy platform creator.
+    # A new verified account may inspect the public tool catalog before its first project.
+    path('api/platform/project-integrations/', project_integration_catalog),
+    path('api/platform/research/start-project/', start_first_research_project),
     path('api/platform/projects/', require_research_or_core(platform_projects_with_space)),
     # Threaded document annotations are separate from general project
     # discussion and inherit the project's Research/Core product gate.

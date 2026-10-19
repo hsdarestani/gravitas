@@ -36,6 +36,8 @@ def project_markdown(project, space_user):
         currency=getattr(profile, 'currency', ''),
         compensation_text=getattr(profile, 'compensation_text', ''),
         required_skills=getattr(profile, 'required_skills', []),
+        selected_integrations=getattr(profile, 'selected_integrations', []),
+        requested_plugins=getattr(profile, 'requested_plugins', []),
         application_open=getattr(profile, 'application_open', False),
         secure_data_room=getattr(profile, 'secure_data_room', False),
         allow_public_links=getattr(profile, 'allow_public_links', False),

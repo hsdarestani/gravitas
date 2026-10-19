@@ -16,7 +16,7 @@ import * as C from './ws-charts.js?v=20261016-task1';
 import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261016-task1&patch=20261019modals2';
 import { availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import * as K from './ws-kms.js?v=20261016-task1';
-import { researchCreateBar } from './ws-research-create.js?v=20261016-task1';
+import { researchCreateBar, openProjectCreator } from './ws-research-create.js?v=20261016-task1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -400,12 +400,31 @@ function upNextPanel(meetings, ctx) {
 }
 
 function projectsPanel(projects, ctx) {
-  const box = card('Projects', 'Owned or joined, by deadline', linkBtn('All projects', '/workspace/research/projects', ctx));
-
+  const hasResearch = P.canOpenResearch();
+  const box = card('Projects', 'Owned or joined, by deadline',
+    hasResearch ? linkBtn('All projects', '/workspace/research/projects', ctx) : null);
   if (!projects.length) {
     box.body.append(C.note('No projects yet. Projects you own or have been added to appear here.'));
-    return box;
   }
+  if (!hasResearch) {
+    // An active new account deliberately opts into Research by creating its
+    // first *owned* project. The backend still applies the project ACL to all
+    // other research content and respects explicit Research suspensions.
+    const start = el('button', 'ws-btn ws-btn--solid', 'Start a research project');
+    start.type = 'button';
+    start.addEventListener('click', async () => {
+      start.disabled = true;
+      try {
+        await openProjectCreator({ onboarding: true });
+      } catch (error) {
+        box.body.append(C.note(error?.message || 'Project setup is currently unavailable.'));
+      } finally {
+        start.disabled = false;
+      }
+    });
+    box.body.append(start);
+  }
+  if (!projects.length) return box;
 
   collapsible(box.body, projects, 4, (project) => C.listItem({
     title: project.title,

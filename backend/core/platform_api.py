@@ -53,6 +53,7 @@ from .platform_models import (
     ShareLink,
     WorkspaceProfile,
 )
+from .project_integrations import validate_project_tools
 from .workspace_api import provision_personal_workspace
 
 
@@ -299,6 +300,9 @@ def _project_json(project, user=None, *, include_detail=False, read_only=False):
         'currency': profile.currency,
         'compensation_text': profile.compensation_text,
         'required_skills': profile.required_skills,
+        'selected_integrations': profile.selected_integrations,
+        'requested_plugins': profile.requested_plugins,
+        'integration_connection_state': 'setup_required',
         'application_open': profile.application_open,
         'public_slug': profile.public_slug,
         'secure_data_room': profile.secure_data_room,
@@ -530,6 +534,10 @@ def platform_projects(request):
         deadline = _parse_date(data.get('deadline'))
     except ValueError as exc:
         return _error(str(exc))
+    try:
+        selected_integrations, requested_plugins = validate_project_tools(data)
+    except ValueError as exc:
+        return _error(str(exc))
     with transaction.atomic():
         project = ResearchProject.objects.create(
             workspace=research,
@@ -554,6 +562,8 @@ def platform_projects(request):
             deadline=deadline,
             compensation_text=str(data.get('compensation_text', '')).strip()[:240],
             required_skills=_list(data.get('required_skills')),
+            selected_integrations=selected_integrations,
+            requested_plugins=requested_plugins,
             application_open=bool(data.get('application_open')),
             public_slug=public_slug,
             nextcloud_root=f'GRV-{project.pk:06d}',
@@ -651,6 +661,16 @@ def platform_project_detail(request, project_id):
         return JsonResponse({'ok': True})
 
     data = _body(request)
+    if 'selected_integrations' in data or 'requested_plugins' in data:
+        try:
+            selected_integrations, requested_plugins = validate_project_tools({
+                'selected_integrations': data.get('selected_integrations', profile.selected_integrations),
+                'requested_plugins': data.get('requested_plugins', profile.requested_plugins),
+            })
+        except ValueError as exc:
+            return _error(str(exc))
+        profile.selected_integrations = selected_integrations
+        profile.requested_plugins = requested_plugins
     if 'title' in data:
         project.title = str(data['title']).strip()[:220]
         if not project.title:
