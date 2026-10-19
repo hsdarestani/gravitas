@@ -33,7 +33,7 @@ class OperationalProjectToolsTests(TestCase):
     def post(self, url, payload):
         return self.client.post(url, json.dumps(payload), content_type='application/json')
 
-    def patch(self, url, payload):
+    def patch_json(self, url, payload):
         return self.client.patch(url, json.dumps(payload), content_type='application/json')
 
     def test_project_tool_status_reveals_only_saved_selection(self):
@@ -93,12 +93,12 @@ class OperationalProjectToolsTests(TestCase):
         self.assertEqual(row.json()['row']['revision'], 1)
         current = self.client.get(path)
         self.assertEqual(current.json()['rows'][0]['values']['reading'], 12.25)
-        saved = self.patch(path + f'{row_id}/', {
+        saved = self.patch_json(path + f'{row_id}/', {
             'values': {'sample': 'Sample 01', 'reading': 14.0}, 'expected_revision': 1,
         })
         self.assertEqual(saved.status_code, 200, saved.content)
         self.assertEqual(saved.json()['row']['revision'], 2)
-        conflict = self.patch(path + f'{row_id}/', {
+        conflict = self.patch_json(path + f'{row_id}/', {
             'values': {'reading': 15}, 'expected_revision': 1,
         })
         self.assertEqual(conflict.status_code, 409)
@@ -159,7 +159,7 @@ class OperationalProjectToolsTests(TestCase):
         table = self.post(self.base + 'tools/data/tables/', {
             'name': 'Stored', 'columns': [{'key': 'sample', 'type': 'text'}],
         }).json()['table']
-        change = self.patch(self.base, {'selected_integrations': ['lab_journal']})
+        change = self.patch_json(self.base, {'selected_integrations': ['lab_journal']})
         self.assertEqual(change.status_code, 200, change.content)
         self.assertEqual(self.client.get(self.base + 'tools/data/tables/').status_code, 200)
         write = self.post(self.base + f'tools/data/tables/{table["id"]}/rows/', {'values': {'sample': 'A'}})
