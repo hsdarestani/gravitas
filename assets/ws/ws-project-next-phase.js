@@ -197,6 +197,40 @@ export async function renderProjectDrafts(doc, projectId, project) {
           } catch (err) { state.textContent = detail(err); resolve.disabled = false; }
         }, true);
         collision.append(theirs, el('small', 'Your reviewed final content'), mine, resolve);
+        // Private Pulsar is never called automatically. The user must check
+        // explicit consent for this single conflict, and then review its
+        // suggested text before saving and separately pushing.
+        try {
+          const capability = await P.call(api('private-merge/'));
+          if (capability.available) {
+            const consent = el('label', '', 'ws-live-tool__consent');
+            const tick = document.createElement('input');
+            tick.type = 'checkbox';
+            const explanation = el('span', 'I consent to send these versions to the locally hosted Pulsar model for this one suggestion.');
+            consent.append(tick, explanation);
+            const suggestionStatus = el('small');
+            const suggest = button('Suggest merge with private Pulsar', async () => {
+              if (!tick.checked) {
+                suggestionStatus.textContent = 'Explicit consent is required.';
+                return;
+              }
+              suggest.disabled = true;
+              try {
+                const answer = await P.call(api('private-merge/'), {
+                  method: 'POST', body: { consent: true, revision: draft.revision },
+                });
+                if (answer.remote_etag !== conflict.etag) {
+                  suggestionStatus.textContent = 'Remote file changed again. Recheck before merging.';
+                } else {
+                  mine.value = answer.suggestion;
+                  suggestionStatus.textContent = 'Proposal only. Review text, then save the merge; Push is a separate action.';
+                }
+              } catch (err) { suggestionStatus.textContent = 'Private model unavailable: ' + detail(err); }
+              suggest.disabled = false;
+            });
+            collision.append(consent, suggest, suggestionStatus);
+          }
+        } catch (_) { /* No private model: keep manual merge available. */ }
         state.textContent = 'Changes conflict. Nothing was pushed.';
       } else state.textContent = 'Push stopped: ' + detail(error);
     } finally { push.disabled = false; }
