@@ -169,6 +169,14 @@ jobs:
           const failedSameOriginRequests = [];
 
           page.on('pageerror', error => pageErrors.push(String(error)));
+          page.on('response', response => {
+            try {
+              const target = new URL(response.url());
+              if (target.origin === base && response.status() >= 500) {
+                failedSameOriginRequests.push(`${response.request().method()} ${target.pathname}: HTTP ${response.status()}`);
+              }
+            } catch (_) {}
+          });
           page.on('requestfailed', request => {
             try {
               const target = new URL(request.url());
@@ -179,6 +187,10 @@ jobs:
               // that browser-level cancellation; API and all other same-origin
               // failures remain fatal production signals.
               if (request.resourceType() === 'font' && failure === 'net::ERR_ABORTED') return;
+          // A read-only auth snapshot may be abandoned on successful page
+          // navigation. This is a browser cancellation, not a server 500.
+          if (failure === 'net::ERR_ABORTED' && request.method() === 'GET'
+              && target.pathname === '/api/auth/me/') return;
               failedSameOriginRequests.push(`${request.method()} ${target.pathname}: ${failure}`);
             } catch (_) {}
           });

@@ -65,13 +65,15 @@ jobs:
               -H 'Content-Type: application/json' -H "X-CSRFToken: $csrf" -H "Referer: $REFERER" --data "$data"
           }
           delete_account() {
-            local jar="$1" csrf
+            local jar="$1" csrf status
             test -s "$jar" || return 0
             csrf="$(awk '$6=="csrftoken" {print $7}' "$jar" | tail -n1)"
             test -n "$csrf" || return 0
-            curl -4 -fsS -b "$jar" -X POST "$BASE/api/auth/delete/" \
+            status="$(curl -4 -sS -o /dev/null -w '%{http_code}' -b "$jar" -X POST "$BASE/api/auth/delete/" \
               -H 'Content-Type: application/json' -H "X-CSRFToken: $csrf" -H "Referer: $REFERER" \
-              --data "{\"password\":\"$PASSWORD\",\"confirmation\":\"delete\"}" >/dev/null || true
+              --data "{\"password\":\"$PASSWORD\",\"confirmation\":\"delete\"}")"
+            echo "workspace-stage=account-deletion status=$status"
+            [[ "$status" == 200 || "$status" == 409 ]]
           }
           trap 'delete_account "$JAR_A"; delete_account "$JAR_B"' EXIT
 
@@ -156,7 +158,7 @@ jobs:
           echo 'workspace-stage=health'
           curl -4 -fsS "$BASE/api/health/" -o "$RUNNER_TEMP/health.json"
           echo 'workspace-stage=content-assertions'
-          grep -qi 'Gravitas' "$RUNNER_TEMP/home.html"
+          grep -Eqi 'GraviQuest|Gravitas' "$RUNNER_TEMP/home.html"
           grep -qi 'Create an account' "$RUNNER_TEMP/account.html"
           # The current workspace is the five-layer shell; assert stable
           # structural markers instead of copy from the retired shell.
