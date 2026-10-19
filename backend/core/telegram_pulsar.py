@@ -584,7 +584,7 @@ def help_message(lang='fa'):
     return {'text': _say(
         lang,
         'من Pulsar هستم. تسک‌های جدید رو پیشنهاد می‌دم و برای فعالیت‌های انجام‌شده لاگ قابل تأیید می‌سازم. KR رو خودم تطبیق می‌دم.\n\n/new — تسک جدید\n/report — ثبت فعالیت\n/tasks — تسک‌های باز من\n/cancel — لغو پیش‌نویس\n/help — راهنما',
-        'I am Pulsar. Send new tasks or progress updates naturally. I will match KRs and format activity logs for approval.\n\n/new — new task\n/report — log progress\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
+        'I am Pulsar. Send new tasks or progress updates naturally. I will match KRs and format activity logs for approval.\n\n/new — new task\n/multi — combine consecutive messages\n/reportmulti YYYY-MM-DD — combine dated work updates\n/reports — recent reports\n/report — log progress\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
     )}
 
 
@@ -619,6 +619,43 @@ def handle_message(user, text, source_key=None):
         ctx = _context(user)
     except PermissionError:
         return [{'text': _say(lang, 'این اکانت Core Workspace access نداره.', 'This account has no Core Workspace access.')}]
+
+    # Opt-in multiline composition: the user can send related messages in any
+    # order and ask Pulsar to interpret them ONCE, not as unrelated tasks.
+    # No delayed/background batching can safely guess when the user is done.
+    session_for_multi = _session(user)
+    multi_state = session_for_multi.state or {}
+    if text.lower() in {'/multi', '/collect'}:
+        if multi_state.get('mode') and multi_state.get('mode') != 'collect':
+            return [{'text': _say(lang,
+                'اول پیش‌نویس فعلی را تأیید یا /cancel کن.',
+                'Confirm or /cancel the current draft before starting a combined message.')}]
+        _store(session_for_multi, {'mode': 'collect', 'parts': [], 'language': lang})
+        return [{'text': _say(lang,
+            'پیام‌های مرتبط را پشت سر هم بفرست. در پایان /done بزن تا همه را یکجا بفهمم و یک پیش‌نویس نشان بدهم.',
+            'Send related messages. Use /done when finished so I can interpret them together and show one preview.')}]
+    if multi_state.get('mode') == 'collect':
+        if text.lower() == '/cancel':
+            _store(session_for_multi, {})
+            return [{'text': _say(lang, 'پیش‌نویس چندپیامی لغو شد.', 'Combined draft cancelled.')}]
+        if text.lower() == '/done':
+            parts = multi_state.get('parts') or []
+            if not parts:
+                return [{'text': _say(lang, 'اول پیام‌ها را بفرست.', 'Send some messages first.')}]
+            combined = '\n'.join(parts)
+            _store(session_for_multi, {})
+            return handle_message(user, combined, source_key=source_key)
+        if text.startswith('/'):
+            return [{'text': _say(lang, 'پیام بعدی را بفرست یا /done یا /cancel بزن.',
+                                  'Send the next message, /done to finish, or /cancel.')}]
+        parts = [*(multi_state.get('parts') or []), text]
+        if len(parts) > 25 or len('\n'.join(parts)) > 16000:
+            return [{'text': _say(lang, 'متن زیاد شد؛ /done بزن.', 'Too much text; use /done now.')}]
+        multi_state['parts'] = parts
+        _store(session_for_multi, multi_state)
+        return [{'text': _say(lang,
+            f'{len(parts)} پیام در یک کانتکست ذخیره شد. ادامه بده یا /done بزن.',
+            f'{len(parts)} messages in one context. Send more or /done.')}]
 
     if text.startswith('/help'):
         return [help_message(lang)]
