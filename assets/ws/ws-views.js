@@ -258,7 +258,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         history.replaceState(history.state, '', url.pathname + url.search + url.hash);
       }
     }
+    if (dialog?._onEscape) document.removeEventListener('keydown', dialog._onEscape, true);
+    const previousFocus = dialog?._previousFocus;
     dialog?.remove();
+    if (previousFocus?.isConnected && typeof previousFocus.focus === 'function') previousFocus.focus();
   }
 
   function makeDialog(title) {
@@ -266,6 +269,18 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
     dialog.tabIndex = -1;
+    dialog._previousFocus = document.activeElement;
+    dialog._onEscape = (event) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      // Project action modals are allowed to close themselves first.
+      if (document.querySelector('[data-project-action-modal]')) return;
+      const openDialogs = document.querySelectorAll('.task-card-dialog');
+      if (openDialogs[openDialogs.length - 1] !== dialog) return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeDialog(dialog);
+    };
+    document.addEventListener('keydown', dialog._onEscape, true);
     const frame = el('div', 'task-card-dialog__frame');
     const head = el('header', 'task-card-dialog__head');
     head.append(el('h2', null, title));
@@ -871,14 +886,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     let detailForFallback = null;
 
     try {
-      const [detailData, boardState] = await Promise.all([
-        P.operatingTaskCard(taskId),
-        typeof state === 'function' ? state() : state,
-      ]);
-      // The detail response carries members, projects and selectors; the
-      // board/dependency response contributes only the task list. Merge both
-      // so off-board task dialogs keep every edit control functional.
-      state = { ...detailData, ...boardState };
+      // Detail is the only blocking request. The dependency index can include
+      // thousands of tasks; waiting for it used to keep the entire card blank.
+      const stateLoader = typeof state === 'function' ? state : null;
+      const detailData = await P.operatingTaskCard(taskId);
+      const boardState = stateLoader ? { tasks: [] } : (state || { tasks: [] });
+      state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
       const task = detailData.task;
       detailForFallback = task;
       head.querySelector('h2').textContent = task.title;
@@ -952,10 +965,28 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       );
       const workPackage = select(optionRows(detailData.work_packages || state.work_packages, 'No work package'), task.work_package_id);
       const project = select(optionRows(detailData.projects || state.projects, 'No Research project'), task.project_id);
+      const initialDependencies = state.tasks.filter((row) => row.id !== task.id);
+      if (task.dependency_id && !initialDependencies.some((row) => String(row.id) === String(task.dependency_id))) {
+        initialDependencies.push({ id: task.dependency_id, title: task.dependency_title || 'Current dependency' });
+      }
       const dependency = select(
-        [['', 'No dependency'], ...state.tasks.filter((row) => row.id !== task.id).map((row) => [row.id, row.title])],
+        [['', 'No dependency'], ...initialDependencies.map((row) => [row.id, row.title])],
         task.dependency_id,
       );
+      if (stateLoader) {
+        Promise.resolve().then(stateLoader).then((response) => {
+          if (!dialog.isConnected) return;
+          const chosen = dependency.value || '';
+          const rows = (response?.tasks || []).filter((row) => row.id !== task.id);
+          if (chosen && !rows.some((row) => String(row.id) === String(chosen))) {
+            rows.push({ id: chosen, title: task.dependency_title || 'Current dependency' });
+          }
+          state.tasks = rows;
+          const updated = select([['', 'No dependency'], ...rows.map((row) => [row.id, row.title])], chosen);
+          dependency.replaceChildren(...updated.children);
+          dependency.value = chosen;
+        }).catch(() => { /* The task remains fully editable if the index fails. */ });
+      }
       const due = input('date', task.due_date || '');
       const done = textarea(task.definition_of_done, 4);
       const blocked = textarea(task.blocked_reason, 3);
@@ -1458,11 +1489,33 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             send.disabled = true;
             try {
               const mentionUserIds = [...selectedMentions.keys()].map((value) => Number(value)).filter(Boolean);
-              await P.addOperatingTaskComment(task.id, comment.value.trim(), mentionUserIds);
+              const result = await P.addOperatingTaskComment(task.id, comment.value.trim(), mentionUserIds);
+              // The POST returns the saved comment. Render it immediately,
+              // without waiting for another GET and a full project reload.
+              const saved = result.comment;
+              if (saved) {
+                const emptyMessage = [...commentsPanel.body.children].find(
+                  (child) => child.textContent === 'No comments yet.'
+                );
+                emptyMessage?.remove();
+                const item = el('article', 'task-card-dialog__message');
+                item.append(el('strong', null, formatActor(saved.author)), el('p', null, saved.body));
+                if ((saved.mentions || []).length) {
+                  const mentions = el('div', 'task-comment__mentions');
+                  for (const person of saved.mentions) {
+                    mentions.append(el('span', 'v-badge task-comment__mention', '@' + (person.name || person.email)));
+                  }
+                  item.append(mentions);
+                }
+                item.append(el('small', 'fl-muted', P.formatDate(saved.created_at)));
+                commentsPanel.body.insertBefore(item, commentForm);
+              }
               comment.value = '';
               selectedMentions.clear();
-              await loadComments();
-              await reloadBoard({ keepDialog: true });
+              drawSelected();
+              drawPeople();
+              commentNote.textContent = 'Comment saved.';
+              send.disabled = false;
             } catch (error) {
               commentNote.textContent = error?.message || 'Comment failed.';
               send.disabled = false;
