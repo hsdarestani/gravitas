@@ -13,7 +13,9 @@ from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
-from django.db import connection
+from django.db import connection, transaction
+from django.db.models.deletion import Collector, ProtectedError, RestrictedError
+from django.db.utils import IntegrityError
 from django.http import HttpResponseRedirect, JsonResponse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -475,6 +477,18 @@ def auth_delete(request):
     if not user.check_password(password):
         return JsonResponse({'ok': False, 'error': 'invalid_credentials'}, status=401)
 
+    # A protected collaboration/Operating record must never turn self-service
+    # account deletion into an unhandled 500. Preflight Django's cascade
+    # before deleting the native Nextcloud identity or invalidating a session.
+    # This does not delete other users' shared research to bypass PROTECT.
+    try:
+        Collector(using=user._state.db or 'default').collect([user])
+    except (ProtectedError, RestrictedError):
+        return JsonResponse({
+            'ok': False,
+            'error': 'account_has_protected_records',
+        }, status=409)
+
     email = user.email
     identity = getattr(user, 'gravitas_nextcloud', None)
     if identity is not None:
@@ -482,9 +496,19 @@ def auth_delete(request):
             cloud.delete_identity(identity)
         except Exception:
             logger.exception('Could not remove Nextcloud identity for deleted user %s', user.pk)
+    try:
+        with transaction.atomic():
+            NewsletterSubscriber.objects.filter(email__iexact=email).delete()
+            user.delete()
+    except (ProtectedError, RestrictedError, IntegrityError):
+        # Account and subscriber rows survive any late constraint race.
+        logger.warning('Account deletion blocked by dependent records for user %s', user.pk)
+        return JsonResponse({
+            'ok': False,
+            'error': 'account_has_protected_records',
+        }, status=409)
+
     logout(request)
-    NewsletterSubscriber.objects.filter(email__iexact=email).delete()
-    user.delete()
     return JsonResponse({'ok': True, 'deleted': True})
 
 
