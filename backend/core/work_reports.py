@@ -9,7 +9,8 @@ task. Corrections append provenance instead of rewriting confirmed history.
 """
 import json
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
+import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -35,6 +36,58 @@ def report_day(user=None):
     except ZoneInfoNotFoundError:
         zone = ZoneInfo('UTC')
     return timezone.localtime(timezone.now(), zone).date()
+
+
+def parse_work_date_prefix(text, user=None):
+    """Extract an explicit work day (not a task deadline) from message start.
+
+    Only clear, leading date expressions are accepted. Historical reports keep
+    their true submission timestamp; their *work date* is separate.
+    """
+    value = str(text or '').strip()
+    today = report_day(user)
+    patterns = (
+        (r'^(?:on\s+)?(\d{4}-\d{2}-\d{2})(?=$|[\s:،,;])', 'iso'),
+        (r'^(?:today|امروز)(?=$|[\s:،,;])', 0),
+        (r'^(?:yesterday|دیروز)(?=$|[\s:،,;])', 1),
+        (r'^(?:day before yesterday|پریروز)(?=$|[\s:،,;])', 2),
+        (r'^(?:(\d{1,3}|two|three|دو|سه)\s+(?:days?\s+ago|روز\s+پیش))(?=$|[\s:،,;])', 'offset'),
+    )
+    for pattern, offset in patterns:
+        found = re.match(pattern, value, flags=re.I)
+        if not found:
+            continue
+        if offset == 'iso':
+            try:
+                selected = date.fromisoformat(found.group(1))
+            except ValueError:
+                raise ValueError('invalid_work_date') from None
+        elif offset == 'offset':
+            raw = found.group(1).lower()
+            amount = {'two': 2, 'three': 3, 'دو': 2, 'سه': 3}.get(raw)
+            if amount is None:
+                amount = int(raw)
+            selected = today - timedelta(days=amount)
+        else:
+            selected = today - timedelta(days=offset)
+        if not (today - timedelta(days=365) <= selected <= today):
+            raise ValueError('work_date_out_of_range')
+        remainder = value[found.end():].lstrip(' \t\n:،,;.-')
+        return selected, remainder
+    return None, value
+
+
+def validate_work_date(value, user=None):
+    today = report_day(user)
+    if value is None or value == '':
+        return today
+    try:
+        selected = value if isinstance(value, date) and not hasattr(value, 'hour') else date.fromisoformat(str(value))
+    except (ValueError, TypeError):
+        raise ValueError('invalid_work_date') from None
+    if not today - timedelta(days=365) <= selected <= today:
+        raise ValueError('work_date_out_of_range')
+    return selected
 
 
 def my_tasks(user):
@@ -132,11 +185,12 @@ def interpret(user, text):
         return {'summary': text, 'updates': [], 'unmatched_work': text}
 
 
-def propose(user, text, *, source='platform', source_key=None, supersedes=None):
+def propose(user, text, *, source='platform', source_key=None, supersedes=None, report_date=None):
     text = str(text or '').strip()
     if not text or len(text) > 16000:
         raise ValueError('report_text_required_or_too_long')
     my_tasks(user)
+    day = validate_work_date(report_date, user)
     key = str(source_key or uuid.uuid4())[:180]
     existing = DailyWorkReport.objects.filter(user=user, source=source, source_key=key).first()
     if existing:
@@ -145,7 +199,7 @@ def propose(user, text, *, source='platform', source_key=None, supersedes=None):
     if supersedes and (supersedes.user_id != user.pk or supersedes.status != 'confirmed'):
         raise ValueError('invalid_correction')
     report, _ = DailyWorkReport.objects.get_or_create(user=user, source=source, source_key=key,
-        defaults={'report_date': report_day(user), 'original_text': text, 'interpretation': normalize(user, raw), 'supersedes': supersedes})
+        defaults={'report_date': day, 'original_text': text, 'interpretation': normalize(user, raw), 'supersedes': supersedes})
     return report
 
 
@@ -200,7 +254,7 @@ def decide(user, report_id, revision, action, interpretation=None):
                 subject_user=user, object_type='operating_task', object_id=task.pk,
                 detail={'report_id': str(report.pk), 'title': task.title, 'source': report.source,
                         'provenance': 'Confirmed by user', 'suggestion': 'Suggested by Pulsar',
-                        'before_status': before, **update})
+                        'before_status': before, 'work_date': report.report_date.isoformat(), **update})
         report.status, report.confirmed_at = 'confirmed', timezone.now()
     else:
         raise ValueError('invalid_action')
@@ -241,7 +295,7 @@ def reports_api(request):
                 prior = DailyWorkReport.objects.filter(pk=data['supersedes'], user=request.user, status='confirmed').first()
                 if prior is None:
                     raise ValueError('confirmed_report_required_for_correction')
-            report = propose(request.user, data.get('text'), source_key=data.get('source_key'), supersedes=prior)
+            report = propose(request.user, data.get('text'), source_key=data.get('source_key'), supersedes=prior, report_date=data.get('report_date'))
             return JsonResponse({'ok': True, 'report': report_json(report)}, status=201)
         reports = DailyWorkReport.objects.filter(user=request.user).select_related('user')
         if request.GET.get('date'):
