@@ -239,6 +239,8 @@ def project_plugin_states(request, project_id):
             state = 'last_verified' if valid else 'ready'
         elif item == 'lab_journal':
             mode, state = 'append_only', 'ready'
+        elif item in {'data_analysis', 'compute', 'machine_learning'}:
+            mode, state = 'bounded_builtin', 'ready'
         else:
             mode, state = 'not_installed', 'setup_required'
         plugins.append({'id': item, 'mode': mode, 'state': state})
