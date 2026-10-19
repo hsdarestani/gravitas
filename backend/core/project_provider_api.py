@@ -225,13 +225,21 @@ def project_plugin_states(request, project_id):
     plugins = []
     for item in selected:
         if item == 'git':
-            mode = 'private_read_only' if 'private_git' in bindings else 'public_or_setup'
+            bound = bindings.get('private_git')
+            grants = getattr(settings, 'GRAVITAS_PROJECT_GITHUB_ALLOWED_REPOS', {})
+            valid = bool(bound and bound.credential_alias in _aliases('private_git')
+                         and isinstance(grants, dict)
+                         and bound.resource in grants.get(bound.credential_alias, []))
+            mode = 'private_read_only' if valid else 'public_or_setup'
+            state = 'last_verified' if valid else 'setup_required'
         elif item == 'database':
-            mode = 'external_connection_check_only' if 'remote_db' in bindings else 'managed_private_tables'
+            bound = bindings.get('remote_db')
+            valid = bool(bound and bound.credential_alias in _aliases('remote_db'))
+            mode = 'external_connection_check_only' if valid else 'managed_private_tables'
+            state = 'last_verified' if valid else 'ready'
         elif item == 'lab_journal':
-            mode = 'append_only'
+            mode, state = 'append_only', 'ready'
         else:
-            mode = 'not_installed'
-        plugins.append({'id': item, 'mode': mode,
-                        'state': 'setup_required' if mode == 'not_installed' or mode == 'public_or_setup' else 'ready'})
+            mode, state = 'not_installed', 'setup_required'
+        plugins.append({'id': item, 'mode': mode, 'state': state})
     return JsonResponse({'ok': True, 'plugins': plugins})
