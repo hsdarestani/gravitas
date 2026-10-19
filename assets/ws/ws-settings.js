@@ -19,7 +19,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261016-task1';
-import { el, panel, empty, skeleton, failure } from './ws-views.js?v=20261016-task1&patch=20261019card1';
+import { el, panel, empty, skeleton, failure } from './ws-views.js?v=20261016-task1&patch=20261019modals2';
 import { WEATHER_PLACES, weatherPlace, weatherEnabled } from './ws-home.js?v=20261016-task1';
 import { cropAvatar } from './ws-avatar-crop.js?v=20261016-task1';
 

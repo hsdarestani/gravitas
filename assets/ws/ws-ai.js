@@ -126,7 +126,7 @@ async function ask(question) {
     links: sources.map((source) => ({ label: source.project ? `${source.project} · ${source.title}` : source.title, href: source.href || `/workspace/page/${source.id}` })),
     // Only offered when there is something concrete to turn into a task, so
     // the button is never a dead end.
-    actions: sources.length ? [saveAsTask(question)] : [],
+    actions: reply.intent === 'navigation' ? [] : sources.length ? [saveAsTask(question)] : [],
   };
 }
 

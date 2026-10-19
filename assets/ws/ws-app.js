@@ -20,12 +20,12 @@
    ========================================================================== */
 
 import * as notes from './ws-notes-store.js?v=20261016-task1';
-import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261016-task1&patch=20261019card1';
+import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261016-task1&patch=20261019modals2';
 import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1';
 import { renderCoreTeam } from './ws-core-team.js?v=20261016-task1';
 import { renderCoreContent } from './ws-core-content-actions.js?v=20261016-task1';
-import * as views from './ws-views.js?v=20261016-task1&patch=20261019card1';
+import * as views from './ws-views.js?v=20261016-task1&patch=20261019modals2';
 import * as meetings from './ws-meetings.js?v=20261016-task1';
 import * as assets from './ws-core-assets.js?v=20261016-task1';
 import * as kms from './ws-kms-views.js?v=20261016-task1';
@@ -35,10 +35,10 @@ import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf, SPACE_LABEL,
 } from './ws-nav.js?v=20261016-task1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261016-task1&patch=20261019card1';
-import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261016-task1&patch=20261019card1';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261016-task1&patch=20261019modals2';
+import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261016-task1&patch=20261019modals2';
 import { mountPalette, openPalette } from './ws-palette.js?v=20261016-task1';
-import { installAssistant, askAssistant, assistantContext } from './ws-ai.js?v=20261016-task1';
+import { installAssistant, askAssistant, assistantContext } from './ws-ai.js?v=20261016-task1&patch=20261019pulsar1';
 import { installSelects } from './ws-select.js?v=20261016-task1';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');

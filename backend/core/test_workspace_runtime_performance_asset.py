@@ -32,8 +32,11 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         views = self.read('ws-views.js')
         platform = self.read('ws-platform.js')
         self.assertIn('P.operatingTaskDependencies()', views)
-        self.assertIn('state = { ...detailData, ...boardState }', views)
-        self.assertIn('const [detailData, boardState] = await Promise.all', views)
+        self.assertIn('const detailData = await P.operatingTaskCard(taskId)', views)
+        self.assertIn('Promise.resolve().then(stateLoader)', views)
+        self.assertNotIn('const [detailData, boardState] = await Promise.all', views)
+        self.assertIn('Comment saved.', views)
+        self.assertNotIn('await reloadBoard({ keepDialog: true });\n            } catch (error) {\n              commentNote', views)
         self.assertIn('setTimeout(() => {', views)
         self.assertIn("'/operating/task-board/?mode=dependencies'", platform)
 

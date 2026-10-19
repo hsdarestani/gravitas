@@ -35,6 +35,19 @@ class CanonicalRequestScopeTests(TestCase):
         request.user = self.user
         self.assertEqual(project_scope_for(request, {}), {77})
 
+
+    def test_task_comment_requests_use_scoped_refresh_not_project_crawl(self):
+        # Task-owned auxiliary endpoints should share the same narrow
+        # canonical refresh path as task-board edits. A full DAV project
+        # refresh before every comment turns one POST into hundreds of reads.
+        from pathlib import Path
+        source = (Path(__file__).parent / 'canonical_middleware.py').read_text()
+        self.assertIn(
+            r"/api/operating/tasks/\d+/(?:comments|checklist|attachments|history)/",
+            source,
+        )
+        self.assertIn('refresh_task_scope(state.project, request.user, view_kwargs.get', source)
+
     def test_post_body_project_scoped_without_crawling_others(self):
         request = self.factory.post(
             '/api/platform/tasks/', data=json.dumps({'project_id': 208, 'title': 'test'}),

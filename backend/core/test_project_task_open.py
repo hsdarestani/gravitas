@@ -49,14 +49,45 @@ assert.doesNotMatch(source, /The server did not answer\. Nothing has been change
 const project = fs.readFileSync('assets/ws/ws-project-actions.js', 'utf8');
 const boot = fs.readFileSync('assets/ws/ws-app.js', 'utf8');
 const page = fs.readFileSync('workspace.html', 'utf8');
-assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261019card1/);
-assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261019card1/);
-assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261019card1/);
+assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261019modals2/);
+assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261019modals2/);
+assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261019taskpulsar2/);
 const five = fs.readFileSync('assets/ws/ws-five-layer.js', 'utf8');
 const projectView = fs.readFileSync('assets/ws/ws-project.js', 'utf8');
-assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261019card1/);
-assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261019card1/);
-assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261019card1/);
+assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261019modals2/);
+assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261019modals2/);
+assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261019modals2/);
+"""
+        result = subprocess.run(
+            ['node', '--input-type=module', '-e', script],
+            cwd=root, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_escape_closes_task_dialog_and_comments_update_without_full_refresh(self):
+        root = Path(__file__).resolve().parents[2]
+        script = r"""
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const views = fs.readFileSync('assets/ws/ws-views.js', 'utf8');
+assert.match(views, /dialog\._onEscape = \(event\) =>/);
+assert.match(views, /event\.key !== 'Escape'/);
+assert.match(views, /document\.addEventListener\('keydown', dialog\._onEscape, true\)/);
+assert.match(views, /document\.removeEventListener\('keydown', dialog\._onEscape, true\)/);
+assert.match(views, /const detailData = await P\.operatingTaskCard\(taskId\)/);
+assert.match(views, /Promise\.resolve\(\)\.then\(stateLoader\)/);
+assert.doesNotMatch(views, /const \[detailData, boardState\] = await Promise\.all/);
+const comments = views.slice(
+  views.indexOf("commentForm.addEventListener('submit'"),
+  views.indexOf("const loadAttachments = async")
+);
+assert.match(comments, /const result = await P\.addOperatingTaskComment/);
+assert.match(comments, /commentsPanel\.body\.insertBefore\(item, commentForm\)/);
+assert.doesNotMatch(comments, /await reloadBoard\(/);
+const assistant = fs.readFileSync('assets/ws/ws-ai.js', 'utf8');
+assert.match(assistant, /reply\.intent === 'navigation' \? \[\]/);
+const boot = fs.readFileSync('workspace.html', 'utf8');
+assert.match(boot, /20261019taskpulsar2/);
 """
         result = subprocess.run(
             ['node', '--input-type=module', '-e', script],
