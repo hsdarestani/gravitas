@@ -29,7 +29,7 @@ def handle_report_message(user, text, source_key=None):
     # A pending check-in can stay armed for hours. Do not hijack an
     # unrelated informational question as today's activity report.
     # The user can resume with an explicit /report command.
-    if (state.get('mode') in {'daily_checkin', 'daily_report_edit'} and is_information_request(text):
+    if state.get('mode') in {'daily_checkin', 'daily_report_edit'} and is_information_request(text):
         session.state = {}
         session.save(update_fields=['state', 'updated_at'])
         return None
