@@ -20,7 +20,7 @@
    ========================================================================== */
 
 import * as notes from './ws-notes-store.js?v=20261016-task1';
-import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261016-task1';
+import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261016-task1&patch=20261019card1';
 import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1';
 import { renderCoreTeam } from './ws-core-team.js?v=20261016-task1';
@@ -35,8 +35,8 @@ import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf, SPACE_LABEL,
 } from './ws-nav.js?v=20261016-task1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261016-task1';
-import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261016-task1';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261016-task1&patch=20261019card1';
+import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261016-task1&patch=20261019card1';
 import { mountPalette, openPalette } from './ws-palette.js?v=20261016-task1';
 import { installAssistant, askAssistant, assistantContext } from './ws-ai.js?v=20261016-task1';
 import { installSelects } from './ws-select.js?v=20261016-task1';
