@@ -34,6 +34,14 @@ def health():
     for name in ("gravitas-backend", "nginx", "postgresql", "redis-server"):
         state = run("systemctl", "is-active", name).strip().splitlines()
         print(name, state[0] if state else "unknown")
+    print("=== Backend worker and capacity signals ===")
+    # Only aggregated process counts and totals: do not report arguments, user
+    # IDs, request URLs or secrets.
+    worker_ps = run("pgrep", "-fc", "gunicorn.*django.core.wsgi").strip()
+    print("gunicorn_processes", worker_ps if worker_ps.isdecimal() else "unknown")
+    print("backend_active", run("systemctl", "is-active", "gravitas-backend.service").strip())
+    print("backend_recent_restart_count", run("systemctl", "show", "-p", "NRestarts", "--value",
+                                              "gravitas-backend.service").strip())
     print("=== Capacity ===")
     for cmd in (("uptime",), ("free", "-m"), ("df", "-P", "/")):
         value = run(*cmd).strip()
@@ -49,6 +57,10 @@ def safe_route(path):
     path = path.split('?', 1)[0]
     if path.startswith('/api/platform/nextcloud/notes/'):
         return 'notes-api'
+    if path.startswith('/api/operating/task-board/') or path.startswith('/api/operating/tasks/'):
+        return 'task-board-api'
+    if path.startswith('/api/platform/projects/') and '/tasks/' in path:
+        return 'research-project-task-api'
     if path.startswith('/api/platform/projects/'):
         return 'project-api'
     if path.startswith('/api/platform/anchored-comments/'):
@@ -93,6 +105,8 @@ def web_status():
             if match_time:
                 error_minute[(match_time.group(1), code)] += 1
     print("status_counts", dict(count))
+    print("upstream_bad_gateway", count.get('502', 0),
+          "upstream_gateway_timeout", count.get('504', 0))
     print("server_errors_by_area", dict((f"{group}:{code}", num) for (group,code),num in codes_by_bucket.items()))
     print("recent_5xx_minutes", [dict(minute=minute, status=code, count=count)
                                   for (minute, code), count in error_minute.most_common(25)])
