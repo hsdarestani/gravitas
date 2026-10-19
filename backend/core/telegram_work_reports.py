@@ -92,7 +92,7 @@ def handle_report_message(user, text, source_key=None):
         report = decide(user, report.pk, report.revision, 'edit', raw)
         session.state = {'mode': 'daily_report', 'report_id': str(report.pk)}; session.save(update_fields=['state', 'updated_at'])
         return [preview(report)]
-    if state.get('mode') in {'daily_report', 'daily_report_edit', 'daily_checkin'} and text.startswith('/cancel'):
+    if state.get('mode') in {'daily_report', 'daily_report_edit', 'daily_checkin', 'daily_collect'} and text.startswith('/cancel'):
         report = DailyWorkReport.objects.filter(pk=state.get('report_id'), user=user, status='pending').first()
         if report:
             decide(user, report.pk, report.revision, 'cancel')
