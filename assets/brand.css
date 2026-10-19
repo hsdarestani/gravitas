@@ -705,3 +705,6 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
 }
 .bk-weights--read { font-family: var(--g-font-read); padding-top: var(--g-space-sm); border-top: 1px solid var(--g-hairline); }
 .bk-weights--read small { font-weight: var(--g-w-regular); font-style: normal; }
+
+/* A download in a table is one unit: the label and its size never part. */
+.bk-table a[download] { white-space: nowrap; }
