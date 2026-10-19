@@ -1,4 +1,5 @@
 import json
+import re
 
 from django.http import JsonResponse
 from django.utils import timezone
@@ -6,6 +7,29 @@ from django.views.decorators.http import require_POST
 
 from .pulsar import PLATFORM_CONTEXT, PulsarError, PulsarPermissionError, configured, run_text
 from .pulsar_runtime.context import PulsarContextEngine
+from .pulsar_runtime.profiles import assert_skill_allowed
+
+
+
+def _workspace_navigation(question):
+    """Resolve simple route questions using actual workspace navigation."""
+    phrase = re.sub(r'\\s+', ' ', str(question or '').strip().lower()).strip(' ?!.')
+    if re.search(r'\\bresearch intelligence\\b', phrase) and re.search(
+        r'^(?:where|how|find\\b|open\\b|go to\\b|navigate\\b|show me\\b)', phrase
+    ):
+        return {
+            'ok': True, 'grounded': True, 'intent': 'navigation',
+            'answer': (
+                'Research Intelligence is not a separate item in the current menu. '
+                'Open Research → Overview to explore the research workspace.'
+            ),
+            'sources': [{
+                'kind': 'navigation', 'title': 'Research Overview',
+                'href': '/workspace/research',
+            }],
+            'provider': 'workspace_navigation',
+        }
+    return None
 
 
 @require_POST
@@ -33,6 +57,14 @@ def assistant_ask(request):
         skill = 'research'
         surface = 'research'
 
+    navigation = _workspace_navigation(question)
+    if navigation is not None:
+        try:
+            assert_skill_allowed(request.user, 'research')
+        except PulsarPermissionError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=403)
+        return JsonResponse(navigation)
+
     try:
         package = PulsarContextEngine().workspace(
             request.user,
@@ -57,7 +89,7 @@ def assistant_ask(request):
                 system=(
                     'You are Pulsar inside the authenticated GraviQuest workspace. '
                     'Pulsar is a multi-capability learning and research assistant. '
-                    'Answer in the same language as the user. Be concise, precise and useful. '
+                    'Answer in the same language as the user. Start with the direct answer. For simple questions, use one to three short sentences and no preamble. For navigation questions, state only verified current UI routes; never infer menu locations from historic tasks or document titles. Never append unrelated task-status caveats or generic source explanations. '
                     f'The authoritative current date is {current_date.isoformat()}. '
                     'Never describe another date as today. '
                     f'The authenticated current user is {current_user_label}. '
@@ -80,7 +112,7 @@ def assistant_ask(request):
                         else 'Accessible GraviQuest context: no matching material was found.'
                     )
                 ),
-                max_tokens=1200,
+                max_tokens=550,
                 temperature=0.2,
                 surface=surface,
                 skill=skill,
@@ -99,7 +131,7 @@ def assistant_ask(request):
                 'ok': True,
                 'grounded': True,
                 'answer': result.text,
-                'sources': package.sources,
+                'sources': package.sources[:4],
                 'provider': result.provider,
                 'run_id': result.run_id,
                 'surface': surface,
@@ -126,7 +158,7 @@ def assistant_ask(request):
     return JsonResponse({
         'ok': True,
         'grounded': True,
-        'answer': 'I found the following in your accessible GraviQuest context:\n\n' + package.text[:2400],
-        'sources': package.sources,
+        'answer': 'I found the following in your accessible GraviQuest context:\n\n' + package.text[:800],
+        'sources': package.sources[:4],
         'provider': 'fallback',
     })
