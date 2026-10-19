@@ -83,11 +83,11 @@ class ProjectPrivatePhaseTests(TestCase):
         self.assertEqual(res.status_code, 422)
         self.assertFalse(ProjectProviderBinding.objects.exists())
 
-    def test_unselected_plugins_are_not_executed(self):
+    def test_vetted_compute_plugin_is_available_without_arbitrary_code(self):
         data = self.client.get(self.root + 'tools/plugins/').json()
         plugin = next(p for p in data['plugins'] if p['id'] == 'compute')
-        self.assertEqual(plugin['state'], 'setup_required')
-        self.assertEqual(plugin['mode'], 'not_installed')
+        self.assertEqual(plugin['state'], 'ready')
+        self.assertEqual(plugin['mode'], 'bounded_builtin')
 
     def test_stranger_cannot_see_provider_aliases_or_drafts(self):
         self.client.force_login(self.stranger)
