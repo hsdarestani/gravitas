@@ -123,7 +123,7 @@ function modal(title, build, submitLabel, onSubmit) {
   return layer;
 }
 
-async function openProjectCreator() {
+export async function openProjectCreator({ onboarding = false } = {}) {
   const catalog = await P.call('/platform/project-integrations/');
   modal('New research project', (grid) => {
     const title = input('text', { name: 'title', placeholder: 'Project title', required: true });
@@ -144,7 +144,7 @@ async function openProjectCreator() {
     );
     return { title, category, description, question, tools };
   }, 'Create project', async (fields, data) => {
-    const result = await P.call('/platform/projects/', {
+    const result = await P.call(onboarding ? '/platform/research/start-project/' : '/platform/projects/', {
       method: 'POST',
       body: {
         title: String(data.get('title') || '').trim(),
@@ -156,7 +156,8 @@ async function openProjectCreator() {
         requested_plugins: fields.tools.requested(),
       },
     });
-    go(`/workspace/research/projects/${result.project.id}`);
+    if (onboarding) location.assign(`/workspace/research/projects/${result.project.id}`);
+    else go(`/workspace/research/projects/${result.project.id}`);
   });
 }
 
