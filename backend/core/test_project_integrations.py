@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
 from .models import ResearchProject
+from .layer_access import module_access
+from .layer_models import CommunityProfile, ModuleGrant
 from .platform_api import ensure_dual_workspaces
 from .platform_models import ResearchProjectProfile
 from .space_fs import create_node
@@ -119,3 +121,62 @@ class ResearchProjectIntegrationsTests(TestCase):
             ResearchProjectProfile.objects.get(project_id=project_id).selected_integrations,
             ['compute', 'machine_learning'],
         )
+
+    def test_new_active_researcher_can_start_first_project_without_existing_access(self):
+        existing = self.post({'title': 'Owner private research'})
+        self.assertEqual(existing.status_code, 201)
+        self.client.force_login(self.other)
+        self.assertFalse(module_access(self.other, ModuleGrant.Module.RESEARCH))
+        self.assertEqual(self.client.get('/api/platform/project-integrations/').status_code, 200)
+        denied = self.post({'title': 'Normal route stays protected'})
+        self.assertEqual(denied.status_code, 403)
+        created = self.client.post(
+            '/api/platform/research/start-project/',
+            json.dumps({'title': 'First independent study', 'selected_integrations': ['lab_journal']}),
+            content_type='application/json',
+        )
+        self.assertEqual(created.status_code, 201, created.content)
+        self.assertTrue(module_access(self.other, ModuleGrant.Module.RESEARCH))
+        project = ResearchProject.objects.get(pk=created.json()['project']['id'])
+        self.assertEqual(project.owner_id, self.other.pk)
+        listing = self.client.get('/api/platform/projects/')
+        self.assertEqual(listing.status_code, 200, listing.content)
+        titles = {p['title'] for p in listing.json()['projects']}
+        self.assertIn('First independent study', titles)
+        self.assertNotIn('Owner private research', titles)
+
+    def test_first_project_opt_in_respects_explicit_suspension(self):
+        self.client.force_login(self.other)
+        ModuleGrant.objects.create(
+            user=self.other, module=ModuleGrant.Module.RESEARCH, enabled=False
+        )
+        response = self.client.post(
+            '/api/platform/research/start-project/',
+            json.dumps({'title': 'Blocked onboarding'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(ResearchProject.objects.filter(title='Blocked onboarding').exists())
+
+    def test_first_project_opt_in_requires_active_verified_account(self):
+        self.client.force_login(self.other)
+        profile = CommunityProfile.objects.get(user=self.other)
+        profile.email_verification_required = True
+        profile.save(update_fields=['email_verification_required'])
+        result = self.client.post(
+            '/api/platform/research/start-project/',
+            json.dumps({'title': 'Unverified onboarding'}),
+            content_type='application/json',
+        )
+        self.assertEqual(result.status_code, 403)
+        self.assertEqual(result.json()['error'], 'email_verification_required')
+        profile.email_verification_required = False
+        profile.status = CommunityProfile.Status.SUSPENDED
+        profile.save(update_fields=['email_verification_required', 'status'])
+        result = self.client.post(
+            '/api/platform/research/start-project/',
+            json.dumps({'title': 'Suspended onboarding'}),
+            content_type='application/json',
+        )
+        self.assertEqual(result.status_code, 403)
+        self.assertEqual(result.json()['error'], 'account_inactive')
