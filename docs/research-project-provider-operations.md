@@ -63,3 +63,52 @@ sent to any AI provider** as part of conflict resolution.
 - Signed, versioned third-party plugin installation and isolation. Uninstalled
   Compute, Analysis and Machine Learning providers show setup-required.
 - End-to-end acceptance tests on real server accounts and external providers.
+
+
+## Operator-approved external PostgreSQL datasets
+
+Once `GRAVITAS_PROJECT_DATABASE_ALIASES_JSON` and the read-only database
+connection have been configured, approve exact read-only tables and columns:
+
+```text
+GRAVITAS_PROJECT_DATABASE_DATASETS_JSON={"laboratory":[{"id":"samples","name":"Samples","schema":"public","table":"approved_samples_view","columns":["sample_id","reading"]}]}
+```
+
+The schema, table and column names in this setting are controlled by the
+operator. A caller can only choose a dataset ID and row limit (1–100).
+Queries run inside a read-only PostgreSQL transaction with a 3000ms statement
+timeout, and **never** accept user SQL, DSNs or arbitrary table names.
+Configure the database user's role as SELECT-only with access solely to
+sanitized database views (including row-level masking where needed).
+Views should be scoped to the research project before being approved;
+otherwise every member allowed to view that project's database can see
+the approved dataset. No automatic export or background indexing occurs.
+
+## Versioned research plugins
+
+Built-in, server-registered v1.0.0 plugins are available when selected by
+the project owner: Data Analysis computes bounded numeric summary statistics;
+Compute scales numeric observations without writing; Machine Learning runs a
+deterministic single-feature linear regression and returns diagnostics.
+All operate on existing **project-private managed tables**, never execute
+arbitrary submitted Python/SQL, and are capped at 500 observations.
+This is a constrained plugin runtime, not an unreviewed third-party code
+marketplace. Future plugins must be added by reviewed code deployment.
+
+## Local-only private Pulsar conflict proposals
+
+Set all three variables in a protected environment only after installing,
+securing and testing a local Ollama-compatible model on the same host:
+
+```text
+GRAVITAS_PRIVATE_PULSAR_MERGE_ENABLED=1
+GRAVITAS_PRIVATE_PULSAR_MODEL=llama3.1:8b
+GRAVITAS_PRIVATE_PULSAR_PORT=11434
+```
+
+These example settings do not install a model. The backend contacts only
+`http://127.0.0.1:<port>/api/generate`; there is no provider fallback.
+In an actual file conflict, the user explicitly consents for that request,
+receives a **suggested** merge and reviews it. The suggestion does not write
+to a draft or Nextcloud; saving and pushing remain separate user actions.
+Leave the flag off if an audited private model is not provisioned.
