@@ -1,7 +1,7 @@
 import { renderProjectStructure } from './ws-project-files.js?v=20261016-task1';
 import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1';
-import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261019-tools1';
+import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
 import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261019taskchoices1';
 
 const TABS = [
