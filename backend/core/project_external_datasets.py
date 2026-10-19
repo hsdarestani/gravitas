@@ -55,6 +55,23 @@ def _bound(request, project_id):
     return p, binding
 
 
+def _read_approved_rows(key, definition, limit):
+    """Run a single bounded SELECT on an administrator-approved relation."""
+    if connections[key].vendor != 'postgresql':
+        raise ValueError('unsupported_database_driver')
+    quote = lambda identifier: '"' + identifier + '"'
+    selected = ', '.join(quote(c) for c in definition['columns'])
+    source = quote(definition['schema']) + '.' + quote(definition['table'])
+    query = f'SELECT {selected} FROM {source} LIMIT %s'
+    with transaction.atomic(using=key):
+        with connections[key].cursor() as cursor:
+            cursor.execute('SET TRANSACTION READ ONLY')
+            cursor.execute("SET LOCAL statement_timeout = '3000ms'")
+            cursor.execute(query, [int(limit)])
+            records = cursor.fetchall()
+    return [dict(zip(definition['columns'], record)) for record in records]
+
+
 @require_http_methods(['GET'])
 def external_datasets(request, project_id):
     if not request.user.is_authenticated:
@@ -87,25 +104,12 @@ def external_dataset_rows(request, project_id, dataset_id):
     limit = request.GET.get('limit', '50')
     if not limit.isascii() or not limit.isdecimal() or not 1 <= int(limit) <= 100:
         return _error('invalid_limit')
-    # Safe only because each identifier is operator supplied AND validated as
-    # a plain SQL identifier. Values use DB parameter substitution.
-    quote = lambda identifier: '"' + identifier + '"'
-    selected = ', '.join(quote(c) for c in definition['columns'])
-    source = quote(definition['schema']) + '.' + quote(definition['table'])
-    query = f'SELECT {selected} FROM {source} LIMIT %s'
     try:
-        if connections[key].vendor != 'postgresql':
-            return _error('unsupported_database_driver', 503)
-        with transaction.atomic(using=key):
-            with connections[key].cursor() as cursor:
-                cursor.execute('SET TRANSACTION READ ONLY')
-                cursor.execute("SET LOCAL statement_timeout = '3000ms'")
-                cursor.execute(query, [int(limit)])
-                records = cursor.fetchall()
+        output = _read_approved_rows(key, definition, limit)
+    except ValueError as exc:
+        return _error(str(exc), 503)
     except Exception:
         return _error('dataset_read_unavailable', 503)
-    import json
-    output = [dict(zip(definition['columns'], record)) for record in records]
     return JsonResponse({'ok': True, 'dataset': definition['id'],
                          'columns': definition['columns'], 'rows': output},
                         encoder=DjangoJSONEncoder)
