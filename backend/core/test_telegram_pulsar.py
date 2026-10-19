@@ -187,6 +187,78 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         self.assertEqual(DailyWorkReport.objects.count(), 1)
         self.assertEqual(OperatingTask.objects.count(), 0)
 
+    def test_question_during_armed_daily_checkin_does_not_create_report(self):
+        from .telegram_work_reports import handle_report_message
+        from .work_report_models import DailyWorkReport
+        from .telegram_pulsar import is_information_request
+
+        self.assertTrue(is_information_request('where is research intelligence'))
+        self.assertTrue(is_information_request('Where is the task board?'))
+        self.assertTrue(is_information_request('کجا می‌توانم تسک‌ها را ببینم؟'))
+        self.assertFalse(is_information_request('Create a task to review research intelligence'))
+        self.assertFalse(is_information_request('/report Research is complete'))
+
+        checkin = handle_report_message(self.user, '/report')
+        self.assertIn('What did you work on today', checkin[0]['text'])
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'daily_checkin')
+
+        intercepted = handle_report_message(
+            self.user, 'where is research intelligence', source_key='chat:22'
+        )
+        self.assertIsNone(intercepted)
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state, {})
+
+        with patch('core.telegram_pulsar.complete') as model:
+            answer = handle_message(self.user, 'where is research intelligence', source_key='chat:22')
+        self.assertIn('Research Workspace', answer[0]['text'])
+        self.assertIn('research-intelligence-title', answer[0]['text'])
+        self.assertNotIn('reply_markup', answer[0])
+        model.assert_not_called()
+        self.assertEqual(DailyWorkReport.objects.count(), 0)
+        self.assertEqual(OperatingTask.objects.count(), 0)
+
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    def test_informational_question_is_safe_even_if_model_claims_task(self, complete, configured):
+        complete.return_value = json.dumps({
+            'intent': 'create_tasks',
+            'tasks': [{'title': 'Where to find project milestones'}],
+            'reply': '',
+        })
+        from .telegram_pulsar import is_information_request
+        self.assertTrue(is_information_request('Where can I find the milestones?'))
+        response = handle_message(self.user, 'Where can I find the milestones?', source_key='chat:23')
+        self.assertNotIn('reply_markup', response[0])
+        self.assertIn('question', response[0]['text'])
+        self.assertEqual(OperatingTask.objects.count(), 0)
+        self.assertFalse(TelegramPulsarSession.objects.filter(user=self.user, state__has_key='draft').exists())
+
+    @patch('core.telegram_pulsar.configured', return_value=False)
+    def test_unavailable_ai_fails_closed_instead_of_turning_text_into_task(self, configured):
+        response = handle_message(self.user, 'Maybe we should research better models')
+        self.assertNotIn('reply_markup', response[0])
+        self.assertIn('cannot interpret', response[0]['text'])
+        self.assertFalse(TelegramPulsarSession.objects.filter(user=self.user, state__has_key='draft').exists())
+        self.assertEqual(OperatingTask.objects.count(), 0)
+
+    @patch('core.telegram_pulsar.configured', return_value=True)
+    @patch('core.telegram_pulsar.complete')
+    def test_question_does_not_overwrite_pending_task_draft(self, complete, configured):
+        complete.return_value = json.dumps({
+            'intent': 'create_tasks',
+            'tasks': [{'title': 'Review AI research tools',
+                       'definition_of_done': 'Review delivered',
+                       'owner_id': self.user.pk}],
+        })
+        handle_message(self.user, 'Review AI research tools')
+        before = TelegramPulsarSession.objects.get(user=self.user).state.copy()
+        reply = handle_message(self.user, 'where is research intelligence')
+        after = TelegramPulsarSession.objects.get(user=self.user).state
+        self.assertEqual(before, after)
+        self.assertIn('Research Workspace', reply[0]['text'])
+        self.assertNotIn('reply_markup', reply[0])
+        self.assertEqual(OperatingTask.objects.count(), 0)
+
     def test_evidence_upload_attaches_to_selected_task_and_retries_safely(self):
         import tempfile
         from pathlib import Path
