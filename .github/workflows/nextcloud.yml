@@ -46,6 +46,9 @@ jobs:
           bash -n ops/nextcloud/subdomain.sh
           bash -n ops/nextcloud/sso.sh
           bash -n ops/nextcloud/mirror.sh
+          bash -n ops/nextcloud/rescue-orphan-managed-identity.sh
+          grep -q 'tar -tzf' ops/nextcloud/rescue-orphan-managed-identity.sh
+          grep -q 'pg_dump' ops/nextcloud/rescue-orphan-managed-identity.sh
           grep -q 'groupfolders required' ops/nextcloud/apps.sh
           grep -q 'ensure_app deck required' ops/nextcloud/apps.sh
           grep -q 'ensure_app notes required' ops/nextcloud/apps.sh
@@ -189,6 +192,19 @@ jobs:
             "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:/tmp/gravitas-nextcloud-sso"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "sudo install -m 750 /tmp/gravitas-nextcloud-sso /usr/local/sbin/gravitas-nextcloud-sso && sudo rm -f /tmp/gravitas-nextcloud-sso && sudo /usr/local/sbin/gravitas-nextcloud-sso '$DOMAIN' '$CLOUD_DOMAIN'"
+
+      # An orphaned native account cannot be recreated while its old files
+      # directory exists. Only repair the exact identity confirmed in the
+      # production logs; the script is a no-op for an already-existing user.
+      # It backs up DB + original files and preserves the original directory.
+      - name: Recover the confirmed orphaned native identity with backups
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/nextcloud/rescue-orphan-managed-identity.sh \
+            "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:/tmp/gravitas-rescue-orphan"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            'sudo install -m 750 /tmp/gravitas-rescue-orphan /usr/local/sbin/gravitas-nextcloud-rescue-orphan && sudo rm -f /tmp/gravitas-rescue-orphan && sudo /usr/local/sbin/gravitas-nextcloud-rescue-orphan gravitas-u-1190'
 
       - name: Install continuous Notes and Deck mirror
         shell: bash
