@@ -20,12 +20,14 @@ def _workspace_navigation(question):
         return {
             'ok': True, 'grounded': True, 'intent': 'navigation',
             'answer': (
-                'Research Intelligence is not a separate item in the current menu. '
-                'Open Research → Overview to explore the research workspace.'
+                'Research Intelligence is on Research Workspace → Overview. '
+                'Scroll to the Research Intelligence panel below the project summary '
+                '(Funding Calls, Papers & Tools, AI Developments, History). '
+                'The panel is available to Core members.'
             ),
             'sources': [{
-                'kind': 'navigation', 'title': 'Research Overview',
-                'href': '/workspace/research',
+                'kind': 'navigation', 'title': 'Open Research Intelligence',
+                'href': '/workspace/research#research-intelligence-title',
             }],
             'provider': 'workspace_navigation',
         }
