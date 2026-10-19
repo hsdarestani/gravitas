@@ -708,3 +708,50 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
 
 /* A download in a table is one unit: the label and its size never part. */
 .bk-table a[download] { white-space: nowrap; }
+
+/* ---- Downloads by logo ----------------------------------------------------
+   A reader who does not know "brandmark" from "wordmark" sees each one before
+   choosing it. The preview panel is the brand's own plate, fixed Cosmos Blue
+   in both themes like the pack specimen; the profile pictures sit on the page
+   ground instead, because two of them are Cosmos Blue themselves. Four logos
+   fill two columns and the profile pictures take a full row, so no card is
+   ever stranded on a row of its own. */
+.g-mark--vertical {
+  aspect-ratio: 324 / 202.13;
+  -webkit-mask-image: url("logos/Vertical_White.svg");
+  mask-image: url("logos/Vertical_White.svg");
+}
+.g-mark--wordmark {
+  aspect-ratio: 460.52 / 84.49;
+  -webkit-mask-image: url("logos/Wordmark_White.svg");
+  mask-image: url("logos/Wordmark_White.svg");
+}
+.bk-get { display: grid; gap: var(--g-space-sm); grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: var(--g-space-md); }
+@media (max-width: 640px) { .bk-get { grid-template-columns: minmax(0, 1fr); } }
+.bk-get__item {
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: var(--g-surface);
+}
+.bk-get__item--wide { grid-column: 1 / -1; }
+.bk-get__view {
+  display: grid; place-items: center; height: 10rem; padding: var(--g-space-md);
+  background: var(--g-cosmos-600); color: var(--g-white-tint);
+}
+.bk-get__view .g-mark { width: 100%; }
+.bk-get__view--horizontal .g-mark { max-width: 15rem; }
+.bk-get__view--vertical .g-mark { max-width: 8.5rem; }
+.bk-get__view--brandmark .g-mark { max-width: 4.75rem; }
+.bk-get__view--wordmark .g-mark { max-width: 14rem; }
+.bk-get__view--pfp {
+  display: flex; justify-content: center; align-items: center; gap: var(--g-space-lg);
+  background: var(--g-surface-sunken); color: inherit;
+}
+.bk-get__view--pfp figure { margin: 0; display: grid; justify-items: center; gap: var(--g-space-2xs); }
+.bk-get__view--pfp img { width: 5.5rem; height: 5.5rem; border-radius: 50%; display: block; }
+.bk-get__view--pfp figcaption { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.bk-get__body { display: flex; flex-direction: column; gap: var(--g-space-2xs); flex: 1; padding: var(--g-space-md); }
+.bk-get__body h4 { margin: 0; }
+.bk-get__body p { margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); }
+.bk-get__links { display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); margin-top: auto; padding-top: var(--g-space-xs); }
+.bk-get__links .g-btn span { margin-left: .5em; font-family: var(--g-font-mono); font-size: .85em; opacity: .7; }
