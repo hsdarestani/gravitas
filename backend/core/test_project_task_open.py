@@ -51,7 +51,7 @@ const boot = fs.readFileSync('assets/ws/ws-app.js', 'utf8');
 const page = fs.readFileSync('workspace.html', 'utf8');
 assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261019modals2/);
 assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261019modals2/);
-assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261019modals2/);
+assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261019taskpulsar2/);
 const five = fs.readFileSync('assets/ws/ws-five-layer.js', 'utf8');
 const projectView = fs.readFileSync('assets/ws/ws-project.js', 'utf8');
 assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261019modals2/);
