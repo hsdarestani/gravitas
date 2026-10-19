@@ -45,18 +45,34 @@ assert.deepEqual(records({records: [{title: 'Valid'}, null, 'invalid', [], 42]})
 assert.match(source, /const sourceRecords = taskSourceRecords\(task\.source_metadata\);/);
 assert.match(source, /if \(detailForFallback && typeof detailForFallback === 'object'\)/);
 assert.match(source, /The saved task is available below/);
+assert.match(source, /const priorityChoices = taskCardOptions\\(detailData\\.priorities, state\\.priorities, PRIORITY_COLUMNS\\)/);
+assert.match(source, /const statusChoices = taskCardOptions\\(detailData\\.statuses, state\\.statuses, STATUS_COLUMNS\\)/);
+const optionStart = source.indexOf('export function taskCardOptions(');
+const optionEnd = source.indexOf('export function failure(', optionStart);
+assert.ok(optionStart > 0 && optionEnd > optionStart, 'guarded select metadata helper is present');
+const optionCode = source.slice(optionStart, optionEnd).replace('export function', 'function');
+const resolveOptions = new Function(optionCode + '\\nreturn taskCardOptions;')();
+const fallback = [['p0', 'P0 Critical'], ['p1', 'P1 High']];
+assert.deepEqual(resolveOptions(undefined, undefined, fallback), [
+  {value:'p0',label:'P0 Critical'}, {value:'p1',label:'P1 High'}
+]);
+assert.deepEqual(resolveOptions([], null, fallback), [
+  {value:'p0',label:'P0 Critical'}, {value:'p1',label:'P1 High'}
+]);
+assert.deepEqual(resolveOptions(null, [{value:'p2',label:'Board'}], fallback), [{value:'p2',label:'Board'}]);
+assert.deepEqual(resolveOptions([{value:'p3',label:'Detail'}], [], fallback), [{value:'p3',label:'Detail'}]);
 assert.doesNotMatch(source, /The server did not answer\. Nothing has been changed\./);
 const project = fs.readFileSync('assets/ws/ws-project-actions.js', 'utf8');
 const boot = fs.readFileSync('assets/ws/ws-app.js', 'utf8');
 const page = fs.readFileSync('workspace.html', 'utf8');
-assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261019modals2/);
-assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261019modals2/);
+assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261019taskchoices1/);
+assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261019taskchoices1/);
 assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261019taskpulsar2/);
 const five = fs.readFileSync('assets/ws/ws-five-layer.js', 'utf8');
 const projectView = fs.readFileSync('assets/ws/ws-project.js', 'utf8');
-assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261019modals2/);
-assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261019modals2/);
-assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261019modals2/);
+assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261019taskchoices1/);
+assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261019taskchoices1/);
+assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261019taskchoices1/);
 """
         result = subprocess.run(
             ['node', '--input-type=module', '-e', script],
