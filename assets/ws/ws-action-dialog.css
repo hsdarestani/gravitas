@@ -105,3 +105,48 @@ html .ws-action-dialog__error {
     padding: 18px;
   }
 }
+
+
+/* Shared, compact tool selector in the short dialog, full Research form,
+   and existing project settings. Keep native inputs accessible. */
+.ws-tool-picker {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--g-border);
+  border-radius: var(--ws-r-panel, 10px);
+  background: var(--g-surface-raised);
+  color: var(--g-text);
+}
+.ws-tool-picker__head, .ws-tool-picker__item span,
+.ws-tool-picker__request { display: grid; gap: 4px; }
+.ws-tool-picker__head small, .ws-tool-picker__item small,
+.ws-tool-picker__request small { color: var(--g-text-subtle); line-height: 1.45; }
+.ws-tool-picker__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.ws-tool-picker__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--g-border);
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--g-bg);
+  min-width: 0;
+}
+.ws-tool-picker__item:has(input:checked) { border-color: var(--g-accent, currentColor); }
+.ws-tool-picker__item:focus-within { outline: 2px solid var(--g-accent, currentColor); outline-offset: 1px; }
+.ws-tool-picker__item input { flex: 0 0 auto; margin: 4px 0 0; }
+.ws-tool-picker__item strong { font-size: .88rem; font-weight: 600; }
+.ws-tool-picker__request > span { font-weight: 600; font-size: .86rem; }
+.ws-tool-picker__request .v-input { width: 100%; min-height: 56px; resize: vertical; }
+.ws-tool-picker__form { display: grid; gap: 14px; }
+@media (max-width: 540px) {
+  .ws-tool-picker__list { grid-template-columns: minmax(0, 1fr); }
+  .ws-tool-picker { padding: 10px; }
+}
