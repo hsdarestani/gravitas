@@ -3,6 +3,7 @@ import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1';
 import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
 import { mountProjectTools, renderProjectDatabase, mountExperimentJournal } from './ws-project-tools-live.js?v=20261016-task1';
+import { mountProjectProviders, renderProjectDrafts } from './ws-project-next-phase.js?v=20261016-task1';
 import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261019taskchoices1';
 
 const TABS = [
@@ -17,6 +18,7 @@ const TABS = [
   ['discussions', 'Discussions'],
   ['experiments', 'Outputs'],
   ['database', 'Database'],
+  ['drafts', 'Drafts & Sync'],
   ['activity', 'Activity'],
 ];
 
@@ -249,6 +251,9 @@ function overviewView(doc, cockpit, { go, projectId, refresh } = {}) {
     });
     tools.body.append(edit);
   }
+  const providers = el('div', 'ws-live-tools');
+  tools.body.append(providers);
+  mountProjectProviders(providers, projectId, project);
   doc.append(tools.box);
 
   const connections = section('Knowledge graph', 'Explicit relationships between the project, evidence, deliverables, tasks and research requests.');
@@ -582,6 +587,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'discussions') discussionView(doc, projectId, results[1].messages || [], project, rerender);
     else if (tab === 'experiments') experimentsView(doc, projectId, results[1].experiments || [], cockpit, rerender);
     else if (tab === 'database') await renderProjectDatabase(doc, projectId, project);
+    else if (tab === 'drafts') await renderProjectDrafts(doc, projectId, project);
     else if (tab === 'activity') activityView(doc, cockpit);
     else overviewView(doc, cockpit, { go, projectId, refresh: rerender });
   } catch (error) {

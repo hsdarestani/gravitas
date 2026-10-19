@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -68,6 +69,42 @@ DATABASES = {
         'PORT': os.environ.get('DJANGO_DB_PORT', ''),
     }
 }
+
+
+def _json_map_env(name):
+    """Operator-managed settings only; never constructed from request values."""
+    try:
+        obj = json.loads(os.environ.get(name) or '{}')
+    except (TypeError, ValueError):
+        return {}
+    return obj if isinstance(obj, dict) else {}
+
+
+GRAVITAS_PROJECT_GITHUB_TOKENS = _json_map_env('GRAVITAS_PROJECT_GITHUB_TOKENS_JSON')
+GRAVITAS_PROJECT_GITHUB_ALLOWED_REPOS = _json_map_env('GRAVITAS_PROJECT_GITHUB_ALLOWED_REPOS_JSON')
+GRAVITAS_PROJECT_DATABASE_ALIASES = _json_map_env('GRAVITAS_PROJECT_DATABASE_ALIASES_JSON')
+
+# The operator must configure a dedicated read-only DB role on the remote
+# server. This only opens a connection for SELECT 1 checks; no SQL surface is
+# exposed to project members. SSL is mandatory for nonlocal connections.
+for _name, _config in _json_map_env('GRAVITAS_PROJECT_REMOTE_DATABASES_JSON').items():
+    if not (isinstance(_name, str) and _name.startswith('research_')
+            and _name.replace('_', '').isalnum() and isinstance(_config, dict)):
+        continue
+    if not all(isinstance(_config.get(k), str) and _config.get(k)
+               for k in ('NAME', 'USER', 'HOST', 'PASSWORD')):
+        continue
+    DATABASES[_name] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': _config['NAME'],
+        'USER': _config['USER'],
+        'PASSWORD': _config['PASSWORD'],
+        'HOST': _config['HOST'],
+        'PORT': str(_config.get('PORT') or '5432'),
+        'OPTIONS': {'sslmode': 'verify-full' if _config.get('SSLROOTCERT') else 'require',
+                    **({'sslrootcert': _config['SSLROOTCERT']} if _config.get('SSLROOTCERT') else {})},
+        'CONN_MAX_AGE': 0,
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
