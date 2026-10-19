@@ -108,6 +108,25 @@ class CoreTaskBoardTests(TestCase):
         self.assertIn('key_results', full)
         self.assertEqual({row['id'] for row in full['tasks']}, {first, second})
 
+    def test_detail_has_editor_choices_when_opened_from_research_without_board(self):
+        task_id = self.create_task('Research dialog opens directly')
+        response = self.client.get(f'/api/operating/task-board/{task_id}/')
+        self.assertEqual(response.status_code, 200, response.content)
+        detail = response.json()
+        self.assertEqual(detail['task']['id'], task_id)
+        self.assertIn('members', detail)
+        self.assertIn('key_results', detail)
+        self.assertIn('projects', detail)
+        self.assertTrue(any(row['value'] == detail['task']['priority']
+                            for row in detail['priorities']))
+        self.assertTrue(any(row['value'] == detail['task']['status']
+                            for row in detail['statuses']))
+        self.assertEqual(
+            {row['value'] for row in detail['priorities']},
+            {'p0', 'p1', 'p2', 'p3'},
+        )
+        self.assertIn('done', {row['value'] for row in detail['statuses']})
+
     def test_board_aggregates_independent_comment_attachment_and_checklist_counts(self):
         task_id = self.create_task('Counted task')
         other_id = self.create_task('Another task')
