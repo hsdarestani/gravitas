@@ -65,6 +65,8 @@ class ResearchProjectProfile(models.Model):
     currency = models.CharField(max_length=8, default='EUR')
     compensation_text = models.CharField(max_length=240, blank=True)
     required_skills = models.JSONField(default=list, blank=True)
+    selected_integrations = models.JSONField(default=list, blank=True)
+    requested_plugins = models.JSONField(default=list, blank=True)
     application_open = models.BooleanField(default=False)
     public_slug = models.SlugField(max_length=220, unique=True, blank=True, null=True)
     nextcloud_root = models.CharField(max_length=700, blank=True)
