@@ -1,6 +1,7 @@
 import { renderProjectStructure } from './ws-project-files.js?v=20261016-task1';
 import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1';
+import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261019-tools1';
 import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261019taskchoices1';
 
 const TABS = [
@@ -162,7 +163,7 @@ function attention(cockpit, openTasks = null) {
   return box.box;
 }
 
-function overviewView(doc, cockpit, { go, projectId } = {}) {
+function overviewView(doc, cockpit, { go, projectId, refresh } = {}) {
   let graph = null;
   const project = cockpit.project;
   const counts = cockpit.counts || {};
@@ -199,6 +200,55 @@ function overviewView(doc, cockpit, { go, projectId } = {}) {
   for (const member of cockpit.members) members.body.append(row({ title: member.name, meta: member.email, badges: [label(member.role)] }));
   cols.append(about.box, members.box);
   doc.append(cols);
+
+  const tools = section('Project tools', 'Selections are saved with this project. External connections require separate secure setup.');
+  const selected = Array.isArray(project.selected_integrations) ? project.selected_integrations : [];
+  const requested = Array.isArray(project.requested_plugins) ? project.requested_plugins : [];
+  if (!selected.length && !requested.length) {
+    tools.body.append(empty('No tools selected', 'Choose Git, Database, Lab Journal or another tool for this project.'));
+  }
+  selected.forEach(id => tools.body.append(row({
+    title: id.split('_').map(part => part === 'git' ? 'Git' : part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
+    meta: 'Selected · setup required',
+  })));
+  requested.forEach(name => tools.body.append(row({ title: name, meta: 'Custom plugin requested · not installed' })));
+  if (project.permissions?.can_manage) {
+    const edit = action('Edit project tools', async () => {
+      edit.disabled = true;
+      try {
+        const catalog = await P.call('/platform/project-integrations/');
+        const picker = projectIntegrationPicker(catalog.integrations, selected, requested);
+        const form = el('form', 'ws-tool-picker__form');
+        const status = el('p', 'v-note', '');
+        const actions = el('div', 'fl-form-actions');
+        const save = action('Save tools', () => {}, true);
+        save.type = 'submit';
+        const cancel = action('Cancel', () => refresh());
+        actions.append(save, cancel);
+        form.append(picker.element, actions, status);
+        form.addEventListener('submit', async event => {
+          event.preventDefault();
+          save.disabled = true;
+          try {
+            await P.call(`/platform/projects/${projectId}/`, {
+              method: 'PATCH',
+              body: { selected_integrations: picker.selected(), requested_plugins: picker.requested() },
+            });
+            await refresh();
+          } catch (error) {
+            status.textContent = error?.message || 'Unable to save project tools.';
+            save.disabled = false;
+          }
+        });
+        tools.body.replaceChildren(form);
+      } catch (error) {
+        edit.disabled = false;
+        tools.body.append(el('p', 'v-note', error?.message || 'Tool options are unavailable.'));
+      }
+    });
+    tools.body.append(edit);
+  }
+  doc.append(tools.box);
 
   const connections = section('Knowledge graph', 'Explicit relationships between the project, evidence, deliverables, tasks and research requests.');
   graph = connections;
@@ -520,7 +570,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     head.insertBefore(projectActionBar({ projectId, tab, cockpit, go, refresh: rerender }), head.querySelector('.fl-tabs'));
 
     if (tab === 'structure') await renderProjectStructure(doc, projectId);
-    else if (tab === 'overview') overviewView(doc, cockpit, { go, projectId });
+    else if (tab === 'overview') overviewView(doc, cockpit, { go, projectId, refresh: rerender });
     else if (tab === 'milestones') milestonesView(doc, results[1].milestones || []);
     else if (tab === 'tasks') tasksView(doc, cockpit, { go, refresh: rerender });
     else if (tab === 'management') renderProjectManagement(doc, projectId, cockpit, { go, refresh: rerender });
@@ -530,7 +580,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'discussions') discussionView(doc, projectId, results[1].messages || [], project, rerender);
     else if (tab === 'experiments') experimentsView(doc, projectId, results[1].experiments || [], cockpit, rerender);
     else if (tab === 'activity') activityView(doc, cockpit);
-    else overviewView(doc, cockpit, { go, projectId });
+    else overviewView(doc, cockpit, { go, projectId, refresh: rerender });
   } catch (error) {
     failure(host, projectId, tab, go, error);
   }
