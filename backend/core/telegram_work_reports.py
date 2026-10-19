@@ -122,7 +122,7 @@ def handle_report_message(user, text, source_key=None):
     if not work.strip():
         session.state = {'mode': 'daily_checkin'}
         session.save(update_fields=['state', 'updated_at'])
-        return [{'text': f'Work date: {day.isoformat()}. What did you work on? Send an update. To combine several messages, use /reportmulti YYYY-MM-DD and /done.'}]
+        return [{'text': f'Work date: {day.isoformat()}. What did you work on today? Send an update. To combine several messages, use /reportmulti YYYY-MM-DD and /done.'}]
     report = propose(user, work, source='telegram', source_key=source_key, report_date=day)
     session.state = {'mode': 'daily_report', 'report_id': str(report.pk)}
     session.save(update_fields=['state', 'updated_at'])
