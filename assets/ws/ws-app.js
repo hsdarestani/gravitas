@@ -38,7 +38,7 @@ import {
 import { renderDashboard, stopClock } from './ws-home.js?v=20261016-task1&patch=20261019card1';
 import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261016-task1&patch=20261019card1';
 import { mountPalette, openPalette } from './ws-palette.js?v=20261016-task1';
-import { installAssistant, askAssistant, assistantContext } from './ws-ai.js?v=20261016-task1';
+import { installAssistant, askAssistant, assistantContext } from './ws-ai.js?v=20261016-task1&patch=20261019pulsar1';
 import { installSelects } from './ws-select.js?v=20261016-task1';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
