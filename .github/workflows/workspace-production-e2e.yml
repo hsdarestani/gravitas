@@ -156,7 +156,7 @@ jobs:
           echo 'workspace-stage=health'
           curl -4 -fsS "$BASE/api/health/" -o "$RUNNER_TEMP/health.json"
           echo 'workspace-stage=content-assertions'
-          grep -qi 'Gravitas' "$RUNNER_TEMP/home.html"
+          grep -Eqi 'GraviQuest|Gravitas' "$RUNNER_TEMP/home.html"
           grep -qi 'Create an account' "$RUNNER_TEMP/account.html"
           # The current workspace is the five-layer shell; assert stable
           # structural markers instead of copy from the retired shell.
