@@ -1,12 +1,30 @@
 """Daily reporting reuses the linked private Telegram identity and shared service."""
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from django.conf import settings
+from django.utils import timezone
 from .operating_models import TelegramPulsarSession
 from .work_report_models import DailyWorkReport
-from .work_reports import decide, propose, interpret
+from .work_reports import decide, propose, interpret, report_day, parse_work_date_prefix, validate_work_date
 from .telegram_pulsar import is_information_request
 
 
+def _report_timestamp(moment):
+    name = getattr(settings, 'GRAVITAS_DAILY_REPORT_TIMEZONE', 'Asia/Tehran')
+    try:
+        zone = ZoneInfo(name)
+    except (ValueError, ZoneInfoNotFoundError):
+        zone = ZoneInfo('UTC')
+    return timezone.localtime(moment, zone).strftime('%Y-%m-%d %H:%M') + ' (' + str(zone) + ')'
+
+
 def preview(report):
-    lines = ['Pulsar · Suggested daily update', report.interpretation.get('summary', ''), '']
+    lines = [
+        'Pulsar · Suggested daily update',
+        'Work date: ' + report.report_date.isoformat(),
+        'Submitted: ' + _report_timestamp(report.created_at),
+        '',
+        report.interpretation.get('summary', ''), '',
+    ]
     for update in report.interpretation.get('updates', []):
         lines.extend([update['title'], f"Progress: {update['progress']}", f"Status suggestion: {update.get('status') or 'unchanged'}",
                       f"Deliverable: {update['deliverable']}", f"Blocker: {update['blocker']}", f"Next: {update['next_action']}", ''])
@@ -33,6 +51,36 @@ def handle_report_message(user, text, source_key=None):
         session.state = {}
         session.save(update_fields=['state', 'updated_at'])
         return None
+    if text.strip().lower() in {'/reports', '/reportlist'}:
+        recent = DailyWorkReport.objects.filter(user=user).order_by('-created_at')[:10]
+        if not recent:
+            return [{'text': 'No work reports yet.'}]
+        return [{'text': 'Recent reports (work date · submitted · status):\n' + '\n'.join(
+            r.report_date.isoformat() + ' · ' + _report_timestamp(r.created_at) +
+            ' · ' + r.status for r in recent
+        )}]
+    if state.get('mode') == 'daily_collect' and text.strip().lower() in {'/done', '/submit'}:
+        parts = state.get('parts') or []
+        if not parts:
+            return [{'text': 'Send a work update first, or /cancel to leave this draft.'}]
+        day = validate_work_date(state.get('report_date'), user)
+        key = source_key or ('telegram-collect:' + str(session.pk))
+        report = propose(user, '\n'.join(parts), source='telegram', source_key=key, report_date=day)
+        session.state = {'mode': 'daily_report', 'report_id': str(report.pk)}
+        session.save(update_fields=['state', 'updated_at'])
+        return [preview(report)]
+    if state.get('mode') == 'daily_collect' and not text.startswith('/'):
+        # Unlike separate task requests, these messages intentionally form one
+        # work-report context, without modifying any task until confirmation.
+        if is_information_request(text):
+            return None
+        pieces = [*(state.get('parts') or []), text]
+        if len(pieces) > 25 or len('\n'.join(pieces)) > 16000:
+            return [{'text': 'This report is too long. Send /done to preview, or /cancel.'}]
+        state['parts'] = pieces
+        session.state = state
+        session.save(update_fields=['state', 'updated_at'])
+        return [{'text': f'Added to work report for {state["report_date"]} ({len(pieces)} messages). Send more details or /done to preview.'}]
     if text.startswith('/reportedit'):
         state['mode'] = 'daily_report_edit'; session.state = state; session.save(update_fields=['state', 'updated_at'])
         return [{'text': 'Describe the correction or name the matching task. I will show a new proposal to confirm. /cancel cancels this draft.'}]
@@ -55,15 +103,27 @@ def handle_report_message(user, text, source_key=None):
         if not report:
             return [{'text': 'No pending report.'}]
         return handle_report_callback(user, f'wr:c:{report.pk.hex}:{report.revision}')
-    if text.startswith('/') and not text.startswith('/report'):
+    if text.startswith('/') and not (text.startswith('/report ') or text in {'/report', '/reportmulti'} or text.startswith('/reportmulti ')):
         return None
-    if not text.startswith('/report') and not state.get('mode') == 'daily_checkin':
+    if not (text == '/report' or text.startswith('/report ') or text == '/reportmulti' or text.startswith('/reportmulti ')) and state.get('mode') != 'daily_checkin':
         return None
-    value = text.split(maxsplit=1)[1] if text.startswith('/report') and len(text.split(maxsplit=1)) == 2 else ('' if text.startswith('/report') else text)
-    if not value.strip():
-        session.state = {'mode': 'daily_checkin'}; session.save(update_fields=['state', 'updated_at'])
-        return [{'text': 'What did you work on today? Send a natural update. I will ask you to confirm before any task changes.'}]
-    report = propose(user, value, source='telegram', source_key=source_key)
+    explicit_report = text == '/report' or text.startswith('/report ') or text == '/reportmulti' or text.startswith('/reportmulti ')
+    manual_collect = text == '/reportmulti' or text.startswith('/reportmulti ')
+    value = text.split(maxsplit=1)[1] if explicit_report and len(text.split(maxsplit=1)) == 2 else ('' if explicit_report else text)
+    try:
+        day, work = parse_work_date_prefix(value, user)
+    except ValueError as exc:
+        return [{'text': f'Invalid work date: {exc}. Use YYYY-MM-DD, yesterday, or 2 days ago (up to one year back).'}]
+    day = day or report_day(user)
+    if manual_collect or (explicit_report and not work.strip() and day != report_day(user)):
+        session.state = {'mode': 'daily_collect', 'report_date': day.isoformat(), 'parts': []}
+        session.save(update_fields=['state', 'updated_at'])
+        return [{'text': f'Work date: {day.isoformat()}. Send messages for this day, then /done for one combined preview. /cancel discards the draft.'}]
+    if not work.strip():
+        session.state = {'mode': 'daily_checkin'}
+        session.save(update_fields=['state', 'updated_at'])
+        return [{'text': f'Work date: {day.isoformat()}. What did you work on? Send an update. To combine several messages, use /reportmulti YYYY-MM-DD and /done.'}]
+    report = propose(user, work, source='telegram', source_key=source_key, report_date=day)
     session.state = {'mode': 'daily_report', 'report_id': str(report.pk)}
     session.save(update_fields=['state', 'updated_at'])
     if report.status != 'pending':
@@ -97,4 +157,8 @@ def handle_report_callback(user, action):
     except (ValueError, PermissionError) as exc:
         return [{'text': f'Nothing applied: {exc}. Review the report in Gravitas.'}]
     TelegramPulsarSession.objects.filter(user=user, state__report_id=str(report_id)).update(state={})
-    return [{'text': f'Report {result.status}. ' + ('Task activity is recorded once.' if code == 'c' else 'No task changes.')}]
+    return [{'text': (
+        f'Report {result.status}. Work date: {result.report_date.isoformat()}. '
+        f'Recorded: {_report_timestamp(result.confirmed_at or timezone.now())}. '
+        + ('Task activity is recorded once.' if code == 'c' else 'No task changes.')
+    )}]
