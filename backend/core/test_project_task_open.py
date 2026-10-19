@@ -49,9 +49,9 @@ assert.doesNotMatch(source, /The server did not answer\. Nothing has been change
 const project = fs.readFileSync('assets/ws/ws-project-actions.js', 'utf8');
 const boot = fs.readFileSync('assets/ws/ws-app.js', 'utf8');
 const page = fs.readFileSync('workspace.html', 'utf8');
-assert.match(project, /ws-views\.js\?v=20261019-task-card1/);
-assert.match(boot, /ws-views\.js\?v=20261019-task-card1/);
-assert.match(page, /ws-app\.js\?v=20261019-task-card1/);
+assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261019card1/);
+assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261019card1/);
+assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261019card1/);
 """
         result = subprocess.run(
             ['node', '--input-type=module', '-e', script],
