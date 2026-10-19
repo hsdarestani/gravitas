@@ -19,6 +19,18 @@ if occ user:info "$USER_ID" >/dev/null 2>&1; then
   echo "Native identity exists; no orphan recovery needed for $USER_ID"
   exit 0
 fi
+# OCC detail commands can fail for storage/metadata errors even when an
+# account exists. Independently check Nextcloud's primary SQL user backend.
+DB_PREFIX="$(occ config:system:get dbtableprefix)"
+if [[ ! "$DB_PREFIX" =~ ^[A-Za-z0-9_]+$ ]]; then
+  echo "Cannot safely verify Nextcloud user table prefix" >&2
+  exit 1
+fi
+USER_ROW_COUNT="$(docker exec "$NC_DB_CONTAINER" psql -U nextcloud -d nextcloud -Atc   "SELECT count(*) FROM \"${DB_PREFIX}users\" WHERE uid='$USER_ID';")"
+if [[ "$USER_ROW_COUNT" != 0 ]]; then
+  echo "Native user row exists or account-state verification failed; refusing orphan recovery" >&2
+  exit 1
+fi
 if [[ "$(occ config:system:get datadirectory)" != "/var/www/html/data" ]]; then
   echo "Unexpected Nextcloud data directory; refusing recovery" >&2
   exit 1
@@ -37,8 +49,17 @@ if [[ ! -d "$HOME_DIR/files" || -L "$HOME_DIR/files" ]]; then
   echo "Unexpected orphan layout, manual investigation required" >&2
   exit 1
 fi
-if occ encryption:status 2>/dev/null | grep -Eiq 'Enabled:[[:space:]]*(yes|true)'; then
-  echo "Server-side encryption enabled; refusing generic file restoration" >&2
+# Never presume encryption is off if the inspection command fails or
+# returns an unrecognized status.
+ENCRYPTION_JSON="$(occ encryption:status --output=json)"
+ENCRYPTION_STATE="$(printf '%s' "$ENCRYPTION_JSON" | python3 -c '
+import json, sys
+data=json.load(sys.stdin)
+value=data.get("enabled")
+print("false" if value is False else "unsafe")
+')"
+if [[ "$ENCRYPTION_STATE" != false ]]; then
+  echo "Encrypted or unverifiable Nextcloud storage; refusing recovery" >&2
   exit 1
 fi
 
