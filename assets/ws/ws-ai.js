@@ -42,6 +42,18 @@ export function assistantContext(path, area) {
    offers. This lived in ws-api.js, the old page store, which is gone; a
    refused request now falls back to the notes index rather than its pages. */
 async function requestAnswer(question, extra = {}) {
+  // Navigation is a product fact, not a question for historical documents.
+  // Resolve this from the actual Research Overview before querying any model.
+  const normalized = String(question || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[?!.]+$/, '');
+  if (/\bresearch intelligence\b/.test(normalized) &&
+      /^(where|how|find\b|open\b|go to\b|navigate\b|show me\b)/.test(normalized)) {
+    return {
+      grounded: true,
+      intent: 'navigation',
+      answer: 'Research Intelligence is in Research Workspace → Overview. Scroll to the Research Intelligence panel (Funding Calls, Papers & Tools, AI Developments, History). This panel is available to Core members.',
+      sources: [{ kind: 'navigation', title: 'Open Research Intelligence', href: '/workspace/research#research-intelligence-title' }],
+    };
+  }
   const body = { question };
   for (const key of ['surface', 'project_id', 'workspace_id', 'thread_id']) if (extra?.[key]) body[key] = extra[key];
   try {

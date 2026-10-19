@@ -860,7 +860,9 @@ function renderResearchIntelligence(host) {
     el('h2', 'ri__title', 'Research Intelligence'),
     el('p', 'ri__subtitle', 'Continuous background radar for funding calls, new AI research tools and papers, and important developments in AI for research and education — with persistent change history.'),
   );
-  intro.querySelector('.ri__title').id = 'research-intelligence-title';
+  const sectionHeading = intro.querySelector('.ri__title');
+  sectionHeading.id = 'research-intelligence-title';
+  sectionHeading.style.scrollMarginTop = '5rem';
 
   const actions = el('div', 'ri__head-actions');
   const live = el('span', 'ri__live', 'Live sources');
@@ -1019,6 +1021,14 @@ function renderResearchIntelligence(host) {
   foot.append(updated, errors);
   section.append(head, sourceManager, metrics, tabs, fundingTools, content, foot);
   host.append(section);
+  // A Pulsar navigation link can open the Research Overview before its
+  // dashboard API finishes. Scroll only after the target has been rendered.
+  if (location.pathname === '/workspace/research' &&
+      location.hash === '#research-intelligence-title') {
+    requestAnimationFrame(() => {
+      if (section.isConnected) sectionHeading.scrollIntoView({ block: 'start', behavior: 'auto' });
+    });
+  }
 
   let payload = null;
   let active = sessionStorage.getItem('gravitas.research.intelligenceTab') || 'funding';

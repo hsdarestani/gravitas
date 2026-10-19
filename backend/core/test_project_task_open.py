@@ -86,8 +86,15 @@ assert.match(comments, /commentsPanel\.body\.insertBefore\(item, commentForm\)/)
 assert.doesNotMatch(comments, /await reloadBoard\(/);
 const assistant = fs.readFileSync('assets/ws/ws-ai.js', 'utf8');
 assert.match(assistant, /reply\.intent === 'navigation' \? \[\]/);
-const boot = fs.readFileSync('workspace.html', 'utf8');
-assert.match(boot, /20261019taskpulsar2/);
+const app = fs.readFileSync('assets/ws/ws-app.js', 'utf8');
+assert.ok(app.includes('ws-ai.js?v=20261016-task1&patch=20261019ri4'));
+const dashboard = fs.readFileSync('assets/ws/ws-home.js', 'utf8');
+assert.ok(dashboard.includes('research-intelligence-title'));
+assert.ok(dashboard.includes('sectionHeading.scrollIntoView'));
+assert.ok(assistant.includes('Research Intelligence is in Research Workspace'));
+assert.ok(assistant.includes('research-intelligence-title'));
+assert.ok(assistant.includes("intent: 'navigation'"));
+assert.ok(app.includes('ws-home.js?v=20261016-task1&patch=20261019ri4'));
 """
         result = subprocess.run(
             ['node', '--input-type=module', '-e', script],
