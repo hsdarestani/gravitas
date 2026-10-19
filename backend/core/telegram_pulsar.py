@@ -159,6 +159,53 @@ def _urls(text):
     return [x.rstrip('.,،;)')[:1800] for x in URL_RE.findall(str(text or ''))][:8]
 
 
+# A question is not a work log or a task, even when it mentions a known
+# task, project or research feature. Explicit creation requests are still
+# routed to the normal task proposal/confirmation flow.
+_INFORMATION_START_RE = re.compile(
+    r'^(?:where|what|why|when|who|whose|which|how|is|are|do|does|did|can|could|'
+    r'was|were|whereabouts|'
+    r'کجا(?:ست|یه|یی)?|کدام|چرا|چی(?:ست|ه)?|چه|چطور|چگونه|آیا|'
+    r'wo|was|warum|wann|wer|wie|welche|welcher|ist|sind)\b',
+    re.I,
+)
+_ACTION_REQUEST_RE = re.compile(
+    r'\b(?:create|add|make|assign|schedule|log|record|update|submit|save)\s+'
+    r'(?:me\s+|a\s+|an\s+|the\s+|my\s+|this\s+|a new\s+)?'
+    r'(?:task|report|work log|daily update)\b|'
+    r'(?:تسک|وظیفه|گزارش)\s+(?:بساز|ایجاد|ثبت|اضافه|بده)|'
+    r'(?:ثبت|ایجاد|بساز|اضافه)\s+(?:کن|کردن)?\s*(?:تسک|وظیفه|گزارش)',
+    re.I,
+)
+
+
+def is_information_request(text):
+    value = ' '.join(str(text or '').strip().split())
+    if not value or value.startswith('/'):
+        return False
+    if _ACTION_REQUEST_RE.search(value):
+        return False
+    if value.endswith(('?', '؟')):
+        return True
+    if _INFORMATION_START_RE.search(value):
+        return True
+    return False
+
+
+def _navigation_reply(text):
+    normalized = ' '.join(str(text or '').casefold().split()).rstrip('?.!؟ ')
+    if 'research intelligence' in normalized and is_information_request(text):
+        return {
+            'text': (
+                'Research Intelligence is in Research Workspace → Overview, '
+                'below the project summary. It has Funding Calls, Papers & Tools, '
+                'AI Developments and History. Core members can open it here:\n'
+                'https://graviquest.com/workspace/research#research-intelligence-title'
+            ),
+        }
+    return None
+
+
 def _fallback_tasks(text):
     rows = []
     for raw in str(text or '').splitlines():
@@ -172,11 +219,19 @@ def _fallback_tasks(text):
 
 def _interpret(user, text, ctx):
     if not configured():
-        return {'intent': 'create_tasks', 'reply': '', 'tasks': _fallback_tasks(text)}
+        return {'intent': 'chat', 'reply': _say(_lang(text),
+            'پالسار فعلاً نمی‌تواند پیام را با اطمینان تفسیر کند. لطفاً دوباره تلاش کن.',
+            'Pulsar cannot interpret this message right now. Please try again.'), 'tasks': []}
     system = (
         'You are Pulsar, the authenticated GraviQuest assistant in Telegram. '
-        'The user may chat, describe progress on an existing task, or request new tasks. '
-        'Use intent log_update for work already performed, instead of creating a duplicate task. '
+        'The user may ask informational questions, chat, report completed work, or explicitly request new tasks. '
+        'STRICT: informational questions (where/what/how/why/when, navigation, status requests) are chat. '
+        'A project or task name in a question is NOT work progress or a command to create a task. '
+        'Choose create_tasks only when the user actually asks to assign/create future work. '
+        'Choose log_update only when the user clearly reports work already done, not what they want to know. '
+        'When uncertain use chat, NEVER create a task or daily report. '
+        'For chat answer the question directly in 1-3 brief sentences, with no unrelated evidence dumps. '
+        'Use intent log_update for clear work already performed, instead of creating a duplicate task. '
         'Return ONLY JSON and never invent IDs. Use only IDs from the authorized catalog. '
         'Reply in the user language. Keep task titles/descriptions/DoD concise professional English. '
         'Split only independent deliverables into tasks; merge small steps taking 15 minutes or less. '
@@ -212,7 +267,9 @@ def _interpret(user, text, ctx):
         ))
     except PulsarError:
         logger.exception('Telegram Pulsar interpretation failed user_id=%s', user.pk)
-        return {'intent': 'create_tasks', 'reply': '', 'tasks': _fallback_tasks(text)}
+        return {'intent': 'chat', 'reply': _say(_lang(text),
+            'فعلاً نمی‌توانم با اطمینان تشخیص بدهم. هیچ تسک یا گزارشی ثبت نشد.',
+            'I could not interpret that safely. No task or report was created.'), 'tasks': []}
 
 
 def _normalize(raw, user, ctx, source_text):
@@ -580,6 +637,14 @@ def handle_message(user, text, source_key=None):
                          'queue': (session.state or {}).get('queue') or []})
         return [{'text': _say(lang, 'فایل را ارسال کن؛ وقتی تمام شد /done را بزن.',
                               'Send the document or image, then send /done.')}]
+    # Informational requests must not consume an older pending task draft,
+    # enter the daily report flow, or even ask the action classifier to decide.
+    # A known in-app destination can be answered without any model call.
+    if is_information_request(text):
+        location = _navigation_reply(text)
+        if location:
+            return [location]
+
     if text.startswith('/tasks'):
         mine = [x for x in ctx['tasks'] if x['owner_id'] == user.pk][:12]
         if not mine:
@@ -591,6 +656,15 @@ def handle_message(user, text, source_key=None):
 
     session = _session(user)
     state = session.state or {}
+    # An independent question must not be interpreted as "edit the currently
+    # pending task". Preserve the pending draft for the actual buttons.
+    if state.get('mode') in {'confirm', 'edit', 'select_tasks', 'ask_kr', 'ask_due'} and is_information_request(text):
+        payload = _interpret(user, text, ctx)
+        reply = str(payload.get('reply') or '').strip()
+        if not reply:
+            reply = _say(lang, 'این سؤال به‌عنوان تسک یا گزارش ثبت نشد.',
+                         'This question was not treated as a task or report.')
+        return [{'text': reply[:1500]}]
     if text.startswith('/new'):
         _store(session, {})
         parts = text.split(maxsplit=1)
@@ -663,6 +737,15 @@ def handle_message(user, text, source_key=None):
             return messages
 
     payload = _interpret(user, text, ctx)
+    if is_information_request(text):
+        # Defensive boundary: a model's accidental "log_update" or
+        # "create_tasks" classification must never override clear questions.
+        answer = str(payload.get('reply') or '').strip()
+        if payload.get('intent') != 'chat' or not answer:
+            answer = _say(lang,
+                'این یک سؤال است، نه گزارش یا تسک. لطفاً سؤال را دوباره بپرس اگر پاسخ نگرفتی.',
+                'That is a question, not a task or daily report. Please retry if the answer was unclear.')
+        return [{'text': answer[:1500]}]
     if payload.get('intent') == 'log_update':
         return [_report_proposal(user, text, source_key)]
     if payload.get('intent') != 'create_tasks':
