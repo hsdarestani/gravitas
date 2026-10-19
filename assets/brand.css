@@ -21,8 +21,40 @@
 }
 .bk-meta b { color: var(--g-text-muted); font-weight: var(--g-w-regular); }
 
+/* ---- the cover -----------------------------------------------------------
+   Modelled on brand books that open on one word set very large and a choice
+   between the book's parts, rather than on an article's page head: most
+   visitors arrive for one thing (the logo, a hex, the font) and the cover
+   should send them there before it explains anything. */
+.bk-head__kicker {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow);
+  text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
+  color: var(--g-accent); margin: var(--g-space-md) 0 var(--g-space-xs);
+}
+.page-head .bk-head__title {
+  font-size: clamp(3.5rem, 1.5rem + 10vw, 9.5rem);
+  line-height: .9; letter-spacing: -.035em; font-weight: var(--g-w-bold);
+  margin: 0 0 var(--g-space-md);
+}
+.bk-parts {
+  display: grid; gap: var(--g-space-sm); grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: var(--g-space-xl);
+}
+@media (max-width: 760px) { .bk-parts { grid-template-columns: minmax(0, 1fr); } }
+.bk-part-card {
+  display: grid; gap: .35rem; align-content: start;
+  padding: var(--g-space-md); min-height: 9.5rem;
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: var(--g-surface-raised); color: var(--g-text); text-decoration: none;
+  transition: border-color var(--g-dur) var(--g-ease-orbit), transform var(--g-dur) var(--g-ease-orbit);
+}
+.bk-part-card:hover { border-color: var(--g-border-strong); transform: translateY(-2px); }
+.bk-part-card__n { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-accent); }
+.bk-part-card__name { font-size: var(--g-fs-h3); font-weight: var(--g-w-semibold); line-height: 1.15; margin-top: var(--g-space-md); }
+.bk-part-card__list { font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+
 /* ---- layout: contents rail + body --------------------------------------- */
-.bk-layout { display: grid; gap: var(--g-space-xl); grid-template-columns: 15rem minmax(0, 1fr); align-items: start; }
+.bk-layout { display: grid; gap: clamp(2rem, 4vw, 4.5rem); grid-template-columns: 16rem minmax(0, 1fr); align-items: start; }
 @media (max-width: 1000px) { .bk-layout { grid-template-columns: minmax(0, 1fr); } }
 /* Same trap as the essay column: the body holds <pre> samples, one of them a
    140-character font link, and a grid item will not shrink below its own
@@ -30,52 +62,120 @@
    every width, not just on a phone. The code boxes scroll themselves. */
 .bk-layout > * { min-width: 0; }
 
+/* The rail is a tree: the three parts, their chapters, and under the chapter
+   being read, that chapter's own sections. Only one chapter is open at a time,
+   so the rail stays about one screen tall however long the book grows. */
 .bk-toc {
   position: sticky; top: 6rem; align-self: start;
   font-size: var(--g-fs-small);
   max-height: calc(100vh - 8rem); overflow: auto;
+  overscroll-behavior: contain; scrollbar-width: thin;
+  padding-right: var(--g-space-2xs);
 }
-.bk-toc h2 {
+.bk-toc__part + .bk-toc__part { margin-top: var(--g-space-md); }
+.bk-toc__label {
+  display: block; margin-bottom: var(--g-space-2xs);
   font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow);
   text-transform: uppercase; letter-spacing: var(--g-track-eyebrow);
-  color: var(--g-text-subtle); font-weight: var(--g-w-regular);
-  margin-bottom: var(--g-space-sm);
+  color: var(--g-text-subtle); text-decoration: none;
 }
+.bk-toc__label:hover, .bk-toc__label.is-current { color: var(--g-accent); }
 .bk-toc ol { list-style: none; margin: 0; padding: 0; }
 .bk-toc li { margin: 0; }
-.bk-toc a {
+.bk-toc__part > ol > li > a {
   display: flex; gap: var(--g-space-2xs);
-  padding: .3rem 0 .3rem .6rem;
+  padding: .32rem 0 .32rem .7rem;
   border-left: 2px solid var(--g-hairline);
   color: var(--g-text-muted); text-decoration: none;
   transition: color var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
 }
-.bk-toc a:hover { color: var(--g-text); border-left-color: var(--g-border-strong); }
-.bk-toc a.is-current { color: var(--g-text); border-left-color: var(--g-accent); }
-.bk-toc a i { font-style: normal; font-family: var(--g-font-mono); color: var(--g-text-subtle); flex: none; }
+.bk-toc__part > ol > li > a:hover { color: var(--g-text); border-left-color: var(--g-border-strong); }
+.bk-toc__part > ol > li > a.is-current { color: var(--g-text); font-weight: var(--g-w-semibold); border-left-color: var(--g-accent); }
+.bk-toc a i { font-style: normal; font-weight: var(--g-w-regular); font-family: var(--g-font-mono); color: var(--g-text-subtle); flex: none; }
 .bk-toc a.is-current i { color: var(--g-accent); }
+
+/* The sub-list collapses on grid rows, which animate from 0fr where a height
+   cannot animate from auto. */
+.bk-toc__sub {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows .35s var(--g-ease-orbit);
+  border-left: 2px solid var(--g-hairline);
+}
+.bk-toc__sub > ol { overflow: hidden; min-height: 0; }
+.bk-toc li.is-open > .bk-toc__sub { grid-template-rows: 1fr; }
+.bk-toc__sub a {
+  display: block; position: relative;
+  padding: .22rem 0 .22rem 1.85rem;
+  font-size: var(--g-fs-caption); color: var(--g-text-subtle); text-decoration: none;
+}
+.bk-toc__sub li:last-child a { padding-bottom: .55rem; }
+.bk-toc__sub a:hover, .bk-toc__sub a.is-current { color: var(--g-text); }
+.bk-toc__sub a.is-current::before {
+  content: ""; position: absolute; left: 1.05rem; top: .8em;
+  width: .3rem; height: .3rem; border-radius: 50%; background: var(--g-accent);
+}
+@media (prefers-reduced-motion: reduce) { .bk-toc__sub { transition: none; } }
 @media (max-width: 1000px) {
-  .bk-toc { position: static; max-height: none; margin-bottom: var(--g-space-xl); }
+  .bk-toc { position: static; max-height: none; margin-bottom: var(--g-space-lg); }
+  .bk-toc__sub { display: none; }
   .bk-toc ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0 var(--g-space-sm); }
 }
 
-/* ---- section rhythm ------------------------------------------------------ */
-.bk-sec { padding-block: clamp(2.5rem, 5vw, 4rem); border-top: 1px solid var(--g-hairline); }
-.bk-sec:first-child { border-top: 0; padding-top: 0; }
-.bk-sec__n {
+/* ---- parts and chapters ----------------------------------------------------
+   A part opens on a plate, a chapter on its number and a title at display
+   size: without looking at the rail, the reader should know which part of
+   the book they are in and which chapter of it.
+
+   The plate's only ornament is the mark's own construction: fine rings from
+   two opposite corners, the field the logo is cut from. An earlier version
+   cropped the solid mark off the corner, which read as two blobs rather than
+   as a field. Sixteen treatments were compared before this one was chosen. */
+.bk-part {
+  position: relative; overflow: hidden; isolation: isolate;
+  margin-top: clamp(4rem, 8vw, 6.5rem);
+  scroll-margin-top: 6rem;
+  border-radius: var(--g-radius-lg); color: var(--g-white-tint);
+  background: linear-gradient(135deg, var(--g-cosmos-900) 0%, var(--g-cosmos-600) 70%);
+  padding: clamp(2.5rem, 6vw, 4.5rem) clamp(1.5rem, 4vw, 3rem);
+  min-height: 17rem; display: flex; flex-direction: column; justify-content: flex-end;
+}
+.bk-part:first-child { margin-top: 0; }
+.bk-part__fx {
+  position: absolute; inset: 0; z-index: -1; opacity: .5; pointer-events: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='900' viewBox='0 0 900 900' fill='none' stroke='%23d4c9be' stroke-width='1'%3E%3Cg opacity='.55'%3E%3Ccircle cx='900' cy='0' r='120'/%3E%3Ccircle cx='900' cy='0' r='180'/%3E%3Ccircle cx='900' cy='0' r='240'/%3E%3Ccircle cx='900' cy='0' r='300'/%3E%3Ccircle cx='900' cy='0' r='360'/%3E%3Ccircle cx='900' cy='0' r='420'/%3E%3Ccircle cx='900' cy='0' r='480'/%3E%3Ccircle cx='900' cy='0' r='540'/%3E%3C/g%3E%3Cg opacity='.25'%3E%3Ccircle cx='0' cy='900' r='300'/%3E%3Ccircle cx='0' cy='900' r='360'/%3E%3Ccircle cx='0' cy='900' r='420'/%3E%3Ccircle cx='0' cy='900' r='480'/%3E%3Ccircle cx='0' cy='900' r='540'/%3E%3Ccircle cx='0' cy='900' r='600'/%3E%3C/g%3E%3C/svg%3E")
+    right top / 900px no-repeat;
+  -webkit-mask-image: linear-gradient(100deg, transparent 15%, #000 70%);
+          mask-image: linear-gradient(100deg, transparent 15%, #000 70%);
+}
+.bk-part__n {
+  display: block;
   font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow);
-  letter-spacing: .16em; color: var(--g-accent); display: block;
+  text-transform: uppercase; letter-spacing: var(--g-track-eyebrow); color: var(--g-sisal);
+}
+.bk-part__title {
+  font-size: clamp(2.5rem, 1.4rem + 4.5vw, 5rem); line-height: .95; letter-spacing: -.03em;
+  font-weight: var(--g-w-bold);
+  margin: var(--g-space-2xs) 0 var(--g-space-sm); color: inherit;
+}
+.bk-part p { max-width: 46ch; color: rgb(241 239 236 / .72); margin: 0; }
+
+.bk-sec { padding-top: clamp(3.5rem, 7vw, 5.5rem); scroll-margin-top: 4rem; }
+.bk-sec__n {
+  font-family: var(--g-font-mono); font-size: var(--g-fs-small);
+  letter-spacing: .12em; color: var(--g-accent); display: block;
   margin-bottom: var(--g-space-2xs);
 }
-.bk-sec > h2 { font-size: var(--g-fs-h2); margin-bottom: var(--g-space-sm); }
+.bk-sec > h2 {
+  font-size: clamp(2.6rem, 1.5rem + 4.2vw, 4.75rem); line-height: 1; letter-spacing: -.03em;
+  font-weight: var(--g-w-bold);
+  margin-bottom: var(--g-space-md); padding-bottom: var(--g-space-md);
+  border-bottom: 1px solid var(--g-hairline);
+}
 .bk-sec > .g-lead { margin-bottom: var(--g-space-lg); }
 .bk-sec h3 {
-  font-size: var(--g-fs-h4); margin-top: var(--g-space-xl); margin-bottom: var(--g-space-xs);
-  padding-top: var(--g-space-sm); position: relative;
-}
-.bk-sec h3::before {
-  content: ""; position: absolute; top: 0; left: 0;
-  width: 2rem; height: 2px; background: var(--g-accent);
+  font-size: var(--g-fs-h3); margin-top: clamp(2.5rem, 5vw, 3.75rem); margin-bottom: var(--g-space-xs);
+  scroll-margin-top: 6rem;
 }
 .bk-sec h4 { font-size: var(--g-fs-body); margin: var(--g-space-md) 0 var(--g-space-2xs); }
 .bk-sec p, .bk-sec ul, .bk-sec ol { max-width: 62ch; }
@@ -173,7 +273,7 @@
 }
 .bk-sw:hover { border-color: var(--g-border-strong); transform: translateY(-2px); }
 .bk-sw__chip {
-  display: block; height: 6rem; flex: none;
+  display: block; height: 9rem; flex: none;
   margin: var(--g-space-2xs) var(--g-space-2xs) 0;
   border-radius: var(--g-radius-sm);
   box-shadow: inset 0 0 0 1px rgb(var(--g-tint) / .28);
@@ -187,6 +287,17 @@
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
   color: var(--g-text-muted); text-transform: uppercase;
 }
+/* HEX, RGB and CMYK as labelled rows, the way a printed swatch book reads */
+.bk-sw__vals {
+  display: grid; margin-top: var(--g-space-xs);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-muted);
+  text-transform: uppercase;
+}
+.bk-sw__vals > span {
+  display: flex; justify-content: space-between; gap: var(--g-space-2xs);
+  padding: .3rem 0; border-top: 1px solid var(--g-hairline);
+}
+.bk-sw__vals b { font-weight: var(--g-w-regular); color: var(--g-text-subtle); }
 .bk-sw__use { display: block; font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin-top: .4rem; }
 
 /* the light-theme accent, shown on its own so it is not read as a fifth brand colour.
@@ -523,3 +634,74 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
   .bk-pack .g-btn { width: 100%; justify-content: center; text-align: center; }
 }
 .bk-dl__hex { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin-left: .4rem; }
+
+/* ---- usage proportions ---------------------------------------------------- */
+.bk-usage {
+  display: flex; height: 5rem; border-radius: var(--g-radius); overflow: hidden;
+  border: 1px solid var(--g-hairline); margin-top: var(--g-space-xs);
+}
+.bk-usage > span {
+  flex: var(--w) 1 0; min-width: .5rem;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: .5rem;
+  padding: var(--g-space-2xs) var(--g-space-xs);
+  font-size: var(--g-fs-caption); white-space: nowrap; overflow: hidden;
+}
+.bk-usage b { font-family: var(--g-font-mono); font-weight: var(--g-w-regular); }
+.bk-usage > span:last-child { padding: 0; }
+.bk-usage__cap { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin-top: var(--g-space-xs); }
+@media (max-width: 560px) { .bk-usage > span:not(:first-child) { font-size: 0; padding: 0; } }
+
+/* ---- visual do / don't ----------------------------------------------------
+   The written rules stay, but a misuse is recognised faster than it is read:
+   each tile shows the error itself, drawn live from the real mark, under a
+   green or red label. */
+.bk-usegrid {
+  display: grid; gap: var(--g-space-md) var(--g-space-sm);
+  grid-template-columns: repeat(3, minmax(0, 1fr)); margin-block: var(--g-space-md);
+}
+@media (max-width: 900px) { .bk-usegrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .bk-usegrid { grid-template-columns: minmax(0, 1fr); } }
+.bk-use { margin: 0; }
+.bk-use .bk-mark { min-height: 10rem; overflow: hidden; }
+.bk-use figcaption { font-size: var(--g-fs-caption); color: var(--g-text-muted); margin-top: var(--g-space-2xs); line-height: 1.45; }
+.bk-use figcaption b {
+  display: flex; align-items: center; gap: .4rem; margin-bottom: .15rem;
+  font-size: var(--g-fs-small); font-weight: var(--g-w-bold);
+}
+.bk-use figcaption b::before {
+  content: ""; width: .55rem; height: .55rem; border-radius: 50%; background: currentColor; flex: none;
+}
+.bk-use--do figcaption b { color: var(--g-signal-positive); }
+.bk-use--dont figcaption b { color: var(--g-signal-critical); }
+.bk-use--do .bk-mark { box-shadow: inset 0 -3px 0 var(--g-signal-positive); }
+.bk-use--dont .bk-mark { box-shadow: inset 0 -3px 0 var(--g-signal-critical); }
+
+/* The errors themselves. Each is a transform or a paint on the real artwork,
+   so the tile always shows the current mark broken, never an old one. */
+.bk-x--rotate  { transform: rotate(-14deg); }
+.bk-x--stretch { transform: scale(1.35, .62); }
+.bk-x--mirror  { transform: scaleX(-1); }
+.bk-mark .bk-x--colour { color: #e2582f; }
+/* on a wrapper: the mark is a mask, and a mask clips its own filter away */
+.bk-x--effect  { display: block; width: 100%; max-width: 9rem; filter: drop-shadow(4px 6px 0 #c9705f) drop-shadow(0 0 14px #6ce0d2); }
+.bk-mark .bk-x--effect .g-mark { display: block; max-width: none; }
+.bk-x--fade    { opacity: .28; }
+.bk-mark--onlight .bk-x--lowcontrast { color: #d4c9be; }
+.bk-x--retype {
+  display: inline-flex; align-items: center; gap: .55rem;
+  font-weight: var(--g-w-semibold); font-size: 1.45rem; letter-spacing: -.01em; line-height: 1;
+}
+.bk-mark .bk-x--retype .g-mark { width: 1.6rem; max-width: none; flex: none; }
+.bk-x--badge {
+  display: grid; place-items: center; width: 4.5rem; height: 4.5rem;
+  border-radius: 50%; border: 2px solid currentColor;
+}
+.bk-mark .bk-x--badge .g-mark { width: 2.2rem; max-width: none; }
+
+/* ---- Literata specimen ---------------------------------------------------- */
+.bk-read__sample {
+  font-family: var(--g-font-read); font-size: var(--g-fs-lead); line-height: 1.68;
+  max-width: 58ch; margin: 0 0 var(--g-space-md);
+}
+.bk-weights--read { font-family: var(--g-font-read); padding-top: var(--g-space-sm); border-top: 1px solid var(--g-hairline); }
+.bk-weights--read small { font-weight: var(--g-w-regular); font-style: normal; }

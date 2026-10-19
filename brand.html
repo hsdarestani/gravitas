@@ -23,7 +23,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds5">
 
-<link rel="stylesheet" href="assets/brand.css?v=up-f706806e3a02-g1df6ff09-gq3">
+<link rel="stylesheet" href="assets/brand.css?v=up-f706806e3a02-g1df6ff09-bb5">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -57,11 +57,33 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <section class="page-head bk-head">
   <div class="g-container bk-head__inner">
     <p class="crumb"><a href="index.html">Home</a> / Brand</p>
-    <h1>The GraviQuest Brand</h1>
+    <p class="bk-head__kicker">GraviQuest &middot; Brand Book 3.0</p>
+    <h1 class="bk-head__title">Brand Book</h1>
     <p class="g-lead">Everything needed to make something that looks, reads and behaves like
-      GraviQuest: the brand book (who this is, how it thinks, how it sounds) and the design
-      system (the tokens, components and rules the site is actually built from). Written for
-      designers, writers and developers, in that order of appearance.</p>
+      GraviQuest: who this is and how it sounds, the elements it is built from, and the files to
+      build with. Written for designers, writers and developers, in that order of appearance.</p>
+
+    <!-- The three parts are the book's real structure, and the first thing a
+         visitor chooses between: someone after the logo file should not have
+         to scroll past the archetype to reach it. -->
+    <nav class="bk-parts" aria-label="Parts of the brand book">
+      <a class="bk-part-card" href="#story">
+        <span class="bk-part-card__n">I</span>
+        <span class="bk-part-card__name">Brand Story</span>
+        <span class="bk-part-card__list">Foundations, personality, voice, language</span>
+      </a>
+      <a class="bk-part-card" href="#system">
+        <span class="bk-part-card__n">II</span>
+        <span class="bk-part-card__name">System Elements</span>
+        <span class="bk-part-card__list">Logo, colour, type, space, components, icons, motion</span>
+      </a>
+      <a class="bk-part-card" href="#downloads">
+        <span class="bk-part-card__n">III</span>
+        <span class="bk-part-card__name">Downloads</span>
+        <span class="bk-part-card__list">The logo pack, single files, fonts, version log</span>
+      </a>
+    </nav>
+
     <div class="bk-meta">
       <span><b>Version</b> 3.0</span>
       <span><b>Updated</b> October 2026</span>
@@ -71,33 +93,57 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 
-<section class="g-section">
+<section class="g-section bk-body">
   <div class="g-container">
     <div class="bk-layout">
 
+      <!-- Chapters are written here; their sub-sections are added by brand.js
+           from each chapter's own h3s, so the rail cannot drift from the text. -->
       <nav class="bk-toc" aria-label="Contents">
-        <h2>Contents</h2>
-        <ol>
-          <li><a href="#foundations"><i>01</i> Foundations</a></li>
-          <li><a href="#personality"><i>02</i> Personality</a></li>
-          <li><a href="#voice"><i>03</i> Voice &amp; Tone</a></li>
-          <li><a href="#language"><i>04</i> Language Rules</a></li>
-          <li><a href="#logo"><i>05</i> Logo</a></li>
-          <li><a href="#colour"><i>06</i> Colour</a></li>
-          <li><a href="#type"><i>07</i> Typography</a></li>
-          <li><a href="#space"><i>08</i> Space &amp; Depth</a></li>
-          <li><a href="#texture"><i>09</i> Texture</a></li>
-          <li><a href="#components"><i>10</i> Components</a></li>
-          <li><a href="#icons"><i>11</i> Icons</a></li>
-          <li><a href="#motion"><i>12</i> Motion</a></li>
-          <li><a href="#quality"><i>13</i> Quality Bar</a></li>
-          <li><a href="#build"><i>14</i> Implementation</a></li>
-          <li><a href="#assets"><i>15</i> Assets</a></li>
-          <li><a href="#log"><i>16</i> Version Log</a></li>
-        </ol>
+        <div class="bk-toc__part">
+          <a class="bk-toc__label" href="#story">Brand Story</a>
+          <ol>
+            <li><a href="#foundations"><i>01</i> Foundations</a></li>
+            <li><a href="#personality"><i>02</i> Personality</a></li>
+            <li><a href="#voice"><i>03</i> Voice &amp; Tone</a></li>
+            <li><a href="#language"><i>04</i> Language Rules</a></li>
+          </ol>
+        </div>
+        <div class="bk-toc__part">
+          <a class="bk-toc__label" href="#system">System Elements</a>
+          <ol>
+            <li><a href="#logo"><i>05</i> Logo</a></li>
+            <li><a href="#colour"><i>06</i> Colour</a></li>
+            <li><a href="#type"><i>07</i> Typography</a></li>
+            <li><a href="#space"><i>08</i> Space &amp; Depth</a></li>
+            <li><a href="#texture"><i>09</i> Texture</a></li>
+            <li><a href="#components"><i>10</i> Components</a></li>
+            <li><a href="#icons"><i>11</i> Icons</a></li>
+            <li><a href="#motion"><i>12</i> Motion</a></li>
+            <li><a href="#quality"><i>13</i> Quality Bar</a></li>
+            <li><a href="#build"><i>14</i> Implementation</a></li>
+          </ol>
+        </div>
+        <div class="bk-toc__part">
+          <a class="bk-toc__label" href="#downloads">Downloads</a>
+          <ol>
+            <li><a href="#assets"><i>15</i> Assets</a></li>
+            <li><a href="#log"><i>16</i> Version Log</a></li>
+          </ol>
+        </div>
       </nav>
 
-      <div>
+      <div class="bk-main">
+
+<!-- ============================================================ PART I -->
+<header class="bk-part" id="story">
+  <span class="bk-part__fx" aria-hidden="true"></span>
+  <div class="bk-part__body">
+    <span class="bk-part__n">Part I</span>
+    <h2 class="bk-part__title">Brand Story</h2>
+    <p>Who GraviQuest is, what it believes, and how it sounds when it speaks.</p>
+  </div>
+</header>
 
 <!-- ================================================================== 01 -->
 <section class="bk-sec" id="foundations">
@@ -467,6 +513,17 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     follow their own conventions, while keeping the ban on the dash-as-everything habit.</p>
 </section>
 
+<!-- =========================================================== PART II -->
+<header class="bk-part" id="system">
+  <span class="bk-part__fx" aria-hidden="true"></span>
+  <div class="bk-part__body">
+    <span class="bk-part__n">Part II</span>
+    <h2 class="bk-part__title">System Elements</h2>
+    <p>The parts everything is assembled from: the mark, the palette, the type, and the rules
+      that hold them together.</p>
+  </div>
+</header>
+
 <!-- ================================================================== 05 -->
 <section class="bk-sec" id="logo">
   <span class="bk-sec__n">05</span>
@@ -624,6 +681,60 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     which is avatar styling.</p>
 
   <h3>Misuse</h3>
+  <p>The logo carries the brand only while it stays exactly as drawn. Some of the ways it is
+    most often broken:</p>
+  <div class="bk-usegrid">
+    <figure class="bk-use bk-use--do">
+      <div class="bk-mark bk-mark--onblue"><span class="g-mark g-mark--logotype " aria-hidden="true"></span></div>
+      <figcaption><b>Do</b>Use the supplied artwork in a brand colour.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--do">
+      <div class="bk-mark bk-mark--onblack"><span class="g-mark g-mark--logotype " aria-hidden="true"></span></div>
+      <figcaption><b>Do</b>White on space and on Royal Black.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--do">
+      <div class="bk-mark bk-mark--onlight"><span class="g-mark g-mark--logotype " aria-hidden="true"></span></div>
+      <figcaption><b>Do</b>Cosmos Blue on light surfaces.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onblue"><span class="g-mark g-mark--logotype bk-x--rotate" aria-hidden="true"></span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not rotate the logotype.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onblue"><span class="g-mark g-mark--logotype bk-x--stretch" aria-hidden="true"></span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not stretch or condense it.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onblue"><span class="g-mark g-mark--logotype bk-x--mirror" aria-hidden="true"></span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not mirror the mark. Mirrored, it is a different mark.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onblue"><span class="g-mark g-mark--logotype bk-x--colour" aria-hidden="true"></span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not recolour outside the palette.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onblue"><span class="bk-x--effect"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not add shadows, glows or gradients to the mark.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onblue"><span class="g-mark g-mark--logotype bk-x--fade" aria-hidden="true"></span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not lower the opacity of a header or hero logo.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onlight"><span class="g-mark g-mark--logotype bk-x--lowcontrast" aria-hidden="true"></span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not set it where it cannot be read.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onblue"><span class="bk-x--retype"><span class="g-mark g-mark--logo" aria-hidden="true"></span>GraviQuest</span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not retype the wordmark in DM Sans or any font.</figcaption>
+    </figure>
+    <figure class="bk-use bk-use--dont">
+      <div class="bk-mark bk-mark--onblue"><span class="bk-x--badge"><span class="g-mark g-mark--logo" aria-hidden="true"></span></span></div>
+      <figcaption><b>Don&rsquo;t</b>Do not put the mark in a container. That is avatar styling.</figcaption>
+    </figure>
+  </div>
+
+  <h4>In Words</h4>
   <div class="bk-dd">
     <div class="bk-dd__cell bk-dd__cell--do">
       <h4>Do</h4>
@@ -659,7 +770,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <span class="bk-sw__chip" style="background:#003049"></span>
       <span class="bk-sw__body">
         <span class="bk-sw__name">Cosmos Blue</span>
-        <span class="bk-sw__hex">#003049 &middot; 0 48 73</span>
+        <span class="bk-sw__vals"><span><b>HEX</b>#003049</span><span><b>RGB</b>0 48 73</span><span><b>CMYK</b>100 34 0 71</span></span>
         <span class="bk-sw__use">Signature colour. Primary dark surface and the anchor of the whole system.</span>
       </span>
     </button>
@@ -667,7 +778,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <span class="bk-sw__chip" style="background:#f1efec"></span>
       <span class="bk-sw__body">
         <span class="bk-sw__name">White Tint</span>
-        <span class="bk-sw__hex">#f1efec &middot; 241 239 236</span>
+        <span class="bk-sw__vals"><span><b>HEX</b>#f1efec</span><span><b>RGB</b>241 239 236</span><span><b>CMYK</b>0 1 2 5</span></span>
         <span class="bk-sw__use">Primary text on dark, light surfaces, logo knockout. Warmer than pure white on purpose.</span>
       </span>
     </button>
@@ -675,7 +786,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <span class="bk-sw__chip" style="background:#d4c9be"></span>
       <span class="bk-sw__body">
         <span class="bk-sw__name">Sisal</span>
-        <span class="bk-sw__hex">#d4c9be &middot; 212 201 190</span>
+        <span class="bk-sw__vals"><span><b>HEX</b>#d4c9be</span><span><b>RGB</b>212 201 190</span><span><b>CMYK</b>0 5 10 17</span></span>
         <span class="bk-sw__use">The accent. Secondary text, hairlines, eyebrows, list markers. The one warm note.</span>
       </span>
     </button>
@@ -683,14 +794,21 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <span class="bk-sw__chip" style="background:#030303"></span>
       <span class="bk-sw__body">
         <span class="bk-sw__name">Royal Black</span>
-        <span class="bk-sw__hex">#030303 &middot; 3 3 3</span>
+        <span class="bk-sw__vals"><span><b>HEX</b>#030303</span><span><b>RGB</b>3 3 3</span><span><b>CMYK</b>0 0 0 99</span></span>
         <span class="bk-sw__use">True black contexts: thumbnail bases, letterboxing, the far end of the deep-space gradient.</span>
       </span>
     </button>
   </div>
-  <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-sm)">Rough
-    balance on a dark surface: about 70% Cosmos Blue or the ramp, 20% White Tint, 8% Sisal, 2%
-    true black, gradient extremes and signals.</p>
+  <h4>Usage Proportions</h4>
+  <div class="bk-usage" role="img" aria-label="Usage on a dark surface: about 70% Cosmos Blue, 20% White Tint, 8% Sisal, 2% Royal Black and signals">
+    <span style="--w:70;background:#003049;color:#f1efec">Cosmos Blue <b>70%</b></span>
+    <span style="--w:20;background:#f1efec;color:#003049">White Tint <b>20%</b></span>
+    <span style="--w:8;background:#d4c9be;color:#003049"><b>8%</b></span>
+    <span style="--w:2;background:#030303"></span>
+  </div>
+  <p class="bk-usage__cap">Rough balance on a dark surface: about 70% Cosmos Blue or the ramp,
+    20% White Tint, 8% Sisal, 2% true black, gradient extremes and signals. CMYK values are a
+    straight conversion from screen; proof them before anything goes to press.</p>
 
   <h3>The Derived Accent</h3>
   <p>Sisal is the accent, and on a light ground it fails: at 1.4:1 against White Tint it is
@@ -704,7 +822,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <span class="bk-sw__chip" style="background:#7b6242"></span>
       <span class="bk-sw__body">
         <span class="bk-sw__name">Bronze</span>
-        <span class="bk-sw__hex">#7b6242 &middot; 123 98 66</span>
+        <span class="bk-sw__vals"><span><b>HEX</b>#7b6242</span><span><b>RGB</b>123 98 66</span><span><b>CMYK</b>0 20 46 52</span></span>
         <span class="bk-sw__use">The light theme's <code>--g-accent</code>. Eyebrows, list markers,
           rules, the accent underline on links, emphasis inside a headline. 5.9:1 on the light
           ground, so it can carry text. Never used on dark, where Sisal already does this job.</span>
@@ -843,7 +961,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <section class="bk-sec" id="type">
   <span class="bk-sec__n">07</span>
   <h2>Typography</h2>
-  <p class="g-lead">DM Sans does everything. DM Mono does one thing. There is no third family.</p>
+  <p class="g-lead">DM Sans is the voice. Literata is for reading. DM Mono does one thing.
+    There is no fourth family.</p>
 
   <h3>DM Sans</h3>
   <p>A low-contrast geometric sans, tech-forward and precise, matching the clarity brief. The full
@@ -863,6 +982,30 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
   <p>Thin and ExtraLight are display only. Never below about 40px, where they disappear and hurt
     readability.</p>
+
+  <h3>Literata, for Long Reading</h3>
+  <p>DM Sans stays the voice of the interface and of every heading. Literata is for text somebody
+    reads for minutes rather than seconds: essays, articles, the Magazine, notes in the workspace.
+    It was drawn for long reading on screens, has an optical-size axis like DM Sans, and covers
+    Greek, because physics prose carries &psi;, &Delta; and &omega; mid-sentence and a Greek letter
+    falling back to another font breaks the colour of the line.</p>
+  <div class="bk-demo bk-read">
+    <p class="bk-read__sample">A hypothesis used to be something a person proposed and a
+      measurement could refuse. When the model proposes it, <em>who</em> is answerable to the
+      measurement, and what would count as the refusal?</p>
+    <div class="bk-weights bk-weights--read">
+      <div style="font-weight:300"><b>Gravity is geometry, &Delta;&psi; &asymp; 0</b><small>300 Light</small></div>
+      <div style="font-weight:400"><b>Gravity is geometry, &Delta;&psi; &asymp; 0</b><small>400 Regular</small></div>
+      <div style="font-weight:400;font-style:italic"><b>Gravity is geometry, &Delta;&psi; &asymp; 0</b><small>400 Italic</small></div>
+      <div style="font-weight:600"><b>Gravity is geometry, &Delta;&psi; &asymp; 0</b><small>600 SemiBold</small></div>
+      <div style="font-weight:700"><b>Gravity is geometry, &Delta;&psi; &asymp; 0</b><small>700 Bold</small></div>
+    </div>
+  </div>
+  <p>Its scope is the body of long-form text and nothing else: <code>.art</code>,
+    <code>.g-prose</code> and workspace notes, through
+    <button type="button" class="bk-tok" data-copy="var(--g-font-read)">--g-font-read</button>.
+    Headings inside an essay stay in DM Sans. A serif label, button or card title would make the
+    page speak in two voices.</p>
 
   <h3>DM Mono, and Only Here</h3>
   <p>DM Mono is DM Sans's sibling rather than a second voice. It is scoped to the one place a
@@ -884,6 +1027,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <tr><td>Section headings</td><td>SemiBold to Bold, 600 to 700</td></tr>
         <tr><td>Eyebrows and labels</td><td>Medium 500, uppercase, tracked</td></tr>
         <tr><td>Body</td><td>Regular 400</td></tr>
+        <tr><td>Long-form body (essays, articles, notes)</td><td>Literata Regular 400, italic for emphasis</td></tr>
         <tr><td>Pull quotes and large editorial</td><td>Light 300, at lead size or above</td></tr>
         <tr><td>Captions and metadata</td><td>Regular 400, smaller</td></tr>
       </tbody>
@@ -956,11 +1100,14 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </ul>
 
   <h3>Loading the Fonts</h3>
-  <pre class="g-code"><code>&lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;
-&lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin&gt;
-&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;family=DM+Mono:wght@300;400;500&amp;display=swap"&gt;</code></pre>
-  <p>Both families are open licence. Download them for desktop, print or offline work from the
-    specimen pages:</p>
+  <p>The site serves all three families itself, from <code>assets/fonts/</code>, and never
+    loads Google Fonts at runtime. One stylesheet declares them:</p>
+  <pre class="g-code"><code>&lt;link rel="stylesheet" href="assets/local-fonts.css"&gt;</code></pre>
+  <p>Literata is split into Latin, Latin Extended and Greek subsets, and the browser fetches a
+    subset only when the page uses a character in its range, so an English essay costs the Latin
+    file and nothing more.</p>
+  <p>All three families are open licence. Download them for desktop, print or offline work from
+    the specimen pages:</p>
   <div class="bk-dl">
     <a href="https://fonts.google.com/specimen/DM+Sans" target="_blank" rel="noopener">
       <span class="bk-dl__mark" style="font-family:var(--g-font);font-weight:900;font-size:1.1rem">A</span>
@@ -969,6 +1116,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     <a href="https://fonts.google.com/specimen/DM+Mono" target="_blank" rel="noopener">
       <span class="bk-dl__mark" style="font-family:var(--g-font-mono);font-weight:500;font-size:1.1rem">A</span>
       <span class="bk-dl__name">DM Mono on Google Fonts</span><span class="bk-dl__type">Family</span>
+    </a>
+    <a href="https://fonts.google.com/specimen/Literata" target="_blank" rel="noopener">
+      <span class="bk-dl__mark" style="font-family:var(--g-font-read);font-weight:600;font-size:1.1rem">A</span>
+      <span class="bk-dl__name">Literata on Google Fonts</span><span class="bk-dl__type">Family</span>
     </a>
   </div>
 </section>
@@ -1712,6 +1863,16 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </ul>
 </section>
 
+<!-- ========================================================== PART III -->
+<header class="bk-part" id="downloads">
+  <span class="bk-part__fx" aria-hidden="true"></span>
+  <div class="bk-part__body">
+    <span class="bk-part__n">Part III</span>
+    <h2 class="bk-part__title">Downloads</h2>
+    <p>The files themselves, and the record of how they got here.</p>
+  </div>
+</header>
+
 <!-- ================================================================== 15 -->
 <section class="bk-sec" id="assets">
   <span class="bk-sec__n">15</span>
@@ -1791,9 +1952,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 
   <h3>Fonts</h3>
-  <p>DM Sans and DM Mono are both open licence and are loaded from Google Fonts on the web. For
-    offline, desktop or print work install the same families rather than substituting a near match:
-    the geometry of the lowercase is doing more work here than it looks.</p>
+  <p>DM Sans, DM Mono and Literata are all open licence, and on the web the site serves its own
+    copies. For offline, desktop or print work install the same families rather than substituting
+    a near match: the geometry of the lowercase is doing more work here than it looks.</p>
   <div class="bk-dl">
     <a href="https://fonts.google.com/specimen/DM+Sans" target="_blank" rel="noopener">
       <span class="bk-dl__mark" style="font-family:var(--g-font);font-weight:900;font-size:1.1rem">A</span>
@@ -1802,6 +1963,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     <a href="https://fonts.google.com/specimen/DM+Mono" target="_blank" rel="noopener">
       <span class="bk-dl__mark" style="font-family:var(--g-font-mono);font-weight:500;font-size:1.1rem">A</span>
       <span class="bk-dl__name">DM Mono, code, data and small machine-set labels</span><span class="bk-dl__type">Family</span>
+    </a>
+    <a href="https://fonts.google.com/specimen/Literata" target="_blank" rel="noopener">
+      <span class="bk-dl__mark" style="font-family:var(--g-font-read);font-weight:600;font-size:1.1rem">A</span>
+      <span class="bk-dl__name">Literata, the body of essays, articles and notes</span><span class="bk-dl__type">Family</span>
     </a>
   </div>
 
@@ -1932,7 +2097,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261014-menu2"></script>
-<script src="assets/brand.js?v=up-f706806e3a02-g1df6ff09" defer></script>
+<script src="assets/brand.js?v=up-f706806e3a02-g1df6ff09-bb6" defer></script>
 <script src="assets/chat.js?v=20261013-pulsar6" defer></script>
 </body>
 </html>
