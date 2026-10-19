@@ -119,7 +119,7 @@ def operational_tool_status(request, project_id):
     if not project:
         return _fail('not_found', 404)
     git = ProjectGitConnection.objects.filter(project=project).first()
-    selected = list(getattr(project.platform_profile, 'selected_integrations', []) or [])
+    selected = list(getattr(getattr(project, 'platform_profile', None), 'selected_integrations', []) or [])
     states = {}
     for tool in selected:
         if tool == 'git':
@@ -226,7 +226,8 @@ def _columns(value):
             raise ValueError('invalid_columns')
         key = column.get('key')
         kind = column.get('type')
-        if not isinstance(key, str) or not COLUMN_PATTERN.fullmatch(key) or key in seen or kind not in VALID_TYPES:
+        if (not isinstance(key, str) or not COLUMN_PATTERN.fullmatch(key)
+                or key in seen or not isinstance(kind, str) or kind not in VALID_TYPES):
             raise ValueError('invalid_columns')
         seen.add(key)
         result.append({'key': key, 'type': kind})
