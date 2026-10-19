@@ -126,3 +126,80 @@ class DocumentAnnotation(models.Model):
 
     def __str__(self):
         return f'{self.resource_id} · {self.author_id} · {self.created_at:%Y-%m-%d}'
+
+
+class ProjectGitConnection(models.Model):
+    """Verified public GitHub repository metadata, never an access token."""
+    project = models.OneToOneField(
+        'core.ResearchProject', on_delete=models.CASCADE, related_name='git_connection'
+    )
+    repository = models.CharField(max_length=210)
+    default_branch = models.CharField(max_length=160, blank=True)
+    last_verified_at = models.DateTimeField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='gravitas_git_connections_created',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class ProjectDataTable(models.Model):
+    """Small, project-scoped structured tables in the existing private database.
+
+    This does not open user-controlled SQL or provision an external database.
+    The user-defined columns are validated before storage and retain project ACL.
+    """
+    project = models.ForeignKey(
+        'core.ResearchProject', on_delete=models.CASCADE, related_name='data_tables'
+    )
+    name = models.CharField(max_length=120)
+    columns = models.JSONField(default=list)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='gravitas_project_tables_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
+class ProjectDataRow(models.Model):
+    table = models.ForeignKey(
+        ProjectDataTable, on_delete=models.CASCADE, related_name='rows'
+    )
+    values = models.JSONField(default=dict)
+    revision = models.PositiveIntegerField(default=1)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='gravitas_project_data_rows_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+
+class ExperimentJournalEntry(models.Model):
+    """Append-only experiment history; edits create another dated observation."""
+    class Kind(models.TextChoices):
+        NOTE = 'note', 'Note'
+        METHOD = 'method', 'Method'
+        OBSERVATION = 'observation', 'Observation'
+        RESULT = 'result', 'Result'
+
+    experiment = models.ForeignKey(
+        ResearchExperiment, on_delete=models.CASCADE, related_name='journal_entries'
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='gravitas_experiment_journal_entries',
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.NOTE)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
