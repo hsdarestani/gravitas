@@ -207,6 +207,14 @@ class DailyWorkReportTests(TestCase):
             self.assertEqual(deliver_pending()['sent'], 0)
         send.assert_called_once()
         self.assertEqual(send.call_args.args[1]['chat_id'], 123)
+        # A delivery reminder is not an instruction to capture the next chat.
+        self.assertFalse(TelegramPulsarSession.objects.filter(user=self.user).exists())
+        self.assertIsNone(handle_report_message(self.user, 'where is research intelligence', 'private:question'))
+        self.assertFalse(DailyWorkReport.objects.exists())
+        # Only the explicit Telegram button arms the reporting workflow.
+        from .telegram_work_reports import handle_report_callback
+        started = handle_report_callback(self.user, 'wr:start')
+        self.assertIn('What did you work on today', started[0]['text'])
         self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'daily_checkin')
         with patch('core.work_reports.interpret', return_value=self.raw):
             preview = handle_report_message(self.user, 'I retested lessons', 'private:message')
