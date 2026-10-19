@@ -150,3 +150,32 @@ html .ws-action-dialog__error {
   .ws-tool-picker__list { grid-template-columns: minmax(0, 1fr); }
   .ws-tool-picker { padding: 10px; }
 }
+
+
+/* Research plugin surfaces: readable, compact, and no separate UI system. */
+.ws-live-tools { display: grid; gap: 10px; margin-block: 12px; }
+.ws-live-tool {
+  display: grid; gap: 9px; padding: 12px;
+  border: 1px solid var(--g-border); border-radius: 8px;
+  background: var(--g-surface-raised); color: var(--g-text);
+}
+.ws-live-tool__heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ws-live-tool__heading small { font-size: .76rem; color: var(--g-text-subtle); }
+.ws-live-tool__heading [data-state="ready"] { color: var(--g-accent, currentColor); }
+.ws-live-tool__form { display: grid; gap: 8px; margin-block: 4px; }
+.ws-live-tool__form .v-input { width: 100%; min-width: 0; }
+.ws-live-tool__history { display: grid; gap: 4px; max-height: 270px; overflow: auto; padding: 10px; border-radius: 6px; background: var(--g-bg); }
+.ws-live-tool__history p { margin: 0; overflow-wrap: anywhere; font-size: .85rem; }
+.ws-project-database { display: grid; gap: 8px; }
+.ws-project-database > .fl-panel__title { padding: 18px 18px 0; }
+.ws-db-tables { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.ws-db-rows { display: grid; gap: 10px; }
+.ws-db-records { display: grid; gap: 8px; }
+.ws-db-record { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; border: 1px solid var(--g-border); border-radius: 6px; overflow-wrap: anywhere; }
+.ws-db-record p { margin: 0; min-width: 0; }
+.ws-live-tool__row-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.ws-live-tool__row-form label { display: grid; gap: 4px; }
+@media (max-width: 540px) {
+  .ws-db-record { align-items: stretch; flex-direction: column; }
+  .ws-live-tool__heading { flex-wrap: wrap; }
+}

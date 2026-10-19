@@ -29,7 +29,7 @@ import {
 } from './ws-admin.js?v=20261016-task1';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261016-task1';
 import { renderCoreLinks } from './ws-core-links.js?v=20261016-task1';
-import { renderResearchProject } from './ws-project.js?v=20261016-task1&patch=20261019taskchoices1';
+import { renderResearchProject } from './ws-project.js?v=20261016-task1&patch=20261019researchtools2';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -104,7 +104,7 @@ function pathKind(path = location.pathname) {
 
   match = path.match(/^\/workspace\/research\/projects\/(\d+)(?:\/([a-z-]+))?\/?$/);
   if (match) {
-    const tabs = new Set(['structure', 'overview', 'milestones', 'tasks', 'management', 'notes', 'sources', 'files', 'discussions', 'experiments', 'activity']);
+    const tabs = new Set(['structure', 'overview', 'milestones', 'tasks', 'management', 'notes', 'sources', 'files', 'discussions', 'experiments', 'database', 'activity']);
     const tab = match[2] && tabs.has(match[2]) ? match[2] : 'structure';
     return { kind: 'research-project', id: match[1], tab };
   }

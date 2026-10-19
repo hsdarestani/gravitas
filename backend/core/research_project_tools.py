@@ -192,6 +192,10 @@ def project_experiment_detail(request, project_id, experiment_id):
     if not item:
         return _error('experiment_not_found', 404)
     if request.method == 'DELETE':
+        # A published lab journal is append-only. Removing its parent would
+        # silently erase the dated record, so lock it once entries exist.
+        if item.journal_entries.exists():
+            return _error('experiment_has_journal_history', 409)
         item_id = item.pk
         title = item.title
         item.delete()

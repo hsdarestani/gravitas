@@ -2,6 +2,7 @@ import { renderProjectStructure } from './ws-project-files.js?v=20261016-task1';
 import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1';
 import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
+import { mountProjectTools, renderProjectDatabase, mountExperimentJournal } from './ws-project-tools-live.js?v=20261016-task1';
 import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261019taskchoices1';
 
 const TABS = [
@@ -15,6 +16,7 @@ const TABS = [
   ['files', 'Attachments'],
   ['discussions', 'Discussions'],
   ['experiments', 'Outputs'],
+  ['database', 'Database'],
   ['activity', 'Activity'],
 ];
 
@@ -207,10 +209,9 @@ function overviewView(doc, cockpit, { go, projectId, refresh } = {}) {
   if (!selected.length && !requested.length) {
     tools.body.append(empty('No tools selected', 'Choose Git, Database, Lab Journal or another tool for this project.'));
   }
-  selected.forEach(id => tools.body.append(row({
-    title: id.split('_').map(part => part === 'git' ? 'Git' : part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
-    meta: 'Selected · setup required',
-  })));
+  const operational = el('div', 'ws-live-tools');
+  tools.body.append(operational);
+  if (selected.length) mountProjectTools(operational, projectId, project);
   requested.forEach(name => tools.body.append(row({ title: name, meta: 'Custom plugin requested · not installed' })));
   if (project.permissions?.can_manage) {
     const edit = action('Edit project tools', async () => {
@@ -503,6 +504,7 @@ function experimentsView(doc, projectId, experiments, cockpit, rerender) {
     if (item.protocol) body.append(el('h4', null, 'Protocol'), el('p', 'fl-prose', item.protocol));
     if (item.result_summary) body.append(el('h4', null, 'Result'), el('p', 'fl-prose', item.result_summary));
     body.append(el('small', 'fl-muted', P.meta([item.owner.name, item.started_at ? `Started ${date(item.started_at)}` : '', item.completed_at ? `Completed ${date(item.completed_at)}` : ''])));
+    mountExperimentJournal(body, projectId, item, cockpit.project);
     details.append(body);
     box.body.append(details);
   }
@@ -579,6 +581,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'files') filesView(doc, cockpit);
     else if (tab === 'discussions') discussionView(doc, projectId, results[1].messages || [], project, rerender);
     else if (tab === 'experiments') experimentsView(doc, projectId, results[1].experiments || [], cockpit, rerender);
+    else if (tab === 'database') await renderProjectDatabase(doc, projectId, project);
     else if (tab === 'activity') activityView(doc, cockpit);
     else overviewView(doc, cockpit, { go, projectId, refresh: rerender });
   } catch (error) {
