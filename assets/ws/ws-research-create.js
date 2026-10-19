@@ -11,6 +11,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261016-task1';
+import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261019-tools1';
 
 let go = (path) => location.assign(path);
 
@@ -122,7 +123,8 @@ function modal(title, build, submitLabel, onSubmit) {
   return layer;
 }
 
-function openProjectCreator() {
+async function openProjectCreator() {
+  const catalog = await P.call('/platform/project-integrations/');
   modal('New research project', (grid) => {
     const title = input('text', { name: 'title', placeholder: 'Project title', required: true });
     const category = select('category', [
@@ -132,14 +134,16 @@ function openProjectCreator() {
     ], 'internal');
     const description = textarea('description', 'Short scope or context');
     const question = textarea('research_question', 'Primary research question');
+    const tools = projectIntegrationPicker(catalog.integrations);
     grid.append(
       field('Project title', title),
       field('Category', category),
       field('Description', description),
       field('Research question', question),
+      tools.element,
     );
-    return { title, category, description, question };
-  }, 'Create project', async (_fields, data) => {
+    return { title, category, description, question, tools };
+  }, 'Create project', async (fields, data) => {
     const result = await P.call('/platform/projects/', {
       method: 'POST',
       body: {
@@ -148,6 +152,8 @@ function openProjectCreator() {
         visibility: 'private',
         description: String(data.get('description') || '').trim(),
         research_question: String(data.get('research_question') || '').trim(),
+        selected_integrations: fields.tools.selected(),
+        requested_plugins: fields.tools.requested(),
       },
     });
     go(`/workspace/research/projects/${result.project.id}`);
@@ -212,7 +218,14 @@ export function researchCreateBar({ go: navigate, withProject = true } = {}) {
   if (navigate) go = navigate;
   const bar = el('div', 'v-toolbar');
   bar.dataset.researchCreateActions = 'true';
-  if (withProject) bar.append(button('New project', openProjectCreator, true));
+  if (withProject) bar.append(button('New project', () => {
+    openProjectCreator().catch((error) => {
+      modal('Project setup unavailable', (grid) => {
+        grid.append(el('p', 'v-note', error?.message || 'Could not load project tool options. Please retry.'));
+        return {};
+      }, 'Close', async () => {});
+    });
+  }, true));
   bar.append(button('New task', () => {
     openTaskCreator().catch((error) => {
       console.error('Research task creator failed', error);
@@ -339,13 +352,16 @@ export function spaceProjectToolbar(head, { go: navigate, onCreated } = {}) {
     }
     create.disabled = true;
     setStatus(line, 'Loading Space categories…');
-    let treeData;
+    let treeData, catalog;
     try {
-      treeData = await P.call('/platform/space/tree/');
+      [treeData, catalog] = await Promise.all([
+        P.call('/platform/space/tree/'),
+        P.call('/platform/project-integrations/'),
+      ]);
     } catch (error) {
       setStatus(line, error.message === 'cloud_unavailable'
         ? 'Space is temporarily unavailable in Nextcloud.'
-        : 'Space categories could not be loaded.', 'bad');
+        : 'Project setup options could not be loaded.', 'bad');
       create.disabled = false;
       return;
     }
@@ -389,6 +405,7 @@ export function spaceProjectToolbar(head, { go: navigate, onCreated } = {}) {
     ]);
     const compensation = sInput('text', 'Compensation / commercial terms');
     const skills = sInput('text', 'Python, biology, statistics');
+    const toolPicker = projectIntegrationPicker(catalog.integrations);
 
     const flags = el('div', 'space-project-flags');
     const makeCheck = (label, checked = false) => {
@@ -466,7 +483,8 @@ export function spaceProjectToolbar(head, { go: navigate, onCreated } = {}) {
     const peopleGrid = el('div', 'fl-form-grid');
     peopleGrid.append(sField('Client', clientName), sField('Requester', requesterName), sField('Requester email', requesterEmail));
     form.append(topGrid, sField('Research question', question), sField('Description', description), peopleGrid,
-      sField('Required skills', skills, 'Comma-separated'), sField('Compensation', compensation), flags, categoryMaker);
+      sField('Required skills', skills, 'Comma-separated'), sField('Compensation', compensation),
+      toolPicker.element, flags, categoryMaker);
 
     const submit = sAction('Create project', null, true);
     submit.type = 'submit';
@@ -510,6 +528,8 @@ export function spaceProjectToolbar(head, { go: navigate, onCreated } = {}) {
             confidentiality: confidentiality.value,
             compensation_text: compensation.value.trim(),
             required_skills: skills.value.split(',').map((item) => item.trim()).filter(Boolean),
+            selected_integrations: toolPicker.selected(),
+            requested_plugins: toolPicker.requested(),
             application_open: applicationOpen.checked,
             secure_data_room: secureRoom.checked,
             allow_public_links: allowLinks.checked,
