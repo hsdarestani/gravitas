@@ -57,7 +57,7 @@ def _error(code, status=400, **extra):
     return JsonResponse({'ok': False, 'error': code, **extra}, status=status)
 
 
-def _task_for(request, task_id):
+def _task_for(request, task_id, *, counts=True):
     workspace = base._workspace(request)
     if not workspace:
         return None, None
@@ -70,7 +70,7 @@ def _task_for(request, task_id):
         .filter(pk=task_id, workspace=workspace)
         .first()
     )
-    if task:
+    if task and counts:
         # Four reverse-relation JOINs previously multiplied comments, files
         # and checklist rows before DISTINCT aggregates. Indexed count queries
         # keep individual task reads and status PATCHes predictable.
@@ -169,7 +169,7 @@ def _members(workspace):
     ]
 
 
-def _choices(request, workspace):
+def _choices(request, workspace, *, include_legacy=True):
     key_results = (
         base.KeyResult.objects.filter(objective__workspace=workspace)
         .exclude(status=WorkStatus.ARCHIVED)
@@ -181,7 +181,7 @@ def _choices(request, workspace):
         .exclude(status=WorkStatus.ARCHIVED)
         .select_related('key_result__objective', 'process')
         .order_by('priority', 'due_date', 'title')
-    )
+    ) if include_legacy else []
     milestones = (
         OperatingMilestone.objects.filter(workspace=workspace)
         .exclude(status=WorkStatus.ARCHIVED)
@@ -197,7 +197,7 @@ def _choices(request, workspace):
         OperatingCycle.objects.filter(workspace=workspace)
         .exclude(status=WorkStatus.ARCHIVED)
         .order_by('end_date', 'name')
-    )
+    ) if include_legacy else []
     projects = v4._research_projects_for_core(request, workspace).order_by('title', 'id')
     return {
         'members': _members(workspace),
@@ -342,7 +342,7 @@ def task_board_detail(request, task_id):
             'ok': True,
             'task': _task_json(task),
             'can_delete': _can_manage_workspace(request.user, workspace),
-            **_choices(request, workspace),
+            **_choices(request, workspace, include_legacy=False),
         })
 
     if request.method == 'DELETE':
@@ -703,7 +703,7 @@ def _comment_json(row):
 def task_comments(request, task_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    workspace, task = _task_for(request, task_id)
+    workspace, task = _task_for(request, task_id, counts=False)
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
@@ -770,7 +770,7 @@ def _attachment_json(row):
 def task_attachments(request, task_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    workspace, task = _task_for(request, task_id)
+    workspace, task = _task_for(request, task_id, counts=False)
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
@@ -815,7 +815,7 @@ def task_attachments(request, task_id):
 def task_attachment_download(request, task_id, attachment_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    workspace, task = _task_for(request, task_id)
+    workspace, task = _task_for(request, task_id, counts=False)
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
@@ -830,7 +830,7 @@ def task_attachment_download(request, task_id, attachment_id):
 def task_attachment_delete(request, task_id, attachment_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    workspace, task = _task_for(request, task_id)
+    workspace, task = _task_for(request, task_id, counts=False)
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
@@ -855,7 +855,7 @@ def task_attachment_delete(request, task_id, attachment_id):
 def task_history(request, task_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    workspace, task = _task_for(request, task_id)
+    workspace, task = _task_for(request, task_id, counts=False)
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
