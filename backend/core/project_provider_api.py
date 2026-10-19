@@ -198,6 +198,9 @@ def project_private_git_commits(request, project_id):
         return _err('private_git_not_configured', 503)
     try:
         repository = _git_repo(binding.resource)
+        allowlist = getattr(settings, 'GRAVITAS_PROJECT_GITHUB_ALLOWED_REPOS', {})
+        if not isinstance(allowlist, dict) or repository not in allowlist.get(binding.credential_alias, []):
+            return _err('repository_not_approved_for_alias', 403)
         rows = _private_github(f'/repos/{repository}/commits?per_page=8', token)
         if not isinstance(rows, list):
             raise ValueError('private_github_unavailable')
