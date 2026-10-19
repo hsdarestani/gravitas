@@ -30,6 +30,11 @@ from core.pulsar_schedule_api import pulsar_reminders, pulsar_reminder_detail
 from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
 from core.project_integrations import project_integration_catalog, start_first_research_project
+from core.project_operational_tools import (
+    operational_tool_status, project_git, project_git_commits,
+    project_data_tables, project_data_table_detail, project_data_rows,
+    project_data_row_detail, project_experiment_journal,
+)
 from core.research_deliverable_api import project_deliverable_detail
 from core.research_intelligence_api import research_intelligence, research_intelligence_saved, research_intelligence_sources
 from core.research_milestone_api import project_milestone_detail, project_milestones
@@ -109,6 +114,14 @@ urlpatterns = [
     # A new verified account may inspect the public tool catalog before its first project.
     path('api/platform/project-integrations/', project_integration_catalog),
     path('api/platform/research/start-project/', start_first_research_project),
+    path('api/platform/projects/<int:project_id>/tools/status/', require_research_or_core(operational_tool_status)),
+    path('api/platform/projects/<int:project_id>/tools/git/', require_research_or_core(project_git)),
+    path('api/platform/projects/<int:project_id>/tools/git/commits/', require_research_or_core(project_git_commits)),
+    path('api/platform/projects/<int:project_id>/tools/data/tables/', require_research_or_core(project_data_tables)),
+    path('api/platform/projects/<int:project_id>/tools/data/tables/<int:table_id>/', require_research_or_core(project_data_table_detail)),
+    path('api/platform/projects/<int:project_id>/tools/data/tables/<int:table_id>/rows/', require_research_or_core(project_data_rows)),
+    path('api/platform/projects/<int:project_id>/tools/data/tables/<int:table_id>/rows/<int:row_id>/', require_research_or_core(project_data_row_detail)),
+    path('api/platform/projects/<int:project_id>/experiments/<int:experiment_id>/journal/', require_research_or_core(project_experiment_journal)),
     path('api/platform/projects/', require_research_or_core(platform_projects_with_space)),
     # Threaded document annotations are separate from general project
     # discussion and inherit the project's Research/Core product gate.
