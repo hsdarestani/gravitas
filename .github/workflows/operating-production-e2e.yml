@@ -96,6 +96,7 @@ jobs:
           import urllib.request
           import http.cookiejar
           from datetime import date, timedelta
+          from time import monotonic
 
           base = os.environ['BASE_URL'].rstrip('/')
           email = os.environ['TEST_EMAIL']
@@ -215,6 +216,16 @@ jobs:
           assert trace['initiative']['id'] == initiative_id, trace
           assert trace['process']['key'] == 'research', trace
           assert task_data['work_package_id'] == package_id, task_data
+
+          # Exercise Ahmad's actual Tasks board GET under a live authenticated
+          # session, not just task creation. Slow/502/504 responses are regressions.
+          board_started = monotonic()
+          _, board = request('/api/operating/task-board/')
+          board_seconds = monotonic() - board_started
+          assert board.get('ok') is True, board
+          assert any(row['id'] == task_data['id'] for row in board.get('tasks', [])), board
+          assert board_seconds < 20, f'Tasks board latency regression: {board_seconds:.1f}s'
+          print(f'operating-task-board-latency={board_seconds:.2f}s')
 
           _, updated = request(f"/api/operating/tasks/{task_data['id']}/", 'PATCH', {'status': 'done'})
           assert updated['task']['status'] == 'done', updated

@@ -252,7 +252,13 @@ jobs:
           EnvironmentFile=/etc/gravitas/backend.env
           EnvironmentFile=-/etc/gravitas/openedx.env
           Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
-          ExecStart=$BACKEND_PATH/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 django.core.wsgi:get_wsgi_application()
+          # Use threaded workers so one slow Nextcloud/DB-backed request does
+          # not monopolize all API capacity. Threads share the small worker
+          # footprint and each request gets its own Django DB connection.
+          ExecStart=$BACKEND_PATH/.venv/bin/gunicorn --worker-class gthread --workers 3 --threads 4 --timeout 60 --graceful-timeout 30 --keep-alive 5 --bind 127.0.0.1:8000 django.core.wsgi:get_wsgi_application()
+          # Reload workers behind the existing listening socket on routine
+          # deployments instead of dropping the Nginx upstream for seconds.
+          ExecReload=/bin/kill -HUP \$MAINPID
           Restart=on-failure
           RestartSec=3
 
@@ -406,6 +412,11 @@ jobs:
                   proxy_set_header X-Real-IP \$remote_addr;
                   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
                   proxy_set_header X-Forwarded-Proto \$scheme;
+                  # Bound proxy waits above Gunicorn's 60s upper limit while
+                  # avoiding unbounded slow requests and long client stalls.
+                  proxy_connect_timeout 5s;
+                  proxy_read_timeout 70s;
+                  proxy_send_timeout 70s;
               }
 
               location ^~ /admin/ {
@@ -467,6 +478,11 @@ jobs:
                   proxy_set_header X-Real-IP \$remote_addr;
                   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
                   proxy_set_header X-Forwarded-Proto \$scheme;
+                  # Bound proxy waits above Gunicorn's 60s upper limit while
+                  # avoiding unbounded slow requests and long client stalls.
+                  proxy_connect_timeout 5s;
+                  proxy_read_timeout 70s;
+                  proxy_send_timeout 70s;
               }
 
               location ^~ /admin/ {
@@ -633,8 +649,32 @@ jobs:
           fi
 
           sudo systemctl daemon-reload
-          sudo systemctl enable --now gravitas-backend
-          sudo systemctl restart gravitas-backend
+          # Only the first rollout of the new worker profile needs one hard
+          # restart. Subsequent deployments use Gunicorn HUP, which gracefully
+          # rotates workers while keeping the Nginx upstream socket alive.
+          PROFILE_VERSION='gthread-3x4-timeout60-v1'
+          PROFILE_MARKER='/etc/gravitas/backend-worker-profile'
+          if sudo systemctl is-active --quiet gravitas-backend.service &&
+             [ "$(sudo cat "$PROFILE_MARKER" 2>/dev/null || true)" = "$PROFILE_VERSION" ]; then
+            sudo systemctl reload gravitas-backend.service
+            echo 'Gravitas backend workers reloaded without upstream restart.'
+          else
+            sudo systemctl enable --now gravitas-backend.service
+            sudo systemctl restart gravitas-backend.service
+            printf '%s\n' "$PROFILE_VERSION" | sudo tee "$PROFILE_MARKER" >/dev/null
+            echo 'Gravitas worker profile activated; future deploys use graceful reload.'
+          fi
+          # A successful systemctl return alone does not prove healthy API
+          # workers. Verify local health before starting background schedules.
+          backend_ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 3 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ | grep -q '"status": "ok"'; then
+              backend_ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$backend_ready" = 1
 
           # Seed the first history snapshot immediately after migrations, then
           # let systemd continue collecting even when nobody opens Research.
