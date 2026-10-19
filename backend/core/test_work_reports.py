@@ -246,6 +246,94 @@ class DailyWorkReportTests(TestCase):
         self.assertFalse(DailyWorkReport.objects.exists())
 
 
+    def test_backdated_telegram_report_keeps_real_submission_time_and_work_day(self):
+        from .work_reports import report_day, parse_work_date_prefix
+        from datetime import timedelta
+        backdated = (report_day(self.user) - timedelta(days=3)).isoformat()
+        work_date, text = parse_work_date_prefix(backdated + ' I retested the lessons', self.user)
+        self.assertEqual(work_date.isoformat(), backdated)
+        self.assertEqual(text, 'I retested the lessons')
+        with patch('core.work_reports.interpret', return_value=self.raw):
+            messages = handle_report_message(
+                self.user, '/report ' + backdated + ' I retested the lessons',
+                source_key='tg:backdate:1',
+            )
+        self.assertIn('Work date: ' + backdated, messages[0]['text'])
+        self.assertIn('Submitted:', messages[0]['text'])
+        report = DailyWorkReport.objects.get(source_key='tg:backdate:1')
+        self.assertEqual(report.report_date.isoformat(), backdated)
+        self.assertNotEqual(report.report_date, report.created_at.date())
+        self.assertEqual(report.original_text, 'I retested the lessons')
+        handle_report_callback(self.user, messages[0]['reply_markup']['inline_keyboard'][0][0]['callback_data'])
+        report.refresh_from_db()
+        self.assertEqual(report.status, 'confirmed')
+        event = ActivityEvent.objects.get(action='task.daily_report')
+        self.assertEqual(event.detail['work_date'], backdated)
+        listed = handle_report_message(self.user, '/reports')
+        self.assertIn(backdated, listed[0]['text'])
+        self.assertIn('confirmed', listed[0]['text'])
+        self.assertIn('Submitted', messages[0]['text'])
+
+    def test_relative_backfill_expressions_and_reject_future(self):
+        from .work_reports import report_day, parse_work_date_prefix
+        from datetime import timedelta
+        today = report_day(self.user)
+        for expr, offset in [('yesterday', 1), ('2 days ago', 2), ('3 days ago', 3),
+                             ('دیروز', 1), ('پریروز', 2), ('سه روز پیش', 3)]:
+            day, detail = parse_work_date_prefix(expr + ': I finished this', self.user)
+            self.assertEqual(day, today - timedelta(days=offset), expr)
+            self.assertEqual(detail, 'I finished this')
+        with self.assertRaisesMessage(ValueError, 'work_date_out_of_range'):
+            parse_work_date_prefix((today + timedelta(days=1)).isoformat() + ' Future', self.user)
+        with self.assertRaisesMessage(ValueError, 'work_date_out_of_range'):
+            parse_work_date_prefix((today - timedelta(days=366)).isoformat() + ' Old', self.user)
+
+    def test_multiple_telegram_messages_form_one_dated_draft_only_after_done(self):
+        from .work_reports import report_day
+        from datetime import timedelta
+        from .operating_models import TelegramPulsarSession
+        previous_day = (report_day(self.user) - timedelta(days=2)).isoformat()
+        started = handle_report_message(self.user, '/report ' + previous_day)
+        self.assertIn('Send messages for this day', started[0]['text'])
+        a = handle_report_message(self.user, 'I fixed the first module')
+        b = handle_report_message(self.user, 'I tested the second module')
+        self.assertIn('(1 messages)', a[0]['text'])
+        self.assertIn('(2 messages)', b[0]['text'])
+        self.assertFalse(DailyWorkReport.objects.exists())
+        with patch('core.work_reports.interpret', return_value=self.raw):
+            preview = handle_report_message(self.user, '/done', source_key='tg:done:1')
+        self.assertIn('Work date: ' + previous_day, preview[0]['text'])
+        self.assertIn('Confirm', str(preview))
+        report = DailyWorkReport.objects.get()
+        self.assertEqual(report.report_date.isoformat(), previous_day)
+        self.assertEqual(report.original_text, 'I fixed the first module\nI tested the second module')
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'daily_report')
+
+    def test_multimessage_cancel_discards_pending_parts(self):
+        from .operating_models import TelegramPulsarSession
+        handle_report_message(self.user, '/reportmulti yesterday')
+        handle_report_message(self.user, 'I drafted an initial outline')
+        cancelled = handle_report_message(self.user, '/cancel')
+        self.assertIn('Report cancelled', cancelled[0]['text'])
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state, {})
+        self.assertFalse(DailyWorkReport.objects.exists())
+
+    def test_platform_api_accepts_explicit_historical_work_date(self):
+        from .work_reports import report_day
+        from datetime import timedelta
+        date_value = (report_day(self.user) - timedelta(days=2)).isoformat()
+        with patch('core.work_reports.interpret', return_value=self.raw):
+            response = self.client.post('/api/platform/work-reports/', json.dumps({
+                'text': 'I retested lessons', 'report_date': date_value,
+            }), content_type='application/json')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.json()['report']['date'], date_value)
+        with patch('core.work_reports.interpret', return_value=self.raw):
+            future = self.client.post('/api/platform/work-reports/', json.dumps({
+                'text': 'I retested lessons', 'report_date': (report_day(self.user) + timedelta(days=2)).isoformat(),
+            }), content_type='application/json')
+        self.assertEqual(future.status_code, 400)
+
     def test_date_filter_retrieves_older_report_and_rejects_invalid_filters(self):
         report = self.propose()
         DailyWorkReport.objects.filter(pk=report.pk).update(report_date='2025-01-01')
