@@ -97,17 +97,31 @@ def _research_project_panel_snapshot_read(request):
     """Read committed, ACL-scoped Research panel projections without DAV I/O.
 
     The canonical Research project snapshot already supports an explicit
-    read_mode=snapshot. Experiment lists, journal history, managed database
-    tables and optional operator-approved external-dataset catalogs also read
-    committed state and perform their own ACL checks. Refreshing every project
-    document synchronously for these GETs blocks Nginx workers and surfaces
-    502/504 for unrelated screens. Write routes deliberately remain canonical.
+    read_mode=snapshot. Structured discussions, milestones, tasks, folders,
+    research experiments, journals, and managed/allowlisted database panels
+    read committed DB state with their own ACL checks. Synchronous full-project
+    Nextcloud DAV crawling before these GETs blocks Gunicorn workers and yields
+    502/504 for unrelated workspaces. Write and native-document routes retain
+    their canonical revision checks; missing data is never fabricated.
     """
     if request.method not in ('GET', 'HEAD'):
         return False
     path = request.path
+    # A centralized inventory for DB-backed Research read panels. New
+    # projection-only screens belong here rather than inheriting a full DAV
+    # project refresh and a 60-second Gunicorn worker timeout.
     return bool(
-        re.fullmatch(r'/api/platform/projects/\d+/experiments/', path)
+        re.fullmatch(
+            r'/api/platform/projects/\d+/'
+            r'(?:discussions|milestones|deliverables|folders|access-candidates|tasks)/',
+            path,
+        )
+        or re.fullmatch(
+            r'/api/platform/projects/\d+/tools/'
+            r'(?:git(?:/commits)?|private-git/commits|builtin|providers|plugins|status)/',
+            path,
+        )
+        or re.fullmatch(r'/api/platform/projects/\d+/experiments/', path)
         or re.fullmatch(r'/api/platform/projects/\d+/experiments/\d+/journal/', path)
         or re.fullmatch(r'/api/platform/projects/\d+/tools/data/tables/', path)
         or re.fullmatch(r'/api/platform/projects/\d+/tools/data/tables/\d+/rows/', path)
