@@ -159,6 +159,63 @@ def backend():
         dict(module=a, file=b, line=c, count=n) for (a,b,c),n in locations.most_common(12)
     ])
 
+def telegram_diagnostics():
+    """Classify Telegram/Pulsar failures without emitting users, chat IDs or text."""
+    print("=== Pulsar Telegram routing (privacy-safe) ===")
+    live_paths = (
+        "/opt/gravitas-backend/core/task_notifications.py",
+        "/opt/gravitas-backend/backend/core/task_notifications.py",
+    )
+    for candidate in live_paths:
+        path = pathlib.Path(candidate)
+        try:
+            source = path.read_text(encoding="utf-8")
+        except (OSError, PermissionError):
+            continue
+        print("live_telegram_handler_location", str(path))
+        print("live_handler_has_legacy_callback_error",
+              "Pulsar could not complete that action. Please try again." in source)
+        print("live_handler_has_safe_callback_ack",
+              "Telegram callback acknowledgement failed, continuing" in source)
+        break
+    else:
+        print("live_telegram_handler_location", "unavailable")
+
+    log = run("sudo", "-n", "journalctl", "-u", "gravitas-backend",
+              "--since", "24 hours ago", "--no-pager", "-o", "cat", timeout=35)
+    if not log:
+        log = run("journalctl", "-u", "gravitas-backend",
+                  "--since", "24 hours ago", "--no-pager", "-o", "cat", timeout=35)
+    patterns = {
+        "callback_legacy_failure": "Telegram Pulsar callback failed",
+        "callback_handler_failure": "Telegram Pulsar callback handler failed",
+        "callback_ack_failure": "Telegram callback acknowledgement failed",
+        "callback_reply_failure": "Telegram Pulsar callback reply delivery failed",
+        "message_failure": "Telegram Pulsar message failed",
+        "message_reply_failure": "Could not send Telegram Pulsar error response",
+        "unconnected_response_failure": "Could not send unconnected Telegram Pulsar response",
+        "work_report_failure": "work report",
+        "telegram_transport_error": "telegram_transport_error",
+        "telegram_http_error": "telegram_http_",
+    }
+    errors = collections.Counter()
+    for line in log.splitlines()[-50000:]:
+        for name, needle in patterns.items():
+            if needle.lower() in line.lower():
+                errors[name] += 1
+    print("telegram_event_error_counts_24h", dict(errors))
+    # Nginx statuses for the one fixed route. Never emit client IP, query or payload.
+    access = read_lines("/var/log/nginx/access.log")
+    if not access:
+        access = run("sudo", "-n", "tail", "-n", "20000", "/var/log/nginx/access.log").splitlines()
+    webhook_statuses = collections.Counter()
+    for line in access[-20000:]:
+        m = re.search(r'"POST\\s+(/api/task-notifications/telegram/webhook/)(?:\\?[^\\s"]*)?\\s+HTTP/[^"]+"\\s+(\\d{3})\\b', line)
+        if m:
+            webhook_statuses[m.group(2)] += 1
+    print("telegram_webhook_http_statuses_tail", dict(webhook_statuses))
+
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -213,4 +270,5 @@ if __name__ == "__main__":
     health()
     web_status()
     backend()
+    telegram_diagnostics()
     nextcloud()
