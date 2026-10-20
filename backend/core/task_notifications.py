@@ -753,8 +753,13 @@ def telegram_notification_webhook(request):
             logger.exception('Could not send unconnected Telegram Pulsar response')
         return JsonResponse({'ok': True})
 
+    # The Telegram typing indicator is best-effort. An expired chat action,
+    # temporary Telegram API failure or rate limit must not drop a real message.
     try:
         _telegram_api('sendChatAction', {'chat_id': chat_id, 'action': 'typing'})
+    except Exception:
+        logger.warning('Telegram typing indicator failed; continuing message', exc_info=True)
+    try:
         from .telegram_pulsar import handle_document, handle_message
         from .telegram_work_reports import handle_report_message
         if document and not text:
