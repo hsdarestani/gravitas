@@ -224,7 +224,7 @@ def scoped_task_health():
         log = run("sudo", "-n", "tail", "-n", "50000", "/var/log/nginx/access.log").splitlines()
     codes = collections.Counter()
     hours = collections.Counter()
-    pattern = re.compile(r'"GET\\s+(/api/operating/(?:task-board/726/|tasks/726/(?:history|comments|attachments|checklist)/))[^"]*\\s+HTTP/[^"]+"\\s+(\\d{3})\\b')
+    pattern = re.compile(r'"GET\s+(/api/operating/(?:task-board/726/|tasks/726/(?:history|comments|attachments|checklist)/))[^"]*\s+HTTP/[^"]+"\s+(\d{3})\b')
     for line in log[-50000:]:
         hit = pattern.search(line)
         if not hit:
@@ -232,7 +232,7 @@ def scoped_task_health():
         url, code = hit.groups()
         group = "detail" if "task-board" in url else url.rsplit("/", 2)[-2]
         codes[(group, code)] += 1
-        timepart = re.search(r"\\[20/Oct/2026:(\\d{2}):(\\d{2}):\\d{2} ", line)
+        timepart = re.search(r"\[20/Oct/2026:(\d{2}):(\d{2}):\d{2} ", line)
         if timepart:
             hours[(timepart.group(1), group, code)] += 1
     print("task726_codes", dict((f"{a}:{b}", n) for (a,b),n in codes.items()))
@@ -250,7 +250,7 @@ def scoped_task_health():
     )
     for label, cmd in commands:
         response = run(*cmd, timeout=9).strip()
-        safe = re.fullmatch(r"\\d{3} \\d+\\.\\d+ \\d+\\.\\d+", response)
+        safe = re.fullmatch(r"\d{3} \d+\.\d+ \d+\.\d+", response)
         print(label, safe.group(0) if safe else "unavailable")
     status = run("systemctl", "is-active", "gravitas-backend.service").strip()
     print("backend_service", status if status in {"active","inactive","failed"} else "unknown")
