@@ -99,6 +99,44 @@ class TaskNotificationTests(TestCase):
         payloads = [call.kwargs.get('json') for call in post.call_args_list]
         self.assertTrue(any(payload and payload.get('text') == 'Pulsar reply' for payload in payloads))
 
+    @patch('core.telegram_pulsar.handle_message')
+    @patch('core.task_notifications._telegram_api')
+    def test_natural_language_task_survives_typing_indicator_failure(self, api, handle_message):
+        # No /new is needed. An optional Telegram typing failure must never
+        # stop the natural-language interpreter or its response.
+        sent = []
+        def request(method, payload):
+            if method == 'sendChatAction':
+                raise RuntimeError('telegram_http_429')
+            sent.append((method, payload))
+            return {'ok': True}
+        api.side_effect = request
+        handle_message.return_value = [{'text': 'Review and confirm this task.'}]
+        TaskNotificationPreference.objects.create(
+            user=self.user, telegram_chat_id=123456789, telegram_enabled=True,
+        )
+        message = 'Build a reusable Claude Skill from the approved workflow'
+        response = self.client.post(
+            '/api/task-notifications/telegram/webhook/',
+            data=json.dumps({
+                'message': {
+                    'text': message,
+                    'message_id': 75,
+                    'chat': {'id': 123456789, 'type': 'private'},
+                },
+            }),
+            content_type='application/json',
+            HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='webhook-secret',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        handle_message.assert_called_once_with(
+            self.user, message, source_key='123456789:75',
+        )
+        self.assertEqual(
+            [payload['text'] for method, payload in sent if method == 'sendMessage'],
+            ['Review and confirm this task.'],
+        )
+
     @patch('core.telegram_pulsar.handle_callback')
     @patch('core.task_notifications.requests.post')
     def test_telegram_callback_routes_to_pulsar(self, post, handle_callback):
