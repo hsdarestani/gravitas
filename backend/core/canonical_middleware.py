@@ -107,6 +107,15 @@ class CanonicalProjectMiddleware:
         relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'task-board/', 'assistant/', 'pulsar/', 'platform/share/', 'platform/folders/'))
         if not relevant:
             return None
+        # Project tool picks are standalone ResearchProjectProfile metadata.
+        # Their dedicated PATCH does not write canonical project or permission
+        # objects, so a project-wide DAV refresh would only block the request.
+        # All other project edits continue through the canonical journal.
+        if (request.method == 'PATCH'
+                and re.fullmatch(
+                    r'/api/platform/projects/\d+/tools/selection/', request.path,
+                )):
+            return None
         # Core task reads use persisted confirmed state. Never hold a SQL
         # lock while a read-only task popup waits for remote Nextcloud I/O.
         if _committed_task_snapshot_read(request):
