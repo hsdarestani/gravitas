@@ -11,7 +11,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: gravitas-backend-health-recovery
+  # Never revive the service mid-way through a matched deployment snapshot.
+  # Wait for the production lock, then check health and recover if needed.
+  group: gravitas-production
   cancel-in-progress: false
 
 jobs:
