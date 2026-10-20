@@ -120,6 +120,16 @@ class CanonicalProjectMiddleware:
         # lock while a read-only task popup waits for remote Nextcloud I/O.
         if _committed_task_snapshot_read(request):
             return None
+        # The project overview immediately reads independent tool status and
+        # approved provider catalogs after a selection save. These endpoints
+        # already enforce project ACL and read their own database/config state;
+        # syncing full Nextcloud project files here would reintroduce stalls.
+        if (request.method in ('GET', 'HEAD')
+                and re.fullmatch(
+                    r'/api/platform/projects/\d+/tools/(?:status|plugins|providers)/',
+                    request.path,
+                )):
+            return None
         if request.method in ('GET', 'HEAD'):
             # Portfolio/cockpit navigation reads the committed projection,
             # just like the global task board. This is an explicit read mode,
