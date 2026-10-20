@@ -80,6 +80,38 @@ class CanonicalProjectTests(TestCase):
         self.client.force_login(self.outsider)
         self.assertNotEqual(self.client.get(url).status_code, 200)
 
+    def test_adopted_research_panels_read_without_dav_and_still_enforce_acl(self):
+        from .research_models import ResearchExperiment
+        ResearchExperiment.objects.create(
+            project=self.project, owner=self.owner, title='Proof of concept'
+        )
+        self.adopt()
+        root = f'/api/platform/projects/{self.project.pk}/'
+        endpoints = [
+            ('experiments/', 200),
+            ('tools/data/tables/', 200),
+            ('tools/external/datasets/', 409),
+        ]
+        with patch(
+            'core.canonical_middleware.refresh_project',
+            side_effect=AssertionError('Read-only research panels must not await Nextcloud'),
+        ):
+            for path, status in endpoints:
+                with self.subTest(path=path):
+                    result = self.client.get(root + path)
+                    self.assertEqual(result.status_code, status, result.content)
+            self.assertEqual(
+                len(self.client.get(root + 'experiments/').json()['experiments']), 1
+            )
+            self.client.force_login(self.viewer)
+            for path, status in endpoints:
+                with self.subTest(viewer_path=path):
+                    self.assertEqual(self.client.get(root + path).status_code, status)
+            self.client.force_login(self.outsider)
+            for path, _ in endpoints:
+                with self.subTest(outsider_path=path):
+                    self.assertEqual(self.client.get(root + path).status_code, 404)
+
     def test_native_cockpit_read_still_refreshes_source(self):
         self.adopt()
         with patch('core.canonical_middleware.refresh_project') as refresh:
