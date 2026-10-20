@@ -3,6 +3,11 @@ name: Deploy Gravitas to Strato
 on:
   push:
     branches: [main]
+    # Read-only inspections must never trigger the checkpoint routine, which
+    # briefly pauses production services to take a consistent snapshot.
+    paths-ignore:
+      - 'ops/readonly_runtime_diagnostics.py'
+      - '.github/workflows/readonly-diagnostics.yml'
   workflow_dispatch:
 
 permissions:
