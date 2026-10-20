@@ -216,6 +216,46 @@ def telegram_diagnostics():
     print("telegram_webhook_http_statuses_tail", dict(webhook_statuses))
 
 
+def scoped_task_health():
+    """Current task deep-link HTTP status breakdown, no URLs or identifying data."""
+    print("=== Recent task 726 transport and backend probes ===")
+    log = read_lines("/var/log/nginx/access.log", max_bytes=12_000_000)
+    if not log:
+        log = run("sudo", "-n", "tail", "-n", "50000", "/var/log/nginx/access.log").splitlines()
+    codes = collections.Counter()
+    hours = collections.Counter()
+    pattern = re.compile(r'"GET\\s+(/api/operating/(?:task-board/726/|tasks/726/(?:history|comments|attachments|checklist)/))[^"]*\\s+HTTP/[^"]+"\\s+(\\d{3})\\b')
+    for line in log[-50000:]:
+        hit = pattern.search(line)
+        if not hit:
+            continue
+        url, code = hit.groups()
+        group = "detail" if "task-board" in url else url.rsplit("/", 2)[-2]
+        codes[(group, code)] += 1
+        timepart = re.search(r"\\[20/Oct/2026:(\\d{2}):(\\d{2}):\\d{2} ", line)
+        if timepart:
+            hours[(timepart.group(1), group, code)] += 1
+    print("task726_codes", dict((f"{a}:{b}", n) for (a,b),n in codes.items()))
+    print("task726_codes_by_hour", dict((f"{a}:{b}:{c}", n) for (a,b,c),n in hours.items()))
+    commands = (
+        ("nginx_unauthenticated",
+         ("curl", "-sS", "-o", "/dev/null", "--max-time", "6",
+          "-H", "Host: graviquest.com", "-H", "X-Forwarded-Proto: https",
+          "-w", "%{http_code} %{time_starttransfer} %{time_total}",
+          "http://127.0.0.1/api/operating/task-board/726/")),
+        ("backend_unauthenticated",
+         ("curl", "-sS", "-o", "/dev/null", "--max-time", "6",
+          "-w", "%{http_code} %{time_starttransfer} %{time_total}",
+          "http://127.0.0.1:8000/api/operating/task-board/726/")),
+    )
+    for label, cmd in commands:
+        response = run(*cmd, timeout=9).strip()
+        safe = re.fullmatch(r"\\d{3} \\d+\\.\\d+ \\d+\\.\\d+", response)
+        print(label, safe.group(0) if safe else "unavailable")
+    status = run("systemctl", "is-active", "gravitas-backend.service").strip()
+    print("backend_service", status if status in {"active","inactive","failed"} else "unknown")
+
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -270,5 +310,6 @@ if __name__ == "__main__":
     health()
     web_status()
     backend()
+    scoped_task_health()
     telegram_diagnostics()
     nextcloud()
