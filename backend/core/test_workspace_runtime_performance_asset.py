@@ -40,6 +40,16 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         self.assertIn('setTimeout(() => {', views)
         self.assertIn("'/operating/task-board/?mode=dependencies'", platform)
 
+    def test_task_modal_does_not_cancel_slow_mobile_requests_or_discard_preview(self):
+        platform = self.read('ws-platform.js')
+        views = self.read('ws-views.js')
+        self.assertNotIn('controller.abort()', platform)
+        self.assertNotIn('setTimeout(() => controller.abort()', platform)
+        self.assertIn('P.operatingTaskPreview(taskId).then(showTaskPreview)', views)
+        self.assertIn('P.operatingTaskHistory(taskId).then((data)', views)
+        self.assertIn('if (previewLoaded)', views)
+        self.assertIn('Retry full editor', views)
+
     def test_core_overview_does_not_wait_for_optional_integrations(self):
         home = self.read('ws-home.js')
         core = home.split('function renderCoreBody(', 1)[1].split(
