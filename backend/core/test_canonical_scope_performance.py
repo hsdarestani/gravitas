@@ -38,6 +38,7 @@ class CanonicalRequestScopeTests(TestCase):
             '/api/operating/tasks/726/attachments/',
             '/api/operating/tasks/726/attachments/55/download/',
             '/api/calendar/google/tasks/726/status/',
+            '/api/platform/tasks/726/',
         ]
         with (
             patch('core.canonical_middleware.project_scope_for',
