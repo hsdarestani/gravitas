@@ -216,6 +216,55 @@ def telegram_diagnostics():
     print("telegram_webhook_http_statuses_tail", dict(webhook_statuses))
 
 
+def task_726_latency_diagnostics():
+    """Count request failures and latency for one task; print no user data."""
+    print("=== Task card 726 endpoint health (last 90 min) ===")
+    raw = read_lines("/var/log/nginx/access.log", max_bytes=12_000_000)
+    if not raw:
+        raw = run("sudo", "-n", "tail", "-n", "50000", "/var/log/nginx/access.log").splitlines()
+    now = datetime.utcnow()
+    counts = collections.Counter()
+    sampled = collections.defaultdict(list)
+    for line in raw[-50000:]:
+        mt = re.search(r'\\[(\\d{2}/[A-Za-z]{3}/\\d{4}:\\d{2}:\\d{2}:\\d{2}) [+-]\\d{4}\\]', line)
+        if not mt:
+            continue
+        try:
+            at = datetime.strptime(mt.group(1), "%d/%b/%Y:%H:%M:%S")
+        except ValueError:
+            continue
+        if not (0 <= (now - at).total_seconds() <= 5400):
+            continue
+        m = re.search(r'"GET\\s+(/api/operating/(?:task-board/726/|tasks/726/(?:history|comments|attachments|checklist)/))[^"]*\\s+HTTP/[^"]+"\\s+(\\d{3})\\b', line)
+        if not m:
+            continue
+        url, code = m.groups()
+        bucket = "detail" if "task-board" in url else url.split("/")[-2]
+        counts[(bucket, code)] += 1
+        values = re.findall(r'\\b(\\d+\\.\\d{3})\\b', line[mt.end():])
+        if values:
+            # Nginx optional timing field; do not infer from arbitrary metrics.
+            sampled[bucket].append(values[-1])
+    print("task726_response_codes", dict((f"{k[0]}_{k[1]}", v) for k,v in counts.items()))
+    print("task726_latency_fields_present", {k: len(v) for k,v in sampled.items()})
+    status = run("sudo", "-n", "-u", "postgres", "psql", "-X", "-q", "-t", "-A",
+                 "-d", "gravitas", "-c", (
+                     "BEGIN READ ONLY; "
+                     "SELECT state,wait_event_type,COUNT(*) FROM pg_stat_activity "
+                     "WHERE datname='gravitas' GROUP BY state,wait_event_type ORDER BY COUNT(*) DESC; "
+                     "ROLLBACK;"
+                 ), timeout=12)
+    normalized = [x for x in status.splitlines() if x.count("|") == 2]
+    print("postgres_activity_summary", normalized[:12] if normalized else "unavailable")
+    # Request from the server itself avoids the user's network and measures
+    # whether Gunicorn can answer an anonymous, health-only probe.
+    probe = run("curl", "-s", "-o", "/dev/null", "--connect-timeout", "3",
+                "--max-time", "8", "-w", "%{http_code} %{time_starttransfer} %{time_total}",
+                "http://127.0.0.1:8000/api/health/", timeout=10).strip()
+    m = re.fullmatch(r"(\\d{3}) (\\d+\\.\\d+) (\\d+\\.\\d+)", probe)
+    print("local_backend_health_probe", m.group(0) if m else "unavailable")
+
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -270,5 +319,6 @@ if __name__ == "__main__":
     health()
     web_status()
     backend()
+    task_726_latency_diagnostics()
     telegram_diagnostics()
     nextcloud()
