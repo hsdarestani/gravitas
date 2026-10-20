@@ -8,6 +8,7 @@ on:
     paths-ignore:
       - 'ops/readonly_runtime_diagnostics.py'
       - '.github/workflows/readonly-diagnostics.yml'
+      - '.github/workflows/backend-recover.yml'
   workflow_dispatch:
 
 permissions:
@@ -264,7 +265,9 @@ jobs:
           # Reload workers behind the existing listening socket on routine
           # deployments instead of dropping the Nginx upstream for seconds.
           ExecReload=/bin/kill -HUP \$MAINPID
-          Restart=on-failure
+          # An upstream can exit cleanly after a signal or a brief service
+          # rotation. Never leave Nginx targeting an inactive Gunicorn unit.
+          Restart=always
           RestartSec=3
 
           [Install]
