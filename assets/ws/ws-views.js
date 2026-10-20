@@ -900,6 +900,51 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     }
     body.append(skeleton(6));
     let detailForFallback = null;
+    let previewLoaded = false;
+    let editorFailed = false;
+    const showTaskPreview = ({ task: summary }) => {
+      if (!dialog.isConnected || !summary || (detailForFallback && !editorFailed)) return;
+      previewLoaded = true;
+      detailForFallback = summary;
+      head.querySelector('h2').textContent = summary.title || 'Task';
+      const status = el('p', 'fl-muted',
+        `Status: ${P.label(summary.status || 'unknown')} · Owner: ${summary.owner?.name || 'Unknown'}`);
+      const description = el('p', null, summary.description || 'No description.');
+      const activity = el('section', 'task-card-dialog__message');
+      activity.append(el('strong', null, 'Activity'), el('p', 'fl-muted', 'Loading report history…'));
+      const note = el('p', 'fl-muted', editorFailed
+        ? 'The editor could not load. The task and saved reports remain available below.'
+        : 'Loading full editor…');
+      body.replaceChildren(status, description, activity, note);
+      P.operatingTaskHistory(taskId).then((data) => {
+        if (!activity.isConnected) return;
+        activity.replaceChildren(el('strong', null, 'Activity'));
+        for (const event of (data.events || []).slice(0, 20)) {
+          const item = el('article', 'task-card-dialog__message');
+          item.append(el('strong', null,
+            event.action === 'task.daily_report' ? 'Pulsar · confirmed daily report' : P.label(event.action)),
+            el('small', 'fl-muted', P.formatDate(event.created_at)));
+          if (event.action === 'task.daily_report') {
+            const report = event.report || {};
+            const detail = event.detail || {};
+            if (detail.progress) item.append(el('p', null, `Progress: ${detail.progress}`));
+            if (detail.deliverable) item.append(el('p', null, `Deliverable: ${detail.deliverable}`));
+            if (detail.next_action) item.append(el('p', null, `Next: ${detail.next_action}`));
+            if (report.original_text) item.append(el('p', null, report.original_text));
+          }
+          activity.append(item);
+        }
+        if (!(data.events || []).length) activity.append(el('p', 'fl-muted', 'No activity yet.'));
+      }).catch((error) => {
+        if (activity.isConnected) {
+          activity.replaceChildren(
+            el('strong', null, 'Activity'),
+            el('p', 'fl-muted', error?.message || 'Activity could not load.'),
+            makeButton('Retry activity', () => showTaskPreview({ task: summary })),
+          );
+        }
+      });
+    };
 
     try {
       // Detail is the only blocking request. The dependency index can include
@@ -909,16 +954,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       // dropdowns came back. Show task identity/status from a small, indexed
       // single-task read without blocking the full editable form.
       
-      P.call(`/operating/task-board/${taskId}/?mode=preview`).then(({ task: summary }) => {
-        if (!dialog.isConnected || detailForFallback || !summary) return;
-        head.querySelector('h2').textContent = summary.title || 'Task';
-        body.replaceChildren(
-          el('p', 'fl-muted', `Status: ${P.label(summary.status || 'unknown')} · Owner: ${summary.owner?.name || 'Unknown'}`),
-          el('p', '', summary.description || ''),
-          el('p', 'fl-muted', 'Loading editor and activity…'),
-          skeleton(3),
-        );
-      }).catch(() => { /* The complete task endpoint provides a fallback. */ });
+      P.operatingTaskPreview(taskId).then(showTaskPreview)
+        .catch(() => { /* The full editor still provides a fallback. */ });
       const detailData = await P.operatingTaskCard(taskId);
       const boardState = stateLoader ? { tasks: [] } : (state || { tasks: [] });
       state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
@@ -1683,6 +1720,20 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
 
       await Promise.all([loadChecklist(), loadComments(), loadAttachments(), loadHistory()]);
     } catch (error) {
+      editorFailed = true;
+      if (previewLoaded) {
+        const alert = el('div', 'ws-alert');
+        alert.append(
+          el('strong', null, 'Full editor unavailable'),
+          el('p', null, error?.message || 'Could not load the editor.'),
+          makeButton('Retry full editor', () => {
+            closeDialog(dialog);
+            openTaskDialog(taskId, state, reloadBoard);
+          }),
+        );
+        body.prepend(alert);
+        return;
+      }
       body.innerHTML = '';
       if (detailForFallback && typeof detailForFallback === 'object') {
         // The backend returned the task. A problem in an optional editor
