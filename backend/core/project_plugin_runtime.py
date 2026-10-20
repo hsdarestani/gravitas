@@ -114,7 +114,7 @@ def builtin_plugin_catalog(request, project_id):
     project = _project(request, project_id)
     if not project:
         return _err('not_found', 404)
-    selected = getattr(project.platform_profile, 'selected_integrations', []) or []
+    selected = getattr(getattr(project, 'platform_profile', None), 'selected_integrations', []) or []
     return JsonResponse({'ok': True, 'plugins': [
         {**manifest, 'selected': name in selected, 'state': 'ready' if name in selected else 'not_selected'}
         for name, manifest in MANIFESTS.items()
@@ -130,7 +130,7 @@ def run_builtin_plugin(request, project_id, plugin_id):
         return _err('not_found', 404)
     if plugin_id not in MANIFESTS:
         return _err('plugin_not_installed', 404)
-    if plugin_id not in (getattr(project.platform_profile, 'selected_integrations', []) or []):
+    if plugin_id not in (getattr(getattr(project, 'platform_profile', None), 'selected_integrations', []) or []):
         return _err('plugin_not_selected', 409)
     if len(request.body) > 3000:
         return _err('invalid_payload')
