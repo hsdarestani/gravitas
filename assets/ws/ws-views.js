@@ -885,7 +885,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
      awaited and both requests run side by side: a click that shows nothing for
      a second gets clicked again, and each of those clicks used to become its
      own dialog. A second click on a task whose card is already up focuses it. */
-  async function openTaskDialog(taskId, state, reloadBoard) {
+  async function openTaskDialog(taskId, state, reloadBoard, { forceEditor = false } = {}) {
     const existing = document.querySelector(`.task-card-dialog[data-task-id="${taskId}"]`);
     if (existing) {
       existing.focus();
@@ -902,7 +902,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     let detailForFallback = null;
     let previewLoaded = false;
     let editorFailed = false;
-    const showTaskPreview = ({ task: summary }) => {
+    const mobileReader = window.matchMedia?.('(max-width: 800px)')?.matches && !forceEditor;
+    const showTaskPreview = ({ task: summary, events = [] }) => {
       if (!dialog.isConnected || !summary || (detailForFallback && !editorFailed)) return;
       previewLoaded = true;
       detailForFallback = summary;
@@ -914,12 +915,11 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       activity.append(el('strong', null, 'Activity'), el('p', 'fl-muted', 'Loading report history…'));
       const note = el('p', 'fl-muted', editorFailed
         ? 'The editor could not load. The task and saved reports remain available below.'
-        : 'Loading full editor…');
+        : mobileReader ? 'Task report and status' : 'Loading full editor…');
       body.replaceChildren(status, description, activity, note);
-      P.operatingTaskHistory(taskId).then((data) => {
-        if (!activity.isConnected) return;
+      const showEvents = (items) => {
         activity.replaceChildren(el('strong', null, 'Activity'));
-        for (const event of (data.events || []).slice(0, 20)) {
+        for (const event of (items || []).slice(0, 20)) {
           const item = el('article', 'task-card-dialog__message');
           item.append(el('strong', null,
             event.action === 'task.daily_report' ? 'Pulsar · confirmed daily report' : P.label(event.action)),
@@ -934,16 +934,16 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           }
           activity.append(item);
         }
-        if (!(data.events || []).length) activity.append(el('p', 'fl-muted', 'No activity yet.'));
-      }).catch((error) => {
-        if (activity.isConnected) {
-          activity.replaceChildren(
-            el('strong', null, 'Activity'),
-            el('p', 'fl-muted', error?.message || 'Activity could not load.'),
-            makeButton('Retry activity', () => showTaskPreview({ task: summary })),
-          );
-        }
-      });
+        if (!(items || []).length) activity.append(el('p', 'fl-muted', 'No activity yet.'));
+      };
+      showEvents(events);
+      if (mobileReader) {
+        const edit = makeButton('Edit task', () => {
+          closeDialog(dialog);
+          openTaskDialog(taskId, state, reloadBoard, { forceEditor: true });
+        });
+        body.append(edit);
+      }
     };
 
     try {
@@ -954,8 +954,22 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       // dropdowns came back. Show task identity/status from a small, indexed
       // single-task read without blocking the full editable form.
       
-      P.operatingTaskPreview(taskId).then(showTaskPreview)
-        .catch(() => { /* The full editor still provides a fallback. */ });
+      const previewRequest = P.operatingTaskPreview(taskId).then(showTaskPreview)
+        .catch((error) => {
+          if (mobileReader && dialog.isConnected) {
+            body.replaceChildren(failure('task card', error, () => {
+              closeDialog(dialog);
+              openTaskDialog(taskId, state, reloadBoard);
+            }));
+          }
+        });
+      if (mobileReader) {
+        // Mobile opens read-first: status + Pulsar history share a single API
+        // round trip. The full editor and all its selectable catalogs are only
+        // fetched when the user explicitly taps Edit task.
+        await previewRequest;
+        return;
+      }
       const detailData = await P.operatingTaskCard(taskId);
       const boardState = stateLoader ? { tasks: [] } : (state || { tasks: [] });
       state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
