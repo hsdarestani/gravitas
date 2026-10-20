@@ -64,6 +64,39 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
         self.assertIn("renderNoteMarkdown", notes)
         self.assertIn("function drawList()", notes)
 
+    def test_project_deep_links_keep_research_index_on_hard_refresh(self):
+        app = APP.read_text(encoding='utf-8')
+        five = (ROOT / 'assets' / 'ws' / 'ws-five-layer.js').read_text(encoding='utf-8')
+        nav = NAV.read_text(encoding='utf-8')
+        # The research-project renderer intentionally owns only the project
+        # body/breadcrumb, not the Research index. On direct refresh the
+        # shell must draw that index instead of leaving initial skeletons.
+        self.assertIn("kind: 'research-project', id: match[1], tab", five)
+        self.assertIn("if (route.kind === 'research-project') {", five)
+        self.assertIn(
+            "fiveLayerRoute(String(path).split(/[?#]/)[0])?.kind === 'research-project'",
+            app,
+        )
+        self.assertIn("if ((fiveLayerOwns() && !shellDrawsIndex()) || learningIndexFor()) return;", app)
+        self.assertIn("if (!shellDrawsIndex()) {", app)
+        self.assertIn("renderIndex();", app)
+        self.assertIn("label: 'Projects'", nav)
+        self.assertIn("match: under('/workspace/research/projects')", nav)
+
+    def test_other_five_layer_index_owners_remain_distinct(self):
+        five = (ROOT / 'assets' / 'ws' / 'ws-five-layer.js').read_text(encoding='utf-8')
+        app = APP.read_text(encoding='utf-8')
+        # Existing indexes in Dashboard, Learning and Platform Admin remain
+        # five-layer-owned; Core work reports stay shell-owned.
+        for header in (
+            "renderIndex('Dashboard', DASHBOARD_INDEX",
+            "renderIndex('Learning', LEARNING_INDEX",
+            "renderIndex('Platform Admin', ADMIN_INDEX",
+        ):
+            self.assertIn(header, five)
+        self.assertIn("core\\/work-reports", app)
+        self.assertIn("fiveLayerOwns()", app)
+
     def test_visual4_cache_chain_reaches_changed_renderers(self):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         app = APP.read_text(encoding='utf-8')
