@@ -86,10 +86,11 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     && /^\/operating\/(?:task-board\/\d+\/|tasks\/\d+\/(?:history|comments|attachments|checklist)\/)/.test(path);
   let res;
   for (let attempt = 0; attempt < (retryableTaskRead ? 2 : 1); attempt += 1) {
-    const controller = retryableTaskRead ? new AbortController() : null;
-    const timeout = controller ? setTimeout(() => controller.abort(), 8000) : null;
     try {
-      res = await fetch(API + path, { ...request, ...(controller ? { signal: controller.signal } : {}) });
+      // Never impose a client-side eight-second abort: on slower mobile
+      // networks it cancels an otherwise healthy Django response (Nginx 499).
+      // Let the browser's network stack own cancellation.
+      res = await fetch(API + path, request);
       if (retryableTaskRead && [502, 503, 504].includes(res.status) && attempt === 0) {
         await new Promise((resolve) => setTimeout(resolve, 600));
         continue;
@@ -98,13 +99,11 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     } catch (error) {
       if (!retryableTaskRead || attempt !== 0) {
         if (!retryableTaskRead) throw error;
-        const unavailable = new Error('Task service is temporarily unreachable. Retry this panel.');
+        const unavailable = new Error('Could not connect to the task service. Check your connection and try again.');
         unavailable.status = 0;
         throw unavailable;
       }
       await new Promise((resolve) => setTimeout(resolve, 600));
-    } finally {
-      if (timeout !== null) clearTimeout(timeout);
     }
   }
 
