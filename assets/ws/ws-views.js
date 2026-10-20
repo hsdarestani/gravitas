@@ -8,7 +8,7 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261020report2';
+import * as P from './ws-platform.js?v=20261016-task1';
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
@@ -908,8 +908,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       // A direct link used to show only "Loading task…" until all editor
       // dropdowns came back. Show task identity/status from a small, indexed
       // single-task read without blocking the full editable form.
-      const detailRequest = P.operatingTaskCard(taskId);
-      P.operatingTaskPreview(taskId).then(({ task: summary }) => {
+      
+      P.call(`/operating/task-board/${taskId}/?mode=preview`).then(({ task: summary }) => {
         if (!dialog.isConnected || detailForFallback || !summary) return;
         head.querySelector('h2').textContent = summary.title || 'Task';
         body.replaceChildren(
@@ -919,7 +919,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           skeleton(3),
         );
       }).catch(() => { /* The complete task endpoint provides a fallback. */ });
-      const detailData = await detailRequest;
+      const detailData = await P.operatingTaskCard(taskId);
       const boardState = stateLoader ? { tasks: [] } : (state || { tasks: [] });
       state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
       const task = detailData.task;
