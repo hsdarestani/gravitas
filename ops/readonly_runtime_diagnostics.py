@@ -226,7 +226,7 @@ def task_726_latency_diagnostics():
     counts = collections.Counter()
     sampled = collections.defaultdict(list)
     for line in raw[-50000:]:
-        mt = re.search(r'\\[(\\d{2}/[A-Za-z]{3}/\\d{4}:\\d{2}:\\d{2}:\\d{2}) [+-]\\d{4}\\]', line)
+        mt = re.search(r'\[(\d{2}/[A-Za-z]{3}/\d{4}:\d{2}:\d{2}:\d{2}) [+-]\d{4}\]', line)
         if not mt:
             continue
         try:
@@ -235,13 +235,13 @@ def task_726_latency_diagnostics():
             continue
         if not (0 <= (now - at).total_seconds() <= 5400):
             continue
-        m = re.search(r'"GET\\s+(/api/operating/(?:task-board/726/|tasks/726/(?:history|comments|attachments|checklist)/))[^"]*\\s+HTTP/[^"]+"\\s+(\\d{3})\\b', line)
+        m = re.search(r'"GET\s+(/api/operating/(?:task-board/726/|tasks/726/(?:history|comments|attachments|checklist)/))[^"]*\s+HTTP/[^"]+"\s+(\d{3})\b', line)
         if not m:
             continue
         url, code = m.groups()
         bucket = "detail" if "task-board" in url else url.split("/")[-2]
         counts[(bucket, code)] += 1
-        values = re.findall(r'\\b(\\d+\\.\\d{3})\\b', line[mt.end():])
+        values = re.findall(r'\b(\d+\.\d{3})\b', line[mt.end():])
         if values:
             # Nginx optional timing field; do not infer from arbitrary metrics.
             sampled[bucket].append(values[-1])
@@ -261,7 +261,7 @@ def task_726_latency_diagnostics():
     probe = run("curl", "-s", "-o", "/dev/null", "--connect-timeout", "3",
                 "--max-time", "8", "-w", "%{http_code} %{time_starttransfer} %{time_total}",
                 "http://127.0.0.1:8000/api/health/", timeout=10).strip()
-    m = re.fullmatch(r"(\\d{3}) (\\d+\\.\\d+) (\\d+\\.\\d+)", probe)
+    m = re.fullmatch(r"(\d{3}) (\d+\.\d+) (\d+\.\d+)", probe)
     print("local_backend_health_probe", m.group(0) if m else "unavailable")
 
 
