@@ -74,6 +74,53 @@ class CanonicalRequestScopeTests(TestCase):
             self.factory.get('/api/platform/projects/71/tasks/726/')
         ))
 
+    def test_research_experiments_and_database_gets_skip_remote_refresh(self):
+        from .canonical_middleware import _research_project_panel_snapshot_read
+        reads = [
+            '/api/platform/projects/208/experiments/',
+            '/api/platform/projects/208/experiments/33/journal/',
+            '/api/platform/projects/208/tools/data/tables/',
+            '/api/platform/projects/208/tools/data/tables/12/rows/',
+            '/api/platform/projects/208/tools/external/datasets/',
+            '/api/platform/projects/208/tools/external/datasets/observations/rows/?limit=50',
+        ]
+        with (
+            patch('core.canonical_middleware.project_scope_for',
+                  side_effect=AssertionError('Research panel GET must not scan canonical scope')),
+            patch('core.canonical_middleware.refresh_project',
+                  side_effect=AssertionError('Research panel GET must not refresh Nextcloud')),
+        ):
+            for path in reads:
+                with self.subTest(path=path):
+                    request = self.factory.get(path)
+                    request.user = self.user
+                    self.assertTrue(_research_project_panel_snapshot_read(request))
+                    self.assertIsNone(self.middleware.process_view(
+                        request, lambda req: None, (), {'project_id': 208}
+                    ))
+
+    def test_research_write_routes_and_live_document_reads_are_not_exempt(self):
+        from .canonical_middleware import _research_project_panel_snapshot_read
+        for path in (
+            '/api/platform/projects/208/experiments/',
+            '/api/platform/projects/208/experiments/33/journal/',
+            '/api/platform/projects/208/tools/data/tables/',
+            '/api/platform/projects/208/tools/data/tables/12/rows/',
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(_research_project_panel_snapshot_read(self.factory.post(path)))
+                self.assertFalse(_research_project_panel_snapshot_read(self.factory.patch(path)))
+                self.assertFalse(_research_project_panel_snapshot_read(self.factory.delete(path)))
+        for path in (
+            '/api/platform/projects/208/',
+            '/api/platform/projects/208/experiments/33/',
+            '/api/platform/projects/208/file-content/',
+            '/api/platform/projects/208/structure/',
+            '/api/platform/projects/208/tasks/',
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(_research_project_panel_snapshot_read(self.factory.get(path)))
+
     def test_project_id_from_path_and_filter_are_both_scoped(self):
         request = self.factory.get('/api/platform/projects/208/tasks/')
         request.user = self.user
