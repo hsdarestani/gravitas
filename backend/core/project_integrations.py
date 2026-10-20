@@ -69,9 +69,12 @@ def project_tool_selection(request, project_id):
     """
     import json
     from django.db import transaction
+    from django.utils import timezone
+    from .layer_access import record_activity
+    from .layer_models import ActivityEvent
     from .models import ResearchProject
     from .platform_access import can_manage
-    from .platform_models import ProjectAuditEvent, ResearchProjectProfile
+    from .platform_models import ResearchProjectProfile
 
     if not request.user.is_authenticated:
         return JsonResponse({"ok": False, "error": "authentication_required"}, status=401)
@@ -91,23 +94,43 @@ def project_tool_selection(request, project_id):
     except ValueError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=400)
 
+    # selected_integrations/requested_plugins are intentionally NOT part of
+    # canonical SPECS['ResearchProjectProfile']. A normal model.save() fires
+    # canonical pre-save hooks even though neither canonical field changes.
+    # Update only these DB-owned preferences without falsely emitting a native
+    # document revision. Project content updates still use the DAV journal.
     with transaction.atomic():
-        profile, _ = ResearchProjectProfile.objects.select_for_update().get_or_create(
-            project=project,
-            defaults={"nextcloud_root": f"GRV-{project.pk:06d}"},
-        )
+        profile = ResearchProjectProfile.objects.select_for_update().filter(
+            project=project
+        ).first()
+        if profile is None:
+            # Older projects may not yet have a profile. bulk_create avoids
+            # canonical content hooks for this compatibility-only shell.
+            ResearchProjectProfile.objects.bulk_create(
+                [ResearchProjectProfile(project=project, nextcloud_root=f"GRV-{project.pk:06d}")],
+                ignore_conflicts=True,
+            )
+            profile = ResearchProjectProfile.objects.select_for_update().get(project=project)
         was = (profile.selected_integrations, profile.requested_plugins)
-        profile.selected_integrations = selected
-        profile.requested_plugins = requested
-        profile.save(update_fields=["selected_integrations", "requested_plugins", "updated_at"])
+        ResearchProjectProfile.objects.filter(pk=profile.pk).update(
+            selected_integrations=selected,
+            requested_plugins=requested,
+            updated_at=timezone.now(),
+        )
         if was != (selected, requested):
-            ProjectAuditEvent.objects.create(
-                project=project,
+            # An ActivityEvent is the DB-owned audit feed. ProjectAuditEvent
+            # is a canonical file and must not be created without its journal.
+            record_activity(
+                layer=ActivityEvent.Layer.RESEARCH,
+                action="project.tools_selected",
                 actor=request.user,
-                action="project_tools_updated",
                 object_type="ResearchProjectProfile",
-                object_id=str(profile.pk),
-                detail={"selected_integrations": selected, "requested_plugins": requested},
+                object_id=profile.pk,
+                detail={
+                    "project_id": project.pk,
+                    "selected_integrations": selected,
+                    "requested_plugins": requested,
+                },
             )
     return JsonResponse({
         "ok": True,
