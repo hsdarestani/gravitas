@@ -173,12 +173,15 @@ function fiveLayerOwns(path = location.pathname) {
    index, so that index and trail are its, not the Knowledge sections'. */
 const learningIndexFor = (path = location.pathname) => fiveLayerRoute(path.split(/[?#]/)[0])?.kind === 'learning-legacy';
 
-/* Daily work reports is drawn by ws-five-layer but listed in CORE_SECTIONS,
-   so its index is the ordinary Core index and only the view is handed off.
-   Treating its index as five-layer's too left the shell's last drawing in
-   place: arriving from Tasks kept Tasks lit and the reports row dark. */
+/* Some screens are rendered by ws-five-layer but use a workspace-wide
+   section index owned by the shell. Research project tabs and Core work
+   reports do not render a five-layer index of their own. Handing over the
+   entire shell therefore stranded the initial index skeleton after a
+   hard reload, even when the project content had loaded successfully.
+   Keep one consistent Research section list on *every* project deep link. */
 function shellDrawsIndex(path = location.pathname) {
-  return /^\/workspace\/core\/work-reports(?:\/|$)/.test(path);
+  if (/^\/workspace\/core\/work-reports(?:\/|$)/.test(path)) return true;
+  return fiveLayerRoute(String(path).split(/[?#]/)[0])?.kind === 'research-project';
 }
 
 function fiveLayerName(path = location.pathname) {
