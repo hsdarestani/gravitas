@@ -339,8 +339,9 @@ def task_board_detail(request, task_id):
         return _error('task_not_found', 404)
 
     if quick_preview:
-        # Fast deep-link path: render task identity/status before the larger
-        # selectable Core/Research editor catalogs have finished loading.
+        # A single round trip gives the mobile reader the status AND Pulsar
+        # evidence, without forcing a second slow request for /history/.
+        # Both use the same task ACL and the existing owner/admin evidence rule.
         return JsonResponse({
             'ok': True,
             'task': {
@@ -350,6 +351,7 @@ def task_board_detail(request, task_id):
                 'status': task.status,
                 'owner': _person(task.owner),
             },
+            'events': _task_activity_events(request, workspace, task, limit=30),
         })
 
     if request.method == 'GET':
@@ -870,15 +872,8 @@ def task_attachment_delete(request, task_id, attachment_id):
     return JsonResponse({'ok': True})
 
 
-@require_http_methods(['GET'])
-def task_history(request, task_id):
-    if not request.user.is_authenticated:
-        return _error('authentication_required', 401)
-    workspace, task = _task_for(request, task_id, counts=False)
-    if not workspace:
-        return _error('core_workspace_required', 403)
-    if not task:
-        return _error('task_not_found', 404)
+def _task_activity_events(request, workspace, task, *, limit=200):
+    """One authorized activity reader for full history and lean task preview."""
     rows = list(
         ActivityEvent.objects.filter(
             layer=ActivityEvent.Layer.CORE,
@@ -886,7 +881,7 @@ def task_history(request, task_id):
             object_id=str(task.pk),
         )
         .select_related('actor')
-        .order_by('-created_at')[:200]
+        .order_by('-created_at')[:limit]
     )
     # A confirmed Telegram report is stored as DailyWorkReport, not a task
     # comment or an uploaded attachment. Show its original evidence alongside
@@ -913,14 +908,23 @@ def task_history(request, task_id):
                     'source': report.source,
                     'work_date': report.report_date.isoformat(),
                 }
-    return JsonResponse({
-        'ok': True,
-        'events': [{
+    return [{
             'id': row.pk,
             'action': row.action,
             'actor': _person(row.actor) if row.actor else None,
             'detail': row.detail,
             'report': reports.get(str((row.detail or {}).get('report_id'))),
             'created_at': row.created_at.isoformat(),
-        } for row in rows],
-    })
+        } for row in rows]
+
+
+@require_http_methods(['GET'])
+def task_history(request, task_id):
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    workspace, task = _task_for(request, task_id, counts=False)
+    if not workspace:
+        return _error('core_workspace_required', 403)
+    if not task:
+        return _error('task_not_found', 404)
+    return JsonResponse({'ok': True, 'events': _task_activity_events(request, workspace, task)})

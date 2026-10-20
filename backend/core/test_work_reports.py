@@ -105,6 +105,21 @@ class DailyWorkReportTests(TestCase):
         self.assertEqual(events[0]['report']['original_text'], report.original_text)
         self.assertEqual(events[0]['report']['source'], 'telegram')
 
+    def test_mobile_preview_includes_confirmed_pulsar_evidence_in_one_request(self):
+        report = self.propose(key='preview-one-request')
+        decide(self.user, report.pk, 1, 'confirm')
+        response = self.client.get(f'/api/operating/task-board/{self.task.pk}/?mode=preview')
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data['task']['id'], self.task.pk)
+        self.assertEqual(data['task']['status'], 'retest')
+        self.assertNotIn('key_results', data)
+        self.assertNotIn('members', data)
+        events = [e for e in data['events'] if e['action'] == 'task.daily_report']
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]['report']['original_text'], report.original_text)
+        self.assertEqual(events[0]['detail']['progress'], 'Progress passed')
+
     def test_duplicate_input_returns_same_report_and_cancel_does_not_mutate(self):
         report = self.propose(); again = self.propose()
         self.assertEqual(report.pk, again.pk)
