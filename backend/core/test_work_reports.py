@@ -74,6 +74,25 @@ class DailyWorkReportTests(TestCase):
         self.assertEqual(events.get().detail['provenance'], 'Confirmed by user')
         self.assertEqual(report.original_text, 'I retested lessons. Preview is still pending.')
 
+    def test_confirm_obeys_canonical_project_transaction_boundary(self):
+        # A canonicalized project refuses an unguarded task save. A Telegram
+        # confirmation must still succeed through the canonical write journal.
+        from .canonical_journal import RecoveryRequired
+        report = self.propose(key='canonical-telegram-report')
+        with patch('core.canonical_signals.active', return_value=True), \
+             patch('core.canonical_signals.project_for', return_value=self.task.project):
+            with self.assertRaisesMessage(RecoveryRequired, 'use_canonical_operation_for_project_write'):
+                self.task.save()
+            with patch('core.canonical_signals.flush_pending') as flush:
+                confirmed = decide(self.user, report.pk, 1, 'confirm')
+                flush.assert_called_once()
+        self.assertEqual(confirmed.status, 'confirmed')
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'retest')
+        self.assertEqual(
+            ActivityEvent.objects.filter(action='task.daily_report').count(), 1,
+        )
+
     def test_duplicate_input_returns_same_report_and_cancel_does_not_mutate(self):
         report = self.propose(); again = self.propose()
         self.assertEqual(report.pk, again.pk)
