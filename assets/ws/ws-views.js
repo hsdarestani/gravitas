@@ -905,7 +905,21 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       // Detail is the only blocking request. The dependency index can include
       // thousands of tasks; waiting for it used to keep the entire card blank.
       const stateLoader = typeof state === 'function' ? state : null;
-      const detailData = await P.operatingTaskCard(taskId);
+      // A direct link used to show only "Loading task…" until all editor
+      // dropdowns came back. Show task identity/status from a small, indexed
+      // single-task read without blocking the full editable form.
+      const detailRequest = P.operatingTaskCard(taskId);
+      P.operatingTaskPreview(taskId).then(({ task: summary }) => {
+        if (!dialog.isConnected || detailForFallback || !summary) return;
+        head.querySelector('h2').textContent = summary.title || 'Task';
+        body.replaceChildren(
+          el('p', 'fl-muted', `Status: ${P.label(summary.status || 'unknown')} · Owner: ${summary.owner?.name || 'Unknown'}`),
+          el('p', '', summary.description || ''),
+          el('p', 'fl-muted', 'Loading editor and activity…'),
+          skeleton(3),
+        );
+      }).catch(() => { /* The complete task endpoint provides a fallback. */ });
+      const detailData = await detailRequest;
       const boardState = stateLoader ? { tasks: [] } : (state || { tasks: [] });
       state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
       const task = detailData.task;
