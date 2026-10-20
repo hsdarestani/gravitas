@@ -46,7 +46,12 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         self.assertNotIn('controller.abort()', platform)
         self.assertNotIn('setTimeout(() => controller.abort()', platform)
         self.assertIn('P.operatingTaskPreview(taskId).then(showTaskPreview)', views)
-        self.assertIn('P.operatingTaskHistory(taskId).then((data)', views)
+        self.assertIn('const showTaskPreview = ({ task: summary, events = [] }) =>', views)
+        self.assertIn('showEvents(events)', views)
+        self.assertIn('if (mobileReader)', views)
+        self.assertIn('await previewRequest', views)
+        self.assertIn("openTaskDialog(taskId, state, reloadBoard, { forceEditor: true })", views)
+        self.assertNotIn('P.operatingTaskHistory(taskId).then((data)', views)
         self.assertIn('if (previewLoaded)', views)
         self.assertIn('Retry full editor', views)
 
