@@ -9,6 +9,7 @@ task. Corrections append provenance instead of rewriting confirmed history.
 """
 import json
 import uuid
+from functools import wraps
 from datetime import date, timedelta
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -203,6 +204,18 @@ def propose(user, text, *, source='platform', source_key=None, supersedes=None, 
     return report
 
 
+def _canonical_report_write(func):
+    """Apply report/task changes inside the project's canonical write boundary."""
+    @wraps(func)
+    def wrapped(user, *args, **kwargs):
+        # Lazy import avoids the canonical service's model/signal import cycle.
+        from .canonical_journal import canonical_operation
+        with canonical_operation(actor=user):
+            return func(user, *args, **kwargs)
+    return wrapped
+
+
+@_canonical_report_write
 @transaction.atomic
 def decide(user, report_id, revision, action, interpretation=None):
     report = DailyWorkReport.objects.select_for_update().filter(pk=report_id, user=user).first()
