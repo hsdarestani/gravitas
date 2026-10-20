@@ -83,7 +83,7 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
   // rotation must not leave each panel with the browser's opaque "Failed to
   // fetch" message. Retry *only* idempotent task GETs, never writes.
   const retryableTaskRead = verb === 'GET'
-    && /^\\/operating\\/(?:task-board\\/\\d+\\/|tasks\\/\\d+\\/(?:history|comments|attachments|checklist)\\/)/.test(path);
+    && /^\/operating\/(?:task-board\/\d+\/|tasks\/\d+\/(?:history|comments|attachments|checklist)\/)/.test(path);
   let res;
   for (let attempt = 0; attempt < (retryableTaskRead ? 2 : 1); attempt += 1) {
     const controller = retryableTaskRead ? new AbortController() : null;
