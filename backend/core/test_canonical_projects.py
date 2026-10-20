@@ -90,6 +90,8 @@ class CanonicalProjectTests(TestCase):
         endpoints = [
             ('experiments/', 200),
             ('tools/data/tables/', 200),
+            ('tools/builtin/', 200),
+            ('tools/plugins/', 200),
             ('tools/external/datasets/', 409),
         ]
         with patch(
