@@ -93,6 +93,18 @@ class DailyWorkReportTests(TestCase):
             ActivityEvent.objects.filter(action='task.daily_report').count(), 1,
         )
 
+    def test_task_history_displays_confirmed_pulsar_report_details(self):
+        """A task owner sees the real Telegram report, not only Done status."""
+        report = self.propose(key='report-task-history')
+        decide(self.user, report.pk, 1, 'confirm')
+        response = self.client.get(f'/api/operating/tasks/{self.task.pk}/history/')
+        self.assertEqual(response.status_code, 200, response.content)
+        events = [e for e in response.json()['events'] if e['action'] == 'task.daily_report']
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]['detail']['progress'], 'Progress passed')
+        self.assertEqual(events[0]['report']['original_text'], report.original_text)
+        self.assertEqual(events[0]['report']['source'], 'telegram')
+
     def test_duplicate_input_returns_same_report_and_cancel_does_not_mutate(self):
         report = self.propose(); again = self.propose()
         self.assertEqual(report.pk, again.pk)
