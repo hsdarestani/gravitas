@@ -90,6 +90,7 @@ def _committed_task_snapshot_read(request):
             r'(?:\d+/(?:download/)?)?', path,
         )
         or re.fullmatch(r'/api/calendar/google/tasks/\d+/status/', path)
+        or re.fullmatch(r'/api/platform/tasks/\d+/', path)
     )
 
 
