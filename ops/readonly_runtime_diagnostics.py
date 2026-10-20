@@ -311,6 +311,110 @@ def task_performance_snapshot():
     print("server_clock_utc", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
+
+def task_read_endpoint_profile():
+    """Profile six REAL Django task readers in bounded SQL read-only mode.
+
+    Only emit anonymous timings, HTTP statuses, query counts and DB time.
+    No request bodies, query text, credentials or user identifiers are logged.
+    """
+    print("=== Live Core task GET endpoint profile (bounded read-only) ===")
+    source = r'''import os, time, django, signal
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gravitas_backend.settings")
+django.setup()
+from django.db import connection, transaction
+from django.test import RequestFactory
+from django.contrib.auth import get_user_model
+from core.models import WorkspaceMembership
+from core.operating_models import OperatingTask
+from core import task_board_api as board
+
+class Deadline(Exception):
+    pass
+def alarm(signum, frame):
+    raise Deadline()
+signal.signal(signal.SIGALRM, alarm)
+try:
+    task = OperatingTask.objects.select_related('workspace','owner').get(pk=726)
+    membership = WorkspaceMembership.objects.filter(workspace=task.workspace, user=task.owner).first()
+    if membership is not None:
+        user = task.owner
+    else:
+        record = WorkspaceMembership.objects.filter(workspace=task.workspace).select_related('user').first()
+        user = record.user if record else task.owner
+    factory = RequestFactory()
+    for name, func, suffix in [
+        ("preview", board.task_board_detail, "task-board/726/?mode=preview"),
+        ("detail", board.task_board_detail, "task-board/726/"),
+        ("history", board.task_history, "tasks/726/history/"),
+        ("comments", board.task_comments, "tasks/726/comments/"),
+        ("attachments", board.task_attachments, "tasks/726/attachments/"),
+        ("checklist", board.task_checklist, "tasks/726/checklist/"),
+    ]:
+        sep = "&" if "?" in suffix else "?"
+        path = "/api/operating/" + suffix + sep + "workspace_id=" + str(task.workspace_id)
+        req = factory.get(path)
+        req.user = user
+        measurement = {"queries": 0, "db_seconds": 0.0, "slowest_ms": 0.0}
+        def wrapper(execute, sql, params, many, context):
+            start_db = time.monotonic()
+            try:
+                return execute(sql, params, many, context)
+            finally:
+                elapsed = time.monotonic() - start_db
+                measurement["queries"] += 1
+                measurement["db_seconds"] += elapsed
+                measurement["slowest_ms"] = max(measurement["slowest_ms"], elapsed * 1000)
+        started = time.monotonic()
+        result = "unknown"
+        signal.alarm(10)
+        try:
+            with transaction.atomic():
+                with connection.cursor() as cur:
+                    cur.execute("SET TRANSACTION READ ONLY")
+                    cur.execute("SET LOCAL statement_timeout = '9000ms'")
+                with connection.execute_wrapper(wrapper):
+                    response = func(req, 726)
+                result = str(response.status_code)
+        except BaseException as exc:
+            result = type(exc).__name__[:60]
+        finally:
+            signal.alarm(0)
+            connection.close()
+        print("endpoint_probe", name, "result", result,
+              "wall_ms", round((time.monotonic()-started)*1000),
+              "sql_count", measurement["queries"],
+              "sql_ms", round(measurement["db_seconds"]*1000),
+              "sql_max_ms", round(measurement["slowest_ms"]))
+except BaseException as exc:
+    print("profile_setup_failure", type(exc).__name__[:60])
+'''
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".py", prefix="gravitas-task-read-", dir="/tmp", delete=False) as handle:
+        handle.write(source)
+        temp = handle.name
+    try:
+        pathlib.Path(temp).chmod(0o644)
+        output = run(
+            "sudo", "-n", "-u", "gravitas", "bash", "-c",
+            "set -a; . /etc/gravitas/backend.env; set +a; "
+            "export PYTHONPATH=/opt/gravitas-backend; "
+            "/opt/gravitas-backend/.venv/bin/python " + temp,
+            timeout=75,
+        )
+        for line in output.splitlines():
+            if re.fullmatch(
+                r"endpoint_probe (preview|detail|history|comments|attachments|checklist) "
+                r"result (\d{3}|[A-Za-z]{3,60}) wall_ms \d+ "
+                r"sql_count \d+ sql_ms \d+ sql_max_ms \d+", line
+            ) or re.fullmatch(r"profile_setup_failure [A-Za-z]{3,60}", line):
+                print(line)
+        if not output:
+            print("endpoint_probe_unavailable")
+    finally:
+        pathlib.Path(temp).unlink(missing_ok=True)
+
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -367,5 +471,6 @@ if __name__ == "__main__":
     backend()
     scoped_task_health()
     task_performance_snapshot()
+    task_read_endpoint_profile()
     telegram_diagnostics()
     nextcloud()
