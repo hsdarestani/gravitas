@@ -133,6 +133,43 @@ class TaskNotificationTests(TestCase):
         self.assertTrue(any(payload and payload.get('callback_query_id') == 'callback-1' for payload in payloads))
         self.assertTrue(any(payload and payload.get('text') == 'Created' for payload in payloads))
 
+    @patch('core.telegram_work_reports.handle_report_callback')
+    @patch('core.task_notifications._telegram_api')
+    def test_work_report_callback_survives_telegram_ack_failure(self, telegram_api, handle_report_callback):
+        # Telegram can reject an old callback ID even though the report action
+        # remains valid. The action must still run and its result be delivered.
+        sent = []
+        def api(method, payload):
+            if method == 'answerCallbackQuery':
+                raise RuntimeError('query is too old')
+            sent.append((method, payload))
+            return {'ok': True}
+        telegram_api.side_effect = api
+        handle_report_callback.return_value = [{'text': 'Report confirmed.'}]
+        TaskNotificationPreference.objects.create(
+            user=self.user, telegram_chat_id=123456789, telegram_enabled=True,
+        )
+        response = self.client.post(
+            '/api/task-notifications/telegram/webhook/',
+            data=json.dumps({
+                'callback_query': {
+                    'id': 'expired-callback',
+                    'data': 'wr:c:12345678123456781234567812345678:1',
+                    'message': {'chat': {'id': 123456789, 'type': 'private'}},
+                },
+            }),
+            content_type='application/json',
+            HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='webhook-secret',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        handle_report_callback.assert_called_once_with(
+            self.user, 'wr:c:12345678123456781234567812345678:1',
+        )
+        self.assertTrue(any(method == 'sendMessage' and payload.get('text') == 'Report confirmed.'
+                            for method, payload in sent))
+        self.assertFalse(any('could not complete' in payload.get('text', '').lower()
+                             for method, payload in sent if method == 'sendMessage'))
+
     @patch('core.task_notifications.requests.post')
     def test_worker_delivers_email_and_telegram(self, post):
         post.return_value = Mock(
