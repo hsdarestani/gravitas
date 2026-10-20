@@ -139,7 +139,7 @@ def project_provider(request, project_id, kind):
             _record(project, request.user, 'provider.disconnected', binding)
             binding.delete()
         return JsonResponse({'ok': True})
-    if KINDS[kind] not in (getattr(project.platform_profile, 'selected_integrations', []) or []):
+    if KINDS[kind] not in (getattr(getattr(project, 'platform_profile', None), 'selected_integrations', []) or []):
         return _err('tool_not_selected', 409)
     if len(request.body) > 2048:
         return _err('invalid_payload')
@@ -188,7 +188,7 @@ def project_private_git_commits(request, project_id):
     project = _project(request, project_id)
     if not project:
         return _err('not_found', 404)
-    if 'git' not in (getattr(project.platform_profile, 'selected_integrations', []) or []):
+    if 'git' not in (getattr(getattr(project, 'platform_profile', None), 'selected_integrations', []) or []):
         return _err('tool_not_selected', 409)
     binding = ProjectProviderBinding.objects.filter(project=project, kind='private_git').first()
     if not binding:
@@ -220,7 +220,7 @@ def project_plugin_states(request, project_id):
     project = _project(request, project_id)
     if not project:
         return _err('not_found', 404)
-    selected = getattr(project.platform_profile, 'selected_integrations', []) or []
+    selected = getattr(getattr(project, 'platform_profile', None), 'selected_integrations', []) or []
     bindings = {b.kind: b for b in ProjectProviderBinding.objects.filter(project=project)}
     plugins = []
     for item in selected:

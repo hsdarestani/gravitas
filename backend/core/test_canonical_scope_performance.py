@@ -38,6 +38,7 @@ class CanonicalRequestScopeTests(TestCase):
             '/api/operating/tasks/726/attachments/',
             '/api/operating/tasks/726/attachments/55/download/',
             '/api/calendar/google/tasks/726/status/',
+            '/api/platform/tasks/726/',
         ]
         with (
             patch('core.canonical_middleware.project_scope_for',
@@ -99,6 +100,38 @@ class CanonicalRequestScopeTests(TestCase):
                         request, lambda req: None, (), {'project_id': 208}
                     ))
 
+    def test_all_db_backed_research_panels_reuse_snapshot_read_not_nextcloud(self):
+        from .canonical_middleware import _research_project_panel_snapshot_read
+        paths = [
+            '/api/platform/projects/208/discussions/',
+            '/api/platform/projects/208/milestones/',
+            '/api/platform/projects/208/deliverables/',
+            '/api/platform/projects/208/folders/',
+            '/api/platform/projects/208/access-candidates/',
+            '/api/platform/projects/208/tasks/',
+            '/api/platform/projects/208/tools/git/',
+            '/api/platform/projects/208/tools/git/commits/',
+            '/api/platform/projects/208/tools/private-git/commits/',
+            '/api/platform/projects/208/tools/builtin/',
+            '/api/platform/projects/208/tools/providers/',
+        ]
+        with (
+            patch('core.canonical_middleware.project_scope_for',
+                  side_effect=AssertionError('DB snapshot GET must not walk DAV')),
+            patch('core.canonical_middleware.refresh_project',
+                  side_effect=AssertionError('DB snapshot GET must not refresh Nextcloud')),
+            patch('core.canonical_middleware.refresh_task_scope',
+                  side_effect=AssertionError('DB snapshot GET must not refresh a task')),
+        ):
+            for path in paths:
+                with self.subTest(path=path):
+                    req = self.factory.get(path)
+                    req.user = self.user
+                    self.assertTrue(_research_project_panel_snapshot_read(req))
+                    self.assertIsNone(self.middleware.process_view(
+                        req, lambda x: None, (), {'project_id': 208}
+                    ))
+
     def test_research_write_routes_and_live_document_reads_are_not_exempt(self):
         from .canonical_middleware import _research_project_panel_snapshot_read
         for path in (
@@ -106,6 +139,10 @@ class CanonicalRequestScopeTests(TestCase):
             '/api/platform/projects/208/experiments/33/journal/',
             '/api/platform/projects/208/tools/data/tables/',
             '/api/platform/projects/208/tools/data/tables/12/rows/',
+            '/api/platform/projects/208/discussions/',
+            '/api/platform/projects/208/milestones/',
+            '/api/platform/projects/208/tasks/',
+            '/api/platform/projects/208/folders/',
         ):
             with self.subTest(path=path):
                 self.assertFalse(_research_project_panel_snapshot_read(self.factory.post(path)))
@@ -116,7 +153,7 @@ class CanonicalRequestScopeTests(TestCase):
             '/api/platform/projects/208/experiments/33/',
             '/api/platform/projects/208/file-content/',
             '/api/platform/projects/208/structure/',
-            '/api/platform/projects/208/tasks/',
+            '/api/platform/projects/208/tasks/73/time/',
         ):
             with self.subTest(path=path):
                 self.assertFalse(_research_project_panel_snapshot_read(self.factory.get(path)))

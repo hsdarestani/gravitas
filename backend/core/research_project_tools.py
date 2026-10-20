@@ -84,7 +84,7 @@ def _experiment_json(item, user):
     }
 
 
-def _message_json(item, user):
+def _message_json(item, user, *, manager=None):
     return {
         'id': item.pk,
         'project_id': item.project_id,
@@ -92,7 +92,7 @@ def _message_json(item, user):
         'author': {'id': item.author_id, 'name': _person(item.author), 'email': item.author.email},
         'body': item.body,
         'resolved': item.resolved,
-        'can_edit': item.author_id == user.pk or can_manage(user, item.project),
+        'can_edit': item.author_id == user.pk or (manager if manager is not None else can_manage(user, item.project)),
         'created_at': _iso(item.created_at),
         'updated_at': _iso(item.updated_at),
     }
@@ -251,8 +251,13 @@ def project_discussions(request, project_id):
     if not project:
         return _error('not_found', 404)
     if request.method == 'GET':
-        items = project.discussion_messages.select_related('author', 'parent')[:MAX_ROWS]
-        return JsonResponse({'ok': True, 'messages': [_message_json(item, request.user) for item in items]})
+        # ACL has already been checked for the project. Resolve management
+        # permission once rather than once per message (250 N+1 DB queries).
+        manager = can_manage(request.user, project)
+        items = project.discussion_messages.select_related('author', 'parent', 'project')[:MAX_ROWS]
+        return JsonResponse({'ok': True, 'messages': [
+            _message_json(item, request.user, manager=manager) for item in items
+        ]})
     if not can_edit(request.user, project):
         return _error('permission_denied', 403)
     data = _payload(request)
