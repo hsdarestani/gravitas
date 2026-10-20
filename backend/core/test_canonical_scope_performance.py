@@ -112,6 +112,22 @@ class CanonicalRequestScopeTests(TestCase):
         ):
             self.assertIsNone(self.middleware.process_view(request, lambda req: None, (), {'project_id': 226}))
 
+    def test_project_tool_status_reads_bypass_remote_native_sync(self):
+        for suffix in ('status', 'plugins', 'providers'):
+            request = self.factory.get(
+                f'/api/platform/projects/226/tools/{suffix}/'
+            )
+            request.user = self.user
+            with (
+                patch('core.canonical_middleware.project_scope_for',
+                      side_effect=AssertionError('No scope lookup on tool card GET')),
+                patch('core.canonical_middleware.refresh_project',
+                      side_effect=AssertionError('No DAV refresh on tool card GET')),
+            ):
+                self.assertIsNone(
+                    self.middleware.process_view(request, lambda req: None, (), {'project_id': 226})
+                )
+
     def test_post_body_project_scoped_without_crawling_others(self):
         request = self.factory.post(
             '/api/platform/tasks/', data=json.dumps({'project_id': 208, 'title': 'test'}),
