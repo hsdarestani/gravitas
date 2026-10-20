@@ -256,6 +256,61 @@ def scoped_task_health():
     print("backend_service", status if status in {"active","inactive","failed"} else "unknown")
 
 
+
+def task_performance_snapshot():
+    """Bounded, aggregate task transport and PostgreSQL waits; no private payloads."""
+    print("=== Task 726 live transport and database waits ===")
+    log = read_lines("/var/log/nginx/access.log", max_bytes=16_000_000)
+    if not log:
+        log = run("sudo", "-n", "tail", "-n", "50000", "/var/log/nginx/access.log").splitlines()
+    counts = collections.Counter()
+    recent = collections.Counter()
+    pattern = re.compile(
+        r'"GET\s+(/api/operating/(?:task-board/726/|tasks/726/(?:history|comments|attachments|checklist)/))[^\"]*HTTP/[^"]+"\s+(\d{3})\b'
+    )
+    for row in log[-50000:]:
+        hit = pattern.search(row)
+        if not hit:
+            continue
+        path, status = hit.groups()
+        if "mode=preview" in path:
+            label = "preview"
+        elif "task-board" in path:
+            label = "detail"
+        else:
+            label = next((a for a in ("history", "comments", "attachments", "checklist") if a in path), "other")
+        counts[(label, status)] += 1
+        date = re.search(r'\[20/Oct/2026:(\d\d):', row)
+        if date:
+            recent[(date.group(1), label, status)] += 1
+    print("task_726_response_counts", sorted((f"{a}:{b}", n) for (a, b), n in counts.items()))
+    print("task_726_response_by_hour", sorted((f"{hour}:{a}:{b}", n) for (hour, a, b), n in recent.items()))
+    sql = (
+        "SELECT COALESCE(state,'none'), COALESCE(wait_event_type,'none'), "
+        "COALESCE(wait_event,'none'), COUNT(*), "
+        "COALESCE(MAX(EXTRACT(EPOCH FROM now()-query_start))::int,0) "
+        "FROM pg_stat_activity WHERE datname=current_database() "
+        "GROUP BY 1,2,3 ORDER BY 4 DESC LIMIT 20"
+    )
+    out = run("sudo", "-n", "-u", "postgres", "psql", "-d", "gravitas",
+              "-X", "-A", "-t", "-F", "|", "-c", sql, timeout=9)
+    valid = []
+    for line in out.splitlines():
+        cells = line.split("|")
+        if len(cells) == 5 and cells[3].isdigit() and cells[4].isdigit():
+            valid.append(tuple(cells))
+    print("postgres_sessions_by_wait", valid or "unavailable")
+    sql2 = (
+        "SELECT COUNT(*) FILTER (WHERE NOT granted), COUNT(*) FILTER "
+        "(WHERE granted), COUNT(DISTINCT pid) "
+        "FROM pg_locks WHERE database=(SELECT oid FROM pg_database WHERE datname=current_database())"
+    )
+    out2 = run("sudo", "-n", "-u", "postgres", "psql", "-d", "gravitas",
+               "-X", "-A", "-t", "-c", sql2, timeout=9).strip()
+    print("postgres_lock_counts", out2 if re.fullmatch(r"\d+\|\d+\|\d+",out2) else "unavailable")
+    print("server_clock_utc", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -311,5 +366,6 @@ if __name__ == "__main__":
     web_status()
     backend()
     scoped_task_health()
+    task_performance_snapshot()
     telegram_diagnostics()
     nextcloud()
