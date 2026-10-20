@@ -47,7 +47,11 @@ def _bound(request, project_id):
     p = _project(request, project_id)
     if not p:
         return None, None
-    if 'database' not in (getattr(p.platform_profile, 'selected_integrations', []) or []):
+    # Legacy/adopted Research projects can predate ProjectProfile creation.
+    # An optional external database must be reported as not configured, never
+    # crash the whole Database page with RelatedObjectDoesNotExist.
+    profile = getattr(p, 'platform_profile', None)
+    if 'database' not in (getattr(profile, 'selected_integrations', []) or []):
         return p, None
     binding = ProjectProviderBinding.objects.filter(project=p, kind='remote_db').first()
     if not binding or binding.credential_alias not in _aliases('remote_db'):
