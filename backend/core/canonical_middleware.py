@@ -68,6 +68,31 @@ def project_scope_for(request, kwargs):
     return values
 
 
+def _committed_task_snapshot_read(request):
+    """Read confirmed Core task state without a synchronous Nextcloud refresh.
+
+    GET task cards, side panels and Google Calendar status are read-only
+    summaries of the already-committed Django projection. Previously each
+    endpoint refreshed a canonical Research project over DAV *inside* a DB
+    transaction, including unrelated project files for Calendar status.
+    This routinely blocked many independent calls for 30-60 seconds.
+    Every mutation (PATCH/POST/DELETE) still goes through the canonical
+    revision/journal boundary in process_view below. Native document editors
+    and explicit project live reads retain their existing sync behavior.
+    """
+    if request.method not in ('GET', 'HEAD'):
+        return False
+    path = request.path
+    return bool(
+        re.fullmatch(r'/api/operating/task-board/\d+/', path)
+        or re.fullmatch(
+            r'/api/operating/tasks/\d+/(?:history|comments|attachments|checklist)/'
+            r'(?:\d+/(?:download/)?)?', path,
+        )
+        or re.fullmatch(r'/api/calendar/google/tasks/\d+/status/', path)
+    )
+
+
 class CanonicalProjectMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -81,6 +106,10 @@ class CanonicalProjectMiddleware:
         # Do not query every project for unrelated auth/LMS/notification reads.
         relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'task-board/', 'assistant/', 'pulsar/', 'platform/share/', 'platform/folders/'))
         if not relevant:
+            return None
+        # Core task reads use persisted confirmed state. Never hold a SQL
+        # lock while a read-only task popup waits for remote Nextcloud I/O.
+        if _committed_task_snapshot_read(request):
             return None
         if request.method in ('GET', 'HEAD'):
             # Portfolio/cockpit navigation reads the committed projection,

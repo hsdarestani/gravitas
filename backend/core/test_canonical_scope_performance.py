@@ -27,6 +27,53 @@ class CanonicalRequestScopeTests(TestCase):
         self.assertIsNone(result)
         refresh.assert_not_called()
 
+    def test_core_task_readers_bypass_native_dav_and_transactions(self):
+        """Core GET panels must not synchronously sync a Research project."""
+        paths = [
+            '/api/operating/task-board/726/?mode=preview',
+            '/api/operating/task-board/726/',
+            '/api/operating/tasks/726/history/',
+            '/api/operating/tasks/726/comments/',
+            '/api/operating/tasks/726/checklist/',
+            '/api/operating/tasks/726/attachments/',
+            '/api/operating/tasks/726/attachments/55/download/',
+            '/api/calendar/google/tasks/726/status/',
+        ]
+        with (
+            patch('core.canonical_middleware.project_scope_for',
+                  side_effect=AssertionError('No project-wide scope reads for task GET')),
+            patch('core.canonical_middleware.refresh_task_scope',
+                  side_effect=AssertionError('No remote task refresh for GET')),
+            patch('core.canonical_middleware.refresh_project',
+                  side_effect=AssertionError('No remote project refresh for GET')),
+        ):
+            for path in paths:
+                with self.subTest(path=path):
+                    request = self.factory.get(path)
+                    request.user = self.user
+                    self.assertIsNone(self.middleware.process_view(
+                        request, lambda req: None, (), {'task_id': 726},
+                    ))
+
+    def test_task_snapshot_exemption_never_applies_to_writes_or_other_live_reads(self):
+        from .canonical_middleware import _committed_task_snapshot_read
+        for path in (
+            '/api/operating/task-board/726/',
+            '/api/operating/tasks/726/comments/',
+            '/api/operating/tasks/726/attachments/',
+            '/api/calendar/google/tasks/726/status/',
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(_committed_task_snapshot_read(self.factory.patch(path)))
+                self.assertFalse(_committed_task_snapshot_read(self.factory.post(path)))
+                self.assertFalse(_committed_task_snapshot_read(self.factory.delete(path)))
+        self.assertFalse(_committed_task_snapshot_read(
+            self.factory.get('/api/platform/projects/71/cockpit/')
+        ))
+        self.assertFalse(_committed_task_snapshot_read(
+            self.factory.get('/api/platform/projects/71/tasks/726/')
+        ))
+
     def test_project_id_from_path_and_filter_are_both_scoped(self):
         request = self.factory.get('/api/platform/projects/208/tasks/')
         request.user = self.user
