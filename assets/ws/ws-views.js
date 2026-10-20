@@ -1325,6 +1325,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       const commentsPanel = panel('Comments');
       const attachmentsPanel = panel('Attachments');
       const historyPanel = panel('Activity');
+      commentsPanel.body.append(el('p', 'fl-muted', 'Loading comments…'));
+      attachmentsPanel.body.append(el('p', 'fl-muted', 'Loading attachments…'));
+      historyPanel.body.append(el('p', 'fl-muted', 'Loading activity…'));
       side.append(commentsPanel, attachmentsPanel, historyPanel);
 
       const loadComments = async () => {
@@ -1608,18 +1611,59 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       };
 
       const loadHistory = async () => {
-        historyPanel.body.innerHTML = '';
+        historyPanel.body.replaceChildren(el('p', 'fl-muted', 'Loading activity…'));
         try {
           const data = await P.operatingTaskHistory(task.id);
+          historyPanel.body.replaceChildren();
           for (const event of data.events || []) {
-            historyPanel.body.append(row({
-              title: P.label(event.action.replace(/^task\./, '')),
-              sub: P.meta([formatActor(event.actor), P.formatDate(event.created_at)]),
-            }));
+            const isReport = event.action === 'task.daily_report';
+            const detail = event.detail && typeof event.detail === 'object' ? event.detail : {};
+            const item = el('article', 'task-card-dialog__message');
+            item.append(
+              el('strong', null, isReport ? 'Pulsar · confirmed daily report' : P.label(event.action.replace(/^task\./, ''))),
+              el('small', 'fl-muted', P.meta([formatActor(event.actor), P.formatDate(event.created_at)])),
+            );
+            if (isReport) {
+              const fields = [
+                ['Progress', detail.progress],
+                ['Status', detail.status],
+                ['Deliverable', detail.deliverable],
+                ['Next step', detail.next_action],
+                ['Blocker', detail.blocker],
+              ];
+              for (const [name, value] of fields) {
+                if (value && String(value).trim() && String(value).trim().toLowerCase() !== 'none') {
+                  item.append(el('p', null, `${name}: ${value}`));
+                }
+              }
+              if (detail.artifact_url) {
+                try {
+                  const url = new URL(detail.artifact_url);
+                  if (['https:', 'http:'].includes(url.protocol)) {
+                    const link = el('a', 'ws-btn ws-btn--tiny', 'View delivered file ↗');
+                    link.href = url.href;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    item.append(link);
+                  }
+                } catch { /* Malformed artifact URLs remain plain report data. */ }
+              }
+              if (event.report?.original_text) {
+                const evidence = el('details', 'task-card-dialog__report');
+                evidence.append(el('summary', null, 'Original Telegram message'),
+                  el('p', null, event.report.original_text));
+                if (event.report.unmatched_work) {
+                  evidence.append(el('p', 'fl-muted',
+                    `Unmatched work (no additional task change): ${event.report.unmatched_work}`));
+                }
+                item.append(evidence);
+              }
+            }
+            historyPanel.body.append(item);
           }
           if (!(data.events || []).length) historyPanel.body.append(el('p', 'fl-muted', 'No board activity logged yet.'));
         } catch (error) {
-          historyPanel.body.append(el('p', 'fl-muted', error?.message || 'Activity unavailable.'));
+          historyPanel.body.replaceChildren(el('p', 'fl-muted', error?.message || 'Activity unavailable.'));
         }
       };
 
