@@ -864,7 +864,7 @@ def task_history(request, task_id):
         return _error('core_workspace_required', 403)
     if not task:
         return _error('task_not_found', 404)
-    rows = (
+    rows = list(
         ActivityEvent.objects.filter(
             layer=ActivityEvent.Layer.CORE,
             object_type='operating_task',
@@ -873,6 +873,29 @@ def task_history(request, task_id):
         .select_related('actor')
         .order_by('-created_at')[:200]
     )
+    # A confirmed Telegram report is stored as DailyWorkReport, not a task
+    # comment or an uploaded attachment. Show its original evidence alongside
+    # the task event to the report author or authorized Core manager only.
+    reports = {}
+    if task.owner_id == request.user.pk or _can_manage_workspace(request.user, workspace):
+        from .work_report_models import DailyWorkReport
+        report_ids = {
+            row.detail.get('report_id')
+            for row in rows
+            if row.action == 'task.daily_report' and isinstance(row.detail, dict)
+            and row.detail.get('report_id')
+        }
+        if report_ids:
+            for report in DailyWorkReport.objects.filter(
+                pk__in=report_ids, tasks=task, status='confirmed',
+            ):
+                reports[str(report.pk)] = {
+                    'original_text': report.original_text,
+                    'summary': (report.interpretation or {}).get('summary', ''),
+                    'unmatched_work': (report.interpretation or {}).get('unmatched_work', ''),
+                    'source': report.source,
+                    'work_date': report.report_date.isoformat(),
+                }
     return JsonResponse({
         'ok': True,
         'events': [{
@@ -880,6 +903,7 @@ def task_history(request, task_id):
             'action': row.action,
             'actor': _person(row.actor) if row.actor else None,
             'detail': row.detail,
+            'report': reports.get(str((row.detail or {}).get('report_id'))),
             'created_at': row.created_at.isoformat(),
         } for row in rows],
     })
