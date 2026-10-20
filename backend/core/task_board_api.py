@@ -331,11 +331,26 @@ def task_board(request):
 def task_board_detail(request, task_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    workspace, task = _task_for(request, task_id)
+    quick_preview = request.method == 'GET' and request.GET.get('mode') == 'preview'
+    workspace, task = _task_for(request, task_id, counts=not quick_preview)
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
         return _error('task_not_found', 404)
+
+    if quick_preview:
+        # Fast deep-link path: render task identity/status before the larger
+        # selectable Core/Research editor catalogs have finished loading.
+        return JsonResponse({
+            'ok': True,
+            'task': {
+                'id': task.pk,
+                'title': task.title,
+                'description': task.description,
+                'status': task.status,
+                'owner': _person(task.owner),
+            },
+        })
 
     if request.method == 'GET':
         return JsonResponse({
