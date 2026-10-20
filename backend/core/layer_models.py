@@ -155,6 +155,8 @@ class ActivityEvent(models.Model):
         indexes = [
             models.Index(fields=['subject_user', 'layer', '-created_at'], name='grav_activity_subject_layer'),
             models.Index(fields=['layer', 'action', '-created_at'], name='grav_activity_layer_action'),
+            # Fast, scoped activity/history lookup for one Core task.
+            models.Index(fields=['layer', 'object_type', 'object_id', '-created_at'], name='grav_activity_task_recent'),
         ]
 
     def __str__(self):

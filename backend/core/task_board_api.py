@@ -17,6 +17,8 @@ from . import operating_api_v4 as v4
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
 from .models import WorkspaceMembership
+from .platform_models import WorkspaceProfile
+from .platform_runtime_v3 import _canonical_workspace, core_access
 from .task_notifications import enqueue_task_event, enqueue_task_mentions
 from .workspace_api import _can_manage_workspace
 from .operating_models import (
@@ -57,8 +59,28 @@ def _error(code, status=400, **extra):
     return JsonResponse({'ok': False, 'error': code, **extra}, status=status)
 
 
+def _readonly_task_workspace(request):
+    """Mirror runtime Core workspace ACL without provisioning on GET.
+
+    The runtime replaces base._workspace with an authenticated Core-only
+    resolver. Preserve its canonical Core selection, module grant check and
+    explicit workspace_id guard. Avoid ensure_platform_workspaces(), which
+    provisions personal workspaces/plans and can contend with parallel readers.
+    """
+    core = _canonical_workspace(WorkspaceProfile.Purpose.CORE)
+    if core is None or not core_access(request.user, core):
+        return None
+    raw_id = request.GET.get('workspace_id')
+    if raw_id:
+        try:
+            if int(raw_id) != core.pk:
+                return None
+        except (TypeError, ValueError):
+            return None
+    return core
+
 def _task_for(request, task_id, *, counts=True):
-    workspace = base._workspace(request)
+    workspace = _readonly_task_workspace(request) if request.method == 'GET' else base._workspace(request)
     if not workspace:
         return None, None
     task = (
@@ -244,7 +266,7 @@ def _choices(request, workspace, *, include_legacy=True):
 def task_board(request):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    workspace = base._workspace(request)
+    workspace = _readonly_task_workspace(request) if request.method == 'GET' else base._workspace(request)
     if not workspace:
         return _error('core_workspace_required', 403)
 
