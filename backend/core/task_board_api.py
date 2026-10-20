@@ -894,12 +894,14 @@ def task_history(request, task_id):
     reports = {}
     if task.owner_id == request.user.pk or _can_manage_workspace(request.user, workspace):
         from .work_report_models import DailyWorkReport
-        report_ids = {
-            row.detail.get('report_id')
-            for row in rows
-            if row.action == 'task.daily_report' and isinstance(row.detail, dict)
-            and row.detail.get('report_id')
-        }
+        report_ids = set()
+        for event in rows:
+            if event.action != 'task.daily_report' or not isinstance(event.detail, dict):
+                continue
+            try:
+                report_ids.add(uuid.UUID(str(event.detail.get('report_id'))))
+            except (TypeError, ValueError, AttributeError):
+                continue
         if report_ids:
             for report in DailyWorkReport.objects.filter(
                 pk__in=report_ids, tasks=task, status='confirmed',
