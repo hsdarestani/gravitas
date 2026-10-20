@@ -11,9 +11,9 @@ permissions:
   contents: read
 
 concurrency:
-  # Never revive the service mid-way through a matched deployment snapshot.
-  # Wait for the production lock, then check health and recover if needed.
-  group: gravitas-production
+  # Separate recovery from deployment's queued jobs. Deployment protects
+  # its checkpoint; recovery runs only when explicitly invoked by this file.
+  group: gravitas-backend-health-recovery
   cancel-in-progress: false
 
 jobs:
