@@ -153,7 +153,7 @@ class CanonicalRequestScopeTests(TestCase):
             '/api/platform/projects/208/experiments/33/',
             '/api/platform/projects/208/file-content/',
             '/api/platform/projects/208/structure/',
-            '/api/platform/projects/208/tasks/',
+            '/api/platform/projects/208/tasks/73/time/',
         ):
             with self.subTest(path=path):
                 self.assertFalse(_research_project_panel_snapshot_read(self.factory.get(path)))
