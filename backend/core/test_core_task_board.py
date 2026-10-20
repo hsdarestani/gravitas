@@ -127,6 +127,17 @@ class CoreTaskBoardTests(TestCase):
         )
         self.assertIn('done', {row['value'] for row in detail['statuses']})
 
+    def test_fast_direct_task_preview_skips_heavy_editor_choices(self):
+        task_id = self.create_task('Quick task preview')
+        response = self.client.get(f'/api/operating/task-board/{task_id}/?mode=preview')
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data['task']['id'], task_id)
+        self.assertEqual(data['task']['title'], 'Quick task preview')
+        self.assertIn('status', data['task'])
+        self.assertNotIn('members', data)
+        self.assertNotIn('key_results', data)
+
     def test_board_aggregates_independent_comment_attachment_and_checklist_counts(self):
         task_id = self.create_task('Counted task')
         other_id = self.create_task('Another task')
