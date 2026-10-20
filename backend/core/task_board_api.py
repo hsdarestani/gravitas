@@ -16,7 +16,7 @@ from . import operating_api as base
 from . import operating_api_v4 as v4
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
-from .models import WorkspaceMembership
+from .models import Workspace, WorkspaceMembership
 from .task_notifications import enqueue_task_event, enqueue_task_mentions
 from .workspace_api import _can_manage_workspace
 from .operating_models import (
@@ -57,8 +57,35 @@ def _error(code, status=400, **extra):
     return JsonResponse({'ok': False, 'error': code, **extra}, status=status)
 
 
+def _readonly_task_workspace(request):
+    """Resolve existing workspace permissions without provisioning on a GET.
+
+    Previously every task reader called _workspace_for(), whose shared helper
+    provisions a personal workspace and plan within an atomic transaction.
+    In concurrent task-panel requests this introduces unnecessary write-capable
+    transactions. Keep the exact owner-or-member authorization rule instead.
+    """
+    raw_id = request.GET.get('workspace_id')
+    try:
+        workspace_id = int(raw_id) if raw_id else None
+    except (TypeError, ValueError):
+        return None
+    if not workspace_id:
+        return Workspace.objects.filter(
+            owner_id=request.user.pk,
+            kind=Workspace.Kind.PERSONAL,
+        ).first()
+    return (
+        Workspace.objects
+        .filter(pk=workspace_id)
+        .filter(Q(owner_id=request.user.pk) | Q(memberships__user_id=request.user.pk))
+        .distinct()
+        .first()
+    )
+
+
 def _task_for(request, task_id, *, counts=True):
-    workspace = base._workspace(request)
+    workspace = _readonly_task_workspace(request) if request.method == 'GET' else base._workspace(request)
     if not workspace:
         return None, None
     task = (
@@ -244,7 +271,7 @@ def _choices(request, workspace, *, include_legacy=True):
 def task_board(request):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
-    workspace = base._workspace(request)
+    workspace = _readonly_task_workspace(request) if request.method == 'GET' else base._workspace(request)
     if not workspace:
         return _error('core_workspace_required', 403)
 
