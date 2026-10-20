@@ -415,6 +415,101 @@ except BaseException as exc:
         pathlib.Path(temp).unlink(missing_ok=True)
 
 
+
+def task_full_middleware_profile():
+    """Measure real Django Client GETs with middleware and ephemeral signed cookie.
+
+    This diagnostic only runs SELECTs inside explicit READ ONLY transactions,
+    and emits statuses/timings only. It never stores or logs the cookie.
+    """
+    print("=== Full Django middleware task 726 latency (read-only) ===")
+    src = r'''import os, django, time, signal
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gravitas_backend.settings")
+django.setup()
+from django.conf import settings
+from django.contrib.auth import SESSION_KEY, BACKEND_SESSION_KEY, HASH_SESSION_KEY
+from django.contrib.sessions.backends.signed_cookies import SessionStore
+from django.db import connection, transaction
+from django.test import Client, override_settings
+from core.operating_models import OperatingTask
+from core.models import WorkspaceMembership
+
+class Deadline(Exception):
+    pass
+def alarm(signum, frame):
+    raise Deadline()
+signal.signal(signal.SIGALRM, alarm)
+try:
+    task = OperatingTask.objects.select_related('workspace', 'owner').get(pk=726)
+    member = WorkspaceMembership.objects.filter(workspace=task.workspace, user=task.owner).first()
+    if member:
+        user = task.owner
+    else:
+        record = WorkspaceMembership.objects.filter(workspace=task.workspace).select_related('user').first()
+        user = record.user if record else task.owner
+    with override_settings(SESSION_ENGINE='django.contrib.sessions.backends.signed_cookies'):
+        session = SessionStore()
+        session[SESSION_KEY] = str(user.pk)
+        session[BACKEND_SESSION_KEY] = settings.AUTHENTICATION_BACKENDS[0]
+        session[HASH_SESSION_KEY] = user.get_session_auth_hash()
+        session.save()
+        client = Client(HTTP_HOST='graviquest.com')
+        client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+        paths = [
+            ('preview', '/api/operating/task-board/726/?mode=preview'),
+            ('detail', '/api/operating/task-board/726/'),
+            ('history', '/api/operating/tasks/726/history/'),
+            ('comments', '/api/operating/tasks/726/comments/'),
+            ('attachments', '/api/operating/tasks/726/attachments/'),
+            ('checklist', '/api/operating/tasks/726/checklist/'),
+            ('calendar_status', '/api/calendar/google/tasks/726/status/'),
+        ]
+        for label, path in paths:
+            signal.alarm(10)
+            start = time.monotonic()
+            status = 'unknown'
+            try:
+                with transaction.atomic():
+                    with connection.cursor() as cur:
+                        cur.execute('SET TRANSACTION READ ONLY')
+                        cur.execute("SET LOCAL statement_timeout='9000ms'")
+                    response = client.get(path, secure=True)
+                    status = str(response.status_code)
+            except BaseException as exc:
+                status = type(exc).__name__[:55]
+            finally:
+                signal.alarm(0)
+            print('middleware_probe',label,'result',status,'wall_ms',round((time.monotonic()-start)*1000))
+except BaseException as exc:
+    print('middleware_setup_failure',type(exc).__name__[:55])
+'''
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".py", prefix="gravitas-middle-", dir="/tmp", delete=False) as h:
+        h.write(src)
+        temp = h.name
+    try:
+        pathlib.Path(temp).chmod(0o644)
+        result = run(
+            "sudo", "-n", "-u", "gravitas", "bash", "-c",
+            "set -a; . /etc/gravitas/backend.env; set +a; "
+            "export PYTHONPATH=/opt/gravitas-backend; "
+            "/opt/gravitas-backend/.venv/bin/python " + temp,
+            timeout=80,
+        )
+        found = False
+        for row in result.splitlines():
+            if re.fullmatch(
+                r"middleware_probe (preview|detail|history|comments|attachments|checklist|calendar_status) "
+                r"result (\d{3}|[A-Za-z]{3,55}) wall_ms \d+", row
+            ) or re.fullmatch(r"middleware_setup_failure [A-Za-z]{3,55}", row):
+                found = True
+                print(row)
+        if not found:
+            print("middleware_probe_unavailable")
+    finally:
+        pathlib.Path(temp).unlink(missing_ok=True)
+
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -472,5 +567,6 @@ if __name__ == "__main__":
     scoped_task_health()
     task_performance_snapshot()
     task_read_endpoint_profile()
+    task_full_middleware_profile()
     telegram_diagnostics()
     nextcloud()
