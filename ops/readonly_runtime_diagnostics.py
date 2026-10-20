@@ -265,6 +265,59 @@ def task_726_latency_diagnostics():
     print("local_backend_health_probe", m.group(0) if m else "unavailable")
 
 
+def task_726_view_profile():
+    """Time real Django read views in a SQL read-only transaction, no content output."""
+    print("=== Task 726 production view timing (read only) ===")
+    script = r'''import os, time, django
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gravitas_backend.settings")
+django.setup()
+from django.db import connection, transaction
+from django.test import RequestFactory
+from django.contrib.auth import get_user_model
+from core.operating_models import OperatingTask
+from core import task_board_api as board
+with transaction.atomic():
+    with connection.cursor() as cur:
+        cur.execute("SET TRANSACTION READ ONLY")
+    task = OperatingTask.objects.select_related("workspace").get(pk=726)
+    user_id = task.workspace.owner_id or task.owner_id
+    user = get_user_model().objects.get(pk=user_id)
+    factory = RequestFactory()
+    for name, func, suffix in [
+        ("preview", board.task_board_detail, "task-board/726/?mode=preview"),
+        ("detail", board.task_board_detail, "task-board/726/"),
+        ("history", board.task_history, "tasks/726/history/"),
+        ("comments", board.task_comments, "tasks/726/comments/"),
+        ("attachments", board.task_attachments, "tasks/726/attachments/"),
+        ("checklist", board.task_checklist, "tasks/726/checklist/"),
+    ]:
+        request = factory.get("/api/operating/" + suffix)
+        request.user = user
+        start = time.monotonic()
+        try:
+            resp = func(request, 726)
+            print("profile", name, "status", resp.status_code, "ms", round((time.monotonic() - start) * 1000))
+        except Exception as exc:
+            print("profile", name, "exception", type(exc).__name__, "ms", round((time.monotonic() - start) * 1000))
+'''
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".py", prefix="gravitas-profile-", dir="/tmp", delete=False) as handle:
+        handle.write(script)
+        probe_path = handle.name
+    try:
+        pathlib.Path(probe_path).chmod(0o644)
+        result = run(
+            "sudo", "-n", "-u", "gravitas", "bash", "-c",
+            "set -a; . /etc/gravitas/backend.env; set +a; "
+            "export PYTHONPATH=/opt/gravitas-backend; "
+            "/opt/gravitas-backend/.venv/bin/python " + probe_path,
+            timeout=40,
+        )
+        print("profile_result", result[-2500:] if result else "unavailable")
+    finally:
+        pathlib.Path(probe_path).unlink(missing_ok=True)
+
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -320,5 +373,6 @@ if __name__ == "__main__":
     web_status()
     backend()
     task_726_latency_diagnostics()
+    task_726_view_profile()
     telegram_diagnostics()
     nextcloud()
