@@ -360,6 +360,7 @@ export const disconnectGoogleCalendar = () => call('/calendar/google/disconnect/
 export const operatingTaskBoard = () => call('/operating/task-board/');
 export const operatingTaskDependencies = () => call('/operating/task-board/?mode=dependencies');
 export const createOperatingTask = (body) => call('/operating/task-board/', { method: 'POST', body });
+export const operatingTaskPreview = (id) => call(`/operating/task-board/${id}/?mode=preview`);
 export const operatingTaskCard = (id) => call(`/operating/task-board/${id}/`);
 export const updateOperatingTaskCard = (id, body) => call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
 export const deleteOperatingTaskCard = (id) => call(`/operating/task-board/${id}/`, { method: 'DELETE' });
