@@ -93,6 +93,32 @@ def _committed_task_snapshot_read(request):
     )
 
 
+def _research_project_panel_snapshot_read(request):
+    """Read committed, ACL-scoped Research panel projections without DAV I/O.
+
+    The canonical Research project snapshot already supports an explicit
+    read_mode=snapshot. Experiment lists, journal history, managed database
+    tables and optional operator-approved external-dataset catalogs also read
+    committed state and perform their own ACL checks. Refreshing every project
+    document synchronously for these GETs blocks Nginx workers and surfaces
+    502/504 for unrelated screens. Write routes deliberately remain canonical.
+    """
+    if request.method not in ('GET', 'HEAD'):
+        return False
+    path = request.path
+    return bool(
+        re.fullmatch(r'/api/platform/projects/\d+/experiments/', path)
+        or re.fullmatch(r'/api/platform/projects/\d+/experiments/\d+/journal/', path)
+        or re.fullmatch(r'/api/platform/projects/\d+/tools/data/tables/', path)
+        or re.fullmatch(r'/api/platform/projects/\d+/tools/data/tables/\d+/rows/', path)
+        or re.fullmatch(r'/api/platform/projects/\d+/tools/external/datasets/', path)
+        or re.fullmatch(
+            r'/api/platform/projects/\d+/tools/external/datasets/[A-Za-z_][A-Za-z0-9_]{0,62}/rows/',
+            path,
+        )
+    )
+
+
 class CanonicalProjectMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -119,6 +145,11 @@ class CanonicalProjectMiddleware:
         # Core task reads use persisted confirmed state. Never hold a SQL
         # lock while a read-only task popup waits for remote Nextcloud I/O.
         if _committed_task_snapshot_read(request):
+            return None
+        # Experiment lists and managed dataset reads share the same committed
+        # snapshot contract; the caller's object ACL is checked by each view.
+        # Keep POST/PATCH/DELETE behind the native canonical write boundary.
+        if _research_project_panel_snapshot_read(request):
             return None
         # The project overview immediately reads independent tool status and
         # approved provider catalogs after a selection save. These endpoints
