@@ -36,6 +36,42 @@ class OperationalProjectToolsTests(TestCase):
     def patch_json(self, url, payload):
         return self.client.patch(url, json.dumps(payload), content_type='application/json')
 
+    def test_tool_selection_patch_saves_only_profile_fields_and_audits_change(self):
+        from .platform_models import ProjectAuditEvent, ResearchProjectProfile
+        path = self.base + 'tools/selection/'
+        saved = self.patch_json(path, {
+            'selected_integrations': ['git', 'database'],
+            'requested_plugins': ['Spectroscopy viewer'],
+        })
+        self.assertEqual(saved.status_code, 200, saved.content)
+        self.assertEqual(saved.json()['selected_integrations'], ['git', 'database'])
+        profile = ResearchProjectProfile.objects.get(project_id=self.project_id)
+        self.assertEqual(profile.selected_integrations, ['git', 'database'])
+        self.assertEqual(profile.requested_plugins, ['Spectroscopy viewer'])
+        self.assertTrue(ProjectAuditEvent.objects.filter(
+            project_id=self.project_id, action='project_tools_updated'
+        ).exists())
+        self.assertEqual(self.client.get(self.base + 'tools/status/').status_code, 200)
+
+    def test_tool_selection_patch_denies_viewer_and_extra_or_invalid_fields(self):
+        path = self.base + 'tools/selection/'
+        bad = self.patch_json(path, {
+            'selected_integrations': ['git'],
+            'requested_plugins': [],
+            'title': 'Attempt to change project title',
+        })
+        self.assertEqual(bad.status_code, 400, bad.content)
+        self.assertEqual(bad.json()['error'], 'invalid_tool_selection_payload')
+        invalid = self.patch_json(path, {
+            'selected_integrations': ['unknown_executable'],
+            'requested_plugins': [],
+        })
+        self.assertEqual(invalid.status_code, 400, invalid.content)
+        self.client.force_login(self.viewer)
+        self.assertIn(self.patch_json(path, {
+            'selected_integrations': ['git'], 'requested_plugins': []
+        }).status_code, [403, 404])
+
     def test_project_tool_status_reveals_only_saved_selection(self):
         response = self.client.get(self.base + 'tools/status/')
         self.assertEqual(response.status_code, 200, response.content)
