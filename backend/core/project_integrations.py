@@ -57,6 +57,64 @@ def project_integration_catalog(request):
     })
 
 
+
+@require_http_methods(["PATCH"])
+def project_tool_selection(request, project_id):
+    """Update standalone tool preferences without syncing research files.
+
+    Tool selections live only on ResearchProjectProfile, not in the canonical
+    project/document files. This endpoint intentionally does not save the
+    ResearchProject or ObjectPolicy and never touches Nextcloud. The caller's
+    project-management permission is still checked on every request.
+    """
+    import json
+    from django.db import transaction
+    from .models import ResearchProject
+    from .platform_access import can_manage
+    from .platform_models import ProjectAuditEvent, ResearchProjectProfile
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "error": "authentication_required"}, status=401)
+    project = ResearchProject.objects.filter(pk=project_id, archived=False).first()
+    if not project or not can_manage(request.user, project):
+        return JsonResponse({"ok": False, "error": "not_found"}, status=404)
+
+    try:
+        data = json.loads(request.body or b"{}")
+    except (TypeError, ValueError, UnicodeDecodeError):
+        return JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
+    required = {"selected_integrations", "requested_plugins"}
+    if not isinstance(data, dict) or set(data) != required:
+        return JsonResponse({"ok": False, "error": "invalid_tool_selection_payload"}, status=400)
+    try:
+        selected, requested = validate_project_tools(data)
+    except ValueError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+
+    with transaction.atomic():
+        profile, _ = ResearchProjectProfile.objects.select_for_update().get_or_create(
+            project=project,
+            defaults={"nextcloud_root": f"GRV-{project.pk:06d}"},
+        )
+        was = (profile.selected_integrations, profile.requested_plugins)
+        profile.selected_integrations = selected
+        profile.requested_plugins = requested
+        profile.save(update_fields=["selected_integrations", "requested_plugins", "updated_at"])
+        if was != (selected, requested):
+            ProjectAuditEvent.objects.create(
+                project=project,
+                actor=request.user,
+                action="project_tools_updated",
+                object_type="ResearchProjectProfile",
+                object_id=str(profile.pk),
+                detail={"selected_integrations": selected, "requested_plugins": requested},
+            )
+    return JsonResponse({
+        "ok": True,
+        "selected_integrations": selected,
+        "requested_plugins": requested,
+    })
+
 @require_http_methods(["POST"])
 def start_first_research_project(request):
     """Explicit Research opt-in by creating the user's first owned project.
