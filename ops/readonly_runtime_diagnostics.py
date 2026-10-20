@@ -540,8 +540,14 @@ try:
         client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
         paths = [
             ('cockpit', '/api/platform/projects/208/cockpit/?read_mode=snapshot'),
+            ('discussions', '/api/platform/projects/208/discussions/'),
             ('experiments', '/api/platform/projects/208/experiments/'),
+            ('milestones', '/api/platform/projects/208/milestones/'),
+            ('tasks', '/api/platform/projects/208/tasks/'),
+            ('folders', '/api/platform/projects/208/folders/'),
             ('data_tables', '/api/platform/projects/208/tools/data/tables/'),
+            ('tool_status', '/api/platform/projects/208/tools/status/'),
+            ('builtin_tools', '/api/platform/projects/208/tools/builtin/'),
             ('external_datasets', '/api/platform/projects/208/tools/external/datasets/'),
         ]
         for label, path in paths:
@@ -576,12 +582,12 @@ except BaseException as exc:
             "set -a; . /etc/gravitas/backend.env; set +a; "
             "export PYTHONPATH=/opt/gravitas-backend; "
             "/opt/gravitas-backend/.venv/bin/python " + temp,
-            timeout=44,
+            timeout=102,
         )
         found = False
         for line in output.splitlines():
             if re.fullmatch(
-                r"research208_probe (cockpit|experiments|data_tables|external_datasets) "
+                r"research208_probe (cockpit|discussions|experiments|milestones|tasks|folders|data_tables|tool_status|builtin_tools|external_datasets) "
                 r"result (\d{3}|[A-Za-z]{3,55}) wall_ms \d+", line
             ) or re.fullmatch(r"research208_setup_failure [A-Za-z]{3,55}", line):
                 print(line)
