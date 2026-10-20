@@ -705,7 +705,7 @@ def telegram_notification_webhook(request):
                 try:
                     _telegram_api('sendMessage', {
                         'chat_id': chat_id,
-                        'text': 'Pulsar could not process this action. Nothing is confirmed yet. Please use /reports to check the report before trying again.',
+                        'text': 'Pulsar could not finish this action. Please check /reports before trying again.',
                     })
                 except Exception:
                     logger.exception('Could not send Telegram Pulsar callback error')
