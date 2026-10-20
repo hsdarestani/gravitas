@@ -5,7 +5,6 @@ cookies, credentials, payloads, note bodies, filenames or full log lines.
 """
 from __future__ import annotations
 import collections
-import json
 import pathlib
 import re
 import shutil
@@ -217,82 +216,6 @@ def telegram_diagnostics():
     print("telegram_webhook_http_statuses_tail", dict(webhook_statuses))
 
 
-def pulsar_claude_skill_db_audit():
-    """Read-only, scoped production DB check. Never print user IDs, report text or secrets."""
-    print("=== Pulsar Claude Skill report: scoped read-only DB check ===")
-    queries = {
-        "report_records": """
-            SELECT COALESCE(json_agg(json_build_object(
-                'status', r.status,
-                'revision', r.revision,
-                'work_date', r.report_date,
-                'created_tehran', to_char(r.created_at AT TIME ZONE 'Asia/Tehran', 'YYYY-MM-DD HH24:MI'),
-                'confirmed_tehran', to_char(r.confirmed_at AT TIME ZONE 'Asia/Tehran', 'YYYY-MM-DD HH24:MI'),
-                'linked_task_count', (
-                    SELECT count(*) FROM core_dailyworkreport_tasks j
-                    WHERE j.dailyworkreport_id = r.id
-                ),
-                'suggested_task_updates', jsonb_array_length(
-                    CASE WHEN jsonb_typeof(r.interpretation -> 'updates') = 'array'
-                         THEN r.interpretation -> 'updates' ELSE '[]'::jsonb END
-                ),
-                'contains_unmatched_work', COALESCE(
-                    length(trim(r.interpretation ->> 'unmatched_work')) > 0, false
-                )
-            ) ORDER BY r.created_at), '[]'::json)
-            FROM core_dailyworkreport r
-            WHERE r.source = 'telegram' AND r.report_date = '2026-10-20'
-              AND r.original_text ILIKE '%skills for claude%'
-        """,
-        "task_state": """
-            SELECT COALESCE(json_agg(json_build_object(
-                'status', t.status,
-                'updated_tehran', to_char(t.updated_at AT TIME ZONE 'Asia/Tehran', 'YYYY-MM-DD HH24:MI'),
-                'completed_tehran', to_char(t.completed_at AT TIME ZONE 'Asia/Tehran', 'YYYY-MM-DD HH24:MI'),
-                'matching_report_links', (
-                    SELECT count(*) FROM core_dailyworkreport_tasks j
-                    JOIN core_dailyworkreport r ON r.id = j.dailyworkreport_id
-                    WHERE j.operatingtask_id = t.id
-                      AND r.source = 'telegram' AND r.report_date = '2026-10-20'
-                      AND r.original_text ILIKE '%skills for claude%'
-                )
-            ) ORDER BY t.updated_at DESC), '[]'::json)
-            FROM core_operatingtask t
-            WHERE t.title ILIKE '%Build reusable Claude Skill%'
-        """,
-        "audit_events": """
-            SELECT json_build_object(
-                'total', count(*),
-                'previous_statuses', COALESCE(json_agg(e.detail ->> 'before_status'
-                    ORDER BY e.created_at) FILTER (WHERE e.id IS NOT NULL), '[]'::json),
-                'new_statuses', COALESCE(json_agg(e.detail ->> 'status'
-                    ORDER BY e.created_at) FILTER (WHERE e.id IS NOT NULL), '[]'::json),
-                'recorded_tehran', COALESCE(json_agg(
-                    to_char(e.created_at AT TIME ZONE 'Asia/Tehran', 'YYYY-MM-DD HH24:MI')
-                    ORDER BY e.created_at) FILTER (WHERE e.id IS NOT NULL), '[]'::json)
-            )
-            FROM core_activityevent e
-            WHERE e.action = 'task.daily_report'
-              AND e.detail ->> 'report_id' IN (
-                  SELECT r.id::text FROM core_dailyworkreport r
-                  WHERE r.source = 'telegram' AND r.report_date = '2026-10-20'
-                  AND r.original_text ILIKE '%skills for claude%'
-              )
-        """,
-    }
-    for label, query in queries.items():
-        # Single read-only transaction even for privileged Postgres execution.
-        sql = "BEGIN READ ONLY; " + query.strip() + "; ROLLBACK;"
-        result = run("sudo", "-n", "-u", "postgres", "psql", "-X", "-q",
-                     "-d", "gravitas", "-v", "ON_ERROR_STOP=1", "-t", "-A",
-                     "-c", sql, timeout=20).strip()
-        try:
-            json.loads(result)
-            print("pulsar_db_" + label, result[:6000])
-        except (ValueError, TypeError):
-            print("pulsar_db_" + label, "unavailable_or_query_failed")
-
-
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -348,5 +271,4 @@ if __name__ == "__main__":
     web_status()
     backend()
     telegram_diagnostics()
-    pulsar_claude_skill_db_audit()
     nextcloud()
