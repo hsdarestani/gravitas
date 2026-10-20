@@ -72,13 +72,41 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
   if (unsafe) headers['X-CSRFToken'] = await csrfToken();
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(API + path, {
+  const request = {
     method: verb,
     headers,
     credentials: 'same-origin',
     cache: verb === 'GET' ? 'default' : 'no-store',
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  };
+  // Task card deep links make several independent reads. A short upstream
+  // rotation must not leave each panel with the browser's opaque "Failed to
+  // fetch" message. Retry *only* idempotent task GETs, never writes.
+  const retryableTaskRead = verb === 'GET'
+    && /^\/operating\/(?:task-board\/\d+\/|tasks\/\d+\/(?:history|comments|attachments|checklist)\/)/.test(path);
+  let res;
+  for (let attempt = 0; attempt < (retryableTaskRead ? 2 : 1); attempt += 1) {
+    const controller = retryableTaskRead ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), 8000) : null;
+    try {
+      res = await fetch(API + path, { ...request, ...(controller ? { signal: controller.signal } : {}) });
+      if (retryableTaskRead && [502, 503, 504].includes(res.status) && attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        continue;
+      }
+      break;
+    } catch (error) {
+      if (!retryableTaskRead || attempt !== 0) {
+        if (!retryableTaskRead) throw error;
+        const unavailable = new Error('Task service is temporarily unreachable. Retry this panel.');
+        unavailable.status = 0;
+        throw unavailable;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    } finally {
+      if (timeout !== null) clearTimeout(timeout);
+    }
+  }
 
   if (res.status === 401) throw new AuthRequired('authentication_required');
 

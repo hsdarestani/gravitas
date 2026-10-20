@@ -8,7 +8,7 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261020reliable3';
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
@@ -1332,7 +1332,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           });
           checklistPanel.body.append(addForm);
         } catch (error) {
-          checklistPanel.body.append(el('p', 'fl-muted', error?.message || 'Checklist unavailable.'));
+          checklistPanel.body.replaceChildren(el('p', 'fl-muted', error?.message || 'Checklist unavailable.'), makeButton('Retry checklist', () => { loadChecklist(); }));
         }
       };
 
@@ -1558,7 +1558,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           });
           commentsPanel.body.append(commentForm);
         } catch (error) {
-          commentsPanel.body.append(el('p', 'fl-muted', error?.message || 'Comments unavailable.'));
+          commentsPanel.body.replaceChildren(el('p', 'fl-muted', error?.message || 'Comments unavailable.'), makeButton('Retry comments', () => { loadComments(); }));
         }
       };
 
@@ -1620,7 +1620,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           });
           attachmentsPanel.body.append(uploadForm);
         } catch (error) {
-          attachmentsPanel.body.append(el('p', 'fl-muted', error?.message || 'Attachments unavailable.'));
+          attachmentsPanel.body.replaceChildren(el('p', 'fl-muted', error?.message || 'Attachments unavailable.'), makeButton('Retry attachments', () => { loadAttachments(); }));
         }
       };
 
@@ -1677,7 +1677,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           }
           if (!(data.events || []).length) historyPanel.body.append(el('p', 'fl-muted', 'No board activity logged yet.'));
         } catch (error) {
-          historyPanel.body.replaceChildren(el('p', 'fl-muted', error?.message || 'Activity unavailable.'));
+          historyPanel.body.replaceChildren(el('p', 'fl-muted', error?.message || 'Activity unavailable.'), makeButton('Retry activity', () => { loadHistory(); }));
         }
       };
 

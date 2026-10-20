@@ -216,109 +216,6 @@ def telegram_diagnostics():
     print("telegram_webhook_http_statuses_tail", dict(webhook_statuses))
 
 
-def task_726_latency_diagnostics():
-    """Count request failures and latency for one task; print no user data."""
-    print("=== Task card 726 endpoint health (last 90 min) ===")
-    raw = read_lines("/var/log/nginx/access.log", max_bytes=12_000_000)
-    if not raw:
-        raw = run("sudo", "-n", "tail", "-n", "50000", "/var/log/nginx/access.log").splitlines()
-    now = datetime.utcnow()
-    counts = collections.Counter()
-    sampled = collections.defaultdict(list)
-    for line in raw[-50000:]:
-        mt = re.search(r'\[(\d{2}/[A-Za-z]{3}/\d{4}:\d{2}:\d{2}:\d{2}) [+-]\d{4}\]', line)
-        if not mt:
-            continue
-        try:
-            at = datetime.strptime(mt.group(1), "%d/%b/%Y:%H:%M:%S")
-        except ValueError:
-            continue
-        if not (0 <= (now - at).total_seconds() <= 5400):
-            continue
-        m = re.search(r'"GET\s+(/api/operating/(?:task-board/726/|tasks/726/(?:history|comments|attachments|checklist)/))[^"]*\s+HTTP/[^"]+"\s+(\d{3})\b', line)
-        if not m:
-            continue
-        url, code = m.groups()
-        bucket = "detail" if "task-board" in url else url.split("/")[-2]
-        counts[(bucket, code)] += 1
-        values = re.findall(r'\b(\d+\.\d{3})\b', line[mt.end():])
-        if values:
-            # Nginx optional timing field; do not infer from arbitrary metrics.
-            sampled[bucket].append(values[-1])
-    print("task726_response_codes", dict((f"{k[0]}_{k[1]}", v) for k,v in counts.items()))
-    print("task726_latency_fields_present", {k: len(v) for k,v in sampled.items()})
-    status = run("sudo", "-n", "-u", "postgres", "psql", "-X", "-q", "-t", "-A",
-                 "-d", "gravitas", "-c", (
-                     "BEGIN READ ONLY; "
-                     "SELECT state,wait_event_type,COUNT(*) FROM pg_stat_activity "
-                     "WHERE datname='gravitas' GROUP BY state,wait_event_type ORDER BY COUNT(*) DESC; "
-                     "ROLLBACK;"
-                 ), timeout=12)
-    normalized = [x for x in status.splitlines() if x.count("|") == 2]
-    print("postgres_activity_summary", normalized[:12] if normalized else "unavailable")
-    # Request from the server itself avoids the user's network and measures
-    # whether Gunicorn can answer an anonymous, health-only probe.
-    probe = run("curl", "-s", "-o", "/dev/null", "--connect-timeout", "3",
-                "--max-time", "8", "-w", "%{http_code} %{time_starttransfer} %{time_total}",
-                "http://127.0.0.1:8000/api/health/", timeout=10).strip()
-    m = re.fullmatch(r"(\d{3}) (\d+\.\d+) (\d+\.\d+)", probe)
-    print("local_backend_health_probe", m.group(0) if m else "unavailable")
-
-
-def task_726_view_profile():
-    """Time real Django read views in a SQL read-only transaction, no content output."""
-    print("=== Task 726 production view timing (read only) ===")
-    script = r'''import os, time, django
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gravitas_backend.settings")
-django.setup()
-from django.db import connection, transaction
-from django.test import RequestFactory
-from django.contrib.auth import get_user_model
-from core.operating_models import OperatingTask
-from core import task_board_api as board
-with transaction.atomic():
-    with connection.cursor() as cur:
-        cur.execute("SET TRANSACTION READ ONLY")
-    task = OperatingTask.objects.select_related("workspace").get(pk=726)
-    user_id = task.workspace.owner_id or task.owner_id
-    user = get_user_model().objects.get(pk=user_id)
-    factory = RequestFactory()
-    for name, func, suffix in [
-        ("preview", board.task_board_detail, "task-board/726/?mode=preview"),
-        ("detail", board.task_board_detail, "task-board/726/"),
-        ("history", board.task_history, "tasks/726/history/"),
-        ("comments", board.task_comments, "tasks/726/comments/"),
-        ("attachments", board.task_attachments, "tasks/726/attachments/"),
-        ("checklist", board.task_checklist, "tasks/726/checklist/"),
-    ]:
-        separator = "&" if "?" in suffix else "?"
-        request = factory.get("/api/operating/" + suffix + separator + "workspace_id=" + str(task.workspace_id))
-        request.user = user
-        start = time.monotonic()
-        try:
-            resp = func(request, 726)
-            print("profile", name, "status", resp.status_code, "ms", round((time.monotonic() - start) * 1000))
-        except Exception as exc:
-            print("profile", name, "exception", type(exc).__name__, "ms", round((time.monotonic() - start) * 1000))
-'''
-    import tempfile
-    with tempfile.NamedTemporaryFile("w", suffix=".py", prefix="gravitas-profile-", dir="/tmp", delete=False) as handle:
-        handle.write(script)
-        probe_path = handle.name
-    try:
-        pathlib.Path(probe_path).chmod(0o644)
-        result = run(
-            "sudo", "-n", "-u", "gravitas", "bash", "-c",
-            "set -a; . /etc/gravitas/backend.env; set +a; "
-            "export PYTHONPATH=/opt/gravitas-backend; "
-            "/opt/gravitas-backend/.venv/bin/python " + probe_path,
-            timeout=40,
-        )
-        print("profile_result", result[-2500:] if result else "unavailable")
-    finally:
-        pathlib.Path(probe_path).unlink(missing_ok=True)
-
-
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -373,7 +270,5 @@ if __name__ == "__main__":
     health()
     web_status()
     backend()
-    task_726_latency_diagnostics()
-    task_726_view_profile()
     telegram_diagnostics()
     nextcloud()
