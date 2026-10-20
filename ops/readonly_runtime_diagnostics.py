@@ -510,6 +510,87 @@ except BaseException as exc:
         pathlib.Path(temp).unlink(missing_ok=True)
 
 
+
+def project_208_read_panel_profile():
+    """Authenticated project 208 GETs through all Django middleware, SELECT-only."""
+    print("=== Research project 208 full-middleware read-panel latency ===")
+    src = r'''import os, django, time, signal
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gravitas_backend.settings")
+django.setup()
+from django.conf import settings
+from django.contrib.auth import SESSION_KEY, BACKEND_SESSION_KEY, HASH_SESSION_KEY
+from django.contrib.sessions.backends.signed_cookies import SessionStore
+from django.db import connection, transaction
+from django.test import Client, override_settings
+from core.models import ResearchProject
+
+def deadline(signum, frame):
+    raise TimeoutError()
+signal.signal(signal.SIGALRM, deadline)
+try:
+    project = ResearchProject.objects.select_related('owner').get(pk=208)
+    user = project.owner
+    with override_settings(SESSION_ENGINE='django.contrib.sessions.backends.signed_cookies'):
+        session = SessionStore()
+        session[SESSION_KEY] = str(user.pk)
+        session[BACKEND_SESSION_KEY] = settings.AUTHENTICATION_BACKENDS[0]
+        session[HASH_SESSION_KEY] = user.get_session_auth_hash()
+        session.save()
+        client = Client(HTTP_HOST='graviquest.com')
+        client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+        paths = [
+            ('cockpit', '/api/platform/projects/208/cockpit/?read_mode=snapshot'),
+            ('experiments', '/api/platform/projects/208/experiments/'),
+            ('data_tables', '/api/platform/projects/208/tools/data/tables/'),
+            ('external_datasets', '/api/platform/projects/208/tools/external/datasets/'),
+        ]
+        for label, path in paths:
+            start = time.monotonic()
+            result = 'unknown'
+            signal.alarm(8)
+            try:
+                with transaction.atomic():
+                    with connection.cursor() as cur:
+                        cur.execute('SET TRANSACTION READ ONLY')
+                        cur.execute("SET LOCAL statement_timeout='7000ms'")
+                    response = client.get(path, secure=True)
+                    result = str(response.status_code)
+            except BaseException as exc:
+                result = type(exc).__name__[:55]
+            finally:
+                signal.alarm(0)
+                connection.close()
+            print('research208_probe',label,'result',result,
+                  'wall_ms',round((time.monotonic()-start)*1000))
+except BaseException as exc:
+    print('research208_setup_failure',type(exc).__name__[:55])
+'''
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".py", prefix="gravitas-research208-", dir="/tmp", delete=False) as h:
+        h.write(src)
+        temp = h.name
+    try:
+        pathlib.Path(temp).chmod(0o644)
+        output = run(
+            "sudo", "-n", "-u", "gravitas", "bash", "-c",
+            "set -a; . /etc/gravitas/backend.env; set +a; "
+            "export PYTHONPATH=/opt/gravitas-backend; "
+            "/opt/gravitas-backend/.venv/bin/python " + temp,
+            timeout=44,
+        )
+        found = False
+        for line in output.splitlines():
+            if re.fullmatch(
+                r"research208_probe (cockpit|experiments|data_tables|external_datasets) "
+                r"result (\d{3}|[A-Za-z]{3,55}) wall_ms \d+", line
+            ) or re.fullmatch(r"research208_setup_failure [A-Za-z]{3,55}", line):
+                print(line)
+                found = True
+        if not found:
+            print("research208_probe_unavailable")
+    finally:
+        pathlib.Path(temp).unlink(missing_ok=True)
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -568,5 +649,6 @@ if __name__ == "__main__":
     task_performance_snapshot()
     task_read_endpoint_profile()
     task_full_middleware_profile()
+    project_208_read_panel_profile()
     telegram_diagnostics()
     nextcloud()
