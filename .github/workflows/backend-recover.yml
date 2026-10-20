@@ -1,0 +1,76 @@
+name: Recover GraviQuest Backend Health
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backend-recover.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-backend-health-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: SSH into production and recover unhealthy backend
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          PORT="${SSH_PORT:-22}"
+          USER="${SSH_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/recover
+          chmod 600 ~/.ssh/recover
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/recover -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$USER@$SSH_HOST" true 2>/dev/null; then
+            if [ "$USER" != root ] && ssh "${OPTS[@]}" "root@$SSH_HOST" true 2>/dev/null; then
+              USER=root
+            else
+              echo "Could not authenticate to production" >&2
+              exit 1
+            fi
+          fi
+          ssh "${OPTS[@]}" "$USER@$SSH_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          echo "Checking production backend service"
+          sudo -n systemctl daemon-reload
+          if ! sudo -n systemctl is-active --quiet gravitas-backend.service; then
+            echo "Backend inactive: starting service"
+            sudo -n systemctl reset-failed gravitas-backend.service || true
+            sudo -n systemctl start gravitas-backend.service
+          fi
+          sudo -n systemctl enable gravitas-backend.service >/dev/null
+          sudo -n systemctl is-active --quiet gravitas-backend.service
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if curl --silent --show-error --fail --max-time 5 -H "X-Forwarded-Proto: https" \
+                 http://127.0.0.1:8000/api/health/ 2>/dev/null | grep -q '"status": "ok"'; then
+              break
+            fi
+            if [ "$attempt" = 8 ]; then
+              echo "Backend health remains unavailable" >&2
+              exit 1
+            fi
+            sleep 3
+          done
+          if ! curl --silent --show-error --fail --max-time 10 \
+            --resolve graviquest.com:443:127.0.0.1 \
+            https://graviquest.com/api/health/ | grep -q '"status": "ok"'; then
+            echo "Nginx end-to-end health failed" >&2
+            exit 1
+          fi
+          echo "Backend systemd active, localhost Django and Nginx HTTPS health both OK"
+          REMOTE
