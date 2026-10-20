@@ -37,7 +37,8 @@ class OperationalProjectToolsTests(TestCase):
         return self.client.patch(url, json.dumps(payload), content_type='application/json')
 
     def test_tool_selection_patch_saves_only_profile_fields_and_audits_change(self):
-        from .platform_models import ProjectAuditEvent, ResearchProjectProfile
+        from .layer_models import ActivityEvent
+        from .platform_models import ResearchProjectProfile
         path = self.base + 'tools/selection/'
         saved = self.patch_json(path, {
             'selected_integrations': ['git', 'database'],
@@ -48,8 +49,10 @@ class OperationalProjectToolsTests(TestCase):
         profile = ResearchProjectProfile.objects.get(project_id=self.project_id)
         self.assertEqual(profile.selected_integrations, ['git', 'database'])
         self.assertEqual(profile.requested_plugins, ['Spectroscopy viewer'])
-        self.assertTrue(ProjectAuditEvent.objects.filter(
-            project_id=self.project_id, action='project_tools_updated'
+        self.assertTrue(ActivityEvent.objects.filter(
+            layer=ActivityEvent.Layer.RESEARCH,
+            action='project.tools_selected',
+            detail__project_id=self.project_id,
         ).exists())
         self.assertEqual(self.client.get(self.base + 'tools/status/').status_code, 200)
 
