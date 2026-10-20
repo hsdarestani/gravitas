@@ -291,7 +291,8 @@ with transaction.atomic():
         ("attachments", board.task_attachments, "tasks/726/attachments/"),
         ("checklist", board.task_checklist, "tasks/726/checklist/"),
     ]:
-        request = factory.get("/api/operating/" + suffix)
+        separator = "&" if "?" in suffix else "?"
+        request = factory.get("/api/operating/" + suffix + separator + "workspace_id=" + str(task.workspace_id))
         request.user = user
         start = time.monotonic()
         try:
