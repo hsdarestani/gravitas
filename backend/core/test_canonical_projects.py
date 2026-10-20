@@ -112,6 +112,30 @@ class CanonicalProjectTests(TestCase):
                 with self.subTest(outsider_path=path):
                     self.assertEqual(self.client.get(root + path).status_code, 404)
 
+    def test_adopted_project_discussions_get_is_fast_and_acl_scoped(self):
+        from .research_models import ProjectDiscussionMessage
+        message = ProjectDiscussionMessage.objects.create(
+            project=self.project, author=self.owner,
+            body='Persisted native-projected Research discussion',
+        )
+        self.adopt()
+        path = f'/api/platform/projects/{self.project.pk}/discussions/'
+        with patch(
+            'core.canonical_middleware.refresh_project',
+            side_effect=AssertionError('Discussion panel GET must not scan Nextcloud files'),
+        ):
+            owner = self.client.get(path)
+            self.assertEqual(owner.status_code, 200, owner.content)
+            self.assertTrue(any(
+                m['id'] == message.pk for m in owner.json()['messages']
+            ))
+            self.client.force_login(self.viewer)
+            viewer = self.client.get(path)
+            self.assertEqual(viewer.status_code, 200, viewer.content)
+            self.client.force_login(self.outsider)
+            denied = self.client.get(path)
+            self.assertEqual(denied.status_code, 404, denied.content)
+
     def test_native_cockpit_read_still_refreshes_source(self):
         self.adopt()
         with patch('core.canonical_middleware.refresh_project') as refresh:
