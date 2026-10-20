@@ -127,6 +127,34 @@ class CoreTaskBoardTests(TestCase):
         )
         self.assertIn('done', {row['value'] for row in detail['statuses']})
 
+    def test_task_get_endpoints_do_not_provision_workspaces(self):
+        from unittest.mock import patch
+
+        task_id = self.create_task('Read-only task panels')
+        paths = [
+            '/api/operating/task-board/?mode=dependencies',
+            f'/api/operating/task-board/{task_id}/?mode=preview',
+            f'/api/operating/tasks/{task_id}/comments/',
+            f'/api/operating/tasks/{task_id}/attachments/',
+            f'/api/operating/tasks/{task_id}/checklist/',
+            f'/api/operating/tasks/{task_id}/history/',
+        ]
+        with patch(
+            'core.workspace_api.provision_personal_workspace',
+            side_effect=AssertionError('Task GET must not provision a workspace'),
+        ):
+            for path in paths:
+                with self.subTest(path=path):
+                    response = self.client.get(path)
+                    self.assertEqual(response.status_code, 200, response.content)
+
+    def test_task_history_uses_an_index_for_object_scoped_recent_events(self):
+        from .layer_models import ActivityEvent
+        self.assertTrue(any(
+            index.fields == ['layer', 'object_type', 'object_id', '-created_at']
+            for index in ActivityEvent._meta.indexes
+        ))
+
     def test_fast_direct_task_preview_skips_heavy_editor_choices(self):
         task_id = self.create_task('Quick task preview')
         response = self.client.get(f'/api/operating/task-board/{task_id}/?mode=preview')
