@@ -5,6 +5,7 @@ cookies, credentials, payloads, note bodies, filenames or full log lines.
 """
 from __future__ import annotations
 import collections
+import json
 import pathlib
 import re
 import shutil
