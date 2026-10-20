@@ -235,7 +235,7 @@ function overviewView(doc, cockpit, { go, projectId, refresh } = {}) {
           event.preventDefault();
           save.disabled = true;
           try {
-            await P.call(`/platform/projects/${projectId}/`, {
+            await P.call(`/platform/projects/${projectId}/tools/selection/`, {
               method: 'PATCH',
               body: { selected_integrations: picker.selected(), requested_plugins: picker.requested() },
             });

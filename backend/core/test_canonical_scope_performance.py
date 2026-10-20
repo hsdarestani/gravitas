@@ -95,6 +95,39 @@ class CanonicalRequestScopeTests(TestCase):
         )
         self.assertIn('refresh_task_scope(state.project, request.user, view_kwargs.get', source)
 
+    def test_isolated_tool_selection_patch_skips_canonical_refresh_only_on_that_route(self):
+        request = self.factory.patch(
+            '/api/platform/projects/226/tools/selection/',
+            data=json.dumps({
+                'selected_integrations': ['git'], 'requested_plugins': [],
+            }),
+            content_type='application/json',
+        )
+        request.user = self.user
+        with (
+            patch('core.canonical_middleware.project_scope_for',
+                  side_effect=AssertionError('Selection should not inspect canonical scope')),
+            patch('core.canonical_middleware.refresh_project',
+                  side_effect=AssertionError('Selection should not call DAV')),
+        ):
+            self.assertIsNone(self.middleware.process_view(request, lambda req: None, (), {'project_id': 226}))
+
+    def test_project_tool_status_reads_bypass_remote_native_sync(self):
+        for suffix in ('status', 'plugins', 'providers'):
+            request = self.factory.get(
+                f'/api/platform/projects/226/tools/{suffix}/'
+            )
+            request.user = self.user
+            with (
+                patch('core.canonical_middleware.project_scope_for',
+                      side_effect=AssertionError('No scope lookup on tool card GET')),
+                patch('core.canonical_middleware.refresh_project',
+                      side_effect=AssertionError('No DAV refresh on tool card GET')),
+            ):
+                self.assertIsNone(
+                    self.middleware.process_view(request, lambda req: None, (), {'project_id': 226})
+                )
+
     def test_post_body_project_scoped_without_crawling_others(self):
         request = self.factory.post(
             '/api/platform/tasks/', data=json.dumps({'project_id': 208, 'title': 'test'}),

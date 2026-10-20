@@ -57,6 +57,87 @@ def project_integration_catalog(request):
     })
 
 
+
+@require_http_methods(["PATCH"])
+def project_tool_selection(request, project_id):
+    """Update standalone tool preferences without syncing research files.
+
+    Tool selections live only on ResearchProjectProfile, not in the canonical
+    project/document files. This endpoint intentionally does not save the
+    ResearchProject or ObjectPolicy and never touches Nextcloud. The caller's
+    project-management permission is still checked on every request.
+    """
+    import json
+    from django.db import transaction
+    from django.utils import timezone
+    from .layer_access import record_activity
+    from .layer_models import ActivityEvent
+    from .models import ResearchProject
+    from .platform_access import can_manage
+    from .platform_models import ResearchProjectProfile
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "error": "authentication_required"}, status=401)
+    project = ResearchProject.objects.filter(pk=project_id, archived=False).first()
+    if not project or not can_manage(request.user, project):
+        return JsonResponse({"ok": False, "error": "not_found"}, status=404)
+
+    try:
+        data = json.loads(request.body or b"{}")
+    except (TypeError, ValueError, UnicodeDecodeError):
+        return JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
+    required = {"selected_integrations", "requested_plugins"}
+    if not isinstance(data, dict) or set(data) != required:
+        return JsonResponse({"ok": False, "error": "invalid_tool_selection_payload"}, status=400)
+    try:
+        selected, requested = validate_project_tools(data)
+    except ValueError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+
+    # selected_integrations/requested_plugins are intentionally NOT part of
+    # canonical SPECS['ResearchProjectProfile']. A normal model.save() fires
+    # canonical pre-save hooks even though neither canonical field changes.
+    # Update only these DB-owned preferences without falsely emitting a native
+    # document revision. Project content updates still use the DAV journal.
+    with transaction.atomic():
+        profile = ResearchProjectProfile.objects.select_for_update().filter(
+            project=project
+        ).first()
+        if profile is None:
+            # Older projects may not yet have a profile. bulk_create avoids
+            # canonical content hooks for this compatibility-only shell.
+            ResearchProjectProfile.objects.bulk_create(
+                [ResearchProjectProfile(project=project, nextcloud_root=f"GRV-{project.pk:06d}")],
+                ignore_conflicts=True,
+            )
+            profile = ResearchProjectProfile.objects.select_for_update().get(project=project)
+        was = (profile.selected_integrations, profile.requested_plugins)
+        ResearchProjectProfile.objects.filter(pk=profile.pk).update(
+            selected_integrations=selected,
+            requested_plugins=requested,
+            updated_at=timezone.now(),
+        )
+        if was != (selected, requested):
+            # An ActivityEvent is the DB-owned audit feed. ProjectAuditEvent
+            # is a canonical file and must not be created without its journal.
+            record_activity(
+                layer=ActivityEvent.Layer.RESEARCH,
+                action="project.tools_selected",
+                actor=request.user,
+                object_type="ResearchProjectProfile",
+                object_id=profile.pk,
+                detail={
+                    "project_id": project.pk,
+                    "selected_integrations": selected,
+                    "requested_plugins": requested,
+                },
+            )
+    return JsonResponse({
+        "ok": True,
+        "selected_integrations": selected,
+        "requested_plugins": requested,
+    })
+
 @require_http_methods(["POST"])
 def start_first_research_project(request):
     """Explicit Research opt-in by creating the user's first owned project.

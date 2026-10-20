@@ -67,11 +67,11 @@ const boot = fs.readFileSync('assets/ws/ws-app.js', 'utf8');
 const page = fs.readFileSync('workspace.html', 'utf8');
 assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261020onecall5/);
 assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261020onecall5/);
-assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261020onecall5/);
+assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261020toolsave1/);
 const five = fs.readFileSync('assets/ws/ws-five-layer.js', 'utf8');
 const projectView = fs.readFileSync('assets/ws/ws-project.js', 'utf8');
-assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261020advanced1/);
-assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261020advanced1/);
+assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261020toolsave1/);
+assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261020toolsave1/);
 assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261019taskchoices1/);
 """
         result = subprocess.run(

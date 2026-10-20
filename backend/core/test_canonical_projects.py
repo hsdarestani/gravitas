@@ -94,6 +94,26 @@ class CanonicalProjectTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         refresh.assert_not_called()
 
+    def test_adopted_project_tool_selection_does_not_sync_nextcloud(self):
+        """Only profile metadata changes; adopted native documents are untouched."""
+        from .platform_models import ResearchProjectProfile
+        self.adopt()
+        original = dict(self.dav.files)
+        path = f'/api/platform/projects/{self.project.pk}/tools/selection/'
+        with (patch('core.canonical_middleware.refresh_project',
+                    side_effect=AssertionError('Selection should not refresh DAV')),
+              patch('core.canonical_middleware.refresh_task_scope',
+                    side_effect=AssertionError('Selection should not refresh a task'))):
+            response = self.client.patch(path, json.dumps({
+                'selected_integrations': ['git'],
+                'requested_plugins': ['Microscope viewer'],
+            }), content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        profile = ResearchProjectProfile.objects.get(project=self.project)
+        self.assertEqual(profile.selected_integrations, ['git'])
+        self.assertEqual(profile.requested_plugins, ['Microscope viewer'])
+        self.assertEqual(self.dav.files, original)
+
     def test_snapshot_query_cannot_bypass_task_write_boundary(self):
         from .operating_models import OperatingTask
         with transaction.atomic():

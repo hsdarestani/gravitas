@@ -29,7 +29,7 @@ from core.pulsar_agent_api import pulsar_agent_run
 from core.pulsar_schedule_api import pulsar_reminders, pulsar_reminder_detail
 from core.lab_api import public_lab_detail, public_labs, run_lab_file
 from core.project_space_api import platform_projects_with_space
-from core.project_integrations import project_integration_catalog, start_first_research_project
+from core.project_integrations import project_integration_catalog, project_tool_selection, start_first_research_project
 from core.project_external_datasets import external_datasets, external_dataset_rows
 from core.project_plugin_runtime import builtin_plugin_catalog, run_builtin_plugin
 from core.project_private_pulsar_merge import private_merge_proposal
@@ -136,6 +136,8 @@ urlpatterns = [
     path('api/platform/projects/<int:project_id>/drafts/', require_research_or_core(project_draft_files)),
     path('api/platform/projects/<int:project_id>/drafts/<int:file_id>/', require_research_or_core(project_draft)),
     path('api/platform/projects/<int:project_id>/drafts/<int:file_id>/push/', require_research_or_core(project_draft_push)),
+    # Isolated selection metadata write: no canonical Nextcloud document update.
+    path('api/platform/projects/<int:project_id>/tools/selection/', require_research_or_core(project_tool_selection)),
     path('api/platform/projects/<int:project_id>/tools/status/', require_research_or_core(operational_tool_status)),
     path('api/platform/projects/<int:project_id>/tools/git/', require_research_or_core(project_git)),
     path('api/platform/projects/<int:project_id>/tools/git/commits/', require_research_or_core(project_git_commits)),
