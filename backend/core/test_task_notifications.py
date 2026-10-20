@@ -145,30 +145,40 @@ class TaskNotificationTests(TestCase):
             sent.append((method, payload))
             return {'ok': True}
         telegram_api.side_effect = api
-        handle_report_callback.return_value = [{'text': 'Report confirmed.'}]
+        handle_report_callback.side_effect = [
+            [{'text': 'Report confirmed.'}],
+            [{'text': 'Describe your correction.'}],
+            [{'text': 'Report cancelled.'}],
+        ]
         TaskNotificationPreference.objects.create(
             user=self.user, telegram_chat_id=123456789, telegram_enabled=True,
         )
-        response = self.client.post(
-            '/api/task-notifications/telegram/webhook/',
-            data=json.dumps({
-                'callback_query': {
-                    'id': 'expired-callback',
-                    'data': 'wr:c:12345678123456781234567812345678:1',
-                    'message': {'chat': {'id': 123456789, 'type': 'private'}},
-                },
-            }),
-            content_type='application/json',
-            HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='webhook-secret',
+        expected_actions = []
+        for code in ('c', 'e', 'x'):
+            action = f'wr:{code}:12345678123456781234567812345678:1'
+            response = self.client.post(
+                '/api/task-notifications/telegram/webhook/',
+                data=json.dumps({
+                    'callback_query': {
+                        'id': f'expired-callback-{code}',
+                        'data': action,
+                        'message': {'chat': {'id': 123456789, 'type': 'private'}},
+                    },
+                }),
+                content_type='application/json',
+                HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='webhook-secret',
+            )
+            self.assertEqual(response.status_code, 200, response.content)
+            expected_actions.append(action)
+        self.assertEqual(
+            [call.args[1] for call in handle_report_callback.call_args_list],
+            expected_actions,
         )
-        self.assertEqual(response.status_code, 200, response.content)
-        handle_report_callback.assert_called_once_with(
-            self.user, 'wr:c:12345678123456781234567812345678:1',
+        sent_texts = [payload['text'] for method, payload in sent if method == 'sendMessage']
+        self.assertEqual(
+            sent_texts, ['Report confirmed.', 'Describe your correction.', 'Report cancelled.'],
         )
-        self.assertTrue(any(method == 'sendMessage' and payload.get('text') == 'Report confirmed.'
-                            for method, payload in sent))
-        self.assertFalse(any('could not complete' in payload.get('text', '').lower()
-                             for method, payload in sent if method == 'sendMessage'))
+        self.assertFalse(any('could not complete' in text.lower() for text in sent_texts))
 
     @patch('core.task_notifications.requests.post')
     def test_worker_delivers_email_and_telegram(self, post):
