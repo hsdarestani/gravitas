@@ -679,27 +679,43 @@ def telegram_notification_webhook(request):
         message = callback.get('message') or {}
         chat = message.get('chat') or {}
         chat_id = chat.get('id')
-        pref = _telegram_connected_preference(chat_id)
-        try:
-            if callback_id:
+        action = str(callback.get('data') or '')
+
+        # Telegram may reject acknowledgements for expired callback IDs or during
+        # transient API failures. A failed ACK must never block the actual action.
+        # In particular, a pending work-report confirmation must remain usable.
+        if callback_id:
+            try:
                 _telegram_api('answerCallbackQuery', {'callback_query_id': callback_id})
+            except Exception:
+                logger.warning('Telegram callback acknowledgement failed, continuing action=%s', action, exc_info=True)
+
+        try:
+            pref = _telegram_connected_preference(chat_id)
             if pref and chat.get('type') == 'private':
                 from .telegram_pulsar import handle_callback
                 from .telegram_work_reports import handle_report_callback
-                _send_telegram_pulsar_messages(
-                    chat_id,
-                    handle_report_callback(pref.user, str(callback.get('data') or '')) if str(callback.get('data') or '').startswith('wr:') else handle_callback(pref.user, str(callback.get('data') or '')),
-                )
+                messages = (handle_report_callback(pref.user, action)
+                            if action.startswith('wr:') else handle_callback(pref.user, action))
+            else:
+                messages = []
         except Exception:
-            logger.exception('Telegram Pulsar callback failed chat_id=%s', chat_id)
+            logger.exception('Telegram Pulsar callback handler failed chat_id=%s action=%s', chat_id, action)
             if chat_id:
                 try:
                     _telegram_api('sendMessage', {
                         'chat_id': chat_id,
-                        'text': 'Pulsar could not complete that action. Please try again.',
+                        'text': 'Pulsar could not process this action. Nothing is confirmed yet. Please use /reports to check the report before trying again.',
                     })
                 except Exception:
                     logger.exception('Could not send Telegram Pulsar callback error')
+        else:
+            # Sending a reply is separate from applying the action. If it fails,
+            # do not tell the user the action failed and invite duplicate clicks.
+            try:
+                _send_telegram_pulsar_messages(chat_id, messages)
+            except Exception:
+                logger.exception('Telegram Pulsar callback reply delivery failed chat_id=%s action=%s', chat_id, action)
         return JsonResponse({'ok': True})
 
     message = update.get('message') or {}
