@@ -139,7 +139,7 @@ def _process_json(obj):
 def _objective_json(obj):
     return {
         'id': obj.pk, 'title': obj.title, 'description': obj.description, 'owner': _person(obj.owner),
-        'quarter': obj.quarter, 'sort_order': obj.sort_order, 'start_date': obj.start_date.isoformat() if obj.start_date else None,
+        'quarter': obj.quarter, 'sort_order': obj.sort_order, 'source_locked': obj.source_locked, 'start_date': obj.start_date.isoformat() if obj.start_date else None,
         'due_date': obj.due_date.isoformat() if obj.due_date else None, 'health': obj.health, 'status': obj.status,
         # getattr's fallback expression is evaluated eagerly; do not issue a
         # COUNT query for every objective when the queryset already annotated it.
@@ -164,7 +164,7 @@ def _kr_json(obj):
     return {
         'id': obj.pk, 'objective_id': obj.objective_id, 'objective_title': obj.objective.title,
         'title': obj.title, 'owner': _person(obj.owner), 'metric_name': obj.metric_name, 'unit': obj.unit,
-        'sort_order': obj.sort_order,
+        'sort_order': obj.sort_order, 'source_locked': obj.source_locked,
         'baseline_value': str(obj.baseline_value) if obj.baseline_value is not None else None,
         'target_value': str(obj.target_value) if obj.target_value is not None else None,
         'current_value': str(obj.current_value) if obj.current_value is not None else None,
@@ -360,7 +360,7 @@ def objectives(request):
     owner = _owner(request.user, workspace, p.get('owner_id'))
     if not p.get('title') or not owner: return _error('title_and_owner_required')
     next_order = (StrategicObjective.objects.filter(workspace=workspace).aggregate(last=Max('sort_order'))['last'] or 0) + 100
-    obj = StrategicObjective.objects.create(workspace=workspace, title=p['title'].strip(), description=p.get('description', ''), owner=owner, quarter=p.get('quarter', ''), start_date=_date(p.get('start_date')), due_date=_date(p.get('due_date')), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE), sort_order=next_order)
+    obj = StrategicObjective.objects.create(workspace=workspace, title=p['title'].strip(), description=p.get('description', ''), owner=owner, quarter=p.get('quarter', ''), start_date=_date(p.get('start_date')), due_date=_date(p.get('due_date')), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE), sort_order=next_order, source_locked=True)
     return JsonResponse({'ok': True, 'objective': _objective_json(obj)}, status=201)
 
 
@@ -387,6 +387,15 @@ def objective_detail(request, objective_id):
         owner = _owner(request.user, obj.workspace, p['owner_id'])
         if not owner: return _error('invalid_owner')
         obj.owner = owner
+    if 'source_locked' in p:
+        if not isinstance(p['source_locked'], bool):
+            return _error('invalid_source_lock')
+        obj.source_locked = p['source_locked']
+    elif any(field in p for field in (
+        'title', 'description', 'quarter', 'health', 'status',
+        'start_date', 'due_date', 'owner_id',
+    )):
+        obj.source_locked = True
     obj.save(); return JsonResponse({'ok': True, 'objective': _objective_json(obj)})
 
 
@@ -405,7 +414,7 @@ def key_results(request):
     owner = _owner(request.user, workspace, p.get('owner_id'))
     if not objective or not owner or not p.get('title'): return _error('objective_title_and_owner_required')
     next_order = (KeyResult.objects.filter(objective=objective).aggregate(last=Max('sort_order'))['last'] or 0) + 100
-    obj = KeyResult.objects.create(objective=objective, title=p['title'].strip(), owner=owner, metric_name=p.get('metric_name', ''), unit=p.get('unit', ''), baseline_value=_decimal(p.get('baseline_value')), target_value=_decimal(p.get('target_value')), current_value=_decimal(p.get('current_value')), confidence=max(0, min(100, int(p.get('confidence', 100)))), due_date=_date(p.get('due_date')), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE), sort_order=next_order)
+    obj = KeyResult.objects.create(objective=objective, title=p['title'].strip(), owner=owner, metric_name=p.get('metric_name', ''), unit=p.get('unit', ''), baseline_value=_decimal(p.get('baseline_value')), target_value=_decimal(p.get('target_value')), current_value=_decimal(p.get('current_value')), confidence=max(0, min(100, int(p.get('confidence', 100)))), due_date=_date(p.get('due_date')), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE), sort_order=next_order, source_locked=True)
     return JsonResponse({'ok': True, 'key_result': _kr_json(obj)}, status=201)
 
 
@@ -445,6 +454,16 @@ def key_result_detail(request, kr_id):
         owner = _owner(request.user, workspace, p['owner_id'])
         if not owner: return _error('invalid_owner')
         obj.owner = owner
+    if 'source_locked' in p:
+        if not isinstance(p['source_locked'], bool):
+            return _error('invalid_source_lock')
+        obj.source_locked = p['source_locked']
+    elif any(field in p for field in (
+        'title', 'objective_id', 'metric_name', 'unit', 'health', 'status',
+        'baseline_value', 'target_value', 'current_value',
+        'confidence', 'due_date', 'owner_id',
+    )):
+        obj.source_locked = True
     obj.save(); return JsonResponse({'ok': True, 'key_result': _kr_json(obj)})
 
 
