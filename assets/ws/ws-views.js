@@ -2155,7 +2155,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   });
 }
 
-export function renderCorePlanning(host, { go }) {
+export function renderCorePlanning(host, { go, showArchived = false }) {
   const doc = docShell(host, 'Planning', 'Objectives, measurable Key Results, linked work and schedule.');
   const holder = el('div', 'planning-compact');
   doc.append(holder);
@@ -2291,8 +2291,8 @@ export function renderCorePlanning(host, { go }) {
     holder.replaceChildren();
     const planning = board.planning || { objectives: [], key_results: [], milestones: [], counts: {} };
     const counts = planning.counts || {};
-    const objectives = planning.objectives || [];
-    const refresh = () => renderCorePlanning(host, { go });
+    const objectives = (planning.objectives || []).filter(obj => showArchived || obj.status !== 'archived');
+    const refresh = () => renderCorePlanning(host, { go, showArchived });
     holder.append(stats([
       ['Objectives', counts.objectives || 0],
       ['Key Results', counts.key_results || 0],
@@ -2306,6 +2306,8 @@ export function renderCorePlanning(host, { go }) {
         ...values, owner_id: currentUserId() || board.members?.[0]?.id,
       }).then(refresh)), true),
       miniButton('Open task board', () => go('/workspace/core/tasks')),
+      miniButton(showArchived ? 'Hide archived' : 'Show archived (' + (counts.archived_objectives || 0) + ')',
+        () => renderCorePlanning(host, { go, showArchived: !showArchived })),
     );
     holder.append(toolbar, createSlot);
     if (counts.unlinked_tasks) holder.append(el('p', 'planning-meta', counts.unlinked_tasks + ' tasks have no KR link and cannot be included in these totals.'));
@@ -2341,11 +2343,18 @@ export function renderCorePlanning(host, { go }) {
       const addKr = miniButton('Add KR', () => showForm(editor, krFields({objective_id:objective.id}, objectives), values => P.createOperatingKeyResult({
         ...values, owner_id: objective.owner?.id || currentUserId(),
       }).then(refresh)), true);
-      const archiveOrDelete = miniButton((objective.key_result_count || objective.key_results?.length) ? 'Archive' : 'Delete', async () => {
+      const archiveOrDelete = miniButton(objective.status === 'archived' ? 'Restore' :
+        ((objective.key_result_count || objective.key_results?.length) ? 'Archive' : 'Delete'), async () => {
         const containsKrs = !!(objective.key_result_count || objective.key_results?.length);
-        if (!confirm(containsKrs ? 'Archive this Objective? Existing KRs, tasks and history remain unchanged.' : 'Delete this empty Objective permanently?')) return;
+        if (objective.status === 'archived') {
+          try { await P.updateOperatingObjective(objective.id, { status: 'active' }); refresh(); }
+          catch (error) { alert(error?.data?.error || error?.message || 'Could not restore Objective.'); }
+          return;
+        }
+        if (!confirm(containsKrs ? 'Archive this Objective? Existing KRs, tasks and history remain unchanged.' :
+          'Delete this empty Objective permanently?')) return;
         try {
-          if (containsKrs) await P.updateOperatingObjective(objective.id, {status:'archived'});
+          if (containsKrs) await P.updateOperatingObjective(objective.id, { status: 'archived' });
           else await P.deleteOperatingObjective(objective.id);
           refresh();
         } catch (error) { alert(error?.data?.error || error?.message || 'Operation failed.'); }
@@ -2357,14 +2366,21 @@ export function renderCorePlanning(host, { go }) {
       ));
       objectiveBox.append(head, editor);
       const body = el('div', 'v-panel__body');
-      const keyResults = objective.key_results || [];
+      const keyResults = (objective.key_results || []).filter(kr => showArchived || kr.status !== 'archived');
       for (const [krIndex, kr] of keyResults.entries()) {
         const krEditor = el('div');
         const editKr = miniButton('Edit', () => showForm(krEditor, krFields(kr, objectives), values => P.updateOperatingKeyResult(kr.id, {
           ...values, objective_id: Number(values.objective_id),
         }).then(refresh)));
-        const archiveKr = miniButton((kr.tasks?.total || 0) ? 'Archive' : 'Delete', async () => {
-          if (!confirm((kr.tasks?.total || 0) ? 'Archive this KR? All linked tasks and history stay intact.' : 'Delete this KR? It must have no linked initiatives or tasks.')) return;
+        const archiveKr = miniButton(kr.status === 'archived' ? 'Restore' :
+          ((kr.tasks?.total || 0) ? 'Archive' : 'Delete'), async () => {
+          if (kr.status === 'archived') {
+            try { await P.updateOperatingKeyResult(kr.id, { status: 'active' }); refresh(); }
+            catch (error) { alert(error?.data?.error || error?.message || 'Could not restore Key Result.'); }
+            return;
+          }
+          if (!confirm((kr.tasks?.total || 0) ? 'Archive this KR? All linked tasks and history stay intact.' :
+            'Delete this KR? It must have no linked initiatives or tasks.')) return;
           try {
             if (kr.tasks?.total) await P.updateOperatingKeyResult(kr.id, {status:'archived'});
             else await P.deleteOperatingKeyResult(kr.id);
