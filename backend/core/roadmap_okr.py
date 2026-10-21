@@ -306,7 +306,7 @@ def sync_workspace_okr(workspace, actor=None, source_text=None):
             updated_objectives = 0
             updated_krs = 0
 
-            for source_objective in spec:
+            for objective_index, source_objective in enumerate(spec, start=1):
                 objective_id = _valid_bound_id(previous_objectives, source_objective['key'])
                 objective = StrategicObjective.objects.filter(pk=objective_id, workspace=workspace).first() if objective_id else None
                 if objective is None:
@@ -317,9 +317,10 @@ def sync_workspace_okr(workspace, actor=None, source_text=None):
                         owner=owner,
                         quarter=ROADMAP_PERIOD,
                         status=WorkStatus.ACTIVE,
+                        sort_order=objective_index * 100,
                     )
                     created_objectives += 1
-                else:
+                elif not objective.source_locked:
                     changed = False
                     desired = {
                         'title': source_objective['title'],
@@ -336,7 +337,7 @@ def sync_workspace_okr(workspace, actor=None, source_text=None):
                         updated_objectives += 1
                 next_objectives[source_objective['key']] = objective.pk
 
-                for source_kr in source_objective['key_results']:
+                for result_index, source_kr in enumerate(source_objective['key_results'], start=1):
                     kr_id = _valid_bound_id(previous_krs, source_kr['key'])
                     kr = KeyResult.objects.filter(pk=kr_id, objective__workspace=workspace).first() if kr_id else None
                     target, unit = _infer_target(source_kr['title'])
@@ -350,9 +351,10 @@ def sync_workspace_okr(workspace, actor=None, source_text=None):
                             baseline_value=Decimal('0') if target is not None else None,
                             target_value=target,
                             status=WorkStatus.ACTIVE,
+                            sort_order=result_index * 100,
                         )
                         created_krs += 1
-                    else:
+                    elif not kr.source_locked:
                         changed = False
                         desired = {
                             'objective': objective,

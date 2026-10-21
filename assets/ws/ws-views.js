@@ -2155,11 +2155,20 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   });
 }
 
-export function renderCorePlanning(host, { go }) {
-  const doc = docShell(host, 'Planning', 'A simple manager view of Objectives, Key Results and Milestones.');
-  const holder = el('div');
+export function renderCorePlanning(host, { go, showArchived = false }) {
+  const doc = docShell(host, 'Planning', 'Objectives, measurable Key Results, linked work and schedule.');
+  const holder = el('div', 'planning-compact');
   doc.append(holder);
-  skeleton(6, holder);
+  skeleton(4, holder);
+
+  // Scope these layout rules to Planning: on mobile the four counters must
+  // remain compact rather than becoming four full-height single-column cards.
+  if (!document.getElementById('planning-compact-styles')) {
+    const style = el('style');
+    style.id = 'planning-compact-styles';
+    style.textContent = '.planning-compact .v-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.planning-compact .v-stat{min-width:0;min-height:88px;padding:14px}.planning-compact .v-stat__value{font-size:clamp(22px,5vw,32px);line-height:1.15}.planning-compact .v-panel__head{flex-wrap:wrap;gap:12px}.planning-compact .v-row__actions{display:flex;gap:6px;flex-wrap:wrap}.planning-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.planning-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:10px;padding:14px;margin:10px 0;border:1px solid var(--fl-border,var(--line,#445));border-radius:12px}.planning-field{display:grid;gap:4px;min-width:0;font-size:13px}.planning-field input,.planning-field select,.planning-field textarea{width:100%;min-width:0;min-height:38px;padding:8px;border:1px solid var(--fl-border,var(--line,#445));border-radius:8px;background:var(--ws-bg,var(--fl-surface,#061d2a));color:inherit;font:inherit}.planning-field textarea{min-height:72px}.planning-form__actions{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.planning-form__error{font-size:13px;color:var(--danger,#ff9b96)}.planning-meta{font-size:12px;opacity:.84;line-height:1.5}.planning-objective-title{overflow-wrap:anywhere}@media(max-width:500px){.planning-compact .okr-objective{padding:0}.planning-compact .v-panel__body{padding:12px}.planning-compact .v-panel__head{padding:12px}.planning-compact .v-row{gap:10px}}';
+    document.head.append(style);
+  }
 
   const miniButton = (labelText, handler, solid = false) => {
     const button = el('button', solid ? 'ws-btn ws-btn--solid ws-btn--tiny' : 'ws-btn ws-btn--tiny', labelText);
@@ -2167,140 +2176,220 @@ export function renderCorePlanning(host, { go }) {
     button.addEventListener('click', handler);
     return button;
   };
-
   const actionStrip = (...nodes) => {
-    const strip = el('div', 'v-row__actions');
+    const strip = el('div', 'planning-actions');
     strip.append(...nodes.filter(Boolean));
     return strip;
   };
-
-  const progressBar = (value) => {
+  const progressBar = value => {
     const wrap = el('div', 'okr-progress');
     const bar = el('i');
     const safe = Math.max(0, Math.min(100, Number(value) || 0));
     bar.style.width = safe + '%';
     wrap.append(bar);
-    wrap.title = safe + '%';
+    wrap.title = 'Actual ' + safe + '%';
     return wrap;
   };
-
   const currentUserId = () => P.platform?.user?.user?.id || null;
+  const healthOptions = [['green','Green'],['yellow','Yellow'],['red','Red']];
+  const statusOptions = [['draft','Draft'],['active','Active'],['ready','Ready'],['waiting','Waiting'],['needs_review','Needs review'],['retest','Retest'],['blocked','Blocked'],['done','Done'],['archived','Archived']];
+  const taskCaption = row => {
+    const t = row.tasks || {};
+    return (t.total || 0) + ' tasks · ' + (t.open || 0) + ' open · ' + (t.done || 0) + ' done' + (t.overdue ? ' · ' + t.overdue + ' overdue (oldest ' + (t.oldest_overdue_days || 0) + 'd)' : '');
+  };
+  const scheduleCaption = item => {
+    if (item.schedule === 'behind') return 'Behind ≈ ' + Math.abs(item.estimated_days_offset || 0) + 'd · ' + Math.abs(item.variance_points || 0) + ' points';
+    if (item.schedule === 'ahead') return 'Ahead ≈ ' + Math.abs(item.estimated_days_offset || 0) + 'd · +' + item.variance_points + ' points';
+    if (item.schedule === 'on_track') return 'On track · ' + item.variance_points + ' points';
+    if (item.schedule === 'unmeasured') return 'Progress not measurable' + (item.tasks?.oldest_overdue_days ? ' · oldest task ' + item.tasks.oldest_overdue_days + 'd overdue' : '');
+    if (item.schedule === 'invalid_dates') return 'Check start and due dates';
+    return 'Schedule not set';
+  };
+  const progressCaption = item => item.progress == null
+    ? 'No measured progress' : 'Actual ' + item.progress + '% · Planned ' + (item.expected_progress == null ? '—' : item.expected_progress + '%');
+
+  // A real inline form (including native date and numeric validation) avoids
+  // prompt stacks and makes editing practical on Android and other mobiles.
+  const showForm = (slot, fields, save, afterCancel) => {
+    slot.replaceChildren();
+    const form = el('form', 'planning-form');
+    const controls = {};
+    for (const field of fields) {
+      const label = el('label', 'planning-field');
+      label.append(el('span', null, field.label));
+      const input = el(field.type === 'textarea' ? 'textarea' : field.type === 'select' ? 'select' : 'input');
+      if (input.tagName === 'INPUT') input.type = field.type || 'text';
+      if (field.required) input.required = true;
+      if (field.step) input.step = field.step;
+      if (field.options) {
+        for (const [value, text] of field.options) {
+          const option = el('option', null, text);
+          option.value = String(value);
+          input.append(option);
+        }
+      }
+      input.value = field.value == null ? '' : String(field.value);
+      controls[field.name] = input;
+      label.append(input);
+      form.append(label);
+    }
+    const buttons = el('div', 'planning-form__actions');
+    const submit = el('button', 'ws-btn ws-btn--solid ws-btn--tiny', 'Save');
+    submit.type = 'submit';
+    const cancel = miniButton('Cancel', () => {
+      slot.replaceChildren();
+      afterCancel?.();
+    });
+    const errorMessage = el('span', 'planning-form__error');
+    errorMessage.setAttribute('role', 'alert');
+    buttons.append(submit, cancel, errorMessage);
+    form.append(buttons);
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      const values = {};
+      for (const field of fields) {
+        const raw = controls[field.name].value.trim();
+        values[field.name] = (!raw && ['date','number'].includes(field.type)) ? null : raw;
+      }
+      submit.disabled = true;
+      errorMessage.textContent = '';
+      try {
+        await save(values);
+      } catch (error) {
+        errorMessage.textContent = error?.data?.error || error?.message || 'Could not save. Please try again.';
+        submit.disabled = false;
+      }
+    });
+    slot.append(form);
+    controls[fields[0]?.name]?.focus();
+  };
+  const objectiveFields = obj => [
+    {name:'title',label:'Objective',value:obj?.title || '',required:true},
+    {name:'description',label:'Description',type:'textarea',value:obj?.description || ''},
+    {name:'quarter',label:'Period',value:obj?.quarter || ''},
+    {name:'start_date',label:'Start date',type:'date',value:obj?.start_date || ''},
+    {name:'due_date',label:'Due date',type:'date',value:obj?.due_date || ''},
+    {name:'health',label:'Health',type:'select',options:healthOptions,value:obj?.health || 'green'},
+    {name:'status',label:'Status',type:'select',options:statusOptions,value:obj?.status || 'active'},
+  ];
+  const krFields = (kr, objectives) => [
+    {name:'title',label:'Key Result',value:kr?.title || '',required:true},
+    {name:'objective_id',label:'Under objective',type:'select',options:objectives.map(o => [o.id,o.title]),value:kr?.objective_id || objectives[0]?.id},
+    {name:'metric_name',label:'Metric',value:kr?.metric_name || ''},
+    {name:'unit',label:'Unit',value:kr?.unit || ''},
+    {name:'baseline_value',label:'Baseline',type:'number',step:'any',value:kr?.baseline_value ?? '0'},
+    {name:'target_value',label:'Target',type:'number',step:'any',value:kr?.target_value},
+    {name:'current_value',label:'Current',type:'number',step:'any',value:kr?.current_value},
+    {name:'due_date',label:'Due date',type:'date',value:kr?.due_date || ''},
+    {name:'health',label:'Health',type:'select',options:healthOptions,value:kr?.health || 'green'},
+    {name:'status',label:'Status',type:'select',options:statusOptions,value:kr?.status || 'active'},
+  ];
 
   return guard(holder, 'planning', async () => {
     const board = await P.operatingDashboard();
-    holder.innerHTML = '';
-
+    holder.replaceChildren();
     const planning = board.planning || { objectives: [], key_results: [], milestones: [], counts: {} };
     const counts = planning.counts || {};
+    const objectives = (planning.objectives || []).filter(obj => showArchived || obj.status !== 'archived');
+    const refresh = () => renderCorePlanning(host, { go, showArchived });
     holder.append(stats([
       ['Objectives', counts.objectives || 0],
       ['Key Results', counts.key_results || 0],
       ['Open milestones', counts.milestones_open || 0],
       ['Open tasks', board.counts?.tasks || 0],
     ]));
-
     const toolbar = el('div', 'v-toolbar');
-    const addObjective = miniButton('New objective', async () => {
-      const title = prompt('Objective title:');
-      if (!title?.trim()) return;
-      const dueDate = prompt('Due date (YYYY-MM-DD, optional):', '');
-      const ownerId = currentUserId() || board.members?.[0]?.id;
-      if (!ownerId) return alert('No Core owner is available.');
-      try {
-        await P.createOperatingObjective({
-          title: title.trim(),
-          owner_id: ownerId,
-          due_date: dueDate?.trim() || null,
-          status: 'active',
-          health: 'green',
-        });
-        renderCorePlanning(host, { go });
-      } catch (error) {
-        alert(error?.data?.error || error?.message || 'Objective could not be created.');
-      }
-    }, true);
-    const openTasks = miniButton('Open task board', () => go('/workspace/core/tasks'));
-    toolbar.append(addObjective, openTasks);
-    holder.append(toolbar);
+    const createSlot = el('div');
+    toolbar.append(
+      miniButton('New objective', () => showForm(createSlot, objectiveFields(), values => P.createOperatingObjective({
+        ...values, owner_id: currentUserId() || board.members?.[0]?.id,
+      }).then(refresh)), true),
+      miniButton('Open task board', () => go('/workspace/core/tasks')),
+      miniButton(showArchived ? 'Hide archived' : 'Show archived (' + (counts.archived_objectives || 0) + ')',
+        () => renderCorePlanning(host, { go, showArchived: !showArchived })),
+    );
+    holder.append(toolbar, createSlot);
+    if (counts.unlinked_tasks) holder.append(el('p', 'planning-meta', counts.unlinked_tasks + ' tasks have no KR link and cannot be included in these totals.'));
+
+    const moveOrder = (items, index, direction, update) => async () => {
+      const sibling = items[index + direction];
+      if (!sibling) return;
+      // Gapped integer positions permit one safe PATCH without a multi-request
+      // swap. Existing positions were backfilled in increments of 100.
+      const order = Math.max(0, Math.min(1000000000, Number(sibling.sort_order) + (direction < 0 ? -1 : 1)));
+      try { await update(items[index].id, { sort_order: order }); refresh(); }
+      catch (error) { alert(error?.data?.error || error?.message || 'Could not reorder.'); }
+    };
 
     const objectivePanel = panel('OKRs');
-    for (const objective of planning.objectives || []) {
+    for (const [objectiveIndex, objective] of objectives.entries()) {
       const objectiveBox = el('section', 'v-panel okr-objective');
       const head = el('div', 'v-panel__head');
       const heading = el('div');
       heading.append(
-        el('h3', null, objective.title),
+        el('h3', 'planning-objective-title', objective.title),
         el('small', 'fl-muted', P.meta([
           objective.owner?.name || objective.owner?.email,
           P.formatDate(objective.due_date),
-          P.label(objective.health),
-          P.label(objective.status),
+          P.label(objective.health), P.label(objective.status),
         ])),
+        el('div', 'planning-meta', taskCaption(objective) + ' · ' + progressCaption(objective)),
+        el('div', 'planning-meta', scheduleCaption(objective)),
       );
       if (objective.progress != null) heading.append(progressBar(objective.progress));
-
-      const editObjective = miniButton('Edit', async () => {
-        const title = prompt('Objective title:', objective.title);
-        if (title == null || !title.trim()) return;
-        const dueDate = prompt('Due date (YYYY-MM-DD, optional):', objective.due_date || '');
-        const health = prompt('Health: green / yellow / red', objective.health || 'green');
-        try {
-          await P.updateOperatingObjective(objective.id, {
-            title: title.trim(),
-            due_date: dueDate?.trim() || null,
-            health: health?.trim() || objective.health,
-          });
-          renderCorePlanning(host, { go });
-        } catch (error) {
-          alert(error?.data?.error || error?.message || 'Objective could not be updated.');
+      const editor = el('div');
+      const edit = miniButton('Edit', () => showForm(editor, objectiveFields(objective), values => P.updateOperatingObjective(objective.id, values).then(refresh)));
+      const addKr = miniButton('Add KR', () => showForm(editor, krFields({objective_id:objective.id}, objectives), values => P.createOperatingKeyResult({
+        ...values, owner_id: objective.owner?.id || currentUserId(),
+      }).then(refresh)), true);
+      const archiveOrDelete = miniButton(objective.status === 'archived' ? 'Restore' :
+        ((objective.key_result_count || objective.key_results?.length) ? 'Archive' : 'Delete'), async () => {
+        const containsKrs = !!(objective.key_result_count || objective.key_results?.length);
+        if (objective.status === 'archived') {
+          try { await P.updateOperatingObjective(objective.id, { status: 'active' }); refresh(); }
+          catch (error) { alert(error?.data?.error || error?.message || 'Could not restore Objective.'); }
+          return;
         }
+        if (!confirm(containsKrs ? 'Archive this Objective? Existing KRs, tasks and history remain unchanged.' :
+          'Delete this empty Objective permanently?')) return;
+        try {
+          if (containsKrs) await P.updateOperatingObjective(objective.id, { status: 'archived' });
+          else await P.deleteOperatingObjective(objective.id);
+          refresh();
+        } catch (error) { alert(error?.data?.error || error?.message || 'Operation failed.'); }
       });
-
-      const addKr = miniButton('Add KR', async () => {
-        const title = prompt('Key Result:');
-        if (!title?.trim()) return;
-        const metric = prompt('Metric name (optional):', '');
-        const target = prompt('Target value (optional):', '');
-        const dueDate = prompt('Due date (YYYY-MM-DD, optional):', objective.due_date || '');
-        try {
-          await P.createOperatingKeyResult({
-            objective_id: objective.id,
-            owner_id: objective.owner?.id || currentUserId(),
-            title: title.trim(),
-            metric_name: metric?.trim() || '',
-            baseline_value: 0,
-            current_value: 0,
-            target_value: target?.trim() === '' ? null : target,
-            due_date: dueDate?.trim() || null,
-            status: 'active',
-            health: 'green',
-          });
-          renderCorePlanning(host, { go });
-        } catch (error) {
-          alert(error?.data?.error || error?.message || 'Key Result could not be created.');
-        }
-      }, true);
-      head.append(heading, actionStrip(editObjective, addKr));
-      objectiveBox.append(head);
-
+      head.append(heading, actionStrip(
+        miniButton('↑', moveOrder(objectives, objectiveIndex, -1, P.updateOperatingObjective)),
+        miniButton('↓', moveOrder(objectives, objectiveIndex, 1, P.updateOperatingObjective)),
+        edit, addKr, archiveOrDelete,
+      ));
+      objectiveBox.append(head, editor);
       const body = el('div', 'v-panel__body');
-      const keyResults = objective.key_results || [];
-      for (const kr of keyResults) {
-        const metric = kr.target_value != null
-          ? (kr.current_value ?? '—') + ' / ' + kr.target_value + (kr.unit ? ' ' + kr.unit : '')
-          : (kr.current_value ?? kr.metric_name ?? '');
-        const update = miniButton('Update', async () => {
-          const current = prompt('Current value:', kr.current_value ?? '');
-          if (current == null) return;
-          const health = prompt('Health: green / yellow / red', kr.health || 'green');
+      const keyResults = (objective.key_results || []).filter(kr => showArchived || kr.status !== 'archived');
+      for (const [krIndex, kr] of keyResults.entries()) {
+        const krEditor = el('div');
+        const editKr = miniButton('Edit', () => showForm(krEditor, krFields(kr, objectives), values => P.updateOperatingKeyResult(kr.id, {
+          ...values, objective_id: Number(values.objective_id),
+        }).then(refresh)));
+        const archiveKr = miniButton(kr.status === 'archived' ? 'Restore' :
+          ((kr.tasks?.total || 0) ? 'Archive' : 'Delete'), async () => {
+          if (kr.status === 'archived') {
+            try { await P.updateOperatingKeyResult(kr.id, { status: 'active' }); refresh(); }
+            catch (error) { alert(error?.data?.error || error?.message || 'Could not restore Key Result.'); }
+            return;
+          }
+          if (!confirm((kr.tasks?.total || 0) ? 'Archive this KR? All linked tasks and history stay intact.' :
+            'Delete this KR? It must have no linked initiatives or tasks.')) return;
           try {
-            await P.updateOperatingKeyResult(kr.id, {
-              current_value: current.trim() === '' ? null : current,
-              health: health?.trim() || kr.health,
-            });
-            renderCorePlanning(host, { go });
+            if (kr.tasks?.total) await P.updateOperatingKeyResult(kr.id, {status:'archived'});
+            else await P.deleteOperatingKeyResult(kr.id);
+            refresh();
           } catch (error) {
-            alert(error?.data?.error || error?.message || 'Key Result could not be updated.');
+            if (error?.status === 409 && confirm('This KR still has linked work. Archive it instead?')) {
+              try { await P.updateOperatingKeyResult(kr.id, {status:'archived'}); refresh(); }
+              catch (next) { alert(next?.message || 'Could not archive.'); }
+            } else alert(error?.data?.error || error?.message || 'Could not delete KR.');
           }
         });
         const addMilestone = miniButton('Add milestone', async () => {
@@ -2310,39 +2399,34 @@ export function renderCorePlanning(host, { go }) {
           if (!dueDate?.trim()) return;
           try {
             await P.createOperatingMilestone({
-              key_result_id: kr.id,
-              owner_id: kr.owner?.id || objective.owner?.id || currentUserId(),
-              title: title.trim(),
-              due_date: dueDate.trim(),
-              health: 'green',
-              status: 'active',
+              key_result_id: kr.id, owner_id: kr.owner?.id || objective.owner?.id || currentUserId(),
+              title: title.trim(), due_date: dueDate.trim(), health: 'green', status: 'active',
             });
-            renderCorePlanning(host, { go });
-          } catch (error) {
-            alert(error?.data?.error || error?.message || 'Milestone could not be created.');
-          }
+            refresh();
+          } catch (error) { alert(error?.data?.error || error?.message || 'Milestone could not be created.'); }
         }, true);
         const krRow = row({
           title: kr.title,
-          sub: P.meta([
-            metric,
-            kr.progress == null ? '' : kr.progress + '%',
-            kr.owner?.name || kr.owner?.email,
-            P.formatDate(kr.due_date),
-          ]),
-          badges: [P.label(kr.health), P.label(kr.status)],
-          action: actionStrip(update, addMilestone),
+          sub: P.meta([kr.owner?.name || kr.owner?.email, P.formatDate(kr.due_date), taskCaption(kr)]),
+          badges: [P.label(kr.health), P.label(kr.status), scheduleCaption(kr)],
+          action: actionStrip(
+            miniButton('↑', moveOrder(keyResults, krIndex, -1, P.updateOperatingKeyResult)),
+            miniButton('↓', moveOrder(keyResults, krIndex, 1, P.updateOperatingKeyResult)),
+            editKr, addMilestone, archiveKr,
+          ),
         });
-        if (kr.progress != null) krRow.querySelector('.v-row__main')?.append(progressBar(kr.progress));
-        body.append(krRow);
+        const main = krRow.querySelector('.v-row__main');
+        if (main) {
+          main.append(el('div', 'planning-meta', progressCaption(kr)));
+          if (kr.progress != null) main.append(progressBar(kr.progress));
+        }
+        body.append(krRow, krEditor);
       }
       if (!keyResults.length) body.append(empty('No Key Results', 'Add the first measurable result for this objective.'));
       objectiveBox.append(body);
       objectivePanel.body.append(objectiveBox);
     }
-    if (!(planning.objectives || []).length) {
-      objectivePanel.body.append(empty('No active OKRs', 'Create an Objective, then add measurable Key Results.'));
-    }
+    if (!objectives.length) objectivePanel.body.append(empty('No active OKRs', 'Create an Objective, then add measurable Key Results.'));
     holder.append(objectivePanel);
 
     const milestonePanel = panel('Milestones');

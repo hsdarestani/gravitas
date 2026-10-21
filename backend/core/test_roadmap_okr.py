@@ -116,6 +116,50 @@ class RoadmapOKRSyncTests(TestCase):
         self.assertEqual(kr.owner_id, self.member.pk)
         self.assertIn('updated', kr.title)
 
+    def test_manual_planning_override_survives_sync_and_can_be_resumed(self):
+        core = self.admin.gravitas_workspace_memberships.get(workspace_id=self.core_id).workspace
+        sync_workspace_okr(core, actor=self.admin, source_text=_roadmap_fixture())
+        bindings = RoadmapOKRSyncState.objects.get(workspace=core).bindings
+        objective_id = bindings['objectives']['O1']
+        kr_id = bindings['key_results']['O1-KR1']
+        other = StrategicObjective.objects.create(
+            workspace=core, title='Another destination', owner=self.admin,
+        )
+        modified_objective = self.client.patch(
+            '/api/operating/objectives/%s/' % objective_id,
+            data=json.dumps({'title': 'Manager owned objective', 'status': 'archived'}),
+            content_type='application/json',
+        )
+        self.assertEqual(modified_objective.status_code, 200, modified_objective.content)
+        modified_kr = self.client.patch(
+            '/api/operating/key-results/%s/' % kr_id,
+            data=json.dumps({'title': 'Manager owned result', 'objective_id': other.pk,
+                             'target_value': '75'}),
+            content_type='application/json',
+        )
+        self.assertEqual(modified_kr.status_code, 200, modified_kr.content)
+        sync_workspace_okr(core, actor=self.admin, source_text=_roadmap_fixture(' updated'))
+        objective = StrategicObjective.objects.get(pk=objective_id)
+        kr = KeyResult.objects.get(pk=kr_id)
+        self.assertTrue(objective.source_locked)
+        self.assertEqual(objective.title, 'Manager owned objective')
+        self.assertEqual(objective.status, 'archived')
+        self.assertTrue(kr.source_locked)
+        self.assertEqual(kr.title, 'Manager owned result')
+        self.assertEqual(kr.objective_id, other.pk)
+        self.assertEqual(kr.target_value, Decimal('75'))
+
+        unlocked = self.client.patch(
+            '/api/operating/key-results/%s/' % kr_id,
+            data=json.dumps({'source_locked': False}), content_type='application/json',
+        )
+        self.assertEqual(unlocked.status_code, 200, unlocked.content)
+        sync_workspace_okr(core, actor=self.admin, source_text=_roadmap_fixture(' return'))
+        kr.refresh_from_db()
+        self.assertFalse(kr.source_locked)
+        self.assertEqual(kr.objective_id, objective_id)
+        self.assertIn('return', kr.title)
+
     @patch('core.roadmap_okr._fetch_source', return_value=_roadmap_fixture())
     def test_strategy_sync_endpoint_auto_imports_for_core(self, fetch_source):
         response = self.client.get('/api/operating/roadmap-sync/')
