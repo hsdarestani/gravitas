@@ -33,6 +33,16 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name='strategicobjective',
+            name='source_locked',
+            field=models.BooleanField(default=False),
+        ),
+        migrations.AddField(
+            model_name='keyresult',
+            name='source_locked',
+            field=models.BooleanField(default=False),
+        ),
+        migrations.AddField(
+            model_name='strategicobjective',
             name='sort_order',
             field=models.PositiveIntegerField(default=0, db_index=True),
         ),
