@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
@@ -139,7 +139,7 @@ def _process_json(obj):
 def _objective_json(obj):
     return {
         'id': obj.pk, 'title': obj.title, 'description': obj.description, 'owner': _person(obj.owner),
-        'quarter': obj.quarter, 'start_date': obj.start_date.isoformat() if obj.start_date else None,
+        'quarter': obj.quarter, 'sort_order': obj.sort_order, 'start_date': obj.start_date.isoformat() if obj.start_date else None,
         'due_date': obj.due_date.isoformat() if obj.due_date else None, 'health': obj.health, 'status': obj.status,
         # getattr's fallback expression is evaluated eagerly; do not issue a
         # COUNT query for every objective when the queryset already annotated it.
@@ -164,6 +164,7 @@ def _kr_json(obj):
     return {
         'id': obj.pk, 'objective_id': obj.objective_id, 'objective_title': obj.objective.title,
         'title': obj.title, 'owner': _person(obj.owner), 'metric_name': obj.metric_name, 'unit': obj.unit,
+        'sort_order': obj.sort_order,
         'baseline_value': str(obj.baseline_value) if obj.baseline_value is not None else None,
         'target_value': str(obj.target_value) if obj.target_value is not None else None,
         'current_value': str(obj.current_value) if obj.current_value is not None else None,
@@ -353,12 +354,13 @@ def objectives(request):
     workspace = _workspace(request, p)
     if not workspace: return _error('workspace_not_found', 404)
     if request.method == 'GET':
-        qs = StrategicObjective.objects.filter(workspace=workspace).select_related('owner').annotate(key_result_count=Count('key_results'))
+        qs = StrategicObjective.objects.filter(workspace=workspace).select_related('owner').annotate(key_result_count=Count('key_results')).order_by('sort_order', 'id')
         return JsonResponse({'ok': True, 'objectives': [_objective_json(x) for x in qs]})
     if not _editable(request, workspace): return _error('permission_denied', 403)
     owner = _owner(request.user, workspace, p.get('owner_id'))
     if not p.get('title') or not owner: return _error('title_and_owner_required')
-    obj = StrategicObjective.objects.create(workspace=workspace, title=p['title'].strip(), description=p.get('description', ''), owner=owner, quarter=p.get('quarter', ''), start_date=_date(p.get('start_date')), due_date=_date(p.get('due_date')), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE))
+    next_order = (StrategicObjective.objects.filter(workspace=workspace).aggregate(last=Max('sort_order'))['last'] or 0) + 100
+    obj = StrategicObjective.objects.create(workspace=workspace, title=p['title'].strip(), description=p.get('description', ''), owner=owner, quarter=p.get('quarter', ''), start_date=_date(p.get('start_date')), due_date=_date(p.get('due_date')), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE), sort_order=next_order)
     return JsonResponse({'ok': True, 'objective': _objective_json(obj)}, status=201)
 
 
@@ -376,6 +378,11 @@ def objective_detail(request, objective_id):
         if field in p: setattr(obj, field, p[field])
     for field in ['start_date', 'due_date']:
         if field in p: setattr(obj, field, _date(p[field]))
+    if 'sort_order' in p:
+        try:
+            obj.sort_order = max(0, min(1000000000, int(p['sort_order'])))
+        except (TypeError, ValueError, OverflowError):
+            return _error('invalid_sort_order')
     if 'owner_id' in p:
         owner = _owner(request.user, obj.workspace, p['owner_id'])
         if not owner: return _error('invalid_owner')
@@ -390,14 +397,15 @@ def key_results(request):
     workspace = _workspace(request, p)
     if not workspace: return _error('workspace_not_found', 404)
     if request.method == 'GET':
-        qs = KeyResult.objects.filter(objective__workspace=workspace).select_related('objective', 'owner')
+        qs = KeyResult.objects.filter(objective__workspace=workspace).select_related('objective', 'owner').order_by('objective__sort_order', 'objective_id', 'sort_order', 'id')
         if request.GET.get('objective_id'): qs = qs.filter(objective_id=request.GET['objective_id'])
         return JsonResponse({'ok': True, 'key_results': [_kr_json(x) for x in qs]})
     if not _editable(request, workspace): return _error('permission_denied', 403)
     objective = StrategicObjective.objects.filter(pk=p.get('objective_id'), workspace=workspace).first()
     owner = _owner(request.user, workspace, p.get('owner_id'))
     if not objective or not owner or not p.get('title'): return _error('objective_title_and_owner_required')
-    obj = KeyResult.objects.create(objective=objective, title=p['title'].strip(), owner=owner, metric_name=p.get('metric_name', ''), unit=p.get('unit', ''), baseline_value=_decimal(p.get('baseline_value')), target_value=_decimal(p.get('target_value')), current_value=_decimal(p.get('current_value')), confidence=max(0, min(100, int(p.get('confidence', 100)))), due_date=_date(p.get('due_date')), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE))
+    next_order = (KeyResult.objects.filter(objective=objective).aggregate(last=Max('sort_order'))['last'] or 0) + 100
+    obj = KeyResult.objects.create(objective=objective, title=p['title'].strip(), owner=owner, metric_name=p.get('metric_name', ''), unit=p.get('unit', ''), baseline_value=_decimal(p.get('baseline_value')), target_value=_decimal(p.get('target_value')), current_value=_decimal(p.get('current_value')), confidence=max(0, min(100, int(p.get('confidence', 100)))), due_date=_date(p.get('due_date')), health=p.get('health', Health.GREEN), status=p.get('status', WorkStatus.ACTIVE), sort_order=next_order)
     return JsonResponse({'ok': True, 'key_result': _kr_json(obj)}, status=201)
 
 
@@ -418,6 +426,21 @@ def key_result_detail(request, kr_id):
         if field in p: setattr(obj, field, _decimal(p[field]))
     if 'confidence' in p: obj.confidence = max(0, min(100, int(p['confidence'])))
     if 'due_date' in p: obj.due_date = _date(p['due_date'])
+    if 'objective_id' in p:
+        target = StrategicObjective.objects.filter(
+            pk=p.get('objective_id'), workspace=workspace
+        ).first()
+        if not target:
+            return _error('objective_not_found', 404)
+        if target.pk != obj.objective_id:
+            obj.objective = target
+            obj.sort_order = (KeyResult.objects.filter(objective=target).aggregate(
+                last=Max('sort_order'))['last'] or 0) + 100
+    if 'sort_order' in p:
+        try:
+            obj.sort_order = max(0, min(1000000000, int(p['sort_order'])))
+        except (TypeError, ValueError, OverflowError):
+            return _error('invalid_sort_order')
     if 'owner_id' in p:
         owner = _owner(request.user, workspace, p['owner_id'])
         if not owner: return _error('invalid_owner')
