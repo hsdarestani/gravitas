@@ -1,0 +1,35 @@
+name: Core Planning Traceability Validation
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/operating_models.py'
+      - 'backend/core/operating_api.py'
+      - 'backend/core/operating_api_v4.py'
+      - 'backend/core/migrations/**'
+      - 'backend/core/test_planning_traceability.py'
+      - 'assets/ws/ws-views.js'
+      - '.github/workflows/planning-traceability-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Planning module JavaScript syntax
+        run: node --check --input-type=module < assets/ws/ws-views.js
+      - name: Test Core Planning on disposable test DB
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/core-planning"
+          "$RUNNER_TEMP/core-planning/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/core-planning/bin/python" -m django test core.test_planning_traceability core.test_operating_dashboard_recency core.test_simplified_planning_contract --noinput
+          "$RUNNER_TEMP/core-planning/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/core-planning/bin/python" -m django check
