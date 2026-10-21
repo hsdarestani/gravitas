@@ -148,7 +148,7 @@ class PlanningFrontendContractTests(SimpleTestCase):
     def test_inline_edit_reorder_and_mobile_counters(self):
         from pathlib import Path
         content = (Path(__file__).resolve().parents[2] / 'assets/ws/ws-views.js').read_text()
-        planning = content.split('export function renderCorePlanning(host, { go }) {', 1)[1].split('const RESOURCE_VIEWS = {', 1)[0]
+        planning = content.split('export function renderCorePlanning(host, { go, showArchived = false }) {', 1)[1].split('const RESOURCE_VIEWS = {', 1)[0]
         for token in ('planning-compact', 'grid-template-columns:repeat(2,', 'objectiveFields',
                       'krFields', 'objective_id', 'sort_order', 'Delete', 'Archive',
                       'variance_points', 'Open task board', 'Hide archived', 'Restore'):
