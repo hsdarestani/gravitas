@@ -8,6 +8,7 @@ on:
       - 'backend/core/operating_api_v4.py'
       - 'backend/core/migrations/**'
       - 'backend/core/test_planning_traceability.py'
+      - 'backend/core/management/commands/audit_work_graph.py'
       - 'assets/ws/ws-views.js'
       - '.github/workflows/planning-traceability-validation.yml'
 
