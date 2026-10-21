@@ -1,6 +1,7 @@
 import json
 
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.utils import timezone
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
@@ -78,6 +79,33 @@ def _delegate_project_link(request, delegate, model, response_key):
     return JsonResponse(data, status=response.status_code)
 
 
+def _task_totals(by_kr, kr_id):
+    # All counts use one task population; no JOIN multiplication from comments,
+    # attachments or checklist records.
+    return by_kr.get(kr_id, {'total': 0, 'open': 0, 'done': 0, 'overdue': 0}).copy()
+
+
+def _schedule(actual, start_date, due_date, today):
+    """Linear expected progress is an estimate, not a historical baseline."""
+    unknown = {
+        'schedule': 'unmeasured' if actual is None else 'unscheduled',
+        'expected_progress': None, 'variance_points': None,
+        'estimated_days_offset': None,
+    }
+    if actual is None or start_date is None or due_date is None:
+        return unknown
+    span = (due_date - start_date).days
+    if span <= 0:
+        return {**unknown, 'schedule': 'invalid_dates'}
+    expected = round(max(0, min(100, 100 * (today - start_date).days / span)), 1)
+    variance = round(float(actual) - expected, 1)
+    return {
+        'schedule': 'behind' if variance < -5 else ('ahead' if variance > 5 else 'on_track'),
+        'expected_progress': expected, 'variance_points': variance,
+        'estimated_days_offset': round(variance * span / 100),
+    }
+
+
 @require_http_methods(['GET'])
 def operating_dashboard(request):
     response = v3.operating_dashboard(request)
@@ -114,13 +142,14 @@ def operating_dashboard(request):
         StrategicObjective.objects.filter(workspace=core)
         .exclude(status=WorkStatus.ARCHIVED)
         .select_related('owner')
-        .order_by('due_date', '-updated_at', 'id')
+        .annotate(key_result_count=Count('key_results', distinct=True))
+        .order_by('sort_order', 'id')
     )
     planning_krs = list(
         KeyResult.objects.filter(objective__workspace=core)
         .exclude(status=WorkStatus.ARCHIVED)
         .select_related('objective', 'owner')
-        .order_by('objective_id', 'due_date', 'id')
+        .order_by('objective__sort_order', 'objective_id', 'sort_order', 'id')
     )
     planning_milestones = list(
         OperatingMilestone.objects.filter(workspace=core)
@@ -128,6 +157,33 @@ def operating_dashboard(request):
         .select_related('initiative__key_result__objective', 'owner', 'project')
         .order_by('due_date', 'id')
     )
+
+    today = timezone.localdate()
+    active = [WorkStatus.DONE, WorkStatus.ARCHIVED]
+    kr_task_totals = {
+        row['initiative__key_result_id']: {
+            'total': row['total'], 'open': row['open'],
+            'done': row['done'], 'overdue': row['overdue'],
+        }
+        for row in OperatingTask.objects.filter(
+            workspace=core, initiative__key_result__objective__workspace=core
+        ).values('initiative__key_result_id').annotate(
+            total=Count('id'),
+            open=Count('id', filter=~Q(status__in=active)),
+            done=Count('id', filter=Q(status=WorkStatus.DONE)),
+            overdue=Count('id', filter=Q(due_date__lt=today) & ~Q(status__in=active)),
+        )
+    }
+
+    def kr_row(kr):
+        objective = kr.objective
+        result = base._kr_json(kr)
+        result['tasks'] = _task_totals(kr_task_totals, kr.pk)
+        start = objective.start_date or objective.created_at.date()
+        result['timeline_start'] = start.isoformat()
+        result['timeline_basis'] = 'objective_start' if objective.start_date else 'objective_created'
+        result.update(_schedule(result['progress'], start, kr.due_date or objective.due_date, today))
+        return result
 
     krs_by_objective = {}
     for kr in planning_krs:
@@ -138,17 +194,27 @@ def operating_dashboard(request):
         rows = krs_by_objective.get(objective.pk, [])
         measurable = [base._kr_progress(item) for item in rows]
         measurable = [value for value in measurable if value is not None]
+        progress = round(sum(measurable) / len(measurable), 1) if measurable else None
+        kr_rows = [kr_row(item) for item in rows]
+        counts = {field: sum(row['tasks'][field] for row in kr_rows)
+                  for field in ('total', 'open', 'done', 'overdue')}
+        start = objective.start_date or objective.created_at.date()
         objective_rows.append({
             **base._objective_json(objective),
-            'progress': round(sum(measurable) / len(measurable), 1) if measurable else None,
-            'key_results': [base._kr_json(item) for item in rows],
+            'progress': progress,
+            'tasks': counts,
+            'timeline_start': start.isoformat(),
+            'timeline_basis': 'objective_start' if objective.start_date else 'objective_created',
+            **_schedule(progress, start, objective.due_date, today),
+            'key_results': kr_rows,
         })
 
     data['planning'] = {
         'objectives': objective_rows,
-        'key_results': [base._kr_json(item) for item in planning_krs],
+        'key_results': [kr_row(item) for item in planning_krs],
         'milestones': [base._milestone_json(item) for item in planning_milestones],
         'counts': {
+            'unlinked_tasks': OperatingTask.objects.filter(workspace=core, initiative__isnull=True).count(),
             'objectives': len(planning_objectives),
             'key_results': len(planning_krs),
             'milestones_open': sum(
