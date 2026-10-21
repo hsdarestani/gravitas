@@ -23,6 +23,7 @@ from django.db.models import Count
 from django.core.serializers.json import DjangoJSONEncoder
 
 from core.layer_models import ActivityEvent
+from core.models import KnowledgeResource
 from core.task_reconciliation_export import snapshot
 from core.work_report_models import DailyWorkReport
 
@@ -53,11 +54,12 @@ def candidate_groups(rows, *, key_fields, cap=100):
     return matches[:cap], max(0, len(matches) - cap)
 
 
-def report_for(snapshot_data, activity_counts=None, daily_report_counts=None):
+def report_for(snapshot_data, activity_counts=None, daily_report_counts=None, time_log_counts=None):
     tasks = snapshot_data['tasks']
     projects = snapshot_data['projects']
     activity_counts = activity_counts or {}
     daily_report_counts = daily_report_counts or {}
+    time_log_counts = time_log_counts or {}
     initiatives = {item['id']: item for item in snapshot_data.get('initiatives', [])}
     project_ids = {item['id'] for item in projects}
     counts = Counter(str(task['status']) for task in tasks)
@@ -116,6 +118,7 @@ def report_for(snapshot_data, activity_counts=None, daily_report_counts=None):
             'checklist_items': len(task['checklist']),
             'attachments': len(task['attachments']),
             'daily_reports': int(daily_report_counts.get(task_id, 0)),
+            'time_log_note_projections': int(time_log_counts.get(task_id, 0)),
         }
     project_notes = Counter(item['project_id'] for item in snapshot_data.get('notes', []))
     canonical_files = Counter(
@@ -157,12 +160,14 @@ def report_for(snapshot_data, activity_counts=None, daily_report_counts=None):
             'checklist_items': sum(x['checklist_items'] for x in log_totals.values()),
             'attachments': sum(x['attachments'] for x in log_totals.values()),
             'daily_report_links': sum(x['daily_reports'] for x in log_totals.values()),
+            'time_log_note_projections': sum(x['time_log_note_projections'] for x in log_totals.values()),
         },
         'limitations': [
             'Database projection only: not proof of canonical Nextcloud DAV parity.',
             'A candidate match is not permission to merge; owners/projects/status/history may differ.',
             'Activity events, comments, attachments and daily reports remain immutable and separate.',
-            'No full project audit event, external app, time log or DAV content comparison.',
+            'Time log projection counts are included, but canonical Markdown entries/minutes are not read.',
+            'No full project audit event, external app or DAV content comparison.',
             'No task or project has been modified by this audit.',
         ],
     }
@@ -201,7 +206,16 @@ class Command(BaseCommand):
                         task_id__in=[task['id'] for task in data['tasks']]
                     ).values('task_id').annotate(total=Count('id'))
                 }
-                result = report_for(data, events, reports)
+                time_logs = {
+                    item['metadata__task_id']: item['total']
+                    for item in KnowledgeResource.objects.filter(
+                        project_id__in=[p['id'] for p in data['projects']],
+                        kind=KnowledgeResource.Kind.NOTE,
+                        metadata__pm_type='task_time_log_v1',
+                        metadata__task_id__in=[task['id'] for task in data['tasks']],
+                    ).values('metadata__task_id').annotate(total=Count('id'))
+                }
+                result = report_for(data, events, reports, time_logs)
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
 
