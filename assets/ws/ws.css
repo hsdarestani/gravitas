@@ -3210,6 +3210,40 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   .task-board__two { grid-template-columns: 1fr; }
   .task-checklist__add { grid-template-columns: 1fr; }
   .task-checklist__add .ws-btn { width: 100%; }
+
+  /* On a phone the task card is a sheet, not a floating window. The head
+     carries up to five buttons (copy link, copy reference, project planning,
+     delete, close) beside the title; on one unwrapped line they pushed the
+     frame wider than the screen and the whole card scrolled sideways. The
+     title takes its own row and the buttons wrap beneath it. 100dvh, not
+     100vh, so the mobile address bar does not hide the bottom of the card. */
+  .task-card-dialog { padding: 0; place-items: stretch; }
+  /* Attribute in the selector so it outranks the meeting dialog's width. */
+  .task-card-dialog[role="dialog"] .task-card-dialog__frame {
+    width: 100%;
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .task-card-dialog__head { flex-wrap: wrap; gap: 6px 8px; padding: 10px 12px; }
+  .task-card-dialog__head h2 { flex: 1 0 100%; order: -1; overflow-wrap: anywhere; }
+  .task-card-dialog__body { padding: 12px; overscroll-behavior: contain; }
+  .task-card-dialog__body,
+  .task-card-dialog__body * { min-width: 0; }
+  .task-card-dialog__message p,
+  .task-card-dialog__body p { overflow-wrap: anywhere; }
+  .task-card-dialog__actions,
+  .task-card-dialog__attachment { flex-wrap: wrap; }
+  .task-comment__picker-top { flex-wrap: wrap; }
+  /* iOS zooms the page on focus into any field under 16px and leaves it
+     zoomed, which is what made the card look broken after the first tap. */
+  .task-card-dialog .v-input,
+  .task-card-dialog input,
+  .task-card-dialog select,
+  .task-card-dialog textarea { font-size: 16px; }
 }
 
 
