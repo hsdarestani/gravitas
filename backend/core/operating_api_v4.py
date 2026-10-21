@@ -148,6 +148,7 @@ def operating_dashboard(request):
     planning_krs = list(
         KeyResult.objects.filter(objective__workspace=core)
         .exclude(status=WorkStatus.ARCHIVED)
+        .exclude(objective__status=WorkStatus.ARCHIVED)
         .select_related('objective', 'owner')
         .order_by('objective__sort_order', 'objective_id', 'sort_order', 'id')
     )
