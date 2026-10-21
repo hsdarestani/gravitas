@@ -141,15 +141,12 @@ def operating_dashboard(request):
 
     planning_objectives = list(
         StrategicObjective.objects.filter(workspace=core)
-        .exclude(status=WorkStatus.ARCHIVED)
         .select_related('owner')
         .annotate(key_result_count=Count('key_results', distinct=True))
         .order_by('sort_order', 'id')
     )
     planning_krs = list(
         KeyResult.objects.filter(objective__workspace=core)
-        .exclude(status=WorkStatus.ARCHIVED)
-        .exclude(objective__status=WorkStatus.ARCHIVED)
         .select_related('objective', 'owner')
         .order_by('objective__sort_order', 'objective_id', 'sort_order', 'id')
     )
@@ -220,8 +217,13 @@ def operating_dashboard(request):
         'milestones': [base._milestone_json(item) for item in planning_milestones],
         'counts': {
             'unlinked_tasks': OperatingTask.objects.filter(workspace=core, initiative__isnull=True).count(),
-            'objectives': len(planning_objectives),
-            'key_results': len(planning_krs),
+            'objectives': sum(1 for item in planning_objectives if item.status != WorkStatus.ARCHIVED),
+            'key_results': sum(
+                1 for item in planning_krs
+                if item.status != WorkStatus.ARCHIVED and item.objective.status != WorkStatus.ARCHIVED
+            ),
+            'archived_objectives': sum(1 for item in planning_objectives if item.status == WorkStatus.ARCHIVED),
+            'archived_key_results': sum(1 for item in planning_krs if item.status == WorkStatus.ARCHIVED),
             'milestones_open': sum(
                 1 for item in planning_milestones
                 if item.status not in {WorkStatus.DONE, WorkStatus.ARCHIVED}
