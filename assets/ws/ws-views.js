@@ -2195,13 +2195,13 @@ export function renderCorePlanning(host, { go }) {
   const statusOptions = [['draft','Draft'],['active','Active'],['ready','Ready'],['waiting','Waiting'],['needs_review','Needs review'],['retest','Retest'],['blocked','Blocked'],['done','Done'],['archived','Archived']];
   const taskCaption = row => {
     const t = row.tasks || {};
-    return (t.total || 0) + ' tasks · ' + (t.open || 0) + ' open · ' + (t.done || 0) + ' done' + (t.overdue ? ' · ' + t.overdue + ' overdue' : '');
+    return (t.total || 0) + ' tasks · ' + (t.open || 0) + ' open · ' + (t.done || 0) + ' done' + (t.overdue ? ' · ' + t.overdue + ' overdue (oldest ' + (t.oldest_overdue_days || 0) + 'd)' : '');
   };
   const scheduleCaption = item => {
     if (item.schedule === 'behind') return 'Behind ≈ ' + Math.abs(item.estimated_days_offset || 0) + 'd · ' + Math.abs(item.variance_points || 0) + ' points';
     if (item.schedule === 'ahead') return 'Ahead ≈ ' + Math.abs(item.estimated_days_offset || 0) + 'd · +' + item.variance_points + ' points';
     if (item.schedule === 'on_track') return 'On track · ' + item.variance_points + ' points';
-    if (item.schedule === 'unmeasured') return 'Progress not measurable yet';
+    if (item.schedule === 'unmeasured') return 'Progress not measurable' + (item.tasks?.oldest_overdue_days ? ' · oldest task ' + item.tasks.oldest_overdue_days + 'd overdue' : '');
     if (item.schedule === 'invalid_dates') return 'Check start and due dates';
     return 'Schedule not set';
   };
