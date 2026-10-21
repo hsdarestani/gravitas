@@ -136,9 +136,12 @@ class PlanningTraceabilityTests(TestCase):
         result = self.patch('/api/operating/objectives/%s/' % objective['id'], {'status':'archived'})
         self.assertEqual(result.status_code, 200)
         self.assertTrue(KeyResult.objects.filter(pk=kr['id']).exists())
-        self.assertNotIn(objective['id'], [
-            obj['id'] for obj in self.client.get('/api/operating/dashboard/').json()['planning']['objectives']
-        ])
+        planning = self.client.get('/api/operating/dashboard/').json()['planning']
+        archived = next(obj for obj in planning['objectives'] if obj['id'] == objective['id'])
+        self.assertEqual(archived['status'], 'archived')
+        self.assertTrue(any(kr_row['id'] == kr['id'] for kr_row in archived['key_results']))
+        self.assertEqual(planning['counts']['archived_objectives'], 1)
+        self.assertEqual(planning['counts']['objectives'], 0)
 
 
 class PlanningFrontendContractTests(SimpleTestCase):
@@ -148,7 +151,7 @@ class PlanningFrontendContractTests(SimpleTestCase):
         planning = content.split('export function renderCorePlanning(host, { go }) {', 1)[1].split('const RESOURCE_VIEWS = {', 1)[0]
         for token in ('planning-compact', 'grid-template-columns:repeat(2,', 'objectiveFields',
                       'krFields', 'objective_id', 'sort_order', 'Delete', 'Archive',
-                      'variance_points', 'Open task board'):
+                      'variance_points', 'Open task board', 'Hide archived', 'Restore'):
             self.assertIn(token, planning)
 
 
