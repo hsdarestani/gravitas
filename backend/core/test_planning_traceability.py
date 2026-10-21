@@ -150,3 +150,34 @@ class PlanningFrontendContractTests(SimpleTestCase):
                       'krFields', 'objective_id', 'sort_order', 'Delete', 'Archive',
                       'variance_points', 'Open task board'):
             self.assertIn(token, planning)
+
+
+class MergeAuditUnitTests(SimpleTestCase):
+    def test_private_report_only_proposes_candidates_and_keeps_source_log_counts(self):
+        from core.management.commands.audit_work_graph import report_for
+        samples = {
+            'workspace': {'id': 9, 'organization_id': 1, 'name': 'Core'},
+            'tasks': [
+                dict(id=10, owner_id=2, project_id=7, initiative_id=5,
+                     title=' Review DATA ', status='active', comments=[1],
+                     checklist=[1, 2], attachments=[]),
+                dict(id=11, owner_id=2, project_id=7, initiative_id=5,
+                     title='review data', status='done', comments=[],
+                     checklist=[], attachments=[1]),
+            ],
+            'projects': [
+                dict(id=7, workspace_id=3, owner_id=2, title='Research',
+                     canonical={'enabled': True, 'last_error': None}),
+            ],
+            'initiatives': [dict(id=5, key_result_id=4)],
+            'notes': [], 'canonical_files': [],
+        }
+        report = report_for(samples, {'10': 3, '11': 1}, {10: 2})
+        self.assertTrue(report['read_only'])
+        self.assertEqual(report['tasks']['total'], 2)
+        self.assertEqual(report['tasks']['without_kr'], 0)
+        self.assertEqual(report['tasks']['duplicates_exact_review_only'][0]['ids'], [10, 11])
+        self.assertEqual(report['logs']['activity_events'], 4)
+        self.assertEqual(report['logs']['daily_report_links'], 2)
+        self.assertEqual(report['logs']['board_comments'], 1)
+        self.assertEqual(report['logs']['attachments'], 1)
