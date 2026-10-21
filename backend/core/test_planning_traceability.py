@@ -72,7 +72,7 @@ class PlanningTraceabilityTests(TestCase):
         )
         data = self.client.get('/api/operating/dashboard/').json()
         row = next(o for o in data['planning']['objectives'] if o['id'] == objective['id'])
-        self.assertEqual(row['tasks'], {'total': 2, 'open': 1, 'done': 1, 'overdue': 1})
+        self.assertEqual(row['tasks'], {'total': 2, 'open': 1, 'done': 1, 'overdue': 1, 'oldest_overdue_days': 1})
         self.assertEqual(row['key_results'][0]['tasks'], row['tasks'])
         self.assertEqual(row['key_results'][0]['progress'], 25.0)
         self.assertEqual(row['key_results'][0]['schedule'], 'behind')
