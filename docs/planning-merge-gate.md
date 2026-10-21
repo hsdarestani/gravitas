@@ -45,7 +45,7 @@ mode 0600 and refuses overwriting an existing file. It includes:
   **not** automatically merged.
 - Candidate projects with identical normalized titles within Research scope.
 - Per-task counts for Core ActivityEvent, board comments, attachments,
-  checklist items and linked daily work reports.
+  checklist items, linked daily work reports and Markdown time-log note projections.
 - Canonical-project flags, canonical-file projection counts, and note counts.
 
 It **does not** read canonical Nextcloud documents and does not move records.
