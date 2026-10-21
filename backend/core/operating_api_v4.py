@@ -1,6 +1,6 @@
 import json
 
-from django.db.models import Count, Q
+from django.db.models import Count, Min, Q
 from django.utils import timezone
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -82,7 +82,8 @@ def _delegate_project_link(request, delegate, model, response_key):
 def _task_totals(by_kr, kr_id):
     # All counts use one task population; no JOIN multiplication from comments,
     # attachments or checklist records.
-    return by_kr.get(kr_id, {'total': 0, 'open': 0, 'done': 0, 'overdue': 0}).copy()
+    return by_kr.get(kr_id, {'total': 0, 'open': 0, 'done': 0, 'overdue': 0,
+                             'oldest_overdue_days': 0}).copy()
 
 
 def _schedule(actual, start_date, due_date, today):
@@ -165,6 +166,7 @@ def operating_dashboard(request):
         row['initiative__key_result_id']: {
             'total': row['total'], 'open': row['open'],
             'done': row['done'], 'overdue': row['overdue'],
+            'oldest_overdue_days': max(0, (today - row['earliest_open_due']).days) if row['earliest_open_due'] else 0,
         }
         for row in OperatingTask.objects.filter(
             workspace=core, initiative__key_result__objective__workspace=core
@@ -173,6 +175,7 @@ def operating_dashboard(request):
             open=Count('id', filter=~Q(status__in=active)),
             done=Count('id', filter=Q(status=WorkStatus.DONE)),
             overdue=Count('id', filter=Q(due_date__lt=today) & ~Q(status__in=active)),
+            earliest_open_due=Min('due_date', filter=~Q(status__in=active)),
         )
     }
 
@@ -199,6 +202,7 @@ def operating_dashboard(request):
         kr_rows = [kr_row(item) for item in rows]
         counts = {field: sum(row['tasks'][field] for row in kr_rows)
                   for field in ('total', 'open', 'done', 'overdue')}
+        counts['oldest_overdue_days'] = max((row['tasks']['oldest_overdue_days'] for row in kr_rows), default=0)
         start = objective.start_date or objective.created_at.date()
         objective_rows.append({
             **base._objective_json(objective),
