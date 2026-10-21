@@ -172,12 +172,13 @@ class MergeAuditUnitTests(SimpleTestCase):
             'initiatives': [dict(id=5, key_result_id=4)],
             'notes': [], 'canonical_files': [],
         }
-        report = report_for(samples, {'10': 3, '11': 1}, {10: 2})
+        report = report_for(samples, {'10': 3, '11': 1}, {10: 2}, {10: 1})
         self.assertTrue(report['read_only'])
         self.assertEqual(report['tasks']['total'], 2)
         self.assertEqual(report['tasks']['without_kr'], 0)
         self.assertEqual(report['tasks']['duplicates_exact_review_only'][0]['ids'], [10, 11])
         self.assertEqual(report['logs']['activity_events'], 4)
         self.assertEqual(report['logs']['daily_report_links'], 2)
+        self.assertEqual(report['logs']['time_log_note_projections'], 1)
         self.assertEqual(report['logs']['board_comments'], 1)
         self.assertEqual(report['logs']['attachments'], 1)
