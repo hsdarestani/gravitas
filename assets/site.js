@@ -58,8 +58,14 @@
      value of every piece. This keeps one canonical page and lets the reader
      decide how much of it they want. */
   var DEPTH_KEY = 'gravitas:depth';
+  /* Only buttons carrying data-depth belong to this switch. The live Topic
+     page draws its own per-essay switch (data-topic-depth, topic-live.js) in
+     the same .depth pill; matching on the class alone caught those clicks,
+     compared undefined with undefined, and pressed both buttons at once. A
+     stored value is normalised for the same reason: that bug wrote the string
+     "undefined" into localStorage for anyone who clicked it. */
   function readDepth() {
-    try { return localStorage.getItem(DEPTH_KEY) || 'overview'; }
+    try { return localStorage.getItem(DEPTH_KEY) === 'deep' ? 'deep' : 'overview'; }
     catch (e) { return 'overview'; }
   }
   function writeDepth(v) { try { localStorage.setItem(DEPTH_KEY, v); } catch (e) {} }
@@ -67,13 +73,13 @@
   function applyDepth(v) {
     document.body.classList.toggle('is-deep', v === 'deep');
     document.body.classList.toggle('is-overview', v !== 'deep');
-    [].forEach.call(document.querySelectorAll('.depth button'), function (b) {
+    [].forEach.call(document.querySelectorAll('.depth button[data-depth]'), function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.depth === v));
     });
   }
   applyDepth(readDepth());
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('.depth button');
+    var b = e.target.closest && e.target.closest('.depth button[data-depth]');
     if (!b) return;
     writeDepth(b.dataset.depth);
     applyDepth(b.dataset.depth);
