@@ -30,6 +30,6 @@ jobs:
           "$RUNNER_TEMP/gravitas-task-merge/bin/pip" install -q -r backend/requirements.txt
           export PYTHONPATH="$GITHUB_WORKSPACE/backend"
           export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
-          "$RUNNER_TEMP/gravitas-task-merge/bin/python" -m django test core.test_task_consolidation core.test_core_task_board core.test_project_time_log --noinput
+          "$RUNNER_TEMP/gravitas-task-merge/bin/python" -m django test core.test_task_consolidation core.test_core_task_board core.test_task_reconciliation_export --noinput
           "$RUNNER_TEMP/gravitas-task-merge/bin/python" -m django makemigrations core --check --dry-run
           "$RUNNER_TEMP/gravitas-task-merge/bin/python" -m django check
