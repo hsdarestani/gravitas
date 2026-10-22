@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import KnowledgeResource, ResearchProject
 from .operating_models import OperatingTask
+from .task_consolidation import family_ids, canonical_id
 from .platform_access import can_view, can_edit, can_manage, policy_for, INHERIT_VISIBILITY
 
 
@@ -103,16 +104,21 @@ def _append(note, start, end, minutes, comment):
 def _session_data(request, task, project):
     rows, totals = [], {}
     active = None
-    for note in _log_queryset(project, task):
-        if not can_view(request.user, note):
+    for work_task in OperatingTask.objects.filter(pk__in=family_ids(task.pk), project=project):
+        if not can_view(request.user, work_task):
             continue
-        if (note.metadata or {}).get('task_id') != task.pk:
-            raise ValueError('work_log_task_mismatch')
-        parsed = _parse(note)
-        rows += parsed
-        totals[note.owner_id] = totals.get(note.owner_id, 0) + sum(e['minutes'] for e in parsed)
-        if note.owner_id == request.user.pk:
-            active = (note.metadata or {}).get('active_started_at')
+        for note in _log_queryset(project, work_task):
+            if not can_view(request.user, note):
+                continue
+            if (note.metadata or {}).get('task_id') != work_task.pk:
+                raise ValueError('work_log_task_mismatch')
+            parsed = _parse(note)
+            for entry in parsed:
+                entry['origin_task_id'] = work_task.pk
+            rows += parsed
+            totals[note.owner_id] = totals.get(note.owner_id, 0) + sum(e['minutes'] for e in parsed)
+            if note.owner_id == request.user.pk and work_task.pk == canonical_id(task.pk):
+                active = (note.metadata or {}).get('active_started_at')
     rows.sort(key=lambda x: x['start'], reverse=True)
     return {'entries': rows[:250], 'entry_count': len(rows),
             'total_minutes': sum(totals.values()), 'owner_minutes': totals,
@@ -134,6 +140,8 @@ def project_task_time(request, project_id, task_id):
         except ValueError as exc:
             return _error(str(exc), 409)
 
+    if canonical_id(task.pk) != task.pk:
+        return _error('task_consolidated_read_only', 409)
     if not can_edit(request.user, task):
         return _error('task_edit_required', 403)
     try:
