@@ -64,47 +64,47 @@ jobs:
           PLAN="$PRIVATE/reviewed-pairs.json"
           if ! sudo test -f "$PLAN"; then
             sudo -u gravitas sh -c 'umask 077; cat > "$1"' sh "$PLAN" <<'JSON'
-{
-  "schema": 1,
-  "pairs": [
-    {
-      "source": 1030,
-      "target": 949,
-      "source_fingerprint": "7ad1ad9f31c261db9934e90d8f88faee2d998ed2a092bf8866f02ad293e3e9b3",
-      "target_fingerprint": "e97d7273f296b4a9c4effabea3026afe5558c26b8d349dc83e0d64d1322c8cee",
-      "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
-    },
-    {
-      "source": 1033,
-      "target": 924,
-      "source_fingerprint": "cd1ef4a87da88f934e6e8b57ea506619cfd1291b83301b27c761232b2894a12a",
-      "target_fingerprint": "e900ce2461ffc047e8301ac22a0c836bfdb3586c8356e9acb29383fe5c851930",
-      "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
-    },
-    {
-      "source": 981,
-      "target": 921,
-      "source_fingerprint": "545c6d0d319b518e2f0b230e0523cb3bafca45b20675d524728d6489ded862b3",
-      "target_fingerprint": "05e0db79654d4b2caf1ab36546a41b0b0ced27f417a2c3ddc3288dd9d627f767",
-      "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
-    },
-    {
-      "source": 946,
-      "target": 912,
-      "source_fingerprint": "908fe10b0dedd21c4f61188bd948f753c3f31a9ec078e2c11155a412053ec77c",
-      "target_fingerprint": "51b67d4e414913829b834ed08375e8beb19f3d6aadf8c4fd3f348d98e2352a49",
-      "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
-    },
-    {
-      "source": 1039,
-      "target": 889,
-      "source_fingerprint": "9301431f7342b2c85ef47c7c1b217b1094b6af342e7b8992f28d260f566f2510",
-      "target_fingerprint": "2a4e3f44b8eb04b29d961dbd541eac693319be89a9e2b83e80424f649af436e8",
-      "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
-    }
-  ]
-}
-JSON
+          {
+            "schema": 1,
+            "pairs": [
+              {
+                "source": 1030,
+                "target": 949,
+                "source_fingerprint": "7ad1ad9f31c261db9934e90d8f88faee2d998ed2a092bf8866f02ad293e3e9b3",
+                "target_fingerprint": "e97d7273f296b4a9c4effabea3026afe5558c26b8d349dc83e0d64d1322c8cee",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              },
+              {
+                "source": 1033,
+                "target": 924,
+                "source_fingerprint": "cd1ef4a87da88f934e6e8b57ea506619cfd1291b83301b27c761232b2894a12a",
+                "target_fingerprint": "e900ce2461ffc047e8301ac22a0c836bfdb3586c8356e9acb29383fe5c851930",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              },
+              {
+                "source": 981,
+                "target": 921,
+                "source_fingerprint": "545c6d0d319b518e2f0b230e0523cb3bafca45b20675d524728d6489ded862b3",
+                "target_fingerprint": "05e0db79654d4b2caf1ab36546a41b0b0ced27f417a2c3ddc3288dd9d627f767",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              },
+              {
+                "source": 946,
+                "target": 912,
+                "source_fingerprint": "908fe10b0dedd21c4f61188bd948f753c3f31a9ec078e2c11155a412053ec77c",
+                "target_fingerprint": "51b67d4e414913829b834ed08375e8beb19f3d6aadf8c4fd3f348d98e2352a49",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              },
+              {
+                "source": 1039,
+                "target": 889,
+                "source_fingerprint": "9301431f7342b2c85ef47c7c1b217b1094b6af342e7b8992f28d260f566f2510",
+                "target_fingerprint": "2a4e3f44b8eb04b29d961dbd541eac693319be89a9e2b83e80424f649af436e8",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              }
+            ]
+          }
+          JSON
           fi
           SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/,"");print;exit}' /etc/gravitas/backend.env)"
           test -n "$SECRET"
