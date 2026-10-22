@@ -267,8 +267,11 @@ const SYNC = {
 };
 
 const same = (a, b) => a != null && b != null && String(a) === String(b);
-const syncOf = (item) => SYNC[item?.sync_state || 'pending'] || [String(item?.sync_state), 'quiet'];
-const needsAttention = (item) => ['error', 'conflict', 'blocked'].includes(item?.sync_state);
+const syncOf = (item) => item?.storage_mode === 'canonical'
+  ? (item.sync_state === 'synced' ? ['Saved to project Nextcloud', 'ok'] : ['Project file needs verification', 'warn'])
+  : (SYNC[item?.sync_state || 'pending'] || [String(item?.sync_state), 'quiet']);
+const needsAttention = (item) => ['error', 'conflict', 'blocked'].includes(item?.sync_state)
+  || (item?.storage_mode === 'canonical' && item.sync_state !== 'synced');
 const stamp = (value) => Date.parse(value || '') || 0;
 
 /* ---- Days and folders ---------------------------------------------------- */
@@ -483,10 +486,20 @@ function mountNotebook(host, info, state) {
   const sync = iconButton('cycle', 'Sync with Nextcloud now', async () => {
     sync.disabled = true;
     sync.dataset.busy = '';
-    setStatus('Reconciling with Nextcloud…');
-    book.editor?.flush();
+    if (book.editor?.dirty()) {
+      book.editor.flush();
+      setStatus('Finish saving this note before verifying its project file.', 'warn');
+      sync.disabled = false;
+      delete sync.dataset.busy;
+      return;
+    }
+    const selected = current();
+    const scoped = selected?.storage_mode === 'canonical';
+    setStatus(scoped ? 'Verifying project file and access permissions…' : 'Reconciling with Nextcloud…');
     try {
-      const result = await P.call('/platform/nextcloud/notes/sync/', { method: 'POST' });
+      const result = await P.call('/platform/nextcloud/notes/sync/', {
+        method: 'POST', ...(scoped ? {body: {note_id: selected.id}} : {}),
+      });
       setStatus(syncSummary(result));
       await refreshNotebook(info);
     } catch (error) {
@@ -1558,6 +1571,27 @@ function conflictBox(note, report) {
     tools.append(keep, take);
     if (!remoteDeleted) tools.append(action('Open Nextcloud copy', () => openNative(note.native_url), { tiny: true }));
     box.append(tools);
+  } else if (note.storage_mode === 'canonical') {
+    box.append(el('strong', 'nb-alert__title', 'Project file verification pending.'));
+    box.append(el('p', null, 'This project uses a guarded Nextcloud Team Folder, not a separate Notes mirror. The stored file version needs verification before it can be called synced.'));
+    const retry = action('Verify project file', async () => {
+      if (book.editor?.dirty()) {
+        book.editor.flush();
+        report('Save your current edits first, then verify the project file.');
+        return;
+      }
+      retry.disabled = true;
+      try {
+        const result = await P.call('/platform/nextcloud/notes/sync/', { method: 'POST', body: {note_id: note.id} });
+        if (result.item) Object.assign(note, result.item);
+        await refreshNotebook(book.info);
+      } catch (error) {
+        report(error?.data?.error || error?.message || 'Project file could not be verified. The local note has not been discarded.');
+      } finally {
+        retry.disabled = false;
+      }
+    }, { tiny: true });
+    if (note.can_edit) box.append(retry);
   } else {
     box.append(el('strong', 'nb-alert__title', note.sync_state === 'blocked'
       ? 'This note is outside your current workspace access.'
@@ -1639,7 +1673,9 @@ function drawEditor(main, note, { fresh = false, write = false } = {}) {
   body.setAttribute('aria-label', 'Note text, in Markdown');
   const reader = el('div', 'nb-reader');
   reader.hidden = true;
-  if (['conflict', 'error', 'blocked'].includes(note.sync_state)) page.append(conflictBox(note, (text) => setSave(text, 'bad')));
+  if (['conflict', 'error', 'blocked'].includes(note.sync_state)
+      || (note.storage_mode === 'canonical' && note.sync_state !== 'synced'))
+    page.append(conflictBox(note, (text) => setSave(text, 'bad')));
   page.append(title, meta, body, reader);
   mountAnchoredComments({ container: page, kind: 'note', id: note.id,
     fields: [{key:'content', label:'Note body', element:body}, {key:'title', label:'Title', element:title}], canEdit: !locked });
