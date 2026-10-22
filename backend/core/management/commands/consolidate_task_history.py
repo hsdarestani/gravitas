@@ -26,7 +26,7 @@ from core.operating_models import OperatingTask, OperatingTaskConsolidation, Wor
 def task_fingerprint(task):
     value = {
         'id': task.pk, 'title': task.title, 'source_key': task.source_key,
-        'updated_at': task.updated_at.isoformat().replace('+00:00', 'Z'),
+        'updated_at': task.updated_at.isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
         'project_id': task.project_id, 'owner_id': task.owner_id,
         'initiative_id': task.initiative_id, 'status': task.status,
     }
