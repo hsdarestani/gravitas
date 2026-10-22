@@ -259,8 +259,18 @@ jobs:
               | grep -E "^[[:space:]]*-[[:space:]]+$app:" >/dev/null
           done
           docker exec -u www-data gravitas-nextcloud php occ maintenance:mode --off >/dev/null
-          curl -fsS --max-time 20 http://127.0.0.1:8081/status.php \
-            | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d.get("installed") and not d.get("maintenance")'
+          # Apache/Nextcloud may restart after the PHP runtime swaps, even
+          # after OCC can answer. Require stable HTTP rather than one instant.
+          HEALTHY=0
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 15 http://127.0.0.1:8081/status.php 2>/dev/null \
+              | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get("installed") and not d.get("maintenance") else 1)' 2>/dev/null; then
+              HEALTHY=1
+              break
+            fi
+            sleep 3
+          done
+          test "$HEALTHY" -eq 1 || { echo "::error::Nextcloud HTTP did not recover after runtime update"; false; }
           STATE=verified
           trap - ERR
           resume_timers
