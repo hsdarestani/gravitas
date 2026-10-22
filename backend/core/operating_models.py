@@ -411,6 +411,39 @@ class GoogleCalendarMeetingAttachment(models.Model):
         ordering = ['created_at', 'id']
 
 
+class OperatingTaskConsolidation(models.Model):
+    """Reversible logical alias. Both original tasks and their provenance survive.
+
+    Never mutate the original task's owner, project, parent, source key,
+    attached files, checklists, comments, activity events or canonical time logs.
+    """
+    source = models.OneToOneField(
+        OperatingTask, on_delete=models.PROTECT, related_name='consolidation_alias')
+    target = models.ForeignKey(
+        OperatingTask, on_delete=models.PROTECT, related_name='consolidation_sources')
+    reason = models.CharField(max_length=400)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        super().clean()
+        if self.source_id == self.target_id:
+            raise ValidationError('Cannot consolidate a task with itself.')
+        if self.source_id and self.target_id:
+            if (self.source.workspace_id != self.target.workspace_id or
+                    self.source.project_id != self.target.project_id or
+                    self.source.initiative_id != self.target.initiative_id or
+                    self.source.owner_id != self.target.owner_id):
+                raise ValidationError('Task consolidation cannot cross workspace, project, KR or owner.')
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=~Q(source=models.F('target')),
+                name='grav_task_merge_not_self',
+            ),
+        ]
+
+
 class OperatingTaskChecklistItem(models.Model):
     task = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='checklist_items')
     title = models.CharField(max_length=500)

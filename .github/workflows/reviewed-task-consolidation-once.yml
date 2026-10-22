@@ -1,0 +1,123 @@
+name: Apply Reviewed Task Consolidation Once
+
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-reviewed-task-consolidation
+  cancel-in-progress: false
+
+jobs:
+  consolidate:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      SSH_USER: ${{ secrets.DEPLOY_USER }}
+      SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+    steps:
+      - name: Prepare restricted SSH connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" && test -n "$SSH_KEY"
+          if [ -z "$SSH_PORT" ]; then SSH_PORT=22; fi
+          echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/task_consolidation
+          chmod 600 ~/.ssh/task_consolidation
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          if [ -z "$SSH_USER" ]; then SSH_USER=deploy; fi
+          OPTS=(-i ~/.ssh/task_consolidation -p "$SSH_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$SSH_USER@$SSH_HOST" true 2>/dev/null; then
+            if [ "$SSH_USER" != root ] && ssh "${OPTS[@]}" "root@$SSH_HOST" true 2>/dev/null; then
+              SSH_USER=root
+            else
+              echo "Server not accessible; no data changed"; exit 1
+            fi
+          fi
+          echo "SSH_USER=$SSH_USER" >> "$GITHUB_ENV"
+
+      - name: Verify task versions and create reversible aliases
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/task_consolidation -p "$SSH_PORT" -o BatchMode=yes \
+            "$SSH_USER@$SSH_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          PRIVATE=/var/lib/gravitas/private/task-consolidation-20261022
+          MARKER="$PRIVATE/applied.marker"
+          if sudo test -f "$MARKER"; then
+            echo "reviewed-task-consolidation-already-applied"
+            exit 0
+          fi
+          sudo install -d -m 700 -o gravitas -g gravitas "$PRIVATE"
+          PLAN="$PRIVATE/reviewed-pairs.json"
+          if ! sudo test -f "$PLAN"; then
+            sudo -u gravitas sh -c 'umask 077; cat > "$1"' sh "$PLAN" <<'JSON'
+          {
+            "schema": 1,
+            "pairs": [
+              {
+                "source": 1030,
+                "target": 949,
+                "source_fingerprint": "7ad1ad9f31c261db9934e90d8f88faee2d998ed2a092bf8866f02ad293e3e9b3",
+                "target_fingerprint": "e97d7273f296b4a9c4effabea3026afe5558c26b8d349dc83e0d64d1322c8cee",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              },
+              {
+                "source": 1033,
+                "target": 924,
+                "source_fingerprint": "cd1ef4a87da88f934e6e8b57ea506619cfd1291b83301b27c761232b2894a12a",
+                "target_fingerprint": "e900ce2461ffc047e8301ac22a0c836bfdb3586c8356e9acb29383fe5c851930",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              },
+              {
+                "source": 981,
+                "target": 921,
+                "source_fingerprint": "545c6d0d319b518e2f0b230e0523cb3bafca45b20675d524728d6489ded862b3",
+                "target_fingerprint": "05e0db79654d4b2caf1ab36546a41b0b0ced27f417a2c3ddc3288dd9d627f767",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              },
+              {
+                "source": 946,
+                "target": 912,
+                "source_fingerprint": "908fe10b0dedd21c4f61188bd948f753c3f31a9ec078e2c11155a412053ec77c",
+                "target_fingerprint": "51b67d4e414913829b834ed08375e8beb19f3d6aadf8c4fd3f348d98e2352a49",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              },
+              {
+                "source": 1039,
+                "target": 889,
+                "source_fingerprint": "9301431f7342b2c85ef47c7c1b217b1094b6af342e7b8992f28d260f566f2510",
+                "target_fingerprint": "2a4e3f44b8eb04b29d961dbd541eac693319be89a9e2b83e80424f649af436e8",
+                "reason": "Reviewed overlapping historical Done work; original source, hierarchy and logs are preserved."
+              }
+            ]
+          }
+          JSON
+          fi
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/,"");print;exit}' /etc/gravitas/backend.env)"
+          test -n "$SECRET"
+          PLAN_SHA="$(sudo -u gravitas sha256sum "$PLAN" | awk '{print $1}')"
+          cd /opt/gravitas-backend
+          RUNTIME=(sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0
+            DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH=/opt/gravitas-backend
+            /opt/gravitas-backend/.venv/bin/django-admin)
+          "${RUNTIME[@]}" consolidate_task_history --plan "$PLAN"
+          "${RUNTIME[@]}" consolidate_task_history --plan "$PLAN" --apply \
+            --expected-plan-sha "$PLAN_SHA" \
+            --audit-output "$PRIVATE/before-alias-journal.json"
+          "${RUNTIME[@]}" shell -c "from core.operating_models import OperatingTaskConsolidation as C; assert C.objects.filter(source_id__in=[1030,1033,981,946,1039]).count()==5; print('Consolidation readback: 5 preserved aliases')"
+          sudo -u gravitas sh -c 'umask 077; date -u +%FT%TZ > "$1"' sh "$MARKER"
+          echo "reviewed_task_aliases=5 original_tasks_deleted=0"
+          REMOTE

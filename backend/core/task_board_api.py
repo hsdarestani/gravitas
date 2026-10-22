@@ -16,6 +16,7 @@ from . import operating_api as base
 from . import operating_api_v4 as v4
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
+from .task_consolidation import family_ids, canonical_id, source_rows
 from .models import WorkspaceMembership
 from .platform_models import WorkspaceProfile
 from .platform_runtime_v3 import _canonical_workspace, core_access
@@ -30,6 +31,7 @@ from .operating_models import (
     OperatingTaskAttachment,
     OperatingTaskChecklistItem,
     OperatingTaskComment,
+    OperatingTaskConsolidation,
     OperatingWorkPackage,
     Priority,
     WorkStatus,
@@ -296,12 +298,12 @@ def task_board(request):
     if request.GET.get('mode') == 'dependencies':
         return JsonResponse({
             'ok': True,
-            'tasks': list(OperatingTask.objects.filter(workspace=workspace)
+            'tasks': list(OperatingTask.objects.filter(workspace=workspace).exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
                           .order_by('title', 'pk').values('id', 'title')),
         })
 
     tasks = list(
-        OperatingTask.objects.filter(workspace=workspace)
+        OperatingTask.objects.filter(workspace=workspace).exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
         .select_related(
             'owner', 'initiative__process', 'initiative__key_result__objective',
             'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
@@ -360,6 +362,9 @@ def task_board_detail(request, task_id):
     if not task:
         return _error('task_not_found', 404)
 
+    if request.method in ('PATCH', 'DELETE') and canonical_id(task.pk) != task.pk:
+        return _error('task_consolidated_read_only', 409, canonical_task_id=canonical_id(task.pk))
+
     if quick_preview:
         # A single round trip gives the mobile reader the status AND Pulsar
         # evidence, without forcing a second slow request for /history/.
@@ -377,9 +382,16 @@ def task_board_detail(request, task_id):
         })
 
     if request.method == 'GET':
+        task_data = _task_json(task)
+        task_data['consolidated_into_id'] = (
+            canonical_id(task.pk) if canonical_id(task.pk) != task.pk else None)
+        task_data['consolidated_sources'] = [
+            {'id': row.source_id, 'title': row.source.title, 'reason': row.reason}
+            for row in source_rows(task.pk)
+        ]
         return JsonResponse({
             'ok': True,
-            'task': _task_json(task),
+            'task': task_data,
             'can_delete': _can_manage_workspace(request.user, workspace),
             # The task detail dialog also opens directly from Research, where no
             # full Core board was loaded to provide these select options.
@@ -607,6 +619,7 @@ def task_board_move(request):
 def _checklist_item_json(row):
     return {
         'id': row.pk,
+        'origin_task_id': row.task_id,
         'title': row.title,
         'is_completed': row.is_completed,
         'position': row.position,
@@ -628,7 +641,7 @@ def task_checklist(request, task_id):
         return _error('task_not_found', 404)
 
     if request.method == 'GET':
-        rows = task.checklist_items.select_related('created_by').all()[:500]
+        rows = OperatingTaskChecklistItem.objects.filter(task_id__in=family_ids(task.pk)).select_related('created_by').order_by('position','id')[:500]
         return JsonResponse({
             'ok': True,
             'items': [_checklist_item_json(row) for row in rows],
@@ -734,6 +747,7 @@ def _comment_json(row):
     mentions = list(row.mentions.all()) if hasattr(row, 'mentions') else []
     return {
         'id': row.pk,
+        'origin_task_id': row.task_id,
         'author': _person(row.author),
         'body': row.body,
         'mentions': [_person(user) for user in mentions],
@@ -753,7 +767,7 @@ def task_comments(request, task_id):
         return _error('task_not_found', 404)
 
     if request.method == 'GET':
-        rows = task.board_comments.select_related('author').prefetch_related('mentions').all()[:500]
+        rows = OperatingTaskComment.objects.filter(task_id__in=family_ids(task.pk)).select_related('author').prefetch_related('mentions').order_by('created_at', 'id')[:500]
         return JsonResponse({'ok': True, 'comments': [_comment_json(row) for row in rows]})
 
     if not base._editable(request, workspace):
@@ -800,6 +814,7 @@ def task_comments(request, task_id):
 def _attachment_json(row):
     return {
         'id': row.pk,
+        'origin_task_id': row.task_id,
         'name': row.name,
         'mime_type': row.mime_type,
         'size': row.size,
@@ -820,7 +835,7 @@ def task_attachments(request, task_id):
         return _error('task_not_found', 404)
 
     if request.method == 'GET':
-        rows = task.board_attachments.select_related('uploader').all()[:300]
+        rows = OperatingTaskAttachment.objects.filter(task_id__in=family_ids(task.pk)).select_related('uploader').order_by('created_at', 'id')[:300]
         return JsonResponse({'ok': True, 'attachments': [_attachment_json(row) for row in rows]})
 
     if not base._editable(request, workspace):
@@ -900,7 +915,7 @@ def _task_activity_events(request, workspace, task, *, limit=200):
         ActivityEvent.objects.filter(
             layer=ActivityEvent.Layer.CORE,
             object_type='operating_task',
-            object_id=str(task.pk),
+            object_id__in=[str(i) for i in family_ids(task.pk)],
         )
         .select_related('actor')
         .order_by('-created_at')[:limit]
@@ -921,7 +936,7 @@ def _task_activity_events(request, workspace, task, *, limit=200):
                 continue
         if report_ids:
             for report in DailyWorkReport.objects.filter(
-                pk__in=report_ids, tasks=task, status='confirmed',
+                pk__in=report_ids, tasks__id__in=family_ids(task.pk), status='confirmed',
             ):
                 reports[str(report.pk)] = {
                     'original_text': report.original_text,
@@ -932,6 +947,7 @@ def _task_activity_events(request, workspace, task, *, limit=200):
                 }
     return [{
             'id': row.pk,
+            'origin_task_id': int(row.object_id),
             'action': row.action,
             'actor': _person(row.actor) if row.actor else None,
             'detail': row.detail,
