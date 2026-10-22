@@ -597,6 +597,40 @@ except BaseException as exc:
     finally:
         pathlib.Path(temp).unlink(missing_ok=True)
 
+def php_runtime_security():
+    """Read-only PHP runtime inventory; prints no settings, secrets, or paths."""
+    print("=== PHP2Shell security inventory (CVE-2026-109618 / CVE-2026-109619) ===")
+    image = run(
+        "sudo", "-n", "docker", "inspect", "-f", "{{.Config.Image}}",
+        "gravitas-nextcloud", timeout=12,
+    ).strip()
+    print("nextcloud_container_image", image[:220] if image else "unknown")
+    php = run(
+        "sudo", "-n", "docker", "exec", "gravitas-nextcloud",
+        "php", "-r", "echo PHP_VERSION;", timeout=15,
+    ).strip()
+    match = re.fullmatch(r"(\\d+)\\.(\\d+)\\.(\\d+)", php)
+    print("nextcloud_php_version", php if match else "unknown")
+    fixed = {(8, 2): 35, (8, 3): 36, (8, 4): 27, (8, 5): 12}
+    if match:
+        major, minor, micro = map(int, match.groups())
+        if (major, minor) in fixed:
+            status = "patched_upstream_version" if micro >= fixed[(major, minor)] else "below_upstream_patch_verify_backports"
+        elif major < 8 or (major == 8 and minor < 2):
+            status = "unsupported_upstream_verify_backports"
+        else:
+            status = "not_classified"
+    else:
+        status = "version_unknown"
+    print("nextcloud_php2shell_status", status)
+    # CLI and web PHP use the same runtime image for this Nextcloud container,
+    # but downstream image maintainers can backport fixes without bumping PHP_VERSION.
+    host_php = run("php", "-r", "echo PHP_VERSION;", timeout=8).strip()
+    print("host_php_version", host_php if re.fullmatch(r"\\d+\\.\\d+\\.\\d+", host_php) else "not_found")
+    workers = run("pgrep", "-fc", "php-fpm", timeout=5).strip()
+    print("host_php_fpm_processes", workers if workers.isdecimal() else "unknown")
+
+
 def nextcloud():
     print("=== Nextcloud health and lock signals ===")
     for name in ("gravitas-nextcloud", "gravitas-nextcloud-redis"):
@@ -648,6 +682,7 @@ def nextcloud():
 
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
+    php_runtime_security()
     health()
     web_status()
     backend()
