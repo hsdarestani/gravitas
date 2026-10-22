@@ -1,0 +1,35 @@
+name: Safe Task Consolidation Validation
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/operating_models.py'
+      - 'backend/core/migrations/**'
+      - 'backend/core/task_consolidation.py'
+      - 'backend/core/task_board_api.py'
+      - 'backend/core/project_time_log.py'
+      - 'backend/core/operating_api.py'
+      - 'backend/core/management/commands/consolidate_task_history.py'
+      - 'backend/core/test_task_consolidation.py'
+      - '.github/workflows/task-consolidation-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run safeguarded task alias and board tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/gravitas-task-merge"
+          "$RUNNER_TEMP/gravitas-task-merge/bin/pip" install -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/gravitas-task-merge/bin/python" -m django test core.test_task_consolidation core.test_core_task_board core.test_project_time_log --noinput
+          "$RUNNER_TEMP/gravitas-task-merge/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/gravitas-task-merge/bin/python" -m django check
