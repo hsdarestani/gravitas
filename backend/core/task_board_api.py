@@ -362,6 +362,9 @@ def task_board_detail(request, task_id):
     if not task:
         return _error('task_not_found', 404)
 
+    if request.method in ('PATCH', 'DELETE') and canonical_id(task.pk) != task.pk:
+        return _error('task_consolidated_read_only', 409, canonical_task_id=canonical_id(task.pk))
+
     if quick_preview:
         # A single round trip gives the mobile reader the status AND Pulsar
         # evidence, without forcing a second slow request for /history/.
@@ -616,6 +619,7 @@ def task_board_move(request):
 def _checklist_item_json(row):
     return {
         'id': row.pk,
+        'origin_task_id': row.task_id,
         'title': row.title,
         'is_completed': row.is_completed,
         'position': row.position,
@@ -743,6 +747,7 @@ def _comment_json(row):
     mentions = list(row.mentions.all()) if hasattr(row, 'mentions') else []
     return {
         'id': row.pk,
+        'origin_task_id': row.task_id,
         'author': _person(row.author),
         'body': row.body,
         'mentions': [_person(user) for user in mentions],
