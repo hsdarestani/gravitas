@@ -713,28 +713,36 @@ def _canonical_projection(resource, cache=None):
     """
     from .canonical_projects import active, encode
     from .canonical_models import CanonicalFile
-    if not resource.project_id or not active(resource.project):
+    if not resource.project_id:
         return None
-    file = cache.get(resource.pk) if cache is not None else CanonicalFile.objects.filter(
-        project_id=resource.project_id, object_type='KnowledgeResource',
-        object_id=resource.pk, deleted=False,
-    ).only('etag', 'file_id', 'base_content').first()
+    if cache is not None:
+        if resource.project_id not in cache['project_ids']:
+            return None
+        file = cache['files'].get(resource.pk)
+    else:
+        if not active(resource.project):
+            return None
+        file = CanonicalFile.objects.filter(
+            project_id=resource.project_id, object_type='KnowledgeResource',
+            object_id=resource.pk, deleted=False,
+        ).only('etag', 'file_id', 'base_content').first()
     if file and file.etag and file.file_id and file.base_content == encode(resource):
         return {'sync_state': 'synced', 'sync_error': ''}
     return {'sync_state': 'pending', 'sync_error': 'canonical_projection_unverified'}
 
 
 def _canonical_file_cache(resources):
-    from .canonical_projects import active
-    from .canonical_models import CanonicalFile
-    projects = {row.project_id for row in resources if row.project_id and active(row.project)}
-    if not projects:
-        return {}
-    return {file.object_id: file for file in CanonicalFile.objects.filter(
+    from .canonical_models import CanonicalProject, CanonicalFile
+    ids = {row.project_id for row in resources if row.project_id}
+    projects = set(CanonicalProject.objects.filter(
+        project_id__in=ids, enabled=True,
+    ).values_list('project_id', flat=True)) if ids else set()
+    files = {file.object_id: file for file in CanonicalFile.objects.filter(
         project_id__in=projects, object_type='KnowledgeResource',
         object_id__in=[r.pk for r in resources if r.project_id in projects],
         deleted=False,
-    ).only('object_id', 'etag', 'file_id', 'base_content')}
+    ).only('object_id', 'etag', 'file_id', 'base_content')} if projects else {}
+    return {'project_ids': projects, 'files': files}
 
 
 def _json(resource, user=None, *, canonical_cache=None):
