@@ -112,11 +112,11 @@ class Command(BaseCommand):
         with transaction.atomic():
             # Serialize against competing consolidation commands, then fetch
             # and validate *current* row versions inside the same transaction.
-            workspaces = list(Workspace.objects.filter(
-                operating_tasks__pk__in=all_ids,
-            ).distinct().order_by('pk').select_for_update())
-            if len(workspaces) != 1:
+            workspace_ids = set(OperatingTask.objects.filter(
+                pk__in=all_ids).values_list('workspace_id', flat=True).distinct())
+            if len(workspace_ids) != 1:
                 raise CommandError('task_workspace_scope_mismatch')
+            Workspace.objects.select_for_update().get(pk=next(iter(workspace_ids)))
             rows = {
                 x.pk: x for x in OperatingTask.objects.select_for_update()
                 .filter(pk__in=all_ids).order_by('pk')
