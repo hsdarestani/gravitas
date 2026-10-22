@@ -110,7 +110,7 @@ class WorkspaceResearchNavigationVisualTests(SimpleTestCase):
 
         self.assertIn("./ws-research.js?v=20261016-task1", app)
         self.assertIn("./ws-five-layer.js?v=20261016-task1", app)
-        self.assertIn("./ws-nextcloud-native.js?v=20261022canonicalnote1", app)
+        self.assertIn("./ws-nextcloud-native.js?v=20261016-task1&patch=20261022canonicalnote1", app)
         self.assertIn("./ws-nav.js?v=20261016-task1", app)
         self.assertIn("./ws-home.js?v=20261016-task1", app)
         self.assertIn("./ws-member-lms.js?v=20261016-task1", five)
