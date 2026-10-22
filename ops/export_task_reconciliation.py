@@ -27,3 +27,4 @@ if __name__ == '__main__':
     main()
 
 # Produce a current checkpoint during the authorized migration.
+# Refresh read-only reconciliation evidence for the 2026-10-22 task merge review.
