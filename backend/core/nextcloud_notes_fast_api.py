@@ -9,7 +9,7 @@ existing conflict-safe Notes adapter.
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from .nextcloud_notes import _json, _remote_url, _visible_notes_for_user, native_notes
+from .nextcloud_notes import _json, _remote_url, _visible_notes_for_user, _canonical_file_cache, native_notes
 
 
 @require_http_methods(['GET', 'POST'])
@@ -28,7 +28,8 @@ def native_notes_fast(request):
         return native_notes(request)
 
     resources = _visible_notes_for_user(request.user)
-    items = [_json(resource, request.user) for resource in resources]
+    file_cache = _canonical_file_cache(resources)
+    items = [_json(resource, request.user, canonical_cache=file_cache) for resource in resources]
     response = JsonResponse({
         'ok': True,
         'available': None,
