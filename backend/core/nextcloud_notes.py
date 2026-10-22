@@ -50,7 +50,8 @@ DELETE_OBJECT_TYPE = 'nextcloud_note_tombstone'
 JOURNAL_FOLDER = 'Journal'
 FOLDER_DEPTH = 6
 FOLDER_SEGMENT = 80
-DAY = re.compile(r'^\d{4}-\d{2}-\d{2}
+DAY = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+logger = logging.getLogger(__name__)
 
 
 class NotesError(Exception):
