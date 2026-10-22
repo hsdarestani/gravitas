@@ -665,7 +665,8 @@ def tasks(request):
     workspace = _workspace(request, p)
     if not workspace: return _error('workspace_not_found', 404)
     if request.method == 'GET':
-        qs = OperatingTask.objects.filter(workspace=workspace).select_related('owner', 'initiative__process', 'initiative__key_result__objective')
+        from .operating_models import OperatingTaskConsolidation
+        qs = OperatingTask.objects.filter(workspace=workspace).exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id')).select_related('owner', 'initiative__process', 'initiative__key_result__objective')
         for key in ['status', 'priority', 'owner_id', 'initiative_id', 'cycle_id']:
             if request.GET.get(key): qs = qs.filter(**{key: request.GET[key]})
         return JsonResponse({'ok': True, 'tasks': [_task_json(x) for x in qs]})
