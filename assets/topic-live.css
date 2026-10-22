@@ -55,5 +55,9 @@
   .topic-timeline__media img{max-height:260px}
   .topic-comment--reply{margin-left:1.25rem}
 }
-.topic-video-placeholder{min-height:300px;display:flex;align-items:center;justify-content:center;cursor:default}
+/* No min-height here: .video sets aspect-ratio 16/9, and a minimum height on a
+   box with an aspect ratio becomes a minimum width (300 x 16/9 = 533px), which
+   pushed the whole Topic page sideways on phones. 16:9 of the column is
+   already taller than 300px wherever the column is wide enough to matter. */
+.topic-video-placeholder{width:100%;display:flex;align-items:center;justify-content:center;cursor:default}
 .topic-video-placeholder .video__play{opacity:.72}
