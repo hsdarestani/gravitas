@@ -13,11 +13,12 @@ Gravitas category the user is actually entitled to use.
 
 import hashlib
 import json
+import logging
 import re
 from datetime import date
 
 from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import transaction
 from django.http import JsonResponse
 from django.utils import timezone
@@ -49,7 +50,7 @@ DELETE_OBJECT_TYPE = 'nextcloud_note_tombstone'
 JOURNAL_FOLDER = 'Journal'
 FOLDER_DEPTH = 6
 FOLDER_SEGMENT = 80
-DAY = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+DAY = re.compile(r'^\d{4}-\d{2}-\d{2}
 
 
 class NotesError(Exception):
@@ -455,9 +456,12 @@ def _pull_remote(resource, remote):
 
 
 def sync_note_to_nextcloud(resource, *, identity=None):
-    from .canonical_projects import active, export_object
+    # Canonical notes are Markdown files in guarded Nextcloud Team Folders.
+    # The native Notes background worker must never export them without a
+    # canonical write journal and transaction boundary.
+    from .canonical_projects import active
     if resource.project_id and active(resource.project):
-        return export_object(resource)
+        return None
 
     """Reconcile one Gravitas note against its mapped native Notes note.
 
@@ -590,9 +594,14 @@ def reconcile_notes(user, *, adopt=True):
     remote_notes = _list_remote(identity)
     remote_by_id = {int(item['id']): item for item in remote_notes}
     all_local_items = list(
-        KnowledgeResource.objects.filter(owner=user, kind=KnowledgeResource.Kind.NOTE).order_by('pk')
+        KnowledgeResource.objects.filter(owner=user, kind=KnowledgeResource.Kind.NOTE)
+        .select_related('project').order_by('pk')
     )
-    local_items = [item for item in all_local_items if _allowed_space(user, _space(item))]
+    from .canonical_projects import active
+    local_items = [item for item in all_local_items if _allowed_space(user, _space(item))
+                   and not (item.project_id and active(item.project))]
+    canonical_skipped = sum(bool(item.project_id and active(item.project))
+                            for item in all_local_items if _allowed_space(user, _space(item)))
     mapped_ids = {
         int(value)
         for resource in all_local_items
@@ -659,6 +668,7 @@ def reconcile_notes(user, *, adopt=True):
         'native_url': _remote_url(),
         'remote_total': len(remote_notes),
         'local_total': len(local_items),
+        'canonical_skipped': canonical_skipped,
     }
 
 
@@ -696,7 +706,38 @@ def _visible_notes_for_user(user):
     ]
 
 
-def _json(resource, user=None):
+def _canonical_projection(resource, cache=None):
+    """Compare against the durable revision recorded after DAV readback.
+
+    Never run remote DAV or ACL operations while rendering the notebook.
+    """
+    from .canonical_projects import active, encode
+    from .canonical_models import CanonicalFile
+    if not resource.project_id or not active(resource.project):
+        return None
+    file = cache.get(resource.pk) if cache is not None else CanonicalFile.objects.filter(
+        project_id=resource.project_id, object_type='KnowledgeResource',
+        object_id=resource.pk, deleted=False,
+    ).only('etag', 'file_id', 'base_content').first()
+    if file and file.etag and file.file_id and file.base_content == encode(resource):
+        return {'sync_state': 'synced', 'sync_error': ''}
+    return {'sync_state': 'pending', 'sync_error': 'canonical_projection_unverified'}
+
+
+def _canonical_file_cache(resources):
+    from .canonical_projects import active
+    from .canonical_models import CanonicalFile
+    projects = {row.project_id for row in resources if row.project_id and active(row.project)}
+    if not projects:
+        return {}
+    return {file.object_id: file for file in CanonicalFile.objects.filter(
+        project_id__in=projects, object_type='KnowledgeResource',
+        object_id__in=[r.pk for r in resources if r.project_id in projects],
+        deleted=False,
+    ).only('object_id', 'etag', 'file_id', 'base_content')}
+
+
+def _json(resource, user=None, *, canonical_cache=None):
     mirror = _mirror(resource)
     space = _space(resource)
     viewer = user or resource.owner
@@ -707,8 +748,10 @@ def _json(resource, user=None):
     editable = bool(is_owner or (
         project and project.owner_id == getattr(viewer, 'pk', None)
     )) or can_edit(viewer, resource)
+    canonical = _canonical_projection(resource, canonical_cache)
     return {
         'id': resource.pk,
+        'storage_mode': 'canonical' if canonical else 'native_notes',
         'title': resource.title,
         'content': resource.body or '',
         'space': space,
@@ -725,16 +768,16 @@ def _json(resource, user=None):
         'owner_id': resource.owner_id,
         'owner_name': (resource.owner.first_name or resource.owner.email) if resource.owner else '',
         'can_edit': editable,
-        'sync_state': mirror.get('state') or ('pending' if not mirror.get('id') else 'synced'),
-        'sync_error': mirror.get('error') or '',
-        'remote_id': mirror.get('id'),
-        'remote_modified': mirror.get('modified') or 0,
-        'readonly': bool(mirror.get('readonly')) or not editable,
-        'can_resolve': editable and mirror.get('state') == 'conflict',
+        'sync_state': canonical['sync_state'] if canonical else (mirror.get('state') or ('pending' if not mirror.get('id') else 'synced')),
+        'sync_error': canonical['sync_error'] if canonical else (mirror.get('error') or ''),
+        'remote_id': None if canonical else mirror.get('id'),
+        'remote_modified': 0 if canonical else (mirror.get('modified') or 0),
+        'readonly': not editable if canonical else (bool(mirror.get('readonly')) or not editable),
+        'can_resolve': bool(not canonical and editable and mirror.get('state') == 'conflict'),
         # A native Notes record belongs to the resource owner's Nextcloud
         # identity. Shared project members work on the canonical note in
         # Gravitas; do not send them to someone else's private Notes surface.
-        'native_url': (_remote_url(mirror.get('id')) if mirror.get('id') else _remote_url()) if is_owner else None,
+        'native_url': None if canonical else ((_remote_url(mirror.get('id')) if mirror.get('id') else _remote_url()) if is_owner else None),
     }
 
 
@@ -812,7 +855,9 @@ def native_notes(request):
     except Exception as exc:
         available = False
         sync_result = {'counts': {'errors': 1}, 'error': str(exc), 'native_url': _remote_url()}
-    items = [_json(resource, request.user) for resource in _visible_notes_for_user(request.user)]
+    resources = _visible_notes_for_user(request.user)
+    file_cache = _canonical_file_cache(resources)
+    items = [_json(resource, request.user, canonical_cache=file_cache) for resource in resources]
     return JsonResponse({
         'ok': True,
         'available': available,
@@ -927,9 +972,6 @@ def native_note_detail(request, resource_id):
             'title' in data and persisted.title != str(data['title'] or '').strip()[:240]):
         return JsonResponse({'ok': False, 'error': 'note_readback_mismatch'}, status=409)
     item = _json(persisted, request.user)
-    if is_canonical:
-        item['sync_state'] = 'synced'
-        item['sync_error'] = ''
     if sync_error and item['sync_state'] != 'conflict':
         item['sync_state'] = 'error'
         item['sync_error'] = sync_error[:240]
@@ -948,6 +990,9 @@ def native_note_resolve(request, resource_id):
         return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
     if not can_edit(request.user, resource):
         return JsonResponse({'ok': False, 'error': 'permission_denied'}, status=403)
+    from .canonical_projects import active
+    if resource.project_id and active(resource.project):
+        return JsonResponse({'ok': False, 'error': 'canonical_note_uses_project_recovery'}, status=409)
     if _mirror(resource).get('state') != 'conflict':
         return JsonResponse({'ok': False, 'error': 'note_not_in_conflict'}, status=409)
 
@@ -993,8 +1038,48 @@ def native_note_resolve(request, resource_id):
 def native_notes_sync(request):
     if not request.user.is_authenticated:
         return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+    note_id = _body(request).get('note_id')
+    if note_id is not None:
+        # An explicit single-note action is bounded. A full-account native
+        # Notes reconciliation must never modify canonical project files.
+        resource = _resource_for_user(request.user, note_id)
+        if not resource:
+            return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
+        if not can_edit(request.user, resource):
+            return JsonResponse({'ok': False, 'error': 'permission_denied'}, status=403)
+        from .canonical_projects import active, export_object, CanonicalConflict
+        if resource.project_id and active(resource.project):
+            from .canonical_journal import canonical_operation
+            try:
+                with canonical_operation(request.user):
+                    resource = KnowledgeResource.objects.select_for_update().get(pk=resource.pk)
+                    export_object(resource, actor=request.user)
+            except CanonicalConflict as exc:
+                return JsonResponse({'ok': False, 'error': 'canonical_file_conflict',
+                                     'conflict': exc.detail}, status=409)
+            except (cloud.CloudError, ImproperlyConfigured) as exc:
+                logger.warning('Canonical note %s retry deferred: %s', resource.pk, exc)
+                return JsonResponse({'ok': False, 'error': 'canonical_sync_unavailable'}, status=503)
+            except (ValueError, ValidationError) as exc:
+                logger.warning('Canonical note %s retry invalid: %s', resource.pk, exc)
+                return JsonResponse({'ok': False, 'error': 'canonical_sync_invalid'}, status=409)
+            resource.refresh_from_db()
+            item = _json(resource, request.user)
+            if item['sync_state'] != 'synced':
+                return JsonResponse({'ok': False, 'error': 'canonical_readback_pending',
+                                     'item': item}, status=409)
+            return JsonResponse({'ok': True, 'item': item})
+        try:
+            sync_note_to_nextcloud(resource)
+        except NotesConflict as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=409)
+        except (NotesError, cloud.CloudError, ImproperlyConfigured):
+            return JsonResponse({'ok': False, 'error': 'notes_sync_unavailable'}, status=503)
+        resource.refresh_from_db()
+        return JsonResponse({'ok': True, 'item': _json(resource, request.user)})
     try:
         result = reconcile_notes(request.user)
-    except Exception as exc:
-        return JsonResponse({'ok': False, 'error': 'notes_sync_failed', 'detail': str(exc)}, status=503)
+    except Exception:
+        logger.exception('Native Notes reconciliation failed')
+        return JsonResponse({'ok': False, 'error': 'notes_sync_failed'}, status=503)
     return JsonResponse({'ok': True, **result})
