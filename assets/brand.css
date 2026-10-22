@@ -743,12 +743,18 @@ button.bk-tok:hover { border-color: var(--g-border-strong); }
 .bk-get__view--vertical .g-mark { max-width: 8.5rem; }
 .bk-get__view--brandmark .g-mark { max-width: 4.75rem; }
 .bk-get__view--wordmark .g-mark { max-width: 14rem; }
+/* A grid of fixed tracks, not a flex row: in a row the figures shrank to fit a
+   phone and the pictures went oval, because the img's width gave way and its
+   height did not. Six across, three by two once a row of six no longer fits. */
 .bk-get__view--pfp {
-  display: flex; justify-content: center; align-items: center; gap: var(--g-space-lg);
+  display: grid; grid-template-columns: repeat(6, 5.5rem); justify-content: center;
+  align-content: center; gap: var(--g-space-md); height: auto; min-height: 10rem;
   background: var(--g-surface-sunken); color: inherit;
 }
-.bk-get__view--pfp figure { margin: 0; display: grid; justify-items: center; gap: var(--g-space-2xs); }
-.bk-get__view--pfp img { width: 5.5rem; height: 5.5rem; border-radius: 50%; display: block; }
+@media (max-width: 760px) { .bk-get__view--pfp { grid-template-columns: repeat(3, 5.5rem); } }
+@media (max-width: 400px) { .bk-get__view--pfp { grid-template-columns: repeat(3, 4.5rem); gap: var(--g-space-sm); } }
+.bk-get__view--pfp figure { margin: 0; display: grid; justify-items: center; gap: var(--g-space-2xs); min-width: 0; }
+.bk-get__view--pfp img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 50%; display: block; }
 .bk-get__view--pfp figcaption { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 .bk-get__body { display: flex; flex-direction: column; gap: var(--g-space-2xs); flex: 1; padding: var(--g-space-md); }
 .bk-get__body h4 { margin: 0; }
