@@ -80,3 +80,189 @@ jobs:
             -f state="$STATE" -f context="gravitas/diagnostics" \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             -f description="Read-only production diagnostic job: $STATE" > /dev/null || true
+
+  php-hotfix-apply:
+    name: Patch production Nextcloud PHP with verified backup
+    needs: collect
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[apply-php-security-hotfix]') && needs.collect.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare safe SSH access
+        shell: bash
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          PORT="$(printf '%s' "$SSH_PORT")"; [ -n "$PORT" ] || PORT=22
+          USER="$(printf '%s' "$SSH_USER")"; [ -n "$USER" ] || USER=deploy
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/security-key
+          chmod 600 ~/.ssh/security-key
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          if ! ssh -i ~/.ssh/security-key -p "$PORT" -o BatchMode=yes "$USER@$SSH_HOST" 'sudo -n true' 2>/dev/null; then
+            if [ "$USER" != root ] && ssh -i ~/.ssh/security-key -p "$PORT" -o BatchMode=yes "root@$SSH_HOST" 'true' 2>/dev/null; then
+              USER=root
+            else
+              echo "::error::SSH/sudo unavailable; production unchanged."
+              exit 1
+            fi
+          fi
+          echo "SECURITY_HOST=$SSH_HOST" >> "$GITHUB_ENV"
+          echo "SECURITY_USER=$USER" >> "$GITHUB_ENV"
+          echo "SECURITY_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Pull patched image, checkpoint, replace safely, verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          REMOTE="/tmp/gravitas-security-checkpoint-$GITHUB_RUN_ID.py"
+          scp -i ~/.ssh/security-key -P "$SECURITY_PORT" ops/canonical_checkpoint.py \
+            "$SECURITY_USER@$SECURITY_HOST:$REMOTE"
+          ssh -i ~/.ssh/security-key -p "$SECURITY_PORT" -o BatchMode=yes \
+            "$SECURITY_USER@$SECURITY_HOST" \
+            "sudo bash -s -- '$REMOTE' '$GITHUB_RUN_ID'" <<'PATCH'
+          set -Eeuo pipefail
+          CHECKPOINT_SCRIPT="$1"
+          RUN_ID="$2"
+          exec 9>/run/gravitas-nextcloud-security.lock
+          flock -n 9 || { echo "::error::Another PHP update is running"; exit 1; }
+          trap 'rm -f "$CHECKPOINT_SCRIPT"' EXIT
+          OLD_NAME="gravitas-nextcloud-before-php-fix-$RUN_ID"
+          test "$(docker inspect -f '{{.State.Running}}' gravitas-nextcloud)" = true
+          test "$(docker inspect -f '{{.State.Running}}' gravitas-nextcloud-db)" = true
+          test "$(docker inspect -f '{{.Config.Image}}' gravitas-nextcloud)" = nextcloud:stable-apache
+          OLD_PHP="$(docker exec gravitas-nextcloud php -r 'echo PHP_VERSION;')"
+          OLD_NC="$(docker exec -u www-data gravitas-nextcloud php occ status --output=json | python3 -c 'import sys,json; print(json.load(sys.stdin)["version"])')"
+          echo "current_php=$OLD_PHP current_nextcloud=$OLD_NC"
+          if [ "$OLD_PHP" = 8.5.12 ]; then echo "ALREADY_PATCHED"; exit 0; fi
+
+          # Do not touch the running container until the pulled image is verified.
+          docker pull nextcloud:stable-apache >/dev/null
+          NEW_IMAGE="$(docker image inspect -f '{{.Id}}' nextcloud:stable-apache)"
+          NEW_PHP="$(docker run --rm --entrypoint php nextcloud:stable-apache -r 'echo PHP_VERSION;')"
+          NEW_NC="$(docker run --rm --entrypoint php nextcloud:stable-apache -r 'include "/usr/src/nextcloud/version.php"; echo implode(".", $OC_Version);')"
+          echo "candidate_php=$NEW_PHP candidate_nextcloud=$NEW_NC"
+          old_php="$OLD_PHP" new_php="$NEW_PHP" old_nc="$OLD_NC" new_nc="$NEW_NC" python3 - <<'PY'
+          import os,sys
+          old_php=tuple(map(int,os.environ['old_php'].split('.')))
+          new_php=tuple(map(int,os.environ['new_php'].split('.')))
+          old_nc=tuple(map(int,os.environ['old_nc'].split('.')))
+          new_nc=tuple(map(int,os.environ['new_nc'].split('.')))
+          if new_php < (8,5,12):
+              sys.exit('SECURITY BLOCK: official image not patched yet; production untouched')
+          if new_php < old_php or new_nc[0] != old_nc[0] or new_nc < old_nc:
+              sys.exit('SECURITY BLOCK: incompatible Nextcloud image; production untouched')
+          PY
+          test "$(df -Pk / | awk 'END {print $4}')" -gt 15728640 || {
+            echo "::error::Disk space insufficient for verified checkpoint"; exit 1;
+          }
+
+          # Native verified snapshot includes app files, ACLs, both databases,
+          # backend and Nextcloud volume. Failure automatically resumes writers.
+          CHECKPOINT_LOG="$(python3 "$CHECKPOINT_SCRIPT" backup --apply)"
+          CHECKPOINT_PATH="$(printf '%s\n' "$CHECKPOINT_LOG" | sed -n 's/^Checkpoint: //p')"
+          test -n "$CHECKPOINT_PATH" && test -d "$CHECKPOINT_PATH"
+          python3 "$CHECKPOINT_SCRIPT" verify --checkpoint "$CHECKPOINT_PATH" --apply
+          python3 "$CHECKPOINT_SCRIPT" rehearse --checkpoint "$CHECKPOINT_PATH" --apply
+          echo "CHECKPOINT_AND_ISOLATED_RESTORE_PASSED"
+
+          # Prevent native cron/Notes/Deck writes while container is replaced.
+          STOPPED_TIMERS=""
+          for unit in gravitas-nextcloud-cron.timer gravitas-nextcloud-backup.timer gravitas-nextcloud-mirror.timer gravitas-nextcloud-notes-mirror.timer; do
+            if systemctl is-active --quiet "$unit"; then
+              systemctl stop "$unit"
+              STOPPED_TIMERS="$STOPPED_TIMERS $unit"
+            fi
+          done
+          resume_timers() {
+            for unit in $STOPPED_TIMERS; do systemctl start "$unit" || true; done
+          }
+          SWAPPED=0
+          rollback() {
+            code="$?"
+            trap - ERR
+            if [ "$SWAPPED" -eq 1 ]; then
+              echo "::warning::New image failed validation; rollback to verified checkpoint"
+              docker stop gravitas-nextcloud >/dev/null 2>&1 || true
+              docker rm gravitas-nextcloud >/dev/null 2>&1 || true
+              docker rename "$OLD_NAME" gravitas-nextcloud
+              if ! python3 "$CHECKPOINT_SCRIPT" restore --checkpoint "$CHECKPOINT_PATH" --apply; then
+                docker stop gravitas-nextcloud >/dev/null 2>&1 || true
+                echo "::error::Rollback failed; container left stopped to avoid serving inconsistent data."
+              fi
+            elif docker inspect "$OLD_NAME" >/dev/null 2>&1; then
+              docker rename "$OLD_NAME" gravitas-nextcloud
+              docker start gravitas-nextcloud >/dev/null
+              docker exec -u www-data gravitas-nextcloud php occ maintenance:mode --off >/dev/null || true
+            else
+              docker exec -u www-data gravitas-nextcloud php occ maintenance:mode --off >/dev/null 2>&1 || true
+            fi
+            resume_timers
+            exit "$code"
+          }
+          trap rollback ERR
+          docker exec -u www-data gravitas-nextcloud php occ maintenance:mode --on >/dev/null
+          docker stop gravitas-nextcloud >/dev/null
+          docker rename gravitas-nextcloud "$OLD_NAME"
+          set -a
+          . /etc/gravitas/nextcloud.env
+          set +a
+          docker run -d --name gravitas-nextcloud --restart unless-stopped \
+            --network gravitas-nextcloud -p 127.0.0.1:8081:80 \
+            -e POSTGRES_HOST=gravitas-nextcloud-db \
+            -e POSTGRES_DB=nextcloud -e POSTGRES_USER=nextcloud \
+            -e POSTGRES_PASSWORD="$NC_DB_PASSWORD" \
+            -e REDIS_HOST=gravitas-nextcloud-redis \
+            -e NEXTCLOUD_ADMIN_USER="$NC_ADMIN_USER" \
+            -e NEXTCLOUD_ADMIN_PASSWORD="$NC_ADMIN_PASSWORD" \
+            -e NEXTCLOUD_TRUSTED_DOMAINS=graviquest.com \
+            -e TRUSTED_PROXIES=172.16.0.0/12 \
+            -e OVERWRITEHOST=graviquest.com \
+            -e OVERWRITEPROTOCOL=https -e OVERWRITEWEBROOT=/nextcloud \
+            -e OVERWRITECLIURL=https://graviquest.com/nextcloud \
+            -v gravitas_nextcloud_html:/var/www/html \
+            "$NEW_IMAGE" >/dev/null
+          SWAPPED=1
+          READY=0
+          for i in $(seq 1 90); do
+            if docker exec -u www-data gravitas-nextcloud php occ status --output=json 2>/dev/null \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get("installed") and not d.get("needsDbUpgrade") else 1)' 2>/dev/null; then
+              READY=1; break
+            fi
+            sleep 3
+          done
+          test "$READY" -eq 1
+          ACTUAL_PHP="$(docker exec gravitas-nextcloud php -r 'echo PHP_VERSION;')"
+          test "$ACTUAL_PHP" = "$NEW_PHP"
+          for app in groupfolders notes deck; do
+            docker exec -u www-data gravitas-nextcloud php occ app:list --enabled \
+              | grep -E "^[[:space:]]*-[[:space:]]+$app:" >/dev/null
+          done
+          docker exec -u www-data gravitas-nextcloud php occ maintenance:mode --off >/dev/null
+          curl -fsS --max-time 20 http://127.0.0.1:8081/status.php \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d.get("installed") and not d.get("maintenance")'
+          trap - ERR
+          resume_timers
+          echo "PATCH_APPLIED nextcloud_php=$ACTUAL_PHP"
+          echo "Nextcloud native apps: groupfolders notes deck verified"
+          echo "Original container retained stopped: $OLD_NAME"
+          PATCH
+
+      - name: Public endpoint health
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 25 https://cloud.graviquest.com/status.php \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d.get("installed") and not d.get("maintenance"); print("Public Nextcloud health passed")'
