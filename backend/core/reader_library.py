@@ -21,7 +21,7 @@ duplicating a row or resurrecting something the reader has since removed.
 WHY THE ROWS CARRY A SNAPSHOT RATHER THAN A FOREIGN KEY
 
 Most of what is savable on the public site is static HTML — `dossiers`,
-`topic-*`, `path-*` and the magazine entries are hand-authored pages, not
+`topic-*`, `path-*` and the essay entries are hand-authored pages, not
 `ContentItem` rows. A saved item therefore cannot be a foreign key without
 excluding most of the site, so the client sends the title, the URL and the
 small `meta` bag the card was rendered from. The consequence to keep in

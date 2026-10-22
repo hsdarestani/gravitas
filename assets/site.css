@@ -881,7 +881,7 @@ a.callout:hover { background: var(--g-surface); border-color: var(--g-border); b
 .lp-social__link svg { width: 1.25rem; height: 1.25rem; display: block; }
 
 
-/* ---- reading level on magazine entries --------------------------------
+/* ---- reading level on essay entries --------------------------------
    In Overview the technical pieces stay in the list but step back, and say
    why. Hard-hiding them makes the page look broken when the count drops. */
 .entry__lvl {
@@ -997,7 +997,7 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 /* ---- where the chip sits on its card ------------------------------------
    A floating chip reads as debris unless it lines up with something. It was
    pinned .7rem from the card's corner, which is inside the card's own padding
-   and so lines up with nothing: on a magazine entry it floated above the
+   and so lines up with nothing: on an essay entry it floated above the
    ANALYSIS eyebrow, on a path card above the step count, and on a game card it
    sat in the dead space under the meta line.
 
@@ -1467,7 +1467,7 @@ ul.stance { list-style: none; }
 /* =========================================================================
    LONG-FORM READING COMFORT
    -------------------------------------------------------------------------
-   Topics and Magazine pieces are supposed to be dense, that is the product,
+   Topics and Essays pieces are supposed to be dense, that is the product,
    and cutting them would be cutting the thing people came for. So the fix on
    these pages is not fewer words but a page that is easier to hold: a shorter
    measure, more air between ideas than inside them, headings that announce

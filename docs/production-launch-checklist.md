@@ -21,7 +21,7 @@
 - [x] First-party KPI endpoint for staff.
 - [x] CMS/Admin base for articles, dossiers, learning paths and labs.
 - [x] Published-only public CMS API.
-- [x] Live CMS renderer connected to Dossiers, Magazine, Learn and Lab.
+- [x] Live CMS renderer connected to Dossiers, Essays, Learn and Lab.
 - [ ] Move/retire remaining static prototype editorial blocks once real CMS content is populated.
 
 ## Launch blockers

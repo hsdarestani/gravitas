@@ -99,7 +99,7 @@ export function installAssistant(ctx) {
     placeholder: 'Ask Pulsar about these pages',
     foot: 'Answers cite their pages. Check anything that matters.',
     // Its own key: a conversation about a private dossier should not appear
-    // as a tab on the public magazine.
+    // as a tab on the public Essays page.
     storageKey: 'gchat.workspace.tabs.v1',
     navigate: (href) => context.go(href),
     ask,

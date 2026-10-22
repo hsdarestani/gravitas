@@ -43,9 +43,9 @@
       l: [['Browse Topics', 'topics.html'], ['See a finished one', 'topic-computable-universe.html']]
     },
     {
-      k: 'magazine article essay read writing archive blog',
-      a: 'The Magazine is the written side: narrative and analytical pieces that stand on their own rather than supporting a video. Most run 8–20 minutes.',
-      l: [['Magazine', 'magazine.html']]
+      k: 'essays essay magazine article read writing archive blog',
+      a: 'Essays is the written side: narrative and analytical pieces that stand on their own rather than supporting a video. Most run 8–20 minutes.',
+      l: [['Essays', 'magazine.html']]
     },
     {
       k: 'lab game simulation interactive play experiment tool sandbox try',
@@ -146,7 +146,7 @@
      its own ask(), which answers from the reader's pages and cites them, its
      own router for the links those answers carry, and its own storage key, so
      a workspace conversation about a dossier never shows up as a tab on the
-     magazine and the other way round. */
+     Essays page and the other way round. */
   var DEFAULTS = {
     title: 'Ask Pulsar',
     greeting: 'Hello. I know what is on this site and where to find it: Topics, the Lab, learning paths, the community, accounts. What are you after?',

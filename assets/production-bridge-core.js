@@ -431,7 +431,7 @@
 
      Only the five real item families, recognised by page-slug prefix. This
      matters more than it looks: the home page uses `.entry` for cards that
-     point at section indexes — Magazine, Lab, Learn — and a "save" on those
+     point at section indexes — Essays, Lab, Learn — and a "save" on those
      would mean saving a list, which is not a thing a reader ever wants back.
      ========================================================================== */
 

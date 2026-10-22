@@ -409,7 +409,7 @@
       (tags.length ? '<div class="pill-row g-mt-md">' + tags.map(function (tag) { return '<span class="g-tag">' + esc(tag) + '</span>'; }).join('') + '</div>' : '') +
       '</div></section>' +
       '<div class="topic-nav"><div class="g-container"><nav class="topic-nav__row" aria-label="In this topic">' +
-      '<a href="#video">Video</a><a href="#essay">Essay</a><a href="#sources">Sources</a><a href="#timeline">Timeline</a><a href="#sim">Simulation</a><a href="#views">Viewpoints</a><a href="#talk">Discussion</a>' +
+      '<a href="#video">Video</a><a href="#essay">Essay</a><a href="#sources">Sources</a><a href="#timeline">Timeline</a><a href="#sim">Lab</a><a href="#views">Viewpoints</a><a href="#talk">Discussion</a>' +
       '</nav></div></div><div class="g-container">' +
       renderVideos(data) + renderEssays(data) + renderSources(data) + renderTimeline(data) +
       renderSimulations(data) + renderViewpoints(data) + renderDiscussion() + '</div>';

@@ -47,7 +47,7 @@ Recognised by page-slug prefix, which is also the kind:
 | `game-` | lab / interactive |
 
 Anything else gets no control. This matters on the home page, which uses
-`.entry` for cards pointing at section indexes — Magazine, Lab, Learn — and a
+`.entry` for cards pointing at section indexes — Essays, Lab, Learn — and a
 "save" on one of those would mean saving a list.
 
 ## Storage, and the two keys

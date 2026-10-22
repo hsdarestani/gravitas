@@ -33,7 +33,7 @@
         if (!item || item.kind !== 'article') throw new Error('not_article');
         var main = document.getElementById('main');
         main.innerHTML =
-          '<section class="page-head"><div class="g-container"><p class="crumb"><a href="magazine.html">Magazine</a></p>' +
+          '<section class="page-head"><div class="g-container"><p class="crumb"><a href="magazine.html">Essays</a></p>' +
           '<h1>' + esc(item.title) + '</h1><p class="g-lead">' + esc(item.summary || '') + '</p></div></section>' +
           '<section class="g-section"><div class="g-container"><article class="g-prose" data-cms-article></article></div></section>';
         var article = main.querySelector('[data-cms-article]');
@@ -129,7 +129,7 @@
   function community() {
     if (location.pathname !== '/community.html') return;
     var roles = [
-      ['Viewers (Public)', 'Read public Topics, Magazine, Learning Paths and Labs without a member workspace.'],
+      ['Viewers (Public)', 'Read public Topics, Essays, Learning Paths and Labs without a member workspace.'],
       ['Members', 'Save content, comment, vote and track personal Topic progress.'],
       ['Learners', 'Members with Learning access: courses, assessments, certificates and learning progress.'],
       ['Researchers', 'Members with Research access: research projects, evidence, journal and collaboration.'],

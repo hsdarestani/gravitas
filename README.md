@@ -10,7 +10,7 @@ dossier-computable-universe.html  A full worked dossier — all seven layers
 dossier-machine-hypothesis.html   Dossier 03 — the roadmap's starting topic
 account.html                      Sign in / create an account
 magazine.html                     Article archive
-article-hypothesis-or-sentence.html  A full article — the Magazine template
+article-hypothesis-or-sentence.html  A full article — the Essays template
 lab.html                          Interactive lab
 game-hypothesis-machine.html      A game you can actually play
 learn.html                        The four learning paths
@@ -60,7 +60,7 @@ pages, and neither version is a teaser — both are the whole argument.
 
 ## Navigation
 
-Five items: **Dossiers · Magazine · Lab · Learn · Community**
+Five items: **Dossiers · Essays · Lab · Learn · Community**
 
 The roadmap lists six spaces, but Newsletter is an *action*, not a place, so it
 is a persistent CTA in the header and footer rather than a nav slot. There is
@@ -109,17 +109,17 @@ than pretending to be live.
 **The depth switch is now contextual.** It was rendering on all eleven pages but
 only doing something on one. A persistent control that is inert nine times out of
 eleven teaches people to ignore it, and then it is invisible on the pages where
-it matters. It now appears only on the dossier and the magazine — the two places
+it matters. It now appears only on the dossier and the essays — the two places
 that respond to it.
 
-**The magazine gained a second axis.** Depth now works there as reading level
+**Essays gained a second axis.** Depth now works there as reading level
 alongside the topic filters: technical pieces recede in Overview and come forward
 In depth. They are dimmed rather than hidden, because a list whose count silently
 drops looks broken.
 
 **A real article page.** `article-hypothesis-or-sentence.html` is the lead essay
 built out — two depths, its own graded sources, and a hand-off to the dossier,
-the game and the open question. It doubles as the Magazine template.
+the game and the open question. It doubles as the Essays template.
 
 **Nothing is a dead click any more.** Cards for content that does not exist yet
 keep their place, but lose their `href`, gain a **Planned** chip, and cannot be
@@ -210,7 +210,7 @@ thing on the page — and reads as a value you are about to test. Both dossier
 simulations were pinned to the top of their panel and are now vertically centred
 (20px above and below).
 
-**Removed:** the Overview / In depth control from the Magazine; "English first"
+**Removed:** the Overview / In depth control from the Essays page; "English first"
 from the footer and About.
 
 
@@ -270,7 +270,7 @@ Telegram. About's introduction cut to about a third, team cards enlarged with
 LinkedIn and Google Scholar links. The host's comment restored in Dossier 04.
 Sign-in row separated from the submit button. The community's "How it works"
 card now sits level with the poll (0px difference). The join block reduced to one
-dominant line and one quiet answer. The magazine drop cap set to a true two-line
+dominant line and one quiet answer. The essays drop cap set to a true two-line
 cap, so nothing is left hanging under it.
 
 ---

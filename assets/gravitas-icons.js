@@ -96,7 +96,7 @@
     report: "<g transform=\"translate(-0.360 -0.360) scale(1.030000)\" stroke-width=\"1.650\"><path d=\"M8.6 4H6.6a2 2 0 0 0-2 2v13.4a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2\"/><rect x=\"8.6\" y=\"2.4\" width=\"6.8\" height=\"3.4\" rx=\"1.2\"/><path d=\"M8.4 11h7.2\"/><path d=\"M8.4 14.6h4.6\"/><circle cx=\"15.4\" cy=\"17.6\" r=\"1.553\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     /* Five workspace destinations are the public sections themselves seen
-       from inside: Topics, Magazine, the Interactive Lab, Learning Paths and
+       from inside: Topics, Essays, the Interactive Lab, Learning Paths and
        the Newsletter. They take the product-set mark exactly as the site
        draws it, transform and all, so a reader who knows the Lab flask from
        the footer finds the same flask on the admin row for it. Copied, not
