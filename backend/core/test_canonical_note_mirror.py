@@ -85,10 +85,12 @@ class CanonicalNoteMirrorTests(CanonicalProjectTests):
         note = KnowledgeResource.objects.select_related('project').get(pk=self.note.pk)
         file = CanonicalFile.objects.get(project=self.project, object_type='KnowledgeResource',
                                          object_id=note.pk)
-        remote = self.dav.files[file.path if file.path.startswith('project/') else 'project/' + file.path]
+        from . import cloud
+        remote_path = cloud.project_mountpoint(self.project) + '/' + file.path
+        remote = self.dav.files[remote_path]
         # Two competing modifications to the same base must not be force-merged.
         KnowledgeResource.objects.filter(pk=note.pk).update(body='local conflicting edit')
-        self.dav.external('project/' + file.path, remote['content'].replace(note.body, 'remote conflicting edit'))
+        self.dav.external(remote_path, remote['content'].replace(note.body, 'remote conflicting edit'))
         response = self.client.post('/api/platform/nextcloud/notes/sync/',
                                     data=json.dumps({'note_id': note.pk}),
                                     content_type='application/json')
