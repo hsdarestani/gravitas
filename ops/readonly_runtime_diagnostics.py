@@ -1,5 +1,6 @@
 """Read-only, privacy-sparing production diagnostics for HTTP 500 and Nextcloud locks.
 Post-security-hotfix runtime verification: always capture actual running PHP, not CI status.
+Independent post-patch inspection 2026-10-22: validate running container after update.
 
 Runs under a restricted deploy SSH session. Never outputs request paths,
 cookies, credentials, payloads, note bodies, filenames or full log lines.
