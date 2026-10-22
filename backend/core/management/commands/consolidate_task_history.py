@@ -95,7 +95,7 @@ class Command(BaseCommand):
         parser.add_argument('--audit-output', type=Path)
 
     def handle(self, *args, **kwargs):
-        plan_path = kwargs['plan']
+        plan_path = Path(kwargs['plan'])
         raw = plan_path.read_bytes()
         plan_sha = hashlib.sha256(raw).hexdigest()
         if kwargs['apply'] and plan_sha != kwargs['expected_plan_sha']:
@@ -105,7 +105,7 @@ class Command(BaseCommand):
         if payload.get('schema') != 1 or not isinstance(pairs, list) or not 0 < len(pairs) <= 25:
             raise CommandError('invalid_or_excessive_plan')
         all_ids = sorted({x[k] for x in pairs for k in ('source', 'target')})
-        audit_output = kwargs.get('audit_output')
+        audit_output = Path(kwargs['audit_output']) if kwargs.get('audit_output') else None
         if kwargs['apply'] and (not audit_output or not audit_output.is_absolute()):
             raise CommandError('absolute_private_audit_output_required')
 
