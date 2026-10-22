@@ -609,7 +609,7 @@ def php_runtime_security():
         "sudo", "-n", "docker", "exec", "gravitas-nextcloud",
         "php", "-r", "echo PHP_VERSION;", timeout=15,
     ).strip()
-    match = re.fullmatch(r"(\\d+)\\.(\\d+)\\.(\\d+)", php)
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", php)
     print("nextcloud_php_version", php if match else "unknown")
     fixed = {(8, 2): 35, (8, 3): 36, (8, 4): 27, (8, 5): 12}
     if match:
@@ -626,7 +626,7 @@ def php_runtime_security():
     # CLI and web PHP use the same runtime image for this Nextcloud container,
     # but downstream image maintainers can backport fixes without bumping PHP_VERSION.
     host_php = run("php", "-r", "echo PHP_VERSION;", timeout=8).strip()
-    print("host_php_version", host_php if re.fullmatch(r"\\d+\\.\\d+\\.\\d+", host_php) else "not_found")
+    print("host_php_version", host_php if re.fullmatch(r"\d+\.\d+\.\d+", host_php) else "not_found")
     workers = run("pgrep", "-fc", "php-fpm", timeout=5).strip()
     print("host_php_fpm_processes", workers if workers.isdecimal() else "unknown")
 
