@@ -21,7 +21,7 @@
 
 import * as notes from './ws-notes-store.js?v=20261016-task1';
 import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261016-task1&patch=20261020toolsave1';
-import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261022canonicalnote1';
+import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261016-task1&patch=20261022canonicalnote1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261020onecall5';
 import { renderCoreTeam } from './ws-core-team.js?v=20261016-task1';
 import { renderCoreContent } from './ws-core-content-actions.js?v=20261016-task1';
