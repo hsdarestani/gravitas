@@ -192,6 +192,67 @@
     }
   }
 
+  /* ---- join band: rotating verb -----------------------------------------
+     "Research with us", then Build, Question, Translate... The HTML carries
+     the first verb as plain text, so no script and reduced motion both leave
+     a complete sentence. The rotation pauses while
+     the band is off screen or the tab is hidden: nobody is reading it then. */
+  var verb = document.querySelector('.join__verb[data-verbs]');
+  if (verb && !reduce && 'IntersectionObserver' in window) {
+    var verbs = verb.getAttribute('data-verbs').split('|');
+    var heading = verb.closest('h2');
+    if (heading) heading.setAttribute('aria-label',
+      verbs.slice(0, -1).map(function (v, i) { return i ? v.toLowerCase() : v; }).join(', ') +
+      ' or ' + verbs[verbs.length - 1].toLowerCase() + ' with us');
+
+    var sizer = document.createElement('span');
+    sizer.className = 'join__sizer';
+    var spell = function (text) {
+      var w = document.createElement('span');
+      w.className = 'join__word';
+      text.split('').forEach(function (c, i) {
+        var ch = document.createElement('span');
+        ch.className = 'join__ch'; ch.textContent = c; ch.style.setProperty('--i', i);
+        w.appendChild(ch);
+      });
+      return w;
+    };
+    var at = 0, current = spell(verbs[0]), timer = 0, visible = false;
+    sizer.textContent = verbs[0];
+    verb.textContent = '';
+    verb.setAttribute('aria-hidden', 'true');
+    verb.appendChild(sizer); verb.appendChild(current);
+    var fit = function () { verb.style.width = sizer.getBoundingClientRect().width + 'px'; };
+    fit();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    window.addEventListener('resize', fit);
+    requestAnimationFrame(function () { verb.classList.add('is-live'); });
+
+    var next = function () {
+      at = (at + 1) % verbs.length;
+      var old = current;
+      old.classList.add('is-leave');
+      setTimeout(function () { old.remove(); }, 900);
+      current = spell(verbs[at]);
+      current.classList.add('is-enter');
+      verb.appendChild(current);
+      sizer.textContent = verbs[at];
+      fit();
+      current.getBoundingClientRect();
+      // Let the outgoing word clear a little before the new one rises.
+      var incoming = current;
+      setTimeout(function () { incoming.classList.remove('is-enter'); }, 140);
+    };
+    var run = function () {
+      clearInterval(timer); timer = 0;
+      if (visible && !document.hidden) timer = setInterval(next, 2600);
+    };
+    new IntersectionObserver(function (es) {
+      visible = es[0].isIntersecting; run();
+    }).observe(verb);
+    document.addEventListener('visibilitychange', run);
+  }
+
   /* ---- archive filtering ------------------------------------------------
      Type chips plus free text, combined. The count is announced so the result
      of a filter is never ambiguous. */

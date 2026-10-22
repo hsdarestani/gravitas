@@ -466,6 +466,24 @@ body.is-deep     [data-level="overview"] { display: none; }
   color: var(--g-accent); display: inline-flex; align-items: center; gap: .35rem;
 }
 .space:hover .space__go { color: var(--g-text); }
+/* Sections still being built keep their place in the set, so the order and
+   the numbering stay honest, but they stop being links: a card that opens a
+   half-made page promises more than it delivers. Dimmed, no lift on hover,
+   and "Coming Soon" where "Enter" would be. */
+.space--soon { cursor: default; }
+.space--soon:hover { transform: none; border-color: var(--g-hairline); }
+.space--soon:hover .space__ic { border-color: var(--g-hairline); background: none; }
+.space--soon h3, .space--soon p, .space--soon .space__ic { opacity: .55; }
+.space__go--soon { color: var(--g-text-subtle); letter-spacing: .08em; text-transform: uppercase; }
+.space--soon:hover .space__go { color: var(--g-text-subtle); }
+/* The same sections in the footer: the row keeps the link layout but is a
+   plain span, with a small pill in place of a destination. */
+.g-footer .g-foot-soon { display: flex; align-items: center; gap: var(--g-space-2xs);
+  color: var(--g-text-subtle); cursor: default; }
+.g-soon { font-family: var(--g-font-mono); font-size: .62rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--g-text-subtle);
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius-pill);
+  padding: .1rem .45rem; margin-left: .15rem; white-space: nowrap; }
 
 /* ---------- filter bar --------------------------------------------------- */
 .filters { display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); align-items: center; margin-bottom: var(--g-space-lg); }
@@ -1094,6 +1112,23 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
   letter-spacing: .1em; text-transform: uppercase; color: var(--g-text-muted);
   border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);
   padding: .34rem .85rem; cursor: default; }
+/* The rotating verb. It used to say "argue", which reads as a fight to anyone
+   who hasn't met us; the line now cycles through what members actually do.
+   The box animates its width so
+   " with us" glides rather than jumps, and each word is split into letters that
+   rise in and drift out on a short stagger (site.js builds the structure; with
+   no script, or with reduced motion, the static first verb stands alone). */
+.join__verb { display: inline-block; position: relative; color: var(--g-accent);
+  white-space: nowrap; vertical-align: bottom; }
+.join__verb.is-live { transition: width .7s cubic-bezier(.22, 1, .36, 1); }
+.join__sizer { visibility: hidden; }
+.join__word { position: absolute; left: 50%; top: 0; transform: translateX(-50%); perspective: 600px; }
+.join__ch { display: inline-block;
+  transition: transform .75s cubic-bezier(.22, 1, .36, 1), opacity .5s ease, filter .5s ease;
+  transition-delay: calc(var(--i) * 32ms); }
+.join__word.is-enter .join__ch { opacity: 0; transform: translateY(.42em) rotateX(-70deg); filter: blur(6px); }
+.join__word.is-leave .join__ch { opacity: 0; transform: translateY(-.32em) rotateX(60deg); filter: blur(6px);
+  transition-duration: .45s, .35s, .35s; }
 .join__act { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; }
 .join__fine { font-family: var(--g-font); font-size: var(--g-fs-caption);
   color: var(--g-text-subtle); margin: var(--g-space-md) 0 0; }
