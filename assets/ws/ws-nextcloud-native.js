@@ -489,6 +489,8 @@ function mountNotebook(host, info, state) {
     if (book.editor?.dirty()) {
       book.editor.flush();
       setStatus('Finish saving this note before verifying its project file.', 'warn');
+      sync.disabled = false;
+      delete sync.dataset.busy;
       return;
     }
     const selected = current();
