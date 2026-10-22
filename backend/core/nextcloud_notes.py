@@ -597,11 +597,14 @@ def reconcile_notes(user, *, adopt=True):
         KnowledgeResource.objects.filter(owner=user, kind=KnowledgeResource.Kind.NOTE)
         .select_related('project').order_by('pk')
     )
-    from .canonical_projects import active
-    local_items = [item for item in all_local_items if _allowed_space(user, _space(item))
-                   and not (item.project_id and active(item.project))]
-    canonical_skipped = sum(bool(item.project_id and active(item.project))
-                            for item in all_local_items if _allowed_space(user, _space(item)))
+    from .canonical_models import CanonicalProject
+    project_ids = {item.project_id for item in all_local_items if item.project_id}
+    canonical_ids = set(CanonicalProject.objects.filter(
+        project_id__in=project_ids, enabled=True,
+    ).values_list('project_id', flat=True)) if project_ids else set()
+    accessible = [item for item in all_local_items if _allowed_space(user, _space(item))]
+    local_items = [item for item in accessible if item.project_id not in canonical_ids]
+    canonical_skipped = len(accessible) - len(local_items)
     mapped_ids = {
         int(value)
         for resource in all_local_items
