@@ -133,8 +133,6 @@ class TaskFolderUiContractTests(SimpleTestCase):
             "file.addEventListener('change'", "task-card-dialog__history",
             "const resourceSection = el('section', 'task-card-dialog__resources')",
             "resourceHeader.append(resourceTitle, addResource)",
-            "const advancedComments = el('div', 'task-card-dialog__advanced-comments')",
-            "relatedBlock.append(advancedComments)",
             "external-links/",
             "const changedRelations = new Set()", "changedRelations.has(name)",
             "payload[name] = control.value ? Number(control.value) : null",
@@ -147,3 +145,9 @@ class TaskFolderUiContractTests(SimpleTestCase):
         self.assertNotIn("Mention teammates", source)
         self.assertNotIn("They will be notified in GraviQuest", source)
         self.assertNotIn("No comments yet.", source)
+        # Task conversations are a single threaded comment stream. The
+        # unrelated line-annotation storage remains untouched for notes.
+        self.assertNotIn('mountAnchoredComments', source)
+        self.assertNotIn('task-card-dialog__advanced-comments', source)
+        self.assertIn("const commentsPanel = panel('Comments')", source)
+        self.assertIn('P.addOperatingTaskComment(task.id, comment.value.trim(), mentionUserIds)', source)

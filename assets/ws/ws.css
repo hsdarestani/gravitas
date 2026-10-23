@@ -4214,21 +4214,8 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   }
   .task-card-dialog__resource-editor .v-input { min-width: 0; }
   .task-card-dialog__resource-editor[hidden],
-  .task-card-dialog__resource-add[hidden],
-  .task-card-dialog__advanced-comments .ws-line-comments[hidden] {
+  .task-card-dialog__resource-add[hidden] {
     display: none !important;
-  }
-  .task-card-dialog__advanced-comments { padding: 8px 0; }
-  .task-card-dialog__advanced-comments > button {
-    border: 0;
-    padding: 4px 0;
-    background: transparent;
-    color: var(--g-text-muted);
-  }
-  .task-card-dialog__advanced-comments .ws-line-comments {
-    padding: 7px 0;
-    border: 0;
-    background: transparent;
   }
   @media (max-width: 680px) {
     .task-card-dialog__resource-editor { grid-template-columns: minmax(0, 1fr); }
