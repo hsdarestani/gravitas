@@ -1037,29 +1037,45 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       };
       const familyPath = el('nav', 'task-family__path');
       familyPath.setAttribute('aria-label', 'Task location');
-      const pathStep = (caption, action, current = false) => {
-        const item = el(current ? 'span' : 'button', 'task-family__crumb', caption);
-        if (!current) {
-          item.type = 'button';
-          item.addEventListener('click', action);
-        } else item.setAttribute('aria-current', 'page');
-        familyPath.append(item);
-        if (!current) familyPath.append(el('span', 'task-family__separator', '›'));
-      };
-      if (task.trace?.objective?.id)
-        pathStep(task.trace.objective.title || 'Objective',
-          () => navPlan('objective', task.trace.objective.id));
-      if (task.trace?.key_result?.id)
-        pathStep(task.trace.key_result.title || 'KR',
-          () => navPlan('key_result', task.trace.key_result.id));
+      const pathSteps = [];
+      const addPath = (title, action, kind) => pathSteps.push({ title, action, kind });
+      if (task.trace?.objective?.id) addPath(task.trace.objective.title || 'Objective',
+        () => navPlan('objective', task.trace.objective.id), 'objective');
+      if (task.trace?.key_result?.id) addPath(task.trace.key_result.title || 'KR',
+        () => navPlan('key_result', task.trace.key_result.id), 'kr');
       if (task.project_id && task.project_title && go)
-        pathStep(task.project_title, () => {
+        addPath(task.project_title, () => {
           closeDialog(dialog);
           go('/workspace/research/projects/' + task.project_id + '/tasks');
-        });
+        }, 'project');
       for (const ancestor of family.ancestors || [])
-        pathStep(ancestor.title, () => navTask(ancestor.id));
-      pathStep(task.title, null, true);
+        addPath(ancestor.title, () => navTask(ancestor.id), 'parent');
+      const primary = [
+        pathSteps.find(step => step.kind === 'objective'),
+        pathSteps.find(step => step.kind === 'kr'),
+        [...pathSteps].reverse().find(step => step.kind === 'parent'),
+      ].filter(Boolean);
+      if (!primary.length && pathSteps.length) primary.push(pathSteps[pathSteps.length - 1]);
+      const overflowSteps = pathSteps.filter(step => !primary.includes(step));
+      const appendPathLink = (host, step) => {
+        const btn = makeButton(step.title, step.action);
+        btn.className = 'task-family__crumb';
+        btn.title = step.title;
+        host.append(btn);
+      };
+      if (overflowSteps.length) {
+        const overflow = el('details', 'task-family__overflow');
+        overflow.append(el('summary', null, '…'));
+        const items = el('div', 'task-family__overflow-menu');
+        for (const step of overflowSteps) appendPathLink(items, step);
+        overflow.append(items);
+        familyPath.append(overflow);
+      }
+      primary.forEach((step, index) => {
+        if (index) familyPath.append(el('span', 'task-family__separator', '›'));
+        appendPathLink(familyPath, step);
+      });
+      if (!pathSteps.length) familyPath.append(el('span', 'task-family__crumb', 'Task'));
       const linkTask = makeButton('Copy link', async () => {
         const url = new URL(`/workspace/core/tasks?task=${encodeURIComponent(task.id)}`, location.origin);
         try { await navigator.clipboard.writeText(url.href); linkTask.textContent = 'Link copied'; }
@@ -1070,7 +1086,13 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         try { await navigator.clipboard.writeText(`[[task:${task.id}|${title}]]`); refTask.textContent = 'Reference copied'; }
         catch { refTask.textContent = 'Copy unavailable'; }
       });
-      moreItems.append(linkTask, refTask);
+      moreItems.append(linkTask);
+      const advancedActions = el('details', 'task-card-dialog__advanced-actions');
+      advancedActions.append(el('summary', null, 'Advanced actions'));
+      const advancedActionItems = el('div', 'task-card-dialog__advanced-action-items');
+      advancedActionItems.append(refTask);
+      advancedActions.append(advancedActionItems);
+      moreItems.append(advancedActions);
       // A project task is the SAME OperatingTask in Core and Research.
       // Open its existing planning views; never create a second task copy.
       if (task.project_id && go && (detailData.projects || boardState.projects || [])
@@ -1095,7 +1117,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           }
         });
         remove.classList.add('ws-btn--danger');
-        moreItems.append(remove);
+        advancedActionItems.append(remove);
       }
       body.innerHTML = '';
 
@@ -1188,109 +1210,53 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
 
       const two = el('div', 'task-board__two');
       two.append(field('Priority', priority), field('Status', status), field('Owner', owner), field('Due date', due));
-      const calendarField = el('div', 'task-board__field task-board__calendar-field');
-      calendarField.append(el('span', 'task-board__label', 'Google Calendar'));
-      const calendarActions = el('div', 'task-card-dialog__actions task-board__calendar-actions');
-      const calendarAction = makeButton('Add as Google Task', () => {});
-      const calendarNote = el('small', 'fl-muted');
-      const openCalendar = el('a', 'ws-btn ws-btn--tiny', 'Open Google Tasks');
-      openCalendar.target = '_blank';
-      openCalendar.rel = 'noopener noreferrer';
-      openCalendar.hidden = true;
-      calendarActions.append(calendarAction, openCalendar);
-      calendarField.append(calendarActions, calendarNote);
-
-      let taskCalendarState = null;
-      const setTaskCalendarUi = () => {
-        openCalendar.hidden = true;
-        openCalendar.removeAttribute('href');
-        if (!taskCalendarState?.connected) {
-          calendarAction.textContent = 'Connect Google Calendar';
-          calendarNote.textContent = 'Connect your Google account once, then add this task as a native Google Task.';
-          calendarAction.disabled = false;
+      const calendarAction = makeButton('Google Tasks', async () => {
+        if (calendarAction.dataset.openUrl) {
+          window.open(calendarAction.dataset.openUrl, '_blank', 'noopener,noreferrer');
+          moreMenu.open = false;
           return;
         }
-
-        const calendarUrl = taskCalendarState.calendar_url
-          || taskCalendarState.google_task?.calendar_url
-          || 'https://calendar.google.com/calendar/u/0/r/tasks';
-        openCalendar.href = calendarUrl;
-        openCalendar.hidden = false;
-
-        calendarAction.textContent = taskCalendarState.google_task
-          ? 'Sync Google Task'
-          : 'Add as Google Task';
-        calendarNote.textContent = taskCalendarState.google_email
-          ? `Connected as ${taskCalendarState.google_email}`
-          : 'Google Calendar connected';
-        calendarAction.disabled = false;
-      };
-
-      const refreshTaskCalendarState = async () => {
-        taskCalendarState = await P.googleCalendarTaskStatus(task.id);
-        setTaskCalendarUi();
-      };
-
-      calendarAction.addEventListener('click', async () => {
         calendarAction.disabled = true;
         calendarNote.textContent = 'Checking Google Tasks…';
         try {
-          taskCalendarState = await P.googleCalendarTaskStatus(task.id);
-          if (!taskCalendarState.connected) {
+          const state = await P.googleCalendarTaskStatus(task.id);
+          if (!state.connected) {
             const next = `${location.pathname}?calendar_task=${encodeURIComponent(task.id)}`;
             location.href = `/api/calendar/google/connect/?next=${encodeURIComponent(next)}`;
             return;
           }
-          calendarNote.textContent = taskCalendarState.google_task ? 'Syncing Google Task…' : 'Adding Google Task…';
           const result = await P.syncOperatingTaskToGoogle(task.id);
-          taskCalendarState.google_task = result.google_task;
-          taskCalendarState.tasks_scope_granted = true;
-          taskCalendarState.calendar_url = result.google_task?.calendar_url || taskCalendarState.calendar_url;
-          setTaskCalendarUi();
+          const destination = result.google_task?.calendar_url || state.calendar_url ||
+            'https://calendar.google.com/calendar/u/0/r/tasks';
+          calendarAction.dataset.openUrl = destination;
+          calendarAction.textContent = 'Open Google Tasks';
+          calendarNote.textContent = 'Synced';
         } catch (error) {
           const code = error?.data?.error || error?.message || '';
-          if (code === 'calendar_reconnect_required') {
-            calendarNote.textContent = 'Google access expired. Connect again.';
-          } else if (code === 'google_tasks_permission_required') {
-            calendarNote.textContent = 'Google Tasks access was not granted. Reconnect Google and approve Tasks.';
-          } else if (code === 'google_tasks_api_disabled') {
-            calendarNote.textContent = error?.data?.google_project_number
-              ? `Google Tasks API is disabled for Google Cloud project ${error.data.google_project_number}.`
-              : 'Google Tasks API is disabled for this Google project.';
-            if (error?.data?.setup_url) {
-              openCalendar.textContent = 'Enable Google Tasks API';
-              openCalendar.href = error.data.setup_url;
-              openCalendar.hidden = false;
-            }
-          } else if (code === 'calendar_permission_denied') {
-            calendarNote.textContent = 'Google rejected the Tasks request. Reconnect Google and try again.';
-          } else {
-            calendarNote.textContent = code || 'Google Task sync failed.';
+          const friendly = {
+            calendar_reconnect_required: 'Reconnect Google to continue.',
+            google_tasks_permission_required: 'Google Tasks permission needed. Reconnect Google.',
+            google_tasks_api_disabled: 'Google Tasks API is disabled.',
+            calendar_permission_denied: 'Google denied permission. Reconnect and retry.',
+          };
+          calendarNote.textContent = friendly[code] || code || 'Could not sync Google Tasks.';
+          if (error?.data?.setup_url && code === 'google_tasks_api_disabled') {
+            const link = el('a', '', 'Enable Google Tasks API');
+            link.href = error.data.setup_url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            calendarNote.append(' ', link);
           }
-          calendarAction.disabled = false;
-        }
+        } finally { calendarAction.disabled = false; }
       });
+      const calendarNote = el('small', 'fl-muted task-card-dialog__calendar-note');
+      moreItems.append(calendarAction, calendarNote);
 
-      refreshTaskCalendarState().catch((error) => {
-        taskCalendarState = null;
-        calendarNote.textContent = error?.data?.error || 'Calendar status unavailable.';
-        setTaskCalendarUi();
-      });
-
-      const links = el('div', 'task-board__two');
-      links.append(
-        field('Key result', keyResult), field('Milestone', milestone),
-        field('Work package', workPackage),
-        field('Research project', project),
-        field('Parent task', parent),
-        field('Dependency', dependency),
-      );
-
-      const sourceHistory = el('section', 'task-card-dialog__source-history');
+      const sourceHistory = el('details', 'task-card-dialog__source-history');
       const sourceRecords = taskSourceRecords(task.source_metadata);
       if (sourceRecords.length) {
-        sourceHistory.append(el('h3', '', 'Historical source'));
-        sourceHistory.append(el('p', 'v-note', 'Activity dates below are historical records, not deadlines. Source-reported Done does not confirm production acceptance.'));
+        sourceHistory.append(el('summary', null, 'Imported source records (' + sourceRecords.length + ')'));
+        sourceHistory.append(el('p', 'v-note', 'Imported activity is not an accepted deliverable or a due date.'));
         sourceRecords.forEach((record) => {
           const entry = el('div', 'v-note');
           entry.append(el('strong', '', record.title || task.title));
@@ -1327,7 +1293,20 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       );
       if (description.value.trim() || blocked.value.trim()) descriptionBlock.open = false;
       const relatedBlock = el('details', 'task-family__details');
-      relatedBlock.append(el('summary', null, 'More details'), links, calendarField, sourceHistory);
+      relatedBlock.append(el('summary', null, 'More details'));
+      const placement = el('details', 'task-family__relation-group');
+      placement.append(el('summary', null, 'Placement'));
+      const placementFields = el('div', 'task-board__two');
+      placementFields.append(field('Key result', keyResult),
+        field('Research project', project), field('Parent task', parent));
+      placement.append(placementFields);
+      const scheduling = el('details', 'task-family__relation-group');
+      scheduling.append(el('summary', null, 'Milestones & dependencies'));
+      const schedulingFields = el('div', 'task-board__two');
+      schedulingFields.append(field('Milestone', milestone),
+        field('Work package', workPackage), field('Dependency', dependency));
+      scheduling.append(schedulingFields);
+      relatedBlock.append(placement, scheduling);
       // Links are first-class task resources (not uploads or imported source records).
       const resourceSection = el('section', 'task-card-dialog__resources');
       const resourceHeader = el('div', 'task-card-dialog__resource-head');
@@ -1540,9 +1519,14 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       checklistPanel.append(el('summary', null, 'Checklist'));
       checklistPanel.body = el('div', 'task-card-dialog__fold-body');
       checklistPanel.append(checklistPanel.body);
-      main.append(checklistPanel);
+      const optionalTools = el('section', 'task-card-dialog__optional-tools');
+      optionalTools.hidden = true;
+      optionalTools.append(checklistPanel);
+      main.append(optionalTools);
+      let checklistLoaded = false;
 
       const loadChecklist = async () => {
+        checklistLoaded = true;
         checklistPanel.body.replaceChildren();
         try {
           const data = await P.operatingTaskChecklist(task.id);
@@ -1663,6 +1647,16 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
       };
 
+      const checklistAction = makeButton('Checklist', () => {
+        optionalTools.hidden = !optionalTools.hidden;
+        checklistPanel.open = !optionalTools.hidden;
+        if (!optionalTools.hidden) {
+          moreMenu.open = false;
+          if (!checklistLoaded) loadChecklist();
+          optionalTools.scrollIntoView({ block: 'nearest' });
+        }
+      });
+      advancedActionItems.prepend(checklistAction);
       const commentsPanel = panel('Comments');
       const attachmentsPanel = panel('Attachments');
       const historyPanel = el('details', 'task-card-dialog__history');
@@ -1921,6 +1915,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         try {
           const data = await P.operatingTaskHistory(task.id);
           historyPanel.body.replaceChildren();
+          if (sourceRecords.length) historyPanel.body.append(sourceHistory);
           for (const event of data.events || []) {
             const isReport = event.action === 'task.daily_report';
             const detail = event.detail && typeof event.detail === 'object' ? event.detail : {};
@@ -1973,7 +1968,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
       };
 
-      await Promise.all([loadChecklist(), loadComments(), loadAttachments(), loadHistory(), loadExternalLinks()]);
+      await Promise.all([loadComments(), loadAttachments(), loadHistory(), loadExternalLinks()]);
     } catch (error) {
       editorFailed = true;
       if (previewLoaded) {
