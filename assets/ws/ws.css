@@ -4078,6 +4078,19 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
     background: transparent;
     color: var(--g-accent);
   }
+  .task-card-dialog__fold {
+    border-top: 1px solid var(--g-hairline);
+    padding-top: 6px;
+  }
+  .task-card-dialog__fold > summary {
+    cursor: pointer;
+    padding: 8px 0;
+    font-size: var(--ws-fs-sm);
+    font-weight: 650;
+    color: var(--g-text-muted);
+  }
+  .task-card-dialog__fold-body { padding: 8px 0 4px; }
+  .task-card-dialog .v-note:empty { display: none; }
   .task-card-dialog__history {
     border-top: 1px solid var(--g-hairline);
     padding-top: 10px;
