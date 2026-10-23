@@ -351,7 +351,7 @@ def task_board(request):
     })
 
 
-def _task_hierarchy(request, workspace, task):
+def _task_hierarchy(request, workspace, task, *, include_candidates=True):
     """Bounded, same-project task lineage and children. No full-board load."""
     from .platform_access import can_view
     ancestors = []
@@ -375,6 +375,19 @@ def _task_hierarchy(request, workspace, task):
                 .order_by('board_order', 'id')
                 .only('id', 'title', 'status', 'definition_of_done', 'due_date')[:101])
     visible_children = [child for child in children if can_view(request.user, child)][:100]
+    if not include_candidates:
+        return {
+            'ancestors': ancestors,
+            'children': [
+                {'id': row.pk, 'title': row.title, 'status': row.status,
+                 'due_date': row.due_date.isoformat() if row.due_date else None,
+                 'definition_of_done': row.definition_of_done}
+                for row in visible_children
+            ],
+            'children_truncated': len(visible_children) >= 100,
+            'parent_candidates': [],
+        }
+
     # Parent options are bounded to the task's own project; other projects
     # must never appear as selectable parents.
     current_kr = task.initiative.key_result_id if task.initiative_id else None
@@ -447,7 +460,7 @@ def task_board_detail(request, task_id):
                     'title': task.initiative.key_result.objective.title,
                 } if task.initiative_id else None,
             },
-            'hierarchy': _task_hierarchy(request, workspace, task),
+            'hierarchy': _task_hierarchy(request, workspace, task, include_candidates=False),
             'events': _task_activity_events(request, workspace, task, limit=30),
         })
 
