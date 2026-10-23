@@ -1365,7 +1365,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         saveResource.disabled = true;
         resourceNote.textContent = 'Saving…';
         try {
-          await P.addOperatingTaskExternalLink(task.id, resourceName.value.trim(), safeUrl);
+          await P.call(`/operating/tasks/${task.id}/external-links/`, { method: 'POST', body: { title: resourceName.value.trim(), url: safeUrl } });
           resourceUrl.value = '';
           resourceName.value = '';
           resourceEditor.hidden = true;
@@ -1390,7 +1390,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
 
       const loadExternalLinks = async () => {
         try {
-          const data = await P.operatingTaskExternalLinks(task.id);
+          const data = await P.call(`/operating/tasks/${task.id}/external-links/`);
           resourceList.replaceChildren();
           for (const link of data.links || []) {
             const line = el('div', 'task-card-dialog__resource-row');
@@ -1412,7 +1412,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
                 if (!confirm('Remove this link from the task?')) return;
                 remove.disabled = true;
                 try {
-                  await P.deleteOperatingTaskExternalLink(task.id, link.id);
+                  await P.call(`/operating/tasks/${task.id}/external-links/`, { method: 'DELETE', body: { link_id: link.id } });
                   await loadExternalLinks();
                 } catch (error) {
                   resourceNote.textContent = error?.data?.error || error?.message || 'Could not remove link.';
