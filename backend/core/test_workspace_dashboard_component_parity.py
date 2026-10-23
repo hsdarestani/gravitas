@@ -60,11 +60,13 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         self.assertIn("openTaskHierarchyDialog('kr'", source)
         self.assertIn("renderTaskTree(board, visible, openCard, openHierarchy)", source)
         self.assertIn("renderTaskGraph(board, visible, openCard, openHierarchy)", source)
-        self.assertIn("'task-comment__selected-chip'", source)
+        self.assertIn('selectedMentions.set(String(member.id), member)', source)
+        self.assertIn('syncMentionIds()', source)
         self.assertIn("'task-comment__person'", source)
         self.assertIn(".task-tree__objective-head[role=\"button\"]", css)
         self.assertIn(".task-graph__node[role=\"button\"]", css)
-        self.assertIn(".task-comment__picker", css)
+        self.assertIn('.task-comment__suggestions', css)
+        self.assertNotIn("'task-comment__picker'", source)
 
 
     def test_workspace_force_loads_rebuilt_renderers(self):

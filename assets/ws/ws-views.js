@@ -288,6 +288,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     dialog._previousFocus = document.activeElement;
     dialog._onEscape = (event) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
+      // Escape dismisses the @ suggestions before it can dismiss the task.
+      const focused = document.activeElement;
+      if (focused?.getAttribute('aria-expanded') === 'true' &&
+          focused?.getAttribute('aria-controls')?.startsWith('task-mentions-')) return;
       // Project action modals are allowed to close themselves first.
       if (document.querySelector('[data-project-action-modal]')) return;
       const openDialogs = document.querySelectorAll('.task-card-dialog');
@@ -1011,8 +1015,17 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
       const task = detailData.task;
       detailForFallback = task;
-      head.querySelector('h2').textContent = task.title;
+      head.querySelector('h2').textContent = 'Task #' + task.id;
       const closeButton = head.querySelector('button');
+      closeButton.textContent = '×';
+      closeButton.setAttribute('aria-label', 'Close task');
+      closeButton.title = 'Close task';
+      const moreMenu = el('details', 'task-card-dialog__more');
+      const moreTrigger = el('summary', null, 'More');
+      moreTrigger.setAttribute('aria-label', 'More task actions');
+      const moreItems = el('div', 'task-card-dialog__more-items');
+      moreMenu.append(moreTrigger, moreItems);
+      head.insertBefore(moreMenu, closeButton);
       const family = detailData.hierarchy || { ancestors: [], children: [], parent_candidates: [] };
       const navTask = (id) => {
         closeDialog(dialog);
@@ -1058,8 +1071,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         try { await navigator.clipboard.writeText(`[[task:${task.id}|${title}]]`); refTask.textContent = 'Reference copied'; }
         catch { refTask.textContent = 'Copy unavailable'; }
       });
-      head.insertBefore(linkTask, closeButton);
-      head.insertBefore(refTask, closeButton);
+      moreItems.append(linkTask, refTask);
       // A project task is the SAME OperatingTask in Core and Research.
       // Open its existing planning views; never create a second task copy.
       if (task.project_id && go && (detailData.projects || boardState.projects || [])
@@ -1068,7 +1080,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           closeDialog(dialog);
           go(`/workspace/research/projects/${task.project_id}/management?task=${task.id}`);
         });
-        head.insertBefore(planning, head.querySelector('button'));
+        moreItems.append(planning);
       }
       if (detailData.can_delete) {
         const remove = makeButton('Delete task', async () => {
@@ -1084,8 +1096,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           }
         });
         remove.classList.add('ws-btn--danger');
-        const closeButton = head.querySelector('button');
-        head.insertBefore(remove, closeButton);
+        moreItems.append(remove);
       }
       body.innerHTML = '';
 
@@ -1097,6 +1108,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
 
       const form = el('form', 'task-board__form');
       const title = input('text', task.title);
+      title.setAttribute('aria-label', 'Task title');
       const description = textarea(task.description, 5);
       const priorityChoices = taskCardOptions(detailData.priorities, state.priorities, PRIORITY_COLUMNS);
       const statusChoices = taskCardOptions(detailData.statuses, state.statuses, STATUS_COLUMNS);
@@ -1142,7 +1154,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }).catch(() => { /* The task remains fully editable if the index fails. */ });
       }
       const due = input('date', task.due_date || '');
-      const done = textarea(task.definition_of_done, 4);
+      const done = textarea(task.definition_of_done, 2);
+      done.setAttribute('aria-label', 'Expected outcome / Definition of done');
       const blocked = textarea(task.blocked_reason, 3);
       const parent = select(
         [['', 'No parent task'], ...(family.parent_candidates || []).map(row => [row.id, row.title])],
@@ -1305,39 +1318,24 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       const note = el('p', 'v-note');
 
       const titleField = field('Task', title);
-      const goalField = field('Expected outcome / Definition of done', done);
+      titleField.classList.add('task-card-dialog__title-field');
+      const goalField = field('Outcome', done);
       const descriptionBlock = el('details', 'task-family__details');
       descriptionBlock.append(
-        el('summary', null, 'Description and context'),
+        el('summary', null, 'Notes and blockers'),
         field('Description', description),
         field('Blocked reason', blocked),
       );
       if (description.value.trim() || blocked.value.trim()) descriptionBlock.open = false;
       const relatedBlock = el('details', 'task-family__details');
-      relatedBlock.append(el('summary', null, 'Links, planning and integrations'), links, calendarField, sourceHistory);
-      const locationNote = el('p', 'task-family__hint',
-        'Navigate the folder path above to open an Objective, KR or parent. A subtask is a real task, not a checklist item.');
-      const linkShelf = el('section', 'task-family__links');
-      const linkHeading = el('strong', null, 'Links & references');
-      const copyTaskUrl = makeButton('Copy task URL', () => linkTask.click());
-      copyTaskUrl.classList.add('ws-btn--tiny');
-      const copyTaskRef = makeButton('Copy [[task]] reference', () => refTask.click());
-      copyTaskRef.classList.add('ws-btn--tiny');
-      linkShelf.append(linkHeading, copyTaskUrl, copyTaskRef);
-      if (task.project_id) {
-        const projectLink = el('a', 'ws-btn ws-btn--tiny', 'Open Research project');
-        projectLink.href = '/workspace/research/projects/' + task.project_id + '/tasks';
-        linkShelf.append(projectLink);
-      }
+      relatedBlock.append(el('summary', null, 'More details'), links, calendarField, sourceHistory);
       form.append(
         familyPath,
         titleField,
         goalField,
         two,
-        linkShelf,
         descriptionBlock,
         relatedBlock,
-        locationNote,
         actions,
         note,
       );
@@ -1363,7 +1361,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         try {
           const result = await P.updateOperatingTaskCard(task.id, payload);
           note.textContent = 'Saved.';
-          head.querySelector('h2').textContent = result.task.title;
+          title.value = result.task.title;
           await reloadBoard({ keepDialog: true });
         } catch (error) {
           note.textContent = error?.data?.error || error?.message || 'Save failed.';
@@ -1398,7 +1396,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
         if (family.children_truncated)
           subtasks.append(el('p', 'v-note', 'More subtasks exist. Open the Task Tree to navigate the full hierarchy.'));
-      } else subtasks.append(el('p', 'task-family__hint', 'No subtasks yet.'));
+      }
       if (detailData.can_edit !== false) {
         const createChild = el('form', 'task-family__new');
         const childTitle = input('text');
@@ -1408,7 +1406,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         const childOutcome = textarea('', 2);
         childOutcome.required = true;
         childOutcome.placeholder = 'What must be delivered?';
-        const childSubmit = makeButton('+ Add subtask', () => {}, true);
+        const childSubmit = makeButton('Create', () => {}, true);
         childSubmit.type = 'submit';
         const childError = el('p', 'v-note');
         createChild.append(childTitle, childOutcome, childSubmit, childError);
@@ -1437,19 +1435,21 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             childSubmit.disabled = false;
           }
         });
-        subtasks.append(createChild);
+        const createDisclosure = el('details', 'task-family__create');
+        createDisclosure.append(el('summary', null, '+ Add subtask'), createChild);
+        subtasks.append(createDisclosure);
       }
       subtasksPanel.body.append(subtasks);
       main.append(subtasksPanel);
 
-      const checklistPanel = panel('Checklist');
-      const checklistHelp = el('p', 'task-family__hint',
-        'Use checklists for small steps. Use subtasks above for work that needs its own owner, outcome, status or history.');
-      checklistPanel.body.append(checklistHelp);
+      const checklistPanel = el('details', 'task-card-dialog__fold');
+      checklistPanel.append(el('summary', null, 'Checklist'));
+      checklistPanel.body = el('div', 'task-card-dialog__fold-body');
+      checklistPanel.append(checklistPanel.body);
       main.append(checklistPanel);
 
       const loadChecklist = async () => {
-        checklistPanel.body.replaceChildren(checklistHelp);
+        checklistPanel.body.replaceChildren();
         try {
           const data = await P.operatingTaskChecklist(task.id);
           const items = data.items || [];
@@ -1571,10 +1571,15 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
 
       const commentsPanel = panel('Comments');
       const attachmentsPanel = panel('Attachments');
-      const historyPanel = panel('Activity');
+      const historyPanel = el('details', 'task-card-dialog__history');
+      historyPanel.append(el('summary', null, 'Activity'));
+      historyPanel.body = el('div', 'task-card-dialog__history-body');
+      historyPanel.append(historyPanel.body);
       commentsPanel.body.append(el('p', 'fl-muted', 'Loading comments…'));
       attachmentsPanel.body.append(el('p', 'fl-muted', 'Loading attachments…'));
       historyPanel.body.append(el('p', 'fl-muted', 'Loading activity…'));
+      commentsPanel.classList.add('task-card-dialog__side-section');
+      attachmentsPanel.classList.add('task-card-dialog__side-section');
       side.append(commentsPanel, attachmentsPanel, historyPanel);
 
       const loadComments = async () => {
@@ -1597,148 +1602,110 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             item.append(el('small', 'fl-muted', P.formatDate(comment.created_at)));
             commentsPanel.body.append(item);
           }
-          if (!(data.comments || []).length) commentsPanel.body.append(el('p', 'fl-muted', 'No comments yet.'));
+          // An empty comment thread needs no placeholder above the composer.
 
           const commentForm = el('form', 'task-board__form task-comment__form');
           const comment = textarea('', 3);
-          comment.placeholder = 'Write a comment. Type @ to mention a teammate…';
+          comment.placeholder = 'Comment… @ to mention';
+          comment.rows = 2;
           const members = (detailData.members || state.members || []).filter(
             (member) => String(member.id) !== String(P.platform?.user?.user?.id || ''),
           );
           const selectedMentions = new Map();
-          const mentionBox = el('div', 'task-comment__picker');
-          const mentionTop = el('div', 'task-comment__picker-top');
-          const mentionTitle = el('div');
-          mentionTitle.append(
-            el('strong', null, 'Mention teammates'),
-            el('small', 'fl-muted', 'They will be notified in GraviQuest, email and Telegram when connected.'),
-          );
-          const togglePicker = makeButton('@ Add people', () => {});
-          togglePicker.classList.add('ws-btn--tiny', 'task-comment__add-people');
-          mentionTop.append(mentionTitle, togglePicker);
-
-          const selectedHost = el('div', 'task-comment__selected');
-          selectedHost.hidden = true;
-          const pickerPanel = el('div', 'task-comment__people-panel');
-          pickerPanel.hidden = true;
-          const pickerSearch = input('search', '');
-          pickerSearch.placeholder = 'Search teammates';
-          pickerSearch.setAttribute('aria-label', 'Search teammates to mention');
-          const pickerResults = el('div', 'task-comment__people-results');
-          pickerPanel.append(pickerSearch, pickerResults);
-
-          const memberLabel = (member) => member.name || member.email || 'Teammate';
-          const initials = (member) => memberLabel(member).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-
-          const drawSelected = () => {
-            selectedHost.replaceChildren();
-            for (const member of selectedMentions.values()) {
-              const chip = el('span', 'task-comment__selected-chip');
-              chip.append(
-                el('span', 'task-comment__avatar', initials(member) || '@'),
-                el('span', null, memberLabel(member)),
-              );
-              const remove = el('button', 'task-comment__chip-remove', '×');
-              remove.type = 'button';
-              remove.setAttribute('aria-label', `Remove ${memberLabel(member)} mention`);
-              remove.addEventListener('click', () => {
-                selectedMentions.delete(String(member.id));
-                drawSelected();
-                drawPeople();
-              });
-              chip.append(remove);
-              selectedHost.append(chip);
-            }
-            selectedHost.hidden = !selectedMentions.size;
-          };
-
-          const selectMention = (member) => {
-            selectedMentions.set(String(member.id), member);
-            drawSelected();
-            drawPeople();
-          };
-
-          const peopleRow = (member, onPick) => {
-            const row = el('button', 'task-comment__person');
-            row.type = 'button';
-            const copy = el('span', 'task-comment__person-copy');
-            copy.append(el('strong', null, memberLabel(member)));
-            if (member.email && member.email !== member.name) copy.append(el('small', 'fl-muted', member.email));
-            row.append(
-              el('span', 'task-comment__avatar', initials(member) || '@'),
-              copy,
-              el('span', 'task-comment__person-state', selectedMentions.has(String(member.id)) ? '✓' : '+'),
-            );
-            if (selectedMentions.has(String(member.id))) row.dataset.selected = 'true';
-            row.addEventListener('click', () => onPick(member));
-            return row;
-          };
-
-          const drawPeople = () => {
-            const q = pickerSearch.value.trim().toLowerCase();
-            pickerResults.replaceChildren();
-            const matches = members.filter((member) => {
-              const haystack = `${member.name || ''} ${member.email || ''}`.toLowerCase();
-              return !q || haystack.includes(q);
-            }).slice(0, 10);
-            for (const member of matches) {
-              pickerResults.append(peopleRow(member, (picked) => {
-                const key = String(picked.id);
-                if (selectedMentions.has(key)) selectedMentions.delete(key);
-                else selectedMentions.set(key, picked);
-                drawSelected();
-                drawPeople();
-              }));
-            }
-            if (!matches.length) pickerResults.append(el('p', 'v-note', 'No teammate matches that search.'));
-          };
-          pickerSearch.addEventListener('input', drawPeople);
-          togglePicker.addEventListener('click', () => {
-            pickerPanel.hidden = !pickerPanel.hidden;
-            if (!pickerPanel.hidden) {
-              drawPeople();
-              pickerSearch.focus();
-            }
-          });
-
+          const memberLabel = member => member.name || member.email || 'Teammate';
           const mentionSuggestions = el('div', 'task-comment__suggestions');
+          mentionSuggestions.id = 'task-mentions-' + task.id;
+          mentionSuggestions.setAttribute('role', 'listbox');
+          mentionSuggestions.setAttribute('aria-label', 'Mention a teammate');
           mentionSuggestions.hidden = true;
+          comment.setAttribute('aria-controls', mentionSuggestions.id);
+          comment.setAttribute('aria-autocomplete', 'list');
+          let suggestionMembers = [];
+          let activeMentionIndex = 0;
+
+          // A selected @name is the only mention sent to the server. Removing
+          // the token also removes its user ID, preventing stale notifications.
+          const syncMentionIds = () => {
+            for (const [id, member] of selectedMentions) {
+              if (!comment.value.includes('@' + memberLabel(member)))
+                selectedMentions.delete(id);
+            }
+          };
+          const mentionAtCursor = () => {
+            const cursor = comment.selectionStart ?? comment.value.length;
+            const before = comment.value.slice(0, cursor);
+            const match = before.match(/(?:^|\s)@([^\s@\n]*)$/);
+            if (!match) return null;
+            return { cursor, start: before.lastIndexOf('@'), query: match[1].toLowerCase() };
+          };
+          const hideSuggestions = () => {
+            mentionSuggestions.hidden = true;
+            suggestionMembers = [];
+            comment.setAttribute('aria-expanded', 'false');
+            comment.removeAttribute('aria-activedescendant');
+          };
+          const pickMention = member => {
+            const token = mentionAtCursor();
+            if (!token) return;
+            const display = memberLabel(member);
+            comment.value = comment.value.slice(0, token.start) + '@' + display + ' ' +
+              comment.value.slice(token.cursor);
+            selectedMentions.set(String(member.id), member);
+            const nextCursor = token.start + display.length + 2;
+            hideSuggestions();
+            comment.focus();
+            comment.setSelectionRange(nextCursor, nextCursor);
+          };
+          const highlightMention = () => {
+            for (const [index, option] of [...mentionSuggestions.children].entries()) {
+              const active = index === activeMentionIndex;
+              option.setAttribute('aria-selected', String(active));
+              if (active) {
+                comment.setAttribute('aria-activedescendant', option.id);
+                option.scrollIntoView({ block: 'nearest' });
+              }
+            }
+          };
           const drawMentionSuggestions = () => {
-            const beforeCursor = comment.value.slice(0, comment.selectionStart ?? comment.value.length);
-            const match = beforeCursor.match(/(?:^|\s)@([^@\s]*)$/);
+            syncMentionIds();
+            const token = mentionAtCursor();
+            if (!token) { hideSuggestions(); return; }
+            suggestionMembers = members.filter(member =>
+              (memberLabel(member) + ' ' + (member.email || '')).toLowerCase().includes(token.query)
+            ).slice(0, 6);
+            if (!suggestionMembers.length) { hideSuggestions(); return; }
             mentionSuggestions.replaceChildren();
-            if (!match) {
-              mentionSuggestions.hidden = true;
-              return;
-            }
-            const q = String(match[1] || '').toLowerCase();
-            const matches = members.filter((member) => {
-              const haystack = `${member.name || ''} ${member.email || ''}`.toLowerCase();
-              return !q || haystack.includes(q);
-            }).slice(0, 6);
-            if (!matches.length) {
-              mentionSuggestions.hidden = true;
-              return;
-            }
-            for (const member of matches) {
-              mentionSuggestions.append(peopleRow(member, (picked) => {
-                const cursor = comment.selectionStart ?? comment.value.length;
-                const start = beforeCursor.lastIndexOf('@');
-                const display = memberLabel(picked);
-                comment.value = comment.value.slice(0, start) + '@' + display + ' ' + comment.value.slice(cursor);
-                const nextCursor = start + display.length + 2;
-                selectMention(picked);
-                comment.focus();
-                comment.setSelectionRange(nextCursor, nextCursor);
-                mentionSuggestions.hidden = true;
-              }));
+            activeMentionIndex = 0;
+            for (const [index, member] of suggestionMembers.entries()) {
+              const option = el('button', 'task-comment__person', memberLabel(member));
+              option.type = 'button';
+              option.id = mentionSuggestions.id + '-' + index;
+              option.setAttribute('role', 'option');
+              option.addEventListener('mousedown', event => event.preventDefault());
+              option.addEventListener('click', () => pickMention(member));
+              mentionSuggestions.append(option);
             }
             mentionSuggestions.hidden = false;
+            comment.setAttribute('aria-expanded', 'true');
+            highlightMention();
           };
           comment.addEventListener('input', drawMentionSuggestions);
           comment.addEventListener('click', drawMentionSuggestions);
-
-          mentionBox.append(mentionTop, selectedHost, pickerPanel);
+          comment.addEventListener('keydown', event => {
+            if (mentionSuggestions.hidden) return;
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              hideSuggestions();
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              event.preventDefault();
+              activeMentionIndex = (activeMentionIndex + (event.key === 'ArrowDown' ? 1 : -1) +
+                suggestionMembers.length) % suggestionMembers.length;
+              highlightMention();
+            } else if (event.key === 'Enter' && suggestionMembers.length) {
+              event.preventDefault();
+              pickMention(suggestionMembers[activeMentionIndex]);
+            }
+          });
           const send = makeButton('Comment', () => {}, true);
           send.type = 'submit';
           const commentNote = el('p', 'v-note');
@@ -1747,7 +1714,6 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           commentForm.append(
             comment,
             mentionSuggestions,
-            mentionBox,
             composerActions,
             commentNote,
           );
@@ -1756,16 +1722,13 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             if (!comment.value.trim()) return;
             send.disabled = true;
             try {
+              syncMentionIds();
               const mentionUserIds = [...selectedMentions.keys()].map((value) => Number(value)).filter(Boolean);
               const result = await P.addOperatingTaskComment(task.id, comment.value.trim(), mentionUserIds);
               // The POST returns the saved comment. Render it immediately,
               // without waiting for another GET and a full project reload.
               const saved = result.comment;
               if (saved) {
-                const emptyMessage = [...commentsPanel.body.children].find(
-                  (child) => child.textContent === 'No comments yet.'
-                );
-                emptyMessage?.remove();
                 const item = el('article', 'task-card-dialog__message');
                 item.append(el('strong', null, formatActor(saved.author)), el('p', null, saved.body));
                 if ((saved.mentions || []).length) {
@@ -1780,9 +1743,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               }
               comment.value = '';
               selectedMentions.clear();
-              drawSelected();
-              drawPeople();
-              commentNote.textContent = 'Comment saved.';
+              hideSuggestions();
+              commentNote.textContent = '';
               send.disabled = false;
             } catch (error) {
               commentNote.textContent = error?.message || 'Comment failed.';
@@ -1823,20 +1785,22 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             line.append(meta, buttons);
             attachmentsPanel.body.append(line);
           }
-          if (!(data.attachments || []).length) attachmentsPanel.body.append(el('p', 'fl-muted', 'No attachments yet.'));
+          // Empty attachments show only the add control.
 
-          const uploadForm = el('form', 'task-board__form');
           const file = input('file');
-          const uploadButton = makeButton('Upload · max 10 MB', () => {}, true);
-          uploadButton.type = 'submit';
+          file.hidden = true;
+          file.setAttribute('aria-label', 'Choose attachment');
+          const uploadButton = makeButton('+ Attach file', () => file.click());
+          uploadButton.type = 'button';
+          uploadButton.title = 'Maximum 10 MB per file';
+          uploadButton.classList.add('task-card-dialog__attach-action');
           const uploadNote = el('p', 'v-note');
-          uploadForm.append(file, uploadButton, uploadNote);
-          uploadForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
+          file.addEventListener('change', async () => {
             const chosen = file.files?.[0];
             if (!chosen) return;
             if (chosen.size > 10 * 1024 * 1024) {
               uploadNote.textContent = 'Maximum attachment size is 10 MB.';
+              file.value = '';
               return;
             }
             uploadButton.disabled = true;
@@ -1849,9 +1813,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             } catch (error) {
               uploadNote.textContent = error?.data?.error || error?.message || 'Upload failed.';
               uploadButton.disabled = false;
+              file.value = '';
             }
           });
-          attachmentsPanel.body.append(uploadForm);
+          attachmentsPanel.body.append(file, uploadButton, uploadNote);
         } catch (error) {
           attachmentsPanel.body.replaceChildren(el('p', 'fl-muted', error?.message || 'Attachments unavailable.'), makeButton('Retry attachments', () => { loadAttachments(); }));
         }
