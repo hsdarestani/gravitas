@@ -931,19 +931,42 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         Promise.resolve(index).then(data => openTaskHierarchyDialog(kind, id, data || {}, reloadBoard))
           .catch(() => {});
       };
-      const previewStep = (text, fn) => {
-        const crumb = el('button', 'task-family__crumb', text);
-        crumb.type = 'button';
-        crumb.addEventListener('click', fn);
-        lineage.append(crumb, el('span', 'task-family__separator', '›'));
-      };
-      if (summary.objective?.id) previewStep(summary.objective.title,
-        () => gotoPlanning('objective', summary.objective.id));
-      if (summary.key_result?.id) previewStep(summary.key_result.title,
-        () => gotoPlanning('key_result', summary.key_result.id));
+      const steps = [];
+      if (summary.objective?.id) steps.push({
+        title: summary.objective.title, kind: 'objective',
+        action: () => gotoPlanning('objective', summary.objective.id),
+      });
+      if (summary.key_result?.id) steps.push({
+        title: summary.key_result.title, kind: 'kr',
+        action: () => gotoPlanning('key_result', summary.key_result.id),
+      });
       for (const parent of hierarchy.ancestors || [])
-        previewStep(parent.title, () => gotoTask(parent.id));
-      lineage.append(el('strong', 'task-family__crumb', summary.title));
+        steps.push({ title: parent.title, kind: 'parent', action: () => gotoTask(parent.id) });
+      const selected = [steps.find(s => s.kind === 'objective'),
+        steps.find(s => s.kind === 'kr'),
+        [...steps].reverse().find(s => s.kind === 'parent')].filter(Boolean);
+      const omitted = steps.filter(s => !selected.includes(s));
+      if (omitted.length) {
+        const extra = el('details', 'task-family__overflow');
+        extra.append(el('summary', null, '…'));
+        const menu = el('div', 'task-family__overflow-menu');
+        for (const step of omitted) {
+          const btn = makeButton(step.title, step.action);
+          btn.className = 'task-family__crumb';
+          btn.title = step.title;
+          menu.append(btn);
+        }
+        extra.append(menu);
+        lineage.append(extra);
+      }
+      selected.forEach((step, index) => {
+        if (index) lineage.append(el('span', 'task-family__separator', '›'));
+        const btn = makeButton(step.title, step.action);
+        btn.className = 'task-family__crumb';
+        btn.title = step.title;
+        lineage.append(btn);
+      });
+      if (!selected.length) lineage.append(el('span', 'task-family__crumb', 'Task'));
       const goal = el('section', 'task-family__mobile-goal');
       goal.append(el('strong', null, 'Expected outcome'),
         el('p', null, summary.definition_of_done || 'Not defined'));
