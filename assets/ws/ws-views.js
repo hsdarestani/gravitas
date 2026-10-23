@@ -12,7 +12,6 @@ import * as P from './ws-platform.js?v=20261016-task1&patch=20261020onecall5';
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
-import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -1473,16 +1472,6 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
       });
       main.append(form);
-      const advancedComments = el('div', 'task-card-dialog__advanced-comments');
-      relatedBlock.append(advancedComments);
-      mountAnchoredComments({ container: advancedComments, kind: 'task', id: task.id,
-        fields: [
-          {key:'description', label:'Task description', element:description},
-          {key:'definition_of_done', label:'Definition of done', element:done},
-          {key:'blocked_reason', label:'Blocked reason', element:blocked},
-          {key:'title', label:'Title', element:title},
-        ], canEdit: detailData.can_edit !== false });
-
       const subtasksPanel = panel('Subtasks');
       const subtasks = el('div', 'task-family__children');
       const descendants = family.children || [];
