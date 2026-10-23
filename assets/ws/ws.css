@@ -3895,6 +3895,13 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   }
   .task-family__details:not([open]) { padding-bottom: 0; }
   .task-family__details .task-board__two { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .task-family__links {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 11px 12px; border: 1px solid var(--g-hairline);
+    border-radius: 11px; background: var(--g-surface-sunken);
+  }
+  .task-family__links strong { width: 100%; font-size: var(--ws-fs-sm); }
+  .task-family__links a { text-decoration: none; }
   .task-family__hint { margin: 4px 0 10px; font-size: var(--ws-fs-xs); color: var(--g-text-muted); line-height: 1.5; }
   .task-family__children { display: flex; flex-direction: column; gap: 9px; }
   .task-family__progress { margin: 0 0 5px; font-size: var(--ws-fs-sm); color: var(--g-text-muted); }
