@@ -343,41 +343,70 @@ function createTask(projectId) {
 
 export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
   if (P.canOpenCore()) {
-    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261023simplecomments1');
+    // One canonical task editor for everyone authorized to use Core; Research
+    // participants without Core access retain project-scoped editing below.
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261023taskfocus1');
     return openCoreTask(task.id, { go, onTaskChange: refresh });
   }
-  // Project participants do not need access to the internal Core board to
-  // inspect a task they can already see in Research. Keep the project ACL.
-  modal(task.title, (grid) => {
-    grid.append(el('p', 'fl-muted', P.meta([task.owner, P.label(task.status), P.label(task.priority), task.due_date ? P.formatDate(task.due_date) : ''])));
-    grid.append(el('p', '', task.description || 'No description.'));
-    if (task.definition_of_done) grid.append(field('Definition of done', el('p', '', task.definition_of_done)));
-    if (task.blocked_reason) grid.append(field('Blocked reason', el('p', '', task.blocked_reason)));
-    if (task.can_edit) grid.append(button('Edit task', () => editTask(cockpit, task.id)));
-  });
-}
-
-function editTask(cockpit, taskId = null) {
-  const items = (cockpit.tasks || []).filter((item) => item.can_edit);
-  if (!items.length) return modal('Edit task', (grid) => { grid.append(el('p', 'fl-muted', 'There are no editable tasks in this project.')); });
-  modal('Edit task', (grid) => {
-    const picker = select('task_id', items.map((item) => [String(item.id), item.title]), String(taskId || items[0].id));
-    const title = input('title'); const due = input('due_date', '', 'date'); const priority = select('priority', PRIORITY, 'p2'); const status = select('status', TASK_STATUS, 'active');
-    const done = textarea('definition_of_done', '', 3); const description = textarea('description', '', 3); const blocked = textarea('blocked_reason', '', 2, 'Why is this blocked?');
-    const load = () => {
-      const item = items.find((row) => String(row.id) === picker.value) || items[0];
-      title.value = item.title || ''; due.value = item.due_date || ''; priority.value = item.priority || 'p2'; status.value = item.status || 'active'; done.value = item.definition_of_done || ''; description.value = item.description || ''; blocked.value = item.blocked_reason || '';
-    };
-    picker.addEventListener('change', load); load();
-    grid.append(field('Task', picker), field('Title', title), field('Due date', due), field('Priority', priority), field('Status', status), field('Definition of done', done), field('Description', description), field('Blocked reason', blocked));
-    return { picker };
-  }, 'Save task', async (fields, data) => {
-    await P.call(`/platform/tasks/${fields.picker.value}/`, { method: 'PATCH', body: {
-      title: String(data.get('title') || '').trim(), due_date: data.get('due_date') || '', priority: data.get('priority'), status: data.get('status'),
-      definition_of_done: String(data.get('definition_of_done') || '').trim(), description: String(data.get('description') || '').trim(), blocked_reason: String(data.get('blocked_reason') || '').trim(),
-    }});
-    refreshProject();
-  });
+  // This is the SAME project task, not a Research copy. Keep project ACL and
+  // PATCH the existing object via the project-access endpoint.
+  const canEdit = task.can_edit === true;
+  const result = modal('Task #' + task.id, (grid) => {
+    grid.classList.add('ws-project-task-editor');
+    const title = canEdit ? input('title', task.title) : el('strong', 'ws-project-task-editor__title', task.title);
+    const outcome = canEdit ? textarea('definition_of_done', task.definition_of_done || '', 3) :
+      el('p', 'ws-project-task-editor__outcome', task.definition_of_done || 'Not defined');
+    grid.append(field('Task', title), field('Outcome', outcome));
+    const attrs = el('div', 'ws-project-task-editor__attrs');
+    const statuses = [
+      ['draft', 'Draft'], ['active', 'Active'], ['ready', 'Ready'],
+      ['waiting', 'Waiting on owner'], ['needs_review', 'Needs review'],
+      ['retest', 'Acceptance retest'], ['blocked', 'Blocked'],
+      ['done', 'Done'], ['archived', 'Archived'],
+    ];
+    if (canEdit) {
+      attrs.append(
+        field('Status', select('status', statuses, task.status || 'active')),
+        field('Priority', select('priority', PRIORITY, task.priority || 'p2')),
+        field('Due date', input('due_date', task.due_date || '', 'date')),
+      );
+    } else {
+      attrs.append(
+        field('Status', el('span', '', P.label(task.status))),
+        field('Priority', el('span', '', P.label(task.priority))),
+        field('Due date', el('span', '', task.due_date ? P.formatDate(task.due_date) : 'Not set')),
+      );
+    }
+    grid.append(attrs);
+    const owner = el('p', 'fl-muted', 'Owner: ' + (task.owner || 'Not assigned'));
+    grid.append(owner);
+    const notes = el('details', 'ws-project-task-editor__more');
+    notes.append(el('summary', '', 'Notes and blockers'));
+    const description = canEdit ? textarea('description', task.description || '', 3) :
+      el('p', '', task.description || 'No notes');
+    const blocked = canEdit ? textarea('blocked_reason', task.blocked_reason || '', 2) :
+      el('p', '', task.blocked_reason || 'No blocker');
+    notes.append(field('Description', description), field('Blocked reason', blocked));
+    grid.append(notes);
+    return { taskId: task.id };
+  }, canEdit ? 'Save changes' : '', canEdit ? async (_fields, data) => {
+    await P.call(`/platform/tasks/${task.id}/`, {
+      method: 'PATCH',
+      body: {
+        title: String(data.get('title') || '').trim(),
+        due_date: data.get('due_date') || '',
+        priority: data.get('priority'),
+        status: data.get('status'),
+        definition_of_done: String(data.get('definition_of_done') || '').trim(),
+        description: String(data.get('description') || '').trim(),
+        blocked_reason: String(data.get('blocked_reason') || '').trim(),
+      },
+    });
+    if (typeof refresh === 'function') refresh();
+    else refreshProject();
+  } : null);
+  if (!canEdit) result.form.querySelector('.ws-action-dialog__actions').hidden = true;
+  return result;
 }
 
 function editResearchRequest(cockpit) {
@@ -640,7 +669,7 @@ function actionSet(info, cockpit, project) {
     if (P.canOpenCore()) add('Open planning', () => go('/workspace/operating'));
   } else if (info.tab === 'tasks') {
     if (canEdit) add('New task', () => createTask(info.projectId), true);
-    if ((cockpit.tasks || []).some((item) => item.can_edit)) add('Edit task', () => editTask(cockpit));
+    // Open a task card to edit it; avoid a second generic edit-task form.
     if ((cockpit.research_requests || []).some((item) => item.can_edit)) add('Edit request', () => editResearchRequest(cockpit));
   } else if (info.tab === 'notes') {
     if (canEdit) add('New note', () => createNote(info.projectId), true);
