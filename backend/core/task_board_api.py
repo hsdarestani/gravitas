@@ -423,7 +423,18 @@ def task_board_detail(request, task_id):
                 'description': task.description,
                 'status': task.status,
                 'owner': _person(task.owner),
+                'definition_of_done': task.definition_of_done,
+                'parent_id': task.parent_id,
+                'key_result': {
+                    'id': task.initiative.key_result_id,
+                    'title': task.initiative.key_result.title,
+                } if task.initiative_id else None,
+                'objective': {
+                    'id': task.initiative.key_result.objective_id,
+                    'title': task.initiative.key_result.objective.title,
+                } if task.initiative_id else None,
             },
+            'hierarchy': _task_hierarchy(request, workspace, task),
             'events': _task_activity_events(request, workspace, task, limit=30),
         })
 
