@@ -467,9 +467,14 @@ def tasks(request):
         milestone = work_package.milestone
         initiative = milestone.initiative
 
-    project = ResearchProject.objects.filter(
-        pk=payload.get('project_id'), workspace=workspace
-    ).first() if payload.get('project_id') else None
+    # Cross-surface Research projects live in the Research workspace, while
+    # tasks live in Core. A child inherits its already ACL-checked parent's
+    # project *before* model validation to avoid a 500 on creation.
+    project = parent.project if parent else (
+        ResearchProject.objects.filter(
+            pk=payload.get('project_id'), workspace=workspace
+        ).first() if payload.get('project_id') else None
+    )
     dependency = OperatingTask.objects.filter(
         pk=payload.get('dependency_id'), workspace=workspace
     ).first() if payload.get('dependency_id') else None
