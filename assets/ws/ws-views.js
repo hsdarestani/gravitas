@@ -288,6 +288,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     dialog._previousFocus = document.activeElement;
     dialog._onEscape = (event) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
+      // Escape dismisses the @ suggestions before it can dismiss the task.
+      const focused = document.activeElement;
+      if (focused?.getAttribute('aria-expanded') === 'true' &&
+          focused?.getAttribute('aria-controls')?.startsWith('task-mentions-')) return;
       // Project action modals are allowed to close themselves first.
       if (document.querySelector('[data-project-action-modal]')) return;
       const openDialogs = document.querySelectorAll('.task-card-dialog');
