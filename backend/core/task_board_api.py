@@ -577,6 +577,18 @@ def task_board_detail(request, task_id):
         if payload.get('dependency_id') and not task.dependency:
             return _error('invalid_dependency')
 
+    # A subtask belongs to its parent's project and planning KR. Reject
+    # mismatches as user-facing 409s, not uncaught model ValidationError/500.
+    if task.parent_id:
+        parent = OperatingTask.objects.select_related('initiative__key_result').filter(
+            pk=task.parent_id, workspace=workspace).first()
+        if not parent:
+            return _error('parent_not_found', 404)
+        own_kr = task.initiative.key_result_id if task.initiative_id else None
+        parent_kr = parent.initiative.key_result_id if parent.initiative_id else None
+        if task.project_id != parent.project_id or own_kr != parent_kr:
+            return _error('parent_context_mismatch', 409)
+
     if task.initiative_id and not task.cycle and not task.due_date and not task.source_key:
         return _error('task_requires_due_date')
     if task.meeting and not task.due_date:
