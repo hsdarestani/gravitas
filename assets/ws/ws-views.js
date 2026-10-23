@@ -1108,6 +1108,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
 
       const form = el('form', 'task-board__form');
       const title = input('text', task.title);
+      title.setAttribute('aria-label', 'Task title');
       const description = textarea(task.description, 5);
       const priorityChoices = taskCardOptions(detailData.priorities, state.priorities, PRIORITY_COLUMNS);
       const statusChoices = taskCardOptions(detailData.statuses, state.statuses, STATUS_COLUMNS);
