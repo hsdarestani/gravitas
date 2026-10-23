@@ -479,6 +479,7 @@ def task_board_detail(request, task_id):
             'task': task_data,
             'hierarchy': _task_hierarchy(request, workspace, task),
             'can_delete': _can_manage_workspace(request.user, workspace),
+            'can_edit': base._editable(request, workspace),
             # The task detail dialog also opens directly from Research, where no
             # full Core board was loaded to provide these select options.
             'statuses': [{'value': value, 'label': label} for value, label in WorkStatus.choices],
