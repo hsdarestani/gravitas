@@ -131,6 +131,11 @@ class TaskFolderUiContractTests(SimpleTestCase):
             "const mentionSuggestions = el('div', 'task-comment__suggestions')",
             "comment.addEventListener('keydown'", "syncMentionIds()",
             "file.addEventListener('change'", "task-card-dialog__history",
+            "const resourceSection = el('section', 'task-card-dialog__resources')",
+            "resourceHeader.append(resourceTitle, addResource)",
+            "const advancedComments = el('div', 'task-card-dialog__advanced-comments')",
+            "relatedBlock.append(advancedComments)",
+            "external-links/",
             "const changedRelations = new Set()", "changedRelations.has(name)",
             "payload[name] = control.value ? Number(control.value) : null",
         ]:
