@@ -1,0 +1,36 @@
+name: Task Hierarchy and UX Validation
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/operating_api_v2.py'
+      - 'backend/core/task_board_api.py'
+      - 'backend/core/test_task_folder_hierarchy.py'
+      - 'assets/ws/ws-views.js'
+      - 'assets/ws/ws.css'
+      - '.github/workflows/task-folder-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  task-hierarchy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Workspace JavaScript modules
+        run: |
+          node --check --input-type=module < assets/ws/ws-views.js
+          node --check --input-type=module < assets/ws/ws-project-actions.js
+      - name: Task hierarchy and Core board regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/task-tree"
+          "$RUNNER_TEMP/task-tree/bin/pip" install -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/task-tree/bin/python" -m django test core.test_task_folder_hierarchy core.test_core_task_board core.test_task_consolidation --noinput
+          "$RUNNER_TEMP/task-tree/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/task-tree/bin/python" -m django check
