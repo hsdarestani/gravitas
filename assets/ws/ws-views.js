@@ -1329,11 +1329,114 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       if (description.value.trim() || blocked.value.trim()) descriptionBlock.open = false;
       const relatedBlock = el('details', 'task-family__details');
       relatedBlock.append(el('summary', null, 'More details'), links, calendarField, sourceHistory);
+      // Links are first-class task resources (not uploads or imported source records).
+      const resourceSection = el('section', 'task-card-dialog__resources');
+      const resourceHeader = el('div', 'task-card-dialog__resource-head');
+      const resourceTitle = el('strong', null, 'Links');
+      const addResource = makeButton('+ Add link', () => {
+        resourceEditor.hidden = !resourceEditor.hidden;
+        if (!resourceEditor.hidden) resourceUrl.focus();
+      });
+      addResource.type = 'button';
+      addResource.classList.add('task-card-dialog__resource-add');
+      addResource.hidden = detailData.can_edit === false;
+      resourceHeader.append(resourceTitle, addResource);
+      const resourceList = el('div', 'task-card-dialog__resource-list');
+      const resourceEditor = el('div', 'task-card-dialog__resource-editor');
+      resourceEditor.hidden = true;
+      const resourceUrl = input('url');
+      resourceUrl.placeholder = 'Paste Google Docs or any link…';
+      resourceUrl.setAttribute('aria-label', 'Link URL');
+      resourceUrl.maxLength = 2000;
+      const resourceName = input('text');
+      resourceName.placeholder = 'Name (optional)';
+      resourceName.setAttribute('aria-label', 'Link name');
+      resourceName.maxLength = 200;
+      const saveResource = makeButton('Add', async () => {
+        let safeUrl = resourceUrl.value.trim();
+        try {
+          const parsed = new URL(safeUrl);
+          if (!['https:', 'http:'].includes(parsed.protocol) ||
+              parsed.username || parsed.password) throw Error('Invalid link');
+        } catch {
+          resourceNote.textContent = 'Paste a valid https:// or http:// link.';
+          return;
+        }
+        saveResource.disabled = true;
+        resourceNote.textContent = 'Saving…';
+        try {
+          await P.addOperatingTaskExternalLink(task.id, resourceName.value.trim(), safeUrl);
+          resourceUrl.value = '';
+          resourceName.value = '';
+          resourceEditor.hidden = true;
+          await loadExternalLinks();
+          resourceNote.textContent = '';
+        } catch (error) {
+          resourceNote.textContent = error?.data?.error || error?.message || 'Could not save link.';
+        } finally {
+          saveResource.disabled = false;
+        }
+      });
+      saveResource.type = 'button';
+      resourceUrl.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); saveResource.click(); }
+      });
+      resourceName.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); saveResource.click(); }
+      });
+      resourceEditor.append(resourceUrl, resourceName, saveResource);
+      const resourceNote = el('p', 'v-note');
+      resourceSection.append(resourceHeader, resourceList, resourceEditor, resourceNote);
+
+      const loadExternalLinks = async () => {
+        try {
+          const data = await P.operatingTaskExternalLinks(task.id);
+          resourceList.replaceChildren();
+          for (const link of data.links || []) {
+            const line = el('div', 'task-card-dialog__resource-row');
+            const anchor = el('a', 'task-card-dialog__resource-url');
+            let parsed;
+            try {
+              parsed = new URL(link.url);
+              if (!['https:', 'http:'].includes(parsed.protocol)) continue;
+            } catch { continue; }
+            anchor.href = parsed.href;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+            anchor.textContent = link.title || parsed.hostname;
+            anchor.title = link.url;
+            anchor.append(el('span', 'task-card-dialog__resource-external', '↗'));
+            line.append(anchor);
+            if (detailData.can_edit !== false && Number(link.origin_task_id) === Number(task.id)) {
+              const remove = makeButton('×', async () => {
+                if (!confirm('Remove this link from the task?')) return;
+                remove.disabled = true;
+                try {
+                  await P.deleteOperatingTaskExternalLink(task.id, link.id);
+                  await loadExternalLinks();
+                } catch (error) {
+                  resourceNote.textContent = error?.data?.error || error?.message || 'Could not remove link.';
+                  remove.disabled = false;
+                }
+              });
+              remove.type = 'button';
+              remove.classList.add('task-card-dialog__resource-remove');
+              remove.setAttribute('aria-label', 'Remove ' + (link.title || parsed.hostname));
+              line.append(remove);
+            }
+            resourceList.append(line);
+          }
+        } catch (error) {
+          resourceNote.textContent = error?.data?.error || error?.message || 'Links could not be loaded.';
+        }
+      };
+
       form.append(
         familyPath,
         titleField,
         goalField,
         two,
+        resourceSection,
         descriptionBlock,
         relatedBlock,
         actions,
@@ -1370,7 +1473,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
       });
       main.append(form);
-      mountAnchoredComments({ container: main, kind: 'task', id: task.id,
+      const advancedComments = el('div', 'task-card-dialog__advanced-comments');
+      relatedBlock.append(advancedComments);
+      mountAnchoredComments({ container: advancedComments, kind: 'task', id: task.id,
         fields: [
           {key:'description', label:'Task description', element:description},
           {key:'definition_of_done', label:'Definition of done', element:done},
@@ -1879,7 +1984,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
       };
 
-      await Promise.all([loadChecklist(), loadComments(), loadAttachments(), loadHistory()]);
+      await Promise.all([loadChecklist(), loadComments(), loadAttachments(), loadHistory(), loadExternalLinks()]);
     } catch (error) {
       editorFailed = true;
       if (previewLoaded) {
