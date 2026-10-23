@@ -3928,3 +3928,211 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
     .task-family__child { min-height: 48px; }
   }
 }
+
+
+/* Task dialog: low-chrome editing, unobtrusive secondary actions and @ mentions. */
+@layer ws-components {
+  .task-card-dialog__frame {
+    width: min(1060px, calc(100vw - 28px));
+    border-radius: 16px;
+  }
+  .task-card-dialog__head {
+    position: relative;
+    gap: 8px;
+    padding: 11px 18px;
+  }
+  .task-card-dialog__head h2 {
+    min-width: 0;
+    font-size: var(--ws-fs-sm);
+    font-weight: 600;
+    color: var(--g-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .task-card-dialog__body { padding: 18px 20px; }
+  .task-card-dialog__grid {
+    grid-template-columns: minmax(0, 1.65fr) minmax(250px, .85fr);
+    gap: 28px;
+  }
+  .task-card-dialog__main, .task-card-dialog__side { gap: 20px; }
+  .task-card-dialog__main .task-board__form { gap: 11px; }
+  .task-card-dialog__title-field > .task-board__label { display: none; }
+  .task-card-dialog__title-field input {
+    padding: 4px 0 9px;
+    border: 0;
+    border-bottom: 1px solid var(--g-hairline);
+    border-radius: 0;
+    background: transparent;
+    font-size: clamp(1.04rem, 1.8vw, 1.3rem);
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--g-text);
+  }
+  .task-card-dialog__title-field input:focus {
+    outline: none;
+    border-bottom-color: var(--g-accent);
+  }
+  .task-family__path {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding: 0 0 5px;
+    gap: 2px;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .task-family__crumb { max-width: 13rem; padding: 2px 4px; font-size: var(--ws-fs-xs); flex: 0 0 auto; }
+  .task-family__separator { flex: 0 0 auto; }
+  .task-family__details {
+    border: 0;
+    border-top: 1px solid var(--g-hairline);
+    border-radius: 0;
+    padding: 0;
+    background: transparent;
+  }
+  .task-family__details > summary {
+    padding: 9px 0;
+    font-size: var(--ws-fs-sm);
+    color: var(--g-text-muted);
+  }
+  .task-family__details[open] { padding-bottom: 6px; }
+  .task-family__details:not([open]) { padding-bottom: 0; }
+  .task-family__create > summary {
+    width: fit-content;
+    padding: 7px 0;
+    cursor: pointer;
+    color: var(--g-accent);
+    font-size: var(--ws-fs-sm);
+    font-weight: 600;
+    list-style: none;
+  }
+  .task-family__create > summary::-webkit-details-marker { display: none; }
+  .task-family__create .task-family__new {
+    margin-top: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .task-family__child {
+    min-height: 36px;
+    padding: 7px 8px;
+    border-radius: 7px;
+  }
+  .task-family__child-goal { display: none; }
+  .task-card-dialog__main > .v-panel.wc-card,
+  .task-card-dialog__side > .v-panel.wc-card {
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--g-hairline);
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+  .task-card-dialog__side > .v-panel.wc-card:first-child { border-top: 0; }
+  .task-card-dialog__main > .v-panel .v-panel__head,
+  .task-card-dialog__side > .v-panel .v-panel__head {
+    min-height: 0;
+    margin: 0 0 10px;
+    padding: 12px 0 0;
+    border: 0;
+    background: transparent;
+  }
+  .task-card-dialog__side > .v-panel.wc-card:first-child .v-panel__head { padding-top: 0; }
+  .task-card-dialog__main > .v-panel .v-panel__body,
+  .task-card-dialog__side > .v-panel .v-panel__body {
+    padding: 0;
+    background: transparent;
+  }
+  .task-card-dialog__main > .v-panel .v-panel__head h2,
+  .task-card-dialog__side > .v-panel .v-panel__head h2 {
+    font-size: var(--ws-fs-sm);
+    font-weight: 700;
+  }
+  .task-card-dialog__side .task-comment__form { gap: 7px; }
+  .task-card-dialog__side .task-comment__form textarea {
+    min-height: 64px;
+    resize: vertical;
+  }
+  .task-comment__suggestions {
+    position: relative;
+    margin-top: 0;
+    padding: 4px;
+    box-shadow: 0 10px 24px rgba(0, 18, 30, .12);
+  }
+  .task-comment__suggestions .task-comment__person {
+    display: block;
+    padding: 9px 10px;
+    font-weight: 500;
+  }
+  .task-comment__suggestions .task-comment__person[aria-selected="true"] {
+    background: var(--g-surface-hover);
+  }
+  .task-comment__composer-actions { justify-content: flex-end; }
+  .task-card-dialog__attach-action {
+    width: fit-content;
+    padding: 6px 0;
+    border: none;
+    background: transparent;
+    color: var(--g-accent);
+  }
+  .task-card-dialog__history {
+    border-top: 1px solid var(--g-hairline);
+    padding-top: 10px;
+  }
+  .task-card-dialog__history > summary {
+    cursor: pointer;
+    font-size: var(--ws-fs-sm);
+    font-weight: 700;
+    color: var(--g-text-muted);
+    padding: 3px 0 8px;
+  }
+  .task-card-dialog__history-body { max-height: 420px; overflow-y: auto; }
+  .task-card-dialog__more { position: relative; flex: 0 0 auto; z-index: 12; }
+  .task-card-dialog__more > summary {
+    display: grid;
+    place-items: center;
+    padding: 5px 10px;
+    border: 1px solid var(--g-hairline);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--g-text-muted);
+    font-size: var(--ws-fs-sm);
+    list-style: none;
+  }
+  .task-card-dialog__more > summary::-webkit-details-marker { display: none; }
+  .task-card-dialog__more[open] > summary { background: var(--g-surface-hover); }
+  .task-card-dialog__more-items {
+    position: absolute;
+    top: calc(100% + 5px);
+    right: 0;
+    z-index: 15;
+    display: grid;
+    gap: 3px;
+    min-width: 210px;
+    padding: 7px;
+    border: 1px solid var(--g-hairline);
+    border-radius: 10px;
+    background: var(--g-surface-raised);
+    box-shadow: 0 16px 34px rgba(0, 10, 25, .22);
+  }
+  .task-card-dialog__more-items > button {
+    width: 100%;
+    min-height: 34px;
+    justify-content: flex-start;
+    padding: 7px 10px;
+    border: 0;
+    text-align: left;
+    background: transparent;
+  }
+  .task-card-dialog__more-items > button:hover { background: var(--g-surface-hover); }
+  @media (max-width: 850px) {
+    .task-card-dialog__grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+    .task-card-dialog__body { padding: 13px; }
+    .task-card-dialog__head { padding: 11px 13px; }
+    .task-card-dialog__side > .v-panel.wc-card:first-child { border-top: 1px solid var(--g-hairline); }
+    .task-card-dialog__side > .v-panel.wc-card:first-child .v-panel__head { padding-top: 12px; }
+  }
+}
