@@ -1149,6 +1149,31 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         task.parent_id || '',
       );
 
+      // Never rewrite a task's stored links simply because an archived or
+      // access-filtered related record is absent from the edit dropdown.
+      // A field is sent only after the user explicitly changes that control.
+      const relationControls = {
+        key_result_id: keyResult, milestone_id: milestone,
+        work_package_id: workPackage, project_id: project,
+        parent_id: parent, dependency_id: dependency,
+      };
+      const changedRelations = new Set();
+      for (const [name, control] of Object.entries(relationControls))
+        control.addEventListener('change', () => changedRelations.add(name));
+      keyResult.addEventListener('change', () => {
+        const target = String(keyResult.value || '');
+        const matches = (rows, value) => rows.some(row =>
+          String(row.id) === String(value) && String(row.key_result_id) === target);
+        if (milestone.value && !matches(detailData.milestones || [], milestone.value)) {
+          milestone.value = '';
+          changedRelations.add('milestone_id');
+        }
+        if (workPackage.value && !matches(detailData.work_packages || [], workPackage.value)) {
+          workPackage.value = '';
+          changedRelations.add('work_package_id');
+        }
+      });
+
       const two = el('div', 'task-board__two');
       two.append(field('Priority', priority), field('Status', status), field('Owner', owner), field('Due date', due));
       const calendarField = el('div', 'task-board__field task-board__calendar-field');
@@ -1327,16 +1352,14 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           priority: priority.value,
           status: status.value,
           owner_id: Number(owner.value),
-          key_result_id: Number(keyResult.value),
-          milestone_id: milestone.value ? Number(milestone.value) : null,
-          work_package_id: workPackage.value ? Number(workPackage.value) : null,
-          project_id: project.value ? Number(project.value) : null,
-          parent_id: parent.value ? Number(parent.value) : null,
-          dependency_id: dependency.value ? Number(dependency.value) : null,
           due_date: due.value || null,
           definition_of_done: done.value.trim(),
           blocked_reason: blocked.value.trim(),
         };
+        for (const [name, control] of Object.entries(relationControls)) {
+          if (changedRelations.has(name))
+            payload[name] = control.value ? Number(control.value) : null;
+        }
         try {
           const result = await P.updateOperatingTaskCard(task.id, payload);
           note.textContent = 'Saved.';

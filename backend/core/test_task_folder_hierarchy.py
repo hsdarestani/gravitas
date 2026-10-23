@@ -128,6 +128,8 @@ class TaskFolderUiContractTests(SimpleTestCase):
             "task-family__details", "Parent task", "Subtasks",
             "parent_id: task.id", "Expected outcome / Definition of done",
             "navTask(created.task.id)", "Navigate the folder path above",
+            "const changedRelations = new Set()", "changedRelations.has(name)",
+            "payload[name] = control.value ? Number(control.value) : null",
         ]:
             self.assertIn(token, source)
         stylesheet = (Path(__file__).resolve().parents[2] / 'assets/ws/ws.css').read_text()
