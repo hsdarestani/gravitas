@@ -4149,3 +4149,88 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
     .task-card-dialog__side > .v-panel.wc-card:first-child .v-panel__head { padding-top: 12px; }
   }
 }
+
+
+/* Direct task bookmarks, distinct from uploaded attachments and source links. */
+@layer ws-components {
+  .task-card-dialog__resources {
+    display: grid;
+    gap: 6px;
+    padding: 9px 0 11px;
+    border-top: 1px solid var(--g-hairline);
+  }
+  .task-card-dialog__resource-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .task-card-dialog__resource-head strong {
+    font-size: var(--ws-fs-sm);
+    font-weight: 650;
+  }
+  .task-card-dialog__resource-add {
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: var(--g-accent);
+    font-size: var(--ws-fs-sm);
+  }
+  .task-card-dialog__resource-list { display: grid; gap: 2px; }
+  .task-card-dialog__resource-row {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 6px;
+  }
+  .task-card-dialog__resource-url {
+    display: inline-flex;
+    align-items: baseline;
+    max-width: 100%;
+    min-width: 0;
+    gap: 6px;
+    padding: 5px 3px;
+    color: var(--g-text);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    font-size: var(--ws-fs-sm);
+  }
+  .task-card-dialog__resource-url:hover { color: var(--g-accent); text-decoration: underline; }
+  .task-card-dialog__resource-external { color: var(--g-text-muted); font-size: var(--ws-fs-xs); }
+  .task-card-dialog__resource-remove {
+    flex: 0 0 auto;
+    min-height: 26px;
+    padding: 2px 7px;
+    border: 0;
+    background: transparent;
+    color: var(--g-text-muted);
+  }
+  .task-card-dialog__resource-remove:hover { color: var(--g-text); background: var(--g-surface-hover); }
+  .task-card-dialog__resource-editor {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) minmax(100px,.7fr) auto;
+    gap: 6px;
+    padding-top: 5px;
+  }
+  .task-card-dialog__resource-editor .v-input { min-width: 0; }
+  .task-card-dialog__resource-editor[hidden],
+  .task-card-dialog__resource-add[hidden],
+  .task-card-dialog__advanced-comments .ws-line-comments[hidden] {
+    display: none !important;
+  }
+  .task-card-dialog__advanced-comments { padding: 8px 0; }
+  .task-card-dialog__advanced-comments > button {
+    border: 0;
+    padding: 4px 0;
+    background: transparent;
+    color: var(--g-text-muted);
+  }
+  .task-card-dialog__advanced-comments .ws-line-comments {
+    padding: 7px 0;
+    border: 0;
+    background: transparent;
+  }
+  @media (max-width: 680px) {
+    .task-card-dialog__resource-editor { grid-template-columns: minmax(0, 1fr); }
+  }
+}
