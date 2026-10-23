@@ -377,10 +377,23 @@ def _task_hierarchy(request, workspace, task):
     visible_children = [child for child in children if can_view(request.user, child)][:100]
     # Parent options are bounded to the task's own project; other projects
     # must never appear as selectable parents.
-    candidates = (OperatingTask.objects.filter(workspace=workspace, project_id=task.project_id)
-                  .exclude(pk=task.pk)
-                  .exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
-                  .order_by('title', 'id').only('id', 'title', 'parent_id')[:500])
+    current_kr = task.initiative.key_result_id if task.initiative_id else None
+    candidates = list(
+        OperatingTask.objects.filter(
+            workspace=workspace, project_id=task.project_id,
+            initiative__key_result_id=current_kr,
+        )
+        .exclude(pk=task.pk)
+        .exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
+        .select_related('workspace', 'project', 'owner')
+        .order_by('title', 'id')[:80]
+    )
+    if task.parent_id and all(row.pk != task.parent_id for row in candidates):
+        original = OperatingTask.objects.filter(
+            pk=task.parent_id, workspace=workspace).select_related(
+                'workspace', 'project', 'owner').first()
+        if original:
+            candidates.append(original)
     return {
         'ancestors': ancestors,
         'children': [
