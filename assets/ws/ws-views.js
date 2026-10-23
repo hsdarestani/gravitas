@@ -1292,11 +1292,24 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       relatedBlock.append(el('summary', null, 'Links, planning and integrations'), links, calendarField, sourceHistory);
       const locationNote = el('p', 'task-family__hint',
         'Navigate the folder path above to open an Objective, KR or parent. A subtask is a real task, not a checklist item.');
+      const linkShelf = el('section', 'task-family__links');
+      const linkHeading = el('strong', null, 'Links & references');
+      const copyTaskUrl = makeButton('Copy task URL', () => linkTask.click());
+      copyTaskUrl.classList.add('ws-btn--tiny');
+      const copyTaskRef = makeButton('Copy [[task]] reference', () => refTask.click());
+      copyTaskRef.classList.add('ws-btn--tiny');
+      linkShelf.append(linkHeading, copyTaskUrl, copyTaskRef);
+      if (task.project_id) {
+        const projectLink = el('a', 'ws-btn ws-btn--tiny', 'Open Research project');
+        projectLink.href = '/workspace/research/projects/' + task.project_id + '/tasks';
+        linkShelf.append(projectLink);
+      }
       form.append(
         familyPath,
         titleField,
         goalField,
         two,
+        linkShelf,
         descriptionBlock,
         relatedBlock,
         locationNote,
