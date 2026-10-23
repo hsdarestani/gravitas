@@ -65,14 +65,14 @@ assert.doesNotMatch(source, /The server did not answer\. Nothing has been change
 const project = fs.readFileSync('assets/ws/ws-project-actions.js', 'utf8');
 const boot = fs.readFileSync('assets/ws/ws-app.js', 'utf8');
 const page = fs.readFileSync('workspace.html', 'utf8');
-assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261023simplecomments1/);
-assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261023simplecomments1/);
-assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261023simplecomments1/);
+assert.match(project, /ws-views\.js\?v=20261016-task1&patch=20261023taskfocus1/);
+assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261023taskfocus1/);
+assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261023taskfocus1/);
 const five = fs.readFileSync('assets/ws/ws-five-layer.js', 'utf8');
 const projectView = fs.readFileSync('assets/ws/ws-project.js', 'utf8');
-assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261020toolsave1/);
-assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261020toolsave1/);
-assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261019taskchoices1/);
+assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261023taskfocus1/);
+assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261023taskfocus1/);
+assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261023taskfocus1/);
 """
         result = subprocess.run(
             ['node', '--input-type=module', '-e', script],
