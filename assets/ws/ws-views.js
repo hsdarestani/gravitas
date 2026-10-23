@@ -1437,8 +1437,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       subtasksPanel.body.append(subtasks);
       main.append(subtasksPanel);
 
-      const checklistPanel = panel('Checklist');
-      // The checklist itself explains the feature; no permanent instructional block.
+      const checklistPanel = el('details', 'task-card-dialog__fold');
+      checklistPanel.append(el('summary', null, 'Checklist'));
+      checklistPanel.body = el('div', 'task-card-dialog__fold-body');
+      checklistPanel.append(checklistPanel.body);
       main.append(checklistPanel);
 
       const loadChecklist = async () => {
