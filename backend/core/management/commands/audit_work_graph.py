@@ -120,6 +120,31 @@ def report_for(snapshot_data, activity_counts=None, daily_report_counts=None, ti
             'daily_reports': int(daily_report_counts.get(task_id, 0)),
             'time_log_note_projections': int(time_log_counts.get(task_id, 0)),
         }
+    # Quality checks flag missing or ambiguous planning data for human review.
+    # No label here is a proof that a task is unnecessary or duplicate.
+    tasks_by_id = {item['id']: item for item in tasks}
+    missing_output = [item['id'] for item in tasks
+                      if not str(item.get('definition_of_done') or '').strip()]
+    generic_output = [item['id'] for item in tasks
+                      if normalize(item.get('definition_of_done')) in {
+                          'done', 'complete', 'completed', 'finish', 'finished',
+                          'انجام شد', 'تکمیل شد',
+                      }]
+    parent_scope_mismatch = [
+        item['id'] for item in tasks
+        if item.get('parent_id') and (
+            item['parent_id'] not in tasks_by_id or
+            tasks_by_id[item['parent_id']].get('project_id') != item.get('project_id') or
+            tasks_by_id[item['parent_id']].get('workspace_id') != item.get('workspace_id')
+        )
+    ]
+    parent_kr_mismatch = [
+        item['id'] for item in tasks
+        if item.get('parent_id') in tasks_by_id and
+        (initiatives.get(item.get('initiative_id')) or {}).get('key_result_id') !=
+        (initiatives.get(tasks_by_id[item['parent_id']].get('initiative_id')) or {}).get('key_result_id')
+    ]
+
     project_notes = Counter(item['project_id'] for item in snapshot_data.get('notes', []))
     canonical_files = Counter(
         item['project_id'] for item in snapshot_data.get('canonical_files', []) if not item['deleted']
@@ -138,6 +163,14 @@ def report_for(snapshot_data, activity_counts=None, daily_report_counts=None, ti
             'duplicates_exact_omitted': omitted_tasks,
             'similar_title_review_only': near_matches,
         },
+        'quality_review_only': {
+            'tasks_missing_definition_of_done_ids': missing_output,
+            'tasks_with_generic_output_ids': generic_output,
+            'tasks_with_parent_scope_mismatch_ids': parent_scope_mismatch,
+            'tasks_with_parent_kr_mismatch_ids': parent_kr_mismatch,
+            'unplanned_tasks_without_kr_ids': unlinked,
+            'note': 'Candidates require outcome/owner/source review; not automatic deletion or relabeling.',
+        },
         'projects': {
             'total': len(projects),
             'duplicate_title_review_only': project_candidates,
@@ -150,6 +183,10 @@ def report_for(snapshot_data, activity_counts=None, daily_report_counts=None, ti
                     'canonical_file_projections': canonical_files[p['id']],
                     'canonical_enabled': bool((p.get('canonical') or {}).get('enabled')),
                     'canonical_last_error_present': bool((p.get('canonical') or {}).get('last_error')),
+                    'needs_scope_review': (
+                        not project_counts[p['id']] and not project_notes[p['id']]
+                        and not canonical_files[p['id']]
+                    ),
                 } for p in projects
             ],
         },

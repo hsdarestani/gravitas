@@ -372,6 +372,41 @@ def tasks(request):
     if not base._editable(request, workspace):
         return base._error('permission_denied', 403)
 
+    # A subtask is a first-class OperatingTask, never a detached checklist
+    # string or a duplicate cross-workspace record.
+    from .operating_models import OperatingTaskConsolidation
+    from .platform_access import can_view
+    raw_parent = payload.get('parent_id')
+    parent = None
+    if raw_parent not in (None, '', 0, '0'):
+        try:
+            parent_id = int(raw_parent)
+        except (TypeError, ValueError):
+            return base._error('invalid_parent')
+        parent = (OperatingTask.objects.select_related('initiative__key_result', 'owner')
+                  .filter(pk=parent_id, workspace=workspace)
+                  .exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id')).first())
+        if not parent or not can_view(request.user, parent):
+            return base._error('parent_not_found', 404)
+        if payload.get('project_id') not in (None, '', parent.project_id, str(parent.project_id)):
+            return base._error('parent_project_mismatch', 409)
+        parent_kr = parent.initiative.key_result_id if parent.initiative_id else None
+        if payload.get('key_result_id') not in (None, '', 0, '0', parent_kr, str(parent_kr)):
+            return base._error('parent_key_result_mismatch', 409)
+        if payload.get('initiative_id') not in (None, '', 0, '0', parent.initiative_id, str(parent.initiative_id)):
+            return base._error('parent_initiative_mismatch', 409)
+        payload['project_id'] = parent.project_id
+        payload['key_result_id'] = parent_kr
+        payload['milestone_id'] = parent.milestone_id
+        payload['work_package_id'] = parent.work_package_id
+        payload['cycle_id'] = parent.cycle_id
+        if payload.get('due_date') in (None, ''):
+            payload['due_date'] = parent.due_date.isoformat() if parent.due_date else None
+        if payload.get('owner_id') in (None, ''):
+            payload['owner_id'] = parent.owner_id
+        if not payload.get('priority'):
+            payload['priority'] = parent.priority
+
     owner = base._owner(request.user, workspace, payload.get('owner_id'))
     priority = payload.get('priority')
     due_date = base._date(payload.get('due_date'))
@@ -432,9 +467,14 @@ def tasks(request):
         milestone = work_package.milestone
         initiative = milestone.initiative
 
-    project = ResearchProject.objects.filter(
-        pk=payload.get('project_id'), workspace=workspace
-    ).first() if payload.get('project_id') else None
+    # Cross-surface Research projects live in the Research workspace, while
+    # tasks live in Core. A child inherits its already ACL-checked parent's
+    # project *before* model validation to avoid a 500 on creation.
+    project = parent.project if parent else (
+        ResearchProject.objects.filter(
+            pk=payload.get('project_id'), workspace=workspace
+        ).first() if payload.get('project_id') else None
+    )
     dependency = OperatingTask.objects.filter(
         pk=payload.get('dependency_id'), workspace=workspace
     ).first() if payload.get('dependency_id') else None
@@ -448,6 +488,7 @@ def tasks(request):
         project=project,
         meeting=meeting,
         owner=owner,
+        parent=parent,
         title=payload['title'].strip(),
         description=payload.get('description', ''),
         priority=priority,

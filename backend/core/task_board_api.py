@@ -351,6 +351,78 @@ def task_board(request):
     })
 
 
+def _task_hierarchy(request, workspace, task, *, include_candidates=True):
+    """Bounded, same-project task lineage and children. No full-board load."""
+    from .platform_access import can_view
+    ancestors = []
+    seen = {task.pk}
+    cursor_id = task.parent_id
+    for _ in range(16):
+        if not cursor_id or cursor_id in seen:
+            break
+        seen.add(cursor_id)
+        parent = (OperatingTask.objects.filter(pk=cursor_id, workspace=workspace,
+                                               project_id=task.project_id)
+                  .only('id', 'title', 'parent_id', 'status').first())
+        if not parent or not can_view(request.user, parent):
+            break
+        ancestors.append({'id': parent.pk, 'title': parent.title, 'status': parent.status})
+        cursor_id = parent.parent_id
+    ancestors.reverse()
+
+    children = (OperatingTask.objects.filter(parent_id=task.pk, workspace=workspace)
+                .exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
+                .order_by('board_order', 'id')
+                .only('id', 'title', 'status', 'definition_of_done', 'due_date')[:101])
+    visible_children = [child for child in children if can_view(request.user, child)][:100]
+    if not include_candidates:
+        return {
+            'ancestors': ancestors,
+            'children': [
+                {'id': row.pk, 'title': row.title, 'status': row.status,
+                 'due_date': row.due_date.isoformat() if row.due_date else None,
+                 'definition_of_done': row.definition_of_done}
+                for row in visible_children
+            ],
+            'children_truncated': len(visible_children) >= 100,
+            'parent_candidates': [],
+        }
+
+    # Parent options are bounded to the task's own project; other projects
+    # must never appear as selectable parents.
+    current_kr = task.initiative.key_result_id if task.initiative_id else None
+    candidates = list(
+        OperatingTask.objects.filter(
+            workspace=workspace, project_id=task.project_id,
+            initiative__key_result_id=current_kr,
+        )
+        .exclude(pk=task.pk)
+        .exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
+        .select_related('workspace', 'project', 'owner')
+        .order_by('title', 'id')[:80]
+    )
+    if task.parent_id and all(row.pk != task.parent_id for row in candidates):
+        original = OperatingTask.objects.filter(
+            pk=task.parent_id, workspace=workspace).select_related(
+                'workspace', 'project', 'owner').first()
+        if original:
+            candidates.append(original)
+    return {
+        'ancestors': ancestors,
+        'children': [
+            {'id': row.pk, 'title': row.title, 'status': row.status,
+             'due_date': row.due_date.isoformat() if row.due_date else None,
+             'definition_of_done': row.definition_of_done}
+            for row in visible_children
+        ],
+        'children_truncated': len(visible_children) >= 100,
+        'parent_candidates': [
+            {'id': row.pk, 'title': row.title} for row in candidates
+            if can_view(request.user, row)
+        ],
+    }
+
+
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
 def task_board_detail(request, task_id):
     if not request.user.is_authenticated:
@@ -377,7 +449,18 @@ def task_board_detail(request, task_id):
                 'description': task.description,
                 'status': task.status,
                 'owner': _person(task.owner),
+                'definition_of_done': task.definition_of_done,
+                'parent_id': task.parent_id,
+                'key_result': {
+                    'id': task.initiative.key_result_id,
+                    'title': task.initiative.key_result.title,
+                } if task.initiative_id else None,
+                'objective': {
+                    'id': task.initiative.key_result.objective_id,
+                    'title': task.initiative.key_result.objective.title,
+                } if task.initiative_id else None,
             },
+            'hierarchy': _task_hierarchy(request, workspace, task, include_candidates=False),
             'events': _task_activity_events(request, workspace, task, limit=30),
         })
 
@@ -392,6 +475,7 @@ def task_board_detail(request, task_id):
         return JsonResponse({
             'ok': True,
             'task': task_data,
+            'hierarchy': _task_hierarchy(request, workspace, task),
             'can_delete': _can_manage_workspace(request.user, workspace),
             # The task detail dialog also opens directly from Research, where no
             # full Core board was loaded to provide these select options.
@@ -423,6 +507,10 @@ def task_board_detail(request, task_id):
         parent = OperatingTask.objects.filter(pk=payload['parent_id'], workspace=workspace).first() if payload['parent_id'] else None
         if payload['parent_id'] and (parent is None or not can_view(request.user, parent)):
             return _error('invalid_parent')
+        if parent and parent.pk == task.pk:
+            return _error('invalid_parent_self', 409)
+        if parent and canonical_id(parent.pk) != parent.pk:
+            return _error('parent_is_consolidated_alias', 409, canonical_task_id=canonical_id(parent.pk))
         task.parent = parent
 
     for field in ['title', 'description', 'priority', 'status', 'definition_of_done', 'blocked_reason']:
@@ -526,6 +614,18 @@ def task_board_detail(request, task_id):
         if payload.get('dependency_id') and not task.dependency:
             return _error('invalid_dependency')
 
+    # A subtask belongs to its parent's project and planning KR. Reject
+    # mismatches as user-facing 409s, not uncaught model ValidationError/500.
+    if task.parent_id:
+        parent = OperatingTask.objects.select_related('initiative__key_result').filter(
+            pk=task.parent_id, workspace=workspace).first()
+        if not parent:
+            return _error('parent_not_found', 404)
+        own_kr = task.initiative.key_result_id if task.initiative_id else None
+        parent_kr = parent.initiative.key_result_id if parent.initiative_id else None
+        if task.project_id != parent.project_id or own_kr != parent_kr:
+            return _error('parent_context_mismatch', 409)
+
     if task.initiative_id and not task.cycle and not task.due_date and not task.source_key:
         return _error('task_requires_due_date')
     if task.meeting and not task.due_date:
@@ -543,8 +643,11 @@ def task_board_detail(request, task_id):
     try:
         task.clean()
     except ValidationError:
-        return _error('invalid_task_hierarchy')
-    task.save()
+        return _error('invalid_task_hierarchy', 409)
+    try:
+        task.save()
+    except ValidationError:
+        return _error('invalid_task_hierarchy', 409)
     task = _task_for(request, task.pk)[1]
     after = _task_json(task)
     changed = {
@@ -553,7 +656,7 @@ def task_board_detail(request, task_id):
             'title', 'description', 'owner', 'priority', 'status', 'due_date',
             'definition_of_done', 'blocked_reason',
             'milestone_id', 'work_package_id', 'project_id',
-            'dependency_id',
+            'dependency_id', 'parent_id',
         ]
         if before.get(key) != after.get(key)
     }

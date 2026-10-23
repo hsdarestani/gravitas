@@ -46,7 +46,7 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         self.assertNotIn('controller.abort()', platform)
         self.assertNotIn('setTimeout(() => controller.abort()', platform)
         self.assertIn('P.operatingTaskPreview(taskId).then(showTaskPreview)', views)
-        self.assertIn('const showTaskPreview = ({ task: summary, events = [] }) =>', views)
+        self.assertIn('const showTaskPreview = ({ task: summary, events = [], hierarchy = {} }) =>', views)
         self.assertIn('showEvents(events)', views)
         self.assertIn('if (mobileReader)', views)
         self.assertIn('await previewRequest', views)

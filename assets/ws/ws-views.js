@@ -903,7 +903,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     let previewLoaded = false;
     let editorFailed = false;
     const mobileReader = window.matchMedia?.('(max-width: 800px)')?.matches && !forceEditor;
-    const showTaskPreview = ({ task: summary, events = [] }) => {
+    const showTaskPreview = ({ task: summary, events = [], hierarchy = {} }) => {
       if (!dialog.isConnected || !summary || (detailForFallback && !editorFailed)) return;
       previewLoaded = true;
       detailForFallback = summary;
@@ -916,7 +916,43 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       const note = el('p', 'fl-muted', editorFailed
         ? 'The editor could not load. The task and saved reports remain available below.'
         : mobileReader ? 'Task report and status' : 'Loading full editor…');
-      body.replaceChildren(status, description, activity, note);
+      const lineage = el('nav', 'task-family__path');
+      lineage.setAttribute('aria-label', 'Task folder path');
+      const gotoTask = id => {
+        closeDialog(dialog);
+        openTaskDialog(id, state, reloadBoard);
+      };
+      const gotoPlanning = (kind, id) => {
+        closeDialog(dialog);
+        const index = typeof state === 'function' ? state() : Promise.resolve(state);
+        Promise.resolve(index).then(data => openTaskHierarchyDialog(kind, id, data || {}, reloadBoard))
+          .catch(() => {});
+      };
+      const previewStep = (text, fn) => {
+        const crumb = el('button', 'task-family__crumb', text);
+        crumb.type = 'button';
+        crumb.addEventListener('click', fn);
+        lineage.append(crumb, el('span', 'task-family__separator', '›'));
+      };
+      if (summary.objective?.id) previewStep(summary.objective.title,
+        () => gotoPlanning('objective', summary.objective.id));
+      if (summary.key_result?.id) previewStep(summary.key_result.title,
+        () => gotoPlanning('key_result', summary.key_result.id));
+      for (const parent of hierarchy.ancestors || [])
+        previewStep(parent.title, () => gotoTask(parent.id));
+      lineage.append(el('strong', 'task-family__crumb', summary.title));
+      const goal = el('section', 'task-family__mobile-goal');
+      goal.append(el('strong', null, 'Expected outcome'),
+        el('p', null, summary.definition_of_done || 'Not defined'));
+      const subtaskBox = el('section', 'task-family__mobile-children');
+      subtaskBox.append(el('strong', null, 'Subtasks'));
+      for (const child of hierarchy.children || []) {
+        const open = makeButton(child.title + ' · ' + P.label(child.status), () => gotoTask(child.id));
+        open.classList.add('task-family__child');
+        subtaskBox.append(open);
+      }
+      if (!(hierarchy.children || []).length) subtaskBox.append(el('p', 'fl-muted', 'No subtasks yet.'));
+      body.replaceChildren(lineage, status, goal, description, subtaskBox, activity, note);
       const showEvents = (items) => {
         activity.replaceChildren(el('strong', null, 'Activity'));
         for (const event of (items || []).slice(0, 20)) {
@@ -977,6 +1013,41 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       detailForFallback = task;
       head.querySelector('h2').textContent = task.title;
       const closeButton = head.querySelector('button');
+      const family = detailData.hierarchy || { ancestors: [], children: [], parent_candidates: [] };
+      const navTask = (id) => {
+        closeDialog(dialog);
+        openTaskDialog(id, stateLoader || state, reloadBoard);
+      };
+      const navPlan = async (kind, id) => {
+        closeDialog(dialog);
+        const index = stateLoader ? await stateLoader().catch(() => state) : state;
+        openTaskHierarchyDialog(kind, id, index, reloadBoard);
+      };
+      const familyPath = el('nav', 'task-family__path');
+      familyPath.setAttribute('aria-label', 'Task location');
+      const pathStep = (caption, action, current = false) => {
+        const item = el(current ? 'span' : 'button', 'task-family__crumb', caption);
+        if (!current) {
+          item.type = 'button';
+          item.addEventListener('click', action);
+        } else item.setAttribute('aria-current', 'page');
+        familyPath.append(item);
+        if (!current) familyPath.append(el('span', 'task-family__separator', '›'));
+      };
+      if (task.trace?.objective?.id)
+        pathStep(task.trace.objective.title || 'Objective',
+          () => navPlan('objective', task.trace.objective.id));
+      if (task.trace?.key_result?.id)
+        pathStep(task.trace.key_result.title || 'KR',
+          () => navPlan('key_result', task.trace.key_result.id));
+      if (task.project_id && task.project_title && go)
+        pathStep(task.project_title, () => {
+          closeDialog(dialog);
+          go('/workspace/research/projects/' + task.project_id + '/tasks');
+        });
+      for (const ancestor of family.ancestors || [])
+        pathStep(ancestor.title, () => navTask(ancestor.id));
+      pathStep(task.title, null, true);
       const linkTask = makeButton('Copy link', async () => {
         const url = new URL(`/workspace/core/tasks?task=${encodeURIComponent(task.id)}`, location.origin);
         try { await navigator.clipboard.writeText(url.href); linkTask.textContent = 'Link copied'; }
@@ -1073,6 +1144,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       const due = input('date', task.due_date || '');
       const done = textarea(task.definition_of_done, 4);
       const blocked = textarea(task.blocked_reason, 3);
+      const parent = select(
+        [['', 'No parent task'], ...(family.parent_candidates || []).map(row => [row.id, row.title])],
+        task.parent_id || '',
+      );
 
       const two = el('div', 'task-board__two');
       two.append(field('Priority', priority), field('Status', status), field('Owner', owner), field('Due date', due));
@@ -1170,14 +1245,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         field('Key result', keyResult), field('Milestone', milestone),
         field('Work package', workPackage),
         field('Research project', project),
+        field('Parent task', parent),
         field('Dependency', dependency),
-      );
-
-      const trace = el('div', 'task-card-dialog__trace');
-      trace.append(
-        el('span', 'v-badge', task.trace?.objective?.title || 'Objective'),
-        el('span', 'v-badge', task.trace?.key_result?.title || 'Key result'),
-        task.milestone_title ? el('span', 'v-badge', task.milestone_title) : el('span'),
       );
 
       const sourceHistory = el('section', 'task-card-dialog__source-history');
@@ -1210,16 +1279,40 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       actions.append(save);
       const note = el('p', 'v-note');
 
-      form.append(
-        field('Title', title),
+      const titleField = field('Task', title);
+      const goalField = field('Expected outcome / Definition of done', done);
+      const descriptionBlock = el('details', 'task-family__details');
+      descriptionBlock.append(
+        el('summary', null, 'Description and context'),
         field('Description', description),
-        two,
-        links,
-        calendarField,
-        field('Definition of done', done),
         field('Blocked reason', blocked),
-        trace,
-        sourceHistory,
+      );
+      if (description.value.trim() || blocked.value.trim()) descriptionBlock.open = false;
+      const relatedBlock = el('details', 'task-family__details');
+      relatedBlock.append(el('summary', null, 'Links, planning and integrations'), links, calendarField, sourceHistory);
+      const locationNote = el('p', 'task-family__hint',
+        'Navigate the folder path above to open an Objective, KR or parent. A subtask is a real task, not a checklist item.');
+      const linkShelf = el('section', 'task-family__links');
+      const linkHeading = el('strong', null, 'Links & references');
+      const copyTaskUrl = makeButton('Copy task URL', () => linkTask.click());
+      copyTaskUrl.classList.add('ws-btn--tiny');
+      const copyTaskRef = makeButton('Copy [[task]] reference', () => refTask.click());
+      copyTaskRef.classList.add('ws-btn--tiny');
+      linkShelf.append(linkHeading, copyTaskUrl, copyTaskRef);
+      if (task.project_id) {
+        const projectLink = el('a', 'ws-btn ws-btn--tiny', 'Open Research project');
+        projectLink.href = '/workspace/research/projects/' + task.project_id + '/tasks';
+        linkShelf.append(projectLink);
+      }
+      form.append(
+        familyPath,
+        titleField,
+        goalField,
+        two,
+        linkShelf,
+        descriptionBlock,
+        relatedBlock,
+        locationNote,
         actions,
         note,
       );
@@ -1238,6 +1331,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           milestone_id: milestone.value ? Number(milestone.value) : null,
           work_package_id: workPackage.value ? Number(workPackage.value) : null,
           project_id: project.value ? Number(project.value) : null,
+          parent_id: parent.value ? Number(parent.value) : null,
           dependency_id: dependency.value ? Number(dependency.value) : null,
           due_date: due.value || null,
           definition_of_done: done.value.trim(),
@@ -1263,11 +1357,76 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           {key:'title', label:'Title', element:title},
         ], canEdit: detailData.can_edit !== false });
 
+      const subtasksPanel = panel('Subtasks');
+      const subtasks = el('div', 'task-family__children');
+      const descendants = family.children || [];
+      if (descendants.length) {
+        const progress = el('p', 'task-family__progress',
+          descendants.filter(row => row.status === 'done').length + '/' +
+          descendants.length + ' subtasks done');
+        subtasks.append(progress);
+        for (const child of descendants) {
+          const row = makeButton(child.title, () => navTask(child.id));
+          row.classList.add('task-family__child');
+          row.prepend(el('span', 'task-family__child-state', P.label(child.status)));
+          row.append(el('span', 'task-family__child-goal',
+            (child.definition_of_done || '').slice(0, 90)));
+          subtasks.append(row);
+        }
+        if (family.children_truncated)
+          subtasks.append(el('p', 'v-note', 'More subtasks exist. Open the Task Tree to navigate the full hierarchy.'));
+      } else subtasks.append(el('p', 'task-family__hint', 'No subtasks yet.'));
+      if (detailData.can_edit !== false) {
+        const createChild = el('form', 'task-family__new');
+        const childTitle = input('text');
+        childTitle.required = true;
+        childTitle.maxLength = 240;
+        childTitle.placeholder = 'New subtask title';
+        const childOutcome = textarea('', 2);
+        childOutcome.required = true;
+        childOutcome.placeholder = 'What must be delivered?';
+        const childSubmit = makeButton('+ Add subtask', () => {}, true);
+        childSubmit.type = 'submit';
+        const childError = el('p', 'v-note');
+        createChild.append(childTitle, childOutcome, childSubmit, childError);
+        createChild.addEventListener('submit', async event => {
+          event.preventDefault();
+          const name = childTitle.value.trim(), outcome = childOutcome.value.trim();
+          if (!name || !outcome) { childError.textContent = 'A title and expected outcome are required.'; return; }
+          childSubmit.disabled = true;
+          childError.textContent = 'Creating subtask…';
+          try {
+            const created = await P.createOperatingTask({
+              title: name,
+              definition_of_done: outcome,
+              parent_id: task.id,
+              priority: task.priority,
+              owner_id: task.owner?.id,
+              project_id: task.project_id,
+              key_result_id: task.trace?.key_result?.id || null,
+              due_date: task.due_date,
+              status: 'active',
+            });
+            await reloadBoard({ keepDialog: true });
+            navTask(created.task.id);
+          } catch (error) {
+            childError.textContent = error?.data?.error || error?.message || 'Could not create a subtask.';
+            childSubmit.disabled = false;
+          }
+        });
+        subtasks.append(createChild);
+      }
+      subtasksPanel.body.append(subtasks);
+      main.append(subtasksPanel);
+
       const checklistPanel = panel('Checklist');
+      const checklistHelp = el('p', 'task-family__hint',
+        'Use checklists for small steps. Use subtasks above for work that needs its own owner, outcome, status or history.');
+      checklistPanel.body.append(checklistHelp);
       main.append(checklistPanel);
 
       const loadChecklist = async () => {
-        checklistPanel.body.innerHTML = '';
+        checklistPanel.body.replaceChildren(checklistHelp);
         try {
           const data = await P.operatingTaskChecklist(task.id);
           const items = data.items || [];
