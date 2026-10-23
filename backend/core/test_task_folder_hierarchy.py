@@ -127,10 +127,18 @@ class TaskFolderUiContractTests(SimpleTestCase):
             "task-family__path", "task-family__children",
             "task-family__details", "Parent task", "Subtasks",
             "parent_id: task.id", "Expected outcome / Definition of done",
-            "navTask(created.task.id)", "Navigate the folder path above",
+            "navTask(created.task.id)", "const moreMenu = el('details'",
+            "const mentionSuggestions = el('div', 'task-comment__suggestions')",
+            "comment.addEventListener('keydown'", "syncMentionIds()",
+            "file.addEventListener('change'", "task-card-dialog__history",
             "const changedRelations = new Set()", "changedRelations.has(name)",
             "payload[name] = control.value ? Number(control.value) : null",
         ]:
             self.assertIn(token, source)
         stylesheet = (Path(__file__).resolve().parents[2] / 'assets/ws/ws.css').read_text()
         self.assertIn(".task-family__crumb", stylesheet)
+        self.assertIn(".task-card-dialog__more-items", stylesheet)
+        self.assertIn(".task-card-dialog__attach-action", stylesheet)
+        self.assertNotIn("Mention teammates", source)
+        self.assertNotIn("They will be notified in GraviQuest", source)
+        self.assertNotIn("No comments yet.", source)
