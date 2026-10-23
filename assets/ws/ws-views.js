@@ -1987,7 +1987,14 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           }
           if (!(data.events || []).length) historyPanel.body.append(el('p', 'fl-muted', 'No board activity logged yet.'));
         } catch (error) {
-          historyPanel.body.replaceChildren(el('p', 'fl-muted', error?.message || 'Activity unavailable.'), makeButton('Retry activity', () => { loadHistory(); }));
+          historyPanel.body.replaceChildren();
+          // An unavailable audit feed must not hide the persisted imported
+          // provenance attached to this task.
+          if (sourceRecords.length) historyPanel.body.append(sourceHistory);
+          historyPanel.body.append(
+            el('p', 'fl-muted', error?.message || 'Activity unavailable.'),
+            makeButton('Retry activity', () => { loadHistory(); }),
+          );
         }
       };
 
