@@ -1013,6 +1013,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       detailForFallback = task;
       head.querySelector('h2').textContent = 'Task #' + task.id;
       const closeButton = head.querySelector('button');
+      closeButton.textContent = '×';
+      closeButton.setAttribute('aria-label', 'Close task');
+      closeButton.title = 'Close task';
       const moreMenu = el('details', 'task-card-dialog__more');
       const moreTrigger = el('summary', null, 'More');
       moreTrigger.setAttribute('aria-label', 'More task actions');
