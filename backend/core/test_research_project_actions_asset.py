@@ -24,7 +24,6 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
             'New milestone',
             'Edit milestone',
             'New task',
-            'Edit task',
             'New project note',
             'Add source',
             'New map',
@@ -45,6 +44,11 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
             self.assertIn(text, source)
         self.assertNotIn('.showModal(', source)
         self.assertNotIn("createElement('dialog')", source)
+        # A row now leads to one edit/read card; no duplicate Edit task toolbar.
+        project = (root / 'assets/ws/ws-project.js').read_text(encoding='utf-8')
+        self.assertIn("onClick: () => openProjectTask(item, cockpit, context)", project)
+        self.assertIn("const canEdit = task.can_edit === true", source)
+        self.assertNotIn("function editTask(cockpit", source)
 
     def test_data_room_opens_the_project_team_folder_not_nextcloud_home(self):
         root = Path(__file__).resolve().parents[2]
@@ -85,7 +89,7 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
             '/platform/projects/${projectId}/milestones/',
             '/platform/projects/${projectId}/milestones/${fields.picker.value}/',
             '/platform/projects/${projectId}/tasks/',
-            '/platform/tasks/${fields.picker.value}/',
+            '/platform/tasks/${task.id}/',
             '/platform/resources/',
             '/platform/files/upload/',
             '/platform/share/',

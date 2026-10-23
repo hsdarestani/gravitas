@@ -151,3 +151,15 @@ class TaskFolderUiContractTests(SimpleTestCase):
         self.assertNotIn('task-card-dialog__advanced-comments', source)
         self.assertIn("const commentsPanel = panel('Comments')", source)
         self.assertIn('P.addOperatingTaskComment(task.id, comment.value.trim(), mentionUserIds)', source)
+        # The visible card stays focused: historical provenance is an Activity
+        # disclosure, checklist is opt-in, placement is grouped and cached
+        # Google status is no longer fetched on every card open.
+        self.assertIn("const optionalTools = el('section', 'task-card-dialog__optional-tools')", source)
+        self.assertIn("advancedActionItems.prepend(checklistAction)", source)
+        self.assertIn("if (!checklistLoaded) loadChecklist()", source)
+        self.assertIn("relatedBlock.append(placement, scheduling)", source)
+        self.assertIn("if (sourceRecords.length) historyPanel.body.append(sourceHistory)", source)
+        self.assertIn("const calendarAction = makeButton('Google Tasks', async () =>", source)
+        self.assertNotIn("refreshTaskCalendarState().catch", source)
+        self.assertIn("const overflowSteps = pathSteps.filter(step => !primary.includes(step))", source)
+        self.assertNotIn("loadChecklist(), loadComments()", source)

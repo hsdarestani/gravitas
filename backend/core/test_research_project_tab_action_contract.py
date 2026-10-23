@@ -10,7 +10,7 @@ class ResearchProjectTabActionContractTests(SimpleTestCase):
         expected = {
             'overview': ('Edit project', 'Access', 'New task', 'New note', 'Upload'),
             'milestones': ('New milestone', 'Edit milestone', 'Open planning'),
-            'tasks': ('New task', 'Edit task', 'Edit request'),
+            'tasks': ('New task', 'Edit request'),
             'notes': ('New note', 'Edit note'),
             'sources': ('Add source', 'Upload dataset', 'New map', 'Edit source'),
             'files': ('Upload file', 'Edit file', 'Data room'),
@@ -22,3 +22,6 @@ class ResearchProjectTabActionContractTests(SimpleTestCase):
             for label in labels:
                 self.assertIn(f"add('{label}'", source)
         self.assertIn("add('Refresh', refreshProject)", source)
+        project = (root / 'assets/ws/ws-project.js').read_text(encoding='utf-8')
+        self.assertIn("onClick: () => openProjectTask(item, cockpit, context)", project)
+        self.assertNotIn("add('Edit task'", source)
