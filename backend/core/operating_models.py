@@ -411,6 +411,26 @@ class GoogleCalendarMeetingAttachment(models.Model):
         ordering = ['created_at', 'id']
 
 
+
+
+class OperatingTaskExternalLink(models.Model):
+    """Task-owned bookmark: an external resource, not an uploaded file or source provenance."""
+    task = models.ForeignKey(
+        OperatingTask, on_delete=models.CASCADE, related_name='external_links')
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        blank=True, null=True, related_name='gravitas_task_external_links_added')
+    title = models.CharField(max_length=200)
+    url = models.URLField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['task', 'url'], name='grav_task_link_unique_url'),
+        ]
+
+
 class OperatingTaskConsolidation(models.Model):
     """Reversible logical alias. Both original tasks and their provenance survive.
 

@@ -343,7 +343,7 @@ function createTask(projectId) {
 
 export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
   if (P.canOpenCore()) {
-    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261023taskclean1');
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261023tasklinks1');
     return openCoreTask(task.id, { go, onTaskChange: refresh });
   }
   // Project participants do not need access to the internal Core board to
