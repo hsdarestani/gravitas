@@ -351,6 +351,52 @@ def task_board(request):
     })
 
 
+def _task_hierarchy(request, workspace, task):
+    """Bounded, same-project task lineage and children. No full-board load."""
+    from .platform_access import can_view
+    ancestors = []
+    seen = {task.pk}
+    cursor_id = task.parent_id
+    for _ in range(16):
+        if not cursor_id or cursor_id in seen:
+            break
+        seen.add(cursor_id)
+        parent = (OperatingTask.objects.filter(pk=cursor_id, workspace=workspace,
+                                               project_id=task.project_id)
+                  .only('id', 'title', 'parent_id', 'status').first())
+        if not parent or not can_view(request.user, parent):
+            break
+        ancestors.append({'id': parent.pk, 'title': parent.title, 'status': parent.status})
+        cursor_id = parent.parent_id
+    ancestors.reverse()
+
+    children = (OperatingTask.objects.filter(parent_id=task.pk, workspace=workspace)
+                .exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
+                .order_by('board_order', 'id')
+                .only('id', 'title', 'status', 'definition_of_done', 'due_date')[:101])
+    visible_children = [child for child in children if can_view(request.user, child)][:100]
+    # Parent options are bounded to the task's own project; other projects
+    # must never appear as selectable parents.
+    candidates = (OperatingTask.objects.filter(workspace=workspace, project_id=task.project_id)
+                  .exclude(pk=task.pk)
+                  .exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
+                  .order_by('title', 'id').only('id', 'title', 'parent_id')[:500])
+    return {
+        'ancestors': ancestors,
+        'children': [
+            {'id': row.pk, 'title': row.title, 'status': row.status,
+             'due_date': row.due_date.isoformat() if row.due_date else None,
+             'definition_of_done': row.definition_of_done}
+            for row in visible_children
+        ],
+        'children_truncated': len(visible_children) >= 100,
+        'parent_candidates': [
+            {'id': row.pk, 'title': row.title} for row in candidates
+            if can_view(request.user, row)
+        ],
+    }
+
+
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
 def task_board_detail(request, task_id):
     if not request.user.is_authenticated:
@@ -392,6 +438,7 @@ def task_board_detail(request, task_id):
         return JsonResponse({
             'ok': True,
             'task': task_data,
+            'hierarchy': _task_hierarchy(request, workspace, task),
             'can_delete': _can_manage_workspace(request.user, workspace),
             # The task detail dialog also opens directly from Research, where no
             # full Core board was loaded to provide these select options.
@@ -423,6 +470,10 @@ def task_board_detail(request, task_id):
         parent = OperatingTask.objects.filter(pk=payload['parent_id'], workspace=workspace).first() if payload['parent_id'] else None
         if payload['parent_id'] and (parent is None or not can_view(request.user, parent)):
             return _error('invalid_parent')
+        if parent and parent.pk == task.pk:
+            return _error('invalid_parent_self', 409)
+        if parent and canonical_id(parent.pk) != parent.pk:
+            return _error('parent_is_consolidated_alias', 409, canonical_task_id=canonical_id(parent.pk))
         task.parent = parent
 
     for field in ['title', 'description', 'priority', 'status', 'definition_of_done', 'blocked_reason']:
@@ -543,8 +594,11 @@ def task_board_detail(request, task_id):
     try:
         task.clean()
     except ValidationError:
-        return _error('invalid_task_hierarchy')
-    task.save()
+        return _error('invalid_task_hierarchy', 409)
+    try:
+        task.save()
+    except ValidationError:
+        return _error('invalid_task_hierarchy', 409)
     task = _task_for(request, task.pk)[1]
     after = _task_json(task)
     changed = {
@@ -553,7 +607,7 @@ def task_board_detail(request, task_id):
             'title', 'description', 'owner', 'priority', 'status', 'due_date',
             'definition_of_done', 'blocked_reason',
             'milestone_id', 'work_package_id', 'project_id',
-            'dependency_id',
+            'dependency_id', 'parent_id',
         ]
         if before.get(key) != after.get(key)
     }
