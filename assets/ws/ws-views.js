@@ -903,7 +903,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     let previewLoaded = false;
     let editorFailed = false;
     const mobileReader = window.matchMedia?.('(max-width: 800px)')?.matches && !forceEditor;
-    const showTaskPreview = ({ task: summary, events = [] }) => {
+    const showTaskPreview = ({ task: summary, events = [], hierarchy = {} }) => {
       if (!dialog.isConnected || !summary || (detailForFallback && !editorFailed)) return;
       previewLoaded = true;
       detailForFallback = summary;
@@ -916,7 +916,43 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       const note = el('p', 'fl-muted', editorFailed
         ? 'The editor could not load. The task and saved reports remain available below.'
         : mobileReader ? 'Task report and status' : 'Loading full editor…');
-      body.replaceChildren(status, description, activity, note);
+      const lineage = el('nav', 'task-family__path');
+      lineage.setAttribute('aria-label', 'Task folder path');
+      const gotoTask = id => {
+        closeDialog(dialog);
+        openTaskDialog(id, state, reloadBoard);
+      };
+      const gotoPlanning = (kind, id) => {
+        closeDialog(dialog);
+        const index = typeof state === 'function' ? state() : Promise.resolve(state);
+        Promise.resolve(index).then(data => openTaskHierarchyDialog(kind, id, data || {}, reloadBoard))
+          .catch(() => {});
+      };
+      const previewStep = (text, fn) => {
+        const crumb = el('button', 'task-family__crumb', text);
+        crumb.type = 'button';
+        crumb.addEventListener('click', fn);
+        lineage.append(crumb, el('span', 'task-family__separator', '›'));
+      };
+      if (summary.objective?.id) previewStep(summary.objective.title,
+        () => gotoPlanning('objective', summary.objective.id));
+      if (summary.key_result?.id) previewStep(summary.key_result.title,
+        () => gotoPlanning('key_result', summary.key_result.id));
+      for (const parent of hierarchy.ancestors || [])
+        previewStep(parent.title, () => gotoTask(parent.id));
+      lineage.append(el('strong', 'task-family__crumb', summary.title));
+      const goal = el('section', 'task-family__mobile-goal');
+      goal.append(el('strong', null, 'Expected outcome'),
+        el('p', null, summary.definition_of_done || 'Not defined'));
+      const subtaskBox = el('section', 'task-family__mobile-children');
+      subtaskBox.append(el('strong', null, 'Subtasks'));
+      for (const child of hierarchy.children || []) {
+        const open = makeButton(child.title + ' · ' + P.label(child.status), () => gotoTask(child.id));
+        open.classList.add('task-family__child');
+        subtaskBox.append(open);
+      }
+      if (!(hierarchy.children || []).length) subtaskBox.append(el('p', 'fl-muted', 'No subtasks yet.'));
+      body.replaceChildren(lineage, status, goal, description, subtaskBox, activity, note);
       const showEvents = (items) => {
         activity.replaceChildren(el('strong', null, 'Activity'));
         for (const event of (items || []).slice(0, 20)) {
