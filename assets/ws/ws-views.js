@@ -1719,10 +1719,6 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               // without waiting for another GET and a full project reload.
               const saved = result.comment;
               if (saved) {
-                const emptyMessage = [...commentsPanel.body.children].find(
-                  (child) => child.textContent === 'No comments yet.'
-                );
-                emptyMessage?.remove();
                 const item = el('article', 'task-card-dialog__message');
                 item.append(el('strong', null, formatActor(saved.author)), el('p', null, saved.body));
                 if ((saved.mentions || []).length) {
