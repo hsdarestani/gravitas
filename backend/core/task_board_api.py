@@ -3,6 +3,7 @@ import os
 import re
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -29,6 +30,7 @@ from .operating_models import (
     OperatingMilestone,
     OperatingTask,
     OperatingTaskAttachment,
+    OperatingTaskExternalLink,
     OperatingTaskChecklistItem,
     OperatingTaskComment,
     OperatingTaskConsolidation,
@@ -913,6 +915,87 @@ def task_comments(request, task_id):
     row = OperatingTaskComment.objects.select_related('author').prefetch_related('mentions').get(pk=row.pk)
     return JsonResponse({'ok': True, 'comment': _comment_json(row)}, status=201)
 
+
+
+def _external_link_json(row):
+    return {
+        'id': row.pk,
+        'origin_task_id': row.task_id,
+        'title': row.title,
+        'url': row.url,
+        'created_at': row.created_at.isoformat(),
+    }
+
+
+@require_http_methods(['GET', 'POST', 'DELETE'])
+def task_external_links(request, task_id):
+    """Attach HTTP(S) bookmarks to an authorized Core task.
+
+    A bookmark is never fetched by this server. Access to an external document
+    remains controlled by the destination (e.g. Google Docs sharing).
+    """
+    if not request.user.is_authenticated:
+        return _error('authentication_required', 401)
+    workspace, task = _task_for(request, task_id, counts=False)
+    if not workspace:
+        return _error('core_workspace_required', 403)
+    if not task:
+        return _error('task_not_found', 404)
+
+    if request.method == 'GET':
+        rows = (OperatingTaskExternalLink.objects
+                .filter(task_id__in=family_ids(task.pk))
+                .order_by('created_at', 'id')[:100])
+        return JsonResponse({'ok': True, 'links': [_external_link_json(row) for row in rows]})
+
+    if not base._editable(request, workspace):
+        return _error('permission_denied', 403)
+    if canonical_id(task.pk) != task.pk:
+        return _error('task_consolidated_read_only', 409, canonical_task_id=canonical_id(task.pk))
+
+    payload = base._body(request)
+    if not isinstance(payload, dict):
+        return _error('invalid_payload')
+    if request.method == 'DELETE':
+        try:
+            link_id = int(payload.get('link_id'))
+        except (TypeError, ValueError):
+            return _error('link_id_required')
+        # Historical consolidated sources may be listed but cannot be changed
+        # from the canonical task; this preserves import provenance.
+        row = OperatingTaskExternalLink.objects.filter(pk=link_id, task=task).first()
+        if row is None:
+            return _error('link_not_found', 404)
+        old = _external_link_json(row)
+        row.delete()
+        _log(request, task, 'task.external_link_removed', {'link_id': old['id'], 'url': old['url']})
+        return JsonResponse({'ok': True, 'removed': old})
+
+    url = str(payload.get('url') or '').strip()
+    title = str(payload.get('title') or '').strip()
+    if len(url) > 2000 or any(ord(ch) < 32 for ch in url):
+        return _error('invalid_link_url')
+    try:
+        parsed = urlsplit(url)
+        if parsed.scheme.lower() not in ('https', 'http') or not parsed.hostname or parsed.username or parsed.password:
+            return _error('invalid_link_url')
+        # Trigger URL parser validation on a malformed port as well.
+        _ = parsed.port
+    except ValueError:
+        return _error('invalid_link_url')
+    if len(title) > 200:
+        return _error('invalid_link_title')
+    title = title or parsed.hostname
+    if OperatingTaskExternalLink.objects.filter(task=task).count() >= 100:
+        return _error('link_limit_reached', 409)
+    row, created = OperatingTaskExternalLink.objects.get_or_create(
+        task=task, url=url, defaults={'title': title, 'added_by': request.user})
+    if not created and row.title != title:
+        row.title = title
+        row.save(update_fields=['title'])
+    if created:
+        _log(request, task, 'task.external_link_added', {'link_id': row.pk, 'url': url, 'title': title})
+    return JsonResponse({'ok': True, 'link': _external_link_json(row)}, status=201 if created else 200)
 
 def _attachment_json(row):
     return {
