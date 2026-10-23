@@ -92,6 +92,49 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
 
+    def test_task_external_links_are_persisted_and_not_attachments(self):
+        task_id = self.create_task('Linked research deliverable')
+        endpoint = f'/api/operating/tasks/{task_id}/external-links/'
+        url = 'https://docs.google.com/document/d/research-file/edit'
+        posted = self.post_json(endpoint, {'title': 'Research draft', 'url': url})
+        self.assertEqual(posted.status_code, 201, posted.content)
+        link_id = posted.json()['link']['id']
+        self.assertEqual(posted.json()['link']['title'], 'Research draft')
+        listing = self.client.get(endpoint)
+        self.assertEqual(listing.status_code, 200, listing.content)
+        self.assertEqual(listing.json()['links'][0]['url'], url)
+        self.assertEqual(OperatingTaskAttachment.objects.filter(task_id=task_id).count(), 0)
+        self.assertEqual(OperatingTask.objects.get(pk=task_id).source_metadata, {})
+        duplicate = self.post_json(endpoint, {'title': 'Updated draft', 'url': url})
+        self.assertEqual(duplicate.status_code, 200, duplicate.content)
+        self.assertEqual(duplicate.json()['link']['id'], link_id)
+        self.assertEqual(duplicate.json()['link']['title'], 'Updated draft')
+        removed = self.client.delete(
+            endpoint, json.dumps({'link_id': link_id}),
+            content_type='application/json')
+        self.assertEqual(removed.status_code, 200, removed.content)
+        self.assertEqual(self.client.get(endpoint).json()['links'], [])
+
+    def test_task_external_links_reject_unsafe_urls_and_unauthorized_access(self):
+        task_id = self.create_task('Private task reference')
+        endpoint = f'/api/operating/tasks/{task_id}/external-links/'
+        for url in ('javascript:alert(1)', 'file:///etc/passwd', 'data:text/html,test',
+                    '//docs.google.com/document', 'https://user:pass@docs.google.com/'):
+            with self.subTest(url=url):
+                response = self.post_json(endpoint, {'title': 'Unsafe', 'url': url})
+                self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(self.client.get(endpoint).json()['links'], [])
+        outsider = User.objects.create_user(
+            username='outsider-task@example.test',
+            email='outsider-task@example.test',
+            password='Strong-pass-123!',
+        )
+        self.client.force_login(outsider)
+        self.assertIn(self.client.get(endpoint).status_code, (403, 404))
+        self.assertIn(self.post_json(endpoint, {
+            'title': 'Intrusion', 'url': 'https://docs.google.com/'
+        }).status_code, (403, 404))
+
     def test_task_dependency_picker_loads_only_ids_and_titles(self):
         first = self.create_task('Task in Core')
         second = self.create_task('Task from another project')
@@ -136,6 +179,7 @@ class CoreTaskBoardTests(TestCase):
             f'/api/operating/task-board/{task_id}/?mode=preview',
             f'/api/operating/tasks/{task_id}/comments/',
             f'/api/operating/tasks/{task_id}/attachments/',
+            f'/api/operating/tasks/{task_id}/external-links/',
             f'/api/operating/tasks/{task_id}/checklist/',
             f'/api/operating/tasks/{task_id}/history/',
         ]
