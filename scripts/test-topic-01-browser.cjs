@@ -190,20 +190,20 @@ async function smoke() {
     }
   }
   await assertDirectoryVisible(idx,"JavaScript-enabled directory");
+  // Replay the exact stale live CMS hiding rule in an ordinary JS-enabled page.
+  // Keep the no-JS test separate: page.addStyleTag can wait indefinitely
+  // when scripting is disabled, which tests Playwright rather than our CSS.
+  await idx.addStyleTag({ content:
+    'body:has(a[aria-current="page"][href="lab.html"]) .games:not(.g-cms-grid) { visibility: hidden; min-height:6rem; }'
+  });
+  await assertDirectoryVisible(idx,"Stale CMS stylesheet regression");
+
   await idx.screenshot({path:path.join(shots,"lab-directory-desktop.png"),fullPage:true});
   const noJs=await browser.newContext({javaScriptEnabled:false});
   const noJsPage=await noJs.newPage();
   await noJsPage.setViewportSize({width:390,height:844});
   assert.equal((await noJsPage.goto(ROOT+"/lab.html",{waitUntil:"load"})).status(),200);
   await assertDirectoryVisible(noJsPage,"JavaScript-disabled mobile directory");
-  // Simulate the exact stale CSS formerly inserted by cms-public.css on live
-  // GraviQuest. Even if browsers/CDNs keep it cached, our local page override
-  // must win and no cards may disappear.
-  await noJsPage.addStyleTag({ content:
-    'body:has(a[aria-current="page"][href="lab.html"]) .games:not(.g-cms-grid) { visibility: hidden; min-height:6rem; }'
-  });
-  await assertDirectoryVisible(noJsPage,"Stale CMS stylesheet regression");
-
   await noJsPage.screenshot({path:path.join(shots,"lab-directory-nojs-mobile.png"),fullPage:true});
   await noJs.close();
   const nav = await q.locator('a.back').getAttribute("href");
