@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Build an honest scientific figure from labeled synthetic observations and compare linear and quadratic extrapolation.">
+  <title>Scientific Visualization Lab · GraviQuest Topic 01</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/labs/labs.css?v=1">
+  <script src="assets/labs/visualization.js?v=1" defer></script>
+</head>
+<body class="gq-lab">
+<nav class="nav" aria-label="Lab navigation"><div class="shell nav-row"><a class="brand" href="index.html">GRAVI<strong>QUEST</strong></a><a class="back" href="lab.html">← All Labs</a></div></nav>
+<main class="shell">
+  <header class="hero"><span class="eyebrow">Topic 01 / Scientific reliability / Lab 03</span>
+    <h1>Scientific Visualization<br>Lab</h1>
+    <p class="lede">Make a scientific figure from data rather than an AI image. See exactly how model choice and missing measurements change the story your chart can tell.</p>
+    <div class="chips"><span class="chip">Mathematical fitting</span><span class="chip">Uncertainty bars</span><span class="chip">SVG export</span><span class="chip">5 min</span></div>
+  </header>
+  <div class="note" role="note"><strong>Synthetic exercise, not published research.</strong> All four observations below are teaching fixtures. The calculation is a real least-squares fit, but neither the observations nor the extrapolations represent measured protein stability.</div>
+  <div class="lab-grid">
+    <section class="panel" aria-labelledby="raw-data">
+      <h2 id="raw-data">Inspect the data</h2>
+      <p class="muted tiny">Four synthetic observations are all you have. Their error bars are illustrative, not measured standard errors or confidence intervals.</p>
+      <div class="table-scroll"><table><thead><tr><th>Temperature</th><th>Folded</th><th>Uncertainty</th><th>Provenance</th></tr></thead><tbody id="dataTable"></tbody></table></div>
+      <div class="ctrl"><label for="degree">Fitted model</label>
+        <select id="degree" class="btn" style="width:100%"><option value="1">Linear (degree 1)</option><option value="2">Quadratic (degree 2)</option></select>
+      </div>
+      <div class="ctrl"><label for="extrapolation">Show predictions outside measured temperatures</label>
+        <label style="justify-content:flex-start;gap:10px;font-weight:400"><input type="checkbox" id="extrapolation" checked> Enable 60 °C and 70 °C extrapolations</label>
+      </div>
+      <div class="button-row">
+        <button id="exportData" class="btn primary" type="button">Export data + model</button>
+        <button id="exportSVG" class="btn" type="button">Export SVG chart</button>
+      </div>
+      <p class="muted tiny">All calculations happen locally in the browser, without AI or backend access.</p>
+    </section>
+    <section class="panel" aria-labelledby="graph">
+      <h2 id="graph">Evidence vs. prediction</h2>
+      <p class="muted tiny">Gold points: synthetic observations. Solid cyan: fit within the observed range. Dashed gold: unsupported extrapolation.</p>
+      <div class="stats" aria-live="polite">
+        <div class="stat"><small>Chosen model</small><strong id="modelLabel" style="font-size:1rem;padding-top:9px">—</strong></div>
+        <div class="stat"><small>60 °C prediction</small><strong id="pred60">—</strong></div>
+        <div class="stat"><small>70 °C prediction</small><strong id="pred70">—</strong></div>
+      </div>
+      <div class="stage" style="padding:12px">
+        <svg id="visualization" viewBox="0 0 682 280" role="img" aria-labelledby="viz-title" xmlns="http://www.w3.org/2000/svg"><title id="viz-title">Measured range and extrapolation</title></svg>
+        <div class="stage-foot"><span>Shaded = no observations</span><span>Axis fixed from −25% to 130%</span></div>
+      </div>
+      <div class="legend"><span><span class="dot gold"></span> Synthetic observations ± teaching uncertainty</span><span><span class="dot"></span> In-range fit</span></div>
+      <div class="result" aria-live="polite"><strong>What does the graph prove?</strong><p id="vizConclusion">Calculating…</p></div>
+      <details style="margin-top:19px"><summary style="cursor:pointer;font-weight:700">Inspect the calculation</summary><p class="tiny muted" id="vizMath"></p><p class="tiny muted">The coefficients come from ordinary least squares on four synthetic records. For transparency the axes do not rescale when the selected model changes. Predictions outside a plausible 0–100% range are not silently clipped in the exported numerical results.</p></details>
+    </section>
+  </div>
+  <div class="below">
+    <section class="panel"><h2>Challenge</h2><p>What is the folded fraction at 70 °C? Compare the linear and quadratic fits. Both have seen exactly the same four data points. Is either prediction a verified result?</p><p><strong>No.</strong> Changing the mathematical assumption changes the extrapolation. New measurements are required to test it.</p></section>
+    <section class="panel"><h2>Scientific integrity</h2><p>A graph produced with code is reproducible only when its inputs, processing method, uncertainty meaning and model limitations are disclosed. Making a line smooth does not make its claims true.</p><p>Export the raw synthetic observations and fitted coefficients separately from the figure. Use SVG to retain vector labels and error bars.</p></section>
+  </div>
+</main>
+<footer class="footer"><div class="shell">GraviQuest · Topic 01 · Computed figures are not automatically scientific evidence · <a href="lab-protein-stability.html">Protein Stability Lab →</a></div></footer>
+</body></html>
