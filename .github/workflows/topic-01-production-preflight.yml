@@ -1,0 +1,76 @@
+name: Production preflight for Topic 01 (read-only)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/topic-01-production-preflight.yml'
+      - 'lab*.html'
+      - 'assets/labs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Check production service, errors and resources without changes
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo 'Preflight unavailable: production SSH credentials missing'
+            exit 2
+          fi
+          PORT="${DEPLOY_PORT:-22}"
+          USER="${DEPLOY_USER:-deploy}"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/graviquest-preflight"
+          chmod 600 "$HOME/.ssh/graviquest-preflight"
+          ssh-keyscan -T 8 -p "$PORT" -H "$DEPLOY_HOST" >> "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/graviquest-preflight" -p "$PORT" -o BatchMode=yes \
+            -o ConnectTimeout=12 "$USER@$DEPLOY_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo '=== READ-ONLY GRAVIQUEST PRODUCTION PREFLIGHT ==='
+          status="$(sudo systemctl is-active gravitas-backend.service || true)"
+          echo "backend_service=$status"
+          echo "nginx_service=$(sudo systemctl is-active nginx.service || true)"
+          echo "postgres_service=$(sudo systemctl is-active postgresql.service || true)"
+          echo "system_load_1m=$(cut -d' ' -f1 /proc/loadavg)"
+          echo "available_memory_megabytes=$(awk '/MemAvailable:/ {print int($2/1024)}' /proc/meminfo)"
+          echo "root_disk_used_percent=$(df -P / | awk 'NR==2 {print $5}')"
+          # Print only counts. Never expose journal lines, paths, customer data or IPs.
+          LOG="$(sudo journalctl -u gravitas-backend.service --since '70 minutes ago' --no-pager -o cat 2>/dev/null || true)"
+          for signature in 'Traceback \(most recent call last\):' 'Internal Server Error:' 'Worker failed to boot' 'Unhandled exception' 'CRITICAL'; do
+            n="$(printf '%s\n' "$LOG" | grep -Eci "$signature" || true)"
+            echo "backend_journal_match_count[$signature]=$n"
+          done
+          if [ -r /var/log/nginx/access.log ] || sudo test -r /var/log/nginx/access.log; then
+            # These are last 500 requests, not an exact time-window trend.
+            TAIL="$(sudo tail -n 500 /var/log/nginx/access.log 2>/dev/null || true)"
+            for code in 500 502 503 504; do
+              n="$(printf '%s\n' "$TAIL" | awk -v code="$code" '$9==code {n++} END {print n+0}')"
+              echo "nginx_tail500_http_$code=$n"
+            done
+          else
+            echo 'nginx_access_log=unavailable'
+          fi
+          status_url="$(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ || true)"
+          echo "local_backend_health_http=$status_url"
+          if [ "$status" != active ] || [ "$status_url" != 200 ]; then
+            echo 'VERDICT=BLOCKED_BACKEND_UNHEALTHY'
+            exit 1
+          fi
+          if printf '%s\n' "$LOG" | grep -Eqi 'Traceback \(most recent call last\):|Internal Server Error:|Worker failed to boot|Unhandled exception|CRITICAL'; then
+            echo 'VERDICT=BLOCKED_JOURNAL_ERRORS_IN_LAST_70_MINUTES'
+            exit 1
+          fi
+          echo 'VERDICT=READ_ONLY_PREFLIGHT_CLEAN'
+          REMOTE
