@@ -6,11 +6,12 @@ Status: browser-only implementation on feature branch. No backend migrations, Dj
 
 - `lab-protein-stability.html`: adjustable temperature/time/midpoint/width, schematic projection of a 3D chain, dynamic SVG stability plot, clear 50 °C evidence boundary and synthetic practice observations. This is a two-state education model, **not molecular dynamics**.
 - `lab-prompt-bias.html`: paired seeded Monte Carlo simulation of question framing. Underlying probabilities are explicit assumptions, **not measured LLM agreement**.
+- `lab-scientific-visualization.html`: synthetic observation table, error bars, transparent least-squares fits (linear/quadratic), bounded extrapolation display and SVG/JSON exports. No claims of primary experimental evidence.
 - `assets/labs/engine.js`: deterministic shared computation, bounded inputs, reproducible random seed.
-- `assets/labs/protein.js`, `assets/labs/bias.js`: browser rendering, JSON export and explicitly local-only save.
+- `assets/labs/protein.js`, `assets/labs/bias.js`, `assets/labs/visualization.js`: browser rendering, JSON/SVG export and explicitly local-only saves where supported.
 - `assets/labs/labs.css`: page-scoped CSS. The public global stylesheet and workspace styles are not modified.
 - `lab.html`: two links, preserving the rest of the gallery.
-- `scripts/test-topic-01-labs.cjs` and a targeted GitHub Actions workflow: numerical, reproducibility and basic page-asset checks.
+- `scripts/test-topic-01-labs.cjs`, `scripts/test-topic-01-browser.cjs` and targeted GitHub Actions workflow: deterministic mathematical regressions plus real Chrome mobile/desktop, UI, JS errors and downloadable output checks, with screenshots archived as workflow artifacts.
 
 ## Load and safety properties
 
@@ -35,3 +36,7 @@ Status: browser-only implementation on feature branch. No backend migrations, Dj
 Real AI bias comparisons require a dedicated rate-limited experiment endpoint, per-user quotas, asynchronous worker, API cost limits, provider/temperature version capture, independent grading and consent/privacy review. Scientific Python or molecule dynamics requires isolated compute rather than running arbitrary code within Django web workers. Public CMS-uploaded Lab code needs stronger same-origin separation before opening arbitrary user content. These are **not** part of this zero-backend-change PR.
 
 Scientific review: assign to the Topic 01 scientific reviewer before presenting pedagogical assumptions as scientific claims.
+
+## Baseline operational warning (2026-10-24)
+
+The existing Backend Error Monitor has failed repeatedly on main ([run 40119896046](https://github.com/hsdarestani/gravitas/actions/runs/40119896046)); its command combines active-service state and a 70-minute journal error grep, with no root-cause detail in the CI output. Independent public Production Monitor [run 40115982022](https://github.com/hsdarestani/gravitas/actions/runs/40115982022) succeeded; this does not prove private endpoints healthy. Issue [#193](https://github.com/hsdarestani/gravitas/issues/193) tracks the blocker. **Keep PR Draft / do not merge** until baseline incident is understood and released with a read-only verified regression comparison.
