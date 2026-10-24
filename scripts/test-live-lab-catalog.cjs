@@ -20,10 +20,26 @@ function info(){
   let target=cards[0];
   let ancestry=[],el=target;
   for(let i=0;el&&i<9;i++,el=el.parentElement)ancestry.push(one(el));
+  const visibilitySources=[];
+  function inspectRules(sheet,rules,at){
+    for(const rule of Array.from(rules||[])){
+      if(rule.selectorText&&grid){
+        try{if(grid.matches(rule.selectorText)&&(rule.style?.visibility||rule.style?.getPropertyValue("visibility"))){
+          visibilitySources.push({from:sheet.href||"inline",selector:rule.selectorText,visibility:rule.style.visibility,important:rule.style.getPropertyPriority("visibility"),condition:at});}
+        }catch(e){}
+      }
+      if(rule.cssRules)inspectRules(sheet,rule.cssRules,rule.conditionText||at);
+    }
+  }
+  for(const sheet of document.styleSheets){
+    try{inspectRules(sheet,sheet.cssRules,"")}catch(e){visibilitySources.push({from:sheet.href||"inline",error:String(e)});}
+  }
+  const gridAttributes=grid?Array.from(grid.attributes).map(x=>({name:x.name,value:x.value.slice(0,180)})):[];
+  const animation=grid?Array.from(grid.getAnimations()).map(x=>({currentTime:x.currentTime,playState:x.playState})).slice(0,4):[];
   const r=target?.getBoundingClientRect();
   return {url:location.href,viewport:{w:innerWidth,h:innerHeight,scrollY:scrollY},
     title:document.title,firstCards:cards.slice(0,4).map(one),totalCards:cards.length,
-    grid:one(grid),header:one(document.querySelector(".page-head")),
+    grid:one(grid),gridAttributes,animation,visibilitySources,headStyles:Array.from(document.styleSheets).map(ss=>ss.href||"inline"),header:one(document.querySelector(".page-head")),
     section:one(document.querySelector(".g-section")),
     ancestry,rootScrollHeight:document.documentElement.scrollHeight,
     samplePoint:r?one(document.elementFromPoint(Math.min(innerWidth-1,r.x+20),Math.min(innerHeight-1,Math.max(0,r.y+20)))):null};
