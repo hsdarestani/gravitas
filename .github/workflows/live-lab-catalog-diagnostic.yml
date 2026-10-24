@@ -4,6 +4,7 @@ on:
     branches: [fix/lab-catalog-live-debug-20261024]
     paths:
       - ".github/workflows/live-lab-catalog-diagnostic.yml"
+      - "scripts/test-live-lab-catalog.cjs"
   workflow_dispatch:
 permissions:
   contents: read
