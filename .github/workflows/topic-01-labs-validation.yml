@@ -1,0 +1,65 @@
+name: Topic 01 Lab safety checks
+
+on:
+  pull_request:
+    paths:
+      - 'assets/labs/**'
+      - 'lab-protein-stability.html'
+      - 'lab-prompt-bias.html'
+      - 'lab-scientific-visualization.html'
+      - 'lab.html'
+      - 'scripts/test-topic-01-labs.cjs'
+      - 'scripts/test-topic-01-browser.cjs'
+      - '.github/workflows/topic-01-labs-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-only-labs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check assets/labs/engine.js
+          node --check assets/labs/protein.js
+          node --check assets/labs/bias.js
+          node --check assets/labs/visualization.js
+          node --check scripts/test-topic-01-labs.cjs
+          node --check scripts/test-topic-01-browser.cjs
+      - name: Run deterministic engine regression
+        run: node scripts/test-topic-01-labs.cjs
+      - name: Verify no runtime imports or backend changes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for path in ('lab-protein-stability.html', 'lab-prompt-bias.html'):
+              content = Path(path).read_text()
+              assert 'assets/labs/engine.js' in content
+              assert 'assets/labs/labs.css' in content
+          viz = Path('lab-scientific-visualization.html').read_text()
+          assert 'assets/labs/visualization.js' in viz
+          assert 'assets/labs/labs.css' in viz
+          print('All three lab pages load only their intended local scripts and styles.')
+          PY
+      - name: Install CI-only browser driver
+        run: npm install --prefix "$RUNNER_TEMP/gq-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Exercise both labs in Google Chrome
+        env:
+          NODE_PATH: ${{ runner.temp }}/gq-browser/node_modules
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/test-topic-01-browser.cjs
+      - name: Upload review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: topic-01-lab-mobile-desktop-screenshots
+          path: qa-artifacts/topic-01/*.png
+          if-no-files-found: ignore
+          retention-days: 7

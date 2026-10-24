@@ -1,0 +1,24 @@
+/* Dependency-free regression tests for the client-only Topic 01 simulator. */
+"use strict";
+const assert = require("node:assert/strict");
+const engine = require("../assets/labs/engine.js");
+assert.equal(engine.version, "1.0.0");
+assert.equal(engine.clamp(NaN, 2, 5), 2);
+assert.equal(engine.clamp(Infinity, 2, 5), 2);
+assert.equal(engine.clamp(-100, 2, 5), 2);
+const sim = engine.protein({ temperature: 65, minutes: 10 });
+assert.equal(sim.points.length, 15);
+assert.equal(sim.practice.length, 4);
+assert.ok(sim.practice.every(p => p.t <= 50 && p.label.includes("Synthetic")));
+assert.ok(sim.points.every(p => p.folded >= 0 && p.folded <= 1 && p.measured === false));
+assert.ok(engine.foldedFraction(20, 10, 58, 5) > engine.foldedFraction(70, 10, 58, 5));
+assert.ok(engine.protein({temperature: 65, minutes: 1}).folded >= engine.protein({temperature: 65, minutes: 30}).folded);
+const b1 = engine.bias({ runs: 250, seed: 23 });
+const b2 = engine.bias({ runs: 250, seed: 23 });
+assert.deepEqual(b1, b2, "same seed and inputs must reproduce output");
+assert.ok(b1.leadingRate >= b1.neutralRate);
+assert.ok(b1.leadingRate <= 1 && b1.neutralRate >= 0);
+assert.equal(engine.bias({ runs: 999999 }).runs, 1000);
+assert.equal(engine.bias({ runs: -2 }).runs, 10);
+assert.ok(engine.bias({ runs: 250, agreeability: 0, evidence: 100 }).leadingRate < 0.1);
+console.log("Topic 01 Lab engine: 16 safety / numerical / determinism assertions passed.");

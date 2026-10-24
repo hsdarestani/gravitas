@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Explore a documented, simplified model of protein stability. Adjust temperature and time, inspect the predicted curve, and identify what has not been measured.">
+  <title>Protein Stability Simulator · GraviQuest Lab 01</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/labs/labs.css?v=1">
+  <script src="assets/labs/engine.js?v=1" defer></script>
+  <script src="assets/labs/protein.js?v=1" defer></script>
+</head>
+<body class="gq-lab">
+  <nav class="nav" aria-label="Lab navigation"><div class="shell nav-row">
+    <a class="brand" href="index.html">GRAVI<strong>QUEST</strong></a>
+    <a class="back" href="lab.html">← All Labs</a>
+  </div></nav>
+  <main class="shell">
+    <header class="hero">
+      <span class="eyebrow">Topic 01 / Scientific reliability / Lab 01</span>
+      <h1>Protein Stability<br>Simulator</h1>
+      <p class="lede">Professor Hulse asks what happens when the temperature keeps rising. Move the controls, see the model respond, then ask which parts are actually supported by observations.</p>
+      <div class="chips"><span class="chip">Interactive mathematics</span><span class="chip">Schematic 3D</span><span class="chip">Reproducible runs</span><span class="chip">5–8 min</span></div>
+    </header>
+    <div class="note" role="note"><strong>Educational model, not a laboratory measurement.</strong> This is a simplified two-state protein stability model with synthetic practice observations. The animated structure is a schematic, not an atomistic molecular-dynamics simulation. Do not use its results to infer a real protein's behavior.</div>
+    <div class="lab-grid">
+      <section class="panel" aria-labelledby="parameters">
+        <h2 id="parameters">Design your experiment</h2>
+        <p class="muted tiny">Change one variable or several. Every control recomputes the model in your browser. No server calls.</p>
+        <div class="ctrl"><label for="temperature">Sample temperature <output id="temperatureValue" for="temperature">65 °C</output></label><input id="temperature" type="range" min="20" max="90" step="1" value="65"></div>
+        <div class="ctrl"><label for="minutes">Heating duration <output id="minutesValue" for="minutes">10 min</output></label><input id="minutes" type="range" min="1" max="60" step="1" value="10"></div>
+        <div class="ctrl"><label for="meltC">Assumed transition midpoint <output id="meltCValue" for="meltC">58 °C</output></label><input id="meltC" type="range" min="40" max="76" step="1" value="58"></div>
+        <div class="ctrl"><label for="widthC">Transition width <output id="widthCValue" for="widthC">5 °C</output></label><input id="widthC" type="range" min="2" max="12" step="1" value="5"></div>
+        <div class="button-row">
+          <button class="btn primary" type="button" id="save">Save run locally</button>
+          <button class="btn" type="button" id="export">Export JSON</button>
+          <button class="btn" type="button" id="reset">Reset</button>
+        </div>
+        <p id="saved" class="muted tiny" aria-live="polite">Results are not uploaded or shared.</p>
+      </section>
+      <section class="panel" aria-labelledby="observations">
+        <h2 id="observations">Observe the model</h2>
+        <p class="muted tiny">Rotate the schematic chain by dragging. The folded fraction is computed from your parameters.</p>
+        <div class="stats" aria-live="polite">
+          <div class="stat"><small>Predicted folded</small><strong id="fraction">—</strong></div>
+          <div class="stat"><small>Predicted unfolded</small><strong id="unfolded">—</strong></div>
+          <div class="stat"><small>Evidence range</small><strong id="boundary" style="font-size:.92rem;padding-top:8px">—</strong></div>
+        </div>
+        <div class="stage">
+          <div class="stage-label">3D schematic · rotate by dragging</div>
+          <canvas id="molecule" aria-label="Rotating schematic of a protein-like chain; not an atomistic molecular dynamics model" role="img"></canvas>
+          <div class="stage-foot"><span>Folded ↔ Unfolded</span><span>Illustrative geometry only</span></div>
+        </div>
+        <div class="chart-wrap">
+          <h2>Predicted stability vs. temperature</h2>
+          <svg id="plot" viewBox="0 0 682 276" role="img" aria-labelledby="plot-alt" xmlns="http://www.w3.org/2000/svg"><title id="plot-alt">Calculated folded fraction across temperatures, with four synthetic practice observations below fifty degrees</title></svg>
+          <div class="legend"><span><span class="dot"></span> Model output</span><span><span class="dot gold"></span> Synthetic practice data (20–50 °C)</span><span>Shaded: no observations</span></div>
+        </div>
+        <div class="result" aria-live="polite"><strong>What can we conclude?</strong><p id="interpretation">Computing…</p></div>
+      </section>
+    </div>
+    <div class="below">
+      <section class="panel"><h2>Challenge</h2><p>Taylor claims the protein becomes more stable as temperature increases. Try changing the assumed transition midpoint. What happens to the predicted curve? Can the four observations alone justify a claim about 60–70 °C?</p><p><strong>Scientific answer:</strong> No. An extrapolation is not a measurement. The model's assumptions and new observations must be tested independently.</p></section>
+      <section class="panel"><h2>Method & limitations</h2>
+        <p>The engine computes equilibrium folded fraction as 1 / (1 + exp((T − Tm) / width)) and illustrative time relaxation from the initial state at 20 °C. Practice observations are generated by the same model with fixed small offsets at a 10-minute baseline.</p>
+        <p>This teaching simulation omits real amino-acid sequence, solvent, reversibility, kinetic intermediates, errors and true molecular dynamics. Exported JSON contains parameters and outputs so the numerical example can be reproduced.</p>
+      </section>
+    </div>
+  </main>
+  <footer class="footer"><div class="shell">GraviQuest · Topic 01 · A teaching simulation, not primary scientific evidence · <a href="lab-prompt-bias.html">Next: Prompt Bias Simulator →</a></div></footer>
+</body></html>
