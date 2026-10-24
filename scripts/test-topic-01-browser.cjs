@@ -42,7 +42,11 @@ async function testPage(page, slug) {
   page.on("console", m => { if (m.type() === "error") consoleErrors.push(m.text()); });
   const response = await page.goto(ROOT + "/" + slug, { waitUntil: "networkidle" });
   assert.equal(response.status(), 200);
-  await page.waitForFunction(() => document.getElementById("saved") && window.GraviLab && document.querySelectorAll("input[type=range]").length >= 3);
+  if (slug.includes("scientific-visualization")) {
+    await page.waitForFunction(() => document.getElementById("vizConclusion") && document.getElementById("modelLabel").textContent !== "—");
+  } else {
+    await page.waitForFunction(() => document.getElementById("saved") && window.GraviLab && document.querySelectorAll("input[type=range]").length >= 3);
+  }
   const h1 = await page.locator("h1").innerText();
   assert.ok(h1.length > 8);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -125,17 +129,54 @@ async function smoke() {
   assert.ok(qOver <= 1, "Bias desktop horizontal overflow");
   await q.screenshot({ path: path.join(shots, "bias-desktop.png"), fullPage: true });
 
+  const v=await context.newPage();
+  await v.setViewportSize({width:390,height:844});
+  await testPage(v,"lab-scientific-visualization.html");
+  const linear=await v.locator("#pred70").innerText();
+  await v.locator("#degree").selectOption("2");
+  const quadratic=await v.locator("#pred70").innerText();
+  assert.notEqual(linear,quadratic,"linear vs quadratic extrapolation should differ");
+  await v.locator("#extrapolation").uncheck();
+  assert.equal(await v.locator("#pred70").innerText(),"Hidden");
+  await v.locator("#extrapolation").check();
+  assert.match(await v.locator("#vizConclusion").innerText(), /extrapolation/i);
+  const vizDownload=v.waitForEvent("download");
+  await v.locator("#exportData").click();
+  const vd=await vizDownload;
+  assert.equal(vd.suggestedFilename(),"graviquest-visualization-lab.json");
+  const fileC=path.join(os.tmpdir(),"topic01-viz-run-"+process.pid+".json");
+  await vd.saveAs(fileC);
+  const pc=JSON.parse(fs.readFileSync(fileC,"utf8"));
+  assert.equal(pc.model.observations.length,4);
+  assert.equal(pc.model.degree,2);
+  fs.unlinkSync(fileC);
+  const svgDownload=v.waitForEvent("download");
+  await v.locator("#exportSVG").click();
+  const svgd=await svgDownload;
+  assert.equal(svgd.suggestedFilename(),"graviquest-scientific-chart.svg");
+  const svgPath=path.join(os.tmpdir(),"topic01-chart-"+process.pid+".svg");
+  await svgd.saveAs(svgPath);
+  const svgText=fs.readFileSync(svgPath,"utf8");
+  assert.match(svgText,/svg/);
+  assert.match(svgText,/circle/);
+  fs.unlinkSync(svgPath);
+  await v.screenshot({path:path.join(shots,"visualization-mobile.png"),fullPage:true});
+  await v.setViewportSize({width:1440,height:900});
+  assert.ok(await v.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
+  await v.screenshot({path:path.join(shots,"visualization-desktop.png"),fullPage:true});
+
   const idx = await context.newPage();
   const indexResponse = await idx.goto(ROOT + "/lab.html", { waitUntil:"networkidle" });
   assert.equal(indexResponse.status(), 200);
   assert.equal(await idx.locator('a[href="lab-protein-stability.html"]').count(), 1);
   assert.equal(await idx.locator('a[href="lab-prompt-bias.html"]').count(), 1);
+  assert.equal(await idx.locator('a[href="lab-scientific-visualization.html"]').count(), 1);
   const nav = await q.locator('a.back').getAttribute("href");
   assert.equal(nav, "lab.html");
   await q.emulateMedia({ reducedMotion: "reduce" });
   assert.ok(await q.locator("h1").isVisible());
   await context.close();
-  console.log("Browser PASS: 2 sims × mobile/desktop, input, PNG screenshots, export, reset, local save, navigation, no backend calls, no errors.");
+  console.log("Browser PASS: 3 sims × mobile/desktop, input, PNG screenshots, export, reset, local save, navigation, no backend calls, no errors.");
 }
 smoke().catch(err => { failed = true; console.error(err.stack || err); }).finally(async () => {
   if (browser) await browser.close().catch(() => {});
