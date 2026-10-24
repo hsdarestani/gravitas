@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A transparent, reproducible Monte Carlo toy simulation showing how question framing could change an assistant's tendency to agree.">
+  <title>Prompt Bias Simulator · GraviQuest Lab 02</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/labs/labs.css?v=1">
+  <script src="assets/labs/engine.js?v=1" defer></script>
+  <script src="assets/labs/bias.js?v=1" defer></script>
+</head>
+<body class="gq-lab">
+  <nav class="nav" aria-label="Lab navigation"><div class="shell nav-row">
+    <a class="brand" href="index.html">GRAVI<strong>QUEST</strong></a>
+    <a class="back" href="lab.html">← All Labs</a>
+  </div></nav>
+  <main class="shell">
+    <header class="hero">
+      <span class="eyebrow">Topic 01 / Scientific reliability / Lab 02</span>
+      <h1>Prompt Bias<br>Simulator</h1>
+      <p class="lede">Taylor asked a leading question, and Pulsar agreed too quickly. Investigate how framing and evidence-checking assumptions change simulated agreement rates across repeated trials.</p>
+      <div class="chips"><span class="chip">Monte Carlo simulation</span><span class="chip">Paired trials</span><span class="chip">Fixed data</span><span class="chip">5 min</span></div>
+    </header>
+    <div class="note" role="note"><strong>Transparent toy simulation, not an AI benchmark.</strong> No language model is queried here. The numbers come from a documented illustrative probability formula and seeded random draws. They must not be reported as measured behavior of Pulsar, GPT, Claude or any real AI system.</div>
+    <div class="lab-grid">
+      <section class="panel" aria-labelledby="experiment">
+        <h2 id="experiment">Set the experimental conditions</h2>
+        <p class="muted tiny">Both conditions use identical data. Only the wording of the question changes. Adjust the hypothetical assistant's properties.</p>
+        <div class="ctrl"><label for="agreeability">Assistant agreeability <output id="agreeabilityValue" for="agreeability">75%</output></label><input id="agreeability" type="range" min="0" max="100" step="5" value="75"></div>
+        <div class="ctrl"><label for="evidence">Evidence-checking tendency <output id="evidenceValue" for="evidence">65%</output></label><input id="evidence" type="range" min="0" max="100" step="5" value="65"></div>
+        <div class="ctrl"><label for="runs">Repetitions <output id="runsValue" for="runs">100 paired trials</output></label><input id="runs" type="range" min="25" max="500" step="25" value="100"></div>
+        <div class="ctrl"><label for="seed">Reproducible random seed <output id="seedValue" for="seed">4701</output></label><input id="seed" type="number" min="1" max="2147483647" step="1" value="4701"></div>
+        <div class="button-row">
+          <button class="btn primary" type="button" id="run">Run simulation</button>
+          <button class="btn" type="button" id="newSeed">New seed</button>
+          <button class="btn" type="button" id="reset">Reset</button>
+        </div>
+        <div class="button-row">
+          <button class="btn" type="button" id="save">Save locally</button>
+          <button class="btn" type="button" id="export">Export JSON</button>
+        </div>
+        <p class="muted tiny" id="saved" aria-live="polite">No external API calls. Results remain in the browser unless you export.</p>
+      </section>
+      <section class="panel" aria-labelledby="comparison">
+        <h2 id="comparison">Same data, different question</h2>
+        <p class="muted tiny">Toy dataset: hypothetical folded fractions at 20, 30, 40 and 50 °C are 98%, 95%, 88% and 79%. No higher temperatures have been observed.</p>
+        <div class="scenario">
+          <h3>A · Neutral question</h3>
+          <p>“What does this dataset show about folded fraction, and what measurements are missing?”</p>
+        </div>
+        <div class="scenario">
+          <h3>B · Leading question</h3>
+          <p>“These results clearly show the protein gets more stable at higher temperatures, right?”</p>
+        </div>
+        <div class="stats" aria-live="polite">
+          <div class="stat"><small>Neutral agreement</small><strong id="neutralRate">—</strong></div>
+          <div class="stat"><small>Leading agreement</small><strong id="leadingRate">—</strong></div>
+          <div class="stat"><small>Difference</small><strong id="gap">—</strong></div>
+        </div>
+        <div class="bars" aria-label="Rates of agreeing with an unsupported interpretation in a synthetic simulation">
+          <div>
+            <div class="bar-label"><span>Neutral framing</span><span id="neutralN">—</span></div>
+            <div class="bar-track"><div class="bar-fill" id="neutralBar"></div></div>
+          </div>
+          <div>
+            <div class="bar-label"><span>Leading framing</span><span id="leadingN">—</span></div>
+            <div class="bar-track"><div class="bar-fill gold" id="leadingBar"></div></div>
+          </div>
+        </div>
+        <div class="result" aria-live="polite"><strong>Interpret the comparison</strong><p id="readout">Calculating…</p></div>
+      </section>
+    </div>
+    <div class="below">
+      <section class="panel"><h2>Challenge</h2><p>Reduce agreeability and increase evidence checking. Repeat with the same seed, then switch the seed. Which changes are from your assumptions, and which are simulated sampling variation?</p><p>Question framing is one factor. A scientifically valid test of actual AI requires real model calls, a prespecified dataset, controlled settings, independent ground-truth evaluation and multiple runs.</p></section>
+      <section class="panel"><h2>How this simulator works</h2>
+        <p>For each condition the engine applies a logistic agreement probability. Leading wording increases an illustrative agreeability term; evidence checking reduces it. Every paired trial uses the same seeded uniform random value under both conditions, isolating framing in this toy world.</p>
+        <p>The formula is a pedagogical assumption, <strong>not a fitted empirical model</strong>. Export includes the seed, assumptions and results. Future real-AI evaluations must use a separate rate-limited, auditable experiment service.</p>
+      </section>
+    </div>
+  </main>
+  <footer class="footer"><div class="shell">GraviQuest · Topic 01 · Simulated model behavior is not measured LLM behavior · <a href="lab-protein-stability.html">Protein Stability Lab →</a></div></footer>
+</body></html>
