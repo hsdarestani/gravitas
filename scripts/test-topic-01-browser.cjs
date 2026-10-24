@@ -171,6 +171,33 @@ async function smoke() {
   assert.equal(await idx.locator('a[href="lab-protein-stability.html"]').count(), 1);
   assert.equal(await idx.locator('a[href="lab-prompt-bias.html"]').count(), 1);
   assert.equal(await idx.locator('a[href="lab-scientific-visualization.html"]').count(), 1);
+
+  // Regression: the Lab directory MUST NOT rely on IntersectionObserver,
+  // scroll, or JavaScript before showing its main cards. This was blank in
+  // a real screenshot even though all three lab URL smoke checks passed.
+  async function assertDirectoryVisible(p, condition) {
+    const cards=await p.locator(".games > a.game-card").evaluateAll(nodes=>nodes.slice(0,3).map(el=>{
+      const style=getComputedStyle(el), rect=el.getBoundingClientRect();
+      return { opacity:Number(style.opacity),display:style.display,visibility:style.visibility,
+               width:rect.width,height:rect.height,title:el.querySelector("h3")?.textContent||"" };
+    }));
+    assert.equal(cards.length,3,condition+" should contain first three labs");
+    for(const card of cards){
+      assert.ok(card.opacity>=0.99,condition+" hidden card opacity: "+JSON.stringify(card));
+      assert.notEqual(card.display,"none",condition+" display none");
+      assert.notEqual(card.visibility,"hidden",condition+" visibility hidden");
+      assert.ok(card.width>150&&card.height>100,condition+" empty card geometry");
+    }
+  }
+  await assertDirectoryVisible(idx,"JavaScript-enabled directory");
+  await idx.screenshot({path:path.join(shots,"lab-directory-desktop.png"),fullPage:true});
+  const noJs=await browser.newContext({javaScriptEnabled:false});
+  const noJsPage=await noJs.newPage();
+  await noJsPage.setViewportSize({width:390,height:844});
+  assert.equal((await noJsPage.goto(ROOT+"/lab.html",{waitUntil:"load"})).status(),200);
+  await assertDirectoryVisible(noJsPage,"JavaScript-disabled mobile directory");
+  await noJsPage.screenshot({path:path.join(shots,"lab-directory-nojs-mobile.png"),fullPage:true});
+  await noJs.close();
   const nav = await q.locator('a.back').getAttribute("href");
   assert.equal(nav, "lab.html");
   await q.emulateMedia({ reducedMotion: "reduce" });
