@@ -1,0 +1,125 @@
+name: One-time fix hidden public Lab catalog (static only)
+
+on:
+  push:
+    branches: [fix/lab-catalog-live-debug-20261024]
+    paths:
+      - ".github/workflows/one-time-lab-visibility-release.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gq-lab-catalog-live-static-fix
+  cancel-in-progress: false
+
+jobs:
+  static-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify exact root cause is fixed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          css=Path("assets/cms-public.css").read_text()
+          html=Path("lab.html").read_text()
+          assert 'href="lab.html"]) .games:not(.g-cms-grid)' not in css
+          assert 'class="games gq-lab-catalog"' in html
+          assert '#main .games.gq-lab-catalog { visibility: visible !important; }' in html
+          for name in ("lab-protein-stability.html","lab-prompt-bias.html","lab-scientific-visualization.html"):
+              assert name in html
+          print("SAFE_LAB_FIX_SOURCE_VALID=YES")
+          PY
+      - name: Install isolated CI browser driver
+        run: npm install --prefix "$RUNNER_TEMP/gq-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Deploy only two static files, with backups and atomic swaps
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USERNAME: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$KEY"
+          PORT="${PORT:-22}"; USERNAME="${USERNAME:-deploy}"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$KEY" > "$HOME/.ssh/gq_static"
+          chmod 600 "$HOME/.ssh/gq_static"
+          ssh-keygen -y -f "$HOME/.ssh/gq_static" >/dev/null
+          ssh-keyscan -T 8 -p "$PORT" -H "$HOST" >> "$HOME/.ssh/known_hosts"
+          SSH=(ssh -i "$HOME/.ssh/gq_static" -p "$PORT" -o BatchMode=yes -o ConnectTimeout=12)
+          SCP=(scp -i "$HOME/.ssh/gq_static" -P "$PORT" -o BatchMode=yes)
+          STAGE="/tmp/gq-lab-visibility-$GITHUB_SHA"
+          "${SSH[@]}" "$USERNAME@$HOST" "mkdir -p '$STAGE/assets' && chmod 700 '$STAGE'"
+          "${SCP[@]}" lab.html "$USERNAME@$HOST:$STAGE/lab.html"
+          "${SCP[@]}" assets/cms-public.css "$USERNAME@$HOST:$STAGE/assets/cms-public.css"
+          "${SSH[@]}" "$USERNAME@$HOST" bash -s -- "$STAGE" "$GITHUB_SHA" <<'REMOTE'
+          set -euo pipefail
+          STAGE="$1"; SHA="$2"; ROOT=/var/www/gravitas
+          test -s "$ROOT/lab.html" && test -s "$ROOT/assets/cms-public.css"
+          test -s "$STAGE/lab.html" && test -s "$STAGE/assets/cms-public.css"
+          test -w "$ROOT" && test -w "$ROOT/assets"
+          test "$(sudo systemctl is-active nginx.service)" = active
+          test "$(sudo systemctl is-active gravitas-backend.service)" = active
+          cp -p "$ROOT/lab.html" "$ROOT/lab.html.backup.$SHA"
+          cp -p "$ROOT/assets/cms-public.css" "$ROOT/assets/cms-public.css.backup.$SHA"
+          install -m 644 "$STAGE/lab.html" "$ROOT/lab.html.new.$SHA"
+          mv -f "$ROOT/lab.html.new.$SHA" "$ROOT/lab.html"
+          install -m 644 "$STAGE/assets/cms-public.css" "$ROOT/assets/cms-public.css.new.$SHA"
+          mv -f "$ROOT/assets/cms-public.css.new.$SHA" "$ROOT/assets/cms-public.css"
+          echo "STATIC_FILES_DEPLOYED=2 BACKEND_RESTART=NO NGINX_RELOAD=NO MIGRATION=NO"
+          REMOTE
+      - name: Verify actual public Chrome shows cards, including normal non-query URL
+        shell: bash
+        env:
+          NODE_PATH: ${{ runner.temp }}/gq-browser/node_modules
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USERNAME: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          fail=0
+          node scripts/test-live-lab-catalog.cjs || fail=1
+          if [ "$fail" = 0 ]; then
+            python3 - <<'PY' || fail=1
+          import json
+          from pathlib import Path
+          records=json.loads(Path("qa-artifacts/live-lab-catalog/metrics.json").read_text())
+          assert len(records)==2
+          for entry in records:
+              state=entry["snapshot"]
+              assert entry["status"]==200,(entry["slug"],entry["status"])
+              assert state["totalCards"]>=3,(entry["slug"],state["totalCards"])
+              assert state["grid"]["visibility"]=="visible",(entry["slug"],state["grid"]["visibility"])
+              for card in state["firstCards"][:3]:
+                  assert card["visibility"]=="visible",(entry["slug"],card)
+              print(entry["slug"],"cards_visible",state["totalCards"])
+          PY
+          fi
+          if [ "$fail" = 0 ]; then
+            health=$(curl -4 -fsSL --retry 3 --retry-delay 2 --max-time 20 https://graviquest.com/api/health/) || fail=1
+            if [ "$fail" = 0 ] && ! printf '%s' "$health" | grep -Eq '"status" *: *"ok"'; then fail=1; fi
+          fi
+          if [ "$fail" != 0 ]; then
+            echo "Live screenshot / visibility check failed. Restoring BOTH static files."
+            ssh -i "$HOME/.ssh/gq_static" -p "${PORT:-22}" -o BatchMode=yes "${USERNAME:-deploy}@$HOST" \
+              "cp -p /var/www/gravitas/lab.html.backup.$GITHUB_SHA /var/www/gravitas/lab.html && cp -p /var/www/gravitas/assets/cms-public.css.backup.$GITHUB_SHA /var/www/gravitas/assets/cms-public.css" || true
+            exit 1
+          fi
+          echo "LIVE_LAB_CARDS_VISIBLE=YES; BACKEND_HEALTH=OK"
+      - name: Save real before-and-after test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixed-lab-live-chrome-screenshots
+          path: qa-artifacts/live-lab-catalog/
+          if-no-files-found: warn
+          retention-days: 7
