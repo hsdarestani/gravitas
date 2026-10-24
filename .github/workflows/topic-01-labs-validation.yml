@@ -6,6 +6,7 @@ on:
       - 'assets/labs/**'
       - 'lab-protein-stability.html'
       - 'lab-prompt-bias.html'
+      - 'lab-scientific-visualization.html'
       - 'lab.html'
       - 'scripts/test-topic-01-labs.cjs'
       - 'scripts/test-topic-01-browser.cjs'
@@ -29,6 +30,7 @@ jobs:
           node --check assets/labs/engine.js
           node --check assets/labs/protein.js
           node --check assets/labs/bias.js
+          node --check assets/labs/visualization.js
           node --check scripts/test-topic-01-labs.cjs
           node --check scripts/test-topic-01-browser.cjs
       - name: Run deterministic engine regression
@@ -41,7 +43,10 @@ jobs:
               content = Path(path).read_text()
               assert 'assets/labs/engine.js' in content
               assert 'assets/labs/labs.css' in content
-          print('Both lab pages load the shared local engine and styles.')
+          viz = Path('lab-scientific-visualization.html').read_text()
+          assert 'assets/labs/visualization.js' in viz
+          assert 'assets/labs/labs.css' in viz
+          print('All three lab pages load only their intended local scripts and styles.')
           PY
       - name: Install CI-only browser driver
         run: npm install --prefix "$RUNNER_TEMP/gq-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
