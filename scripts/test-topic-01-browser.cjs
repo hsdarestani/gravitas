@@ -190,6 +190,14 @@ async function smoke() {
     }
   }
   await assertDirectoryVisible(idx,"JavaScript-enabled directory");
+  // Replay the exact stale live CMS hiding rule in an ordinary JS-enabled page.
+  // Keep the no-JS test separate: page.addStyleTag can wait indefinitely
+  // when scripting is disabled, which tests Playwright rather than our CSS.
+  await idx.addStyleTag({ content:
+    'body:has(a[aria-current="page"][href="lab.html"]) .games:not(.g-cms-grid) { visibility: hidden; min-height:6rem; }'
+  });
+  await assertDirectoryVisible(idx,"Stale CMS stylesheet regression");
+
   await idx.screenshot({path:path.join(shots,"lab-directory-desktop.png"),fullPage:true});
   const noJs=await browser.newContext({javaScriptEnabled:false});
   const noJsPage=await noJs.newPage();
