@@ -1,0 +1,122 @@
+name: One-time Topic 01 static-only production release
+
+on:
+  push:
+    branches: [feat/topic-01-safe-lab-pilots]
+    paths:
+      - '.github/workflows/topic-01-static-release.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: topic-01-static-only-release
+  cancel-in-progress: false
+
+jobs:
+  publish-frontend-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pre-deployment static validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/test-topic-01-labs.cjs
+          node --check assets/labs/engine.js
+          node --check assets/labs/protein.js
+          node --check assets/labs/bias.js
+          node --check assets/labs/visualization.js
+          for file in lab.html lab-protein-stability.html lab-prompt-bias.html lab-scientific-visualization.html assets/labs/{engine,protein,bias,visualization}.js assets/labs/labs.css; do
+            test -s "$file"
+          done
+      - name: Stage ONLY selected public Lab files
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST" && test -n "$DEPLOY_SSH_KEY"
+          PORT="${DEPLOY_PORT:-22}"
+          USER="${DEPLOY_USER:-deploy}"
+          SHA="$GITHUB_SHA"
+          STAGE="/tmp/gq-topic01-static-$SHA"
+          TARGET="$USER@$DEPLOY_HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/gq_topic01_static
+          chmod 600 ~/.ssh/gq_topic01_static
+          ssh-keygen -y -f ~/.ssh/gq_topic01_static >/dev/null
+          ssh-keyscan -T 10 -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          SSH=(ssh -i ~/.ssh/gq_topic01_static -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          RSYNC_SSH="ssh -i $HOME/.ssh/gq_topic01_static -p $PORT -o BatchMode=yes"
+          "${SSH[@]}" "$TARGET" "mkdir -p '$STAGE' && chmod 700 '$STAGE'"
+          rsync -azR -e "$RSYNC_SSH" \
+            assets/labs/engine.js assets/labs/protein.js assets/labs/bias.js \
+            assets/labs/visualization.js assets/labs/labs.css \
+            lab-protein-stability.html lab-prompt-bias.html \
+            lab-scientific-visualization.html lab.html \
+            "$TARGET:$STAGE/"
+          echo 'Upload staging complete; no production file was changed yet.'
+          "${SSH[@]}" "$TARGET" bash -s -- '/var/www/gravitas' "$STAGE" "$SHA" <<'REMOTE'
+          set -euo pipefail
+          ROOT="$1"; STAGE="$2"; SHA="$3"
+          test -d "$ROOT" && test -w "$ROOT" && test -s "$ROOT/lab.html"
+          test "$(sudo systemctl is-active gravitas-backend.service)" = active
+          test "$(sudo systemctl is-active nginx.service)" = active
+          test "$(curl -fsS --max-time 8 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("status"))')" = ok
+          for f in assets/labs/engine.js assets/labs/protein.js assets/labs/bias.js assets/labs/visualization.js assets/labs/labs.css lab-protein-stability.html lab-prompt-bias.html lab-scientific-visualization.html lab.html; do
+            test -s "$STAGE/$f"
+          done
+          install -d -m 700 "$HOME/.gq-lab-rollbacks"
+          cp -p "$ROOT/lab.html" "$HOME/.gq-lab-rollbacks/lab.html.$SHA"
+          for f in assets/labs/engine.js assets/labs/protein.js assets/labs/bias.js assets/labs/visualization.js assets/labs/labs.css lab-protein-stability.html lab-prompt-bias.html lab-scientific-visualization.html; do
+            install -D -m 644 "$STAGE/$f" "$ROOT/$f.tmp.$SHA"
+            mv -f "$ROOT/$f.tmp.$SHA" "$ROOT/$f"
+          done
+          # Atomic gallery swap last: public navigation never links to incomplete labs.
+          install -m 644 "$STAGE/lab.html" "$ROOT/lab.html.tmp.$SHA"
+          mv -f "$ROOT/lab.html.tmp.$SHA" "$ROOT/lab.html"
+          echo 'static_files_installed=9'
+          echo 'backend_restart=no backend_reload=no nginx_reload=no database_migration=no'
+          REMOTE
+      - name: Public read-only smoke and automatic gallery rollback if needed
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          BASE=https://graviquest.com
+          PORT="${DEPLOY_PORT:-22}"; USER="${DEPLOY_USER:-deploy}"
+          fail=0
+          for path in lab.html lab-protein-stability.html lab-prompt-bias.html lab-scientific-visualization.html assets/labs/engine.js assets/labs/labs.css; do
+            temp="$(mktemp)"
+            if ! curl -4 -fsSL --retry 3 --retry-delay 2 --connect-timeout 8 --max-time 22 -o "$temp" "$BASE/$path"; then
+              echo "Static URL failed: $path"; fail=1
+            else
+              echo "HTTP_OK: $path ($(wc -c < "$temp") bytes)"
+            fi
+            rm -f "$temp"
+          done
+          health="$(mktemp)"
+          if ! curl -4 -fsSL --retry 3 --retry-delay 2 --max-time 22 -o "$health" "$BASE/api/health/"; then
+            echo 'Public backend health endpoint unreachable'; fail=1
+          elif ! grep -Eq '"status" *: *"ok"' "$health"; then
+            echo 'Public backend health reports failure'; fail=1
+          fi
+          rm -f "$health"
+          if [ "$fail" -ne 0 ]; then
+            echo 'Release smoke failed; restoring gallery index (no backend services touched).'
+            ssh -i ~/.ssh/gq_topic01_static -p "$PORT" -o BatchMode=yes "$USER@$DEPLOY_HOST" \
+              "install -m 644 '\$HOME/.gq-lab-rollbacks/lab.html.$GITHUB_SHA' '/var/www/gravitas/lab.html.restore.$GITHUB_SHA' && mv '/var/www/gravitas/lab.html.restore.$GITHUB_SHA' '/var/www/gravitas/lab.html'" || true
+            exit 1
+          fi
+          echo 'STATIC_LABS_LIVE_AND_API_HEALTHY=YES'
