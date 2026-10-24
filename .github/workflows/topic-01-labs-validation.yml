@@ -1,0 +1,43 @@
+name: Topic 01 Lab safety checks
+
+on:
+  pull_request:
+    paths:
+      - 'assets/labs/**'
+      - 'lab-protein-stability.html'
+      - 'lab-prompt-bias.html'
+      - 'lab.html'
+      - 'scripts/test-topic-01-labs.cjs'
+      - '.github/workflows/topic-01-labs-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-only-labs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check assets/labs/engine.js
+          node --check assets/labs/protein.js
+          node --check assets/labs/bias.js
+          node --check scripts/test-topic-01-labs.cjs
+      - name: Run deterministic engine regression
+        run: node scripts/test-topic-01-labs.cjs
+      - name: Verify no runtime imports or backend changes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for path in ('lab-protein-stability.html', 'lab-prompt-bias.html'):
+              content = Path(path).read_text()
+              assert 'assets/labs/engine.js' in content
+              assert 'assets/labs/labs.css' in content
+          print('Both lab pages load the shared local engine and styles.')
+          PY
