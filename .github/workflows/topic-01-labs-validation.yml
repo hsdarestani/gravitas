@@ -8,6 +8,7 @@ on:
       - 'lab-prompt-bias.html'
       - 'lab.html'
       - 'scripts/test-topic-01-labs.cjs'
+      - 'scripts/test-topic-01-browser.cjs'
       - '.github/workflows/topic-01-labs-validation.yml'
   workflow_dispatch:
 
@@ -17,7 +18,7 @@ permissions:
 jobs:
   browser-only-labs:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,6 +30,7 @@ jobs:
           node --check assets/labs/protein.js
           node --check assets/labs/bias.js
           node --check scripts/test-topic-01-labs.cjs
+          node --check scripts/test-topic-01-browser.cjs
       - name: Run deterministic engine regression
         run: node scripts/test-topic-01-labs.cjs
       - name: Verify no runtime imports or backend changes
@@ -41,3 +43,18 @@ jobs:
               assert 'assets/labs/labs.css' in content
           print('Both lab pages load the shared local engine and styles.')
           PY
+      - name: Install CI-only browser driver
+        run: npm install --prefix "$RUNNER_TEMP/gq-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Exercise both labs in Google Chrome
+        env:
+          NODE_PATH: ${{ runner.temp }}/gq-browser/node_modules
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/test-topic-01-browser.cjs
+      - name: Upload review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: topic-01-lab-mobile-desktop-screenshots
+          path: qa-artifacts/topic-01/*.png
+          if-no-files-found: ignore
+          retention-days: 7
