@@ -1,6 +1,6 @@
 # Topic 01 Lab pilots — isolation and staged rollout
 
-Status: browser-only implementation on feature branch. No backend migrations, Django URL changes, secrets, runtime package installs or deployment scripts are touched.
+Status (2026-10-24): browser-only pilot deployed via one-time static-file-only release [run 40126712004](https://github.com/hsdarestani/gravitas/actions/runs/40126712004); public static pages and health checks passed. No backend migrations, Django URL changes, secrets, runtime package installs or service reloads were needed. Source control PR merge follows separately using CI-skip on the merge commit because the usual main deploy is server-wide.
 
 ## Delivered
 
@@ -27,7 +27,7 @@ Status: browser-only implementation on feature branch. No backend migrations, Dj
 1. Run `node scripts/test-topic-01-labs.cjs` and the scoped Actions workflow.
 2. Check baseline production: signed-in workspace bootstrap, Projects, Research Experiments, Nextcloud Notes, public Lab and normal Pulsar chat. Capture current HTTP 500/502 metrics.
 3. Review PR diff for scope: no database, server, auth or deployment configuration changes.
-4. Merge only after green status checks; the normal main workflow is a **full deployment**, so even static changes require careful release monitoring.
+4. Static production release has already passed; merge matching source commit with the normal main deployment explicitly skipped for this already-live, fully tested frontend-only patch.
 5. Immediately after deployment, open both pages, vary sliders and verify JSON export. Recheck baseline authenticated routes, response rates and Nginx/Gunicorn logs. If metrics regress, roll back the merge rather than changing production databases.
 6. Do not claim "zero risk" or global 500/502 elimination. The existing platform has had independent operational incidents.
 
@@ -39,4 +39,11 @@ Scientific review: assign to the Topic 01 scientific reviewer before presenting 
 
 ## Baseline operational warning (2026-10-24)
 
-The existing Backend Error Monitor has failed repeatedly on main ([run 40119896046](https://github.com/hsdarestani/gravitas/actions/runs/40119896046)); its command combines active-service state and a 70-minute journal error grep, with no root-cause detail in the CI output. Independent public Production Monitor [run 40115982022](https://github.com/hsdarestani/gravitas/actions/runs/40115982022) succeeded; this does not prove private endpoints healthy. Issue [#193](https://github.com/hsdarestani/gravitas/issues/193) tracks the blocker. **Keep PR Draft / do not merge** until baseline incident is understood and released with a read-only verified regression comparison.
+The existing Backend Error Monitor has failed repeatedly on main ([run 40119896046](https://github.com/hsdarestani/gravitas/actions/runs/40119896046)); its command combines active-service state and a 70-minute journal error grep, with no root-cause detail in the CI output. Independent public Production Monitor [run 40115982022](https://github.com/hsdarestani/gravitas/actions/runs/40115982022) succeeded; this does not prove private endpoints healthy. Issue [#193](https://github.com/hsdarestani/gravitas/issues/193) tracks the blocker. The pre-existing backend incident remains open independently. To avoid restarting Django, files were deployed by static-only workflow while service and public health checks passed. Do not claim the incident was fixed by the Lab release.
+
+## Static release evidence
+
+- [One-time static release](https://github.com/hsdarestani/gravitas/actions/runs/40126712004) completed SUCCESS. Nine selected files only, no DB migrations, no systemd restart/reload, no Nginx config changes; backup of previous `lab.html` retained server-side.
+- Public GET smoke for `lab.html`, three lab pages, engine JS, styles and `/api/health/` passed in the GitHub runner.
+- The temporary production release workflow and preflight workflow were removed from the feature branch once the release finished.
+- Existing backend traces in the journal still require diagnosis (issue #193); production monitor health=200 is not an authenticated-endpoint guarantee.
