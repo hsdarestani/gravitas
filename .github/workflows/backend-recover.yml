@@ -76,3 +76,119 @@ jobs:
           fi
           echo "Backend systemd active, localhost Django and Nginx HTTPS health both OK"
           REMOTE
+
+  pulsar-task-hotfix:
+    name: Apply isolated Pulsar task fix, backed up and rollback-protected
+    needs: recover
+    if: >-
+      ${{ github.repository == 'hsdarestani/gravitas' && github.ref == 'refs/heads/main' && github.event_name == 'push' && contains(github.event.head_commit.message, '[apply-pulsar-task-hotfix]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+      SSH_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preflight and isolated backend-only hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA=511f35b5abeca3fcd8731654e5f325e9dfe24c10
+          git cat-file -e "$BASE_SHA"
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          PORT="$SSH_PORT"; [ -n "$PORT" ] || PORT=22
+          LOGIN="$SSH_USER"; [ -n "$LOGIN" ] || LOGIN=deploy
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/pulsar-hotfix
+          chmod 600 ~/.ssh/pulsar-hotfix
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          if ! ssh -i ~/.ssh/pulsar-hotfix -p "$PORT" -o BatchMode=yes "$LOGIN@$SSH_HOST" 'sudo -n true' 2>/dev/null; then
+            if ssh -i ~/.ssh/pulsar-hotfix -p "$PORT" -o BatchMode=yes "root@$SSH_HOST" true 2>/dev/null; then
+              LOGIN=root
+            else
+              echo "::error::SSH/sudo unavailable. Nothing changed."
+              exit 1
+            fi
+          fi
+          STAGE="/tmp/gravitas-pulsar-task-$GITHUB_RUN_ID"
+          ssh -i ~/.ssh/pulsar-hotfix -p "$PORT" -o BatchMode=yes "$LOGIN@$SSH_HOST" "install -d -m 700 '$STAGE'"
+          for file in pulsar_task_service.py task_notifications.py; do
+            git show "$BASE_SHA:backend/core/$file" > "$RUNNER_TEMP/old-$file"
+            python3 -m py_compile "backend/core/$file"
+          done
+          scp -i ~/.ssh/pulsar-hotfix -P "$PORT" -o BatchMode=yes \
+            backend/core/pulsar_task_service.py backend/core/task_notifications.py "$LOGIN@$SSH_HOST:$STAGE/"
+          OLD_TASK="$(sha256sum "$RUNNER_TEMP/old-pulsar_task_service.py" | cut -d' ' -f1)"
+          OLD_NOTIF="$(sha256sum "$RUNNER_TEMP/old-task_notifications.py" | cut -d' ' -f1)"
+          NEW_TASK="$(sha256sum backend/core/pulsar_task_service.py | cut -d' ' -f1)"
+          NEW_NOTIF="$(sha256sum backend/core/task_notifications.py | cut -d' ' -f1)"
+          ssh -i ~/.ssh/pulsar-hotfix -p "$PORT" -o BatchMode=yes "$LOGIN@$SSH_HOST" \
+            "sudo -n bash -se -- '$GITHUB_RUN_ID' '$OLD_TASK' '$OLD_NOTIF' '$NEW_TASK' '$NEW_NOTIF'" <<'REMOTE'
+          set -Eeuo pipefail
+          RUN="$1"; OLD_TASK="$2"; OLD_NOTIF="$3"; NEW_TASK="$4"; NEW_NOTIF="$5"
+          DIR=/opt/gravitas-backend/core
+          PY=/opt/gravitas-backend/.venv/bin/python
+          STAGE="/tmp/gravitas-pulsar-task-$RUN"
+          BACKUP="/var/backups/gravitas/pulsar-hotfix-$RUN"
+          test -x "$PY" && systemctl is-active --quiet gravitas-backend.service
+          curl -fsS --max-time 8 http://127.0.0.1:8000/api/health/ | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
+          test "$(sha256sum "$DIR/pulsar_task_service.py" | cut -d' ' -f1)" = "$OLD_TASK" ||
+            { echo "::error::Production Pulsar task service has changed. No write."; exit 1; }
+          test "$(sha256sum "$DIR/task_notifications.py" | cut -d' ' -f1)" = "$OLD_NOTIF" ||
+            { echo "::error::Production task notification module has changed. No write."; exit 1; }
+          test "$(sha256sum "$STAGE/pulsar_task_service.py" | cut -d' ' -f1)" = "$NEW_TASK"
+          test "$(sha256sum "$STAGE/task_notifications.py" | cut -d' ' -f1)" = "$NEW_NOTIF"
+          install -d -m 700 "$BACKUP"
+          cp -a "$DIR/pulsar_task_service.py" "$DIR/task_notifications.py" "$BACKUP/"
+          modified=0
+          rollback() {
+            status=$?
+            trap - ERR
+            if [ "$modified" = 1 ]; then
+              cp -a "$BACKUP/pulsar_task_service.py" "$BACKUP/task_notifications.py" "$DIR/"
+              systemctl reload gravitas-backend.service || true
+              echo "::warning::Production task hotfix rolled back to verified backups."
+            fi
+            exit "$status"
+          }
+          trap rollback ERR
+          for file in pulsar_task_service.py task_notifications.py; do
+            install -o "$(stat -c %u "$DIR/$file")" -g "$(stat -c %g "$DIR/$file")" \
+              -m "$(stat -c %a "$DIR/$file")" "$STAGE/$file" "$DIR/$file.new"
+          done
+          modified=1
+          mv -f "$DIR/pulsar_task_service.py.new" "$DIR/pulsar_task_service.py"
+          mv -f "$DIR/task_notifications.py.new" "$DIR/task_notifications.py"
+          "$PY" -m py_compile "$DIR/pulsar_task_service.py" "$DIR/task_notifications.py"
+          (
+            set -a
+            . /etc/gravitas/backend.env
+            set +a
+            PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings "$PY" -m django check
+          )
+          systemctl reload gravitas-backend.service
+          healthy=0
+          for i in 1 2 3 4 5 6 7 8; do
+            if curl -fsS --max-time 8 http://127.0.0.1:8000/api/health/ |
+               grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
+              healthy=1
+              break
+            fi
+            sleep 2
+          done
+          test "$healthy" = 1
+          curl -fsS --max-time 12 --resolve graviquest.com:443:127.0.0.1 https://graviquest.com/api/health/ |
+            grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
+          test "$(sha256sum "$DIR/pulsar_task_service.py" | cut -d' ' -f1)" = "$NEW_TASK"
+          test "$(sha256sum "$DIR/task_notifications.py" | cut -d' ' -f1)" = "$NEW_NOTIF"
+          trap - ERR
+          rm -rf -- "$STAGE"
+          echo "PULSAR_TASK_HOTFIX_APPLIED; backup preserved: $BACKUP"
+          REMOTE
