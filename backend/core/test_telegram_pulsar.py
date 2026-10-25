@@ -190,7 +190,10 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         foreign_project = ResearchProject.objects.create(
             workspace=self.core, owner=other, title='Confidential',
         )
-        denied = handle_message(self.user, f'/projecttasks {foreign_project.pk}')
+        # The fixture's user is a Core admin, so it can normally manage
+        # even other owners' projects. Explicitly simulate a denied project ACL.
+        with patch('core.platform_access.can_view', return_value=False):
+            denied = handle_message(self.user, f'/projecttasks {foreign_project.pk}')
         self.assertIn('permission', denied[0]['text'])
         self.assertNotIn('Confidential', denied[0]['text'])
 
