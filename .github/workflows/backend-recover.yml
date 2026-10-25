@@ -285,10 +285,22 @@ jobs:
           curl -fsS --max-time 8 -H "X-Forwarded-Proto: https" http://127.0.0.1:8000/api/health/ |
             grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
           # Patch to a disposable file only. An incompatible live version stops safely.
+          echo "PATCH_REMOTE_STAGE=begin"
+          set +e
           patch --batch --fuzz=0 --forward -o "$STAGE/candidate.py" "$DEST" < "$STAGE/change.patch"
+          patch_rc=$?
+          set -e
+          echo "PATCH_REMOTE_PATCH_EXIT=$patch_rc"
+          test "$patch_rc" = 0
+          echo "PATCH_REMOTE_STAGE=patch_applied"
+          test -f "$STAGE/candidate.py"
+          echo "PATCH_REMOTE_INVENTORY_FUNCTIONS=$(grep -c 'def _project_task_inventory' "$STAGE/candidate.py" || true)"
+          echo "PATCH_REMOTE_ROUTE_PRESENT=$(grep -c 'inventory = _requested_project_inventory(text)' "$STAGE/candidate.py" || true)"
           grep -q "def _project_task_inventory" "$STAGE/candidate.py"
+          echo "PATCH_REMOTE_STAGE=functions_verified"
           grep -q "inventory = _requested_project_inventory(text)" "$STAGE/candidate.py"
           "$PY" -m py_compile "$STAGE/candidate.py"
+          echo "PATCH_REMOTE_STAGE=candidate_compiled"
           install -d -m 700 "$BACKUP"
           cp -a "$DEST" "$BACKUP/telegram_pulsar.py"
           modified=0
