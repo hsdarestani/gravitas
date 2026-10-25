@@ -2,7 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from .canonical_journal import canonical_operation
 from django.utils.dateparse import parse_date
 
 from . import operating_api as operating_base
@@ -151,7 +151,10 @@ def create_operating_task(
         if key_result else None
     )
 
-    with transaction.atomic():
+    # Keep project-linked tasks inside the same canonical write journal used by
+    # Research Workspace. An ordinary atomic block alone is rejected by the
+    # canonical pre-save guard after a project is adopted.
+    with canonical_operation(user):
         task = OperatingTask.objects.create(
             workspace=core,
             initiative=initiative,

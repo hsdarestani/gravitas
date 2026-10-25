@@ -101,6 +101,50 @@ class PulsarTaskActionTests(TestCase):
         )
         self.assertEqual(notices.count(), 1)
 
+    def test_canonical_project_task_creation_uses_write_journal(self):
+        """Telegram/Pulsar tasks must use the adopted project's guarded path."""
+        from unittest.mock import patch
+
+        from .canonical_journal import RecoveryRequired
+        from .models import ResearchProject
+
+        project = ResearchProject.objects.create(
+            workspace=self.core,
+            owner=self.user,
+            title='Topic 01',
+        )
+        draft = dict(
+            self.draft,
+            project_id=project.pk,
+            key_result_id=None,
+            due_date=None,
+            source_key='pulsar-telegram:topic01:1',
+        )
+        with patch('core.canonical_signals.active', return_value=True), \
+             patch('core.canonical_signals.project_for', return_value=project), \
+             patch('core.canonical_signals.flush_pending') as flush:
+            with self.assertRaisesMessage(
+                RecoveryRequired, 'use_canonical_operation_for_project_write',
+            ):
+                OperatingTask.objects.create(
+                    workspace=self.core, project=project, owner=self.user,
+                    title='Unsafe unguarded project task',
+                )
+            task = create_operating_task(
+                self.user, draft, confirmed=True, source='telegram_pulsar',
+            )
+            flush.assert_called_once()
+            # Repeated callback retries must reuse the source-bound task.
+            repeated = create_operating_task(
+                self.user, draft, confirmed=True, source='telegram_pulsar',
+            )
+
+        self.assertEqual(task.pk, repeated.pk)
+        self.assertEqual(task.project_id, project.pk)
+        self.assertEqual(
+            OperatingTask.objects.filter(source_key=draft['source_key']).count(), 1,
+        )
+
     def test_invalid_key_result_cannot_escape_core_workspace(self):
         other = get_user_model().objects.create_user(
             username='pulsar-task-other@example.test',
