@@ -25,12 +25,26 @@ def preview(report):
         '',
         report.interpretation.get('summary', ''), '',
     ]
-    for update in report.interpretation.get('updates', []):
-        lines.extend([update['title'], f"Progress: {update['progress']}", f"Status suggestion: {update.get('status') or 'unchanged'}",
-                      f"Deliverable: {update['deliverable']}", f"Blocker: {update['blocker']}", f"Next: {update['next_action']}", ''])
-    if report.interpretation.get('unmatched_work'):
-        lines.extend(['Unmatched work (no task will change):', report.interpretation['unmatched_work']])
-    lines.append('Review before confirming. Tasks have not changed. /reportedit to choose tasks and edit.')
+    updates = report.interpretation.get('updates', [])
+    for update in updates:
+        task_id = update.get('task_id')
+        title = (
+            f"Task #{task_id} · {update['title']}" if task_id
+            else f"UNMATCHED (no task change) · {update['title']}"
+        )
+        lines.extend([
+            title,
+            f"Progress: {update['progress']}",
+            f"Status suggestion: {update.get('status') or 'unchanged'}",
+            f"Deliverable: {update['deliverable']}",
+            f"Blocker: {update['blocker']}",
+            f"Next: {update['next_action']}",
+            '',
+        ])
+    unmatched = str(report.interpretation.get('unmatched_work') or '').strip()
+    if unmatched and unmatched.casefold() not in {'none', 'no unmatched work reported', 'no unmatched work'}:
+        lines.extend(['Unmatched work (no task will change):', unmatched])
+    lines.append('Review exact task IDs before confirming. No task changed yet. /reportedit to correct; /reportpreview to review again.')
     return {'text': '\n'.join(lines)[:4096], 'reply_markup': {'inline_keyboard': [[
         {'text': 'Confirm', 'callback_data': f'wr:c:{report.pk.hex}:{report.revision}'},
         {'text': 'Edit', 'callback_data': f'wr:e:{report.pk.hex}:{report.revision}'},
@@ -51,6 +65,13 @@ def handle_report_message(user, text, source_key=None):
         session.state = {}
         session.save(update_fields=['state', 'updated_at'])
         return None
+    if text.strip().lower() == '/reportpreview':
+        report = DailyWorkReport.objects.filter(
+            pk=state.get('report_id'), user=user, status='pending',
+        ).first() if state.get('report_id') else None
+        if not report:
+            return [{'text': 'No active pending report. Use /report to prepare a new update.'}]
+        return [preview(report)]
     if text.strip().lower() in {'/reports', '/reportlist'}:
         recent = DailyWorkReport.objects.filter(user=user).order_by('-created_at')[:10]
         if not recent:
