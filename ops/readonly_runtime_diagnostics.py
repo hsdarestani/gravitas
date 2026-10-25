@@ -682,8 +682,48 @@ def nextcloud():
                       "config:system:get", "maintenance", timeout=12).strip()
     print("nextcloud_maintenance", "on" if maintenance in {"1", "true", "True"} else "off_or_unknown")
 
+
+def scientific_lab_preflight():
+    """Read provider readiness only; never invoke providers or print credentials."""
+    import tempfile
+    source = r'''import os, json, math, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gravitas_backend.settings')
+django.setup()
+from core.pulsar_runtime.providers import PROVIDER_FACTORIES, _cloudflare_model, _managed_model, _pricing
+from django.db.migrations.recorder import MigrationRecorder
+for name in ('cloudflare-workers-ai', 'openai', 'anthropic', 'gemini'):
+    ready = PROVIDER_FACTORIES[name]().configured()
+    model = _cloudflare_model('general') if name == 'cloudflare-workers-ai' else _managed_model(name.upper(), 'general')
+    rates = _pricing().get(model)
+    try:
+        priced = all(math.isfinite(float(rates[k])) and float(rates[k]) >= 0 for k in ('input_per_million','output_per_million'))
+    except (TypeError, KeyError, ValueError):
+        priced = False
+    print('lab_preflight', name, 'configured', bool(ready), 'valid_pricing', priced)
+print('lab_preflight', 'schema_0075', MigrationRecorder.Migration.objects.filter(app='core', name='0075_operating_task_external_links').exists())
+print('lab_preflight', 'schema_0076', MigrationRecorder.Migration.objects.filter(app='core', name='0076_scientific_lab_runs').exists())
+'''
+    with tempfile.NamedTemporaryFile('w', suffix='.py', prefix='gravitas-lab-preflight-', dir='/tmp', delete=False) as handle:
+        handle.write(source)
+        temp = handle.name
+    try:
+        pathlib.Path(temp).chmod(0o644)
+        output = run('sudo', '-n', '-u', 'gravitas', 'bash', '-c',
+                     'set -a; . /etc/gravitas/backend.env; set +a; export PYTHONPATH=/opt/gravitas-backend; /opt/gravitas-backend/.venv/bin/python ' + temp,
+                     timeout=25)
+        found = False
+        for line in output.splitlines():
+            if re.fullmatch(r'lab_preflight [a-z0-9_-]+ (configured (True|False) valid_pricing (True|False)|(True|False))', line):
+                print(line)
+                found = True
+        if not found:
+            print('lab_preflight unavailable')
+    finally:
+        pathlib.Path(temp).unlink(missing_ok=True)
+
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
+    scientific_lab_preflight()
     php_runtime_security()
     health()
     web_status()
