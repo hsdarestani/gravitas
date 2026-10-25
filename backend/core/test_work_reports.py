@@ -180,11 +180,39 @@ class DailyWorkReportTests(TestCase):
             messages = handle_report_message(self.user, '/report I retested lessons', 'chat:123')
         report = DailyWorkReport.objects.get()
         self.task.refresh_from_db(); self.assertEqual(self.task.status, 'active')
+        self.assertIn(f'Task #{self.task.pk} · LMS acceptance retest', messages[0]['text'])
+        preview_again = handle_report_message(self.user, '/reportpreview')
+        self.assertEqual(preview_again[0]['text'], messages[0]['text'])
+        self.assertEqual(DailyWorkReport.objects.count(), 1)
+        self.task.refresh_from_db(); self.assertEqual(self.task.status, 'active')
         action = messages[0]['reply_markup']['inline_keyboard'][0][0]['callback_data']
         self.assertLessEqual(len(action.encode()), 64)
         self.assertIn('not found', handle_report_callback(self.other, action)[0]['text'])
         handle_report_callback(self.user, action); handle_report_callback(self.user, action)
         self.assertEqual(ActivityEvent.objects.filter(action='task.daily_report').count(), 1)
+
+    def test_report_preview_shows_unmatched_as_no_task_and_omits_false_unmatched(self):
+        from .telegram_work_reports import preview
+        with patch('core.work_reports.interpret', return_value={
+            'summary': 'One completed milestone',
+            'updates': [{'task_id': self.task.pk, 'status': 'done', 'progress': 'Built the preview',
+                         'deliverable': 'Verified preview'},
+                        {'task_id': None, 'progress': 'Independent research', 'status': None}],
+            'unmatched_work': 'No unmatched work reported',
+        }):
+            report = propose(self.user, 'One completed milestone', source='telegram',
+                             source_key='preview-ids')
+        result = preview(report)['text']
+        self.assertIn(f'Task #{self.task.pk} · LMS acceptance retest', result)
+        self.assertIn('UNMATCHED (no task change)', result)
+        self.assertNotIn('Unmatched work (no task will change):\nNo unmatched work reported', result)
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'active')
+
+    def test_reportpreview_without_active_pending_report_is_read_only(self):
+        response = handle_report_message(self.user, '/reportpreview')
+        self.assertIn('No active pending report', response[0]['text'])
+        self.assertFalse(DailyWorkReport.objects.exists())
 
     @override_settings(GRAVITAS_DAILY_REPORT_HOUR=0)
     def test_daily_checkin_queues_once_without_sending_immediately(self):
