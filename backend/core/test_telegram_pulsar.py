@@ -122,6 +122,93 @@ class TelegramPulsarTaskBuilderTests(TestCase):
         self.assertEqual(session.state['mode'], 'confirm')
         self.assertIn('KR نامشخص', next_messages[0]['text'])
 
+    def test_project_inventory_is_database_backed_includes_done_and_duplicates(self):
+        from .models import ResearchProject
+        from .operating_models import WorkStatus
+
+        project = ResearchProject.objects.create(
+            workspace=self.core, owner=self.user, title='Topic 01',
+        )
+        other_project = ResearchProject.objects.create(
+            workspace=self.core, owner=self.user, title='Unrelated project',
+        )
+        rows = [
+            OperatingTask.objects.create(
+                workspace=self.core, project=project, owner=self.user,
+                title='Educational Simulations', status=WorkStatus.DONE,
+                definition_of_done='Verified lab pilots',
+            ),
+            OperatingTask.objects.create(
+                workspace=self.core, project=project, owner=self.user,
+                title='Educational Simulations', status=WorkStatus.ACTIVE,
+                definition_of_done='Duplicate',
+            ),
+            OperatingTask.objects.create(
+                workspace=self.core, project=project, owner=self.user,
+                title='Production Deployment', status=WorkStatus.BLOCKED,
+                definition_of_done='Safely deployed',
+            ),
+        ]
+        OperatingTask.objects.create(
+            workspace=self.core, project=other_project, owner=self.user,
+            title='Must not show unrelated project task',
+            definition_of_done='Private to another project',
+        )
+        # Most recent scientific tasks can fall outside a capped context catalog.
+        for i in range(41):
+            OperatingTask.objects.create(
+                workspace=self.core, owner=self.user,
+                title=f'Old unrelated task {i}', definition_of_done='Other work',
+            )
+        session = TelegramPulsarSession.objects.create(
+            user=self.user, state={'mode': 'confirm', 'draft': {'title': 'Preserve me'}},
+        )
+        with patch('core.telegram_pulsar._interpret', side_effect=AssertionError('LLM not needed')):
+            response = handle_message(
+                self.user, f'Please review the existing tasks in Research Project #{project.pk}',
+            )
+            command_response = handle_message(self.user, f'/projecttasks {project.pk}')
+        for result in (response, command_response):
+            text = result[0]['text']
+            for task in rows:
+                self.assertIn(f'#{task.pk}', text)
+                self.assertIn(task.status, text)
+            self.assertIn('Potential duplicate titles:', text)
+            self.assertIn('Read-only inventory', text)
+            self.assertNotIn('Must not show unrelated', text)
+            self.assertNotIn('Old unrelated task', text)
+        session.refresh_from_db()
+        self.assertEqual(session.state['mode'], 'confirm')
+        self.assertEqual(OperatingTask.objects.filter(project=project).count(), 3)
+
+    def test_project_inventory_denies_unshared_project_and_paginates(self):
+        from .models import ResearchProject
+
+        other = User.objects.create_user(
+            username='other-proj-owner@example.test', password='example-password',
+        )
+        foreign_project = ResearchProject.objects.create(
+            workspace=self.core, owner=other, title='Confidential',
+        )
+        denied = handle_message(self.user, f'/projecttasks {foreign_project.pk}')
+        self.assertIn('permission', denied[0]['text'])
+        self.assertNotIn('Confidential', denied[0]['text'])
+
+        project = ResearchProject.objects.create(
+            workspace=self.core, owner=self.user, title='Topic 01',
+        )
+        for i in range(20):
+            OperatingTask.objects.create(
+                workspace=self.core, project=project, owner=self.user,
+                title=f'Lab item {i:02d}', definition_of_done='Test',
+            )
+        first = handle_message(self.user, f'/projecttasks {project.pk}')
+        second = handle_message(self.user, f'/projecttasks {project.pk} 2')
+        self.assertIn('page 1/2', first[0]['text'])
+        self.assertIn(f'/projecttasks {project.pk} 2', first[0]['text'])
+        self.assertIn('page 2/2', second[0]['text'])
+        self.assertEqual(OperatingTask.objects.filter(project=project).count(), 20)
+
     @patch('core.telegram_pulsar.configured', return_value=True)
     @patch('core.telegram_pulsar.complete')
     def test_general_pulsar_chat_does_not_create_task(self, complete, configured):
