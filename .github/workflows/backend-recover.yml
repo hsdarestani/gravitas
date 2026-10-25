@@ -101,7 +101,8 @@ jobs:
         run: |
           set -euo pipefail
           BASE_SHA=511f35b5abeca3fcd8731654e5f325e9dfe24c10
-          git cat-file -e "$BASE_SHA"
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git cat-file -e "$BASE_SHA^{commit}"
           test -n "$SSH_KEY" && test -n "$SSH_HOST"
           PORT="$SSH_PORT"; [ -n "$PORT" ] || PORT=22
           LOGIN="$SSH_USER"; [ -n "$LOGIN" ] || LOGIN=deploy
