@@ -192,6 +192,95 @@ def is_information_request(text):
     return False
 
 
+# An explicit inventory request is not a work log. Never let a model invent
+# a project's existing tasks from the bounded general-purpose prompt catalog.
+_PROJECT_TASKS_CMD = re.compile(r'^/projecttasks(?:@\w+)?\s+(\d+)(?:\s+(\d+))?\s*$', re.I)
+_PROJECT_ID_IN_TEXT = re.compile(r'\b(?:research\s+)?project\s*(?:id\s*[:#]?\s*|#\s*|:\s*)(\d+)\b', re.I)
+_PROJECT_TASKS_READ = re.compile(
+    r'\b(?:list|show|review|audit|find|display|inspect)\b.{0,180}\b(?:tasks?|project|scientific lab)\b'
+    r'|(?:لیست|فهرست|نمایش|بررسی|ببین|بگو).{0,180}(?:تسک|وظیفه|وظایف|کارها|پروژه)',
+    re.I | re.S,
+)
+
+
+def _requested_project_inventory(text):
+    """Return project/page for an authorized, read-only listing, otherwise None."""
+    normalized = str(text or '').translate(DIGIT_MAP).strip()
+    command = _PROJECT_TASKS_CMD.fullmatch(normalized)
+    if command:
+        return int(command.group(1)), int(command.group(2) or 1)
+    match = _PROJECT_ID_IN_TEXT.search(normalized)
+    if match and _PROJECT_TASKS_READ.search(normalized):
+        return int(match.group(1)), 1
+    return None
+
+
+def _project_task_inventory(user, ctx, project_id, page=1, lang='en'):
+    """Read canonical project-linked tasks directly; never change the draft."""
+    from .platform_access import can_view
+
+    if page < 1 or page > 1000:
+        return {'text': _say(lang, 'شماره صفحه معتبر نیست.', 'Invalid page number.')}
+    project = ResearchProject.objects.filter(
+        pk=project_id, archived=False,
+        workspace_id__in=(ctx['core'].pk, ctx['research'].pk),
+    ).first()
+    if not project or not can_view(user, project):
+        return {'text': _say(
+            lang, 'پروژه پیدا نشد یا مجوز مشاهده آن را نداری.',
+            'Project not found or you do not have permission to view it.',
+        )}
+    # Do not use ctx['tasks']; that list is capped and intentionally excludes
+    # DONE and ARCHIVED items. The per-object ACL may be more restrictive.
+    visible = [
+        task for task in OperatingTask.objects.filter(
+            project=project, workspace=ctx['core'],
+        ).select_related('owner', 'project').order_by('pk')
+        if can_view(user, task)
+    ]
+    per_page = 15
+    total_pages = max(1, (len(visible) + per_page - 1) // per_page)
+    if page > total_pages:
+        return {'text': _say(lang, f'صفحه آخر {total_pages} است.', f'Last page is {total_pages}.')}
+    begin = (page - 1) * per_page
+    shown = visible[begin:begin + per_page]
+    base = settings.PUBLIC_BASE_URL.rstrip('/')
+    lines = [
+        f'{project.title} (#{project.pk})',
+        _say(
+            lang,
+            f'{len(visible)} تسک قابل مشاهده · صفحه {page}/{total_pages} · همه وضعیت‌ها',
+            f'{len(visible)} visible tasks · page {page}/{total_pages} · all statuses',
+        ),
+    ]
+    if not shown:
+        lines.append(_say(lang, 'هیچ تسکی پیدا نشد.', 'No tasks found.'))
+    for task in shown:
+        lines.append(
+            f'#{task.pk} · {task.title} · {task.status}'
+            + f'\n{base}/workspace/core/tasks?task={task.pk}'
+        )
+    # Compare full accessible inventory, not just the current page.
+    by_title = {}
+    for task in visible:
+        key = ' '.join(task.title.casefold().split())
+        by_title.setdefault(key, []).append(task.pk)
+    duplicates = [(name, ids) for name, ids in by_title.items() if len(ids) > 1]
+    if duplicates:
+        lines.append(_say(lang, 'عنوان‌های تکراری احتمالی:', 'Potential duplicate titles:'))
+        for name, ids in duplicates[:8]:
+            lines.append(f'{name[:75]}: ' + ', '.join(f'#{pk}' for pk in ids))
+        if len(duplicates) > 8:
+            lines.append(_say(lang, 'موارد بیشتری نیز وجود دارد.', 'More possible duplicates exist.'))
+    if page < total_pages:
+        lines.append(f'/projecttasks {project.pk} {page + 1}')
+    lines.append(_say(
+        lang, 'این فقط یک گزارش خواندنی است؛ چیزی تغییر نکرد.',
+        'Read-only inventory. No tasks or reports were changed.',
+    ))
+    return {'text': '\n'.join(lines)[:4096]}
+
+
 def _navigation_reply(text):
     normalized = ' '.join(str(text or '').casefold().split()).rstrip('?.!؟ ')
     if 'research intelligence' in normalized and is_information_request(text):
@@ -584,7 +673,7 @@ def help_message(lang='fa'):
     return {'text': _say(
         lang,
         'من Pulsar هستم. تسک‌های جدید رو پیشنهاد می‌دم و برای فعالیت‌های انجام‌شده لاگ قابل تأیید می‌سازم. KR رو خودم تطبیق می‌دم.\n\n/new — تسک جدید\n/report — ثبت فعالیت\n/tasks — تسک‌های باز من\n/cancel — لغو پیش‌نویس\n/help — راهنما',
-        'I am Pulsar. Send new tasks or progress updates naturally. I will match KRs and format activity logs for approval.\n\n/new — new task\n/multi — combine consecutive messages\n/reportmulti YYYY-MM-DD — combine dated work updates\n/reports — recent reports\n/report — log progress\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
+        'I am Pulsar. Send new tasks or progress updates naturally. I will match KRs and format activity logs for approval.\n\n/new — new task\n/projecttasks 213 — project task inventory\n/multi — combine consecutive messages\n/reportmulti YYYY-MM-DD — combine dated work updates\n/reports — recent reports\n/report — log progress\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
     )}
 
 
@@ -686,12 +775,24 @@ def handle_message(user, text, source_key=None):
         if location:
             return [location]
 
+    inventory = _requested_project_inventory(text)
+    if inventory:
+        return [_project_task_inventory(user, ctx, *inventory, lang=lang)]
+    if text.startswith('/projecttasks'):
+        return [{'text': _say(lang, 'دستور درست: /projecttasks 213', 'Usage: /projecttasks 213')}]
+
     if text.startswith('/tasks'):
-        mine = [x for x in ctx['tasks'] if x['owner_id'] == user.pk][:12]
+        from .platform_access import can_view
+        mine = [
+            task for task in OperatingTask.objects.filter(
+                owner=user, workspace=ctx['core'],
+            ).exclude(status__in=[WorkStatus.DONE, WorkStatus.ARCHIVED]).order_by('due_date', 'pk')
+            if can_view(user, task)
+        ][:12]
         if not mine:
             return [{'text': _say(lang, 'تسک باز نداری.', 'You have no open tasks.')}]
         return [{'text': '\n'.join([_say(lang, 'تسک‌های باز:', 'Open tasks:')] + [
-            f'{i}. {row["title"]}' + (f' · {row["due_date"]}' if row.get('due_date') else '')
+            f'{i}. #{row.pk} {row.title}' + (f' · {row.due_date}' if row.due_date else '')
             for i, row in enumerate(mine, 1)
         ])}]
 
