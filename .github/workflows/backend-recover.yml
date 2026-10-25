@@ -220,3 +220,122 @@ jobs:
           rm -rf -- "$STAGE"
           echo "PULSAR_INVENTORY_HOTFIX_APPLIED; backup preserved: $BACKUP"
           REMOTE
+
+  pulsar-inventory-patch:
+    name: Surgical Pulsar inventory patch, preserving production code
+    needs: recover
+    if: >-
+      ${{ github.repository == 'hsdarestani/gravitas' && github.ref == 'refs/heads/main' && github.event_name == 'push' && contains(github.event.head_commit.message, '[apply-pulsar-inventory-patch]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+      SSH_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply guarded three-hunk patch with rollback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BASE=c990adcbb07b10ad438e6f68c6f278a86b8e292a
+          git fetch --no-tags --depth=1 origin "$BASE"
+          git show "$BASE:backend/core/telegram_pulsar.py" > "$RUNNER_TEMP/original.py"
+          python3 -m py_compile backend/core/telegram_pulsar.py
+          set +e
+          diff -u --label telegram_pulsar.py --label telegram_pulsar.py \
+            "$RUNNER_TEMP/original.py" backend/core/telegram_pulsar.py > "$RUNNER_TEMP/inventory.patch"
+          rc=$?
+          set -e
+          test "$rc" -eq 1 && test -s "$RUNNER_TEMP/inventory.patch"
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          PORT="$SSH_PORT"; [ -n "$PORT" ] || PORT=22
+          LOGIN="$SSH_USER"; [ -n "$LOGIN" ] || LOGIN=deploy
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/inventory
+          chmod 600 ~/.ssh/inventory
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          if ! ssh -i ~/.ssh/inventory -p "$PORT" -o BatchMode=yes "$LOGIN@$SSH_HOST" 'sudo -n true' 2>/dev/null; then
+            if ssh -i ~/.ssh/inventory -p "$PORT" -o BatchMode=yes "root@$SSH_HOST" true 2>/dev/null; then
+              LOGIN=root
+            else
+              echo "::error::SSH/sudo unavailable; no production changes."
+              exit 1
+            fi
+          fi
+          STAGE="/tmp/gravitas-inventory-patch-$GITHUB_RUN_ID"
+          ssh -i ~/.ssh/inventory -p "$PORT" -o BatchMode=yes "$LOGIN@$SSH_HOST" "install -d -m 700 '$STAGE'"
+          scp -i ~/.ssh/inventory -P "$PORT" -o BatchMode=yes "$RUNNER_TEMP/inventory.patch" "$LOGIN@$SSH_HOST:$STAGE/change.patch"
+          ssh -i ~/.ssh/inventory -p "$PORT" -o BatchMode=yes "$LOGIN@$SSH_HOST" \
+            "sudo -n bash -se -- '$GITHUB_RUN_ID'" <<'REMOTE'
+          set -Eeuo pipefail
+          RUN="$1"
+          DEST=/opt/gravitas-backend/core/telegram_pulsar.py
+          PY=/opt/gravitas-backend/.venv/bin/python
+          STAGE="/tmp/gravitas-inventory-patch-$RUN"
+          BACKUP="/var/backups/gravitas/pulsar-inventory-$RUN"
+          test -x "$PY" && test -f "$DEST" && test -f "$STAGE/change.patch"
+          systemctl is-active --quiet gravitas-backend.service
+          curl -fsS --max-time 8 -H "X-Forwarded-Proto: https" http://127.0.0.1:8000/api/health/ |
+            grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
+          # Patch to a disposable file only. An incompatible live version stops safely.
+          patch --batch --fuzz=0 --forward -o "$STAGE/candidate.py" "$DEST" < "$STAGE/change.patch"
+          grep -q "def _project_task_inventory" "$STAGE/candidate.py"
+          grep -q "inventory = _requested_project_inventory(text)" "$STAGE/candidate.py"
+          "$PY" -m py_compile "$STAGE/candidate.py"
+          install -d -m 700 "$BACKUP"
+          cp -a "$DEST" "$BACKUP/telegram_pulsar.py"
+          modified=0
+          rollback() {
+            result=$?
+            trap - ERR
+            if [ "$modified" = 1 ]; then
+              cp -a "$BACKUP/telegram_pulsar.py" "$DEST"
+              systemctl reload gravitas-backend.service || true
+              echo "::warning::Original Pulsar module restored after failed patch."
+            fi
+            exit "$result"
+          }
+          trap rollback ERR
+          install -o "$(stat -c %u "$DEST")" -g "$(stat -c %g "$DEST")" \
+            -m "$(stat -c %a "$DEST")" "$STAGE/candidate.py" "$DEST.new-$RUN"
+          modified=1
+          mv -f "$DEST.new-$RUN" "$DEST"
+          (
+            set -a
+            . /etc/gravitas/backend.env
+            set +a
+            export PYTHONPATH=/opt/gravitas-backend
+            export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+            "$PY" -m django check
+            "$PY" - <<'PY'
+          import django
+          django.setup()
+          from core.telegram_pulsar import _requested_project_inventory
+          assert _requested_project_inventory("Review tasks in Research Project #213") == (213, 1)
+          assert _requested_project_inventory("/projecttasks 213 2") == (213, 2)
+          print("PULSAR_INVENTORY_SMOKE_PASS")
+          PY
+          )
+          systemctl reload gravitas-backend.service
+          ready=0
+          for i in 1 2 3 4 5 6 7 8; do
+            if curl -fsS --max-time 8 -H "X-Forwarded-Proto: https" http://127.0.0.1:8000/api/health/ |
+               grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
+              ready=1; break
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+          curl -fsS --max-time 12 --resolve graviquest.com:443:127.0.0.1 https://graviquest.com/api/health/ |
+            grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
+          trap - ERR
+          rm -rf -- "$STAGE"
+          echo "PULSAR_INVENTORY_PATCH_APPLIED; backup=$BACKUP"
+          REMOTE
