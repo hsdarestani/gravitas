@@ -705,7 +705,13 @@ def telegram_notification_webhook(request):
                 try:
                     _telegram_api('sendMessage', {
                         'chat_id': chat_id,
-                        'text': 'Pulsar could not finish this action. Please check /reports before trying again.',
+                        'text': (
+                            'Pulsar could not finish the task action. Check /tasks '
+                            'for an existing task before retrying.'
+                            if action.startswith('pulsar:') else
+                            'Pulsar could not finish this report action. '
+                            'Please check /reports before trying again.'
+                        ),
                     })
                 except Exception:
                     logger.exception('Could not send Telegram Pulsar callback error')
