@@ -145,8 +145,22 @@ jobs:
           STAGE="/tmp/gravitas-pulsar-task-$RUN"
           BACKUP="/var/backups/gravitas/pulsar-hotfix-$RUN"
           echo "HOTFIX_REMOTE_STAGE=entered"
-          test -x "$PY" && systemctl is-active --quiet gravitas-backend.service
-          curl -fsS --max-time 8 http://127.0.0.1:8000/api/health/ | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
+          if [ ! -x "$PY" ]; then
+            echo "::error::Preflight missing backend virtualenv python"
+            echo "BACKEND_PYTHON_PRESENT=no"
+            exit 1
+          fi
+          echo "BACKEND_PYTHON_PRESENT=yes"
+          if ! systemctl is-active --quiet gravitas-backend.service; then
+            echo "::error::Backend service not active. No production changes."
+            exit 1
+          fi
+          echo "BACKEND_SERVICE_ACTIVE=yes"
+          if ! curl -fsS --max-time 8 http://127.0.0.1:8000/api/health/ |
+               grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
+            echo "::error::Backend local health baseline failed. No production changes."
+            exit 1
+          fi
           echo "HOTFIX_REMOTE_STAGE=health_baseline_passed"
           test "$(sha256sum "$DIR/pulsar_task_service.py" | cut -d' ' -f1)" = "$OLD_TASK" ||
             { echo "::error::Production Pulsar task service has changed. No write."; exit 1; }
