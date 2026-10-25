@@ -174,3 +174,37 @@ represented as production or empirical findings.
   successful browser test is claimed. The dedicated CI workflow runs the real
   local Django/browser integration with fixture external services and preserves
   explicitly labeled QA artifacts. Its result must be checked before release.
+
+
+## Follow-up verification, 2026-10-25 12:08 UTC
+
+CI run 40191658997 passed 921 backend tests and the complete real Chromium +
+local Django workflow, including CSRF, protocol approval, fixture worker outputs,
+two human-review fixtures, report export, mobile overflow checks, NOAA controls,
+and anonymous denial. All external experiment calls in this test are fixtures.
+The mobile protocol hash wrapping issue was corrected. The NOAA test now reads
+textContent for collapsed computation details rather than empty hidden innerText.
+
+Read-only production run 40191739905 confirms Cloudflare Workers AI configured,
+but no valid model pricing. OpenAI, Anthropic, and Gemini are not configured.
+Required configuration before paid queue execution: PULSAR_MODEL_PRICING_JSON,
+keyed by the actual configured Cloudflare model with input_per_million and
+output_per_million USD rates. No rates or credentials were changed or guessed.
+Migration 0075 is applied; 0076 was not applied at inspection time.
+
+Read-only run 40191348393 showed active backend/Nginx/PostgreSQL, no recent
+upstream 502/504 or access-log 5xx, and successful bounded full-middleware read
+probes for task 726 and the principal project 208 panels. External datasets
+returned 409; 37 generic traceback signatures and historical Nextcloud locks
+remain in the aggregate diagnostics. This is a current baseline, not closure of
+issue 193 or a long-term latency guarantee.
+
+The isolated release workflow packages 19 allowlisted application/static files,
+checks exact prior production hashes, creates a restricted consistent pg_dump
+and file backup, applies only additive migration 0076, and gracefully reloads
+only the backend. It installs but does not enable the dedicated worker. The
+feature remains disabled. Any application failure restores only changed code;
+additive schema and research data remain. Main's general deploy must not run
+for this release: merge only the CI-verified candidate with [skip ci], then
+manually dispatch Scientific Lab isolated release on main. Never infer a live
+empirical workflow from this disabled first release.
