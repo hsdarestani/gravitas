@@ -156,7 +156,7 @@ jobs:
             exit 1
           fi
           echo "BACKEND_SERVICE_ACTIVE=yes"
-          if ! curl -fsS --max-time 8 http://127.0.0.1:8000/api/health/ |
+          if ! curl -fsS --max-time 8 -H "X-Forwarded-Proto: https" http://127.0.0.1:8000/api/health/ |
                grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
             echo "::error::Backend local health baseline failed. No production changes."
             exit 1
@@ -203,7 +203,7 @@ jobs:
           systemctl reload gravitas-backend.service
           healthy=0
           for i in 1 2 3 4 5 6 7 8; do
-            if curl -fsS --max-time 8 http://127.0.0.1:8000/api/health/ |
+            if curl -fsS --max-time 8 -H "X-Forwarded-Proto: https" http://127.0.0.1:8000/api/health/ |
                grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
               healthy=1
               break
