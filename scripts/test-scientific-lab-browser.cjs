@@ -40,6 +40,7 @@ const {chromium}=require('playwright-core');
   await page.waitForTimeout(250);
   await page.getByRole('button',{name:'Complete independent scientific review',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#run-detail .badge').textContent==='reviewed');
+  assert.ok((await page.locator('#run-list').innerText()).endsWith('· reviewed'));
   const download=page.waitForEvent('download');await page.getByRole('link',{name:'JSON report',exact:true}).click();const file=await download;assert.ok(file.suggestedFilename().endsWith('.json'));
   const saved=path.join(shots,'fixture-report.json');await file.saveAs(saved);const report=JSON.parse(fs.readFileSync(saved,'utf8'));assert.equal(report.trials.length,2);assert.equal(report.events.filter(e=>e.kind==='assessment').length,2);
   await page.locator('#evidence').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(shots,'desktop-fixture-evidence.png'),fullPage:true});

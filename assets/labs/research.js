@@ -19,7 +19,7 @@
     if (!$('project').value) return;
     const data = await api(base()); $('run-list').replaceChildren();
     if (!data.runs.length) $('run-list').append(node('p', 'No runs yet. Save a protocol to begin.'));
-    data.runs.forEach(r => button(`${r.question} · ${r.state.replaceAll('_', ' ')}`, () => open(r.id), $('run-list')));
+    data.runs.forEach(r => { const b = button(`${r.question} · ${r.state.replaceAll('_', ' ')}`, () => open(r.id), $('run-list')); b.dataset.runId = r.id; });
   }
   async function action(name, extra = {}) {
     const data = await api(base()+active.id+'/', {action: name, ...extra}); render(data.run);
@@ -39,6 +39,8 @@
     form.append(label, reasonLabel, timeLabel, submit); form.onsubmit = async e => { e.preventDefault(); submit.disabled = true; try { await action('assessment', {trial: trial.id, citation: index, outcome: select.value, comment: reason.value, effort_seconds: Number(effort.value)}); msg('Assessment recorded. It is not automatically ground truth.'); } catch(err) { msg(err.message); submit.disabled = false; } }; host.append(form);
   }
   function render(r) {
+    clearTimeout(timer);
+    for (const b of $('run-list').querySelectorAll('button')) { if (b.dataset.runId === r.id) b.textContent = `${r.protocol.question} · ${r.state.replaceAll('_', ' ')}`; }
     active = r; const host = $('run-detail'); host.replaceChildren();
     host.append(node('span', r.state.replaceAll('_', ' '), 'badge'), node('h3', r.protocol.question), node('p', 'Hypothesis: '+r.protocol.hypothesis));
     const progress = node('progress'); progress.max = r.protocol.repeats*2; progress.value = r.trials.filter(t => ['complete','failed'].includes(t.status)).length; progress.setAttribute('aria-label', 'Completed or failed trials'); host.append(progress);
