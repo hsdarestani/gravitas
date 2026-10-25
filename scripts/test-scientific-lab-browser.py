@@ -37,7 +37,8 @@ from core.pulsar_runtime.types import ProviderResponse
 call_command('migrate',verbosity=0)
 owner=get_user_model().objects.create_user(username='lab-browser-owner')
 reviewer=get_user_model().objects.create_user(username='lab-browser-reviewer')
-project=ResearchProject.objects.create(owner=owner,workspace=ensure_platform_workspaces(owner)['research'],title='QA fixture · not empirical research')
+with patch('core.space_signals._queue_project_sync'):
+    project=ResearchProject.objects.create(owner=owner,workspace=ensure_platform_workspaces(owner)['research'],title='QA fixture · not empirical research')
 ProjectMembership.objects.create(project=project,user=reviewer,role='owner')
 for actor,name in ((owner,'OWNER'),(reviewer,'REVIEWER')):
     client=Client();client.force_login(actor)
