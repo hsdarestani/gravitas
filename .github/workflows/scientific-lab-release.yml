@@ -1,0 +1,50 @@
+name: Scientific Lab isolated release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gravitas-production
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package reviewed Lab files only
+        run: |
+          python -m py_compile ops/scientific-lab/deploy.py
+          python ops/scientific-lab/package.py "$RUNNER_TEMP/lab-release"
+      - name: Back up and apply disabled additive release
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          LAB_PORT="${SSH_PORT:-22}"
+          LAB_USER="${SSH_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/lab_release
+          chmod 600 ~/.ssh/lab_release
+          trap 'rm -f ~/.ssh/lab_release' EXIT
+          ssh-keyscan -p "$LAB_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          LAB_OPTS=(-i ~/.ssh/lab_release -p "$LAB_PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${LAB_OPTS[@]}" "$LAB_USER@$SSH_HOST" true 2>/dev/null; then
+            LAB_USER=root
+            ssh "${LAB_OPTS[@]}" "$LAB_USER@$SSH_HOST" true
+          fi
+          LAB_REMOTE="/tmp/gravitas-lab-$GITHUB_RUN_ID"
+          ssh "${LAB_OPTS[@]}" "$LAB_USER@$SSH_HOST" "install -d -m 700 '$LAB_REMOTE'"
+          scp -i ~/.ssh/lab_release -P "$LAB_PORT" "$RUNNER_TEMP/lab-release/lab-release.tar.gz" "$LAB_USER@$SSH_HOST:$LAB_REMOTE/"
+          ssh "${LAB_OPTS[@]}" "$LAB_USER@$SSH_HOST" "tar -xzf '$LAB_REMOTE/lab-release.tar.gz' -C '$LAB_REMOTE' && sudo -n python3 '$LAB_REMOTE/deploy.py' '$GITHUB_SHA'"
+      - name: Verify public observations and anonymous API boundary
+        run: |
+          curl -fsS --max-time 20 https://graviquest.com/lab-observations.html | grep -q observed-chart
+          curl -fsS --max-time 20 https://graviquest.com/lab-ai-reliability.html | grep -q run-detail
+          test "$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' https://graviquest.com/api/scientific-lab/catalog/)" = 401

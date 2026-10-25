@@ -38,3 +38,4 @@ class CoreConfig(AppConfig):
         from .canonical_signals import install
         install()
         from . import operating_admin  # noqa: F401
+        from . import scientific_lab_models  # noqa: F401

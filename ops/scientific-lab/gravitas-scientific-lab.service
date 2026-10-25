@@ -1,0 +1,21 @@
+[Unit]
+Description=GraviQuest bounded scientific pilot worker
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=gravitas
+Group=gravitas
+WorkingDirectory=/opt/gravitas-backend
+EnvironmentFile=/etc/gravitas/backend.env
+Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+ExecStart=/opt/gravitas-backend/.venv/bin/python -m django process_scientific_labs
+TimeoutStartSec=25min
+MemoryMax=384M
+CPUQuota=50%
+TasksMax=32
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
