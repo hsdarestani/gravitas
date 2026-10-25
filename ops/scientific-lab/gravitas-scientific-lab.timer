@@ -1,0 +1,8 @@
+[Unit]
+Description=Poll the scientific pilot queue with one bounded worker
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=15s
+Unit=gravitas-scientific-lab.service
+[Install]
+WantedBy=timers.target

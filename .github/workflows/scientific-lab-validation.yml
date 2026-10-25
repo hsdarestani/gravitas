@@ -1,0 +1,52 @@
+name: Scientific Lab validation
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'assets/labs/**'
+      - 'lab*.html'
+      - 'scripts/test-scientific-lab*'
+      - '.github/workflows/scientific-lab-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scientific-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r backend/requirements.txt
+      - name: Backend regression and additive migration checks
+        env:
+          PYTHONPATH: backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          python -m django test core --noinput
+          python -m django makemigrations --check --dry-run
+          python -m django check
+      - name: Install test-only browser driver
+        run: npm install --prefix "$RUNNER_TEMP/gq-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Real browser and Django integration with fixture external services
+        env:
+          NODE_PATH: ${{ runner.temp }}/gq-browser/node_modules
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          node --check assets/labs/research.js
+          node --check assets/labs/observations.js
+          node scripts/test-topic-01-labs.cjs
+          node scripts/test-topic-01-browser.cjs
+          python scripts/test-scientific-lab-browser.py
+      - name: Preserve fixture screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-lab-qa-fixtures-not-empirical-results
+          path: qa-artifacts/
+          retention-days: 7

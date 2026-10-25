@@ -251,7 +251,13 @@ from core.views import (
     password_reset_request,
 )
 
+from core import scientific_lab_api
+
 urlpatterns = [
+    path('scientific-lab/catalog/', scientific_lab_api.catalog),
+    path('platform/projects/<int:project_id>/scientific-lab/runs/', require_research_or_core(scientific_lab_api.runs)),
+    path('platform/projects/<int:project_id>/scientific-lab/runs/<uuid:run_id>/', require_research_or_core(scientific_lab_api.detail)),
+    path('platform/projects/<int:project_id>/scientific-lab/runs/<uuid:run_id>/export/', require_research_or_core(scientific_lab_api.export)),
     path('platform/projects/<int:project_id>/structure/', project_files),
     path('platform/projects/<int:project_id>/file-content/', project_file_content),
     path('platform/projects/<int:project_id>/file-revisions/', project_file_revisions),
