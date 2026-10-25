@@ -244,7 +244,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          BASE=c990adcbb07b10ad438e6f68c6f278a86b8e292a
+          BASE=511f35b5abeca3fcd8731654e5f325e9dfe24c10
           git fetch --no-tags --depth=1 origin "$BASE"
           git show "$BASE:backend/core/telegram_pulsar.py" > "$RUNNER_TEMP/original.py"
           python3 -m py_compile backend/core/telegram_pulsar.py
