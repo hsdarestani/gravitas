@@ -445,7 +445,9 @@ def task_board_detail(request, task_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
     quick_preview = request.method == 'GET' and request.GET.get('mode') == 'preview'
-    workspace, task = _task_for(request, task_id, counts=not quick_preview)
+    # Only GET needs expensive reverse relation counts. Writes operate on
+    # the single task row and must never fetch all checklist/file counts.
+    workspace, task = _task_for(request, task_id, counts=request.method == 'GET' and not quick_preview)
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
@@ -506,11 +508,24 @@ def task_board_detail(request, task_id):
         if not _can_delete_task(request, workspace, task):
             return _error('permission_denied', 403)
         title = task.title
-        from .google_calendar_api import delete_existing_task_events
-        delete_existing_task_events(task)
-        _log(request, task, 'task.deleted', {'title': title})
-        task.delete()
-        return JsonResponse({'ok': True})
+        from .operating_models import GoogleTaskDeleteOutbox
+        # Never make Google OAuth/HTTP calls during the user's DELETE. Those
+        # previously consumed 20+ seconds per external link on a slow API.
+        # Persist unlink jobs in the same transaction as the local deletion:
+        # a failed DB delete rolls back both and the task remains intact.
+        with transaction.atomic():
+            google_links = list(task.google_task_links.values(
+                'user_id', 'tasklist_id', 'google_task_id'))
+            for link in google_links:
+                GoogleTaskDeleteOutbox.objects.get_or_create(
+                    user_id=link['user_id'],
+                    tasklist_id=link['tasklist_id'],
+                    google_task_id=link['google_task_id'],
+                    defaults={'task_id_at_deletion': task.pk},
+                )
+            _log(request, task, 'task.deleted', {'title': title})
+            task.delete()
+        return JsonResponse({'ok': True, 'google_cleanup_queued': bool(google_links)})
 
     if not base._editable(request, workspace):
         return _error('permission_denied', 403)
@@ -666,7 +681,9 @@ def task_board_detail(request, task_id):
         task.save()
     except ValidationError:
         return _error('invalid_task_hierarchy', 409)
-    task = _task_for(request, task.pk)[1]
+    # The just-saved model contains the authoritative fields. Requerying the
+    # entire task and four reverse counts adds SQL with no correctness benefit.
+    # Select relations already loaded remain valid for serialized changes.
     after = _task_json(task)
     changed = {
         key: {'from': before.get(key), 'to': after.get(key)}
