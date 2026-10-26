@@ -1521,7 +1521,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         const undo = reloadBoard?.applyMutation?.({ type: 'update', id: task.id, patch });
         try {
           const result = await P.updateOperatingTaskCard(task.id, payload);
-          note.textContent = 'Saved.';
+          note.textContent = result.canonical_sync === 'pending'
+            ? 'Saved on server. Nextcloud synchronization queued.'
+            : 'Saved.';
           title.value = result.task.title;
           Object.assign(task, result.task);
           head.querySelector('h2').textContent = 'Task #' + task.id;
