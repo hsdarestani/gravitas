@@ -108,6 +108,61 @@ class CoreTaskBoardTests(TestCase):
             'Fast write confirmed on backend',
         )
 
+    def test_legacy_subtask_with_existing_parent_kr_mismatch_can_be_completed(self):
+        # Mirrors production task 1090: same project/workspace as its parent,
+        # but a different imported Key Result. Status is not a hierarchy edit.
+        parent = OperatingTask.objects.get(pk=self.create_task('Parent with original KR'))
+        foreign_kr = KeyResult.objects.create(
+            objective=parent.initiative.key_result.objective,
+            owner=self.user,
+            title='Legacy imported KR',
+        )
+        foreign_initiative = Initiative.objects.create(
+            workspace=self.workspace, key_result=foreign_kr,
+            process=parent.initiative.process, owner=self.user,
+            title='Legacy imported initiative',
+        )
+        child = OperatingTask.objects.create(
+            workspace=self.workspace, parent=parent, owner=self.user,
+            initiative=foreign_initiative, title='Imported child',
+            definition_of_done='Complete task', status='draft',
+            due_date=date.today() + timedelta(days=7),
+        )
+        response = self.patch_json(f'/api/operating/task-board/{child.pk}/', {
+            'status': 'done', 'priority': 'p2',
+        })
+        self.assertEqual(response.status_code, 200, response.content)
+        child.refresh_from_db()
+        self.assertEqual(child.status, 'done')
+        self.assertIsNotNone(child.completed_at)
+        self.assertEqual(child.parent_id, parent.pk)
+        self.assertEqual(child.initiative_id, foreign_initiative.pk)
+
+    def test_new_parent_kr_mismatch_is_still_rejected(self):
+        parent = OperatingTask.objects.get(pk=self.create_task('Parent with KR one'))
+        foreign_kr = KeyResult.objects.create(
+            objective=parent.initiative.key_result.objective,
+            owner=self.user, title='Another KR',
+        )
+        foreign_initiative = Initiative.objects.create(
+            workspace=self.workspace, key_result=foreign_kr,
+            process=parent.initiative.process, owner=self.user,
+            title='Another initiative',
+        )
+        child = OperatingTask.objects.create(
+            workspace=self.workspace, parent=parent, owner=self.user,
+            initiative=parent.initiative, title='Originally matching child',
+            definition_of_done='Complete task',
+            due_date=date.today() + timedelta(days=7),
+        )
+        response = self.patch_json(f'/api/operating/task-board/{child.pk}/', {
+            'initiative_id': foreign_initiative.pk,
+        })
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()['error'], 'parent_context_mismatch')
+        child.refresh_from_db()
+        self.assertEqual(child.initiative_id, parent.initiative_id)
+
     def test_task_external_links_are_persisted_and_not_attachments(self):
         task_id = self.create_task('Linked research deliverable')
         endpoint = f'/api/operating/tasks/{task_id}/external-links/'
