@@ -685,6 +685,34 @@ def nextcloud():
     print("nextcloud_maintenance", "on" if maintenance in {"1", "true", "True"} else "off_or_unknown")
 
 
+def canonical_task_sync_runtime():
+    """Never leak task identifiers, content or native file paths."""
+    print("=== Canonical task sync worker production health ===")
+    for unit in ("gravitas-canonical-task-sync.timer", "gravitas-canonical-task-sync.service"):
+        state = run("systemctl", "is-active", unit, timeout=4).strip().splitlines()
+        print("task_sync_unit", unit, state[0] if state else "unknown")
+    statement = (
+        "SELECT state, COUNT(*) FROM core_canonicaltasksyncoutbox "
+        "GROUP BY state ORDER BY state"
+    )
+    raw = run("sudo","-n","-u","postgres","psql","-d","gravitas",
+              "-X","-A","-t","-c",statement,timeout=8)
+    statuses = []
+    for line in raw.splitlines():
+        cells = line.split("|")
+        if len(cells) == 2 and cells[0] in ("pending", "conflict") and cells[1].isdigit():
+            statuses.append((cells[0], int(cells[1])))
+    print("task_sync_queue_counts", statuses if statuses else "empty_or_unavailable")
+    raw = run("sudo","-n","journalctl","-u","gravitas-canonical-task-sync.service",
+              "--since","30 minutes ago","--no-pager","-o","cat",timeout=8)
+    # A count-only report, no raw messages or identifying task data.
+    print("task_sync_worker_summary", {
+        "runs": raw.count("canonical_task_synced="),
+        "reported_failures": raw.lower().count("failed"),
+        "deferred": raw.count("canonical sync deferred"),
+    })
+
+
 def task_1090_write_incident():
     """Anonymized read-only root-cause probe. Do not print payloads or SQL."""
     print("=== Task #1090 write incident (read-only) ===")
@@ -741,6 +769,7 @@ def task_1090_write_incident():
 
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
+    canonical_task_sync_runtime()
     task_1090_write_incident()
     php_runtime_security()
     health()
