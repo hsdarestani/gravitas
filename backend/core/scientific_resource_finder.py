@@ -15,7 +15,7 @@ ISO_RE = re.compile(r'^https://(?:www\.)?iso\.org/standard/(\d+)\.html/?$', re.I
 ARXIV_RE = re.compile(
     r'^https://(?:www\.|export\.)?arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})(?:\.pdf)?/?$', re.I
 )
-COMMAND_RE = re.compile(r'^/(?:find|paper|source|book)(?:@\w+)?(?:\s+([\s\S]+))?$', re.I)
+COMMAND_RE = re.compile(r'^/(find|paper|source|book)(?:@\w+)?(?:\s+([\s\S]+))?$', re.I)
 ISBN_RE = re.compile(r'^(?:97[89][\d -]{10,17}|[\dXx][\dXx -]{8,15})$')
 MAX_QUERY = 400
 API_TIMEOUT = (3, 6)
@@ -63,8 +63,9 @@ def parse_request(text):
     """Return a lookup specification or None for ordinary Pulsar conversation."""
     raw = str(text or '').strip()
     command = COMMAND_RE.fullmatch(raw)
+    command_name = command.group(1).lower() if command else ''
     if command:
-        requested = (command.group(1) or '').strip()
+        requested = (command.group(2) or '').strip()
         if not requested:
             return {'kind': 'help'}
     else:
@@ -97,7 +98,7 @@ def parse_request(text):
         return {'kind': 'isbn', 'value': compact.upper()}
     if requested.startswith(('https://', 'http://')):
         return {'kind': 'unsupported_url'}
-    return {'kind': 'title', 'value': requested}
+    return {'kind': 'book_title' if command_name == 'book' else 'title', 'value': requested}
 
 
 def _get_json(url, params=None):
@@ -199,6 +200,29 @@ def _book_messages(isbn, language):
                      'Check the book page for licensed loan or purchase options.'}]
 
 
+def _book_title_messages(title, language):
+    data = _get_json('https://openlibrary.org/search.json', params={
+        'title': title[:200], 'limit': 3,
+        'fields': 'title,author_name,key,first_publish_year',
+    })
+    docs = [item for item in data.get('docs', []) if isinstance(item, dict)][:3]
+    if not docs:
+        return [{'text': 'کتابی با این عنوان پیدا نشد.' if language == 'fa'
+                 else 'No matching book was found.'}]
+    lines = ['📚 Pulsar · Books']
+    for index, item in enumerate(docs, 1):
+        name = str(item.get('title') or 'Untitled')[:200]
+        authors = ', '.join(str(name) for name in (item.get('author_name') or [])[:2])
+        key = str(item.get('key') or '')
+        link = 'https://openlibrary.org' + key if key.startswith('/works/') else ''
+        lines.append(f'{index}. {name}' + (f' — {authors}' if authors else ''))
+        if link:
+            lines.append(link)
+    lines.append('نسخه‌های امانت یا خرید مجاز را در صفحه کتاب بررسی کن.' if language == 'fa'
+                 else 'Check each book page for licensed borrowing or purchase.')
+    return [{'text': '\n'.join(lines)[:4096]}]
+
+
 def lookup_messages(spec, language='fa'):
     kind = spec['kind']
     fa = language == 'fa'
@@ -234,6 +258,8 @@ def lookup_messages(spec, language='fa'):
     try:
         if kind == 'isbn':
             return _book_messages(spec['value'], language)
+        if kind == 'book_title':
+            return _book_title_messages(spec['value'], language)
         if kind in ('doi', 'title'):
             return _paper_messages(_papers(spec), language)
     except requests.HTTPError as exc:
