@@ -79,6 +79,8 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     cache: verb === 'GET' ? 'default' : 'no-store',
     body: body === undefined ? undefined : JSON.stringify(body),
   };
+  const boundedTaskRead = verb === 'GET'
+    && /^\/operating\/(?:task-board\/\d+\/(?:\?mode=preview)?|tasks\/\d+\/(?:history|comments|attachments|checklist|external-links)\/)$/.test(path);
   // Task card deep links make several independent reads. A short upstream
   // rotation must not leave each panel with the browser's opaque "Failed to
   // fetch" message. Retry *only* idempotent task GETs, never writes.
@@ -92,6 +94,10 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     // Time out the UI without aborting the in-flight request. The backend
     // may already be committing a PATCH, so never retry an uncertain write.
     let timer;
+    // Unlike writes, task GETs are idempotent and can safely release
+    // hung browser sockets. Keep writes alive because the commit may succeed.
+    const taskSignal = boundedTaskRead && typeof AbortSignal !== 'undefined'
+      && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(20000) : null;
     const deadline = new Promise((_, reject) => {
       timer = setTimeout(() => {
         const timeout = new Error(unsafe
@@ -99,10 +105,11 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
           : 'The server is taking too long to respond. Please retry.');
         timeout.code = 'request_timeout';
         reject(timeout);
-      }, unsafe ? 25000 : 18000);
+      }, unsafe ? 25000 : (boundedTaskRead ? 22000 : 18000));
     });
     try {
-      res = await Promise.race([fetch(API + path, request), deadline]);
+      const readRequest = taskSignal ? { ...request, signal: taskSignal } : request;
+      res = await Promise.race([fetch(API + path, readRequest), deadline]);
       if (retryableTaskRead && [502, 503, 504].includes(res.status) && attempt === 0) {
         await new Promise((resolve) => setTimeout(resolve, 600));
         continue;
@@ -110,6 +117,12 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
       break;
     } catch (error) {
       if (error?.code === 'request_timeout') throw error;
+      if (boundedTaskRead && taskSignal?.aborted
+          && ['AbortError', 'TimeoutError'].includes(error?.name)) {
+        const timeout = new Error('Task service is taking too long. Please retry.');
+        timeout.code = 'request_timeout';
+        throw timeout;
+      }
       if (!retryableTaskRead || attempt !== 0) {
         if (!retryableTaskRead) throw error;
         const unavailable = new Error('Could not connect to the task service. Check your connection and try again.');
@@ -158,14 +171,18 @@ export function call(path, options = {}) {
     return uncachedCall(path, options);
   }
   const lifetime = READ_LIFETIME[path];
-  if (!lifetime) return uncachedCall(path, options);
-  const cached = fastReads.get(path);
+  // Coalesce concurrent identical task reads, but do not store task details:
+  // a read after an edit must always see the newest server data.
+  const sameTaskRead = /^\/operating\/(?:task-board\/\d+\/(?:\?mode=preview)?|tasks\/\d+\/(?:history|comments|attachments|checklist|external-links)\/)$/.test(path);
+  if (!lifetime && !sameTaskRead) return uncachedCall(path, options);
+  const cached = lifetime ? fastReads.get(path) : null;
   if (cached && cached.expires > Date.now()) return Promise.resolve(cached.data);
   const flight = readFlights.get(path);
   if (flight && flight.generation === readGeneration) return flight.promise;
   const generation = readGeneration;
   const promise = uncachedCall(path, options).then(data => {
-    if (readGeneration === generation) fastReads.set(path, { data, expires: Date.now() + lifetime });
+    if (lifetime && readGeneration === generation)
+      fastReads.set(path, { data, expires: Date.now() + lifetime });
     return data;
   }).finally(() => {
     if (readFlights.get(path)?.promise === promise) readFlights.delete(path);
