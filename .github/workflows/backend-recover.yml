@@ -6,6 +6,10 @@ on:
     paths:
       - '.github/workflows/backend-recover.yml'
   workflow_dispatch:
+  # A lightweight production safety net: detect a dead upstream even when
+  # systemd still reports "active". This does not redeploy or touch databases.
+  schedule:
+    - cron: '*/10 * * * *'
 
 permissions:
   contents: read
@@ -65,7 +69,14 @@ jobs:
             echo "Backend and HTTPS upstream already healthy; no restart needed"
             exit 0
           fi
-          echo "Unhealthy backend or proxy detected; applying bounded recovery"
+          # A single slow health probe should not restart healthy workers.
+          sleep 4
+          if sudo -n systemctl is-active --quiet gravitas-backend.service \
+             && local_ok && proxy_ok; then
+            echo "Transient health failure cleared; backend left untouched"
+            exit 0
+          fi
+          echo "Repeated unhealthy backend or proxy detected; applying bounded recovery"
           sudo -n systemctl show gravitas-backend.service \
             -p ActiveState -p SubState -p NRestarts -p MainPID --no-pager
           sudo -n systemctl reset-failed gravitas-backend.service || true
