@@ -1,3 +1,4 @@
+# Operational read-only health check requested after intermittent post-deploy 502 responses.
 """Read-only, privacy-sparing production diagnostics for HTTP 500 and Nextcloud locks.
 Post-security-hotfix runtime verification: always capture actual running PHP, not CI status.
 Independent post-patch inspection 2026-10-22: validate running container after update.
