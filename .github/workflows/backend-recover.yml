@@ -164,6 +164,13 @@ jobs:
             echo "Transient health failure cleared; backend left untouched"
             exit 0
           fi
+          # Checkpoint backup holds this lock while writers are deliberately
+          # paused. Never bring Gunicorn back during an atomic native snapshot.
+          if sudo -n test -f /var/backups/gravitas-canonical/operation.lock && \
+             ! sudo -n flock -n /var/backups/gravitas-canonical/operation.lock true; then
+            echo "Native checkpoint in progress; defer recovery until snapshot resumes writers."
+            exit 0
+          fi
           echo "Repeated unhealthy backend or proxy detected; applying bounded recovery"
           sudo -n systemctl show gravitas-backend.service \
             -p ActiveState -p SubState -p NRestarts -p MainPID --no-pager
