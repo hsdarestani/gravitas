@@ -53,7 +53,75 @@ jobs:
           ssh "${OPTS[@]}" "$USER@$SSH_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           echo "Incident task716: checking local Django and HTTPS upstream health"
+          # Install a host-local watchdog: GitHub scheduled workflows are not
+          # guaranteed to run on time, so production must self-heal on host.
+          # The checkpoint owns a private flock while deliberately pausing
+          # writers; never interrupt that consistency boundary.
+          sudo -n tee /usr/local/sbin/gravitas-backend-health-watch >/dev/null <<'WATCH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          checkpoint_busy() {
+            local lock=/var/backups/gravitas-canonical/operation.lock
+            if [ -f "$lock" ]; then
+              ( flock -n 9 ) 9<"$lock" || return 0
+            fi
+            return 1
+          }
+          local_ok() {
+            curl -fsS --max-time 5 -H 'X-Forwarded-Proto: https' \
+              http://127.0.0.1:8000/api/health/ 2>/dev/null | grep -q '"status": "ok"'
+          }
+          proxy_ok() {
+            curl -fsS --max-time 7 --resolve graviquest.com:443:127.0.0.1 \
+              https://graviquest.com/api/health/ 2>/dev/null | grep -q '"status": "ok"'
+          }
+          if checkpoint_busy; then exit 0; fi
+          if local_ok && proxy_ok; then exit 0; fi
+          sleep 15
+          if checkpoint_busy; then exit 0; fi
+          if local_ok && proxy_ok; then exit 0; fi
+          if ! local_ok; then
+            logger -t gravitas-health-watch 'Repeated backend health failure; restarting Gunicorn service'
+            systemctl reset-failed gravitas-backend.service || true
+            systemctl restart gravitas-backend.service
+          else
+            logger -t gravitas-health-watch 'Backend healthy but reverse proxy failed; validating/reloading Nginx'
+            nginx -t >/dev/null
+            systemctl reload nginx.service
+          fi
+          if ! local_ok || ! proxy_ok; then
+            logger -t gravitas-health-watch 'Health still failed after bounded recovery'
+            exit 1
+          fi
+          logger -t gravitas-health-watch 'Healthy after guarded recovery'
+          WATCH
+          sudo -n chmod 750 /usr/local/sbin/gravitas-backend-health-watch
+          sudo -n tee /etc/systemd/system/gravitas-backend-health-watch.service >/dev/null <<'UNIT'
+          [Unit]
+          Description=Check and conditionally recover GraviQuest backend health
+          After=network-online.target nginx.service
+          [Service]
+          Type=oneshot
+          User=root
+          ExecStart=/usr/local/sbin/gravitas-backend-health-watch
+          TimeoutStartSec=75
+          UNIT
+          sudo -n tee /etc/systemd/system/gravitas-backend-health-watch.timer >/dev/null <<'TIMER'
+          [Unit]
+          Description=GraviQuest backend health checks every two minutes
+          [Timer]
+          OnCalendar=*:0/2
+          RandomizedDelaySec=5
+          AccuracySec=10s
+          Persistent=true
+          Unit=gravitas-backend-health-watch.service
+          [Install]
+          WantedBy=timers.target
+          TIMER
           sudo -n systemctl daemon-reload
+          sudo -n systemctl enable --now gravitas-backend-health-watch.timer
+          sudo -n systemctl is-active --quiet gravitas-backend-health-watch.timer
+          echo "Host-local backend health watchdog installed and active"
           local_ok() {
             curl --silent --show-error --fail --max-time 5 \
               -H "X-Forwarded-Proto: https" http://127.0.0.1:8000/api/health/ \
