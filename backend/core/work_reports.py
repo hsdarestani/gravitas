@@ -80,6 +80,38 @@ def parse_work_date_prefix(text, user=None):
     return None, value
 
 
+
+def split_work_date_sections(text, *, default_date=None, user=None):
+    """Keep dated sections of one Telegram message in separate report records.
+
+    Only standalone date headings or leading date labels followed by a colon
+    change the day; ordinary narration mentioning yesterday stays unchanged.
+    This also supports Persian day headings and ISO calendar dates.
+    """
+    today = validate_work_date(default_date, user)
+    current = today
+    groups = {}
+    heading = re.compile(
+        r'^(?:(?:on\\s+)?\\d{4}-\\d{2}-\\d{2}|today|yesterday|'
+        r'day before yesterday|\\d{1,3} days? ago|two days? ago|three days? ago|'
+        r'امروز|دیروز|پریروز|(?:دو|سه) روز پیش)(?=$|\\s*:|\\s*：|\\s*،)',
+        flags=re.I,
+    )
+    for line in str(text or '').splitlines():
+        stripped = line.strip()
+        if heading.match(stripped):
+            parsed_day, remainder = parse_work_date_prefix(stripped, user)
+            if parsed_day is not None:
+                current = parsed_day
+                groups.setdefault(current, [])
+                if remainder:
+                    groups[current].append(remainder)
+                continue
+        groups.setdefault(current, []).append(line)
+    return [(day, '\\n'.join(lines).strip()) for day, lines in groups.items()
+            if '\\n'.join(lines).strip()]
+
+
 def validate_work_date(value, user=None):
     today = report_day(user)
     if value is None or value == '':
