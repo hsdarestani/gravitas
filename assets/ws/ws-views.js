@@ -2047,7 +2047,34 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           void loadHistory();
         }
       });
-      void Promise.allSettled([loadComments(), loadAttachments(), loadExternalLinks()]);
+      // Comments are immediately visible. Files and links are lower down the
+      // card: fetch them when the corresponding section comes into view instead
+      // of opening three extra connections for every task click.
+      void loadComments();
+      const observeOptionalSection = (element, loadOptional) => {
+        let requested = false;
+        const start = () => {
+          if (requested || !dialog.isConnected) return;
+          requested = true;
+          void loadOptional();
+        };
+        element.addEventListener('focusin', start, { once: true });
+        element.addEventListener('pointerdown', start, { once: true });
+        if (typeof IntersectionObserver === 'function') {
+          const observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+              observer.disconnect();
+              start();
+            }
+          }, { root: dialog.querySelector('.task-card-dialog__frame'), rootMargin: '80px' });
+          observer.observe(element);
+        } else {
+          // Older browsers still get functioning links/attachments.
+          start();
+        }
+      };
+      observeOptionalSection(resourceSection, loadExternalLinks);
+      observeOptionalSection(attachmentsPanel.box || attachmentsPanel, loadAttachments);
     } catch (error) {
       editorFailed = true;
       if (previewLoaded) {
@@ -2165,6 +2192,18 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     // workspace falls back to everyone rather than to an empty board.
     let filters = { q: '', owner: null, priority: '', sort: 'manual', view: 'board' };
     let deepLinkedTaskOpened = false;
+    // Deep-link cards are independent of the full, potentially large board.
+    // Open the requested card immediately instead of waiting for board GET,
+    // filters, Nextcloud Deck widgets and all board rendering to finish.
+    const deepLinkParams = new URLSearchParams(location.search);
+    const deepLinkTaskId = Number(deepLinkParams.get('task') || deepLinkParams.get('calendar_task') || 0);
+    if (Number.isSafeInteger(deepLinkTaskId) && deepLinkTaskId > 0) {
+      deepLinkedTaskOpened = true;
+      Promise.resolve().then(() =>
+        openTaskDialog(deepLinkTaskId, () => P.operatingTaskDependencies(),
+          () => load({ keepDialog: true }))
+      ).catch(error => console.error('Could not open linked task', error));
+    }
 
     const load = async ({ keepDialog = false } = {}) => {
       const data = await P.operatingTaskBoard();
