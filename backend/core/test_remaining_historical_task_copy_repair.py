@@ -14,7 +14,7 @@ class RemainingHistoricalCopyTests(SimpleTestCase):
             "Improve Nextcloud file synchronization": ("storage", "reconciled"),
             "Review LMS learner assessment experience": ("learning", "tested"),
             "Refine scientific film animation scene rendering": ("film", "render"),
-            "Investigate API route coverage": ("API", "requests"),
+            "Investigate API route coverage": ("API", "request/response"),
             "Build dashboard progress rings": ("dashboard", "zero-value"),
             "Prepare brand assets for delivery": ("brand", "reviewed"),
             "Implement user mentions and notifications": ("notification", "events"),
