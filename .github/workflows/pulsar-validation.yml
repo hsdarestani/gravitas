@@ -26,6 +26,8 @@ on:
       - 'backend/core/migrations/0057_pulsar_memory_thread_run.py'
       - 'backend/core/migrations/0058_pulsar_resource_embedding.py'
       - 'backend/core/telegram_pulsar.py'
+      - 'backend/core/scientific_resource_finder.py'
+      - 'backend/core/test_scientific_resource_finder.py'
       - 'backend/core/work_reports.py'
       - 'backend/core/telegram_work_reports.py'
       - 'backend/core/test_work_reports.py'
@@ -49,6 +51,8 @@ on:
       - 'backend/core/models.py'
       - 'backend/core/migrations/0056_pulsar_user_memory_profile.py'
       - 'backend/core/telegram_pulsar.py'
+      - 'backend/core/scientific_resource_finder.py'
+      - 'backend/core/test_scientific_resource_finder.py'
       - 'backend/core/work_reports.py'
       - 'backend/core/telegram_work_reports.py'
       - 'backend/core/test_work_reports.py'
@@ -110,6 +114,7 @@ jobs:
             core.test_pulsar_task_actions \
             core.test_pulsar_week1_release \
             core.test_telegram_pulsar \
+            core.test_scientific_resource_finder \
             core.test_work_reports \
             core.test_canonical_scope_performance \
             core.test_core_task_board \
