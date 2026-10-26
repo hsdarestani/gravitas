@@ -45,3 +45,24 @@ class CanonicalFileRevision(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class CanonicalTaskSyncOutbox(models.Model):
+    """Durable local-commit witness for asynchronous task projection sync.
+
+    Each accepted PATCH commits the task and increments generation atomically.
+    A worker can delete a job only if no newer PATCH arrived while it ran.
+    """
+    project = models.ForeignKey('core.ResearchProject', on_delete=models.CASCADE)
+    task_id = models.PositiveBigIntegerField()
+    generation = models.PositiveBigIntegerField(default=0)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(db_index=True)
+    state = models.CharField(max_length=16, default='pending')
+    last_error = models.CharField(max_length=128, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=['project', 'task_id'], name='canonical_task_sync_unique'
+        )]
