@@ -9,6 +9,7 @@ on:
       - 'ops/readonly_runtime_diagnostics.py'
       - '.github/workflows/readonly-diagnostics.yml'
       - '.github/workflows/backend-recover.yml'
+      - '.github/workflows/operational-acceptance.yml'
   workflow_dispatch:
 
 permissions:
@@ -135,7 +136,8 @@ jobs:
               case "$path" in
                 assets/*|*.html|*.htm|*.webmanifest|favicon.ico|robots.txt|sitemap.xml|workspace-sw.js|\
                 .github/workflows/deploy.yml|.github/workflows/backend-recover.yml|\
-                .github/workflows/readonly-diagnostics.yml|ops/readonly_runtime_diagnostics.py|\
+                .github/workflows/readonly-diagnostics.yml|.github/workflows/operational-acceptance.yml|\
+                ops/readonly_runtime_diagnostics.py|\
                 backend/core/test_*.py)
                   ;;
                 *)
