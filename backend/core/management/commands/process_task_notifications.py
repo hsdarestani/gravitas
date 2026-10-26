@@ -17,6 +17,10 @@ class Command(BaseCommand):
         checkins = enqueue_daily_checkins()
         queued = enqueue_due_reminders()
         result = deliver_pending(limit=max(1, options['limit']))
+        # This uses the existing recurring notification worker, not the user
+        # request thread. Google Tasks may be slow or unavailable.
+        from core.google_calendar_api import process_pending_google_task_deletes
+        google_cleanup = process_pending_google_task_deletes(limit=min(20, max(1, options['limit'])))
         published_courses = publish_scheduled_course_revisions()
         self.stdout.write(
             self.style.SUCCESS(
@@ -25,6 +29,8 @@ class Command(BaseCommand):
                 f"daily_checkins_queued={checkins} "
                 f"task notifications queued={queued} sent={result['sent']} "
                 f"failed={result['failed']} skipped={result['skipped']} "
+                f"google_task_deletes_completed={google_cleanup['completed']} "
+                f"google_task_deletes_deferred={google_cleanup['deferred']} "
                 f"course_revisions_published={published_courses}"
             )
         )
