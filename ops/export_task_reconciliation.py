@@ -30,3 +30,5 @@ if __name__ == '__main__':
 # Refresh read-only reconciliation evidence for the 2026-10-22 task merge review.
 
 # Read-only full-state verification after imported task copy repair (2026-10-26).
+
+# Read-only final postdeployment verification for complete historical task copy repair.
