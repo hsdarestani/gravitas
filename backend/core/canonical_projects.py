@@ -357,7 +357,7 @@ def file_acl(obj, path):
 
 
 @transaction.atomic
-def export_object(obj, actor=None, adopting=False):
+def export_object(obj, actor=None, adopting=False, *, reject_external_changes=False):
     project = project_for(obj)
     if _suppressed.get() or not project or (not adopting and not active(project)):
         return
@@ -378,6 +378,11 @@ def export_object(obj, actor=None, adopting=False):
     if created and remote and remote['content'] != mine:
         raise CanonicalConflict(path, '', mine, remote['content'], etag)
     if not created and remote and etag != file.etag:
+        # Background task edits must NEVER silently replace a newer native
+        # revision or overwrite newer local database edits during a merge.
+        # Defer conflicts to review while keeping the accepted DB edit intact.
+        if reject_external_changes:
+            raise CanonicalConflict(path, file.base_content, mine, remote['content'], remote['etag'])
         merged = merge_content(obj, file.base_content, mine, remote['content'])
         if merged is None:
             raise CanonicalConflict(path, file.base_content, mine, remote['content'], etag)
