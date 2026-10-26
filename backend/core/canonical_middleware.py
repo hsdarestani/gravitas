@@ -248,6 +248,12 @@ class CanonicalProjectMiddleware:
                                     attempts=0,
                                 )
                                 response['X-Canonical-Sync'] = 'pending'
+                                # Distinguish confirmed database persistence from
+                                # an asynchronously pending native file revision.
+                                if response.get('Content-Type', '').startswith('application/json'):
+                                    body = json.loads(response.content)
+                                    body['canonical_sync'] = 'pending'
+                                    response.content = json.dumps(body)
                                 response['Server-Timing'] = (
                                     'task_write;dur=%.1f' % ((time.monotonic() - started) * 1000)
                                 )
