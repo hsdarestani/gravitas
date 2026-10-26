@@ -86,17 +86,26 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     && /^\/operating\/(?:task-board\/\d+\/|tasks\/\d+\/(?:history|comments|attachments|checklist)\/)/.test(path);
   let res;
   for (let attempt = 0; attempt < (retryableTaskRead ? 2 : 1); attempt += 1) {
+    // A pending request can otherwise leave "Saving…" on screen forever.
+    // Use a generous deadline and never automatically retry writes, since
+    // the server might have committed even when its response is lost.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), unsafe ? 25000 : 18000);
     try {
-      // Never impose a client-side eight-second abort: on slower mobile
-      // networks it cancels an otherwise healthy Django response (Nginx 499).
-      // Let the browser's network stack own cancellation.
-      res = await fetch(API + path, request);
+      res = await fetch(API + path, { ...request, signal: controller.signal });
       if (retryableTaskRead && [502, 503, 504].includes(res.status) && attempt === 0) {
         await new Promise((resolve) => setTimeout(resolve, 600));
         continue;
       }
       break;
     } catch (error) {
+      if (controller.signal.aborted) {
+        const timeout = new Error(unsafe
+          ? 'Save confirmation timed out. Refresh the task to verify before retrying.'
+          : 'The server is taking too long to respond. Please retry.');
+        timeout.code = 'request_timeout';
+        throw timeout;
+      }
       if (!retryableTaskRead || attempt !== 0) {
         if (!retryableTaskRead) throw error;
         const unavailable = new Error('Could not connect to the task service. Check your connection and try again.');
@@ -104,6 +113,8 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
         throw unavailable;
       }
       await new Promise((resolve) => setTimeout(resolve, 600));
+    } finally {
+      clearTimeout(timer);
     }
   }
 
