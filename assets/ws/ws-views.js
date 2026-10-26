@@ -1478,6 +1478,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
       };
 
+      if (task.canonical_sync === 'pending') {
+        note.textContent = 'Saved in GraviQuest. Nextcloud synchronization pending.';
+      } else if (task.canonical_sync === 'conflict') {
+        note.textContent = 'Saved in GraviQuest, but the Nextcloud file changed. Sync needs conflict review.';
+        note.setAttribute('role', 'alert');
+      }
       form.append(
         familyPath,
         titleField,
