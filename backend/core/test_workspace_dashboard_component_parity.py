@@ -73,7 +73,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('/assets/ws/ws-app.js?v=20261016-task1', html)
         app = (ROOT / 'assets' / 'ws' / 'ws-app.js').read_text(encoding='utf-8')
-        self.assertIn("from './ws-five-layer.js?v=20261016-task1&patch=20261026taskwrite1'", app)
+        self.assertIn("from './ws-five-layer.js?v=20261016-task1&patch=20261026canonsave1'", app)
         self.assertIn('/assets/ws/ws-charts.css?v=20261016-task1', html)
         self.assertIn('/assets/ws/ws-unified-design.css?v=20261016-task1', html)
 
