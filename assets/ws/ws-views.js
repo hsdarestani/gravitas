@@ -1016,16 +1016,15 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       // dropdowns came back. Show task identity/status from a small, indexed
       // single-task read without blocking the full editable form.
       
-      const previewRequest = (mobileReader ? P.operatingTaskPreview(taskId) : Promise.resolve()).then((preview) => {
-        if (mobileReader) showTaskPreview(preview);
-      }).catch((error) => {
+      const previewRequest = mobileReader ? P.operatingTaskPreview(taskId).then(showTaskPreview)
+        .catch((error) => {
           if (mobileReader && dialog.isConnected) {
             body.replaceChildren(failure('task card', error, () => {
               closeDialog(dialog);
               openTaskDialog(taskId, state, reloadBoard);
             }));
           }
-        });
+        }) : Promise.resolve();
       if (mobileReader) {
         // Mobile opens read-first: status + Pulsar history share a single API
         // round trip. The full editor and all its selectable catalogs are only
