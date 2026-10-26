@@ -23,6 +23,7 @@ from .operating_models import (
     GoogleCalendarMeetingAttachment,
     GoogleCalendarMeetingMinute,
     GoogleTaskLink,
+    GoogleTaskDeleteOutbox,
     OperatingMeeting,
     OperatingTask,
 )
@@ -561,6 +562,65 @@ def sync_existing_task_links(task):
                 task.pk,
                 link.user_id,
             )
+
+
+def process_pending_google_task_deletes(*, limit=20):
+    """Retry external cleanup from durable jobs; never block a task DELETE.
+
+    External operations are idempotent (404 means already gone). Claim each row
+    before its HTTP request, so overlapping timer invocations do not duplicate
+    provider requests. The task no longer exists, but credentials belong to the
+    original user's surviving GoogleCalendarConnection.
+    """
+    from django.db.models import F
+    from django.utils import timezone
+    from datetime import timedelta
+
+    now = timezone.now()
+    job_ids = list(GoogleTaskDeleteOutbox.objects.filter(
+        next_attempt_at__lte=now,
+    ).order_by('next_attempt_at', 'id').values_list('pk', flat=True)[:max(1, min(limit, 50))])
+    done = failed = 0
+    for job_id in job_ids:
+        # Claim via compare-and-swap; do not hold a DB transaction during HTTP.
+        claimed = GoogleTaskDeleteOutbox.objects.filter(
+            pk=job_id, next_attempt_at__lte=now,
+        ).update(
+            next_attempt_at=timezone.now() + timedelta(minutes=10),
+            attempts=F('attempts') + 1,
+        )
+        if not claimed:
+            continue
+        job = GoogleTaskDeleteOutbox.objects.select_related('user').get(pk=job_id)
+        try:
+            connection = GoogleCalendarConnection.objects.filter(user_id=job.user_id).first()
+            if connection is None:
+                raise GoogleCalendarError('calendar_not_connected')
+            token = _access_token(connection)
+            url = (
+                f'{TASKS_API_ROOT}/lists/{quote(job.tasklist_id or "@default", safe="@")}/tasks/'
+                f'{quote(job.google_task_id, safe="")}'
+            )
+            response = requests.delete(
+                url, headers={'Authorization': f'Bearer {token}'}, timeout=(3, 8),
+            )
+            if response.status_code not in (204, 404) and not response.ok:
+                _provider_failure(response, 'google_task_delete_failed')
+            GoogleTaskDeleteOutbox.objects.filter(pk=job_id).delete()
+            done += 1
+        except Exception as exc:
+            # Delay retries on repeated OAuth/rate-limit/transport failures.
+            delay_minutes = min(1440, 2 ** min(job.attempts, 10))
+            GoogleTaskDeleteOutbox.objects.filter(pk=job_id).update(
+                next_attempt_at=timezone.now() + timedelta(minutes=delay_minutes),
+                last_error=type(exc).__name__[:160],
+            )
+            failed += 1
+            logger.warning(
+                'Google task cleanup deferred job_id=%s reason=%s',
+                job_id, type(exc).__name__,
+            )
+    return {'completed': done, 'deferred': failed}
 
 
 def delete_existing_task_events(task):

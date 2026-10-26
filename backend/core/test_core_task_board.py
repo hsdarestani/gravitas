@@ -92,6 +92,22 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
 
+    def test_patch_returns_real_server_timing_and_updated_fields(self):
+        task_id = self.create_task('Fast write test task')
+        path = f'/api/operating/task-board/{task_id}/'
+        response = self.patch_json(path, {
+            'title': 'Fast write confirmed on backend',
+            'priority': 'p2',
+            'status': 'draft',
+        })
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIn('task_write;dur=', response['Server-Timing'])
+        self.assertEqual(response.json()['task']['title'], 'Fast write confirmed on backend')
+        self.assertEqual(
+            OperatingTask.objects.get(pk=task_id).title,
+            'Fast write confirmed on backend',
+        )
+
     def test_task_external_links_are_persisted_and_not_attachments(self):
         task_id = self.create_task('Linked research deliverable')
         endpoint = f'/api/operating/tasks/{task_id}/external-links/'

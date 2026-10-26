@@ -5,7 +5,7 @@ import { projectIntegrationPicker } from './ws-project-integrations.js?v=2026101
 import { mountProjectTools, renderProjectDatabase, mountExperimentJournal } from './ws-project-tools-live.js?v=20261016-task1';
 import { mountProjectProviders, renderProjectDrafts } from './ws-project-next-phase.js?v=20261016-task1';
 import { mountExternalDatasets, renderBuiltinTools } from './ws-research-advanced-tools.js?v=20261016-task1';
-import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261026taskperf2';
+import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261026taskwrite1';
 
 const TABS = [
   ['structure', 'Project folder'],

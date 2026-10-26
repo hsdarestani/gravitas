@@ -1,0 +1,33 @@
+name: Fast Task Write Regression Tests
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/**'
+      - 'assets/ws/**'
+      - '.github/workflows/test-fast-task-writes.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Django task writes and migration state
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/gravitas-tests"
+          "$RUNNER_TEMP/gravitas-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+          export PYTHONPATH="$GITHUB_WORKSPACE/backend"
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.test_settings
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django test core --verbosity 1
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/gravitas-tests/bin/python" -m django check
+      - name: Check JS modules
+        run: |
+          set -euo pipefail
+          for module in assets/ws/*.js; do node --input-type=module --check < "$module"; done

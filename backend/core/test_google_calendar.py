@@ -1,4 +1,5 @@
 import json
+import requests
 from datetime import date, timedelta
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
@@ -19,6 +20,7 @@ from .operating_models import (
     GoogleCalendarEventLink,
     GoogleCalendarMeetingMinute,
     GoogleTaskLink,
+    GoogleTaskDeleteOutbox,
     Initiative,
     KeyResult,
     OperatingMeeting,
@@ -231,6 +233,68 @@ class GoogleCalendarIntegrationTests(TestCase):
             due_date=date.today() + timedelta(days=3),
             priority='p1',
         )
+
+
+    @patch('core.google_calendar_api.requests.delete')
+    def test_local_task_delete_queues_google_cleanup_without_http(self, google_delete):
+        task = self._task()
+        GoogleTaskLink.objects.create(
+            user=self.user, task=task,
+            google_task_id='external-123', tasklist_id='@default',
+        )
+        response = self.client.delete(f'/api/operating/task-board/{task.pk}/')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()['google_cleanup_queued'])
+        self.assertFalse(OperatingTask.objects.filter(pk=task.pk).exists())
+        self.assertFalse(GoogleTaskLink.objects.filter(task_id=task.pk).exists())
+        job = GoogleTaskDeleteOutbox.objects.get(user=self.user)
+        self.assertEqual(job.google_task_id, 'external-123')
+        self.assertEqual(job.task_id_at_deletion, task.pk)
+        google_delete.assert_not_called()
+
+    @patch('core.google_calendar_api.requests.delete')
+    @patch('core.google_calendar_api._access_token', return_value='fresh-token')
+    def test_cleanup_worker_deletes_google_task_after_local_commit(self, token, delete):
+        from .google_calendar_api import process_pending_google_task_deletes
+        GoogleCalendarConnection.objects.create(
+            user=self.user,
+            google_email='calendar-owner@gmail.com',
+            refresh_token_encrypted=encrypt_refresh_token('refresh-token'),
+        )
+        GoogleTaskDeleteOutbox.objects.create(
+            user=self.user, google_task_id='external-123',
+            task_id_at_deletion=123,
+        )
+        provider_response = Mock()
+        provider_response.status_code = 204
+        provider_response.ok = True
+        delete.return_value = provider_response
+        result = process_pending_google_task_deletes()
+        self.assertEqual(result, {'completed': 1, 'deferred': 0})
+        self.assertFalse(GoogleTaskDeleteOutbox.objects.exists())
+        self.assertIn('/tasks/external-123', delete.call_args.args[0])
+        self.assertEqual(delete.call_args.kwargs['timeout'], (3, 8))
+
+    @patch('core.google_calendar_api.requests.delete')
+    @patch('core.google_calendar_api._access_token', return_value='fresh-token')
+    def test_cleanup_worker_retries_google_failure_durably(self, token, delete):
+        from .google_calendar_api import process_pending_google_task_deletes
+        GoogleCalendarConnection.objects.create(
+            user=self.user,
+            google_email='calendar-owner@gmail.com',
+            refresh_token_encrypted=encrypt_refresh_token('refresh-token'),
+        )
+        job = GoogleTaskDeleteOutbox.objects.create(
+            user=self.user, google_task_id='retry-123',
+            task_id_at_deletion=123,
+        )
+        delete.side_effect = requests.Timeout('external unavailable')
+        first = process_pending_google_task_deletes()
+        self.assertEqual(first, {'completed': 0, 'deferred': 1})
+        job.refresh_from_db()
+        self.assertEqual(job.attempts, 1)
+        self.assertTrue(job.next_attempt_at > timezone.now())
+        self.assertEqual(job.last_error, 'Timeout')
 
     @patch('core.google_calendar_api.requests.post')
     def test_task_sync_creates_native_google_task(self, post):
