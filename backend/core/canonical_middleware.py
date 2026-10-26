@@ -86,7 +86,7 @@ def _committed_task_snapshot_read(request):
     return bool(
         re.fullmatch(r'/api/operating/task-board/\d+/', path)
         or re.fullmatch(
-            r'/api/operating/tasks/\d+/(?:history|comments|attachments|checklist)/'
+            r'/api/operating/tasks/\d+/(?:history|comments|attachments|checklist|external-links)/'
             r'(?:\d+/(?:download/)?)?', path,
         )
         or re.fullmatch(r'/api/calendar/google/tasks/\d+/status/', path)
