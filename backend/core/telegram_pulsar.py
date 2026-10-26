@@ -672,8 +672,8 @@ def _cancelled(text):
 def help_message(lang='fa'):
     return {'text': _say(
         lang,
-        'من Pulsar هستم. تسک‌های جدید رو پیشنهاد می‌دم و برای فعالیت‌های انجام‌شده لاگ قابل تأیید می‌سازم. KR رو خودم تطبیق می‌دم.\n\n/new — تسک جدید\n/report — ثبت فعالیت\n/tasks — تسک‌های باز من\n/cancel — لغو پیش‌نویس\n/find عنوان — جست‌وجوی منابع علمی\n/paper DOI — جست‌وجوی مقاله\n/book ISBN — جست‌وجوی کتاب\n/help — راهنما',
-        'I am Pulsar. Send new tasks or progress updates naturally. I will match KRs and format activity logs for approval.\n\n/new — new task\n/projecttasks 213 — project task inventory\n/multi — combine consecutive messages\n/reportmulti YYYY-MM-DD — combine dated work updates\n/reports — recent reports\n/report — log progress\n/tasks — my open tasks\n/cancel — cancel draft\n/find title — scientific resource lookup\n/paper DOI — look up paper\n/book ISBN — look up book\n/help — help',
+        'من Pulsar هستم. تسک‌های جدید رو پیشنهاد می‌دم و برای فعالیت‌های انجام‌شده لاگ قابل تأیید می‌سازم. KR رو خودم تطبیق می‌دم.\n\n/new — تسک جدید\n/report — ثبت فعالیت\n/tasks — تسک‌های باز من\n/cancel — لغو پیش‌نویس\n/help — راهنما',
+        'I am Pulsar. Send new tasks or progress updates naturally. I will match KRs and format activity logs for approval.\n\n/new — new task\n/projecttasks 213 — project task inventory\n/multi — combine consecutive messages\n/reportmulti YYYY-MM-DD — combine dated work updates\n/reports — recent reports\n/report — log progress\n/tasks — my open tasks\n/cancel — cancel draft\n/help — help',
     )}
 
 
