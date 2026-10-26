@@ -71,11 +71,11 @@ assert.match(project, /if \(P\.canOpenCore\(\)\)/);
 assert.match(project, /ws-project-task-editor/);
 assert.doesNotMatch(project, /function editTask\(cockpit/);
 assert.doesNotMatch(project, /add\('Edit task', \(\) => editTask\(cockpit\)\)/);
-assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261026taskhotfix1/);
-assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261026taskhotfix1/);
+assert.match(boot, /ws-views\.js\?v=20261016-task1&patch=20261026taskperf2/);
+assert.match(page, /ws-app\.js\?v=20261016-task1&patch=20261026taskperf2/);
 const five = fs.readFileSync('assets/ws/ws-five-layer.js', 'utf8');
 const projectView = fs.readFileSync('assets/ws/ws-project.js', 'utf8');
-assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261026taskhotfix1/);
+assert.match(boot, /ws-five-layer\.js\?v=20261016-task1&patch=20261026taskperf2/);
 assert.match(five, /ws-project\.js\?v=20261016-task1&patch=20261023taskfocus1/);
 assert.match(projectView, /ws-project-actions\.js\?v=20261016-task1&patch=20261023taskfocus1/);
 """
