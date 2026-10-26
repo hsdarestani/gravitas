@@ -122,6 +122,14 @@ jobs:
           sudo -n systemctl enable --now gravitas-backend-health-watch.timer
           sudo -n systemctl is-active --quiet gravitas-backend-health-watch.timer
           echo "Host-local backend health watchdog installed and active"
+          # The last fully verified frontend/backend deployment is #1172.
+          # Seed the version marker once for safe future static-only deploys.
+          if ! sudo -n test -s /etc/gravitas/last-successful-deploy-sha; then
+            printf '%s\n' '1bea09c3d121baa391409f10578b179508ab3bac' | \
+              sudo -n tee /etc/gravitas/last-successful-deploy-sha >/dev/null
+            sudo -n chmod 644 /etc/gravitas/last-successful-deploy-sha
+            echo 'Initialized deployed revision marker to verified production #1172'
+          fi
           local_ok() {
             curl --silent --show-error --fail --max-time 5 \
               -H "X-Forwarded-Proto: https" http://127.0.0.1:8000/api/health/ \
