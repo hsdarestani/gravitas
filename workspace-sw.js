@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'gravitas-workspace-static-v23';
+const STATIC_CACHE = 'gravitas-workspace-static-v24';
 const SHELL = [
   '/workspace/',
   '/workspace.html',
