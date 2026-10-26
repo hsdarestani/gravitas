@@ -1,5 +1,5 @@
 import { renderWorkReports } from './ws-work-reports.js?v=20261016-task1';
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261026taskhotfix1';
 import {
   renderCertificates,
   renderCourse,
