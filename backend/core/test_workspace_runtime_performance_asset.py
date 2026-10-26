@@ -56,6 +56,23 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
         self.assertIn('if (previewLoaded)', views)
         self.assertIn('Retry full editor', views)
 
+    def test_task_deep_links_prioritize_detail_and_do_not_flood_optional_reads(self):
+        views = self.read('ws-views.js')
+        platform = self.read('ws-platform.js')
+        before_board = views.split('const deepLinkParams =', 1)[1].split(
+            'const load = async', 1)[0]
+        self.assertIn('void openTaskDialog(deepLinkTaskId', before_board)
+        self.assertNotIn('await P.operatingTaskBoard()', before_board)
+        self.assertIn('observeOptionalSection(resourceSection, loadExternalLinks)', views)
+        self.assertIn('observeOptionalSection(attachmentsPanel.box || attachmentsPanel, loadAttachments)', views)
+        self.assertIn('void loadComments()', views)
+        self.assertNotIn('void Promise.allSettled([loadComments(), loadAttachments(), loadExternalLinks()])', views)
+        self.assertIn('const sameTaskRead =', platform)
+        self.assertIn('AbortSignal.timeout(20000)', platform)
+        # No uncertain PATCH or DELETE is ever aborted and silently retried.
+        self.assertIn("unsafe ? 25000", platform)
+        self.assertNotIn('controller.abort()', platform)
+
     def test_core_overview_does_not_wait_for_optional_integrations(self):
         home = self.read('ws-home.js')
         core = home.split('function renderCoreBody(', 1)[1].split(
