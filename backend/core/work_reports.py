@@ -206,7 +206,7 @@ def normalize(user, raw):
             'none', 'no unmatched work', 'no unmatched work reported'}:
         # A model may return *only* unmatched_work. Still offer a reviewable
         # per-activity draft instead of hiding all work in a summary block.
-        rows = [re.sub(r'^\\s*[-*•]\\s*', '', line).strip()
+        rows = [re.sub(r'^\s*[-*•]\s*', '', line).strip()
                 for line in unmatched.splitlines() if line.strip()]
         items = [{'title': row[:240], 'progress': row, 'task_id': None}
                  for row in rows[:20]]
@@ -255,7 +255,7 @@ def safe_url(value):
 
 def _safe_report_fallback(user, text):
     """An AI outage must still yield a reviewable, non-mutating work log."""
-    lines = [re.sub(r'^\\s*[-*•]\\s*', '', line).strip()
+    lines = [re.sub(r'^\s*[-*•]\s*', '', line).strip()
              for line in str(text or '').splitlines()]
     items = [line for line in lines if line][:20]
     if not items:
