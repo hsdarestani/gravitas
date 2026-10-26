@@ -125,7 +125,7 @@ def handle_report_message(user, text, source_key=None):
         if not parts:
             return [{'text': 'Send a work update first, or /cancel to leave this draft.'}]
         day = validate_work_date(state.get('report_date'), user)
-        key = source_key or ('telegram-collect:' + str(session.pk) + ':' + day.isoformat())
+        key = source_key  # No Telegram message ID: propose generates a unique key.
         try:
             reports = _propose_sections(user, '\n'.join(parts), day, key)
         except ValueError as exc:
