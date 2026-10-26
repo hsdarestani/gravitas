@@ -687,7 +687,21 @@ def task_board_detail(request, task_id):
             return _error('parent_not_found', 404)
         own_kr = task.initiative.key_result_id if task.initiative_id else None
         parent_kr = parent.initiative.key_result_id if parent.initiative_id else None
-        if task.project_id != parent.project_id or own_kr != parent_kr:
+        if task.project_id != parent.project_id:
+            return _error('parent_context_mismatch', 409)
+        # Historical imported subtasks may already reference a different KR
+        # from their parent. An unrelated edit (status, owner, title, etc.)
+        # must not be rejected because of that *pre-existing* discrepancy.
+        # Still reject any mutation that changes the task's structural
+        # context while leaving a parent/KR mismatch in place.
+        hierarchy_changed = any((
+            task.parent_id != before['parent_id'],
+            task.project_id != before['project_id'],
+            task.initiative_id != before['initiative_id'],
+            task.milestone_id != before['milestone_id'],
+            task.work_package_id != before['work_package_id'],
+        ))
+        if own_kr != parent_kr and hierarchy_changed:
             return _error('parent_context_mismatch', 409)
 
     if task.initiative_id and not task.cycle and not task.due_date and not task.source_key:
