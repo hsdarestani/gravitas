@@ -106,6 +106,21 @@ def _task_for(request, task_id, *, counts=True):
         task.checklist_completed_count = task.checklist_items.filter(is_completed=True).count()
     return workspace, task
 
+def _can_delete_task(request, workspace, task):
+    """Only Core managers and the assigned task owner may delete this task.
+
+    Task ownership is checked server-side against the authenticated actor;
+    being able to edit other people's tasks never grants deletion rights.
+    """
+    if not request.user.is_authenticated:
+        return False
+    if getattr(request.user, 'is_superuser', False):
+        return True
+    if _can_manage_workspace(request.user, workspace):
+        return True
+    return task.owner_id == request.user.pk and base._editable(request, workspace)
+
+
 def _person(user):
     return {
         'id': user.pk,
@@ -478,7 +493,7 @@ def task_board_detail(request, task_id):
             'ok': True,
             'task': task_data,
             'hierarchy': _task_hierarchy(request, workspace, task),
-            'can_delete': _can_manage_workspace(request.user, workspace),
+            'can_delete': _can_delete_task(request, workspace, task),
             'can_edit': base._editable(request, workspace),
             # The task detail dialog also opens directly from Research, where no
             # full Core board was loaded to provide these select options.
@@ -488,7 +503,7 @@ def task_board_detail(request, task_id):
         })
 
     if request.method == 'DELETE':
-        if not _can_manage_workspace(request.user, workspace):
+        if not _can_delete_task(request, workspace, task):
             return _error('permission_denied', 403)
         title = task.title
         from .google_calendar_api import delete_existing_task_events
