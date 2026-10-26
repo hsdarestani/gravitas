@@ -64,7 +64,8 @@ def preview(report):
         report.interpretation.get('summary', ''), '',
     ]
     updates = report.interpretation.get('updates', [])
-    for update in updates:
+    match_buttons = []
+    for index, update in enumerate(updates):
         task_id = update.get('task_id')
         title = (
             f"Task #{task_id} · {update['title']}" if task_id
@@ -80,18 +81,28 @@ def preview(report):
         ])
         candidates = update.get('candidates') or []
         if not task_id and candidates:
-            lines.append('Possible tasks (NOT linked, select via Edit):')
-            lines.extend(f"  #{item['id']} · {item['title']} ({item['project']})" for item in candidates[:3])
+            lines.append('Possible tasks (NOT linked):')
+            for candidate in candidates[:3]:
+                lines.append(f"  #{candidate['id']} · {candidate['title']} ({candidate['project']})")
+                action = f"wr:m:{report.pk.hex}:{report.revision}:{index}:{candidate['id']}"
+                if len(action.encode('utf-8')) <= 64:
+                    match_buttons.append([{
+                        'text': f"Link item {index + 1} to #{candidate['id']}",
+                        'callback_data': action,
+                    }])
         lines.append('')
     unmatched = str(report.interpretation.get('unmatched_work') or '').strip()
     if unmatched and unmatched.casefold() not in {'none', 'no unmatched work reported', 'no unmatched work'}:
         lines.extend(['Unmatched work (no task will change):', unmatched])
     lines.append('Review exact task IDs before confirming. No task changed yet. /reportedit to correct; /reportpreview to review again.')
-    return {'text': '\n'.join(lines)[:4096], 'reply_markup': {'inline_keyboard': [[
-        {'text': 'Confirm', 'callback_data': f'wr:c:{report.pk.hex}:{report.revision}'},
-        {'text': 'Edit', 'callback_data': f'wr:e:{report.pk.hex}:{report.revision}'},
-        {'text': 'Cancel', 'callback_data': f'wr:x:{report.pk.hex}:{report.revision}'},
-    ]]}}
+    return {'text': '\n'.join(lines)[:4096], 'reply_markup': {'inline_keyboard': [
+        *match_buttons[:12],
+        [
+            {'text': 'Confirm', 'callback_data': f'wr:c:{report.pk.hex}:{report.revision}'},
+            {'text': 'Edit', 'callback_data': f'wr:e:{report.pk.hex}:{report.revision}'},
+            {'text': 'Cancel', 'callback_data': f'wr:x:{report.pk.hex}:{report.revision}'},
+        ],
+    ]}}
 
 
 def handle_report_message(user, text, source_key=None):
@@ -204,16 +215,39 @@ def handle_report_callback(user, action):
     if action == 'wr:start':
         return handle_report_message(user, '/report')
     try:
-        prefix, code, ident, revision = action.split(':')
+        pieces = action.split(':')
+        if len(pieces) not in {4, 6}:
+            raise ValueError('invalid_action_parts')
+        prefix, code, ident, revision = pieces[:4]
         report_id = uuid.UUID(hex=ident)
         revision = int(revision)
+        index, task_id = (int(pieces[4]), int(pieces[5])) if code == 'm' and len(pieces) == 6 else (None, None)
     except (ValueError, AttributeError):
         return [{'text': 'Invalid report action.'}]
-    if prefix != 'wr' or code not in {'c', 'e', 'x'}:
+    if prefix != 'wr' or code not in {'c', 'e', 'x', 'm'} or (code == 'm') != (len(pieces) == 6):
         return [{'text': 'Invalid report action.'}]
     report = DailyWorkReport.objects.filter(pk=report_id, user=user).first()
     if not report:
         return [{'text': 'Report not found.'}]
+    if code == 'm':
+        if report.status != 'pending' or report.revision != revision:
+            return [{'text': 'This match button is stale. Use /reportpreview to get fresh buttons.'}]
+        updates = report.interpretation.get('updates', [])
+        if index is None or index < 0 or index >= len(updates):
+            return [{'text': 'Invalid activity index.'}]
+        current = updates[index]
+        if current.get('task_id') or task_id not in {
+                candidate['id'] for candidate in current.get('candidates') or []}:
+            return [{'text': 'That task was not offered for this activity.'}]
+        corrected = dict(report.interpretation)
+        corrected['updates'] = [dict(item) for item in updates]
+        corrected['updates'][index]['task_id'] = task_id
+        corrected['updates'][index]['status'] = None  # Matching is not approval of completion.
+        try:
+            revised = decide(user, report.pk, revision, 'edit', corrected)
+        except (ValueError, PermissionError) as exc:
+            return [{'text': f'Match not applied: {exc}. Review the report again.'}]
+        return [preview(revised)]
     if code == 'e':
         if report.status != 'pending' or report.revision != revision:
             return [{'text': 'This proposal has changed. Review its current version in Gravitas.'}]
