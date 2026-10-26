@@ -92,9 +92,9 @@ def split_work_date_sections(text, *, default_date=None, user=None):
     current = today
     groups = {}
     heading = re.compile(
-        r'^(?:(?:on\\s+)?\\d{4}-\\d{2}-\\d{2}|today|yesterday|'
-        r'day before yesterday|\\d{1,3} days? ago|two days? ago|three days? ago|'
-        r'امروز|دیروز|پریروز|(?:دو|سه) روز پیش)(?=$|\\s*:|\\s*：|\\s*،)',
+        r'^(?:(?:on\s+)?\d{4}-\d{2}-\d{2}|today|yesterday|'
+        r'day before yesterday|\d{1,3} days? ago|two days? ago|three days? ago|'
+        r'امروز|دیروز|پریروز|(?:دو|سه) روز پیش)(?=$|\s*:|\s*：|\s*،)',
         flags=re.I,
     )
     for line in str(text or '').splitlines():
@@ -108,8 +108,8 @@ def split_work_date_sections(text, *, default_date=None, user=None):
                     groups[current].append(remainder)
                 continue
         groups.setdefault(current, []).append(line)
-    return [(day, '\\n'.join(lines).strip()) for day, lines in groups.items()
-            if '\\n'.join(lines).strip()]
+    return [(day, '\n'.join(lines).strip()) for day, lines in groups.items()
+            if '\n'.join(lines).strip()]
 
 
 def validate_work_date(value, user=None):
@@ -172,7 +172,7 @@ def _matching_candidates(tasks, phrase, *, limit=3):
             'some', 'research', 'researched', 'topic', 'explored'}
 
     def words(value):
-        found = re.findall(r'[^\\W_]+', str(value or '').casefold(), re.UNICODE)
+        found = re.findall(r'[^\W_]+', str(value or '').casefold(), re.UNICODE)
         return {w.lstrip('0') or '0' if w.isdigit() else w for w in found
                 if (len(w) > 1 or w.isdigit()) and w not in stop}
 
