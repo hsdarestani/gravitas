@@ -686,14 +686,19 @@ def welcome_message(user, lang='fa'):
 
 
 def _report_proposal(user, text, source_key=None):
-    """Use the durable, revisioned daily report flow for existing task logs."""
-    from .telegram_work_reports import preview
-    from .work_reports import propose, parse_work_date_prefix
+    """Route natural-language progress through the same dated reporting flow."""
+    from .telegram_work_reports import _activate_reports, _previews, _propose_sections
+    from .work_reports import parse_work_date_prefix
     try:
         day, work = parse_work_date_prefix(text, user)
+        reports = _propose_sections(user, work, day, source_key)
     except ValueError as exc:
-        return {'text': f'Invalid work date: {exc}. Use YYYY-MM-DD or a recent relative date.'}
-    return preview(propose(user, work, source='telegram', source_key=source_key, report_date=day))
+        return [{'text': f'Invalid work report: {exc}. Specify a recent work date.'}]
+    session = _session(user)
+    # A progress note during task onboarding must not erase that task draft.
+    if not (session.state or {}).get('mode'):
+        _activate_reports(session, reports)
+    return _previews(reports)
 
 
 def handle_message(user, text, source_key=None):
@@ -861,7 +866,7 @@ def handle_message(user, text, source_key=None):
                 # pending draft. Queue new tasks; persist reports separately.
                 incoming = _interpret(user, text, ctx)
                 if incoming.get('intent') == 'log_update':
-                    return [_report_proposal(user, text, source_key)]
+                    return _report_proposal(user, text, source_key)
                 if incoming.get('intent') == 'create_tasks':
                     queued = _normalize_many(incoming.get('tasks'), user, ctx, text, source_key)
                     if queued:
@@ -889,7 +894,7 @@ def handle_message(user, text, source_key=None):
                 'That is a question, not a task or daily report. Please retry if the answer was unclear.')
         return [{'text': answer[:1500]}]
     if payload.get('intent') == 'log_update':
-        return [_report_proposal(user, text, source_key)]
+        return _report_proposal(user, text, source_key)
     if payload.get('intent') != 'create_tasks':
         reply = str(payload.get('reply') or '').strip() or _say(lang, 'بگو چه کمکی می‌خوای.', 'Tell me what you need.')
         return [{'text': reply[:4096]}]
