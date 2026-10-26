@@ -357,6 +357,35 @@ class GoogleTaskLink(models.Model):
         ]
 
 
+
+class GoogleTaskDeleteOutbox(models.Model):
+    """Durable Google Tasks cleanup after a local task has already been deleted.
+
+    Not tied to OperatingTask: its Google mapping must survive Django's cascade.
+    The notification timer is responsible for retrying external failures.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='gravitas_google_task_delete_jobs',
+    )
+    tasklist_id = models.CharField(max_length=255, default='@default')
+    google_task_id = models.CharField(max_length=1024)
+    task_id_at_deletion = models.BigIntegerField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_error = models.CharField(max_length=160, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['next_attempt_at', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'tasklist_id', 'google_task_id'],
+                name='unique_google_task_delete_job',
+            ),
+        ]
+
+
 class GoogleCalendarMeetingMinute(models.Model):
     workspace = models.ForeignKey(
         'core.Workspace',
