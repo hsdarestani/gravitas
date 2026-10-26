@@ -684,8 +684,64 @@ def nextcloud():
                       "config:system:get", "maintenance", timeout=12).strip()
     print("nextcloud_maintenance", "on" if maintenance in {"1", "true", "True"} else "off_or_unknown")
 
+
+def task_1090_write_incident():
+    """Anonymized read-only root-cause probe. Do not print payloads or SQL."""
+    print("=== Task #1090 write incident (read-only) ===")
+    lines = read_lines("/var/log/nginx/access.log", max_bytes=10_000_000)
+    if not lines:
+        lines = run("sudo", "-n", "tail", "-n", "25000", "/var/log/nginx/access.log").splitlines()
+    counters = collections.Counter()
+    times = []
+    regex = re.compile(r'"(GET|PATCH|DELETE)\\s+/api/operating/task-board/(1090|827)/[^"]*HTTP/[0-9.]+"\\s+(\\d{3})')
+    for line in lines[-25000:]:
+        m = regex.search(line)
+        if not m:
+            continue
+        method, task, status = m.groups()
+        counters[(task, method, status)] += 1
+        tm = re.search(r'\\[(26/Oct/2026:[^ ]+) ', line)
+        if tm and method == 'PATCH':
+            times.append((task, tm.group(1)[:17], status))
+    print("write_response_buckets", sorted((f"{a}:{b}:{c}", n) for (a,b,c),n in counters.items()))
+    print("recent_patch_results", times[-16:])
+    sql = (
+       "SELECT t.id, (t.project_id IS NOT NULL)::int, "
+       "COALESCE(c.enabled,false)::int, "
+       "t.status "
+       "FROM core_operatingtask t LEFT JOIN core_canonicalproject c "
+       "ON c.project_id=t.project_id "
+       "WHERE t.id IN (1090,827) ORDER BY t.id"
+    )
+    result = run("sudo","-n","-u","postgres","psql","-d","gravitas",
+       "-X","-A","-t","-F","|","-c",sql,timeout=9)
+    valid = []
+    for l in result.splitlines():
+        bits = l.split("|")
+        if len(bits)==4 and bits[0] in ("827","1090") and bits[1] in ("0","1") and bits[2] in ("0","1"):
+            valid.append(tuple(bits))
+    print("task_project_and_canonical_active", valid if valid else "unavailable")
+    # Determine whether the API is stalled on locks instead of IO/Nextcloud.
+    sql = (
+      "SELECT COALESCE(wait_event_type,'none'),COALESCE(wait_event,'none'),"
+      "COUNT(*),COALESCE(MAX(EXTRACT(EPOCH FROM now()-query_start))::int,0)"
+      " FROM pg_stat_activity WHERE datname='gravitas' "
+      "GROUP BY 1,2 ORDER BY 3 DESC LIMIT 12"
+    )
+    res = run("sudo","-n","-u","postgres","psql","-d","gravitas",
+      "-X","-A","-t","-c",sql,timeout=9)
+    print("db_wait_groups", [z for z in res.splitlines() if re.fullmatch(r"[A-Za-z_ ]+\\|[A-Za-z_ ]+\\|\\d+\\|\\d+",z)][:12])
+    # Do not export raw journal text or task content.
+    js = run("sudo","-n","journalctl","-u","gravitas-backend.service","--since","70 minutes ago",
+              "--no-pager","-o","cat",timeout=10).lower()
+    patterns = ("slow task write", "worker timeout", "canonical", "nextcloud", "webdav",
+                "could not enqueue", "databaseerror", "operationalerror",
+                "recoveryrequired", "timeout", "locktimeout")
+    print("backend_exception_buckets", {p:js.count(p) for p in patterns})
+
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
+    task_1090_write_incident()
     php_runtime_security()
     health()
     web_status()
