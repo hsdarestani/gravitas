@@ -25,6 +25,7 @@ class ScientificResourceFinderTests(SimpleTestCase):
         self.assertEqual(parse_request('https://arxiv.org/abs/2501.01234')['kind'], 'arxiv')
         self.assertEqual(parse_request('/find data quality model')['kind'], 'title')
         self.assertEqual(parse_request('/book 9780140328721')['kind'], 'isbn')
+        self.assertEqual(parse_request('/book The Selfish Gene')['kind'], 'book_title')
         self.assertEqual(parse_request('/find')['kind'], 'help')
 
     def test_normal_work_messages_not_hijacked(self):
@@ -92,6 +93,18 @@ class ScientificResourceFinderTests(SimpleTestCase):
         self.assertIn('Example Book', response[0]['text'])
         self.assertIn('https://openlibrary.org/books/OL123M', response[0]['text'])
         self.assertNotIn('document_url', response[0])
+
+    @patch('core.scientific_resource_finder._get_json')
+    def test_search_books_by_title(self, get_json):
+        get_json.return_value = {
+            'docs': [{'title': 'The Selfish Gene',
+                      'author_name': ['Richard Dawkins'],
+                      'key': '/works/OL123W'}],
+        }
+        response = handle_resource_request('/book The Selfish Gene')
+        self.assertIn('The Selfish Gene', response[0]['text'])
+        self.assertIn('https://openlibrary.org/works/OL123W', response[0]['text'])
+        self.assertEqual(get_json.call_args.args[0], 'https://openlibrary.org/search.json')
 
     def test_arxiv_direct_request_has_no_api_dependency(self):
         with patch('core.scientific_resource_finder.requests.get') as get:
