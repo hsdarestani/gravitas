@@ -1464,9 +1464,17 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
         try {
           const result = await P.updateOperatingTaskCard(task.id, payload);
+          // The PATCH has completed: board refresh is secondary and must not
+          // leave the editor in a perpetual "Saving…" state if it stalls.
           note.textContent = 'Saved.';
           title.value = result.task.title;
-          await reloadBoard({ keepDialog: true });
+          save.disabled = false;
+          Promise.resolve().then(() => reloadBoard({ keepDialog: true })).catch((error) => {
+            if (note.isConnected) {
+              note.textContent = 'Saved. Board refresh failed; reload to see the latest data.';
+            }
+            console.error('Task board refresh failed after successful save', error);
+          });
         } catch (error) {
           note.textContent = error?.data?.error || error?.message || 'Save failed.';
         } finally {
