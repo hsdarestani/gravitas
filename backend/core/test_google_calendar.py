@@ -235,6 +235,7 @@ class GoogleCalendarIntegrationTests(TestCase):
         )
 
 
+    @override_settings(SECURE_SSL_REDIRECT=False)
     @patch('core.google_calendar_api.requests.delete')
     def test_local_task_delete_queues_google_cleanup_without_http(self, google_delete):
         task = self._task()
