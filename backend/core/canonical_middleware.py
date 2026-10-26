@@ -195,7 +195,7 @@ class CanonicalProjectMiddleware:
         # Only this isolated field-edit operation is queued; changing a task's
         # project still uses the strict synchronous canonical boundary.
         if (request.method == 'PATCH' and
-                re.fullmatch(r'/api/operating/task-board/\\d+/', request.path)):
+                re.fullmatch(r'/api/operating/task-board/\d+/', request.path)):
             from .operating_models import OperatingTask
             from .canonical_models import CanonicalTaskSyncOutbox
             from django.db.models import F
