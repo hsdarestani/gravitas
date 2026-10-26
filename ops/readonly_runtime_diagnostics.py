@@ -749,6 +749,28 @@ def task_1090_write_incident():
         if len(bits)==4 and bits[0] in ("827","1090") and bits[1] in ("0","1") and bits[2] in ("0","1"):
             valid.append(tuple(bits))
     print("task_project_and_canonical_active", valid if valid else "unavailable")
+    # Investigate one user-reported failure without exposing user content.
+    hierarchy_sql = (
+        "SELECT t.id,COALESCE(t.parent_id,0),COALESCE(t.project_id,0),"
+        "COALESCE(p.project_id,0),COALESCE(t.initiative_id,0),"
+        "COALESCE(p.initiative_id,0),COALESCE(ci.key_result_id,0),"
+        "COALESCE(pi.key_result_id,0),"
+        "COALESCE(t.workspace_id,0),COALESCE(p.workspace_id,0) "
+        "FROM core_operatingtask t "
+        "LEFT JOIN core_operatingtask p ON p.id=t.parent_id "
+        "LEFT JOIN core_initiative ci ON ci.id=t.initiative_id "
+        "LEFT JOIN core_initiative pi ON pi.id=p.initiative_id "
+        "WHERE t.id IN (1090,827)"
+    )
+    snapshot = run("sudo","-n","-u","postgres","psql","-d","gravitas",
+       "-X","-A","-t","-F","|","-c",hierarchy_sql,timeout=9)
+    safe_snapshots = []
+    for line in snapshot.splitlines():
+        cells = line.split("|")
+        if len(cells)==10 and cells[0] in ("827","1090") and all(z.isdecimal() for z in cells):
+            safe_snapshots.append(tuple(int(z) for z in cells))
+    print("task_parent_context_snapshot",safe_snapshots if safe_snapshots else "unavailable")
+
     # Determine whether the API is stalled on locks instead of IO/Nextcloud.
     sql = (
       "SELECT COALESCE(wait_event_type,'none'),COALESCE(wait_event,'none'),"
