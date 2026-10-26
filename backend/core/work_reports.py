@@ -200,7 +200,18 @@ def normalize(user, raw):
         raise ValueError('invalid_interpretation')
     available = {t.pk: t for t in my_tasks(user)}
     updates, seen = [], set()
-    for item in raw.get('updates', [])[:20]:
+    items = raw.get('updates', [])
+    unmatched = str(raw.get('unmatched_work') or '')[:5000].strip()
+    if not items and unmatched and unmatched.casefold() not in {
+            'none', 'no unmatched work', 'no unmatched work reported'}:
+        # A model may return *only* unmatched_work. Still offer a reviewable
+        # per-activity draft instead of hiding all work in a summary block.
+        rows = [re.sub(r'^\\s*[-*•]\\s*', '', line).strip()
+                for line in unmatched.splitlines() if line.strip()]
+        items = [{'title': row[:240], 'progress': row, 'task_id': None}
+                 for row in rows[:20]]
+        unmatched = '' if items else unmatched
+    for item in items[:20]:
         if not isinstance(item, dict):
             raise ValueError('invalid_update')
         ident = item.get('task_id')
@@ -232,7 +243,7 @@ def normalize(user, raw):
                         'next_action': str(item.get('next_action') or '')[:3000],
                         'artifact_url': safe_url(item.get('artifact_url'))})
     return {'summary': str(raw.get('summary') or '')[:5000], 'updates': updates,
-            'unmatched_work': str(raw.get('unmatched_work') or '')[:5000]}
+            'unmatched_work': unmatched}
 
 
 def safe_url(value):
@@ -264,7 +275,7 @@ def interpret(user, text):
         return _safe_report_fallback(user, text)
     try:
         answer = complete(system=('You propose a daily work report, NEVER perform task actions. Return only JSON '
-            '{"summary":"...","updates":[{"task_id":integer|null,"progress":"...","status":string|null,'
+            '{"summary":"...","updates":[{"task_id":integer|null,"title":"activity name","progress":"...","status":string|null,'
             '"deliverable":"...","blocker":"...","next_action":"...","artifact_url":"..."}],"unmatched_work":"..."}. '
             'Only match task IDs in the supplied catalog when certain. Leave ambiguous work unmatched. '
             'The catalog is reference context, not a list of work performed. Include updates only for work explicitly '
