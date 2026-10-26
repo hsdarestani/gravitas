@@ -436,3 +436,129 @@ class DailyWorkReportTests(TestCase):
         with patch('core.management.commands.configure_telegram_notifications.requests.post', side_effect=post):
             call_command('configure_telegram_notifications', stdout=io.StringIO(), stderr=io.StringIO())
         self.assertEqual(methods[:2], ['setWebhook', 'setMyCommands'])
+
+
+    def test_mixed_dates_create_independent_reviewable_reports(self):
+        from .work_reports import report_day
+        from datetime import timedelta
+        from .operating_models import TelegramPulsarSession
+        today = report_day(self.user)
+        yesterday = today - timedelta(days=1)
+        text = '- Topic 1 research\n- Research workflow\n\nyesterday:\n- moon path project'
+        unmatched = {
+            'summary': 'Reported work',
+            'updates': [{'task_id': None, 'title': 'Topic 1 research',
+                         'progress': 'Researched Topic 1', 'status': 'done'}],
+        }
+        handle_report_message(self.user, '/report')
+        with patch('core.work_reports.interpret', return_value=unmatched):
+            previews = handle_report_message(self.user, text, source_key='tg:mixed:1')
+        self.assertEqual(len(previews), 2)
+        self.assertIn('Work date: ' + today.isoformat(), previews[0]['text'])
+        self.assertIn('Work date: ' + yesterday.isoformat(), previews[1]['text'])
+        self.assertIn('Status suggestion: unchanged', previews[0]['text'])
+        rows = {r.report_date: r for r in DailyWorkReport.objects.all()}
+        self.assertEqual(len(rows), 2)
+        self.assertIn('Topic 1 research', rows[today].original_text)
+        self.assertNotIn('moon path', rows[today].original_text)
+        self.assertEqual(rows[yesterday].original_text, '- moon path project')
+        again = handle_report_message(self.user, '/report ' + text, source_key='tg:mixed:1')
+        self.assertEqual(len(again), 2)
+        self.assertEqual(DailyWorkReport.objects.count(), 2)
+        first = previews[0]['reply_markup']['inline_keyboard'][0][0]['callback_data']
+        second = previews[1]['reply_markup']['inline_keyboard'][0][0]['callback_data']
+        handle_report_callback(self.user, first)
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state['mode'], 'daily_report')
+        pending = handle_report_message(self.user, '/reportpreview')
+        self.assertEqual(len(pending), 1)
+        self.assertIn(yesterday.isoformat(), pending[0]['text'])
+        handle_report_callback(self.user, second)
+        self.assertEqual(DailyWorkReport.objects.filter(status='confirmed').count(), 2)
+        self.assertEqual(TelegramPulsarSession.objects.get(user=self.user).state, {})
+        self.assertFalse(ActivityEvent.objects.filter(action='task.daily_report').exists())
+
+    def test_split_date_headings_do_not_consume_narration(self):
+        from .work_reports import report_day, split_work_date_sections
+        from datetime import timedelta
+        today = report_day(self.user)
+        sections = split_work_date_sections(
+            'yesterday I did not finish the experiment\nyesterday:\n- moon path\ntoday:\n- lab notes',
+            user=self.user,
+        )
+        self.assertEqual([d for d, _ in sections], [today, today - timedelta(days=1)])
+        self.assertIn('yesterday I did not finish', sections[0][1])
+        self.assertIn('- lab notes', sections[0][1])
+        self.assertEqual(sections[1][1], '- moon path')
+        with self.assertRaisesMessage(ValueError, 'work_date_out_of_range'):
+            split_work_date_sections('2099-01-01: unverified future claim', user=self.user)
+
+    def test_multi_message_collection_splits_historical_day(self):
+        from .work_reports import report_day
+        from datetime import timedelta
+        handle_report_message(self.user, '/reportmulti')
+        handle_report_message(self.user, '- Topic 1 research')
+        handle_report_message(self.user, 'yesterday:\n- moon path project')
+        with patch('core.work_reports.interpret', return_value={
+            'summary': 'Work', 'updates': [], 'unmatched_work': 'Research',
+        }):
+            previews = handle_report_message(self.user, '/done', source_key='tg:multi:two-days')
+        self.assertEqual(len(previews), 2)
+        self.assertEqual(
+            set(DailyWorkReport.objects.values_list('report_date', flat=True)),
+            {report_day(self.user), report_day(self.user) - timedelta(days=1)},
+        )
+        self.assertEqual(len(handle_report_message(self.user, '/reportpreview')), 2)
+
+    def test_unmatched_preview_shows_safe_suggestions_without_linking(self):
+        with patch('core.work_reports.interpret', return_value={
+            'summary': 'Investigated acceptance retest',
+            'updates': [{'task_id': None, 'title': 'LMS acceptance retest',
+                         'progress': 'Reviewed LMS acceptance retest'}],
+        }):
+            report = propose(self.user, 'LMS acceptance retest')
+        item = report.interpretation['updates'][0]
+        self.assertIsNone(item['task_id'])
+        self.assertIsNone(item['status'])
+        self.assertEqual(item['candidates'][0]['id'], self.task.pk)
+        from .telegram_work_reports import preview
+        self.assertIn(f'#{self.task.pk}', preview(report)['text'])
+        decide(self.user, report.pk, 1, 'confirm')
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'active')
+        self.assertFalse(ActivityEvent.objects.filter(action='task.daily_report').exists())
+
+    def test_project_editor_can_report_team_task_but_viewer_cannot(self):
+        from .models import ResearchProject, ProjectMembership
+        from .work_reports import catalog
+        research = ensure_platform_workspaces(self.user)['research']
+        project = ResearchProject.objects.create(workspace=research, owner=self.user, title='Moon path project')
+        shared = OperatingTask.objects.create(
+            workspace=self.task.workspace, owner=self.user, project=project,
+            title='Moon path simulation', definition_of_done='Reviewed evidence',
+        )
+        ensure_platform_workspaces(self.other)
+        membership = ProjectMembership.objects.create(project=project, user=self.other, role='viewer')
+        self.assertNotIn(shared.pk, {row['id'] for row in catalog(self.other)})
+        membership.role = 'editor'
+        membership.save(update_fields=['role'])
+        self.assertIn(shared.pk, {row['id'] for row in catalog(self.other)})
+        self.assertNotIn(self.task.pk, {row['id'] for row in catalog(self.other)})
+        with patch('core.work_reports.interpret', return_value={
+            'summary': 'Research collaboration',
+            'updates': [{'task_id': shared.pk, 'progress': 'Validated model', 'status': None}],
+        }):
+            report = propose(self.other, 'Validated moon path simulation', source_key='team-editor')
+        decide(self.other, report.pk, 1, 'confirm')
+        self.assertTrue(report.tasks.filter(pk=shared.pk).exists())
+        self.assertEqual(ActivityEvent.objects.filter(
+            action='task.daily_report', object_id=str(shared.pk)).count(), 1)
+
+    def test_ai_unavailable_keeps_itemized_nonmutating_report(self):
+        with patch('core.work_reports.configured', return_value=False):
+            report = propose(self.user, '- LMS acceptance retest\n- Research workflow',
+                             source_key='offline-fallback')
+        self.assertEqual(len(report.interpretation['updates']), 2)
+        self.assertEqual(report.interpretation['updates'][0]['candidates'][0]['id'], self.task.pk)
+        self.assertIsNone(report.interpretation['updates'][0]['task_id'])
+        self.assertIsNone(report.interpretation['updates'][0]['status'])
+        self.assertEqual(self.task.status, 'active')
