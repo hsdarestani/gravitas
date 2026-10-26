@@ -1016,8 +1016,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       // dropdowns came back. Show task identity/status from a small, indexed
       // single-task read without blocking the full editable form.
       
-      const previewRequest = P.operatingTaskPreview(taskId).then(showTaskPreview)
-        .catch((error) => {
+      const previewRequest = (mobileReader ? P.operatingTaskPreview(taskId) : Promise.resolve()).then((preview) => {
+        if (mobileReader) showTaskPreview(preview);
+      }).catch((error) => {
           if (mobileReader && dialog.isConnected) {
             body.replaceChildren(failure('task card', error, () => {
               closeDialog(dialog);
@@ -1140,7 +1141,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           }
         });
         remove.classList.add('ws-btn--danger');
-        advancedActionItems.append(remove);
+        remove.title = 'Permanently delete this task';
+        moreItems.append(remove);
+      } else {
+        const unavailable = el('p', 'fl-muted', 'Only a Core administrator or this task’s owner can delete it.');
+        unavailable.setAttribute('role', 'note');
+        moreItems.append(unavailable);
       }
       body.innerHTML = '';
 
@@ -1183,7 +1189,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         [['', 'No dependency'], ...initialDependencies.map((row) => [row.id, row.title])],
         task.dependency_id,
       );
-      if (stateLoader) {
+      // The dependency index can be thousands of rows; do not request it
+      // for every modal opening. Fetch only if the user edits relations.
+      let dependencyIndexRequested = false;
+      const loadDependencyIndex = () => {
+        if (!stateLoader || dependencyIndexRequested) return;
+        dependencyIndexRequested = true;
         Promise.resolve().then(stateLoader).then((response) => {
           if (!dialog.isConnected) return;
           const chosen = dependency.value || '';
@@ -1195,8 +1206,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           const updated = select([['', 'No dependency'], ...rows.map((row) => [row.id, row.title])], chosen);
           dependency.replaceChildren(...updated.children);
           dependency.value = chosen;
-        }).catch(() => { /* The task remains fully editable if the index fails. */ });
-      }
+        }).catch(() => { dependencyIndexRequested = false; });
+      };
+      dependency.addEventListener('focus', loadDependencyIndex);
       const due = input('date', task.due_date || '');
       const done = textarea(task.definition_of_done, 2);
       done.setAttribute('aria-label', 'Expected outcome / Definition of done');
@@ -1330,6 +1342,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         field('Work package', workPackage), field('Dependency', dependency));
       scheduling.append(schedulingFields);
       relatedBlock.append(placement, scheduling);
+      relatedBlock.addEventListener('toggle', () => {
+        if (relatedBlock.open) loadDependencyIndex();
+      });
       // Links are first-class task resources (not uploads or imported source records).
       const resourceSection = el('section', 'task-card-dialog__resources');
       const resourceHeader = el('div', 'task-card-dialog__resource-head');
@@ -1476,7 +1491,25 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             console.error('Task board refresh failed after successful save', error);
           });
         } catch (error) {
-          note.textContent = error?.data?.error || error?.message || 'Save failed.';
+          if (error?.code === 'request_timeout') {
+            note.textContent = 'Checking whether your change was saved…';
+            try {
+              const confirmed = await P.operatingTaskCard(task.id);
+              const savedTask = confirmed.task || {};
+              const fields = ['title', 'description', 'priority', 'status', 'due_date', 'definition_of_done', 'blocked_reason'];
+              const matches = fields.every((key) => (savedTask[key] ?? null) === (payload[key] ?? null))
+                && Number(savedTask.owner?.id) === payload.owner_id;
+              if (matches) {
+                note.textContent = 'Saved. The confirmation response was delayed.';
+              } else {
+                note.textContent = 'The save could not be confirmed. Refresh the task before retrying.';
+              }
+            } catch (_) {
+              note.textContent = 'The save response timed out. Refresh this task to verify before retrying.';
+            }
+          } else {
+            note.textContent = error?.data?.error || error?.message || 'Save failed.';
+          }
         } finally {
           save.disabled = false;
         }
@@ -2006,7 +2039,16 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
       };
 
-      await Promise.all([loadComments(), loadAttachments(), loadHistory(), loadExternalLinks()]);
+      // Optional side panels must never keep the editor's open promise pending.
+      // Activity is often the heaviest request; load only after expansion.
+      let activityRequested = false;
+      historyPanel.addEventListener('toggle', () => {
+        if (historyPanel.open && !activityRequested) {
+          activityRequested = true;
+          void loadHistory();
+        }
+      });
+      void Promise.allSettled([loadComments(), loadAttachments(), loadExternalLinks()]);
     } catch (error) {
       editorFailed = true;
       if (previewLoaded) {
