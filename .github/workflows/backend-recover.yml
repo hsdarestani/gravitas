@@ -52,7 +52,7 @@ jobs:
           fi
           ssh "${OPTS[@]}" "$USER@$SSH_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          echo "Checking local Django and HTTPS upstream health"
+          echo "Incident task716: checking local Django and HTTPS upstream health"
           sudo -n systemctl daemon-reload
           local_ok() {
             curl --silent --show-error --fail --max-time 5 \
