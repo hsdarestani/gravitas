@@ -53,6 +53,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Test workspace backend
         shell: bash
@@ -114,7 +116,43 @@ jobs:
 
           echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
 
+      - name: Select safe static-only release
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          BASE="$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            'sudo cat /etc/gravitas/last-successful-deploy-sha 2>/dev/null || true')"
+          STATIC_ONLY=true
+          if [[ ! "$BASE" =~ ^[0-9a-f]{40}$ ]] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null || \
+             ! git merge-base --is-ancestor "$BASE" "$GITHUB_SHA"; then
+            STATIC_ONLY=false
+            echo "No trustworthy production revision marker; native checkpoint required."
+          else
+            changed=0
+            while IFS= read -r -d '' path; do
+              changed=$((changed + 1))
+              case "$path" in
+                assets/*|*.html|*.htm|*.webmanifest|favicon.ico|robots.txt|sitemap.xml|workspace-sw.js|\
+                .github/workflows/deploy.yml|.github/workflows/backend-recover.yml|\
+                .github/workflows/readonly-diagnostics.yml|ops/readonly_runtime_diagnostics.py|\
+                backend/core/test_*.py)
+                  ;;
+                *)
+                  STATIC_ONLY=false
+                  echo "Native checkpoint required by: $path"
+                  ;;
+              esac
+            done < <(git diff --name-only -z "$BASE" "$GITHUB_SHA")
+            echo "Changed files since verified production revision: $changed"
+          fi
+          echo "STATIC_ONLY=$STATIC_ONLY" >> "$GITHUB_ENV"
+          if [ "$STATIC_ONLY" = true ]; then
+            echo "Static-only release: preserving running backend, skipping offline native checkpoint."
+          fi
+
       - name: Bootstrap production server
+        if: env.STATIC_ONLY != 'true'
         shell: bash
         env:
           GRAVITAS_TELEGRAM_BOT_TOKEN: ${{ secrets.GRAVITAS_TELEGRAM_BOT_TOKEN }}
@@ -548,6 +586,7 @@ jobs:
           REMOTE
 
       - name: Capture and rehearse matched native checkpoint before deployment
+        if: env.STATIC_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -605,6 +644,7 @@ jobs:
             ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
 
       - name: Deploy and start backend
+        if: env.STATIC_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -695,6 +735,7 @@ jobs:
           REMOTE
 
       - name: Install native conditional ACL bridge
+        if: env.STATIC_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -702,7 +743,7 @@ jobs:
             'sudo bash /var/www/gravitas/ops/nextcloud/install-canonical.sh'
 
       - name: Apply selected idempotent operational delivery plan
-        if: hashFiles('ops/operational_delivery.json') != ''
+        if: env.STATIC_ONLY != 'true' && hashFiles('ops/operational_delivery.json') != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -710,6 +751,7 @@ jobs:
             "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python /var/www/gravitas/ops/operational_delivery.py --plan /var/www/gravitas/ops/operational_delivery.json --source-root /var/www/gravitas'"
 
       - name: Ensure SSL and reload Nginx
+        if: env.STATIC_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -726,6 +768,7 @@ jobs:
           REMOTE
 
       - name: Verify infrastructure and backend
+        if: env.STATIC_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -756,6 +799,11 @@ jobs:
           curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 "https://$DOMAIN/" >/dev/null
           curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
           echo "Production and API checks passed: https://$DOMAIN/"
+          # Only after verified production: persist the exact deployed revision.
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" \
+            "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "printf '%s\\n' '$GITHUB_SHA' | sudo tee /etc/gravitas/last-successful-deploy-sha >/dev/null"
+          echo "Verified deployed revision marker updated."
 
       - name: Publish production deploy status
         if: always()
