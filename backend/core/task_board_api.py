@@ -1,6 +1,9 @@
 import json
+import logging
 import os
 import re
+import time
+from functools import wraps
 import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -440,6 +443,27 @@ def _task_hierarchy(request, workspace, task, *, include_candidates=True):
     }
 
 
+def _measure_task_write(view):
+    """Expose actual server write latency independent of optimistic UI paint."""
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if request.method not in ('PATCH', 'DELETE'):
+            return view(request, *args, **kwargs)
+        start = time.perf_counter()
+        try:
+            response = view(request, *args, **kwargs)
+        finally:
+            elapsed = round((time.perf_counter() - start) * 1000)
+            if elapsed >= 750:
+                logging.getLogger(__name__).warning(
+                    'Slow task write method=%s duration_ms=%s', request.method, elapsed,
+                )
+        response['Server-Timing'] = f'task_write;dur={elapsed}'
+        return response
+    return wrapped
+
+
+@_measure_task_write
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
 def task_board_detail(request, task_id):
     if not request.user.is_authenticated:
