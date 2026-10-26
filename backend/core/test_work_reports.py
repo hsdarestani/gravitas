@@ -584,6 +584,20 @@ class DailyWorkReportTests(TestCase):
         self.assertEqual(ActivityEvent.objects.filter(action='task.daily_report').count(), 1)
         self.assertTrue(report.tasks.filter(pk=self.task.pk).exists())
 
+
+    def test_unmatched_only_ai_response_still_offers_reviewable_activity(self):
+        with patch('core.work_reports.interpret', return_value={
+            'summary': 'Reported on laboratory work',
+            'updates': [],
+            'unmatched_work': '- LMS acceptance retest\n- Topic 1 research',
+        }):
+            report = propose(self.user, 'Progress on laboratory activities',
+                             source_key='ai-unmatched-only')
+        self.assertEqual(len(report.interpretation['updates']), 2)
+        self.assertEqual(report.interpretation['updates'][0]['title'], 'LMS acceptance retest')
+        self.assertEqual(report.interpretation['updates'][0]['candidates'][0]['id'], self.task.pk)
+        self.assertEqual(report.interpretation['unmatched_work'], '')
+
     def test_ai_unavailable_keeps_itemized_nonmutating_report(self):
         with patch('core.work_reports.configured', return_value=False):
             report = propose(self.user, '- LMS acceptance retest\n- Research workflow',
