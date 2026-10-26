@@ -2199,10 +2199,11 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     const deepLinkTaskId = Number(deepLinkParams.get('task') || deepLinkParams.get('calendar_task') || 0);
     if (Number.isSafeInteger(deepLinkTaskId) && deepLinkTaskId > 0) {
       deepLinkedTaskOpened = true;
-      Promise.resolve().then(() =>
-        openTaskDialog(deepLinkTaskId, () => P.operatingTaskDependencies(),
-          () => load({ keepDialog: true }))
-      ).catch(error => console.error('Could not open linked task', error));
+      // Start the card's detail GET *before* the large board GET starts.
+      // Its refresh callback runs only after the board loader is initialized.
+      void openTaskDialog(deepLinkTaskId, () => P.operatingTaskDependencies(),
+        () => load({ keepDialog: true }))
+        .catch(error => console.error('Could not open linked task', error));
     }
 
     const load = async ({ keepDialog = false } = {}) => {
