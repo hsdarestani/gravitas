@@ -579,6 +579,12 @@ class CanonicalProjectTests(TestCase):
             json.dumps({'priority':'p1'}),content_type='application/json')
         self.assertEqual(response.status_code,200,response.content)
         task.refresh_from_db()
+        self.assertEqual(response.json()['canonical_sync'], 'pending')
+        # The HTTP request commits the DB only. The scheduled worker brings
+        # the native file up to date without crawling unrelated Notes.
+        from .canonical_task_outbox import process_task_sync_outbox
+        processed = process_task_sync_outbox()
+        self.assertEqual(processed['synced'], 1)
         native=json.loads(self.dav.files[self.full(relative_path(task))]['content'])
         self.note.refresh_from_db()
         self.assertEqual(self.note.body,original_note_body)
