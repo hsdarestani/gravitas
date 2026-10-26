@@ -593,6 +593,24 @@ def _send_telegram_pulsar_messages(chat_id, messages):
         if not isinstance(message, dict):
             continue
         text = str(message.get('text') or '').strip()
+        document_url = str(message.get('document_url') or '')
+        if document_url:
+            from .scientific_resource_finder import _arxiv_pdf
+            safe_document = _arxiv_pdf(document_url)
+            if safe_document:
+                try:
+                    _telegram_api('sendDocument', {
+                        'chat_id': chat_id,
+                        'document': safe_document,
+                        'caption': str(message.get('caption') or 'Scientific resource')[:1024],
+                    })
+                except Exception:
+                    logger.warning('arXiv document delivery failed; sending link instead', exc_info=True)
+                    _telegram_api('sendMessage', {
+                        'chat_id': chat_id,
+                        'text': 'Open-access PDF: ' + safe_document,
+                    })
+            continue
         if not text:
             continue
         payload = {
@@ -772,6 +790,13 @@ def telegram_notification_webhook(request):
             _send_telegram_pulsar_messages(
                 chat_id, handle_document(pref.user, document, source_key=f"{chat_id}:{message.get('message_id')}"),
             )
+            return JsonResponse({'ok': True})
+        # Resource search is read-only and must run before the daily-report and
+        # task-intent classifiers. The existing task/report drafts are untouched.
+        from .scientific_resource_finder import handle_resource_request
+        resource_messages = handle_resource_request(text)
+        if resource_messages is not None:
+            _send_telegram_pulsar_messages(chat_id, resource_messages)
             return JsonResponse({'ok': True})
         report_messages = handle_report_message(pref.user, text, source_key=f"{chat_id}:{message.get('message_id')}")
         _send_telegram_pulsar_messages(
