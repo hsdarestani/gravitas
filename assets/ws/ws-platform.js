@@ -89,23 +89,27 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     // A pending request can otherwise leave "Saving…" on screen forever.
     // Use a generous deadline and never automatically retry writes, since
     // the server might have committed even when its response is lost.
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), unsafe ? 25000 : 18000);
+    // Time out the UI without aborting the in-flight request. The backend
+    // may already be committing a PATCH, so never retry an uncertain write.
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        const timeout = new Error(unsafe
+          ? 'Save confirmation timed out. Refresh the task to verify before retrying.'
+          : 'The server is taking too long to respond. Please retry.');
+        timeout.code = 'request_timeout';
+        reject(timeout);
+      }, unsafe ? 25000 : 18000);
+    });
     try {
-      res = await fetch(API + path, { ...request, signal: controller.signal });
+      res = await Promise.race([fetch(API + path, request), deadline]);
       if (retryableTaskRead && [502, 503, 504].includes(res.status) && attempt === 0) {
         await new Promise((resolve) => setTimeout(resolve, 600));
         continue;
       }
       break;
     } catch (error) {
-      if (controller.signal.aborted) {
-        const timeout = new Error(unsafe
-          ? 'Save confirmation timed out. Refresh the task to verify before retrying.'
-          : 'The server is taking too long to respond. Please retry.');
-        timeout.code = 'request_timeout';
-        throw timeout;
-      }
+      if (error?.code === 'request_timeout') throw error;
       if (!retryableTaskRead || attempt !== 0) {
         if (!retryableTaskRead) throw error;
         const unavailable = new Error('Could not connect to the task service. Check your connection and try again.');
