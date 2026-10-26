@@ -215,6 +215,8 @@ def normalize(user, raw):
         status = item.get('status') or None
         if status and status not in WorkStatus.values:
             raise ValueError('invalid_status')
+        if not task:
+            status = None  # No status recommendation on an unlinked activity.
         if task:
             seen.add(task.pk)
         progress = str(item.get('progress') or '')[:5000]
@@ -240,11 +242,26 @@ def safe_url(value):
     return url if parts.scheme in {'http', 'https'} and parts.netloc and not parts.username else ''
 
 
+def _safe_report_fallback(user, text):
+    """An AI outage must still yield a reviewable, non-mutating work log."""
+    lines = [re.sub(r'^\\s*[-*•]\\s*', '', line).strip()
+             for line in str(text or '').splitlines()]
+    items = [line for line in lines if line][:20]
+    if not items:
+        items = [str(text or '').strip()]
+    return normalize(user, {
+        'summary': 'Activity recorded; task matching requires review.',
+        'updates': [{'task_id': None, 'title': line[:240], 'progress': line,
+                     'status': None} for line in items],
+        'unmatched_work': '',
+    })
+
+
 def interpret(user, text):
     assert_skill_allowed(user, 'project_task')
     rows = catalog(user)
     if not configured():
-        return {'summary': text, 'updates': [], 'unmatched_work': text}
+        return _safe_report_fallback(user, text)
     try:
         answer = complete(system=('You propose a daily work report, NEVER perform task actions. Return only JSON '
             '{"summary":"...","updates":[{"task_id":integer|null,"progress":"...","status":string|null,'
@@ -264,8 +281,8 @@ def interpret(user, text):
         raw = json.loads(answer)
         # AI output is untrusted; an invalid match becomes unmatched work.
         return normalize(user, raw)
-    except (PulsarError, ValueError, TypeError):
-        return {'summary': text, 'updates': [], 'unmatched_work': text}
+    except (PulsarError, ValueError, TypeError, json.JSONDecodeError):
+        return _safe_report_fallback(user, text)
 
 
 def propose(user, text, *, source='platform', source_key=None, supersedes=None, report_date=None):
