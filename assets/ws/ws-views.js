@@ -279,6 +279,25 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     if (previousFocus?.isConnected && typeof previousFocus.focus === 'function') previousFocus.focus();
   }
 
+  function taskMutationFeedback(message, error = false) {
+    const toast = el('div', 'v-note', message);
+    toast.setAttribute('role', error ? 'alert' : 'status');
+    toast.style.cssText = [
+      'position:fixed', 'right:18px', 'bottom:22px', 'z-index:10010',
+      'max-width:360px', 'padding:12px 16px', 'border-radius:12px',
+      'background:var(--surface, #0a2331)', 'color:var(--text, #f1f8fc)',
+      'box-shadow:0 6px 28px #0008', 'border:1px solid #608097',
+    ].join(';');
+    document.body.append(toast);
+    return {
+      show(value, failed = false) {
+        toast.textContent = value;
+        toast.setAttribute('role', failed ? 'alert' : 'status');
+        window.setTimeout(() => toast.remove(), failed ? 9000 : 2700);
+      },
+    };
+  }
+
   function makeDialog(title) {
     const dialog = el('div', 'task-card-dialog');
     dialog.setAttribute('role', 'dialog');
@@ -1130,13 +1149,26 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         const remove = makeButton('Delete task', async () => {
           if (!confirm(`Delete “${task.title}”? This cannot be undone.`)) return;
           remove.disabled = true;
+          // Remove the visible card immediately. Only commit "Deleted" after
+          // the server confirms; a rejection restores the exact previous card.
+          const undo = reloadBoard?.applyMutation?.({ type: 'delete', id: task.id });
+          closeDialog(dialog);
+          const feedback = taskMutationFeedback('Deleting task…', true);
           try {
             await P.deleteOperatingTaskCard(task.id);
-            closeDialog(dialog);
-            await reloadBoard();
+            feedback.show('Task deleted.');
+            if (!reloadBoard?.applyMutation) {
+              void Promise.resolve().then(() => reloadBoard?.({ keepDialog: true }))
+                .catch(error => console.warn('Background task list refresh failed', error));
+            }
           } catch (error) {
-            remove.disabled = false;
-            alert(error?.data?.error || error?.message || 'Task could not be deleted.');
+            undo?.();
+            feedback.show('Delete failed. The task was restored.', true);
+            // Keep the original unsaved fields safe: reopen from the server.
+            if (!document.querySelector(`.task-card-dialog[data-task-id="${task.id}"]`)) {
+              void openTaskDialog(task.id, state, reloadBoard);
+            }
+            console.error('Task delete failed', error);
           }
         });
         remove.classList.add('ws-btn--danger');
@@ -1460,8 +1492,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (save.disabled) return;
         save.disabled = true;
         note.textContent = 'Saving…';
+        note.setAttribute('role', 'status');
         const payload = {
           title: title.value.trim(),
           description: description.value.trim(),
@@ -1476,20 +1510,29 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           if (changedRelations.has(name))
             payload[name] = control.value ? Number(control.value) : null;
         }
+        // Update the existing card locally: no full task-board fetch and
+        // redraw round trip is needed just to reflect one field change.
+        const selectedOwner = (detailData.members || state.members || []).find(
+          row => Number(row.id) === payload.owner_id);
+        const patch = {
+          ...payload,
+          ...(selectedOwner ? { owner: selectedOwner } : {}),
+        };
+        const undo = reloadBoard?.applyMutation?.({ type: 'update', id: task.id, patch });
         try {
           const result = await P.updateOperatingTaskCard(task.id, payload);
-          // The PATCH has completed: board refresh is secondary and must not
-          // leave the editor in a perpetual "Saving…" state if it stalls.
           note.textContent = 'Saved.';
           title.value = result.task.title;
-          save.disabled = false;
-          Promise.resolve().then(() => reloadBoard({ keepDialog: true })).catch((error) => {
-            if (note.isConnected) {
-              note.textContent = 'Saved. Board refresh failed; reload to see the latest data.';
-            }
-            console.error('Task board refresh failed after successful save', error);
-          });
+          Object.assign(task, result.task);
+          head.querySelector('h2').textContent = 'Task #' + task.id;
+          // Other views have no local Core task board; update them in the
+          // background, never block this confirmed save on a full refresh.
+          if (!reloadBoard?.applyMutation) {
+            void Promise.resolve().then(() => reloadBoard?.({ keepDialog: true }))
+              .catch(error => console.warn('Background task refresh failed', error));
+          }
         } catch (error) {
+          undo?.();
           if (error?.code === 'request_timeout') {
             note.textContent = 'Checking whether your change was saved…';
             try {
@@ -2192,6 +2235,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     // workspace falls back to everyone rather than to an empty board.
     let filters = { q: '', owner: null, priority: '', sort: 'manual', view: 'board' };
     let deepLinkedTaskOpened = false;
+    let applyLocalMutation = null;
     // Deep-link cards are independent of the full, potentially large board.
     // Open the requested card immediately instead of waiting for board GET,
     // filters, Nextcloud Deck widgets and all board rendering to finish.
@@ -2201,8 +2245,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       deepLinkedTaskOpened = true;
       // Start the card's detail GET *before* the large board GET starts.
       // Its refresh callback runs only after the board loader is initialized.
+      const linkedBoardRefresh = (options = {}) => load({ ...options, keepDialog: true });
+      linkedBoardRefresh.applyMutation = mutation => applyLocalMutation?.(mutation);
       void openTaskDialog(deepLinkTaskId, () => P.operatingTaskDependencies(),
-        () => load({ keepDialog: true }))
+        linkedBoardRefresh)
         .catch(error => console.error('Could not open linked task', error));
     }
 
@@ -2488,6 +2534,41 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       sortFilter.addEventListener('change', draw);
       viewFilter.addEventListener('change', draw);
       draw();
+
+      // The board data/renderer are already in memory. Apply one task's
+      // change instantly and return an undo function if the API rejects it.
+      const updateCounters = () => {
+        const counters = holder.querySelectorAll('.v-stat__value');
+        const tasks = data.tasks;
+        [tasks.filter(t => !['done', 'archived'].includes(t.status)).length,
+         tasks.filter(t => t.status === 'draft').length,
+         tasks.filter(t => t.status === 'blocked').length,
+         tasks.filter(t => t.status === 'done').length]
+          .forEach((value, i) => { if (counters[i]) counters[i].textContent = String(value); });
+      };
+      applyLocalMutation = ({ type, id, patch = {} }) => {
+        const index = data.tasks.findIndex(task => Number(task.id) === Number(id));
+        if (index < 0) return null;
+        const previous = data.tasks[index];
+        if (type === 'delete') data.tasks.splice(index, 1);
+        else if (type === 'update') data.tasks[index] = { ...previous, ...patch };
+        else return null;
+        updateCounters();
+        draw();
+        return () => {
+          // Do not overwrite a newer board snapshot if navigation occurred.
+          if (state !== data) return;
+          if (type === 'delete' && !data.tasks.some(task => Number(task.id) === Number(id))) {
+            data.tasks.splice(Math.min(index, data.tasks.length), 0, previous);
+          } else if (type === 'update') {
+            const current = data.tasks.findIndex(task => Number(task.id) === Number(id));
+            if (current >= 0) data.tasks[current] = previous;
+          }
+          updateCounters();
+          draw();
+        };
+      };
+      load.applyMutation = mutation => applyLocalMutation?.(mutation);
 
       if (!deepLinkedTaskOpened) {
         deepLinkedTaskOpened = true;
