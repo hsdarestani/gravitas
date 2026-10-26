@@ -48,13 +48,28 @@ jobs:
           fi
           ssh "${OPTS[@]}" "$USER@$SSH_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          echo "Checking production backend service"
+          echo "Checking local Django and HTTPS upstream health"
           sudo -n systemctl daemon-reload
-          if ! sudo -n systemctl is-active --quiet gravitas-backend.service; then
-            echo "Backend inactive: starting service"
-            sudo -n systemctl reset-failed gravitas-backend.service || true
-            sudo -n systemctl start gravitas-backend.service
+          local_ok() {
+            curl --silent --show-error --fail --max-time 5 \
+              -H "X-Forwarded-Proto: https" http://127.0.0.1:8000/api/health/ \
+              2>/dev/null | grep -q '"status": "ok"'
+          }
+          proxy_ok() {
+            curl --silent --show-error --fail --max-time 8 \
+              --resolve graviquest.com:443:127.0.0.1 \
+              https://graviquest.com/api/health/ 2>/dev/null | grep -q '"status": "ok"'
+          }
+          if sudo -n systemctl is-active --quiet gravitas-backend.service \
+             && local_ok && proxy_ok; then
+            echo "Backend and HTTPS upstream already healthy; no restart needed"
+            exit 0
           fi
+          echo "Unhealthy backend or proxy detected; applying bounded recovery"
+          sudo -n systemctl show gravitas-backend.service \
+            -p ActiveState -p SubState -p NRestarts -p MainPID --no-pager
+          sudo -n systemctl reset-failed gravitas-backend.service || true
+          sudo -n systemctl restart gravitas-backend.service
           sudo -n systemctl enable gravitas-backend.service >/dev/null
           sudo -n systemctl is-active --quiet gravitas-backend.service
           for attempt in 1 2 3 4 5 6 7 8; do
@@ -68,11 +83,14 @@ jobs:
             fi
             sleep 3
           done
-          if ! curl --silent --show-error --fail --max-time 10 \
-            --resolve graviquest.com:443:127.0.0.1 \
-            https://graviquest.com/api/health/ | grep -q '"status": "ok"'; then
-            echo "Nginx end-to-end health failed" >&2
-            exit 1
+          if ! proxy_ok; then
+            echo "Backend local health is OK but HTTPS upstream is unhealthy"
+            sudo -n nginx -t
+            sudo -n systemctl reload nginx.service
+            if ! proxy_ok; then
+              echo "Nginx end-to-end health failed after reload" >&2
+              exit 1
+            fi
           fi
           echo "Backend systemd active, localhost Django and Nginx HTTPS health both OK"
           REMOTE
