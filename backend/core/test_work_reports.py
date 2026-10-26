@@ -553,6 +553,37 @@ class DailyWorkReportTests(TestCase):
         self.assertEqual(ActivityEvent.objects.filter(
             action='task.daily_report', object_id=str(shared.pk)).count(), 1)
 
+
+    def test_one_tap_match_requires_new_confirmation_and_remains_idempotent(self):
+        from .telegram_work_reports import preview
+        with patch('core.work_reports.interpret', return_value={
+            'summary': 'Retested lesson',
+            'updates': [{'task_id': None, 'title': 'LMS acceptance retest',
+                         'progress': 'Retested lessons'}],
+        }):
+            message = handle_report_message(self.user, '/report LMS acceptance retest',
+                                            source_key='tg:choose-match')
+        report = DailyWorkReport.objects.get()
+        rows = message[0]['reply_markup']['inline_keyboard']
+        match = next(row[0]['callback_data'] for row in rows
+                     if row[0]['callback_data'].startswith('wr:m:'))
+        confirm_old = rows[-1][0]['callback_data']
+        self.assertIn('not found', handle_report_callback(self.other, match)[0]['text'])
+        selected = handle_report_callback(self.user, match)
+        report.refresh_from_db()
+        self.assertEqual(report.status, 'pending')
+        self.assertEqual(report.revision, 2)
+        self.assertEqual(report.interpretation['updates'][0]['task_id'], self.task.pk)
+        self.assertIsNone(report.interpretation['updates'][0]['status'])
+        self.assertIn('stale', handle_report_callback(self.user, confirm_old)[0]['text'])
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'active')
+        confirm_new = selected[0]['reply_markup']['inline_keyboard'][-1][0]['callback_data']
+        handle_report_callback(self.user, confirm_new)
+        handle_report_callback(self.user, confirm_new)
+        self.assertEqual(ActivityEvent.objects.filter(action='task.daily_report').count(), 1)
+        self.assertTrue(report.tasks.filter(pk=self.task.pk).exists())
+
     def test_ai_unavailable_keeps_itemized_nonmutating_report(self):
         with patch('core.work_reports.configured', return_value=False):
             report = propose(self.user, '- LMS acceptance retest\n- Research workflow',
