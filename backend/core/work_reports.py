@@ -373,8 +373,7 @@ def decide(user, report_id, revision, action, interpretation=None):
                 task.blocked_reason = ''
             # A progress-only report belongs in activity history; do not touch
             # the task revision or trigger canonical project writes unnecessarily.
-            if update.get('status') or update.get('blocker') or (
-                    update.get('status') and before in {'blocked', 'waiting'}):
+            if update.get('status') or update.get('blocker'):
                 task.save()
             report.tasks.add(task)
             record_activity(layer=ActivityEvent.Layer.CORE, action='task.daily_report', actor=user,
