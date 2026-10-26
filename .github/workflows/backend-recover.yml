@@ -53,6 +53,18 @@ jobs:
           ssh "${OPTS[@]}" "$USER@$SSH_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           echo "Incident task716: checking local Django and HTTPS upstream health"
+          echo "Pre-recovery backend / watchdog systemd state:"
+          sudo -n systemctl show gravitas-backend.service \
+            -p ActiveState -p SubState -p Result -p ExecMainStatus \
+            -p ActiveEnterTimestamp -p InactiveEnterTimestamp -p NRestarts --no-pager
+          sudo -n systemctl show gravitas-backend-health-watch.timer \
+            -p ActiveState -p SubState -p NextElapseUSecRealtime --no-pager || true
+          echo "Sanitized backend lifecycle journal counters from last 45m:"
+          sudo -n journalctl -u gravitas-backend.service --since '45 minutes ago' --no-pager -o cat |
+            python3 -c 'import sys,collections; needles=("stopping","stopped","starting","started","exited","sigterm","sigkill","worker timeout","worker failed","shutting down","handling signal","oom","out of memory","reloading","shutdown","failed"); c=collections.Counter(); [c.update([n for n in needles if n in line.lower()]) for line in sys.stdin]; print(dict(c))'
+          echo "Sanitized health-watch journal counters from last 45m:"
+          sudo -n journalctl -u gravitas-backend-health-watch.service --since '45 minutes ago' --no-pager -o cat |
+            python3 -c 'import sys,collections; needles=("stopping","stopped","starting","started","failed","restart","recovery","timeout","inactive","active"); c=collections.Counter(); [c.update([n for n in needles if n in line.lower()]) for line in sys.stdin]; print(dict(c))'
           # Install a host-local watchdog: GitHub scheduled workflows are not
           # guaranteed to run on time, so production must self-heal on host.
           # The checkpoint owns a private flock while deliberately pausing
