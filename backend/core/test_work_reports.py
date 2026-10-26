@@ -598,6 +598,24 @@ class DailyWorkReportTests(TestCase):
         self.assertEqual(report.interpretation['updates'][0]['candidates'][0]['id'], self.task.pk)
         self.assertEqual(report.interpretation['unmatched_work'], '')
 
+
+    def test_progress_only_confirmation_records_history_without_task_revision_change(self):
+        self.task.refresh_from_db()
+        before = self.task.updated_at
+        with patch('core.work_reports.interpret', return_value={
+            'summary': 'A research note',
+            'updates': [{'task_id': self.task.pk, 'progress': 'Reviewed results',
+                         'status': None, 'blocker': '', 'deliverable': ''}],
+        }):
+            report = propose(self.user, 'Reviewed results', source_key='progress-only')
+        decide(self.user, report.pk, report.revision, 'confirm')
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'active')
+        self.assertEqual(self.task.updated_at, before)
+        self.assertTrue(report.tasks.filter(pk=self.task.pk).exists())
+        self.assertEqual(ActivityEvent.objects.filter(
+            action='task.daily_report', object_id=str(self.task.pk)).count(), 1)
+
     def test_ai_unavailable_keeps_itemized_nonmutating_report(self):
         with patch('core.work_reports.configured', return_value=False):
             report = propose(self.user, '- LMS acceptance retest\n- Research workflow',
