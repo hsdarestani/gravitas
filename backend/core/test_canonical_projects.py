@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.db import transaction
 from . import cloud
-from .canonical_models import CanonicalProject, CanonicalFile, CanonicalFileRevision
+from .canonical_models import CanonicalProject, CanonicalFile, CanonicalFileRevision, CanonicalTaskSyncOutbox
 from .canonical_projects import adopt_project, decode, encode, export_object, refresh_project, merge_text, CanonicalConflict, relative_path, suppress
 from .models import ResearchProject, KnowledgeResource, ProjectMembership
 from .platform_runtime_v3 import ensure_platform_workspaces
@@ -172,17 +172,70 @@ class CanonicalProjectTests(TestCase):
         self.assertEqual(profile.requested_plugins, ['Microscope viewer'])
         self.assertEqual(self.dav.files, original)
 
-    def test_snapshot_query_cannot_bypass_task_write_boundary(self):
+    def test_task_patch_commits_locally_and_enqueues_without_dav_refresh(self):
         from .operating_models import OperatingTask
-        with transaction.atomic():
-            task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'], project=self.project, owner=self.owner, title='Real task', definition_of_done='Saved task')
+        task = OperatingTask.objects.create(
+            workspace=ensure_platform_workspaces(self.owner)['core'],
+            project=self.project, owner=self.owner, title='Real task',
+            definition_of_done='Saved task',
+        )
         self.adopt()
-        with patch('core.canonical_middleware.refresh_task_scope') as refresh:
-            response = self.client.patch(f'/api/operating/task-board/{task.pk}/?read_mode=snapshot', data=json.dumps({'title': 'Edited task'}), content_type='application/json')
+        native_path = self.full(relative_path(task))
+        original_native = self.dav.files[native_path]['content']
+        with patch('core.canonical_middleware.refresh_task_scope',
+                   side_effect=AssertionError('Sync must not block HTTP')), \
+             patch('core.canonical_projects.export_object',
+                   side_effect=AssertionError('DAV must not run in PATCH')):
+            response = self.client.patch(
+                f'/api/operating/task-board/{task.pk}/?read_mode=snapshot',
+                data=json.dumps({'title': 'Edited task'}), content_type='application/json',
+            )
         self.assertEqual(response.status_code, 200, response.content)
-        refresh.assert_called_once()
+        self.assertEqual(response['X-Canonical-Sync'], 'pending')
+        self.assertIn('task_write;dur=', response['Server-Timing'])
         task.refresh_from_db()
         self.assertEqual(task.title, 'Edited task')
+        self.assertEqual(self.dav.files[native_path]['content'], original_native)
+        job = CanonicalTaskSyncOutbox.objects.get(task_id=task.pk)
+        self.assertEqual(job.state, 'pending')
+        self.assertEqual(job.generation, 1)
+
+        from .canonical_task_outbox import process_task_sync_outbox
+        result = process_task_sync_outbox()
+        self.assertEqual(result['synced'], 1)
+        self.assertFalse(CanonicalTaskSyncOutbox.objects.filter(task_id=task.pk).exists())
+        self.assertIn('Edited task', self.dav.files[native_path]['content'])
+
+    def test_second_task_patch_is_not_lost_and_native_conflict_is_preserved(self):
+        from .operating_models import OperatingTask
+        from .canonical_task_outbox import process_task_sync_outbox
+        task = OperatingTask.objects.create(
+            workspace=ensure_platform_workspaces(self.owner)['core'],
+            project=self.project, owner=self.owner, title='Draft task',
+            definition_of_done='Saved task',
+        )
+        self.adopt()
+        url = f'/api/operating/task-board/{task.pk}/'
+        for new_title in ('First edit', 'Second edit'):
+            response = self.client.patch(
+                url, data=json.dumps({'title': new_title}), content_type='application/json')
+            self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(CanonicalTaskSyncOutbox.objects.get(task_id=task.pk).generation, 2)
+        result = process_task_sync_outbox()
+        self.assertEqual(result['synced'], 1)
+        self.assertIn('Second edit', self.dav.files[self.full(relative_path(task))]['content'])
+        # An external native edit is never overwritten by the deferred worker.
+        response = self.client.patch(
+            url, data=json.dumps({'title': 'Third edit'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        path = self.full(relative_path(task))
+        remote = self.dav.files[path]['content'].replace('Second edit', 'External edit')
+        self.dav.external(path, remote)
+        result = process_task_sync_outbox()
+        self.assertEqual(result['conflict'], 1)
+        self.assertIn('External edit', self.dav.files[path]['content'])
+        self.assertEqual(CanonicalTaskSyncOutbox.objects.get(task_id=task.pk).state, 'conflict')
+        self.assertEqual(OperatingTask.objects.get(pk=task.pk).title, 'Third edit')
 
     def test_missing_cached_native_identity_is_refreshed_without_a_content_revision(self):
         self.adopt()
@@ -526,6 +579,12 @@ class CanonicalProjectTests(TestCase):
             json.dumps({'priority':'p1'}),content_type='application/json')
         self.assertEqual(response.status_code,200,response.content)
         task.refresh_from_db()
+        self.assertEqual(response.json()['canonical_sync'], 'pending')
+        # The HTTP request commits the DB only. The scheduled worker brings
+        # the native file up to date without crawling unrelated Notes.
+        from .canonical_task_outbox import process_task_sync_outbox
+        processed = process_task_sync_outbox()
+        self.assertEqual(processed['synced'], 1)
         native=json.loads(self.dav.files[self.full(relative_path(task))]['content'])
         self.note.refresh_from_db()
         self.assertEqual(self.note.body,original_note_body)

@@ -86,7 +86,7 @@ def _committed_task_snapshot_read(request):
     return bool(
         re.fullmatch(r'/api/operating/task-board/\d+/', path)
         or re.fullmatch(
-            r'/api/operating/tasks/\d+/(?:history|comments|attachments|checklist)/'
+            r'/api/operating/tasks/\d+/(?:history|comments|attachments|checklist|external-links)/'
             r'(?:\d+/(?:download/)?)?', path,
         )
         or re.fullmatch(r'/api/calendar/google/tasks/\d+/status/', path)
@@ -190,6 +190,76 @@ class CanonicalProjectMiddleware:
             native_listing = re.fullmatch(r'/api/platform/projects/\d+/structure/', request.path)
             if cockpit_snapshot or native_listing:
                 return None
+        # Task form PATCHes must acknowledge a *durably committed database write*
+        # without holding the HTTP request open for Nextcloud/WebDAV.
+        # Only this isolated field-edit operation is queued; changing a task's
+        # project still uses the strict synchronous canonical boundary.
+        if (request.method == 'PATCH' and
+                re.fullmatch(r'/api/operating/task-board/\d+/', request.path)):
+            from .operating_models import OperatingTask
+            from .canonical_models import CanonicalTaskSyncOutbox
+            from django.db.models import F
+            from django.utils import timezone
+            import json
+            import time
+
+            task_id = view_kwargs.get('task_id')
+            source_project_id = OperatingTask.objects.filter(pk=task_id).values_list('project_id', flat=True).first()
+            if source_project_id and CanonicalProject.objects.filter(
+                    project_id=source_project_id, enabled=True).exists():
+                try:
+                    incoming = json.loads(request.body or b'{}')
+                except (ValueError, UnicodeDecodeError):
+                    incoming = {}
+                if not isinstance(incoming, dict):
+                    incoming = {}
+                if 'project_id' not in incoming:
+                    started = time.monotonic()
+                    with transaction.atomic():
+                        pending = []
+                        token = _pending.set(pending)
+                        try:
+                            response = view_func(request, *view_args, **view_kwargs)
+                            if response.status_code >= 400:
+                                transaction.set_rollback(True)
+                            else:
+                                # Do not queue unknown canonical writes: only the
+                                # named task's own save is covered by this boundary.
+                                unexpected = [
+                                    item for item in pending
+                                    if item[0] != 'save' or
+                                       item[1].__name__ != 'OperatingTask' or
+                                       item[2] != task_id
+                                ]
+                                if unexpected:
+                                    transaction.set_rollback(True)
+                                    return JsonResponse({'ok': False, 'error': 'unsupported_canonical_task_edit'}, status=409)
+                                CanonicalTaskSyncOutbox.objects.get_or_create(
+                                    project_id=source_project_id, task_id=task_id,
+                                    defaults={'next_attempt_at': timezone.now()},
+                                )
+                                CanonicalTaskSyncOutbox.objects.filter(
+                                    project_id=source_project_id, task_id=task_id,
+                                ).update(
+                                    generation=F('generation') + 1,
+                                    next_attempt_at=timezone.now(),
+                                    state='pending',
+                                    last_error='',
+                                    attempts=0,
+                                )
+                                response['X-Canonical-Sync'] = 'pending'
+                                # Distinguish confirmed database persistence from
+                                # an asynchronously pending native file revision.
+                                if response.get('Content-Type', '').startswith('application/json'):
+                                    body = json.loads(response.content)
+                                    body['canonical_sync'] = 'pending'
+                                    response.content = json.dumps(body)
+                                response['Server-Timing'] = (
+                                    'task_write;dur=%.1f' % ((time.monotonic() - started) * 1000)
+                                )
+                            return response
+                        finally:
+                            _pending.reset(token)
         project_ids = project_scope_for(request, view_kwargs)
         if not project_ids and request.method in ('GET', 'HEAD', 'OPTIONS'):
             # A global list is a database snapshot, not an implicit full

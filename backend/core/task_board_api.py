@@ -509,6 +509,13 @@ def task_board_detail(request, task_id):
 
     if request.method == 'GET':
         task_data = _task_json(task)
+        # Status of the last local commit, not a claim that native sync finished.
+        from .canonical_models import CanonicalTaskSyncOutbox
+        task_data['canonical_sync'] = (
+            CanonicalTaskSyncOutbox.objects.filter(
+                project_id=task.project_id, task_id=task.pk,
+            ).values_list('state', flat=True).first() if task.project_id else None
+        )
         task_data['consolidated_into_id'] = (
             canonical_id(task.pk) if canonical_id(task.pk) != task.pk else None)
         task_data['consolidated_sources'] = [

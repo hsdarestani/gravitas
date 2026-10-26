@@ -8,7 +8,7 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1&patch=20261026taskwrite1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
@@ -1478,6 +1478,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }
       };
 
+      if (task.canonical_sync === 'pending') {
+        note.textContent = 'Saved in GraviQuest. Nextcloud synchronization pending.';
+      } else if (task.canonical_sync === 'conflict') {
+        note.textContent = 'Saved in GraviQuest, but the Nextcloud file changed. Sync needs conflict review.';
+        note.setAttribute('role', 'alert');
+      }
       form.append(
         familyPath,
         titleField,
@@ -1521,7 +1527,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         const undo = reloadBoard?.applyMutation?.({ type: 'update', id: task.id, patch });
         try {
           const result = await P.updateOperatingTaskCard(task.id, payload);
-          note.textContent = 'Saved.';
+          note.textContent = result.canonical_sync === 'pending'
+            ? 'Saved on server. Nextcloud synchronization queued.'
+            : 'Saved.';
           title.value = result.task.title;
           Object.assign(task, result.task);
           head.querySelector('h2').textContent = 'Task #' + task.id;

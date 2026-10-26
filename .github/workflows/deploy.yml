@@ -390,6 +390,42 @@ jobs:
           EOF
           $SUDO mv /tmp/gravitas-task-notifications.timer /etc/systemd/system/gravitas-task-notifications.timer
 
+          cat > /tmp/gravitas-canonical-task-sync.service <<EOF
+          [Unit]
+          Description=Reconcile committed Core task edits with canonical Nextcloud
+          After=network-online.target postgresql.service
+          Wants=network-online.target
+          Requires=postgresql.service
+
+          [Service]
+          Type=oneshot
+          User=gravitas
+          Group=gravitas
+          WorkingDirectory=$BACKEND_PATH
+          EnvironmentFile=/etc/gravitas/backend.env
+          Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          Environment=PYTHONPATH=$BACKEND_PATH
+          ExecStart=$BACKEND_PATH/.venv/bin/django-admin process_canonical_task_sync --limit 5
+          Nice=10
+          TimeoutStartSec=180s
+          EOF
+          $SUDO mv /tmp/gravitas-canonical-task-sync.service /etc/systemd/system/gravitas-canonical-task-sync.service
+
+          cat > /tmp/gravitas-canonical-task-sync.timer <<'EOF'
+          [Unit]
+          Description=Sync committed Core tasks with canonical files
+
+          [Timer]
+          OnBootSec=30s
+          OnUnitInactiveSec=30s
+          Persistent=true
+          Unit=gravitas-canonical-task-sync.service
+
+          [Install]
+          WantedBy=timers.target
+          EOF
+          $SUDO mv /tmp/gravitas-canonical-task-sync.timer /etc/systemd/system/gravitas-canonical-task-sync.timer
+
           cat > /tmp/gravitas-backup.sh <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -733,6 +769,7 @@ jobs:
           fi
           sudo systemctl enable --now gravitas-research-radar.timer
           sudo systemctl enable --now gravitas-task-notifications.timer
+          sudo systemctl enable --now gravitas-canonical-task-sync.timer
           sudo systemctl start gravitas-task-notifications.service || true
           REMOTE
 

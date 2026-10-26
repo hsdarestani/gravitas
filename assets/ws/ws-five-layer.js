@@ -1,5 +1,5 @@
 import { renderWorkReports } from './ws-work-reports.js?v=20261016-task1';
-import * as P from './ws-platform.js?v=20261016-task1&patch=20261026taskwrite1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
 import {
   renderCertificates,
   renderCourse,
@@ -29,7 +29,7 @@ import {
 } from './ws-admin.js?v=20261016-task1';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261016-task1';
 import { renderCoreLinks } from './ws-core-links.js?v=20261016-task1';
-import { renderResearchProject } from './ws-project.js?v=20261016-task1&patch=20261026taskwrite1';
+import { renderResearchProject } from './ws-project.js?v=20261016-task1&patch=20261026canonsave1';
 
 const icon = (name) => window.GravitasIcons?.icon(name, 'g-wi') || '';
 const $ = (selector, root = document) => root.querySelector(selector);
