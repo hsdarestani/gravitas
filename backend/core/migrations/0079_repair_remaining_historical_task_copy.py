@@ -25,7 +25,7 @@ CONTEXTS = [
     (r'domain.*migration|brand.*migration|dns|ssl|redirect.*domain|authentication callbacks',
      "Coordinate domain and application migration across DNS, TLS, public routes, authentication callbacks and downstream integrations.",
      "The required domains and redirects resolve correctly; TLS, login callbacks, API endpoints and external integrations have documented verification results."),
-    (r'authorization|permissions|secure project|access.grant|sso|identity',
+    (r'authorization|permissions?|secure project|access.grant|sso|identity',
      "Validate authorization and identity boundaries for the specified capability without expanding access to unintended users or projects.",
      "Relevant user roles and restricted-access scenarios are tested, including expected denial, authorized access and preserved data."),
     (r'nextcloud|native data synchron|shared files|media.*folders|file.*version',
