@@ -851,11 +851,41 @@ def task_858_creation_incident():
            if re.fullmatch(r"[a-zA-Z0-9_]+\|[a-zA-Z0-9_]+\|\d+",line)][:12] or "unavailable")
 
 
+
+def task_858_failure_trace_signatures():
+    """Sanitized Django traceback frames for recent creation errors (no source text)."""
+    print("=== Recent POST traceback signatures (sanitized) ===")
+    raw = run("sudo", "-n", "journalctl", "-u", "gravitas-backend.service",
+              "--since", "3 hours ago", "--no-pager", "-o", "cat", timeout=30)
+    lines = raw.splitlines()
+    frames = []
+    exceptions = []
+    for line in lines[-24000:]:
+        match = re.search(r'File "[^"]*/(core|gravitas_backend)/([A-Za-z_0-9/]+\\.py)", line (\\d+), in ([A-Za-z_0-9]+)', line)
+        if match:
+            frames.append((match.group(1) + "/" + match.group(2), int(match.group(3)), match.group(4)))
+            frames = frames[-20:]
+        exception = re.search(r'^([A-Za-z_][A-Za-z_0-9.]*(?:Error|Exception|Timeout|RecoveryRequired)):', line.strip())
+        if exception:
+            exceptions.append((exception.group(1)[:80], frames[-8:]))
+            frames = []
+    for name, stack in exceptions[-10:]:
+        print("safe_exception_stack", name, stack)
+    if not exceptions:
+        print("safe_exception_stack none")
+    sql = ("SELECT COUNT(*) FILTER (WHERE state='pending'), "
+           "COUNT(*) FILTER (WHERE state='conflict') "
+           "FROM core_canonicaltasksyncoutbox")
+    raw_count = run("sudo","-n","-u","postgres","psql","-d","gravitas",
+                    "-X","-A","-t","-F","|","-c",sql,timeout=8)
+    print("native_task_sync_pending_conflict", raw_count.strip() if re.fullmatch(r"\\d+\\|\\d+",raw_count.strip()) else "unavailable")
+
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     canonical_task_sync_runtime()
     task_1090_write_incident()
     task_858_creation_incident()
+    task_858_failure_trace_signatures()
     php_runtime_security()
     health()
     web_status()
