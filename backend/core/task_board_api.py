@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -284,6 +285,99 @@ def _choices(request, workspace, *, include_legacy=True):
     }
 
 
+
+def _validated_create_key(value):
+    """Canonical UUID; malformed tokens cannot be used to locate old tasks."""
+    try:
+        return str(uuid.UUID(str(value)))
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def _create_board_task(request, workspace):
+    """Serialize duplicate subtask submissions on the parent DB row.
+
+    A browser may time out while the server finishes the POST. Retry the same
+    client_create_id safely: under the parent row lock the first creator wins,
+    subsequent requests return its saved task and never trigger notifications
+    or a second child. No source_key (import provenance) is repurposed.
+    """
+    try:
+        body = json.loads(request.body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return _error('invalid_json')
+    if not isinstance(body, dict):
+        return _error('invalid_json')
+
+    raw_key = body.get('client_create_id')
+    request_id = _validated_create_key(raw_key) if raw_key else None
+    if raw_key and not request_id:
+        return _error('invalid_creation_request_id')
+    parent_id = body.get('parent_id')
+    idempotent = bool(request_id and str(parent_id or '').isdecimal())
+    content = {key: value for key, value in body.items() if key != 'client_create_id'}
+    fingerprint = hashlib.sha256(
+        json.dumps(content, sort_keys=True, default=str).encode('utf-8')
+    ).hexdigest()
+
+    def do_create():
+        response = v4.tasks(request)
+        if response.status_code != 201:
+            return response
+        data = json.loads(response.content.decode('utf-8'))
+        task_id = (data.get('task') or {}).get('id')
+        task = OperatingTask.objects.filter(pk=task_id, workspace=workspace).first()
+        if task:
+            if idempotent:
+                metadata = dict(task.source_metadata or {})
+                metadata.update({
+                    'client_create_id': request_id,
+                    'client_create_actor': request.user.pk,
+                    'client_create_fingerprint': fingerprint,
+                })
+                OperatingTask.objects.filter(pk=task.pk).update(source_metadata=metadata)
+            lane_max = (
+                OperatingTask.objects.filter(workspace=workspace, status=task.status)
+                .exclude(pk=task.pk)
+                .order_by('-board_order')
+                .values_list('board_order', flat=True)
+                .first()
+            ) or 0
+            # The task was already validated on INSERT. Updating board_order
+            # through save() needlessly walks its whole parent hierarchy again.
+            OperatingTask.objects.filter(pk=task.pk).update(
+                board_order=lane_max + 100, updated_at=timezone.now())
+            _log(request, task, 'task.created', {'status': task.status})
+        return response
+
+    if not idempotent:
+        return do_create()
+
+    # The lock is transaction-scoped. Concurrent retries cannot both create
+    # children and it works across gunicorn workers / container restarts.
+    with transaction.atomic():
+        parent = (OperatingTask.objects.select_for_update()
+                  .filter(pk=int(parent_id), workspace=workspace).first())
+        if parent is None:
+            return _error('parent_not_found', 404)
+        prior = (
+            OperatingTask.objects.filter(
+                workspace=workspace, parent_id=parent.pk,
+                source_metadata__client_create_id=request_id,
+                source_metadata__client_create_actor=request.user.pk,
+            ).select_related(
+                'owner', 'initiative__process', 'initiative__key_result__objective',
+                'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
+            ).first()
+        )
+        if prior:
+            if (prior.source_metadata or {}).get('client_create_fingerprint') != fingerprint:
+                return _error('creation_request_payload_mismatch', 409)
+            return JsonResponse({'ok': True, 'task': _task_json(prior),
+                                 'replayed': True}, status=200)
+        return do_create()
+
+
 @require_http_methods(['GET', 'POST'])
 def task_board(request):
     if not request.user.is_authenticated:
@@ -295,23 +389,35 @@ def task_board(request):
     if request.method == 'POST':
         if not base._editable(request, workspace):
             return _error('permission_denied', 403)
-        response = v4.tasks(request)
-        if response.status_code == 201:
-            payload = json.loads(response.content.decode('utf-8'))
-            task_id = (payload.get('task') or {}).get('id')
-            task = OperatingTask.objects.filter(pk=task_id, workspace=workspace).first()
-            if task:
-                lane_max = (
-                    OperatingTask.objects.filter(workspace=workspace, status=task.status)
-                    .exclude(pk=task.pk)
-                    .order_by('-board_order')
-                    .values_list('board_order', flat=True)
-                    .first()
-                ) or 0
-                task.board_order = lane_max + 100
-                task.save(update_fields=['board_order', 'updated_at'])
-                _log(request, task, 'task.created', {'status': task.status})
-        return response
+        started = time.perf_counter()
+        try:
+            return _create_board_task(request, workspace)
+        finally:
+            elapsed = round((time.perf_counter() - started) * 1000)
+            if elapsed >= 750:
+                logging.getLogger(__name__).warning(
+                    'Slow task create duration_ms=%s', elapsed,
+                )
+
+    # Resolve uncertain POST confirmations without loading the entire board.
+    # Only the original authenticated creator can look up their request key.
+    if request.GET.get('mode') == 'create-status':
+        request_id = _validated_create_key(request.GET.get('client_request_id'))
+        parent_id = request.GET.get('parent_id')
+        if not request_id or not str(parent_id or '').isdecimal():
+            return _error('invalid_creation_lookup')
+        task = (
+            OperatingTask.objects.filter(
+                workspace=workspace, parent_id=parent_id,
+                source_metadata__client_create_id=request_id,
+                source_metadata__client_create_actor=request.user.pk,
+            ).select_related(
+                'owner', 'initiative__process', 'initiative__key_result__objective',
+                'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
+            ).first()
+        )
+        return JsonResponse({'ok': True, 'created': bool(task),
+                             'task': _task_json(task) if task else None})
 
     # A task opened from Projects, a notification, or the dock only needs
     # dependency names; loading the entire rich board delayed every popup.
