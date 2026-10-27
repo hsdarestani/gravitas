@@ -133,6 +133,21 @@ class AssistantApiTests(TestCase):
         context.assert_not_called()
         model.assert_not_called()
 
+    @patch('core.assistant_api.PulsarContextEngine')
+    @patch('core.assistant_api.run_text')
+    def test_autoresearch_name_links_only_to_project_223(self, model, context):
+        response = self.client.post(
+            '/api/platform/ai/ask/',
+            json.dumps({'question': 'where is AutoResearch'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()
+        self.assertEqual(payload['intent'], 'navigation')
+        self.assertEqual(payload['sources'][0]['href'], '/workspace/research/projects/223/autoresearch#research-intelligence-title')
+        context.assert_not_called()
+        model.assert_not_called()
+
     @patch('core.assistant_api.run_text')
     @patch('core.assistant_api.configured', return_value=True)
     def test_pulsar_limits_generic_answers_and_source_links(self, configured, model):
