@@ -77,7 +77,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     catch(e) { notice.textContent = 'Work-time summary unavailable: '+e.message; }
     try { const plans=await P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot'); scheduleMap=new Map(plans.schedules.map(x=>[Number(x.task_id),x])); }
     catch(e){notice.textContent='Gantt schedule unavailable: '+e.message;}
-    paint();
+    paint({ preserveFilters: true });
   }
   const notice = node('p', 'pm-note', 'All views use the same project tasks; Nextcloud remains the source for adopted projects.');
   const heading = node('div', 'pm-head');
@@ -191,8 +191,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     (!current.priority || t.priority === current.priority) &&
     (!current.onlyOverdue || overdue(t,today)));
 
-  function paint() {
-    stat.replaceChildren(); views.replaceChildren(); filters.replaceChildren(); body.replaceChildren();
+  function paint({ preserveFilters = false } = {}) {
+    stat.replaceChildren(); views.replaceChildren(); body.replaceChildren();
+    if (!preserveFilters) filters.replaceChildren();
     const n = filtered();
     [
       ['Total', n.length], ['Open', n.filter(x=>!done(x)).length],
@@ -206,8 +207,11 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       const b=btn(mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint();});
       b.setAttribute('aria-pressed',String(current.view===mode));views.append(b);
     });
+    if (!preserveFilters) {
     const search=control('input','search','Search tasks');search.value=current.text;
-    search.addEventListener('input',()=>{current.text=search.value;paint(); const fresh=filters.querySelector('input');fresh?.focus();fresh?.setSelectionRange(current.text.length,current.text.length);});
+    // Do not destroy the focused search control on each keystroke: that
+    // caused layout jumps, lost selection and unnecessary full filter builds.
+    search.addEventListener('input',()=>{current.text=search.value;paint({ preserveFilters: true });});
     const status=control('select'),own=control('select'), pr=control('select');
     [['','All statuses'],...statusNames].forEach(([value,label])=>{const o=node('option','',label);o.value=value;status.append(o);});
     [['','All owners'],...members.map(m=>[String(m.user_id),m.name])].forEach(([value,label])=>{const o=node('option','',label);o.value=value;own.append(o);});
@@ -216,6 +220,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     status.onchange=()=>{current.status=status.value;paint();};own.onchange=()=>{current.owner=own.value;paint();};pr.onchange=()=>{current.priority=pr.value;paint();};
     const overdueOnly=btn(current.onlyOverdue?'Overdue only ✓':'Overdue only',()=>{current.onlyOverdue=!current.onlyOverdue;paint();});overdueOnly.setAttribute('aria-pressed',String(current.onlyOverdue));
     filters.append(search,status,own,pr,overdueOnly);
+    }
     if(current.view==='board'){
       const cols=node('div','pm-columns');
       [['Backlog','draft',x=>x.status==='draft'],['Doing','active',x=>['active','ready'].includes(x.status)],['Waiting / review','needs_review',x=>['waiting','needs_review','retest','blocked'].includes(x.status)],['Done','done',done]].forEach(([label,target,test])=>{
