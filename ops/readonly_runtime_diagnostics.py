@@ -916,6 +916,23 @@ def task_858_integrity_details():
          if re.fullmatch(r"[01]([|][01]){6}",row)][:1] or "unavailable")
 
 
+
+def unscheduled_subtask_constraint_live():
+    """Read-only verification: migration and PostgreSQL check on production."""
+    print("=== Live unscheduled-subtask constraint acceptance ===")
+    for label, statement in (
+        ("migration_0081_applied",
+         "SELECT COUNT(*) FROM django_migrations WHERE app='core' AND name='0081_allow_unscheduled_subtasks'"),
+        ("check_allows_parent",
+         "SELECT (POSITION('parent_id' IN pg_get_constraintdef(oid))>0)::int "
+         "FROM pg_constraint WHERE conname='grav_task_cycle_or_due'"),
+    ):
+        result = run("sudo","-n","-u","postgres","psql","-d","gravitas",
+                     "-X","-A","-t","-c",statement,timeout=8).strip()
+        print(label, result if result in ("0","1") else "unavailable")
+    sha=run("sudo","-n","cat","/etc/gravitas/last-successful-deploy-sha",timeout=8).strip()
+    print("backend_last_verified_sha", sha if re.fullmatch(r"[0-9a-f]{40}",sha) else "unavailable")
+
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     canonical_task_sync_runtime()
@@ -923,6 +940,7 @@ if __name__ == "__main__":
     task_858_creation_incident()
     task_858_failure_trace_signatures()
     task_858_integrity_details()
+    unscheduled_subtask_constraint_live()
     php_runtime_security()
     health()
     web_status()
