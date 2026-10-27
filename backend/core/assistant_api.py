@@ -14,7 +14,7 @@ from .pulsar_runtime.profiles import assert_skill_allowed
 def _workspace_navigation(question):
     """Resolve simple route questions using actual workspace navigation."""
     phrase = re.sub(r'\s+', ' ', str(question or '').strip().lower()).strip(' ?!.')
-    if re.search(r'\bresearch intelligence\b', phrase) and re.search(
+    if re.search(r'\b(?:research intelligence|autoresearch)\b', phrase) and re.search(
         r'^(?:where|how|find\b|open\b|go to\b|navigate\b|show me\b)', phrase
     ):
         return {
