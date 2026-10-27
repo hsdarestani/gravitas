@@ -37,7 +37,7 @@ These are different measurement environments and must not be combined into a pro
 | Save confirmation, mobile 390×844 | No comparable pre-change sample | 108 ms; one PATCH; fresh-page server read matched | First successful CI browser run |
 | Response-body hang | No deadline after headers | Confirmation deadline covers body parsing | Executable transport regression |
 
-The first full local baseline passed 944 tests. The final local release suite ran 972 tests and passed (two PostgreSQL-only cases intentionally skipped on SQLite). A separate PostgreSQL job passed 49 tests, including simultaneous editors and checklist transaction boundaries. The desktop/mobile browser suite passed stale-editor rejection, conflict-draft retention, typing during delayed real confirmation, and zero leaked task observers; the measured first-save confirmations in that run were 163 ms and 105 ms. Nine executable request-runtime regressions also pass. The final PR checks repeat these gates on the release commit.
+The first full local baseline passed 944 tests. The local release suite ran 972 tests and passed (two PostgreSQL-only cases intentionally skipped on SQLite). A separate PostgreSQL job passed 49 tests, including simultaneous editors and checklist transaction boundaries. The desktop/mobile browser suite passed stale-editor rejection, conflict-draft retention, typing during delayed real confirmation, and zero leaked task observers; the measured first-save confirmations in that run were 163 ms and 105 ms. Nine executable request-runtime regressions also pass. After integrating the concurrently merged subtask fixes, 974 tests passed locally. The final PR checks repeat these gates on the release commit.
 
 ## Production diagnosis before release
 
