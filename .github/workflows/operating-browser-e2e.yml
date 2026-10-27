@@ -2,7 +2,7 @@ name: Gravitas Operating Browser E2E
 
 on:
   workflow_run:
-    workflows: ["Gravitas Operating Production E2E"]
+    workflows: ["Deploy Gravitas to Strato"]
     types: [completed]
   workflow_dispatch:
 

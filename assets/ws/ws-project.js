@@ -584,7 +584,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
   const initialPath = location.href;
   host._wsProjectRenderToken = renderToken;
   const scrollRegion = host.closest('.ws-view') || host;
-  const previousScrollTop = preserveView ? scrollRegion.scrollTop : null;
+  let previousScrollTop = null;
   const keepExisting = preserveView && Boolean(host.querySelector('.fl-project-doc'));
   const previousView = keepExisting ? host.firstElementChild : null;
   if (!keepExisting) loading(host);
@@ -623,11 +623,11 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'activity') activityView(doc, cockpit);
     else overviewView(doc, cockpit, { go, projectId, refresh: rerender });
     if (host._wsProjectRenderToken !== renderToken || location.href !== initialPath) return;
+    // Capture at commit time: the reader may have scrolled while data loaded.
+    // Restore synchronously so no frame exposes the replacement at scroll zero.
+    if (keepExisting) previousScrollTop = scrollRegion.scrollTop;
     host.replaceChildren(doc);
-    if (keepExisting) requestAnimationFrame(() => {
-      if (host._wsProjectRenderToken === renderToken && location.href === initialPath)
-        scrollRegion.scrollTop = previousScrollTop;
-    });
+    if (keepExisting) scrollRegion.scrollTop = previousScrollTop;
   } catch (error) {
     if (host._wsProjectRenderToken !== renderToken || location.href !== initialPath) return;
     if (keepExisting && previousView) {

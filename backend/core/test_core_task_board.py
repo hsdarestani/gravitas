@@ -92,6 +92,29 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
 
+    def test_create_returns_committed_revision_and_can_be_edited_immediately(self):
+        response = self.post_json('/api/operating/task-board/', {
+            'owner_id': self.user.pk, 'title': 'Immediate edit',
+            'definition_of_done': 'Persisted', 'priority': 'p2',
+        })
+        self.assertEqual(response.status_code, 201, response.content)
+        created = response.json()['task']
+        stored = OperatingTask.objects.get(pk=created['id'])
+        self.assertEqual(created['updated_at'], stored.updated_at.isoformat())
+        patched = self.patch_json(f'/api/operating/task-board/{stored.pk}/', {
+            'title': 'Immediate edit confirmed', 'expected_updated_at': created['updated_at'],
+        })
+        self.assertEqual(patched.status_code, 200, patched.content)
+
+    def test_malformed_create_is_rejected_before_orm_and_creates_nothing(self):
+        before = OperatingTask.objects.count()
+        for invalid in ({'owner_id': 'broken'}, {'due_date': '2026-99-99'}, {'title': []}):
+            payload = {'title': 'Invalid create', 'definition_of_done': 'Never created', **invalid}
+            with self.subTest(invalid=invalid):
+                response = self.post_json('/api/operating/task-board/', payload)
+                self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(OperatingTask.objects.count(), before)
+
     def test_stale_editor_is_rejected_and_durable_server_value_survives(self):
         task_id = self.create_task('Concurrent editing')
         path = f'/api/operating/task-board/{task_id}/'
