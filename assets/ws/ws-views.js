@@ -8,7 +8,7 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027subtask1';
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
@@ -1597,10 +1597,20 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         childSubmit.type = 'submit';
         const childError = el('p', 'v-note');
         createChild.append(childTitle, childOutcome, childSubmit, childError);
+        // Keep the same UUID if a POST times out. A retry then resolves to the
+        // originally committed child, even if another worker finished it late.
+        let createRequestId = null;
+        let createRequestSignature = null;
         createChild.addEventListener('submit', async event => {
           event.preventDefault();
+          if (childSubmit.disabled) return;
           const name = childTitle.value.trim(), outcome = childOutcome.value.trim();
           if (!name || !outcome) { childError.textContent = 'A title and expected outcome are required.'; return; }
+          const signature = JSON.stringify([name, outcome]);
+          if (createRequestSignature !== signature) {
+            createRequestId = crypto.randomUUID();
+            createRequestSignature = signature;
+          }
           childSubmit.disabled = true;
           childError.textContent = 'Creating subtask…';
           try {
@@ -1614,11 +1624,28 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               key_result_id: task.trace?.key_result?.id || null,
               due_date: task.due_date,
               status: 'active',
+              client_create_id: createRequestId,
             });
-            await reloadBoard({ keepDialog: true });
+            // The POST response is already authoritative. Previously this
+            // awaited a full-board GET; a timeout there made a successful
+            // creation look like a failed one and encouraged duplicates.
             navTask(created.task.id);
           } catch (error) {
-            childError.textContent = error?.data?.error || error?.message || 'Could not create a subtask.';
+            const uncertain = error?.code === 'request_timeout'
+              || !error?.status || error.status >= 500;
+            if (uncertain) {
+              childError.textContent = 'Checking whether the server created this subtask…';
+              try {
+                const check = await P.operatingTaskCreationStatus(task.id, createRequestId);
+                if (check.created && check.task?.id) {
+                  navTask(check.task.id);
+                  return;
+                }
+              } catch (_) { /* The POST may still finish. Same-key retry is safe. */ }
+              childError.textContent = 'Creation is not confirmed yet. Retry safely with the same request; no duplicate will be created.';
+            } else {
+              childError.textContent = error?.data?.error || error?.message || 'Could not create a subtask.';
+            }
             childSubmit.disabled = false;
           }
         });
