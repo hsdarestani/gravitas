@@ -20,7 +20,7 @@
    ========================================================================== */
 
 import * as notes from './ws-notes-store.js?v=20261016-task1';
-import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261016-task1&patch=20261026canonsave1';
+import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261016-task1&patch=20261026canonsave1&project=20261027autoresearch1';
 import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261016-task1&patch=20261022canonicalnote1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
 import { renderCoreTeam } from './ws-core-team.js?v=20261016-task1';
@@ -35,10 +35,10 @@ import {
   areaOf, sectionsFor, activeSection, titleFor,
   WORKSPACES, availableWorkspaces, spaceOf, SPACE_LABEL,
 } from './ws-nav.js?v=20261016-task1';
-import { renderDashboard, stopClock } from './ws-home.js?v=20261016-task1&patch=20261019researchtools2';
+import { renderDashboard, stopClock } from './ws-home.js?v=20261016-task1&patch=20261019researchtools2&project=20261027autoresearch1';
 import { renderSettings, SETTINGS_SECTIONS, settingsSection } from './ws-settings.js?v=20261016-task1&patch=20261019ri4';
 import { mountPalette, openPalette } from './ws-palette.js?v=20261016-task1';
-import { installAssistant, askAssistant, assistantContext } from './ws-ai.js?v=20261016-task1&patch=20261019ri4';
+import { installAssistant, askAssistant, assistantContext } from './ws-ai.js?v=20261016-task1&patch=20261019ri4&project=20261027autoresearch1';
 import { installSelects } from './ws-select.js?v=20261016-task1';
 
 const icon = (name, cls) => window.GravitasIcons.icon(name, cls || 'g-wi');
