@@ -14,20 +14,20 @@ from .pulsar_runtime.profiles import assert_skill_allowed
 def _workspace_navigation(question):
     """Resolve simple route questions using actual workspace navigation."""
     phrase = re.sub(r'\s+', ' ', str(question or '').strip().lower()).strip(' ?!.')
-    if re.search(r'\bresearch intelligence\b', phrase) and re.search(
+    if re.search(r'\b(?:research intelligence|autoresearch)\b', phrase) and re.search(
         r'^(?:where|how|find\b|open\b|go to\b|navigate\b|show me\b)', phrase
     ):
         return {
             'ok': True, 'grounded': True, 'intent': 'navigation',
             'answer': (
-                'Research Intelligence is on Research Workspace → Overview. '
-                'Scroll to the Research Intelligence panel below the project summary '
+                'Research Intelligence / AutoResearch is in Research → Projects → '
+                'Research Intelligence & Institutional Funding (#223) → AutoResearch '
                 '(Funding Calls, Papers & Tools, AI Developments, History). '
-                'The panel is available to Core members.'
+                'Available to Core members.'
             ),
             'sources': [{
                 'kind': 'navigation', 'title': 'Open Research Intelligence',
-                'href': '/workspace/research#research-intelligence-title',
+                'href': '/workspace/research/projects/223/autoresearch#research-intelligence-title',
             }],
             'provider': 'workspace_navigation',
         }
