@@ -47,6 +47,7 @@ jobs:
             if curl -fsS http://127.0.0.1:4173/api/health/ >/dev/null; then exit 0; fi
             sleep 1
           done
+          cat /tmp/reliability-backend.log /tmp/reliability-frontend.log
           exit 1
       - name: Desktop and mobile persistence, focus and navigation
         run: node scripts/reliability/workspace-browser.mjs

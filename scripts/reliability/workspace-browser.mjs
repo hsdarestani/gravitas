@@ -13,6 +13,22 @@ try {
     const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
     await context.addCookies(fixture.cookies);
     const page = await context.newPage();
+    await page.addInitScript(() => {
+      window.__taskObservers = 0;
+      const Native = window.IntersectionObserver;
+      window.IntersectionObserver = class extends Native {
+        observe(target) {
+          if (!this.taskObserved && target.closest('.task-card-dialog')) {
+            this.taskObserved = true; window.__taskObservers++;
+          }
+          return super.observe(target);
+        }
+        disconnect() {
+          if (this.taskObserved) { this.taskObserved = false; window.__taskObservers--; }
+          return super.disconnect();
+        }
+      };
+    });
     const errors = []; const mutations = []; const timings = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('response', async response => {
@@ -23,6 +39,7 @@ try {
       if (req.method() === 'PATCH') mutations.push({ path: pathname, body: req.postDataJSON(), status: response.status() });
       timings.push({ path: pathname, status: response.status(), duration: req.timing().responseEnd });
     });
+    try {
     const taskPath = `/workspace/core/tasks?task=${fixture.task_id}`;
     async function editor() {
       await page.goto(base + taskPath);
@@ -57,6 +74,44 @@ try {
     modal = await editor();
     assert.equal(await modal.getByRole('textbox', { name: 'Task title', exact: true }).inputValue(), savedTitle);
     await modal.getByRole('button', { name: 'Close task', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.__taskObservers), 0, 'task observers leaked after close');
+    // A second editor commits on the server while the first form stays open.
+    modal = await editor();
+    const taskURL = base + `/api/operating/task-board/${fixture.task_id}/`;
+    const currentTask = (await (await context.request.get(taskURL)).json()).task;
+    const csrf = (await context.cookies()).find(cookie => cookie.name === 'csrftoken').value;
+    const concurrentTitle = `Verified concurrent ${viewport.width}`;
+    const changed = await context.request.patch(taskURL, {
+      headers: { 'X-CSRFToken': csrf, Referer: base + taskPath },
+      data: { title: concurrentTitle, expected_updated_at: currentTask.updated_at },
+    });
+    assert.equal(changed.status(), 200, await changed.text());
+    await modal.getByRole('textbox', { name: 'Task title', exact: true }).fill('Retained conflict draft');
+    const conflict = page.waitForResponse(r => r.url() === taskURL && r.request().method() === 'PATCH');
+    await modal.getByRole('button', { name: 'Save changes', exact: true }).click();
+    assert.equal((await conflict).status(), 409);
+    await modal.getByText(/This task changed elsewhere/).waitFor();
+    assert.equal(await modal.getByRole('textbox', { name: 'Task title', exact: true }).inputValue(), 'Retained conflict draft');
+    assert.equal((await (await context.request.get(taskURL)).json()).task.title, concurrentTitle);
+    await modal.getByRole('button', { name: 'Close task', exact: true }).click();
+    modal = await editor();
+    // Delay only the actual server response; never fabricate a save payload.
+    await page.route(taskURL, async route => {
+      if (route.request().method() !== 'PATCH') return route.continue();
+      const response = await route.fetch();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await route.fulfill({ response });
+    });
+    const delayedTitle = `Verified delayed ${viewport.width}`;
+    await modal.getByRole('textbox', { name: 'Task title', exact: true }).fill(delayedTitle);
+    await modal.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await modal.getByRole('textbox', { name: 'Task title', exact: true }).fill('New unsaved typing during confirmation');
+    await modal.getByText(/Saved\./).waitFor();
+    assert.equal(await modal.getByRole('textbox', { name: 'Task title', exact: true }).inputValue(), 'New unsaved typing during confirmation');
+    assert.equal((await (await context.request.get(taskURL)).json()).task.title, delayedTitle);
+    await page.unroute(taskURL);
+    await modal.getByRole('button', { name: 'Close task', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.__taskObservers), 0);
     // Project screens and all command-center modes must retain focused filters.
     await page.goto(base + `/workspace/research/projects/${fixture.project_id}/management`);
     const search = page.getByPlaceholder('Search tasks', { exact: true });
@@ -73,9 +128,13 @@ try {
       await page.locator('#ws-view h1').first().waitFor();
     }
     assert.deepEqual(errors, [], errors.join('\n'));
-    results.push({ viewport, modalShiftPx: Math.abs(frame.y-after.y), saveConfirmationMs: Math.round(elapsed), patchCount: mutations.length, apiRequests: timings.length });
+    results.push({ viewport, modalShiftPx: Math.abs(frame.y-after.y), saveConfirmationMs: Math.round(elapsed), patchCount: mutations.length, conflictDraftRetained: true, inFlightDraftRetained: true, leakedTaskObservers: await page.evaluate(() => window.__taskObservers), apiRequests: timings.length });
     await page.screenshot({ path: `${process.env.E2E_ARTIFACTS}/${viewport.width}.png`, fullPage: true });
-    await context.close();
+    } catch (error) {
+      await page.screenshot({ path: `${process.env.E2E_ARTIFACTS}/${viewport.width}-failure.png`, fullPage: true });
+      fs.writeFileSync(`${process.env.E2E_ARTIFACTS}/${viewport.width}-failure.json`, JSON.stringify({ error: error.message, errors, mutations, timings }, null, 2));
+      throw error;
+    } finally { await context.close(); }
   }
 } finally { await browser.close(); }
 console.log(JSON.stringify(results, null, 2));

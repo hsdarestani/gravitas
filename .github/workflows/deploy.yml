@@ -698,17 +698,26 @@ jobs:
           OLD_WORKERS="$(pgrep -P "$MASTER_PID" || true)"
           sudo systemctl reload gravitas-backend.service
           healthy_samples=0
+          failed_probes=0
           for attempt in $(seq 1 45); do
             WORKERS="$(pgrep -P "$MASTER_PID" || true)"
             OLD_REMAINING="$(comm -12 <(printf '%s\n' "$OLD_WORKERS" | sort) <(printf '%s\n' "$WORKERS" | sort))"
             WORKER_COUNT="$(printf '%s\n' "$WORKERS" | sed '/^$/d' | wc -l)"
             if curl -fsS --max-time 3 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ \
-              | grep -q '"status": "ok"' && [ -z "$OLD_REMAINING" ] && [ "$WORKER_COUNT" -ge 3 ]; then
+              | grep -q '"status": "ok"'; then
+              probe_ok=true
+            else
+              probe_ok=false
+              failed_probes=$((failed_probes + 1))
+            fi
+            if [ "$probe_ok" = true ] && [ -z "$OLD_REMAINING" ] && [ "$WORKER_COUNT" -ge 3 ]; then
               healthy_samples=$((healthy_samples + 1))
             else
               healthy_samples=0
             fi
             if [ "$healthy_samples" -ge 3 ]; then
+              echo "Hot reload health samples=$attempt failed=$failed_probes"
+              test "$failed_probes" -eq 0
               trap - ERR
               rm -rf "$STAGE"
               echo 'API-only release healthy; backend socket and current data preserved.'

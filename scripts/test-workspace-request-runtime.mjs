@@ -49,6 +49,10 @@ await test('malformed success is never a save confirmation or replayed', async (
   await assert.rejects(a.call('/operating/task-board/1/', { method: 'PATCH', body: {} }), e => e.code === 'invalid_confirmation');
   assert.equal(calls, 1);
 });
+await test('well-formed JSON without the task is not a save confirmation', async () => {
+  globalThis.fetch = async () => json({ ok: true });
+  await assert.rejects(a.updateOperatingTaskCard(1, { title: 'new' }), e => e.code === 'invalid_confirmation');
+});
 await test('HTTP 409 details survive without automatic retry', async () => {
   let calls = 0;
   globalThis.fetch = async () => { calls++; return new Response(JSON.stringify({ error: 'task_changed_elsewhere' }), { status: 409 }); };

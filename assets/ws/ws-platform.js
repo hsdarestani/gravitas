@@ -461,7 +461,15 @@ export const operatingTaskCreationStatus = (parentId, requestId) => call(
 );
 export const operatingTaskPreview = (id) => call(`/operating/task-board/${id}/?mode=preview`);
 export const operatingTaskCard = (id) => call(`/operating/task-board/${id}/`);
-export const updateOperatingTaskCard = (id, body) => call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
+export const updateOperatingTaskCard = async (id, body) => {
+  const data = await call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
+  if (!data.task || Number(data.task.id) !== Number(id) || !data.task.updated_at) {
+    const error = new Error('Invalid task save confirmation. Verify the task before retrying.');
+    error.code = 'invalid_confirmation';
+    throw error;
+  }
+  return data;
+};
 export const deleteOperatingTaskCard = (id) => call(`/operating/task-board/${id}/`, { method: 'DELETE' });
 export const moveOperatingTask = (taskId, status, orderedIds) => call('/operating/task-board/move/', {
   method: 'POST', body: { task_id: taskId, status, ordered_ids: orderedIds },

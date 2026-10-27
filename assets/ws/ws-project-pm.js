@@ -113,6 +113,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       const result = await P.call(`/platform/projects/${projectId}/tasks/${task.id}/`, {
         method: 'PATCH', body: { ...payload, expected_updated_at: task.updated_at },
       });
+      if (!result.task || Number(result.task.id) !== Number(task.id) || !result.task.updated_at)
+        throw new Error('Invalid task save confirmation. Verify the task before retrying.');
       Object.assign(task, result.task);
       notice.textContent = 'Saved on server.';
       try { await reload(); }
