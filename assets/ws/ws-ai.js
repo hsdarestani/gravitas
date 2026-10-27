@@ -45,7 +45,7 @@ async function requestAnswer(question, extra = {}) {
   // Navigation is a product fact, not a question for historical documents.
   // Resolve this from the owning research project before querying any model.
   const normalized = String(question || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[?!.]+$/, '');
-  if (/\bresearch intelligence\b/.test(normalized) &&
+  if (/\b(?:research intelligence|autoresearch)\b/.test(normalized) &&
       /^(where|how|find\b|open\b|go to\b|navigate\b|show me\b)/.test(normalized)) {
     return {
       grounded: true,
