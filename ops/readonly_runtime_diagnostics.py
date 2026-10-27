@@ -789,10 +789,73 @@ def task_1090_write_incident():
                 "recoveryrequired", "timeout", "locktimeout")
     print("backend_exception_buckets", {p:js.count(p) for p in patterns})
 
+
+def task_858_creation_incident():
+    """Live read-only subtask creation diagnostics; never print task text, users, IPs or cookies."""
+    print("=== Task #858 child-create incident ===")
+    # HTTP method/status and time buckets only; do not publish request URLs.
+    rows = read_lines("/var/log/nginx/access.log", max_bytes=20_000_000)
+    if not rows:
+        rows = run("sudo", "-n", "tail", "-n", "60000", "/var/log/nginx/access.log").splitlines()
+    result = collections.Counter()
+    latest = []
+    for row in rows[-60000:]:
+        hit = re.search(r'"(POST|GET)\s+(/api/operating/task-board/)([^\s"]*)\s+HTTP/[0-9.]+"\s+(\d{3})\b', row)
+        if not hit:
+            continue
+        method, _, query, status = hit.groups()
+        if method == "GET" and "mode=create-status" not in query:
+            continue
+        moment = re.search(r'\[(\d{2}/Oct/2026:\d\d:\d\d):\d\d [^]]+\]', row)
+        stamp = moment.group(1) if moment else "unknown"
+        result[(method, status)] += 1
+        latest.append((stamp,method,status))
+    print("create_http_counts", {f"{m}:{code}":v for (m,code),v in result.items()})
+    print("create_recent_statuses", latest[-25:])
+    # No modifications or personal data. Distinguish inherited project scope,
+    # canonical status, child counts and active PostgreSQL waits.
+    sql = (
+        "SELECT (t.id IS NOT NULL)::int, (t.project_id IS NOT NULL)::int, "
+        "COALESCE(cp.enabled,false)::int, "
+        "(SELECT COUNT(*) FROM core_operatingtask c WHERE c.parent_id=858), "
+        "(SELECT COUNT(*) FROM core_operatingtask c WHERE c.parent_id=858 "
+        "AND lower(c.title) LIKE 'documenting current development workflow%') "
+        "FROM (SELECT 858::bigint id) root "
+        "LEFT JOIN core_operatingtask t ON t.id=root.id "
+        "LEFT JOIN core_canonicalproject cp ON cp.project_id=t.project_id"
+    )
+    out = run("sudo","-n","-u","postgres","psql","-d","gravitas",
+              "-X","-A","-t","-F","|","-c",sql,timeout=12)
+    print("parent_exists_project_canonical_children_matching_prefix",
+          [x for x in out.splitlines() if re.fullmatch(r"[01]\|[01]\|[01]\|\d+\|\d+",x)][:1] or "unavailable")
+    logs=run("sudo","-n","journalctl","-u","gravitas-backend.service",
+             "--since","12 hours ago","--no-pager","-o","cat",timeout=30)
+    patterns=(
+        "Slow task create", "worker timeout", "statement timeout", "lock timeout",
+        "RecoveryRequired", "canonical", "could not enqueue task notification",
+        "operationalerror", "databaseerror", "nextcloud", "webdav",
+        "task_created", "Slow task write",
+    )
+    print("backend_create_incident_signatures",
+          {key:logs.lower().count(key.lower()) for key in patterns})
+    locks_sql=(
+        "SELECT COALESCE(wait_event_type,'none'),"
+        "COALESCE(wait_event,'none'),count(*) "
+        "FROM pg_stat_activity WHERE datname='gravitas' "
+        "GROUP BY 1,2 ORDER BY count(*) DESC LIMIT 12"
+    )
+    locks=run("sudo","-n","-u","postgres","psql","-d","gravitas",
+        "-X","-A","-t","-F","|","-c",locks_sql,timeout=8)
+    print("active_database_waits",
+          [line for line in locks.splitlines()
+           if re.fullmatch(r"[a-zA-Z0-9_]+\|[a-zA-Z0-9_]+\|\d+",line)][:12] or "unavailable")
+
+
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     canonical_task_sync_runtime()
     task_1090_write_incident()
+    task_858_creation_incident()
     php_runtime_security()
     health()
     web_status()
