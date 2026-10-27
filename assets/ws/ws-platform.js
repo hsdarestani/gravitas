@@ -132,8 +132,9 @@ async function uncachedCall(path, { method = 'GET', body, formData } = {}) {
     let timer;
     // Unlike writes, task GETs are idempotent and can safely release
     // hung browser sockets. Keep writes alive because the commit may succeed.
-    const taskSignal = boundedTaskRead && typeof AbortSignal !== 'undefined'
-      && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(20000) : null;
+    const taskSignal = verb === 'GET' && typeof AbortSignal !== 'undefined'
+      && typeof AbortSignal.timeout === 'function'
+      ? (boundedTaskRead ? AbortSignal.timeout(20000) : AbortSignal.timeout(17000)) : null;
     const deadline = new Promise((_, reject) => {
       timer = setTimeout(() => {
         const timeout = new Error(unsafe
@@ -161,9 +162,9 @@ async function uncachedCall(path, { method = 'GET', body, formData } = {}) {
       break;
     } catch (error) {
       if (error?.code === 'request_timeout') throw error;
-      if (boundedTaskRead && taskSignal?.aborted
+      if (taskSignal?.aborted
           && ['AbortError', 'TimeoutError'].includes(error?.name)) {
-        const timeout = new Error('Task service is taking too long. Please retry.');
+        const timeout = new Error('The server is taking too long. Please retry.');
         timeout.code = 'request_timeout';
         throw timeout;
       }

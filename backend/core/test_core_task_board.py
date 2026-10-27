@@ -119,6 +119,18 @@ class CoreTaskBoardTests(TestCase):
                 self.patch_json(path, {'title': 'Must roll back'})
         self.assertEqual(OperatingTask.objects.get(pk=task_id).title, 'Atomic edit')
 
+    def test_malformed_fields_return_400_and_never_change_server_row(self):
+        task_id = self.create_task('Validation fixture')
+        path = f'/api/operating/task-board/{task_id}/'
+        for payload in ({'owner_id': 'not-an-id'}, {'project_id': []},
+                        {'due_date': '2026-99-99'}, {'due_date': {'bad': True}},
+                        {'title': {'text': 'not a string'}}, {'description': None},
+                        {'owner_id': '99999999999999999999999999'}):
+            with self.subTest(payload=payload):
+                response = self.patch_json(path, payload)
+                self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(OperatingTask.objects.get(pk=task_id).title, 'Validation fixture')
+
     def test_non_object_patch_is_a_validation_response(self):
         task_id = self.create_task()
         response = self.patch_json(f'/api/operating/task-board/{task_id}/', ['invalid'])

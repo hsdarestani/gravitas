@@ -124,37 +124,28 @@ jobs:
           HOST="${{ secrets.DEPLOY_HOST }}"
           BASE="$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
             'sudo cat /etc/gravitas/last-successful-deploy-sha 2>/dev/null || true')"
-          STATIC_ONLY=true
-          if [[ ! "$BASE" =~ ^[0-9a-f]{40}$ ]] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null || \
-             ! git merge-base --is-ancestor "$BASE" "$GITHUB_SHA"; then
-            STATIC_ONLY=false
-            echo "No trustworthy production revision marker; native checkpoint required."
-          else
-            changed=0
-            while IFS= read -r -d '' path; do
-              changed=$((changed + 1))
-              case "$path" in
-                assets/*|*.html|*.htm|*.webmanifest|favicon.ico|robots.txt|sitemap.xml|workspace-sw.js|\
-                .github/workflows/deploy.yml|.github/workflows/backend-recover.yml|\
-                .github/workflows/readonly-diagnostics.yml|.github/workflows/operational-acceptance.yml|\
-                ops/readonly_runtime_diagnostics.py|\
-                backend/core/test_*.py)
-                  ;;
-                *)
-                  STATIC_ONLY=false
-                  echo "Native checkpoint required by: $path"
-                  ;;
-              esac
-            done < <(git diff --name-only -z "$BASE" "$GITHUB_SHA")
-            echo "Changed files since verified production revision: $changed"
+          RELEASE_SCOPE=stateful
+          if [[ "$BASE" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "${BASE}^{commit}" 2>/dev/null && \
+             git merge-base --is-ancestor "$BASE" "$GITHUB_SHA"; then
+            RELEASE_SCOPE="$(git diff --name-only -z "$BASE" "$GITHUB_SHA" | python3 ops/release_scope.py)"
+          fi
+          STATIC_ONLY=false
+          CODE_ONLY=false
+          if [ "$RELEASE_SCOPE" = static ]; then STATIC_ONLY=true; fi
+          if [ "$RELEASE_SCOPE" = code ]; then
+            # This path is safe only on the already provisioned worker profile.
+            # Unknown/inactive runtime falls back to the complete checkpoint.
+            if ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+              "sudo systemctl is-active --quiet gravitas-backend.service && sudo grep -qx 'gthread-3x4-timeout60-v1' /etc/gravitas/backend-worker-profile && curl -fsS --max-time 5 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ >/dev/null"; then
+              CODE_ONLY=true
+            fi
           fi
           echo "STATIC_ONLY=$STATIC_ONLY" >> "$GITHUB_ENV"
-          if [ "$STATIC_ONLY" = true ]; then
-            echo "Static-only release: preserving running backend, skipping offline native checkpoint."
-          fi
+          echo "CODE_ONLY=$CODE_ONLY" >> "$GITHUB_ENV"
+          echo "Release scope=$RELEASE_SCOPE static=$STATIC_ONLY hot_reload=$CODE_ONLY"
 
       - name: Bootstrap production server
-        if: env.STATIC_ONLY != 'true'
+        if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true'
         shell: bash
         env:
           GRAVITAS_TELEGRAM_BOT_TOKEN: ${{ secrets.GRAVITAS_TELEGRAM_BOT_TOKEN }}
@@ -624,7 +615,7 @@ jobs:
           REMOTE
 
       - name: Capture and rehearse matched native checkpoint before deployment
-        if: env.STATIC_ONLY != 'true'
+        if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -670,6 +661,64 @@ jobs:
           sudo rm "$CHECKPOINT_SCRIPT"
           REMOTE
 
+      - name: Stage and hot reload verified API-only release
+        if: env.CODE_ONLY == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          STAGE="/var/tmp/gravitas-api-$GITHUB_SHA"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" "mkdir -p '$STAGE'"
+          rsync -az --exclude '.venv/' --exclude 'staticfiles/' --exclude '*.sqlite3*' \
+            -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" ./backend/ "$DEPLOY_USER@$HOST:$STAGE/"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            bash -s -- "$STAGE" "$BACKEND_PATH" "$GITHUB_SHA" <<'REMOTE'
+          set -Eeuo pipefail
+          STAGE="$1"; BACKEND_PATH="$2"; REVISION="$3"
+          BACKUP="/var/backups/gravitas-code/$REVISION"
+          sudo install -d -m 700 "$BACKUP"
+          sudo tar --exclude='./.venv' --exclude='./staticfiles' --exclude='*.sqlite3*' \
+            -cpf "$BACKUP/backend.tar" -C "$BACKEND_PATH" .
+          sudo chmod 600 "$BACKUP/backend.tar"
+          sudo tar -tf "$BACKUP/backend.tar" >/dev/null
+          # Roll back code only: database/native stores keep every current write.
+          rollback() {
+            trap - ERR
+            echo 'API release failed; restoring the verified code archive.' >&2
+            sudo tar -xpf "$BACKUP/backend.tar" -C "$BACKEND_PATH"
+            sudo chown -R gravitas:gravitas "$BACKEND_PATH"
+            sudo systemctl reload gravitas-backend.service || true
+            exit 1
+          }
+          trap rollback ERR
+          sudo rsync -a --delete --delay-updates --exclude '.venv/' --exclude 'staticfiles/' \
+            --exclude '*.sqlite3*' "$STAGE/" "$BACKEND_PATH/"
+          sudo chown -R gravitas:gravitas "$BACKEND_PATH"
+          MASTER_PID="$(sudo systemctl show -p MainPID --value gravitas-backend.service)"
+          OLD_WORKERS="$(pgrep -P "$MASTER_PID" || true)"
+          sudo systemctl reload gravitas-backend.service
+          healthy_samples=0
+          for attempt in $(seq 1 45); do
+            WORKERS="$(pgrep -P "$MASTER_PID" || true)"
+            OLD_REMAINING="$(comm -12 <(printf '%s\n' "$OLD_WORKERS" | sort) <(printf '%s\n' "$WORKERS" | sort))"
+            WORKER_COUNT="$(printf '%s\n' "$WORKERS" | sed '/^$/d' | wc -l)"
+            if curl -fsS --max-time 3 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ \
+              | grep -q '"status": "ok"' && [ -z "$OLD_REMAINING" ] && [ "$WORKER_COUNT" -ge 3 ]; then
+              healthy_samples=$((healthy_samples + 1))
+            else
+              healthy_samples=0
+            fi
+            if [ "$healthy_samples" -ge 3 ]; then
+              trap - ERR
+              rm -rf "$STAGE"
+              echo 'API-only release healthy; backend socket and current data preserved.'
+              exit 0
+            fi
+            sleep 1
+          done
+          false
+          REMOTE
+
       - name: Deploy frontend
         shell: bash
         run: |
@@ -682,7 +731,7 @@ jobs:
             ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
 
       - name: Deploy and start backend
-        if: env.STATIC_ONLY != 'true'
+        if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -774,7 +823,7 @@ jobs:
           REMOTE
 
       - name: Install native conditional ACL bridge
-        if: env.STATIC_ONLY != 'true'
+        if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -782,7 +831,7 @@ jobs:
             'sudo bash /var/www/gravitas/ops/nextcloud/install-canonical.sh'
 
       - name: Apply selected idempotent operational delivery plan
-        if: env.STATIC_ONLY != 'true' && hashFiles('ops/operational_delivery.json') != ''
+        if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true' && hashFiles('ops/operational_delivery.json') != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -790,7 +839,7 @@ jobs:
             "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python /var/www/gravitas/ops/operational_delivery.py --plan /var/www/gravitas/ops/operational_delivery.json --source-root /var/www/gravitas'"
 
       - name: Ensure SSL and reload Nginx
-        if: env.STATIC_ONLY != 'true'
+        if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -807,7 +856,7 @@ jobs:
           REMOTE
 
       - name: Verify infrastructure and backend
-        if: env.STATIC_ONLY != 'true'
+        if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail

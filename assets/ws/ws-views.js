@@ -274,6 +274,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       }
     }
     if (dialog?._onEscape) document.removeEventListener('keydown', dialog._onEscape, true);
+    if (dialog?._onNavigate) window.removeEventListener('ws:navigate', dialog._onNavigate);
+    for (const dispose of dialog?._disposers || []) dispose();
+    if (dialog) dialog._disposers = [];
     const previousFocus = dialog?._previousFocus;
     dialog?.remove();
     if (previousFocus?.isConnected && typeof previousFocus.focus === 'function') previousFocus.focus({ preventScroll: true });
@@ -304,6 +307,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     dialog.setAttribute('aria-modal', 'true');
     dialog.tabIndex = -1;
     dialog._previousFocus = document.activeElement;
+    dialog._disposers = [];
+    dialog._onNavigate = () => closeDialog(dialog);
+    window.addEventListener('ws:navigate', dialog._onNavigate);
     dialog._onEscape = (event) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       // Escape dismisses the @ suggestions before it can dismiss the task.
@@ -1052,6 +1058,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         return;
       }
       const detailData = await P.operatingTaskCard(taskId);
+      if (!dialog.isConnected) return;
       const boardState = stateLoader ? { tasks: [] } : (state || { tasks: [] });
       state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
       const task = detailData.task;
@@ -2147,6 +2154,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               start();
             }
           }, { root: dialog.querySelector('.task-card-dialog__frame'), rootMargin: '80px' });
+          dialog._disposers.push(() => observer.disconnect());
           observer.observe(element);
         } else {
           // Older browsers still get functioning links/attachments.
@@ -2156,6 +2164,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       observeOptionalSection(resourceSection, loadExternalLinks);
       observeOptionalSection(attachmentsPanel.box || attachmentsPanel, loadAttachments);
     } catch (error) {
+      if (!dialog.isConnected) return;
       editorFailed = true;
       if (previewLoaded) {
         const alert = el('div', 'ws-alert');

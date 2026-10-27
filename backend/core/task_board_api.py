@@ -674,6 +674,24 @@ def task_board_detail(request, task_id):
     payload = base._body(request)
     if not isinstance(payload, dict):
         return _error('invalid_payload')
+    # Malformed form values are client validation errors, never ORM/SQL 500s.
+    for field in ('title', 'description', 'definition_of_done', 'blocked_reason', 'status', 'priority'):
+        if field in payload and not isinstance(payload[field], str):
+            return _error('invalid_task_field', field=field)
+    if 'title' in payload and len(payload['title']) > 240:
+        return _error('title_too_long')
+    for field in ('owner_id', 'parent_id', 'dependency_id', 'project_id', 'key_result_id',
+                  'initiative_id', 'milestone_id', 'work_package_id', 'cycle_id', 'meeting_id'):
+        value = payload.get(field)
+        if value not in (None, '') and (isinstance(value, bool) or not str(value).isdecimal()
+                                       or len(str(value)) > 19 or int(value) > 9223372036854775807):
+            return _error('invalid_task_field', field=field)
+    if payload.get('due_date'):
+        try:
+            if not isinstance(payload['due_date'], str) or base._date(payload['due_date']) is None:
+                return _error('invalid_due_date')
+        except (ValueError, TypeError):
+            return _error('invalid_due_date')
     expected = payload.get('expected_updated_at')
     if expected is not None and expected != task.updated_at.isoformat():
         return _error('task_changed_elsewhere', 409, task=_task_json(task))

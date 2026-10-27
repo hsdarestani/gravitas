@@ -10,7 +10,7 @@ from django.views.decorators.http import require_http_methods
 from .models import KnowledgeActivity, KnowledgeResource, ProjectMembership, ResearchProject
 from .canonical_projects import active as canonical_active
 from .operating_models import OperatingTask
-from .platform_access import can_edit, can_manage, can_view, content_type_for, effective_role
+from .platform_access import access_flags, can_edit, can_manage, can_view, content_type_for, effective_role
 from .platform_api import _auth, _project_json, _request_json, _resource_json
 from .platform_models import (
     EntityLink,
@@ -61,9 +61,7 @@ def _task_json(item, user):
         'owner': _person(item.owner),
         'owner_id': item.owner_id,
         'initiative': item.initiative.title if item.initiative else None,
-        'role': effective_role(user, item),
-        'can_edit': can_edit(user, item),
-        'can_manage': can_manage(user, item),
+        **access_flags(user, item),
         'updated_at': item.updated_at.isoformat(),
     }
 
@@ -77,9 +75,7 @@ def _deliverable_json(item, user):
         'status': item.status,
         'resource_id': item.resource_id,
         'client_visible': item.client_visible,
-        'role': effective_role(user, item),
-        'can_edit': can_edit(user, item),
-        'can_manage': can_manage(user, item),
+        **access_flags(user, item),
         'updated_at': item.updated_at.isoformat(),
     }
 
@@ -92,9 +88,7 @@ def _mindmap_json(item, user):
         'description': item.description,
         'node_count': item.nodes.count(),
         'edge_count': item.edges.count(),
-        'role': effective_role(user, item),
-        'can_edit': can_edit(user, item),
-        'can_manage': can_manage(user, item),
+        **access_flags(user, item),
         'updated_at': item.updated_at.isoformat(),
     }
 
@@ -267,7 +261,7 @@ def project_cockpit(request, project_id):
         if can_view(request.user, item)
     ]
     tasks = [
-        item for item in OperatingTask.objects.filter(project=project).select_related('owner', 'initiative')
+        item for item in OperatingTask.objects.filter(project=project).select_related('owner', 'initiative', 'workspace', 'project__workspace', 'project__owner')
         if can_view(request.user, item)
     ]
 
@@ -285,10 +279,11 @@ def project_cockpit(request, project_id):
     blocked_tasks = sum(1 for item in tasks if item.status == 'blocked')
     open_requests = sum(1 for item in research_requests if item.status not in {'done', 'cancelled'})
 
+    can_manage_project = can_manage(request.user, project)
     members = [{
         'user_id': membership.user_id,
         'name': _person(membership.user),
-        'email': membership.user.email if can_manage(request.user, project) else '',
+        'email': membership.user.email if can_manage_project else '',
         'role': membership.role,
         'initials': ''.join(part[:1].upper() for part in _person(membership.user).split()[:2]) or 'R',
     } for membership in project.memberships.select_related('user').order_by('role', 'user__first_name', 'user__email')]

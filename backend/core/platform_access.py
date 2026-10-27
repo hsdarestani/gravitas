@@ -263,6 +263,19 @@ def effective_role(user, obj, _seen=None):
     return max(roles, key=lambda value: ROLE_RANK.get(value, 0))
 
 
+def access_flags(user, obj):
+    """Serialize several permissions from one authoritative access evaluation.
+
+    This is not a cache: each object and each request still consults current
+    policy/grants. Calling effective_role independently for every output flag
+    repeated the entire inheritance/SQL walk three times per cockpit row.
+    """
+    role = effective_role(user, obj)
+    rank = ROLE_RANK.get(role, 0)
+    return {'role': role, 'can_edit': rank >= ROLE_RANK['edit'],
+            'can_manage': rank >= ROLE_RANK['manage']}
+
+
 def has_role(user, obj, minimum='view'):
     role = effective_role(user, obj)
     return bool(role and ROLE_RANK.get(role, 0) >= ROLE_RANK[minimum])

@@ -101,6 +101,29 @@ class ResearchProjectCockpitTests(TestCase):
             detail={'title': self.note.title, 'secret_internal_value': 'must-not-leak'},
         )
 
+    def test_permission_flags_reduce_queries_without_caching_access_between_reads(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from core.platform_access import access_flags, can_edit, can_manage, effective_role
+        from core.operating_models import OperatingTask
+        task = OperatingTask.objects.create(workspace=self.workspace, project=self.project,
+            owner=self.owner, title='Access query fixture', definition_of_done='Verified')
+        # Warm Django's content-type lookup equally; permission SQL remains live.
+        ContentType.objects.get_for_model(task)
+        effective_role(self.viewer, task)
+        with CaptureQueriesContext(connection) as before:
+            expected = {'role': effective_role(self.viewer, task),
+                        'can_edit': can_edit(self.viewer, task),
+                        'can_manage': can_manage(self.viewer, task)}
+        with CaptureQueriesContext(connection) as after:
+            actual = access_flags(self.viewer, task)
+        self.assertEqual(actual, expected)
+        self.assertLessEqual(len(after), len(before) // 2)
+        ProjectMembership.objects.filter(project=self.project, user=self.viewer).delete()
+        self.assertFalse(access_flags(self.viewer, task)['can_edit'])
+        self.assertIsNone(access_flags(self.viewer, task)['role'])
+        print(f'cockpit_permission_queries before={len(before)} after={len(after)}')
+
     def test_owner_gets_connected_project_cockpit(self):
         self.client.force_login(self.owner)
         response = self.client.get(f'/api/platform/projects/{self.project.pk}/cockpit/')

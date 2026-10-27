@@ -75,7 +75,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   function reload() {
     if (reloading) return reloading;
     const generation = ++reloadGeneration;
-    reloading = (async () => {
+    const flight = (async () => {
       const [latest, time, plans] = await Promise.allSettled([
         P.projectCockpit(projectId, { snapshot: true }),
         P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot'),
@@ -89,8 +89,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       const errors = [time, plans].filter(x=>x.status==='rejected');
       if (errors.length) notice.textContent = 'Tasks refreshed. Optional project data unavailable: ' + errors.map(x=>x.reason.message).join('; ');
       paint({ preserveFilters: true });
-    })().finally(() => { reloading = null; });
-    return reloading;
+    })().finally(() => { if (reloading === flight) reloading = null; });
+    reloading = flight;
+    return flight;
   }
   const notice = node('p', 'pm-note', 'All views use the same project tasks; Nextcloud remains the source for adopted projects.');
   const heading = node('div', 'pm-head');
@@ -413,8 +414,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     ai.append(q,btn('Ask Pulsar',()=>run(false)),out,actions);
   }
   buildPulsar();paint();
-  P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot').then(data=>{scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint({ preserveFilters: true, preserveBody: !['timeline','week','review'].includes(current.view) });}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
-  P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot').then(data=>{timeSummary=data;paint({ preserveFilters: true, preserveBody: !['work logs','team','review'].includes(current.view) });}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
+  const initialGeneration = reloadGeneration;
+  P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot').then(data=>{if (reloadGeneration !== initialGeneration) return; scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint({ preserveFilters: true, preserveBody: !['timeline','week','review'].includes(current.view) });}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
+  P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot').then(data=>{if (reloadGeneration !== initialGeneration) return; timeSummary=data;paint({ preserveFilters: true, preserveBody: !['work logs','team','review'].includes(current.view) });}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
   const linkedId = new URLSearchParams(location.search).get('task');
   if(linkedId && /^\d+$/.test(linkedId)){
     const selected = tasks.find(t=>String(t.id)===linkedId);

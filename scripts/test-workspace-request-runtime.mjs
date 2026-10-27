@@ -2,7 +2,7 @@
  * tests cover response ordering, not source-code markers or optimistic state. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-const source = fs.readFileSync(new URL('../assets/ws/ws-platform.js', import.meta.url), 'utf8');
+const source = fs.readFileSync(process.env.WORKSPACE_PLATFORM_SOURCE || new URL('../assets/ws/ws-platform.js', import.meta.url), 'utf8');
 globalThis.document = { cookie: 'csrftoken=test' };
 globalThis.localStorage = { getItem: () => null };
 const url = 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
