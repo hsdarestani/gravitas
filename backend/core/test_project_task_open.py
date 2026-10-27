@@ -112,8 +112,8 @@ assert.ok(app.includes('ws-ai.js?v=20261016-task1&patch=20261019ri4'));
 const dashboard = fs.readFileSync('assets/ws/ws-home.js', 'utf8');
 assert.ok(dashboard.includes('research-intelligence-title'));
 assert.ok(dashboard.includes('sectionHeading.scrollIntoView'));
-assert.ok(assistant.includes('Research Intelligence is in Research Workspace'));
-assert.ok(assistant.includes('research-intelligence-title'));
+assert.ok(assistant.includes('Research Intelligence / AutoResearch is in Research → Projects'));
+assert.ok(assistant.includes('/workspace/research/projects/223/autoresearch#research-intelligence-title'));
 assert.ok(assistant.includes("intent: 'navigation'"));
 assert.ok(app.includes('ws-home.js?v=20261016-task1&patch=20261019researchtools2'));
 """
