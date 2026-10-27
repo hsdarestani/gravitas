@@ -20,14 +20,14 @@ def _workspace_navigation(question):
         return {
             'ok': True, 'grounded': True, 'intent': 'navigation',
             'answer': (
-                'Research Intelligence is on Research Workspace → Overview. '
-                'Scroll to the Research Intelligence panel below the project summary '
+                'Research Intelligence / AutoResearch is in Research → Projects → '
+                'Research Intelligence & Institutional Funding (#223) → AutoResearch '
                 '(Funding Calls, Papers & Tools, AI Developments, History). '
-                'The panel is available to Core members.'
+                'Available to Core members.'
             ),
             'sources': [{
                 'kind': 'navigation', 'title': 'Open Research Intelligence',
-                'href': '/workspace/research#research-intelligence-title',
+                'href': '/workspace/research/projects/223/autoresearch#research-intelligence-title',
             }],
             'provider': 'workspace_navigation',
         }
