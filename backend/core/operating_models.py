@@ -279,7 +279,11 @@ class OperatingTask(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=Q(initiative__isnull=True) | Q(cycle__isnull=False) | Q(due_date__isnull=False) | Q(source_key__isnull=False),
+                # Child tasks inherit a parent's KR and may remain unscheduled.
+                # Keep the due-date rule for standalone initiative work.
+                condition=(Q(initiative__isnull=True) | Q(cycle__isnull=False)
+                           | Q(due_date__isnull=False) | Q(source_key__isnull=False)
+                           | Q(parent__isnull=False)),
                 name='grav_task_cycle_or_due',
             ),
             models.CheckConstraint(
