@@ -563,18 +563,27 @@ function activityView(doc, cockpit) {
   doc.append(box.box);
 }
 
-export async function renderResearchProject(host, projectId, tab = 'structure', { go }) {
-  loading(host);
+export async function renderResearchProject(host, projectId, tab = 'structure', { go, preserveView = false }) {
+  // Mutations refresh the project's data without blanking the existing view.
+  // A late response from an earlier tab must not repaint the user's new page.
+  const renderToken = Symbol('project-render');
+  const initialPath = location.pathname;
+  host._wsProjectRenderToken = renderToken;
+  const scrollRegion = host.closest('.ws-view') || host;
+  const previousScrollTop = preserveView ? scrollRegion.scrollTop : null;
+  const keepExisting = preserveView && Boolean(host.querySelector('.fl-project-doc'));
+  if (!keepExisting) loading(host);
   try {
     const needs = [P.projectCockpit(projectId, { snapshot: true })];
     if (tab === 'milestones') needs.push(P.projectMilestones(projectId));
     if (tab === 'discussions') needs.push(P.projectDiscussions(projectId));
     if (tab === 'experiments') needs.push(P.projectExperiments(projectId));
     const results = await Promise.all(needs);
+    if (host._wsProjectRenderToken !== renderToken || location.pathname !== initialPath) return;
     const cockpit = results[0];
     const project = cockpit.project;
     const doc = projectShell(host, project, projectId, tab, go);
-    const rerender = () => renderResearchProject(host, projectId, tab, { go });
+    const rerender = () => renderResearchProject(host, projectId, tab, { go, preserveView: true });
     const head = doc.querySelector('.fl-project-head');
     head.insertBefore(projectActionBar({ projectId, tab, cockpit, go, refresh: rerender }), head.querySelector('.fl-tabs'));
 
@@ -593,8 +602,23 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'drafts') await renderProjectDrafts(doc, projectId, project);
     else if (tab === 'activity') activityView(doc, cockpit);
     else overviewView(doc, cockpit, { go, projectId, refresh: rerender });
+    if (keepExisting) requestAnimationFrame(() => {
+      if (host._wsProjectRenderToken === renderToken && location.pathname === initialPath)
+        scrollRegion.scrollTop = previousScrollTop;
+    });
   } catch (error) {
-    failure(host, projectId, tab, go, error);
+    if (host._wsProjectRenderToken !== renderToken || location.pathname !== initialPath) return;
+    if (keepExisting) {
+      // A failed background refresh must not replace a usable project page.
+      const oldNotice = host.querySelector('[data-project-refresh-error]');
+      oldNotice?.remove();
+      const notice = el('p', 'v-note', error?.message || 'Project refresh failed. Previous data is still shown.');
+      notice.dataset.projectRefreshError = 'true';
+      notice.setAttribute('role', 'alert');
+      host.querySelector('.fl-project-doc')?.prepend(notice);
+    } else {
+      failure(host, projectId, tab, go, error);
+    }
   }
 }
 
