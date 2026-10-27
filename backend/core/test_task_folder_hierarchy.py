@@ -79,6 +79,64 @@ class TaskFolderHierarchyTests(TestCase):
         self.assertEqual(preview.status_code, 200)
         self.assertEqual(preview.json()['hierarchy']['children'][0]['id'], child_id)
 
+    def test_canonical_subtask_creation_commits_locally_and_queues_native_sync(self):
+        """Never block a POST on the remote DAV journal or reject canonical children."""
+        from unittest.mock import patch
+        from core.canonical_models import CanonicalProject, CanonicalTaskSyncOutbox
+
+        parent_id = self.make_parent()
+        CanonicalProject.objects.create(project=self.project, enabled=True)
+        import uuid
+        request_id = str(uuid.uuid4())
+        body = {
+            'parent_id': parent_id,
+            'title': 'Document current workflow',
+            'definition_of_done': 'Reviewed development process document',
+            'priority': 'p1', 'owner_id': self.user.pk,
+            'client_create_id': request_id,
+        }
+        # Signal export is forbidden on the request path: it can perform
+        # multiple synchronous Nextcloud WebDAV operations and fail after 25s.
+        with patch('core.canonical_signals.export_object',
+                   side_effect=AssertionError('unexpected synchronous native write')):
+            response = self.send('/api/operating/task-board/', body)
+        self.assertEqual(response.status_code, 201, response.content)
+        child_id = response.json()['task']['id']
+        child = OperatingTask.objects.get(pk=child_id)
+        self.assertEqual(child.parent_id, parent_id)
+        self.assertEqual(child.project_id, self.project.pk)
+
+        job = CanonicalTaskSyncOutbox.objects.get(
+            project=self.project, task_id=child_id)
+        self.assertEqual(job.generation, 1)
+        self.assertEqual(job.state, 'pending')
+        self.assertIsNotNone(job.next_attempt_at)
+
+        replay = self.send('/api/operating/task-board/', body)
+        self.assertEqual(replay.status_code, 200, replay.content)
+        self.assertTrue(replay.json()['replayed'])
+        self.assertEqual(replay.json()['task']['id'], child_id)
+        self.assertEqual(OperatingTask.objects.filter(parent_id=parent_id).count(), 1)
+        self.assertEqual(CanonicalTaskSyncOutbox.objects.filter(
+            project=self.project, task_id=child_id).count(), 1)
+
+    def test_legacy_canonical_child_create_also_queues_sync(self):
+        from core.canonical_models import CanonicalProject, CanonicalTaskSyncOutbox
+        from unittest.mock import patch
+
+        parent_id = self.make_parent()
+        CanonicalProject.objects.create(project=self.project, enabled=True)
+        with patch('core.canonical_signals.export_object',
+                   side_effect=AssertionError('remote export in POST')):
+            response = self.send('/api/operating/task-board/', {
+                'parent_id': parent_id, 'title': 'Legacy subtask',
+                'definition_of_done': 'Proof of completion',
+            })
+        self.assertEqual(response.status_code, 201, response.content)
+        task_id = response.json()['task']['id']
+        self.assertTrue(CanonicalTaskSyncOutbox.objects.filter(
+            project=self.project, task_id=task_id, state='pending').exists())
+
     def test_mismatched_project_or_kr_is_conflict_not_500(self):
         parent_id = self.make_parent()
         result = self.send('/api/operating/task-board/', {
