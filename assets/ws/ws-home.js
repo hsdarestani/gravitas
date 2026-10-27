@@ -103,7 +103,7 @@ function workspaceOverviewHead(scope, user) {
     title: isCore ? 'Core' : 'Research',
     meta: isCore
       ? 'Execution, content, planning and operating work in one view.'
-      : 'Projects, knowledge, collaboration and research intelligence in one view.',
+      : 'Projects, knowledge and collaboration in one view.',
     mark: C.markSlot(isCore ? 'space-core' : 'space-research'),
     name: greeting(now.getHours()),
     detail: now.toLocaleDateString('en-GB', {
@@ -867,7 +867,7 @@ function intelligenceCard(item, tab, options = {}) {
   return card;
 }
 
-function renderResearchIntelligence(host) {
+export function renderResearchIntelligence(host) {
   const section = el('section', 'ri wc-card');
   section.dataset.span = '12';
   section.setAttribute('aria-labelledby', 'research-intelligence-title');
@@ -1042,7 +1042,7 @@ function renderResearchIntelligence(host) {
   host.append(section);
   // A Pulsar navigation link can open the Research Overview before its
   // dashboard API finishes. Scroll only after the target has been rendered.
-  if (location.pathname === '/workspace/research' &&
+  if (location.pathname === '/workspace/research/projects/223/autoresearch' &&
       location.hash === '#research-intelligence-title') {
     requestAnimationFrame(() => {
       if (section.isConnected) sectionHeading.scrollIntoView({ block: 'start', behavior: 'auto' });
@@ -1406,6 +1406,7 @@ function renderResearchIntelligence(host) {
   };
 
   const load = async (force = false) => {
+    if (!section.isConnected) return;
     const first = !payload;
     refresh.disabled = true;
     refresh.textContent = force ? 'Refreshing…' : 'Loading…';
@@ -1452,12 +1453,21 @@ function renderResearchIntelligence(host) {
 
       clearInterval(intelligenceTimer);
       const interval = Math.max(5 * 60, Number(payload.refresh_seconds || 1800)) * 1000 + 5000;
-      intelligenceTimer = setInterval(() => load(false), interval);
+      if (section.isConnected) {
+        intelligenceTimer = setInterval(() => {
+          if (!section.isConnected) {
+            clearInterval(intelligenceTimer);
+            intelligenceTimer = 0;
+            return;
+          }
+          load(false);
+        }, interval);
+      }
     } catch (error) {
       content.innerHTML = '';
       const box = el('div', 'ri__error');
       box.append(el('strong', null, 'Research Intelligence is temporarily unavailable'));
-      box.append(el('span', null, 'The rest of the Research dashboard is unaffected. Retry when the source connection is available.'));
+      box.append(el('span', null, 'The project dashboard remains available. Retry when the source connection is available.'));
       content.append(box);
       updated.textContent = 'Could not refresh sources';
       live.textContent = 'Source connection issue';
@@ -1538,7 +1548,6 @@ function renderResearchBody(doc, ctx, boot) {
       ], { scaffold: true }));
       layout.append(portfolio.box);
 
-      if (ctx.canCore) renderResearchIntelligence(layout);
 
       const resources = board.recent_resources || [];
       const recent = card('Recent knowledge', 'Notes, files and datasets, newest first', linkBtn('Notes', '/workspace/research/notes', ctx));
