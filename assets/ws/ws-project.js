@@ -1,6 +1,6 @@
 import { renderProjectStructure } from './ws-project-files.js?v=20261016-task1';
 import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1';
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
 import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
 import { mountProjectTools, renderProjectDatabase, mountExperimentJournal } from './ws-project-tools-live.js?v=20261016-task1';
 import { mountProjectProviders, renderProjectDrafts } from './ws-project-next-phase.js?v=20261016-task1';
