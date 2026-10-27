@@ -917,6 +917,7 @@ def task_858_integrity_details():
 
 
 
+# Post-deployment read-back verification for task 858 schema migration 0081.
 def unscheduled_subtask_constraint_live():
     """Read-only verification: migration and PostgreSQL check on production."""
     print("=== Live unscheduled-subtask constraint acceptance ===")
