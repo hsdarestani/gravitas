@@ -1552,7 +1552,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               const savedTask = confirmed.task || {};
               const matches = Object.entries(payload).every(([key, value]) => {
                 if (key === 'expected_updated_at') return true;
-                const actual = key === 'owner_id' ? savedTask.owner?.id : savedTask[key];
+                const actual = key === 'owner_id' ? savedTask.owner?.id
+                  : key === 'key_result_id' ? savedTask.trace?.key_result?.id : savedTask[key];
                 return (actual ?? null) === (value ?? null);
               });
               if (matches) {
