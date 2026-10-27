@@ -321,13 +321,48 @@ def _create_board_task(request, workspace):
     ).hexdigest()
 
     def do_create():
-        response = v4.tasks(request)
+        from .canonical_models import CanonicalProject, CanonicalTaskSyncOutbox
+        from .canonical_projects import suppress as suppress_canonical_signals
+
+        # A linked subtask inherits its parent's project. Canonical projects
+        # reject ordinary OperatingTask.save() in pre_save (no write journal).
+        # Accept the DB projection under signal suppression, then persist an
+        # outbox job in this SAME transaction. Native DAV/ACL traffic belongs
+        # exclusively to the existing background canonical task sync worker.
+        parent_project_id = (
+            OperatingTask.objects.filter(pk=parent_id, workspace=workspace)
+            .values_list('project_id', flat=True).first()
+            if str(parent_id or '').isdecimal() else None
+        )
+        canonical_parent = bool(
+            parent_project_id and CanonicalProject.objects.filter(
+                project_id=parent_project_id, enabled=True).exists()
+        )
+        if canonical_parent:
+            with suppress_canonical_signals():
+                response = v4.tasks(request)
+        else:
+            response = v4.tasks(request)
         if response.status_code != 201:
             return response
         data = json.loads(response.content.decode('utf-8'))
         task_id = (data.get('task') or {}).get('id')
         task = OperatingTask.objects.filter(pk=task_id, workspace=workspace).first()
         if task:
+            if task.project_id and (
+                canonical_parent or CanonicalProject.objects.filter(
+                    project_id=task.project_id, enabled=True).exists()
+            ):
+                # A native failure must not hold the POST open or invalidate
+                # a successful local commit. The durable job is generation 1.
+                CanonicalTaskSyncOutbox.objects.update_or_create(
+                    project_id=task.project_id, task_id=task.pk,
+                    defaults={
+                        'generation': 1, 'attempts': 0,
+                        'next_attempt_at': timezone.now(),
+                        'state': 'pending', 'last_error': '',
+                    },
+                )
             if idempotent:
                 metadata = dict(task.source_metadata or {})
                 metadata.update({
@@ -351,7 +386,10 @@ def _create_board_task(request, workspace):
         return response
 
     if not idempotent:
-        return do_create()
+        # The child and its native-sync outbox entry must commit together,
+        # including for older clients without an idempotency UUID.
+        with transaction.atomic():
+            return do_create()
 
     # The lock is transaction-scoped. Concurrent retries cannot both create
     # children and it works across gunicorn workers / container restarts.
