@@ -880,12 +880,49 @@ def task_858_failure_trace_signatures():
                     "-X","-A","-t","-F","|","-c",sql,timeout=8)
     print("native_task_sync_pending_conflict", raw_count.strip() if re.fullmatch(r"[0-9]+[|][0-9]+",raw_count.strip()) else "unavailable")
 
+
+def task_858_integrity_details():
+    """Only aggregate error types and PostgreSQL schema names, not record values."""
+    print("=== Task #858 postgres failure class ===")
+    raw = run("sudo", "-n", "journalctl", "-u", "gravitas-backend.service",
+              "--since", "4 hours ago", "--no-pager", "-o", "cat", timeout=30)
+    counter = collections.Counter()
+    fields = []
+    for line in raw.splitlines()[-35000:]:
+        low = line.lower()
+        for key, token in (("unique","duplicate key value violates unique constraint"),
+                           ("not_null","null value in column"),
+                           ("fk","violates foreign key constraint"),
+                           ("check","violates check constraint")):
+            if token in low:
+                counter[key] += 1
+        match = re.search(r'(?:psycopg2[.]errors[.]|psycopg[.]errors[.])([A-Za-z_0-9]+)', line)
+        if match: counter["sql_error:" + match.group(1)] += 1
+        if "violat" in low or "null value in column" in low:
+            for label, pattern in (("constraint",r'constraint "([A-Za-z_0-9]{1,100})"'),
+                                   ("column",r'null value in column "([A-Za-z_0-9]{1,100})"'),
+                                   ("relation",r'of relation "([A-Za-z_0-9]{1,100})"')):
+                match = re.search(pattern, line)
+                if match: fields.append((label, match.group(1)))
+    print("db_error_classes", dict(counter))
+    print("db_schema_identifiers", fields[-20:])
+    sql = ("SELECT (workspace_id IS NOT NULL)::int,(project_id IS NOT NULL)::int,"
+           "(initiative_id IS NOT NULL)::int,(owner_id IS NOT NULL)::int,"
+           "(parent_id IS NOT NULL)::int,(milestone_id IS NOT NULL)::int,"
+           "(cycle_id IS NOT NULL)::int FROM core_operatingtask WHERE id=858")
+    out=run("sudo","-n","-u","postgres","psql","-d","gravitas",
+            "-X","-A","-t","-F","|","-c",sql,timeout=8)
+    print("parent_scope_flags", [row for row in out.splitlines()
+         if re.fullmatch(r"[01]([|][01]){6}",row)][:1] or "unavailable")
+
+
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     canonical_task_sync_runtime()
     task_1090_write_incident()
     task_858_creation_incident()
     task_858_failure_trace_signatures()
+    task_858_integrity_details()
     php_runtime_security()
     health()
     web_status()
