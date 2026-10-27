@@ -6,6 +6,7 @@ import { mountProjectTools, renderProjectDatabase, mountExperimentJournal } from
 import { mountProjectProviders, renderProjectDrafts } from './ws-project-next-phase.js?v=20261016-task1';
 import { mountExternalDatasets, renderBuiltinTools } from './ws-research-advanced-tools.js?v=20261016-task1';
 import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261026canonsave1';
+import { renderResearchIntelligence } from './ws-home.js?v=20261016-task1&patch=20261019researchtools2&project=20261027autoresearch1';
 
 const TABS = [
   ['structure', 'Project folder'],
@@ -23,6 +24,15 @@ const TABS = [
   ['drafts', 'Drafts & Sync'],
   ['activity', 'Activity'],
 ];
+
+const AUTORESEARCH_PROJECT_ID = '223';
+const AUTORESEARCH_TAB = ['autoresearch', 'AutoResearch'];
+
+function projectTabs(projectId) {
+  if (String(projectId) !== AUTORESEARCH_PROJECT_ID || !P.canOpenCore()) return TABS;
+  // Project-specific tools stay in their owning project, never the global Research overview.
+  return [...TABS.slice(0, 2), AUTORESEARCH_TAB, ...TABS.slice(2)];
+}
 
 const el = (tag, cls, text) => {
   const node = document.createElement(tag);
@@ -121,7 +131,7 @@ function projectShell(host, project, projectId, tab, go) {
 
   const tabs = el('nav', 'fl-tabs');
   tabs.setAttribute('aria-label', 'Project views');
-  for (const [key, title] of TABS) {
+  for (const [key, title] of projectTabs(projectId)) {
     const button = el('button', 'fl-tab', title);
     button.type = 'button';
     button.setAttribute('aria-current', key === tab ? 'page' : 'false');
@@ -564,6 +574,10 @@ function activityView(doc, cockpit) {
 }
 
 export async function renderResearchProject(host, projectId, tab = 'structure', { go }) {
+  if (tab === 'autoresearch' && (String(projectId) !== AUTORESEARCH_PROJECT_ID || !P.canOpenCore())) {
+    go(`/workspace/research/projects/${projectId}`, { replace: true });
+    return;
+  }
   loading(host);
   try {
     const needs = [P.projectCockpit(projectId, { snapshot: true })];
@@ -580,6 +594,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
 
     if (tab === 'structure') await renderProjectStructure(doc, projectId);
     else if (tab === 'overview') overviewView(doc, cockpit, { go, projectId, refresh: rerender });
+    else if (tab === 'autoresearch') renderResearchIntelligence(doc);
     else if (tab === 'milestones') milestonesView(doc, results[1].milestones || []);
     else if (tab === 'tasks') tasksView(doc, cockpit, { go, refresh: rerender });
     else if (tab === 'management') renderProjectManagement(doc, projectId, cockpit, { go, refresh: rerender });
