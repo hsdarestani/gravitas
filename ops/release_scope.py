@@ -20,7 +20,8 @@ def classify(paths):
             scope = 'code' if scope == 'static' else scope
         elif (name.startswith(('assets/', '.github/workflows/', 'scripts/', 'docs/'))
               or (name.startswith('backend/core/test_') and name.endswith('.py'))
-              or name in {'ops/release_scope.py', 'ops/readonly_runtime_diagnostics.py'}
+              or name in {'ops/release_scope.py', 'ops/readonly_runtime_diagnostics.py',
+                          'backend/gravitas_backend/postgres_test_settings.py'}
               or (len(path.parts) == 1 and path.suffix in {'.html', '.htm', '.webmanifest'})
               or name in {'favicon.ico', 'robots.txt', 'sitemap.xml', 'workspace-sw.js'}):
             continue

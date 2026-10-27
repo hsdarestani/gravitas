@@ -59,6 +59,33 @@ jobs:
             /tmp/workspace-reliability-artifacts
             /tmp/reliability-backend.log
             /tmp/reliability-frontend.log
+  postgres-concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gravitas_test
+          POSTGRES_PASSWORD: local-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PYTHONPATH: backend
+      DJANGO_SETTINGS_MODULE: gravitas_backend.postgres_test_settings
+      TEST_POSTGRES_PASSWORD: local-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q -r backend/requirements.txt
+      - name: Verify concurrent task editors and PostgreSQL transaction boundaries
+        run: python -m django test core.test_task_write_concurrency core.test_core_task_board core.test_research_task_api --verbosity 1
   production-diagnostics:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest

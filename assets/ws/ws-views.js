@@ -1170,7 +1170,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             }
           } catch (error) {
             undo?.();
-            feedback.show('Delete failed. The task was restored.', true);
+            feedback.show(error?.data?.detail || 'Delete failed. The task was restored.', true);
             // Keep the original unsaved fields safe: reopen from the server.
             if (!document.querySelector(`.task-card-dialog[data-task-id="${task.id}"]`)) {
               void openTaskDialog(task.id, state, reloadBoard);

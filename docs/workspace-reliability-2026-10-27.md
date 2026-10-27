@@ -17,6 +17,7 @@ PR #271 was already merged. Its fixed task-frame geometry, focus handling and fi
 | Command Center refreshed cockpit, work time and schedules serially and repainted unrelated content | Avoidable waits, disappearing drafts, repeated saves | Parallel reads, refresh generations, per-task write guards, stable mode/filter controls, targeted optional-data repainting |
 | Permission flags repeatedly walked the same policy inheritance chain | Repeated SQL per cockpit task/deliverable/mind map | Derive role/edit/manage flags from one authoritative evaluation; no cross-request permission cache |
 | Closed task dialogs could leave optional-section observers alive; late detail responses still built detached editors | Retained DOM/closures and unnecessary work | Explicit observer disposal and navigation cleanup; stop rendering a closed editor |
+| Protected parent deletion raised an uncaught model exception | 500 when deleting a task with dependent subtasks | Return an explicit 409 and roll back deletion/activity/outbox changes; keep all tasks intact |
 | Malformed dates, relation IDs and text values reached model/SQL operations | Avoidable 500s on create/edit | Shared validation before ORM operations, with tests that no task changes on rejection |
 | Django settings named a WSGI module absent from the repository | A real local browser server could not start despite backend unit tests passing | Add the standard WSGI entry point and exercise it in real-server CI |
 | Every backend code change ran an offline matched native checkpoint | Planned upstream outages during otherwise routine code releases | Narrow, fail-closed API-only hot-reload path with a verified code archive, rollback, worker turnover checks and uninterrupted health probes; schema/settings/dependency/native changes retain matched checkpoints |
@@ -35,7 +36,7 @@ These are different measurement environments and must not be combined into a pro
 | Save confirmation, mobile 390×844 | No comparable pre-change sample | 108 ms; one PATCH; fresh-page server read matched | First successful CI browser run |
 | Response-body hang | No deadline after headers | Confirmation deadline covers body parsing | Executable transport regression |
 
-The first full local baseline passed 944 tests. After merging the newer main branch and adding the initial regressions, 959 passed. The subsequent creation/revision fixes passed a full 961-test run; the complete-module-URL contract was then verified separately. Final release counts are available in the PR's checks.
+The first full local baseline passed 944 tests. After merging the newer main branch and adding the initial regressions, 959 passed. The subsequent creation/revision fixes passed a full 961-test run; the complete-module-URL contract was then verified separately. Final release counts are available in the PR's checks. A separate PostgreSQL job verifies simultaneous editors and checks non-atomic checklist paths; SQLite cannot validate row-lock behavior.
 
 ## Production diagnosis before release
 

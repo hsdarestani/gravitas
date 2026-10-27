@@ -92,6 +92,18 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
 
+    def test_parent_delete_is_a_conflict_and_keeps_both_tasks(self):
+        parent_id = self.create_task('Parent must survive')
+        parent = OperatingTask.objects.get(pk=parent_id)
+        child = OperatingTask.objects.create(workspace=parent.workspace, owner=self.user,
+            parent=parent, initiative=parent.initiative, due_date=parent.due_date,
+            title='Protected child', definition_of_done='Kept intact')
+        response = self.client.delete(f'/api/operating/task-board/{parent_id}/')
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()['error'], 'task_has_linked_records')
+        self.assertTrue(OperatingTask.objects.filter(pk=parent_id).exists())
+        self.assertTrue(OperatingTask.objects.filter(pk=child.pk).exists())
+
     def test_create_returns_committed_revision_and_can_be_edited_immediately(self):
         response = self.post_json('/api/operating/task-board/', {
             'owner_id': self.user.pk, 'title': 'Immediate edit',

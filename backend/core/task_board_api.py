@@ -13,6 +13,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
+from django.db.models.deletion import ProtectedError
 from django.http import FileResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -87,12 +88,12 @@ def _readonly_task_workspace(request):
             return None
     return core
 
-def _task_for(request, task_id, *, counts=True):
+def _task_for(request, task_id, *, counts=True, lock=False):
     workspace = _readonly_task_workspace(request) if request.method == 'GET' else base._workspace(request)
     if not workspace:
         return None, None
     queryset = OperatingTask.objects
-    if request.method in ('PATCH', 'DELETE'):
+    if lock:
         queryset = queryset.select_for_update(of=('self',))
     task = (
         queryset
@@ -614,7 +615,10 @@ def task_board_detail(request, task_id):
     quick_preview = request.method == 'GET' and request.GET.get('mode') == 'preview'
     # Only GET needs expensive reverse relation counts. Writes operate on
     # the single task row and must never fetch all checklist/file counts.
-    workspace, task = _task_for(request, task_id, counts=request.method == 'GET' and not quick_preview)
+    workspace, task = _task_for(
+        request, task_id, counts=request.method == 'GET' and not quick_preview,
+        lock=request.method in ('PATCH', 'DELETE'),
+    )
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
@@ -687,18 +691,22 @@ def task_board_detail(request, task_id):
         # previously consumed 20+ seconds per external link on a slow API.
         # Persist unlink jobs in the same transaction as the local deletion:
         # a failed DB delete rolls back both and the task remains intact.
-        with transaction.atomic():
-            google_links = list(task.google_task_links.values(
-                'user_id', 'tasklist_id', 'google_task_id'))
-            for link in google_links:
-                GoogleTaskDeleteOutbox.objects.get_or_create(
-                    user_id=link['user_id'],
-                    tasklist_id=link['tasklist_id'],
-                    google_task_id=link['google_task_id'],
-                    defaults={'task_id_at_deletion': task.pk},
-                )
-            _log(request, task, 'task.deleted', {'title': title})
-            task.delete()
+        try:
+            with transaction.atomic():
+                google_links = list(task.google_task_links.values(
+                    'user_id', 'tasklist_id', 'google_task_id'))
+                for link in google_links:
+                    GoogleTaskDeleteOutbox.objects.get_or_create(
+                        user_id=link['user_id'],
+                        tasklist_id=link['tasklist_id'],
+                        google_task_id=link['google_task_id'],
+                        defaults={'task_id_at_deletion': task.pk},
+                    )
+                _log(request, task, 'task.deleted', {'title': title})
+                task.delete()
+        except ProtectedError:
+            return _error('task_has_linked_records', 409,
+                          detail='Move or remove dependent subtasks and links before deleting this task.')
         return JsonResponse({'ok': True, 'google_cleanup_queued': bool(google_links)})
 
     if not base._editable(request, workspace):
