@@ -73,7 +73,7 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
         html = (ROOT / 'workspace.html').read_text(encoding='utf-8')
         self.assertIn('/assets/ws/ws-app.js?v=20261016-task1', html)
         app = (ROOT / 'assets' / 'ws' / 'ws-app.js').read_text(encoding='utf-8')
-        self.assertIn("from './ws-five-layer.js?v=20261016-task1&patch=20261026canonsave1'", app)
+        self.assertRegex(app, r"from '\./ws-five-layer\.js\?v=20261016-task1&patch=[a-z0-9]+'")
         self.assertIn('/assets/ws/ws-charts.css?v=20261016-task1', html)
         self.assertIn('/assets/ws/ws-unified-design.css?v=20261016-task1', html)
 
@@ -91,3 +91,27 @@ class WorkspaceDashboardComponentParityTests(SimpleTestCase):
             "./ws-project.js?v=20261016-task1",
         ):
             self.assertIn(marker, five)
+
+    def test_workspace_editors_keep_focus_and_scroll_during_async_updates(self):
+        task_css = self.read('ws.css')
+        self.assertIn('scrollbar-gutter: stable; padding: 16px', task_css)
+        self.assertIn('height: calc(100dvh - 30px)', task_css)
+        task_ui = self.read('ws-views.js')
+        self.assertIn('dialog.focus({ preventScroll: true })', task_ui)
+        self.assertIn('previousFocus.focus({ preventScroll: true })', task_ui)
+
+        project = self.read('ws-project.js')
+        self.assertIn('preserveView = false', project)
+        self.assertIn('host._wsProjectRenderToken !== renderToken', project)
+        self.assertIn('scrollRegion.scrollTop = previousScrollTop', project)
+
+        management = self.read('ws-project-pm.js')
+        self.assertIn('paint({ preserveFilters: true })', management)
+        self.assertIn('if (!preserveFilters) filters.replaceChildren()', management)
+        self.assertNotIn('fresh?.focus()', management)
+        self.assertNotIn('fresh?.setSelectionRange(', management)
+
+        actions = self.read('ws-project-actions.js')
+        self.assertIn("dispatchEvent(new Event('ws:dismiss'))", actions)
+        self.assertIn("layer.addEventListener('ws:dismiss', dismiss", actions)
+        self.assertIn('focus({ preventScroll: true })', actions)

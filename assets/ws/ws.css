@@ -2795,6 +2795,9 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
 }
 .task-trello-card__counts { color: var(--g-text-subtle); font-size: var(--ws-fs-xs); }
 
+/* Keep the task editor's outer geometry fixed while async comments, files
+   and history arrive. The body alone scrolls; the centred overlay must never
+   become a second scroll container that moves the whole card on focus. */
 .task-card-dialog {
   position: fixed;
   inset: 0;
@@ -2802,7 +2805,8 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   display: grid;
   place-items: center;
   padding: 14px;
-  overflow: auto;
+  overflow: hidden;
+  overscroll-behavior: contain;
   background: rgba(0, 18, 30, .68);
   backdrop-filter: blur(3px);
   color: var(--g-text);
@@ -2811,7 +2815,11 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: min(1120px, calc(100vw - 28px));
+  height: calc(100vh - 30px); /* fallback for browsers without dvh */
+  height: calc(100dvh - 30px);
   max-height: calc(100vh - 30px);
+  max-height: calc(100dvh - 30px);
+  min-height: 0;
   border: 1px solid var(--g-hairline);
   border-radius: 14px;
   overflow: hidden;
@@ -2824,7 +2832,7 @@ select option { background: var(--g-surface-raised); color: var(--g-text); }
   border-bottom: 1px solid var(--g-hairline);
 }
 .task-card-dialog__head h2 { flex: 1; margin: 0; font-size: 1.1rem; }
-.task-card-dialog__body { overflow: auto; padding: 16px; }
+.task-card-dialog__body { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 16px; }
 .task-card-dialog__grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .8fr); gap: 16px; align-items: start; }
 .task-card-dialog__main,
 .task-card-dialog__side,

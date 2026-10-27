@@ -1,7 +1,7 @@
 /* Project command center. All views use the same ACL-scoped OperatingTask
  * objects; canonical Nextcloud documents remain the source of truth.
  * These views do not persist a competing task representation. */
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
 import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';
 
 const node = (tag, cls = '', content = '') => {
@@ -77,7 +77,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     catch(e) { notice.textContent = 'Work-time summary unavailable: '+e.message; }
     try { const plans=await P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot'); scheduleMap=new Map(plans.schedules.map(x=>[Number(x.task_id),x])); }
     catch(e){notice.textContent='Gantt schedule unavailable: '+e.message;}
-    paint();
+    paint({ preserveFilters: true });
   }
   const notice = node('p', 'pm-note', 'All views use the same project tasks; Nextcloud remains the source for adopted projects.');
   const heading = node('div', 'pm-head');
@@ -191,8 +191,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     (!current.priority || t.priority === current.priority) &&
     (!current.onlyOverdue || overdue(t,today)));
 
-  function paint() {
-    stat.replaceChildren(); views.replaceChildren(); filters.replaceChildren(); body.replaceChildren();
+  function paint({ preserveFilters = false } = {}) {
+    stat.replaceChildren(); views.replaceChildren(); body.replaceChildren();
+    if (!preserveFilters) filters.replaceChildren();
     const n = filtered();
     [
       ['Total', n.length], ['Open', n.filter(x=>!done(x)).length],
@@ -206,16 +207,20 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       const b=btn(mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint();});
       b.setAttribute('aria-pressed',String(current.view===mode));views.append(b);
     });
+    if (!preserveFilters) {
     const search=control('input','search','Search tasks');search.value=current.text;
-    search.addEventListener('input',()=>{current.text=search.value;paint(); const fresh=filters.querySelector('input');fresh?.focus();fresh?.setSelectionRange(current.text.length,current.text.length);});
+    // Do not destroy the focused search control on each keystroke: that
+    // caused layout jumps, lost selection and unnecessary full filter builds.
+    search.addEventListener('input',()=>{current.text=search.value;paint({ preserveFilters: true });});
     const status=control('select'),own=control('select'), pr=control('select');
     [['','All statuses'],...statusNames].forEach(([value,label])=>{const o=node('option','',label);o.value=value;status.append(o);});
     [['','All owners'],...members.map(m=>[String(m.user_id),m.name])].forEach(([value,label])=>{const o=node('option','',label);o.value=value;own.append(o);});
     [['','Any priority'],...['p0','p1','p2','p3'].map(v=>[v,v.toUpperCase()])].forEach(([v,label])=>{const o=node('option','',label);o.value=v;pr.append(o);});
     status.value=current.status;own.value=current.owner;pr.value=current.priority;
-    status.onchange=()=>{current.status=status.value;paint();};own.onchange=()=>{current.owner=own.value;paint();};pr.onchange=()=>{current.priority=pr.value;paint();};
-    const overdueOnly=btn(current.onlyOverdue?'Overdue only ✓':'Overdue only',()=>{current.onlyOverdue=!current.onlyOverdue;paint();});overdueOnly.setAttribute('aria-pressed',String(current.onlyOverdue));
+    status.onchange=()=>{current.status=status.value;paint({ preserveFilters: true });};own.onchange=()=>{current.owner=own.value;paint({ preserveFilters: true });};pr.onchange=()=>{current.priority=pr.value;paint({ preserveFilters: true });};
+    const overdueOnly=btn(current.onlyOverdue?'Overdue only ✓':'Overdue only',()=>{current.onlyOverdue=!current.onlyOverdue;overdueOnly.textContent=current.onlyOverdue?'Overdue only ✓':'Overdue only';overdueOnly.setAttribute('aria-pressed',String(current.onlyOverdue));paint({ preserveFilters: true });});overdueOnly.setAttribute('aria-pressed',String(current.onlyOverdue));
     filters.append(search,status,own,pr,overdueOnly);
+    }
     if(current.view==='board'){
       const cols=node('div','pm-columns');
       [['Backlog','draft',x=>x.status==='draft'],['Doing','active',x=>['active','ready'].includes(x.status)],['Waiting / review','needs_review',x=>['waiting','needs_review','retest','blocked'].includes(x.status)],['Done','done',done]].forEach(([label,target,test])=>{
@@ -326,7 +331,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
           task_id:task.id,start_date:start.value,end_date:end.value,estimated_minutes:Number(minutes.value)
         }});
         scheduleMap=scheduleMap||new Map();scheduleMap.set(task.id,data);
-        editor.replaceChildren();paint();notice.textContent='Gantt plan saved to canonical Markdown.';
+        editor.replaceChildren();paint({ preserveFilters: true });notice.textContent='Gantt plan saved to canonical Markdown.';
       } catch(e){message.textContent=e.message;}
     });
     box.append(node('h3','','Plan · '+task.title),start,end,minutes,save,btn('Close',()=>editor.replaceChildren()),message);
@@ -367,8 +372,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     ai.append(q,btn('Ask Pulsar',()=>run(false)),out,actions);
   }
   buildPulsar();paint();
-  P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot').then(data=>{scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint();}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
-  P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot').then(data=>{timeSummary=data;paint();}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
+  P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot').then(data=>{scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint({ preserveFilters: true });}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
+  P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot').then(data=>{timeSummary=data;paint({ preserveFilters: true });}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
   const linkedId = new URLSearchParams(location.search).get('task');
   if(linkedId && /^\d+$/.test(linkedId)){
     const selected = tasks.find(t=>String(t.id)===linkedId);

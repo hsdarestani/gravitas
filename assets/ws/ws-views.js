@@ -276,7 +276,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     if (dialog?._onEscape) document.removeEventListener('keydown', dialog._onEscape, true);
     const previousFocus = dialog?._previousFocus;
     dialog?.remove();
-    if (previousFocus?.isConnected && typeof previousFocus.focus === 'function') previousFocus.focus();
+    if (previousFocus?.isConnected && typeof previousFocus.focus === 'function') previousFocus.focus({ preventScroll: true });
   }
 
   function taskMutationFeedback(message, error = false) {
@@ -331,7 +331,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       if (event.target === dialog) closeDialog(dialog);
     });
     document.body.append(dialog);
-    window.requestAnimationFrame(() => dialog.focus());
+    window.requestAnimationFrame(() => { if (dialog.isConnected) dialog.focus({ preventScroll: true }); });
     return { dialog, body, head };
   }
 
@@ -910,7 +910,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
   async function openTaskDialog(taskId, state, reloadBoard, { forceEditor = false } = {}) {
     const existing = document.querySelector(`.task-card-dialog[data-task-id="${taskId}"]`);
     if (existing) {
-      existing.focus();
+      existing.focus({ preventScroll: true });
       return;
     }
     const { dialog, body, head } = makeDialog('Loading task…');
@@ -1855,7 +1855,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             selectedMentions.set(String(member.id), member);
             const nextCursor = token.start + display.length + 2;
             hideSuggestions();
-            comment.focus();
+            comment.focus({ preventScroll: true });
             comment.setSelectionRange(nextCursor, nextCursor);
           };
           const highlightMention = () => {

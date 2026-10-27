@@ -12,7 +12,7 @@
    draws its own tiles as buttons.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
 import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-task1';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
@@ -90,7 +90,8 @@ function field(title, control, hint = '') {
 }
 
 function modal(title, build, submitLabel = '', onSubmit = null) {
-  document.querySelector('[data-project-action-modal]')?.remove();
+  // Invoke the old modal's cleanup rather than only removing its DOM.
+  document.querySelector('[data-project-action-modal]')?.dispatchEvent(new Event('ws:dismiss'));
   const layer = el('div', 'ws-action-dialog-layer');
   layer.dataset.projectActionModal = '1';
   const dialog = el('section', 'ws-action-dialog');
@@ -99,6 +100,7 @@ function modal(title, build, submitLabel = '', onSubmit = null) {
   dialog.setAttribute('aria-label', title);
   const form = el('form', 'ws-action-dialog__body');
   const dismiss = () => { document.removeEventListener('keydown', onKeydown); layer.remove(); };
+  layer.addEventListener('ws:dismiss', dismiss, { once: true });
   const onKeydown = (event) => { if (event.key === 'Escape') dismiss(); };
   const head = el('div', 'ws-action-dialog__head');
   head.append(el('h2', '', title));
@@ -140,7 +142,10 @@ function modal(title, build, submitLabel = '', onSubmit = null) {
       }
     });
   }
-  queueMicrotask(() => form.querySelector('input:not([type="hidden"]), select, textarea')?.focus());
+  queueMicrotask(() => {
+    if (layer.isConnected)
+      form.querySelector('input:not([type="hidden"]), select, textarea')?.focus({ preventScroll: true });
+  });
   return { layer, form, grid, fields, status };
 }
 
@@ -345,7 +350,7 @@ export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
   if (P.canOpenCore()) {
     // One canonical task editor for everyone authorized to use Core; Research
     // participants without Core access retain project-scoped editing below.
-    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261026canonsave1');
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261027stability1');
     return openCoreTask(task.id, { go, onTaskChange: refresh });
   }
   // This is the SAME project task, not a Research copy. Keep project ACL and
