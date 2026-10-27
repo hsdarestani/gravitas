@@ -43,15 +43,15 @@ export function assistantContext(path, area) {
    refused request now falls back to the notes index rather than its pages. */
 async function requestAnswer(question, extra = {}) {
   // Navigation is a product fact, not a question for historical documents.
-  // Resolve this from the actual Research Overview before querying any model.
+  // Resolve this from the owning research project before querying any model.
   const normalized = String(question || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/[?!.]+$/, '');
   if (/\bresearch intelligence\b/.test(normalized) &&
       /^(where|how|find\b|open\b|go to\b|navigate\b|show me\b)/.test(normalized)) {
     return {
       grounded: true,
       intent: 'navigation',
-      answer: 'Research Intelligence is in Research Workspace → Overview. Scroll to the Research Intelligence panel (Funding Calls, Papers & Tools, AI Developments, History). This panel is available to Core members.',
-      sources: [{ kind: 'navigation', title: 'Open Research Intelligence', href: '/workspace/research#research-intelligence-title' }],
+      answer: 'Research Intelligence / AutoResearch is in Research → Projects → Research Intelligence & Institutional Funding (#223) → AutoResearch (Funding Calls, Papers & Tools, AI Developments, History). Available to Core members.',
+      sources: [{ kind: 'navigation', title: 'Open Research Intelligence', href: '/workspace/research/projects/223/autoresearch#research-intelligence-title' }],
     };
   }
   const body = { question };
