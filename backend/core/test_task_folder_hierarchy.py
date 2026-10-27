@@ -79,6 +79,79 @@ class TaskFolderHierarchyTests(TestCase):
         self.assertEqual(preview.status_code, 200)
         self.assertEqual(preview.json()['hierarchy']['children'][0]['id'], child_id)
 
+    def test_unscheduled_historical_parent_858_can_create_child_without_fake_deadline(self):
+        """PostgreSQL must accept a child inheriting its unscheduled parent KR."""
+        import uuid
+        parent_id = self.make_parent()
+        # Existing imported parents may have an initiative and no schedule
+        # because their immutable historical source_key satisfies the root check.
+        OperatingTask.objects.filter(pk=parent_id).update(
+            source_key='legacy-parent-858-test', due_date=None, cycle_id=None)
+        parent = OperatingTask.objects.get(pk=parent_id)
+        self.assertIsNone(parent.due_date)
+        self.assertIsNotNone(parent.initiative_id)
+        request_id = str(uuid.uuid4())
+        body = {
+            'parent_id': parent_id,
+            'title': 'Document current development workflows',
+            'definition_of_done': 'A reviewed workflow document with evidence',
+            'client_create_id': request_id,
+            'priority': 'p1',
+            'owner_id': self.user.pk,
+        }
+        created = self.send('/api/operating/task-board/', body)
+        self.assertEqual(created.status_code, 201, created.content)
+        child_id = created.json()['task']['id']
+        child = OperatingTask.objects.get(pk=child_id)
+        self.assertEqual(child.parent_id, parent_id)
+        self.assertEqual(child.project_id, parent.project_id)
+        self.assertEqual(child.initiative.key_result_id, parent.initiative.key_result_id)
+        self.assertIsNone(child.due_date)
+        self.assertIsNone(child.cycle_id)
+        self.assertIsNone(child.source_key)
+        # Routine status edits must not accidentally prohibit valid children.
+        updated = self.send(f'/api/operating/task-board/{child_id}/',
+                            {'status': 'ready'}, 'PATCH')
+        self.assertEqual(updated.status_code, 200, updated.content)
+        self.assertEqual(OperatingTask.objects.get(pk=child_id).status, 'ready')
+        retry = self.send('/api/operating/task-board/', body)
+        self.assertEqual(retry.status_code, 200, retry.content)
+        self.assertEqual(retry.json()['task']['id'], child_id)
+        self.assertEqual(OperatingTask.objects.filter(parent_id=parent_id).count(), 1)
+
+    def test_unscheduled_canonical_parent_preserves_native_sync_and_no_fake_date(self):
+        from core.canonical_models import CanonicalProject, CanonicalTaskSyncOutbox
+        from unittest.mock import patch
+
+        parent_id = self.make_parent()
+        OperatingTask.objects.filter(pk=parent_id).update(
+            source_key='legacy-parent-canonical-test', due_date=None, cycle_id=None)
+        CanonicalProject.objects.create(project=self.project, enabled=True)
+        with patch('core.canonical_signals.export_object',
+                   side_effect=AssertionError('unexpected synchronous DAV write')):
+            created = self.send('/api/operating/task-board/', {
+                'parent_id': parent_id, 'title': 'Document inherited workflow',
+                'definition_of_done': 'Reviewed process evidence',
+                'priority': 'p1',
+            })
+        self.assertEqual(created.status_code, 201, created.content)
+        child = OperatingTask.objects.get(pk=created.json()['task']['id'])
+        self.assertEqual(child.project_id, self.project.pk)
+        self.assertIsNone(child.due_date)
+        self.assertIsNone(child.source_key)
+        self.assertTrue(CanonicalTaskSyncOutbox.objects.filter(
+            project=self.project, task_id=child.pk, state='pending').exists())
+
+    def test_unscheduled_standalone_initiative_task_is_rejected_without_500(self):
+        result = self.send('/api/operating/task-board/', {
+            'title': 'Undated root', 'definition_of_done': 'Evidence',
+            'key_result_id': self.kr['id'], 'owner_id': self.user.pk,
+            'priority': 'p2',
+        })
+        self.assertEqual(result.status_code, 400, result.content)
+        self.assertEqual(result.json()['error'], 'task_requires_cycle_or_due_date')
+
+
     def test_canonical_subtask_creation_commits_locally_and_queues_native_sync(self):
         """Never block a POST on the remote DAV journal or reject canonical children."""
         from unittest.mock import patch
