@@ -572,6 +572,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
   const scrollRegion = host.closest('.ws-view') || host;
   const previousScrollTop = preserveView ? scrollRegion.scrollTop : null;
   const keepExisting = preserveView && Boolean(host.querySelector('.fl-project-doc'));
+  const previousView = keepExisting ? host.firstElementChild : null;
   if (!keepExisting) loading(host);
   try {
     const needs = [P.projectCockpit(projectId, { snapshot: true })];
@@ -608,8 +609,10 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     });
   } catch (error) {
     if (host._wsProjectRenderToken !== renderToken || location.pathname !== initialPath) return;
-    if (keepExisting) {
-      // A failed background refresh must not replace a usable project page.
+    if (keepExisting && previousView) {
+      // Restore the previous DOM, including active controls/listeners, if an
+      // optional view renderer fails after the refreshed shell was mounted.
+      if (!host.contains(previousView)) host.replaceChildren(previousView);
       const oldNotice = host.querySelector('[data-project-refresh-error]');
       oldNotice?.remove();
       const notice = el('p', 'v-note', error?.message || 'Project refresh failed. Previous data is still shown.');
