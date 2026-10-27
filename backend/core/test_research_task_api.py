@@ -120,6 +120,20 @@ class ResearchProjectTaskApiTests(TestCase):
         self.assertEqual(task.status, 'blocked')
         self.assertEqual(task.blocked_reason, 'Awaiting source verification')
 
+    def test_stale_project_editor_cannot_overwrite_confirmed_task(self):
+        created = self.create_task(self.owner).json()['task']
+        url = f'/api/platform/projects/{self.project.pk}/tasks/{created["id"]}/'
+        saved = self.client.patch(url, data={
+            'title': 'Confirmed project edit', 'expected_updated_at': created['updated_at'],
+        }, content_type='application/json')
+        self.assertEqual(saved.status_code, 200, saved.content)
+        stale = self.client.patch(url, data={
+            'title': 'Stale project edit', 'expected_updated_at': created['updated_at'],
+        }, content_type='application/json')
+        self.assertEqual(stale.status_code, 409, stale.content)
+        task = OperatingTask.objects.get(pk=created['id'])
+        self.assertEqual(task.title, 'Confirmed project edit')
+
     def test_project_viewer_cannot_mutate_project_task(self):
         created = self.create_task(self.owner)
         task_id = created.json()['task']['id']

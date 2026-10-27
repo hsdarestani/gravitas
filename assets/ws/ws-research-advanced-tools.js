@@ -1,5 +1,5 @@
 /* Native, bounded project data connectors and analysis plugins. */
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 
 const node = (tag, text = '', cls = '') => {
   const e = document.createElement(tag); e.textContent = text;

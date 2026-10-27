@@ -92,6 +92,39 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
 
+    def test_stale_editor_is_rejected_and_durable_server_value_survives(self):
+        task_id = self.create_task('Concurrent editing')
+        path = f'/api/operating/task-board/{task_id}/'
+        opened = self.client.get(path).json()['task']['updated_at']
+        saved = self.patch_json(path, {
+            'title': 'First editor committed', 'expected_updated_at': opened,
+        })
+        self.assertEqual(saved.status_code, 200, saved.content)
+        stale = self.patch_json(path, {
+            'description': 'Stale editor draft', 'expected_updated_at': opened,
+        })
+        self.assertEqual(stale.status_code, 409, stale.content)
+        self.assertEqual(stale.json()['error'], 'task_changed_elsewhere')
+        confirmed = self.client.get(path).json()['task']
+        self.assertEqual(confirmed['title'], 'First editor committed')
+        self.assertEqual(confirmed['description'], 'Trello card body')
+        self.assertEqual(confirmed['updated_at'], saved.json()['task']['updated_at'])
+
+    def test_activity_failure_rolls_back_task_instead_of_uncertain_partial_save(self):
+        from unittest.mock import patch
+        task_id = self.create_task('Atomic edit')
+        path = f'/api/operating/task-board/{task_id}/'
+        with patch('core.task_board_api._log', side_effect=RuntimeError('activity unavailable')):
+            with self.assertRaises(RuntimeError):
+                self.patch_json(path, {'title': 'Must roll back'})
+        self.assertEqual(OperatingTask.objects.get(pk=task_id).title, 'Atomic edit')
+
+    def test_non_object_patch_is_a_validation_response(self):
+        task_id = self.create_task()
+        response = self.patch_json(f'/api/operating/task-board/{task_id}/', ['invalid'])
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'invalid_payload')
+
     def test_patch_returns_real_server_timing_and_updated_fields(self):
         task_id = self.create_task('Fast write test task')
         path = f'/api/operating/task-board/{task_id}/'

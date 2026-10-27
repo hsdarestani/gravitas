@@ -89,7 +89,7 @@ class ResearchProjectActionsAssetTests(SimpleTestCase):
             '/platform/projects/${projectId}/milestones/',
             '/platform/projects/${projectId}/milestones/${fields.picker.value}/',
             '/platform/projects/${projectId}/tasks/',
-            '/platform/tasks/${task.id}/',
+            '/platform/projects/${cockpit.project.id}/tasks/${task.id}/',
             '/platform/resources/',
             '/platform/files/upload/',
             '/platform/share/',

@@ -134,8 +134,8 @@ class TaskFolderUiContractTests(SimpleTestCase):
             "const resourceSection = el('section', 'task-card-dialog__resources')",
             "resourceHeader.append(resourceTitle, addResource)",
             "external-links/",
-            "const changedRelations = new Set()", "changedRelations.has(name)",
-            "payload[name] = control.value ? Number(control.value) : null",
+            "let confirmedValues = taskFormValues()", "value !== confirmedValues[key]",
+            "[key, control.value ? Number(control.value) : null]",
         ]:
             self.assertIn(token, source)
         stylesheet = (Path(__file__).resolve().parents[2] / 'assets/ws/ws.css').read_text()

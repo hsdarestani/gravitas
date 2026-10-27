@@ -7,7 +7,7 @@
    service is named as unavailable and a successful mutation is read back.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as C from './ws-charts.js?v=20261016-task1';
 import { researchCreateBar, spaceProjectToolbar } from './ws-research-create.js?v=20261016-task1&patch=20261019researchtools2';
 import { teamPanel, teamRow } from './ws-core-team.js?v=20261016-task1';

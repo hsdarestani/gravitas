@@ -1,6 +1,6 @@
 /* Secure, opt-in provider bindings and explicit Nextcloud push workflow.
    Server-side draft buffer is kept separate from canonical DAV until Push. */
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 
 const el = (tag, text = '', cls = '') => {
   const n = document.createElement(tag);

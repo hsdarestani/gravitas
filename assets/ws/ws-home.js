@@ -11,9 +11,9 @@
    trust in the rest of the numbers on it.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as C from './ws-charts.js?v=20261016-task1';
-import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261016-task1&patch=20261019modals2';
+import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261016-task1&patch=20261027reliability1';
 import { availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import * as K from './ws-kms.js?v=20261016-task1';
 import { researchCreateBar, openProjectCreator } from './ws-research-create.js?v=20261016-task1&patch=20261019researchtools2';

@@ -1,7 +1,7 @@
 /* Project command center. All views use the same ACL-scoped OperatingTask
  * objects; canonical Nextcloud documents remain the source of truth.
  * These views do not persist a competing task representation. */
-import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';
 
 const node = (tag, cls = '', content = '') => {
@@ -70,14 +70,27 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   const wrap = node('div', 'fl-panel__body wc-card__body');
   root.append(wrap); doc.append(root);
 
-  async function reload() {
-    const latest = await P.projectCockpit(projectId, { snapshot: true });
-    tasks = latest.tasks || [];
-    try { timeSummary = await P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot'); }
-    catch(e) { notice.textContent = 'Work-time summary unavailable: '+e.message; }
-    try { const plans=await P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot'); scheduleMap=new Map(plans.schedules.map(x=>[Number(x.task_id),x])); }
-    catch(e){notice.textContent='Gantt schedule unavailable: '+e.message;}
-    paint({ preserveFilters: true });
+  let reloadGeneration = 0;
+  let reloading = null;
+  function reload() {
+    if (reloading) return reloading;
+    const generation = ++reloadGeneration;
+    reloading = (async () => {
+      const [latest, time, plans] = await Promise.allSettled([
+        P.projectCockpit(projectId, { snapshot: true }),
+        P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot'),
+        P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot'),
+      ]);
+      if (generation !== reloadGeneration) return;
+      if (latest.status === 'rejected') throw latest.reason;
+      tasks = latest.value.tasks || [];
+      if (time.status === 'fulfilled') timeSummary = time.value;
+      if (plans.status === 'fulfilled') scheduleMap = new Map(plans.value.schedules.map(x=>[Number(x.task_id),x]));
+      const errors = [time, plans].filter(x=>x.status==='rejected');
+      if (errors.length) notice.textContent = 'Tasks refreshed. Optional project data unavailable: ' + errors.map(x=>x.reason.message).join('; ');
+      paint({ preserveFilters: true });
+    })().finally(() => { reloading = null; });
+    return reloading;
   }
   const notice = node('p', 'pm-note', 'All views use the same project tasks; Nextcloud remains the source for adopted projects.');
   const heading = node('div', 'pm-head');
@@ -88,14 +101,28 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   const body = node('div'), editor = node('div'), ai = node('div', 'pm-ai');
   wrap.append(heading, notice, stat, views, filters, body, editor, ai);
 
+  const savingTasks = new Set();
   async function patch(task, payload) {
+    if (savingTasks.has(task.id)) return false;
+    savingTasks.add(task.id);
+    // Invalidate an earlier refresh so it cannot paint pre-save task values.
+    reloadGeneration += 1;
+    reloading = null;
     try {
-      await P.call(`/platform/projects/${projectId}/tasks/${task.id}/`, { method: 'PATCH', body: payload });
-      notice.textContent = 'Saved to the existing project task; canonical synchronization is enforced by the server.';
-      await reload();
+      const result = await P.call(`/platform/projects/${projectId}/tasks/${task.id}/`, {
+        method: 'PATCH', body: { ...payload, expected_updated_at: task.updated_at },
+      });
+      Object.assign(task, result.task);
+      notice.textContent = 'Saved on server.';
+      try { await reload(); }
+      catch (err) { notice.textContent = 'Saved on server. Refresh failed: ' + err.message; }
+      return true;
     } catch (err) {
-      notice.textContent = err.message === 'canonical_task_schema_upgrade_required' ? 'This task field is locked until its canonical text schema supports it.' : err.message + (err.data?.detail ? ': ' + err.data.detail : '');
-    }
+      notice.textContent = err.data?.error === 'task_changed_elsewhere'
+        ? 'This task changed elsewhere. Your draft is retained; refresh and review the server version.'
+        : err.message + (err.data?.detail ? ': ' + err.data.detail : '');
+      return false;
+    } finally { savingTasks.delete(task.id); }
   }
   // The active timer lives in the canonical Markdown note, not the browser.
   async function showTime(task, container) {
@@ -159,9 +186,20 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     const blocked = control('input','text','Blocker or waiting reason'); blocked.value=task.blocked_reason || '';
     const description = control('textarea', null, 'Description'); description.rows=5; description.value=task.description || '';
     const done = control('textarea', null, 'Definition of done'); done.rows=3; done.value=task.definition_of_done || '';
+    const values = () => ({ title: title.value, description: description.value, definition_of_done: done.value, due_date: deadline.value || null, status: status.value, priority: priority.value, blocked_reason: blocked.value, ...(!owner.disabled && owner.value ? { owner_id: Number(owner.value) } : {}) });
+    let confirmed = values();
+    const saveTask = btn('Save changes', async () => {
+      if (saveTask.disabled) return;
+      const submitted = values();
+      const payload = Object.fromEntries(Object.entries(submitted).filter(([key, value])=>value !== confirmed[key]));
+      if (!Object.keys(payload).length) { notice.textContent = 'No unsaved changes.'; return; }
+      saveTask.disabled = true;
+      try { if (await patch(task, payload)) confirmed = submitted; }
+      finally { saveTask.disabled = false; }
+    });
     panel.append(title, description, done, deadline, status, priority, owner, blocked,
       ...(owner.disabled?[node('p','pm-note','Owner and dependency changes are read only for adopted projects until these relations are present in the canonical text schema.')]:[]),
-      btn('Save changes', () => { const data = { title: title.value, description:description.value, definition_of_done:done.value, due_date:deadline.value, status:status.value, priority:priority.value, blocked_reason:blocked.value }; if(!owner.disabled && owner.value && owner.value !== String(task.owner_id)) data.owner_id = owner.value; patch(task, data); }),
+      saveTask,
       btn('Close', () => editor.replaceChildren()));
     mountAnchoredComments({ container: panel, kind: 'task', id: task.id, canEdit: task.can_edit,
       fields: [
@@ -191,8 +229,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     (!current.priority || t.priority === current.priority) &&
     (!current.onlyOverdue || overdue(t,today)));
 
-  function paint({ preserveFilters = false } = {}) {
-    stat.replaceChildren(); views.replaceChildren(); body.replaceChildren();
+  function paint({ preserveFilters = false, preserveBody = false } = {}) {
+    stat.replaceChildren();
+    if (!preserveBody) body.replaceChildren();
     if (!preserveFilters) filters.replaceChildren();
     const n = filtered();
     [
@@ -203,10 +242,12 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       ['Completed', n.filter(done).length],
       ['Time logged', timeSummary ? (timeSummary.total_minutes/60).toFixed(1)+'h' : '—']
     ].forEach(([k,v])=>{const c=node('div','pm-stat');c.append(node('strong','',String(v)),node('small','',k));stat.append(c);});
-    ['board','list','timeline','week','team','work logs','matrix','review'].forEach(mode=>{
-      const b=btn(mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint();});
-      b.setAttribute('aria-pressed',String(current.view===mode));views.append(b);
+    if (!views.children.length) ['board','list','timeline','week','team','work logs','matrix','review'].forEach(mode=>{
+      const b=btn(mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint({ preserveFilters: true });});
+      b.dataset.mode=mode; views.append(b);
     });
+    for (const button of views.children) button.setAttribute('aria-pressed', String(current.view === button.dataset.mode));
+    if (preserveBody) return;
     if (!preserveFilters) {
     const search=control('input','search','Search tasks');search.value=current.text;
     // Do not destroy the focused search control on each keystroke: that
@@ -372,8 +413,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     ai.append(q,btn('Ask Pulsar',()=>run(false)),out,actions);
   }
   buildPulsar();paint();
-  P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot').then(data=>{scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint({ preserveFilters: true });}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
-  P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot').then(data=>{timeSummary=data;paint({ preserveFilters: true });}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
+  P.call('/platform/projects/'+projectId+'/schedules/?read_mode=snapshot').then(data=>{scheduleMap=new Map(data.schedules.map(x=>[Number(x.task_id),x]));paint({ preserveFilters: true, preserveBody: !['timeline','week','review'].includes(current.view) });}).catch(err=>{notice.textContent='Gantt schedule unavailable: '+err.message;});
+  P.call('/platform/projects/'+projectId+'/work-time/?read_mode=snapshot').then(data=>{timeSummary=data;paint({ preserveFilters: true, preserveBody: !['work logs','team','review'].includes(current.view) });}).catch(err=>{notice.textContent='Work-time summary unavailable: '+err.message;});
   const linkedId = new URLSearchParams(location.search).get('task');
   if(linkedId && /^\d+$/.test(linkedId)){
     const selected = tasks.find(t=>String(t.id)===linkedId);

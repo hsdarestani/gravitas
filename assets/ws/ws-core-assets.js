@@ -7,8 +7,8 @@
    links continue to resolve, but it is no longer presented as part of Assets.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
-import { el, panel, row } from './ws-views.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
+import { el, panel, row } from './ws-views.js?v=20261016-task1&patch=20261027reliability1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 

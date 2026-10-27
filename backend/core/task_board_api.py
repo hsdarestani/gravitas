@@ -90,8 +90,11 @@ def _task_for(request, task_id, *, counts=True):
     workspace = _readonly_task_workspace(request) if request.method == 'GET' else base._workspace(request)
     if not workspace:
         return None, None
+    queryset = OperatingTask.objects
+    if request.method in ('PATCH', 'DELETE'):
+        queryset = queryset.select_for_update(of=('self',))
     task = (
-        OperatingTask.objects
+        queryset
         .select_related(
             'workspace', 'owner', 'initiative__process', 'initiative__key_result__objective',
             'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
@@ -465,6 +468,7 @@ def _measure_task_write(view):
 
 @_measure_task_write
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
+@transaction.atomic
 def task_board_detail(request, task_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
@@ -562,6 +566,11 @@ def task_board_detail(request, task_id):
         return _error('permission_denied', 403)
 
     payload = base._body(request)
+    if not isinstance(payload, dict):
+        return _error('invalid_payload')
+    expected = payload.get('expected_updated_at')
+    if expected is not None and expected != task.updated_at.isoformat():
+        return _error('task_changed_elsewhere', 409, task=_task_json(task))
     before = _task_json(task)
 
     if 'parent_id' in payload:
