@@ -444,7 +444,7 @@ def tasks(request):
         or not payload.get('definition_of_done') or priority not in Priority.values
     ):
         return base._error('task_requires_title_owner_priority_and_done_definition')
-    if legacy_initiative and not cycle and not due_date:
+    if legacy_initiative and not parent and not cycle and not due_date:
         return base._error('task_requires_cycle_or_due_date')
     if meeting and not due_date:
         return base._error('meeting_action_requires_deadline')
@@ -478,6 +478,12 @@ def tasks(request):
     dependency = OperatingTask.objects.filter(
         pk=payload.get('dependency_id'), workspace=workspace
     ).first() if payload.get('dependency_id') else None
+
+    # An unscheduled child may inherit the parent's planning KR. A standalone
+    # initiative task still requires its own cycle or date; fail with 400
+    # instead of passing invalid rows down to PostgreSQL as an HTTP 500.
+    if not parent and initiative and not cycle and not due_date:
+        return base._error('task_requires_cycle_or_due_date')
 
     obj = OperatingTask.objects.create(
         workspace=workspace,
