@@ -687,14 +687,14 @@ jobs:
             echo 'API release failed; restoring the verified code archive.' >&2
             sudo install -d -m 700 "$BACKUP/restore"
             sudo tar -xpf "$BACKUP/backend.tar" -C "$BACKUP/restore"
-            sudo rsync -a --delete --exclude ".venv/" --exclude "staticfiles/" \
+            sudo rsync -a --delete --checksum --exclude ".venv/" --exclude "staticfiles/" \
               --exclude "*.sqlite3*" "$BACKUP/restore/" "$BACKEND_PATH/"
             sudo chown -R gravitas:gravitas "$BACKEND_PATH"
             sudo systemctl reload gravitas-backend.service || true
             exit 1
           }
           trap rollback ERR
-          sudo rsync -a --delete --delay-updates --exclude '.venv/' --exclude 'staticfiles/' \
+          sudo rsync -a --delete --checksum --delay-updates --exclude '.venv/' --exclude 'staticfiles/' \
             --exclude '*.sqlite3*' "$STAGE/" "$BACKEND_PATH/"
           sudo chown -R gravitas:gravitas "$BACKEND_PATH"
           MASTER_PID="$(sudo systemctl show -p MainPID --value gravitas-backend.service)"

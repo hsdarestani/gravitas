@@ -56,7 +56,9 @@ The import graph was inspected across all 54 Workspace JavaScript modules. Every
 
 Automated browser coverage uses real Chromium, real HTTP requests and a real Django database at desktop/mobile sizes. It checks task save/read-after-reload, focused comment input, all eight Command Center modes, retained search filters, page overflow and 13 account/Core/Research/Learning navigation routes. Additional checks exercise a second editor's server commit, a rejected stale save with the draft retained, typing during a deliberately delayed real save response, and zero retained task observers after close. The delayed-response test forwards the actual server response; it does not invent a saved task.
 
-Production inspection uses the signed-in browser and anonymized read-only endpoint profiles. Browser smoke uses the repository's disposable test identity lifecycle. The release does not claim exhaustive interaction coverage for every external Nextcloud/Google/payment/provider flow, nor does a short healthy observation establish a long-term 5xx rate. API-only releases avoid the offline checkpoint; stateful releases still require the matched backup procedure.
+Production inspection uses the signed-in browser and anonymized read-only endpoint profiles. Browser smoke uses the repository's disposable test identity lifecycle. The actual rollback function is also rehearsed against a temporary tree: same-size/same-timestamp changed code is restored using checksums, newly introduced code is removed, and runtime/static/database files remain intact.
+
+The release does not claim exhaustive interaction coverage for every external Nextcloud/Google/payment/provider flow, nor does a short healthy observation establish a long-term 5xx rate. API-only releases avoid the offline checkpoint; stateful releases still require the matched backup procedure.
 
 ## Reproduce
 
