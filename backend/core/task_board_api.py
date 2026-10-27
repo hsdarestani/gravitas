@@ -848,7 +848,7 @@ def task_board_detail(request, task_id):
         if own_kr != parent_kr and hierarchy_changed:
             return _error('parent_context_mismatch', 409)
 
-    if task.initiative_id and not task.cycle and not task.due_date and not task.source_key:
+    if task.initiative_id and not task.parent_id and not task.cycle and not task.due_date and not task.source_key:
         return _error('task_requires_due_date')
     if task.meeting and not task.due_date:
         return _error('meeting_action_requires_deadline')
