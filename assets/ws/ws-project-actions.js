@@ -12,7 +12,7 @@
    draws its own tiles as buttons.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
 import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-task1';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
