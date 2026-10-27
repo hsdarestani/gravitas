@@ -861,7 +861,7 @@ def task_858_failure_trace_signatures():
     frames = []
     exceptions = []
     for line in lines[-24000:]:
-        match = re.search(r'File "[^"]*/(core|gravitas_backend)/([A-Za-z_0-9/]+\\.py)", line (\\d+), in ([A-Za-z_0-9]+)', line)
+        match = re.search(r'File "[^"]*/(core|gravitas_backend)/([A-Za-z_0-9/]+[.]py)", line ([0-9]+), in ([A-Za-z_0-9]+)', line)
         if match:
             frames.append((match.group(1) + "/" + match.group(2), int(match.group(3)), match.group(4)))
             frames = frames[-20:]
@@ -878,7 +878,7 @@ def task_858_failure_trace_signatures():
            "FROM core_canonicaltasksyncoutbox")
     raw_count = run("sudo","-n","-u","postgres","psql","-d","gravitas",
                     "-X","-A","-t","-F","|","-c",sql,timeout=8)
-    print("native_task_sync_pending_conflict", raw_count.strip() if re.fullmatch(r"\\d+\\|\\d+",raw_count.strip()) else "unavailable")
+    print("native_task_sync_pending_conflict", raw_count.strip() if re.fullmatch(r"[0-9]+[|][0-9]+",raw_count.strip()) else "unavailable")
 
 if __name__ == "__main__":
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
