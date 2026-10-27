@@ -12,7 +12,7 @@
    draws its own tiles as buttons.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1&patch=20261026canonsave1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027subtask1';
 import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-task1';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
@@ -350,7 +350,7 @@ export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
   if (P.canOpenCore()) {
     // One canonical task editor for everyone authorized to use Core; Research
     // participants without Core access retain project-scoped editing below.
-    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261027stability1');
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261027subtask1');
     return openCoreTask(task.id, { go, onTaskChange: refresh });
   }
   // This is the SAME project task, not a Research copy. Keep project ACL and
