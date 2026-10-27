@@ -130,6 +130,41 @@ jobs:
             await assertNoHorizontalBreakage();
           }
 
+          let verificationTaskId = null;
+          async function verifyTaskPersistence(label) {
+            const taskURL = `${base}/api/operating/task-board/${verificationTaskId}/`;
+            const taskRoute = `${base}/workspace/core/tasks?task=${verificationTaskId}`;
+            await page.goto(taskRoute, { waitUntil: 'domcontentloaded' });
+            let modal = page.getByRole('dialog');
+            if (page.viewportSize().width < 800)
+              await modal.getByRole('button', { name: 'Edit task', exact: true }).click();
+            const title = modal.getByRole('textbox', { name: 'Task title', exact: true });
+            await title.waitFor();
+            await page.waitForLoadState('networkidle');
+            const expected = `Browser persistence ${label} · ${process.env.GITHUB_RUN_ID}`;
+            await title.fill(expected);
+            const start = performance.now();
+            const savedResponse = page.waitForResponse(r => r.url() === taskURL && r.request().method() === 'PATCH');
+            await modal.getByRole('button', { name: 'Save changes', exact: true }).click();
+            const saved = await savedResponse;
+            assert.equal(saved.status(), 200, await saved.text());
+            await modal.getByText(/Saved\./).waitFor();
+            const duration = Math.round(performance.now() - start);
+            const fresh = await context.request.get(taskURL);
+            assert.equal(fresh.status(), 200);
+            assert.equal((await fresh.json()).task.title, expected);
+            await page.waitForLoadState('networkidle');
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            modal = page.getByRole('dialog');
+            if (page.viewportSize().width < 800)
+              await modal.getByRole('button', { name: 'Edit task', exact: true }).click();
+            await modal.getByRole('textbox', { name: 'Task title', exact: true }).waitFor();
+            assert.equal(await modal.getByRole('textbox', { name: 'Task title', exact: true }).inputValue(), expected);
+            await page.waitForLoadState('networkidle');
+            await modal.getByRole('button', { name: 'Close task', exact: true }).click();
+            console.log(`production-task-persistence viewport=${label} save_ms=${duration} server_timing=${saved.headers()['server-timing'] || 'unavailable'}`);
+          }
+
           try {
             await page.goto(`${base}/login`, { waitUntil: 'domcontentloaded', timeout: 30000 });
             await page.locator('#in-mail').fill(email);
@@ -141,12 +176,23 @@ jobs:
             await visible('#ws-rail');
             await page.screenshot({ path: path.join(artifacts, '01-core-desktop.png'), fullPage: true, animations: 'disabled' });
             await openSection('/workspace/core/tasks', 'Tasks');
+            const csrf = (await context.cookies()).find(cookie => cookie.name === 'csrftoken')?.value;
+            assert(csrf, 'Missing authenticated CSRF cookie');
+            const created = await context.request.post(`${base}/api/operating/task-board/`, {
+              headers: { 'X-CSRFToken': csrf, Referer: `${base}/workspace/core/tasks` },
+              data: { title: `Disposable browser persistence fixture · ${process.env.GITHUB_RUN_ID}`,
+                definition_of_done: 'Automatic browser persistence verification; deleted by this run.', priority: 'p2' }
+            });
+            assert.equal(created.status(), 201, await created.text());
+            verificationTaskId = (await created.json()).task.id;
+            await verifyTaskPersistence('desktop');
             await openSection('/workspace/core/meetings', 'Meetings');
             await openSection('/workspace/core/work-reports', 'Daily Work Reports');
             await page.locator('textarea').first().waitFor({ state: 'visible', timeout: 15000 });
             await page.screenshot({ path: path.join(artifacts, '02-daily-reports-desktop.png'), fullPage: true, animations: 'disabled' });
 
             await page.setViewportSize({ width: 390, height: 844 });
+            await verifyTaskPersistence('mobile');
             await openSection('/workspace/core', 'Core');
             await assertNoHorizontalBreakage(32);
             await page.screenshot({ path: path.join(artifacts, '03-core-mobile.png'), fullPage: true, animations: 'disabled' });
@@ -155,7 +201,16 @@ jobs:
             assert.deepEqual(failedSameOriginRequests, [], `failed production requests: ${failedSameOriginRequests.join(' | ')}`);
             console.log('operating-browser-visual-smoke-passed');
           } finally {
-            await browser.close();
+            try {
+              if (verificationTaskId) {
+                const csrf = (await context.cookies()).find(cookie => cookie.name === 'csrftoken')?.value;
+                const removed = await context.request.delete(`${base}/api/operating/task-board/${verificationTaskId}/`, {
+                  headers: { 'X-CSRFToken': csrf, Referer: `${base}/workspace/core/tasks` }
+                });
+                assert.equal(removed.status(), 200, 'Disposable task cleanup failed');
+                console.log('production-task-fixture-cleaned');
+              }
+            } finally { await browser.close(); }
           }
           EOF
           cd "$HARNESS"
