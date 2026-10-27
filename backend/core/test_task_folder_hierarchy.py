@@ -120,7 +120,76 @@ class TaskFolderHierarchyTests(TestCase):
         self.assertEqual(OperatingTask.objects.get(pk=parent_id).status, 'active')
 
 
+    def test_subtask_create_retries_are_idempotent_and_confirmable(self):
+        parent_id = self.make_parent()
+        import uuid
+        request_id = str(uuid.uuid4())
+        body = {
+            'parent_id': parent_id,
+            'title': 'Documenting current development workflow',
+            'definition_of_done': 'A comprehensive review of the current development process',
+            'priority': 'p1',
+            'owner_id': self.user.pk,
+            'client_create_id': request_id,
+        }
+        before = self.client.get(
+            '/api/operating/task-board/',
+            {'mode': 'create-status', 'parent_id': parent_id, 'client_request_id': request_id},
+        )
+        self.assertEqual(before.status_code, 200, before.content)
+        self.assertFalse(before.json()['created'])
+
+        first = self.send('/api/operating/task-board/', body)
+        self.assertEqual(first.status_code, 201, first.content)
+        child_id = first.json()['task']['id']
+        self.assertIn('task_create;dur=', first['Server-Timing'])
+
+        replay = self.send('/api/operating/task-board/', body)
+        self.assertEqual(replay.status_code, 200, replay.content)
+        self.assertTrue(replay.json()['replayed'])
+        self.assertEqual(replay.json()['task']['id'], child_id)
+        self.assertEqual(OperatingTask.objects.filter(parent_id=parent_id).count(), 1)
+
+        status = self.client.get(
+            '/api/operating/task-board/',
+            {'mode': 'create-status', 'parent_id': parent_id, 'client_request_id': request_id},
+        )
+        self.assertEqual(status.status_code, 200, status.content)
+        self.assertTrue(status.json()['created'])
+        self.assertEqual(status.json()['task']['id'], child_id)
+
+        wrong_payload = {**body, 'title': 'Different task title'}
+        conflict = self.send('/api/operating/task-board/', wrong_payload)
+        self.assertEqual(conflict.status_code, 409, conflict.content)
+        self.assertEqual(conflict.json()['error'], 'creation_request_payload_mismatch')
+
+    def test_subtask_create_rejects_bad_keys_and_requires_authenticated_confirmation(self):
+        parent_id = self.make_parent()
+        body = {
+            'parent_id': parent_id, 'title': 'Child', 'definition_of_done': 'Proof',
+            'client_create_id': 'not-a-uuid',
+        }
+        self.assertEqual(self.send('/api/operating/task-board/', body).status_code, 400)
+        self.assertEqual(OperatingTask.objects.filter(parent_id=parent_id).count(), 0)
+        self.client.logout()
+        status = self.client.get('/api/operating/task-board/', {
+            'mode': 'create-status', 'parent_id': parent_id,
+            'client_request_id': '64aaf30d-1a4c-4c69-b97e-e53bb35fab34',
+        })
+        self.assertEqual(status.status_code, 401)
+
+
 class TaskFolderUiContractTests(SimpleTestCase):
+    def test_subtask_creation_does_not_wait_for_board_reload_and_can_confirm_timeout(self):
+        source = (Path(__file__).resolve().parents[2] / 'assets/ws/ws-views.js').read_text()
+        subtask_form = source.split("const createChild = el('form', 'task-family__new');", 1)[1].split(
+            "const createDisclosure = el('details', 'task-family__create');", 1)[0]
+        self.assertIn('client_create_id: createRequestId', subtask_form)
+        self.assertIn('P.operatingTaskCreationStatus(task.id, createRequestId)', subtask_form)
+        self.assertIn('navTask(created.task.id)', subtask_form)
+        self.assertNotIn('await reloadBoard(', subtask_form)
+
+
     def test_real_subtasks_and_parent_navigation_exist_in_same_task_dialog(self):
         source = (Path(__file__).resolve().parents[2] / 'assets/ws/ws-views.js').read_text()
         for token in [
