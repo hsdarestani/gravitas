@@ -24,7 +24,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.utils import timezone
 from . import cloud, nextcloud_bridge
-from .canonical_models import CanonicalFile, CanonicalFileRevision, CanonicalProject
+from .canonical_models import CanonicalFile, CanonicalFileRevision, CanonicalProject, CanonicalTaskSyncOutbox
 from .models import ResearchProject, KnowledgeResource
 from .platform_access import can_edit, can_view, downloads_allowed
 from .canonical_journal import journal_transaction
@@ -427,6 +427,16 @@ def refresh_file(file, user=None):
         return
     if not remote['etag']:
         raise cloud.CloudError('canonical_revision_missing')
+    if file.object_type == 'OperatingTask' and CanonicalTaskSyncOutbox.objects.filter(
+            project_id=file.project_id, task_id=file.object_id).exists():
+        # A confirmed local edit is durable while its native write is pending
+        # or conflicted. A later GET must not import over that edit merely
+        # because a different native revision appeared in the meantime.
+        local = encode(obj)
+        if remote['content'] != local:
+            raise CanonicalConflict(file.path, file.base_content, local, remote['content'], remote['etag'])
+        cache(file, remote, source='nextcloud')
+        return
     decode(obj, remote['content'])
     apply(obj, remote['content'])
     cache(file, remote, source='nextcloud')

@@ -116,7 +116,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       if (!result.task || Number(result.task.id) !== Number(task.id) || !result.task.updated_at)
         throw new Error('Invalid task save confirmation. Verify the task before retrying.');
       Object.assign(task, result.task);
-      notice.textContent = 'Saved on server.';
+      notice.textContent = result.canonical_sync === 'pending'
+        ? 'Saved on server. Nextcloud synchronization queued.' : 'Saved on server.';
       try { await reload(); }
       catch (err) { notice.textContent = 'Saved on server. Refresh failed: ' + err.message; }
       return true;
@@ -184,8 +185,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     status.value=task.status; priority.value=task.priority;
     members.forEach(m=>{const op=node('option','',m.name);op.value=m.user_id;owner.append(op);});
     owner.value=String(task.owner_id);
-    owner.disabled=!!cockpit.project?.canonical_enabled;
-    owner.title=owner.disabled?'Owner updates require the versioned canonical task schema upgrade.':'';
+    owner.disabled=false;
     const blocked = control('input','text','Blocker or waiting reason'); blocked.value=task.blocked_reason || '';
     const description = control('textarea', null, 'Description'); description.rows=5; description.value=task.description || '';
     const done = control('textarea', null, 'Definition of done'); done.rows=3; done.value=task.definition_of_done || '';
@@ -201,7 +201,6 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       finally { saveTask.disabled = false; }
     });
     panel.append(title, description, done, deadline, status, priority, owner, blocked,
-      ...(owner.disabled?[node('p','pm-note','Owner and dependency changes are read only for adopted projects until these relations are present in the canonical text schema.')]:[]),
       saveTask,
       btn('Close', () => editor.replaceChildren()));
     mountAnchoredComments({ container: panel, kind: 'task', id: task.id, canEdit: task.can_edit,

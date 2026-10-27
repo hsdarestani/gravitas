@@ -192,10 +192,11 @@ class CanonicalProjectMiddleware:
                 return None
         # Task form PATCHes must acknowledge a *durably committed database write*
         # without holding the HTTP request open for Nextcloud/WebDAV.
-        # Only this isolated field-edit operation is queued; changing a task's
+        # Both Core and project-scoped editors use the same isolated task
+        # field-edit operation and retain their own view-level ACL checks; changing a task's
         # project still uses the strict synchronous canonical boundary.
         if (request.method == 'PATCH' and
-                re.fullmatch(r'/api/operating/task-board/\d+/', request.path)):
+                re.fullmatch(r'/api/(?:operating/task-board/\d+|platform/projects/\d+/tasks/\d+)/', request.path)):
             from .operating_models import OperatingTask
             from .canonical_models import CanonicalTaskSyncOutbox
             from django.db.models import F
@@ -205,7 +206,9 @@ class CanonicalProjectMiddleware:
 
             task_id = view_kwargs.get('task_id')
             source_project_id = OperatingTask.objects.filter(pk=task_id).values_list('project_id', flat=True).first()
-            if source_project_id and CanonicalProject.objects.filter(
+            requested_project_id = view_kwargs.get('project_id')
+            same_project = requested_project_id is None or requested_project_id == source_project_id
+            if source_project_id and same_project and CanonicalProject.objects.filter(
                     project_id=source_project_id, enabled=True).exists():
                 try:
                     incoming = json.loads(request.body or b'{}')
@@ -225,12 +228,22 @@ class CanonicalProjectMiddleware:
                             else:
                                 # Do not queue unknown canonical writes: only the
                                 # named task's own save is covered by this boundary.
-                                unexpected = [
-                                    item for item in pending
-                                    if item[0] != 'save' or
-                                       item[1].__name__ != 'OperatingTask' or
-                                       item[2] != task_id
-                                ]
+                                def covered_task_edit(item):
+                                    if item[0] != 'save':
+                                        return False
+                                    if item[1].__name__ == 'OperatingTask':
+                                        return item[2] == task_id
+                                    if item[1].__name__ == 'ProjectAuditEvent':
+                                        # The worker also mirrors this task's
+                                        # immutable audit rows before acknowledging sync.
+                                        from .platform_models import ProjectAuditEvent
+                                        return ProjectAuditEvent.objects.filter(
+                                            pk=item[2], project_id=source_project_id,
+                                            object_type='OperatingTask', object_id=str(task_id),
+                                            action='task_updated',
+                                        ).exists()
+                                    return False
+                                unexpected = [item for item in pending if not covered_task_edit(item)]
                                 if unexpected:
                                     transaction.set_rollback(True)
                                     return JsonResponse({'ok': False, 'error': 'unsupported_canonical_task_edit'}, status=409)

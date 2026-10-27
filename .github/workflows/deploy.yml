@@ -127,7 +127,7 @@ jobs:
           RELEASE_SCOPE=stateful
           if [[ "$BASE" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "${BASE}^{commit}" 2>/dev/null && \
              git merge-base --is-ancestor "$BASE" "$GITHUB_SHA"; then
-            RELEASE_SCOPE="$(git diff --name-only -z "$BASE" "$GITHUB_SHA" | python3 ops/release_scope.py)"
+            RELEASE_SCOPE="$(git diff --name-only -z "$BASE" "$GITHUB_SHA" | python3 ops/release_scope.py --base "$BASE" --head "$GITHUB_SHA")"
           fi
           STATIC_ONLY=false
           CODE_ONLY=false

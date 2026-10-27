@@ -9,7 +9,7 @@ from datetime import timedelta
 from django.db.models import F
 from django.utils import timezone
 
-from .canonical_models import CanonicalTaskSyncOutbox
+from .canonical_models import CanonicalTaskSyncOutbox, CanonicalFile
 from .canonical_projects import CanonicalConflict, export_object
 from .canonical_journal import canonical_operation
 from .operating_models import OperatingTask
@@ -35,17 +35,28 @@ def process_task_sync_outbox(*, limit=5):
         job = CanonicalTaskSyncOutbox.objects.get(pk=pk)
         generation = job.generation
         task = OperatingTask.objects.filter(pk=job.task_id, project_id=job.project_id).first()
-        if not task:
-            # Task deletion uses the existing strict canonical deletion path;
-            # no stale save operation can recreate a deleted task.
-            CanonicalTaskSyncOutbox.objects.filter(pk=pk, generation=generation).delete()
-            totals['skipped'] += 1
-            continue
         try:
             with canonical_operation():
                 # The object must be read from the latest DB projection and
                 # conflicts with changed native ETags must fail closed.
-                export_object(task, reject_external_changes=True)
+                # Never recreate a deleted task; its immutable audit rows
+                # still need mirroring before the witness can be removed.
+                if task is not None:
+                    export_object(task, reject_external_changes=True)
+                # Project task PATCH commits its immutable audit rows in the
+                # same SQL transaction. Mirror every not-yet-exported row
+                # before clearing the task's durable synchronization witness.
+                from .platform_models import ProjectAuditEvent
+                exported_audits = CanonicalFile.objects.filter(
+                    project_id=job.project_id, object_type='ProjectAuditEvent',
+                    deleted=False,
+                ).values_list('object_id', flat=True)
+                audits = ProjectAuditEvent.objects.filter(
+                    project_id=job.project_id, object_type='OperatingTask',
+                    object_id=str(job.task_id), action='task_updated',
+                ).exclude(pk__in=exported_audits).order_by('pk')
+                for audit in audits:
+                    export_object(audit, reject_external_changes=True)
             # Concurrent later saves increment generation and remain queued;
             # successful export of an earlier snapshot cannot clear them.
             cleared, _ = CanonicalTaskSyncOutbox.objects.filter(
@@ -55,7 +66,7 @@ def process_task_sync_outbox(*, limit=5):
                 CanonicalTaskSyncOutbox.objects.filter(pk=pk).update(
                     next_attempt_at=timezone.now(), state='pending',
                 )
-            totals['synced'] += 1
+            totals['synced' if task is not None else 'skipped'] += 1
         except CanonicalConflict:
             CanonicalTaskSyncOutbox.objects.filter(
                 pk=pk, generation=generation,
