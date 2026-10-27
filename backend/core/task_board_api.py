@@ -390,14 +390,14 @@ def task_board(request):
         if not base._editable(request, workspace):
             return _error('permission_denied', 403)
         started = time.perf_counter()
-        try:
-            return _create_board_task(request, workspace)
-        finally:
-            elapsed = round((time.perf_counter() - started) * 1000)
-            if elapsed >= 750:
-                logging.getLogger(__name__).warning(
-                    'Slow task create duration_ms=%s', elapsed,
-                )
+        response = _create_board_task(request, workspace)
+        elapsed = round((time.perf_counter() - started) * 1000)
+        response['Server-Timing'] = f'task_create;dur={elapsed}'
+        if elapsed >= 750:
+            logging.getLogger(__name__).warning(
+                'Slow task create duration_ms=%s', elapsed,
+            )
+        return response
 
     # Resolve uncertain POST confirmations without loading the entire board.
     # Only the original authenticated creator can look up their request key.
