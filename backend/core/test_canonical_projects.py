@@ -212,6 +212,12 @@ class CanonicalProjectTests(TestCase):
         self.adopt()
         task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'],
             owner=self.owner, title='Previously unassigned', definition_of_done='Saved on server')
+        # The old middleware refreshed the destination as though the task
+        # already belonged there, rejecting every first attachment before save.
+        from .canonical_projects import refresh_task_scope
+        from .cloud import CloudError
+        with self.assertRaisesMessage(CloudError, 'canonical_task_projection_file_missing'):
+            refresh_task_scope(self.project, self.owner, task.pk)
         original = dict(self.dav.files)
         with patch('core.canonical_middleware.refresh_task_scope', side_effect=AssertionError('No DAV in attachment PATCH')), \
              patch('core.canonical_projects.export_object', side_effect=AssertionError('No DAV in attachment PATCH')):

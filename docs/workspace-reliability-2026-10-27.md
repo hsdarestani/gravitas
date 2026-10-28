@@ -81,6 +81,10 @@ stale-revision checks. Existing cross-project native file moves remain strict;
 an existing native identity cannot accidentally use the first-attachment path.
 Tests verify attachment, independent DB state, no request-time DAV, eventual
 native export, stale-editor rollback, and denied access with no queued writes.
+The precise pre-save error is `canonical_task_projection_file_missing`:
+`refresh_task_scope()` required a task file in the destination before that task
+had ever been attached to it. Middleware exposed this as the generic 503
+`canonical_storage_unavailable`; it was not proof that Nextcloud was offline.
 
 PR #276 was merged as f129254d. Deployment 40708391277 passed backend tests but
 correctly rejected the API reload: one direct health connection was reset during
