@@ -188,7 +188,7 @@ async function smoke() {
   await idx.locator('[data-tab="artifact"]').click();
   assert.ok(await idx.locator("#ai-orbit-svg").isVisible());
   const initialPeriod=await idx.locator("#ai-orbit-period").innerText();
-  await idx.locator("#ai-orbit-mass").fill("2");
+  await idx.locator("#ai-orbit-mass").evaluate(node=>{node.value="2";node.dispatchEvent(new Event("input",{bubbles:true}));});
   assert.notEqual(await idx.locator("#ai-orbit-period").innerText(),initialPeriod);
   await idx.locator('[data-tab="reliability"]').click();
   await idx.locator("#ai-run-reliability").click();
