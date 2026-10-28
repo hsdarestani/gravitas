@@ -49,8 +49,8 @@
     },
     {
       k: 'lab game simulation interactive play experiment tool sandbox try',
-      a: 'The AI Lab is a single interactive workspace for understanding AI, testing reliability, controlling agent decisions, and creating scientific artifacts. You can change parameters, run experiments, and compare outcomes without selecting a model.',
-      l: [['Open AI Lab', 'lab.html'], ['Try the reliability challenge', 'lab.html?mode=reliability']]
+      a: 'GraviQuest is defining its Lab around AI in scientific research. The public Lab currently shows the topic heading only; interactive experiments are not available yet.',
+      l: [['AI in Research Lab', 'lab.html']]
     },
     {
       k: 'learn learning path course curriculum study order beginner start where do i start new here',

@@ -165,54 +165,35 @@ async function smoke() {
   assert.ok(await v.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
   await v.screenshot({path:path.join(shots,"visualization-desktop.png"),fullPage:true});
 
-  // Canonical directory is now ONE AI Lab. Its previous three simulations
-  // remain individually regression-tested above but are not advertised.
-  const idx = await context.newPage();
-  await idx.route("**/api/pulsar/ask/",route=>route.fulfill({
-    status:200,contentType:"application/json",
-    body:JSON.stringify({ok:true,provider:"fixture",reply:"The 40-person nonrandomized study cannot establish causation."})
-  }));
-  const indexResponse = await idx.goto(ROOT + "/lab.html", { waitUntil:"networkidle" });
-  assert.equal(indexResponse.status(), 200);
-  assert.equal(await idx.locator(".ai-path-card").count(),4);
-  assert.equal(await idx.locator('.ai-tabs [role="tab"]').count(),4);
-  assert.equal(await idx.locator(".games > a.game-card").count(),0);
-  await idx.locator('[data-open-lab="understand"]').first().click();
-  assert.ok(await idx.locator("#ai-panel-understand").isVisible());
-  await idx.locator("#ai-understand-context").uncheck();
-  assert.match(await idx.locator("#ai-understand-prompt").innerText(),/None provided/);
-  await idx.locator('[data-tab="agent"]').click();
-  await idx.locator("#ai-agent-publish").check();
-  await idx.locator("#ai-agent-run").click();
-  assert.match(await idx.locator("#ai-agent-summary").innerText(),/Publication blocked|Waiting for human/);
-  await idx.locator('[data-tab="artifact"]').click();
-  assert.ok(await idx.locator("#ai-orbit-svg").isVisible());
-  const initialPeriod=await idx.locator("#ai-orbit-period").innerText();
-  await idx.locator("#ai-orbit-mass").evaluate(node=>{node.value="2";node.dispatchEvent(new Event("input",{bubbles:true}));});
-  assert.notEqual(await idx.locator("#ai-orbit-period").innerText(),initialPeriod);
-  await idx.locator('[data-tab="reliability"]').click();
-  await idx.locator("#ai-run-reliability").click();
-  await idx.locator("#ai-live-response").getByText(/cannot establish causation/).waitFor();
-  await idx.locator("#ai-save-run").click();
-  assert.equal(await idx.locator(".ai-compare-card").count(),1);
+  // Only the canonical AI in Research header is public while the Lab
+  // concept is being reconsidered. The three standalone historical
+  // simulations above remain regression-tested but are not listed here.
+  const idx=await context.newPage();
+  const indexResponse=await idx.goto(ROOT+"/lab.html",{waitUntil:"networkidle"});
+  assert.equal(indexResponse.status(),200);
+  assert.equal(await idx.locator("main h1").innerText(),"AI in Research");
+  assert.equal(await idx.locator("main section").count(),1);
+  assert.equal(await idx.locator(".ai-path-card,.ai-panel,.games > .game-card").count(),0);
+  assert.equal(await idx.locator("main button").count(),0);
+  assert.equal(await idx.locator("main iframe,main canvas").count(),0);
   assert.ok(await idx.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
-  await idx.screenshot({path:path.join(shots,"ai-lab-desktop.png"),fullPage:true});
+  await idx.screenshot({path:path.join(shots,"ai-research-empty-desktop.png"),fullPage:true});
   await idx.setViewportSize({width:390,height:844});
   assert.ok(await idx.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
-  await idx.screenshot({path:path.join(shots,"ai-lab-mobile.png"),fullPage:true});
+  await idx.screenshot({path:path.join(shots,"ai-research-empty-mobile.png"),fullPage:true});
   const noJs=await browser.newContext({javaScriptEnabled:false});
   const noJsPage=await noJs.newPage();
   await noJsPage.setViewportSize({width:390,height:844});
   assert.equal((await noJsPage.goto(ROOT+"/lab.html",{waitUntil:"load"})).status(),200);
-  assert.equal(await noJsPage.locator(".ai-path-card").count(),4);
-  await noJsPage.screenshot({path:path.join(shots,"ai-lab-nojs-mobile.png"),fullPage:true});
+  assert.equal(await noJsPage.locator("main h1").innerText(),"AI in Research");
+  assert.equal(await noJsPage.locator("main section").count(),1);
   await noJs.close();
   const nav = await q.locator('a.back').getAttribute("href");
   assert.equal(nav, "lab.html");
   await q.emulateMedia({ reducedMotion: "reduce" });
   assert.ok(await q.locator("h1").isVisible());
   await context.close();
-  console.log("Browser PASS: 3 archived simulations + unified AI Lab desktop/mobile tabs, real-AI fixture, agent trace, orbit and comparison.");
+  console.log("Browser PASS: historical simulation regressions + branded header-only AI in Research page on desktop, mobile and no-JS.");
 }
 smoke().catch(err => { failed = true; console.error(err.stack || err); }).finally(async () => {
   if (browser) await browser.close().catch(() => {});

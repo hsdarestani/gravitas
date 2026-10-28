@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Non-negotiable brand and Lab scope (2026-10-28)
+
+- **The canonical source of truth for all UI design is `brand.html`**, backed by `assets/gravitas.css` and `assets/site.css`. Before implementing or proposing a visual change, read the brand book and reuse its tokens, typography, theme rules, layout, button shapes, logo art and components. Do not create a competing visual language or hard-code a decorative palette.
+- Brand palette: Cosmos Blue `#003049`, White Tint `#f1efec`, Sisal `#d4c9be`, Royal Black `#030303`; derive components from semantic `--g-*` tokens, including light theme. Interface typography is DM Sans, long-form reading Literata, data/code DM Mono in the defined limited roles. Use supplied logos, never redraw them.
+- The Lab's product domain is **AI in scientific research**: methodology, evidence, epistemic limits, reproducibility and research workflows. Planetary orbits and unrelated science visualizations were illustrative examples, **not** product requirements. Never introduce unapproved demos, model selection or experiments on the public Lab page.
+- `lab.html` is intentionally **header-only** while product definition is discussed. Preserve this empty state. Do not re-enable previous experiment cards or simulation assets until the product design is explicitly agreed.
+
 ## What this repository is
 
 The GraviQuest site (`graviquest.com`): a static public frontend, a signed-in

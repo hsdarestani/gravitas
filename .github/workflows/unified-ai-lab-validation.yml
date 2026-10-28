@@ -23,7 +23,6 @@ jobs:
           node-version: '22'
       - name: Check JavaScript syntax
         run: |
-          node --check assets/ai-lab.js
           node --check assets/public-integrations.js
           node --check assets/chat.js
           node --check scripts/test-unified-ai-lab.cjs

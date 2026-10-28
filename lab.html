@@ -13,8 +13,8 @@
 document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
-<title>AI Lab · GraviQuest</title>
-<meta name="description" content="GraviQuest AI Lab: explore AI, test trust and autonomy, and build interactive scientific artifacts without choosing a model.">
+<title>AI in Research · GraviQuest Lab</title>
+<meta name="description" content="GraviQuest Lab — AI in Research.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="mask-icon" href="assets/logos/Logo_White.svg" color="#003049">
 <meta name="theme-color" content="#00263a">
@@ -24,7 +24,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
-<link rel="stylesheet" href="assets/ai-lab.css?v=20261028-1">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -51,125 +50,16 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </div>
   </div>
 </header>
-<main id="main" class="ai-lab-page">
-  <section class="ai-hero" aria-labelledby="ai-hero-title">
-    <div class="g-container ai-hero__grid">
-      <div class="ai-hero__copy">
-        <p class="ai-eyebrow"><span class="ai-eyebrow__dot"></span> GRAVIQUEST / INTERACTIVE INTELLIGENCE LAB</p>
-        <h1 id="ai-hero-title">Don't just use AI.<br><em>Understand it.</em></h1>
-        <p class="ai-hero__lead">A place to experiment with artificial intelligence, discover its limits, tackle real challenges and make things that come alive. No model picker. Just questions worth exploring.</p>
-        <div class="ai-hero__actions">
-          <button type="button" class="ai-btn ai-btn--primary" data-open-lab="reliability">Start an experiment <span aria-hidden="true">↗</span></button>
-          <button type="button" class="ai-btn ai-btn--ghost" data-open-lab="artifact">Explore the studio</button>
-        </div>
-        <div class="ai-hero__facts"><span><b>01</b> One connected Lab</span><span><b>04</b> Interactive experiences</span><span><b>∞</b> Questions to test</span></div>
-      </div>
-      <div class="ai-hero__visual" aria-hidden="true"><div class="ai-hero__visual-ring ai-hero__visual-ring--one"></div><div class="ai-hero__visual-ring ai-hero__visual-ring--two"></div><div class="ai-hero__visual-ring ai-hero__visual-ring--three"></div><div class="ai-hero__orb ai-hero__orb--one"></div><div class="ai-hero__orb ai-hero__orb--two"></div><div class="ai-hero__visual-core"><span>AI</span><small>LAB / 01</small></div><span class="ai-hero__visual-label ai-hero__visual-label--a">EXPLORE / 001</span><span class="ai-hero__visual-label ai-hero__visual-label--b">OBSERVE · TEST · CREATE</span></div>
-    </div>
-  </section>
-  <section class="ai-intro g-container" aria-labelledby="ai-explore-title">
-    <div class="ai-section-head"><div><p class="ai-eyebrow">CHOOSE YOUR PATH</p><h2 id="ai-explore-title">Four ways to go deeper.</h2></div><p>Every experiment invites you to change an input, observe a result and question what you see.</p></div>
-    <div class="ai-path-grid">
-      <button type="button" class="ai-path-card" data-open-lab="understand"><span class="ai-card-no">01 / UNDERSTAND</span><span class="ai-path-icon">◎</span><strong>Inside the intelligence</strong><span>Discover context, evidence and how AI can reach a plausible but unsupported answer.</span><span class="ai-path-link">Explore the basics <b aria-hidden="true">↗</b></span></button>
-      <button type="button" class="ai-path-card" data-open-lab="reliability"><span class="ai-card-no">02 / EXPERIMENT</span><span class="ai-path-icon">⌁</span><strong>Can you trust this answer?</strong><span>Change the question, add evidence, ask for verification. Compare real AI responses.</span><span class="ai-path-link">Run the experiment <b aria-hidden="true">↗</b></span></button>
-      <button type="button" class="ai-path-card" data-open-lab="agent"><span class="ai-card-no">03 / CHALLENGE</span><span class="ai-path-icon">◇</span><strong>Who's in control?</strong><span>Give an agent permissions, set human checkpoints and inspect a simulated action plan.</span><span class="ai-path-link">Take the challenge <b aria-hidden="true">↗</b></span></button>
-      <button type="button" class="ai-path-card" data-open-lab="artifact"><span class="ai-card-no">04 / CREATE</span><span class="ai-path-icon">◌</span><strong>Make an idea move</strong><span>Turn parameters into an interactive orbit simulator; save and remix your creation.</span><span class="ai-path-link">Open the studio <b aria-hidden="true">↗</b></span></button>
-    </div>
-  </section>
-  <section class="ai-workspace-section" id="ai-workspace" aria-label="Interactive AI Lab workspace">
+<main id="main">
+  <section class="page-head" aria-labelledby="lab-title">
     <div class="g-container">
-      <div class="ai-workspace-top"><div><p class="ai-eyebrow">THE WORKSPACE</p><h2>Change something. <em>See what happens.</em></h2></div><span class="ai-live-note"><span class="ai-live-pulse"></span> INTERACTIVE · NO MODEL SELECTION</span></div>
-      <div class="ai-tabs" role="tablist" aria-label="Experiments">
-        <button role="tab" aria-selected="false" aria-controls="ai-panel-understand" id="ai-tab-understand" data-tab="understand">01 <span>Understand</span></button>
-        <button role="tab" aria-selected="true" aria-controls="ai-panel-reliability" id="ai-tab-reliability" data-tab="reliability">02 <span>Reliability</span></button>
-        <button role="tab" aria-selected="false" aria-controls="ai-panel-agent" id="ai-tab-agent" data-tab="agent">03 <span>Agent challenge</span></button>
-        <button role="tab" aria-selected="false" aria-controls="ai-panel-artifact" id="ai-tab-artifact" data-tab="artifact">04 <span>Artifact studio</span></button>
-      </div>
-      <section id="ai-panel-understand" class="ai-panel" role="tabpanel" aria-labelledby="ai-tab-understand" hidden>
-        <div class="ai-panel-heading"><div><p class="ai-eyebrow">01 / UNDERSTAND AI</p><h3>What changes an answer?</h3><p>Experiment with the information an AI assistant receives. The lesson is about grounding—not which brand of model you use.</p></div><span class="ai-lesson-tag">FOUNDATIONS · 3 MIN</span></div>
-        <div class="ai-two-col">
-          <div class="ai-surface"><h4>Configure the information</h4><p class="ai-subtle">Your question is always the same. Change what the assistant is told.</p>
-            <div class="ai-question">How long does Mars take to orbit the Sun?</div>
-            <label class="ai-check"><input type="checkbox" id="ai-understand-context" checked><span><b>Supply reference data</b><small>Mars completes one orbit in approximately 687 Earth days.</small></span></label>
-            <label class="ai-check"><input type="checkbox" id="ai-understand-cite" checked><span><b>Require evidence</b><small>Ask the assistant to distinguish supplied facts from unsupported claims.</small></span></label>
-            <div class="ai-divider"></div><h4>What's being sent</h4><pre class="ai-prompt-view" id="ai-understand-prompt"></pre>
-          </div>
-          <div class="ai-surface ai-output"><div class="ai-surface-top"><h4>Observe the difference</h4><span class="ai-mini-tag">EXPLANATORY PREVIEW</span></div><div id="ai-understand-output" class="ai-explain-result" aria-live="polite"></div><div class="ai-insight"><b>Takeaway</b><p>Adding context can make answers more traceable. It does not automatically make an AI correct. Check the underlying source.</p></div><button class="ai-btn ai-btn--secondary" type="button" data-open-lab="reliability">Try with the live AI service <span aria-hidden="true">↗</span></button></div>
-        </div>
-      </section>
-      <section id="ai-panel-reliability" class="ai-panel" role="tabpanel" aria-labelledby="ai-tab-reliability">
-        <div class="ai-panel-heading"><div><p class="ai-eyebrow">02 / AI RELIABILITY EXPERIMENT</p><h3>One question. Different conditions.</h3><p>Test how wording and evidence influence the response. Run the site's managed AI service, then compare outcomes side by side.</p></div><span class="ai-lesson-tag">REAL AI RESPONSE · 5 MIN</span></div>
-        <div class="ai-two-col">
-          <div class="ai-surface"><h4>Set up your experiment</h4><p class="ai-subtle">You control the conditions. The underlying AI service is selected by GraviQuest.</p>
-            <div class="ai-control"><label for="ai-framing">Question framing</label><select id="ai-framing"><option value="leading">Leading · assumes a conclusion</option><option value="neutral">Neutral · asks for evidence</option></select></div>
-            <label class="ai-check"><input type="checkbox" id="ai-evidence" checked><span><b>Include source material</b><small>Give the assistant the study's actual limitations.</small></span></label>
-            <label class="ai-check"><input type="checkbox" id="ai-verify" checked><span><b>Ask for verification</b><small>Tell the assistant to flag unsupported claims (not a guarantee).</small></span></label>
-            <div class="ai-divider"></div><p class="ai-label">CURRENT QUESTION</p><div class="ai-question" id="ai-reliability-question"></div><button type="button" id="ai-run-reliability" class="ai-btn ai-btn--primary ai-btn--full">Run with AI <span aria-hidden="true">↗</span></button><p class="ai-fineprint">The response is sent to the existing public Pulsar endpoint. No model picker. Results are not a scientific benchmark.</p>
-          </div>
-          <div class="ai-surface ai-output"><div class="ai-surface-top"><h4>Live response</h4><span class="ai-mini-tag" id="ai-run-status" role="status">NOT RUN</span></div><div id="ai-live-response" class="ai-response-body" aria-live="polite"><span class="ai-placeholder">Your answer will appear here when you run the experiment.</span></div><div class="ai-response-actions"><button type="button" id="ai-save-run" class="ai-btn ai-btn--secondary" disabled>Save as comparison</button><button type="button" id="ai-clear-runs" class="ai-btn ai-btn--quiet">Clear</button></div><div class="ai-insight"><b>Evaluate critically</b><p>Does the reply acknowledge the sample size? Does it claim causation without random assignment? Compare the actual words, not just your impression.</p></div></div>
-        </div>
-        <div class="ai-compare" id="ai-compare" hidden><div class="ai-compare-head"><h4>Side-by-side comparison</h4><span id="ai-compare-count"></span></div><div class="ai-compare-grid" id="ai-compare-grid"></div></div>
-      </section>
-      <section id="ai-panel-agent" class="ai-panel" role="tabpanel" aria-labelledby="ai-tab-agent" hidden>
-        <div class="ai-panel-heading"><div><p class="ai-eyebrow">03 / AGENT CHALLENGE</p><h3>How much autonomy is too much?</h3><p>Configure a research assistant tasked with preparing a literature summary. See what an agent would be allowed to do, what requires review and what gets blocked.</p></div><span class="ai-lesson-tag">RULE-BASED SIMULATION · 4 MIN</span></div>
-        <div class="ai-two-col">
-          <div class="ai-surface"><h4>Set agent permissions</h4><p class="ai-subtle">This is a transparent decision simulation. It does not access real accounts or perform external actions.</p>
-            <label class="ai-check"><input type="checkbox" id="ai-agent-search" checked><span><b>Search public research sources</b><small>Allow finding papers and abstracts.</small></span></label>
-            <label class="ai-check"><input type="checkbox" id="ai-agent-files" checked><span><b>Write to a draft workspace</b><small>Allow creating draft summaries (not publication).</small></span></label>
-            <label class="ai-check"><input type="checkbox" id="ai-agent-publish"><span><b>Allow publication</b><small>Publishing without review increases the risk of mistakes.</small></span></label>
-            <label class="ai-check"><input type="checkbox" id="ai-agent-approval" checked><span><b>Require human approval for publication</b><small>Stop and request a decision before publishing.</small></span></label>
-            <div class="ai-control"><label for="ai-agent-confidence">Minimum evidence coverage <output id="ai-agent-confidence-value">80%</output></label><input type="range" id="ai-agent-confidence" min="40" max="100" value="80" step="10"></div>
-            <button type="button" id="ai-agent-run" class="ai-btn ai-btn--primary ai-btn--full">Simulate the workflow <span aria-hidden="true">↗</span></button>
-          </div>
-          <div class="ai-surface ai-output"><div class="ai-surface-top"><h4>Decision trace</h4><span class="ai-mini-tag">ILLUSTRATIVE</span></div><div id="ai-agent-trace" class="ai-agent-trace" aria-live="polite"></div><div class="ai-agent-summary" id="ai-agent-summary"></div><div class="ai-insight"><b>What matters</b><p>An autonomous system should operate within permissions, reveal its decisions and stop at meaningful human checkpoints.</p></div></div>
-        </div>
-      </section>
-      <section id="ai-panel-artifact" class="ai-panel" role="tabpanel" aria-labelledby="ai-tab-artifact" hidden>
-        <div class="ai-panel-heading"><div><p class="ai-eyebrow">04 / ARTIFACT STUDIO</p><h3>Build intuition with an orbit.</h3><p>A working mathematical simulation, not a generated video. Change the parameters and see a Keplerian orbit respond instantly.</p></div><span class="ai-lesson-tag">INTERACTIVE SIMULATOR · 5 MIN</span></div>
-        <div class="ai-two-col ai-two-col--artifact">
-          <div class="ai-surface"><h4>Your simulation parameters</h4><p class="ai-subtle">Simplified two-body elliptical orbit, in astronomical units.</p>
-            <div class="ai-control"><label for="ai-orbit-mass">Star mass <output id="ai-orbit-mass-value">1.0 M☉</output></label><input type="range" min=".5" max="2" step=".1" value="1" id="ai-orbit-mass"></div>
-            <div class="ai-control"><label for="ai-orbit-axis">Semi-major axis <output id="ai-orbit-axis-value">1.0 AU</output></label><input type="range" min=".6" max="1.6" step=".1" value="1" id="ai-orbit-axis"></div>
-            <div class="ai-control"><label for="ai-orbit-ecc">Eccentricity <output id="ai-orbit-ecc-value">0.20</output></label><input type="range" min="0" max=".7" step=".05" value=".2" id="ai-orbit-ecc"></div>
-            <div class="ai-control"><label for="ai-orbit-speed">Playback speed <output id="ai-orbit-speed-value">1×</output></label><input type="range" min=".25" max="3" step=".25" value="1" id="ai-orbit-speed"></div>
-            <div class="ai-studio-actions"><button class="ai-btn ai-btn--secondary" type="button" id="ai-orbit-play" aria-pressed="true">Pause</button><button class="ai-btn ai-btn--quiet" type="button" id="ai-orbit-reset">Reset</button><button class="ai-btn ai-btn--secondary" type="button" id="ai-orbit-export">Export JSON</button></div>
-            <div class="ai-divider"></div><h4>Ask AI about your experiment</h4><p class="ai-subtle">Get an explanation of your chosen orbit from the site's AI assistant.</p><button type="button" id="ai-orbit-ask" class="ai-btn ai-btn--secondary ai-btn--full">Explain these parameters with AI</button><p id="ai-orbit-answer" class="ai-small-answer" aria-live="polite"></p>
-          </div>
-          <div class="ai-surface ai-output"><div class="ai-surface-top"><h4>Live orbital visualization</h4><span class="ai-mini-tag">MATHEMATICAL MODEL</span></div><div class="ai-orbit-stage"><svg id="ai-orbit-svg" viewBox="0 0 520 390" role="img" aria-label="Star, elliptical orbit, and a planet. Parameters change the orbit."><defs><radialGradient id="ai-star-glow"><stop offset="0%" stop-color="#ffe4a0" stop-opacity=".38"/><stop offset="100%" stop-color="#ffe4a0" stop-opacity="0"/></radialGradient><radialGradient id="ai-planet-fill"><stop offset="0%" stop-color="#c4e8ff"/><stop offset="100%" stop-color="#3786bb"/></radialGradient></defs><g id="ai-orbit-stars"></g><ellipse id="ai-orbit-ellipse" cx="260" cy="195" rx="130" ry="105" fill="none" stroke="#709eb6" stroke-width="1.5" stroke-dasharray="3 6"></ellipse><circle id="ai-star-glow-shape" cx="260" cy="195" r="44" fill="url(#ai-star-glow)"></circle><circle id="ai-orbit-sun" cx="260" cy="195" r="13" fill="#f4c978"></circle><line id="ai-orbit-radius" x1="260" y1="195" x2="370" y2="195" stroke="#b6c7c5" opacity=".25" stroke-dasharray="3 5"></line><circle id="ai-orbit-planet" cx="390" cy="195" r="7" fill="url(#ai-planet-fill)" stroke="#a5d7f4"></circle><text id="ai-orbit-planet-label" x="405" y="182" fill="#cdd9dc" font-size="10">Planet</text></svg><div class="ai-orbit-overlay">TIME <strong id="ai-orbit-time">0.00 years</strong></div></div><div class="ai-orbit-stats"><div><small>Orbital period</small><strong id="ai-orbit-period">1.00 yr</strong></div><div><small>Closest approach</small><strong id="ai-orbit-min">0.80 AU</strong></div><div><small>Farthest distance</small><strong id="ai-orbit-max">1.20 AU</strong></div></div><div class="ai-insight"><b>The science</b><p>Period follows Kepler's third law: T² = a³ / M in these units. The visible shape is a schematic 2D projection, with the star at an ellipse focus.</p></div></div>
-        </div>
-      </section>
-      <div class="ai-workspace-bottom"><span>ONE LAB · MANY EXPERIMENTS · NO MODEL MENU</span><button type="button" class="ai-text-btn" id="ai-back-top">Back to overview ↑</button></div>
+      <p class="crumb"><a href="index.html">Home</a> / Lab</p>
+      <h1 id="lab-title">AI in Research</h1>
     </div>
   </section>
-  <section class="ai-outro g-container"><div><p class="ai-eyebrow">THE METHOD</p><h2>Question the output.<br><em>Learn from the process.</em></h2></div><p>GraviQuest AI Lab combines hands-on science, AI literacy and practical challenges. AI-generated text is identified as such; deterministic simulations are labeled separately. Your best tool is still your own judgment.</p></section>
 </main>
-<footer class="g-footer">
-  <div class="g-container">
-    <div class="g-footer__grid">
-      <div>
-        <div style="width:9rem"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></div>
-        <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
-          A media project, a lab and a community for working scientists, students and
-          the curious, in every field.</p>
-      </div>
-      <div><h5 class="g-footer__heading">Read</h5>
-        <div class="g-stack g-stack--xs g-stack--ic"><a href="topics.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg><span>Topics</span></a><a href="magazine.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.971 3.385) scale(1.17763)" stroke-width="1.444"><path d="M8.35,2.33c2-1.3,4.5-1.8,7.6-1.5l-.11.58c-.73,3.91-.7,7.93.11,11.82h0c-3.1-.3-5.6.2-7.6,1.5"/><path d="M8.35,2.33v9.24"/><path d="M8.35,14.73c-2-1.3-4.5-1.8-7.6-1.5h0c.81-3.9.84-7.91.11-11.82l-.11-.58c1.98-.19,3.72-.06,5.23.41"/><path d="M10.38,5.74h3.1"/><path d="M10.38,8.74h2.2"/><circle cx="4.85" cy="7.24" r="1.316" fill="currentColor" stroke="none"/></g></svg><span>Essays</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg><span>Newsletter</span><span class="g-soon">Soon</span></span></div></div>
-      <div><h5 class="g-footer__heading">Do</h5>
-        <div class="g-stack g-stack--xs g-stack--ic"><a href="lab.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg><span>Interactive Lab</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg><span>Learning Paths</span><span class="g-soon">Soon</span></span><a href="community.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg><span>Community</span></a></div></div>
-      <div><h5 class="g-footer__heading">Elsewhere</h5><ul class="lp-social"><li><a class="lp-social__link" href="https://www.youtube.com/@GraviQuest" target="_blank" rel="noopener" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="https://www.linkedin.com/company/graviquest/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="https://www.instagram.com/graviquest" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li></ul>
-        <div class="g-stack g-stack--xs" style="margin-top:var(--g-space-sm)"><a href="about.html">About</a></div></div>
-    </div>
-    <div class="g-footer__legal">
-      <span>&copy; 2026 GraviQuest</span>
-      <span>Curiosity brings people in. Capability keeps them here.</span>
-    </div>
-  </div>
-</footer>
 <script src="assets/site.js?v=20261022-depth1"></script>
 
-<script src="assets/ai-lab.js?v=20261028-1" defer></script>
-<script src="assets/chat.js?v=20261022-essays" defer></script>
 <script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
-<script src="assets/public-integrations.js?v=20261022-essays" defer></script>
 </body>
 </html>
