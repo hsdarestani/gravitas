@@ -72,6 +72,16 @@ node scripts/check-api-coverage.mjs
 The `Workspace Reliability` workflow installs Chromium outside the application, creates an isolated SQLite fixture, starts the actual backend/frontend and uploads screenshots plus assertion results. It introduces no application build step or browser runtime dependency.
 # Production deployment follow-up (28 October)
 
+Read-only inspection of task #1119 confirmed its committed project is null,
+although the failing form had selected Topic 01. This is a first attachment,
+not an edit to an already project-owned task. The deferred boundary now locks
+the task before choosing its scope and atomically commits first attachment plus
+the destination sync witness, while retaining the view's authorization and
+stale-revision checks. Existing cross-project native file moves remain strict;
+an existing native identity cannot accidentally use the first-attachment path.
+Tests verify attachment, independent DB state, no request-time DAV, eventual
+native export, stale-editor rollback, and denied access with no queued writes.
+
 PR #276 was merged as f129254d. Deployment 40708391277 passed backend tests but
 correctly rejected the API reload: one direct health connection was reset during
 Gunicorn gthread HUP (1 failed probe in 4). Its code archive rollback completed;
