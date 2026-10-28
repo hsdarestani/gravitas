@@ -1,0 +1,31 @@
+name: Unified AI Lab checks
+on:
+  pull_request:
+    paths:
+      - 'lab.html'
+      - 'assets/ai-lab.js'
+      - 'assets/ai-lab.css'
+      - 'assets/public-integrations.js'
+      - 'assets/chat.js'
+      - 'scripts/test-unified-ai-lab.cjs'
+      - '.github/workflows/unified-ai-lab-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check assets/ai-lab.js
+          node --check assets/public-integrations.js
+          node --check assets/chat.js
+          node --check scripts/test-unified-ai-lab.cjs
+      - name: Check unified AI Lab contract
+        run: node scripts/test-unified-ai-lab.cjs
