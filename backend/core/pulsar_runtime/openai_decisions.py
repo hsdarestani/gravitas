@@ -23,7 +23,8 @@ def _config(name, default=''):
 
 
 def enabled():
-    flag = str(_config('PULSAR_REPORT_DECISIONS_ENABLED', 'false')).lower()
+    # Enabled when a managed OpenAI key exists; explicit off switch is available.
+    flag = str(_config('PULSAR_REPORT_DECISIONS_ENABLED', 'true')).lower()
     return flag in {'1', 'true', 'yes', 'on'} and bool(_api_key())
 
 
