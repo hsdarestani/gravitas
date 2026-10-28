@@ -15,6 +15,33 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @skipUnless(shutil.which('rsync') and shutil.which('tar'), 'requires deployment copy utilities')
 class CodeReleaseRollbackTests(SimpleTestCase):
+    def test_standby_health_cannot_be_satisfied_by_another_process_on_the_port(self):
+        source = (ROOT / 'scripts/reliability/deploy-api-release.sh').read_text()
+        function = re.search(r'^wait_standby\(\) \{\n(.*?)^\}', source, re.M | re.S).group(0)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, script in {
+                'sudo': '''#!/bin/bash
+if [ "$1" = ss ]; then echo "LISTEN 0 2048 127.0.0.1:49152 users:((gunicorn,pid=$TEST_OWNER,fd=3))";
+elif [ "$2" = show ]; then echo 123;
+elif [ "$2" = is-failed ]; then exit 0;
+else exit 88; fi
+''',
+                'pgrep': '#!/bin/bash\nprintf "124\\n125\\n126\\n"\n',
+                'curl': '#!/bin/bash\necho called >> "$TEST_MARKER"\necho \'{"status": "ok"}\'\n',
+            }.items():
+                path = root / name; path.write_text(script); path.chmod(0o755)
+            for owner, expected in [('999', 1), ('123', 0)]:
+                with self.subTest(listener_owner=owner):
+                    marker = root / ('health-' + owner)
+                    env = {**os.environ, 'PATH': directory + os.pathsep + os.environ['PATH'],
+                           'TEST_OWNER': owner, 'TEST_MARKER': str(marker), 'UNIT': 'test.service',
+                           'DRAIN_PORT': '49152', 'DOMAIN': 'example.test'}
+                    result = subprocess.run(['bash', '-euo', 'pipefail', '-c', function + '\nwait_standby'],
+                        env=env, capture_output=True, text=True, timeout=5)
+                    self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+                    self.assertEqual(marker.exists(), expected == 0)
+
     def test_any_failed_or_missing_public_probe_triggers_the_error_trap(self):
         source = (ROOT / 'scripts/reliability/deploy-api-release.sh').read_text()
         function = re.search(r'^verify_public_probes\(\) \{\n(.*?)^\}', source, re.M | re.S).group(0)
