@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   operating-browser:
@@ -180,6 +181,7 @@ jobs:
             assert.equal(authenticated.status(), 200, 'Production login was not accepted');
             assert.equal((await authenticated.json()).ok, true, 'Production login did not confirm a session');
             await page.waitForURL(url => url.origin === base && url.pathname.startsWith('/workspace'), { timeout: 20000 });
+            await page.waitForLoadState('networkidle');
 
             await openSection('/workspace/core', 'Core');
             await visible('#ws-rail');
@@ -240,27 +242,21 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Remove browser test account
+      - name: Remove strictly scoped completed browser fixtures
         if: always()
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set +e
-          COOKIE_JAR="$RUNNER_TEMP/gravitas-operating-browser-cleanup.txt"
-          curl -4 -fsS -c "$COOKIE_JAR" "https://$DOMAIN/api/auth/csrf/" >/dev/null || exit 0
-          CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
-          test -n "$CSRF" || exit 0
-          LOGIN="$(curl -4 -sS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
-            -X POST "https://$DOMAIN/api/auth/login/" \
-            -H 'Accept: application/json' \
-            -H 'Content-Type: application/json' \
-            -H "X-CSRFToken: $CSRF" \
-            -H "Referer: https://$DOMAIN/login" \
-            --data "{\"email\":\"$BROWSER_EMAIL\",\"password\":\"$BROWSER_PASSWORD\",\"keep\":false}")"
-          printf '%s' "$LOGIN" | grep -q '"ok": true' || exit 0
-          CSRF="$(awk '$6=="csrftoken" {print $7}' "$COOKIE_JAR" | tail -n1)"
-          curl -4 -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
-            -X POST "https://$DOMAIN/api/auth/delete/" \
-            -H 'Content-Type: application/json' \
-            -H "X-CSRFToken: $CSRF" \
-            -H "Referer: https://$DOMAIN/login" \
-            --data "{\"password\":\"$BROWSER_PASSWORD\",\"confirmation\":\"delete\"}" >/dev/null
+          set -euo pipefail
+          source ops/e2e-identity.sh
+          # Self-service deletion deliberately rejects protected personal
+          # workspaces. Use the existing strict E2E leaf-to-root cleanup.
+          cleanup_operating_e2e_run "$GITHUB_RUN_ID"
+          # Repair fixtures left by earlier completed failures of this exact
+          # workflow. Never select running workflows or any real account.
+          COMPLETED="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/operating-browser-e2e.yml/runs?status=completed&per_page=20" \
+            --jq '.workflow_runs[] | select(.conclusion == "failure") | .id')"
+          for run_id in $COMPLETED; do
+            [ "$run_id" = "$GITHUB_RUN_ID" ] || cleanup_operating_e2e_run "$run_id"
+          done
