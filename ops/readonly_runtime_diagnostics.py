@@ -33,6 +33,45 @@ def read_lines(path, max_bytes=2_000_000):
     except (OSError, PermissionError):
         return []
 
+def api_release_probe_incident():
+    """Aggregate only health probes and known exception types; no raw log lines."""
+    rows = run('sudo', '-n', 'tail', '-n', '20000', '/var/log/nginx/access.log').splitlines()
+    statuses = collections.Counter()
+    for row in rows:
+        if '[28/Oct/2026:15:03:' in row and ' /api/health/' in row:
+            found = re.search(r'HTTP/[^\"]+\"\s+(\d{3})\b', row)
+            if found:
+                statuses[found.group(1)] += 1
+    print('release_1503_health_http_status_counts', dict(statuses))
+    errors = run('sudo', '-n', 'tail', '-n', '16000', '/var/log/nginx/error.log').lower().splitlines()
+    standby = [row for row in errors if '2026/10/28 15:03:' in row and '127.0.0.1:8001' in row]
+    print('release_standby_upstream_errors', {key: sum(value in row for row in standby)
+          for key, value in {'refused': 'connection refused', 'reset': 'reset by peer',
+                             'closed': 'prematurely closed', 'denied': 'permission denied',
+                             'timeout': 'timed out'}.items()})
+    journal = run('sudo', '-n', 'journalctl', '-u', 'gravitas-backend-drain.service',
+                  '--since', '2026-10-28 15:03:00', '--until', '2026-10-28 15:04:00',
+                  '--no-pager', '-o', 'cat').lower()
+    print('release_standby_exception_buckets', {key: journal.count(key) for key in (
+        'disallowedhost', 'operationalerror', 'permissionerror', 'modulenotfounderror',
+        'failed to boot', 'worker exiting', 'booting worker', 'error', 'invalid request',
+        'invalid http version', 'invalid http method', 'invalid header',
+        'contradictory scheme', 'invalid scheme headers', 'request line is too large',
+        'request header fields too large', 'address already in use', 'permission denied')})
+    statement = (
+        "SELECT (t.project_id=213)::int, COALESCE(q.state,'complete'), "
+        "COALESCE(q.attempts,0), COALESCE(q.last_error,''), "
+        "EXISTS(SELECT 1 FROM core_canonicalfile f WHERE f.project_id=t.project_id "
+        "AND f.object_type='OperatingTask' AND f.object_id=t.id AND NOT f.deleted)::int "
+        "FROM core_operatingtask t LEFT JOIN core_canonicaltasksyncoutbox q ON q.task_id=t.id "
+        "WHERE t.id=1119"
+    )
+    raw = run('sudo', '-n', '-u', 'postgres', 'psql', '-d', 'gravitas', '-X', '-A', '-t', '-c', statement)
+    rows = [row for row in raw.splitlines() if re.fullmatch(
+        r'[01]\|(?:complete|pending|conflict)\|\d+\|[A-Za-z_]*\|[01]', row)]
+    print('reported_task_project_sync_attempts_errorclass_nativefile', rows or 'unavailable')
+
+
 def health():
     print("=== Service states ===")
     for name in ("gravitas-backend", "nginx", "postgresql", "redis-server"):
@@ -935,6 +974,7 @@ def unscheduled_subtask_constraint_live():
     print("backend_last_verified_sha", sha if re.fullmatch(r"[0-9a-f]{40}",sha) else "unavailable")
 
 if __name__ == "__main__":
+    api_release_probe_incident()
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     canonical_task_sync_runtime()
     task_1090_write_incident()

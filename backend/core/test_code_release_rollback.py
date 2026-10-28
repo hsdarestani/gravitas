@@ -15,6 +15,60 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @skipUnless(shutil.which('rsync') and shutil.which('tar'), 'requires deployment copy utilities')
 class CodeReleaseRollbackTests(SimpleTestCase):
+    def test_standby_health_cannot_be_satisfied_by_another_process_on_the_port(self):
+        source = (ROOT / 'scripts/reliability/deploy-api-release.sh').read_text()
+        function = re.search(r'^wait_standby\(\) \{\n(.*?)^\}', source, re.M | re.S).group(0)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, script in {
+                'sudo': '''#!/bin/bash
+if [ "$1" = ss ]; then echo "LISTEN 0 2048 127.0.0.1:49152 users:((gunicorn,pid=$TEST_OWNER,fd=3))";
+elif [ "$2" = show ]; then echo 123;
+elif [ "$2" = is-failed ]; then exit 0;
+else exit 88; fi
+''',
+                'pgrep': '#!/bin/bash\nprintf "124\\n125\\n126\\n"\n',
+                'curl': '#!/bin/bash\necho called >> "$TEST_MARKER"\necho \'{"status": "ok"}\'\n',
+            }.items():
+                path = root / name; path.write_text(script); path.chmod(0o755)
+            for owner, expected in [('999', 1), ('123', 0)]:
+                with self.subTest(listener_owner=owner):
+                    marker = root / ('health-' + owner)
+                    env = {**os.environ, 'PATH': directory + os.pathsep + os.environ['PATH'],
+                           'TEST_OWNER': owner, 'TEST_MARKER': str(marker), 'UNIT': 'test.service',
+                           'DRAIN_PORT': '49152', 'DOMAIN': 'example.test'}
+                    result = subprocess.run(['bash', '-euo', 'pipefail', '-c', function + '\nwait_standby'],
+                        env=env, capture_output=True, text=True, timeout=5)
+                    self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+                    self.assertEqual(marker.exists(), expected == 0)
+
+    def test_any_failed_or_missing_public_probe_triggers_the_error_trap(self):
+        source = (ROOT / 'scripts/reliability/deploy-api-release.sh').read_text()
+        function = re.search(r'^verify_public_probes\(\) \{\n(.*?)^\}', source, re.M | re.S).group(0)
+        with tempfile.TemporaryDirectory() as directory:
+            probes = Path(directory) / 'probes'
+            for content, expected in [('ok\nok\n', 0), ('ok\nfailed_http_502\nok\n', 99), ('', 99)]:
+                with self.subTest(content=content):
+                    probes.write_text(content)
+                    result = subprocess.run(['bash', '-Eeuo', 'pipefail', '-c',
+                        "trap 'exit 99' ERR\n" + function + '\nverify_public_probes\necho accepted'],
+                        env={**os.environ, 'PROBES': str(probes)}, capture_output=True, text=True, timeout=5)
+                    self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+                    self.assertEqual('accepted' in result.stdout, expected == 0)
+
+    def test_active_standby_aborts_before_overwriting_the_recovery_archive(self):
+        source = (ROOT / 'scripts/reliability/deploy-api-release.sh').read_text()
+        preflight = source[:source.index('sudo install -d -m 700 "$BACKUP"')]
+        with tempfile.TemporaryDirectory() as directory:
+            sudo = Path(directory) / 'sudo'
+            sudo.write_text('#!/bin/bash\nif [ "$1" = systemctl ]; then exit 0; fi\nexit 88\n')
+            sudo.chmod(0o755)
+            result = subprocess.run(['bash', '-c', preflight, '_', '/stage', '/backend', 'test-revision', 'example.test'],
+                env={**os.environ, 'PATH': directory + os.pathsep + os.environ['PATH']},
+                capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn('previous standby is active', result.stderr)
+
     def test_rollback_removes_new_code_but_keeps_runtime_and_local_database(self):
         workflow = (ROOT / 'scripts/reliability/deploy-api-release.sh').read_text()
         match = re.search(r'^restore_code\(\) \{\n(.*?)^\}', workflow, re.M | re.S)

@@ -72,6 +72,24 @@ node scripts/check-api-coverage.mjs
 The `Workspace Reliability` workflow installs Chromium outside the application, creates an isolated SQLite fixture, starts the actual backend/frontend and uploads screenshots plus assertion results. It introduces no application build step or browser runtime dependency.
 # Production deployment follow-up (28 October)
 
+Live verification after PR #281: task #1119 was attached to Topic 01 (213) via
+the actual UI. The server returned a confirmed save, a hard reload retained
+the project, and read-only SQL diagnostics later showed the native file exists
+and no task sync witness remains (`1|complete|0||1`). The sync worker reported
+44 recent runs, zero failures and zero deferrals. One unrelated pre-existing
+native revision conflict remains preserved for review.
+
+Deployment 40711828024 exposed two additional release defects: fixed port 8001
+was already occupied (five bind errors, no standby worker boots), and Bash
+negated assertions did not invoke errexit. Public probes recorded 27 HTTP 400s
+from the wrong listener. This release was incorrectly labelled healthy and is
+not zero-error evidence. PR #282 replaces those assertions with tested failure
+returns, allocates an unused port, proves the standby master owns its listener,
+requires three workers and a public-Host health response, and records sanitized
+probe statuses. Tests prove a healthy foreign listener cannot satisfy readiness.
+The live browser harness also lacked Django settings in its disposable-access
+command; that command now sets the module explicitly.
+
 Read-only inspection of task #1119 confirmed its committed project is null,
 although the failing form had selected Topic 01. This is a first attachment,
 not an edit to an already project-owned task. The deferred boundary now locks

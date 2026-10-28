@@ -7,9 +7,18 @@ DRAIN="/opt/gravitas-api-drain-$REVISION"
 NGINX=/etc/nginx/sites-available/gravitas
 UNIT=gravitas-backend-drain.service
 # A prior interrupted release needs operator recovery; never kill its live pool.
-! sudo systemctl is-active --quiet "$UNIT"
+if sudo systemctl is-active --quiet "$UNIT"; then
+  echo 'A previous standby is active; recovery is required before another release.' >&2
+  exit 1
+fi
 sudo grep -q '127.0.0.1:8000' "$NGINX"
-! sudo grep -q '127.0.0.1:8001' "$NGINX"
+if sudo grep -q '^# GraviQuest temporary API drain' "$NGINX"; then
+  echo 'Nginx still references the standby; recovery is required.' >&2
+  exit 1
+fi
+# Do not borrow a fixed port from an unrelated production service. A port race
+# still fails closed: verify that this unit's master actually owns the listener.
+DRAIN_PORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
 sudo install -d -m 700 "$BACKUP"
 sudo tar --exclude='./.venv' --exclude='./staticfiles' --exclude='*.sqlite3*' \
   -cpf "$BACKUP/backend.tar" -C "$BACKEND_PATH" .
@@ -35,6 +44,29 @@ wait_health() {
     fi
     sleep 1
   done
+  return 1
+}
+
+wait_standby() {
+  local master listeners workers
+  for attempt in $(seq 1 60); do
+    master="$(sudo systemctl show -p MainPID --value "$UNIT")"
+    listeners="$(sudo ss -H -ltnp "sport = :$DRAIN_PORT")"
+    workers="$(pgrep -P "$master" | wc -l || true)"
+    if [ "$master" -gt 1 ] && [ "$workers" -ge 3 ] && \
+        grep -Fq "pid=$master," <<< "$listeners"; then
+      if curl -fsS --max-time 3 -H "Host: $DOMAIN" -H 'X-Forwarded-Proto: https' \
+          "http://127.0.0.1:$DRAIN_PORT/api/health/" 2>/dev/null | grep -q '"status": "ok"'; then
+        return 0
+      fi
+    fi
+    if sudo systemctl is-failed --quiet "$UNIT"; then
+      echo 'Standby failed before owning its listener; public route unchanged.' >&2
+      return 1
+    fi
+    sleep 1
+  done
+  echo 'Standby listener ownership/readiness was not verified.' >&2
   return 1
 }
 
@@ -65,12 +97,23 @@ finish_monitor() {
     monitor_pid=''
   fi
 }
+
+verify_public_probes() {
+  local samples failures
+  samples="$(wc -l < "$PROBES")"
+  failures="$(grep -c '^failed' "$PROBES" || true)"
+  echo "Public health samples=$samples failures=$failures"
+  sort "$PROBES" | uniq -c
+  if [ "$samples" -eq 0 ] || [ "$failures" -ne 0 ]; then
+    return 1
+  fi
+}
 rollback() {
   trap - ERR
   set +e
   echo 'API release failed; restoring code while the standby serves current data.' >&2
   if [ "$mutated" = true ]; then
-    if wait_health 8001 && route "$BACKUP/nginx-standby.conf"; then
+    if wait_standby && route "$BACKUP/nginx-standby.conf"; then
       restore_code || { finish_monitor; exit 1; }
       sudo systemctl reload gravitas-backend.service
     else
@@ -110,30 +153,35 @@ WorkingDirectory=$DRAIN
 EnvironmentFile=/etc/gravitas/backend.env
 EnvironmentFile=-/etc/gravitas/openedx.env
 Environment=DJANGO_SETTINGS_MODULE=gravitas_backend.settings
-ExecStart=$BACKEND_PATH/.venv/bin/gunicorn --worker-class gthread --workers 3 --threads 4 --timeout 60 --graceful-timeout 60 --keep-alive 5 --bind 127.0.0.1:8001 django.core.wsgi:get_wsgi_application()
+ExecStart=$BACKEND_PATH/.venv/bin/gunicorn --worker-class gthread --workers 3 --threads 4 --timeout 60 --graceful-timeout 60 --keep-alive 5 --bind 127.0.0.1:$DRAIN_PORT django.core.wsgi:get_wsgi_application()
 KillMode=mixed
 TimeoutStopSec=75
 EOF
 sudo systemctl daemon-reload
 sudo systemctl reset-failed "$UNIT" 2>/dev/null || true
 sudo systemctl start "$UNIT"
-wait_health 8001
+wait_standby
 # Sample the real public TLS/Nginx path continuously, including both switches.
 PROBES="$(mktemp)"
 (
+  body="$(mktemp)"
+  trap 'rm -f "$body"' EXIT
   while true; do
-    if curl -fsS --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" \
-      "https://$DOMAIN/api/health/" 2>/dev/null | grep -q '"status": "ok"'; then
+    if status="$(curl -sS --noproxy '*' --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" \
+      -o "$body" -w '%{http_code}' "https://$DOMAIN/api/health/" 2>/dev/null)" \
+      && [ "$status" = 200 ] && grep -q '"status": "ok"' "$body"; then
       echo ok >> "$PROBES"
     else
-      echo failed >> "$PROBES"
+      echo "failed_http_${status:-000}" >> "$PROBES"
     fi
     sleep 0.2
   done
 ) &
 monitor_pid=$!
-sudo sed 's/127\.0\.0\.1:8000/127.0.0.1:8001/g' "$BACKUP/nginx.conf" \
-  | sudo tee "$BACKUP/nginx-standby.conf" >/dev/null
+{
+  echo '# GraviQuest temporary API drain'
+  sudo sed "s/127\\.0\\.0\\.1:8000/127.0.0.1:$DRAIN_PORT/g" "$BACKUP/nginx.conf"
+} | sudo tee "$BACKUP/nginx-standby.conf" >/dev/null
 route "$BACKUP/nginx-standby.conf"
 mutated=true
 sudo rsync -a --delete --checksum --delay-updates --exclude '.venv/' --exclude 'staticfiles/' \
@@ -162,11 +210,10 @@ for sample in 1 2 3; do
 done
 route "$BACKUP/nginx.conf"
 # Confirm the final public path before stopping the standby.
-curl -fsS --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" \
+curl -fsS --noproxy '*' --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" \
   "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
 finish_monitor
-echo "Public health samples=$(wc -l < "$PROBES") failures=$(grep -c '^failed$' "$PROBES" || true)"
-! grep -q '^failed$' "$PROBES"
+verify_public_probes
 sudo systemctl stop "$UNIT"
 trap - ERR
 sudo rm -f "/run/systemd/system/$UNIT"
