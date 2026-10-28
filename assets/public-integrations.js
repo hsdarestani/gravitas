@@ -191,35 +191,19 @@
 
   function lab() {
     if (location.pathname !== '/lab.html') return;
-    var slug = new URLSearchParams(location.search).get('lab');
-    if (slug) {
-      getJson('/api/labs/' + encodeURIComponent(slug) + '/').then(function (data) {
-        var item = data.lab;
-        var main = document.getElementById('main');
-        main.innerHTML =
-          '<section class="page-head"><div class="g-container"><p class="crumb"><a href="lab.html">Interactive Lab</a></p>' +
-          '<h1>' + esc(item.title) + '</h1><p class="g-lead">' + esc(item.summary || item.description || '') + '</p></div></section>' +
-          '<section class="g-section"><div class="g-container"><iframe title="' + esc(item.title) + '" src="' + esc(item.run_url) + '" ' +
-          'style="width:100%;min-height:70vh;border:1px solid var(--g-hairline);border-radius:1rem;background:#fff" sandbox="allow-scripts allow-forms allow-modals allow-popups"></iframe></div></section>';
-        document.title = item.title + ' · Interactive Lab · GraviQuest';
-      }).catch(function () {});
-      return;
+    // The public site now has one canonical AI Lab. Historical CMS lab
+    // deep links remain resolvable, but point to the relevant experience
+    // instead of replacing the page with an old catalog/iframe.
+    var params = new URLSearchParams(location.search);
+    var legacy = params.get('lab');
+    if (legacy) {
+      var mode = /prompt|bias|trust|reliab/i.test(legacy) ? 'reliability'
+        : /protein|visual|orbit|science|simulation/i.test(legacy) ? 'artifact'
+        : 'understand';
+      params.delete('lab');
+      params.set('mode', mode);
+      location.replace('/lab.html?' + params.toString());
     }
-
-    var games = document.querySelector('.games');
-    if (!games) return;
-    getJson('/api/labs/').then(function (data) {
-      (data.labs || []).forEach(function (item) {
-        var a = document.createElement('a');
-        a.className = 'game-card';
-        a.href = '/lab.html?lab=' + encodeURIComponent(item.slug);
-        a.innerHTML =
-          '<div class="game-card__art"><div class="g-ic-plate" aria-hidden="true">+</div></div>' +
-          '<div class="game-card__b"><h3>' + esc(item.title) + '</h3><p>' + esc(item.summary || item.description || '') + '</p>' +
-          '<p class="game-card__meta">' + esc(item.duration_text || 'Interactive Lab') + '</p></div>';
-        games.prepend(a);
-      });
-    }).catch(function () {});
   }
 
   magazine();
