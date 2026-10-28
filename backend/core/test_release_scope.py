@@ -13,6 +13,8 @@ class ReleaseScopeTests(SimpleTestCase):
     def test_only_reviewed_api_modules_can_hot_reload(self):
         self.assertEqual(release.classify(['assets/ws/ws-views.js', 'backend/core/task_board_api.py']), 'code')
         self.assertEqual(release.classify(['assets/ws/ws-app.js', 'scripts/reliability/workspace-browser.mjs']), 'static')
+        self.assertEqual(release.classify(['scripts/reliability/deploy-api-release.sh']), 'code')
+        self.assertEqual(release.classify(['ops/e2e-identity.sh']), 'static')
 
     def test_stateful_or_unknown_paths_always_require_matched_checkpoint(self):
         for path in ['backend/core/models.py', 'backend/core/migrations/0081_new.py',

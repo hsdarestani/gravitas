@@ -7,9 +7,15 @@ DRAIN="/opt/gravitas-api-drain-$REVISION"
 NGINX=/etc/nginx/sites-available/gravitas
 UNIT=gravitas-backend-drain.service
 # A prior interrupted release needs operator recovery; never kill its live pool.
-! sudo systemctl is-active --quiet "$UNIT"
+if sudo systemctl is-active --quiet "$UNIT"; then
+  echo 'A previous standby is active; recovery is required before another release.' >&2
+  exit 1
+fi
 sudo grep -q '127.0.0.1:8000' "$NGINX"
-! sudo grep -q '127.0.0.1:8001' "$NGINX"
+if sudo grep -q '127.0.0.1:8001' "$NGINX"; then
+  echo 'Nginx still references the standby; recovery is required.' >&2
+  exit 1
+fi
 sudo install -d -m 700 "$BACKUP"
 sudo tar --exclude='./.venv' --exclude='./staticfiles' --exclude='*.sqlite3*' \
   -cpf "$BACKUP/backend.tar" -C "$BACKEND_PATH" .
@@ -65,6 +71,17 @@ finish_monitor() {
     monitor_pid=''
   fi
 }
+
+verify_public_probes() {
+  local samples failures
+  samples="$(wc -l < "$PROBES")"
+  failures="$(grep -c '^failed' "$PROBES" || true)"
+  echo "Public health samples=$samples failures=$failures"
+  sort "$PROBES" | uniq -c
+  if [ "$samples" -eq 0 ] || [ "$failures" -ne 0 ]; then
+    return 1
+  fi
+}
 rollback() {
   trap - ERR
   set +e
@@ -118,15 +135,20 @@ sudo systemctl daemon-reload
 sudo systemctl reset-failed "$UNIT" 2>/dev/null || true
 sudo systemctl start "$UNIT"
 wait_health 8001
+curl -fsS --max-time 5 -H "Host: $DOMAIN" -H 'X-Forwarded-Proto: https' \
+  http://127.0.0.1:8001/api/health/ | grep -q '"status": "ok"'
 # Sample the real public TLS/Nginx path continuously, including both switches.
 PROBES="$(mktemp)"
 (
+  body="$(mktemp)"
+  trap 'rm -f "$body"' EXIT
   while true; do
-    if curl -fsS --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" \
-      "https://$DOMAIN/api/health/" 2>/dev/null | grep -q '"status": "ok"'; then
+    if status="$(curl -sS --noproxy '*' --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" \
+      -o "$body" -w '%{http_code}' "https://$DOMAIN/api/health/" 2>/dev/null)" \
+      && [ "$status" = 200 ] && grep -q '"status": "ok"' "$body"; then
       echo ok >> "$PROBES"
     else
-      echo failed >> "$PROBES"
+      echo "failed_http_${status:-000}" >> "$PROBES"
     fi
     sleep 0.2
   done
@@ -162,11 +184,10 @@ for sample in 1 2 3; do
 done
 route "$BACKUP/nginx.conf"
 # Confirm the final public path before stopping the standby.
-curl -fsS --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" \
+curl -fsS --noproxy '*' --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" \
   "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
 finish_monitor
-echo "Public health samples=$(wc -l < "$PROBES") failures=$(grep -c '^failed$' "$PROBES" || true)"
-! grep -q '^failed$' "$PROBES"
+verify_public_probes
 sudo systemctl stop "$UNIT"
 trap - ERR
 sudo rm -f "/run/systemd/system/$UNIT"

@@ -14,7 +14,8 @@ HOT_RELOAD_API = {'backend/core/task_board_api.py', 'backend/core/research_task_
                   'backend/core/project_cockpit.py', 'backend/core/platform_access.py',
                   'backend/core/canonical_middleware.py',
                   'backend/core/canonical_task_outbox.py',
-                  'backend/gravitas_backend/wsgi.py'}
+                  'backend/gravitas_backend/wsgi.py',
+                  'scripts/reliability/deploy-api-release.sh'}
 
 
 def canonical_read_guard_only(before, after):
@@ -59,7 +60,7 @@ def classify(paths, base=None, head=None):
             scope = 'code' if scope == 'static' else scope
         elif (name.startswith(('assets/', '.github/workflows/', 'scripts/', 'docs/'))
               or (name.startswith('backend/core/test_') and name.endswith('.py'))
-              or name in {'ops/release_scope.py', 'ops/readonly_runtime_diagnostics.py',
+              or name in {'ops/release_scope.py', 'ops/readonly_runtime_diagnostics.py', 'ops/e2e-identity.sh',
                           'backend/gravitas_backend/postgres_test_settings.py'}
               or (len(path.parts) == 1 and path.suffix in {'.html', '.htm', '.webmanifest'})
               or name in {'favicon.ico', 'robots.txt', 'sitemap.xml', 'workspace-sw.js'}):
