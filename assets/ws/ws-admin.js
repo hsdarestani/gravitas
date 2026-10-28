@@ -78,6 +78,7 @@ export async function renderAdminOverview(host, { go }) {
     const entries = [
       ['Users & Access', 'Identity, account status and per-layer grants', `${ADMIN}/users`, 'team', `${users.total || 0} accounts`],
       ['Topics', 'Topic pages published across the public site', `${ADMIN}/content`, 'topic', `${shell.content_draft || 0} drafts`],
+      ['Lab Studio', 'Simulation source, components, coaching and controlled releases', `${ADMIN}/labs`, 'lab', 'Manage Labs'],
       ['Moderation', 'Public comments, kept apart from private research discussion', `${ADMIN}/moderation`, 'moderation', shell.comments_pending ? [`${shell.comments_pending} pending`, 'warn'] : 'Clear'],
       ['LMS', 'Courses, enrollments, analytics, paths and payments', `${ADMIN}/lms`, 'course', `${lms.courses_total || 0} courses`],
       ['Research', 'Project policy, secure rooms and membership', `${ADMIN}/research`, 'space-research', `${research.projects_total || 0} projects`],
