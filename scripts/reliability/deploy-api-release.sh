@@ -6,16 +6,17 @@ BACKUP="/var/backups/gravitas-code/$REVISION"
 DRAIN="/opt/gravitas-api-drain-$REVISION"
 NGINX=/etc/nginx/sites-available/gravitas
 UNIT=gravitas-backend-drain.service
+# A prior interrupted release needs operator recovery; never kill its live pool.
+! sudo systemctl is-active --quiet "$UNIT"
+sudo grep -q '127.0.0.1:8000' "$NGINX"
+! sudo grep -q '127.0.0.1:8001' "$NGINX"
 sudo install -d -m 700 "$BACKUP"
 sudo tar --exclude='./.venv' --exclude='./staticfiles' --exclude='*.sqlite3*' \
   -cpf "$BACKUP/backend.tar" -C "$BACKEND_PATH" .
 sudo chmod 600 "$BACKUP/backend.tar"
 sudo tar -tf "$BACKUP/backend.tar" >/dev/null
 sudo cp -p "$NGINX" "$BACKUP/nginx.conf"
-# A prior interrupted release needs operator recovery; never kill its live pool.
-! sudo systemctl is-active --quiet "$UNIT"
-sudo grep -q '127.0.0.1:8000' "$NGINX"
-! sudo grep -q '127.0.0.1:8001' "$NGINX"
+
 
 restore_code() {
   sudo install -d -m 700 "$BACKUP/restore" || return 1

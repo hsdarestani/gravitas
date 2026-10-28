@@ -103,4 +103,3 @@ standby is retained and blocks subsequent automated replacement.
 A real Nginx regression test holds a POST open across the switch, asserts one
 server-side write and a complete response, monitors concurrent reads, and verifies
 that stopping the original upstream after draining leaves the new route healthy.
-
