@@ -324,7 +324,7 @@ def interpret(user, text):
     assert_skill_allowed(user, 'project_task')
     rows = catalog(user)
     if not configured():
-        return _safe_report_fallback(user, text)
+        return _enhance_report_matching(user, text, _safe_report_fallback(user, text))
     try:
         answer = complete(system=('You propose a daily work report, NEVER perform task actions. Return only JSON '
             '{"summary":"...","updates":[{"task_id":integer|null,"title":"activity name","progress":"...","status":string|null,'
@@ -345,7 +345,7 @@ def interpret(user, text):
         # AI output is untrusted; an invalid match becomes unmatched work.
         return _enhance_report_matching(user, text, normalize(user, raw))
     except (PulsarError, ValueError, TypeError, json.JSONDecodeError):
-        return _safe_report_fallback(user, text)
+        return _enhance_report_matching(user, text, _safe_report_fallback(user, text))
 
 
 def propose(user, text, *, source='platform', source_key=None, supersedes=None, report_date=None):
