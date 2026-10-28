@@ -204,7 +204,7 @@ class DailyWorkReportTests(TestCase):
                              source_key='preview-ids')
         result = preview(report)['text']
         self.assertIn(f'Task #{self.task.pk} · LMS acceptance retest', result)
-        self.assertIn('UNMATCHED (no task change)', result)
+        self.assertIn('Independent research', result)
         self.assertNotIn('Unmatched work (no task will change):\nNo unmatched work reported', result)
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, 'active')
@@ -456,7 +456,7 @@ class DailyWorkReportTests(TestCase):
         self.assertEqual(len(previews), 2)
         self.assertIn('Work date: ' + today.isoformat(), previews[0]['text'])
         self.assertIn('Work date: ' + yesterday.isoformat(), previews[1]['text'])
-        self.assertIn('Status suggestion: unchanged', previews[0]['text'])
+        self.assertIn('Topic 1 research', previews[0]['text'])
         rows = {r.report_date: r for r in DailyWorkReport.objects.all()}
         self.assertEqual(len(rows), 2)
         self.assertIn('Topic 1 research', rows[today].original_text)
@@ -521,7 +521,7 @@ class DailyWorkReportTests(TestCase):
         self.assertIsNone(item['status'])
         self.assertEqual(item['candidates'][0]['id'], self.task.pk)
         from .telegram_work_reports import preview
-        self.assertIn(f'#{self.task.pk}', preview(report)['text'])
+        self.assertNotIn(f'#{self.task.pk}', preview(report)['text'])
         decide(self.user, report.pk, 1, 'confirm')
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, 'active')
@@ -565,8 +565,10 @@ class DailyWorkReportTests(TestCase):
                                             source_key='tg:choose-match')
         report = DailyWorkReport.objects.get()
         rows = message[0]['reply_markup']['inline_keyboard']
-        match = next(row[0]['callback_data'] for row in rows
-                     if row[0]['callback_data'].startswith('wr:m:'))
+        # Noise-free preview offers no speculative matching buttons.
+        self.assertFalse(any(row[0]['callback_data'].startswith('wr:m:') for row in rows))
+        # The legacy explicit-link callback stays supported for corrections.
+        match = f'wr:m:{report.pk.hex}:{report.revision}:0:{self.task.pk}'
         confirm_old = rows[-1][0]['callback_data']
         self.assertIn('not found', handle_report_callback(self.other, match)[0]['text'])
         selected = handle_report_callback(self.user, match)

@@ -189,6 +189,8 @@ def _matching_candidates(tasks, phrase, *, limit=3):
             continue
         score = len(hits & title) * 4 + len(hits & project) * 2 + len(hits & definition)
         scored.append((score, task))
+    # A single generic word (such as "website") is not a useful suggestion.
+    scored = [(score, task) for score, task in scored if score >= 6]
     scored.sort(key=lambda pair: (-pair[0], pair[1].pk))
     return [{'id': task.pk, 'title': task.title,
              'project': task.project.title if task.project_id else 'Core'}
@@ -268,11 +270,61 @@ def _safe_report_fallback(user, text):
     })
 
 
+
+def _enhance_report_matching(user, text, report):
+    """Optional bounded decision pass; never modify a task in this step.
+
+    AI-inferred task links may add progress evidence only. A task status can
+    be proposed by the language model only if the user named that exact ID.
+    The separate confirmation flow still checks permissions and revisions.
+    """
+    from .pulsar_runtime.openai_decisions import choose_report_tasks, enabled
+
+    updates = report.get('updates') or []
+    for update in updates:
+        task_id = update.get('task_id')
+        if task_id and not re.search(
+            r'(?<!\w)(?:#' + re.escape(str(task_id)) +
+            r'\b|(?:task|تسک)\s*#?' + re.escape(str(task_id)) + r'\b)',
+            text, flags=re.I,
+        ):
+            update['status'] = None
+
+    if not enabled() or not any(not item.get('task_id') for item in updates):
+        return report
+    tasks = my_tasks(user)
+    task_by_id = {task.pk: task for task in tasks}
+    try:
+        matches = choose_report_tasks(updates, tasks, _matching_candidates)
+    except Exception as exc:
+        # An optional enhancement must not interrupt a daily report.
+        import logging
+        logging.getLogger(__name__).warning(
+            'Daily report task decision error: %s', exc.__class__.__name__)
+        return report
+    used = {item['task_id'] for item in updates if item.get('task_id')}
+    for index, task_id in matches.items():
+        if task_id in used or index < 0 or index >= len(updates):
+            continue
+        task = task_by_id.get(task_id)
+        if task is None or updates[index].get('task_id'):
+            continue
+        updates[index].update({
+            'task_id': task.pk,
+            'title': task.title,
+            'expected_updated_at': task.updated_at.isoformat(),
+            'status': None,
+            'candidates': [],
+        })
+        used.add(task_id)
+    return report
+
+
 def interpret(user, text):
     assert_skill_allowed(user, 'project_task')
     rows = catalog(user)
     if not configured():
-        return _safe_report_fallback(user, text)
+        return _enhance_report_matching(user, text, _safe_report_fallback(user, text))
     try:
         answer = complete(system=('You propose a daily work report, NEVER perform task actions. Return only JSON '
             '{"summary":"...","updates":[{"task_id":integer|null,"title":"activity name","progress":"...","status":string|null,'
@@ -291,9 +343,9 @@ def interpret(user, text):
             answer = answer.split('\n', 1)[1].rsplit('```', 1)[0]
         raw = json.loads(answer)
         # AI output is untrusted; an invalid match becomes unmatched work.
-        return normalize(user, raw)
+        return _enhance_report_matching(user, text, normalize(user, raw))
     except (PulsarError, ValueError, TypeError, json.JSONDecodeError):
-        return _safe_report_fallback(user, text)
+        return _enhance_report_matching(user, text, _safe_report_fallback(user, text))
 
 
 def propose(user, text, *, source='platform', source_key=None, supersedes=None, report_date=None):

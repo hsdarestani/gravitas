@@ -55,55 +55,70 @@ def _previews(reports):
     return [preview(report) for report in reports]
 
 
+def _compact_entries(updates):
+    """Group website-video variants for display; keep every original update."""
+    entries, grouped = [], set()
+    variants = []
+    for index, update in enumerate(updates):
+        title = str(update.get('title') or '').lower()
+        if 'website' not in title or 'video' not in title:
+            continue
+        variant = next((word for word in ('realistic', 'reel', 'vox')
+                        if word in title), None)
+        if variant and str(update.get('progress') or '').strip().lower() in {
+                'completed', 'done', ''} and not update.get('blocker'):
+            variants.append((index, variant, update))
+    if (len({variant for _, variant, _ in variants}) >= 2 and
+            len({item.get('task_id') for _, _, item in variants}) == 1):
+        first_index = variants[0][0]
+        linked = sorted({item['task_id'] for _, _, item in variants if item.get('task_id')})
+        entries.append((first_index, {
+            'title': 'Website video · ' + ', '.join(variant for _, variant, _ in variants),
+            'progress': 'Completed',
+            'task_id': linked[0] if len(linked) == 1 and all(
+                item.get('task_id') for _, _, item in variants) else None,
+            'status': None, 'group_count': len(variants),
+        }))
+        grouped = {index for index, _, _ in variants}
+    entries.extend((index, update) for index, update in enumerate(updates) if index not in grouped)
+    return [item for _, item in sorted(entries, key=lambda pair: pair[0])]
+
+
 def preview(report):
     lines = [
-        'Pulsar · Suggested daily update',
+        'Pulsar · Daily report',
         'Work date: ' + report.report_date.isoformat(),
         'Submitted: ' + _report_timestamp(report.created_at),
         '',
-        report.interpretation.get('summary', ''), '',
     ]
-    updates = report.interpretation.get('updates', [])
-    match_buttons = []
-    for index, update in enumerate(updates):
+    updates = report.interpretation.get('updates') or []
+    for update in _compact_entries(updates):
         task_id = update.get('task_id')
-        title = (
-            f"Task #{task_id} · {update['title']}" if task_id
-            else f"UNMATCHED (no task change) · {update['title']}"
-        )
-        lines.extend([
-            title,
-            f"Progress: {update['progress']}",
-            f"Status suggestion: {update.get('status') or 'unchanged'}",
-            f"Deliverable: {update['deliverable']}",
-            f"Blocker: {update['blocker']}",
-            f"Next: {update['next_action']}",
-        ])
-        candidates = update.get('candidates') or []
-        if not task_id and candidates:
-            lines.append('Possible tasks (NOT linked):')
-            for candidate in candidates[:3]:
-                lines.append(f"  #{candidate['id']} · {candidate['title']} ({candidate['project']})")
-                action = f"wr:m:{report.pk.hex}:{report.revision}:{index}:{candidate['id']}"
-                if len(action.encode('utf-8')) <= 64:
-                    match_buttons.append([{
-                        'text': f"Link item {index + 1} to #{candidate['id']}",
-                        'callback_data': action,
-                    }])
-        lines.append('')
+        title = str(update.get('title') or 'Activity').strip()
+        if task_id:
+            lines.append(f"✓ Task #{task_id} · {title}")
+        else:
+            lines.append(f"• {title}")
+        progress = str(update.get('progress') or '').strip()
+        if progress and progress.casefold() != title.casefold():
+            lines.append('  ' + progress[:280])
+        if update.get('status'):
+            lines.append('  Proposed task status: ' + str(update['status']))
+        for key, label in (('deliverable', 'Output'), ('blocker', 'Blocker'),
+                           ('next_action', 'Next')):
+            value = str(update.get(key) or '').strip()
+            if value:
+                lines.append('  ' + label + ': ' + value[:200])
     unmatched = str(report.interpretation.get('unmatched_work') or '').strip()
-    if unmatched and unmatched.casefold() not in {'none', 'no unmatched work reported', 'no unmatched work'}:
-        lines.extend(['Unmatched work (no task will change):', unmatched])
-    lines.append('Review exact task IDs before confirming. No task changed yet. /reportedit to correct; /reportpreview to review again.')
-    return {'text': '\n'.join(lines)[:4096], 'reply_markup': {'inline_keyboard': [
-        *match_buttons[:12],
-        [
-            {'text': 'Confirm', 'callback_data': f'wr:c:{report.pk.hex}:{report.revision}'},
-            {'text': 'Edit', 'callback_data': f'wr:e:{report.pk.hex}:{report.revision}'},
-            {'text': 'Cancel', 'callback_data': f'wr:x:{report.pk.hex}:{report.revision}'},
-        ],
-    ]}}
-
+    if unmatched and unmatched.casefold() not in {
+            'none', 'no unmatched work reported', 'no unmatched work'}:
+        lines.append('Other reported work: ' + unmatched[:350])
+    lines += ['', 'No task changes until you confirm. Edit to correct a link.']
+    return {'text': '\n'.join(lines)[:4096], 'reply_markup': {'inline_keyboard': [[
+        {'text': '✅ Confirm', 'callback_data': f'wr:c:{report.pk.hex}:{report.revision}'},
+        {'text': '✏️ Edit', 'callback_data': f'wr:e:{report.pk.hex}:{report.revision}'},
+        {'text': '❌ Cancel', 'callback_data': f'wr:x:{report.pk.hex}:{report.revision}'},
+    ]]}}
 
 def handle_report_message(user, text, source_key=None):
     session, _ = TelegramPulsarSession.objects.get_or_create(user=user)
