@@ -49,8 +49,8 @@
     },
     {
       k: 'lab game simulation interactive play experiment tool sandbox try',
-      a: 'The Lab is where you do the thing instead of watching it: hypothesis testing, spotting hype in a press release, splitting a research budget, reviewing a flawed paper. Most take five to twelve minutes.',
-      l: [['Interactive Lab', 'lab.html'], ['Play Hypothesis Machine', 'game-hypothesis-machine.html']]
+      a: 'The AI Lab is a single interactive workspace for understanding AI, testing reliability, controlling agent decisions, and creating scientific artifacts. You can change parameters, run experiments, and compare outcomes without selecting a model.',
+      l: [['Open AI Lab', 'lab.html'], ['Try the reliability challenge', 'lab.html?mode=reliability']]
     },
     {
       k: 'learn learning path course curriculum study order beginner start where do i start new here',

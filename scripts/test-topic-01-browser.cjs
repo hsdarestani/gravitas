@@ -165,53 +165,54 @@ async function smoke() {
   assert.ok(await v.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
   await v.screenshot({path:path.join(shots,"visualization-desktop.png"),fullPage:true});
 
+  // Canonical directory is now ONE AI Lab. Its previous three simulations
+  // remain individually regression-tested above but are not advertised.
   const idx = await context.newPage();
+  await idx.route("**/api/pulsar/ask/",route=>route.fulfill({
+    status:200,contentType:"application/json",
+    body:JSON.stringify({ok:true,provider:"fixture",reply:"The 40-person nonrandomized study cannot establish causation."})
+  }));
   const indexResponse = await idx.goto(ROOT + "/lab.html", { waitUntil:"networkidle" });
   assert.equal(indexResponse.status(), 200);
-  assert.equal(await idx.locator('a[href="lab-protein-stability.html"]').count(), 1);
-  assert.equal(await idx.locator('a[href="lab-prompt-bias.html"]').count(), 1);
-  assert.equal(await idx.locator('a[href="lab-scientific-visualization.html"]').count(), 1);
-
-  // Regression: the Lab directory MUST NOT rely on IntersectionObserver,
-  // scroll, or JavaScript before showing its main cards. This was blank in
-  // a real screenshot even though all three lab URL smoke checks passed.
-  async function assertDirectoryVisible(p, condition) {
-    const cards=await p.locator(".games > a.game-card").evaluateAll(nodes=>nodes.slice(0,3).map(el=>{
-      const style=getComputedStyle(el), rect=el.getBoundingClientRect();
-      return { opacity:Number(style.opacity),display:style.display,visibility:style.visibility,
-               width:rect.width,height:rect.height,title:el.querySelector("h3")?.textContent||"" };
-    }));
-    assert.equal(cards.length,3,condition+" should contain first three labs");
-    for(const card of cards){
-      assert.ok(card.opacity>=0.99,condition+" hidden card opacity: "+JSON.stringify(card));
-      assert.notEqual(card.display,"none",condition+" display none");
-      assert.notEqual(card.visibility,"hidden",condition+" visibility hidden");
-      assert.ok(card.width>150&&card.height>100,condition+" empty card geometry");
-    }
-  }
-  await assertDirectoryVisible(idx,"JavaScript-enabled directory");
-  // Replay the exact stale live CMS hiding rule in an ordinary JS-enabled page.
-  // Keep the no-JS test separate: page.addStyleTag can wait indefinitely
-  // when scripting is disabled, which tests Playwright rather than our CSS.
-  await idx.addStyleTag({ content:
-    'body:has(a[aria-current="page"][href="lab.html"]) .games:not(.g-cms-grid) { visibility: hidden; min-height:6rem; }'
-  });
-  await assertDirectoryVisible(idx,"Stale CMS stylesheet regression");
-
-  await idx.screenshot({path:path.join(shots,"lab-directory-desktop.png"),fullPage:true});
+  assert.equal(await idx.locator(".ai-path-card").count(),4);
+  assert.equal(await idx.locator('.ai-tabs [role="tab"]').count(),4);
+  assert.equal(await idx.locator(".games > a.game-card").count(),0);
+  await idx.locator('[data-open-lab="understand"]').first().click();
+  assert.ok(await idx.locator("#ai-panel-understand").isVisible());
+  await idx.locator("#ai-understand-context").uncheck();
+  assert.match(await idx.locator("#ai-understand-prompt").innerText(),/None provided/);
+  await idx.locator('[data-tab="agent"]').click();
+  await idx.locator("#ai-agent-publish").check();
+  await idx.locator("#ai-agent-run").click();
+  assert.match(await idx.locator("#ai-agent-summary").innerText(),/Publication blocked|Waiting for human/);
+  await idx.locator('[data-tab="artifact"]').click();
+  assert.ok(await idx.locator("#ai-orbit-svg").isVisible());
+  const initialPeriod=await idx.locator("#ai-orbit-period").innerText();
+  await idx.locator("#ai-orbit-mass").evaluate(node=>{node.value="2";node.dispatchEvent(new Event("input",{bubbles:true}));});
+  assert.notEqual(await idx.locator("#ai-orbit-period").innerText(),initialPeriod);
+  await idx.locator('[data-tab="reliability"]').click();
+  await idx.locator("#ai-run-reliability").click();
+  await idx.locator("#ai-live-response").getByText(/cannot establish causation/).waitFor();
+  await idx.locator("#ai-save-run").click();
+  assert.equal(await idx.locator(".ai-compare-card").count(),1);
+  assert.ok(await idx.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
+  await idx.screenshot({path:path.join(shots,"ai-lab-desktop.png"),fullPage:true});
+  await idx.setViewportSize({width:390,height:844});
+  assert.ok(await idx.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
+  await idx.screenshot({path:path.join(shots,"ai-lab-mobile.png"),fullPage:true});
   const noJs=await browser.newContext({javaScriptEnabled:false});
   const noJsPage=await noJs.newPage();
   await noJsPage.setViewportSize({width:390,height:844});
   assert.equal((await noJsPage.goto(ROOT+"/lab.html",{waitUntil:"load"})).status(),200);
-  await assertDirectoryVisible(noJsPage,"JavaScript-disabled mobile directory");
-  await noJsPage.screenshot({path:path.join(shots,"lab-directory-nojs-mobile.png"),fullPage:true});
+  assert.equal(await noJsPage.locator(".ai-path-card").count(),4);
+  await noJsPage.screenshot({path:path.join(shots,"ai-lab-nojs-mobile.png"),fullPage:true});
   await noJs.close();
   const nav = await q.locator('a.back').getAttribute("href");
   assert.equal(nav, "lab.html");
   await q.emulateMedia({ reducedMotion: "reduce" });
   assert.ok(await q.locator("h1").isVisible());
   await context.close();
-  console.log("Browser PASS: 3 sims × mobile/desktop, input, PNG screenshots, export, reset, local save, navigation, no backend calls, no errors.");
+  console.log("Browser PASS: 3 archived simulations + unified AI Lab desktop/mobile tabs, real-AI fixture, agent trace, orbit and comparison.");
 }
 smoke().catch(err => { failed = true; console.error(err.stack || err); }).finally(async () => {
   if (browser) await browser.close().catch(() => {});
