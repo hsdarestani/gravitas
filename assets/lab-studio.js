@@ -49,7 +49,7 @@ function renderSteps(){
   steps.forEach(function(step,i){
     var b=btn(String(i+1)+' · '+(step.title||step.id),function(){
       currentSection=step.id;
-      tellIframe('lab:command',{command:'pause'});
+      tellIframe('lab:section',{section:step.id});
       feedback(step.hint||'Explore this section.','script');
       renderSteps();
     },'lab-step');
