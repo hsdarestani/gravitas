@@ -2396,4 +2396,4 @@ export async function renderAdminNewsletter(host) {
 }
 
 /* LAB STUDIO — isolated module, shared admin kit and full central control plane. */
-export { renderLabStudio as renderAdminLabs } from './ws-lab-studio.js?v=20261029-studio1';
+export { renderLabStudio as renderAdminLabs } from './ws-lab-studio.js?v=20261016-task1&patch=20261029studio1';
