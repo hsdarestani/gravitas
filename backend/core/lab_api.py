@@ -86,6 +86,8 @@ def _clean_config(value):
         not isinstance(x, str) or x not in COMPONENTS for x in components
     ):
         raise ValueError('invalid_components')
+    if 'stage' not in components:
+        raise ValueError('stage_component_required')
     sections = value.get('sections', [])
     guidance = value.get('guidance', [])
     if not isinstance(sections, list) or len(sections) > 15 or not isinstance(guidance, list) or len(guidance) > 32:
@@ -296,7 +298,7 @@ def admin_lab_detail(request, lab_id):
             if field in data:
                 setattr(item, field, str(data[field] or '')[:limit])
         if not item.title.strip():
-            raise ValueError('title_required')
+            return JsonResponse({'ok': False, 'error': 'title_required'}, status=400)
         if 'topic_slug' in data:
             topic = str(data.get('topic_slug') or '').strip()[:180]
             if not _valid_topic(topic):
