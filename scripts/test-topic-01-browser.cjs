@@ -175,7 +175,7 @@ async function smoke() {
   const indexResponse = await idx.goto(ROOT + "/lab.html", { waitUntil:"networkidle" });
   assert.equal(indexResponse.status(), 200);
   assert.equal(await idx.locator(".ai-path-card").count(),4);
-  assert.equal(await idx.locator('[role="tab"]').count(),4);
+  assert.equal(await idx.locator('.ai-tabs [role="tab"]').count(),4);
   assert.equal(await idx.locator(".games > a.game-card").count(),0);
   await idx.locator('[data-open-lab="understand"]').first().click();
   assert.ok(await idx.locator("#ai-panel-understand").isVisible());
