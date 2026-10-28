@@ -6,7 +6,7 @@
 (function(){
   'use strict';
   var schema='graviquest.lab.v1';
-  var controlListeners=[],commandListeners=[],layerListeners=[],didRegister=false;
+  var controlListeners=[],commandListeners=[],layerListeners=[],sectionListeners=[],didRegister=false;
   var validKey=/^[a-z][a-z0-9_-]{0,63}$/;
   function send(type,payload){
     if(window.parent===window)return;
@@ -43,7 +43,8 @@
     },
     onControl:function(fn){if(typeof fn==='function')controlListeners.push(fn);},
     onCommand:function(fn){if(typeof fn==='function')commandListeners.push(fn);},
-    onLayer:function(fn){if(typeof fn==='function')layerListeners.push(fn);}
+    onLayer:function(fn){if(typeof fn==='function')layerListeners.push(fn);},
+    onSection:function(fn){if(typeof fn==='function')sectionListeners.push(fn);}
   };
   window.addEventListener('message',function(e){
     if(e.source!==window.parent)return;
@@ -55,6 +56,8 @@
       commandListeners.forEach(function(fn){try{fn(data.command);}catch(_){}});
     if(data.type==='lab:layer'&&validKey.test(String(data.key||'')))
       layerListeners.forEach(function(fn){try{fn({key:data.key,enabled:!!data.enabled});}catch(_){}});
+    if(data.type==='lab:section'&&validKey.test(String(data.section||'')))
+      sectionListeners.forEach(function(fn){try{fn(data.section);}catch(_){}});
   });
   if(document.readyState==='loading')
     document.addEventListener('DOMContentLoaded',function(){if(!didRegister)window.GraviLab.register({});},{once:true});
