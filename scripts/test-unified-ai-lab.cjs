@@ -13,7 +13,9 @@ new vm.Script(chat,{filename:'assets/chat.js'});
 
 assert.match(html, /<header class="g-header">/, 'shared navigation must remain');
 assert.match(html, /<main id="main">/, 'main landmark missing');
-assert.match(html, /<h1 id="lab-title">AI in Research<\/h1>/, 'correct research scope missing');
+assert.match(html, /<title>Lab · GraviQuest<\/title>/, 'generic page title missing');
+assert.doesNotMatch(html, /<h1[^>]*>AI in Research<\/h1>/, 'Topic should not become Lab title');
+assert.match(html, /<h1 id="lab-title">Lab<\/h1>/, 'generic Lab title missing');
 assert.match(html, /class="page-head"/, 'must use native brand page header');
 assert.match(html, /assets\/gravitas\.css/, 'brand design system missing');
 assert.match(html, /assets\/site\.css/, 'site design system missing');
@@ -27,7 +29,7 @@ assert.ok(!html.includes('assets/chat.js'),'floating assistant must not be on bl
 assert.ok(!html.includes('<footer class='),'footer must not appear on intentionally blank page');
 assert.ok(!fs.existsSync('assets/ai-lab.js')&&!fs.existsSync('assets/ai-lab.css'),'discarded prototype assets must be removed');
 assert.ok(!integrations.includes('games.prepend(a)'),'legacy CMS catalog must not be injected');
-assert.match(chat, /Lab currently shows the topic heading only/,'site guide must be truthful');
+assert.match(chat, /public page currently shows only the Lab heading/,'site guide must be truthful');
 assert.match(brand, /current centre of gravity is AI and machine learning in scientific research/);
 assert.match(guidance, /canonical source of truth for all UI design is/,'future brand guidance missing');
-console.log('AI in Research Lab: header-only freeze, brand foundations and public messaging PASS.');
+console.log('Topic-agnostic Lab: header-only freeze, brand foundations and public messaging PASS.');

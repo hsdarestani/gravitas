@@ -49,8 +49,8 @@
     },
     {
       k: 'lab game simulation interactive play experiment tool sandbox try',
-      a: 'GraviQuest is defining its Lab around AI in scientific research. The public Lab currently shows the topic heading only; interactive experiments are not available yet.',
-      l: [['AI in Research Lab', 'lab.html']]
+      a: 'The GraviQuest Lab is a central place intended for experiments across research Topics. Its format is still being defined. The public page currently shows only the Lab heading; no interactive experiments are available yet.',
+      l: [['Lab', 'lab.html']]
     },
     {
       k: 'learn learning path course curriculum study order beginner start where do i start new here',

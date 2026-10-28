@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **The canonical source of truth for all UI design is `brand.html`**, backed by `assets/gravitas.css` and `assets/site.css`. Before implementing or proposing a visual change, read the brand book and reuse its tokens, typography, theme rules, layout, button shapes, logo art and components. Do not create a competing visual language or hard-code a decorative palette.
 - Brand palette: Cosmos Blue `#003049`, White Tint `#f1efec`, Sisal `#d4c9be`, Royal Black `#030303`; derive components from semantic `--g-*` tokens, including light theme. Interface typography is DM Sans, long-form reading Literata, data/code DM Mono in the defined limited roles. Use supplied logos, never redraw them.
-- The Lab's product domain is **AI in scientific research**: methodology, evidence, epistemic limits, reproducibility and research workflows. Planetary orbits and unrelated science visualizations were illustrative examples, **not** product requirements. Never introduce unapproved demos, model selection or experiments on the public Lab page.
-- `lab.html` is intentionally **header-only** while product definition is discussed. Preserve this empty state. Do not re-enable previous experiment cards or simulation assets until the product design is explicitly agreed.
+- The **Lab** is a topic-agnostic GraviQuest space, **not** a synonym for AI in Research. **AI in Research** is one Topic that may have contextual Lab experiences, alongside other Topics. The specific Lab concept, connections to Topics, learning goals and experiments are **not yet approved**. The earlier planetary orbit example was illustrative only, not a product requirement. Do not introduce unapproved experiences, sample experiments or model selection.
+- `lab.html` is intentionally **header-only**, with the generic title `Lab`, while product definition is discussed. Preserve this empty state. Do not re-enable previous experiment cards or simulation assets until the product design is explicitly agreed.
 
 ## What this repository is
 
