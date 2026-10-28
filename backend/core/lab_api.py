@@ -177,7 +177,15 @@ def _serve_file(files, target):
     if row is None:
         return HttpResponse('Not found', status=404)
     content_type = mimetypes.guess_type(target)[0] or 'text/plain'
-    response = HttpResponse(row.get('content') or '', content_type=f'{content_type}; charset=utf-8')
+    source = row.get('content') or ''
+    if target == 'index.html':
+        bridge = '<script src="/assets/lab-bridge.js"></script>'
+        if re.search(r'<head(?:\s[^>]*)?>', source, re.IGNORECASE):
+            source = re.sub(r'(<head(?:\s[^>]*)?>)', lambda match: match.group(1) + bridge,
+                            source, count=1, flags=re.IGNORECASE)
+        else:
+            source = bridge + source
+    response = HttpResponse(source, content_type=f'{content_type}; charset=utf-8')
     response['Cache-Control'] = 'no-store'
     response['X-Content-Type-Options'] = 'nosniff'
     response['Referrer-Policy'] = 'no-referrer'
