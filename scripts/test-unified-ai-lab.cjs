@@ -1,0 +1,33 @@
+'use strict';
+const fs = require('fs');
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const html = fs.readFileSync('lab.html','utf8');
+const js = fs.readFileSync('assets/ai-lab.js','utf8');
+const css = fs.readFileSync('assets/ai-lab.css','utf8');
+const integrations = fs.readFileSync('assets/public-integrations.js','utf8');
+const chat = fs.readFileSync('assets/chat.js','utf8');
+new vm.Script(js, {filename: 'assets/ai-lab.js'});
+new vm.Script(integrations, {filename: 'assets/public-integrations.js'});
+assert.match(html, /<main id="main" class="ai-lab-page">/);
+assert.match(html, /assets\/ai-lab\.css\?v=/);
+assert.match(html, /assets\/ai-lab\.js\?v=/);
+for (const mode of ['understand','reliability','agent','artifact']) {
+  assert.match(html, new RegExp('id="ai-panel-' + mode + '"'));
+  assert.match(html, new RegExp('id="ai-tab-' + mode + '"'));
+  assert.match(js, new RegExp("'"+mode+"'"));
+}
+assert.equal((html.match(/role="tabpanel"/g)||[]).length,4);
+assert.equal((html.match(/role="tab"/g)||[]).length,4);
+assert.ok(!html.includes('class="games gq-lab-catalog"'),'old catalog unexpectedly in canonical page');
+assert.ok(!/select[^>]*id="[^"]*model/i.test(html),'model picker must not be exposed');
+assert.match(js,/\/api\/pulsar\/ask\//,'real public Pulsar endpoint absent');
+assert.match(js,/data\.provider==='fallback'/,'AI fallback must not be reported as a real run');
+assert.match(js,/new Blob\(/,'artifact export not implemented');
+assert.match(js,/Math\.sqrt\(Math\.pow\(orbit\.axis,3\)\/orbit\.mass\)/,'Kepler calculation missing');
+assert.match(js,/output\.textContent|n\.textContent|pre\.textContent/,'safe text rendering missing');
+assert.ok(!integrations.includes("games.prepend(a)"),'legacy CMS should not reinsert Labs');
+assert.ok(chat.includes('The AI Lab is a single interactive workspace'),'assistant still advertises obsolete labs');
+assert.ok(css.includes('@media(max-width:480px)'),'mobile layout missing');
+assert.ok(css.includes('prefers-reduced-motion'),'reduced motion missing');
+console.log('Unified AI Lab static contract: PASS (4 modes, real AI endpoint, honest simulations, mobile layout).');
