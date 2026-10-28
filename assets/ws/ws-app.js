@@ -20,7 +20,7 @@
    ========================================================================== */
 
 import * as notes from './ws-notes-store.js?v=20261016-task1';
-import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261016-task1&patch=20261027reliability1';
+import { fiveLayerRoute, renderFiveLayer, coreAdminEntry } from './ws-five-layer.js?v=20261029-studio1';
 import { renderNotesRoute, renderMirrorRoute, leaveNotes } from './ws-nextcloud-native.js?v=20261016-task1&patch=20261022canonicalnote1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { renderCoreTeam } from './ws-core-team.js?v=20261016-task1';
