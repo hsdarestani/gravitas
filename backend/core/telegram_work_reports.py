@@ -68,7 +68,8 @@ def _compact_entries(updates):
         if variant and str(update.get('progress') or '').strip().lower() in {
                 'completed', 'done', ''} and not update.get('blocker'):
             variants.append((index, variant, update))
-    if len({variant for _, variant, _ in variants}) >= 2:
+    if (len({variant for _, variant, _ in variants}) >= 2 and
+            len({item.get('task_id') for _, _, item in variants}) == 1):
         first_index = variants[0][0]
         linked = sorted({item['task_id'] for _, _, item in variants if item.get('task_id')})
         entries.append((first_index, {
