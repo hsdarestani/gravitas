@@ -284,8 +284,8 @@ def _enhance_report_matching(user, text, report):
     for update in updates:
         task_id = update.get('task_id')
         if task_id and not re.search(
-            r'(?<!\\w)(?:#' + re.escape(str(task_id)) +
-            r'\\b|(?:task|تسک)\\s*#?' + re.escape(str(task_id)) + r'\\b)',
+            r'(?<!\w)(?:#' + re.escape(str(task_id)) +
+            r'\b|(?:task|تسک)\s*#?' + re.escape(str(task_id)) + r'\b)',
             text, flags=re.I,
         ):
             update['status'] = None
