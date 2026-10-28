@@ -110,9 +110,9 @@
 .ai-compare-card pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:.78rem;line-height:1.62;color:#d9e4e3;margin:0;max-height:250px;overflow:auto}
 .ai-agent-trace{display:grid;gap:10px;min-height:260px}
 .ai-agent-step{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;background:#092536;border:1px solid rgba(150,195,205,.13);border-radius:9px;padding:12px}
-.ai-agent-step i{display:grid;width:30px;height:30px;place-items:center;border-radius:50%;background:#1b4952;color:#c9eddf;font-size:.75rem;font-style:normal;font-weight:720}
-.ai-agent-step[data-status=blocked] i{background:#543a39;color:#ffccbf}
-.ai-agent-step[data-status=review] i{background:#5a4930;color:#fee0a0}
+.ai-agent-step>div:first-child{display:grid;width:30px;height:30px;place-items:center;border-radius:50%;background:#1b4952;color:#c9eddf;font-size:.75rem;font-style:normal;font-weight:720}
+.ai-agent-step[data-status=blocked]>div:first-child{background:#543a39;color:#ffccbf}
+.ai-agent-step[data-status=review]>div:first-child{background:#5a4930;color:#fee0a0}
 .ai-agent-step b{display:block;font-size:.82rem;color:#e9ece8;margin-bottom:4px}
 .ai-agent-step p{font-size:.74rem;line-height:1.5;margin:0;color:#a9bfc2}
 .ai-agent-summary{font-size:.83rem;color:#e3cea8;margin-top:14px;line-height:1.6}
