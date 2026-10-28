@@ -1,0 +1,69 @@
+name: Lab Studio runtime and admin checks
+on:
+  pull_request:
+    paths:
+      - 'lab.html'
+      - 'workspace.html'
+      - 'assets/lab-bridge.js'
+      - 'assets/lab-studio.js'
+      - 'assets/lab-studio.css'
+      - 'assets/ws/ws-lab-studio.js'
+      - 'assets/ws/ws-lab-studio.css'
+      - 'assets/ws/ws-admin.js'
+      - 'assets/ws/ws-app.js'
+      - 'assets/ws/ws-five-layer.js'
+      - 'assets/ws/ws-platform.js'
+      - 'backend/core/lab_api.py'
+      - 'backend/core/models.py'
+      - 'backend/core/urls.py'
+      - 'backend/gravitas_backend/urls.py'
+      - 'backend/core/migrations/0082_lab_studio_snapshots.py'
+      - 'backend/core/test_lab_studio.py'
+      - 'scripts/test-lab-studio.cjs'
+      - 'scripts/test-lab-studio-browser.cjs'
+      - '.github/workflows/lab-studio-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  front:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Lab runtime and administration source
+        run: |
+          node --check assets/lab-bridge.js
+          node --check assets/lab-studio.js
+          node --input-type=module --check < assets/ws/ws-lab-studio.js
+          node --input-type=module --check < assets/ws/ws-admin.js
+          node --input-type=module --check < assets/ws/ws-platform.js
+          node scripts/test-lab-studio.cjs
+      - name: Verify Lab Studio interaction and CSP in Chrome
+        env:
+          NODE_PATH: ${{ runner.temp }}/gq-lab-browser/node_modules
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          npm install --prefix "$RUNNER_TEMP/gq-lab-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+          node scripts/test-lab-studio-browser.cjs
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install backend requirements
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lab-test"
+          "$RUNNER_TEMP/lab-test/bin/pip" install -q -r backend/requirements.txt
+      - name: Django checks and Lab Studio regression
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          PY="$RUNNER_TEMP/lab-test/bin/python"
+          "$PY" -m django check
+          "$PY" -m django makemigrations --check --dry-run
+          "$PY" -m django test core.test_lab_studio

@@ -24,7 +24,8 @@ from core.topic_progress import topic_progress
 from core.task_notifications import task_in_app_notifications, task_notification_settings, telegram_notification_webhook
 from core.support_api import admin_ticket_detail, admin_tickets, member_ticket_detail, member_tickets
 from core.newsletter_admin_api import admin_newsletter, admin_newsletter_subscriber
-from core.lab_api import admin_lab_detail, admin_labs
+from core.lab_api import (admin_lab_detail, admin_labs, admin_lab_publish, admin_lab_unpublish,
+                          admin_lab_revisions, preview_lab_file)
 from core.content_collab_api import content_attachment_download, content_attachments, content_comments
 from core.core_assets_api import core_asset_detail, core_asset_download, core_assets
 from core.research_calendar_api import research_calendar
@@ -330,6 +331,11 @@ urlpatterns = [
     path('platform/admin/tickets/<int:ticket_id>/', admin_ticket_detail),
     path('platform/admin/labs/', admin_labs),
     path('platform/admin/labs/<int:lab_id>/', admin_lab_detail),
+    path('platform/admin/labs/<int:lab_id>/publish/', admin_lab_publish),
+    path('platform/admin/labs/<int:lab_id>/unpublish/', admin_lab_unpublish),
+    path('platform/admin/labs/<int:lab_id>/revisions/', admin_lab_revisions),
+    path('platform/admin/labs/<int:lab_id>/preview/', preview_lab_file),
+    path('platform/admin/labs/<int:lab_id>/preview/<path:file_path>', preview_lab_file),
     path('platform/team/', core_team),
     path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),

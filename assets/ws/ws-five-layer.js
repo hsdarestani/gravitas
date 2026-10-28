@@ -26,7 +26,7 @@ import {
   renderAdminResearchProject,
   renderAdminUser,
   renderAdminUsers,
-} from './ws-admin.js?v=20261016-task1';
+} from './ws-admin.js?v=20261016-task1&patch=20261029studio1';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261016-task1';
 import { renderCoreLinks } from './ws-core-links.js?v=20261016-task1';
 import { renderResearchProject } from './ws-project.js?v=20261016-task1&patch=20261027reliability1';
@@ -63,7 +63,7 @@ const ADMIN_INDEX = [
   ['Moderation', '/workspace/core/admin/moderation', 'moderation', 'Review public comments'],
   ['Newsletter', '/workspace/core/admin/newsletter', 'mail', 'Subscribers and campaigns'],
   ['Support Tickets', '/workspace/core/admin/tickets', 'support', 'Reply to member requests'],
-  ['Interactive Lab', '/workspace/core/admin/labs', 'lab', 'Build interactive experiments'],
+  ['Lab Studio', '/workspace/core/admin/labs', 'lab', 'Configure Lab code, components and Pulsar guidance'],
   ['LMS', '/workspace/core/admin/lms', 'course', 'Courses, lessons and enrollments'],
   ['Research', '/workspace/core/admin/research', 'space-research', 'Every research project'],
   ['Links', '/workspace/core/admin/links', 'link', 'Connect items across workspaces'],
