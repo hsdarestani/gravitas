@@ -54,7 +54,22 @@ def api_release_probe_incident():
                   '--no-pager', '-o', 'cat').lower()
     print('release_standby_exception_buckets', {key: journal.count(key) for key in (
         'disallowedhost', 'operationalerror', 'permissionerror', 'modulenotfounderror',
-        'failed to boot', 'worker exiting', 'booting worker', 'error')})
+        'failed to boot', 'worker exiting', 'booting worker', 'error', 'invalid request',
+        'invalid http version', 'invalid http method', 'invalid header',
+        'contradictory scheme', 'invalid scheme headers', 'request line is too large',
+        'request header fields too large', 'address already in use', 'permission denied')})
+    statement = (
+        "SELECT (t.project_id=213)::int, COALESCE(q.state,'complete'), "
+        "COALESCE(q.attempts,0), COALESCE(q.last_error,''), "
+        "EXISTS(SELECT 1 FROM core_canonicalfile f WHERE f.project_id=t.project_id "
+        "AND f.object_type='OperatingTask' AND f.object_id=t.id AND NOT f.deleted)::int "
+        "FROM core_operatingtask t LEFT JOIN core_canonicaltasksyncoutbox q ON q.task_id=t.id "
+        "WHERE t.id=1119"
+    )
+    raw = run('sudo', '-n', '-u', 'postgres', 'psql', '-d', 'gravitas', '-X', '-A', '-t', '-c', statement)
+    rows = [row for row in raw.splitlines() if re.fullmatch(
+        r'[01]\|(?:complete|pending|conflict)\|\d+\|[A-Za-z_]*\|[01]', row)]
+    print('reported_task_project_sync_attempts_errorclass_nativefile', rows or 'unavailable')
 
 
 def health():
