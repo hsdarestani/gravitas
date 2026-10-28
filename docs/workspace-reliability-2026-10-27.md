@@ -72,6 +72,18 @@ node scripts/check-api-coverage.mjs
 The `Workspace Reliability` workflow installs Chromium outside the application, creates an isolated SQLite fixture, starts the actual backend/frontend and uploads screenshots plus assertion results. It introduces no application build step or browser runtime dependency.
 # Production deployment follow-up (28 October)
 
+Final API rollout after PR #282: deployment 40714590946 succeeded with 31 public
+TLS health samples and zero failed samples across both drained transitions.
+The complete backend suite ran 998 tests successfully; PostgreSQL concurrency
+and real Nginx draining also passed their dedicated jobs. This supersedes the
+earlier failed/incorrectly labelled release attempts below. The production
+browser harness subsequently reached login but timed out waiting for navigation;
+its DOMContentLoaded navigation could precede the dynamically inserted auth
+handler. The follow-up waits for the real page load and asserts the actual login
+POST response before checking navigation; it also waits for outstanding section
+requests before navigating again. Failure logs expose only path/query keys,
+never credential-bearing query values.
+
 Live verification after PR #281: task #1119 was attached to Topic 01 (213) via
 the actual UI. The server returned a confirmed save, a hard reload retained
 the project, and read-only SQL diagnostics later showed the native file exists
