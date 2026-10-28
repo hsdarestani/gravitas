@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as C from './ws-charts.js?v=20261016-task1';
 import { courseCover } from './ws-course-cover.js?v=20261016-task1';
 import { dateTimeField } from './ws-datetime.js?v=20261016-task1';

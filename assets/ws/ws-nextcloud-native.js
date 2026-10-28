@@ -1,4 +1,4 @@
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-admin-kit.js?v=20261016-task1';
 import { renderNoteMarkdown, plainNoteText } from './ws-notes-markdown.js?v=20261016-task1';
 import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';

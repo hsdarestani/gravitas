@@ -99,3 +99,14 @@ class WorkspaceRuntimePerformanceAssetTests(SimpleTestCase):
             tokens |= set(re.findall(r"\./ws-[a-z0-9-]+\.js\?v=([A-Za-z0-9._-]+)", source))
             self.assertNotRegex(source, r"from '\./ws-[a-z0-9-]+\.js'", name.name)
         self.assertEqual(len(tokens), 1, tokens)
+
+    def test_module_identity_includes_the_complete_query_string(self):
+        import re
+        from collections import defaultdict
+        versions = defaultdict(set)
+        for path in [ROOT / 'workspace.html', *WS.glob('ws-*.js')]:
+            for target in re.findall(r"(?:from\s+|import\s*\(\s*|import\s+)[\'\"]([^\'\"]*ws[^\'\"]*\.js(?:\?[^\'\"]*)?)[\'\"]", path.read_text()):
+                filename = target.rsplit('/', 1)[-1]
+                versions[filename.split('?')[0]].add(filename)
+        duplicates = {name: sorted(urls) for name, urls in versions.items() if len(urls) > 1}
+        self.assertEqual(duplicates, {}, 'Different module URLs create separate timers, caches and state')

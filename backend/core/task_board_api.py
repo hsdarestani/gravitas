@@ -13,6 +13,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
+from django.db.models.deletion import ProtectedError
 from django.http import FileResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -87,12 +88,15 @@ def _readonly_task_workspace(request):
             return None
     return core
 
-def _task_for(request, task_id, *, counts=True):
+def _task_for(request, task_id, *, counts=True, lock=False):
     workspace = _readonly_task_workspace(request) if request.method == 'GET' else base._workspace(request)
     if not workspace:
         return None, None
+    queryset = OperatingTask.objects
+    if lock:
+        queryset = queryset.select_for_update(of=('self',))
     task = (
-        OperatingTask.objects
+        queryset
         .select_related(
             'workspace', 'owner', 'initiative__process', 'initiative__key_result__objective',
             'milestone', 'work_package', 'cycle', 'project', 'meeting', 'dependency',
@@ -294,6 +298,28 @@ def _validated_create_key(value):
         return None
 
 
+def _validate_task_payload(payload):
+    # Malformed form values are client validation errors, never ORM/SQL 500s.
+    for field in ('title', 'description', 'definition_of_done', 'blocked_reason', 'status', 'priority'):
+        if field in payload and not isinstance(payload[field], str):
+            return _error('invalid_task_field', field=field)
+    if 'title' in payload and len(payload['title']) > 240:
+        return _error('title_too_long')
+    for field in ('owner_id', 'parent_id', 'dependency_id', 'project_id', 'key_result_id',
+                  'initiative_id', 'milestone_id', 'work_package_id', 'cycle_id', 'meeting_id'):
+        value = payload.get(field)
+        if value not in (None, '') and (isinstance(value, bool) or not str(value).isdecimal()
+                                       or len(str(value)) > 19 or int(value) > 9223372036854775807):
+            return _error('invalid_task_field', field=field)
+    if payload.get('due_date'):
+        try:
+            if not isinstance(payload['due_date'], str) or base._date(payload['due_date']) is None:
+                return _error('invalid_due_date')
+        except (ValueError, TypeError):
+            return _error('invalid_due_date')
+    return None
+
+
 def _create_board_task(request, workspace):
     """Serialize duplicate subtask submissions on the parent DB row.
 
@@ -309,6 +335,9 @@ def _create_board_task(request, workspace):
     if not isinstance(body, dict):
         return _error('invalid_json')
 
+    if error := _validate_task_payload(body):
+        return error
+
     raw_key = body.get('client_create_id')
     request_id = _validated_create_key(raw_key) if raw_key else None
     if raw_key and not request_id:
@@ -320,6 +349,7 @@ def _create_board_task(request, workspace):
         json.dumps(content, sort_keys=True, default=str).encode('utf-8')
     ).hexdigest()
 
+    @transaction.atomic
     def do_create():
         from .canonical_models import CanonicalProject, CanonicalTaskSyncOutbox
         from .canonical_projects import suppress as suppress_canonical_signals
@@ -383,6 +413,13 @@ def _create_board_task(request, workspace):
             OperatingTask.objects.filter(pk=task.pk).update(
                 board_order=lane_max + 100, updated_at=timezone.now())
             _log(request, task, 'task.created', {'status': task.status})
+            # Board placement updates the revision after the delegated create
+            # serialized its response. Return the committed revision so an
+            # immediate edit is not incorrectly treated as a stale editor.
+            task.refresh_from_db(fields=['board_order', 'updated_at'])
+            data['task']['updated_at'] = task.updated_at.isoformat()
+            data['task']['board_order'] = task.board_order
+            response.content = json.dumps(data)
         return response
 
     if not idempotent:
@@ -609,13 +646,17 @@ def _measure_task_write(view):
 
 @_measure_task_write
 @require_http_methods(['GET', 'PATCH', 'DELETE'])
+@transaction.atomic
 def task_board_detail(request, task_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
     quick_preview = request.method == 'GET' and request.GET.get('mode') == 'preview'
     # Only GET needs expensive reverse relation counts. Writes operate on
     # the single task row and must never fetch all checklist/file counts.
-    workspace, task = _task_for(request, task_id, counts=request.method == 'GET' and not quick_preview)
+    workspace, task = _task_for(
+        request, task_id, counts=request.method == 'GET' and not quick_preview,
+        lock=request.method in ('PATCH', 'DELETE'),
+    )
     if not workspace:
         return _error('core_workspace_required', 403)
     if not task:
@@ -688,24 +729,35 @@ def task_board_detail(request, task_id):
         # previously consumed 20+ seconds per external link on a slow API.
         # Persist unlink jobs in the same transaction as the local deletion:
         # a failed DB delete rolls back both and the task remains intact.
-        with transaction.atomic():
-            google_links = list(task.google_task_links.values(
-                'user_id', 'tasklist_id', 'google_task_id'))
-            for link in google_links:
-                GoogleTaskDeleteOutbox.objects.get_or_create(
-                    user_id=link['user_id'],
-                    tasklist_id=link['tasklist_id'],
-                    google_task_id=link['google_task_id'],
-                    defaults={'task_id_at_deletion': task.pk},
-                )
-            _log(request, task, 'task.deleted', {'title': title})
-            task.delete()
+        try:
+            with transaction.atomic():
+                google_links = list(task.google_task_links.values(
+                    'user_id', 'tasklist_id', 'google_task_id'))
+                for link in google_links:
+                    GoogleTaskDeleteOutbox.objects.get_or_create(
+                        user_id=link['user_id'],
+                        tasklist_id=link['tasklist_id'],
+                        google_task_id=link['google_task_id'],
+                        defaults={'task_id_at_deletion': task.pk},
+                    )
+                _log(request, task, 'task.deleted', {'title': title})
+                task.delete()
+        except ProtectedError:
+            return _error('task_has_linked_records', 409,
+                          detail='Move or remove dependent subtasks and links before deleting this task.')
         return JsonResponse({'ok': True, 'google_cleanup_queued': bool(google_links)})
 
     if not base._editable(request, workspace):
         return _error('permission_denied', 403)
 
     payload = base._body(request)
+    if not isinstance(payload, dict):
+        return _error('invalid_payload')
+    if error := _validate_task_payload(payload):
+        return error
+    expected = payload.get('expected_updated_at')
+    if expected is not None and expected != task.updated_at.isoformat():
+        return _error('task_changed_elsewhere', 409, task=_task_json(task))
     before = _task_json(task)
 
     if 'parent_id' in payload:

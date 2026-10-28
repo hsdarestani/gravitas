@@ -1,7 +1,7 @@
 /* One line-anchored discussion UI reused by Core tasks and Research/Core notes.
  * Comments are separate Nextcloud JSON files, not extra copies of the objects.
  */
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 
 const el = (tag, text, cls) => {
   const item = document.createElement(tag);

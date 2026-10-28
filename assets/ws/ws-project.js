@@ -1,11 +1,11 @@
 import { renderProjectStructure } from './ws-project-files.js?v=20261016-task1';
-import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1&patch=20261027subtask1';
-import * as P from './ws-platform.js?v=20261016-task1&patch=20261027subtask1';
+import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1&patch=20261027reliability1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
 import { mountProjectTools, renderProjectDatabase, mountExperimentJournal } from './ws-project-tools-live.js?v=20261016-task1';
 import { mountProjectProviders, renderProjectDrafts } from './ws-project-next-phase.js?v=20261016-task1';
 import { mountExternalDatasets, renderBuiltinTools } from './ws-research-advanced-tools.js?v=20261016-task1';
-import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261027subtask1';
+import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261027reliability1';
 import { renderResearchIntelligence } from './ws-home.js?v=20261016-task1&patch=20261019researchtools2&project=20261027autoresearch2';
 
 const TABS = [
@@ -581,10 +581,10 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
   // Mutations refresh the project's data without blanking the existing view.
   // A late response from an earlier tab must not repaint the user's new page.
   const renderToken = Symbol('project-render');
-  const initialPath = location.pathname;
+  const initialPath = location.href;
   host._wsProjectRenderToken = renderToken;
   const scrollRegion = host.closest('.ws-view') || host;
-  const previousScrollTop = preserveView ? scrollRegion.scrollTop : null;
+  let previousScrollTop = null;
   const keepExisting = preserveView && Boolean(host.querySelector('.fl-project-doc'));
   const previousView = keepExisting ? host.firstElementChild : null;
   if (!keepExisting) loading(host);
@@ -594,11 +594,15 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     if (tab === 'discussions') needs.push(P.projectDiscussions(projectId));
     if (tab === 'experiments') needs.push(P.projectExperiments(projectId));
     const results = await Promise.all(needs);
-    if (host._wsProjectRenderToken !== renderToken || location.pathname !== initialPath) return;
+    if (host._wsProjectRenderToken !== renderToken || location.href !== initialPath) return;
     const cockpit = results[0];
     const project = cockpit.project;
-    const doc = projectShell(host, project, projectId, tab, go);
-    const rerender = () => renderResearchProject(host, projectId, tab, { go, preserveView: true });
+    const staging = document.createElement('div');
+    const doc = projectShell(staging, project, projectId, tab, go);
+    const rerender = () => {
+      if (location.href !== initialPath || host._wsProjectRenderToken !== renderToken) return;
+      return renderResearchProject(host, projectId, tab, { go, preserveView: true });
+    };
     const head = doc.querySelector('.fl-project-head');
     head.insertBefore(projectActionBar({ projectId, tab, cockpit, go, refresh: rerender }), head.querySelector('.fl-tabs'));
 
@@ -618,12 +622,14 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     else if (tab === 'drafts') await renderProjectDrafts(doc, projectId, project);
     else if (tab === 'activity') activityView(doc, cockpit);
     else overviewView(doc, cockpit, { go, projectId, refresh: rerender });
-    if (keepExisting) requestAnimationFrame(() => {
-      if (host._wsProjectRenderToken === renderToken && location.pathname === initialPath)
-        scrollRegion.scrollTop = previousScrollTop;
-    });
+    if (host._wsProjectRenderToken !== renderToken || location.href !== initialPath) return;
+    // Capture at commit time: the reader may have scrolled while data loaded.
+    // Restore synchronously so no frame exposes the replacement at scroll zero.
+    if (keepExisting) previousScrollTop = scrollRegion.scrollTop;
+    host.replaceChildren(doc);
+    if (keepExisting) scrollRegion.scrollTop = previousScrollTop;
   } catch (error) {
-    if (host._wsProjectRenderToken !== renderToken || location.pathname !== initialPath) return;
+    if (host._wsProjectRenderToken !== renderToken || location.href !== initialPath) return;
     if (keepExisting && previousView) {
       // Restore the previous DOM, including active controls/listeners, if an
       // optional view renderer fails after the refreshed shell was mounted.

@@ -92,6 +92,86 @@ class CoreTaskBoardTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return response.json()['task']['id']
 
+    def test_parent_delete_is_a_conflict_and_keeps_both_tasks(self):
+        parent_id = self.create_task('Parent must survive')
+        parent = OperatingTask.objects.get(pk=parent_id)
+        child = OperatingTask.objects.create(workspace=parent.workspace, owner=self.user,
+            parent=parent, initiative=parent.initiative, due_date=parent.due_date,
+            title='Protected child', definition_of_done='Kept intact')
+        response = self.client.delete(f'/api/operating/task-board/{parent_id}/')
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()['error'], 'task_has_linked_records')
+        self.assertTrue(OperatingTask.objects.filter(pk=parent_id).exists())
+        self.assertTrue(OperatingTask.objects.filter(pk=child.pk).exists())
+
+    def test_create_returns_committed_revision_and_can_be_edited_immediately(self):
+        response = self.post_json('/api/operating/task-board/', {
+            'owner_id': self.user.pk, 'title': 'Immediate edit',
+            'definition_of_done': 'Persisted', 'priority': 'p2',
+        })
+        self.assertEqual(response.status_code, 201, response.content)
+        created = response.json()['task']
+        stored = OperatingTask.objects.get(pk=created['id'])
+        self.assertEqual(created['updated_at'], stored.updated_at.isoformat())
+        patched = self.patch_json(f'/api/operating/task-board/{stored.pk}/', {
+            'title': 'Immediate edit confirmed', 'expected_updated_at': created['updated_at'],
+        })
+        self.assertEqual(patched.status_code, 200, patched.content)
+
+    def test_malformed_create_is_rejected_before_orm_and_creates_nothing(self):
+        before = OperatingTask.objects.count()
+        for invalid in ({'owner_id': 'broken'}, {'due_date': '2026-99-99'}, {'title': []}):
+            payload = {'title': 'Invalid create', 'definition_of_done': 'Never created', **invalid}
+            with self.subTest(invalid=invalid):
+                response = self.post_json('/api/operating/task-board/', payload)
+                self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(OperatingTask.objects.count(), before)
+
+    def test_stale_editor_is_rejected_and_durable_server_value_survives(self):
+        task_id = self.create_task('Concurrent editing')
+        path = f'/api/operating/task-board/{task_id}/'
+        opened = self.client.get(path).json()['task']['updated_at']
+        saved = self.patch_json(path, {
+            'title': 'First editor committed', 'expected_updated_at': opened,
+        })
+        self.assertEqual(saved.status_code, 200, saved.content)
+        stale = self.patch_json(path, {
+            'description': 'Stale editor draft', 'expected_updated_at': opened,
+        })
+        self.assertEqual(stale.status_code, 409, stale.content)
+        self.assertEqual(stale.json()['error'], 'task_changed_elsewhere')
+        confirmed = self.client.get(path).json()['task']
+        self.assertEqual(confirmed['title'], 'First editor committed')
+        self.assertEqual(confirmed['description'], 'Trello card body')
+        self.assertEqual(confirmed['updated_at'], saved.json()['task']['updated_at'])
+
+    def test_activity_failure_rolls_back_task_instead_of_uncertain_partial_save(self):
+        from unittest.mock import patch
+        task_id = self.create_task('Atomic edit')
+        path = f'/api/operating/task-board/{task_id}/'
+        with patch('core.task_board_api._log', side_effect=RuntimeError('activity unavailable')):
+            with self.assertRaises(RuntimeError):
+                self.patch_json(path, {'title': 'Must roll back'})
+        self.assertEqual(OperatingTask.objects.get(pk=task_id).title, 'Atomic edit')
+
+    def test_malformed_fields_return_400_and_never_change_server_row(self):
+        task_id = self.create_task('Validation fixture')
+        path = f'/api/operating/task-board/{task_id}/'
+        for payload in ({'owner_id': 'not-an-id'}, {'project_id': []},
+                        {'due_date': '2026-99-99'}, {'due_date': {'bad': True}},
+                        {'title': {'text': 'not a string'}}, {'description': None},
+                        {'owner_id': '99999999999999999999999999'}):
+            with self.subTest(payload=payload):
+                response = self.patch_json(path, payload)
+                self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(OperatingTask.objects.get(pk=task_id).title, 'Validation fixture')
+
+    def test_non_object_patch_is_a_validation_response(self):
+        task_id = self.create_task()
+        response = self.patch_json(f'/api/operating/task-board/{task_id}/', ['invalid'])
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'invalid_payload')
+
     def test_patch_returns_real_server_timing_and_updated_fields(self):
         task_id = self.create_task('Fast write test task')
         path = f'/api/operating/task-board/{task_id}/'

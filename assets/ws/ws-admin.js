@@ -27,7 +27,7 @@
        every long form a save bar that stays in reach.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-admin-kit.js?v=20261016-task1';
 import { courseCover } from './ws-course-cover.js?v=20261016-task1';
 

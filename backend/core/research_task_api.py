@@ -206,6 +206,7 @@ def project_tasks(request, project_id):
 
 
 @require_http_methods(['PATCH'])
+@transaction.atomic
 def project_task_detail(request, project_id, task_id):
     """Edit the existing Core/Research task, not a second project-specific copy.
 
@@ -217,13 +218,16 @@ def project_task_detail(request, project_id, task_id):
     project = _project(request, project_id, 'edit')
     if project is None:
         return _error('project_edit_required', 403)
-    task = (OperatingTask.objects.select_related('owner', 'initiative', 'dependency')
+    task = (OperatingTask.objects.select_for_update(of=('self',)).select_related('owner', 'initiative', 'dependency')
             .filter(pk=task_id, project=project).first())
     if task is None or not can_edit(request.user, task):
         return _error('task_edit_required', 403)
     payload = _body(request)
     if not isinstance(payload, dict):
         return _error('invalid_payload')
+    expected = payload.pop('expected_updated_at', None)
+    if expected is not None and expected != task.updated_at.isoformat():
+        return _error('task_changed_elsewhere', 409, task=_task_json(task, request.user))
     allowed = {'title', 'description', 'definition_of_done', 'status', 'priority',
                'blocked_reason', 'due_date', 'owner_id', 'dependency_id', 'parent_id'}
     if not payload or set(payload) - allowed:

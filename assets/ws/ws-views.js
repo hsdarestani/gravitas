@@ -8,7 +8,7 @@
    jump when data lands, and why a failure has somewhere obvious to render.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1&patch=20261027subtask1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
@@ -274,6 +274,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       }
     }
     if (dialog?._onEscape) document.removeEventListener('keydown', dialog._onEscape, true);
+    if (dialog?._onNavigate) window.removeEventListener('ws:navigate', dialog._onNavigate);
+    for (const dispose of dialog?._disposers || []) dispose();
+    if (dialog) dialog._disposers = [];
     const previousFocus = dialog?._previousFocus;
     dialog?.remove();
     if (previousFocus?.isConnected && typeof previousFocus.focus === 'function') previousFocus.focus({ preventScroll: true });
@@ -304,6 +307,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     dialog.setAttribute('aria-modal', 'true');
     dialog.tabIndex = -1;
     dialog._previousFocus = document.activeElement;
+    dialog._disposers = [];
+    dialog._onNavigate = () => closeDialog(dialog);
+    window.addEventListener('ws:navigate', dialog._onNavigate);
     dialog._onEscape = (event) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       // Escape dismisses the @ suggestions before it can dismiss the task.
@@ -1052,6 +1058,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         return;
       }
       const detailData = await P.operatingTaskCard(taskId);
+      if (!dialog.isConnected) return;
       const boardState = stateLoader ? { tasks: [] } : (state || { tasks: [] });
       state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
       const task = detailData.task;
@@ -1163,7 +1170,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
             }
           } catch (error) {
             undo?.();
-            feedback.show('Delete failed. The task was restored.', true);
+            feedback.show(error?.data?.detail || 'Delete failed. The task was restored.', true);
             // Keep the original unsaved fields safe: reopen from the server.
             if (!document.querySelector(`.task-card-dialog[data-task-id="${task.id}"]`)) {
               void openTaskDialog(task.id, state, reloadBoard);
@@ -1257,20 +1264,15 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         work_package_id: workPackage, project_id: project,
         parent_id: parent, dependency_id: dependency,
       };
-      const changedRelations = new Set();
-      for (const [name, control] of Object.entries(relationControls))
-        control.addEventListener('change', () => changedRelations.add(name));
       keyResult.addEventListener('change', () => {
         const target = String(keyResult.value || '');
         const matches = (rows, value) => rows.some(row =>
           String(row.id) === String(value) && String(row.key_result_id) === target);
         if (milestone.value && !matches(detailData.milestones || [], milestone.value)) {
           milestone.value = '';
-          changedRelations.add('milestone_id');
         }
         if (workPackage.value && !matches(detailData.work_packages || [], workPackage.value)) {
           workPackage.value = '';
-          changedRelations.add('work_package_id');
         }
       });
 
@@ -1496,43 +1498,46 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         note,
       );
 
+      // Compare against the last confirmed form values, not a stale full-row
+      // snapshot. A user can keep typing while a save is in flight.
+      const taskFormValues = () => ({
+        title: title.value.trim(), description: description.value.trim(),
+        priority: priority.value, status: status.value, owner_id: Number(owner.value),
+        due_date: due.value || null, definition_of_done: done.value.trim(),
+        blocked_reason: blocked.value.trim(),
+        ...Object.fromEntries(Object.entries(relationControls).map(([key, control]) =>
+          [key, control.value ? Number(control.value) : null])),
+      });
+      let confirmedValues = taskFormValues();
+      const applyConfirmedTask = (result, submitted) => {
+        Object.assign(task, result.task);
+        // The response may include fields changed by another server workflow.
+        // Only acknowledge this submission; never replace newer unsaved typing.
+        confirmedValues = { ...submitted };
+        reloadBoard?.applyMutation?.({ type: 'update', id: task.id, patch: result.task });
+        head.querySelector('h2').textContent = 'Task #' + task.id;
+      };
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (save.disabled) return;
         save.disabled = true;
         note.textContent = 'Saving…';
         note.setAttribute('role', 'status');
-        const payload = {
-          title: title.value.trim(),
-          description: description.value.trim(),
-          priority: priority.value,
-          status: status.value,
-          owner_id: Number(owner.value),
-          due_date: due.value || null,
-          definition_of_done: done.value.trim(),
-          blocked_reason: blocked.value.trim(),
-        };
-        for (const [name, control] of Object.entries(relationControls)) {
-          if (changedRelations.has(name))
-            payload[name] = control.value ? Number(control.value) : null;
+        const submitted = taskFormValues();
+        const payload = Object.fromEntries(Object.entries(submitted).filter(
+          ([key, value]) => value !== confirmedValues[key]));
+        if (!Object.keys(payload).length) {
+          note.textContent = 'No unsaved changes.';
+          save.disabled = false;
+          return;
         }
-        // Update the existing card locally: no full task-board fetch and
-        // redraw round trip is needed just to reflect one field change.
-        const selectedOwner = (detailData.members || state.members || []).find(
-          row => Number(row.id) === payload.owner_id);
-        const patch = {
-          ...payload,
-          ...(selectedOwner ? { owner: selectedOwner } : {}),
-        };
-        const undo = reloadBoard?.applyMutation?.({ type: 'update', id: task.id, patch });
+        payload.expected_updated_at = task.updated_at;
         try {
           const result = await P.updateOperatingTaskCard(task.id, payload);
           note.textContent = result.canonical_sync === 'pending'
             ? 'Saved on server. Nextcloud synchronization queued.'
             : 'Saved.';
-          title.value = result.task.title;
-          Object.assign(task, result.task);
-          head.querySelector('h2').textContent = 'Task #' + task.id;
+          applyConfirmedTask(result, submitted);
           // Other views have no local Core task board; update them in the
           // background, never block this confirmed save on a full refresh.
           if (!reloadBoard?.applyMutation) {
@@ -1540,16 +1545,19 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               .catch(error => console.warn('Background task refresh failed', error));
           }
         } catch (error) {
-          undo?.();
-          if (error?.code === 'request_timeout') {
+          if (['request_timeout', 'invalid_confirmation'].includes(error?.code)) {
             note.textContent = 'Checking whether your change was saved…';
             try {
               const confirmed = await P.operatingTaskCard(task.id);
               const savedTask = confirmed.task || {};
-              const fields = ['title', 'description', 'priority', 'status', 'due_date', 'definition_of_done', 'blocked_reason'];
-              const matches = fields.every((key) => (savedTask[key] ?? null) === (payload[key] ?? null))
-                && Number(savedTask.owner?.id) === payload.owner_id;
+              const matches = Object.entries(payload).every(([key, value]) => {
+                if (key === 'expected_updated_at') return true;
+                const actual = key === 'owner_id' ? savedTask.owner?.id
+                  : key === 'key_result_id' ? savedTask.trace?.key_result?.id : savedTask[key];
+                return (actual ?? null) === (value ?? null);
+              });
               if (matches) {
+                applyConfirmedTask(confirmed, submitted);
                 note.textContent = 'Saved. The confirmation response was delayed.';
               } else {
                 note.textContent = 'The save could not be confirmed. Refresh the task before retrying.';
@@ -1558,7 +1566,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               note.textContent = 'The save response timed out. Refresh this task to verify before retrying.';
             }
           } else {
-            note.textContent = error?.data?.error || error?.message || 'Save failed.';
+            note.textContent = error?.data?.error === 'task_changed_elsewhere'
+              ? 'This task changed elsewhere. Your draft is retained. Reopen the task to review the current server version before saving.'
+              : error?.data?.error || error?.message || 'Save failed.';
           }
         } finally {
           save.disabled = false;
@@ -2145,6 +2155,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               start();
             }
           }, { root: dialog.querySelector('.task-card-dialog__frame'), rootMargin: '80px' });
+          dialog._disposers.push(() => observer.disconnect());
           observer.observe(element);
         } else {
           // Older browsers still get functioning links/attachments.
@@ -2154,6 +2165,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       observeOptionalSection(resourceSection, loadExternalLinks);
       observeOptionalSection(attachmentsPanel.box || attachmentsPanel, loadAttachments);
     } catch (error) {
+      if (!dialog.isConnected) return;
       editorFailed = true;
       if (previewLoaded) {
         const alert = el('div', 'ws-alert');

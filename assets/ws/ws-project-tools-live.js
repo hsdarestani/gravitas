@@ -3,7 +3,7 @@
    Database is a private managed table store, and Lab Journal uses the same
    canonical experiment records shown by the Research project.
 */
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 
 const node = (tag, className = '', value = '') => {
   const item = document.createElement(tag);

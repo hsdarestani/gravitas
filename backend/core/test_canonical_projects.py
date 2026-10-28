@@ -206,6 +206,71 @@ class CanonicalProjectTests(TestCase):
         self.assertFalse(CanonicalTaskSyncOutbox.objects.filter(task_id=task.pk).exists())
         self.assertIn('Edited task', self.dav.files[native_path]['content'])
 
+    def test_project_editor_commits_task_and_outbox_without_native_io(self):
+        from .operating_models import OperatingTask
+        task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'],
+            project=self.project, owner=self.owner, title='Project edit fixture',
+            definition_of_done='Server confirmed')
+        self.adopt()
+        native_path = self.full(relative_path(task))
+        original = self.dav.files[native_path]['content']
+        ProjectMembership.objects.filter(project=self.project, user=self.viewer).update(role='editor')
+        self.client.force_login(self.viewer)
+        with patch('core.canonical_middleware.refresh_project', side_effect=AssertionError('No DAV in task PATCH')), \
+             patch('core.canonical_projects.export_object', side_effect=AssertionError('No DAV in task PATCH')):
+            response = self.client.patch(f'/api/platform/projects/{self.project.pk}/tasks/{task.pk}/',
+                data=json.dumps({'title': 'Project edit committed', 'expected_updated_at': task.updated_at.isoformat()}),
+                content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['canonical_sync'], 'pending')
+        task.refresh_from_db()
+        self.assertEqual(task.title, 'Project edit committed')
+        self.assertEqual(self.dav.files[native_path]['content'], original)
+        self.assertTrue(CanonicalTaskSyncOutbox.objects.filter(task_id=task.pk, state='pending').exists())
+        from .canonical_task_outbox import process_task_sync_outbox
+        self.assertEqual(process_task_sync_outbox()['synced'], 1)
+        self.assertIn('Project edit committed', self.dav.files[native_path]['content'])
+        from .platform_models import ProjectAuditEvent
+        audit = ProjectAuditEvent.objects.get(project=self.project, action='task_updated', object_id=str(task.pk))
+        self.assertIn(self.full(relative_path(audit)), self.dav.files)
+
+    def test_outbox_keeps_witness_when_audit_mirroring_fails(self):
+        from .operating_models import OperatingTask
+        from .canonical_task_outbox import process_task_sync_outbox
+        task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'],
+            project=self.project, owner=self.owner, title='Audit witness', definition_of_done='Preserved')
+        self.adopt()
+        response = self.client.patch(f'/api/platform/projects/{self.project.pk}/tasks/{task.pk}/',
+            data=json.dumps({'title': 'Durably committed'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        def fail_audit(obj, **kwargs):
+            if obj.__class__.__name__ == 'ProjectAuditEvent':
+                raise cloud.CloudError('audit mirror unavailable')
+            return export_object(obj, **kwargs)
+        with patch('core.canonical_task_outbox.export_object', side_effect=fail_audit):
+            self.assertEqual(process_task_sync_outbox()['deferred'], 1)
+        task.refresh_from_db()
+        self.assertEqual(task.title, 'Durably committed')
+        self.assertEqual(CanonicalTaskSyncOutbox.objects.get(task_id=task.pk).state, 'pending')
+
+    def test_native_refresh_cannot_overwrite_a_confirmed_queued_task_edit(self):
+        from .operating_models import OperatingTask
+        task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'],
+            project=self.project, owner=self.owner, title='Queued task', definition_of_done='Preserved')
+        self.adopt()
+        native_path = self.full(relative_path(task))
+        response = self.client.patch(f'/api/operating/task-board/{task.pk}/',
+            data=json.dumps({'title': 'Confirmed local edit'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        external = self.dav.files[native_path]['content'].replace('Queued task', 'External native edit')
+        self.dav.external(native_path, external)
+        with self.assertRaises(CanonicalConflict):
+            refresh_project(self.project, self.owner)
+        task.refresh_from_db()
+        self.assertEqual(task.title, 'Confirmed local edit')
+        self.assertEqual(self.dav.files[native_path]['content'], external)
+        self.assertTrue(CanonicalTaskSyncOutbox.objects.filter(task_id=task.pk).exists())
+
     def test_second_task_patch_is_not_lost_and_native_conflict_is_preserved(self):
         from .operating_models import OperatingTask
         from .canonical_task_outbox import process_task_sync_outbox

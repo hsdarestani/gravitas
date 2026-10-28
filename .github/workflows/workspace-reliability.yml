@@ -1,0 +1,112 @@
+name: Workspace Reliability
+on:
+  pull_request:
+    paths: ['assets/ws/**', 'backend/core/**', 'scripts/reliability/**', 'scripts/test-workspace-request-runtime.mjs', '.github/workflows/workspace-reliability.yml']
+  push:
+    branches: [main]
+    paths: ['assets/ws/**', 'backend/core/**', 'scripts/reliability/**', 'scripts/test-workspace-request-runtime.mjs', '.github/workflows/workspace-reliability.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: backend
+      DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://127.0.0.1:4173
+      E2E_FIXTURE: /tmp/workspace-reliability-fixture.json
+      E2E_ARTIFACTS: /tmp/workspace-reliability-artifacts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -q -r backend/requirements.txt
+      - name: Request ordering regressions
+        run: node scripts/test-workspace-request-runtime.mjs
+      - name: Prepare isolated database
+        run: |
+          python -m django migrate --noinput
+          python scripts/reliability/seed-browser.py
+      - name: Install browser in temporary harness
+        run: |
+          mkdir -p "$RUNNER_TEMP/reliability-browser" "$E2E_ARTIFACTS"
+          npm install --prefix "$RUNNER_TEMP/reliability-browser" --no-audit --no-fund playwright@1.55.0
+          "$RUNNER_TEMP/reliability-browser/node_modules/.bin/playwright" install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/reliability-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Start real backend and frontend
+        run: |
+          python -m django runserver 127.0.0.1:8000 --noreload >/tmp/reliability-backend.log 2>&1 &
+          node scripts/preview-server.mjs --api http://127.0.0.1:8000 >/tmp/reliability-frontend.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/api/health/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/reliability-backend.log /tmp/reliability-frontend.log
+          exit 1
+      - name: Desktop and mobile persistence, focus and navigation
+        run: node scripts/reliability/workspace-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workspace-reliability-${{ github.run_id }}
+          path: |
+            /tmp/workspace-reliability-artifacts
+            /tmp/reliability-backend.log
+            /tmp/reliability-frontend.log
+  postgres-concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gravitas_test
+          POSTGRES_PASSWORD: local-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PYTHONPATH: backend
+      DJANGO_SETTINGS_MODULE: gravitas_backend.postgres_test_settings
+      TEST_POSTGRES_PASSWORD: local-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q -r backend/requirements.txt
+      - name: Verify concurrent task editors and PostgreSQL transaction boundaries
+        run: python -m django test core.test_task_write_concurrency core.test_core_task_board core.test_research_task_api --verbosity 1
+  production-diagnostics:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only anonymized production evidence
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          PORT="${SSH_PORT:-22}"
+          DEPLOY_LOGIN="${SSH_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/diagnose
+          chmod 600 ~/.ssh/diagnose
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          REMOTE=/tmp/gravitas-reliability-$GITHUB_RUN_ID.py
+          scp -i ~/.ssh/diagnose -P "$PORT" ops/readonly_runtime_diagnostics.py "$DEPLOY_LOGIN@$SSH_HOST:$REMOTE"
+          ssh -i ~/.ssh/diagnose -p "$PORT" -o BatchMode=yes "$DEPLOY_LOGIN@$SSH_HOST" "python3 '$REMOTE'; rm -f '$REMOTE'"

@@ -13,7 +13,7 @@
    Now the notebook passes in how to tell it what happened.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { scheduleIdle } from './ws-runtime-performance.js?v=20261016-task1';
 
 // Reconciliation spans ALL of a user's native Notes, not one workspace.

@@ -33,7 +33,7 @@
    ========================================================================== */
 
 import * as C from './ws-charts.js?v=20261016-task1';
-import { label as platformLabel } from './ws-platform.js?v=20261016-task1';
+import { label as platformLabel } from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 
 export const el = (tag, cls, text) => {
   const node = document.createElement(tag);

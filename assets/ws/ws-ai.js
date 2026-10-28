@@ -26,7 +26,7 @@
    when the request fails, local note search answers instead of invention.
    ========================================================================== */
 
-import * as P from './ws-platform.js?v=20261016-task1';
+import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as notes from './ws-notes-store.js?v=20261016-task1';
 
 export function assistantContext(path, area) {

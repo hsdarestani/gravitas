@@ -17,49 +17,85 @@ function csrfCookie() {
 }
 
 async function csrfToken() {
-  let token = csrfCookie();
+  const token = csrfCookie();
   if (token) return token;
-
-  const res = await fetch(`${API}/auth/csrf/`, {
-    method: 'GET',
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) {
-    const error = new Error(`csrf_http_${res.status}`);
-    error.status = res.status;
-    throw error;
-  }
-
-  token = csrfCookie();
-  if (!token) throw new Error('csrf_token_missing');
-  return token;
+  if (requests.csrf) return requests.csrf;
+  requests.csrf = (async () => {
+    let timer;
+    try {
+      const res = await Promise.race([
+        fetch(`${API}/auth/csrf/`, {
+          method: 'GET', credentials: 'same-origin', cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(10000) : undefined,
+        }),
+        new Promise((_, reject) => { timer = setTimeout(() => {
+          const error = new Error('Could not prepare a secure save. Please retry.');
+          error.code = 'csrf_timeout';
+          reject(error);
+        }, 10000); }),
+      ]);
+      if (!res.ok) {
+        const error = new Error(`csrf_http_${res.status}`);
+        error.status = res.status;
+        throw error;
+      }
+      const fresh = csrfCookie();
+      if (!fresh) throw new Error('csrf_token_missing');
+      return fresh;
+    } finally { clearTimeout(timer); requests.csrf = null; }
+  })();
+  return requests.csrf;
 }
 
 export class AuthRequired extends Error {}
 
-export async function upload(path, formData, { method = 'POST' } = {}) {
-  const token = await csrfToken();
-  const res = await fetch(API + path, {
-    method,
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers: { Accept: 'application/json', 'X-CSRFToken': token },
-    body: formData,
-  });
+// Query-string imports may coexist during a deployment. Share request state as
+// well as entitlements, so all screens invalidate the same navigation snapshots.
+const requests = globalThis.__gravitasWorkspaceRequestsV1 ||= {
+  fastReads: new Map(), readFlights: new Map(), generation: 0, csrf: null,
+};
+
+function invalidateReads() {
+  requests.generation += 1;
+  requests.fastReads.clear();
+  requests.readFlights.clear();
+}
+
+async function confirmedJSON(res) {
   if (res.status === 401) throw new AuthRequired('authentication_required');
-  const data = await res.json().catch(() => ({}));
+  if (res.status === 204) return {};
+  let data;
+  try { data = await res.json(); }
+  catch {
+    const error = new Error(res.ok
+      ? 'The server returned an invalid confirmation. Verify before retrying.'
+      : `http_${res.status}`);
+    error.status = res.status;
+    error.code = res.ok ? 'invalid_confirmation' : 'http_error';
+    throw error;
+  }
   if (!res.ok) {
-    const error = new Error(data.error || `http_${res.status}`);
+    const error = new Error(data?.error || `http_${res.status}`);
     error.status = res.status;
     error.data = data;
+    throw error;
+  }
+  if (data === null || typeof data !== 'object' || data.ok === false) {
+    const error = new Error(data?.error || 'Invalid server confirmation. Verify before retrying.');
+    error.code = 'invalid_confirmation';
     throw error;
   }
   return data;
 }
 
-async function uncachedCall(path, { method = 'GET', body } = {}) {
+export async function upload(path, formData, { method = 'POST' } = {}) {
+  invalidateReads();
+  try { return await uncachedCall(path, { method, formData }); }
+  finally { invalidateReads(); }
+}
+
+async function uncachedCall(path, { method = 'GET', body, formData } = {}) {
   const verb = String(method || 'GET').toUpperCase();
   const unsafe = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(verb);
   const headers = { Accept: 'application/json' };
@@ -76,8 +112,8 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     method: verb,
     headers,
     credentials: 'same-origin',
-    cache: verb === 'GET' ? 'default' : 'no-store',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: 'no-store',
+    body: formData || (body === undefined ? undefined : JSON.stringify(body)),
   };
   const boundedTaskRead = verb === 'GET'
     && /^\/operating\/(?:task-board\/\d+\/(?:\?mode=preview)?|tasks\/\d+\/(?:history|comments|attachments|checklist|external-links)\/)$/.test(path);
@@ -96,8 +132,9 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     let timer;
     // Unlike writes, task GETs are idempotent and can safely release
     // hung browser sockets. Keep writes alive because the commit may succeed.
-    const taskSignal = boundedTaskRead && typeof AbortSignal !== 'undefined'
-      && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(20000) : null;
+    const taskSignal = verb === 'GET' && typeof AbortSignal !== 'undefined'
+      && typeof AbortSignal.timeout === 'function'
+      ? (boundedTaskRead ? AbortSignal.timeout(20000) : AbortSignal.timeout(17000)) : null;
     const deadline = new Promise((_, reject) => {
       timer = setTimeout(() => {
         const timeout = new Error(unsafe
@@ -109,7 +146,15 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     });
     try {
       const readRequest = taskSignal ? { ...request, signal: taskSignal } : request;
-      res = await Promise.race([fetch(API + path, readRequest), deadline]);
+      // Include the body in the deadline: receiving headers alone is not
+      // a save confirmation and a stalled JSON stream must not hang the UI.
+      const result = await Promise.race([fetch(API + path, readRequest).then(async response => {
+        if (retryableTaskRead && [502, 503, 504].includes(response.status) && attempt === 0)
+          return { response };
+        return { response, data: await confirmedJSON(response) };
+      }).finally(() => { if (unsafe) invalidateReads(); }), deadline]);
+      res = result.response;
+      if ('data' in result) return result.data;
       if (retryableTaskRead && [502, 503, 504].includes(res.status) && attempt === 0) {
         await new Promise((resolve) => setTimeout(resolve, 600));
         continue;
@@ -117,12 +162,13 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
       break;
     } catch (error) {
       if (error?.code === 'request_timeout') throw error;
-      if (boundedTaskRead && taskSignal?.aborted
+      if (taskSignal?.aborted
           && ['AbortError', 'TimeoutError'].includes(error?.name)) {
-        const timeout = new Error('Task service is taking too long. Please retry.');
+        const timeout = new Error('The server is taking too long. Please retry.');
         timeout.code = 'request_timeout';
         throw timeout;
       }
+      if (error?.status || error?.code === 'invalid_confirmation') throw error;
       if (!retryableTaskRead || attempt !== 0) {
         if (!retryableTaskRead) throw error;
         const unavailable = new Error('Could not connect to the task service. Check your connection and try again.');
@@ -135,16 +181,7 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
     }
   }
 
-  if (res.status === 401) throw new AuthRequired('authentication_required');
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const error = new Error(data.error || `http_${res.status}`);
-    error.status = res.status;
-    error.data = data;
-    throw error;
-  }
-  return data;
+  return confirmedJSON(res);
 }
 
 // Only lightweight, read-only navigation snapshots are coalesced. Keep them
@@ -152,23 +189,23 @@ async function uncachedCall(path, { method = 'GET', body } = {}) {
 // before every mutation, so navigating back cannot trigger an API stampede.
 // The generation also prevents an old GET finishing after a PATCH from
 // restoring a stale note/task list.
-const fastReads = new Map();
-const readFlights = new Map();
+const fastReads = requests.fastReads;
+const readFlights = requests.readFlights;
 const READ_LIFETIME = {
   '/platform/nextcloud/notes/': 2500,
   '/operating/task-board/': 1500,
   '/operating/task-board/?mode=dependencies': 2500,
   '/operating/dashboard/': 2500,
 };
-let readGeneration = 0;
+
 
 export function call(path, options = {}) {
   const verb = String(options.method || 'GET').toUpperCase();
   if (verb !== 'GET') {
-    readGeneration += 1;
-    fastReads.clear();
-    readFlights.clear();
-    return uncachedCall(path, options);
+    invalidateReads();
+    // Reads started while the write is pending can contain the previous row.
+    // Invalidate again after completion, including failure/uncertain outcomes.
+    return uncachedCall(path, options).finally(invalidateReads);
   }
   const lifetime = READ_LIFETIME[path];
   // Coalesce concurrent identical task reads, but do not store task details:
@@ -178,10 +215,10 @@ export function call(path, options = {}) {
   const cached = lifetime ? fastReads.get(path) : null;
   if (cached && cached.expires > Date.now()) return Promise.resolve(cached.data);
   const flight = readFlights.get(path);
-  if (flight && flight.generation === readGeneration) return flight.promise;
-  const generation = readGeneration;
+  if (flight && flight.generation === requests.generation) return flight.promise;
+  const generation = requests.generation;
   const promise = uncachedCall(path, options).then(data => {
-    if (lifetime && readGeneration === generation)
+    if (lifetime && requests.generation === generation)
       fastReads.set(path, { data, expires: Date.now() + lifetime });
     return data;
   }).finally(() => {
@@ -424,7 +461,15 @@ export const operatingTaskCreationStatus = (parentId, requestId) => call(
 );
 export const operatingTaskPreview = (id) => call(`/operating/task-board/${id}/?mode=preview`);
 export const operatingTaskCard = (id) => call(`/operating/task-board/${id}/`);
-export const updateOperatingTaskCard = (id, body) => call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
+export const updateOperatingTaskCard = async (id, body) => {
+  const data = await call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
+  if (!data.task || Number(data.task.id) !== Number(id) || !data.task.updated_at) {
+    const error = new Error('Invalid task save confirmation. Verify the task before retrying.');
+    error.code = 'invalid_confirmation';
+    throw error;
+  }
+  return data;
+};
 export const deleteOperatingTaskCard = (id) => call(`/operating/task-board/${id}/`, { method: 'DELETE' });
 export const moveOperatingTask = (taskId, status, orderedIds) => call('/operating/task-board/move/', {
   method: 'POST', body: { task_id: taskId, status, ordered_ids: orderedIds },
