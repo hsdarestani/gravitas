@@ -190,20 +190,8 @@
   }
 
   function lab() {
-    if (location.pathname !== '/lab.html') return;
-    // The public site now has one canonical AI Lab. Historical CMS lab
-    // deep links remain resolvable, but point to the relevant experience
-    // instead of replacing the page with an old catalog/iframe.
-    var params = new URLSearchParams(location.search);
-    var legacy = params.get('lab');
-    if (legacy) {
-      var mode = /prompt|bias|trust|reliab/i.test(legacy) ? 'reliability'
-        : /protein|visual|orbit|science|simulation/i.test(legacy) ? 'artifact'
-        : 'understand';
-      params.delete('lab');
-      params.set('mode', mode);
-      location.replace('/lab.html?' + params.toString());
-    }
+    // Do not inject the former CMS lab catalog or restore old experiments.
+    // The public Lab is intentionally header-only during scope discussion.
   }
 
   magazine();
