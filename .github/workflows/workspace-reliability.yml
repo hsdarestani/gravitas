@@ -27,6 +27,11 @@ jobs:
         with:
           node-version: '22'
       - run: pip install -q -r backend/requirements.txt
+      - name: Rehearse real Nginx request draining and code rollback
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y nginx rsync
+          python -m django test core.test_api_release_drain core.test_code_release_rollback --noinput
       - name: Request ordering regressions
         run: node scripts/test-workspace-request-runtime.mjs
       - name: Prepare isolated database

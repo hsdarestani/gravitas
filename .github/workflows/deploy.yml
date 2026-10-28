@@ -672,64 +672,8 @@ jobs:
           rsync -az --exclude '.venv/' --exclude 'staticfiles/' --exclude '*.sqlite3*' \
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" ./backend/ "$DEPLOY_USER@$HOST:$STAGE/"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
-            bash -s -- "$STAGE" "$BACKEND_PATH" "$GITHUB_SHA" <<'REMOTE'
-          set -Eeuo pipefail
-          STAGE="$1"; BACKEND_PATH="$2"; REVISION="$3"
-          BACKUP="/var/backups/gravitas-code/$REVISION"
-          sudo install -d -m 700 "$BACKUP"
-          sudo tar --exclude='./.venv' --exclude='./staticfiles' --exclude='*.sqlite3*' \
-            -cpf "$BACKUP/backend.tar" -C "$BACKEND_PATH" .
-          sudo chmod 600 "$BACKUP/backend.tar"
-          sudo tar -tf "$BACKUP/backend.tar" >/dev/null
-          # Roll back code only: database/native stores keep every current write.
-          rollback() {
-            trap - ERR
-            echo 'API release failed; restoring the verified code archive.' >&2
-            sudo install -d -m 700 "$BACKUP/restore"
-            sudo tar -xpf "$BACKUP/backend.tar" -C "$BACKUP/restore"
-            sudo rsync -a --delete --checksum --exclude ".venv/" --exclude "staticfiles/" \
-              --exclude "*.sqlite3*" "$BACKUP/restore/" "$BACKEND_PATH/"
-            sudo chown -R gravitas:gravitas "$BACKEND_PATH"
-            sudo systemctl reload gravitas-backend.service || true
-            exit 1
-          }
-          trap rollback ERR
-          sudo rsync -a --delete --checksum --delay-updates --exclude '.venv/' --exclude 'staticfiles/' \
-            --exclude '*.sqlite3*' "$STAGE/" "$BACKEND_PATH/"
-          sudo chown -R gravitas:gravitas "$BACKEND_PATH"
-          MASTER_PID="$(sudo systemctl show -p MainPID --value gravitas-backend.service)"
-          OLD_WORKERS="$(pgrep -P "$MASTER_PID" || true)"
-          sudo systemctl reload gravitas-backend.service
-          healthy_samples=0
-          failed_probes=0
-          for attempt in $(seq 1 45); do
-            WORKERS="$(pgrep -P "$MASTER_PID" || true)"
-            OLD_REMAINING="$(comm -12 <(printf '%s\n' "$OLD_WORKERS" | sort) <(printf '%s\n' "$WORKERS" | sort))"
-            WORKER_COUNT="$(printf '%s\n' "$WORKERS" | sed '/^$/d' | wc -l)"
-            if curl -fsS --max-time 3 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ \
-              | grep -q '"status": "ok"'; then
-              probe_ok=true
-            else
-              probe_ok=false
-              failed_probes=$((failed_probes + 1))
-            fi
-            if [ "$probe_ok" = true ] && [ -z "$OLD_REMAINING" ] && [ "$WORKER_COUNT" -ge 3 ]; then
-              healthy_samples=$((healthy_samples + 1))
-            else
-              healthy_samples=0
-            fi
-            if [ "$healthy_samples" -ge 3 ]; then
-              echo "Hot reload health samples=$attempt failed=$failed_probes"
-              test "$failed_probes" -eq 0
-              trap - ERR
-              rm -rf "$STAGE"
-              echo 'API-only release healthy; backend socket and current data preserved.'
-              exit 0
-            fi
-            sleep 1
-          done
-          false
-          REMOTE
+            bash -s -- "$STAGE" "$BACKEND_PATH" "$GITHUB_SHA" "$DOMAIN" \
+            < scripts/reliability/deploy-api-release.sh
 
       - name: Deploy frontend
         shell: bash
