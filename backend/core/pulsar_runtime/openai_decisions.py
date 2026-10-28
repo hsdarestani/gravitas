@@ -108,7 +108,7 @@ def choose_report_tasks(updates, available_tasks, candidate_picker):
         )
         response.raise_for_status()
         payload = response.json()
-        answers = payload.get('answers')
+        answers = payload.get('answers') if isinstance(payload, dict) else None
         if not isinstance(answers, list):
             raise ValueError('invalid_decisions_answers')
     except (requests.RequestException, ValueError, TypeError) as exc:
