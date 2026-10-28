@@ -27,7 +27,7 @@ from core.pulsar_runtime_api import pulsar_runtime_status
 from core.pulsar_memory_api import pulsar_memories, pulsar_memory_disable, pulsar_thread_state
 from core.pulsar_agent_api import pulsar_agent_run
 from core.pulsar_schedule_api import pulsar_reminders, pulsar_reminder_detail
-from core.lab_api import public_lab_detail, public_labs, run_lab_file
+from core.lab_api import public_lab_detail, public_labs, run_lab_file, public_lab_coach
 from core.project_space_api import platform_projects_with_space
 from core.project_integrations import project_integration_catalog, project_tool_selection, start_first_research_project
 from core.project_external_datasets import external_datasets, external_dataset_rows
@@ -91,6 +91,7 @@ urlpatterns = [
     path('api/platform/mindmaps/<int:map_id>/ai/', require_research_or_core(generate_mindmap_ai)),
     path('api/labs/', public_labs),
     path('api/labs/<slug:slug>/', public_lab_detail),
+    path('api/labs/<slug:slug>/coach/', public_lab_coach),
     path('lab-run/<slug:slug>/', run_lab_file),
     path('lab-run/<slug:slug>/<path:file_path>', run_lab_file),
     path('api/platform/ai/providers/', ai_providers),
