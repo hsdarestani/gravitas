@@ -20,6 +20,7 @@ on:
       - 'backend/core/migrations/0082_lab_studio_snapshots.py'
       - 'backend/core/test_lab_studio.py'
       - 'scripts/test-lab-studio.cjs'
+      - 'scripts/test-lab-studio-browser.cjs'
       - '.github/workflows/lab-studio-validation.yml'
   workflow_dispatch:
 permissions:
@@ -41,6 +42,13 @@ jobs:
           node --input-type=module --check < assets/ws/ws-admin.js
           node --input-type=module --check < assets/ws/ws-platform.js
           node scripts/test-lab-studio.cjs
+      - name: Verify Lab Studio interaction and CSP in Chrome
+        env:
+          NODE_PATH: ${{ runner.temp }}/gq-lab-browser/node_modules
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          npm install --prefix "$RUNNER_TEMP/gq-lab-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+          node scripts/test-lab-studio-browser.cjs
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
