@@ -1,17 +1,49 @@
 from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
+import os
+from pathlib import Path
+import subprocess
+import tempfile
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.test import TestCase, SimpleTestCase
 from django.utils import timezone
 
 from core import cloud
 from core.models import NewsletterSubscriber, NextcloudIdentity, Organization, Workspace
 from core.operating_models import StrategicObjective
 from core.workspace_api import provision_personal_workspace
+
+
+class OperatingBrowserCleanupScopeTests(SimpleTestCase):
+    def test_shell_cleanup_rejects_unscoped_input_and_passes_exact_run_id(self):
+        helper = Path(__file__).resolve().parents[2] / 'ops/e2e-identity.sh'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, script in {
+                'ssh-keyscan': '#!/bin/bash\necho test-host-key\n',
+                'ssh': '#!/bin/bash\nprintf "%s\\n" "${@: -1}" >> "$TEST_CALLS"\n',
+            }.items():
+                path = root / name; path.write_text(script); path.chmod(0o755)
+            calls = root / 'calls'
+            env = {**os.environ, 'PATH': directory + os.pathsep + os.environ['PATH'],
+                   'RUNNER_TEMP': directory, 'E2E_SSH_HOST': 'test.invalid',
+                   'E2E_SSH_KEY': 'test-only-key', 'TEST_CALLS': str(calls)}
+            for run_id in ('0', '-1', 'all', '12 34', '123;touch bad'):
+                result = subprocess.run(['bash', '-c', 'source "$1"; cleanup_operating_e2e_run "$2"',
+                    '_', str(helper), run_id], env=env, capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, 1)
+                self.assertFalse(calls.exists(), 'invalid scope reached SSH')
+            result = subprocess.run(['bash', '-c', 'source "$1"; cleanup_operating_e2e_run "$2"',
+                '_', str(helper), '123456'], env=env, capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            command = calls.read_text().splitlines()[-1]
+            self.assertIn('--scope operating --run-id', command)
+            self.assertTrue(command.endswith("'123456'"), command)
+            self.assertNotIn('--scope all', command)
 
 
 class CleanupProductionE2EUsersTests(TestCase):

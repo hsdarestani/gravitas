@@ -72,6 +72,17 @@ node scripts/check-api-coverage.mjs
 The `Workspace Reliability` workflow installs Chromium outside the application, creates an isolated SQLite fixture, starts the actual backend/frontend and uploads screenshots plus assertion results. It introduces no application build step or browser runtime dependency.
 # Production deployment follow-up (28 October)
 
+Production browser run 40716441604 confirmed real server persistence on desktop
+(259 ms total, server write 29 ms) and mobile viewport (189 ms total, server
+write 24 ms), each with independent API read and hard reload. It cleaned its
+task fixture and observed no page errors. The run still failed acceptance:
+immediate post-login navigation aborted the initial bootstrap request, and
+self-service account deletion correctly returned 409 for the disposable user's
+protected personal workspace. The follow-up waits for that bootstrap to settle
+and uses the existing strictly named, run-scoped E2E leaf-to-root cleanup, also
+repairing earlier completed failed browser fixtures. It keeps request-failure
+assertions and never selects active runs or real account names.
+
 Final API rollout after PR #282: deployment 40714590946 succeeded with 31 public
 TLS health samples and zero failed samples across both drained transitions.
 The complete backend suite ran 998 tests successfully; PostgreSQL concurrency
