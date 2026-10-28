@@ -127,6 +127,7 @@ jobs:
             await page.goto(`${base}${pathname}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
             await settle();
             await waitOperating(title);
+            await page.waitForLoadState('networkidle');
             await assertNoHorizontalBreakage();
           }
 
@@ -166,10 +167,18 @@ jobs:
           }
 
           try {
-            await page.goto(`${base}/login`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            // The deferred bridge inserts its actual form handler as another
+            // script. DOMContentLoaded alone can precede that script's load.
+            await page.goto(`${base}/login`, { waitUntil: 'load', timeout: 30000 });
             await page.locator('#in-mail').fill(email);
             await page.locator('#in-pass').fill(password);
+            const loginResponse = page.waitForResponse(r =>
+              new URL(r.url()).pathname === '/api/auth/login/' && r.request().method() === 'POST',
+              { timeout: 20000 });
             await page.locator('#p-in button[type="submit"]').click();
+            const authenticated = await loginResponse;
+            assert.equal(authenticated.status(), 200, 'Production login was not accepted');
+            assert.equal((await authenticated.json()).ok, true, 'Production login did not confirm a session');
             await page.waitForURL(url => url.origin === base && url.pathname.startsWith('/workspace'), { timeout: 20000 });
 
             await openSection('/workspace/core', 'Core');
@@ -200,6 +209,12 @@ jobs:
             assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join(' | ')}`);
             assert.deepEqual(failedSameOriginRequests, [], `failed production requests: ${failedSameOriginRequests.join(' | ')}`);
             console.log('operating-browser-visual-smoke-passed');
+          } catch (error) {
+            const current = new URL(page.url());
+            console.log(`production-browser-failure path=${current.pathname} query_keys=${[...current.searchParams.keys()].join(',')}`);
+            console.log(`production-browser-page-errors=${JSON.stringify(pageErrors)}`);
+            console.log(`production-browser-request-failures=${JSON.stringify(failedSameOriginRequests)}`);
+            throw error;
           } finally {
             try {
               if (verificationTaskId) {
