@@ -1,4 +1,5 @@
 """Regression tests for optional bounded Decisions API report matching."""
+import json
 import uuid
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
