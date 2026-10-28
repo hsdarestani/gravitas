@@ -85,6 +85,72 @@ class DecisionsReportMatchingTests(SimpleTestCase):
         post.assert_not_called()
 
 
+
+
+@override_settings(
+    PULSAR_REPORT_DECISIONS_ENABLED=True,
+    PULSAR_REPORT_DECISIONS_API_KEY='',
+    PULSAR_OPENAI_API_KEY='',
+    CLOUDFLARE_AI_ACCOUNT_ID='connected-account',
+    CLOUDFLARE_AI_API_TOKEN='connected-token',
+)
+class CloudflareDecisionFallbackTests(SimpleTestCase):
+    """A connected Cloudflare provider must work without any OpenAI key."""
+
+    setUp = DecisionsReportMatchingTests.setUp
+
+    def candidates(self, tasks, phrase, limit=6):
+        return DecisionsReportMatchingTests.candidates(self, tasks, phrase, limit)
+
+    def _cloudflare_response(self, choice='1113', certainty='high',
+                             match_type='same_deliverable'):
+        return SimpleNamespace(text=json.dumps({
+            'answers': [{
+                'name': 'activity_0',
+                'choice': choice,
+                'certainty': certainty,
+                'match_type': match_type,
+            }],
+        }))
+
+    @patch('core.pulsar_runtime.providers.ManagedCloudflareProvider.complete')
+    @patch('core.pulsar_runtime.openai_decisions.requests.post')
+    def test_cloudflare_provider_matches_without_openai_key(self, openai_post, complete):
+        complete.return_value = self._cloudflare_response()
+        result = choose_report_tasks(self.updates, self.tasks, self.candidates)
+        self.assertEqual(result, {0: 1113})
+        openai_post.assert_not_called()
+        self.assertEqual(complete.call_args.kwargs['tier'], 'fast')
+
+    @patch('core.pulsar_runtime.providers.ManagedCloudflareProvider.complete')
+    @patch('core.pulsar_runtime.openai_decisions.requests.post')
+    def test_cloudflare_rejects_ux_and_uncertain_links(self, openai_post, complete):
+        for response in (
+            self._cloudflare_response(choice='541'),
+            self._cloudflare_response(certainty='low'),
+            self._cloudflare_response(match_type='different_deliverable'),
+            self._cloudflare_response(choice='999999'),
+            self._cloudflare_response(choice='none'),
+        ):
+            complete.return_value = response
+            self.assertEqual(choose_report_tasks(
+                self.updates, self.tasks, self.candidates), {})
+        openai_post.assert_not_called()
+
+    @patch('core.pulsar_runtime.providers.ManagedCloudflareProvider.complete')
+    def test_cloudflare_service_error_preserves_unmatched_activity(self, complete):
+        complete.side_effect = requests.Timeout('offline')
+        self.assertEqual(choose_report_tasks(
+            self.updates, self.tasks, self.candidates), {})
+
+    @override_settings(PULSAR_REPORT_DECISIONS_ENABLED=False)
+    @patch('core.pulsar_runtime.providers.ManagedCloudflareProvider.complete')
+    def test_explicit_off_switch_disables_cloudflare_decisions(self, complete):
+        self.assertEqual(choose_report_tasks(
+            self.updates, self.tasks, self.candidates), {})
+        complete.assert_not_called()
+
+
 class CompactPreviewTests(SimpleTestCase):
     def test_three_website_variants_group_without_losing_source_rows(self):
         updates = [
