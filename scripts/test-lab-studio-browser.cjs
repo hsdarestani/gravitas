@@ -1,0 +1,90 @@
+'use strict';
+/* Browser-only fixture. Does not seed a real Lab or touch production records. */
+const assert=require('node:assert/strict');
+const http=require('node:http');
+const fs=require('node:fs');
+const path=require('node:path');
+const playwright=require('playwright-core');
+const root=process.cwd();
+let empty=true;
+const lab={
+  slug:'fixture-lab',title:'Fixture Lab',summary:'Browser-only test',
+  ready:true,run_url:'/lab-run/fixture-lab/',published_version:1,
+  config:{components:['stage','controls','metrics','timeline','compare','layers','charts'],
+    pulsar_enabled:true,auto_coach:false,learning_goal:'Learn one variable',
+    sections:[{id:'observe',title:'Observe',hint:'Begin with a baseline.'}],
+    guidance:[{event:'density_changed',section:'observe',hint:'Compare the density reading.'}]},
+};
+const sim=[
+  '<!doctype html><html><head><meta charset="utf-8">',
+  '<script src="/assets/lab-bridge.js"></script></head><body><script>',
+  "window.GraviLab.register({section:'observe',",
+  "controls:[{key:'density',label:'Density',min:0,max:1,step:0.1,value:0.4}],",
+  "layers:[{key:'vectors',label:'Vectors',enabled:true}]});",
+  "window.GraviLab.onControl(({key,value}) => {if(key==='density')window.GraviLab.emit('density_changed',{density:value},'observe');});",
+  "window.GraviLab.emit('density_changed',{density:0.4},'observe');",
+  '</script></body></html>',
+].join('');
+const types={'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.woff2':'font/woff2'};
+const server=http.createServer((req,res)=>{
+  const url=new URL(req.url,'http://localhost');
+  if(url.pathname==='/api/labs/'){
+    res.setHeader('Content-Type','application/json');
+    res.end(JSON.stringify({ok:true,labs:empty?[]:[lab]}));return;
+  }
+  if(url.pathname==='/api/labs/fixture-lab/coach/'){
+    res.setHeader('Content-Type','application/json');
+    res.end(JSON.stringify({ok:true,provider:'script',reply:'Try changing one variable.'}));return;
+  }
+  if(url.pathname==='/lab-run/fixture-lab/'){
+    res.setHeader('Content-Type','text/html');
+    res.setHeader('X-Frame-Options','SAMEORIGIN');
+    res.setHeader('Content-Security-Policy',
+      "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline'; "+
+      "style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; frame-ancestors 'self'");
+    res.end(sim);return;
+  }
+  const file=path.resolve(root,'.'+decodeURIComponent(url.pathname));
+  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){
+    res.writeHead(404);res.end('Not found');return;
+  }
+  res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
+  res.end(fs.readFileSync(file));
+});
+(async()=>{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const port=server.address().port;
+  const browser=await playwright.chromium.launch({headless:true,
+    executablePath:process.env.CHROME_PATH||'/usr/bin/google-chrome',
+    args:['--no-sandbox','--disable-dev-shm-usage']});
+  try{
+    const page=await browser.newPage({viewport:{width:1200,height:900}});
+    const url='http://127.0.0.1:'+port+'/lab.html';
+    await page.goto(url,{waitUntil:'networkidle'});
+    assert.equal(await page.locator('main h1').innerText(),'Lab');
+    assert.equal(await page.locator('#lab-experiences').isHidden(),true,
+      'public Lab must remain empty before publish');
+    empty=false;
+    await page.reload({waitUntil:'networkidle'});
+    await page.locator('.lab-catalog-card').waitFor();
+    await page.locator('.lab-catalog-card').click();
+    await page.locator('.lab-frame').waitFor();
+    await page.locator('.lab-metric-value').first().waitFor({timeout:10000});
+    const initial=await page.locator('.lab-metric-value').first().innerText();
+    assert.equal(initial,'0.4');
+    const sliders=page.locator('.lab-dynamic-control input[type=range]');
+    await sliders.first().waitFor({timeout:5000});
+    await sliders.first().evaluate(el=>{el.value='0.7';el.dispatchEvent(new Event('input',{bubbles:true}));});
+    await page.waitForFunction(()=>Array.from(document.querySelectorAll('.lab-metric-value'))
+      .some(el=>el.textContent==='0.7'));
+    await page.getByPlaceholder('Ask about this experiment').fill('What changed?');
+    await page.getByRole('button',{name:'Ask',exact:true}).click();
+    await page.getByText('Try changing one variable.').waitFor({timeout:8000});
+    assert.match(await page.locator('.lab-pulsar-source').innerText(),/Guided note/);
+    await page.setViewportSize({width:390,height:844});
+    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+    assert.ok(overflow<=1,'mobile Lab horizontal overflow: '+overflow);
+    console.log('Browser PASS: empty public Lab, published fixture, sandbox events, reactive slider and metrics, Pulsar scripted fallback, mobile.');
+    await page.close();
+  }finally{await browser.close();}
+})().catch(err=>{console.error(err);process.exitCode=1;}).finally(()=>server.close());
