@@ -63,7 +63,7 @@ const ADMIN_INDEX = [
   ['Moderation', '/workspace/core/admin/moderation', 'moderation', 'Review public comments'],
   ['Newsletter', '/workspace/core/admin/newsletter', 'mail', 'Subscribers and campaigns'],
   ['Support Tickets', '/workspace/core/admin/tickets', 'support', 'Reply to member requests'],
-  ['Interactive Lab', '/workspace/core/admin/labs', 'lab', 'Build interactive experiments'],
+  ['Lab Studio', '/workspace/core/admin/labs', 'lab', 'Configure Lab code, components and Pulsar guidance'],
   ['LMS', '/workspace/core/admin/lms', 'course', 'Courses, lessons and enrollments'],
   ['Research', '/workspace/core/admin/research', 'space-research', 'Every research project'],
   ['Links', '/workspace/core/admin/links', 'link', 'Connect items across workspaces'],
