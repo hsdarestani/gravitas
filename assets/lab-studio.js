@@ -217,7 +217,7 @@ function runLab(lab){
     sidebar.append(title,node('p','lab-note','Guidance is not enabled for this Lab.'));
   }
   grid.append(stageCol,sidebar);main.append(grid);root.replaceChildren(main);root.hidden=false;
-  shell={line:speech,source:source,steps:steps,metrics:metrics,chart:chart,layers:shellLayerContainer};
+  shell={line:speech,source:source,steps:steps,metrics:metrics,chart:chart,layers:shellLayerContainer,controls:controls};
   if(steps&&cfg.sections?.length){
     currentSection=cfg.sections[0].id;renderSteps();
     feedback(cfg.sections[0].hint,'script');
