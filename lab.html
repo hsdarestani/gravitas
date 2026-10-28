@@ -24,10 +24,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
-<style id="gq-lab-catalog-visibility-safety">
-/* The lab directory must remain visible even if a stale CMS stylesheet is cached. */
-#main .games.gq-lab-catalog { visibility: visible !important; }
-</style>
 <link rel="stylesheet" href="assets/ai-lab.css?v=20261028-1">
 </head>
 <body class="is-overview">
@@ -170,46 +166,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261022-depth1"></script>
-<script>
-(function(){
-  // Each card gets a small generative sketch rather than a stock image: cheap,
-  // on-brand, and it never ships a 400 KB photograph.
-  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  [].forEach.call(document.querySelectorAll('canvas.cardart'),function(cv,idx){
-    var ctx=cv.getContext('2d'),dpr=Math.min(devicePixelRatio||1,2);
-    function size(){var r=cv.getBoundingClientRect();
-      cv.width=r.width*dpr;cv.height=r.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
-      return [r.width,r.height];}
-    var d=size(); addEventListener('resize',function(){d=size();paint();});
-    // The card art is generated, not a shipped image, so it can simply be
-    // redrawn in the other theme's ink instead of needing a second asset.
-    addEventListener('gravitas:theme',function(){paint();});
-    var ink=function(n,f){return (window.gravitasInk?window.gravitasInk(n,f):f);};
-    var seed=+cv.dataset.art;
-    function paint(){
-      var W=d[0],H=d[1]; ctx.clearRect(0,0,W,H);
-      ctx.strokeStyle='rgba('+ink('line','241,239,236')+',.28)';
-      ctx.fillStyle='rgba('+ink('body-b','212,201,190')+',.5)';
-      ctx.lineWidth=1;
-      var rnd=(function(s){return function(){s=(s*16807)%2147483647;return s/2147483647;};})(seed*7919+13);
-      if(seed===0){ for(var i=0;i<26;i++){var x=rnd()*W,y=rnd()*H;ctx.beginPath();ctx.arc(x,y,2.2,0,6.3);ctx.fill();}
-        ctx.beginPath();for(var j=0;j<W;j+=6){ctx.lineTo(j,H/2+Math.sin(j/34)*H*0.2);}ctx.stroke(); }
-      else if(seed===1){ for(var k=0;k<7;k++){var yy=H*(k+1)/8;ctx.beginPath();ctx.moveTo(W*0.1,yy);
-        ctx.lineTo(W*(0.35+rnd()*0.5),yy);ctx.stroke();} }
-      else if(seed===2){ var acc=0;for(var b=0;b<6;b++){var h=rnd()*H*0.6+10;
-        ctx.fillRect(W*0.1+acc, H-h-10, W*0.1, h); acc+=W*0.13;} }
-      else if(seed===3){ for(var a=0;a<5;a++){ctx.beginPath();
-        ctx.arc(W/2,H/2,(a+1)*Math.min(W,H)/13,0,6.3);ctx.stroke();} }
-      else if(seed===4){ for(var l=0;l<9;l++){var yv=H*(l+1)/10;ctx.beginPath();
-        ctx.moveTo(W*0.12,yv);ctx.lineTo(W*0.88,yv);ctx.stroke();}
-        ctx.fillStyle='rgba(162,72,58,.65)';ctx.fillRect(W*0.12,H*0.4-3,W*0.4,6); }
-      else { ctx.beginPath(); for(var m=0;m<W;m+=5){ctx.lineTo(m,H/2+Math.sin(m/22+seed)*H*0.26);} ctx.stroke();
-        ctx.beginPath();ctx.arc(W*0.7,H*0.4,3.4,0,6.3);ctx.fill(); }
-    }
-    paint();
-  });
-})();
-</script>
+
 <script src="assets/ai-lab.js?v=20261028-1" defer></script>
 <script src="assets/chat.js?v=20261022-essays" defer></script>
 <script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
