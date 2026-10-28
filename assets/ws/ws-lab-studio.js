@@ -105,6 +105,7 @@ export async function renderLabStudio(host) {
     const cmpbox=el('div','ls-component-grid');
     for(const [key,name,detail] of COMPONENTS){
       const entry=K.toggle((config.components||['stage','controls','metrics']).includes(key),name,detail);
+      if(key==='stage'){entry.input.checked=true;entry.input.disabled=true;}
       switches.set(key,entry.input);
       cmpbox.append(entry.wrap);
     }
