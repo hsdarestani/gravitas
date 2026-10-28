@@ -206,6 +206,59 @@ class CanonicalProjectTests(TestCase):
         self.assertFalse(CanonicalTaskSyncOutbox.objects.filter(task_id=task.pk).exists())
         self.assertIn('Edited task', self.dav.files[native_path]['content'])
 
+    def test_first_project_attachment_commits_without_native_io_then_exports(self):
+        from .operating_models import OperatingTask
+        from .canonical_task_outbox import process_task_sync_outbox
+        self.adopt()
+        task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'],
+            owner=self.owner, title='Previously unassigned', definition_of_done='Saved on server')
+        # The old middleware refreshed the destination as though the task
+        # already belonged there, rejecting every first attachment before save.
+        from .canonical_projects import refresh_task_scope
+        from .cloud import CloudError
+        with self.assertRaisesMessage(CloudError, 'canonical_task_projection_file_missing'):
+            refresh_task_scope(self.project, self.owner, task.pk)
+        original = dict(self.dav.files)
+        with patch('core.canonical_middleware.refresh_task_scope', side_effect=AssertionError('No DAV in attachment PATCH')), \
+             patch('core.canonical_projects.export_object', side_effect=AssertionError('No DAV in attachment PATCH')):
+            response = self.client.patch(f'/api/operating/task-board/{task.pk}/',
+                data=json.dumps({'project_id': self.project.pk, 'expected_updated_at': task.updated_at.isoformat()}),
+                content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['canonical_sync'], 'pending')
+        task.refresh_from_db()
+        self.assertEqual(task.project_id, self.project.pk)
+        self.assertEqual(self.dav.files, original)
+        self.assertTrue(CanonicalTaskSyncOutbox.objects.filter(task_id=task.pk, project=self.project).exists())
+        self.assertEqual(process_task_sync_outbox()['synced'], 1)
+        self.assertIn('Previously unassigned', self.dav.files[self.full(relative_path(task))]['content'])
+
+    def test_first_project_attachment_rejects_stale_editor_without_task_or_queue_change(self):
+        from .operating_models import OperatingTask
+        self.adopt()
+        task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'],
+            owner=self.owner, title='Unassigned draft', definition_of_done='Keep draft')
+        response = self.client.patch(f'/api/operating/task-board/{task.pk}/',
+            data=json.dumps({'project_id': self.project.pk, 'expected_updated_at': '2000-01-01T00:00:00Z'}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 409, response.content)
+        task.refresh_from_db()
+        self.assertIsNone(task.project_id)
+        self.assertFalse(CanonicalTaskSyncOutbox.objects.filter(task_id=task.pk).exists())
+
+    def test_first_project_attachment_retains_view_permission_checks(self):
+        from .operating_models import OperatingTask
+        self.adopt()
+        task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'],
+            owner=self.owner, title='Protected unassigned', definition_of_done='Keep permissions')
+        self.client.force_login(self.outsider)
+        response = self.client.patch(f'/api/operating/task-board/{task.pk}/',
+            data=json.dumps({'project_id': self.project.pk}), content_type='application/json')
+        self.assertIn(response.status_code, (403, 404), response.content)
+        task.refresh_from_db()
+        self.assertIsNone(task.project_id)
+        self.assertFalse(CanonicalTaskSyncOutbox.objects.filter(task_id=task.pk).exists())
+
     def test_project_editor_commits_task_and_outbox_without_native_io(self):
         from .operating_models import OperatingTask
         task = OperatingTask.objects.create(workspace=ensure_platform_workspaces(self.owner)['core'],

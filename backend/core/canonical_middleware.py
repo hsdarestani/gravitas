@@ -134,6 +134,114 @@ def _research_project_panel_snapshot_read(request):
     )
 
 
+
+@transaction.atomic
+def deferred_task_patch(request, view_func, view_args, view_kwargs):
+    """Commit a task edit or first project attachment with a durable sync witness.
+
+    Lock before choosing the boundary: concurrent project moves must not turn a
+    first attachment into an unjournalled move. Existing native files in another
+    project still require the strict move/archive boundary.
+    """
+    from .operating_models import OperatingTask
+    from .canonical_models import CanonicalTaskSyncOutbox, CanonicalFile
+    from django.db.models import F
+    from django.utils import timezone
+    import json
+    import time
+
+    task_id = view_kwargs.get('task_id')
+    task = OperatingTask.objects.select_for_update().filter(pk=task_id).only('id', 'project_id').first()
+    if task is None:
+        return None
+    try:
+        incoming = json.loads(request.body or b'{}')
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(incoming, dict):
+        return None
+    destination = incoming.get('project_id', task.project_id)
+    if isinstance(destination, bool):
+        return None
+    try:
+        destination = int(destination) if destination not in (None, '') else None
+    except (ValueError, TypeError, OverflowError):
+        return None
+    scoped_project = view_kwargs.get('project_id')
+    if scoped_project is not None and scoped_project != task.project_id:
+        return None
+    first_attachment = task.project_id is None and destination is not None
+    if first_attachment and CanonicalFile.objects.filter(
+            object_type='OperatingTask', object_id=task_id, deleted=False).exists():
+        return None
+    if not first_attachment and destination != task.project_id:
+        return None
+    sync_project_id = destination
+    if not sync_project_id or not CanonicalProject.objects.filter(
+            project_id=sync_project_id, enabled=True).exists():
+        return None
+    started = time.monotonic()
+    with transaction.atomic():
+        pending = []
+        token = _pending.set(pending)
+        try:
+            response = view_func(request, *view_args, **view_kwargs)
+            if response.status_code >= 400:
+                transaction.set_rollback(True)
+            else:
+                if OperatingTask.objects.filter(pk=task_id).values_list('project_id', flat=True).first() != sync_project_id:
+                    transaction.set_rollback(True)
+                    return JsonResponse({'ok': False, 'error': 'unsupported_canonical_task_edit'}, status=409)
+                # Do not queue unknown canonical writes: only the
+                # named task's own save is covered by this boundary.
+                def covered_task_edit(item):
+                    if item[0] != 'save':
+                        return False
+                    if item[1].__name__ == 'OperatingTask':
+                        return item[2] == task_id
+                    if item[1].__name__ == 'ProjectAuditEvent':
+                        # The worker also mirrors this task's
+                        # immutable audit rows before acknowledging sync.
+                        from .platform_models import ProjectAuditEvent
+                        return ProjectAuditEvent.objects.filter(
+                            pk=item[2], project_id=sync_project_id,
+                            object_type='OperatingTask', object_id=str(task_id),
+                            action='task_updated',
+                        ).exists()
+                    return False
+                unexpected = [item for item in pending if not covered_task_edit(item)]
+                if unexpected:
+                    transaction.set_rollback(True)
+                    return JsonResponse({'ok': False, 'error': 'unsupported_canonical_task_edit'}, status=409)
+                CanonicalTaskSyncOutbox.objects.get_or_create(
+                    project_id=sync_project_id, task_id=task_id,
+                    defaults={'next_attempt_at': timezone.now()},
+                )
+                CanonicalTaskSyncOutbox.objects.filter(
+                    project_id=sync_project_id, task_id=task_id,
+                ).update(
+                    generation=F('generation') + 1,
+                    next_attempt_at=timezone.now(),
+                    state='pending',
+                    last_error='',
+                    attempts=0,
+                )
+                response['X-Canonical-Sync'] = 'pending'
+                # Distinguish confirmed database persistence from
+                # an asynchronously pending native file revision.
+                if response.get('Content-Type', '').startswith('application/json'):
+                    body = json.loads(response.content)
+                    body['canonical_sync'] = 'pending'
+                    response.content = json.dumps(body)
+                response['Server-Timing'] = (
+                    'task_write;dur=%.1f' % ((time.monotonic() - started) * 1000)
+                )
+            return response
+        finally:
+            _pending.reset(token)
+
+
+
 class CanonicalProjectMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -194,85 +302,12 @@ class CanonicalProjectMiddleware:
         # without holding the HTTP request open for Nextcloud/WebDAV.
         # Both Core and project-scoped editors use the same isolated task
         # field-edit operation and retain their own view-level ACL checks; changing a task's
-        # project still uses the strict synchronous canonical boundary.
+        # between existing projects still uses the strict canonical boundary.
         if (request.method == 'PATCH' and
                 re.fullmatch(r'/api/(?:operating/task-board/\d+|platform/projects/\d+/tasks/\d+)/', request.path)):
-            from .operating_models import OperatingTask
-            from .canonical_models import CanonicalTaskSyncOutbox
-            from django.db.models import F
-            from django.utils import timezone
-            import json
-            import time
-
-            task_id = view_kwargs.get('task_id')
-            source_project_id = OperatingTask.objects.filter(pk=task_id).values_list('project_id', flat=True).first()
-            requested_project_id = view_kwargs.get('project_id')
-            same_project = requested_project_id is None or requested_project_id == source_project_id
-            if source_project_id and same_project and CanonicalProject.objects.filter(
-                    project_id=source_project_id, enabled=True).exists():
-                try:
-                    incoming = json.loads(request.body or b'{}')
-                except (ValueError, UnicodeDecodeError):
-                    incoming = {}
-                if not isinstance(incoming, dict):
-                    incoming = {}
-                if 'project_id' not in incoming:
-                    started = time.monotonic()
-                    with transaction.atomic():
-                        pending = []
-                        token = _pending.set(pending)
-                        try:
-                            response = view_func(request, *view_args, **view_kwargs)
-                            if response.status_code >= 400:
-                                transaction.set_rollback(True)
-                            else:
-                                # Do not queue unknown canonical writes: only the
-                                # named task's own save is covered by this boundary.
-                                def covered_task_edit(item):
-                                    if item[0] != 'save':
-                                        return False
-                                    if item[1].__name__ == 'OperatingTask':
-                                        return item[2] == task_id
-                                    if item[1].__name__ == 'ProjectAuditEvent':
-                                        # The worker also mirrors this task's
-                                        # immutable audit rows before acknowledging sync.
-                                        from .platform_models import ProjectAuditEvent
-                                        return ProjectAuditEvent.objects.filter(
-                                            pk=item[2], project_id=source_project_id,
-                                            object_type='OperatingTask', object_id=str(task_id),
-                                            action='task_updated',
-                                        ).exists()
-                                    return False
-                                unexpected = [item for item in pending if not covered_task_edit(item)]
-                                if unexpected:
-                                    transaction.set_rollback(True)
-                                    return JsonResponse({'ok': False, 'error': 'unsupported_canonical_task_edit'}, status=409)
-                                CanonicalTaskSyncOutbox.objects.get_or_create(
-                                    project_id=source_project_id, task_id=task_id,
-                                    defaults={'next_attempt_at': timezone.now()},
-                                )
-                                CanonicalTaskSyncOutbox.objects.filter(
-                                    project_id=source_project_id, task_id=task_id,
-                                ).update(
-                                    generation=F('generation') + 1,
-                                    next_attempt_at=timezone.now(),
-                                    state='pending',
-                                    last_error='',
-                                    attempts=0,
-                                )
-                                response['X-Canonical-Sync'] = 'pending'
-                                # Distinguish confirmed database persistence from
-                                # an asynchronously pending native file revision.
-                                if response.get('Content-Type', '').startswith('application/json'):
-                                    body = json.loads(response.content)
-                                    body['canonical_sync'] = 'pending'
-                                    response.content = json.dumps(body)
-                                response['Server-Timing'] = (
-                                    'task_write;dur=%.1f' % ((time.monotonic() - started) * 1000)
-                                )
-                            return response
-                        finally:
-                            _pending.reset(token)
+            response = deferred_task_patch(request, view_func, view_args, view_kwargs)
+            if response is not None:
+                return response
         project_ids = project_scope_for(request, view_kwargs)
         if not project_ids and request.method in ('GET', 'HEAD', 'OPTIONS'):
             # A global list is a database snapshot, not an implicit full

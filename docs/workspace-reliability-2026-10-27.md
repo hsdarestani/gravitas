@@ -70,3 +70,36 @@ node scripts/check-api-coverage.mjs
 ```
 
 The `Workspace Reliability` workflow installs Chromium outside the application, creates an isolated SQLite fixture, starts the actual backend/frontend and uploads screenshots plus assertion results. It introduces no application build step or browser runtime dependency.
+# Production deployment follow-up (28 October)
+
+Read-only inspection of task #1119 confirmed its committed project is null,
+although the failing form had selected Topic 01. This is a first attachment,
+not an edit to an already project-owned task. The deferred boundary now locks
+the task before choosing its scope and atomically commits first attachment plus
+the destination sync witness, while retaining the view's authorization and
+stale-revision checks. Existing cross-project native file moves remain strict;
+an existing native identity cannot accidentally use the first-attachment path.
+Tests verify attachment, independent DB state, no request-time DAV, eventual
+native export, stale-editor rollback, and denied access with no queued writes.
+The precise pre-save error is `canonical_task_projection_file_missing`:
+`refresh_task_scope()` required a task file in the destination before that task
+had ever been attached to it. Middleware exposed this as the generic 503
+`canonical_storage_unavailable`; it was not proof that Nextcloud was offline.
+
+PR #276 was merged as f129254d. Deployment 40708391277 passed backend tests but
+correctly rejected the API reload: one direct health connection was reset during
+Gunicorn gthread HUP (1 failed probe in 4). Its code archive rollback completed;
+the frontend was not published. This is not a successful production acceptance.
+
+The follow-up release keeps an independent copy of the previous API serving on
+8001, validates it, gracefully switches Nginx to it, and waits for original Nginx
+workers to finish their in-flight requests before reloading the primary API.
+It switches back only after primary readiness and drains Nginx again before
+stopping the temporary pool. Public TLS health is sampled throughout both
+switches; failures still fail the release. Rollback routes through the standby
+before restoring code and never restores an old data snapshot. An interrupted
+standby is retained and blocks subsequent automated replacement.
+
+A real Nginx regression test holds a POST open across the switch, asserts one
+server-side write and a complete response, monitors concurrent reads, and verifies
+that stopping the original upstream after draining leaves the new route healthy.
