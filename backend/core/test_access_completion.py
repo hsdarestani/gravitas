@@ -381,7 +381,15 @@ class SupportNewsletterAndLabCompletionTests(TestCase):
             ],
         })
         self.assertEqual(created.status_code, 201, created.content)
-
+        self.assertEqual(created.json()['lab']['status'], 'draft')
+        # Creating a draft must NEVER expose code publicly, regardless of
+        # any historical caller supplying status=published on create.
+        self.assertEqual(self.client.get('/api/labs/').json()['labs'], [])
+        published = self.post_json(
+            f"/api/platform/admin/labs/{created.json()['lab']['id']}/publish/",
+            {'version': created.json()['lab']['version']},
+        )
+        self.assertEqual(published.status_code, 200, published.content)
         self.client.logout()
         listing = self.client.get('/api/labs/')
         self.assertEqual(listing.status_code, 200)
