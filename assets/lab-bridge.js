@@ -6,7 +6,7 @@
 (function(){
   'use strict';
   var schema='graviquest.lab.v1';
-  var controlListeners=[],commandListeners=[],layerListeners=[];
+  var controlListeners=[],commandListeners=[],layerListeners=[],didRegister=false;
   var validKey=/^[a-z][a-z0-9_-]{0,63}$/;
   function send(type,payload){
     if(window.parent===window)return;
@@ -31,6 +31,7 @@
   }
   window.GraviLab={
     register:function(details){
+      didRegister=true;
       details=details||{};
       send('lab:ready',{controls:safeList(details.controls,'controls'),layers:safeList(details.layers,'layers'),
         section:validKey.test(String(details.section||''))?details.section:''});
@@ -56,6 +57,6 @@
       layerListeners.forEach(function(fn){try{fn({key:data.key,enabled:!!data.enabled});}catch(_){}});
   });
   if(document.readyState==='loading')
-    document.addEventListener('DOMContentLoaded',function(){window.GraviLab.register({});},{once:true});
-  else window.GraviLab.register({});
+    document.addEventListener('DOMContentLoaded',function(){if(!didRegister)window.GraviLab.register({});},{once:true});
+  else if(!didRegister)window.GraviLab.register({});
 })();
