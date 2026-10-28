@@ -248,7 +248,14 @@ class InteractiveLab(models.Model):
     description = models.TextField(blank=True)
     duration_text = models.CharField(max_length=80, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
-    files = models.JSONField(default=list, blank=True)
+    files = models.JSONField(default=list, blank=True)  # Editable draft only.
+    config = models.JSONField(default=dict, blank=True)  # Components and Pulsar pedagogy.
+    topic_slug = models.SlugField(max_length=180, blank=True, db_index=True)
+    version = models.PositiveIntegerField(default=1)
+    published_version = models.PositiveIntegerField(default=0)
+    published_files = models.JSONField(default=list, blank=True)
+    published_config = models.JSONField(default=dict, blank=True)
+    studio_enabled = models.BooleanField(default=False, db_index=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -259,6 +266,24 @@ class InteractiveLab(models.Model):
 
     class Meta:
         ordering = ['-updated_at']
+
+
+class LabRevision(models.Model):
+    """Immutable editable-code checkpoints, separate from the live published snapshot."""
+
+    lab = models.ForeignKey(InteractiveLab, on_delete=models.CASCADE, related_name='revisions')
+    version = models.PositiveIntegerField()
+    files = models.JSONField(default=list)
+    config = models.JSONField(default=dict)
+    topic_slug = models.SlugField(max_length=180, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-version']
+        constraints = [
+            models.UniqueConstraint(fields=['lab', 'version'], name='grav_lab_revision_unique'),
+        ]
 
 
 class ReaderSavedItem(models.Model):
