@@ -113,7 +113,7 @@ def preview(report):
             'none', 'no unmatched work reported', 'no unmatched work'}:
         lines.append('Other reported work: ' + unmatched[:350])
     lines += ['', 'No task changes until you confirm. Edit to correct a link.']
-    return {'text': '\\n'.join(lines)[:4096], 'reply_markup': {'inline_keyboard': [[
+    return {'text': '\n'.join(lines)[:4096], 'reply_markup': {'inline_keyboard': [[
         {'text': '✅ Confirm', 'callback_data': f'wr:c:{report.pk.hex}:{report.revision}'},
         {'text': '✏️ Edit', 'callback_data': f'wr:e:{report.pk.hex}:{report.revision}'},
         {'text': '❌ Cancel', 'callback_data': f'wr:x:{report.pk.hex}:{report.revision}'},
