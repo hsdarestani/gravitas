@@ -51,6 +51,26 @@ class ScienceUniverseInstallTests(TestCase):
         self.assertEqual(lab.title, 'Edited in Studio')
         self.assertEqual(LabRevision.objects.filter(lab=lab).count(), 1)
 
+    def test_preview_is_private_and_all_source_files_resolve(self):
+        self.install()
+        lab = InteractiveLab.objects.get(slug='science-universe')
+        self.client.force_login(self.owner)
+        base = f'/api/platform/admin/labs/{lab.pk}/preview/'
+        html = self.client.get(base)
+        self.assertEqual(html.status_code, 200, html.content[:200])
+        self.assertIn(b'Science Universe', html.content)
+        self.assertIn(b'/assets/lab-bridge.js', html.content)
+        self.assertIn("sandbox allow-scripts", html["Content-Security-Policy"])
+        self.assertIn("connect-src 'none'", html["Content-Security-Policy"])
+        for filename in ['app.js', 'engine.js', 'styles.css']:
+            response = self.client.get(base+filename)
+            self.assertEqual(response.status_code, 200, (filename, response.content[:300]))
+            self.assertGreater(len(response.content), 300)
+        self.assertEqual(self.client.get('/api/labs/').json()['labs'], [])
+        self.assertEqual(self.client.get('/lab-run/science-universe/').status_code, 404)
+        self.client.logout()
+        self.assertEqual(self.client.get(base).status_code, 401)
+
     def test_dry_run_creates_nothing(self):
         call_command('install_science_universe_lab', '--auto-owner', '--source', str(SOURCE),
                      stdout=StringIO())
