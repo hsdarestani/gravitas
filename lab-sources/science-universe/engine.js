@@ -88,7 +88,10 @@ function domainBase(s,d){
 }
 function generate(s,lab,agent){
   const aiMultiplier=agent.role==='AI'?(.35+s.policy.aiAdoption/10):(.65+(10-s.policy.aiAdoption)/22);
-  const chance=(.02+s.policy.generation*.022)*agent.speed*aiMultiplier*
+  // AI agents with higher uncertainty disclosure can abstain instead of
+  // generating a weakly grounded candidate. This is a model assumption.
+  const abstention=agent.role==='AI'?clamp(1-.075*(s.policy.uncertainty-1)*(1-agent.rigour),.47,1):1;
+  const chance=abstention*(.02+s.policy.generation*.022)*agent.speed*aiMultiplier*
     (.6+lab.ai*.6)*(lab.locked?.17:1)*(lab.budget>1?1:.05);
   if(rnd(s)>chance)return;
   const novelty=rnd(s)<(s.policy.diversity/16);
