@@ -24,7 +24,7 @@ const policyDescriptions={
   diversity:['Exploration diversity','Promotes out-of-specialty search'],
   pressure:['Publication pressure','Rewards positive results over careful restraint'],
   network:['Knowledge diffusion','Speed of attention and citation cascades'],
-  uncertainty:['Uncertainty disclosure','Pedagogical control, currently non-causal'],
+  uncertainty:['AI abstention','Higher caution allows uncertain AI agents to hold back weak candidates'],
 };
 const human=n=>Math.round(n).toLocaleString('en-US');
 const nowWorld=()=>worlds[active];
