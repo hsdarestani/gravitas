@@ -560,7 +560,10 @@ function auditPopulation(){
   const s=nowWorld();
   const labs=parseInt($('audit-labs').value,10);
   const prior=$('audit-prior').value;
+  const team=$('audit-team').value.split('-').map(Number);
+  const fraction=Number($('audit-ai-fraction').value);
   const design={...s.design,labsPerDomain:labs,
+    agentsMin:team[0],agentsMax:team[1],aiRoleFraction:fraction,
     truthPriorOverride:prior==='original'?null:Number(prior)};
   if(s.day>0&&!window.confirm('Restart the simulation with new assumptions? This resets both worlds.'))return;
   const seed=s.seed,policy={...s.policy};
@@ -575,7 +578,8 @@ function auditPopulation(){
   chooseWorld(0);
   emit('world_reset',worlds[0],'observe');
   $('audit-design-status').textContent='New explicit assumptions: '+worlds[0].labs.length+
-    ' laboratories; truth prior '+(prior==='original'?'field-specific illustrative rates':(100*Number(prior)).toFixed(0)+'%');
+    ' laboratories; truth prior '+(prior==='original'?'field-specific illustrative rates':(100*Number(prior)).toFixed(0)+'%')+
+    '; AI mix '+Math.round(fraction*100)+'%; team '+team[0]+' to '+team[1];
 }
 async function runSensitivity(){
   const go=$('audit-sensitivity'),out=$('audit-sensitivity-output');
