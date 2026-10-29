@@ -73,7 +73,7 @@ jobs:
             echo "Checking $module"
             node --input-type=module --check < "$module"
           done
-          node --test tests/science-evidence.test.cjs
+          node --test tests/science-evidence.test.cjs tests/science-evidence-integration.test.cjs
 
       - name: Validate deployment configuration
         shell: bash
