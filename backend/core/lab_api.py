@@ -191,7 +191,15 @@ def _serve_file(files, target):
     response['Cache-Control'] = 'no-store'
     response['X-Content-Type-Options'] = 'nosniff'
     response['Referrer-Policy'] = 'no-referrer'
-    response['Cross-Origin-Resource-Policy'] = 'same-origin'
+    # A published Lab runs in an opaque-origin sandbox. Its public CSS/JS
+    # are therefore cross-origin relative to the frame, even though their URLs
+    # share this host. same-origin CORP silently blocks those resources,
+    # leaving an unstyled, non-functional simulation.
+    # Preserve same-origin CORP for HTML/document responses and keep the
+    # CSP sandbox/iframe isolation intact.
+    response['Cross-Origin-Resource-Policy'] = (
+        'cross-origin' if target.endswith(('.css', '.js')) else 'same-origin'
+    )
     # "sandbox" in the HTTP header also applies to direct navigation,
     # unlike an iframe attribute alone. Script execution remains in an opaque origin.
     response['Content-Security-Policy'] = (
