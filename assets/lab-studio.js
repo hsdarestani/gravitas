@@ -265,7 +265,7 @@ window.addEventListener('message',function(e){
     var height=Number(data.height);
     // Ignore malformed or unreasonable dimensions from untrusted Lab code.
     if(!Number.isFinite(height)||height<300||height>12000)return;
-    var next=Math.ceil(height)+3, current=parseInt(iframe.style.height,10)||0;
+    var next=Math.ceil(height), current=parseInt(iframe.style.height,10)||0;
     if(Math.abs(current-next)>3)iframe.style.height=next+'px';
     return;
   }
