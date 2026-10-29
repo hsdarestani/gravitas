@@ -111,18 +111,42 @@ function generate(s,lab,agent){
   agent.produced++;lab.output++;lab.active++;s.hypotheses.push(inquiry);s.stats.generated++;
   if(s.stats.generated%25===1)event(s,'hypothesis_generated',lab.id,lab.name+' proposed '+inquiry.topic,{hypothesisId:inquiry.id});
 }
+/* SCIENCE-MODEL v2 — reference-linked statistical sampling.
+   Known-variance two-sided z-test: Z = sqrt(n) * theta + epsilon, epsilon ~ N(0,1).
+   Standard statistical theory, not a calibrated empirical model of research.
+   User policy-to-n and publication-pressure effects remain explicit assumptions.
+   Ioannidis (2005) 10.1371/journal.pmed.0020124;
+   Simmons et al. (2011) 10.1177/0956797611417632. */
+function standardNormal(s){
+  const u=Math.max(1e-12,rnd(s)),v=rnd(s);
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function normalCDF(x){
+  const a=Math.abs(x),t=1/(1+.2316419*a);
+  const poly=t*(.319381530+t*(-.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));
+  const p=1-Math.exp(-a*a/2)/Math.sqrt(2*Math.PI)*poly;
+  return clamp(x>=0?p:1-p,0,1);
+}
 function statisticalTest(s,h,independent=false){
   const lab=s.labs[h.labId];
-  // Under the null, type-I error is alpha; under an effect the probability
-  // of detection grows with sample size, signal and scientific rigor.
+  // Policy sliders are bounded toy-to-statistical-parameter mappings.
+  // Their numbers are NOT extracted from domain-specific datasets.
   const alpha=clamp(.005*Math.pow(2,s.policy.alpha*.43),.007,.18);
   const n=18+s.policy.sampleSize*16;
   const effectiveN=n*(.75+lab.method*.4)*(independent?(.86+s.policy.replication*.025):1);
-  const signal=h.effect*Math.sqrt(effectiveN)/3.7;
-  const power=clamp(.035+.91*(1-Math.exp(-signal*signal/3)),alpha,.992);
-  const fishing=independent?0:Math.max(0,(s.policy.pressure-5))*.008*(1-s.policy.transparency/13);
-  const prob=h.truth?power:clamp(alpha+fishing,0,.30);
-  return rnd(s)<prob;
+  const z=h.effect*Math.sqrt(effectiveN)+standardNormal(s);
+  const p=clamp(2*(1-normalCDF(Math.abs(z))),0,1);
+  // Under publication pressure the user-defined 'flexibility' mechanism
+  // illustrates selective testing. Prespecified independent replication
+  // always uses one analysis; it is not exempted from type-I error.
+  const extra=independent?0:Math.max(0,Math.floor((s.policy.pressure-5)/2)-
+    Math.floor(s.policy.transparency/5));
+  let best=p;
+  for(let i=0;i<extra;i++){
+    const secondZ=h.effect*Math.sqrt(effectiveN)+standardNormal(s);
+    best=Math.min(best,clamp(2*(1-normalCDF(Math.abs(secondZ))),0,1));
+  }
+  return best<=alpha;
 }
 function processTesting(s){
   for(const h of s.hypotheses){
