@@ -44,6 +44,11 @@ def canonical_read_guard_only(before, after):
 def classify(paths, base=None, head=None):
     scope = 'static'
     for name in paths:
+        # The deployment workflow defines live Nginx/server configuration.
+        # Treat edits to it as a stateful release so production actually
+        # re-renders the configuration rather than rsyncing static files only.
+        if name == '.github/workflows/deploy.yml':
+            return 'stateful'
         path = PurePosixPath(name)
         if name == 'backend/core/canonical_projects.py':
             if not base or not head:
