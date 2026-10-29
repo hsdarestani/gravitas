@@ -23,18 +23,22 @@ EXPECTED = {
     'engine.js': (
         '2b6d9971ef8062ed090e59453145467853e1b449',
         '043cab64a70c8289959388faf2530c8b911abb6b',
+        '5a2fdf34fe6c2597d505542db3b85aa967a20e47',
     ),
     'index.html': (
         '2e73d57d60bfedccfeb68aad3e3c28b663a5367f',
         '7b5efba1196ba6d29b26b434242b57e69ee2de96',
+        'bf9d933fc18d7f75fdbe6b4addc7a86b71f54d91',
     ),
     'app.js': (
         '87b0a516bcd6874d69ddfd97e9cc89c83f0e6ac3',
         '79d1033aabb9db04bb708f091ee96da66e0f4c67',
+        '39582357f5ff293bffbc6b4addc7a86b71f54d91',
     ),
     'styles.css': (
         'd4f36c09c559ed29fd30b20a192dd36562f8569b',
         '4e64baa30b107d8f85fcb97bf01dcf49a6a88087',
+        '1dbc4ba0183045d34bfb23ef5458b1cffd451e57',
     ),
 }
 NAMES = tuple(EXPECTED)
