@@ -92,6 +92,8 @@ These rules are documented in `lab-sources/science-universe/engine.js`. User-fac
 
 The number **12** follows the chosen software design; neither science nor ODD mandates it. If a control cannot be linked to a required mechanism and tested, it should remain optional for teaching or be reconsidered by the scientific owner.
 
+**Removed misleading unused attributes:** Agent `creativity`, laboratory `caution` and an unmaintained laboratory `verified` field previously appeared in initialized state but did not influence research behavior or recorded evidence. They have been removed rather than implying nonexistent dynamics. If those concepts are later reintroduced, they need explicit operational mechanisms, test cases and rationale.
+
 ## 7 · Pulsar's role and provenance
 
 Pulsar is a contextual teacher inside the one Lab through GraviQuest's common public coaching backend. Branded chat, timestamps and device-local history improve continuity; proactive guidance is intentionally limited. Responses may be **live model-generated** or explicitly labeled **scripted fallback**. Model metrics from the browser are not independently authenticated. It must explain assumptions, methods, sources and possible tests, never invent actual experiments or claim that a paper validates chosen coefficients.
