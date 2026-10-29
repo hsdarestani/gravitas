@@ -12,6 +12,7 @@ var speaking=true, controller=null, session=0;
 var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false;
 var tourActive=false, tourIndex=0, tourUI=null;
 var CHAT_KEY='graviquest:pulsar:lab01:history:v1';
+var scienceGuide=window.GraviScienceCoach||null;
 var TOUR_STORAGE='graviquest:science-universe:tour:v1';
 var SCIENCE_TOUR=[
   {target:'overview',title:'Your synthetic science universe',
@@ -33,7 +34,7 @@ var SCIENCE_TOUR=[
    description:'Collaboration and proximity shape citation chances. Citations measure the modeled spread of attention, not scientific validity.',
    task:'Select or move a lab in the network; inspect its agents, published claims and connections.'},
   {target:'fork',title:'Fork a parallel universe',
-   description:'World B copies the exact state and random-generator position of World A. The app then raises World B review and replication policies by three points, capped at ten.',
+   description:'World B copies the exact state and random-generator position of World A. Nothing changes automatically; choose one policy in B to explore its impact.',
    task:'Press Fork universe. Keep track of which rules differ between the two worlds.'},
   {target:'compare',title:'Compare results, not predictions',
    description:'Both worlds advance independently after the fork. Compare live papers, false claims, replications and withdrawals—but do not read one run as a real-world causal estimate.',
@@ -208,6 +209,11 @@ function mountPulsarChat(sidebar){
  if(!chatHistory.length){
    addChat('pulsar','I’m here as your scientific guide. Explore a lab or change one parameter; ask me what the evidence really supports.','guide');
  }
+ if(scienceGuide)scienceGuide.mount(body,form,function(recipe){
+   addChat('user','Run experiment: '+recipe.title,'guide');
+   chat.status.textContent='Comparing two synthetic worlds…';
+   tellIframe('lab:experiment',{id:recipe.id});
+ });
  chatOpen=!matchMedia('(max-width: 1050px)').matches;
  toggle.addEventListener('click',function(){
    chatOpen=!chatOpen;refreshChat();if(chatOpen)input.focus();
@@ -215,7 +221,10 @@ function mountPulsarChat(sidebar){
  form.addEventListener('submit',function(e){
    e.preventDefault();var q=input.value.trim();
    if(!q||chatBusy)return;
-   input.value='';askPulsar(q,'ask');
+   input.value='';
+   var answer=scienceGuide?scienceGuide.navigation(q):'';
+   if(answer){addChat('user',q);addChat('pulsar',answer,'guide');return;}
+   askPulsar(q,'ask');
  });
  refreshChat();
 }
@@ -337,7 +346,8 @@ async function askPulsar(question,event,fallback){
    var res=await fetch('/api/labs/'+encodeURIComponent(labSlug)+'/coach/',{
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
-       metrics:lastMetrics,history:context,locale:document.documentElement.lang||'en'}),
+       metrics:lastMetrics,history:context,context:isChat&&scienceGuide?scienceGuide.context():null,
+       locale:document.documentElement.lang||'en'}),
      signal:controller.signal,credentials:'same-origin'
    });
    if(!res.ok)throw Error('coaching_unavailable');
@@ -368,6 +378,7 @@ function configPanel(container,title){
 function runLab(lab){
   if(!lab||!lab.ready)return;
   tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;chatOpen=false;
+  if(scienceGuide)scienceGuide.reset();
   root.dataset.labSlug = lab.slug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
@@ -500,6 +511,17 @@ window.addEventListener('message',function(e){
     var place=window.scrollY+iframe.getBoundingClientRect().top+offset-
       Math.min(window.innerHeight*.42,355);
     window.scrollTo({top:Math.max(0,place),behavior:'smooth'});
+    return;
+  }
+  if(active.slug==='science-universe'&&data.type==='lab:context'){
+    if(scienceGuide)scienceGuide.context(data.context);
+    return;
+  }
+  if(active.slug==='science-universe'&&data.type==='lab:experiment:result'){
+    var explanation=scienceGuide?scienceGuide.result(data.result):null;
+    if(explanation)addChat('pulsar',explanation,'guide');
+    if(chat)chat.status.textContent=explanation?
+      'Experiment complete · inspect World A/B in the simulator.':'Scenario result unavailable.';
     return;
   }
   if(data.type==='lab:event')reportEvent(data);
