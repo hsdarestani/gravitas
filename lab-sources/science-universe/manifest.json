@@ -1,0 +1,133 @@
+{
+  "slug": "science-universe",
+  "title": "Science Universe — The Discovery Engine",
+  "summary": "Explore an evolving research ecosystem. Change funding, AI adoption, peer review and replication; intervene in individual laboratories and compare parallel worlds.",
+  "description": "A deterministic, synthetic multi-agent simulation with 28 laboratories, more than one hundred research agents, four scientific fields, explicit hypothesis ground truth, stochastic testing, peer review, independent replication, citations and controlled counterfactual forks. Results are illustrative model outcomes, not observed statistics or calibrated predictions.",
+  "duration_text": "15–25 min",
+  "topic_slug": "",
+  "config": {
+    "components": [
+      "stage"
+    ],
+    "pulsar_enabled": true,
+    "auto_coach": true,
+    "learning_goal": "Understand how AI-assisted scientific discovery depends on the whole research workflow, including evidence, false positives, review bottlenecks, independent verification, incentives, corrections and accountability. Distinguish synthetic model outcomes from empirical findings.",
+    "sections": [
+      {
+        "id": "observe",
+        "title": "Observe the ecosystem",
+        "hint": "Start the world. Each circle is a lab with real simulated agents and research projects."
+      },
+      {
+        "id": "discover",
+        "title": "Follow a hypothesis",
+        "hint": "Select a lab. Watch how hypotheses move from tests to peer review."
+      },
+      {
+        "id": "intervene",
+        "title": "Change a policy",
+        "hint": "Open Policies and change research funding, publication pressure or statistical leniency. Change one parameter at a time."
+      },
+      {
+        "id": "verify",
+        "title": "Challenge a finding",
+        "hint": "Select a published claim and request replication. A failed replication does not automatically prove it false."
+      },
+      {
+        "id": "network",
+        "title": "Explore knowledge flows",
+        "hint": "Switch to Knowledge flow and see how attention and collaboration connect laboratories."
+      },
+      {
+        "id": "compare",
+        "title": "Fork two realities",
+        "hint": "Fork World A. World B begins with identical state, then you can alter its policy and compare the resulting model outcomes."
+      },
+      {
+        "id": "reflect",
+        "title": "Interpret cautiously",
+        "hint": "Open Model assumptions. Which conclusions depend on the synthetic rules rather than empirical science?"
+      }
+    ],
+    "guidance": [
+      {
+        "event": "world_started",
+        "section": "observe",
+        "hint": "You're looking at a synthetic research world, not a forecast. Start the clock and follow one lab.",
+        "concept": "Agent-based models explore consequences of explicit rules."
+      },
+      {
+        "event": "hypothesis_generated",
+        "section": "discover",
+        "hint": "A new idea entered testing. An interesting hypothesis is not yet evidence.",
+        "concept": "Generation and validation are different scientific stages."
+      },
+      {
+        "event": "paper_published",
+        "section": "network",
+        "hint": "A paper was accepted, but peer review cannot guarantee that its claim is correct.",
+        "concept": "Publication and truth are not equivalent."
+      },
+      {
+        "event": "review_rejected",
+        "section": "verify",
+        "hint": "Peer review rejected a positive result. The independent check can filter errors but also make mistakes.",
+        "concept": "Review is a fallible selection process."
+      },
+      {
+        "event": "replication_failed",
+        "section": "verify",
+        "hint": "The result did not replicate. That raises questions; it doesn't alone establish fraud or falsity.",
+        "concept": "Power, chance and methods all affect reproducibility."
+      },
+      {
+        "event": "replication_passed",
+        "section": "verify",
+        "hint": "An independent test found supporting evidence. One successful repeat still has limits.",
+        "concept": "Independent verification provides stronger evidence than self-confirmation."
+      },
+      {
+        "event": "paper_retracted",
+        "section": "verify",
+        "hint": "This model withdrew a result after failed repeats. Its retraction rule is intentionally simplified.",
+        "concept": "Retraction decisions are policy-based and should not be interpreted as a universal scientific rule."
+      },
+      {
+        "event": "policy_changed",
+        "section": "intervene",
+        "hint": "You changed a model assumption. Let the system run and check downstream consequences.",
+        "concept": "Counterfactual comparison needs controlled initial conditions."
+      },
+      {
+        "event": "universe_forked",
+        "section": "compare",
+        "hint": "Both worlds share an exact checkpoint. Change one policy in B to explore how outcomes diverge.",
+        "concept": "Branching simulations support controlled model counterfactuals."
+      },
+      {
+        "event": "funding_changed",
+        "section": "intervene",
+        "hint": "One laboratory has more resources. Check whether output, quality and bottlenecks all move together.",
+        "concept": "Local resource allocations propagate through connected systems."
+      },
+      {
+        "event": "replication_requested",
+        "section": "verify",
+        "hint": "An independent repeat was queued. Its outcome will come from another stochastic test.",
+        "concept": "Replication is a test, not an answer supplied by Pulsar."
+      },
+      {
+        "event": "collaboration_changed",
+        "section": "network",
+        "hint": "You repositioned a lab. Its collaboration links were recomputed in the model.",
+        "concept": "Network structure affects how attention spreads."
+      },
+      {
+        "event": "world_reset",
+        "section": "observe",
+        "hint": "The simulation restarted from its seed. Try comparing runs with one altered policy.",
+        "concept": "Seeded stochastic simulations can be reproduced if setup and interventions match."
+      }
+    ]
+  }
+}
