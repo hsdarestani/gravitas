@@ -50,3 +50,32 @@
 @media(max-width:1040px){.lab-runtime-grid{grid-template-columns:minmax(0,1fr)}.lab-assistant{position:static}.lab-frame{height:clamp(330px,65vw,610px)}}
 @media(max-width:600px){.lab-catalog,.lab-runtime{padding:0 var(--g-space-sm) var(--g-space-2xl)}.lab-assistant{padding:var(--g-space-md)}.lab-frame{height:clamp(290px,95vw,480px)}.lab-dynamic-control{grid-template-columns:1fr 1.5fr 2.7rem;gap:var(--g-space-xs)}}
 @media(prefers-reduced-motion:reduce){.lab-catalog-card{transition:none}}
+
+/* Lab 01: immersive multi-agent stage with Pulsar beside the simulator.
+   Other managed Labs retain their existing default frame dimensions. */
+#lab-experiences[data-lab-slug="science-universe"] .lab-runtime{
+  max-width:1600px;
+}
+#lab-experiences[data-lab-slug="science-universe"] .lab-runtime-grid{
+  grid-template-columns:minmax(0,1fr) minmax(270px,.32fr);
+  gap:var(--g-space-md);
+}
+#lab-experiences[data-lab-slug="science-universe"] .lab-frame{
+  height:min(88vh,960px);
+  min-height:700px;
+}
+@media(max-width:1050px){
+  #lab-experiences[data-lab-slug="science-universe"] .lab-runtime-grid{
+    grid-template-columns:1fr;
+  }
+  #lab-experiences[data-lab-slug="science-universe"] .lab-frame{
+    height:790px;
+    min-height:650px;
+  }
+}
+@media(max-width:600px){
+  #lab-experiences[data-lab-slug="science-universe"] .lab-frame{
+    height:750px;
+    min-height:600px;
+  }
+}
