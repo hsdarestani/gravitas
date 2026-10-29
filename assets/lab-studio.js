@@ -367,7 +367,7 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
-  tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;
+  tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;chatOpen=false;
   root.dataset.labSlug = lab.slug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
@@ -422,32 +422,27 @@ function runLab(lab){
         text.textContent=changed.join(' · ')||'No comparable measurements yet.';
       }));
   }
-  var source=node('p','lab-pulsar-source','Pulsar · Lab guide');
-  var title=node('h2','lab-assistant-title','Pulsar');
-  var intro=node('p','lab-assistant-intro','Learn the simulator, explore changes and question the results.');
-  var steps=node('div','lab-guided-steps');
-  var speech=node('p','lab-assistant-line','Make a change or choose a learning step. I will help you understand what it means.');
-  var controlsBar=node('div','lab-assistant-actions');
-  var askInput=node('input','lab-ask-input');
-  askInput.type='text';askInput.maxLength=450;askInput.placeholder='Ask about this experiment';
-  askInput.setAttribute('aria-label','Ask Pulsar about this Lab');
-  var ask=btn('Ask',function(){
-    var q=askInput.value.trim();if(!q)return;
-    askInput.value='';askPulsar(q,'ask');
-  });
-  askInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();ask.click();}});
-  var mute=btn('Pause commentary',function(){
-    speaking=!speaking;mute.textContent=speaking?'Pause commentary':'Resume commentary';
-  });
-  var explain=btn('Explain this state',function(){
-    if(!Object.keys(lastMetrics).length)return;
-    askPulsar('Explain what these reported values may imply, and what to try next.','ask');
-  });
-  controlsBar.append(askInput,ask);
-  if(cfg.pulsar_enabled!==false){
-    sidebar.append(title,intro,source,speech,steps,controlsBar,explain,mute);
+  var source=null,steps=null,speech=null;
+  if(lab.slug==='science-universe'){
+    mountPulsarChat(sidebar);
   }else{
-    sidebar.append(title,node('p','lab-note','Guidance is not enabled for this Lab.'));
+    source=node('p','lab-pulsar-source','Pulsar · Lab guide');
+    var title=node('h2','lab-assistant-title','Pulsar');
+    var intro=node('p','lab-assistant-intro','Learn the simulator, explore changes and question results.');
+    steps=node('div','lab-guided-steps');
+    speech=node('p','lab-assistant-line','Explore this Lab and ask questions.');
+    var controlsBar=node('div','lab-assistant-actions');
+    var askInput=node('input','lab-ask-input');askInput.type='text';askInput.maxLength=450;
+    askInput.placeholder='Ask about this experiment';
+    var ask=btn('Ask',function(){
+      var q=askInput.value.trim();if(!q)return;askInput.value='';askPulsar(q,'ask');
+    });
+    askInput.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){e.preventDefault();ask.click();}
+    });
+    controlsBar.append(askInput,ask);
+    if(cfg.pulsar_enabled!==false)sidebar.append(title,intro,source,speech,steps,controlsBar);
+    else sidebar.append(title,node('p','lab-note','Guidance is not enabled for this Lab.'));
   }
   grid.append(stageCol,sidebar);main.append(grid);root.replaceChildren(main);root.hidden=false;
   shell={line:speech,source:source,steps:steps,metrics:metrics,chart:chart,layers:shellLayerContainer,controls:controls};
