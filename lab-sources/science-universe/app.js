@@ -591,7 +591,8 @@ function auditPopulation(){
   const design={...s.design,labsPerDomain:labs,
     agentsMin:team[0],agentsMax:team[1],aiRoleFraction:fraction,
     truthPriorOverride:prior==='original'?null:Number(prior)};
-  if(s.day>0&&!window.confirm('Restart the simulation with new assumptions? This resets both worlds.'))return;
+  // Explicitly labeled restart action. Sandbox intentionally disallows modal
+  // browser confirm(), so do not depend on a blocked native dialog.
   const seed=s.seed,policy={...s.policy};
   worlds[0]=E.make(seed,policy,design);worlds[1]=null;
   selected[0]=null;selected[1]=null;eventSeen[0].clear();eventSeen[1].clear();
