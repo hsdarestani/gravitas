@@ -695,6 +695,62 @@ function setView(name){
     $('view-'+key).setAttribute('aria-pressed',String(name===key));
   }
 }
+/* Experiment recipes are transparent, authored model interventions, not
+   generated science. The user explicitly chooses to advance both worlds. */
+const GUIDED_EXPERIMENTS={
+ review_bottleneck:{
+   name:'Can review keep up with faster research?',key:'generation',low:3,high:9,
+   rationale:'More attempted hypotheses may increase the review queue if review staffing is fixed.',
+   observe:'Review backlog and publication counts',
+   caution:'The throughput rates and staffing coefficients are uncalibrated assumptions.'
+ },
+ selective_reporting:{
+   name:'What if positive results are rewarded?',key:'pressure',low:3,high:9,
+   rationale:'Selecting a favorable p-value from additional analyses can increase false positives.',
+   observe:'False published claims and published counts',
+   caution:'The number of analyses and publication-pressure response are hypothetical.'
+ },
+ replication_capacity:{
+   name:'What changes when replication is easier?',key:'replication',low:2,high:9,
+   rationale:'More repeat-study capacity can uncover non-replicating publications, but does not prove any claim true.',
+   observe:'Independent replications, withdrawals and queue size',
+   caution:'Replications use synthetic independent normal samples, not real laboratory studies.'
+ }
+};
+function runGuidedExperiment(id){
+  const recipe=GUIDED_EXPERIMENTS[id];
+  if(!recipe||typeof G.experimentResult!=='function')return;
+  play(false);
+  const checkpoint=E.fork(nowWorld());
+  // Both worlds start from exactly the same checkpoint. Only the stated
+  // pre-registered model policy differs; no silent second intervention.
+  const a=E.fork(checkpoint),b=E.fork(checkpoint);
+  E.editPolicy(a,recipe.key,recipe.low);
+  E.editPolicy(b,recipe.key,recipe.high);
+  const beforeA=E.summary(a),beforeB=E.summary(b),days=45;
+  E.step(a,days);E.step(b,days);
+  worlds[0]=a;worlds[1]=b;
+  active=1;compareMode=true;selected[0]=null;selected[1]=null;
+  selectedPaper[0]=null;selectedPaper[1]=null;
+  eventSeen[0].clear();eventSeen[1].clear();
+  $('world-b').disabled=false;$('compare').disabled=false;
+  compare(true);chooseWorld(1);
+  const endA=E.summary(a),endB=E.summary(b);
+  const measure=['generated','tested','published','falsePublished','replicated','retracted',
+    'reviewBacklog','replicationBacklog'];
+  const change=(end,start)=>Object.fromEntries(measure.map(k=>[k,
+    k.endsWith('Backlog')?end[k]:end[k]-start[k]]));
+  const observedA=change(endA,beforeA),observedB=change(endB,beforeB);
+  $('branch-explainer').textContent=recipe.name+' Model changes: '+recipe.key+
+    ' = '+recipe.low+' in A versus '+recipe.high+' in B. '+
+    days+' modeled days from a matched checkpoint. All other policies equal. '+
+    recipe.caution;
+  render();publishContext(true);
+  G.experimentResult({id,name:recipe.name,policy:recipe.key,low:recipe.low,
+    high:recipe.high,days,worldA:observedA,worldB:observedB,
+    rationale:recipe.rationale,observe:recipe.observe,caution:recipe.caution});
+  emit('scenario_completed',b,'compare');
+}
 function bridge(){
   G.register({section:'observe',controls:[
     {key:'generation',label:'Generation speed',min:1,max:10,step:1,value:nowWorld().policy.generation},
@@ -719,6 +775,7 @@ function bridge(){
       show[key]=!!enabled;$('layer-'+key).checked=!!enabled;
     }
   });
+  G.onExperiment(runGuidedExperiment);
   G.onSection(section=>{
     currentSection=section;
     if(section==='verify')setView('papers');
