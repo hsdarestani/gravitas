@@ -288,48 +288,77 @@ function updateMetrics(incoming){
   if(active.config.components.includes('charts'))showChart();
 }
 function reportEvent(data){
-  var ev=String(data.event||'').slice(0,64),section=String(data.section||'').slice(0,64);
-  if(!validKey.test(ev)||section&&!validKey.test(section))return;
-  if(tourActive&&tourUI&&(
-    (SCIENCE_TOUR[tourIndex].target==='policy'&&ev==='policy_changed')||
-    (SCIENCE_TOUR[tourIndex].target==='fork'&&ev==='universe_forked')||
-    (SCIENCE_TOUR[tourIndex].target==='network'&&ev==='collaboration_changed'))){
-    tourUI.status.textContent='Action detected. You can continue to the next step.';
-  }
-  updateMetrics(data.metrics);
-  if(section&&section!==currentSection){currentSection=section;renderSteps();}
-  var lesson=hintFor(ev,currentSection),intro=introFor(currentSection);
-  if(lesson?.hint)feedback(lesson.hint,'script');
-  else if(intro?.hint&&ev==='section')feedback(intro.hint,'script');
-  if(!active.config.pulsar_enabled||!active.config.auto_coach||!speaking)return;
-  if(ev===lastEventKey&&Date.now()-lastEventAt<12000)return;
-  lastEventKey=ev;lastEventAt=Date.now();
-  if(scheduled)clearTimeout(scheduled);
-  // Low-frequency, debounced coaching: not a model invocation per slider tick.
-  scheduled=setTimeout(function(){if(Date.now()-lastCoachAt>=20000)askPulsar('',ev);},1500);
+ var ev=String(data.event||'').slice(0,64),section=String(data.section||'').slice(0,64);
+ if(!validKey.test(ev)||section&&!validKey.test(section))return;
+ if(tourActive&&tourUI&&(
+   (SCIENCE_TOUR[tourIndex].target==='policy'&&ev==='policy_changed')||
+   (SCIENCE_TOUR[tourIndex].target==='fork'&&ev==='universe_forked')||
+   (SCIENCE_TOUR[tourIndex].target==='network'&&ev==='collaboration_changed'))){
+   tourUI.status.textContent='Action detected. Continue when ready.';
+ }
+ updateMetrics(data.metrics);
+ if(section&&section!==currentSection){currentSection=section;renderSteps();}
+ var lesson=hintFor(ev,currentSection),intro=introFor(currentSection);
+ if(active?.slug==='science-universe'){
+   // Important milestones only, at most one unsolicited message per 90s.
+   // No activity ticker, no per-hypothesis/slider message flood.
+   var notable=['policy_changed','universe_forked','replication_failed',
+     'paper_retracted','replication_requested','world_reset','method_improved'];
+   if(!active.config.pulsar_enabled||!active.config.auto_coach||
+      !notable.includes(ev)||chatBusy||Date.now()-lastCoachAt<90000)return;
+   if(ev===lastEventKey&&Date.now()-lastEventAt<90000)return;
+   lastEventKey=ev;lastEventAt=Date.now();
+   askPulsar('',ev,lesson?.hint||intro?.hint||'');
+   return;
+ }
+ if(lesson?.hint)feedback(lesson.hint,'script');
+ else if(intro?.hint&&ev==='section')feedback(intro.hint,'script');
+ if(!active.config.pulsar_enabled||!active.config.auto_coach||!speaking)return;
+ if(ev===lastEventKey&&Date.now()-lastEventAt<12000)return;
+ lastEventKey=ev;lastEventAt=Date.now();
+ if(scheduled)clearTimeout(scheduled);
+ scheduled=setTimeout(function(){if(Date.now()-lastCoachAt>=20000)askPulsar('',ev);},1500);
 }
-async function askPulsar(question,event){
-  if(!active||aiBusy||!active.config.pulsar_enabled)return;
-  aiBusy=true;lastCoachAt=Date.now();
-  if(controller)controller.abort();
-  controller=new AbortController();
-  var which=session,labSlug=active.slug;
-  shell.source.textContent='Pulsar · interpreting';
-  try{
-    var res=await fetch('/api/labs/'+encodeURIComponent(labSlug)+'/coach/',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({event:event||'ask',section:currentSection,question:question||'',
-        metrics:lastMetrics,locale:document.documentElement.lang||'en'}),
-      signal:controller.signal,credentials:'same-origin',
-    });
-    if(!res.ok)throw Error('coaching_unavailable');
-    var result=await res.json();
-    if(which!==session)return;
-    if(result.ok&&result.reply)feedback(result.reply,result.provider==='script'?'script':'ai');
-  }catch(err){
-    if(which!==session||err.name==='AbortError')return;
-    shell.source.textContent='Pulsar · guidance available';
-  }finally{if(which===session)aiBusy=false;}
+async function askPulsar(question,event,fallback){
+ if(!active||aiBusy||!active.config.pulsar_enabled)return;
+ var isChat=active.slug==='science-universe';
+ var q=String(question||'').trim();
+ var context=chatHistory.slice(-8).map(function(m){return {
+   role:m.role,text:m.text.slice(0,210)
+ };});
+ if(isChat&&q)addChat('user',q);
+ aiBusy=true;chatBusy=isChat;lastCoachAt=Date.now();
+ if(isChat&&chat){chat.send.disabled=true;chat.status.textContent='Pulsar is thinking…';}
+ if(controller)controller.abort();
+ controller=new AbortController();
+ var which=session,labSlug=active.slug;
+ if(!isChat&&shell?.source)shell.source.textContent='Pulsar · interpreting';
+ try{
+   var res=await fetch('/api/labs/'+encodeURIComponent(labSlug)+'/coach/',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
+       metrics:lastMetrics,history:context,locale:document.documentElement.lang||'en'}),
+     signal:controller.signal,credentials:'same-origin'
+   });
+   if(!res.ok)throw Error('coaching_unavailable');
+   var result=await res.json();
+   if(which!==session)return;
+   if(result.ok&&result.reply)feedback(result.reply,result.provider==='script'?'script':'ai');
+   else if(fallback)feedback(fallback,'script');
+ }catch(err){
+   if(which!==session||err.name==='AbortError')return;
+   if(isChat)feedback(fallback||
+     'The live model is unavailable. You can still check Model assumptions and the linked research sources.','script');
+   else if(shell?.source)shell.source.textContent='Pulsar · guidance available';
+ }finally{
+   if(which===session){
+     aiBusy=false;chatBusy=false;
+     if(isChat&&chat){
+       chat.send.disabled=false;
+       chat.status.textContent='Saved on this device · simulation outcomes are synthetic';
+     }
+   }
+ }
 }
 function configPanel(container,title){
   var section=node('section','lab-ui-panel');
