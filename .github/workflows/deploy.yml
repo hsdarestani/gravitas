@@ -69,7 +69,7 @@ jobs:
           "$RUNNER_TEMP/gravitas-tests/bin/python" -m django makemigrations core --check --dry-run
           "$RUNNER_TEMP/gravitas-tests/bin/python" -m django check
           shopt -s nullglob
-          for module in assets/ws/*.js; do
+          for module in assets/lab-bridge.js assets/lab-studio.js assets/ws/*.js; do
             echo "Checking $module"
             node --input-type=module --check < "$module"
           done

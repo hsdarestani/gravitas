@@ -29,6 +29,41 @@
         value:Number(x.value)||0,enabled:x.enabled!==false};
     });
   }
+  // The host controls the iframe viewport. Report the document's natural
+  // height so narrow screens can use one page scroll rather than nested scroll.
+  // The iframe remains sandboxed; this message grants no DOM access.
+  var resizePending=false, lastHeight=0;
+  function reportHeight(){
+    resizePending=false;
+    var html=document.documentElement, body=document.body;
+    var height=Math.ceil(Math.max(
+      html ? html.scrollHeight : 0,
+      body ? body.scrollHeight : 0,
+      html ? html.getBoundingClientRect().height : 0
+    ));
+    if(!Number.isFinite(height)||height<1||height===lastHeight)return;
+    lastHeight=height;
+    send('lab:resize',{height:height});
+  }
+  function queueHeight(){
+    if(resizePending)return;
+    resizePending=true;
+    window.requestAnimationFrame(reportHeight);
+  }
+  function startSizeObserver(){
+    queueHeight();
+    if(typeof ResizeObserver==='function'){
+      var observer=new ResizeObserver(queueHeight);
+      observer.observe(document.documentElement);
+      if(document.body)observer.observe(document.body);
+    }
+    window.addEventListener('resize',queueHeight,{passive:true});
+    window.addEventListener('load',queueHeight,{once:true});
+  }
+  if(document.readyState==='loading')
+    document.addEventListener('DOMContentLoaded',startSizeObserver,{once:true});
+  else startSizeObserver();
+
   window.GraviLab={
     register:function(details){
       didRegister=true;
@@ -49,6 +84,7 @@
   window.addEventListener('message',function(e){
     if(e.source!==window.parent)return;
     var data=e.data;if(!data||data.schema!==schema)return;
+    if(data.type==='lab:measure'){lastHeight=0;queueHeight();return;}
     if(data.type==='lab:control'&&validKey.test(String(data.key||''))&&
        typeof data.value==='number'&&Number.isFinite(data.value))
       controlListeners.forEach(function(fn){try{fn({key:data.key,value:data.value});}catch(_){}});
