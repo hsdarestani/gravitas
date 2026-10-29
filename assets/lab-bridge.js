@@ -81,10 +81,46 @@
     onLayer:function(fn){if(typeof fn==='function')layerListeners.push(fn);},
     onSection:function(fn){if(typeof fn==='function')sectionListeners.push(fn);}
   };
+  // Fixed, read-only focus targets: never accept arbitrary selectors from the host.
+  // Only the published Science Universe uses this walkthrough; other Labs unaffected.
+  var tourTargets=Object.freeze({
+    overview:'network-a',play:'play',hypotheses:'hypotheses',policy:'settings',
+    quality:'history-chart',network:'network-a',fork:'fork',
+    compare:'compare',limits:'methodology'
+  });
+  var tourTarget='', highlighted=null;
+  function focusTourTarget(target){
+    if(highlighted){highlighted.classList.remove('gq-lab-tour-highlight');highlighted=null;}
+    tourTarget='';
+    if(location.pathname.indexOf('/lab-run/science-universe/')!==0||target==='off')return;
+    if(!Object.prototype.hasOwnProperty.call(tourTargets,target))return;
+    var chosen=document.getElementById(tourTargets[target]);
+    if(!chosen||!chosen.getClientRects().length)return;
+    if(!document.getElementById('gq-lab-tour-styles')){
+      var style=document.createElement('style');
+      style.id='gq-lab-tour-styles';
+      style.textContent='.gq-lab-tour-highlight{outline:3px solid #e8c78d!important;outline-offset:4px!important;box-shadow:0 0 0 6px rgba(232,199,141,.15)!important;}';
+      document.head.append(style);
+    }
+    tourTarget=target;highlighted=chosen;
+    chosen.classList.add('gq-lab-tour-highlight');
+    chosen.scrollIntoView({block:'center',behavior:'smooth'});
+    requestAnimationFrame(function(){
+      if(tourTarget!==target)return;
+      var rect=chosen.getBoundingClientRect();
+      send('lab:tutorial:position',{target:target,top:Math.max(0,rect.top+window.scrollY)});
+    });
+  }
+  document.addEventListener('click',function(event){
+    if(!tourTarget||!highlighted)return;
+    if(highlighted===event.target||highlighted.contains(event.target))
+      send('lab:tutorial:done',{target:tourTarget});
+  },true);
   window.addEventListener('message',function(e){
     if(e.source!==window.parent)return;
     var data=e.data;if(!data||data.schema!==schema)return;
     if(data.type==='lab:measure'){lastHeight=0;queueHeight();return;}
+    if(data.type==='lab:tutorial'){focusTourTarget(String(data.target||''));return;}
     if(data.type==='lab:control'&&validKey.test(String(data.key||''))&&
        typeof data.value==='number'&&Number.isFinite(data.value))
       controlListeners.forEach(function(fn){try{fn({key:data.key,value:data.value});}catch(_){}});

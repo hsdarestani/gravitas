@@ -181,7 +181,7 @@ def _serve_file(files, target):
     content_type = mimetypes.guess_type(target)[0] or 'text/plain'
     source = row.get('content') or ''
     if target == 'index.html':
-        bridge = '<script src="/assets/lab-bridge.js"></script>'
+        bridge = '<script src="/assets/lab-bridge.js?v=20261029-tour1"></script>'
         if re.search(r'<head(?:\s[^>]*)?>', source, re.IGNORECASE):
             source = re.sub(r'(<head(?:\s[^>]*)?>)', lambda match: match.group(1) + bridge,
                             source, count=1, flags=re.IGNORECASE)

@@ -79,3 +79,35 @@
     min-height:600px;
   }
 }
+
+/* Science Universe teaching tour: stays visible as controls come into view.
+   It does not replace or hide any simulator parameter. */
+#lab-experiences[data-lab-slug="science-universe"] .lab-tour[hidden]{display:none}
+#lab-experiences[data-lab-slug="science-universe"] .lab-tour{
+  position:sticky;top:calc(var(--gh-control,64px) + .6rem);z-index:9;
+  display:grid;gap:10px;padding:18px 20px;margin-bottom:var(--g-space-md);
+  background:color-mix(in srgb,var(--g-surface) 96%,#122e43);
+  color:var(--g-text);border:1px solid var(--g-accent);
+  border-radius:var(--g-radius-lg);
+  box-shadow:0 12px 36px rgba(0,0,0,.26);
+}
+.lab-tour-head,.lab-tour-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.lab-tour-kicker{font:600 .7rem var(--g-font-mono);letter-spacing:.1em;color:var(--g-accent)}
+.lab-tour-progress{width:100%;height:5px;accent-color:var(--g-accent)}
+.lab-tour-title{font:600 clamp(1.05rem,2vw,1.4rem)/1.25 var(--g-font);margin:0}
+.lab-tour-description{font-size:.88rem;line-height:1.5;margin:0}
+.lab-tour-task{font-size:.84rem;line-height:1.5;margin:0;color:var(--g-text-muted)}
+.lab-tour-status{font-size:.74rem;margin:0;color:var(--g-accent)}
+.lab-tour-actions .g-btn{flex:0 1 auto}
+.lab-tour-launch{white-space:nowrap}
+@media(max-width:600px){
+  #lab-experiences[data-lab-slug="science-universe"] .lab-tour{
+    padding:12px;gap:7px;top:calc(var(--gh-control,64px) + .25rem);
+  }
+  .lab-tour-description,.lab-tour-task{font-size:.79rem;line-height:1.4}
+  .lab-tour-actions{justify-content:stretch}
+  .lab-tour-actions .g-btn{flex:1 1 25%;padding:8px 7px;font-size:.76rem}
+}
+@media(prefers-reduced-motion:reduce){
+  #lab-experiences[data-lab-slug="science-universe"] .lab-tour{scroll-behavior:auto}
+}

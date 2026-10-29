@@ -9,6 +9,101 @@ var protocol='graviquest.lab.v1', validKey=/^[a-z][a-z0-9_-]{0,63}$/;
 var iframe=null, active=null, shell=null, currentSection='', lastMetrics={}, metricHistory={};
 var lastCoachAt=0, scheduled=null, lastEventKey='', lastEventAt=0, aiBusy=false;
 var speaking=true, controller=null, session=0;
+var tourActive=false, tourIndex=0, tourUI=null;
+var TOUR_STORAGE='graviquest:science-universe:tour:v1';
+var SCIENCE_TOUR=[
+  {target:'overview',title:'Your synthetic science universe',
+   description:'Twenty-eight laboratories span biology, climate, physics and materials. Nodes are laboratories; connecting lines represent modeled collaboration.',
+   task:'Look at the research network. Select a laboratory to inspect its own researchers and budget.'},
+  {target:'play',title:'Time runs the research process',
+   description:'The agents are simulated humans and AI roles following mathematical rules. Each model day can generate, test, review and publish hypotheses.',
+   task:'Press Play, or advance 10 days, then watch the counters change.'},
+  {target:'hypotheses',title:'An idea is not a discovery',
+   description:'The engine gives each synthetic hypothesis a hidden truth value. Studies can produce false positives or fail to detect real effects.',
+   task:'Compare the hypothesis count with published papers and replications.'},
+  {target:'policy',title:'Change the rules, not the answers',
+   description:'Twelve policy sliders control rates and incentives. A higher review setting changes review capacity and rigor; it does not make every paper true.',
+   task:'Open Policies and change one slider, such as Peer review capacity.'},
+  {target:'quality',title:'Evidence must survive criticism',
+   description:'Papers pass modeled review, but can still be wrong. Independent replication may support them or lead to withdrawal.',
+   task:'Inspect the outcomes chart and Scientific event stream below it.'},
+  {target:'network',title:'Attention is different from truth',
+   description:'Collaboration and proximity shape citation chances. Citations measure the modeled spread of attention, not scientific validity.',
+   task:'Select or move a lab in the network; inspect its agents, published claims and connections.'},
+  {target:'fork',title:'Fork a parallel universe',
+   description:'World B copies the exact state and random-generator position of World A. The app then raises World B review and replication policies by three points, capped at ten.',
+   task:'Press Fork universe. Keep track of which rules differ between the two worlds.'},
+  {target:'compare',title:'Compare results, not predictions',
+   description:'Both worlds advance independently after the fork. Compare live papers, false claims, replications and withdrawals—but do not read one run as a real-world causal estimate.',
+   task:'Advance both worlds and inspect the Parallel realities comparison.'},
+  {target:'limits',title:'Know what the model cannot claim',
+   description:'This is a deterministic-seed, stochastic and entirely synthetic teaching model. Its base rates and other parameters are assumptions, not measurements of real research.',
+   task:'Open Model assumptions for the scientific limitations, then explore freely.'}
+];
+function tourSeen(){
+  try{return localStorage.getItem(TOUR_STORAGE)==='done';}catch(_){return false;}
+}
+function markTourSeen(){
+  try{localStorage.setItem(TOUR_STORAGE,'done');}catch(_){}
+}
+function focusTour(){
+  if(!tourActive||!active||active.slug!=='science-universe')return;
+  tellIframe('lab:tutorial',{target:SCIENCE_TOUR[tourIndex].target});
+}
+function renderTour(){
+  if(!tourActive||!tourUI)return;
+  var step=SCIENCE_TOUR[tourIndex];
+  tourUI.count.textContent='STEP '+(tourIndex+1)+' / '+SCIENCE_TOUR.length;
+  tourUI.progress.value=tourIndex+1;
+  tourUI.title.textContent=step.title;
+  tourUI.description.textContent=step.description;
+  tourUI.task.textContent=step.task;
+  tourUI.status.textContent='Try the highlighted control, or continue when ready.';
+  tourUI.previous.disabled=tourIndex===0;
+  tourUI.next.textContent=tourIndex===SCIENCE_TOUR.length-1?'Finish tour':'Next step';
+  focusTour();
+}
+function startTour(){
+  if(!tourUI||!active||active.slug!=='science-universe')return;
+  tourActive=true;tourIndex=0;
+  tourUI.card.hidden=false;renderTour();
+}
+function finishTour(){
+  tourActive=false;markTourSeen();
+  tellIframe('lab:tutorial',{target:'off'});
+  if(tourUI){tourUI.card.hidden=true;tourUI.launch.focus();}
+}
+function makeTourUI(main,bar){
+  var launch=btn('Guided tour',startTour,'lab-tour-launch');
+  bar.append(launch);
+  var card=node('section','lab-tour');
+  card.hidden=true;card.setAttribute('aria-label','Science Universe guided tour');
+  var head=node('div','lab-tour-head');
+  var count=node('span','lab-tour-kicker','STEP 1 / 9');
+  var skip=btn('Skip tour',finishTour,'lab-tour-skip');
+  head.append(count,skip);
+  var progress=node('progress','lab-tour-progress');
+  progress.max=SCIENCE_TOUR.length;progress.value=1;
+  progress.setAttribute('aria-label','Tutorial progress');
+  var title=node('h2','lab-tour-title');
+  var description=node('p','lab-tour-description');
+  var task=node('p','lab-tour-task');
+  var status=node('p','lab-tour-status');
+  status.setAttribute('aria-live','polite');
+  var actions=node('div','lab-tour-actions');
+  var previous=btn('Previous',function(){if(tourIndex>0){tourIndex--;renderTour();}},'lab-tour-prev');
+  var show=btn('Show control',focusTour,'lab-tour-focus');
+  var next=btn('Next step',function(){
+    if(tourIndex<SCIENCE_TOUR.length-1){tourIndex++;renderTour();}
+    else finishTour();
+  },'lab-tour-next');
+  actions.append(previous,show,next);
+  card.append(head,progress,title,description,task,status,actions);
+  main.append(card);
+  tourUI={card:card,launch:launch,count:count,progress:progress,title:title,
+    description:description,task:task,status:status,previous:previous,next:next};
+}
+
 function node(tag,cls,content){
   var n=document.createElement(tag);if(cls)n.className=cls;
   if(content!==undefined)n.textContent=String(content);return n;
@@ -106,6 +201,12 @@ function updateMetrics(incoming){
 function reportEvent(data){
   var ev=String(data.event||'').slice(0,64),section=String(data.section||'').slice(0,64);
   if(!validKey.test(ev)||section&&!validKey.test(section))return;
+  if(tourActive&&tourUI&&(
+    (SCIENCE_TOUR[tourIndex].target==='policy'&&ev==='policy_changed')||
+    (SCIENCE_TOUR[tourIndex].target==='fork'&&ev==='universe_forked')||
+    (SCIENCE_TOUR[tourIndex].target==='network'&&ev==='collaboration_changed'))){
+    tourUI.status.textContent='Action detected. You can continue to the next step.';
+  }
   updateMetrics(data.metrics);
   if(section&&section!==currentSection){currentSection=section;renderSteps();}
   var lesson=hintFor(ev,currentSection),intro=introFor(currentSection);
@@ -148,6 +249,7 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
+  tourActive=false;tourUI=null;
   root.dataset.labSlug = lab.slug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
@@ -164,13 +266,14 @@ function runLab(lab){
     bar.append(link);
   }
   main.append(bar);
+  if(lab.slug==='science-universe')makeTourUI(main,bar);
   if(lab.summary)main.append(node('p','lab-runtime-summary',lab.summary));
   var grid=node('div','lab-runtime-grid'),stageCol=node('div','lab-stage-column'),sidebar=node('aside','lab-assistant');
   var canvas=node('div','lab-frame-wrap');
   iframe=node('iframe','lab-frame');iframe.title=lab.title+' · simulation';
   iframe.sandbox='allow-scripts';iframe.referrerPolicy='no-referrer';
   iframe.src=lab.run_url;
-  iframe.addEventListener('load',adjustFrameForViewport);
+  iframe.addEventListener('load',function(){adjustFrameForViewport();focusTour();});
   canvas.append(iframe);stageCol.append(canvas);
   var controls=null,metrics=null,chart=null;
   if(cfg.components.includes('controls'))controls=configPanel(stageCol,'Parameters');
@@ -235,9 +338,12 @@ function runLab(lab){
     feedback(cfg.sections[0].hint,'script');
   }
   if(metrics)showMetrics();
+  if(lab.slug==='science-universe'&&!tourSeen())startTour();
 }
 var shellLayerContainer=null;
 function showCatalog(){
+  if(tourActive)tellIframe('lab:tutorial',{target:'off'});
+  tourActive=false;tourUI=null;
   delete root.dataset.labSlug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=null;iframe=null;shell=null;
@@ -267,6 +373,20 @@ window.addEventListener('message',function(e){
     if(!Number.isFinite(height)||height<300||height>12000)return;
     var next=Math.ceil(height), current=parseInt(iframe.style.height,10)||0;
     if(Math.abs(current-next)>3)iframe.style.height=next+'px';
+    return;
+  }
+  if(data.type==='lab:tutorial:done'){
+    if(tourActive&&tourUI&&data.target===SCIENCE_TOUR[tourIndex].target)
+      tourUI.status.textContent='Action detected. Continue when ready.';
+    return;
+  }
+  if(data.type==='lab:tutorial:position'){
+    if(!tourActive||!mobileLabFrame()||data.target!==SCIENCE_TOUR[tourIndex].target)return;
+    var offset=Number(data.top);
+    if(!Number.isFinite(offset)||offset<0||offset>12000)return;
+    var place=window.scrollY+iframe.getBoundingClientRect().top+offset-
+      Math.min(window.innerHeight*.42,355);
+    window.scrollTo({top:Math.max(0,place),behavior:'smooth'});
     return;
   }
   if(data.type==='lab:event')reportEvent(data);
