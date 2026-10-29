@@ -220,3 +220,36 @@ canvas[id^=network-]{display:block;width:100%;height:100%;min-height:390px;touch
 .science-sources li{font-size:.89rem;line-height:1.5}
 .science-sources a{color:#e5c591;text-decoration:underline}
 .science-sources small{display:block;color:#aabfc7;font-size:.73rem;margin-top:3px}
+
+/* Lab 01 model rationale — scientific transparency without crowding the main UI. */
+.model-audit{border-top:1px solid rgba(197,215,224,.23);margin-top:25px;padding-top:24px}
+.audit-intro h3{font-size:1.25rem;margin:8px 0}
+.audit-intro p,.audit-setup p,.audit-explanation{line-height:1.55}
+.audit-setup{display:grid;gap:12px;background:rgba(114,163,183,.07);
+ border:1px solid rgba(165,208,216,.18);padding:18px;border-radius:15px;margin:20px 0}
+.audit-setup h4{margin:0 0 5px;font-size:1rem}
+.audit-setup label{display:grid;gap:5px;font-size:.82rem}
+.audit-setup select{min-height:40px;min-width:0;width:100%;
+ border:1px solid rgba(184,210,218,.28);border-radius:8px;
+ padding:8px;background:#092a3b;color:#eff5f5;font:inherit}
+.audit-setup button{justify-self:start;max-width:100%}
+.audit-results{display:block;white-space:pre-wrap;overflow-wrap:anywhere;
+ font: .73rem/1.65 ui-monospace,monospace;
+ border:1px solid rgba(184,210,218,.18);border-radius:9px;
+ padding:10px;color:#b6d5dc}
+.audit-group{border:1px solid rgba(189,209,221,.22);border-radius:12px;margin:8px 0}
+.audit-group-title{padding:13px 15px;cursor:pointer;font-size:.87rem;font-weight:650}
+.audit-group[open]>.audit-group-title{border-bottom:1px solid rgba(189,209,221,.18)}
+.audit-decision{padding:13px 16px;border-bottom:1px solid rgba(189,209,221,.12)}
+.audit-decision:last-child{border-bottom:0}
+.audit-decision h4{font-size:.94rem;margin:0 0 4px}
+.audit-status{font:.68rem/1.5 ui-monospace,monospace;color:#e5c591;
+ letter-spacing:.02em;margin:0 0 11px}
+.audit-explanation{font-size:.78rem;margin:5px 0;color:#c4d2d8}
+.audit-explanation strong{color:#f4f7f6}
+.audit-evidence-link{display:inline-block;margin-top:8px;font-size:.76rem;
+ color:#e5c591;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:560px){
+  .audit-setup{padding:12px}
+  .audit-decision{padding:10px 12px}
+}
