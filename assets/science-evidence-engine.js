@@ -52,6 +52,9 @@
       if(!Number.isFinite(v)||v<lo||v>hi||(integer&&!Number.isInteger(v)))throw Error('invalid_'+key);
       return v;
     }
+    var workload=num('baseCandidates',4,1,30,true)*num('aiMultiplier',2.5,1,5)*
+      num('days',60,5,365,true)*num('runs',120,10,400,true);
+    if(workload>250000)throw Error('computation_budget_exceeded');
     return {
       truthPrior:num('truthPrior',.15,0,1),
       effect:num('effect',.4,0,2),
