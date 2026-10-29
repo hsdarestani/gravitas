@@ -398,7 +398,7 @@ function bridge(){
       show[key]=!!enabled;$('layer-'+key).checked=!!enabled;
     }
   });
-  G.onSection(section)=>{
+  G.onSection(section=>{
     currentSection=section;
     if(section==='verify')setView('papers');
     if(section==='network')setView('labs');
