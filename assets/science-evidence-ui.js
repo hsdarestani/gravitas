@@ -3,6 +3,32 @@
 const E=window.GraviScienceBench;
 if(!E){document.body.textContent='Scientific engine failed to load.';return;}
 const $=id=>document.getElementById(id);
+const embedded=new URLSearchParams(location.search).get('embed')==='1';
+if(embedded)document.documentElement.classList.add('embed');
+let heightQueued=false,lastSentHeight=0;
+function updateHostHeight(){
+ if(!embedded||window.parent===window)return;
+ if(heightQueued)return;heightQueued=true;
+ requestAnimationFrame(function(){
+  heightQueued=false;
+  var content=document.querySelector('main');
+  if(!content)return;
+  var height=Math.ceil(content.getBoundingClientRect().height)+8;
+  if(height<1||Math.abs(height-lastSentHeight)<=3)return;
+  lastSentHeight=height;
+  window.parent.postMessage({type:'science-bench:resize',height:height},location.origin);
+ });
+}
+if(embedded){
+ if(typeof ResizeObserver==='function'){
+  var sizeObserver=new ResizeObserver(updateHostHeight);
+  var observed=document.querySelector('main');
+  if(observed)sizeObserver.observe(observed);
+ }
+ window.addEventListener('load',updateHostHeight,{once:true});
+ window.addEventListener('resize',updateHostHeight,{passive:true});
+ updateHostHeight();
+}
 let last=null;
 const labels={baseline:'Baseline',ai:'AI · speed only',rigor:'AI · scaled validation',flexibility:'AI · flexible analyses',corrected:'AI · Bonferroni corrected'};
 const ids=Object.keys(labels);
@@ -62,7 +88,7 @@ function render(report){
    const small=document.createElement('small');small.textContent=label;
    card.append(strong,small);primary.append(card);
  }
- primary.hidden=false;$('csv').disabled=false;
+ primary.hidden=false;$('csv').disabled=false;updateHostHeight();
  $('execution').textContent=report.parameters.runs+' paired simulation runs, '+report.parameters.days+' days each. The same random seed set was used across scenarios.';
 }
 function exportCSV(report){
