@@ -701,7 +701,7 @@ jobs:
             ./backend/ "$DEPLOY_USER@$HOST:$BACKEND_PATH/"
 
           # Keep draft source OUTSIDE the public Nginx document root.
-          rsync -az --rsync-path='sudo rsync' \
+          rsync -az --mkpath --rsync-path='sudo rsync' \
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
             ./lab-sources/science-universe/ \
             "$DEPLOY_USER@$HOST:$BACKEND_PATH/lab-sources/science-universe/"
