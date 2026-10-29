@@ -32,7 +32,7 @@ EXPECTED = {
     'app.js': (
         '87b0a516bcd6874d69ddfd97e9cc89c83f0e6ac3',
         '79d1033aabb9db04bb708f091ee96da66e0f4c67',
-        '39582357f5ff293bffbc6b4addc7a86b71f54d91',
+        '39582357f5ff293bffbc6bdf4b5ec84699884c7b',
     ),
     'styles.css': (
         'd4f36c09c559ed29fd30b20a192dd36562f8569b',
