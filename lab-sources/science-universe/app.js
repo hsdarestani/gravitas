@@ -53,6 +53,11 @@ function reset(){
   selected[active]=null;eventSeen[active].clear();
   play(false);render();emit('world_reset',nowWorld(),'observe');
 }
+function arrangeCanvases(){
+  $('canvas-holder-a').hidden=!compareMode&&active===1;
+  $('canvas-holder-b').hidden=!compareMode&&active===0;
+  $('canvases').classList.toggle('split',compareMode);
+}
 function chooseWorld(index){
   if(index===1&&!worlds[1])return;
   active=index;
@@ -62,13 +67,12 @@ function chooseWorld(index){
     b.setAttribute('aria-pressed',String(i===index));
   }
   $('policy-world').textContent='EDITING WORLD '+(index?'B':'A');
-  renderPolicies();render();
+  arrangeCanvases();renderPolicies();render();
 }
 function compare(on){
   if(on&&!worlds[1])return;
   compareMode=!!on;
-  $('canvas-holder-b').hidden=!compareMode;
-  $('canvases').classList.toggle('split',compareMode);
+  arrangeCanvases();
   $('comparison').hidden=!compareMode;
   $('compare').textContent=compareMode?'◉ Comparison active':'Compare realities';
   $('compare').classList.toggle('active',compareMode);
