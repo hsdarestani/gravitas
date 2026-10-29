@@ -9,8 +9,9 @@ var protocol='graviquest.lab.v1', validKey=/^[a-z][a-z0-9_-]{0,63}$/;
 var iframe=null, active=null, shell=null, currentSection='', lastMetrics={}, metricHistory={};
 var lastCoachAt=0, scheduled=null, lastEventKey='', lastEventAt=0, aiBusy=false;
 var speaking=true, controller=null, session=0;
-var evidenceFrame=null;
+var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false;
 var tourActive=false, tourIndex=0, tourUI=null;
+var CHAT_KEY='graviquest:pulsar:lab01:history:v1';
 var TOUR_STORAGE='graviquest:science-universe:tour:v1';
 var SCIENCE_TOUR=[
   {target:'overview',title:'Your synthetic science universe',
@@ -250,7 +251,7 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
-  tourActive=false;tourUI=null;evidenceFrame=null;
+  tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;
   root.dataset.labSlug = lab.slug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
@@ -267,64 +268,8 @@ function runLab(lab){
     bar.append(link);
   }
   main.append(bar);
-  var simulationRegion=main, validationRegion=null, selectMode=null;
-  if(lab.slug==='science-universe'){
-    simulationRegion=node('section','lab-mode-simulation');
-    validationRegion=node('section','lab-mode-validation');
-    validationRegion.hidden=true;
-    var tabs=node('div','lab-mode-tabs');
-    tabs.setAttribute('role','tablist');
-    tabs.setAttribute('aria-label','Science Universe modes');
-    var simTab=btn('Science Universe · Simulator',function(){selectMode('simulator',true);},'lab-mode-tab');
-    var valTab=btn('Scientific validation · Evidence Bench',function(){selectMode('validation',true);},'lab-mode-tab');
-    simTab.type=valTab.type='button';
-    simTab.setAttribute('role','tab');valTab.setAttribute('role','tab');
-    simTab.setAttribute('aria-controls','lab-simulator-panel');
-    valTab.setAttribute('aria-controls','lab-validation-panel');
-    simulationRegion.id='lab-simulator-panel';validationRegion.id='lab-validation-panel';
-    simulationRegion.setAttribute('role','tabpanel');validationRegion.setAttribute('role','tabpanel');
-    tabs.append(simTab,valTab);
-    var validationLead=node('div','lab-validation-lead');
-    validationLead.append(
-      node('span','lab-card-kicker','LAB 01 · SCIENTIFIC VALIDATION'),
-      node('h2','lab-validation-title','Test the evidence behind the simulation'),
-      node('p','lab-note','Run repeatable statistical experiments without leaving this Lab. The original 28-laboratory universe remains intact; statistical results are theory-grounded but not yet calibrated to real research.')
-    );
-    var benchFrame=node('iframe','lab-evidence-frame');
-    benchFrame.title='Scientific Evidence Bench: hypothesis testing and independent replication';
-    benchFrame.loading='lazy';benchFrame.referrerPolicy='same-origin';
-    evidenceFrame=benchFrame;
-    validationRegion.append(validationLead,benchFrame);
-    main.append(tabs,simulationRegion,validationRegion);
-    selectMode=function(mode,updateURL){
-      var isValidation=mode==='validation';
-      simulationRegion.hidden=isValidation;validationRegion.hidden=!isValidation;
-      simTab.setAttribute('aria-selected',String(!isValidation));
-      valTab.setAttribute('aria-selected',String(isValidation));
-      simTab.tabIndex=isValidation?-1:0;valTab.tabIndex=isValidation?0:-1;
-      simTab.classList.toggle('active',!isValidation);
-      valTab.classList.toggle('active',isValidation);
-      if(isValidation&&benchFrame.dataset.loaded!=='1'){
-        benchFrame.dataset.loaded='1';
-        benchFrame.src='/science-evidence.html?embed=1';
-      }
-      if(updateURL){
-        var url=new URL(location.href);
-        if(isValidation)url.searchParams.set('view','validation');
-        else url.searchParams.delete('view');
-        history.replaceState(history.state,'',url.pathname+url.search+url.hash);
-      }
-      if(!isValidation)adjustFrameForViewport();
-    };
-    tabs.addEventListener('keydown',function(e){
-      if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
-      e.preventDefault();
-      var next=valTab.getAttribute('aria-selected')==='true'?simTab:valTab;
-      next.click();next.focus();
-    });
-  }
-  if(lab.slug==='science-universe')makeTourUI(simulationRegion,bar);
-  if(lab.summary)simulationRegion.append(node('p','lab-runtime-summary',lab.summary));
+  if(lab.slug==='science-universe')makeTourUI(main,bar);
+  if(lab.summary)main.append(node('p','lab-runtime-summary',lab.summary));
   var grid=node('div','lab-runtime-grid'),stageCol=node('div','lab-stage-column'),sidebar=node('aside','lab-assistant');
   var canvas=node('div','lab-frame-wrap');
   iframe=node('iframe','lab-frame');iframe.title=lab.title+' · simulation';
@@ -388,23 +333,19 @@ function runLab(lab){
   }else{
     sidebar.append(title,node('p','lab-note','Guidance is not enabled for this Lab.'));
   }
-  grid.append(stageCol,sidebar);simulationRegion.append(grid);root.replaceChildren(main);root.hidden=false;
+  grid.append(stageCol,sidebar);main.append(grid);root.replaceChildren(main);root.hidden=false;
   shell={line:speech,source:source,steps:steps,metrics:metrics,chart:chart,layers:shellLayerContainer,controls:controls};
   if(steps&&cfg.sections?.length){
     currentSection=cfg.sections[0].id;renderSteps();
     feedback(cfg.sections[0].hint,'script');
   }
   if(metrics)showMetrics();
-  if(lab.slug==='science-universe'){
-    var requestedMode=new URLSearchParams(location.search).get('view');
-    selectMode(requestedMode==='validation'?'validation':'simulator',false);
-    if(requestedMode!=='validation'&&!tourSeen())startTour();
-  }
+  if(lab.slug==='science-universe'&&!tourSeen())startTour();
 }
 var shellLayerContainer=null;
 function showCatalog(){
   if(tourActive)tellIframe('lab:tutorial',{target:'off'});
-  tourActive=false;tourUI=null;evidenceFrame=null;
+  tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;
   delete root.dataset.labSlug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=null;iframe=null;shell=null;
@@ -424,18 +365,6 @@ function showCatalog(){
   });
   catalog.append(head,cards);root.replaceChildren(catalog);root.hidden=false;
 }
-// Same-origin, first-party benchmark height messages. The untrusted simulator
-// remains in a separate opaque-origin sandbox and cannot send this message.
-window.addEventListener('message',function(e){
-  if(!active||active.slug!=='science-universe'||!evidenceFrame||
-     e.source!==evidenceFrame.contentWindow||e.origin!==location.origin)return;
-  var data=e.data;
-  if(!data||data.type!=='science-bench:resize')return;
-  var height=Number(data.height);
-  if(!Number.isFinite(height)||height<300||height>15000)return;
-  var next=Math.ceil(height),current=parseInt(evidenceFrame.style.height,10)||0;
-  if(Math.abs(next-current)>4)evidenceFrame.style.height=next+'px';
-});
 window.addEventListener('message',function(e){
   if(!active||!iframe||e.source!==iframe.contentWindow||e.origin!=='null')return;
   var data=e.data;if(!data||data.schema!==protocol||typeof data.type!=='string')return;
