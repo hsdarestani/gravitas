@@ -39,3 +39,28 @@ test('same normal CDF as reference statistical distribution',()=>{
  assert.ok(Math.abs(E.normalCDF(0)-.5)<1e-6);
  assert.ok(Math.abs(E.normalCDF(1.96)-.975)<.00005);
 });
+
+test('lab counts and AI roles are adjustable',()=>{
+  const a=E.make(120,{}, {labsPerDomain:3,aiRoleFraction:0});
+  const b=E.make(120,{}, {labsPerDomain:14,aiRoleFraction:1});
+  assert.equal(a.labs.length,12);
+  assert.equal(b.labs.length,56);
+  assert.ok(a.agents.every(x=>x.role==='Human'));
+  assert.ok(b.agents.every(x=>x.role==='AI'));
+});
+test('a review decision depends on evidence, not hidden truth',()=>{
+  for(let seed=1;seed<=36;seed++){
+    const a=E.make(seed);
+    const h={id:999999,labId:0,status:'review',truth:true,
+      documentedQuality:.42,registeredPlan:false,analyses:2,
+      effect:.4,tested:true,significant:true,pValue:.03,
+      retracted:false,replications:0,failedReplications:0,citations:0};
+    a.hypotheses.push(h);
+    a.queues.review.push(h.id);
+    const b=E.fork(a);
+    b.hypotheses[b.hypotheses.length-1].truth=false;
+    E.step(a,1);E.step(b,1);
+    assert.equal(a.hypotheses.find(x=>x.id===999999).status,
+                 b.hypotheses.find(x=>x.id===999999).status);
+  }
+});
