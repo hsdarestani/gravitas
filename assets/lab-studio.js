@@ -139,6 +139,7 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
+  root.dataset.labSlug = lab.slug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
   metricHistory={};lastMetrics={};speaking=true;aiBusy=false;
@@ -226,6 +227,7 @@ function runLab(lab){
 }
 var shellLayerContainer=null;
 function showCatalog(){
+  delete root.dataset.labSlug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=null;iframe=null;shell=null;
   var catalog=node('section','lab-catalog');
