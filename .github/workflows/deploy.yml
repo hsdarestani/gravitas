@@ -741,11 +741,11 @@ jobs:
 
           # Install Science Universe ONLY as a private, idempotent Lab Studio draft.
           # No existing editor changes are overwritten; deployment never publishes it.
-          if [ -f "$DEPLOY_PATH/lab-sources/science-universe/manifest.json" ]; then
+          if [ -f "/var/www/gravitas/lab-sources/science-universe/manifest.json" ]; then
             sudo -u gravitas env "${DJANGO_ENV[@]}" \
               "$BACKEND_PATH/.venv/bin/django-admin" install_science_universe_lab \
               --apply --auto-owner \
-              --source "$DEPLOY_PATH/lab-sources/science-universe"
+              --source "/var/www/gravitas/lab-sources/science-universe"
           fi
           sudo systemctl daemon-reload
           # Only the first rollout of the new worker profile needs one hard
