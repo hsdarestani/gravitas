@@ -112,42 +112,96 @@
   #lab-experiences[data-lab-slug="science-universe"] .lab-tour{scroll-behavior:auto}
 }
 
-/* Integrated Science Universe scientific validation — same Lab URL, no navigation. */
-#lab-experiences[data-lab-slug="science-universe"] .lab-mode-tabs{
- display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 20px;
- padding:7px;background:var(--g-surface-sunken);border:1px solid var(--g-border);
- border-radius:var(--g-radius-lg);
+
+/* Single Science Universe · Pulsar companion, same brand mark as shared chat */
+#lab-experiences[data-lab-slug="science-universe"] .lab-pulsar-widget{
+ align-self:start;min-width:0;padding:0;position:sticky;top:calc(var(--gh-control,64px) + 14px);
+ background:transparent;border:none;box-shadow:none;display:block;z-index:10;
 }
-#lab-experiences[data-lab-slug="science-universe"] .lab-mode-tab{
- flex:1 1 235px;min-height:46px;white-space:normal;
- border:1px solid transparent;border-radius:var(--g-radius);
- background:transparent;color:var(--g-text-muted);
- font-size:.85rem;font-weight:600;transition:background .16s,border-color .16s;
+#lab-experiences[data-lab-slug="science-universe"] .lab-chat{
+ border:1px solid var(--g-border);border-radius:22px;
+ background:linear-gradient(165deg,#082635,#041b28);
+ box-shadow:0 18px 48px rgba(0,0,0,.18);
+ overflow:hidden;min-width:0;color:var(--g-text);
 }
-#lab-experiences[data-lab-slug="science-universe"] .lab-mode-tab.active{
- color:var(--g-text);background:var(--g-surface);
- border-color:var(--g-accent);
+#lab-experiences[data-lab-slug="science-universe"] .lab-chat-head{
+ display:flex;align-items:center;gap:12px;width:100%;
+ padding:16px;min-height:75px;text-align:left;cursor:pointer;
+ border:0;background:transparent;color:var(--g-text);font:inherit;
 }
-#lab-experiences[data-lab-slug="science-universe"] .lab-mode-tab:focus-visible{
- outline:2px solid var(--g-focus);outline-offset:2px;
+#lab-experiences[data-lab-slug="science-universe"] .lab-chat-head:focus-visible,
+#lab-experiences[data-lab-slug="science-universe"] .lab-chat-send:focus-visible{
+ outline:2px solid var(--g-accent);outline-offset:-3px;
 }
-#lab-experiences[data-lab-slug="science-universe"] .lab-mode-simulation[hidden],
-#lab-experiences[data-lab-slug="science-universe"] .lab-mode-validation[hidden]{display:none}
-#lab-experiences[data-lab-slug="science-universe"] .lab-validation-lead{
- border-left:3px solid var(--g-accent);padding:4px 16px;margin:14px 0 20px;
+.lab-chat-avatar{
+ width:43px;height:43px;flex:none;display:grid;place-items:center;
+ border-radius:15px;background:rgba(231,202,146,.09);
+ border:1px solid rgba(231,202,146,.28);
 }
-#lab-experiences[data-lab-slug="science-universe"] .lab-validation-title{
- font:600 clamp(1.2rem,2.2vw,1.7rem)/1.2 var(--g-font);
- margin:7px 0 10px;color:var(--g-text);
+.lab-chat-avatar img{width:28px;height:28px;display:block}
+.lab-chat-name{min-width:0;flex:1;display:grid;gap:2px}
+.lab-chat-name strong{font:650 1.15rem/1.25 var(--g-font)}
+.lab-chat-name small{color:var(--g-text-muted);font:.72rem/1.3 var(--g-font)}
+.lab-chat-arrow{font-size:1.4rem;opacity:.7;transition:transform .18s}
+.lab-chat.is-open .lab-chat-arrow{transform:rotate(180deg)}
+.lab-chat-badge{background:var(--g-accent);color:#042333;
+ min-width:22px;height:22px;display:grid;place-items:center;
+ border-radius:99px;font:700 .69rem var(--g-font)}
+.lab-chat-badge[hidden]{display:none}
+.lab-chat-body[hidden]{display:none}
+.lab-chat-body{border-top:1px solid var(--g-border);}
+.lab-chat-log{
+ height:min(46vh,440px);min-height:260px;overflow-y:auto;
+ padding:17px 13px;display:flex;flex-direction:column;gap:13px;
+ overscroll-behavior:contain;scrollbar-width:thin;
 }
-#lab-experiences[data-lab-slug="science-universe"] .lab-evidence-frame{
- display:block;width:100%;height:1950px;border:0;border-radius:var(--g-radius-lg);
- background:var(--g-surface-sunken);
+.lab-chat-bubble{
+ max-width:93%;border-radius:14px;padding:11px 13px;
+ border:1px solid rgba(148,183,200,.14);background:rgba(255,255,255,.045);
+ align-self:flex-start;overflow-wrap:anywhere;
 }
-@media(max-width:600px){
- #lab-experiences[data-lab-slug="science-universe"] .lab-mode-tabs{gap:4px;padding:5px}
- #lab-experiences[data-lab-slug="science-universe"] .lab-mode-tab{
-   flex-basis:125px;min-height:46px;padding:9px 7px;font-size:.77rem;
+.lab-chat-bubble.is-user{
+ align-self:flex-end;border-color:rgba(232,202,146,.22);
+ background:rgba(232,202,146,.11);
+}
+.lab-chat-bubble p{font:400 .84rem/1.58 var(--g-font);margin:0;white-space:pre-wrap}
+.lab-chat-meta{display:block;margin-top:7px;font:.63rem/1.3 var(--g-font);
+ color:var(--g-text-muted)}
+.lab-chat-status{font:.67rem/1.4 var(--g-font);color:var(--g-text-muted);
+ padding:8px 13px;border-top:1px solid var(--g-border)}
+.lab-chat-compose{display:flex;align-items:center;gap:8px;padding:10px 12px 13px}
+.lab-chat-input{flex:1;min-width:0;background:rgba(0,0,0,.12);
+ border:1px solid var(--g-border);border-radius:100px;padding:12px 13px;
+ font:.8rem var(--g-font);color:var(--g-text)}
+.lab-chat-input:focus-visible{outline:2px solid var(--g-accent);outline-offset:1px}
+.lab-chat-send{width:43px;height:43px;flex:none;border:0;border-radius:50%;
+ background:var(--g-accent);color:#06212e;font-size:1.25rem;font-weight:650}
+.lab-chat-send:disabled{opacity:.5;cursor:default}
+@media(max-width:1050px){
+ #lab-experiences[data-lab-slug="science-universe"] .lab-runtime-grid{
+  grid-template-columns:minmax(0,1fr);
  }
- #lab-experiences[data-lab-slug="science-universe"] .lab-validation-lead{padding-left:12px;margin-bottom:12px}
+ #lab-experiences[data-lab-slug="science-universe"] .lab-pulsar-widget{
+  position:fixed;left:auto;right:15px;bottom:calc(15px + env(safe-area-inset-bottom));
+  top:auto;width:min(380px,calc(100vw - 30px));max-width:380px;z-index:80;
+ }
+ #lab-experiences[data-lab-slug="science-universe"] .lab-chat{border-radius:19px;
+  box-shadow:0 17px 56px rgba(0,0,0,.48)}
+ #lab-experiences[data-lab-slug="science-universe"] .lab-chat-log{
+   height:min(46vh,330px);min-height:150px}
+ #lab-experiences[data-lab-slug="science-universe"] .lab-chat-head{
+   min-height:65px;padding:10px 13px}
+ #lab-experiences[data-lab-slug="science-universe"] .lab-chat-avatar{
+   width:37px;height:37px;border-radius:12px}
+ #lab-experiences[data-lab-slug="science-universe"] .lab-chat-avatar img{
+   width:25px;height:25px}
+}
+@media(max-width:460px){
+ #lab-experiences[data-lab-slug="science-universe"] .lab-pulsar-widget{
+  bottom:calc(8px + env(safe-area-inset-bottom));right:9px;
+  width:min(330px,calc(100vw - 18px))}
+ #lab-experiences[data-lab-slug="science-universe"] .lab-chat-log{height:min(50vh,350px)}
+}
+@media(prefers-reduced-motion:reduce){
+ #lab-experiences[data-lab-slug="science-universe"] .lab-chat-arrow{transition:none}
 }

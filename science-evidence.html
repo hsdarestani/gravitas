@@ -1,81 +1,13 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,follow">
-<title>Science Evidence Bench — GraviQuest</title>
-<meta name="description" content="A reproducible statistical experiment: does AI-assisted hypothesis throughput increase validated discoveries?">
-<link rel="stylesheet" href="/assets/science-evidence.css?v=1">
-<script src="/assets/science-evidence-engine.js?v=1" defer></script>
-<script src="/assets/science-evidence-ui.js?v=1" defer></script>
+<meta http-equiv="refresh" content="0;url=/lab.html?lab=science-universe">
+<title>Science Universe · GraviQuest</title>
+<link rel="canonical" href="https://graviquest.com/lab.html?lab=science-universe">
+<script>location.replace('/lab.html?lab=science-universe');</script>
 </head>
-<body>
-<a class="skip" href="#experiment">Skip to experiment</a>
-<header class="mast"><a class="brand" href="/lab.html?lab=science-universe"><span class="mark" aria-hidden="true">◈</span> GraviQuest<span class="brand-sub"> / LAB 01</span></a><a class="back" href="/lab.html?lab=science-universe">← Full Science Universe</a></header>
-<main>
-<section class="hero">
-  <div class="eyebrow"><span class="dot"></span> SCIENTIFIC EXPERIMENT · PROTOCOL V1.0</div>
-  <h1>Does faster AI research<br><em>produce better science?</em></h1>
-  <p>Run paired, repeatable statistical experiments. Separate hypothesis production, scientific validity and independent replication. Results are computed from actual sampling distributions, not scripted success rates.</p>
-  <div class="status"><span class="dot"></span> THEORY-GROUNDED · NOT EMPIRICALLY CALIBRATED</div>
-</section>
-<section class="method-strip" aria-label="Experiment mechanism">
-<div><small>01 / GENERATE</small><strong>Hypotheses</strong><p>A known synthetic truth prior</p></div>
-<div><small>02 / TEST</small><strong>Statistical evidence</strong><p>Normal samples and two-sided z tests</p></div>
-<div><small>03 / REVIEW</small><strong>Finite capacity</strong><p>Significant candidates wait for review</p></div>
-<div><small>04 / REPLICATE</small><strong>Independent data</strong><p>A new random sample tests the claim</p></div>
-</section>
-<section id="experiment" class="workspace">
-  <div class="settings panel">
-    <div class="section-tag">EXPERIMENT DESIGN / 01</div>
-    <h2>Define your assumptions</h2>
-    <p class="muted">These are hypothetical inputs, not measured parameters of actual scientific fields. Change them and rerun the experiment.</p>
-    <form id="parameters" autocomplete="off">
-      <label>Pre-study probability of a true effect <span>0–100%</span><input id="prior" name="truthPrior" type="number" min="0" max="100" step="1" value="15" required></label>
-      <label>Standardized effect size <span>Cohen-like d</span><input id="effect" name="effect" type="number" min="0" max="2" step=".05" value=".4" required></label>
-      <label>Sample size per experiment <span>n</span><input id="size" name="n" type="number" min="8" max="2000" step="1" value="64" required></label>
-      <label>Type I error threshold <span>α, percent</span><input id="alpha" name="alpha" type="number" min=".1" max="20" step=".1" value="5" required></label>
-      <label>AI throughput multiplier <span>1×–5×</span><input id="multiplier" name="aiMultiplier" type="number" min="1" max="5" step=".1" value="2.5" required></label>
-      <label>Simulated days <span>5–365</span><input id="days" name="days" type="number" min="5" max="365" step="1" value="60" required></label>
-      <label>Independent paired runs <span>10–400</span><input id="runs" name="runs" type="number" min="10" max="400" step="1" value="120" required></label>
-      <label>Base seed <span>Reproducibility ID</span><input id="seed" name="seed" type="number" min="1" max="4294967295" step="1" value="20261029" required></label>
-      <div class="toolbar"><button id="run" type="submit">Run experiment <span>→</span></button><button id="reset" type="button" class="quiet">Defaults</button></div>
-    </form>
-    <p class="hint">Reviewers: 6 per day · Replications: 2 per day · Baseline: 4 candidate hypotheses/day · Known population SD = 1. The AI arm changes throughput, <strong>not</strong> intrinsic correctness.</p>
-  </div>
-  <div class="results panel" aria-live="polite">
-    <div class="section-tag">RESULTS / PAIRED MONTE CARLO</div>
-    <div class="results-head"><div><h2>What survives independent testing?</h2><p class="muted" id="execution">Configure assumptions and run to see the results.</p></div><button id="csv" type="button" disabled class="quiet">Export CSV ↓</button></div>
-    <div id="primary" class="numbers" hidden></div>
-    <h3>Validated true findings</h3>
-    <p class="muted">Mean true positive replications across repeated runs; confidence intervals reflect run-to-run variation.</p>
-    <div id="chart" class="compare-chart" role="img" aria-label="Mean validated true findings for five scenarios"></div>
-    <h3>Full comparison</h3>
-    <div class="table-scroll"><table><thead><tr><th>Scenario</th><th>Published</th><th>False published</th><th>True confirmed</th><th>Review backlog</th></tr></thead><tbody id="rows"><tr><td colspan="5">No run yet.</td></tr></tbody></table></div>
-    <p class="hint">95% intervals shown in tooltips and the CSV are normal approximations over repeated stochastic runs. They reflect uncertainty inside this <em>assumed model</em>, not real-world predictive confidence.</p>
-  </div>
-</section>
-<section class="explain">
-  <div class="section-tag">WHAT THE SCENARIOS MEAN</div>
-  <div class="scenarios">
-    <article><b>01</b><h3>Baseline</h3><p>Normal production, one preregistered test, fixed review and replication capacity.</p></article>
-    <article><b>02</b><h3>AI · speed only</h3><p>More candidates, no increase in accuracy. The same review team has to process more studies.</p></article>
-    <article><b>03</b><h3>AI · scaled validation</h3><p>Same AI throughput, but review and replication capacity increase proportionally.</p></article>
-    <article><b>04</b><h3>AI · flexible analyses</h3><p>Four independent analyses; the most favorable result is reported without correction. A p-hacking risk illustration.</p></article>
-    <article><b>05</b><h3>AI · corrected analyses</h3><p>The same four analyses with Bonferroni threshold α/4 to control family-wise error.</p></article>
-  </div>
-  <div class="equations panel">
-    <div><div class="section-tag">STATISTICAL CORE</div><h2>Not a black box.</h2><p>Each synthetic effect is tested using a newly sampled standard normal noise term. When the null is true, the test's nominal Type I error is α.</p></div>
-    <div class="formula"><code>Z = θ · √n + ε, &nbsp; ε ~ N(0,1)</code><code>p = 2[1 − Φ(|Z|)]</code><code>PPV = π·power / [π·power + (1−π)·α]</code><p>Here θ is the assumed effect (zero if the hypothesis is false), n is sample size, π is the assumed prior truth probability and Φ is the standard-normal CDF.</p></div>
-  </div>
-</section>
-<section class="pulsar panel">
-  <div class="section-tag">PULSAR / SHARED GRAVIQUEST RUNTIME</div>
-  <h2>Ask Pulsar about this experiment</h2>
-  <p class="muted">Uses the same GraviQuest public Pulsar coaching endpoint as Lab 01. A scripted fallback is explicitly labeled; no AI response is fabricated.</p>
-  <div class="ask"><input id="question" type="text" maxlength="330" placeholder="Why did false publications increase?"><button id="ask" type="button">Ask Pulsar</button></div>
-  <p class="source" id="provider">No request made</p><p class="pulsar-answer" id="answer"></p>
-</section>
-<footer><p><strong>Scientific status:</strong> Simulation-based methodological demonstration. Not a validated predictor of scientific communities or real AI capabilities.</p><p>Methodology: <a href="https://doi.org/10.1371/journal.pmed.0020124" target="_blank" rel="noopener noreferrer">Ioannidis (2005)</a> · <a href="https://doi.org/10.1177/0956797611417632" target="_blank" rel="noopener noreferrer">Simmons et al. (2011)</a> · <a href="https://doi.org/10.1098/rsos.160384" target="_blank" rel="noopener noreferrer">Smaldino &amp; McElreath (2016)</a> · <a href="https://github.com/hsdarestani/gravitas/blob/main/docs/science-evidence-protocol.md" target="_blank" rel="noopener noreferrer">Full model specification</a></p></footer>
-</main>
-</body></html>
+<body><p>The scientific model is now part of <a href="/lab.html?lab=science-universe">Science Universe · Lab 01</a>.</p></body>
+</html>

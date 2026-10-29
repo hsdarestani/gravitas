@@ -9,8 +9,9 @@ var protocol='graviquest.lab.v1', validKey=/^[a-z][a-z0-9_-]{0,63}$/;
 var iframe=null, active=null, shell=null, currentSection='', lastMetrics={}, metricHistory={};
 var lastCoachAt=0, scheduled=null, lastEventKey='', lastEventAt=0, aiBusy=false;
 var speaking=true, controller=null, session=0;
-var evidenceFrame=null;
+var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false;
 var tourActive=false, tourIndex=0, tourUI=null;
+var CHAT_KEY='graviquest:pulsar:lab01:history:v1';
 var TOUR_STORAGE='graviquest:science-universe:tour:v1';
 var SCIENCE_TOUR=[
   {target:'overview',title:'Your synthetic science universe',
@@ -132,11 +133,98 @@ function adjustFrameForViewport(){
   tellIframe('lab:measure');
 }
 window.addEventListener('resize',adjustFrameForViewport,{passive:true});
+function saveChat(){
+ try{localStorage.setItem(CHAT_KEY,JSON.stringify(chatHistory.slice(-70)));}catch(_){}
+}
+function addChat(role,text,provider){
+ var value=String(text||'').trim().slice(0,650);
+ if(!value)return;
+ var m={role:role==='user'?'user':'pulsar',text:value,
+   provider:provider==='ai'?'ai':'guide',at:Date.now()};
+ chatHistory.push(m);chatHistory=chatHistory.slice(-70);saveChat();
+ if(chat){
+   addBubble(m);
+   if(!chatOpen&&m.role==='pulsar'){chatUnread++;refreshChat();}
+ }
+}
+function addBubble(m){
+ if(!chat)return;
+ var row=node('div','lab-chat-bubble '+(m.role==='user'?'is-user':'is-pulsar'));
+ var p=node('p','',m.text);
+ var date=new Date(Number(m.at)||Date.now());
+ var stamp=date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+ var meta=node('small','lab-chat-meta',stamp+(m.role==='pulsar'?
+     ' · '+(m.provider==='ai'?'Pulsar · live':'Guided note'):''));
+ row.append(p,meta);chat.log.append(row);
+ chat.log.scrollTop=chat.log.scrollHeight;
+}
+function refreshChat(){
+ if(!chat)return;
+ chatOpen=!!chatOpen;
+ chat.box.classList.toggle('is-open',chatOpen);
+ chat.body.hidden=!chatOpen;
+ chat.toggle.setAttribute('aria-expanded',String(chatOpen));
+ chat.badge.hidden=chatOpen||chatUnread===0;
+ chat.badge.textContent=chatUnread>9?'9+':String(chatUnread);
+ if(chatOpen){chatUnread=0;chat.log.scrollTop=chat.log.scrollHeight;}
+}
+function mountPulsarChat(sidebar){
+ sidebar.classList.add('lab-pulsar-widget');
+ var box=node('section','lab-chat');
+ var toggle=node('button','lab-chat-head');toggle.type='button';
+ toggle.setAttribute('aria-controls','lab-chat-thread');
+ var avatar=node('span','lab-chat-avatar');
+ var mark=document.createElement('img');
+ mark.src='/assets/pulsar-mark.svg';mark.alt='';mark.width=28;mark.height=28;
+ avatar.append(mark);
+ var name=node('span','lab-chat-name');
+ name.append(node('strong','','Pulsar'),node('small','','Scientific companion'));
+ var badge=node('span','lab-chat-badge');badge.hidden=true;
+ var arrow=node('span','lab-chat-arrow','⌄');
+ toggle.append(avatar,name,badge,arrow);
+ var body=node('div','lab-chat-body');body.id='lab-chat-thread';
+ var log=node('div','lab-chat-log');
+ log.setAttribute('role','log');log.setAttribute('aria-label','Pulsar conversation');
+ log.setAttribute('aria-live','polite');
+ var status=node('div','lab-chat-status','Conversation saved on this device');
+ var form=document.createElement('form');form.className='lab-chat-compose';
+ var input=node('input','lab-chat-input');
+ input.type='text';input.required=true;input.maxLength=360;
+ input.placeholder='Ask a question about the science…';
+ input.setAttribute('aria-label','Message Pulsar');
+ var send=node('button','lab-chat-send','↗');send.type='submit';
+ send.setAttribute('aria-label','Send to Pulsar');
+ form.append(input,send);
+ body.append(log,status,form);box.append(toggle,body);sidebar.append(box);
+ chat={box,body,log,status,input,send,toggle,badge};
+ try{
+   var old=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
+   if(Array.isArray(old))chatHistory=old.slice(-70).filter(function(m){
+     return m&&(m.role==='user'||m.role==='pulsar')&&
+       typeof m.text==='string'&&m.text.length<=650;
+   });
+ }catch(_){chatHistory=[];}
+ chatHistory.forEach(addBubble);
+ if(!chatHistory.length){
+   addChat('pulsar','I’m here as your scientific guide. Explore a lab or change one parameter; ask me what the evidence really supports.','guide');
+ }
+ chatOpen=!matchMedia('(max-width: 1050px)').matches;
+ toggle.addEventListener('click',function(){
+   chatOpen=!chatOpen;refreshChat();if(chatOpen)input.focus();
+ });
+ form.addEventListener('submit',function(e){
+   e.preventDefault();var q=input.value.trim();
+   if(!q||chatBusy)return;
+   input.value='';askPulsar(q,'ask');
+ });
+ refreshChat();
+}
 function feedback(message,source){
-  if(!speaking||!shell||!message)return;
-  shell.line.textContent=String(message).slice(0,480);
-  shell.source.textContent=source==='ai'?'Pulsar · live':source==='script'?'Guided note':'Pulsar · Lab guide';
-  shell.line.dataset.animated='true';
+ if(!message)return;
+ if(active?.slug==='science-universe'){addChat('pulsar',message,source);return;}
+ if(!speaking||!shell)return;
+ shell.line.textContent=String(message).slice(0,480);
+ shell.source.textContent=source==='ai'?'Pulsar · live':'Pulsar · guided note';
 }
 function hintFor(event,section){
   var guidance=active?.config?.guidance||[];
@@ -146,7 +234,7 @@ function introFor(section){
   return (active?.config?.sections||[]).find(function(s){return s.id===section;})||null;
 }
 function renderSteps(){
-  if(!shell)return;
+  if(active?.slug==='science-universe'||!shell)return;
   shell.steps.replaceChildren();
   var steps=active.config.sections||[];
   if(!steps.length){shell.steps.hidden=true;return;}
@@ -200,48 +288,77 @@ function updateMetrics(incoming){
   if(active.config.components.includes('charts'))showChart();
 }
 function reportEvent(data){
-  var ev=String(data.event||'').slice(0,64),section=String(data.section||'').slice(0,64);
-  if(!validKey.test(ev)||section&&!validKey.test(section))return;
-  if(tourActive&&tourUI&&(
-    (SCIENCE_TOUR[tourIndex].target==='policy'&&ev==='policy_changed')||
-    (SCIENCE_TOUR[tourIndex].target==='fork'&&ev==='universe_forked')||
-    (SCIENCE_TOUR[tourIndex].target==='network'&&ev==='collaboration_changed'))){
-    tourUI.status.textContent='Action detected. You can continue to the next step.';
-  }
-  updateMetrics(data.metrics);
-  if(section&&section!==currentSection){currentSection=section;renderSteps();}
-  var lesson=hintFor(ev,currentSection),intro=introFor(currentSection);
-  if(lesson?.hint)feedback(lesson.hint,'script');
-  else if(intro?.hint&&ev==='section')feedback(intro.hint,'script');
-  if(!active.config.pulsar_enabled||!active.config.auto_coach||!speaking)return;
-  if(ev===lastEventKey&&Date.now()-lastEventAt<12000)return;
-  lastEventKey=ev;lastEventAt=Date.now();
-  if(scheduled)clearTimeout(scheduled);
-  // Low-frequency, debounced coaching: not a model invocation per slider tick.
-  scheduled=setTimeout(function(){if(Date.now()-lastCoachAt>=20000)askPulsar('',ev);},1500);
+ var ev=String(data.event||'').slice(0,64),section=String(data.section||'').slice(0,64);
+ if(!validKey.test(ev)||section&&!validKey.test(section))return;
+ if(tourActive&&tourUI&&(
+   (SCIENCE_TOUR[tourIndex].target==='policy'&&ev==='policy_changed')||
+   (SCIENCE_TOUR[tourIndex].target==='fork'&&ev==='universe_forked')||
+   (SCIENCE_TOUR[tourIndex].target==='network'&&ev==='collaboration_changed'))){
+   tourUI.status.textContent='Action detected. Continue when ready.';
+ }
+ updateMetrics(data.metrics);
+ if(section&&section!==currentSection){currentSection=section;renderSteps();}
+ var lesson=hintFor(ev,currentSection),intro=introFor(currentSection);
+ if(active?.slug==='science-universe'){
+   // Important milestones only, at most one unsolicited message per 90s.
+   // No activity ticker, no per-hypothesis/slider message flood.
+   var notable=['policy_changed','universe_forked','replication_failed',
+     'paper_retracted','replication_requested','world_reset','method_improved'];
+   if(!active.config.pulsar_enabled||!active.config.auto_coach||
+      !notable.includes(ev)||chatBusy||Date.now()-lastCoachAt<90000)return;
+   if(ev===lastEventKey&&Date.now()-lastEventAt<90000)return;
+   lastEventKey=ev;lastEventAt=Date.now();
+   askPulsar('',ev,lesson?.hint||intro?.hint||'');
+   return;
+ }
+ if(lesson?.hint)feedback(lesson.hint,'script');
+ else if(intro?.hint&&ev==='section')feedback(intro.hint,'script');
+ if(!active.config.pulsar_enabled||!active.config.auto_coach||!speaking)return;
+ if(ev===lastEventKey&&Date.now()-lastEventAt<12000)return;
+ lastEventKey=ev;lastEventAt=Date.now();
+ if(scheduled)clearTimeout(scheduled);
+ scheduled=setTimeout(function(){if(Date.now()-lastCoachAt>=20000)askPulsar('',ev);},1500);
 }
-async function askPulsar(question,event){
-  if(!active||aiBusy||!active.config.pulsar_enabled)return;
-  aiBusy=true;lastCoachAt=Date.now();
-  if(controller)controller.abort();
-  controller=new AbortController();
-  var which=session,labSlug=active.slug;
-  shell.source.textContent='Pulsar · interpreting';
-  try{
-    var res=await fetch('/api/labs/'+encodeURIComponent(labSlug)+'/coach/',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({event:event||'ask',section:currentSection,question:question||'',
-        metrics:lastMetrics,locale:document.documentElement.lang||'en'}),
-      signal:controller.signal,credentials:'same-origin',
-    });
-    if(!res.ok)throw Error('coaching_unavailable');
-    var result=await res.json();
-    if(which!==session)return;
-    if(result.ok&&result.reply)feedback(result.reply,result.provider==='script'?'script':'ai');
-  }catch(err){
-    if(which!==session||err.name==='AbortError')return;
-    shell.source.textContent='Pulsar · guidance available';
-  }finally{if(which===session)aiBusy=false;}
+async function askPulsar(question,event,fallback){
+ if(!active||aiBusy||!active.config.pulsar_enabled)return;
+ var isChat=active.slug==='science-universe';
+ var q=String(question||'').trim();
+ var context=chatHistory.slice(-8).map(function(m){return {
+   role:m.role,text:m.text.slice(0,210)
+ };});
+ if(isChat&&q)addChat('user',q);
+ aiBusy=true;chatBusy=isChat;lastCoachAt=Date.now();
+ if(isChat&&chat){chat.send.disabled=true;chat.status.textContent='Pulsar is thinking…';}
+ if(controller)controller.abort();
+ controller=new AbortController();
+ var which=session,labSlug=active.slug;
+ if(!isChat&&shell?.source)shell.source.textContent='Pulsar · interpreting';
+ try{
+   var res=await fetch('/api/labs/'+encodeURIComponent(labSlug)+'/coach/',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
+       metrics:lastMetrics,history:context,locale:document.documentElement.lang||'en'}),
+     signal:controller.signal,credentials:'same-origin'
+   });
+   if(!res.ok)throw Error('coaching_unavailable');
+   var result=await res.json();
+   if(which!==session)return;
+   if(result.ok&&result.reply)feedback(result.reply,result.provider==='script'?'script':'ai');
+   else if(fallback)feedback(fallback,'script');
+ }catch(err){
+   if(which!==session||err.name==='AbortError')return;
+   if(isChat)feedback(fallback||
+     'The live model is unavailable. You can still check Model assumptions and the linked research sources.','script');
+   else if(shell?.source)shell.source.textContent='Pulsar · guidance available';
+ }finally{
+   if(which===session){
+     aiBusy=false;chatBusy=false;
+     if(isChat&&chat){
+       chat.send.disabled=false;
+       chat.status.textContent='Saved on this device · simulation outcomes are synthetic';
+     }
+   }
+ }
 }
 function configPanel(container,title){
   var section=node('section','lab-ui-panel');
@@ -250,7 +367,7 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
-  tourActive=false;tourUI=null;evidenceFrame=null;
+  tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;chatOpen=false;
   root.dataset.labSlug = lab.slug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
@@ -267,64 +384,8 @@ function runLab(lab){
     bar.append(link);
   }
   main.append(bar);
-  var simulationRegion=main, validationRegion=null, selectMode=null;
-  if(lab.slug==='science-universe'){
-    simulationRegion=node('section','lab-mode-simulation');
-    validationRegion=node('section','lab-mode-validation');
-    validationRegion.hidden=true;
-    var tabs=node('div','lab-mode-tabs');
-    tabs.setAttribute('role','tablist');
-    tabs.setAttribute('aria-label','Science Universe modes');
-    var simTab=btn('Science Universe · Simulator',function(){selectMode('simulator',true);},'lab-mode-tab');
-    var valTab=btn('Scientific validation · Evidence Bench',function(){selectMode('validation',true);},'lab-mode-tab');
-    simTab.type=valTab.type='button';
-    simTab.setAttribute('role','tab');valTab.setAttribute('role','tab');
-    simTab.setAttribute('aria-controls','lab-simulator-panel');
-    valTab.setAttribute('aria-controls','lab-validation-panel');
-    simulationRegion.id='lab-simulator-panel';validationRegion.id='lab-validation-panel';
-    simulationRegion.setAttribute('role','tabpanel');validationRegion.setAttribute('role','tabpanel');
-    tabs.append(simTab,valTab);
-    var validationLead=node('div','lab-validation-lead');
-    validationLead.append(
-      node('span','lab-card-kicker','LAB 01 · SCIENTIFIC VALIDATION'),
-      node('h2','lab-validation-title','Test the evidence behind the simulation'),
-      node('p','lab-note','Run repeatable statistical experiments without leaving this Lab. The original 28-laboratory universe remains intact; statistical results are theory-grounded but not yet calibrated to real research.')
-    );
-    var benchFrame=node('iframe','lab-evidence-frame');
-    benchFrame.title='Scientific Evidence Bench: hypothesis testing and independent replication';
-    benchFrame.loading='lazy';benchFrame.referrerPolicy='same-origin';
-    evidenceFrame=benchFrame;
-    validationRegion.append(validationLead,benchFrame);
-    main.append(tabs,simulationRegion,validationRegion);
-    selectMode=function(mode,updateURL){
-      var isValidation=mode==='validation';
-      simulationRegion.hidden=isValidation;validationRegion.hidden=!isValidation;
-      simTab.setAttribute('aria-selected',String(!isValidation));
-      valTab.setAttribute('aria-selected',String(isValidation));
-      simTab.tabIndex=isValidation?-1:0;valTab.tabIndex=isValidation?0:-1;
-      simTab.classList.toggle('active',!isValidation);
-      valTab.classList.toggle('active',isValidation);
-      if(isValidation&&benchFrame.dataset.loaded!=='1'){
-        benchFrame.dataset.loaded='1';
-        benchFrame.src='/science-evidence.html?embed=1';
-      }
-      if(updateURL){
-        var url=new URL(location.href);
-        if(isValidation)url.searchParams.set('view','validation');
-        else url.searchParams.delete('view');
-        history.replaceState(history.state,'',url.pathname+url.search+url.hash);
-      }
-      if(!isValidation)adjustFrameForViewport();
-    };
-    tabs.addEventListener('keydown',function(e){
-      if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
-      e.preventDefault();
-      var next=valTab.getAttribute('aria-selected')==='true'?simTab:valTab;
-      next.click();next.focus();
-    });
-  }
-  if(lab.slug==='science-universe')makeTourUI(simulationRegion,bar);
-  if(lab.summary)simulationRegion.append(node('p','lab-runtime-summary',lab.summary));
+  if(lab.slug==='science-universe')makeTourUI(main,bar);
+  if(lab.summary)main.append(node('p','lab-runtime-summary',lab.summary));
   var grid=node('div','lab-runtime-grid'),stageCol=node('div','lab-stage-column'),sidebar=node('aside','lab-assistant');
   var canvas=node('div','lab-frame-wrap');
   iframe=node('iframe','lab-frame');iframe.title=lab.title+' · simulation';
@@ -361,50 +422,41 @@ function runLab(lab){
         text.textContent=changed.join(' · ')||'No comparable measurements yet.';
       }));
   }
-  var source=node('p','lab-pulsar-source','Pulsar · Lab guide');
-  var title=node('h2','lab-assistant-title','Pulsar');
-  var intro=node('p','lab-assistant-intro','Learn the simulator, explore changes and question the results.');
-  var steps=node('div','lab-guided-steps');
-  var speech=node('p','lab-assistant-line','Make a change or choose a learning step. I will help you understand what it means.');
-  var controlsBar=node('div','lab-assistant-actions');
-  var askInput=node('input','lab-ask-input');
-  askInput.type='text';askInput.maxLength=450;askInput.placeholder='Ask about this experiment';
-  askInput.setAttribute('aria-label','Ask Pulsar about this Lab');
-  var ask=btn('Ask',function(){
-    var q=askInput.value.trim();if(!q)return;
-    askInput.value='';askPulsar(q,'ask');
-  });
-  askInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();ask.click();}});
-  var mute=btn('Pause commentary',function(){
-    speaking=!speaking;mute.textContent=speaking?'Pause commentary':'Resume commentary';
-  });
-  var explain=btn('Explain this state',function(){
-    if(!Object.keys(lastMetrics).length)return;
-    askPulsar('Explain what these reported values may imply, and what to try next.','ask');
-  });
-  controlsBar.append(askInput,ask);
-  if(cfg.pulsar_enabled!==false){
-    sidebar.append(title,intro,source,speech,steps,controlsBar,explain,mute);
+  var source=null,steps=null,speech=null;
+  if(lab.slug==='science-universe'){
+    mountPulsarChat(sidebar);
   }else{
-    sidebar.append(title,node('p','lab-note','Guidance is not enabled for this Lab.'));
+    source=node('p','lab-pulsar-source','Pulsar · Lab guide');
+    var title=node('h2','lab-assistant-title','Pulsar');
+    var intro=node('p','lab-assistant-intro','Learn the simulator, explore changes and question results.');
+    steps=node('div','lab-guided-steps');
+    speech=node('p','lab-assistant-line','Explore this Lab and ask questions.');
+    var controlsBar=node('div','lab-assistant-actions');
+    var askInput=node('input','lab-ask-input');askInput.type='text';askInput.maxLength=450;
+    askInput.placeholder='Ask about this experiment';
+    var ask=btn('Ask',function(){
+      var q=askInput.value.trim();if(!q)return;askInput.value='';askPulsar(q,'ask');
+    });
+    askInput.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){e.preventDefault();ask.click();}
+    });
+    controlsBar.append(askInput,ask);
+    if(cfg.pulsar_enabled!==false)sidebar.append(title,intro,source,speech,steps,controlsBar);
+    else sidebar.append(title,node('p','lab-note','Guidance is not enabled for this Lab.'));
   }
-  grid.append(stageCol,sidebar);simulationRegion.append(grid);root.replaceChildren(main);root.hidden=false;
+  grid.append(stageCol,sidebar);main.append(grid);root.replaceChildren(main);root.hidden=false;
   shell={line:speech,source:source,steps:steps,metrics:metrics,chart:chart,layers:shellLayerContainer,controls:controls};
   if(steps&&cfg.sections?.length){
     currentSection=cfg.sections[0].id;renderSteps();
     feedback(cfg.sections[0].hint,'script');
   }
   if(metrics)showMetrics();
-  if(lab.slug==='science-universe'){
-    var requestedMode=new URLSearchParams(location.search).get('view');
-    selectMode(requestedMode==='validation'?'validation':'simulator',false);
-    if(requestedMode!=='validation'&&!tourSeen())startTour();
-  }
+  if(lab.slug==='science-universe'&&!tourSeen())startTour();
 }
 var shellLayerContainer=null;
 function showCatalog(){
   if(tourActive)tellIframe('lab:tutorial',{target:'off'});
-  tourActive=false;tourUI=null;evidenceFrame=null;
+  tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;
   delete root.dataset.labSlug;
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=null;iframe=null;shell=null;
@@ -424,18 +476,6 @@ function showCatalog(){
   });
   catalog.append(head,cards);root.replaceChildren(catalog);root.hidden=false;
 }
-// Same-origin, first-party benchmark height messages. The untrusted simulator
-// remains in a separate opaque-origin sandbox and cannot send this message.
-window.addEventListener('message',function(e){
-  if(!active||active.slug!=='science-universe'||!evidenceFrame||
-     e.source!==evidenceFrame.contentWindow||e.origin!==location.origin)return;
-  var data=e.data;
-  if(!data||data.type!=='science-bench:resize')return;
-  var height=Number(data.height);
-  if(!Number.isFinite(height)||height<300||height>15000)return;
-  var next=Math.ceil(height),current=parseInt(evidenceFrame.style.height,10)||0;
-  if(Math.abs(next-current)>4)evidenceFrame.style.height=next+'px';
-});
 window.addEventListener('message',function(e){
   if(!active||!iframe||e.source!==iframe.contentWindow||e.origin!=='null')return;
   var data=e.data;if(!data||data.schema!==protocol||typeof data.type!=='string')return;

@@ -26,6 +26,21 @@ const policyDescriptions={
   network:['Knowledge diffusion','Speed of attention and citation cascades'],
   uncertainty:['AI abstention','Higher caution allows uncertain AI agents to hold back weak candidates'],
 };
+/* A citation supports the scientific *concept*, not our uncalibrated coefficient. */
+const policyEvidence={
+  generation:['Assumed rate; model-only coefficient',null],
+  verification:['Theory-inspired review bottleneck; uncalibrated rate','https://doi.org/10.1098/rsos.160384'],
+  replication:['Independent hypothesis testing; uncalibrated queue rate','https://doi.org/10.1126/science.aac4716'],
+  funding:['Assumed resource response; not empirically calibrated',null],
+  aiAdoption:['Assumed productivity multiplier; not a live LLM',null],
+  alpha:['Grounded in statistical Type I error and multiple testing','https://doi.org/10.1371/journal.pmed.0020124'],
+  sampleSize:['Grounded in known-variance z-test and statistical power','https://doi.org/10.1371/journal.pmed.0020124'],
+  transparency:['Publication bias concept; uncalibrated effect','https://doi.org/10.1177/0956797611417632'],
+  diversity:['Assumed exploration rate, not a measured scientific law',null],
+  pressure:['Selective analysis mechanism; assumed number of analyses','https://doi.org/10.1177/0956797611417632'],
+  network:['Attention propagation rule; uncalibrated weights',null],
+  uncertainty:['Assumed AI abstention behavior, not measured',null],
+};
 const human=n=>Math.round(n).toLocaleString('en-US');
 const nowWorld=()=>worlds[active];
 const runningWorlds=()=>compareMode&&worlds[1]?worlds:[nowWorld()];
@@ -364,7 +379,16 @@ function renderPolicies(){
       head.querySelector('output').textContent=range.value+'/10';
       emit('policy_changed',nowWorld(),'intervene');comparison();
     });
-    line.append(head,make('p','',hint),range);host.append(line);
+    line.append(head,make('p','',hint),range);
+    const provenance=policyEvidence[key]||['Assumed simulation rule',null];
+    const evidence=make('small','policy-evidence',provenance[0]);
+    if(provenance[1]){
+      const link=make('a','policy-evidence-link',' · Source ↗');
+      link.href=provenance[1];link.target='_blank';link.rel='noopener noreferrer';
+      link.addEventListener('click',event=>event.stopPropagation());
+      evidence.append(link);
+    }
+    line.append(evidence);host.append(line);
   }
 }
 function settings(on){
