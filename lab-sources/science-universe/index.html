@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Science Universe · GraviQuest Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="universe" id="universe-app">
+    <header class="app-header">
+      <div class="title-stack">
+        <div class="kicker"><span class="pulse-dot" aria-hidden="true"></span> GRAVIQUEST / LAB 01 <span class="subtle">· SYNTHETIC RESEARCH ECOSYSTEM</span></div>
+        <h1>Science <em>Universe</em></h1>
+        <p class="description">Explore how ideas become claims, survive criticism, spread through journals—or collapse under replication.</p>
+      </div>
+      <div class="header-actions">
+        <div class="session-chip"><span id="session-state" class="status-ring" aria-hidden="true"></span><span id="status-label">SIMULATION READY</span></div>
+        <button class="btn primary" id="play" type="button"><span aria-hidden="true">▶</span> Play</button>
+        <button class="btn" id="advance" type="button" title="Advance ten simulated days">+10 days</button>
+        <button class="icon-btn" id="reset" type="button" title="Restart with the same seed" aria-label="Reset simulation">↺</button>
+      </div>
+    </header>
+    <div class="top-strip" aria-label="Simulation overview">
+      <div class="tiny-metric"><span>SIMULATION DAY</span><strong id="day">000</strong></div>
+      <div class="tiny-metric"><span>SCIENTIFIC AGENTS</span><strong id="agents">000</strong></div>
+      <div class="tiny-metric"><span>HYPOTHESES</span><strong id="hypotheses">000</strong></div>
+      <div class="tiny-metric"><span>PUBLISHED PAPERS</span><strong id="published">000</strong></div>
+      <div class="tiny-metric"><span>REPLICATIONS</span><strong id="replications">000</strong></div>
+      <div class="tiny-metric"><span>REVIEW BACKLOG</span><strong id="backlog">000</strong></div>
+    </div>
+    <nav class="mode-rail" aria-label="World actions">
+      <div class="segmented" role="group" aria-label="Select active universe">
+        <button type="button" class="pill active" id="world-a" aria-pressed="true">World A</button>
+        <button type="button" class="pill" id="world-b" aria-pressed="false" disabled>World B</button>
+      </div>
+      <div class="mode-actions">
+        <button class="btn" type="button" id="fork">◇ Fork universe</button>
+        <button class="btn" type="button" id="compare" disabled>Compare realities</button>
+        <div class="separator" aria-hidden="true"></div>
+        <button class="btn" type="button" id="settings">⚙ Policies <span id="policy-count" class="btn-counter">12</span></button>
+        <label class="speed-control">SPEED <select id="speed" aria-label="Simulation speed">
+          <option value="1">1×</option><option value="3" selected>3×</option><option value="8">8×</option><option value="15">15×</option>
+        </select></label>
+      </div>
+    </nav>
+    <main class="world-layout">
+      <section class="world-stage panel" aria-label="Research ecosystem map">
+        <div class="stage-header">
+          <div><span class="eyebrow">LIVE SYSTEM MAP</span><h2 id="stage-title">The research network</h2></div>
+          <div class="stage-tools">
+            <div class="view-tabs" role="group" aria-label="Network layer">
+              <button id="view-labs" class="tab active" type="button" aria-pressed="true">Laboratories</button>
+              <button id="view-papers" class="tab" type="button" aria-pressed="false">Knowledge flow</button>
+            </div>
+          </div>
+        </div>
+        <div class="canvases" id="canvases">
+          <div class="canvas-col active" id="canvas-holder-a">
+            <canvas id="network-a" role="img" aria-label="Interactive map of laboratories; select a node to inspect and intervene"></canvas>
+            <span class="map-world-label">WORLD A</span>
+          </div>
+          <div class="canvas-col" id="canvas-holder-b" hidden>
+            <canvas id="network-b" role="img" aria-label="Interactive map of world B"></canvas>
+            <span class="map-world-label">WORLD B</span>
+          </div>
+          <div class="canvas-overlay">
+            <span class="live-indicator"><span class="live-dot"></span> LIVE MODEL</span>
+            <span class="canvas-instruction" id="canvas-instruction">Select a node · Drag to reorganize collaborations</span>
+          </div>
+        </div>
+        <div class="stage-footer">
+          <div class="legend" aria-label="Research domains">
+            <span><i class="dot bio"></i> Biology</span>
+            <span><i class="dot climate"></i> Climate</span>
+            <span><i class="dot physics"></i> Physics</span>
+            <span><i class="dot material"></i> Materials</span>
+            <span><i class="dot gold"></i> Published claim</span>
+          </div>
+          <div class="layer-chips" role="group" aria-label="Visual layers">
+            <label><input id="layer-links" type="checkbox" checked> Collaborations</label>
+            <label><input id="layer-flows" type="checkbox" checked> Activity</label>
+            <label><input id="layer-labels" type="checkbox" checked> Labels</label>
+          </div>
+        </div>
+      </section>
+      <aside class="inspector panel" id="inspector" aria-live="polite">
+        <div class="inspector-start" id="inspector-start">
+          <div class="eyebrow">FIELD NOTES / LIVE INSPECTOR</div>
+          <div class="inspector-emblem" aria-hidden="true">◎</div>
+          <h2>Every dot is a research community.</h2>
+          <p>Choose a laboratory to inspect its agents, current projects, published claims and available interventions.</p>
+          <div class="method-chip">28 labs · 4 fields · independent research agents</div>
+        </div>
+        <div class="inspector-content" id="inspector-content" hidden>
+          <div class="inspector-top"><span class="eyebrow" id="selected-domain">BIOLOGY</span><span class="tag" id="selected-world">WORLD A</span></div>
+          <h2 id="selected-title">Laboratory</h2>
+          <div class="inspector-kpis">
+            <div><span>Research credits</span><strong id="selected-funds">–</strong></div>
+            <div><span>Agent team</span><strong id="selected-agents">–</strong></div>
+            <div><span>Methods quality</span><strong id="selected-methods">–</strong></div>
+            <div><span>Live tests</span><strong id="selected-active">–</strong></div>
+          </div>
+          <div class="inspector-section">
+            <h3>Intervene in this laboratory</h3>
+            <div class="inspector-buttons">
+              <button class="btn small" id="fund-lab" type="button">+15 credits</button>
+              <button class="btn small" id="method-lab" type="button">Train methods</button>
+              <button class="btn small" id="audit-lab" type="button">Replicate latest</button>
+              <button class="btn small" id="freeze-lab" type="button">Pause generation</button>
+            </div>
+            <p class="small-print" id="intervention-status" role="status">Actions change the actual model state.</p>
+          </div>
+          <div class="inspector-section">
+            <h3>Researchers & AI agents</h3>
+            <div class="agent-list" id="agent-list"></div>
+          </div>
+          <div class="inspector-section">
+            <h3>Latest published claims</h3>
+            <div class="paper-list" id="paper-list"></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+    <section class="lab-bottom">
+      <div class="analysis panel">
+        <div class="section-head">
+          <div><span class="eyebrow">OUTCOMES OVER TIME</span><h2>Knowledge is not the same as output.</h2></div>
+          <div class="chart-switch" role="group" aria-label="Chart metric">
+            <button type="button" class="tab active" data-plot="published" aria-pressed="true">Published</button>
+            <button type="button" class="tab" data-plot="falsePublished" aria-pressed="false">False claims</button>
+            <button type="button" class="tab" data-plot="reviewBacklog" aria-pressed="false">Backlog</button>
+          </div>
+        </div>
+        <div class="plot-wrap"><canvas id="history-chart" role="img" aria-label="Time series of selected scientific output"></canvas></div>
+        <p class="chart-caption" id="plot-caption">Cumulative publications. Publications are not necessarily true or independently replicated.</p>
+      </div>
+      <div class="activity panel">
+        <div class="section-head">
+          <div><span class="eyebrow">SCIENTIFIC EVENT STREAM</span><h2>What happened?</h2></div>
+          <button class="text-btn" id="pause-feed" type="button">Latest first</button>
+        </div>
+        <div class="feed" id="feed" aria-live="off"><p class="empty">Start the simulation to observe discoveries and failures.</p></div>
+      </div>
+    </section>
+    <section class="comparison panel" id="comparison" hidden>
+      <div class="section-head">
+        <div><span class="eyebrow">PARALLEL REALITIES</span><h2>Same beginning. Different decisions.</h2></div>
+        <button id="close-compare" class="btn small" type="button">Close comparison</button>
+      </div>
+      <p class="small-print">World B starts from an exact saved snapshot of World A, including its random-generator state. Each world then advances independently using its own policy and random draws. Comparisons describe this simulated scenario, not real-world causal estimates.</p>
+      <div class="comparison-grid" id="comparison-results"></div>
+      <div class="branch-explainer" id="branch-explainer">Choose the active world above to tune its policies independently.</div>
+    </section>
+    <aside class="policy-drawer" id="policy-drawer" role="dialog" aria-label="Simulation policy controls" aria-modal="false" hidden>
+      <div class="drawer-scrim" id="drawer-close-area"></div>
+      <div class="drawer-panel">
+        <div class="drawer-head">
+          <div><span class="eyebrow">RESEARCH SYSTEM DESIGN</span><h2>Rewrite the rules</h2></div>
+          <button class="icon-btn" id="close-settings" type="button" aria-label="Close settings">×</button>
+        </div>
+        <p class="small-print">All twelve controls are deterministic model parameters. Change policies per universe to test hypotheses—not to predict the real scientific community.</p>
+        <div class="policy-controls" id="policy-controls"></div>
+        <div class="drawer-footer"><span id="policy-world">EDITING WORLD A</span><button id="policy-reset" class="btn small" type="button">Restore defaults</button></div>
+      </div>
+    </aside>
+    <footer class="app-footer"><span>RESEARCH SIMULATION / SYNTHETIC DATA</span><span>NOT A FORECAST · NOT A SCIENTIFIC CONFIDENCE SCORE</span><button id="methodology" type="button" class="text-btn">Model assumptions ↗</button></footer>
+    <dialog id="method-dialog" class="method-dialog">
+      <div class="modal-head"><h2>Read the model before reading the result.</h2><button id="method-close" class="icon-btn" aria-label="Close model assumptions">×</button></div>
+      <p>Science Universe is an educational, seeded agent-based model—not a measured model of the global scientific system. It does not run any real AI model or access scientific papers. Agent decisions, hypothesis ground truth, review error rates, statistical power, funding and citation attention are explicitly synthetic assumptions.</p>
+      <p>Each hypothesis has a hidden Boolean ground truth. Positive study results are sampled using a configurable type-I error rate and an illustrative detection-probability function dependent on signal and sample size. Peer reviewers can miss errors. Replication is an independent stochastic test. Failed replication does not logically prove a finding false; the model's retraction rules are simplified policies.</p>
+      <p>Agent counts, papers, false claims, queues and citations are calculated outcomes of the same deterministic state transitions. Parallel worlds share a snapshot but diverge under changed policies. One seeded example cannot establish empirical causation or real-world rates.</p>
+      <p>This is designed to teach questions about AI reliability, verification bottlenecks, incentives and uncertainty, not to settle them. Scientific calibration and external review would be required before empirical interpretation.</p>
+      <button class="btn primary" id="method-done" type="button">Understood</button>
+    </dialog>
+  </div>
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
