@@ -27,7 +27,7 @@ class Command(BaseCommand):
         parser.add_argument('--source', default='', help='Override location of the authored source bundle.')
 
     def handle(self, *args, **options):
-        installed_path = Path('/var/www/gravitas/lab-sources/science-universe')
+        installed_path = Path('/opt/gravitas-backend/lab-sources/science-universe')
         repo_path = Path(__file__).resolve().parents[4] / 'lab-sources' / 'science-universe'
         source = Path(options['source']) if options['source'] else (
             installed_path if installed_path.is_dir() else repo_path
