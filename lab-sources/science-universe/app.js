@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id);
 const make=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=String(text);return e;};
 const domainColors=['#65b6cf','#95aadf','#bea0ef','#d5ac6f'];
 const domainNames=E.DOMAINS;
-const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand:()=>{},onLayer:()=>{},onSection:()=>{}};
+const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand:()=>{},onLayer:()=>{},onSection:()=>{},onExperiment:()=>{},context:()=>{},experimentResult:()=>{}};
 const worlds=[E.make(20261029),null],selected=[null,null],selectedPaper=[null,null],eventSeen=[new Set(),new Set()];
 let active=0,playing=false,compareMode=false,view='labs',plot='published',speed=3;
 let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performance.now(),raf=0;
