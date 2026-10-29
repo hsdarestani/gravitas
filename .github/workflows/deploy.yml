@@ -779,6 +779,11 @@ jobs:
               --apply --auto-owner \
               --source "/opt/gravitas-backend/lab-sources/science-universe"
           fi
+          # Apply the peer-reviewable statistical test model to the same
+          # published Science Universe. Hash guards prevent overwriting
+          # independently edited Lab Studio sources.
+          sudo -u gravitas env "${DJANGO_ENV[@]}" \
+            "$BACKEND_PATH/.venv/bin/django-admin" upgrade_science_universe_science --apply
           sudo systemctl daemon-reload
           # Only the first rollout of the new worker profile needs one hard
           # restart. Subsequent deployments use Gunicorn HUP, which gracefully
