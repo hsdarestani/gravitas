@@ -555,6 +555,32 @@ function showDecisionRegister(){
     }
     container.append(section);
   }
+  const policies=make('details','audit-group');
+  const head=make('summary','audit-group-title','All 12 policy controls · causes and tests');
+  policies.append(head);
+  for(const key of Object.keys(E.DEFAULTS)){
+    const [name,description]=policyDescriptions[key];
+    const entry=POLICY_RATIONALE[key];
+    const provenance=policyEvidence[key];
+    const card=make('section','audit-decision');
+    card.append(make('h4','',name),make('p','audit-status',
+      entry[0]==='theory'?'Theoretical principle · numeric mapping uncalibrated':
+      entry[0]==='hypothesis'?'Mechanism hypothesis · numerical coefficients uncalibrated':
+      'Uncalibrated model assumption'));
+    for(const [label,text] of [['What it changes',description],
+      ['Why included',entry[1]],['How to check',entry[2]]]){
+      const p=make('p','audit-explanation');
+      p.append(make('strong','',label+': '),document.createTextNode(text));
+      card.append(p);
+    }
+    if(provenance[1]){
+      const a=make('a','audit-evidence-link','Related scientific foundation ↗');
+      a.href=provenance[1];a.target='_blank';a.rel='noopener noreferrer';
+      card.append(a);
+    }
+    policies.append(card);
+  }
+  container.append(policies);
 }
 function auditPopulation(){
   const s=nowWorld();
