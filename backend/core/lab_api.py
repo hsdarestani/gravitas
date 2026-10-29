@@ -425,6 +425,14 @@ def public_lab_coach(request, slug):
     question = str(data.get('question') or '').strip()[:450]
     if key == 'ask' and not question:
         return JsonResponse({'ok': False, 'error': 'question_required'}, status=400)
+    # Visitor chat history is optional device-local context, never trusted evidence.
+    supplied = data.get('history') if isinstance(data.get('history'), list) else []
+    history = [
+        {'role': m['role'], 'text': m['text'][:210]}
+        for m in supplied[-8:]
+        if isinstance(m, dict) and m.get('role') in ('user', 'pulsar')
+        and isinstance(m.get('text'), str)
+    ]
     metrics = data.get('metrics') if isinstance(data.get('metrics'), dict) else {}
     metrics = {k: round(v, 4) for k, v in list(metrics.items())[:12]
                if isinstance(k, str) and SAFE_KEY.fullmatch(k) and
@@ -458,6 +466,7 @@ def public_lab_coach(request, slug):
             user=json.dumps({
                 'lab': item.title, 'learning_goal': str(config.get('learning_goal') or '')[:700],
                 'section': section, 'event': key, 'metrics': metrics, 'question': question,
+                'browser_reported_chat_history': history,
                 'approved_hint': scripted[:300],
                 'approved_concept': (guide or {}).get('concept', '')[:400],
             }, ensure_ascii=False),
