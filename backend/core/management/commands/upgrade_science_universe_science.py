@@ -17,11 +17,25 @@ BACKEND_ROOT = Path(__file__).resolve().parents[3]
 DEPLOYED_SOURCE = BACKEND_ROOT / 'lab-sources' / 'science-universe'
 REPO_SOURCE = BACKEND_ROOT.parent / 'lab-sources' / 'science-universe'
 ROOT = DEPLOYED_SOURCE if DEPLOYED_SOURCE.is_dir() else REPO_SOURCE
+# Each accepted source hash is a reviewed historical version, never an
+# arbitrary author edit. v1 → v2 → rationale-aware v3; fail closed otherwise.
 EXPECTED = {
-    'engine.js': '2b6d9971ef8062ed090e59453145467853e1b449',
-    'index.html': '2e73d57d60bfedccfeb68aad3e3c28b663a5367f',
-    'app.js': '87b0a516bcd6874d69ddfd97e9cc89c83f0e6ac3',
-    'styles.css': 'd4f36c09c559ed29fd30b20a192dd36562f8569b',
+    'engine.js': (
+        '2b6d9971ef8062ed090e59453145467853e1b449',
+        '043cab64a70c8289959388faf2530c8b911abb6b',
+    ),
+    'index.html': (
+        '2e73d57d60bfedccfeb68aad3e3c28b663a5367f',
+        '7b5efba1196ba6d29b26b434242b57e69ee2de96',
+    ),
+    'app.js': (
+        '87b0a516bcd6874d69ddfd97e9cc89c83f0e6ac3',
+        '79d1033aabb9db04bb708f091ee96da66e0f4c67',
+    ),
+    'styles.css': (
+        'd4f36c09c559ed29fd30b20a192dd36562f8569b',
+        '4e64baa30b107d8f85fcb97bf01dcf49a6a88087',
+    ),
 }
 NAMES = tuple(EXPECTED)
 
@@ -50,7 +64,7 @@ def upgrade_file_set(files, replacements, check_baseline=True):
             raise ValueError('invalid_existing_source')
         old_hash = blob_sha(existing)
         new_hash = blob_sha(replacements[name])
-        if check_baseline and old_hash not in (EXPECTED[name], new_hash):
+        if check_baseline and old_hash not in (*EXPECTED[name], new_hash):
             raise ValueError('author_modified_' + name)
         edited.append({**row, 'content': replacements[name]})
     return _clean_files(edited)
@@ -71,7 +85,7 @@ class Command(BaseCommand):
         except OSError as exc:
             raise CommandError('Missing science model source: ' + str(exc)) from exc
         if 'SCIENCE-MODEL v2' not in replacements['engine.js']:
-            raise CommandError('Source is not the approved science v2 engine')
+            raise CommandError('Source is not the reviewed science engine')
 
         with transaction.atomic():
             lab = InteractiveLab.objects.select_for_update().filter(
@@ -107,5 +121,5 @@ class Command(BaseCommand):
             lab.published_version = next_version
             lab.save(update_fields=['files','published_files','version','published_version','updated_at'])
             self.stdout.write(self.style.SUCCESS(
-                'Published Science Universe upgraded IN PLACE, version ' + str(next_version)
+                'Published Science Universe reviewed upgrade IN PLACE, version ' + str(next_version)
             ))

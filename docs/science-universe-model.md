@@ -1,74 +1,120 @@
-# Science Universe v1 — model specification and guided tour
+# Science Universe — scientific model rationale, inventory and review contract
 
-**Scope:** Synthetic, seeded agent-based simulation of a research ecosystem. **Not empirically calibrated, not a forecast, not a real-world causal estimate.**
+**Status (29 Oct 2026):** Agent-based **teaching model** with a mathematically grounded Gaussian statistical submodel. **NOT** empirically calibrated, externally validated or suitable for forecasting actual scientists. This is a living model decision log, not scientific certification.
 
-## Population and initialization
-- Four domains: Biology, Climate, Physics, Materials. Base assumed prior probability that a generated hypothesis is true: **0.28 / 0.36 / 0.31 / 0.42** respectively (modified slightly by diversity).
-- 28 labs (7 in each domain), each initialized with 3–5 agents, a budget of 35–69 credits, and synthetic method, caution, and AI-usage attributes.
-- Agents are synthetic **Human** and **AI** roles (approximately 48% AI on initialization), not autonomous language models. Each has generated random traits for rigor, creativity and speed.
-- The public UI seeds World A with **20261029**; the engine default is 21061. Random draws use xorshift32, carried in the simulation state.
+## 0 · The first reason must be the research question
 
-## Daily order (one simulation day)
-1. **Fund:** replenish central pool by `6 + 3×funding` credits; automatically distribute *at most* 65% of daily inflow among the 28 labs, with per-lab caps.
-2. **Generate:** each agent makes a probabilistic attempt at a hypothesis, controlled by generation rate, role/AI adoption, speed, lab AI readiness, funding and abstention. An AI's higher uncertainty policy increases modeled abstention.
-3. **Test:** candidates wait 2–8 days after creation. Significant simulated experiments enter review; non-significant candidates are rejected.
-4. **Review:** capacity is `floor(1 + 0.55×verification)` manuscripts/day. A modeled quality gate may reject even a significant result; false significant findings can slip through.
-5. **Replicate:** scheduled repeated tests (3–9 days after scheduling), with capacity `floor(replication/3)+1` / day. A failed attempt can trigger a retraction after 1 failure if verification ≥7; otherwise after 2.
-6. **Citations:** every third day the model gives papers weighted attention based on existing citations, network adjacency and shared domain, independently of truth.
-7. Snapshot summary history every fourth day (up to 260 data points); trim only old, rejected hypotheses if more than 950 are stored.
+Original Research Topic 01 asked **“Is AI reliable in scientific research?”** Its original [Trust Test](../research/topics/ai-reliable-in-scientific-research/08-simulation.md) focused on evidence grounding, independent verification, uncertainty, distribution shift and accountability.
 
-## Hypotheses and synthetic truth
-- Assigned hidden true/false at generation according to the domain's assumed base rate, with a small `diversity` adjustment. This truth is **synthetic**, not empirical.
-- If true, the simulated effect is uniformly distributed from 0.24 to 0.92; otherwise it is exactly zero.
-- An initial study consumes `0.4 + 0.16×sampleSize` lab credits.
+Science Universe currently studies a **different, related** question: *under explicit assumed conditions, how can increased AI-assisted hypothesis throughput interact with sampling error, manuscript review capacity, publication bias, independent replication and correction?*
 
-## Test mechanism
-- Model false-positive parameter: `alpha = clamp(0.005×2^(0.43×alphaPolicy), 0.007, 0.18)`.
-- Effective sample size: `n = 18 + 16×sampleSize`, times lab method modifier and (on independent replication) replication modifier.
-- Signal: `effect×sqrt(effectiveN)/3.7`.
-- Model detection probability for true effects:
-  `power = clamp(0.035 + 0.91×(1-exp(-signal²/3)), alpha, 0.992)`.
-- For false hypotheses, significance probability is `alpha + fishing` (capped at 0.30). `fishing` increases with publication pressure above 5 and decreases with transparency; it is disabled for independent replication.
-- These are **designed teaching rules**, not results of a calibrated clinical, environmental or scientific validation study.
+**Science lead decision pending:** Is an ecosystem simulation necessary for Topic 01? Which specific hypotheses and evaluation patterns make it fit for purpose? Do not quietly claim to simulate all five original Trust Test dimensions.
 
-## Review gate
-- Assumed review rigor:
-  `rigour = clamp(0.16 + .048×verification + .22×lab.method + .017×transparency - .028×pressure, .08, .9)`.
-- Rejection probability for **false** significant findings: `clamp(.08 + .65×rigour, .06, .76)`; for **true** significant findings: `.045 + (.8 - lab.method)×.055`.
-- Thus review is imperfect; passing review never proves a hypothesis is true.
+## 1 · Inclusion rule: no unaccountable model choices
 
-## Citation network
-- Links are generated between nearby labs, preferentially within the same domain; relocating a lab recomputes the graph.
-- Citation targets receive relative weight
-  `(1+sqrt(citations+1)) × (adjacent ? 1.7 : 1) × (same domain ? 1.8 : 0.65)`.
-- These weights model *attention and diffusion*, explicitly **not** scientific correctness.
+Every consequential mechanism, parameter, data assumption, user intervention and metric must have:
 
-## User interventions
-- **+15 credits:** grants from shared reserve if available.
-- **Train methods:** method +0.15 (capped at 1.0), budget −10.
-- **Replicate latest / paper:** queue a new repeat test for the selected published claim.
-- **Pause generation:** reduces the lab's new-idea chance by a factor of 0.17 (does not completely stop).
-- **Drag a lab node:** updates spatial collaboration links (and may consume random draws).
+1. **Question:** why it is needed for the exact learning/research goal.
+2. **Definition and units:** what changes, what is measured and what its scale means.
+3. **Mechanism:** equation, update order and accessible evidence.
+4. **Basis:** formal derivation, verified literature or explicit design hypothesis.
+5. **Alternatives:** competing defensible assumptions and simpler models.
+6. **Sensitivity or validation:** expected patterns, meaningful perturbations and rejection criteria.
+7. **Owner/status:** who approved it and whether independently validated.
 
-## Parallel worlds
-- `fork()` deep-clones every relevant state variable, including the PRNG position.
-- UI **automatically** increases World B verification and replication policies by +3 (capped at 10) immediately after forking. This is a *combined intervention*, not an isolated change of one variable.
-- Worlds subsequently advance separately and may diverge stochastically because changed rules consume draws differently. Differences between one A/B run are **not generalizable causal estimates**.
+Classifications: **theory-grounded mechanism**, **testable hypothesis**, **engineering/display decision**, **uncalibrated assumption**. A paper supporting an idea does **not** support arbitrary numbers inserted into the code.
 
-## Counters and interpretation
-- `generated`: cumulative hypotheses. `published`: cumulative accepted papers.
-- `healthyPapers`: cumulative published minus retracted.
-- `falsePublished`: false published claims not yet retracted, according to the model's hidden truth.
-- `replicated`: number of completed repeat tests, not necessarily distinct replicated papers.
-- `citations`: simulated citation events, not unique social connections.
-- `reviewBacklog`: the current queued manuscript count.
-- Interpret outputs as model behavior and test sensitivity across multiple controlled scenarios; **do not infer external-world effects**.
+The single Lab provides an interactive **Model assumptions → Decision register** explaining its high-impact choices and 12 controls, with sources and alternatives. Its input controls can change lab population, team size, initial AI fraction and assumed base truth probability. A 3/7/14-labs-per-field × 6-seed audit reports model-internal stability; **six seeds are illustrative, not a precision estimate**.
 
-## Guided tutorial v1
-When a visitor first opens Science Universe, an unobtrusive 9-step guided panel explains: world/map → time → hypothesis vs truth → policies → verification → citations → fork → comparison → limitations. It can be skipped and restarted any time. The panel highlights real controls in the isolated iframe using an allowlisted message protocol; it does not change any policy or trigger experiments automatically. No component, slider or simulation mechanism is removed.
+## 2 · ODD-style overview and implementation map
 
-## Future scientific improvements
-1. Separate single-policy A/B experiments from the current built-in +3/+3 combined change.
-2. Add replication experiments over many seeds with confidence intervals and sensitivity analysis.
-3. Document parameter provenance and validate against public research studies before making empirical claims.
-4. Treat observed live claims and synthetic ground truth separately in all displays and exports.
+- **Purpose:** explore mechanisms, not predict research communities.
+- **Entities:** 4 named domains as illustrative categories; a configurable number of labs in each (default 7; total 28), research proxies (default 3–5 agents per lab, ~48% AI role initially), hypotheses, manuscript queue, papers, repeat tests, citations, central research-credit pool.
+- **Scheduling per model day:** replenish credits → probabilistic idea generation → complete ready experiments → review submitted significant manuscripts → replicate due papers → periodically simulate citations and record history.
+- **Scale:** “day” is a discrete computational tick, not a calibrated actual-day duration. Credits are synthetic units.
+- **Initialization:** deterministic seeded xorshift32; defaults are deliberately illustrative rather than observed research census data. Model may be rerun with other lab populations/priors.
+- **Interaction:** choose a lab; allocate synthetic credits; invest in methods; request a repeat test; reduce idea production; move a node to explicitly edit its simulated network links. Map coordinates are **not** an empirical geography.
+- **Counterfactuals:** Fork creates an exact copy, including random state; no automatic +3/+3 intervention is applied. Change **one** policy in World B if estimating its standalone simulated effect; use many paired random seeds for generality *within this model*.
+- **Observed outputs:** hypothesis and publication counts; currently surviving false claims (known only to the synthetic engine); repeat-test count; withdrawn publications; review/replication queues; simulated citation events. A repeat test is not automatically a confirmed true discovery.
+
+## 3 · Derived statistical core (genuinely grounded in probability)
+
+True hypotheses have assigned hidden effects; null hypotheses have effect 0. The **generation of truth and effect-size distribution remains hypothetical**, even though testing uses standard probability theory.
+
+Given a *known-variance* two-sided normal model:
+
+`Z = sqrt(n_effective) × theta + epsilon`, where `epsilon ~ N(0,1)`.
+
+`p = 2 × [1 − Phi(|Z|)]`. Significance if `p <= alpha`.
+
+When no true effect exists and there is only one prespecified analysis, the false-positive probability should match alpha. Increasing sample size increases power for nonzero effects. Multiple independent analyses with selection of the smallest uncorrected p can increase family-wise false-positive rates.
+
+**Assumptions still in the formula:** `alpha=clamp(.005×2^(.43×alphaPolicy), .007, .18)`; `n=18+16×sampleSizePolicy` multiplied by method/replication factors; per-field synthetic base priors .28/.36/.31/.42; positive effects drawn uniformly .24–.92. These numerical choices **do not come from the cited literature**. They must be varied and, if empirical interpretation is intended, calibrated.
+
+Relevant theory: [Ioannidis (2005)](https://doi.org/10.1371/journal.pmed.0020124); [Simmons et al. (2011)](https://doi.org/10.1177/0956797611417632).
+
+## 4 · Peer review no longer sees hidden truth
+
+Earlier v2 review probabilities explicitly branched on `h.truth`, giving model reviewers privileged access to the outcome being judged. That was unrealistic.
+
+The updated review stage uses only **observable** simulated manuscript signals: documented method quality, preregistration/registered plan flag and number of disclosed analyses. A model “review rigor” adjustment, publication pressure and finite FIFO capacity influence decisions. **True/false ground truth cannot directly alter acceptance.** Hidden truth is retained only for generating data and evaluating simulated accuracy.
+
+**Still uncalibrated:** the synthetic quality distribution, the relative weighting of visible review signals, capacity slope and reject-probability constants. This is an epistemically safer mechanism, not a validated empirical model of real journals. Independent reviewer disagreement, hidden flexibility, domain expertise and institutional incentives are not fully modeled.
+
+**Test invariant:** clone identical manuscript queues and PRNG state; flip only the hidden truth flag; peer review accept/reject outcomes must remain identical.
+
+## 5 · Other mechanism families: WHY and current evidence quality
+
+| Element | Current decision | Actual reason/status | Needed scientific check |
+| --- | --- | --- | --- |
+| 4 domains | Biology, Climate, Physics, Materials | Visual categories; **no representative-sampling claim** | Choose domain scope from the research question |
+| 28 labs | 7 per domain | Legible network size, **not scientific optimum** | 12/28/56+ lab sensitivity with normalized outcomes |
+| 3–5 agents / 48% AI | Synthetic roles, fixed toy defaults | Illustrate mixed actors; **uncalibrated** | Vary populations, AI roles and throughput separately |
+| Domain true-claim priors | .28/.36/.31/.42 | Illustrate pre-study odds; **no measured domain ranking** | Empirical calibration or use neutral common prior |
+| Effect sizes | Uniform .24–.92 for true effects | Simple heterogeneous examples; **no domain-based estimation** | Compare distributions/heterogeneity |
+| Peer review | Finite FIFO capacity, observables-only rejection | Real concepts, **invented response coefficients** | External empirical studies and reviewer sensitivity |
+| Replication and retraction | Fresh sample; one/two failed repeats can retract | Independent evidence grounded; **retraction decision arbitrary** | Journal-process model and replication datasets |
+| Funding | Inflow 6+3×policy, up to 65% distributed | Budget scarcity example; **numbers arbitrary** | Resource constraints from empirical settings |
+| Spatial network | Displayed closeness affects collaboration | Editable toy graph, **not empirical research geography** | Separate layout from actual modeled ties |
+| Citations | Popularity, same-field and proximity weights | Attention/diffusion hypothesis, **weights uncalibrated** | Citation-graph fit and network null models |
+| A/B fork | Exact saved state including RNG | Controlled computational comparison | Vary one rule at a time; paired multi-seed analysis |
+| 12 sliders | Core model mechanism families | UI grouping, not canonical scientific taxonomy | Define units and defend inclusion via Topic 01 |
+
+These rules are documented in `lab-sources/science-universe/engine.js`. User-facing detailed rationales are in `lab-sources/science-universe/app.js` under `DECISION_REGISTER` and `POLICY_RATIONALE`.
+
+## 6 · Why 12 controls? Explicit mechanism categories
+
+- **Hypothesis production:** generation, AI adoption, AI abstention, exploration diversity — hypothetical behavioral mechanisms.
+- **Evidence quality:** alpha and sample size — theoretical concepts, but their **slider mappings are invented**.
+- **Scientific verification:** peer review, independent replication, transparency — real conceptual distinctions; quantitative capacities and effects are assumptions.
+- **System incentives/resources:** funding and publication pressure — plausible constraints, not measured coefficients.
+- **Knowledge diffusion:** network attention — plausible graph mechanism, not validated citation prediction.
+
+The number **12** follows the chosen software design; neither science nor ODD mandates it. If a control cannot be linked to a required mechanism and tested, it should remain optional for teaching or be reconsidered by the scientific owner.
+
+**Removed misleading unused attributes:** Agent `creativity`, laboratory `caution` and an unmaintained laboratory `verified` field previously appeared in initialized state but did not influence research behavior or recorded evidence. They have been removed rather than implying nonexistent dynamics. If those concepts are later reintroduced, they need explicit operational mechanisms, test cases and rationale.
+
+## 7 · Pulsar's role and provenance
+
+Pulsar is a contextual teacher inside the one Lab through GraviQuest's common public coaching backend. Branded chat, timestamps and device-local history improve continuity; proactive guidance is intentionally limited. Responses may be **live model-generated** or explicitly labeled **scripted fallback**. Model metrics from the browser are not independently authenticated. It must explain assumptions, methods, sources and possible tests, never invent actual experiments or claim that a paper validates chosen coefficients.
+
+## 8 · Quality gates before empirical claims
+
+1. **Sajad accepts the purpose:** explain the relationship (or separation) between Topic 01's Trust Test and the ecosystem model.
+2. **Parameter provenance matrix:** every coefficient, prior, cost, review/citation rate and latency has a justification and owner; mark as uncalibrated until measured.
+3. **Statistical checks:** null Type I error, power vs sample size, multiple testing error and independently reproducible results.
+4. **Structural checks:** reviewer outcome invariant to hidden truth, deterministic clone, no unnoticed two-policy fork, safe source publication, and non-inferential explanations for display geometry.
+5. **Sensitivity:** at least population, agent composition, prior odds, effect sizes, incentive/review/citation strengths; multiple random seeds, uncertainty intervals and design alternatives.
+6. **External evaluation:** choose a coherent dataset and independently check target patterns; **OpenAlex citation counts alone do not establish ground truth**.
+7. **Independent scientific sign-off:** only after comparative, calibration, and reproducibility evidence may the model be described as empirically informative; generalization is still scoped.
+
+## Sources and standards
+
+- [Grimm et al. (2020), ODD protocol: including model design rationale and evaluation criteria](https://doi.org/10.18564/jasss.4259)
+- [Ioannidis (2005), pre-study odds and false published findings](https://doi.org/10.1371/journal.pmed.0020124)
+- [Simmons, Nelson & Simonsohn (2011), analytical flexibility and false positives](https://doi.org/10.1177/0956797611417632)
+- [Open Science Collaboration (2015), replication evidence](https://doi.org/10.1126/science.aac4716)
+- [Smaldino & McElreath (2016), incentives and research practice](https://doi.org/10.1098/rsos.160384)
+- [Original Topic 01 Trust Test](../research/topics/ai-reliable-in-scientific-research/08-simulation.md)
+
+**Scientific status:** Theory-grounded in a bounded statistical submodel; overall ecosystem claims are still hypothesis-driven and uncalibrated. Rationale transparency is necessary, **not sufficient**, for scientific validity.

@@ -2,7 +2,7 @@
   "slug": "science-universe",
   "title": "Science Universe — The Discovery Engine",
   "summary": "Explore an evolving research ecosystem. Change funding, AI adoption, peer review and replication; intervene in individual laboratories and compare parallel worlds.",
-  "description": "One integrated 28-laboratory agent-based research ecosystem with a theory-grounded Gaussian z-test and independent replication. Hypothesis truth priors, agent behavior, incentives, review decisions, funding and citations remain explicitly synthetic assumptions. Scientific sources are linked in Model assumptions; not a real-world forecast.",
+  "description": "Science Universe is one interactive, seeded agent-based teaching system for evaluating assumptions about AI-assisted research. Its known-variance Z testing is mathematically grounded; its population, domain priors, research incentives, review probabilities, citation weights, funding and policy mappings are explicitly uncalibrated model choices. Original Lab design rationales and alternatives are inspectable in the Model assumptions decision register. Population and prior sensitivity experiments are available. Independent scientific review is required for empirical claims.",
   "duration_text": "15–25 min",
   "topic_slug": "",
   "config": {
@@ -11,7 +11,7 @@
     ],
     "pulsar_enabled": true,
     "auto_coach": true,
-    "learning_goal": "Understand how AI-assisted scientific discovery depends on the whole research workflow, including evidence, false positives, review bottlenecks, independent verification, incentives, corrections and accountability. Distinguish synthetic model outcomes from empirical findings.",
+    "learning_goal": "Inspect why each simulation rule exists, distinguish theoretically grounded statistical procedures from uncalibrated hypotheses and UI defaults, test robustness to alternative populations and truth priors, and evaluate how AI-assisted throughput interacts with evidence, review and replication. No synthetic outputs are claims about the real scientific system.",
     "sections": [
       {
         "id": "observe",
