@@ -7,11 +7,11 @@ const $=id=>document.getElementById(id);
 const make=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=String(text);return e;};
 const domainColors=['#65b6cf','#95aadf','#bea0ef','#d5ac6f'];
 const domainNames=E.DOMAINS;
-const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand:()=>{},onLayer:()=>{},onSection:()=>{}};
-const worlds=[E.make(20261029),null],selected=[null,null],eventSeen=[new Set(),new Set()];
+const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand:()=>{},onLayer:()=>{},onSection:()=>{},onExperiment:()=>{},context:()=>{},experimentResult:()=>{}};
+const worlds=[E.make(20261029),null],selected=[null,null],selectedPaper=[null,null],eventSeen=[new Set(),new Set()];
 let active=0,playing=false,compareMode=false,view='labs',plot='published',speed=3;
 let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performance.now(),raf=0;
-let currentSection='observe',lastBridge=0,drawerOpen=false,latestFirst=true;
+let currentSection='observe',lastBridge=0,lastStateSent=0,drawerOpen=false,latestFirst=true;
 
 const policyDescriptions={
   generation:['Hypothesis generation','Rate of candidate research questions'],
@@ -187,6 +187,31 @@ function emit(event,s=nowWorld(),section=currentSection){
     replication_queue:m.replicationBacklog
   },section);
 }
+/* Real selected-state telemetry. A metric called live_papers is a COUNT,
+   never an addressable list of papers. No fabricated selection is sent. */
+function publishContext(force=false){
+  if(typeof G.context!=='function')return;
+  const now=performance.now();
+  if(!force&&now-lastStateSent<1600)return;
+  lastStateSent=now;
+  const s=nowWorld(),m=E.summary(s),labId=selected[active];
+  const lab=Number.isInteger(labId)?s.labs[labId]:null;
+  const paperId=selectedPaper[active],paper=paperId===null?null:
+    s.hypotheses.find(h=>h.id===paperId&&h.published&&h.labId===labId);
+  G.context({
+    world:active===0?'A':'B',day:s.day,playing:playing,
+    view:view,lab:lab?{id:lab.id,name:lab.name,domain:E.DOMAINS[lab.domain],
+      paperCount:lab.papers.length}:null,
+    paper:paper?{id:paper.id,title:paper.topic,labId:paper.labId,
+      status:paper.retracted?'withdrawn':'published',
+      replications:paper.replications||0,
+      pValue:Number.isFinite(paper.pValue)?paper.pValue:null}:null,
+    published:m.published,falseClaims:m.falsePublished,reviewBacklog:m.reviewBacklog,
+    replications:m.replicated,policies:{...s.policy},hasFork:!!worlds[1],
+    capabilities:['inspect_lab','select_paper','replicate_selected_paper',
+      'compare_worlds','run_guided_scenario']
+  });
+}
 function play(on){
   playing=!!on;
   $('play').textContent=playing?'Ⅱ Pause':'▶ Play';
@@ -196,7 +221,7 @@ function play(on){
 function reset(){
   const s=nowWorld();
   worlds[active]=E.make(s.seed,{...s.policy},{...s.design});
-  selected[active]=null;eventSeen[active].clear();
+  selected[active]=null;selectedPaper[active]=null;eventSeen[active].clear();
   play(false);render();emit('world_reset',nowWorld(),'observe');
 }
 function arrangeCanvases(){
@@ -213,7 +238,7 @@ function chooseWorld(index){
     b.setAttribute('aria-pressed',String(i===index));
   }
   $('policy-world').textContent='EDITING WORLD '+(index?'B':'A');
-  arrangeCanvases();renderPolicies();render();
+  arrangeCanvases();renderPolicies();render();publishContext(true);
 }
 function compare(on){
   if(on&&!worlds[1])return;
@@ -227,7 +252,7 @@ function compare(on){
 }
 function fork(){
   worlds[1]=E.fork(worlds[0]);
-  selected[1]=selected[0];
+  selected[1]=selected[0];selectedPaper[1]=selectedPaper[0];
   // Scientifically defensible baseline: B starts IDENTICALLY.
   // Do not silently change two different variables; the user chooses one.
   eventSeen[1]=new Set(worlds[1].events.map(e=>e.id));
@@ -252,7 +277,7 @@ function inspector(){
   const id=selected[active],s=nowWorld();
   $('inspector-start').hidden=id!==null;
   $('inspector-content').hidden=id===null;
-  if(id===null)return;
+  if(id===null){publishContext();return;}
   const l=s.labs[id];
   $('selected-domain').textContent=domainNames[l.domain].toUpperCase()+' / LAB '+String(l.id+1).padStart(2,'0');
   $('selected-title').textContent=l.name;
@@ -271,18 +296,38 @@ function inspector(){
   }
   const papers=$('paper-list');papers.replaceChildren();
   const list=l.papers.map(x=>s.hypotheses.find(h=>h.id===x)).filter(Boolean).slice(-7).reverse();
-  if(!list.length)papers.append(make('p','empty','No published papers yet.'));
+  if(!list.length)papers.append(make('p','empty','No published papers yet. Advance days or choose a lab with papers.'));
   for(const paper of list){
     const b=make('button','paper-row');b.type='button';
-    b.append(make('strong','',paper.topic),make('small','',paper.retracted?'Withdrawn':
-      paper.replications?'Repeated '+paper.replications+'×':'Not independently repeated'));
+    b.setAttribute('aria-pressed',String(selectedPaper[active]===paper.id));
+    if(selectedPaper[active]===paper.id)b.classList.add('selected');
+    b.append(make('strong','',paper.topic),make('small','',
+      '#'+paper.id+' · '+(paper.retracted?'Withdrawn':paper.replications?
+      'Repeated '+paper.replications+'×':'Published · not repeated')));
     b.addEventListener('click',()=>{
-      const result=E.intervention(s,'replicate_paper',id,paper.id);
-      $('intervention-status').textContent=result.ok?'Replication queued for '+paper.topic:result.error.replaceAll('_',' ');
-      render();if(result.ok)emit('replication_requested',s,'verify');
+      selectedPaper[active]=paper.id;inspector();publishContext(true);
     });
     papers.append(b);
   }
+  const detail=$('selected-paper');
+  detail.replaceChildren();
+  const target=s.hypotheses.find(h=>h.id===selectedPaper[active]&&h.labId===id&&h.published);
+  if(!target){detail.hidden=true;publishContext();return;}
+  detail.hidden=false;
+  detail.append(make('strong','',target.topic),
+    make('p','','Paper #'+target.id+' · '+(target.retracted?'Withdrawn':'Published')+
+       ' · independent repeats '+(target.replications||0)));
+  const action=make('button','btn small','Request independent replication');
+  action.type='button';action.disabled=!!target.retracted;
+  action.addEventListener('click',()=>{
+    const result=E.intervention(s,'replicate_paper',id,target.id);
+    $('intervention-status').textContent=result.ok?
+      'Replication requested for paper #'+target.id+'. Advance days to see the result.':
+      String(result.error||'unavailable').replaceAll('_',' ');
+    if(result.ok)emit('replication_requested',s,'verify');
+    render();publishContext(true);
+  });
+  detail.append(action);publishContext();
 }
 function feed(){
   const host=$('feed');host.replaceChildren();
@@ -296,7 +341,7 @@ function feed(){
       'DAY '+String(event.day).padStart(3,'0')+' · '+event.type.replaceAll('_',' ')));
     button.append(make('span','event-indicator '+cat),detail);
     if(Number.isInteger(event.labId)&&event.labId>=0)button.addEventListener('click',()=>{
-      selected[active]=event.labId;inspector();
+      selected[active]=event.labId;selectedPaper[active]=null;inspector();publishContext(true);
     });else button.disabled=true;
     host.append(button);
   }
@@ -357,7 +402,7 @@ function comparison(){
     worlds[0].policy.replication+'/10     |     WORLD B · Review '+
     worlds[1].policy.verification+'/10, replication '+worlds[1].policy.replication+'/10';
 }
-function render(){summary();inspector();feed();drawChart();comparison();}
+function render(){summary();inspector();feed();drawChart();comparison();publishContext();}
 function interesting(){
   const types=['paper_retracted','replication_failed','review_rejected','replication_passed','paper_published','hypothesis_generated'];
   const s=nowWorld(),seen=eventSeen[active];
@@ -456,9 +501,9 @@ function canvasEvents(index){
     if(index===1&&!worlds[1])return;
     chooseWorld(index);
     const p=local(e),id=nearest(nowWorld(),canvasGeometry(canvas),p.x,p.y);
-    selected[index]=id<0?null:id;
+    selected[index]=id<0?null:id;selectedPaper[index]=null;
     if(id>=0){drag={index,id,start:p,moved:false};canvas.setPointerCapture(e.pointerId);}
-    inspector();
+    inspector();publishContext(true);
   });
   canvas.addEventListener('pointermove',e=>{
     if(!drag||drag.index!==index)return;
@@ -486,7 +531,7 @@ function canvasEvents(index){
     e.preventDefault();chooseWorld(index);
     const delta=e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:1;
     selected[index]=selected[index]===null?0:(selected[index]+delta+worlds[index].labs.length)%worlds[index].labs.length;
-    inspector();
+    selectedPaper[index]=null;inspector();publishContext(true);
   });
 }
 function changeLab(action){
@@ -595,7 +640,8 @@ function auditPopulation(){
   // browser confirm(), so do not depend on a blocked native dialog.
   const seed=s.seed,policy={...s.policy};
   worlds[0]=E.make(seed,policy,design);worlds[1]=null;
-  selected[0]=null;selected[1]=null;eventSeen[0].clear();eventSeen[1].clear();
+  selected[0]=null;selected[1]=null;selectedPaper[0]=null;selectedPaper[1]=null;
+  eventSeen[0].clear();eventSeen[1].clear();
   compareMode=false;active=0;play(false);
   $('world-b').disabled=true;$('compare').disabled=true;
   $('comparison').hidden=true;
@@ -649,6 +695,62 @@ function setView(name){
     $('view-'+key).setAttribute('aria-pressed',String(name===key));
   }
 }
+/* Experiment recipes are transparent, authored model interventions, not
+   generated science. The user explicitly chooses to advance both worlds. */
+const GUIDED_EXPERIMENTS={
+ review_bottleneck:{
+   name:'Can review keep up with faster research?',key:'generation',low:3,high:9,
+   rationale:'More attempted hypotheses may increase the review queue if review staffing is fixed.',
+   observe:'Review backlog and publication counts',
+   caution:'The throughput rates and staffing coefficients are uncalibrated assumptions.'
+ },
+ selective_reporting:{
+   name:'What if positive results are rewarded?',key:'pressure',low:3,high:9,
+   rationale:'Selecting a favorable p-value from additional analyses can increase false positives.',
+   observe:'False published claims and published counts',
+   caution:'The number of analyses and publication-pressure response are hypothetical.'
+ },
+ replication_capacity:{
+   name:'What changes when replication is easier?',key:'replication',low:2,high:9,
+   rationale:'More repeat-study capacity can uncover non-replicating publications, but does not prove any claim true.',
+   observe:'Independent replications, withdrawals and queue size',
+   caution:'Replications use synthetic independent normal samples, not real laboratory studies.'
+ }
+};
+function runGuidedExperiment(id){
+  const recipe=GUIDED_EXPERIMENTS[id];
+  if(!recipe||typeof G.experimentResult!=='function')return;
+  play(false);
+  const checkpoint=E.fork(nowWorld());
+  // Both worlds start from exactly the same checkpoint. Only the stated
+  // pre-registered model policy differs; no silent second intervention.
+  const a=E.fork(checkpoint),b=E.fork(checkpoint);
+  E.editPolicy(a,recipe.key,recipe.low);
+  E.editPolicy(b,recipe.key,recipe.high);
+  const beforeA=E.summary(a),beforeB=E.summary(b),days=45;
+  E.step(a,days);E.step(b,days);
+  worlds[0]=a;worlds[1]=b;
+  active=1;compareMode=true;selected[0]=null;selected[1]=null;
+  selectedPaper[0]=null;selectedPaper[1]=null;
+  eventSeen[0].clear();eventSeen[1].clear();
+  $('world-b').disabled=false;$('compare').disabled=false;
+  compare(true);chooseWorld(1);
+  const endA=E.summary(a),endB=E.summary(b);
+  const measure=['generated','tested','published','falsePublished','replicated','retracted',
+    'reviewBacklog','replicationBacklog'];
+  const change=(end,start)=>Object.fromEntries(measure.map(k=>[k,
+    k.endsWith('Backlog')?end[k]:end[k]-start[k]]));
+  const observedA=change(endA,beforeA),observedB=change(endB,beforeB);
+  $('branch-explainer').textContent=recipe.name+' Model changes: '+recipe.key+
+    ' = '+recipe.low+' in A versus '+recipe.high+' in B. '+
+    days+' modeled days from a matched checkpoint. All other policies equal. '+
+    recipe.caution;
+  render();publishContext(true);
+  G.experimentResult({id,name:recipe.name,policy:recipe.key,low:recipe.low,
+    high:recipe.high,days,worldA:observedA,worldB:observedB,
+    rationale:recipe.rationale,observe:recipe.observe,caution:recipe.caution});
+  emit('scenario_completed',b,'compare');
+}
 function bridge(){
   G.register({section:'observe',controls:[
     {key:'generation',label:'Generation speed',min:1,max:10,step:1,value:nowWorld().policy.generation},
@@ -673,6 +775,7 @@ function bridge(){
       show[key]=!!enabled;$('layer-'+key).checked=!!enabled;
     }
   });
+  G.onExperiment(runGuidedExperiment);
   G.onSection(section=>{
     currentSection=section;
     if(section==='verify')setView('papers');

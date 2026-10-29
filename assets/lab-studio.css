@@ -205,3 +205,16 @@
 @media(prefers-reduced-motion:reduce){
  #lab-experiences[data-lab-slug="science-universe"] .lab-chat-arrow{transition:none}
 }
+
+/* Scenario coaching belongs inside Pulsar conversation, not the Lab dashboard. */
+.lab-chat-scenarios{border-top:1px solid var(--g-border);margin:0 12px;padding:7px 0}
+.lab-chat-scenario-title{cursor:pointer;color:var(--g-accent);
+ font:600 .77rem/1.5 var(--g-font);padding:9px 5px;list-style-position:inside}
+.lab-chat-scenario-content{display:grid;gap:8px;padding:8px 1px 10px}
+.lab-chat-scenario-item{border:1px solid var(--g-border);border-radius:12px;padding:10px;background:rgba(255,255,255,.025)}
+.lab-chat-scenario-button{display:block;width:100%;color:var(--g-text);border:1px solid rgba(234,200,145,.3);background:rgba(232,202,146,.09);
+ border-radius:9px;cursor:pointer;text-align:left;font:600 .8rem/1.4 var(--g-font);padding:9px 12px}
+.lab-chat-scenario-button:hover{border-color:var(--g-accent)}
+.lab-chat-scenario-button:focus-visible{outline:2px solid var(--g-accent);outline-offset:2px}
+.lab-chat-scenario-hint{margin:8px 2px 0;color:var(--g-text-muted);
+ font:.72rem/1.6 var(--g-font)}

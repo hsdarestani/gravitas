@@ -6,7 +6,7 @@
 (function(){
   'use strict';
   var schema='graviquest.lab.v1';
-  var controlListeners=[],commandListeners=[],layerListeners=[],sectionListeners=[],didRegister=false;
+  var controlListeners=[],commandListeners=[],layerListeners=[],sectionListeners=[],experimentListeners=[],didRegister=false;
   var validKey=/^[a-z][a-z0-9_-]{0,63}$/;
   function send(type,payload){
     if(window.parent===window)return;
@@ -79,7 +79,18 @@
     onControl:function(fn){if(typeof fn==='function')controlListeners.push(fn);},
     onCommand:function(fn){if(typeof fn==='function')commandListeners.push(fn);},
     onLayer:function(fn){if(typeof fn==='function')layerListeners.push(fn);},
-    onSection:function(fn){if(typeof fn==='function')sectionListeners.push(fn);}
+    onSection:function(fn){if(typeof fn==='function')sectionListeners.push(fn);},
+    onExperiment:function(fn){if(typeof fn==='function')experimentListeners.push(fn);},
+    context:function(payload){
+      if(location.pathname.indexOf('/lab-run/science-universe/')!==0)return;
+      if(!payload||typeof payload!=='object'||Array.isArray(payload))return;
+      send('lab:context',{context:payload});
+    },
+    experimentResult:function(payload){
+      if(location.pathname.indexOf('/lab-run/science-universe/')!==0)return;
+      if(!payload||typeof payload!=='object'||Array.isArray(payload))return;
+      send('lab:experiment:result',{result:payload});
+    }
   };
   // Fixed, read-only focus targets: never accept arbitrary selectors from the host.
   // Only the published Science Universe uses this walkthrough; other Labs unaffected.
@@ -126,6 +137,10 @@
       controlListeners.forEach(function(fn){try{fn({key:data.key,value:data.value});}catch(_){}});
     if(data.type==='lab:command'&&['play','pause','reset','replay'].includes(data.command))
       commandListeners.forEach(function(fn){try{fn(data.command);}catch(_){}});
+    if(data.type==='lab:experiment'&&
+       location.pathname.indexOf('/lab-run/science-universe/')===0&&
+       ['review_bottleneck','selective_reporting','replication_capacity'].includes(data.id))
+      experimentListeners.forEach(function(fn){try{fn(data.id);}catch(_){}});
     if(data.type==='lab:layer'&&validKey.test(String(data.key||'')))
       layerListeners.forEach(function(fn){try{fn({key:data.key,enabled:!!data.enabled});}catch(_){}});
     if(data.type==='lab:section'&&validKey.test(String(data.section||'')))
