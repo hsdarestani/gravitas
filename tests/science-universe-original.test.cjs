@@ -64,3 +64,19 @@ test('a review decision depends on evidence, not hidden truth',()=>{
                  b.hypotheses.find(x=>x.id===999999).status);
   }
 });
+
+test('every policy and central design choice has an inspectable explanation',()=>{
+ const fs=require('node:fs');
+ const app=fs.readFileSync('lab-sources/science-universe/app.js','utf8');
+ const html=fs.readFileSync('lab-sources/science-universe/index.html','utf8');
+ const registry=app.slice(app.indexOf('const POLICY_RATIONALE='),
+   app.indexOf('const human='));
+ for(const key of Object.keys(E.DEFAULTS))
+   assert.ok(registry.includes(key+':['),'missing rationale '+key);
+ for(const term of ['labPopulation','aiFraction','prior','review','fork','citations'])
+   assert.ok(app.includes("id:'"+term+"'"),'missing design rationale '+term);
+ assert.match(html,/id="decision-registry"/);
+ assert.match(html,/id="audit-labs"/);
+ assert.match(html,/id="audit-ai-fraction"/);
+ assert.doesNotMatch(app,/E\.editPolicy\(worlds\[1\],'verification'/);
+});
