@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[3] / 'lab-sources' / 'science-universe'
 EXPECTED = {
     'engine.js': '2b6d9971ef8062ed090e59453145467853e1b449',
     'index.html': '2e73d57d60bfedccfeb68aad3e3c28b663a5367f',
+    'app.js': '87b0a516bcd6874d69ddfd97e9cc89c83f0e6ac3',
+    'styles.css': 'd4f36c09c559ed29fd30b20a192dd36562f8569b',
 }
 NAMES = tuple(EXPECTED)
 
