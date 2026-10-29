@@ -215,7 +215,9 @@ function newCitations(s){
 function fund(s){
   const inflow=6+s.policy.funding*3;
   s.pool+=inflow;
-  const perLab=Math.min(s.pool/s.labs.length,.5+s.policy.funding*.13);
+  // Retain a central reserve for user-directed grants; automatic
+  // distribution may spend at most 65% of each day's inflow.
+  const perLab=Math.min(s.pool/s.labs.length,inflow*.65/s.labs.length);
   for(const l of s.labs){l.budget=clamp(l.budget+perLab,0,500);s.pool-=perLab;}
   s.pool=clamp(s.pool,0,10000);
 }
