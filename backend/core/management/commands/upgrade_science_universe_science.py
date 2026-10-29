@@ -1,8 +1,7 @@
 """Versioned, fail-closed upgrade of the existing *published* Science Universe.
 
 Do not create a second Lab, replace unrelated author files, or overwrite
-an unpublished editor draft. Only upgrade if both published/draft source
-blobs equal the reviewed v1 source or the already-upgraded v2 source.
+an unpublished editor draft. Upgrade only a reviewed published source; preserve independently edited drafts without altering them.
 """
 import hashlib
 from pathlib import Path
@@ -99,13 +98,29 @@ class Command(BaseCommand):
             ).first()
             if not lab:
                 raise CommandError('Published Science Universe not found; refusing automatic creation.')
+            # Strictly refuse edits to an unknown LIVE file. The published
+            # revision must match one of our reviewed Git blob hashes.
             try:
                 updated_published = upgrade_file_set(lab.published_files, replacements)
-                updated_draft = upgrade_file_set(lab.files, replacements)
             except ValueError as exc:
                 raise CommandError(
-                    'Existing Lab files have independent edits; preserving them: ' + str(exc)
+                    'Published Lab source has independent edits; refusing overwrite: ' + str(exc)
                 ) from exc
+            # The Lab Studio author draft is deliberately distinct from the
+            # public snapshot. Preserve any independent *draft* work untouched.
+            # This project-owned release updates the verified published version
+            # without replacing or trying to merge edits not reviewed here.
+            preserved_draft = False
+            try:
+                updated_draft = upgrade_file_set(lab.files, replacements)
+            except ValueError as exc:
+                if not str(exc).startswith('author_modified_'):
+                    raise CommandError('Invalid author draft: ' + str(exc)) from exc
+                preserved_draft = True
+                updated_draft = lab.files
+                self.stdout.write(self.style.WARNING(
+                    'Independent author draft detected and preserved without changes: ' + str(exc)
+                ))
             same_published = updated_published == lab.published_files
             same_draft = updated_draft == lab.files
             if same_published and same_draft:
@@ -124,6 +139,11 @@ class Command(BaseCommand):
             lab.version = next_version
             lab.published_version = next_version
             lab.save(update_fields=['files','published_files','version','published_version','updated_at'])
+            if preserved_draft:
+                self.stdout.write(self.style.WARNING(
+                    'The public Lab is updated; author draft remains different. '
+                    'A later manual publish from Lab Studio may replace this release.'
+                ))
             self.stdout.write(self.style.SUCCESS(
                 'Published Science Universe reviewed upgrade IN PLACE, version ' + str(next_version)
             ))
