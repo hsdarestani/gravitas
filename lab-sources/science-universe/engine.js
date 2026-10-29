@@ -4,7 +4,24 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ScienceUniverseEngine=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
 const DOMAINS=['Biology','Climate','Physics','Materials'];
+// These values are explicitly hypothetical. They do NOT represent observed
+// discipline-level proportions of correct scientific hypotheses.
 const BASE_RATES=[.28,.36,.31,.42];
+const DEFAULT_DESIGN=Object.freeze({
+  labsPerDomain:7, agentsMin:3, agentsMax:5, aiRoleFraction:.48,
+  truthPriorOverride:null,
+});
+function normalizeDesign(d={}){
+  const range=(key,defaultValue,lo,hi)=>Number.isFinite(d[key])?clamp(d[key],lo,hi):defaultValue;
+  const perDomain=Math.round(range('labsPerDomain',DEFAULT_DESIGN.labsPerDomain,1,20));
+  const agentsMin=Math.round(range('agentsMin',DEFAULT_DESIGN.agentsMin,1,12));
+  const agentsMax=Math.round(range('agentsMax',DEFAULT_DESIGN.agentsMax,agentsMin,12));
+  const rawPrior=d.truthPriorOverride;
+  return {labsPerDomain:perDomain,agentsMin,agentsMax,
+    aiRoleFraction:range('aiRoleFraction',DEFAULT_DESIGN.aiRoleFraction,0,1),
+    truthPriorOverride:rawPrior===null||rawPrior===undefined?null:
+      clamp(Number.isFinite(rawPrior)?rawPrior:.3,.01,.99)};
+}
 const DEFAULTS=Object.freeze({
   generation:5,verification:5,replication:4,funding:6,aiAdoption:6,
   alpha:5,sampleSize:5,transparency:5,diversity:5,pressure:5,
@@ -16,16 +33,20 @@ const rnd=(s)=>{let x=s.rng|0;x^=x<<13;x^=x>>>17;x^=x<<5;s.rng=x|0;return (s.rng
 const choice=(s,arr)=>arr[Math.floor(rnd(s)*arr.length)];
 const fixed=(n,k=2)=>Math.round(n*10**k)/10**k;
 const NEWS_MAX=75, HYPO_MAX=950;
-function make(seed=21061,policy={}){
-  const state={seed:seed>>>0,rng:(seed>>>0)||1,day:0,policy:{...DEFAULTS,...policy},
+function make(seed=21061,policy={},design={}){
+  design=normalizeDesign(design);
+  const state={seed:seed>>>0,rng:(seed>>>0)||1,day:0,design,policy:{...DEFAULTS,...policy},
     labs:[],agents:[],papers:[],links:[],hypotheses:[],events:[],history:[],nextId:1,
     pool:250,stats:{generated:0,tested:0,published:0,rejected:0,replicated:0,
       retracted:0,falsePublished:0,truePublished:0,spent:0,citations:0,replicationFailures:0},
     queues:{review:[],replication:[]},selected:0,
   };
-  // Four fields, seven labs each. Positions are intentionally stable.
-  for(let i=0;i<28;i++){
-    const d=i%4,ring=Math.floor(i/4),angle=d*Math.PI/2+ring*.21,rad=.18+ring*.095;
+  // Equal domain representation is a UI demo design, not an empirical claim.
+  // Lab population is configurable for model-size sensitivity experiments.
+  for(let i=0;i<DOMAINS.length*design.labsPerDomain;i++){
+    const d=i%DOMAINS.length,ring=Math.floor(i/DOMAINS.length);
+    const angle=d*Math.PI/2+ring*.21;
+    const rad=.18+ring*.095*Math.min(1,7/design.labsPerDomain);
     const l={
       id:i,domain:d,name:['Helix','Stratus','Axiom','Lattice'][d]+' '+String(ring+1).padStart(2,'0'),
       x:clamp(.5+rad*Math.cos(angle)+(.5-rnd(state))*.045,.07,.93),
@@ -34,9 +55,9 @@ function make(seed=21061,policy={}){
       caution:fixed(.2+rnd(state)*.75),ai:fixed(.2+rnd(state)*.75),
       output:0,verified:0,failed:0,papers:[],active:0,locked:false,
     };state.labs.push(l);
-    const count=3+Math.floor(rnd(state)*3);
+    const count=design.agentsMin+Math.floor(rnd(state)*(design.agentsMax-design.agentsMin+1));
     for(let j=0;j<count;j++){
-      const role=rnd(state)<.48?'AI':'Human';
+      const role=rnd(state)<design.aiRoleFraction?'AI':'Human';
       state.agents.push({
         id:state.agents.length,labId:i,role,domain:d,
         rigour:fixed(.32+rnd(state)*.62),creativity:fixed(.25+rnd(state)*.74),
@@ -45,7 +66,7 @@ function make(seed=21061,policy={}){
     }
   }
   rebuildLinks(state);
-  event(state,'world_started',null,'A research world with 28 laboratories and '+state.agents.length+' agents was initialized.');
+  event(state,'world_started',null,'A synthetic research world with '+state.labs.length+' laboratories and '+state.agents.length+' agents was initialized.');
   snapshot(state);
   return state;
 }
@@ -84,6 +105,8 @@ function summary(s){
 }
 function domainBase(s,d){
   // Diversity changes search on novel, low-prior questions; not objective truth.
+  if(s.design?.truthPriorOverride!==null&&s.design?.truthPriorOverride!==undefined)
+    return s.design.truthPriorOverride;
   return clamp(BASE_RATES[d]+(.5-s.policy.diversity/10)*.06,.1,.8);
 }
 function generate(s,lab,agent){
@@ -98,7 +121,9 @@ function generate(s,lab,agent){
   const domain=novelty?Math.floor(rnd(s)*4):lab.domain;
   const actual=rnd(s)<domainBase(s,domain);
   const effect=actual?(.24+rnd(s)*.68):0;
+  const methodQuality=clamp(lab.method+standardNormal(s)*.14,.05,1);
   const inquiry={
+    documentedQuality:methodQuality,registeredPlan:rnd(s)<clamp(s.policy.transparency/10,0,1),
     id:s.nextId++,labId:lab.id,agentId:agent.id,domain,
     topic:'Hypothesis '+String(s.stats.generated+1).padStart(4,'0'),
     truth:actual,effect,novelty,
@@ -127,33 +152,37 @@ function normalCDF(x){
   const p=1-Math.exp(-a*a/2)/Math.sqrt(2*Math.PI)*poly;
   return clamp(x>=0?p:1-p,0,1);
 }
-function statisticalTest(s,h,independent=false){
+function observeStudy(s,h,independent=false){
   const lab=s.labs[h.labId];
-  // Policy sliders are bounded toy-to-statistical-parameter mappings.
-  // Their numbers are NOT extracted from domain-specific datasets.
+  // Policy-to-alpha and sample size mappings are explicitly UNCALIBRATED.
   const alpha=clamp(.005*Math.pow(2,s.policy.alpha*.43),.007,.18);
   const n=18+s.policy.sampleSize*16;
   const effectiveN=n*(.75+lab.method*.4)*(independent?(.86+s.policy.replication*.025):1);
-  const z=h.effect*Math.sqrt(effectiveN)+standardNormal(s);
-  const p=clamp(2*(1-normalCDF(Math.abs(z))),0,1);
-  // Under publication pressure the user-defined 'flexibility' mechanism
-  // illustrates selective testing. Prespecified independent replication
-  // always uses one analysis; it is not exempted from type-I error.
+  let z=h.effect*Math.sqrt(effectiveN)+standardNormal(s);
+  let best=clamp(2*(1-normalCDF(Math.abs(z))),0,1);
+  // Selective reporting: the minimum P among assumed independent studies.
   const extra=independent?0:Math.max(0,Math.floor((s.policy.pressure-5)/2)-
     Math.floor(s.policy.transparency/5));
-  let best=p;
   for(let i=0;i<extra;i++){
-    const secondZ=h.effect*Math.sqrt(effectiveN)+standardNormal(s);
-    best=Math.min(best,clamp(2*(1-normalCDF(Math.abs(secondZ))),0,1));
+    z=h.effect*Math.sqrt(effectiveN)+standardNormal(s);
+    best=Math.min(best,clamp(2*(1-normalCDF(Math.abs(z))),0,1));
   }
-  return best<=alpha;
+  return {significant:best<=alpha,pValue:best,alpha,
+    sampleSize:effectiveN,analyses:1+extra};
+}
+function statisticalTest(s,h,independent=false){
+  // Backwards-compatible predicate; full evidence is used by blind reviewers.
+  return observeStudy(s,h,independent).significant;
 }
 function processTesting(s){
   for(const h of s.hypotheses){
     if(h.status!=='testing'||h.complete>s.day)continue;
     const lab=s.labs[h.labId];
     if(lab)lab.active=Math.max(0,lab.active-1);
-    h.tested=true;h.significant=statisticalTest(s,h);
+    const evidence=observeStudy(s,h);
+    h.tested=true;h.significant=evidence.significant;
+    h.pValue=evidence.pValue;h.testedSample=evidence.sampleSize;
+    h.analyses=evidence.analyses;
     s.stats.tested++;
     if(h.significant){
       h.status='review';s.queues.review.push(h.id);
@@ -179,12 +208,17 @@ function processReview(s){
   while(capacity--&&s.queues.review.length){
     const id=s.queues.review.shift(),h=find(s,id);if(!h||h.status!=='review')continue;
     const lab=s.labs[h.labId];
-    const rigour=clamp(.16+s.policy.verification*.048+lab.method*.22+s.policy.transparency*.017-
+    const rigour=clamp(.16+s.policy.verification*.048+s.policy.transparency*.017-
       s.policy.pressure*.028,.08,.9);
-    // A weak study's apparent significance can fool review. Review does not
-    // have oracle access to ground truth; below is a conditional detection model.
-    const criticalFailure=rnd(s)<(h.truth?(.045+(.8-lab.method)*.055):
-      clamp(.08+rigour*.65,.06,.76));
+    // BLINDED REVIEW: assess only observable study documentation and
+    // methodology. NEVER use hidden h.truth, even indirectly. The numerical
+    // risk mapping is a stated teaching hypothesis, not calibrated reviewer data.
+    const methodDeficit=1-clamp(h.documentedQuality ?? lab.method,0,1);
+    const missingPlan=h.registeredPlan===false?1:0;
+    const selectiveAnalyses=Math.max(0,(h.analyses||1)-1);
+    const rejectChance=clamp(.025+rigour*(.58*methodDeficit+
+      .18*missingPlan+.07*selectiveAnalyses),.02,.85);
+    const criticalFailure=rnd(s)<rejectChance;
     if(criticalFailure){
       h.status='rejected';h.reason='Rejected by independent methodological review';
       s.stats.rejected++;s.labs[h.labId].failed++;
@@ -316,5 +350,5 @@ function researchBreakdown(s){
   });
   return domains;
 }
-return {make,step,fork,summary,intervention,editPolicy,researchBreakdown,statisticalTest,normalCDF,DOMAINS,DEFAULTS};
+return {make,step,fork,summary,intervention,editPolicy,researchBreakdown,statisticalTest,observeStudy,normalCDF,normalizeDesign,DOMAINS,DEFAULTS,DEFAULT_DESIGN};
 });
