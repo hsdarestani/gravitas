@@ -12,6 +12,7 @@ const worlds=[E.make(20261029),null],selected=[null,null],eventSeen=[new Set(),n
 let active=0,playing=false,compareMode=false,view='labs',plot='published',speed=3;
 let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performance.now(),raf=0;
 let currentSection='observe',lastBridge=0,drawerOpen=false,latestFirst=true;
+let chosenLabCount=7,chosenPrior='original';
 const policyDescriptions={
   generation:['Hypothesis generation','Rate of candidate research questions'],
   verification:['Peer review capacity','Number of manuscript reviews per day'],
@@ -41,6 +42,136 @@ const policyEvidence={
   network:['Attention propagation rule; uncalibrated weights',null],
   uncertainty:['Assumed AI abstention behavior, not measured',null],
 };
+/* A scientific rationale register, not an attempt to manufacture evidence.
+   Source links support concepts; NO source validates our invented coefficients.
+   Every assumption must state a reason, alternative and falsification plan. */
+const DECISION_REGISTER=[
+  {id:'purpose',group:'Research purpose',title:'Why model a research ecosystem?',
+   kind:'hypothesis',why:'To illustrate how checking and publication bottlenecks interact with increased AI-assisted hypothesis throughput; this is not identical to a direct AI output trust test.',
+   mechanism:'Idea production → evidence → review → replication → correction.',
+   alternative:'The original Topic 01 Trust Test directly examines grounding, independent verification, uncertainty, distribution shift and accountability.',
+   verify:'Sajad chooses a precise research question and checks whether an ecosystem model is necessary to answer it.',
+   source:'https://github.com/hsdarestani/gravitas/blob/main/research/topics/ai-reliable-in-scientific-research/08-simulation.md'},
+  {id:'domains',group:'Population and agents',title:'Why these four domains?',
+   kind:'display',why:'They provide visibly different examples of research topics; they are not a representative scientific sample.',
+   mechanism:'Four named categories, each assigned an equal number of labs.',
+   alternative:'A single discipline, empirically sampled disciplines, or domain-neutral laboratories.',
+   verify:'Check whether discipline labels change conclusions; if not, remove domain-specific truth priors.'},
+  {id:'labPopulation',group:'Population and agents',title:'Why 28 laboratories?',
+   kind:'display',why:'Four domains × seven nodes were chosen for a legible interactive network. There is no scientific optimum at 28.',
+   mechanism:'Baseline 7 labs per domain; users can run the same model with another count.',
+   alternative:'3, 7 or 14 labs per domain; compare normalized results over several random seeds.',
+   verify:'Test output stability to lab count; report per-lab or per-study metrics rather than raw totals.'},
+  {id:'teams',group:'Population and agents',title:'Why 3–5 agents per lab?',
+   kind:'assumption',why:'A small heterogeneous team makes individual actions visible and keeps browser computation bounded; it does not reflect observed staffing.',
+   mechanism:'Random team size within the configurable range.',
+   alternative:'Empirical team-size distribution, or 1–12 actors per lab.',
+   verify:'Compare outcomes over staffing distributions and keep research throughput per agent visible.'},
+  {id:'aiFraction',group:'Population and agents',title:'Why approximately 48% synthetic AI agents?',
+   kind:'assumption',why:'An illustrative split lets both agent types participate. 48% is not an observed prevalence of AI in science.',
+   mechanism:'Bernoulli assignment at world creation; AI agents follow numerical rules rather than language models.',
+   alternative:'0%, 25%, 50%, 75%, or 100% AI roles.',
+   verify:'Use an explicitly specified AI adoption scenario and measure outcome sensitivity.'},
+  {id:'prior',group:'Evidence and statistics',title:'Why different truth priors for each field?',
+   kind:'assumption',why:'The default .28/.36/.31/.42 demonstrate the importance of pre-study probability, but no credible calibration supports these discipline rankings.',
+   mechanism:'A synthetic Bernoulli ground-truth flag is sampled before an experiment.',
+   alternative:'A uniform 10%, 30% or 50% truth prior; later estimate domain-specific priors from a justified dataset.',
+   verify:'Change the prior and report sensitivity before drawing any interpretation.',
+   source:'https://doi.org/10.1371/journal.pmed.0020124'},
+  {id:'effects',group:'Evidence and statistics',title:'Why are true effect sizes 0.24–0.92?',
+   kind:'assumption',why:'A simple range gives heterogeneous synthetic studies; its endpoints are not empirical estimates.',
+   mechanism:'Uniformly generated positive effects; null effects are exactly zero.',
+   alternative:'Log-normal, normal-mixture or empirically estimated effect-size distributions.',
+   verify:'Compare statistical power and false discovery outcomes under alternative effect distributions.'},
+  {id:'test',group:'Evidence and statistics',title:'Why a known-variance two-sided Z test?',
+   kind:'theory',why:'It gives an interpretable baseline with an analytically checkable Type I error and test power.',
+   mechanism:'Z = sqrt(n_eff) × effect + standard-normal noise; p=2[1−Phi(|Z|)].',
+   alternative:'Estimated-variance t tests, correlated outcomes, multilevel models and real-data sampling.',
+   verify:'Validate null rejection rate and power by Monte Carlo, then reproduce with independent R/Python code.',
+   source:'https://doi.org/10.1371/journal.pmed.0020124'},
+  {id:'sampleMapping',group:'Evidence and statistics',title:'Why does sample size use 18 + 16 × slider?',
+   kind:'assumption',why:'This maps a small visual 1–10 scale into manageable sample sizes; 18 and 16 are not scientifically calibrated.',
+   mechanism:'Effective sample also varies with the assumed lab method factor.',
+   alternative:'Direct n with units, cost and feasible sample constraints.',
+   verify:'Expose actual n and evaluate plausible sizes for the selected research domain.'},
+  {id:'alpha',group:'Evidence and statistics',title:'Why this alpha mapping?',
+   kind:'assumption',why:'Type I error is a valid statistical quantity, but the particular exponential mapping from a 1–10 slider is chosen for demonstrability.',
+   mechanism:'alpha = clamp(.005 × 2^(0.43 × slider), .007, .18).',
+   alternative:'Choose the actual alpha directly (e.g. .001, .01, .05).',
+   verify:'Check null false-positive rates at every setting and document the actual threshold.'},
+  {id:'flexibility',group:'Evidence and statistics',title:'Why multiple uncorrected analyses?',
+   kind:'hypothesis',why:'Selecting the smallest p-value from more tests can inflate false-positive findings.',
+   mechanism:'Publication pressure adds independent analyses; transparency may remove them. The number of analyses is assumed.',
+   alternative:'Correlated candidate analyses, preregistration, and Bonferroni correction.',
+   verify:'Compare family-wise error rates with theoretical values and other analysis-dependence assumptions.',
+   source:'https://doi.org/10.1177/0956797611417632'},
+  {id:'review',group:'Verification and correction',title:'Why use blinded evidence-based peer review?',
+   kind:'hypothesis',why:'Reviewers cannot observe a hypothesis’s hidden truth. They can assess methods, preregistration, analysis selection and documentation.',
+   mechanism:'Finite FIFO review capacity; an explicit assumed rejection function uses only observable quality signals.',
+   alternative:'Multiple independent reviewers, disagreement, domain expertise, conflict-of-interest and noisy evaluation.',
+   verify:'Prove via tests that changing hidden truth alone cannot change a review decision.',
+   source:'https://doi.org/10.1098/rsos.160384'},
+  {id:'replication',group:'Verification and correction',title:'Why independent replication?',
+   kind:'theory',why:'Fresh independent evidence helps distinguish a robust effect from sampling noise.',
+   mechanism:'Repeat studies draw a new random normal error and re-test significance.',
+   alternative:'Different labs, instruments, protocols, shifted effect sizes and replication selection bias.',
+   verify:'Use a study replication dataset to calibrate failure rates and evaluate statistical power.',
+   source:'https://doi.org/10.1126/science.aac4716'},
+  {id:'retraction',group:'Verification and correction',title:'Why withdraw after one or two failed repeats?',
+   kind:'assumption',why:'This is an illustrative policy trigger, not a scientific consensus or real retraction protocol.',
+   mechanism:'Threshold depends on Verification slider; failed replication does not imply a false claim.',
+   alternative:'Evidence accumulation, editorial inquiry, investigation of errors, and severity-dependent decisions.',
+   verify:'Remove fixed retraction certainty or validate decision processes with documented journal cases.'},
+  {id:'funding',group:'Resources and incentives',title:'Why the 6+3×funding daily budget and 65% allocation?',
+   kind:'assumption',why:'These maintain a replenishing resource pool with some grant flexibility; neither number is a measured funding response.',
+   mechanism:'Budget enters a common pool and up to 65% is automatically allocated among labs.',
+   alternative:'Realistic grant allocation data, dynamic delays, fixed budgets and inequitable funding distribution.',
+   verify:'Stress-test 0 funding, scarce funding and abundant funding; inspect whether output scales plausibly.'},
+  {id:'citations',group:'Networks and knowledge',title:'Why collaboration proximity and citation weights?',
+   kind:'assumption',why:'The mechanism illustrates preferential attention and domain homophily, not experimentally validated citation behavior.',
+   mechanism:'Link proximity, discipline match and existing citations change synthetic citation chance.',
+   alternative:'Empirical collaboration/citation graphs and calibrated preferential-attachment models.',
+   verify:'Fit network-level degree and citation distributions before making claims about actual diffusion.'},
+  {id:'map',group:'Networks and knowledge',title:'Why can moving a map node change scientific collaboration?',
+   kind:'display',why:'It is an interactive thought experiment, not a claim that physical or screen proximity causes scientific cooperation.',
+   mechanism:'The simulator recomputes graph edges using displayed positions.',
+   alternative:'Separate map layout from a scientifically defined collaboration graph.',
+   verify:'If treating node movement as an intervention, state that it explicitly edits collaboration links rather than geography.'},
+  {id:'fork',group:'Comparisons',title:'Why fork the same world?',
+   kind:'theory',why:'Cloning the starting state and RNG supports controlled model counterfactual exploration.',
+   mechanism:'World B copies all state. The current UI then adds +3 to Verification and +3 to Replication simultaneously.',
+   alternative:'One-factor-at-a-time experiments and many paired seeds.',
+   verify:'Use a single-intervention fork by default and repeat across seeds; a one-run A/B difference cannot establish causality.'},
+  {id:'time',group:'Comparisons',title:'Why a simulated day and a fixed seed?',
+   kind:'display',why:'A day is a computational step with user-controlled playback speed, not a calibrated calendar duration. A fixed seed makes repeated runs reproducible.',
+   mechanism:'Discrete update schedule and seeded xorshift32 PRNG.',
+   alternative:'Real event durations, discrete-event scheduling and independently derived seed ensembles.',
+   verify:'Test deterministic reruns and sensitivity to duration assumptions.'},
+  {id:'measurement',group:'Comparisons',title:'Why these dashboard outcomes?',
+   kind:'theory',why:'Publications, false published claims, independent tests, withdrawals and queues distinguish research quantity from evidence quality.',
+   mechanism:'Counters are program state, with a hidden truth flag for simulation evaluation only.',
+   alternative:'Primary endpoint: true discoveries independently confirmed per tested hypothesis; report confidence intervals across seeds.',
+   verify:'Pre-register metrics, denominators, queue censoring and uncertainty before comparing interventions.'},
+  {id:'pulsar',group:'Assistant and governance',title:'Why is Pulsar part of the Lab?',
+   kind:'display',why:'A scientific guide can help users distinguish evidence, hypotheses and assumptions without simplifying the simulator.',
+   mechanism:'Event-based shared coaching API; responses may be live model output or explicitly labeled fallback.',
+   alternative:'Static methodology guide only, or a reviewed research protocol coach.',
+   verify:'Evaluate explanation correctness, source fidelity, history retention and hallucination rate with the science lead.'}
+];
+const POLICY_RATIONALE={
+  generation:['assumption','Idea generation can vary across groups; the exact per-day chance is hand-chosen.','Count tested hypotheses per agent and compare rates across scenarios.'],
+  verification:['assumption','Review throughput and rigor are distinguishable bottlenecks; daily capacity formula is uncalibrated.','Vary review headcount and quality independently.'],
+  replication:['assumption','Replication is independent evidence; current scheduling and capacity values are arbitrary.','Compare workload-adjusted replication rates and selection rules.'],
+  funding:['assumption','Resources affect which experiments can be run; the credit-to-output relation is a hypothesis.','Estimate a realistic funding response or show broad sensitivity bands.'],
+  aiAdoption:['assumption','AI roles allow a productivity counterfactual; the numeric productivity effect is invented.','Vary AI shares and productivity separately, including zero AI.'],
+  alpha:['theory','The concept of statistical Type I error is real; its 1–10 mapping is invented.','Display the implied alpha and test null calibration.'],
+  sampleSize:['theory','Larger n improves power for fixed nonzero effects under the assumed Z-test; n mapping is invented.','Vary n explicitly and compare observed vs theoretical power.'],
+  transparency:['hypothesis','Preregistration and transparent analysis can reduce selective reporting; coefficient is invented.','Test effects with and without multiple comparisons.'],
+  diversity:['assumption','Out-of-field exploration is a conceivable mechanism; its causal benefit is not established here.','Vary novelty independently and test if conclusions reverse.'],
+  pressure:['hypothesis','Incentives may increase selective analysis; the threshold and slope are assumed.','Compare preregistered vs selection-adjusted significance.'],
+  network:['assumption','Collaboration/citation networks matter, but our drawn-distance coefficients are not measured.','Compare random, empirical and domain-homophily graphs.'],
+  uncertainty:['hypothesis','AI abstention is a meaningful conceptual response to uncertainty; its numerical rate is assumed.','Assess false outputs and missed true candidates across abstention rates.']
+};
 const human=n=>Math.round(n).toLocaleString('en-US');
 const nowWorld=()=>worlds[active];
 const runningWorlds=()=>compareMode&&worlds[1]?worlds:[nowWorld()];
@@ -64,7 +195,7 @@ function play(on){
 }
 function reset(){
   const s=nowWorld();
-  worlds[active]=E.make(s.seed,{...s.policy});
+  worlds[active]=E.make(s.seed,{...s.policy},{...s.design});
   selected[active]=null;eventSeen[active].clear();
   play(false);render();emit('world_reset',nowWorld(),'observe');
 }
@@ -353,7 +484,7 @@ function canvasEvents(index){
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
     e.preventDefault();chooseWorld(index);
     const delta=e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:1;
-    selected[index]=selected[index]===null?0:(selected[index]+delta+28)%28;
+    selected[index]=selected[index]===null?0:(selected[index]+delta+worlds[index].labs.length)%worlds[index].labs.length;
     inspector();
   });
 }
@@ -381,7 +512,9 @@ function renderPolicies(){
     });
     line.append(head,make('p','',hint),range);
     const provenance=policyEvidence[key]||['Assumed simulation rule',null];
-    const evidence=make('small','policy-evidence',provenance[0]);
+    const policyAudit=POLICY_RATIONALE[key];
+    const evidence=make('small','policy-evidence',
+      provenance[0]+' · '+(policyAudit?policyAudit[1]:'Not scientifically classified'));
     if(provenance[1]){
       const link=make('a','policy-evidence-link',' · Source ↗');
       link.href=provenance[1];link.target='_blank';link.rel='noopener noreferrer';
@@ -390,6 +523,88 @@ function renderPolicies(){
     }
     line.append(evidence);host.append(line);
   }
+}
+function showDecisionRegister(){
+  const container=$('decision-registry');
+  if(!container)return;
+  container.replaceChildren();
+  const groups=[...new Set(DECISION_REGISTER.map(x=>x.group))];
+  for(const group of groups){
+    const section=make('details','audit-group');
+    const header=make('summary','audit-group-title',group+' · '+DECISION_REGISTER.filter(x=>x.group===group).length+' decisions');
+    section.append(header);
+    for(const item of DECISION_REGISTER.filter(x=>x.group===group)){
+      const box=make('section','audit-decision');
+      const title=make('h4','',item.title);
+      const status=make('p','audit-status',item.kind==='theory'?'Theory-grounded mechanism':
+        item.kind==='display'?'Design / UI choice':
+        item.kind==='hypothesis'?'Testable model hypothesis':'Uncalibrated assumption');
+      box.append(title,status);
+      for(const [label,value] of [['Why',item.why],['Current rule',item.mechanism],
+        ['Alternative',item.alternative],['How to check',item.verify]]){
+        const p=make('p','audit-explanation');
+        p.append(make('strong','',label+': '),document.createTextNode(value));
+        box.append(p);
+      }
+      if(item.source){
+        const a=make('a','audit-evidence-link','Read source / original brief ↗');
+        a.href=item.source;a.target='_blank';a.rel='noopener noreferrer';box.append(a);
+      }
+      section.append(box);
+    }
+    container.append(section);
+  }
+}
+function auditPopulation(){
+  const s=nowWorld();
+  const labs=parseInt($('audit-labs').value,10);
+  const prior=$('audit-prior').value;
+  const design={...s.design,labsPerDomain:labs,
+    truthPriorOverride:prior==='original'?null:Number(prior)};
+  if(s.day>0&&!window.confirm('Restart the simulation with new assumptions? This resets both worlds.'))return;
+  const seed=s.seed,policy={...s.policy};
+  worlds[0]=E.make(seed,policy,design);worlds[1]=null;
+  selected[0]=null;selected[1]=null;eventSeen[0].clear();eventSeen[1].clear();
+  compareMode=false;active=0;play(false);
+  $('world-b').disabled=true;$('compare').disabled=true;
+  $('comparison').hidden=true;
+  $('compare').classList.remove('active');
+  $('compare').textContent='Compare realities';
+  $('stage-title').textContent='The research network';
+  chooseWorld(0);
+  emit('world_reset',worlds[0],'observe');
+  $('audit-design-status').textContent='New explicit assumptions: '+worlds[0].labs.length+
+    ' laboratories; truth prior '+(prior==='original'?'field-specific illustrative rates':(100*Number(prior)).toFixed(0)+'%');
+}
+async function runSensitivity(){
+  const go=$('audit-sensitivity'),out=$('audit-sensitivity-output');
+  if(go.disabled)return;
+  go.disabled=true;out.textContent='Testing multiple populations and random seeds…';
+  const base=nowWorld(),seeds=6,days=55;
+  const sizes=[3,7,14],lines=[];
+  try{
+    for(const n of sizes){
+      const falseShares=[],confirmed=[],throughput=[];
+      for(let j=0;j<seeds;j++){
+        const state=E.make(base.seed+1000+j,{...base.policy},
+          {...base.design,labsPerDomain:n});
+        E.step(state,days);
+        const stat=E.summary(state);
+        falseShares.push(stat.healthyPapers?100*stat.falsePublished/stat.healthyPapers:0);
+        throughput.push(stat.tested/Math.max(1,state.agents.length));
+        confirmed.push(stat.replicated/Math.max(1,stat.published));
+      }
+      const mean=a=>a.reduce((sum,v)=>sum+v,0)/a.length;
+      lines.push(n*4+' labs · 6 seeds: false-share '+mean(falseShares).toFixed(1)+
+        '% (range '+Math.min(...falseShares).toFixed(1)+'–'+Math.max(...falseShares).toFixed(1)+
+        '%); tests/agent '+mean(throughput).toFixed(1)+
+        '; replications/publication '+mean(confirmed).toFixed(2));
+      out.textContent=lines.join('\n');
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    out.textContent=lines.join('\n')+'\nThese are model-internal sensitivity results, not real scientific estimates. Comparisons use the same baseline policies but different populations.';
+  }catch(e){out.textContent='Sensitivity run failed: '+e.message;}
+  finally{go.disabled=false;}
 }
 function settings(on){
   drawerOpen=!!on;$('policy-drawer').hidden=!on;
@@ -465,6 +680,9 @@ function bind(){
     renderPolicies();comparison();emit('policy_changed',nowWorld(),'intervene');
   });
   const dialog=$('method-dialog');
+  showDecisionRegister();
+  $('audit-apply').addEventListener('click',auditPopulation);
+  $('audit-sensitivity').addEventListener('click',runSensitivity);
   $('methodology').addEventListener('click',()=>dialog.showModal());
   $('method-close').addEventListener('click',()=>dialog.close());
   $('method-done').addEventListener('click',()=>dialog.close());
