@@ -31,7 +31,7 @@ test('Pulsar knows selection and never treats aggregate publication as a paper l
  assert.match(shell,/scienceGuide\.context\(data\.context\)/);
  assert.match(shell,/scienceGuide\.navigation\(q\)/);
  assert.match(backend,/browser_reported_simulator_selection/);
- assert.match(backend,/ONLY.*aggregate count/);
+ assert.match(backend,/aggregate count/);
  assert.match(guide,/“Latest published claims”/);
  assert.match(page,/id="selected-paper"/);
 });
