@@ -13,7 +13,7 @@ from django.db import transaction
 from core.lab_api import _clean_files
 from core.models import InteractiveLab, LabRevision
 
-ROOT = Path(__file__).resolve().parents[4] / 'lab-sources' / 'science-universe'
+ROOT = Path(__file__).resolve().parents[3] / 'lab-sources' / 'science-universe'
 EXPECTED = {
     'engine.js': '2b6d9971ef8062ed090e59453145467853e1b449',
     'index.html': '2e73d57d60bfedccfeb68aad3e3c28b663a5367f',
