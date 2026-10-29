@@ -260,6 +260,12 @@ function runLab(lab){
   var bar=node('div','lab-runtime-top');
   var back=btn('All Labs',showCatalog);
   bar.append(back,node('span','lab-runtime-title',lab.title));
+  if(lab.slug==='science-universe'){
+    var evidence=node('a','lab-topic-link','Scientific Evidence Bench');
+    evidence.href='/science-evidence.html';
+    evidence.title='Reproducible Monte Carlo experiments on AI-assisted research throughput';
+    bar.append(evidence);
+  }
   if(lab.topic_slug){
     var link=node('a','lab-topic-link','Related Topic');
     link.href='/topic.html?slug='+encodeURIComponent(lab.topic_slug);
