@@ -65,6 +65,7 @@ const server=http.createServer((req,res)=>{
     await page.locator('#methodology').click();
     assert.equal(await page.locator('#method-dialog').evaluate(x=>x.open),true);
     await page.locator('#method-done').click();
+    fs.mkdirSync('qa-artifacts',{recursive:true});
     await page.screenshot({path:'qa-artifacts/science-universe-desktop.png',fullPage:true});
     await page.setViewportSize({width:390,height:844});
     await page.screenshot({path:'qa-artifacts/science-universe-mobile.png',fullPage:true});
