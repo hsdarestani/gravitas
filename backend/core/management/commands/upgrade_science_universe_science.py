@@ -13,7 +13,10 @@ from django.db import transaction
 from core.lab_api import _clean_files
 from core.models import InteractiveLab, LabRevision
 
-ROOT = Path(__file__).resolve().parents[3] / 'lab-sources' / 'science-universe'
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+DEPLOYED_SOURCE = BACKEND_ROOT / 'lab-sources' / 'science-universe'
+REPO_SOURCE = BACKEND_ROOT.parent / 'lab-sources' / 'science-universe'
+ROOT = DEPLOYED_SOURCE if DEPLOYED_SOURCE.is_dir() else REPO_SOURCE
 EXPECTED = {
     'engine.js': '2b6d9971ef8062ed090e59453145467853e1b449',
     'index.html': '2e73d57d60bfedccfeb68aad3e3c28b663a5367f',
