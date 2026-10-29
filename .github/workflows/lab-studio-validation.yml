@@ -22,6 +22,9 @@ on:
       - 'scripts/test-lab-studio.cjs'
       - 'scripts/test-lab-studio-browser.cjs'
       - '.github/workflows/lab-studio-validation.yml'
+      - 'ops/release_scope.py'
+      - 'ops/test_release_scope.py'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -42,6 +45,7 @@ jobs:
           node --input-type=module --check < assets/ws/ws-admin.js
           node --input-type=module --check < assets/ws/ws-platform.js
           node scripts/test-lab-studio.cjs
+          python3 ops/test_release_scope.py
       - name: Verify Lab Studio interaction and CSP in Chrome
         env:
           NODE_PATH: ${{ runner.temp }}/gq-lab-browser/node_modules
