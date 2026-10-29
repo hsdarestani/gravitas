@@ -1,0 +1,61 @@
+name: Science Universe Lab acceptance
+on:
+  pull_request:
+    paths:
+      - 'lab-sources/science-universe/**'
+      - 'backend/core/management/commands/install_science_universe_lab.py'
+      - 'backend/core/test_science_universe_install.py'
+      - 'scripts/test-science-universe.cjs'
+      - 'scripts/test-science-universe-browser.cjs'
+      - '.github/workflows/science-universe-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  model-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and deterministic agent-based model
+        run: |
+          node --check lab-sources/science-universe/engine.js
+          node --check lab-sources/science-universe/app.js
+          node --check scripts/test-science-universe.cjs
+          node --check scripts/test-science-universe-browser.cjs
+          node scripts/test-science-universe.cjs
+      - name: Install browser driver
+        run: npm install --prefix "$RUNNER_TEMP/gq-science-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Interact on desktop and mobile in Google Chrome
+        env:
+          NODE_PATH: ${{ runner.temp }}/gq-science-browser/node_modules
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/test-science-universe-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: science-universe-lab-qa
+          path: qa-artifacts/science-universe-*.png
+          if-no-files-found: ignore
+          retention-days: 7
+  django-studio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install backend dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lab01-env"
+          "$RUNNER_TEMP/lab01-env/bin/pip" install -q -r backend/requirements.txt
+      - name: Check database and controlled draft installer
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          PY="$RUNNER_TEMP/lab01-env/bin/python"
+          "$PY" -m django check
+          "$PY" -m django makemigrations --check --dry-run
+          "$PY" -m django test core.test_science_universe_install

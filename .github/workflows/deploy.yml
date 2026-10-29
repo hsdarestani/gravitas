@@ -683,6 +683,7 @@ jobs:
             --exclude '.git/' \
             --exclude '.github/' \
             --exclude 'backend/' \
+            --exclude 'lab-sources/' \
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
             ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
 
@@ -698,6 +699,12 @@ jobs:
             --rsync-path='sudo rsync' \
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
             ./backend/ "$DEPLOY_USER@$HOST:$BACKEND_PATH/"
+
+          # Keep draft source OUTSIDE the public Nginx document root.
+          rsync -az --mkpath --rsync-path='sudo rsync' \
+            -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
+            ./lab-sources/science-universe/ \
+            "$DEPLOY_USER@$HOST:$BACKEND_PATH/lab-sources/science-universe/"
 
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
             bash -s -- "$BACKEND_PATH" <<'REMOTE'
@@ -739,6 +746,14 @@ jobs:
             sudo chmod 600 /etc/gravitas/admin-credentials
           fi
 
+          # Install Science Universe ONLY as a private, idempotent Lab Studio draft.
+          # No existing editor changes are overwritten; deployment never publishes it.
+          if [ -f "/opt/gravitas-backend/lab-sources/science-universe/manifest.json" ]; then
+            sudo -u gravitas env "${DJANGO_ENV[@]}" \
+              "$BACKEND_PATH/.venv/bin/django-admin" install_science_universe_lab \
+              --apply --auto-owner \
+              --source "/opt/gravitas-backend/lab-sources/science-universe"
+          fi
           sudo systemctl daemon-reload
           # Only the first rollout of the new worker profile needs one hard
           # restart. Subsequent deployments use Gunicorn HUP, which gracefully
