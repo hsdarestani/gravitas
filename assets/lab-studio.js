@@ -27,6 +27,15 @@ function numeric(data){
 function tellIframe(type,data){
   if(iframe&&iframe.contentWindow)iframe.contentWindow.postMessage(Object.assign({schema:protocol,type:type},data||{}),'*');
 }
+function mobileLabFrame(){
+  return !!(active&&active.slug==='science-universe'&&window.matchMedia('(max-width: 1050px)').matches);
+}
+function adjustFrameForViewport(){
+  if(!iframe||!active||active.slug!=='science-universe')return;
+  if(!mobileLabFrame()){iframe.style.height='';return;}
+  tellIframe('lab:measure');
+}
+window.addEventListener('resize',adjustFrameForViewport,{passive:true});
 function feedback(message,source){
   if(!speaking||!shell||!message)return;
   shell.line.textContent=String(message).slice(0,480);
@@ -160,7 +169,9 @@ function runLab(lab){
   var canvas=node('div','lab-frame-wrap');
   iframe=node('iframe','lab-frame');iframe.title=lab.title+' · simulation';
   iframe.sandbox='allow-scripts';iframe.referrerPolicy='no-referrer';
-  iframe.src=lab.run_url;canvas.append(iframe);stageCol.append(canvas);
+  iframe.src=lab.run_url;
+  iframe.addEventListener('load',adjustFrameForViewport);
+  canvas.append(iframe);stageCol.append(canvas);
   var controls=null,metrics=null,chart=null;
   if(cfg.components.includes('controls'))controls=configPanel(stageCol,'Parameters');
   if(cfg.components.includes('timeline')){
@@ -249,6 +260,15 @@ function showCatalog(){
 window.addEventListener('message',function(e){
   if(!active||!iframe||e.source!==iframe.contentWindow||e.origin!=='null')return;
   var data=e.data;if(!data||data.schema!==protocol||typeof data.type!=='string')return;
+  if(data.type==='lab:resize'){
+    if(!mobileLabFrame())return;
+    var height=Number(data.height);
+    // Ignore malformed or unreasonable dimensions from untrusted Lab code.
+    if(!Number.isFinite(height)||height<300||height>12000)return;
+    var next=Math.ceil(height)+3, current=parseInt(iframe.style.height,10)||0;
+    if(Math.abs(current-next)>3)iframe.style.height=next+'px';
+    return;
+  }
   if(data.type==='lab:event')reportEvent(data);
   if(data.type==='lab:ready'){
     if(data.section&&validKey.test(data.section)){currentSection=data.section;renderSteps();}
