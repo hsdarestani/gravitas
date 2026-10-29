@@ -147,7 +147,7 @@
   }
   function mean(x){return x.reduce(function(a,b){return a+b;},0)/x.length;}
   function summarise(data,key){
-    var sample=data.map(function(x){return x[key];});
+    var sample=data.map(function(x){return key===undefined?Number(x):x[key];});
     var n=sample.length,m=mean(sample);
     var sd=Math.sqrt(sample.reduce(function(a,b){return a+(b-m)*(b-m);},0)/(n-1));
     var se=sd/Math.sqrt(n);
