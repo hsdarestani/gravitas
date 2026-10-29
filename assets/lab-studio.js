@@ -133,11 +133,98 @@ function adjustFrameForViewport(){
   tellIframe('lab:measure');
 }
 window.addEventListener('resize',adjustFrameForViewport,{passive:true});
+function saveChat(){
+ try{localStorage.setItem(CHAT_KEY,JSON.stringify(chatHistory.slice(-70)));}catch(_){}
+}
+function addChat(role,text,provider){
+ var value=String(text||'').trim().slice(0,650);
+ if(!value)return;
+ var m={role:role==='user'?'user':'pulsar',text:value,
+   provider:provider==='ai'?'ai':'guide',at:Date.now()};
+ chatHistory.push(m);chatHistory=chatHistory.slice(-70);saveChat();
+ if(chat){
+   addBubble(m);
+   if(!chatOpen&&m.role==='pulsar'){chatUnread++;refreshChat();}
+ }
+}
+function addBubble(m){
+ if(!chat)return;
+ var row=node('div','lab-chat-bubble '+(m.role==='user'?'is-user':'is-pulsar'));
+ var p=node('p','',m.text);
+ var date=new Date(Number(m.at)||Date.now());
+ var stamp=date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+ var meta=node('small','lab-chat-meta',stamp+(m.role==='pulsar'?
+     ' · '+(m.provider==='ai'?'Pulsar · live':'Guided note'):''));
+ row.append(p,meta);chat.log.append(row);
+ chat.log.scrollTop=chat.log.scrollHeight;
+}
+function refreshChat(){
+ if(!chat)return;
+ chatOpen=!!chatOpen;
+ chat.box.classList.toggle('is-open',chatOpen);
+ chat.body.hidden=!chatOpen;
+ chat.toggle.setAttribute('aria-expanded',String(chatOpen));
+ chat.badge.hidden=chatOpen||chatUnread===0;
+ chat.badge.textContent=chatUnread>9?'9+':String(chatUnread);
+ if(chatOpen){chatUnread=0;chat.log.scrollTop=chat.log.scrollHeight;}
+}
+function mountPulsarChat(sidebar){
+ sidebar.classList.add('lab-pulsar-widget');
+ var box=node('section','lab-chat');
+ var toggle=node('button','lab-chat-head');toggle.type='button';
+ toggle.setAttribute('aria-controls','lab-chat-thread');
+ var avatar=node('span','lab-chat-avatar');
+ var mark=document.createElement('img');
+ mark.src='/assets/pulsar-mark.svg';mark.alt='';mark.width=28;mark.height=28;
+ avatar.append(mark);
+ var name=node('span','lab-chat-name');
+ name.append(node('strong','','Pulsar'),node('small','','Scientific companion'));
+ var badge=node('span','lab-chat-badge');badge.hidden=true;
+ var arrow=node('span','lab-chat-arrow','⌄');
+ toggle.append(avatar,name,badge,arrow);
+ var body=node('div','lab-chat-body');body.id='lab-chat-thread';
+ var log=node('div','lab-chat-log');
+ log.setAttribute('role','log');log.setAttribute('aria-label','Pulsar conversation');
+ log.setAttribute('aria-live','polite');
+ var status=node('div','lab-chat-status','Conversation saved on this device');
+ var form=document.createElement('form');form.className='lab-chat-compose';
+ var input=node('input','lab-chat-input');
+ input.type='text';input.required=true;input.maxLength=360;
+ input.placeholder='Ask a question about the science…';
+ input.setAttribute('aria-label','Message Pulsar');
+ var send=node('button','lab-chat-send','↗');send.type='submit';
+ send.setAttribute('aria-label','Send to Pulsar');
+ form.append(input,send);
+ body.append(log,status,form);box.append(toggle,body);sidebar.append(box);
+ chat={box,body,log,status,input,send,toggle,badge};
+ try{
+   var old=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
+   if(Array.isArray(old))chatHistory=old.slice(-70).filter(function(m){
+     return m&&(m.role==='user'||m.role==='pulsar')&&
+       typeof m.text==='string'&&m.text.length<=650;
+   });
+ }catch(_){chatHistory=[];}
+ chatHistory.forEach(addBubble);
+ if(!chatHistory.length){
+   addChat('pulsar','I’m here as your scientific guide. Explore a lab or change one parameter; ask me what the evidence really supports.','guide');
+ }
+ chatOpen=!matchMedia('(max-width: 1050px)').matches;
+ toggle.addEventListener('click',function(){
+   chatOpen=!chatOpen;refreshChat();if(chatOpen)input.focus();
+ });
+ form.addEventListener('submit',function(e){
+   e.preventDefault();var q=input.value.trim();
+   if(!q||chatBusy)return;
+   input.value='';askPulsar(q,'ask');
+ });
+ refreshChat();
+}
 function feedback(message,source){
-  if(!speaking||!shell||!message)return;
-  shell.line.textContent=String(message).slice(0,480);
-  shell.source.textContent=source==='ai'?'Pulsar · live':source==='script'?'Guided note':'Pulsar · Lab guide';
-  shell.line.dataset.animated='true';
+ if(!message)return;
+ if(active?.slug==='science-universe'){addChat('pulsar',message,source);return;}
+ if(!speaking||!shell)return;
+ shell.line.textContent=String(message).slice(0,480);
+ shell.source.textContent=source==='ai'?'Pulsar · live':'Pulsar · guided note';
 }
 function hintFor(event,section){
   var guidance=active?.config?.guidance||[];
@@ -147,7 +234,7 @@ function introFor(section){
   return (active?.config?.sections||[]).find(function(s){return s.id===section;})||null;
 }
 function renderSteps(){
-  if(!shell)return;
+  if(active?.slug==='science-universe'||!shell)return;
   shell.steps.replaceChildren();
   var steps=active.config.sections||[];
   if(!steps.length){shell.steps.hidden=true;return;}
