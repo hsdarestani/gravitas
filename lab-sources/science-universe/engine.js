@@ -316,5 +316,5 @@ function researchBreakdown(s){
   });
   return domains;
 }
-return {make,step,fork,summary,intervention,editPolicy,researchBreakdown,DOMAINS,DEFAULTS};
+return {make,step,fork,summary,intervention,editPolicy,researchBreakdown,statisticalTest,normalCDF,DOMAINS,DEFAULTS};
 });
