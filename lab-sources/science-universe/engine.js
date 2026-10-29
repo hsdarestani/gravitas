@@ -52,15 +52,15 @@ function make(seed=21061,policy={},design={}){
       x:clamp(.5+rad*Math.cos(angle)+(.5-rnd(state))*.045,.07,.93),
       y:clamp(.5+rad*Math.sin(angle)+(.5-rnd(state))*.045,.10,.90),
       budget:35+Math.floor(rnd(state)*35),method:fixed(.3+rnd(state)*.65),
-      caution:fixed(.2+rnd(state)*.75),ai:fixed(.2+rnd(state)*.75),
-      output:0,verified:0,failed:0,papers:[],active:0,locked:false,
+      ai:fixed(.2+rnd(state)*.75),
+      output:0,failed:0,papers:[],active:0,locked:false,
     };state.labs.push(l);
     const count=design.agentsMin+Math.floor(rnd(state)*(design.agentsMax-design.agentsMin+1));
     for(let j=0;j<count;j++){
       const role=rnd(state)<design.aiRoleFraction?'AI':'Human';
       state.agents.push({
         id:state.agents.length,labId:i,role,domain:d,
-        rigour:fixed(.32+rnd(state)*.62),creativity:fixed(.25+rnd(state)*.74),
+        rigour:fixed(.32+rnd(state)*.62),
         speed:fixed(.35+rnd(state)*.65),produced:0,name:(role==='AI'?'Agent ':'Researcher ')+(state.agents.length+1),
       });
     }
