@@ -45,4 +45,9 @@ assert.match(studio,/frame\.sandbox='allow-scripts'/);
 assert.match(studio,/Studio/);
 assert.match(css,/var\(--g-accent\)/);
 assert.match(adminCss,/var\(--g-accent\)/);
+const nginxDeploy=path(' .github/workflows/deploy.yml'.trim());
+const labRoutes=(nginxDeploy.match(/location \^~ \/lab-run\//g)||[]).length;
+assert.equal(labRoutes,2,'both HTTP and HTTPS nginx sites must proxy Lab code to Django');
+assert.match(nginxDeploy,/location \^~ \/lab-run\/ \{[\s\S]*?proxy_pass http:\/\/127\.0\.0\.1:8000;/,
+  'lab-run route must proxy to Django, not the static SPA fallback');
 console.log('Lab Studio contract PASS: brand-aligned empty state, controlled releases, isolated runtime, widgets, and coached telemetry.');
