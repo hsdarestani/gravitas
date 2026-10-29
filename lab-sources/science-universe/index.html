@@ -177,7 +177,41 @@
         <li><a href="https://doi.org/10.1098/rsos.160384" target="_blank" rel="noopener noreferrer">Smaldino &amp; McElreath (2016): incentives and research methodology ↗</a><small>Motivates research incentive dynamics; does not estimate our policy coefficients.</small></li>
         <li><a href="https://github.com/hsdarestani/gravitas/blob/main/docs/science-universe-model.md" target="_blank" rel="noopener noreferrer">GraviQuest model specification, assumptions and limitations ↗</a><small>Exact implemented rules and explicit separation of calibrated vs assumed parameters.</small></li>
       </ul>
-      <p>Parallel worlds share a saved state but are not real-world causal estimates. AI agents are rule-driven simulation actors, not separate generative LLM researchers. Empirical calibration, sensitivity analysis and scientific sign-off are still pending.</p>
+      <p>Parallel worlds share a saved state but are not real-world causal estimates. AI agents are rule-driven simulation actors, not separate generative LLM researchers. The current peer review rule uses only observable method and preregistration evidence; its rejection probabilities are still hypotheses, not calibrated reviewer measurements. Independent scientific sign-off is pending.</p>
+      <section class="model-audit" aria-label="Scientific rationale and unresolved assumptions">
+        <div class="audit-intro">
+          <span class="eyebrow">DECISION REGISTER · REVIEW REQUIRED</span>
+          <h3>Why was each choice made?</h3>
+          <p>No source validates a number just because the model cites the source's concept. Each consequential design choice is explicitly classified as theory, hypothesis, engineering decision, or uncalibrated assumption.</p>
+        </div>
+        <div class="audit-setup">
+          <div>
+            <h4>Challenge the defaults</h4>
+            <p>28 labs and the discipline truth rates are illustrative. Try another population or a shared truth prior. Applying restarts the simulation; neither selection is an empirical estimate.</p>
+          </div>
+          <label>Labs per field
+            <select id="audit-labs" aria-label="Laboratories per field">
+              <option value="3">3 × 4 = 12 labs</option>
+              <option value="7" selected>7 × 4 = 28 labs · default</option>
+              <option value="14">14 × 4 = 56 labs</option>
+            </select>
+          </label>
+          <label>Assumed probability a hypothesis is true
+            <select id="audit-prior" aria-label="Hypothetical study truth prior">
+              <option value="original" selected>Original field-specific toy rates</option>
+              <option value="0.1">Uniform 10% (hypothetical)</option>
+              <option value="0.3">Uniform 30% (hypothetical)</option>
+              <option value="0.5">Uniform 50% (hypothetical)</option>
+            </select>
+          </label>
+          <button class="btn" id="audit-apply" type="button">Apply assumptions & restart</button>
+          <p class="small-print" id="audit-design-status" role="status">Current default: 28 laboratories. This is a display and demonstration choice, not a measured scientific population.</p>
+          <button class="btn" id="audit-sensitivity" type="button">Test sensitivity across lab populations · 6 seeds each</button>
+          <output id="audit-sensitivity-output" class="audit-results" aria-live="polite">Sensitivity results have not been calculated.</output>
+        </div>
+        <div id="decision-registry" class="decision-registry" aria-label="Scientific model decisions and sources"></div>
+        <p class="small-print">Independent scientific approval is still pending. For conceptual sources and the complete protocol, see the linked references above and the research lead review task.</p>
+      </section>
       <button class="btn primary" id="method-done" type="button">Understood</button>
     </dialog>
   </div>
