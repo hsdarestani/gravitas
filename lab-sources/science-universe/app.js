@@ -12,7 +12,7 @@ const worlds=[E.make(20261029),null],selected=[null,null],eventSeen=[new Set(),n
 let active=0,playing=false,compareMode=false,view='labs',plot='published',speed=3;
 let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performance.now(),raf=0;
 let currentSection='observe',lastBridge=0,drawerOpen=false,latestFirst=true;
-let chosenLabCount=7,chosenPrior='original';
+
 const policyDescriptions={
   generation:['Hypothesis generation','Rate of candidate research questions'],
   verification:['Peer review capacity','Number of manuscript reviews per day'],
@@ -228,11 +228,12 @@ function compare(on){
 function fork(){
   worlds[1]=E.fork(worlds[0]);
   selected[1]=selected[0];
-  E.editPolicy(worlds[1],'verification',Math.min(10,worlds[1].policy.verification+3));
-  E.editPolicy(worlds[1],'replication',Math.min(10,worlds[1].policy.replication+3));
+  // Scientifically defensible baseline: B starts IDENTICALLY.
+  // Do not silently change two different variables; the user chooses one.
   eventSeen[1]=new Set(worlds[1].events.map(e=>e.id));
   $('world-b').disabled=false;$('compare').disabled=false;
   compare(true);chooseWorld(1);
+  $('branch-explainer').textContent='World B is an identical checkpoint. Change ONE policy in B to test a single assumed mechanism; repeat with different seeds before interpreting the result.';
   emit('universe_forked',worlds[1],'compare');
 }
 function advance(n){
