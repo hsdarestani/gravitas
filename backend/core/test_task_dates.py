@@ -164,3 +164,21 @@ class TaskDatesTests(TestCase):
         self.task.save(update_fields=['status', 'completed_at'])
         self.task.refresh_from_db()
         self.assertEqual(self.task.completed_at, ended)
+
+    def test_idempotency_key_does_not_suppress_new_task_activation(self):
+        task = OperatingTask.objects.create(workspace=self.core, owner=self.admin, title='New Pulsar task',
+            definition_of_done='Recorded', status='active', source_key='pulsar:test-request')
+        self.assertIsNotNone(task.started_at)
+        self.assertEqual(task.date_provenance['started_at']['source'], 'observed')
+        imported = OperatingTask.objects.create(workspace=self.core, owner=self.admin, title='Imported history',
+            definition_of_done='Recorded', status='active', source_key='historical:test',
+            source_metadata={'migration_run_id': 'old-import', 'activity_date_raw': '2026-09-01'})
+        self.assertIsNone(imported.started_at)
+
+    def test_legacy_pulsar_creation_event_recovers_activation_without_status_field(self):
+        self.make_imported('active')
+        self.event('task.created', {'source': 'telegram', 'title': 'Date test'}, at(2))
+        recover_task_dates(apply=True)
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.started_at, at(2))
+        self.assertEqual(self.task.date_provenance['started_at']['confidence'], 'recorded')
