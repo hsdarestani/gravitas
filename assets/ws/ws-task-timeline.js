@@ -30,7 +30,7 @@ export function taskDateLabel(task, key, withTime = false) {
 function evidence(label, source) {
   if (!source) return;
   if (source.confidence === 'inferred') {
-    label.append(node('small', '', 'Estimated from reports · day only; exact time unknown'));
+    label.append(node('small', '', 'Estimated from history · day only; exact time unknown'));
     if (source.rationale) label.append(node('small', '', source.rationale));
     if (source.activity_start && source.activity_end) label.append(node('small', '',
       'Reported work: ' + format(source.activity_start) + ' → ' + format(source.activity_end)));
@@ -94,7 +94,7 @@ function styles() {
 export function renderTaskTimeline(host, tasks, { plans = new Map(), openTask = () => {}, editPlan = null, now = Date.now() } = {}) {
   styles();
   const model = timelineModel(tasks, plans, now);
-  const legend = node('p', 'task-timeline__legend', '● Created   ━ Actual work   ● Completed   ◆ Due date   ┄ Planned work   ≈ Estimated from reports');
+  const legend = node('p', 'task-timeline__legend', '● Created   ━ Actual work   ● Completed   ◆ Due date   ┄ Planned work   ≈ Estimated dates');
   const chart = node('div', 'task-timeline'); chart.tabIndex = 0; chart.setAttribute('aria-label', 'Task timeline; scroll horizontally to explore dates');
   const header = node('div', 'task-timeline__row'); header.append(node('strong', 'task-timeline__label', 'Task · actual dates'));
   const axis = node('div', 'task-timeline__track task-timeline__axis');

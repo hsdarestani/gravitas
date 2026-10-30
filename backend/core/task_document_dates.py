@@ -10,7 +10,7 @@ import hmac
 import json
 import zlib
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from .task_date_inference import activity_window, day_stamp
@@ -211,7 +211,10 @@ def recover_document_dates(*, apps=None, using='default', apply=False, supplemen
         for key in values:
             counts['recovered_' + key] += 1
         if apply:
-            Task.objects.using(using).filter(pk=task['id']).update(**values, date_provenance=proposal['date_provenance'])
+            # Invalidate stale editor revisions so an already-open form cannot
+            # unknowingly replace recovered dates with its old blank values.
+            Task.objects.using(using).filter(pk=task['id']).update(**values,
+                date_provenance=proposal['date_provenance'], updated_at=django_timezone.now())
             Activity = apps.get_model('core', 'ActivityEvent')
             Activity.objects.using(using).create(layer='core', action='task.dates_inferred', object_type='operating_task',
                 object_id=str(task['id']), detail={'fields': sorted(values), 'precision': 'day', 'source': 'document_date_recovery_v1',

@@ -117,7 +117,7 @@ class DocumentDatePersistenceTests(TestCase):
         self.assertEqual(row.completed_at.date(), date(2026, 9, 14))
         self.assertEqual(row.owner_id, user.pk)
         self.assertEqual(row.status, 'done')
-        self.assertEqual(row.updated_at, original_updated)
+        self.assertGreater(row.updated_at, original_updated)
         self.assertIsNone(row.due_date)
         self.assertEqual(ActivityEvent.objects.filter(action='task.dates_inferred', object_id=str(row.pk)).count(), 1)
         self.assertEqual(recover_document_dates(apply=True, supplements=[])['changed'], 0)
