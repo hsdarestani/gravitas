@@ -72,8 +72,10 @@ const server=http.createServer((req,res)=>{
   const browser=await playwright.chromium.launch({headless:true,
     executablePath:process.env.CHROME_PATH||'/usr/bin/google-chrome',
     args:['--no-sandbox','--disable-dev-shm-usage']});
+  let page;const runtimeErrors=[];
   try{
-    const page=await browser.newPage({viewport:{width:1200,height:900}});
+    page=await browser.newPage({viewport:{width:1200,height:900}});
+    page.on('pageerror',err=>runtimeErrors.push(err.message));
     const url='http://127.0.0.1:'+port+'/lab.html';
     await page.goto(url,{waitUntil:'networkidle'});
     assert.equal(await page.locator('main h1').innerText(),'Lab');
@@ -108,10 +110,13 @@ const server=http.createServer((req,res)=>{
     await page.getByRole('button',{name:'Enter simulation',exact:true}).click();
     const frame=page.frameLocator('.lab-frame');
     await frame.locator('.metric-trend').first().waitFor();
+    const skip=page.getByRole('button',{name:'Skip tour',exact:true});
+    if(await skip.isVisible())await skip.click();
     assert.equal(await frame.locator('.metric-trend').count(),21);
     assert.equal(await frame.locator('#outcome-data').isHidden(),true);
     const initialHeight=await page.locator('.lab-frame').evaluate(x=>x.getBoundingClientRect().height);
     await frame.locator('#advance').click();
+    await page.frame({url:/\/lab-run\/science-universe\/$/}).waitForFunction(()=>document.getElementById('day').textContent==='010');
     assert.equal(await frame.locator('#day').innerText(),'010');
     const paused=await frame.locator('#network-a').evaluate(x=>x.toDataURL());
     await page.waitForTimeout(600);
@@ -132,6 +137,11 @@ const server=http.createServer((req,res)=>{
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1,'science workspace mobile overflow');
     assert.ok(initialHeight<=1100);
     console.log('Science workspace PASS: pre-entry dialog, 21 metric trends, 12 policy trends, pause, optional table, stable mobile frame.');
+    assert.deepEqual(runtimeErrors,[],'Lab runtime must not throw browser errors');
     await page.close();
+  }catch(err){
+    console.error('Browser errors:',runtimeErrors);
+    if(page){fs.mkdirSync('qa-artifacts',{recursive:true});await page.screenshot({path:'qa-artifacts/lab-workspace-failure.png',fullPage:true}).catch(()=>{});}
+    throw err;
   }finally{await browser.close();}
 })().catch(err=>{console.error(err);process.exitCode=1;}).finally(()=>server.close());

@@ -56,6 +56,12 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/gq-lab-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
           node scripts/test-lab-studio-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: lab-workspace-browser-failure
+          path: qa-artifacts/lab-workspace-failure.png
+          if-no-files-found: ignore
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
