@@ -120,10 +120,11 @@ def propose_document_dates(tasks, supplements=(), *, today=None):
         # retaining the entire uncertainty interval; never do this for backlog.
         if task['status'] not in ('done', 'archived') or task.get('started_at') or not task.get('completed_at'):
             continue
-        if any(f.get('started_at') for f in facts[task['id']]):
+        end = instant(task['completed_at']).date()
+        if any(f.get('started_at') and f['started_at'] <= end for f in facts[task['id']]):
             continue
         known = [instant(task['created_at']).date(), *[f['created_at'] for f in facts[task['id']] if f.get('created_at')]]
-        start, end = min(known), instant(task['completed_at']).date()
+        start = min(known)
         if start > end:
             continue
         info = {'source': 'completion_window_inference', 'confidence': 'inferred', 'precision': 'day',
@@ -174,6 +175,9 @@ def propose_document_dates(tasks, supplements=(), *, today=None):
             else:
                 values.pop('completed_at', None)
                 provenance['completed_at'] = original.get('completed_at', {})
+                if started and completed < started and 'started_at' in values:
+                    values.pop('started_at')
+                    provenance['started_at'] = original.get('started_at', {})
         for key in list(provenance):
             if not provenance[key]:
                 del provenance[key]

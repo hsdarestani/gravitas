@@ -86,6 +86,15 @@ class DocumentDateProposalTests(SimpleTestCase):
         self.assertEqual(result['values']['started_at'], '2026-09-24T23:00:00+00:00')
         self.assertEqual(result['date_provenance']['started_at']['start_upper_bound'], '2026-10-26')
 
+    def test_later_report_revision_does_not_start_work_after_recorded_completion(self):
+        row = task(source_metadata={}, created_at='2026-09-21T12:00:00Z', completed_at='2026-10-02T12:00:00Z',
+            date_provenance={'created_at': {'source': 'existing', 'confidence': 'recorded'},
+                'completed_at': {'source': 'existing', 'confidence': 'recorded'}})
+        row['source_metadata'] = {'records': [{'activity_date_raw': '2026-10-10', 'original_status': 'Done'}]}
+        result = self.propose([row])[0]
+        self.assertTrue(result['values']['started_at'].startswith('2026-09-21'))
+        self.assertNotIn('completed_at', result['values'])
+
 
 class DocumentDatePersistenceTests(TestCase):
     def test_application_audits_once_preserves_task_state_and_is_repeatable(self):
