@@ -208,6 +208,8 @@ def scientific_context(lab, question='', event='', state=None):
     for doc in [d for d in docs if d.kind == 'model'][:1]:
         full_guides.append({'document': doc.slug, 'markdown': doc.markdown[:22000]})
         for section in doc.sections:
+            if section['text'] not in doc.markdown[:22000]:
+                continue
             key = doc.slug + '#' + section['anchor']
             if not any(c['id'] == key for c in citations):
                 citations.append({'id': key, 'document': doc.slug, 'anchor': section['anchor'],
