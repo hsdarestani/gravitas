@@ -23,6 +23,7 @@ from .platform_access import INHERIT_VISIBILITY, can_edit, can_view, policy_for
 from .platform_models import ProjectAuditEvent
 from .platform_runtime_v3 import ensure_platform_workspaces
 from .project_cockpit import _task_json
+from .task_dates import apply_date_patch
 
 
 OBJECTIVE_TITLE = 'Research project execution'
@@ -229,7 +230,8 @@ def project_task_detail(request, project_id, task_id):
     if expected is not None and expected != task.updated_at.isoformat():
         return _error('task_changed_elsewhere', 409, task=_task_json(task, request.user))
     allowed = {'title', 'description', 'definition_of_done', 'status', 'priority',
-               'blocked_reason', 'due_date', 'owner_id', 'dependency_id', 'parent_id'}
+               'blocked_reason', 'due_date', 'owner_id', 'dependency_id', 'parent_id',
+               'created_at', 'started_at', 'completed_at'}
     if not payload or set(payload) - allowed:
         return _error('invalid_task_fields')
     # Task canonical schema v2 now serializes owner, dependency and hierarchy.
@@ -256,7 +258,7 @@ def project_task_detail(request, project_id, task_id):
         value = parse_date(str(payload['due_date'] or '')) if payload['due_date'] else None
         if payload['due_date'] and value is None:
             return _error('invalid_due_date')
-        if value is None and task.cycle_id is None:
+        if value is None and (task.meeting_id or (task.initiative_id and not task.cycle_id and not task.parent_id and not task.source_key)):
             return _error('due_date_required_without_cycle')
         updates['due_date'] = value
     if 'owner_id' in payload:
@@ -293,6 +295,8 @@ def project_task_detail(request, project_id, task_id):
         updates['parent'] = parent
     previous = {field: (getattr(task, field + '_id') if field in {'owner', 'dependency', 'parent'}
                          else str(getattr(task, field) or '')) for field in updates}
+    previous.update({field: str(getattr(task, field) or '')
+                     for field in ('created_at', 'started_at', 'completed_at') if field in payload})
     with transaction.atomic():
         for field, value in updates.items():
             setattr(task, field, value)
@@ -301,14 +305,18 @@ def project_task_detail(request, project_id, task_id):
             task.clean()
         except ValidationError:
             return _error('invalid_task_hierarchy')
-        if task.status == WorkStatus.DONE:
-            task.completed_at = task.completed_at or timezone.now()
-        elif 'status' in updates:
-            task.completed_at = None
+        try:
+            date_fields = apply_date_patch(task, payload, request.user)
+        except PermissionError as exc:
+            return _error(str(exc), 403)
+        except ValueError as exc:
+            return _error(str(exc))
         task.save()
         ProjectAuditEvent.objects.create(
             project=project, actor=request.user, action='task_updated',
             object_type='OperatingTask', object_id=str(task.pk),
-            detail={'fields': list(updates), 'previous': previous},
+            detail={'fields': list(updates) + sorted(date_fields), 'previous': previous,
+                    'changes': {field: {'from': previous.get(field), 'to': str(getattr(task, field) or '')}
+                                for field in set(updates) | date_fields}},
         )
     return JsonResponse({'ok': True, 'task': _task_json(task, request.user)})

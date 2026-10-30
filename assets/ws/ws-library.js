@@ -36,7 +36,7 @@
 
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-kms.js?v=20261016-task1';
-import { el, panel, row, stats, empty, failure, skeleton } from './ws-views.js?v=20261016-task1&patch=20261027reliability1';
+import { el, panel, row, stats, empty, failure, skeleton } from './ws-views.js?v=20261016-task1&patch=20261030dates1';
 
 /* The guest store, read-only. Same key as the public site's. */
 const GUEST_KEY = 'gravitas.reader.v1';

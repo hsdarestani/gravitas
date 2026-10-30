@@ -47,16 +47,16 @@ class TaskHierarchyTests(TestCase):
         row.source_key = 'test:changed'
         with self.assertRaises(ValidationError): row.save()
 
-    def test_v2_canonical_roundtrip_and_v1_preserves_unrepresented_fields(self):
+    def test_v3_canonical_roundtrip_and_v1_preserves_unrepresented_fields(self):
         row = self.task('Imported', parent=self.parent, dependency=self.parent, source_key='test:source', source_metadata={'original_status':'Done', 'activity_date_raw':'2026-09-07'})
         data = json.loads(encode(row))
-        self.assertEqual(data['schema'], 2)
+        self.assertEqual(data['schema'], 3)
         fields = decode(row, json.dumps(data))
         self.assertEqual(fields['parent_id'], self.parent.pk)
         self.assertEqual(fields['owner_id'], self.owner.pk)
         self.assertEqual(fields['source_metadata'], row.source_metadata)
         data['schema'] = 1
-        for key in ['owner_id','dependency_id','parent_id','source_key','source_metadata']: data['fields'].pop(key)
+        for key in ['owner_id','dependency_id','parent_id','source_key','source_metadata','created_at','started_at','date_provenance']: data['fields'].pop(key)
         fields = decode(row, json.dumps(data))
         self.assertEqual(fields['parent_id'], self.parent.pk)
         self.assertEqual(fields['source_key'], 'test:source')

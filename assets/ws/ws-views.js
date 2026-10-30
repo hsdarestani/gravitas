@@ -12,6 +12,7 @@ import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
+import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261030dates1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -1003,7 +1004,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         subtaskBox.append(open);
       }
       if (!(hierarchy.children || []).length) subtaskBox.append(el('p', 'fl-muted', 'No subtasks yet.'));
-      body.replaceChildren(lineage, status, goal, description, subtaskBox, activity, note);
+      body.replaceChildren(lineage, status, taskDateFields(summary).element, goal, description, subtaskBox, activity, note);
       const showEvents = (items) => {
         activity.replaceChildren(el('strong', null, 'Activity'));
         for (const event of (items || []).slice(0, 20)) {
@@ -1248,6 +1249,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       };
       dependency.addEventListener('focus', loadDependencyIndex);
       const due = input('date', task.due_date || '');
+      const lifecycleDates = taskDateFields(task, { canEdit: detailData.can_edit_dates === true });
       const done = textarea(task.definition_of_done, 2);
       done.setAttribute('aria-label', 'Expected outcome / Definition of done');
       const blocked = textarea(task.blocked_reason, 3);
@@ -1491,6 +1493,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         titleField,
         goalField,
         two,
+        lifecycleDates.element,
         resourceSection,
         descriptionBlock,
         relatedBlock,
@@ -1504,6 +1507,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         title: title.value.trim(), description: description.value.trim(),
         priority: priority.value, status: status.value, owner_id: Number(owner.value),
         due_date: due.value || null, definition_of_done: done.value.trim(),
+        ...lifecycleDates.values(),
         blocked_reason: blocked.value.trim(),
         ...Object.fromEntries(Object.entries(relationControls).map(([key, control]) =>
           [key, control.value ? Number(control.value) : null])),
@@ -1511,9 +1515,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       let confirmedValues = taskFormValues();
       const applyConfirmedTask = (result, submitted) => {
         Object.assign(task, result.task);
+        lifecycleDates.sync(task);
         // The response may include fields changed by another server workflow.
         // Only acknowledge this submission; never replace newer unsaved typing.
-        confirmedValues = { ...submitted };
+        confirmedValues = { ...submitted, ...lifecycleDates.values() };
         reloadBoard?.applyMutation?.({ type: 'update', id: task.id, patch: result.task });
         head.querySelector('h2').textContent = 'Task #' + task.id;
       };
@@ -2446,7 +2451,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           syncTopScroll();
           return;
         }
-        if (filters.view === 'week' || filters.view === 'timeline') {
+        if (filters.view === 'timeline') {
+          renderTaskTimeline(board, visible, { openTask: task => openCard(task.id) });
+          window.requestAnimationFrame(syncTopScroll);
+          return;
+        }
+        if (filters.view === 'week') {
           const dueTasks = [...visible].sort((left, right) =>
             String(left.due_date || '9999').localeCompare(String(right.due_date || '9999'))
             || left.id - right.id);

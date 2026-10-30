@@ -14,6 +14,7 @@
 
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-task1';
+import { taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261030dates1';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
 // a change. Set each time the cockpit asks for a bar.
@@ -350,12 +351,14 @@ export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
   if (P.canOpenCore()) {
     // One canonical task editor for everyone authorized to use Core; Research
     // participants without Core access retain project-scoped editing below.
-    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261027reliability1');
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261030dates1');
     return openCoreTask(task.id, { go, onTaskChange: refresh });
   }
   // This is the SAME project task, not a Research copy. Keep project ACL and
   // PATCH the existing object via the project-access endpoint.
   const canEdit = task.can_edit === true;
+  const lifecycleDates = taskDateFields(task, { canEdit: canEdit && task.can_edit_dates === true });
+  const originalDates = lifecycleDates.values();
   const result = modal('Task #' + task.id, (grid) => {
     grid.classList.add('ws-project-task-editor');
     const title = canEdit ? input('title', task.title) : el('strong', 'ws-project-task-editor__title', task.title);
@@ -383,6 +386,7 @@ export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
       );
     }
     grid.append(attrs);
+    grid.append(lifecycleDates.element);
     const owner = el('p', 'fl-muted', 'Owner: ' + (task.owner || 'Not assigned'));
     grid.append(owner);
     const notes = el('details', 'ws-project-task-editor__more');
@@ -406,6 +410,7 @@ export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
         definition_of_done: String(data.get('definition_of_done') || '').trim(),
         description: String(data.get('description') || '').trim(),
         blocked_reason: String(data.get('blocked_reason') || '').trim(),
+        ...Object.fromEntries(Object.entries(lifecycleDates.values()).filter(([key, value]) => value !== originalDates[key])),
       },
     });
     if (typeof refresh === 'function') refresh();

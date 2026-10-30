@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
-import { el, panel, row } from './ws-views.js?v=20261016-task1&patch=20261027reliability1';
+import { el, panel, row } from './ws-views.js?v=20261016-task1&patch=20261030dates1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 

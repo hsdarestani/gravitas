@@ -221,6 +221,7 @@ def _meeting_json(obj):
 
 
 def _task_json(obj):
+    from .task_dates import dates_json
     initiative = obj.initiative if obj.initiative_id else None
     kr = initiative.key_result if initiative else None
     objective = kr.objective if kr else None
@@ -237,6 +238,7 @@ def _task_json(obj):
         'definition_of_done': obj.definition_of_done, 'blocked_reason': obj.blocked_reason,
         'dependency_id': obj.dependency_id, 'milestone_id': obj.milestone_id, 'cycle_id': obj.cycle_id,
         'project_id': obj.project_id, 'meeting_id': obj.meeting_id, 'trace': trace,
+        **dates_json(obj),
     }
 
 

@@ -242,9 +242,11 @@ class OperatingTask(models.Model):
     source_key = models.CharField(max_length=240, unique=True, null=True, blank=True)
     source_metadata = models.JSONField(default=dict, blank=True)
     blocked_reason = models.TextField(blank=True)
+    started_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+    date_provenance = models.JSONField(default=dict, blank=True)
     board_order = models.PositiveIntegerField(default=0, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
@@ -265,11 +267,19 @@ class OperatingTask(models.Model):
 
     def save(self, *args, **kwargs):
         self.clean()
+        previous = None
         if self.pk:
-            prior = type(self).objects.filter(pk=self.pk).values_list('source_key', flat=True).first()
-            if prior and prior != self.source_key:
+            previous = type(self).objects.using(kwargs.get('using') or self._state.db).filter(pk=self.pk).values(
+                'source_key', 'status', 'due_date', 'completed_at').first()
+            if previous and previous['source_key'] and previous['source_key'] != self.source_key:
                 raise ValidationError({'source_key': 'A source binding is immutable.'})
-        return super().save(*args, **kwargs)
+        from .task_dates import track_dates
+        fields = track_dates(self, previous, kwargs.get('update_fields'))
+        if kwargs.get('update_fields') is not None:
+            kwargs['update_fields'] = set(kwargs['update_fields']) | fields
+        result = super().save(*args, **kwargs)
+        self._explicit_date_fields = set()
+        return result
 
     class Meta:
         ordering = ['priority', 'due_date', '-updated_at']
