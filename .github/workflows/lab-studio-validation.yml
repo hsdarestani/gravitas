@@ -48,6 +48,7 @@ jobs:
           node --input-type=module --check < assets/ws/ws-admin.js
           node --input-type=module --check < assets/ws/ws-platform.js
           node scripts/test-lab-studio.cjs
+          node --test tests/science-evidence.test.cjs tests/science-evidence-integration.test.cjs tests/science-universe-original.test.cjs tests/science-pulsar-scenarios.test.cjs
           python3 ops/test_release_scope.py
       - name: Verify Lab Studio interaction and CSP in Chrome
         env:
