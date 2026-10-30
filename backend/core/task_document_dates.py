@@ -81,8 +81,10 @@ def propose_document_dates(tasks, supplements=(), *, today=None):
             continue
         if hashlib.sha256(task['title'].encode()).hexdigest() != supplement['title_sha256']:
             continue
-        if supplement.get('expected_updated_at') and instant(task['updated_at']) != instant(supplement['expected_updated_at']):
-            continue
+        # Evidence identifies the historical task by source key and title.
+        # Its facts survive unrelated edits and the recovery's own revision
+        # bump. Protect actual date corrections per field below; comparing the
+        # whole task revision also loses microseconds in JSON snapshot exports.
         for fact in supplement['facts']:
             values = {key: date.fromisoformat(value) for key, value in fact.items() if key in FIELDS and value}
             if any(value > today for key, value in values.items() if key != 'due_date'):
@@ -143,7 +145,8 @@ def propose_document_dates(tasks, supplements=(), *, today=None):
                 continue
             # Native creation and real status transitions take precedence over estimates.
             import_birth = key == 'created_at' and historical and prior.get('source', '').split(':')[0] in ('canonical_revision', 'existing', 'import')
-            if current and (key == 'due_date' or not historical or prior.get('confidence') == 'recorded') and not import_birth:
+            weak_start = key == 'started_at' and prior.get('source') == 'completion_window_inference'
+            if current and (key == 'due_date' or (not historical and not weak_start) or prior.get('confidence') == 'recorded') and not import_birth:
                 continue
             if key == 'completed_at' and task['status'] not in ('done', 'archived'):
                 continue
@@ -152,7 +155,8 @@ def propose_document_dates(tasks, supplements=(), *, today=None):
                 continue
             fact = (max if key == 'completed_at' else min)(choices, key=lambda f: f[key])
             value = fact[key].isoformat() if key == 'due_date' else day_stamp(fact[key]).isoformat()
-            if current and (date.fromisoformat(current) if key == 'due_date' else instant(current).date()) <= fact[key]:
+            better_start = weak_start and fact['info']['source'] != 'completion_window_inference'
+            if current and (date.fromisoformat(current) if key == 'due_date' else instant(current).date()) <= fact[key] and not better_start:
                 continue
             values[key] = value
             provenance[key] = {**fact['info'], 'previous_value': iso(current)}

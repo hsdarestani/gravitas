@@ -67,7 +67,7 @@ class DocumentDateProposalTests(SimpleTestCase):
         self.assertEqual(self.propose([row]), [])
         self.assertEqual(row['date_provenance']['created_at']['previous_value'], before['created_at'])
 
-    def test_supplement_is_identity_revision_checked_and_due_clear_is_protected(self):
+    def test_supplement_identity_and_due_clear_are_protected_across_unrelated_edits(self):
         row = task()
         fact = {'task_id': row['id'], 'source_key': row['source_key'],
             'title_sha256': hashlib.sha256(row['title'].encode()).hexdigest(),
@@ -77,7 +77,24 @@ class DocumentDateProposalTests(SimpleTestCase):
         row['date_provenance']['due_date'] = {'source': 'recorded', 'confidence': 'recorded'}
         self.assertNotIn('due_date', self.propose([row], [fact])[0]['values'])
         row['date_provenance'].pop('due_date'); fact['expected_updated_at'] = '2026-10-25T16:00:00Z'
+        self.assertEqual(self.propose([row], [fact])[0]['values']['due_date'], '2026-09-21')
+        fact['title_sha256'] = hashlib.sha256(b'A different historical task').hexdigest()
         self.assertNotIn('due_date', self.propose([row], [fact])[0]['values'])
+
+    def test_reported_activity_refines_a_broad_start_estimate_even_after_revision_bump(self):
+        row = task(source_metadata={}, created_at='2026-09-21T12:00:00Z', started_at='2026-09-21T12:00:00Z',
+            date_provenance={'created_at': {'source': 'existing', 'confidence': 'recorded'},
+                'started_at': {'source': 'completion_window_inference', 'confidence': 'inferred', 'precision': 'day'},
+                'completed_at': {'source': 'existing', 'confidence': 'recorded'}})
+        fact = {'task_id': row['id'], 'source_key': row['source_key'],
+            'title_sha256': hashlib.sha256(row['title'].encode()).hexdigest(),
+            'expected_updated_at': '2026-10-25T16:00:00Z', 'facts': [{'started_at': '2026-09-26',
+                'info': {'source': 'team_activity_inference', 'rationale': 'Dated activity reported.'}}]}
+        result = self.propose([row], [fact])[0]
+        self.assertTrue(result['values']['started_at'].startswith('2026-09-26'))
+        self.assertNotIn('completed_at', result['values'])
+        row['date_provenance']['started_at'] = {'source': 'admin', 'confidence': 'recorded'}
+        self.assertEqual(self.propose([row], [fact]), [])
 
     def test_same_day_estimate_never_precedes_recorded_creation_in_storage(self):
         row = task(source_metadata={}, created_at='2026-09-24T23:00:00Z', date_provenance={
