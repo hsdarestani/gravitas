@@ -60,6 +60,9 @@ class LabScientificContextTests(TestCase):
         self.assertIn('Fresh independent evidence', str(context['scientific_context']['sections']))
         self.assertEqual(context['browser_reported_simulator_selection']['policies']['replication'], 9)
         self.assertEqual(context['browser_reported_simulator_selection']['delta']['replicated'], 4)
+        self.assertTrue(context['server_model_facts']['verified_engine_match'])
+        self.assertIn('REDUCES', context['server_model_facts']['rules']['transparency'])
+        self.assertEqual(context['scientific_context']['complete_model_guides'][0]['markdown'], self.md)
 
     @patch('core.lab_api.configured', return_value=False)
     def test_directory_is_available_and_unavailable_llm_is_honestly_labeled(self, configured):
@@ -105,3 +108,26 @@ class LabScientificContextTests(TestCase):
         self.assertEqual(atlas['policy_combinations'], '1000000000000')
         self.assertEqual(len(atlas['families']), len(set(atlas['families'])))
         self.assertEqual(atlas['coverage'], 'sampled, not exhaustive')
+
+
+class LabMechanismContextTests(TestCase):
+    def test_open_methods_reduce_selective_analyses_and_facts_match_engine(self):
+        from core.lab_model_context import model_facts, ENGINE_SHA
+        engine = (Path(__file__).resolve().parents[2] / 'lab-sources/science-universe/engine.js').read_text()
+        self.assertEqual(digest(engine), ENGINE_SHA)
+        lab = SimpleNamespace(published_files=[{'name': 'engine.js', 'content': engine}])
+        facts = model_facts(lab, {'policies': {'pressure': 9, 'transparency': 2}})
+        self.assertEqual(facts['computed_mechanism_example']['initial_analyses_at_current_pressure_and_transparency'], 3)
+        self.assertEqual(facts['computed_mechanism_example']['initial_analyses_if_only_transparency_is_10'], 1)
+        for transparency in range(1, 10):
+            a = model_facts(lab, {'policies': {'pressure': 9, 'transparency': transparency}})
+            b = model_facts(lab, {'policies': {'pressure': 9, 'transparency': transparency+1}})
+            self.assertGreaterEqual(a['computed_mechanism_example']['initial_analyses_at_current_pressure_and_transparency'],
+                                    b['computed_mechanism_example']['initial_analyses_at_current_pressure_and_transparency'])
+
+    def test_unknown_engine_never_receives_outdated_mechanism_cards(self):
+        from core.lab_model_context import model_facts
+        lab = SimpleNamespace(published_files=[{'name': 'engine.js', 'content': '// a different scientific model'}])
+        facts = model_facts(lab, {})
+        self.assertFalse(facts['verified_engine_match'])
+        self.assertNotIn('rules', facts)
