@@ -155,7 +155,9 @@ function addChat(role,text,provider,citations){
 function addBubble(m){
  if(!chat)return;
  var row=node('div','lab-chat-bubble '+(m.role==='user'?'is-user':'is-pulsar'));
- var p=node('p','',m.text);
+ var displayText=m.text;
+ (m.citations||[]).forEach(function(c){if(c.id)displayText=displayText.split('['+c.id+']').join('');});
+ var p=node('p','',displayText.replace(/  +/g,' ').trim());
  var date=new Date(Number(m.at)||Date.now());
  var stamp=date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
  var meta=node('small','lab-chat-meta',stamp+(m.role==='pulsar'?
@@ -555,18 +557,28 @@ async function openKnowledge(documentSlug,anchor){
   if(anchor)requestAnimationFrame(function(){content.querySelector('[data-anchor="'+anchor+'"]')?.scrollIntoView({block:'start'});});
  }catch(err){content.textContent=err.message;}
 }
+var POLICY_LABELS={generation:'Hypothesis generation',verification:'Peer review capacity',replication:'Replication capacity',funding:'Research funding',aiAdoption:'AI-assisted generation',alpha:'Statistical leniency',sampleSize:'Sample size',transparency:'Open methods',diversity:'Exploration diversity',pressure:'Publication pressure',network:'Knowledge diffusion',uncertainty:'AI abstention'};
+function scenarioLabel(family){
+ var parts=String(family||'').split(':');
+ if(parts[0]==='baseline')return 'Baseline conditions';
+ if(parts[0]==='design_sensitivity')return 'Population and prior assumptions';
+ return (parts[0]==='single'?'One parameter · ':'Two parameters · ')+parts.slice(1).map(function(k){return POLICY_LABELS[k]||k;}).join(' / ');
+}
 async function openAtlas(){
  if(!active||active.slug!=='science-universe')return;
  var dialog=modal('Scenario atlas'),content=node('div','lab-atlas','Loading executed model scenarios…');dialog.append(content);
  try{
   var res=await fetch('/api/labs/science-universe/scenarios/',{credentials:'same-origin'});if(!res.ok)throw Error('Scenario atlas unavailable');var data=await res.json();content.replaceChildren();
-  content.append(node('p','',data.runs_for_current_engine+' executed runs for this engine. '+Number(data.policy_combinations).toLocaleString()+' possible policy combinations. Coverage is sampled.'),node('p','lab-note',data.limits));
+  content.append(node('p','',data.runs_for_current_engine+' executed runs for this engine. '+Number(data.policy_combinations).toLocaleString()+' possible policy combinations. Coverage is sampled.'),node('p','lab-note',data.limits+' A seed reproduces the same random draws when all settings and interventions match.'));
   var form=node('div','lab-atlas-filter'),select=node('select');select.setAttribute('aria-label','Scenario family');
-  [ ['','All sampled families'] ].concat((data.families||[]).map(function(f){return [f,f.replace('single:','One parameter · ').replace('pair:','Two parameters · ')];})).forEach(function(pair){var o=node('option','',pair[1]);o.value=pair[0];select.append(o);});
+  [ ['','All sampled families'] ].concat((data.families||[]).map(function(f){return [f,scenarioLabel(f)];})).forEach(function(pair){var o=node('option','',pair[1]);o.value=pair[0];select.append(o);});
   var list=node('div','lab-atlas-runs'),more=btn('More scenarios',function(){load(false);});var offset=0;
   async function load(reset){if(reset){offset=0;list.replaceChildren();}more.disabled=true;
     try{var r=await fetch('/api/labs/science-universe/scenarios/?family='+encodeURIComponent(select.value)+'&offset='+offset);if(!r.ok)throw Error('Could not load scenarios');var page=await r.json();
-    (page.examples||[]).forEach(function(row){var card=node('details','lab-atlas-run');card.append(node('summary','',row.family+' · seed '+row.seed+' · '+row.days+' days'),node('p','',row.result.published+' published · '+row.result.falsePublished+' false live claims · '+row.result.reviewBacklog+' awaiting review'),node('pre','lab-markdown-text',JSON.stringify({policies:row.parameters,design:row.design,results:row.result},null,2)));list.append(card);});offset=page.next_offset;more.hidden=offset===null;
+    (page.examples||[]).forEach(function(row){var card=node('details','lab-atlas-run');card.append(node('summary','',scenarioLabel(row.family)+' · seed '+row.seed+' · '+row.days+' model days'),node('p','',row.result.published+' published · '+row.result.falsePublished+' false live claims · '+row.result.reviewBacklog+' awaiting review'));
+      card.append(node('p','lab-note','Policy settings (1–10): '+Object.keys(row.parameters).map(function(k){return (POLICY_LABELS[k]||k)+' '+row.parameters[k];}).join(' · ')));
+      var design=row.design||{};card.append(node('p','lab-note',(design.labsPerDomain*4)+' laboratories · '+design.agentsMin+'–'+design.agentsMax+' agents per laboratory · '+Math.round(design.aiRoleFraction*100)+'% AI roles · truth prior '+(design.truthPriorOverride==null?'field-specific assumptions':Math.round(design.truthPriorOverride*100)+'% across fields')));
+      card.append(node('p','lab-note',row.result.tested+' tested studies · '+row.result.replicated+' independent repeats · '+row.result.retracted+' withdrawals · '+row.result.crossFieldPublished+' cross-field live papers'));list.append(card);});offset=page.next_offset;more.hidden=offset===null;
     }catch(e){list.append(node('p','',e.message));}finally{more.disabled=false;}}
   select.addEventListener('change',function(){load(true);});form.append(select);content.append(form,list,more);await load(true);
  }catch(err){content.textContent=err.message;}
