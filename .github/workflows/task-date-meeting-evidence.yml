@@ -1,0 +1,51 @@
+name: Read-only encrypted task chronology evidence
+on:
+  push:
+    branches: [codex/task-date-minutes-20261030]
+    paths: ['ops/task_date_meeting_evidence.py', '.github/workflows/task-date-meeting-evidence.yml']
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile read-only exporter
+        run: python3 -m py_compile ops/task_date_meeting_evidence.py
+      - name: Read encrypted task evidence without changing production
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          REMOTE_USER="${SSH_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/evidence
+          chmod 600 ~/.ssh/evidence
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/evidence -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" true 2>/dev/null; then
+            if [ "$REMOTE_USER" != root ] && ssh "${OPTS[@]}" "root@$SSH_HOST" true 2>/dev/null; then REMOTE_USER=root; else exit 1; fi
+          fi
+          REMOTE="/tmp/gravitas-task-date-evidence-$GITHUB_RUN_ID.py"
+          trap 'ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "rm -f $REMOTE" || true' EXIT
+          scp -i ~/.ssh/evidence -P "$PORT" ops/task_date_meeting_evidence.py "$REMOTE_USER@$SSH_HOST:$REMOTE"
+          ssh "${OPTS[@]}" "$REMOTE_USER@$SSH_HOST" "bash -s -- '$REMOTE'" <<'REMOTE'
+          set -euo pipefail
+          SCRIPT="$1"
+          cd /opt/gravitas-backend
+          sudo -u gravitas bash -s -- "$SCRIPT" <<'PYRUN'
+          set -euo pipefail
+          set -a
+          . /etc/gravitas/backend.env
+          set +a
+          export DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          export PYTHONPATH=/opt/gravitas-backend
+          /opt/gravitas-backend/.venv/bin/python "$1"
+          PYRUN
+          REMOTE
