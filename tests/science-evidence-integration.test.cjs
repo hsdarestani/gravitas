@@ -21,7 +21,8 @@ test('Pulsar has exact brand mark, persistent message history, compact UI',()=>{
  assert.match(host,/\/assets\/pulsar-mark\.svg/);
  assert.match(host,/localStorage\.setItem\(CHAT_KEY/);
  assert.match(host,/role','log/);
- assert.match(host,/lastCoachAt<90000/);
+ const cooldown=Number(host.match(/Date\.now\(\)-lastCoachAt<(\d+)/)?.[1]);
+ assert.ok(cooldown>=15000&&cooldown<=30000,'proactive notes must be responsive and throttled');
  assert.match(css,/\.lab-chat-log/);
 });
 test('no formerly excessive Pulsar control buttons',()=>{
