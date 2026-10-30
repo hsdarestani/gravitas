@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: '22'
       - run: pip install -q -r backend/requirements.txt
-      - run: python -m django test core.test_task_dates core.test_core_task_board core.test_research_task_api core.test_canonical_projects core.test_project_cockpit --noinput
+      - run: python -m django test core.test_task_dates core.test_task_date_inference core.test_task_document_dates core.test_core_task_board core.test_research_task_api core.test_canonical_projects core.test_project_cockpit --noinput
       - run: python -m django makemigrations core --check --dry-run
       - run: node scripts/test-task-timeline.mjs
       - name: Validate browser modules

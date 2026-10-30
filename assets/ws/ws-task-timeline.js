@@ -21,6 +21,29 @@ function format(value, withTime = false) {
     ...(dateOnly ? { timeZone: 'UTC' } : withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
   });
 }
+export function taskDateLabel(task, key, withTime = false) {
+  const source = task.date_provenance?.[key], value = task[key];
+  const day = source?.precision === 'day';
+  return (value && source?.confidence === 'inferred' ? '≈ ' : '') +
+    format(day && value ? value.slice(0, 10) : value, withTime && !day);
+}
+function evidence(label, source) {
+  if (!source) return;
+  if (source.confidence === 'inferred') {
+    label.append(node('small', '', 'Estimated from reports · day only; exact time unknown'));
+    if (source.rationale) label.append(node('small', '', source.rationale));
+    if (source.activity_start && source.activity_end) label.append(node('small', '',
+      'Reported work: ' + format(source.activity_start) + ' → ' + format(source.activity_end)));
+    if (source.start_lower_bound && source.start_upper_bound) label.append(node('small', '',
+      'Possible start: ' + format(source.start_lower_bound) + ' → ' + format(source.start_upper_bound)));
+    if (source.child_task_ids?.length) label.append(node('small', '', 'Based on subtasks ' + source.child_task_ids.map(id => '#' + id).join(', ')));
+    if (/^https:\/\/docs\.google\.com\/document\/d\//.test(source.source_reference || '')) {
+      const link = node('a', '', 'Source document'); link.href = source.source_reference;
+      link.target = '_blank'; link.rel = 'noopener noreferrer'; label.append(link);
+    }
+  } else if (source.confidence === 'earliest_known') label.append(node('small', '', 'Earliest recorded evidence; exact time unknown'));
+  else if (!['observed', 'recorded', 'existing'].includes(source.source)) label.append(node('small', '', source.source === 'admin' ? 'Corrected by admin' : 'Recovered from history'));
+}
 export function timelineModel(tasks, plans = new Map(), now = Date.now()) {
   const rows = tasks.map(task => {
     const plan = plans.get(Number(task.id));
@@ -71,7 +94,7 @@ function styles() {
 export function renderTaskTimeline(host, tasks, { plans = new Map(), openTask = () => {}, editPlan = null, now = Date.now() } = {}) {
   styles();
   const model = timelineModel(tasks, plans, now);
-  const legend = node('p', 'task-timeline__legend', '● Created   ━ Actual work   ● Completed   ◆ Due date   ┄ Planned work');
+  const legend = node('p', 'task-timeline__legend', '● Created   ━ Actual work   ● Completed   ◆ Due date   ┄ Planned work   ≈ Estimated from reports');
   const chart = node('div', 'task-timeline'); chart.tabIndex = 0; chart.setAttribute('aria-label', 'Task timeline; scroll horizontally to explore dates');
   const header = node('div', 'task-timeline__row'); header.append(node('strong', 'task-timeline__label', 'Task · actual dates'));
   const axis = node('div', 'task-timeline__track task-timeline__axis');
@@ -95,17 +118,17 @@ export function renderTaskTimeline(host, tasks, { plans = new Map(), openTask = 
     const task = row.task, item = node('div', 'task-timeline__row'), label = node('div', 'task-timeline__label');
     const open = node('button', '', '#' + task.id + ' · ' + task.title); open.type = 'button'; open.onclick = () => openTask(task);
     label.append(open, node('small', '', (typeof task.owner === 'object' ? task.owner?.name : task.owner || '') + ' · ' + String(task.status).replaceAll('_', ' ')),
-      node('small', '', fields.map(([key, name]) => name + ': ' + format(task[key])).join(' · ') + ' · Due: ' + format(task.due_date)));
+      node('small', '', fields.map(([key, name]) => name + ': ' + taskDateLabel(task, key)).join(' · ') + ' · Due: ' + taskDateLabel(task, 'due_date')));
     if (editPlan && task.can_edit) { const plan = node('button', '', plans.has(Number(task.id)) ? 'Edit plan' : 'Plan'); plan.type = 'button'; plan.onclick = () => editPlan(task); label.append(plan); }
     const track = node('div', 'task-timeline__track');
     if (now >= model.origin && now <= model.extent) { const today = node('span', 'task-timeline__today'); today.style.left = model.position(now) + '%'; today.title = 'Today'; track.append(today); }
     bar(track, row.plannedStart, row.plannedEnd === null ? null : row.plannedEnd + DAY, 'task-timeline__bar--plan', 'Planned work');
-    const inferred = task.date_provenance?.started_at?.confidence === 'earliest_known';
+    const inferred = ['inferred', 'earliest_known'].includes(task.date_provenance?.started_at?.confidence);
     bar(track, row.start, row.activeEnd, 'task-timeline__bar--' + task.status + (inferred ? ' task-timeline__bar--inferred' : ''),
-      (inferred ? 'Earliest recorded work: ' : 'Active: ') + format(task.started_at, true) + ' → ' + (task.completed_at ? format(task.completed_at, true) : row.activeEnd ? 'ongoing' : 'completion not recorded'));
-    mark(track, row.created, '', 'Created: ' + format(task.created_at, true));
-    mark(track, row.end, 'task-timeline__mark--done', 'Completed: ' + format(task.completed_at, true));
-    mark(track, row.due, 'task-timeline__mark--due', 'Due: ' + format(task.due_date));
+      (inferred ? 'Estimated / earliest known work: ' : 'Active: ') + taskDateLabel(task, 'started_at', true) + ' → ' + (task.completed_at ? taskDateLabel(task, 'completed_at', true) : row.activeEnd ? 'ongoing' : 'completion not recorded'));
+    mark(track, row.created, '', 'Created: ' + taskDateLabel(task, 'created_at', true));
+    mark(track, row.end, 'task-timeline__mark--done', 'Completed: ' + taskDateLabel(task, 'completed_at', true));
+    mark(track, row.due, 'task-timeline__mark--due', 'Due: ' + taskDateLabel(task, 'due_date'));
     if (row.start === null) track.append(node('span', 'task-timeline__unknown', 'Active date not recorded'));
     item.append(label, track); chart.append(item);
   }
@@ -126,15 +149,29 @@ export function taskDateFields(task, { canEdit = false } = {}) {
     const source = task.date_provenance?.[key];
     if (canEdit) {
       const input = node('input'); input.type = 'datetime-local'; input.step = '1'; input.name = key; input.required = key === 'created_at';
-      input.value = localInput(task[key]); label.append(input);
-      controls.set(key, { input, initial: input.value, original: task[key] || null });
-    } else { const value = node('time', '', format(task[key], true)); if (task[key]) value.dateTime = task[key]; label.append(value); }
-    if (source?.confidence === 'earliest_known') label.append(node('small', '', 'Earliest recorded evidence; exact time unknown'));
-    else if (source && !['observed', 'recorded', 'existing'].includes(source.source)) label.append(node('small', '', source.source === 'admin' ? 'Corrected by admin' : 'Recovered from history'));
+      const dayOnly = source?.precision === 'day';
+      input.value = dayOnly ? '' : localInput(task[key]); input.required = !dayOnly && key === 'created_at';
+      if (dayOnly) {
+        label.append(node('time', '', taskDateLabel(task, key)));
+        input.setAttribute('aria-label', title + ': set actual date and time');
+        label.append(node('small', '', 'Enter an actual date and time to correct this estimate.'));
+      }
+      label.append(input);
+      const state = { input, initial: input.value, original: task[key] || null, clear: false, dayOnly };
+      controls.set(key, state);
+      if (dayOnly && key !== 'created_at') {
+        const clear = node('button', '', 'Clear estimate'); clear.type = 'button';
+        clear.onclick = () => { state.clear = true; input.value = ''; clear.textContent = 'Estimate will be cleared'; };
+        label.append(clear);
+      }
+    } else { const value = node('time', '', taskDateLabel(task, key, true)); if (task[key]) value.dateTime = source?.precision === 'day' ? task[key].slice(0, 10) : task[key]; label.append(value); }
+    evidence(label, source);
     grid.append(label);
   }
+  const due = node('div', 'task-dates__item', 'Due date: ' + taskDateLabel(task, 'due_date'));
+  evidence(due, task.date_provenance?.due_date); grid.append(due);
   return { element,
-    values: () => Object.fromEntries([...controls].map(([key, state]) => [key, state.input.value === state.initial ? state.original : state.input.value ? new Date(state.input.value).toISOString() : null])),
-    sync: current => { for (const [key, state] of controls) if (state.input.value === state.initial) { state.input.value = localInput(current[key]); state.initial = state.input.value; state.original = current[key] || null; } },
+    values: () => Object.fromEntries([...controls].filter(([, state]) => state.clear || state.input.value !== state.initial).map(([key, state]) => [key, state.input.value ? new Date(state.input.value).toISOString() : null])),
+    sync: current => { for (const [key, state] of controls) if (!state.clear && state.input.value === state.initial) { state.dayOnly = current.date_provenance?.[key]?.precision === 'day'; state.input.value = state.dayOnly ? '' : localInput(current[key]); state.initial = state.input.value; state.original = current[key] || null; } },
   };
 }
