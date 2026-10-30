@@ -35,12 +35,10 @@
   var resizePending=false, lastHeight=0;
   function reportHeight(){
     resizePending=false;
-    var html=document.documentElement, body=document.body;
-    var height=Math.ceil(Math.max(
-      html ? html.scrollHeight : 0,
-      body ? body.scrollHeight : 0,
-      html ? html.getBoundingClientRect().height : 0
-    ));
+    var content=document.getElementById('universe-app')||document.body;
+    // Measure content, never the viewport-sized html element: that feedback
+    // made an expanded host frame become the next minimum content height.
+    var height=content?Math.ceil(content.getBoundingClientRect().height):0;
     if(!Number.isFinite(height)||height<1||height===lastHeight)return;
     lastHeight=height;
     send('lab:resize',{height:height});
@@ -65,6 +63,9 @@
   else startSizeObserver();
 
   window.GraviLab={
+    note:function(payload){send('lab:note',{note:payload});},
+    openAtlas:function(){send('lab:open-atlas');},
+    saveSnapshot:function(payload){send('lab:save-snapshot',{seed:payload?.seed});},
     register:function(details){
       didRegister=true;
       details=details||{};

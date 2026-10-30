@@ -1,0 +1,36 @@
+{
+  "documents": [
+    {
+      "slug": "model-guide",
+      "title": "Science Universe · model, mechanisms and limitations",
+      "source_url": "https://github.com/hsdarestani/gravitas/blob/main/docs/science-universe-model.md",
+      "license": "GraviQuest project documentation",
+      "kind": "model",
+      "file": "model-guide.md"
+    },
+    {
+      "slug": "ioannidis-2005",
+      "title": "Why Most Published Research Findings Are False",
+      "source_url": "https://doi.org/10.1371/journal.pmed.0020124",
+      "license": "CC BY; © 2005 John P. A. Ioannidis",
+      "kind": "paper",
+      "file": "ioannidis-2005.md"
+    },
+    {
+      "slug": "smaldino-2016",
+      "title": "The natural selection of bad science",
+      "source_url": "https://doi.org/10.1098/rsos.160384",
+      "license": "CC BY 4.0; © 2016 Paul E. Smaldino and Richard McElreath",
+      "kind": "paper",
+      "file": "smaldino-2016.md"
+    },
+    {
+      "slug": "simmons-2011",
+      "title": "False-Positive Psychology · reading note",
+      "source_url": "https://doi.org/10.1177/0956797611417632",
+      "license": "GraviQuest original reading note; paper copyright retained by its authors/publisher",
+      "kind": "reading_note",
+      "file": "simmons-2011.md"
+    }
+  ]
+}

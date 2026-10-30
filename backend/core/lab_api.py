@@ -181,7 +181,7 @@ def _serve_file(files, target):
     content_type = mimetypes.guess_type(target)[0] or 'text/plain'
     source = row.get('content') or ''
     if target == 'index.html':
-        bridge = '<script src="/assets/lab-bridge.js?v=20261030-scenarios1"></script>'
+        bridge = '<script src="/assets/lab-bridge.js?v=20261031-workspace1"></script>'
         if re.search(r'<head(?:\s[^>]*)?>', source, re.IGNORECASE):
             source = re.sub(r'(<head(?:\s[^>]*)?>)', lambda match: match.group(1) + bridge,
                             source, count=1, flags=re.IGNORECASE)
@@ -408,11 +408,20 @@ def admin_lab_revisions(request, lab_id):
 @require_POST
 def public_lab_coach(request, slug):
     """Server-grounded, short instructional feedback. Never executes Lab JS or trusts claimed results."""
-    item = InteractiveLab.objects.filter(slug=slug).first()
-    if not item or not _public(item):
-        return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
+    from types import SimpleNamespace
+    from .lab_knowledge import clean_context, scientific_context
+    directory = slug == 'directory'
+    if directory:
+        available = [x for x in InteractiveLab.objects.filter(studio_enabled=True, status='published')[:100] if _public(x)]
+        item = SimpleNamespace(title='Choose a GraviQuest Lab', published_config={
+            'pulsar_enabled': True, 'learning_goal': 'Help visitors select an available Lab for their learning goal. ' +
+            json.dumps([{'slug': x.slug, 'title': x.title, 'summary': x.summary} for x in available])})
+    else:
+        item = InteractiveLab.objects.filter(slug=slug).first()
+        if not item or not _public(item):
+            return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
     try:
-        data = _body(request, limit=5000)
+        data = _body(request, limit=16000)
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     config = item.published_config if isinstance(item.published_config, dict) else {}
@@ -433,27 +442,11 @@ def public_lab_coach(request, slug):
         if isinstance(m, dict) and m.get('role') in ('user', 'pulsar')
         and isinstance(m.get('text'), str)
     ]
-    # Browser telemetry is optional contextual information, not certified data.
-    raw_state = data.get('context') if isinstance(data.get('context'), dict) else {}
-    lab_state = raw_state.get('lab') if isinstance(raw_state.get('lab'), dict) else None
-    paper_state = raw_state.get('paper') if isinstance(raw_state.get('paper'), dict) else None
-    science_state = {
-        'world': str(raw_state.get('world') or 'A')[:1],
-        'model_day': raw_state.get('day') if type(raw_state.get('day')) is int else None,
-        'published_count': raw_state.get('published') if type(raw_state.get('published')) is int else None,
-        'selected_lab': {
-            'id': lab_state.get('id') if type(lab_state.get('id')) is int else None,
-            'name': str(lab_state.get('name') or '')[:70],
-            'paper_count': lab_state.get('paperCount') if type(lab_state.get('paperCount')) is int else None,
-        } if lab_state else None,
-        'selected_paper': {
-            'id': paper_state.get('id') if type(paper_state.get('id')) is int else None,
-            'title': str(paper_state.get('title') or '')[:100],
-            'status': str(paper_state.get('status') or '')[:15],
-        } if paper_state else None,
-    } if slug == 'science-universe' else {}
+    # Only bounded telemetry reaches the shared real LLM runtime.
+    science_state = clean_context(data.get('context')) if slug == 'science-universe' else {}
+    knowledge, allowed_citations = scientific_context(item, question, key, science_state) if slug == 'science-universe' else ({}, [])
     metrics = data.get('metrics') if isinstance(data.get('metrics'), dict) else {}
-    metrics = {k: round(v, 4) for k, v in list(metrics.items())[:12]
+    metrics = {k: round(v, 4) for k, v in list(metrics.items())[:32]
                if isinstance(k, str) and SAFE_KEY.fullmatch(k) and
                isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) < 1e12}
     # Rate-limit before accessing the model; use the peer address, not user-supplied XFF.
@@ -468,20 +461,31 @@ def public_lab_coach(request, slug):
     scripted = (guide or {}).get('hint') or next(
         (s.get('hint') for s in config.get('sections', []) if s.get('id') == section), '')
     if not configured():
-        return JsonResponse({'ok': True, 'reply': scripted or 'Observe how the output changes.',
+        return JsonResponse({'ok': True, 'reply': ('Live Pulsar is unavailable. Open the scientific sources or try again.' if key == 'ask' else scripted or 'Observe how the output changes.'),
                              'provider': 'script', 'run_id': None})
     try:
         result = run_text(
             system=(
                 'You are Pulsar, the in-simulation educator for GraviQuest. Reply in the visitor language. '
-                'Explain clearly in 2–4 concise sentences, usually under 520 characters. '
+                'For proactive events use 1–2 short sentences, at most 300 characters: changed input → mechanism → observed metric, then one useful next action. '
+                'For questions answer directly in up to 6 concise sentences; general scientific questions are welcome. '
+                'Use the question language when it differs from the page locale. '
                 'Teach the scientific mechanism and what to try next, never generic encouragement. '
                 'Observed numbers and event names are client-reported, not independently validated. '
                 'When explaining Science Universe, the user selects a LAB node first, then a PAPER '
                 'from Latest published claims in the inspector. The live_papers metric is ONLY '
                 'an aggregate count; it is never a list of addressable papers. '
-                'If selected_paper is null, plainly say no paper is selected; if provided '
+                'If paper is null, plainly say no paper is selected; if provided '
                 'you may explain its browser-reported title and identifier. '
+                'The scientific_context contains database Markdown sections and a citation_allowlist. '
+                'Cite claims about papers or model rules using [document-slug#section-anchor] copied EXACTLY from that allowlist. '
+                'Never cite an unprovided section or imply full-text access for a reading note. '
+                'Separate mathematical facts, uncalibrated model assumptions and empirical paper findings. '
+                'Use current policies, metric deltas, recent events and prior changes to explain causal mechanisms within this model. '
+                'Nearest atlas examples are separate runs; never pass their numbers off as the visitor run or promise that an outcome always occurs. '
+                'For interdisciplinary work explain the actual novelty and cross-field search mechanism. No calibrated productivity or truth bonus exists. '
+                'Use Create comparison rather than programmer terminology such as fork. '
+                'On the directory recommend only Labs in the supplied learning_goal list and explain what each teaches. '
                 'To independently repeat a study, the user selects a paper, clicks Request '
                 'independent replication in its details, then advances model days. '
                 'For experiments, recommend the Try a guided experiment section in Pulsar '
@@ -496,6 +500,7 @@ def public_lab_coach(request, slug):
             user=json.dumps({
                 'lab': item.title, 'learning_goal': str(config.get('learning_goal') or '')[:700],
                 'section': section, 'event': key, 'metrics': metrics, 'question': question,
+                'scientific_context': knowledge,
                 'browser_reported_chat_history': history,
                 'browser_reported_simulator_selection': science_state,
                 'science_universe_model_context': ({
@@ -519,8 +524,11 @@ def public_lab_coach(request, slug):
         )
         if result.provider == 'fallback':
             raise PulsarError('fallback')
-        return JsonResponse({'ok': True, 'reply': result.text[:480],
+        reply = result.text[:(1800 if key == 'ask' else 480)]
+        cited = [c for c in allowed_citations if '[' + c['id'] + ']' in reply]
+        reply = re.sub(r'\[([a-z0-9-]+#[a-z0-9-]+)\]', lambda m: m[0] if any(c['id'] == m[1] for c in allowed_citations) else '', reply)
+        return JsonResponse({'ok': True, 'reply': reply, 'citations': cited,
                              'provider': result.provider, 'run_id': result.run_id})
     except PulsarError:
-        return JsonResponse({'ok': True, 'reply': scripted or 'Try changing one variable at a time.',
+        return JsonResponse({'ok': True, 'reply': scripted if key != 'ask' else 'Live Pulsar could not answer this question. Please try again; the scientific sources remain available.',
                              'provider': 'script', 'run_id': None})

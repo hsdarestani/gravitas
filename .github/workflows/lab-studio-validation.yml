@@ -19,6 +19,9 @@ on:
       - 'backend/gravitas_backend/urls.py'
       - 'backend/core/migrations/0082_lab_studio_snapshots.py'
       - 'backend/core/test_lab_studio.py'
+      - 'backend/core/lab_knowledge*'
+      - 'backend/core/test_lab_knowledge.py'
+      - 'backend/core/migrations/0087*'
       - 'scripts/test-lab-studio.cjs'
       - 'scripts/test-lab-studio-browser.cjs'
       - '.github/workflows/lab-studio-validation.yml'
@@ -53,6 +56,12 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/gq-lab-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
           node scripts/test-lab-studio-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: lab-workspace-browser-failure
+          path: qa-artifacts/lab-workspace-failure.png
+          if-no-files-found: ignore
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -70,4 +79,4 @@ jobs:
           PY="$RUNNER_TEMP/lab-test/bin/python"
           "$PY" -m django check
           "$PY" -m django makemigrations --check --dry-run
-          "$PY" -m django test core.test_lab_studio
+          "$PY" -m django test core.test_lab_studio core.test_lab_knowledge core.test_science_universe_upgrade

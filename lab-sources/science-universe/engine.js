@@ -32,12 +32,12 @@ const avg=(a)=>a.length?a.reduce((p,c)=>p+c,0)/a.length:0;
 const rnd=(s)=>{let x=s.rng|0;x^=x<<13;x^=x>>>17;x^=x<<5;s.rng=x|0;return (s.rng>>>0)/4294967296;};
 const choice=(s,arr)=>arr[Math.floor(rnd(s)*arr.length)];
 const fixed=(n,k=2)=>Math.round(n*10**k)/10**k;
-const NEWS_MAX=75, HYPO_MAX=950;
+const NEWS_MAX=2000, HYPO_MAX=950;
 function make(seed=21061,policy={},design={}){
   design=normalizeDesign(design);
   const state={seed:seed>>>0,rng:(seed>>>0)||1,day:0,design,policy:{...DEFAULTS,...policy},
     labs:[],agents:[],papers:[],links:[],hypotheses:[],events:[],history:[],nextId:1,
-    pool:250,stats:{generated:0,tested:0,published:0,rejected:0,replicated:0,
+    pool:250,policyChanges:[],citationEdges:[],eventCount:0,stats:{generated:0,tested:0,published:0,rejected:0,replicated:0,
       retracted:0,falsePublished:0,truePublished:0,spent:0,citations:0,replicationFailures:0},
     queues:{review:[],replication:[]},selected:0,
   };
@@ -82,6 +82,7 @@ function rebuildLinks(s){
 }
 function event(s,type,labId,text,extra={}){
   const item={id:s.nextId++,day:s.day,type,labId,text,...extra};
+  s.eventCount=(s.eventCount||0)+1;
   s.events.unshift(item);
   if(s.events.length>NEWS_MAX)s.events.length=NEWS_MAX;
   return item;
@@ -96,11 +97,18 @@ function summary(s){
     day:s.day,generated:st.generated,tested:st.tested,published:st.published,
     rejected:st.rejected,retracted:st.retracted,replicated:st.replicated,
     falsePublished:st.falsePublished,truePublished:st.truePublished,
-    falseDiscoveryRate:st.published?fixed(st.falsePublished/st.published*100,1):0,
+    falseDiscoveryRate:(st.published-st.retracted)>0?fixed(st.falsePublished/(st.published-st.retracted)*100,1):0,
     citations:st.citations,reviewBacklog:queue.review.length,
     replicationBacklog:queue.replication.length,spent:fixed(st.spent,0),
     meanBudget:fixed(avg(s.labs.map(l=>l.budget)),1),
     healthyPapers:st.published-st.retracted,
+    activeStudies:s.hypotheses.filter(h=>h.status==='testing').length,
+    agents:s.agents.length,
+    crossFieldStudies:s.hypotheses.filter(h=>h.domain!==s.labs[h.labId].domain).length,
+    crossFieldPublished:s.hypotheses.filter(h=>h.published&&!h.retracted&&h.domain!==s.labs[h.labId].domain).length,
+    crossFieldLinks:s.links.filter(e=>s.labs[e.a].domain!==s.labs[e.b].domain).length,
+    replicationFailures:st.replicationFailures,
+    ...Object.fromEntries(Object.entries(s.policy).map(([k,v])=>['policy_'+k,v])),
   };
 }
 function domainBase(s,d){
@@ -134,7 +142,7 @@ function generate(s,lab,agent){
   lab.budget=clamp(lab.budget-(.4+s.policy.sampleSize*.16),0,500);
   s.stats.spent+=.4+s.policy.sampleSize*.16;
   agent.produced++;lab.output++;lab.active++;s.hypotheses.push(inquiry);s.stats.generated++;
-  if(s.stats.generated%25===1)event(s,'hypothesis_generated',lab.id,lab.name+' proposed '+inquiry.topic,{hypothesisId:inquiry.id});
+  event(s,'hypothesis_generated',lab.id,lab.name+' proposed '+inquiry.topic,{hypothesisId:inquiry.id});
 }
 /* SCIENCE-MODEL v2 — reference-linked statistical sampling.
    Known-variance two-sided z-test: Z = sqrt(n) * theta + epsilon, epsilon ~ N(0,1).
@@ -189,7 +197,7 @@ function processTesting(s){
     } else {
       h.status='rejected';h.reason='No statistically detectable effect in the synthetic test';
       s.stats.rejected++;
-      if(s.stats.rejected%35===0)event(s,'hypothesis_rejected',h.labId,'An experiment rejected a candidate',{hypothesisId:h.id});
+      event(s,'hypothesis_rejected',h.labId,'An experiment rejected a candidate',{hypothesisId:h.id});
     }
   }
 }
@@ -222,7 +230,7 @@ function processReview(s){
     if(criticalFailure){
       h.status='rejected';h.reason='Rejected by independent methodological review';
       s.stats.rejected++;s.labs[h.labId].failed++;
-      if(s.stats.rejected%23===0)event(s,'review_rejected',h.labId,'Peer review rejected a manuscript',{hypothesisId:h.id});
+      event(s,'review_rejected',h.labId,'Peer review rejected a manuscript',{hypothesisId:h.id});
     } else publish(s,h);
   }
 }
@@ -251,7 +259,7 @@ function processReplication(s){
         s.stats.retracted++;
         event(s,'paper_retracted',h.labId,h.topic+' was withdrawn after failed replication',{hypothesisId:h.id});
       }
-    }else if(h.replications===1)event(s,'replication_passed',h.labId,h.topic+' replicated in a new synthetic test',{hypothesisId:h.id});
+    }else event(s,'replication_passed',h.labId,h.topic+' replicated in a new synthetic test',{hypothesisId:h.id});
   }
 }
 function newCitations(s){
@@ -270,6 +278,10 @@ function newCitations(s){
     let target=rnd(s)*weighted.reduce((a,b)=>a+b,0),h=pool[0];
     for(let j=0;j<pool.length;j++){target-=weighted[j];if(target<=0){h=pool[j];break;}}
     h.citations++;s.stats.citations++;
+    s.citationEdges=s.citationEdges||[];
+    s.citationEdges.push({from:from.id,to:h.labId,paperId:h.id,day:s.day});
+    if(s.citationEdges.length>120)s.citationEdges.shift();
+    event(s,'citation_added',from.id,from.name+' cited '+h.topic,{hypothesisId:h.id,targetLabId:h.labId});
     if(rnd(s)<s.policy.replication*.012)scheduleReplication(s,h.id,'citation');
   }
 }
@@ -335,7 +347,14 @@ function editPolicy(s,key,value){
   if(!Object.prototype.hasOwnProperty.call(DEFAULTS,key))return false;
   const num=Number(value);
   if(!Number.isFinite(num))return false;
-  s.policy[key]=clamp(Math.round(num),1,10);
+  const before=s.policy[key],after=clamp(Math.round(num),1,10);
+  if(before===after)return true;
+  s.policy[key]=after;
+  s.policyChanges=s.policyChanges||[];
+  s.policyChanges.push({day:s.day,key,before,after});
+  if(s.policyChanges.length>120)s.policyChanges.shift();
+  event(s,'policy_changed',null,key+' changed '+before+' → '+after,{key,before,after});
+  snapshot(s);
   return true;
 }
 function fork(s){

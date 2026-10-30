@@ -11,6 +11,7 @@ const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand
 const worlds=[E.make(20261029),null],selected=[null,null],selectedPaper=[null,null],eventSeen=[new Set(),new Set()];
 let active=0,playing=false,compareMode=false,view='labs',plot='published',speed=3;
 let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performance.now(),raf=0;
+let eventLimit=40,lastSnapshotMetrics=null,lastInsightDay=0;
 let currentSection='observe',lastBridge=0,lastStateSent=0,drawerOpen=false,latestFirst=true;
 
 const policyDescriptions={
@@ -137,9 +138,9 @@ const DECISION_REGISTER=[
    mechanism:'The simulator recomputes graph edges using displayed positions.',
    alternative:'Separate map layout from a scientifically defined collaboration graph.',
    verify:'If treating node movement as an intervention, state that it explicitly edits collaboration links rather than geography.'},
-  {id:'fork',group:'Comparisons',title:'Why fork the same world?',
+  {id:'fork',group:'Comparisons',title:'Why compare the same starting world?',
    kind:'theory',why:'Cloning the starting state and RNG supports controlled model counterfactual exploration.',
-   mechanism:'World B copies all state. The current UI then adds +3 to Verification and +3 to Replication simultaneously.',
+   mechanism:'World B copies all state and the random-generator position. No policy is changed automatically.',
    alternative:'One-factor-at-a-time experiments and many paired seeds.',
    verify:'Use a single-intervention fork by default and repeat across seeds; a one-run A/B difference cannot establish causality.'},
   {id:'time',group:'Comparisons',title:'Why a simulated day and a fixed seed?',
@@ -206,6 +207,8 @@ function publishContext(force=false){
       status:paper.retracted?'withdrawn':'published',
       replications:paper.replications||0,
       pValue:Number.isFinite(paper.pValue)?paper.pValue:null}:null,
+    seed:s.seed,design:{...s.design},metrics:m,delta:lastSnapshotMetrics?Object.fromEntries(Object.keys(m).filter(k=>Number.isFinite(m[k])).map(k=>[k,m[k]-(lastSnapshotMetrics[k]||0)])):{},
+    events:s.events.slice(0,8).map(e=>({day:e.day,type:e.type,text:e.text})),changes:(s.policyChanges||[]).slice(-8),
     published:m.published,falseClaims:m.falsePublished,reviewBacklog:m.reviewBacklog,
     replications:m.replicated,policies:{...s.policy},hasFork:!!worlds[1],
     capabilities:['inspect_lab','select_paper','replicate_selected_paper',
@@ -217,9 +220,11 @@ function play(on){
   $('play').textContent=playing?'Ⅱ Pause':'▶ Play';
   $('status-label').textContent=playing?'SIMULATION RUNNING':'SIMULATION PAUSED';
   $('session-state').classList.toggle('spinning',playing);
+  document.body.dataset.playing=String(playing);
+  const label=document.querySelector('.live-indicator');if(label)label.lastChild.textContent=playing?' MODEL RUNNING':' MODEL PAUSED';
 }
 function reset(){
-  const s=nowWorld();
+  const s=nowWorld();lastSnapshotMetrics=null;lastInsightDay=0;
   worlds[active]=E.make(s.seed,{...s.policy},{...s.design});
   selected[active]=null;selectedPaper[active]=null;eventSeen[active].clear();
   play(false);render();emit('world_reset',nowWorld(),'observe');
@@ -263,7 +268,85 @@ function fork(){
 }
 function advance(n){
   for(const s of runningWorlds())E.step(s,n);
-  render();interesting();
+  render();interesting();snapshotInsight();
+}
+const METRICS={
+ generated:['Hypotheses','Candidate questions generated; not discoveries.'],
+ tested:['Studies tested','Completed synthetic statistical tests.'],
+ published:['Published','Cumulative journal acceptances.'],
+ healthyPapers:['Live papers','Accepted papers minus withdrawals.'],
+ falsePublished:['False live claims','Hidden synthetic truth: false papers still in circulation.'],
+ falseDiscoveryRate:['False share (%)','False LIVE claims divided by all LIVE papers; 0 when no live papers.'],
+ truePublished:['True live claims','Model truth only; not available to reviewers.'],
+ replicated:['Independent repeats','Number of repeat studies, not number of unique confirmed papers.'],
+ replicationFailures:['Failed repeats','Fresh synthetic samples that did not pass the test.'],
+ retracted:['Withdrawals','Papers withdrawn under the assumed correction policy.'],
+ rejected:['Rejected studies','Nonsignificant tests and methodological review rejections.'],
+ reviewBacklog:['Review queue','Manuscripts awaiting review.'],
+ replicationBacklog:['Repeat queue','Scheduled independent repeats.'],
+ activeStudies:['Active studies','Hypotheses currently in testing.'],
+ citations:['Citations','Attention connections, not evidence of truth.'],
+ spent:['Research credits spent','Cumulative synthetic study costs.'],
+ meanBudget:['Mean budget','Available research credits per laboratory.'],
+ agents:['Research agents','Simulated people and AI roles following rules.'],
+ crossFieldStudies:['Cross-field studies','Retained studies whose topic differs from the origin laboratory field.'],
+ crossFieldPublished:['Cross-field live papers','Live publications from out-of-field research. No built-in truth bonus.'],
+ crossFieldLinks:['Cross-field connections','Collaboration edges linking different laboratory fields.']
+};
+function metricInfo(key){return METRICS[key]||(key.startsWith('policy_')?
+ [policyDescriptions[key.slice(7)]?.[0]||key,'Policy setting over model time (1–10).']: [key,key]);}
+function sparkline(values,label){
+ const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
+ svg.setAttribute('viewBox','0 0 120 30');svg.setAttribute('role','img');svg.setAttribute('aria-label',label+' trend');svg.classList.add('sparkline');
+ const a=values.filter(Number.isFinite),min=Math.min(0,...a),max=Math.max(1,...a);
+ const line=document.createElementNS(ns,'polyline');line.setAttribute('fill','none');line.setAttribute('stroke','currentColor');line.setAttribute('stroke-width','1.7');
+ line.setAttribute('points',a.map((v,i)=>(2+i/Math.max(1,a.length-1)*116)+','+(27-(v-min)/(max-min||1)*24)).join(' '));svg.append(line);return svg;
+}
+function mountWorkspace(){
+ const side=make('div','workspace-side'),layout=document.querySelector('.world-layout');
+ side.append($('inspector'),document.querySelector('.activity'));layout.append(side);
+ const analysis=document.querySelector('.analysis');analysis.querySelector('.section-head').after(document.querySelector('.top-strip'));
+ const modes=document.querySelector('.mode-rail');modes.prepend(document.querySelector('.header-actions'));
+ for(const key of [...Object.keys(METRICS),...Object.keys(E.DEFAULTS).map(k=>'policy_'+k)]){
+   const option=make('option','',metricInfo(key)[0]);option.value=key;$('metric-select').append(option);
+ }
+ document.body.dataset.playing='false';
+}
+function renderMetricTrends(){
+ const host=$('metric-trends');if(!host)return;host.replaceChildren();
+ const s=nowWorld(),m=E.summary(s),history=series(s);
+ for(const key of Object.keys(METRICS)){
+   const [label,hint]=metricInfo(key),b=make('button','metric-trend');b.type='button';b.title=hint;
+   b.setAttribute('aria-pressed',String(key===plot));
+   b.append(make('span','',label),make('strong','',Number(m[key]||0).toLocaleString('en-US',{maximumFractionDigits:1})),sparkline(history.map(x=>x[key]),label));
+   b.addEventListener('click',()=>{plot=key;drawChart();renderMetricTrends();});host.append(b);
+ }
+}
+function renderDataTable(){
+ const host=$('outcome-data');host.replaceChildren();const table=make('table'),head=make('tr');
+ for(const name of ['World','Model day',...Object.keys(METRICS).map(k=>metricInfo(k)[0])])head.append(make('th','',name));
+ const thead=make('thead');thead.append(head);table.append(thead);const body=make('tbody');
+ for(const s of runningWorlds())for(const row of series(s)){
+   const tr=make('tr');tr.append(make('td','',worlds[1]===s?'B':'A'),make('td','',row.day));
+   for(const key of Object.keys(METRICS))tr.append(make('td','',row[key]??'—'));body.append(tr);
+ }
+ table.append(body);host.append(table);
+}
+function renderDomainResults(){
+ const host=$('domain-results');host.replaceChildren();host.append(make('h3','','Interdisciplinary results'));
+ host.append(make('p','small-print','Exploration diversity changes out-of-field topic search and assumed truth priors. Field labels do not add a proven scientific benefit. Compare with a shared prior in Model assumptions.'));
+ const grid=make('div','domain-grid');
+ for(const d of E.researchBreakdown(nowWorld())){
+   const card=make('div','domain-card');card.append(make('strong','',d.name),make('span','',d.published+' live papers · '+d.falsePublished+' false · '+d.citations+' citations'));grid.append(card);
+ }host.append(grid);
+}
+function snapshotInsight(){
+ const s=nowWorld(),m=E.summary(s);
+ if(s.day-lastInsightDay<12)return;
+ const before=lastSnapshotMetrics;lastSnapshotMetrics=m;lastInsightDay=s.day;
+ if(before&&G.note){const delta=m.published-before.published;
+   G.note({title:'Day '+s.day+' · research snapshot',text:delta+' new publications; review queue '+before.reviewBacklog+' → '+m.reviewBacklog+'. Generation '+s.policy.generation+'/10, review capacity '+s.policy.verification+'/10. Publication counts do not establish validity.'});
+ }
 }
 function summary(){
   const s=nowWorld(),m=E.summary(s);
@@ -276,6 +359,7 @@ function summary(){
 function inspector(){
   const id=selected[active],s=nowWorld();
   $('inspector-start').hidden=id!==null;
+  const chip=$('inspector-start').querySelector('.method-chip');if(chip)chip.textContent=s.labs.length+' labs · '+E.DOMAINS.length+' fields · '+s.agents.length+' simulated research agents';
   $('inspector-content').hidden=id===null;
   if(id===null){publishContext();return;}
   const l=s.labs[id];
@@ -331,7 +415,9 @@ function inspector(){
 }
 function feed(){
   const host=$('feed');host.replaceChildren();
-  const events=latestFirst?nowWorld().events.slice(0,15):[...nowWorld().events].reverse().slice(0,15);
+  const events=latestFirst?nowWorld().events.slice(0,eventLimit):[...nowWorld().events].reverse().slice(0,eventLimit);
+  $('event-retention').textContent='Showing '+events.length+' of '+nowWorld().events.length+' retained events · '+(nowWorld().eventCount||nowWorld().events.length)+' total. Latest 2,000 retained.';
+  $('more-events').hidden=eventLimit>=nowWorld().events.length;
   for(const event of events){
     const button=make('button','feed-event');button.type='button';
     const cat=event.type.includes('retract')?'warning':event.type.includes('replication')?'verify':
@@ -380,7 +466,9 @@ function drawChart(){
     published:'Cumulative publications. Acceptance is not independent proof.',
     falsePublished:'False claims still published, based on hidden SYNTHETIC ground truth.',
     reviewBacklog:'Manuscripts waiting for modelled peer review.'
-  }[plot];
+  }[plot]||metricInfo(plot)[1];
+  if($('metric-select'))$('metric-select').value=plot;
+  if(!$('outcome-data').hidden)renderDataTable();
 }
 function comparison(){
   if(!worlds[1])return;
@@ -402,7 +490,7 @@ function comparison(){
     worlds[0].policy.replication+'/10     |     WORLD B · Review '+
     worlds[1].policy.verification+'/10, replication '+worlds[1].policy.replication+'/10';
 }
-function render(){summary();inspector();feed();drawChart();comparison();publishContext();}
+function render(){summary();inspector();feed();drawChart();comparison();renderMetricTrends();renderDomainResults();publishContext();}
 function interesting(){
   const types=['paper_retracted','replication_failed','review_rejected','replication_passed','paper_published','hypothesis_generated'];
   const s=nowWorld(),seen=eventSeen[active];
@@ -439,15 +527,20 @@ function draw(canvas,s,index,t){
       const a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
       ctx.strokeStyle=view==='papers'?'rgba(222,183,123,.30)':'rgba(115,181,203,.23)';
       ctx.lineWidth=.6+edge.weight*1.1;
+      if(s.labs[edge.a].domain!==s.labs[edge.b].domain)ctx.strokeStyle='rgba(193,160,231,.36)';
       ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
     }
   }
-  if(show.flows&&s.links.length){
-    for(let i=0;i<Math.min(120,s.links.length*2);i++){
-      const edge=s.links[i%s.links.length],a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
-      const f=(t*(.07+(i%7)*.012)+i*.127)%1;
-      ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,i%5===0?2.2:1.1,0,6.283);
-      ctx.fillStyle=view==='papers'?'rgba(223,189,134,.75)':'rgba(156,214,234,.75)';ctx.fill();
+  // Every moving mark is a real retained citation, positioned by MODEL day.
+  // Wall-clock time never changes the research picture while paused.
+  if(show.flows){
+    for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
+      const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g);
+      const f=Math.min(1,Math.max(0,(s.day-flow.day)/8));
+      ctx.strokeStyle='rgba(229,197,143,.4)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);
+      ctx.fillStyle='#e5c58f';ctx.fill();
     }
   }
   s.labs.forEach((l,i)=>{
@@ -458,7 +551,7 @@ function draw(canvas,s,index,t){
     ctx.fillStyle=halo;ctx.beginPath();ctx.arc(p.x,p.y,34,0,6.283);ctx.fill();
     if(isSelected){
       ctx.strokeStyle='#f4d7a3';ctx.lineWidth=1.6;
-      ctx.beginPath();ctx.arc(p.x,p.y,r+10+Math.sin(t*2),0,6.283);ctx.stroke();
+      ctx.beginPath();ctx.arc(p.x,p.y,r+10,0,6.283);ctx.stroke();
     }
     ctx.fillStyle=l.locked?'#385365':'#0e3045';ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=1.5;
     ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.283);ctx.fill();ctx.stroke();
@@ -466,7 +559,7 @@ function draw(canvas,s,index,t){
     if(view==='labs'&&show.flows){
       const agents=s.agents.filter(a=>a.labId===i);
       agents.forEach((a,j)=>{
-        const ang=t*(a.role==='AI'?.59:.31)+j*2.4+a.id*.1;
+        const ang=(s.day+a.produced)*(a.role==='AI'?.59:.31)+j*2.4+a.id*.1;
         const orbit=r+8+(j%3)*4;
         ctx.fillStyle=a.role==='AI'?'#e4c789':'#a5d4e7';
         ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.8,0,6.283);ctx.fill();
@@ -479,6 +572,14 @@ function draw(canvas,s,index,t){
     }
   });
   if(view==='papers'){
+    // Papers are real model objects, connected to their origin laboratory.
+    for(const paper of s.hypotheses.filter(x=>x.published&&!x.retracted).slice(-180)){
+      const l=s.labs[paper.labId],origin=position(l,g),angle=paper.id*2.399963;
+      const radius=20+Math.sqrt((paper.id%43)+1)*7;
+      const x=Math.max(8,Math.min(w-8,origin.x+Math.cos(angle)*radius)),y=Math.max(8,Math.min(h-8,origin.y+Math.sin(angle)*radius));
+      ctx.strokeStyle='rgba(224,193,145,.19)';ctx.beginPath();ctx.moveTo(origin.x,origin.y);ctx.lineTo(x,y);ctx.stroke();
+      ctx.fillStyle=paper.replications?'#a4d5bd':'#e5c58f';ctx.beginPath();ctx.arc(x,y,2+Math.min(3,paper.replications),0,6.283);ctx.fill();
+    }
     ctx.textAlign='left';ctx.font='10px system-ui';ctx.fillStyle='rgba(210,228,241,.8)';
     ctx.fillText(s.papers.length+' published · '+s.stats.citations+' citations',16,h-14);
   }
@@ -554,7 +655,8 @@ function renderPolicies(){
     range.addEventListener('input',()=>{
       E.editPolicy(nowWorld(),key,range.value);
       head.querySelector('output').textContent=range.value+'/10';
-      emit('policy_changed',nowWorld(),'intervene');comparison();
+      publishContext(true);emit('policy_changed',nowWorld(),'intervene');comparison();renderMetricTrends();
+      const spark=line.querySelector('svg');if(spark)spark.replaceWith(sparkline(series(nowWorld()).map(x=>x['policy_'+key]),name));
     });
     line.append(head,make('p','',hint),range);
     const provenance=policyEvidence[key]||['Assumed simulation rule',null];
@@ -567,7 +669,7 @@ function renderPolicies(){
       link.addEventListener('click',event=>event.stopPropagation());
       evidence.append(link);
     }
-    line.append(evidence);host.append(line);
+    line.append(evidence,sparkline(series(nowWorld()).map(x=>x['policy_'+key]),name));host.append(line);
   }
 }
 function showDecisionRegister(){
@@ -638,7 +740,7 @@ function auditPopulation(){
     truthPriorOverride:prior==='original'?null:Number(prior)};
   // Explicitly labeled restart action. Sandbox intentionally disallows modal
   // browser confirm(), so do not depend on a blocked native dialog.
-  const seed=s.seed,policy={...s.policy};
+  const seed=s.seed,policy={...s.policy};lastSnapshotMetrics=null;lastInsightDay=0;
   worlds[0]=E.make(seed,policy,design);worlds[1]=null;
   selected[0]=null;selected[1]=null;selectedPaper[0]=null;selectedPaper[1]=null;
   eventSeen[0].clear();eventSeen[1].clear();
@@ -722,6 +824,7 @@ function runGuidedExperiment(id){
   if(!recipe||typeof G.experimentResult!=='function')return;
   play(false);
   const checkpoint=E.fork(nowWorld());
+  lastSnapshotMetrics=E.summary(checkpoint);
   // Both worlds start from exactly the same checkpoint. Only the stated
   // pre-registered model policy differs; no silent second intervention.
   const a=E.fork(checkpoint),b=E.fork(checkpoint);
@@ -747,7 +850,7 @@ function runGuidedExperiment(id){
     recipe.caution;
   render();publishContext(true);
   G.experimentResult({id,name:recipe.name,policy:recipe.key,low:recipe.low,
-    high:recipe.high,days,worldA:observedA,worldB:observedB,
+    high:recipe.high,seed:a.seed,design:a.design,policiesA:a.policy,policiesB:b.policy,days,worldA:observedA,worldB:observedB,
     rationale:recipe.rationale,observe:recipe.observe,caution:recipe.caution});
   emit('scenario_completed',b,'compare');
 }
@@ -785,6 +888,11 @@ function bridge(){
   emit('world_started',nowWorld(),'observe');
 }
 function bind(){
+  $('more-events').addEventListener('click',()=>{eventLimit+=80;feed();});
+  $('toggle-data').addEventListener('click',()=>{const open=$('outcome-data').hidden;$('outcome-data').hidden=!open;$('toggle-data').setAttribute('aria-expanded',String(open));$('toggle-data').textContent=open?'Hide data table':'View data table';if(open)renderDataTable();});
+  $('metric-select').addEventListener('change',e=>{plot=e.target.value;drawChart();renderMetricTrends();});
+  $('snapshot').addEventListener('click',()=>{publishContext(true);if(G.saveSnapshot)G.saveSnapshot({seed:nowWorld().seed});lastSnapshotMetrics=E.summary(nowWorld());$('snapshot-status').textContent='Snapshot captured. Pulsar can explain the measurements and changes.';emit('snapshot_saved',nowWorld());});
+  $('atlas').addEventListener('click',()=>{if(G.openAtlas)G.openAtlas();else $('snapshot-status').textContent='Open this Lab through GraviQuest to explore the database scenario atlas.';});
   $('play').addEventListener('click',()=>play(!playing));
   $('advance').addEventListener('click',()=>advance(10));
   $('reset').addEventListener('click',reset);
@@ -837,13 +945,13 @@ function animation(now){
     const chunks=Math.min(4,Math.floor((now-lastSimulation)/250));
     lastSimulation+=chunks*250;
     for(const s of runningWorlds())E.step(s,speed*chunks);
-    render();interesting();
+    render();interesting();snapshotInsight();
   }
   if(!playing)lastSimulation=now;
-  drawMap(now/1000);
+  drawMap(nowWorld().day);
   raf=requestAnimationFrame(animation);
 }
-bind();render();bridge();
+mountWorkspace();bind();render();bridge();
 raf=requestAnimationFrame(animation);
 window.addEventListener('pagehide',()=>cancelAnimationFrame(raf),{once:true});
 })();

@@ -784,6 +784,9 @@ jobs:
           # independently edited Lab Studio sources.
           sudo -u gravitas env "${DJANGO_ENV[@]}" \
             "$BACKEND_PATH/.venv/bin/django-admin" upgrade_science_universe_science --apply
+          # Additive, idempotent scientific sources and executed scenario atlas.
+          sudo -u gravitas env "${DJANGO_ENV[@]}" \
+            "$BACKEND_PATH/.venv/bin/django-admin" install_lab_scientific_context --apply
           sudo systemctl daemon-reload
           # Only the first rollout of the new worker profile needs one hard
           # restart. Subsequent deployments use Gunicorn HUP, which gracefully

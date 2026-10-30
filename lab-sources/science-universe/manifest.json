@@ -40,8 +40,8 @@
       },
       {
         "id": "compare",
-        "title": "Fork two realities",
-        "hint": "Fork World A. World B begins with identical state, then you can alter its policy and compare the resulting model outcomes."
+        "title": "Compare two scenarios",
+        "hint": "Create a comparison from World A. World B begins with identical state, then you can alter its policy and compare the resulting model outcomes."
       },
       {
         "id": "reflect",

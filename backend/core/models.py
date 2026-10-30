@@ -921,3 +921,5 @@ class PulsarResourceEmbedding(models.Model):
                 name='pulsar_embed_model_time',
             ),
         ]
+# Lab records are imported here so Django's normal model discovery includes them.
+from .lab_knowledge_models import LabKnowledgeDocument, LabScenario, LabRunSnapshot  # noqa: E402,F401

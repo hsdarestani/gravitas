@@ -25,16 +25,19 @@ EXPECTED = {
         '5a2fdf34fe6c2597d505542db3b85aa967a20e47',
     ),
     'index.html': (
+        'c7d602c7b95ccbbd73719bb72e7fcf53bf1245df',
         '2e73d57d60bfedccfeb68aad3e3c28b663a5367f',
         '7b5efba1196ba6d29b26b434242b57e69ee2de96',
         'bf9d933fc18d7f75fdbe6b4addc7a86b71f54d91',
     ),
     'app.js': (
+        'b775404423e54f25c88bd6bed5952967b4b4a1ab',
         '87b0a516bcd6874d69ddfd97e9cc89c83f0e6ac3',
         '79d1033aabb9db04bb708f091ee96da66e0f4c67',
         '39582357f5ff293bffbc6bdf4b5ec84699884c7b',
     ),
     'styles.css': (
+        'd596fe5bc916293b065a43425f0318aed8e1b3d5',
         'd4f36c09c559ed29fd30b20a192dd36562f8569b',
         '4e64baa30b107d8f85fcb97bf01dcf49a6a88087',
         '1dbc4ba0183045d34bfb23ef5458b1cffd451e57',

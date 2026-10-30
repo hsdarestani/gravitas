@@ -6,7 +6,10 @@ const fs=require('node:fs');
 const path=require('node:path');
 const playwright=require('playwright-core');
 const root=process.cwd();
-let empty=true;
+let empty=true,science=false;
+const scienceRoot=path.join(root,"lab-sources/science-universe");
+const scienceManifest=JSON.parse(fs.readFileSync(path.join(scienceRoot,"manifest.json")));
+const scienceLab={...scienceManifest,ready:true,run_url:"/lab-run/science-universe/",published_version:4};
 const lab={
   slug:'fixture-lab',title:'Fixture Lab',summary:'Browser-only test',
   ready:true,run_url:'/lab-run/fixture-lab/',published_version:1,
@@ -30,7 +33,7 @@ const server=http.createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname==='/api/labs/'){
     res.setHeader('Content-Type','application/json');
-    res.end(JSON.stringify({ok:true,labs:empty?[]:[lab]}));return;
+    res.end(JSON.stringify({ok:true,labs:empty?[]:[science?scienceLab:lab]}));return;
   }
   if(url.pathname==='/api/labs/fixture-lab/coach/'){
     res.setHeader('Content-Type','application/json');
@@ -43,6 +46,18 @@ const server=http.createServer((req,res)=>{
       "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline'; "+
       "style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; frame-ancestors 'self'");
     res.end(sim);return;
+  }
+  if(url.pathname.startsWith('/lab-run/science-universe/')){
+    const name=url.pathname.slice('/lab-run/science-universe/'.length)||'index.html';
+    if(!['index.html','styles.css','engine.js','app.js'].includes(name)){res.writeHead(404);res.end();return;}
+    res.setHeader('Content-Type',types[path.extname(name)]||'text/plain');
+    res.setHeader('Cross-Origin-Resource-Policy',name==='index.html'?'same-origin':'cross-origin');
+    let code=fs.readFileSync(path.join(scienceRoot,name),'utf8');
+    if(name==='index.html'){
+      res.setHeader('Content-Security-Policy',"sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; frame-ancestors 'self'");
+      code=code.replace('<head>','<head><script src="/assets/lab-bridge.js"></script>');
+    }
+    res.end(code);return;
   }
   const file=path.resolve(root,'.'+decodeURIComponent(url.pathname));
   if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){
@@ -57,8 +72,10 @@ const server=http.createServer((req,res)=>{
   const browser=await playwright.chromium.launch({headless:true,
     executablePath:process.env.CHROME_PATH||'/usr/bin/google-chrome',
     args:['--no-sandbox','--disable-dev-shm-usage']});
+  let page;const runtimeErrors=[];
   try{
-    const page=await browser.newPage({viewport:{width:1200,height:900}});
+    page=await browser.newPage({viewport:{width:1200,height:900}});
+    page.on('pageerror',err=>runtimeErrors.push(err.message));
     const url='http://127.0.0.1:'+port+'/lab.html';
     await page.goto(url,{waitUntil:'networkidle'});
     assert.equal(await page.locator('main h1').innerText(),'Lab');
@@ -68,6 +85,8 @@ const server=http.createServer((req,res)=>{
     await page.reload({waitUntil:'networkidle'});
     await page.locator('.lab-catalog-card').waitFor();
     await page.locator('.lab-catalog-card').click();
+    assert.equal(await page.locator('.lab-frame').count(),0,'science preview precedes the simulation');
+    await page.getByRole('button',{name:'Enter simulation',exact:true}).click();
     await page.locator('.lab-frame').waitFor();
     await page.locator('.lab-metric-value').first().waitFor({timeout:10000});
     const initial=await page.locator('.lab-metric-value').first().innerText();
@@ -85,6 +104,44 @@ const server=http.createServer((req,res)=>{
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
     assert.ok(overflow<=1,'mobile Lab horizontal overflow: '+overflow);
     console.log('Browser PASS: empty public Lab, published fixture, sandbox events, reactive slider and metrics, Pulsar scripted fallback, mobile.');
+    science=true;
+    await page.setViewportSize({width:1400,height:1000});
+    await page.goto(url+'?lab=science-universe',{waitUntil:'networkidle'});
+    await page.getByRole('button',{name:'Enter simulation',exact:true}).click();
+    const frame=page.frameLocator('.lab-frame');
+    await frame.locator('.metric-trend').first().waitFor();
+    const skip=page.getByRole('button',{name:'Skip tour',exact:true});
+    if(await skip.isVisible())await skip.click();
+    assert.equal(await frame.locator('.metric-trend').count(),21);
+    assert.equal(await frame.locator('#outcome-data').isHidden(),true);
+    const initialHeight=await page.locator('.lab-frame').evaluate(x=>x.getBoundingClientRect().height);
+    await frame.locator('#advance').click();
+    await page.frame({url:/\/lab-run\/science-universe\/$/}).waitForFunction(()=>document.getElementById('day').textContent==='010');
+    assert.equal(await frame.locator('#day').innerText(),'010');
+    const paused=await frame.locator('#network-a').evaluate(x=>x.toDataURL());
+    await page.waitForTimeout(600);
+    assert.equal(await frame.locator('#network-a').evaluate(x=>x.toDataURL()),paused,'paused research picture is stable');
+    await frame.locator('#metric-select').selectOption('crossFieldStudies');
+    await frame.locator('#toggle-data').click();
+    assert.ok(await frame.locator('#outcome-data tbody tr').count()>1);
+    await frame.locator('#toggle-data').click();
+    await frame.locator('#settings').click();
+    assert.equal(await frame.locator('.policy-control .sparkline').count(),12);
+    await frame.locator('#close-settings').click();
+    await page.setViewportSize({width:390,height:844});
+    const mobileHeight=await page.locator('.lab-frame').evaluate(x=>x.getBoundingClientRect().height);
+    await frame.locator('#advance').click();
+    await frame.locator('#toggle-data').click();
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('.lab-frame').evaluate(x=>x.getBoundingClientRect().height),mobileHeight,'model content never expands the host viewport');
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1,'science workspace mobile overflow');
+    assert.ok(initialHeight<=1100);
+    console.log('Science workspace PASS: pre-entry dialog, 21 metric trends, 12 policy trends, pause, optional table, stable mobile frame.');
+    assert.deepEqual(runtimeErrors,[],'Lab runtime must not throw browser errors');
     await page.close();
+  }catch(err){
+    console.error('Browser errors:',runtimeErrors);
+    if(page){fs.mkdirSync('qa-artifacts',{recursive:true});await page.screenshot({path:'qa-artifacts/lab-workspace-failure.png',fullPage:true}).catch(()=>{});}
+    throw err;
   }finally{await browser.close();}
 })().catch(err=>{console.error(err);process.exitCode=1;}).finally(()=>server.close());

@@ -33,11 +33,11 @@ var SCIENCE_TOUR=[
   {target:'network',title:'Attention is different from truth',
    description:'Collaboration and proximity shape citation chances. Citations measure the modeled spread of attention, not scientific validity.',
    task:'Select or move a lab in the network; inspect its agents, published claims and connections.'},
-  {target:'fork',title:'Fork a parallel universe',
+  {target:'fork',title:'Create a controlled comparison',
    description:'World B copies the exact state and random-generator position of World A. Nothing changes automatically; choose one policy in B to explore its impact.',
-   task:'Press Fork universe. Keep track of which rules differ between the two worlds.'},
+   task:'Press Create comparison. Keep track of which rules differ between the two worlds.'},
   {target:'compare',title:'Compare results, not predictions',
-   description:'Both worlds advance independently after the fork. Compare live papers, false claims, replications and withdrawals—but do not read one run as a real-world causal estimate.',
+   description:'Both worlds advance independently after the checkpoint. Compare live papers, false claims, replications and withdrawals—but do not read one run as a real-world causal estimate.',
    task:'Advance both worlds and inspect the Parallel realities comparison.'},
   {target:'limits',title:'Know what the model cannot claim',
    description:'This is a deterministic-seed, stochastic and entirely synthetic teaching model. Its base rates and other parameters are assumptions, not measurements of real research.',
@@ -130,18 +130,22 @@ function mobileLabFrame(){
 }
 function adjustFrameForViewport(){
   if(!iframe||!active||active.slug!=='science-universe')return;
-  if(!mobileLabFrame()){iframe.style.height='';return;}
-  tellIframe('lab:measure');
+  // A workspace owns its viewport; model content scrolls inside it.
+  // Never feed document height back into this iframe's own min-height.
+  iframe.style.height='';
 }
 window.addEventListener('resize',adjustFrameForViewport,{passive:true});
+window.matchMedia('(max-width: 1050px)').addEventListener('change',function(e){
+ if(active?.slug==='science-universe'&&chat){chatOpen=!e.matches;refreshChat();}
+});
 function saveChat(){
  try{localStorage.setItem(CHAT_KEY,JSON.stringify(chatHistory.slice(-70)));}catch(_){}
 }
-function addChat(role,text,provider){
- var value=String(text||'').trim().slice(0,650);
+function addChat(role,text,provider,citations){
+ var value=String(text||'').trim().slice(0,1800);
  if(!value)return;
  var m={role:role==='user'?'user':'pulsar',text:value,
-   provider:provider==='ai'?'ai':'guide',at:Date.now()};
+   provider:provider==='ai'?'ai':'guide',citations:Array.isArray(citations)?citations.slice(0,6):[],at:Date.now()};
  chatHistory.push(m);chatHistory=chatHistory.slice(-70);saveChat();
  if(chat){
    addBubble(m);
@@ -156,7 +160,12 @@ function addBubble(m){
  var stamp=date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
  var meta=node('small','lab-chat-meta',stamp+(m.role==='pulsar'?
      ' · '+(m.provider==='ai'?'Pulsar · live':'Guided note'):''));
- row.append(p,meta);chat.log.append(row);
+ row.append(p);
+ (m.citations||[]).forEach(function(c){
+  if(!/^[a-z0-9-]+$/.test(c.document||'')||!/^[a-z0-9-]+$/.test(c.anchor||''))return;
+  row.append(btn(c.section||c.title,function(){openKnowledge(c.document,c.anchor);},'lab-source-ref'));
+ });
+ row.append(meta);chat.log.append(row);
  chat.log.scrollTop=chat.log.scrollHeight;
 }
 function refreshChat(){
@@ -170,6 +179,7 @@ function refreshChat(){
  if(chatOpen){chatUnread=0;chat.log.scrollTop=chat.log.scrollHeight;}
 }
 function mountPulsarChat(sidebar){
+ CHAT_KEY='graviquest:pulsar:'+active.slug+':history:v2';
  sidebar.classList.add('lab-pulsar-widget');
  var box=node('section','lab-chat');
  var toggle=node('button','lab-chat-head');toggle.type='button';
@@ -190,7 +200,7 @@ function mountPulsarChat(sidebar){
  var status=node('div','lab-chat-status','Conversation saved on this device');
  var form=document.createElement('form');form.className='lab-chat-compose';
  var input=node('input','lab-chat-input');
- input.type='text';input.required=true;input.maxLength=360;
+ input.type='text';input.required=true;input.maxLength=600;
  input.placeholder='Ask a question about the science…';
  input.setAttribute('aria-label','Message Pulsar');
  var send=node('button','lab-chat-send','↗');send.type='submit';
@@ -202,14 +212,14 @@ function mountPulsarChat(sidebar){
    var old=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
    if(Array.isArray(old))chatHistory=old.slice(-70).filter(function(m){
      return m&&(m.role==='user'||m.role==='pulsar')&&
-       typeof m.text==='string'&&m.text.length<=650;
+       typeof m.text==='string'&&m.text.length<=1800;
    });
  }catch(_){chatHistory=[];}
  chatHistory.forEach(addBubble);
  if(!chatHistory.length){
-   addChat('pulsar','I’m here as your scientific guide. Explore a lab or change one parameter; ask me what the evidence really supports.','guide');
+   addChat('pulsar',active.slug==='directory'?'Tell me what you want to understand. I can help you choose an available Lab and explain what you will learn.':'Change a parameter or ask any question about this Lab. I can explain the model, interpret your current measurements and point to the scientific sources.','guide');
  }
- if(scienceGuide)scienceGuide.mount(body,form,function(recipe){
+ if(scienceGuide&&active.slug==='science-universe')scienceGuide.mount(body,form,function(recipe){
    addChat('user','Run experiment: '+recipe.title,'guide');
    chat.status.textContent='Comparing two synthetic worlds…';
    tellIframe('lab:experiment',{id:recipe.id});
@@ -222,15 +232,13 @@ function mountPulsarChat(sidebar){
    e.preventDefault();var q=input.value.trim();
    if(!q||chatBusy)return;
    input.value='';
-   var answer=scienceGuide?scienceGuide.navigation(q):'';
-   if(answer){addChat('user',q);addChat('pulsar',answer,'guide');return;}
    askPulsar(q,'ask');
  });
  refreshChat();
 }
-function feedback(message,source){
+function feedback(message,source,citations){
  if(!message)return;
- if(active?.slug==='science-universe'){addChat('pulsar',message,source);return;}
+ if(['science-universe','directory'].includes(active?.slug)){addChat('pulsar',message,source,citations);return;}
  if(!speaking||!shell)return;
  shell.line.textContent=String(message).slice(0,480);
  shell.source.textContent=source==='ai'?'Pulsar · live':'Pulsar · guided note';
@@ -312,10 +320,10 @@ function reportEvent(data){
    // Important milestones only, at most one unsolicited message per 90s.
    // No activity ticker, no per-hypothesis/slider message flood.
    var notable=['policy_changed','universe_forked','replication_failed',
-     'paper_retracted','replication_requested','world_reset','method_improved'];
-   if(!active.config.pulsar_enabled||!active.config.auto_coach||
-      !notable.includes(ev)||chatBusy||Date.now()-lastCoachAt<90000)return;
-   if(ev===lastEventKey&&Date.now()-lastEventAt<90000)return;
+     'paper_retracted','replication_requested','world_reset','method_improved','snapshot_saved','scenario_completed'];
+   if(!active.config.pulsar_enabled||!active.config.auto_coach||!speaking||
+      !notable.includes(ev)||chatBusy||Date.now()-lastCoachAt<18000)return;
+   if(ev===lastEventKey&&Date.now()-lastEventAt<18000)return;
    lastEventKey=ev;lastEventAt=Date.now();
    askPulsar('',ev,lesson?.hint||intro?.hint||'');
    return;
@@ -330,7 +338,7 @@ function reportEvent(data){
 }
 async function askPulsar(question,event,fallback){
  if(!active||aiBusy||!active.config.pulsar_enabled)return;
- var isChat=active.slug==='science-universe';
+ var isChat=['science-universe','directory'].includes(active.slug);
  var q=String(question||'').trim();
  var context=chatHistory.slice(-8).map(function(m){return {
    role:m.role,text:m.text.slice(0,210)
@@ -340,27 +348,30 @@ async function askPulsar(question,event,fallback){
  if(isChat&&chat){chat.send.disabled=true;chat.status.textContent='Pulsar is thinking…';}
  if(controller)controller.abort();
  controller=new AbortController();
+ var timeout=setTimeout(function(){controller?.abort();},45000);
  var which=session,labSlug=active.slug;
  if(!isChat&&shell?.source)shell.source.textContent='Pulsar · interpreting';
  try{
    var res=await fetch('/api/labs/'+encodeURIComponent(labSlug)+'/coach/',{
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
-       metrics:lastMetrics,history:context,context:isChat&&scienceGuide?scienceGuide.context():null,
+       metrics:lastMetrics,history:context,context:active.slug==='science-universe'&&scienceGuide?scienceGuide.context():null,
        locale:document.documentElement.lang||'en'}),
      signal:controller.signal,credentials:'same-origin'
    });
    if(!res.ok)throw Error('coaching_unavailable');
    var result=await res.json();
    if(which!==session)return;
-   if(result.ok&&result.reply)feedback(result.reply,result.provider==='script'?'script':'ai');
+   if(result.ok&&result.reply){feedback(result.reply,result.provider==='script'?'script':'ai',result.citations);if(!q&&isChat)showInsight('Pulsar · '+(result.provider==='script'?'guided note':'live explanation'),result.reply,result.citations);}
    else if(fallback)feedback(fallback,'script');
  }catch(err){
-   if(which!==session||err.name==='AbortError')return;
+   if(which!==session)return;
+   if(err.name==='AbortError'){if(isChat)feedback('Pulsar took too long to answer. Please try again.','script');return;}
    if(isChat)feedback(fallback||
      'The live model is unavailable. You can still check Model assumptions and the linked research sources.','script');
    else if(shell?.source)shell.source.textContent='Pulsar · guidance available';
  }finally{
+   clearTimeout(timeout);
    if(which===session){
      aiBusy=false;chatBusy=false;
      if(isChat&&chat){
@@ -395,8 +406,8 @@ function runLab(lab){
     bar.append(link);
   }
   main.append(bar);
-  if(lab.slug==='science-universe')makeTourUI(main,bar);
-  if(lab.summary)main.append(node('p','lab-runtime-summary',lab.summary));
+  if(lab.slug==='science-universe'){makeTourUI(main,bar);bar.append(btn('Scientific sources',function(){openKnowledge();}),btn('Scenario atlas',openAtlas));var auto=btn('Pulsar tips on',function(){speaking=!speaking;auto.textContent=speaking?'Pulsar tips on':'Pulsar tips off';});bar.append(auto);}
+  if(lab.summary&&lab.slug!=='science-universe')main.append(node('p','lab-runtime-summary',lab.summary));
   var grid=node('div','lab-runtime-grid'),stageCol=node('div','lab-stage-column'),sidebar=node('aside','lab-assistant');
   var canvas=node('div','lab-frame-wrap');
   iframe=node('iframe','lab-frame');iframe.title=lab.title+' · simulation';
@@ -468,29 +479,114 @@ var shellLayerContainer=null;
 function showCatalog(){
   if(tourActive)tellIframe('lab:tutorial',{target:'off'});
   tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;
-  delete root.dataset.labSlug;
+  document.querySelector('.lab-insight')?.remove();
+  root.dataset.labSlug='directory';
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
-  session++;active=null;iframe=null;shell=null;
+  session++;iframe=null;shell=null;aiBusy=false;
+  active={slug:'directory',config:{pulsar_enabled:true,components:[]}};
+  history.replaceState(null,'',location.pathname);
   var catalog=node('section','lab-catalog');
   var head=node('div','lab-catalog-head');
-  head.append(node('h2',null,'Experiments'),node('p',null,'Choose a Lab to explore.'));
-  var cards=node('div','lab-catalog-grid');
+  head.append(node('small','lab-card-kicker','LEARN BY CHANGING THE SYSTEM'),node('h2',null,'A question. An experiment. A clearer idea.'),node('p',null,'Choose what you want to understand. Each Lab connects an interactive model to its scientific foundations.'));
+  var layout=node('div','lab-discovery-layout'),cards=node('div','lab-catalog-grid');
   labs.forEach(function(lab){
-    var card=node('button','lab-catalog-card');
-    card.type='button';
-    if(lab.topic_slug)card.append(node('small','lab-card-kicker','Topic · '+lab.topic_slug));
-    card.append(node('strong','lab-card-title',lab.title),
-      node('span','lab-card-summary',lab.summary||'Explore the simulation and change its conditions.'),
-      node('span','lab-card-open','Open Lab'));
-    card.addEventListener('click',function(){history.replaceState(null,'','?lab='+encodeURIComponent(lab.slug));runLab(lab);});
-    cards.append(card);
+    var card=node('button','lab-catalog-card');card.type='button';
+    if(lab.slug==='science-universe'){
+      var img=node('img','lab-card-preview');img.src='/assets/thumbnails/science-universe-preview.webp';img.alt='Science Universe simulation: live research network, event log and outcome trends';img.width=720;img.height=480;card.append(img);
+    }
+    var content=node('span','lab-card-body');
+    content.append(node('small','lab-card-kicker',lab.duration_text||'INTERACTIVE EXPERIMENT'),node('strong','lab-card-title',lab.title),node('span','lab-card-summary',lab.summary||'Explore the simulation and change its conditions.'));
+    if(lab.slug==='science-universe'){
+      var goals=node('span','lab-card-learning');
+      goals.append(node('strong','','Your question'),node('span','','Does faster research lead to more reliable knowledge?'),node('strong','','Your experiment'),node('span','','Change AI use, peer review or replication. Follow how the results change.'));
+      content.append(goals);
+    }
+    content.append(node('span','lab-card-open','Explore the science'));card.append(content);
+    card.addEventListener('click',function(){previewLab(lab);});cards.append(card);
   });
-  catalog.append(head,cards);root.replaceChildren(catalog);root.hidden=false;
+  var companion=node('aside','lab-assistant lab-directory-assistant');layout.append(cards,companion);
+  catalog.append(head,layout);root.replaceChildren(catalog);root.hidden=false;
+  mountPulsarChat(companion);chatOpen=true;refreshChat();
+}
+function modal(title){
+ var dialog=node('dialog','lab-science-dialog'),header=node('div','lab-dialog-head');
+ dialog.setAttribute('aria-label',title);header.append(node('h2','',title),btn('Close',function(){dialog.close();}));
+ dialog.append(header);dialog.addEventListener('close',function(){dialog.remove();});document.body.append(dialog);dialog.showModal();return dialog;
+}
+function previewLab(lab){
+ var dialog=modal(lab.title),body=node('div','lab-science-preview');
+ if(lab.slug==='science-universe'){
+   var image=node('img','lab-preview-image');image.src='/assets/thumbnails/science-universe-preview.webp';image.alt='Actual Science Universe simulation';body.append(image);
+ }
+ body.append(node('p','lab-preview-summary',lab.summary));
+ var concepts=lab.slug==='science-universe'?[
+  ['The scientific idea','More ideas do not automatically produce more reliable discoveries. Statistical power, review queues, selective reporting and independent replication interact.'],
+  ['What you can test','Start two worlds from the same checkpoint. Change one policy and compare the live model, event log and outcome trends.'],
+  ['How to read the result','A seeded synthetic teaching model. Papers support scientific mechanisms; the model’s numerical policies remain uncalibrated assumptions.']
+ ]:[['What you will explore',lab.description||lab.summary],['Learning goal',lab.config?.learning_goal||'Change a condition, observe the result and examine the explanation.']];
+ for(var pair of concepts){var section=node('section','lab-preview-concept');section.append(node('h3','',pair[0]),node('p','',pair[1]));body.append(section);}
+ var enter=btn('Enter simulation',function(){dialog.close();history.replaceState(null,'','?lab='+encodeURIComponent(lab.slug));runLab(lab);},'lab-enter');
+ body.append(enter);dialog.append(body);enter.focus();
+}
+var lastInsightAt=0,insightTimer=null;
+function showInsight(title,text,citations){
+ if(!active||active.slug!=='science-universe'||!speaking)return;
+ document.querySelector('.lab-insight')?.remove();
+ var box=node('aside','lab-insight');box.setAttribute('aria-live','polite');
+ box.append(node('strong','',title.slice(0,90)),node('p','',text.slice(0,400)),btn('Explain this',function(){chatOpen=true;refreshChat();askPulsar('Explain this snapshot and what I should try next: '+text.slice(0,240),'ask');box.remove();}),btn('Dismiss',function(){box.remove();}));
+ document.body.append(box);clearTimeout(insightTimer);insightTimer=setTimeout(function(){box.remove();},16000);
+}
+async function openKnowledge(documentSlug,anchor){
+ if(!active||active.slug!=='science-universe')return;
+ var dialog=modal('Scientific sources'),content=node('div','lab-knowledge-reader','Loading sources…');dialog.append(content);
+ try{
+  var res=await fetch('/api/labs/science-universe/knowledge/'+(documentSlug?encodeURIComponent(documentSlug)+'/':''),{credentials:'same-origin'});
+  if(!res.ok)throw Error('Sources are unavailable');var data=await res.json();content.replaceChildren();
+  if(!documentSlug){
+   (data.documents||[]).forEach(function(doc){var section=node('section','lab-source-card');section.append(node('h3','',doc.title),node('p','',doc.kind==='reading_note'?'Original reading note; full paper at the source.':'Stored Markdown · '+doc.sections.length+' sections'),btn('Read sections',function(){dialog.close();openKnowledge(doc.slug);}));content.append(section);});return;
+  }
+  var doc=data.document;
+  content.append(node('p','lab-note',doc.license));
+  var download=node('a','lab-download','Download Markdown');download.href='/api/labs/science-universe/knowledge/'+encodeURIComponent(doc.slug)+'/?format=md';content.append(download);
+  if(doc.source_url?.startsWith('https://')){var original=node('a','lab-download','Original source');original.href=doc.source_url;original.target='_blank';original.rel='noopener noreferrer';content.append(original);}
+  var toc=node('nav','lab-source-toc');toc.setAttribute('aria-label','Article sections');
+  doc.sections.forEach(function(section){toc.append(btn(section.title,function(){content.querySelector('[data-anchor="'+section.anchor+'"]')?.scrollIntoView({block:'start'});}));});content.append(toc);
+  doc.sections.forEach(function(section){var part=node('section','lab-article-section');part.dataset.anchor=section.anchor;part.append(node('h3','',section.title),node('pre','lab-markdown-text',section.text.replace(/^#{1,4} .+\n?/,'')));content.append(part);});
+  if(anchor)requestAnimationFrame(function(){content.querySelector('[data-anchor="'+anchor+'"]')?.scrollIntoView({block:'start'});});
+ }catch(err){content.textContent=err.message;}
+}
+async function openAtlas(){
+ if(!active||active.slug!=='science-universe')return;
+ var dialog=modal('Scenario atlas'),content=node('div','lab-atlas','Loading executed model scenarios…');dialog.append(content);
+ try{
+  var res=await fetch('/api/labs/science-universe/scenarios/',{credentials:'same-origin'});if(!res.ok)throw Error('Scenario atlas unavailable');var data=await res.json();content.replaceChildren();
+  content.append(node('p','',data.runs_for_current_engine+' executed runs for this engine. '+Number(data.policy_combinations).toLocaleString()+' possible policy combinations. Coverage is sampled.'),node('p','lab-note',data.limits));
+  var form=node('div','lab-atlas-filter'),select=node('select');select.setAttribute('aria-label','Scenario family');
+  [ ['','All sampled families'] ].concat((data.families||[]).map(function(f){return [f,f.replace('single:','One parameter · ').replace('pair:','Two parameters · ')];})).forEach(function(pair){var o=node('option','',pair[1]);o.value=pair[0];select.append(o);});
+  var list=node('div','lab-atlas-runs'),more=btn('More scenarios',function(){load(false);});var offset=0;
+  async function load(reset){if(reset){offset=0;list.replaceChildren();}more.disabled=true;
+    try{var r=await fetch('/api/labs/science-universe/scenarios/?family='+encodeURIComponent(select.value)+'&offset='+offset);if(!r.ok)throw Error('Could not load scenarios');var page=await r.json();
+    (page.examples||[]).forEach(function(row){var card=node('details','lab-atlas-run');card.append(node('summary','',row.family+' · seed '+row.seed+' · '+row.days+' days'),node('p','',row.result.published+' published · '+row.result.falsePublished+' false live claims · '+row.result.reviewBacklog+' awaiting review'),node('pre','lab-markdown-text',JSON.stringify({policies:row.parameters,design:row.design,results:row.result},null,2)));list.append(card);});offset=page.next_offset;more.hidden=offset===null;
+    }catch(e){list.append(node('p','',e.message));}finally{more.disabled=false;}}
+  select.addEventListener('change',function(){load(true);});form.append(select);content.append(form,list,more);await load(true);
+ }catch(err){content.textContent=err.message;}
+}
+async function saveSnapshot(seed){
+ var state=scienceGuide?.context();if(!state)return;
+ try{var saved=JSON.parse(localStorage.getItem('graviquest:lab:snapshots:v1')||'[]');saved.push({at:Date.now(),seed:seed,context:state});localStorage.setItem('graviquest:lab:snapshots:v1',JSON.stringify(saved.slice(-30)));}catch(_){}
+ addChat('pulsar','Day '+state.day+' · '+state.world+' snapshot: '+(state.metrics.published||0)+' published; '+(state.metrics.falsePublished||0)+' false live claims; '+(state.metrics.reviewBacklog||0)+' awaiting review; '+(state.metrics.replicated||0)+' independent repeats.','guide');
+ function csrfCookie(){return (document.cookie.match(/(?:^|; )(?:csrftoken|gravitas_staging_csrftoken)=([^;]*)/)||[])[1]||'';}
+ var csrf=csrfCookie();if(!csrf){try{await fetch('/api/auth/csrf/',{credentials:'same-origin'});csrf=csrfCookie();}catch(_){}}
+ try{var r=await fetch('/api/labs/science-universe/snapshots/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':decodeURIComponent(csrf)},body:JSON.stringify({seed:seed,context:state})});
+  if(r.status===401){addChat('pulsar','Snapshot captured on this device. Sign in to save it to your account.','guide');return;}
+  if(!r.ok)throw Error('Snapshot could not be saved to your account.');var result=await r.json();addChat('pulsar','Snapshot #'+result.id+' saved. These are browser-reported model measurements. Ask me what changed or why.','guide');
+ }catch(e){addChat('pulsar',e.message,'guide');}
 }
 window.addEventListener('message',function(e){
   if(!active||!iframe||e.source!==iframe.contentWindow||e.origin!=='null')return;
   var data=e.data;if(!data||data.schema!==protocol||typeof data.type!=='string')return;
   if(data.type==='lab:resize'){
+    if(active.slug==='science-universe')return;
     if(!mobileLabFrame())return;
     var height=Number(data.height);
     // Ignore malformed or unreasonable dimensions from untrusted Lab code.
@@ -513,13 +609,18 @@ window.addEventListener('message',function(e){
     window.scrollTo({top:Math.max(0,place),behavior:'smooth'});
     return;
   }
+  if(active.slug==='science-universe'&&data.type==='lab:open-atlas'){openAtlas();return;}
+  if(active.slug==='science-universe'&&data.type==='lab:save-snapshot'){saveSnapshot(data.seed);return;}
+  if(active.slug==='science-universe'&&data.type==='lab:note'){
+    if(speaking&&data.note&&Date.now()-lastInsightAt>18000){showInsight(String(data.note.title||'Model snapshot'),String(data.note.text||''));lastInsightAt=Date.now();}return;
+  }
   if(active.slug==='science-universe'&&data.type==='lab:context'){
     if(scienceGuide)scienceGuide.context(data.context);
     return;
   }
   if(active.slug==='science-universe'&&data.type==='lab:experiment:result'){
     var explanation=scienceGuide?scienceGuide.result(data.result):null;
-    if(explanation)addChat('pulsar',explanation,'guide');
+    if(explanation){addChat('pulsar',explanation,'guide');saveSnapshot(data.result?.seed);askPulsar('Explain the mechanism in this completed model comparison: '+explanation.slice(0,390),'ask');}
     if(chat)chat.status.textContent=explanation?
       'Experiment complete · inspect World A/B in the simulator.':'Scenario result unavailable.';
     return;
@@ -567,6 +668,6 @@ fetch('/api/labs/',{credentials:'same-origin',cache:'no-store'})
     if(!labs.length)return; // Intentionally EMPTY until first explicit publication.
     var slug=new URLSearchParams(location.search).get('lab');
     var requested=labs.find(function(l){return l.slug===slug;});
-    if(requested)runLab(requested);else showCatalog();
+    if(requested){showCatalog();previewLab(requested);}else showCatalog();
   }).catch(function(){ /* Silence is intentional on an unpublished surface. */ });
 })();
