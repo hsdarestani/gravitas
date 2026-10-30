@@ -15,6 +15,14 @@ from django.utils.dateparse import parse_date, parse_datetime
 DATE_FIELDS = ('created_at', 'started_at', 'completed_at')
 
 
+def imported_task(task):
+    # A source key also serves as an idempotency key for newly created Pulsar
+    # tasks. Only actual migration/source-history metadata denotes an import.
+    metadata = task.source_metadata or {}
+    return bool(metadata.get('migration_run_id') or metadata.get('activity_date_raw')
+                or metadata.get('original_status'))
+
+
 def stamp(value):
     if isinstance(value, datetime):
         return timezone.make_aware(value, dt_timezone.utc) if timezone.is_naive(value) else value
@@ -87,7 +95,7 @@ def track_dates(task, previous, update_fields=None):
     now = timezone.now()
     status_written = update_fields is None or 'status' in update_fields
     transition = status_written and (previous is None or previous['status'] != task.status)
-    imported_creation = previous is None and bool(task.source_key)
+    imported_creation = previous is None and imported_task(task)
     if previous is None:
         provenance.setdefault('created_at', {'source': 'import' if imported_creation else 'observed',
                                             'confidence': 'earliest_known' if imported_creation else 'recorded'})
@@ -164,6 +172,7 @@ def recover_task_dates(*, apps=None, using='default', apply=False):
         work[int(task_id)].extend((value, 'work_log:' + str(note['pk'])) for value in dates if value)
     counts = Counter(total=len(tasks), changed=0)
     for task in tasks:
+        historical = imported_task(task)
         provenance = dict(task.date_provenance or {})
         candidates = defaultdict(list)
         deadlines = []
@@ -183,11 +192,15 @@ def recover_task_dates(*, apps=None, using='default', apply=False):
             add('created_at', at, ref, 'earliest_known')
             is_creation = event['action'] in ('task.created', 'task_created')
             if is_creation:
-                add('created_at', at, ref, 'earliest_known' if task.source_key else 'recorded')
+                add('created_at', at, ref, 'earliest_known' if historical else 'recorded')
             changes = detail.get('changes') or {}
             if not isinstance(changes, dict):
                 changes = {}
             status = detail.get('to_status') or detail.get('status')
+            if is_creation and status is None and detail.get('source'):
+                # create_pulsar_task always creates Active tasks; its original
+                # audit rows contain source but predate the status attribute.
+                status = 'active'
             if isinstance(changes.get('status'), dict):
                 status = changes['status'].get('to')
             # Earlier Research audit rows stored the old value only. The next
@@ -206,9 +219,9 @@ def recover_task_dates(*, apps=None, using='default', apply=False):
                         status = later_change['from']
                         break
             if status == 'active':
-                add('started_at', at, ref, 'earliest_known' if is_creation and task.source_key else 'recorded')
+                add('started_at', at, ref, 'earliest_known' if is_creation and historical else 'recorded')
             if status == 'done':
-                add('completed_at', at, ref, 'earliest_known' if is_creation and task.source_key else 'recorded')
+                add('completed_at', at, ref, 'earliest_known' if is_creation and historical else 'recorded')
             for key in DATE_FIELDS:
                 value = changes.get(key, {})
                 add(key, value.get('to') if isinstance(value, dict) else value, ref)
@@ -310,7 +323,7 @@ def recover_task_dates(*, apps=None, using='default', apply=False):
             if value is None:
                 counts['missing_' + key] += 1
             elif key not in provenance:
-                provenance[key] = {'source': 'existing', 'confidence': 'earliest_known' if key == 'created_at' and task.source_key else 'recorded'}
+                provenance[key] = {'source': 'existing', 'confidence': 'earliest_known' if key == 'created_at' and historical else 'recorded'}
         if provenance != task.date_provenance:
             updates['date_provenance'] = provenance
         if updates:
