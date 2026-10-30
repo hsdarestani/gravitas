@@ -61,7 +61,14 @@ const server=http.createServer((req,res)=>{
     assert.equal(await page.locator('#policy-world').innerText(),'EDITING WORLD B');
     await page.locator('#advance').click();
     await page.locator('#view-papers').click();
-    await page.locator('[data-plot=falsePublished]').click();
+    await page.locator('#metric-select').selectOption('falsePublished');
+    assert.equal(await page.locator('#outcome-data').isHidden(),true);
+    await page.locator('#toggle-data').click();
+    assert.ok(await page.locator('#outcome-data tbody tr').count()>0);
+    await page.locator('#toggle-data').click();
+    const still=await page.locator('#network-a').evaluate(x=>x.toDataURL());
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('#network-a').evaluate(x=>x.toDataURL()),still,'paused model has no independent visual animation');
     await page.locator('#methodology').click();
     assert.equal(await page.locator('#method-dialog').evaluate(x=>x.open),true);
     await page.locator('#method-done').click();

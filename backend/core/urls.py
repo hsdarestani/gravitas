@@ -24,6 +24,7 @@ from core.topic_progress import topic_progress
 from core.task_notifications import task_in_app_notifications, task_notification_settings, telegram_notification_webhook
 from core.support_api import admin_ticket_detail, admin_tickets, member_ticket_detail, member_tickets
 from core.newsletter_admin_api import admin_newsletter, admin_newsletter_subscriber
+from core.lab_knowledge import admin_knowledge
 from core.lab_api import (admin_lab_detail, admin_labs, admin_lab_publish, admin_lab_unpublish,
                           admin_lab_revisions, preview_lab_file)
 from core.content_collab_api import content_attachment_download, content_attachments, content_comments
@@ -330,6 +331,8 @@ urlpatterns = [
     path('platform/admin/tickets/', admin_tickets),
     path('platform/admin/tickets/<int:ticket_id>/', admin_ticket_detail),
     path('platform/admin/labs/', admin_labs),
+    path('platform/admin/labs/<int:lab_id>/knowledge/', admin_knowledge),
+    path('platform/admin/labs/<int:lab_id>/knowledge/<slug:document>/', admin_knowledge),
     path('platform/admin/labs/<int:lab_id>/', admin_lab_detail),
     path('platform/admin/labs/<int:lab_id>/publish/', admin_lab_publish),
     path('platform/admin/labs/<int:lab_id>/unpublish/', admin_lab_unpublish),

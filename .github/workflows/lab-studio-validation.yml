@@ -19,6 +19,9 @@ on:
       - 'backend/gravitas_backend/urls.py'
       - 'backend/core/migrations/0082_lab_studio_snapshots.py'
       - 'backend/core/test_lab_studio.py'
+      - 'backend/core/lab_knowledge*'
+      - 'backend/core/test_lab_knowledge.py'
+      - 'backend/core/migrations/0087*'
       - 'scripts/test-lab-studio.cjs'
       - 'scripts/test-lab-studio-browser.cjs'
       - '.github/workflows/lab-studio-validation.yml'
@@ -70,4 +73,4 @@ jobs:
           PY="$RUNNER_TEMP/lab-test/bin/python"
           "$PY" -m django check
           "$PY" -m django makemigrations --check --dry-run
-          "$PY" -m django test core.test_lab_studio
+          "$PY" -m django test core.test_lab_studio core.test_lab_knowledge core.test_science_universe_upgrade

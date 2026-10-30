@@ -29,7 +29,7 @@ test('Pulsar knows selection and never treats aggregate publication as a paper l
  assert.match(app,/G\.context\(/);
  assert.match(app,/G\.experimentResult\(/);
  assert.match(shell,/scienceGuide\.context\(data\.context\)/);
- assert.match(shell,/scienceGuide\.navigation\(q\)/);
+ assert.match(shell,/askPulsar\(q,'ask'\)/, 'questions must reach the real LLM with selection context');
  assert.match(backend,/browser_reported_simulator_selection/);
  assert.match(backend,/aggregate count/);
  assert.match(guide,/“Latest published claims”/);

@@ -181,7 +181,7 @@ export async function renderLabStudio(host) {
 
     const tabsUI=tabs([
       ['setup','Setup'],['components','Components'],['learning','Pulsar & lessons'],['code','Code'],
-      ['preview','Preview'],['history','History'],
+      ['sources','Scientific context'],['preview','Preview'],['history','History'],
     ]);
     const setup=tabsUI.panels.get('setup');
     setup.append(
@@ -195,6 +195,34 @@ export async function renderLabStudio(host) {
     learning.append(options,K.heading('Learning journey'),sectionsHost,addSection,
       K.heading('Event-based coaching'),guideHost,addGuide,
       el('p','ls-note','Simulator code calls GraviLab.emit(event, metrics, section). Pulsar receives meaningful state changes, not raw source code.'));
+
+    const sources=tabsUI.panels.get('sources');
+    sources.append(el('p','ls-note','Versioned Markdown in the database grounds Pulsar. Sections become exact citations. Sources support concepts, not uncalibrated model coefficients.'));
+    if(lab){
+      let documents=[];
+      const list=K.select([],null),docSlug=K.input('','text','paper-name-year'),docTitle=K.input('','text','Source title');
+      const sourceUrl=K.input('','url','https://doi.org/...'),license=K.input('','text','License / reading note provenance');
+      const markdown=K.textarea('',22,'# Article title\n\n## Section title\n\nScientific content...',{code:true});
+      const published=K.toggle(true,'Available to public Lab and Pulsar','Only publish licensed full text or your own reading notes.');
+      function chooseDoc(){const d=documents.find(x=>x.slug===list.value);docSlug.value=d?.slug||'';docSlug.disabled=!!d;docTitle.value=d?.title||'';sourceUrl.value=d?.source_url||'';license.value=d?.license||'';markdown.value=d?.markdown||'';published.input.checked=d?.is_published!==false;}
+      list.addEventListener('change',chooseDoc);
+      async function request(method,suffix='',body){
+        const cookie=()=>decodeURIComponent((document.cookie.match(/(?:^|; )(?:csrftoken|gravitas_staging_csrftoken)=([^;]*)/)||[])[1]||'');
+        if(method!=='GET'&&!cookie())await fetch('/api/auth/csrf/',{credentials:'same-origin'});
+        const token=cookie();
+        const r=await fetch('/api/platform/admin/labs/'+lab.id+'/knowledge/'+suffix,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':token},...(body?{body:JSON.stringify(body)}:{})});
+        const data=await r.json();if(!r.ok)throw Error(data.error||'Scientific source request failed');return data;
+      }
+      async function loadDocs(chosen){const data=await request('GET');documents=data.documents||[];list.replaceChildren();const fresh=el('option',null,'New source');fresh.value='';list.append(fresh);for(const d of documents){const option=el('option',null,d.title+' · v'+d.version);option.value=d.slug;list.append(option);}list.value=chosen||'';chooseDoc();}
+      const sourceStatus=K.status();
+      const load=K.button('Load sources',()=>loadDocs().catch(e=>K.setStatus(sourceStatus,e.message,'bad')),{tiny:true});
+      const saveSource=K.button('Save scientific source',async()=>{
+        try{const previous=documents.find(x=>x.slug===list.value),slug=value(docSlug);if(!/^[a-z0-9][a-z0-9-]{0,99}$/.test(slug))throw Error('Use a lowercase source identifier.');
+          await request('PUT',encodeURIComponent(slug)+'/',{version:previous?.version||0,title:value(docTitle),source_url:value(sourceUrl),license:value(license),markdown:markdown.value,kind:previous?.kind||'note',is_published:published.input.checked});await loadDocs(slug);K.setStatus(sourceStatus,'Scientific context saved.','ok');
+        }catch(e){K.setStatus(sourceStatus,e.message,'bad');}
+      },{solid:true,tiny:true});
+      sources.append(load,K.fields([K.field('Stored source',list),K.field('Source ID',docSlug),K.field('Title',docTitle),K.field('Original source',sourceUrl),K.field('License / provenance',license)]),published.wrap,K.field('Markdown with section headings',markdown),saveSource,sourceStatus);
+    }else sources.append(K.empty('Create the Lab before adding scientific sources.'));
 
     const code=tabsUI.panels.get('code');
     code.append(el('p','ls-note','Your HTML/CSS/JS runs only inside a restricted iframe, never in the admin or public page origin.'),

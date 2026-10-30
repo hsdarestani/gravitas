@@ -13,7 +13,7 @@
       <div class="title-stack">
         <div class="kicker"><span class="pulse-dot" aria-hidden="true"></span> GRAVIQUEST / LAB 01 <span class="subtle">· SYNTHETIC RESEARCH ECOSYSTEM</span></div>
         <h1>Science <em>Universe</em></h1>
-        <p class="description">Explore how ideas become claims, survive criticism, spread through journals—or collapse under replication.</p>
+        <p class="description">Change a research policy. Follow the mechanism. Compare the evidence.</p>
       </div>
       <div class="header-actions">
         <div class="session-chip"><span id="session-state" class="status-ring" aria-hidden="true"></span><span id="status-label">SIMULATION READY</span></div>
@@ -36,8 +36,10 @@
         <button type="button" class="pill" id="world-b" aria-pressed="false" disabled>World B</button>
       </div>
       <div class="mode-actions">
-        <button class="btn" type="button" id="fork">◇ Fork universe</button>
-        <button class="btn" type="button" id="compare" disabled>Compare realities</button>
+        <button class="btn" type="button" id="snapshot">Save snapshot</button>
+        <button class="btn" type="button" id="atlas">Scenario atlas</button>
+        <button class="btn" type="button" id="fork">Create comparison</button>
+        <button class="btn" type="button" id="compare" disabled>Compare results</button>
         <div class="separator" aria-hidden="true"></div>
         <button class="btn" type="button" id="settings">⚙ Policies <span id="policy-count" class="btn-counter">12</span></button>
         <label class="speed-control">SPEED <select id="speed" aria-label="Simulation speed">
@@ -48,7 +50,7 @@
     <main class="world-layout">
       <section class="world-stage panel" aria-label="Research ecosystem map">
         <div class="stage-header">
-          <div><span class="eyebrow">LIVE SYSTEM MAP</span><h2 id="stage-title">The research network</h2></div>
+          <div><span class="eyebrow">LIVE RESEARCH MODEL</span><h2 id="stage-title">The research network</h2></div>
           <div class="stage-tools">
             <div class="view-tabs" role="group" aria-label="Network layer">
               <button id="view-labs" class="tab active" type="button" aria-pressed="true">Laboratories</button>
@@ -67,7 +69,7 @@
           </div>
           <div class="canvas-overlay">
             <span class="live-indicator"><span class="live-dot"></span> LIVE MODEL</span>
-            <span class="canvas-instruction" id="canvas-instruction">Select a node · Drag to reorganize collaborations</span>
+            <span class="canvas-instruction" id="canvas-instruction">Node size = active studies · Edges = modeled collaborations</span>
           </div>
         </div>
         <div class="stage-footer">
@@ -135,20 +137,22 @@
             <button type="button" class="tab" data-plot="reviewBacklog" aria-pressed="false">Backlog</button>
           </div>
         </div>
-        <div class="plot-wrap"><canvas id="history-chart" role="img" aria-label="Time series of selected scientific output"></canvas></div>
-        <p class="chart-caption" id="plot-caption">Cumulative publications. Publications are not necessarily true or independently replicated.</p>
+        <div class="outcome-workspace"><div class="metric-trends" id="metric-trends" aria-label="Measurements with trends"></div><div class="outcome-chart"><label class="metric-picker">Show trend <select id="metric-select" aria-label="Outcome metric"></select></label><div class="plot-wrap"><canvas id="history-chart" role="img" aria-label="Time series of selected scientific output"></canvas></div>
+        <p class="chart-caption" id="plot-caption">Cumulative publications. Publications are not necessarily true or independently replicated.</p></div></div>
+        <button class="btn small" type="button" id="toggle-data" aria-expanded="false" aria-controls="outcome-data">View data table</button>
+        <div id="outcome-data" class="data-table-wrap" hidden></div>
       </div>
       <div class="activity panel">
         <div class="section-head">
-          <div><span class="eyebrow">SCIENTIFIC EVENT STREAM</span><h2>What happened?</h2></div>
+          <div><span class="eyebrow">EVENT LOG</span><h2>What happened?</h2></div>
           <button class="text-btn" id="pause-feed" type="button">Latest first</button>
         </div>
-        <div class="feed" id="feed" aria-live="off"><p class="empty">Start the simulation to observe discoveries and failures.</p></div>
+        <p id="event-retention" class="small-print"></p><div class="feed" id="feed" aria-live="off"><p class="empty">Start the simulation to observe discoveries and failures.</p></div><button class="text-btn" id="more-events" type="button">Show more events</button>
       </div>
     </section>
     <section class="comparison panel" id="comparison" hidden>
       <div class="section-head">
-        <div><span class="eyebrow">PARALLEL REALITIES</span><h2>Same beginning. Different decisions.</h2></div>
+        <div><span class="eyebrow">CONTROLLED COMPARISON</span><h2>Same beginning. Different decisions.</h2></div>
         <button id="close-compare" class="btn small" type="button">Close comparison</button>
       </div>
       <p class="small-print">World B starts as an identical saved snapshot, including its random-generator state. No policies change automatically: vary just one policy in B, then advance both worlds. Comparisons describe this simulated scenario, not real-world causal estimates.</p>
@@ -167,6 +171,8 @@
         <div class="drawer-footer"><span id="policy-world">EDITING WORLD A</span><button id="policy-reset" class="btn small" type="button">Restore defaults</button></div>
       </div>
     </aside>
+    <output id="snapshot-status" class="small-print" role="status"></output>
+    <section class="domain-results panel" id="domain-results" aria-label="Results by research field"></section>
     <footer class="app-footer"><span>RESEARCH SIMULATION / SYNTHETIC DATA</span><span>NOT A FORECAST · NOT A SCIENTIFIC CONFIDENCE SCORE</span><button id="methodology" type="button" class="text-btn">Model assumptions ↗</button></footer>
     <dialog id="method-dialog" class="method-dialog">
       <div class="modal-head"><h2>Read the model before reading the result.</h2><button id="method-close" class="icon-btn" aria-label="Close model assumptions">×</button></div>
