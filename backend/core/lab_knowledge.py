@@ -202,7 +202,18 @@ def scientific_context(lab, question='', event='', state=None):
         citations.append({'id': key, 'document': doc.slug, 'anchor': section['anchor'],
                           'title': doc.title, 'section': section['title'], 'source_url': doc.source_url})
         budget -= len(text)
+    # Always supply the complete Lab rationale, independent of query language.
+    # Paper retrieval then adds relevant sections without replacing model rules.
+    full_guides = []
+    for doc in [d for d in docs if d.kind == 'model'][:1]:
+        full_guides.append({'document': doc.slug, 'markdown': doc.markdown[:22000]})
+        for section in doc.sections:
+            key = doc.slug + '#' + section['anchor']
+            if not any(c['id'] == key for c in citations):
+                citations.append({'id': key, 'document': doc.slug, 'anchor': section['anchor'],
+                                  'title': doc.title, 'section': section['title'], 'source_url': doc.source_url})
     return {'documents': [document_json(d) for d in docs], 'sections': excerpts,
+            'complete_model_guides': full_guides,
             'citation_allowlist': [c['id'] for c in citations],
             'atlas': atlas_context(lab, (state or {}).get('policies', {}))}, citations
 
