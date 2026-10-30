@@ -28,6 +28,7 @@ from .platform_models import WorkspaceProfile
 from .platform_runtime_v3 import _canonical_workspace, core_access
 from .task_notifications import enqueue_task_event, enqueue_task_mentions
 from .workspace_api import _can_manage_workspace
+from .task_dates import apply_date_patch, can_edit_dates, dates_json
 from .operating_models import (
     Initiative,
     OperatingCycle,
@@ -180,6 +181,7 @@ def _task_json(task):
         'completed_at': task.completed_at.isoformat() if task.completed_at else None,
         'created_at': task.created_at.isoformat(),
         'updated_at': task.updated_at.isoformat(),
+        **dates_json(task),
         'trace': trace,
     }
 
@@ -545,6 +547,7 @@ def task_board(request):
         'ok': True,
         'can_edit': base._editable(request, workspace),
         'can_delete': _can_manage_workspace(request.user, workspace),
+        'can_edit_dates': can_edit_dates(request.user, tasks[0]) if tasks else _can_manage_workspace(request.user, workspace),
         'statuses': [{'value': value, 'label': label} for value, label in WorkStatus.choices],
         'priorities': [{'value': value, 'label': label} for value, label in Priority.choices],
         'tasks': [_task_json(task) for task in tasks],
@@ -673,6 +676,8 @@ def task_board_detail(request, task_id):
             'ok': True,
             'task': {
                 'id': task.pk,
+                **dates_json(task),
+                'due_date': task.due_date.isoformat() if task.due_date else None,
                 'title': task.title,
                 'description': task.description,
                 'status': task.status,
@@ -712,6 +717,7 @@ def task_board_detail(request, task_id):
             'task': task_data,
             'hierarchy': _task_hierarchy(request, workspace, task),
             'can_delete': _can_delete_task(request, workspace, task),
+            'can_edit_dates': can_edit_dates(request.user, task),
             'can_edit': base._editable(request, workspace),
             # The task detail dialog also opens directly from Research, where no
             # full Core board was loaded to provide these select options.
@@ -907,12 +913,12 @@ def task_board_detail(request, task_id):
     if not str(task.title or '').strip() or not str(task.definition_of_done or '').strip():
         return _error('title_and_done_definition_required')
 
-    if task.status == WorkStatus.DONE and not task.completed_at and (
-        not task.source_key or (payload.get('status') == WorkStatus.DONE and before['status'] != WorkStatus.DONE)
-    ):
-        task.completed_at = timezone.now()
-    elif task.status != WorkStatus.DONE:
-        task.completed_at = None
+    try:
+        apply_date_patch(task, payload, request.user)
+    except PermissionError as exc:
+        return _error(str(exc), 403)
+    except ValueError as exc:
+        return _error(str(exc))
 
     try:
         task.clean()
@@ -933,6 +939,7 @@ def task_board_detail(request, task_id):
             'definition_of_done', 'blocked_reason',
             'milestone_id', 'work_package_id', 'project_id',
             'dependency_id', 'parent_id',
+            'created_at', 'started_at', 'completed_at',
         ]
         if before.get(key) != after.get(key)
     }

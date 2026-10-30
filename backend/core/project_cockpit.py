@@ -42,6 +42,7 @@ def _person(user):
 
 
 def _task_json(item, user):
+    from .task_dates import can_edit_dates, dates_json
     return {
         'id': item.pk,
         'type': 'task',
@@ -63,6 +64,8 @@ def _task_json(item, user):
         'initiative': item.initiative.title if item.initiative else None,
         **access_flags(user, item),
         'updated_at': item.updated_at.isoformat(),
+        **dates_json(item),
+        'can_edit_dates': can_edit_dates(user, item),
     }
 
 

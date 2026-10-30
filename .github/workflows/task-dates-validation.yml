@@ -1,0 +1,31 @@
+name: Task Lifecycle Dates
+on:
+  pull_request:
+    paths: ['backend/core/**', 'assets/ws/**', 'scripts/test-task-timeline.mjs', '.github/workflows/task-dates-validation.yml']
+  push:
+    branches: [main]
+    paths: ['backend/core/task_dates.py', 'backend/core/test_task_dates.py', 'assets/ws/ws-task-timeline.js', '.github/workflows/task-dates-validation.yml']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONPATH: backend
+      DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -q -r backend/requirements.txt
+      - run: python -m django test core.test_task_dates core.test_core_task_board core.test_research_task_api core.test_canonical_projects core.test_project_cockpit --noinput
+      - run: python -m django makemigrations core --check --dry-run
+      - run: node scripts/test-task-timeline.mjs
+      - name: Validate browser modules
+        run: |
+          for file in assets/ws/*.js; do node --input-type=module --check < "$file"; done

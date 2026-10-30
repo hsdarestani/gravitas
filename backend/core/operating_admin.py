@@ -1,4 +1,8 @@
 from django.contrib import admin
+from django import forms
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+from datetime import timedelta
 
 from .operating_models import (
     Initiative,
@@ -63,9 +67,35 @@ class OperatingWorkPackageAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description', 'milestone__title', 'owner__email')
 
 
+class TaskDateAdminForm(forms.ModelForm):
+    class Meta:
+        model = OperatingTask
+        fields = '__all__'
+
+    def clean(self):
+        values = super().clean()
+        created, started, completed = (values.get(key) for key in ('created_at', 'started_at', 'completed_at'))
+        if ((created and started and started < created) or
+                (completed and (started or created) and completed < (started or created))):
+            raise ValidationError('Creation, activity and completion dates must be in chronological order.')
+        for key in ('created_at', 'started_at', 'completed_at'):
+            if key in self.changed_data and values.get(key) and values[key] > timezone.now() + timedelta(minutes=5):
+                self.add_error(key, 'Actual dates cannot be in the future.')
+        return values
+
+
 @admin.register(OperatingTask)
 class OperatingTaskAdmin(admin.ModelAdmin):
-    list_display = ('title', 'initiative', 'work_package', 'owner', 'priority', 'status', 'due_date', 'updated_at')
+    form = TaskDateAdminForm
+    list_display = ('title', 'initiative', 'work_package', 'owner', 'priority', 'status', 'created_at', 'started_at', 'completed_at', 'due_date')
+    readonly_fields = ('date_provenance', 'updated_at')
+
+    def save_model(self, request, obj, form, change):
+        from .task_dates import apply_date_patch
+        payload = {key: getattr(obj, key).isoformat() if getattr(obj, key) else None
+                   for key in ('created_at', 'started_at', 'completed_at') if key in form.changed_data}
+        apply_date_patch(obj, payload, request.user)
+        super().save_model(request, obj, form, change)
     list_filter = ('priority', 'status', 'initiative__process__key')
     search_fields = ('title', 'description', 'definition_of_done', 'owner__email', 'initiative__title')
 

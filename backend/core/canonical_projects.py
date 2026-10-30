@@ -35,7 +35,7 @@ ROOT = '02_Working/Research'
 SPECS = {
     'ResearchProjectProfile': ('metadata', ('category', 'status', 'research_question', 'client_name', 'requester_name', 'requester_email', 'deadline', 'budget', 'currency', 'required_skills', 'compensation_text')),
     'KnowledgeResource': ('notes', ('title', 'description', 'body', 'source_url', 'metadata')),
-    'OperatingTask': ('tasks', ('title', 'description', 'priority', 'status', 'due_date', 'definition_of_done', 'blocked_reason', 'completed_at', 'owner_id', 'dependency_id', 'parent_id', 'source_key', 'source_metadata')),
+    'OperatingTask': ('tasks', ('title', 'description', 'priority', 'status', 'due_date', 'definition_of_done', 'blocked_reason', 'completed_at', 'owner_id', 'dependency_id', 'parent_id', 'source_key', 'source_metadata', 'created_at', 'started_at', 'date_provenance')),
     'ProjectDiscussionMessage': ('discussions', ('body', 'resolved')),
     'ResearchExperiment': ('outputs', ('title', 'hypothesis', 'protocol', 'status', 'result_summary', 'metadata', 'started_at', 'completed_at')),
     'MindMap': ('mindmap', ('title', 'description')),
@@ -98,7 +98,7 @@ def encode(obj):
         header = {'schema': 1, 'type': 'ResearchProject', 'id': obj.pk, 'fields': {'title': obj.title}}
         return '<!-- gravitas:' + json.dumps(header, ensure_ascii=False, sort_keys=True) + ' -->\n' + obj.description
     name = obj.__class__.__name__
-    payload = {'schema': 2 if name == 'OperatingTask' else 1, 'type': name, 'id': obj.pk, 'project_id': project_for(obj).pk,
+    payload = {'schema': 3 if name == 'OperatingTask' else 1, 'type': name, 'id': obj.pk, 'project_id': project_for(obj).pk,
                'fields': {field: getattr(obj, field) for field in SPECS[name][1]}}
     if name == 'KnowledgeResource':
         # Native Notes mirror bookkeeping changes independently of content.
@@ -139,13 +139,15 @@ def decode(obj, content):
         data.get('fields', {})['body'] = body
     else:
         data = json.loads(content)
-    if not isinstance(data, dict) or data.get('schema') not in ((1, 2) if name == 'OperatingTask' else (1,)) or data.get('id') != obj.pk or data.get('type') != name or data.get('project_id') != project_for(obj).pk:
+    if not isinstance(data, dict) or data.get('schema') not in ((1, 2, 3) if name == 'OperatingTask' else (1,)) or data.get('id') != obj.pk or data.get('type') != name or data.get('project_id') != project_for(obj).pk:
         raise ValueError('canonical_identity_changed')
     if name == 'KnowledgeResource' and (data.get('kind') != obj.kind or data.get('attachment_path') != obj.storage_path):
         raise ValueError('canonical_ownership_or_attachment_changed')
     fields = data.get('fields')
-    if name == 'OperatingTask' and data['schema'] == 1:
-        new_fields = {'owner_id', 'dependency_id', 'parent_id', 'source_key', 'source_metadata'}
+    if name == 'OperatingTask' and data['schema'] in (1, 2):
+        new_fields = {'created_at', 'started_at', 'date_provenance'}
+        if data['schema'] == 1:
+            new_fields |= {'owner_id', 'dependency_id', 'parent_id', 'source_key', 'source_metadata'}
         if not isinstance(fields, dict) or set(fields) != set(SPECS[name][1]) - new_fields:
             raise ValueError('invalid_canonical_fields')
         # A v1 file has no authority to erase relations/provenance it cannot encode.
@@ -325,6 +327,10 @@ def apply(obj, content):
     with suppress():
         for field, value in fields.items():
             setattr(obj, field, obj._meta.get_field(field).to_python(value))
+        if obj.__class__.__name__ == 'OperatingTask':
+            supplied = json.loads(content).get('fields', {})
+            obj._explicit_date_fields = {key for key in ('created_at', 'started_at', 'completed_at')
+                                         if supplied.get(key)}
         obj.full_clean(exclude=['source_url'] if isinstance(obj, KnowledgeResource) else [])
         obj.save()
 

@@ -3,6 +3,7 @@
  * These views do not persist a competing task representation. */
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';
+import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261030dates1';
 
 const node = (tag, cls = '', content = '') => {
   const n = document.createElement(tag);
@@ -179,6 +180,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     panel.append(node('h3', '', 'Edit task #' + task.id + ' · ' + task.title));
     const title = control('input', 'text', 'Task title'); title.value = task.title;
     const deadline = control('input', 'date', 'Due date'); deadline.value = day(task.due_date);
+    const lifecycleDates = taskDateFields(task, { canEdit: task.can_edit_dates === true });
     const status = node('select'), priority = node('select'), owner = node('select');
     [['draft','Draft'],['active','Doing'],['ready','Ready'],['waiting','Waiting'],['needs_review','Needs review'],['retest','Retest'],['blocked','Blocked'],['done','Done'],['archived','Archived']].forEach(([v,n])=>{const op=node('option','',n);op.value=v;status.append(op);});
     ['p0','p1','p2','p3'].forEach(v=>{const op=node('option','',v.toUpperCase());op.value=v;priority.append(op);});
@@ -189,7 +191,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     const blocked = control('input','text','Blocker or waiting reason'); blocked.value=task.blocked_reason || '';
     const description = control('textarea', null, 'Description'); description.rows=5; description.value=task.description || '';
     const done = control('textarea', null, 'Definition of done'); done.rows=3; done.value=task.definition_of_done || '';
-    const values = () => ({ title: title.value, description: description.value, definition_of_done: done.value, due_date: deadline.value || null, status: status.value, priority: priority.value, blocked_reason: blocked.value, ...(!owner.disabled && owner.value ? { owner_id: Number(owner.value) } : {}) });
+    const values = () => ({ title: title.value, description: description.value, definition_of_done: done.value, due_date: deadline.value || null, status: status.value, priority: priority.value, blocked_reason: blocked.value, ...lifecycleDates.values(), ...(!owner.disabled && owner.value ? { owner_id: Number(owner.value) } : {}) });
     let confirmed = values();
     const saveTask = btn('Save changes', async () => {
       if (saveTask.disabled) return;
@@ -197,10 +199,10 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       const payload = Object.fromEntries(Object.entries(submitted).filter(([key, value])=>value !== confirmed[key]));
       if (!Object.keys(payload).length) { notice.textContent = 'No unsaved changes.'; return; }
       saveTask.disabled = true;
-      try { if (await patch(task, payload)) confirmed = submitted; }
+      try { if (await patch(task, payload)) { lifecycleDates.sync(task); confirmed = { ...submitted, ...lifecycleDates.values() }; } }
       finally { saveTask.disabled = false; }
     });
-    panel.append(title, description, done, deadline, status, priority, owner, blocked,
+    panel.append(title, description, done, deadline, lifecycleDates.element, status, priority, owner, blocked,
       saveTask,
       btn('Close', () => editor.replaceChildren()));
     mountAnchoredComments({ container: panel, kind: 'task', id: task.id, canEdit: task.can_edit,
@@ -276,30 +278,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     }else if(current.view==='list'){
       const list=node('div','pm-list');n.forEach(t=>{const line=node('div','pm-task');line.append(node('span','',t.title+' · '+format(t)),btn('Details',()=>openEditor(t)));list.append(line);});body.append(list);
     }else if(current.view==='timeline'){
-      body.append(node('p','pm-note','Gantt uses explicitly planned start/end dates from versioned Markdown schedule notes. Unscheduled tasks are shown separately. Due dates remain independent. Click Plan to edit.'));
-      const scheduled=n.filter(t=>scheduleMap?.has(t.id));
-      const starts=scheduled.map(t=>Date.parse(scheduleMap.get(t.id).start_date+'T00:00:00Z'));
-      const ends=scheduled.map(t=>Date.parse(scheduleMap.get(t.id).end_date+'T00:00:00Z'));
-      const origin=starts.length?Math.min(...starts):Date.now();
-      const extent=ends.length?Math.max(...ends):origin+86400000;
-      const span=Math.max(86400000,extent-origin+86400000);
-      const chart=node('div','pm-gantt');
-      scheduled.sort((a,b)=>scheduleMap.get(a.id).start_date.localeCompare(scheduleMap.get(b.id).start_date)).forEach(task=>{
-        const plan=scheduleMap.get(task.id), row=node('div','pm-gantt-row');
-        const left=node('div');left.append(node('strong','',task.title),node('p','pm-gantt-date',plan.start_date+' → '+plan.end_date+' · '+(plan.estimated_minutes/60).toFixed(1)+'h estimate'));
-        if(task.can_edit)left.append(btn('Edit plan',()=>editSchedule(task)));
-        const track=node('div','pm-gantt-track'),bar=node('div','pm-gantt-bar');
-        const leftPercent=(Date.parse(plan.start_date+'T00:00:00Z')-origin)/span*100;
-        const widthPercent=(Date.parse(plan.end_date+'T00:00:00Z')-Date.parse(plan.start_date+'T00:00:00Z')+86400000)/span*100;
-        bar.style.left=leftPercent+'%';bar.style.width=Math.max(1,widthPercent)+'%';
-        bar.title=task.title+' · '+plan.start_date+' to '+plan.end_date;
-        track.append(bar);row.append(left,track);chart.append(row);
-      });
-      n.filter(t=>!scheduleMap?.has(t.id)).forEach(task=>{
-        const row=node('div','pm-task');row.append(node('span','',task.title+' · no plan set'));
-        if(task.can_edit)row.append(btn('Plan',()=>editSchedule(task)));chart.append(row);
-      });
-      body.append(chart);
+      renderTaskTimeline(body, n, { plans: scheduleMap || new Map(), openTask: openEditor, editPlan: editSchedule });
     }else if(current.view==='week'){
       body.append(node('p','pm-note','Next seven days: tasks active within an explicitly planned date range, plus unscheduled tasks due that day. These are date assignments, not hourly reservations.'));
       const days=node('div','pm-planner');
