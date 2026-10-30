@@ -14,7 +14,7 @@
 
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-task1';
-import { taskDateFields } from './ws-task-timeline.js?v=20261030dates1';
+import { taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261030dates1';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
 // a change. Set each time the cockpit asks for a bar.

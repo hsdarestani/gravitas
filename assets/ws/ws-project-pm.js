@@ -3,7 +3,7 @@
  * These views do not persist a competing task representation. */
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';
-import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261030dates1';
+import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261030dates1';
 
 const node = (tag, cls = '', content = '') => {
   const n = document.createElement(tag);

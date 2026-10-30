@@ -108,7 +108,8 @@ def track_dates(task, previous, update_fields=None):
     if transition and not imported_creation and 'completed_at' not in explicit and task.status == 'done':
         changed.add('completed_at')
     for key in changed - explicit:
-        provenance[key] = {'source': 'observed', 'confidence': 'recorded'}
+        if previous is None or previous.get(key) != getattr(task, key):
+            provenance[key] = {'source': 'observed', 'confidence': 'recorded'}
     if (update_fields is None or 'due_date' in update_fields) and (
             previous is None and task.due_date or previous and previous['due_date'] != task.due_date):
         if provenance.get('due_date', {}).get('source') != 'admin':
@@ -267,7 +268,8 @@ def recover_task_dates(*, apps=None, using='default', apply=False):
             if options:
                 exact = [item for item in options if item[1]['confidence'] == 'recorded']
                 choices = (exact or options) if key == 'completed_at' else options
-                chosen = (max if key == 'completed_at' else min)(choices, key=lambda x: x[0])
+                chosen = (max(choices, key=lambda x: x[0]) if key == 'completed_at' else
+                          min(choices, key=lambda x: (x[0], x[1]['confidence'] != 'recorded')))
                 value, info = chosen
                 # Existing creation/completion may be the import timestamp.
                 if key == 'created_at' and existing and value > existing:

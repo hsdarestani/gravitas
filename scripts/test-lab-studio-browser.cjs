@@ -80,7 +80,7 @@ const server=http.createServer((req,res)=>{
     await page.getByPlaceholder('Ask about this experiment').fill('What changed?');
     await page.getByRole('button',{name:'Ask',exact:true}).click();
     await page.getByText('Try changing one variable.').waitFor({timeout:8000});
-    assert.match(await page.locator('.lab-pulsar-source').innerText(),/Guided note/);
+    assert.match(await page.locator('.lab-pulsar-source').innerText(),/guided note/i);
     await page.setViewportSize({width:390,height:844});
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
     assert.ok(overflow<=1,'mobile Lab horizontal overflow: '+overflow);

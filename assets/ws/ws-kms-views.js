@@ -23,7 +23,7 @@
    ========================================================================== */
 
 import * as K from './ws-kms.js?v=20261016-task1';
-import { el, panel, row, stats, empty, linkButton } from './ws-views.js?v=20261016-task1&patch=20261027reliability1';
+import { el, panel, row, stats, empty, linkButton } from './ws-views.js?v=20261016-task1&patch=20261030dates1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
