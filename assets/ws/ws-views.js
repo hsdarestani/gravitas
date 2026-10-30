@@ -12,7 +12,7 @@ import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
-import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261030dates1';
+import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261030minutes1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
