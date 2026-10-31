@@ -848,7 +848,7 @@ function setView(name){
     $('view-'+key).classList.toggle('active',name===key);
     $('view-'+key).setAttribute('aria-pressed',String(name===key));
   }
-  mapLegend();publishContext(true);
+  mapLegend();drawMap();publishContext(true);
 }
 /* Experiment recipes are transparent, authored model interventions, not
    generated science. The user explicitly chooses to advance both worlds. */
