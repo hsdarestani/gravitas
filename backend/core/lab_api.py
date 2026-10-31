@@ -20,7 +20,7 @@ from .layer_models import ActivityEvent
 from .models import ContentItem, InteractiveLab, LabRevision
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
 from .pulsar import PulsarError, configured, run_text
-from .lab_language import answer_locale, needs_persian_edit, protect_evidence, restore_evidence
+from .lab_language import answer_locale, needs_persian_edit, normalize_persian_prose, protect_evidence, restore_evidence
 
 SAFE_FILE = re.compile(r'^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+(?:\.[a-z0-9]+)$')
 SAFE_KEY = re.compile(r'^[a-z][a-z0-9_-]{0,63}$')
@@ -548,6 +548,8 @@ def public_lab_coach(request, slug):
         if result.provider == 'fallback':
             raise PulsarError('fallback')
         reply = result.text[:(1800 if key == 'ask' else 900)]
+        if reply_locale.startswith('fa'):
+            reply = normalize_persian_prose(reply, question)
         if reply_locale.startswith('fa') and needs_persian_edit(reply):
             # A compact copyedit avoids English source context leaking other
             # languages into Persian. It cannot alter protected evidence.
@@ -558,7 +560,7 @@ def public_lab_coach(request, slug):
                     user=draft, max_tokens=400, surface='public', skill='public', operation='answer',
                     locale='fa', metadata={'page': '/lab.html', 'lab_slug': slug, 'phase': 'language_edit'},
                 )
-                corrected = restore_evidence(edited.text, protected) if edited.provider != 'fallback' else None
+                corrected = restore_evidence(normalize_persian_prose(edited.text, question), protected) if edited.provider != 'fallback' else None
                 if corrected and len(corrected) <= 1800:
                     reply = corrected
             except PulsarError:

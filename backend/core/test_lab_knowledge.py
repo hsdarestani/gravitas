@@ -100,16 +100,16 @@ class LabScientificContextTests(TestCase):
     def test_persian_question_uses_its_language_and_copyedit_preserves_numbers_and_sources(self, run, configured):
         def answer(**kwargs):
             if kwargs.get('metadata', {}).get('phase') == 'language_edit':
-                return SimpleNamespace(provider='cloudflare', run_id='edit', text=kwargs['user'].replace('cuando', 'وقتی'))
+                return SimpleNamespace(provider='cloudflare', run_id='edit', text=kwargs['user'].replace('entonces', 'پس'))
             self.assertEqual(kwargs['locale'], 'fa')
             return SimpleNamespace(provider='cloudflare', run_id='initial', text=
-                'صف از 2 به 10 رسید cuando ورودی بیشتر از ظرفیت است. [model-guide#independent-replication]')
+                'صف از 2 به 10 رسید entonces ورودی بیشتر از ظرفیت است. [model-guide#independent-replication]')
         run.side_effect = answer
         response = self.client.post('/api/labs/science-universe/coach/', data=json.dumps({
             'event': 'ask', 'question': 'چرا صف بیشتر شد؟', 'locale': 'en'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         reply = response.json()['reply']
-        self.assertNotIn('cuando', reply)
+        self.assertNotIn('entonces', reply)
         self.assertIn('2 به 10', reply)
         self.assertIn('[model-guide#independent-replication]', reply)
         self.assertEqual(response.json()['citations'][0]['anchor'], 'independent-replication')
@@ -154,6 +154,18 @@ class LabScientificContextTests(TestCase):
 
 
 class LabMechanismContextTests(TestCase):
+    def test_known_intrusions_change_only_unquoted_persian_prose(self):
+        from core.lab_language import answer_locale, normalize_persian_prose
+        text = 'وقتی 2 وقتی... cuando نتیجه yanlış است. 根据 [model-guide#independent-replication] `cuando` https://example.test/cuando'
+        cleaned = normalize_persian_prose(text)
+        self.assertIn('وقتی نتیجه نادرست است. بر اساس', cleaned)
+        self.assertIn('`cuando`', cleaned)
+        self.assertIn('https://example.test/cuando', cleaned)
+        self.assertIn('[model-guide#independent-replication]', cleaned)
+        self.assertEqual(normalize_persian_prose('cuando', 'معنی cuando چیست؟'), 'cuando')
+        self.assertEqual(answer_locale('چرا صف بیشتر شد؟', 'en'), 'fa')
+        self.assertEqual(answer_locale('لماذا زادت قائمة المراجعة؟', 'ar'), 'ar')
+
     def test_language_edit_cannot_drop_or_invent_measurements(self):
         from core.lab_language import protect_evidence, restore_evidence
         draft, tokens = protect_evidence('صف از 2 به 10 رسید. [model-guide#independent-replication]')
