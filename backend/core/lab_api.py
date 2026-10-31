@@ -559,8 +559,8 @@ def public_lab_coach(request, slug):
                     locale='fa', metadata={'page': '/lab.html', 'lab_slug': slug, 'phase': 'language_edit'},
                 )
                 corrected = restore_evidence(edited.text, protected) if edited.provider != 'fallback' else None
-                if corrected:
-                    reply = corrected[:1800]
+                if corrected and len(corrected) <= 1800:
+                    reply = corrected
             except PulsarError:
                 pass
         cited = [c for c in allowed_citations if '[' + c['id'] + ']' in reply]
