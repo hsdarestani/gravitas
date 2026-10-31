@@ -10,6 +10,7 @@ var iframe=null, active=null, shell=null, currentSection='', lastMetrics={}, met
 var lastCoachAt=0, scheduled=null, lastEventKey='', lastEventAt=0, aiBusy=false;
 var speaking=true, controller=null, session=0;
 var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false;
+var notices=[],chatSequence=0,fullscreenButton=null;
 var tourActive=false, tourIndex=0, tourUI=null;
 var CHAT_KEY='graviquest:pulsar:lab01:history:v1';
 var scienceGuide=window.GraviScienceCoach||null;
@@ -135,29 +136,89 @@ function adjustFrameForViewport(){
   iframe.style.height='';
 }
 window.addEventListener('resize',adjustFrameForViewport,{passive:true});
-window.matchMedia('(max-width: 1050px)').addEventListener('change',function(e){
- if(active?.slug==='science-universe'&&chat){chatOpen=!e.matches;refreshChat();}
+document.addEventListener('fullscreenchange',function(){
+ if(fullscreenButton){
+  fullscreenButton.textContent=document.fullscreenElement?'Exit fullscreen':'Fullscreen';
+  fullscreenButton.setAttribute('aria-pressed',String(!!document.fullscreenElement));
+ }
+});
+document.addEventListener('keydown',function(e){
+ if(e.key==='Escape'&&active?.slug==='science-universe'&&chatOpen&&!document.querySelector('dialog[open]')){
+  e.preventDefault();chatOpen=false;refreshChat();chat?.toggle.focus();
+ }
 });
 function saveChat(){
  try{localStorage.setItem(CHAT_KEY,JSON.stringify(chatHistory.slice(-70)));}catch(_){}
 }
-function addChat(role,text,provider,citations){
+function messageText(m){
+ var text=m.text;
+ // Source buttons carry the complete citation; keep long source URLs out of prose.
+ text=text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,function(all,label,url){
+  var cited=(m.citations||[]).find(function(c){return c.id===label||c.source_url===url;});
+  return cited?(cited.id===label?'':label):all;
+ });
+ (m.citations||[]).forEach(function(c){if(c.id)text=text.split('['+c.id+']').join('');});
+ return text.replace(/  +/g,' ').trim();
+}
+function clearNotices(){
+ notices.forEach(function(n){clearTimeout(n.timer);clearTimeout(n.removal);n.box.remove();});
+ notices=[];
+}
+function positionNotices(){
+ notices.forEach(function(n,i){n.box.style.setProperty('--notice-slot',String(notices.length-i-1));});
+}
+function removeNotice(n,immediate){
+ clearTimeout(n.timer);clearTimeout(n.removal);
+ function remove(){n.box.remove();notices=notices.filter(function(x){return x!==n;});positionNotices();}
+ if(immediate){remove();return;}
+ n.box.classList.add('is-leaving');n.removal=setTimeout(remove,300);
+}
+function openPulsarMessage(m){
+ if(!chat)return;
+ chatOpen=true;refreshChat();
+ var row=Array.from(chat.log.children).find(function(el){return el.dataset.messageId===m.id;});
+ if(row){row.focus({preventScroll:true});row.scrollIntoView({block:'center'});}
+ else chat.input.focus();
+}
+function notifyPulsar(m){
+ if(!chat?.notices||chatOpen)return;
+ while(notices.length>=3)removeNotice(notices[0],true);
+ var box=node('div','lab-pulsar-notice'),read=node('button','lab-notice-read');read.type='button';
+ read.setAttribute('aria-label','Read Pulsar message and open conversation');
+ var title=m.title||('Pulsar · '+(m.provider==='ai'?'live explanation':'guided note'));
+ var text=messageText(m).replace(/\s+/g,' ');
+ var preview=node('span','',text.length>170?text.slice(0,167)+'…':text);preview.dir='auto';
+ read.append(node('strong','',title),preview,node('small','','Open conversation'));
+ read.addEventListener('click',function(){openPulsarMessage(m);});
+ var close=node('button','lab-notice-dismiss','×');close.type='button';
+ close.setAttribute('aria-label','Dismiss Pulsar notification');
+ var n={box:box,timer:null,removal:null,remaining:9000,deadline:0};
+ function pause(){clearTimeout(n.timer);n.remaining=Math.max(0,n.deadline-Date.now());}
+ function resume(){if(!box.isConnected||box.classList.contains('is-leaving')||box.contains(document.activeElement)||box.matches(':hover'))return;n.deadline=Date.now()+n.remaining;n.timer=setTimeout(function(){removeNotice(n);},n.remaining);}
+ close.addEventListener('click',function(){removeNotice(n);});
+ box.addEventListener('pointerenter',pause);box.addEventListener('pointerleave',resume);
+ box.addEventListener('focusin',pause);box.addEventListener('focusout',function(e){if(!box.contains(e.relatedTarget))resume();});
+ box.append(read,close);chat.notices.append(box);notices.push(n);positionNotices();
+ requestAnimationFrame(function(){if(box.isConnected)box.classList.add('is-visible');});
+ n.deadline=Date.now()+n.remaining;n.timer=setTimeout(function(){removeNotice(n);},n.remaining);
+}
+function addChat(role,text,provider,citations,title){
  var value=String(text||'').trim().slice(0,1800);
  if(!value)return;
- var m={role:role==='user'?'user':'pulsar',text:value,
+ var m={id:Date.now().toString(36)+'-'+(++chatSequence),role:role==='user'?'user':'pulsar',text:value,title:title||'',
    provider:provider==='ai'?'ai':'guide',citations:Array.isArray(citations)?citations.slice(0,6):[],at:Date.now()};
  chatHistory.push(m);chatHistory=chatHistory.slice(-70);saveChat();
  if(chat){
    addBubble(m);
-   if(!chatOpen&&m.role==='pulsar'){chatUnread++;refreshChat();}
+   if(!chatOpen&&m.role==='pulsar'){chatUnread++;refreshChat();notifyPulsar(m);}
  }
 }
 function addBubble(m){
  if(!chat)return;
  var row=node('div','lab-chat-bubble '+(m.role==='user'?'is-user':'is-pulsar'));
- var displayText=m.text;
- (m.citations||[]).forEach(function(c){if(c.id)displayText=displayText.split('['+c.id+']').join('');});
- var p=node('p','',displayText.replace(/  +/g,' ').trim());
+ if(!m.id)m.id='restored-'+(++chatSequence);
+ row.dataset.messageId=m.id;row.tabIndex=-1;
+ var p=node('p','',messageText(m));p.dir='auto';
  var date=new Date(Number(m.at)||Date.now());
  var stamp=date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
  var meta=node('small','lab-chat-meta',stamp+(m.role==='pulsar'?
@@ -176,9 +237,12 @@ function refreshChat(){
  chat.box.classList.toggle('is-open',chatOpen);
  chat.body.hidden=!chatOpen;
  chat.toggle.setAttribute('aria-expanded',String(chatOpen));
+ chat.toggle.setAttribute('aria-label',chatOpen?'Close Pulsar conversation':'Open Pulsar conversation'+(chatUnread?' · '+chatUnread+' unread':''));
+ chat.arrow.textContent=chatOpen?'×':'↗';
+ chat.log.setAttribute('aria-live',chatOpen?'polite':'off');
  chat.badge.hidden=chatOpen||chatUnread===0;
  chat.badge.textContent=chatUnread>9?'9+':String(chatUnread);
- if(chatOpen){chatUnread=0;chat.log.scrollTop=chat.log.scrollHeight;}
+ if(chatOpen){chatUnread=0;clearNotices();chat.log.scrollTop=chat.log.scrollHeight;}
 }
 function mountPulsarChat(sidebar){
  CHAT_KEY='graviquest:pulsar:'+active.slug+':history:v2';
@@ -193,7 +257,7 @@ function mountPulsarChat(sidebar){
  var name=node('span','lab-chat-name');
  name.append(node('strong','','Pulsar'),node('small','','Scientific companion'));
  var badge=node('span','lab-chat-badge');badge.hidden=true;
- var arrow=node('span','lab-chat-arrow','⌄');
+ var arrow=node('span','lab-chat-arrow','↗');arrow.setAttribute('aria-hidden','true');
  toggle.append(avatar,name,badge,arrow);
  var body=node('div','lab-chat-body');body.id='lab-chat-thread';
  var log=node('div','lab-chat-log');
@@ -202,14 +266,21 @@ function mountPulsarChat(sidebar){
  var status=node('div','lab-chat-status','Conversation saved on this device');
  var form=document.createElement('form');form.className='lab-chat-compose';
  var input=node('input','lab-chat-input');
- input.type='text';input.required=true;input.maxLength=600;
+ input.type='text';input.required=true;input.maxLength=600;input.dir='auto';
  input.placeholder='Ask a question about the science…';
  input.setAttribute('aria-label','Message Pulsar');
  var send=node('button','lab-chat-send','↗');send.type='submit';
  send.setAttribute('aria-label','Send to Pulsar');
  form.append(input,send);
+ var noticeStack=null;
+ if(active.slug==='science-universe'){
+  noticeStack=node('div','lab-pulsar-notices');noticeStack.setAttribute('role','log');
+  noticeStack.setAttribute('aria-label','Pulsar notifications');noticeStack.setAttribute('aria-live','polite');
+  sidebar.append(noticeStack);
+ }
  body.append(log,status,form);box.append(toggle,body);sidebar.append(box);
- chat={box,body,log,status,input,send,toggle,badge};
+ chat={box,body,log,status,input,send,toggle,badge,arrow,notices:noticeStack};
+ chatOpen=active.slug!=='science-universe';
  try{
    var old=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
    if(Array.isArray(old))chatHistory=old.slice(-70).filter(function(m){
@@ -226,7 +297,6 @@ function mountPulsarChat(sidebar){
    chat.status.textContent='Comparing two synthetic worlds…';
    tellIframe('lab:experiment',{id:recipe.id});
  });
- chatOpen=!matchMedia('(max-width: 1050px)').matches;
  toggle.addEventListener('click',function(){
    chatOpen=!chatOpen;refreshChat();if(chatOpen)input.focus();
  });
@@ -319,7 +389,7 @@ function reportEvent(data){
  if(section&&section!==currentSection){currentSection=section;renderSteps();}
  var lesson=hintFor(ev,currentSection),intro=introFor(currentSection);
  if(active?.slug==='science-universe'){
-   // Important milestones only, at most one unsolicited message per 90s.
+   // Important milestones only, at most one unsolicited message per 18s.
    // No activity ticker, no per-hypothesis/slider message flood.
    var notable=['policy_changed','universe_forked','replication_failed',
      'paper_retracted','replication_requested','world_reset','method_improved','snapshot_saved','scenario_completed'];
@@ -364,7 +434,7 @@ async function askPulsar(question,event,fallback){
    if(!res.ok)throw Error('coaching_unavailable');
    var result=await res.json();
    if(which!==session)return;
-   if(result.ok&&result.reply){feedback(result.reply,result.provider==='script'?'script':'ai',result.citations);if(!q&&isChat)showInsight('Pulsar · '+(result.provider==='script'?'guided note':'live explanation'),result.reply,result.citations);}
+   if(result.ok&&result.reply){feedback(result.reply,result.provider==='script'?'script':'ai',result.citations);}
    else if(fallback)feedback(fallback,'script');
  }catch(err){
    if(which!==session)return;
@@ -390,9 +460,11 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
+  clearNotices();lastInsightAt=0;
   tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;chatOpen=false;
   if(scienceGuide)scienceGuide.reset();
   root.dataset.labSlug = lab.slug;
+  root.setAttribute('aria-live','off');
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
   metricHistory={};lastMetrics={};speaking=true;aiBusy=false;
@@ -408,7 +480,16 @@ function runLab(lab){
     bar.append(link);
   }
   main.append(bar);
-  if(lab.slug==='science-universe'){makeTourUI(main,bar);bar.append(btn('Scientific sources',function(){openKnowledge();}),btn('Scenario atlas',openAtlas));var auto=btn('Pulsar tips on',function(){speaking=!speaking;auto.textContent=speaking?'Pulsar tips on':'Pulsar tips off';});bar.append(auto);}
+  if(lab.slug==='science-universe'){
+   makeTourUI(main,bar);bar.append(btn('Scientific sources',function(){openKnowledge();}),btn('Scenario atlas',openAtlas));
+   var auto=btn('Pulsar tips on',function(){speaking=!speaking;auto.textContent=speaking?'Pulsar tips on':'Pulsar tips off';if(!speaking)clearNotices();});bar.append(auto);
+   if(document.fullscreenEnabled){
+    fullscreenButton=btn('Fullscreen',async function(){
+     try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}
+     catch(_){fullscreenButton.title='Browser fullscreen is unavailable. The Lab still fills this window.';}
+    },'lab-fullscreen');fullscreenButton.setAttribute('aria-pressed','false');bar.append(fullscreenButton);
+   }
+  }
   if(lab.summary&&lab.slug!=='science-universe')main.append(node('p','lab-runtime-summary',lab.summary));
   var grid=node('div','lab-runtime-grid'),stageCol=node('div','lab-stage-column'),sidebar=node('aside','lab-assistant');
   var canvas=node('div','lab-frame-wrap');
@@ -480,9 +561,11 @@ function runLab(lab){
 var shellLayerContainer=null;
 function showCatalog(){
   if(tourActive)tellIframe('lab:tutorial',{target:'off'});
+  clearNotices();fullscreenButton=null;
+  if(active?.slug==='science-universe'&&document.fullscreenElement)document.exitFullscreen().catch(function(){});
   tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;
-  document.querySelector('.lab-insight')?.remove();
   root.dataset.labSlug='directory';
+  root.setAttribute('aria-live','off');
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;iframe=null;shell=null;aiBusy=false;
   active={slug:'directory',config:{pulsar_enabled:true,components:[]}};
@@ -530,13 +613,10 @@ function previewLab(lab){
  var enter=btn('Enter simulation',function(){dialog.close();history.replaceState(null,'','?lab='+encodeURIComponent(lab.slug));runLab(lab);},'lab-enter');
  body.append(enter);dialog.append(body);enter.focus();
 }
-var lastInsightAt=0,insightTimer=null;
+var lastInsightAt=0;
 function showInsight(title,text,citations){
  if(!active||active.slug!=='science-universe'||!speaking)return;
- document.querySelector('.lab-insight')?.remove();
- var box=node('aside','lab-insight');box.setAttribute('aria-live','polite');
- box.append(node('strong','',title.slice(0,90)),node('p','',text.slice(0,400)),btn('Explain this',function(){chatOpen=true;refreshChat();askPulsar('Explain this snapshot and what I should try next: '+text.slice(0,240),'ask');box.remove();}),btn('Dismiss',function(){box.remove();}));
- document.body.append(box);clearTimeout(insightTimer);insightTimer=setTimeout(function(){box.remove();},16000);
+ addChat('pulsar',text,'guide',citations,title.slice(0,90));
 }
 async function openKnowledge(documentSlug,anchor){
  if(!active||active.slug!=='science-universe')return;
