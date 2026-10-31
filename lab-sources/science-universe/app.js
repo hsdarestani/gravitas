@@ -572,7 +572,7 @@ function networkFacts(s,labId=selected[active]){
 }
 function paperWindow(s){
  const all=s.hypotheses.filter(p=>p.published&&!p.retracted&&(fieldFilter===null||p.domain===fieldFilter));
- return all.slice(-180);
+ return all.sort((a,b)=>a.publishedOn-b.publishedOn||a.id-b.id).slice(-180);
 }
 function paperLayout(s,g){
  const papers=paperWindow(s),domains=fieldFilter===null?[0,1,2,3]:[fieldFilter];

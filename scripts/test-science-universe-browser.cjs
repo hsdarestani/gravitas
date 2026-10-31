@@ -42,6 +42,8 @@ const server=http.createServer((req,res)=>{
     assert.match(await page.locator('#map-explanation').innerText(),/Small dots are published claims/);
     assert.ok(Number(await page.locator('#network-a').getAttribute('data-visible-papers'))>0);
     assert.notEqual(await page.locator('#network-a').evaluate(x=>x.toDataURL()),labPicture,'the views represent different model objects');
+    const claimDates=await page.locator('#claim-select option').evaluateAll(options=>options.slice(1).map(o=>Number(o.textContent.match(/day (\d+)/)[1])));
+    assert.ok(claimDates.every((day,i)=>i===0||claimDates[i-1]>=day),'claims are ordered by publication time, not hypothesis creation');
     const claim=await page.locator('#claim-select option').nth(1).getAttribute('value');
     await page.locator('#claim-select').selectOption(claim);
     assert.equal(await page.locator('#inspector-dialog').evaluate(x=>x.open),false,'claim selection keeps the overview readable');
