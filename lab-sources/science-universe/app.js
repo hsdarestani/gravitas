@@ -11,7 +11,14 @@ const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand
 const worlds=[E.make(20261029),null],selected=[null,null],selectedPaper=[null,null],eventSeen=[new Set(),new Set()];
 let active=0,playing=false,compareMode=false,view='labs',plot='published',speed=3;
 let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performance.now(),raf=0;
-let eventLimit=40;
+let eventLimit=40,fieldFilter=null,mapKeyView='',inspectorListKey='',feedKey='',historyKey='';
+let selectionDeferred=false,claimOptionsKey='';
+const paperNodeCache=new WeakMap();
+const text=(id,value)=>{const el=typeof id==='string'?$(id):id;const next=String(value);if(el&&el.textContent!==next)el.textContent=next;};
+function readingSelection(){const selection=window.getSelection();return !!selection&&!selection.isCollapsed&&String(selection).length>0;}
+function shellAction(action){if(G.shellAction)G.shellAction(action);}
+function showDialog(id){const dialog=$(id);if(!dialog.open)dialog.showModal();}
+function openMapGuide(){mapLegend();showDialog('map-dialog');}
 const snapshotStates=new WeakMap(),intervals=new WeakMap(),focusEvents=new WeakMap();
 let currentSection='observe',lastBridge=0,lastStateSent=0,drawerOpen=false,latestFirst=true;
 
@@ -256,8 +263,12 @@ function compare(on){
   if(on&&!worlds[1])return;
   compareMode=!!on;
   arrangeCanvases();
-  $('comparison').hidden=!compareMode;
-  $('compare').textContent=compareMode?'◉ Comparison active':'Compare realities';
+  $('comparison').hidden=!worlds[1];
+  $('comparison').classList.toggle('is-collapsed',!compareMode);
+  $('close-compare').textContent=compareMode?'Hide comparison':'Show comparison';
+  $('close-compare').setAttribute('aria-expanded',String(compareMode));
+  $('compare').textContent=compareMode?'Hide comparison':'Compare results';
+  $('compare').setAttribute('aria-expanded',String(compareMode));
   $('compare').classList.toggle('active',compareMode);
   $('stage-title').textContent=compareMode?'Two worlds. One starting point.':'The research network';
   render();
@@ -312,7 +323,15 @@ function sparkline(values,label){
 function mountWorkspace(){
  const side=make('div','workspace-side'),layout=document.querySelector('.world-layout');
  side.append($('inspector'),document.querySelector('.activity'));layout.append(side);
- const workspace=make('div','model-and-policies');layout.before(workspace);workspace.append(layout,$('policy-drawer'));
+ const dock=make('div','pulsar-anchor');dock.id='pulsar-anchor';dock.setAttribute('aria-hidden','true');side.append(dock);
+ const workspace=make('div','model-and-policies');layout.before(workspace);workspace.append(layout);side.append($('policy-drawer'));
+ // The companion is hosted outside the opaque-origin iframe. Only bounded viewport geometry crosses the bridge.
+ let geometryPending=false,lastGeometry='';
+ function reportGeometry(){geometryPending=false;const r=side.getBoundingClientRect(),d=dock.getBoundingClientRect();
+   const payload={left:r.left,top:r.top,width:r.width,height:r.height,dockTop:d.top,viewportWidth:innerWidth,viewportHeight:innerHeight};
+   const key=JSON.stringify(payload);if(key!==lastGeometry&&G.companionLayout){lastGeometry=key;G.companionLayout(payload);}}
+ function queueGeometry(){if(!geometryPending){geometryPending=true;requestAnimationFrame(reportGeometry);}}
+ new ResizeObserver(queueGeometry).observe(layout);window.addEventListener('scroll',queueGeometry,{passive:true});window.addEventListener('resize',queueGeometry,{passive:true});queueGeometry();
  const analysis=document.querySelector('.analysis');analysis.querySelector('.section-head').after(document.querySelector('.top-strip'));
  const modes=document.querySelector('.mode-rail');modes.prepend(document.querySelector('.header-actions'));
  for(const key of [...Object.keys(METRICS),...Object.keys(E.DEFAULTS).map(k=>'policy_'+k)]){
@@ -321,13 +340,17 @@ function mountWorkspace(){
  document.body.dataset.playing='false';
 }
 function renderMetricTrends(){
- const host=$('metric-trends');if(!host)return;host.replaceChildren();
+ const host=$('metric-trends');if(!host)return;
  const s=nowWorld(),m=E.summary(s),history=series(s);
- for(const key of Object.keys(METRICS)){
-   const [label,hint]=metricInfo(key),b=make('button','metric-trend');b.type='button';b.title=hint;
-   b.setAttribute('aria-pressed',String(key===plot));
-   b.append(make('span','',label),make('strong','',Number(m[key]||0).toLocaleString('en-US',{maximumFractionDigits:1})),sparkline(history.map(x=>x[key]),label));
-   b.addEventListener('click',()=>{plot=key;drawChart();renderMetricTrends();});host.append(b);
+ if(!host.children.length)for(const key of Object.keys(METRICS)){
+   const [label,hint]=metricInfo(key),button=make('button','metric-trend');button.type='button';button.title=hint;button.dataset.metric=key;
+   button.append(make('span','',label),make('strong',''),sparkline([],label));
+   button.addEventListener('click',()=>{plot=key;$('metric-select').value=key;drawChart();renderMetricTrends();});host.append(button);
+ }
+ for(const button of host.children){const key=button.dataset.metric;
+   button.setAttribute('aria-pressed',String(key===plot));
+   text(button.querySelector('strong'),Number(m[key]||0).toLocaleString('en-US',{maximumFractionDigits:1}));
+   button.querySelector('svg').replaceWith(sparkline(history.map(x=>x[key]),metricInfo(key)[0]));
  }
 }
 function renderDataTable(){
@@ -341,12 +364,13 @@ function renderDataTable(){
  table.append(body);host.append(table);
 }
 function renderDomainResults(){
- const host=$('domain-results');host.replaceChildren();host.append(make('h3','','Interdisciplinary results'));
- host.append(make('p','small-print','Exploration diversity changes out-of-field topic search and assumed truth priors. Field labels do not add a proven scientific benefit. Compare with a shared prior in Model assumptions.'));
- const grid=make('div','domain-grid');
- for(const d of E.researchBreakdown(nowWorld())){
-   const card=make('div','domain-card');card.append(make('strong','',d.name),make('span','',d.published+' live papers · '+d.falsePublished+' false · '+d.citations+' citations'));grid.append(card);
- }host.append(grid);
+ const host=$('domain-results');
+ if(!host.children.length){host.append(make('h3','','Research across fields'),make('p','small-print','Compare live publications, false claims and citations by topic. Field labels do not imply a proven scientific advantage.'));
+   const grid=make('div','domain-grid');for(const [i,name] of E.DOMAINS.entries()){
+     const card=make('div','domain-card');card.style.setProperty('--field-color',domainColors[i]);card.append(make('strong','',name),make('span','domain-value'));grid.append(card);
+   }host.append(grid);
+ }
+ E.researchBreakdown(nowWorld()).forEach((d,i)=>text(host.querySelectorAll('.domain-value')[i],d.published+' live papers · '+d.falsePublished+' false · '+d.citations+' citations'));
 }
 function snapshotInsight(){
  const s=nowWorld(),m=E.summary(s);
@@ -388,8 +412,13 @@ function inspector(){
   const network=networkFacts(s,l.id);
   $('selected-links').textContent=network.selectedLinks;
   $('selected-cross-links').textContent=network.selectedCrossLinks;
+  text('inspector-dialog-title',l.name+' · World '+(active?'B':'A'));
+  text('inspector-more',selectedPaper[active]!==null?'See paper #'+selectedPaper[active]+' · details & actions ↗':'See more · team, papers & actions ↗');
+  text('selected-summary',network.selectedLinks+' connections · '+network.selectedCrossLinks+' across fields'+(selectedPaper[active]!==null?' · Paper #'+selectedPaper[active]+' selected':''));
   $('selected-network').textContent='Drag this lab to change its possible partners. A linked partner has ×1.7 citation weight in this model; positions do not directly change statistical evidence or hidden truth.';
   $('freeze-lab').textContent=l.locked?'Resume proposals':'Slow proposals';
+  const listKey=JSON.stringify([active,id,selectedPaper[active],s.agents.filter(a=>a.labId===id).map(a=>[a.id,a.produced]),l.papers.slice(-7),s.hypotheses.filter(h=>l.papers.slice(-7).includes(h.id)).map(h=>[h.id,h.replications,h.retracted])]);
+  if(listKey===inspectorListKey){publishContext();return;}inspectorListKey=listKey;
   const agents=$('agent-list');agents.replaceChildren();
   for(const a of s.agents.filter(a=>a.labId===id)){
     const row=make('div','agent-row');
@@ -419,7 +448,7 @@ function inspector(){
   detail.hidden=false;
   detail.append(make('strong','',target.topic),
     make('p','','Paper #'+target.id+' · '+(target.retracted?'Withdrawn':'Published')+
-       ' · independent repeats '+(target.replications||0)));
+       ' · published on day '+target.publishedOn+' · independent repeats '+(target.replications||0)));
   const action=make('button','btn small','Request independent replication');
   action.type='button';action.disabled=!!target.retracted;
   action.addEventListener('click',()=>{
@@ -432,24 +461,24 @@ function inspector(){
   });
   detail.append(action);publishContext();
 }
+function eventButton(event){
+ const button=make('button','feed-event');button.type='button';button.dataset.eventId=event.id;
+ const cat=event.type.includes('retract')?'warning':event.type.includes('replication')?'verify':event.type.includes('published')?'published':'general';
+ const detail=make('span','event-body');detail.append(make('strong','',event.text),make('small','','DAY '+String(event.day).padStart(3,'0')+' · '+event.type.replaceAll('_',' ')));
+ button.append(make('span','event-indicator '+cat),detail);
+ if(Number.isInteger(event.labId)&&event.labId>=0)button.addEventListener('click',()=>{selected[active]=event.labId;selectedPaper[active]=null;inspector();publishContext(true);});else button.disabled=true;
+ return button;
+}
 function feed(){
-  const host=$('feed');host.replaceChildren();
-  const events=latestFirst?nowWorld().events.slice(0,eventLimit):[...nowWorld().events].reverse().slice(0,eventLimit);
-  $('event-retention').textContent='Showing '+events.length+' of '+nowWorld().events.length+' retained events · '+(nowWorld().eventCount||nowWorld().events.length)+' total. Latest 2,000 retained.';
-  $('more-events').hidden=eventLimit>=nowWorld().events.length;
-  for(const event of events){
-    const button=make('button','feed-event');button.type='button';
-    const cat=event.type.includes('retract')?'warning':event.type.includes('replication')?'verify':
-      event.type.includes('published')?'published':'general';
-    const detail=make('span','event-body');
-    detail.append(make('strong','',event.text),make('small','',
-      'DAY '+String(event.day).padStart(3,'0')+' · '+event.type.replaceAll('_',' ')));
-    button.append(make('span','event-indicator '+cat),detail);
-    if(Number.isInteger(event.labId)&&event.labId>=0)button.addEventListener('click',()=>{
-      selected[active]=event.labId;selectedPaper[active]=null;inspector();publishContext(true);
-    });else button.disabled=true;
-    host.append(button);
-  }
+ const state=nowWorld(),all=latestFirst?state.events:[...state.events].reverse(),events=all.slice(0,3);
+ text('event-retention','Day '+state.day+' · '+human(state.eventCount||state.events.length)+' recorded events');
+ const key=active+':'+events.map(e=>e.id).join(',');
+ if(key!==feedKey){feedKey=key;$('feed').replaceChildren(...(events.length?events.map(eventButton):[make('p','empty','Advance model time to see what changes.')]));}
+ if(!$('events-dialog').open)return;
+ text('event-history-retention','Showing '+Math.min(eventLimit,all.length)+' of '+all.length+' retained events. The latest 2,000 are kept; '+(state.eventCount||all.length)+' events occurred in total.');
+ const retained=all.slice(0,eventLimit),next=active+':'+retained.map(e=>e.id).join(',');
+ if(next!==historyKey){historyKey=next;$('event-history').replaceChildren(...retained.map(eventButton));}
+ $('load-events').hidden=eventLimit>=all.length;
 }
 function series(s){
   const history=s.history||[],current=E.summary(s);
@@ -481,13 +510,13 @@ function drawChart(){
       if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
     });ctx.stroke();
   });
-  $('plot-caption').textContent={
+  text('plot-caption',{
     published:'Cumulative publications. Acceptance is not independent proof.',
     falsePublished:'False claims still published, based on hidden SYNTHETIC ground truth.',
     reviewBacklog:'Manuscripts waiting for modelled peer review.'
-  }[plot]||metricInfo(plot)[1];
+  }[plot]||metricInfo(plot)[1]);
   if($('metric-select'))$('metric-select').value=plot;
-  if(!$('outcome-data').hidden)renderDataTable();
+  if(!$('outcome-data').hidden&&!readingSelection())renderDataTable();
 }
 function comparison(){
   if(!worlds[1])return;
@@ -509,7 +538,11 @@ function comparison(){
     worlds[0].policy.replication+'/10     |     WORLD B · Review '+
     worlds[1].policy.verification+'/10, replication '+worlds[1].policy.replication+'/10';
 }
-function render(){summary();inspector();feed();drawChart();comparison();renderMetricTrends();renderDomainResults();mapLegend();publishContext();}
+function render(){
+ // Keep the user's selected text and reading position intact while the numerical model continues.
+ if(readingSelection()){selectionDeferred=true;publishContext();drawChart();return;}
+ selectionDeferred=false;summary();inspector();feed();drawChart();comparison();renderMetricTrends();renderDomainResults();mapLegend();publishContext();
+}
 function interesting(){
   const types=['paper_retracted','replication_failed','review_rejected','replication_passed','paper_published','hypothesis_generated'];
   const s=nowWorld(),seen=eventSeen[active];
@@ -537,40 +570,64 @@ function networkFacts(s,labId=selected[active]){
   retainedCitations:(s.citationEdges||[]).length,
   recentCitations:(s.citationEdges||[]).filter(e=>s.day-e.day<=8).length};
 }
+function paperWindow(s){
+ const all=s.hypotheses.filter(p=>p.published&&!p.retracted&&(fieldFilter===null||p.domain===fieldFilter));
+ return all.sort((a,b)=>a.publishedOn-b.publishedOn||a.id-b.id).slice(-180);
+}
+function paperLayout(s,g){
+ const papers=paperWindow(s),domains=fieldFilter===null?[0,1,2,3]:[fieldFilter];
+ const start=Math.max(0,Math.min(s.day-30,...papers.map(p=>p.publishedOn))),end=Math.max(start+10,s.day);
+ return {papers,domains,start,end,left:98,right:g.w-25,top:38,lane:(g.h-76)/domains.length};
+}
 function livePaperNodes(s,g){
- return s.hypotheses.filter(p=>p.published&&!p.retracted).slice(-180).map(paper=>{
-  const origin=position(s.labs[paper.labId],g),angle=paper.id*2.399963,radius=23+Math.sqrt((paper.id%43)+1)*7;
-  return {paper,x:Math.max(9,Math.min(g.w-9,origin.x+Math.cos(angle)*radius)),
-   y:Math.max(9,Math.min(g.h-9,origin.y+Math.sin(angle)*radius)),r:3+Math.min(3,Math.sqrt(paper.replications||0))};
+ const cacheKey=[s.day,s.stats.published,s.stats.retracted,g.w,g.h,fieldFilter].join(':');const cached=paperNodeCache.get(s);if(cached?.key===cacheKey)return cached.nodes;
+ const layout=paperLayout(s,g),{papers,domains,left,right,top,lane,start,end}=layout;
+ const cols=Math.max(1,Math.floor((right-left)/14)),rows=Math.max(1,Math.floor((lane-32)/13)),used=new Map();
+ const counts=new Map(),fitting=[...papers].reverse().filter(p=>{const n=counts.get(p.domain)||0;counts.set(p.domain,n+1);return n<cols*rows;}).reverse();
+ const nodes=fitting.map(paper=>{
+   const band=domains.indexOf(paper.domain),fraction=(paper.publishedOn-start)/(end-start),col=Math.max(0,Math.min(cols-1,Math.round(fraction*(cols-1))));
+   let best=null,bestCost=Infinity;
+   // Nearest free display slot keeps points separate. The horizontal guide reports exact dates on selection.
+   for(let c=0;c<cols;c++)for(let row=0;row<rows;row++){
+     const key=band+':'+c+':'+row;if(used.has(key))continue;
+     const cost=Math.abs(c-col)*3+Math.abs(row-(rows-1)/2);
+     if(cost<bestCost){best={c,row,key};bestCost=cost;}
+   }
+   if(!best)best={c:col,row:paper.id%rows,key:band+':overflow:'+paper.id};used.set(best.key,true);
+   return {paper,x:left+(best.c+.5)/cols*(right-left),y:top+band*lane+25+(best.row+.5)/rows*(lane-34),r:3+Math.min(2,Math.sqrt(paper.replications||0))};
  });
+ paperNodeCache.set(s,{key:cacheKey,nodes});return nodes;
 }
 function mapLegend(){
  const s=nowWorld(),m=E.summary(s),n=networkFacts(s),papers=view==='papers';
- $('stage-title').textContent=(compareMode?'World A / B · ':'')+(papers?'Papers and citations':'Teams and collaboration');
- $('map-explanation').textContent=papers?
-  'Small dots are published claims, not laboratories. Arrows run from a citing lab to the paper it cited. Select a dot to inspect the claim.':
-  'Large circles are laboratories; their size follows studies in progress. Lines are possible collaborations. Drag a lab to change its partners.';
- $('canvas-instruction').textContent=papers?'Dots = live papers · Arrows = recorded citations':'Size = active studies · Lines = collaboration opportunities';
- $('links-label').textContent=papers?'Citation arrows':'Collaborations';
- $('flows-label').textContent=papers?'Recent citations':'People & citations';
- $('map-counts').textContent=papers?
-  Math.min(180,m.healthyPapers)+' / '+m.healthyPapers+' live papers shown · '+n.retainedCitations+' retained citation events · '+m.citations+' citations in total':
-  s.labs.length+' laboratories · '+m.activeStudies+' active studies · '+n.links+' links, '+n.crossFieldLinks+' across fields';
- const key=$('map-key-content');key.replaceChildren();
- const explanations=papers?[
-  'Gold: no completed repeat yet. Green: a successful repeat with no failed repeat. Orange: at least one failed repeat. These colors describe tests, not certainty of truth. Size follows completed repeats.',
-  'The outer color is the paper’s research field. An extra violet ring marks a topic outside the origin laboratory’s field. Topic mixing is modeled; it has no proven quality bonus.',
-  'Only the latest 180 live papers are drawn. Arrows show retained citation events whose paper is visible; at most 120 citation events are retained. Moving marks show events from the last 8 model days. Their position encodes age, not a physical speed of knowledge.',
-  'Papers are arranged near their origin lab for readability. The small dots’ exact positions do not affect outcomes. Lab anchors are faint circles; moving a lab changes modeled collaboration opportunities.'
- ]:[
-  'Circle color identifies the laboratory’s field; size follows active studies, with a visual size cap. Select a lab for its exact counts. Grey means proposal generation is reduced to 17% of its usual rate.',
-  'Small stationary marks are actual team members: gold for AI roles, blue for human roles. They do not orbit or imply a measured work rate. A selection ring identifies the lab you are inspecting.',
-  'Blue lines connect modeled partners in the same field; violet lines cross fields. A connection multiplies citation preference by 1.7, all else equal. Line thickness no longer implies an additional distance-based causal effect.',
-  'Moving gold marks are actual retained citations from the last 8 model days, moving from the citing lab toward the cited lab. Their progress encodes event age. Everything freezes when model time is paused.',
-  'Dragging a lab changes network distance and can add or remove partners. It affects later citation choices and possible follow-up repeats, not the truth or statistical evidence already stored in a paper.'
- ];
- explanations.forEach(text=>key.append(make('p','',text)));
- for(const id of ['network-a','network-b'])$(id).setAttribute('aria-label',papers?'Published paper map with recorded citation arrows; select a paper dot to inspect it':'Laboratory map; size indicates active studies, lines are modeled collaborators; drag to change network position');
+ $('claim-focusbar').hidden=!papers;
+ const visible=papers?livePaperNodes(s,{w:$(active?'network-b':'network-a').clientWidth,h:$(active?'network-b':'network-a').clientHeight}).map(n=>n.paper):[];
+ if(papers){const key=active+':'+visible.map(p=>p.id).join(',');if(key!==claimOptionsKey){claimOptionsKey=key;const select=$('claim-select');select.replaceChildren(make('option','','Choose a claim…'));select.firstChild.value='';for(const p of [...visible].reverse()){const option=make('option','','#'+p.id+' · '+domainNames[p.domain]+' · day '+p.publishedOn);option.value=p.id;select.append(option);}}$('claim-select').value=selectedPaper[active]===null?'':String(selectedPaper[active]);}
+ text('stage-title',(compareMode?'World A / B · ':'')+(papers?'Knowledge, one claim at a time':'Teams and collaboration'));
+ text('map-explanation',papers?'Small dots are published claims, arranged by research field and publication time. Select a claim to reveal its recorded citations.':'Circle size follows studies in progress. Select a lab to inspect it, or drag it to change its possible collaborators.');
+ text('canvas-instruction',papers?'Select a claim → inspect its citations':'Size = active studies · Lines = possible collaborators');
+ text('links-label',papers?'Selected citations':'Collaborations');text('flows-label',papers?'Recent activity':'Team & citations');
+ text('map-counts',papers?visible.length+' / '+m.healthyPapers+' live papers shown · '+n.retainedCitations+' retained citation records':s.labs.length+' laboratories · '+m.activeStudies+' active studies · '+n.links+' links, '+n.crossFieldLinks+' across fields');
+ text('map-key-summary',papers?'Color = repeat-test history · Rows = topic fields':'Field colors identify teams. Select a field to focus.');
+ if(mapKeyView!==view){mapKeyView=view;const key=$('map-key-content');key.replaceChildren();
+   const illustration=make('div','map-guide-illustration');
+   // Authored legend, explicitly schematic, never fabricated research data.
+   illustration.innerHTML=papers?'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: Biology and Climate paper lanes, with a citation arrow toward a selected paper"><path d="M90 48H440M90 112H440" stroke="#8bb5c5" stroke-opacity=".25"/><text x="8" y="52" fill="#65b6cf">Biology</text><text x="8" y="116" fill="#95aadf">Climate</text><circle cx="150" cy="48" r="6" fill="#e5c58f"/><circle cx="230" cy="48" r="7" fill="#a4d5bd"/><circle cx="350" cy="112" r="7" fill="#e4a080"/><circle cx="230" cy="48" r="13" fill="none" stroke="#fff"/><path d="M90 112Q130 25 215 48m-7-6 7 6-9 2" fill="none" stroke="#c1a0e7"/><text x="270" y="28" fill="#c4d5df">Select one claim</text><text x="225" y="143" fill="#a5b9c8">Earlier → later publication</text></svg>':'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: two laboratories, a collaboration line and small team-member marks"><path d="M130 75H330" stroke="#c1a0e7" stroke-width="2"/><circle cx="130" cy="75" r="21" fill="#0e3045" stroke="#65b6cf" stroke-width="2"/><circle cx="330" cy="75" r="13" fill="#0e3045" stroke="#bea0ef" stroke-width="2"/><circle cx="130" cy="75" r="4" fill="#65b6cf"/><circle cx="330" cy="75" r="3" fill="#bea0ef"/><circle cx="130" cy="43" r="3" fill="#e4c789"/><circle cx="104" cy="94" r="3" fill="#a5d4e7"/><circle cx="156" cy="94" r="3" fill="#a5d4e7"/><text x="75" y="127" fill="#c4d5df">More active studies</text><text x="285" y="127" fill="#c4d5df">Fewer studies</text><text x="177" y="55" fill="#c1a0e7">Possible partners</text></svg>';
+   key.append(illustration,make('small','small-print','Schematic legend · not measurements from your run'));
+   const items=papers?[
+     ['One dot, one claim','Up to the newest 180 live papers are grouped by topic field; smaller maps keep the newest claims in each field as space allows. Horizontal position follows publication time, adjusted into free slots for legibility. Select a dot for its exact publication day, origin lab and repeat tests. Dot positions never change model outcomes.'],
+     ['Read the evidence color','Gold: no completed repeat. Green: passed repeat(s), no failed repeat. Orange: at least one failed repeat. Size follows completed repeats. These are observations, not proof of truth.'],
+     ['Follow one citation','Select a claim to show retained arrows from citing labs at the left to that paper. The origin-field color surrounds each dot; a violet outer ring means its topic differs from its lab’s specialty. Only 120 recent citation records are retained.'],
+     ['Watch model time','A moving mark represents an actual citation from the last 8 model days. Its position shows age, not the physical speed of knowledge. Pausing model time freezes it.']
+   ]:[
+     ['Read a laboratory','Circle color is its field; circle size follows active studies with a visual cap. Small stationary marks are actual human (blue) and AI (gold) team members. Grey means proposals are reduced to 17% of the usual rate.'],
+     ['Follow the connections','Blue lines join possible partners in one field; violet lines cross fields. A connection multiplies citation preference by 1.7 in this model. A line is an opportunity, not proof that a joint paper exists.'],
+     ['Move with a purpose','Dragging a lab changes possible partners and later citation choices. It does not directly change truth, funding or evidence. The inspector reports its exact connection counts.'],
+     ['Compare the two views','Laboratories shows the teams. Knowledge flow shows actual published claims, organized into readable field lanes. Select one claim to focus its citations.']
+   ];
+   for(const [title,body] of items){const item=make('section','guide-fact');item.append(make('h3','',title),make('p','',body));key.append(item);}
+ }
+ for(const id of ['network-a','network-b'])$(id).setAttribute('aria-label',papers?'Published claims arranged by field and publication time; select a paper for its recorded citations':'Laboratory map; size indicates active studies, lines show possible partners; drag a lab to change its network position');
 }
 function drawArrow(ctx,a,b,color){
  const angle=Math.atan2(b.y-a.y,b.x-a.x),x=b.x-Math.cos(angle)*6,y=b.y-Math.sin(angle)*6;
@@ -587,21 +644,35 @@ function draw(canvas,s,index,t){
  for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
  for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
  if(show.links&&!papers)for(const edge of s.links){
+  if(fieldFilter!==null&&s.labs[edge.a].domain!==fieldFilter&&s.labs[edge.b].domain!==fieldFilter)continue;
   const a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
   ctx.strokeStyle=s.labs[edge.a].domain!==s.labs[edge.b].domain?'rgba(193,160,231,.55)':'rgba(115,181,203,.32)';
   ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
  }
- if(papers&&show.links)for(const flow of (s.citationEdges||[])){
-  const target=byPaper.get(flow.paperId);if(!target)continue;
-  drawArrow(ctx,position(s.labs[flow.from],g),target,s.labs[flow.from].domain!==target.paper.domain?'rgba(193,160,231,.44)':'rgba(229,197,143,.26)');
+ if(papers){
+  const layout=paperLayout(s,g),focus=byPaper.get(selectedPaper[index]),sources=(s.citationEdges||[]).filter(e=>focus&&e.paperId===focus.paper.id);
+  layout.domains.forEach((domain,i)=>{
+   const y=layout.top+i*layout.lane;ctx.fillStyle=i%2?'rgba(154,190,213,.025)':'rgba(154,190,213,.055)';ctx.fillRect(0,y,w,layout.lane);
+   ctx.fillStyle=domainColors[domain];ctx.font='600 11px system-ui';ctx.textAlign='left';ctx.fillText(domainNames[domain],12,y+19);
+  });
+  ctx.font='10px system-ui';ctx.fillStyle='#a5b9c8';ctx.textAlign='left';ctx.fillText('PUBLISHED CLAIMS',12,20);
+  ctx.fillText('Day '+layout.start,layout.left,h-12);ctx.textAlign='right';ctx.fillText('Day '+layout.end,layout.right,h-12);
+  if(!nodes.length){ctx.textAlign='center';ctx.fillStyle='#c4d5df';ctx.font='12px system-ui';ctx.fillText('Advance model time to see published claims here.',w/2,h/2);}
+  const fromLabs=[...new Set(sources.map(e=>e.from))];
+  fromLabs.forEach((id,i)=>{
+   const lab=s.labs[id],band=layout.domains.indexOf(lab.domain),other=fromLabs.filter(x=>s.labs[x].domain===lab.domain),j=other.indexOf(id);
+   const y=band<0?layout.top+20+i*20:layout.top+band*layout.lane+34+(j+1)/(other.length+1)*(layout.lane-42),a={x:75,y};
+   if(show.links){ctx.fillStyle=domainColors[lab.domain];ctx.beginPath();ctx.arc(a.x,a.y,4,0,6.283);ctx.fill();if(show.labels){ctx.font='9px system-ui';ctx.textAlign='right';ctx.fillText(lab.name,a.x-8,a.y+3);}
+    drawArrow(ctx,a,focus,lab.domain===focus.paper.domain?'rgba(229,197,143,.6)':'rgba(193,160,231,.7)');}
+   if(show.flows)for(const event of sources.filter(e=>e.from===id&&s.day-e.day<=8)){const f=Math.min(1,Math.max(0,(s.day-event.day)/8));ctx.fillStyle='#e5c58f';ctx.beginPath();ctx.arc(a.x+(focus.x-a.x)*f,a.y+(focus.y-a.y)*f,2.5,0,6.283);ctx.fill();}
+  });
  }
- if(show.flows)for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
-  const a=position(s.labs[flow.from],g),b=papers?byPaper.get(flow.paperId):position(s.labs[flow.to],g);if(!b)continue;
-  const f=Math.min(1,Math.max(0,(s.day-flow.day)/8));
-  if(!papers)drawArrow(ctx,a,b,'rgba(229,197,143,.35)');
-  ctx.fillStyle='#e5c58f';ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);ctx.fill();
+ if(!papers&&show.flows)for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
+  const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g),f=Math.min(1,Math.max(0,(s.day-flow.day)/8));
+  drawArrow(ctx,a,b,'rgba(229,197,143,.35)');ctx.fillStyle='#e5c58f';ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);ctx.fill();
  }
- s.labs.forEach((l,i)=>{
+ if(!papers)s.labs.forEach((l,i)=>{
+  ctx.globalAlpha=fieldFilter===null||l.domain===fieldFilter?1:.18;
   const p=position(l,g),isSelected=selected[index]===i,r=papers?5:Math.min(18,7+Math.sqrt(l.active+1)*1.4);
   if(isSelected){ctx.strokeStyle='#f4d7a3';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,r+8,0,6.283);ctx.stroke();}
   ctx.fillStyle=l.locked?'#385365':'#0e3045';ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=papers?1:1.5;
@@ -616,6 +687,7 @@ function draw(canvas,s,index,t){
    ctx.fillStyle=isSelected?'#fff8e9':'rgba(218,234,243,.7)';ctx.font=isSelected?'600 11px system-ui':'10px system-ui';ctx.textAlign='center';ctx.fillText(l.name,p.x,p.y-r-12);
   }
  });
+ ctx.globalAlpha=1;
  for(const n of nodes){
   const paper=n.paper,passed=(paper.replications||0)-(paper.failedReplications||0);
   ctx.fillStyle=paper.failedReplications?'#e4a080':passed>0?'#a4d5bd':'#e5c58f';ctx.strokeStyle=domainColors[paper.domain];ctx.lineWidth=1.4;
@@ -645,7 +717,7 @@ function canvasEvents(index){
     if(view==='papers'){
       const p=local(e),g=canvasGeometry(canvas);
       const hit=livePaperNodes(nowWorld(),g).filter(n=>Math.hypot(n.x-p.x,n.y-p.y)<n.r+5).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
-      if(hit){selected[index]=hit.paper.labId;selectedPaper[index]=hit.paper.id;inspector();publishContext(true);return;}
+      if(hit){selected[index]=hit.paper.labId;selectedPaper[index]=hit.paper.id;inspector();drawMap();publishContext(true);return;}
     }
     const p=local(e),id=nearest(nowWorld(),canvasGeometry(canvas),p.x,p.y);
     selected[index]=id<0?null:id;selectedPaper[index]=null;
@@ -695,11 +767,11 @@ function renderPolicies(){
   const host=$('policy-controls');host.replaceChildren();
   for(const [key,value] of Object.entries(nowWorld().policy)){
     const [name,hint]=policyDescriptions[key];
-    const line=make('label','policy-control');
+    const line=make('section','policy-control');
     const head=make('div','policy-name');
     head.append(make('strong','',name),make('output','',value+'/10'));
     const range=make('input');range.type='range';range.min=1;range.max=10;range.step=1;range.value=value;
-    range.dataset.policy=key;
+    range.dataset.policy=key;range.setAttribute('aria-label',name);
     range.addEventListener('input',()=>{
       E.editPolicy(nowWorld(),key,range.value);
       head.querySelector('output').textContent=range.value+'/10';
@@ -718,7 +790,8 @@ function renderPolicies(){
       link.addEventListener('click',event=>event.stopPropagation());
       evidence.append(link);
     }
-    line.append(evidence,sparkline(series(nowWorld()).map(x=>x['policy_'+key]),name));host.append(line);
+    const rationale=make('details','policy-rationale');rationale.append(make('summary','','Why this matters'),evidence);
+    line.append(sparkline(series(nowWorld()).map(x=>x['policy_'+key]),name),rationale);host.append(line);
   }
 }
 function showDecisionRegister(){
@@ -797,7 +870,7 @@ function auditPopulation(){
   $('world-b').disabled=true;$('compare').disabled=true;
   $('comparison').hidden=true;
   $('compare').classList.remove('active');
-  $('compare').textContent='Compare realities';
+  $('compare').textContent='Compare results';
   $('stage-title').textContent='The research network';
   chooseWorld(0);
   emit('world_reset',worlds[0],'observe');
@@ -835,11 +908,12 @@ async function runSensitivity(){
   }catch(e){out.textContent='Sensitivity run failed: '+e.message;}
   finally{go.disabled=false;}
 }
-function settings(on){
+function settings(on,returnFocus=true){
   drawerOpen=!!on;$('policy-drawer').hidden=!on;
   document.querySelector('.model-and-policies').classList.toggle('policy-open',drawerOpen);
+  $('inspector').inert=drawerOpen;document.querySelector('.activity').inert=drawerOpen;
   $('settings').setAttribute('aria-expanded',String(drawerOpen));
-  if(on){renderPolicies();$('close-settings').focus({preventScroll:true});if(innerWidth<=800)document.querySelector('.world-stage').scrollIntoView({block:'start'});}else $('settings').focus({preventScroll:true});
+  if(on){renderPolicies();$('close-settings').focus({preventScroll:true});if(innerWidth<=800)document.querySelector('.world-stage').scrollIntoView({block:'start'});}else if(returnFocus)$('settings').focus({preventScroll:true});
   publishContext(true);drawChart();
 }
 function setView(name){
@@ -932,6 +1006,7 @@ function bridge(){
   });
   G.onExperiment(runGuidedExperiment);
   G.onSection(section=>{
+    if(section==='companion'){if(drawerOpen)settings(false,false);return;}
     currentSection=section;
     if(section==='verify')setView('papers');
     if(section==='network')setView('labs');
@@ -940,8 +1015,22 @@ function bridge(){
   emit('world_started',nowWorld(),'observe');
 }
 function bind(){
-  $('more-events').addEventListener('click',()=>{eventLimit+=80;feed();});
-  $('toggle-data').addEventListener('click',()=>{const open=$('outcome-data').hidden;$('outcome-data').hidden=!open;$('toggle-data').setAttribute('aria-expanded',String(open));$('toggle-data').textContent=open?'Hide data table':'View data table';if(open)renderDataTable();});
+  $('more-events').addEventListener('click',()=>{showDialog('events-dialog');feed();});
+  $('load-events').addEventListener('click',()=>{eventLimit+=80;feed();});
+  $('close-events').addEventListener('click',()=>$('events-dialog').close());
+  $('inspector-more').addEventListener('click',()=>showDialog('inspector-dialog'));
+  $('close-inspector').addEventListener('click',()=>$('inspector-dialog').close());
+  for(const id of ['map-help','inspector-map-help'])$(id).addEventListener('click',openMapGuide);
+  $('close-map-help').addEventListener('click',()=>$('map-dialog').close());
+  $('guide-knowledge').addEventListener('click',()=>{setView('papers');$('map-dialog').close();});
+  $('back-labs').addEventListener('click',()=>shellAction('catalog'));
+  $('guided-tour').addEventListener('click',()=>shellAction('tour'));
+  $('fullscreen').addEventListener('click',()=>shellAction('fullscreen'));
+  $('scientific-sources').addEventListener('click',()=>shellAction('sources'));
+  document.querySelectorAll('[data-site-page]').forEach(button=>button.addEventListener('click',()=>shellAction(button.dataset.sitePage==='labs'?'catalog':'navigate:'+button.dataset.sitePage)));
+  document.querySelectorAll('[data-domain]').forEach(button=>button.addEventListener('click',()=>{fieldFilter=button.dataset.domain==='all'?null:Number(button.dataset.domain);document.querySelectorAll('[data-domain]').forEach(b=>{const on=b===button;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});render();drawMap();}));
+  document.addEventListener('selectionchange',()=>{if(selectionDeferred&&!readingSelection())render();});
+  $('toggle-data').addEventListener('click',()=>{const open=$('outcome-data').hidden;$('outcome-data').hidden=!open;$('toggle-data').setAttribute('aria-expanded',String(open));$('toggle-data').textContent=open?'Hide data table':'Data table';if(open)renderDataTable();});
   $('metric-select').addEventListener('change',e=>{plot=e.target.value;drawChart();renderMetricTrends();});
   $('snapshot').addEventListener('click',()=>{publishContext(true);if(G.saveSnapshot)G.saveSnapshot({seed:nowWorld().seed});snapshotStates.set(nowWorld(),{metrics:E.summary(nowWorld()),day:nowWorld().day});$('snapshot-status').textContent='Snapshot captured. Pulsar can explain the measurements and changes.';emit('snapshot_saved',nowWorld());});
   $('atlas').addEventListener('click',()=>{if(G.openAtlas)G.openAtlas();else $('snapshot-status').textContent='Open this Lab through GraviQuest to explore the database scenario atlas.';});
@@ -953,7 +1042,8 @@ function bind(){
   $('world-b').addEventListener('click',()=>chooseWorld(1));
   $('fork').addEventListener('click',fork);
   $('compare').addEventListener('click',()=>compare(!compareMode));
-  $('close-compare').addEventListener('click',()=>compare(false));
+  $('close-compare').addEventListener('click',()=>compare(!compareMode));
+  $('claim-select').addEventListener('change',e=>{const paper=nowWorld().hypotheses.find(p=>p.id===Number(e.target.value));if(!e.target.value||!paper)return;selected[active]=paper.labId;selectedPaper[active]=paper.id;inspector();drawMap();publishContext(true);});
   $('view-labs').addEventListener('click',()=>setView('labs'));
   $('view-papers').addEventListener('click',()=>setView('papers'));
   $('fund-lab').addEventListener('click',()=>changeLab('fund'));
@@ -967,7 +1057,7 @@ function bind(){
       x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b));
     });drawChart();
   }));
-  $('settings').addEventListener('click',()=>settings(true));
+  $('settings').addEventListener('click',()=>settings(!drawerOpen));
   $('close-settings').addEventListener('click',()=>settings(false));
   $('policy-advance').addEventListener('click',()=>advance(10));
   $('policy-reset').addEventListener('click',()=>{

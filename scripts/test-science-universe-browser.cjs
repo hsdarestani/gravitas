@@ -42,16 +42,15 @@ const server=http.createServer((req,res)=>{
     assert.match(await page.locator('#map-explanation').innerText(),/Small dots are published claims/);
     assert.ok(Number(await page.locator('#network-a').getAttribute('data-visible-papers'))>0);
     assert.notEqual(await page.locator('#network-a').evaluate(x=>x.toDataURL()),labPicture,'the views represent different model objects');
-    const paperClick=await page.evaluate(()=>{
-      const s=ScienceUniverseEngine.make(20261029);ScienceUniverseEngine.step(s,10);
-      const p=s.hypotheses.filter(h=>h.published&&!h.retracted).at(-1),lab=s.labs[p.labId];
-      const rect=document.getElementById('network-a').getBoundingClientRect(),a=p.id*2.399963,r=23+Math.sqrt((p.id%43)+1)*7;
-      return {id:p.id,x:rect.left+Math.max(9,Math.min(rect.width-9,28+lab.x*(rect.width-56)+Math.cos(a)*r)),
-        y:rect.top+Math.max(9,Math.min(rect.height-9,28+lab.y*(rect.height-56)+Math.sin(a)*r))};
-    });
-    await page.mouse.click(paperClick.x,paperClick.y);
+    const claimDates=await page.locator('#claim-select option').evaluateAll(options=>options.slice(1).map(o=>Number(o.textContent.match(/day (\d+)/)[1])));
+    assert.ok(claimDates.every((day,i)=>i===0||claimDates[i-1]>=day),'claims are ordered by publication time, not hypothesis creation');
+    const claim=await page.locator('#claim-select option').nth(1).getAttribute('value');
+    await page.locator('#claim-select').selectOption(claim);
+    assert.equal(await page.locator('#inspector-dialog').evaluate(x=>x.open),false,'claim selection keeps the overview readable');
+    await page.locator('#inspector-more').click();
     await page.locator('#selected-paper').waitFor({state:'visible'});
-    assert.match(await page.locator('#selected-paper').innerText(),new RegExp('Paper #'+paperClick.id));
+    assert.match(await page.locator('#selected-paper').innerText(),new RegExp('Paper #'+claim));
+    await page.locator('#close-inspector').click();
     await page.locator('#view-labs').click();
     const click=await page.evaluate(()=>{
       const canvas=document.getElementById('network-a');
@@ -62,14 +61,26 @@ const server=http.createServer((req,res)=>{
     await page.mouse.click(click.x,click.y);
     await page.locator('#inspector-content').waitFor({state:'visible'});
     assert.match(await page.locator('#selected-title').innerText(),/Helix|Stratus|Axiom|Lattice/);
+    const aligned=await page.evaluate(()=>{const a=document.querySelector('.world-stage').getBoundingClientRect(),b=document.querySelector('.workspace-side').getBoundingClientRect();return {top:Math.abs(a.top-b.top),bottom:Math.abs(a.bottom-b.bottom),inspectorScroll:document.getElementById('inspector').scrollHeight-document.getElementById('inspector').clientHeight};});
+    assert.ok(aligned.top<1&&aligned.bottom<1,'right panels and companion align with the map');
+    assert.ok(aligned.inspectorScroll<2,'the summary has no internal scrollbar');
+    await page.setViewportSize({width:1280,height:720});
+    const compactSummary=await page.locator('#inspector').evaluate(el=>({overflow:el.scrollHeight-el.clientHeight,moreBottom:el.querySelector('#inspector-more').getBoundingClientRect().bottom,bottom:el.getBoundingClientRect().bottom}));
+    assert.ok(compactSummary.overflow<2&&compactSummary.moreBottom<compactSummary.bottom,'See more remains visible on short desktop windows');
+    await page.setViewportSize({width:1365,height:900});
+    await page.locator('#inspector-more').click();
     await page.locator('#fund-lab').click();
     assert.match(await page.locator('#intervention-status').innerText(),/Intervention applied/);
+    await page.locator('#close-inspector').click();
+    const mapBeforePolicy=await page.locator('#network-a').boundingBox();
     await page.locator('#settings').click();
     assert.equal(await page.locator('.policy-control').count(),12);
     const policyLayout=await page.evaluate(()=>{
       const map=document.getElementById('network-a').getBoundingClientRect(),panel=document.querySelector('.drawer-panel').getBoundingClientRect();
-      return {mapRight:map.right,panelLeft:panel.left,hit:document.elementFromPoint(map.left+map.width/2,map.top+map.height/2)?.id};
+      return {width:map.width,height:map.height,mapRight:map.right,panelLeft:panel.left,hit:document.elementFromPoint(map.left+map.width/2,map.top+map.height/2)?.id};
     });
+    assert.equal(policyLayout.width,mapBeforePolicy.width,'opening policies never resizes the map');
+    assert.equal(policyLayout.height,mapBeforePolicy.height,'opening policies keeps map height');
     assert.ok(policyLayout.mapRight<=policyLayout.panelLeft,'policies dock beside the map');
     assert.equal(policyLayout.hit,'network-a','there is no dark or blocking policy overlay');
     const range=page.locator('input[data-policy=pressure]');
@@ -83,6 +94,10 @@ const server=http.createServer((req,res)=>{
     await page.locator('#network-b').waitFor({state:'visible'});
     assert.equal(await page.locator('.comparison-row').count(),6);
     assert.equal(await page.locator('#policy-world').innerText(),'EDITING WORLD B');
+    await page.locator('#close-compare').click();
+    assert.equal(await page.locator('#close-compare').innerText(),'Show comparison');
+    await page.locator('#close-compare').click();
+    assert.equal(await page.locator('#close-compare').innerText(),'Hide comparison','comparison can reopen in place');
     await page.locator('#advance').click();
     await page.locator('#view-papers').click();
     await page.locator('#metric-select').selectOption('falsePublished');
@@ -93,6 +108,18 @@ const server=http.createServer((req,res)=>{
     const still=await page.locator('#network-a').evaluate(x=>x.toDataURL());
     await page.waitForTimeout(500);
     assert.equal(await page.locator('#network-a').evaluate(x=>x.toDataURL()),still,'paused model has no independent visual animation');
+    await page.locator('#play').click();
+    const selectedText=await page.evaluate(()=>{const node=document.getElementById('map-explanation');const range=document.createRange();range.selectNodeContents(node);getSelection().removeAllRanges();getSelection().addRange(range);return String(getSelection());});
+    await page.waitForTimeout(1200);
+    assert.equal(await page.evaluate(()=>String(getSelection())),selectedText,'text selection survives running model updates');
+    await page.evaluate(()=>getSelection().removeAllRanges());
+    await page.locator('#play').click();
+    await page.locator('#map-help').click();
+    assert.equal(await page.locator('#map-key-content svg').count(),1,'a visual legend explains the map');
+    await page.locator('#close-map-help').click();
+    await page.locator('#more-events').click();
+    assert.ok(await page.locator('#event-history .feed-event').count()>3,'full event history is available on demand');
+    await page.locator('#close-events').click();
     await page.locator('#methodology').click();
     assert.equal(await page.locator('#method-dialog').evaluate(x=>x.open),true);
     await page.locator('#method-done').click();

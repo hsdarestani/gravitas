@@ -11,7 +11,22 @@ var lastCoachAt=0, scheduled=null, lastEventKey='', lastEventAt=0, aiBusy=false;
 var speaking=true, controller=null, session=0;
 var requestSequence=0;
 var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false;
-var notices=[],chatSequence=0,fullscreenButton=null;
+var notices=[],chatSequence=0,fullscreenButton=null,companionGeometry=null;
+function enteredLab(slug){try{return sessionStorage.getItem('graviquest:lab:entered:'+slug)==='yes';}catch(_){return false;}}
+function positionCompanion(){
+ if(!chat||active?.slug!=='science-universe')return;
+ const widget=chat.box.closest('.lab-pulsar-widget'),frame=iframe?.getBoundingClientRect(),g=companionGeometry;
+ if(!widget||!frame)return;
+ widget.classList.remove('is-docked');widget.style.cssText='';
+ if(!g||g.viewportWidth<=900||g.width<250)return;
+ const left=Math.max(12,Math.min(innerWidth-g.width-12,frame.left+g.left));
+ let top=chatOpen?Math.max(frame.top+12,frame.top+g.top):Math.max(frame.top+12,Math.min(innerHeight-84,frame.top+g.dockTop));
+ const bottom=Math.min(innerHeight-12,frame.top+g.top+g.height),height=Math.max(250,bottom-top);
+ if(chatOpen&&top>innerHeight-280)top=Math.max(frame.top+12,innerHeight-Math.min(g.height,600)-12);
+ widget.style.left=left+'px';widget.style.top=top+'px';widget.style.bottom='auto';widget.style.right='auto';widget.style.width=Math.min(g.width,innerWidth-24)+'px';
+ widget.style.setProperty('--companion-height',Math.min(innerHeight-top-12,Math.max(250,height))+'px');widget.classList.add('is-docked');
+}
+window.addEventListener('resize',positionCompanion,{passive:true});
 var tourActive=false, tourIndex=0, tourUI=null;
 var CHAT_KEY='graviquest:pulsar:lab01:history:v1';
 var scienceGuide=window.GraviScienceCoach||null;
@@ -32,6 +47,9 @@ var SCIENCE_TOUR=[
   {target:'quality',title:'Evidence must survive criticism',
    description:'Papers pass modeled review, but can still be wrong. Independent replication may support them or lead to withdrawal.',
    task:'Inspect the outcomes chart and Scientific event stream below it.'},
+  {target:'map',title:'Read one claim at a time',
+   description:'Knowledge flow arranges published claims in rows by field and publication time. Select one dot to reveal its recorded citations. Dot color describes independent repeat tests.',
+   task:'Open Visual guide for an illustrated key, then try Knowledge flow. Gold: not repeated; green: passed repeats; orange: a failed repeat.'},
   {target:'network',title:'Attention is different from truth',
    description:'Collaboration and proximity shape citation chances. Citations measure the modeled spread of attention, not scientific validity.',
    task:'Select or move a lab in the network; inspect its agents, published claims and connections.'},
@@ -245,6 +263,7 @@ function refreshChat(){
  chat.badge.hidden=chatOpen||chatUnread===0;
  chat.badge.textContent=chatUnread>9?'9+':String(chatUnread);
  if(chatOpen){chatUnread=0;clearNotices();chat.log.scrollTop=chat.log.scrollHeight;}
+ positionCompanion();
 }
 function mountPulsarChat(sidebar){
  CHAT_KEY='graviquest:pulsar:'+active.slug+':history:v2';
@@ -257,7 +276,7 @@ function mountPulsarChat(sidebar){
  mark.src='/assets/pulsar-mark.svg';mark.alt='';mark.width=28;mark.height=28;
  avatar.append(mark);
  var name=node('span','lab-chat-name');
- name.append(node('strong','','Pulsar'),node('small','','Scientific companion'));
+ name.append(node('strong','','Pulsar'),node('small','','Make sense of what you see'));
  var badge=node('span','lab-chat-badge');badge.hidden=true;
  var arrow=node('span','lab-chat-arrow','↗');arrow.setAttribute('aria-hidden','true');
  toggle.append(avatar,name,badge,arrow);
@@ -265,6 +284,11 @@ function mountPulsarChat(sidebar){
  var log=node('div','lab-chat-log');
  log.setAttribute('role','log');log.setAttribute('aria-label','Pulsar conversation');
  log.setAttribute('aria-live','polite');
+ var observation=node('div','lab-chat-observation','Your scientific companion');
+ var starters=node('div','lab-chat-starters');
+ if(active.slug==='science-universe'){
+  [['Explain this result','Explain the current result in plain language: what changed, why might it have changed, and what should I watch next?'],['Suggest an experiment','Help me choose one policy change for a useful controlled experiment in this Lab.']].forEach(function(pair){starters.append(btn(pair[0],function(){askPulsar(pair[1],'ask');}));});
+ }
  var status=node('div','lab-chat-status','Conversation saved on this device');
  var form=document.createElement('form');form.className='lab-chat-compose';
  var input=node('input','lab-chat-input');
@@ -280,8 +304,10 @@ function mountPulsarChat(sidebar){
   noticeStack.setAttribute('aria-label','Pulsar notifications');noticeStack.setAttribute('aria-live','polite');
   sidebar.append(noticeStack);
  }
- body.append(log,status,form);box.append(toggle,body);sidebar.append(box);
- chat={box,body,log,status,input,send,toggle,badge,arrow,notices:noticeStack};
+ var tools=node('div','lab-chat-tools');
+ if(active.slug==='science-universe'){var tips=btn('Tips on',function(){speaking=!speaking;tips.textContent=speaking?'Tips on':'Tips off';tips.setAttribute('aria-pressed',String(speaking));if(!speaking)clearNotices();},'lab-tips-toggle');tips.setAttribute('aria-pressed','true');tools.append(observation,tips);}
+ body.append(tools,starters,log,status,form);box.append(toggle,body);sidebar.append(box);
+ chat={box,body,log,status,input,send,toggle,badge,arrow,observation,notices:noticeStack};
  chatOpen=active.slug!=='science-universe';
  try{
    var old=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
@@ -292,7 +318,7 @@ function mountPulsarChat(sidebar){
  }catch(_){chatHistory=[];}
  chatHistory.forEach(addBubble);
  if(!chatHistory.length){
-   addChat('pulsar',active.slug==='directory'?'Tell me what you want to understand. I can help you choose an available Lab and explain what you will learn.':'Change a parameter or ask any question about this Lab. I can explain the model, interpret your current measurements and point to the scientific sources.','guide');
+   addChat('pulsar',active.slug==='directory'?'Tell me what you want to understand. I can help you choose an available Lab and explain what you will learn.':'What would you like to understand? Choose a lab, change one policy, or ask me about the science. We can follow what changes and work through why.','guide');
  }
  if(scienceGuide&&active.slug==='science-universe')scienceGuide.mount(body,form,function(recipe){
    addChat('user','Run experiment: '+recipe.title,'guide');
@@ -300,7 +326,7 @@ function mountPulsarChat(sidebar){
    tellIframe('lab:experiment',{id:recipe.id});
  });
  toggle.addEventListener('click',function(){
-   chatOpen=!chatOpen;refreshChat();if(chatOpen)input.focus();
+   chatOpen=!chatOpen;if(chatOpen)tellIframe('lab:section',{section:'companion'});refreshChat();if(chatOpen)input.focus();
  });
  form.addEventListener('submit',function(e){
    e.preventDefault();var q=input.value.trim();
@@ -472,7 +498,8 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
-  clearNotices();lastInsightAt=0;
+  clearNotices();lastInsightAt=0;companionGeometry=null;
+  try{sessionStorage.setItem('graviquest:lab:entered:'+lab.slug,'yes');}catch(_){}
   tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;chatOpen=false;
   if(scienceGuide)scienceGuide.reset();
   root.dataset.labSlug = lab.slug;
@@ -485,7 +512,7 @@ function runLab(lab){
   cfg.components=Array.isArray(cfg.components)?cfg.components:['stage','controls','metrics'];
   var main=node('div','lab-runtime');
   var bar=node('div','lab-runtime-top');
-  var back=btn('All Labs',showCatalog);
+  var back=btn('Back to Labs',showCatalog);
   bar.append(back,node('span','lab-runtime-title',lab.title));
   if(lab.topic_slug){
     var link=node('a','lab-topic-link','Related Topic');
@@ -494,8 +521,7 @@ function runLab(lab){
   }
   main.append(bar);
   if(lab.slug==='science-universe'){
-   makeTourUI(main,bar);bar.append(btn('Scientific sources',function(){openKnowledge();}),btn('Scenario atlas',openAtlas));
-   var auto=btn('Pulsar tips on',function(){speaking=!speaking;auto.textContent=speaking?'Pulsar tips on':'Pulsar tips off';if(!speaking)clearNotices();});bar.append(auto);
+   makeTourUI(main,bar);
    if(document.fullscreenEnabled){
     fullscreenButton=btn('Fullscreen',async function(){
      try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}
@@ -577,7 +603,7 @@ function showCatalog(){
   clearNotices();fullscreenButton=null;
   if(active?.slug==='science-universe'&&document.fullscreenElement)document.exitFullscreen().catch(function(){});
   tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;
-  root.dataset.labSlug='directory';
+  companionGeometry=null;root.dataset.labSlug='directory';
   root.setAttribute('aria-live','off');
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;iframe=null;shell=null;aiBusy=false;
@@ -714,6 +740,18 @@ window.addEventListener('message',function(e){
     window.scrollTo({top:Math.max(0,place),behavior:'smooth'});
     return;
   }
+  if(active.slug==='science-universe'&&data.type==='lab:companion-layout'){
+    var g=data.layout;if(!g||typeof g!=='object'||!['left','top','width','height','dockTop','viewportWidth','viewportHeight'].every(function(k){return Number.isFinite(g[k])&&Math.abs(g[k])<=20000;})||g.width<=0||g.height<=0)return;
+    companionGeometry=g;positionCompanion();return;
+  }
+  if(active.slug==='science-universe'&&data.type==='lab:shell-action'){
+    if(data.action==='catalog')showCatalog();
+    if(data.action==='tour')startTour();
+    if(data.action==='sources')openKnowledge();
+    if(data.action==='fullscreen'&&fullscreenButton)fullscreenButton.click();
+    var destinations={'navigate:home':'/index.html','navigate:topics':'/topics.html','navigate:essays':'/magazine.html','navigate:learn':'/learn.html','navigate:community':'/community.html','navigate:about':'/about.html','navigate:youtube':'https://www.youtube.com/@GraviQuest','navigate:linkedin':'https://www.linkedin.com/company/graviquest/','navigate:instagram':'https://www.instagram.com/graviquest'};
+    if(typeof data.action==='string'&&Object.prototype.hasOwnProperty.call(destinations,data.action))location.assign(destinations[data.action]);return;
+  }
   if(active.slug==='science-universe'&&data.type==='lab:open-atlas'){openAtlas();return;}
   if(active.slug==='science-universe'&&data.type==='lab:save-snapshot'){saveSnapshot(data.seed);return;}
   if(active.slug==='science-universe'&&data.type==='lab:note'){
@@ -721,6 +759,8 @@ window.addEventListener('message',function(e){
   }
   if(active.slug==='science-universe'&&data.type==='lab:context'){
     root.classList.toggle('is-editing-policy',data.context?.policyEditing===true);
+    if(data.context?.policyEditing===true&&chatOpen){chatOpen=false;refreshChat();}
+    if(chat?.observation){var observedText='World '+String(data.context?.world||'A').replace(/^World /,'')+' · Day '+String(data.context?.day||0);if(chat.observation.textContent!==observedText)chat.observation.textContent=observedText;}
     if(scienceGuide)scienceGuide.context(data.context);
     return;
   }
@@ -774,6 +814,6 @@ fetch('/api/labs/',{credentials:'same-origin',cache:'no-store'})
     if(!labs.length)return; // Intentionally EMPTY until first explicit publication.
     var slug=new URLSearchParams(location.search).get('lab');
     var requested=labs.find(function(l){return l.slug===slug;});
-    if(requested){showCatalog();previewLab(requested);}else showCatalog();
+    if(requested){if(enteredLab(requested.slug))runLab(requested);else{showCatalog();previewLab(requested);}}else showCatalog();
   }).catch(function(){ /* Silence is intentional on an unpublished surface. */ });
 })();

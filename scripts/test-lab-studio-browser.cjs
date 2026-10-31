@@ -120,7 +120,9 @@ const server=http.createServer((req,res)=>{
     await frame.locator('.metric-trend').first().waitFor();
     const skip=page.getByRole('button',{name:'Skip tour',exact:true});
     if(await skip.isVisible())await skip.click();
-    await page.getByRole('button',{name:'Pulsar tips on',exact:true}).click();
+    await page.locator('.lab-chat-head').click();
+    await page.getByRole('button',{name:'Tips on',exact:true}).click();
+    await page.locator('.lab-chat-head').click();
     assert.equal(await page.locator('.lab-chat-body').isHidden(),true,'Pulsar starts as a launcher, without a sidebar');
     assert.equal(await page.locator('body>.g-header').isHidden(),true,'the active Lab owns the viewport');
     const desktopFrame=await page.locator('.lab-frame').boundingBox();
@@ -155,7 +157,9 @@ const server=http.createServer((req,res)=>{
       // Tips are off, so model notes must not interrupt the visitor.
       assert.equal(await page.locator('.lab-pulsar-notice').count(),0);
     }
-    await page.getByRole('button',{name:'Pulsar tips off',exact:true}).click();
+    await page.locator('.lab-chat-head').click();
+    await page.getByRole('button',{name:'Tips off',exact:true}).click();
+    await page.locator('.lab-chat-head').click();
     let noteTime=Date.now();
     for(let i=1;i<=4;i++){
       // Move Date.now past the coaching throttle without firing expiry timers,
@@ -177,9 +181,14 @@ const server=http.createServer((req,res)=>{
     await page.locator('.lab-chat-head').click();
     assert.equal(await page.locator('.lab-chat-bubble').filter({hasText:'This toast fades'}).count(),1,'expiration does not delete conversation');
     await page.locator('.lab-chat-head').click();
-    await page.getByRole('button',{name:'Pulsar tips on',exact:true}).click();
+    await page.locator('.lab-chat-head').click();
+    await page.getByRole('button',{name:'Tips on',exact:true}).click();
+    await page.locator('.lab-chat-head').click();
     assert.equal(await frame.locator('.metric-trend').count(),21);
     assert.equal(await frame.locator('#outcome-data').isHidden(),true);
+    const right=await frame.locator('.workspace-side').boundingBox(),dock=await frame.locator('#pulsar-anchor').boundingBox(),companion=await page.locator('.lab-chat').boundingBox();
+    assert.ok(Math.abs(companion.x-right.x)<2&&Math.abs(companion.width-right.width)<2,'Pulsar aligns with the right column');
+    assert.ok(Math.abs(companion.y-dock.y)<3,'Pulsar sits in its reserved dock');
     const initialHeight=await page.locator('.lab-frame').evaluate(x=>x.getBoundingClientRect().height);
     await frame.locator('#advance').click();
     await page.frame({url:/\/lab-run\/science-universe\/$/}).waitForFunction(()=>document.getElementById('day').textContent==='010');
@@ -208,7 +217,10 @@ const server=http.createServer((req,res)=>{
     const chatBounds=await page.locator('.lab-chat').boundingBox();
     assert.ok(chatBounds.x>=0&&chatBounds.x+chatBounds.width<=390&&chatBounds.y>=0&&chatBounds.y+chatBounds.height<=844,'mobile conversation fits the viewport');
     await page.locator('.lab-chat-head').click();
-    await page.getByRole('button',{name:'All Labs',exact:true}).click();
+    await page.reload({waitUntil:'networkidle'});
+    await page.locator('.lab-frame').waitFor();
+    assert.equal(await page.locator('.lab-science-preview').count(),0,'reload returns to the Lab without repeating its entry popup');
+    await page.frameLocator('.lab-frame').locator('#back-labs').click();
     assert.equal(await page.locator('body>.g-header').isVisible(),true,'leaving the Lab restores site navigation');
     assert.equal(await page.locator('.lab-pulsar-notice').count(),0);
     console.log('Science workspace PASS: immersive desktop/mobile, persisted stacked notifications, expiration, history, 21 metric trends, 12 policy trends, pause, optional table, stable frame.');
