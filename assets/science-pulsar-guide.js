@@ -21,12 +21,13 @@
     reviewBacklog:Number.isInteger(raw.reviewBacklog)?Math.max(0,raw.reviewBacklog):0,
     replications:Number.isInteger(raw.replications)?Math.max(0,raw.replications):0,
     seed:Number.isInteger(raw.seed)?raw.seed:null,playing:raw.playing===true,hasFork:raw.hasFork===true,
-    policies:{},metrics:{},delta:{},design:{},events:[],changes:[],lab:null,paper:null};
-  for(var key of ['policies','metrics','delta','design']){
+    policies:{},metrics:{},delta:{},design:{},graph:{},interval:{},focusEvent:null,policyEditing:raw.policyEditing===true,events:[],changes:[],lab:null,paper:null};
+  for(var key of ['policies','metrics','delta','design','graph','interval']){
    var values=raw[key]&&typeof raw[key]==='object'?raw[key]:{};
    Object.keys(values).slice(0,40).forEach(function(k){var v=values[k];if(typeof v==='number'&&Number.isFinite(v))c[key][k]=v;});
   }
   for(var key of ['events','changes'])c[key]=(Array.isArray(raw[key])?raw[key]:[]).slice(-8).filter(function(x){return x&&typeof x==='object';}).map(function(x){return Object.fromEntries(Object.entries(x).slice(0,6).map(function(p){return [String(p[0]).slice(0,30),typeof p[1]==='string'?p[1].slice(0,180):typeof p[1]==='number'?p[1]:null];}));});
+  if(raw.focusEvent&&typeof raw.focusEvent==='object')c.focusEvent=Object.fromEntries(['day','type','text','labId','hypothesisId'].filter(k=>k in raw.focusEvent).map(k=>[k,typeof raw.focusEvent[k]==='string'?raw.focusEvent[k].slice(0,180):Number.isFinite(raw.focusEvent[k])?raw.focusEvent[k]:null]));
   if(raw.lab&&Number.isInteger(raw.lab.id)){
     c.lab={id:raw.lab.id,name:String(raw.lab.name||'').slice(0,70),
       domain:String(raw.lab.domain||'').slice(0,45),

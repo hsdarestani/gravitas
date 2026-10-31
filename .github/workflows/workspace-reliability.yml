@@ -10,7 +10,9 @@ permissions:
   contents: read
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.55 installs Chromium dependencies for this supported image.
+    # ubuntu-latest can advance to an OS that this pinned browser cannot run.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       PYTHONPATH: backend

@@ -130,6 +130,8 @@ def clean_context(raw):
     raw = raw if isinstance(raw, dict) else {}
     lab = raw.get('lab') if isinstance(raw.get('lab'), dict) else {}
     paper = raw.get('paper') if isinstance(raw.get('paper'), dict) else {}
+    focus = raw.get('focusEvent') if isinstance(raw.get('focusEvent'), dict) else {}
+    interval = raw.get('interval') if isinstance(raw.get('interval'), dict) else {}
     def small_record(record, allowed):
         return {k: str(record[k])[:140] if isinstance(record[k], str) else record[k]
                 for k in allowed if k in record and (isinstance(record[k], str) or
@@ -141,6 +143,11 @@ def clean_context(raw):
         'day': max(0, min(1000000, raw.get('day', 0))) if type(raw.get('day')) is int else 0,
         'playing': raw.get('playing') is True, 'hasFork': raw.get('hasFork') is True,
         'view': str(raw.get('view') or '')[:20],
+        'policyEditing': raw.get('policyEditing') is True,
+        'focusEvent': small_record(focus, ('day', 'type', 'text', 'labId', 'hypothesisId')) or None,
+        'interval': clean_numbers(interval, {'fromDay', 'toDay'}),
+        'graph': clean_numbers(raw.get('graph'), {'links', 'crossFieldLinks', 'selectedLinks',
+                                                'selectedCrossLinks', 'retainedCitations', 'recentCitations'}),
         'lab': small_record(lab, ('id', 'name', 'domain', 'paperCount')) or None,
         'paper': small_record(paper, ('id', 'title', 'status', 'replications', 'pValue')) or None,
         'policies': clean_numbers(raw.get('policies'), POLICY_KEYS),

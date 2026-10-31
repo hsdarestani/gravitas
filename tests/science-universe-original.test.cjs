@@ -80,3 +80,37 @@ test('every policy and central design choice has an inspectable explanation',()=
  assert.match(html,/id="audit-ai-fraction"/);
  assert.doesNotMatch(app,/E\.editPolicy\(worlds\[1\],'verification'/);
 });
+
+test('moving one lab preserves unrelated links and the experiment random stream',()=>{
+ const s=E.make(20261029),original=E.fork(s),rng=s.rng;
+ E.intervention(s,'move',0,{x:.48,y:.48});
+ assert.equal(s.rng,rng,'a layout intervention must not consume scientific samples');
+ const unrelated=x=>x.links.filter(e=>e.a!==0&&e.b!==0);
+ assert.deepEqual(unrelated(s),unrelated(original),'unmoved pairs cannot be rerolled');
+ assert.notDeepEqual(s.links,original.links,'a changed network position is a real intervention');
+ E.intervention(s,'move',0,{x:original.labs[0].x,y:original.labs[0].y});
+ assert.deepEqual(s.links,original.links,'returning to the same positions restores the same topology');
+});
+
+test('a network connection changes numeric citation preference, not existing paper evidence',()=>{
+ const s=E.make(20261029),from=s.labs[0],to=s.labs[4];
+ const paper={labId:to.id,domain:to.domain,citations:0,truth:false,pValue:.03,effect:0};
+ const evidence=JSON.stringify(paper);
+ E.intervention(s,'move',from.id,{x:to.x>.5?.04:.96,y:to.y>.5?.07:.93});
+ assert.ok(!s.links.some(e=>(e.a===from.id&&e.b===to.id)||(e.b===from.id&&e.a===to.id)));
+ const far=E.citationWeight(s,from,paper);
+ E.intervention(s,'move',from.id,{x:to.x,y:to.y});
+ const near=E.citationWeight(s,from,paper);
+ assert.ok(Math.abs(near/far-1.7)<1e-12);
+ assert.equal(JSON.stringify(paper),evidence);
+});
+
+test('out-of-field research is an actual topic change and responds to exploration policy',()=>{
+ const a=E.make(20261029,{diversity:1},{truthPriorOverride:.3});
+ const b=E.make(20261029,{diversity:10},{truthPriorOverride:.3});
+ E.step(a,90);E.step(b,90);
+ const cross=s=>s.hypotheses.filter(h=>h.domain!==s.labs[h.labId].domain).length;
+ assert.equal(E.summary(b).crossFieldStudies,cross(b));
+ assert.ok(cross(b)>cross(a));
+ assert.ok(b.hypotheses.some(h=>h.novelty&&h.domain===b.labs[h.labId].domain),'novelty alone is not proof of cross-field work');
+});

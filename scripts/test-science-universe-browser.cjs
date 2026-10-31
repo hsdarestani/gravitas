@@ -37,6 +37,22 @@ const server=http.createServer((req,res)=>{
     assert.equal(day,'010');
     const generated=Number((await page.locator('#hypotheses').innerText()).replaceAll(',',''));
     assert.ok(generated>0,'real engine generates ideas after time advance');
+    const labPicture=await page.locator('#network-a').evaluate(x=>x.toDataURL());
+    await page.locator('#view-papers').click();
+    assert.match(await page.locator('#map-explanation').innerText(),/Small dots are published claims/);
+    assert.ok(Number(await page.locator('#network-a').getAttribute('data-visible-papers'))>0);
+    assert.notEqual(await page.locator('#network-a').evaluate(x=>x.toDataURL()),labPicture,'the views represent different model objects');
+    const paperClick=await page.evaluate(()=>{
+      const s=ScienceUniverseEngine.make(20261029);ScienceUniverseEngine.step(s,10);
+      const p=s.hypotheses.filter(h=>h.published&&!h.retracted).at(-1),lab=s.labs[p.labId];
+      const rect=document.getElementById('network-a').getBoundingClientRect(),a=p.id*2.399963,r=23+Math.sqrt((p.id%43)+1)*7;
+      return {id:p.id,x:rect.left+Math.max(9,Math.min(rect.width-9,28+lab.x*(rect.width-56)+Math.cos(a)*r)),
+        y:rect.top+Math.max(9,Math.min(rect.height-9,28+lab.y*(rect.height-56)+Math.sin(a)*r))};
+    });
+    await page.mouse.click(paperClick.x,paperClick.y);
+    await page.locator('#selected-paper').waitFor({state:'visible'});
+    assert.match(await page.locator('#selected-paper').innerText(),new RegExp('Paper #'+paperClick.id));
+    await page.locator('#view-labs').click();
     const click=await page.evaluate(()=>{
       const canvas=document.getElementById('network-a');
       const lab=ScienceUniverseEngine.make(20261029).labs[0];
@@ -50,9 +66,17 @@ const server=http.createServer((req,res)=>{
     assert.match(await page.locator('#intervention-status').innerText(),/Intervention applied/);
     await page.locator('#settings').click();
     assert.equal(await page.locator('.policy-control').count(),12);
+    const policyLayout=await page.evaluate(()=>{
+      const map=document.getElementById('network-a').getBoundingClientRect(),panel=document.querySelector('.drawer-panel').getBoundingClientRect();
+      return {mapRight:map.right,panelLeft:panel.left,hit:document.elementFromPoint(map.left+map.width/2,map.top+map.height/2)?.id};
+    });
+    assert.ok(policyLayout.mapRight<=policyLayout.panelLeft,'policies dock beside the map');
+    assert.equal(policyLayout.hit,'network-a','there is no dark or blocking policy overlay');
     const range=page.locator('input[data-policy=pressure]');
     await range.evaluate(el=>{el.value='10';el.dispatchEvent(new Event('input',{bubbles:true}));});
     assert.match(await page.locator('input[data-policy=pressure]').inputValue(),/10/);
+    await page.locator('#policy-advance').click();
+    assert.equal(await page.locator('#day').innerText(),'020','model continues while the policy panel is open');
     await page.locator('#close-settings').click();
     await page.locator('#fork').click();
     await page.locator('#comparison').waitFor({state:'visible'});
@@ -75,6 +99,14 @@ const server=http.createServer((req,res)=>{
     fs.mkdirSync('qa-artifacts',{recursive:true});
     await page.screenshot({path:'qa-artifacts/science-universe-desktop.png',fullPage:true});
     await page.setViewportSize({width:390,height:844});
+    await page.locator('#settings').click();
+    const mobilePolicy=await page.evaluate(()=>{
+      const r=document.getElementById('network-a').getBoundingClientRect(),p=document.querySelector('.drawer-panel').getBoundingClientRect();
+      return {visibleMap:Math.max(0,Math.min(r.bottom,p.top)-Math.max(r.top,0)),panelWidth:p.width};
+    });
+    assert.ok(mobilePolicy.visibleMap>150,'mobile policies leave part of the live map visible');
+    assert.ok(mobilePolicy.panelWidth<=390);
+    await page.locator('#close-settings').click();
     await page.screenshot({path:'qa-artifacts/science-universe-mobile.png',fullPage:true});
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
     assert.ok(overflow<=2,'mobile horizontal overflow: '+overflow);

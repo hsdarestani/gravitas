@@ -11,7 +11,8 @@ const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand
 const worlds=[E.make(20261029),null],selected=[null,null],selectedPaper=[null,null],eventSeen=[new Set(),new Set()];
 let active=0,playing=false,compareMode=false,view='labs',plot='published',speed=3;
 let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performance.now(),raf=0;
-let eventLimit=40,lastSnapshotMetrics=null,lastInsightDay=0;
+let eventLimit=40;
+const snapshotStates=new WeakMap(),intervals=new WeakMap(),focusEvents=new WeakMap();
 let currentSection='observe',lastBridge=0,lastStateSent=0,drawerOpen=false,latestFirst=true;
 
 const policyDescriptions={
@@ -179,6 +180,9 @@ const runningWorlds=()=>compareMode&&worlds[1]?worlds:[nowWorld()];
 function emit(event,s=nowWorld(),section=currentSection){
   if(performance.now()-lastBridge<650&&event!=='policy_changed')return;
   lastBridge=performance.now();
+  const trigger=s.events.find(e=>e.type===event);
+  if(trigger)focusEvents.set(s,trigger);
+  publishContext(true);
   const m=E.summary(s);
   G.emit(event,{
     day:m.day,hypotheses:m.generated,experiments:m.tested,published:m.published,
@@ -207,7 +211,10 @@ function publishContext(force=false){
       status:paper.retracted?'withdrawn':'published',
       replications:paper.replications||0,
       pValue:Number.isFinite(paper.pValue)?paper.pValue:null}:null,
-    seed:s.seed,design:{...s.design},metrics:m,delta:lastSnapshotMetrics?Object.fromEntries(Object.keys(m).filter(k=>Number.isFinite(m[k])).map(k=>[k,m[k]-(lastSnapshotMetrics[k]||0)])):{},
+    seed:s.seed,design:{...s.design},metrics:m,delta:intervals.get(s)?.delta||{},
+    interval:intervals.get(s)?{fromDay:intervals.get(s).fromDay,toDay:intervals.get(s).toDay}:null,
+    focusEvent:focusEvents.get(s)?{day:focusEvents.get(s).day,type:focusEvents.get(s).type,text:focusEvents.get(s).text,labId:focusEvents.get(s).labId,hypothesisId:focusEvents.get(s).hypothesisId}:null,
+    graph:networkFacts(s),policyEditing:drawerOpen,
     events:s.events.slice(0,8).map(e=>({day:e.day,type:e.type,text:e.text})),changes:(s.policyChanges||[]).slice(-8),
     published:m.published,falseClaims:m.falsePublished,reviewBacklog:m.reviewBacklog,
     replications:m.replicated,policies:{...s.policy},hasFork:!!worlds[1],
@@ -224,7 +231,7 @@ function play(on){
   const label=document.querySelector('.live-indicator');if(label)label.lastChild.textContent=playing?' MODEL RUNNING':' MODEL PAUSED';
 }
 function reset(){
-  const s=nowWorld();lastSnapshotMetrics=null;lastInsightDay=0;
+  const s=nowWorld();
   worlds[active]=E.make(s.seed,{...s.policy},{...s.design});
   selected[active]=null;selectedPaper[active]=null;eventSeen[active].clear();
   play(false);render();emit('world_reset',nowWorld(),'observe');
@@ -305,6 +312,7 @@ function sparkline(values,label){
 function mountWorkspace(){
  const side=make('div','workspace-side'),layout=document.querySelector('.world-layout');
  side.append($('inspector'),document.querySelector('.activity'));layout.append(side);
+ const workspace=make('div','model-and-policies');layout.before(workspace);workspace.append(layout,$('policy-drawer'));
  const analysis=document.querySelector('.analysis');analysis.querySelector('.section-head').after(document.querySelector('.top-strip'));
  const modes=document.querySelector('.mode-rail');modes.prepend(document.querySelector('.header-actions'));
  for(const key of [...Object.keys(METRICS),...Object.keys(E.DEFAULTS).map(k=>'policy_'+k)]){
@@ -342,11 +350,18 @@ function renderDomainResults(){
 }
 function snapshotInsight(){
  const s=nowWorld(),m=E.summary(s);
- if(s.day-lastInsightDay<12)return;
- const before=lastSnapshotMetrics;lastSnapshotMetrics=m;lastInsightDay=s.day;
- if(before&&G.note){const delta=m.published-before.published;
-   G.note({title:'Day '+s.day+' · research snapshot',text:delta+' new publications; review queue '+before.reviewBacklog+' → '+m.reviewBacklog+'. Generation '+s.policy.generation+'/10, review capacity '+s.policy.verification+'/10. Publication counts do not establish validity.'});
- }
+ const previous=snapshotStates.get(s)||{metrics:s.history[0]||m,day:(s.history[0]||m).day};
+ if(s.day-previous.day<12)return;
+ const before=previous.metrics,delta=Object.fromEntries(Object.keys(m).filter(k=>Number.isFinite(m[k])).map(k=>[k,m[k]-(before[k]||0)]));
+ intervals.set(s,{fromDay:previous.day,toDay:s.day,delta});snapshotStates.set(s,{metrics:m,day:s.day});publishContext(true);
+ if(!G.note)return;
+ let text;
+ if(delta.reviewBacklog>0)text='Ideas are reaching review faster than they leave it: the waiting list grew '+before.reviewBacklog+' → '+m.reviewBacklog+'. Try more review capacity; clearing a queue is different from proving the papers right.';
+ else if(delta.replicationFailures>0)text='A fresh sample failed to reproduce '+delta.replicationFailures+' result'+(delta.replicationFailures===1?'':'s')+'. That weakens the evidence, but one failed repeat does not prove a claim false; compare sample size and independent repeats.';
+ else if(delta.falsePublished>0)text='More output also brought '+delta.falsePublished+' additional false live claim'+(delta.falsePublished===1?'':'s')+' in this synthetic world. Watch the false-share trend alongside publications; a larger literature can still contain weaker evidence.';
+ else if(delta.reviewBacklog<0)text='Reviewers caught up: the waiting list fell '+before.reviewBacklog+' → '+m.reviewBacklog+' while '+delta.published+' papers were accepted. This is faster processing, so check independent repeats before treating it as stronger evidence.';
+ else text=delta.published+' papers passed review in this interval, while the queue ended at '+m.reviewBacklog+'. Acceptance is a first filter; follow independent repeats to see whether the findings survive a fresh sample.';
+ G.note({title:'Days '+previous.day+'–'+s.day+' · what this means',text});
 }
 function summary(){
   const s=nowWorld(),m=E.summary(s);
@@ -370,7 +385,11 @@ function inspector(){
   $('selected-agents').textContent=human(s.agents.filter(a=>a.labId===id).length);
   $('selected-methods').textContent=Math.round(l.method*100)+'%';
   $('selected-active').textContent=human(l.active);
-  $('freeze-lab').textContent=l.locked?'Resume generation':'Pause generation';
+  const network=networkFacts(s,l.id);
+  $('selected-links').textContent=network.selectedLinks;
+  $('selected-cross-links').textContent=network.selectedCrossLinks;
+  $('selected-network').textContent='Drag this lab to change its possible partners. A linked partner has ×1.7 citation weight in this model; positions do not directly change statistical evidence or hidden truth.';
+  $('freeze-lab').textContent=l.locked?'Resume proposals':'Slow proposals';
   const agents=$('agent-list');agents.replaceChildren();
   for(const a of s.agents.filter(a=>a.labId===id)){
     const row=make('div','agent-row');
@@ -490,7 +509,7 @@ function comparison(){
     worlds[0].policy.replication+'/10     |     WORLD B · Review '+
     worlds[1].policy.verification+'/10, replication '+worlds[1].policy.replication+'/10';
 }
-function render(){summary();inspector();feed();drawChart();comparison();renderMetricTrends();renderDomainResults();publishContext();}
+function render(){summary();inspector();feed();drawChart();comparison();renderMetricTrends();renderDomainResults();mapLegend();publishContext();}
 function interesting(){
   const types=['paper_retracted','replication_failed','review_rejected','replication_passed','paper_published','hypothesis_generated'];
   const s=nowWorld(),seen=eventSeen[active];
@@ -511,78 +530,100 @@ function canvasGeometry(canvas){
   return {ctx,w:r.width,h:r.height,pad:28};
 }
 function position(l,g){return {x:g.pad+l.x*(g.w-g.pad*2),y:g.pad+l.y*(g.h-g.pad*2)};}
+function networkFacts(s,labId=selected[active]){
+ const links=s.links.filter(e=>e.a===labId||e.b===labId);
+ return {links:s.links.length,crossFieldLinks:s.links.filter(e=>s.labs[e.a].domain!==s.labs[e.b].domain).length,
+  selectedLinks:links.length,selectedCrossLinks:links.filter(e=>s.labs[e.a].domain!==s.labs[e.b].domain).length,
+  retainedCitations:(s.citationEdges||[]).length,
+  recentCitations:(s.citationEdges||[]).filter(e=>s.day-e.day<=8).length};
+}
+function livePaperNodes(s,g){
+ return s.hypotheses.filter(p=>p.published&&!p.retracted).slice(-180).map(paper=>{
+  const origin=position(s.labs[paper.labId],g),angle=paper.id*2.399963,radius=23+Math.sqrt((paper.id%43)+1)*7;
+  return {paper,x:Math.max(9,Math.min(g.w-9,origin.x+Math.cos(angle)*radius)),
+   y:Math.max(9,Math.min(g.h-9,origin.y+Math.sin(angle)*radius)),r:3+Math.min(3,Math.sqrt(paper.replications||0))};
+ });
+}
+function mapLegend(){
+ const s=nowWorld(),m=E.summary(s),n=networkFacts(s),papers=view==='papers';
+ $('stage-title').textContent=(compareMode?'World A / B · ':'')+(papers?'Papers and citations':'Teams and collaboration');
+ $('map-explanation').textContent=papers?
+  'Small dots are published claims, not laboratories. Arrows run from a citing lab to the paper it cited. Select a dot to inspect the claim.':
+  'Large circles are laboratories; their size follows studies in progress. Lines are possible collaborations. Drag a lab to change its partners.';
+ $('canvas-instruction').textContent=papers?'Dots = live papers · Arrows = recorded citations':'Size = active studies · Lines = collaboration opportunities';
+ $('links-label').textContent=papers?'Citation arrows':'Collaborations';
+ $('flows-label').textContent=papers?'Recent citations':'People & citations';
+ $('map-counts').textContent=papers?
+  Math.min(180,m.healthyPapers)+' / '+m.healthyPapers+' live papers shown · '+n.retainedCitations+' retained citation events · '+m.citations+' citations in total':
+  s.labs.length+' laboratories · '+m.activeStudies+' active studies · '+n.links+' links, '+n.crossFieldLinks+' across fields';
+ const key=$('map-key-content');key.replaceChildren();
+ const explanations=papers?[
+  'Gold: no completed repeat yet. Green: a successful repeat with no failed repeat. Orange: at least one failed repeat. These colors describe tests, not certainty of truth. Size follows completed repeats.',
+  'The outer color is the paper’s research field. An extra violet ring marks a topic outside the origin laboratory’s field. Topic mixing is modeled; it has no proven quality bonus.',
+  'Only the latest 180 live papers are drawn. Arrows show retained citation events whose paper is visible; at most 120 citation events are retained. Moving marks show events from the last 8 model days. Their position encodes age, not a physical speed of knowledge.',
+  'Papers are arranged near their origin lab for readability. The small dots’ exact positions do not affect outcomes. Lab anchors are faint circles; moving a lab changes modeled collaboration opportunities.'
+ ]:[
+  'Circle color identifies the laboratory’s field; size follows active studies, with a visual size cap. Select a lab for its exact counts. Grey means proposal generation is reduced to 17% of its usual rate.',
+  'Small stationary marks are actual team members: gold for AI roles, blue for human roles. They do not orbit or imply a measured work rate. A selection ring identifies the lab you are inspecting.',
+  'Blue lines connect modeled partners in the same field; violet lines cross fields. A connection multiplies citation preference by 1.7, all else equal. Line thickness no longer implies an additional distance-based causal effect.',
+  'Moving gold marks are actual retained citations from the last 8 model days, moving from the citing lab toward the cited lab. Their progress encodes event age. Everything freezes when model time is paused.',
+  'Dragging a lab changes network distance and can add or remove partners. It affects later citation choices and possible follow-up repeats, not the truth or statistical evidence already stored in a paper.'
+ ];
+ explanations.forEach(text=>key.append(make('p','',text)));
+ for(const id of ['network-a','network-b'])$(id).setAttribute('aria-label',papers?'Published paper map with recorded citation arrows; select a paper dot to inspect it':'Laboratory map; size indicates active studies, lines are modeled collaborators; drag to change network position');
+}
+function drawArrow(ctx,a,b,color){
+ const angle=Math.atan2(b.y-a.y,b.x-a.x),x=b.x-Math.cos(angle)*6,y=b.y-Math.sin(angle)*6;
+ ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1;
+ ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(x,y);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-6*Math.cos(angle-.45),y-6*Math.sin(angle-.45));ctx.lineTo(x-6*Math.cos(angle+.45),y-6*Math.sin(angle+.45));ctx.closePath();ctx.fill();
+}
 function draw(canvas,s,index,t){
-  if(!s)return;
-  const g=canvasGeometry(canvas);if(!g)return;
-  const {ctx,w,h}=g;
-  ctx.clearRect(0,0,w,h);
-  const bg=ctx.createLinearGradient(0,0,w,h);
-  bg.addColorStop(0,'#071a29');bg.addColorStop(.55,'#0b2839');bg.addColorStop(1,'#081525');
-  ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
-  ctx.strokeStyle='rgba(125,165,194,.09)';ctx.lineWidth=.7;
-  for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
-  for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
-  if(show.links){
-    for(const edge of s.links){
-      const a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
-      ctx.strokeStyle=view==='papers'?'rgba(222,183,123,.30)':'rgba(115,181,203,.23)';
-      ctx.lineWidth=.6+edge.weight*1.1;
-      if(s.labs[edge.a].domain!==s.labs[edge.b].domain)ctx.strokeStyle='rgba(193,160,231,.36)';
-      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-    }
+ if(!s)return;
+ const g=canvasGeometry(canvas);if(!g)return;
+ const {ctx,w,h}=g,papers=view==='papers',nodes=papers?livePaperNodes(s,g):[],byPaper=new Map(nodes.map(n=>[n.paper.id,n]));
+ ctx.clearRect(0,0,w,h);ctx.fillStyle='#071e2e';ctx.fillRect(0,0,w,h);
+ ctx.strokeStyle='rgba(125,165,194,.07)';ctx.lineWidth=.7;
+ for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+ for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+ if(show.links&&!papers)for(const edge of s.links){
+  const a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
+  ctx.strokeStyle=s.labs[edge.a].domain!==s.labs[edge.b].domain?'rgba(193,160,231,.55)':'rgba(115,181,203,.32)';
+  ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+ }
+ if(papers&&show.links)for(const flow of (s.citationEdges||[])){
+  const target=byPaper.get(flow.paperId);if(!target)continue;
+  drawArrow(ctx,position(s.labs[flow.from],g),target,s.labs[flow.from].domain!==target.paper.domain?'rgba(193,160,231,.44)':'rgba(229,197,143,.26)');
+ }
+ if(show.flows)for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
+  const a=position(s.labs[flow.from],g),b=papers?byPaper.get(flow.paperId):position(s.labs[flow.to],g);if(!b)continue;
+  const f=Math.min(1,Math.max(0,(s.day-flow.day)/8));
+  if(!papers)drawArrow(ctx,a,b,'rgba(229,197,143,.35)');
+  ctx.fillStyle='#e5c58f';ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);ctx.fill();
+ }
+ s.labs.forEach((l,i)=>{
+  const p=position(l,g),isSelected=selected[index]===i,r=papers?5:Math.min(18,7+Math.sqrt(l.active+1)*1.4);
+  if(isSelected){ctx.strokeStyle='#f4d7a3';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,r+8,0,6.283);ctx.stroke();}
+  ctx.fillStyle=l.locked?'#385365':'#0e3045';ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=papers?1:1.5;
+  ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.283);ctx.fill();ctx.stroke();
+  if(!papers){ctx.fillStyle=domainColors[l.domain];ctx.beginPath();ctx.arc(p.x,p.y,2.8,0,6.283);ctx.fill();}
+  if(!papers&&show.flows){
+   const agents=s.agents.filter(a=>a.labId===i);
+   agents.forEach((a,j)=>{const ang=-Math.PI/2+j*2*Math.PI/agents.length,orbit=r+9;
+    ctx.fillStyle=a.role==='AI'?'#e4c789':'#a5d4e7';ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.9,0,6.283);ctx.fill();});
   }
-  // Every moving mark is a real retained citation, positioned by MODEL day.
-  // Wall-clock time never changes the research picture while paused.
-  if(show.flows){
-    for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
-      const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g);
-      const f=Math.min(1,Math.max(0,(s.day-flow.day)/8));
-      ctx.strokeStyle='rgba(229,197,143,.4)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-      ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);
-      ctx.fillStyle='#e5c58f';ctx.fill();
-    }
+  if(show.labels&&(isSelected||w>340||i%3===0)){
+   ctx.fillStyle=isSelected?'#fff8e9':'rgba(218,234,243,.7)';ctx.font=isSelected?'600 11px system-ui':'10px system-ui';ctx.textAlign='center';ctx.fillText(l.name,p.x,p.y-r-12);
   }
-  s.labs.forEach((l,i)=>{
-    const p=position(l,g),isSelected=selected[index]===i;
-    const r=view==='papers'?Math.min(22,6+Math.sqrt(l.papers.length)*2):Math.min(18,7+Math.sqrt(l.active+1)*1.4);
-    const halo=ctx.createRadialGradient(p.x,p.y,1,p.x,p.y,34);
-    halo.addColorStop(0,domainColors[l.domain]+'33');halo.addColorStop(1,'transparent');
-    ctx.fillStyle=halo;ctx.beginPath();ctx.arc(p.x,p.y,34,0,6.283);ctx.fill();
-    if(isSelected){
-      ctx.strokeStyle='#f4d7a3';ctx.lineWidth=1.6;
-      ctx.beginPath();ctx.arc(p.x,p.y,r+10,0,6.283);ctx.stroke();
-    }
-    ctx.fillStyle=l.locked?'#385365':'#0e3045';ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.283);ctx.fill();ctx.stroke();
-    ctx.fillStyle=domainColors[l.domain];ctx.beginPath();ctx.arc(p.x,p.y,2.8,0,6.283);ctx.fill();
-    if(view==='labs'&&show.flows){
-      const agents=s.agents.filter(a=>a.labId===i);
-      agents.forEach((a,j)=>{
-        const ang=(s.day+a.produced)*(a.role==='AI'?.59:.31)+j*2.4+a.id*.1;
-        const orbit=r+8+(j%3)*4;
-        ctx.fillStyle=a.role==='AI'?'#e4c789':'#a5d4e7';
-        ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.8,0,6.283);ctx.fill();
-      });
-    }
-    if(show.labels&&(isSelected||w>340||i%3===0)){
-      ctx.fillStyle=isSelected?'#fff8e9':'rgba(218,234,243,.82)';
-      ctx.font=isSelected?'600 11px system-ui':'10px system-ui';ctx.textAlign='center';
-      ctx.fillText(l.name,p.x,p.y-r-10);
-    }
-  });
-  if(view==='papers'){
-    // Papers are real model objects, connected to their origin laboratory.
-    for(const paper of s.hypotheses.filter(x=>x.published&&!x.retracted).slice(-180)){
-      const l=s.labs[paper.labId],origin=position(l,g),angle=paper.id*2.399963;
-      const radius=20+Math.sqrt((paper.id%43)+1)*7;
-      const x=Math.max(8,Math.min(w-8,origin.x+Math.cos(angle)*radius)),y=Math.max(8,Math.min(h-8,origin.y+Math.sin(angle)*radius));
-      ctx.strokeStyle='rgba(224,193,145,.19)';ctx.beginPath();ctx.moveTo(origin.x,origin.y);ctx.lineTo(x,y);ctx.stroke();
-      ctx.fillStyle=paper.replications?'#a4d5bd':'#e5c58f';ctx.beginPath();ctx.arc(x,y,2+Math.min(3,paper.replications),0,6.283);ctx.fill();
-    }
-    ctx.textAlign='left';ctx.font='10px system-ui';ctx.fillStyle='rgba(210,228,241,.8)';
-    ctx.fillText(s.papers.length+' published · '+s.stats.citations+' citations',16,h-14);
-  }
+ });
+ for(const n of nodes){
+  const paper=n.paper,passed=(paper.replications||0)-(paper.failedReplications||0);
+  ctx.fillStyle=paper.failedReplications?'#e4a080':passed>0?'#a4d5bd':'#e5c58f';ctx.strokeStyle=domainColors[paper.domain];ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,6.283);ctx.fill();ctx.stroke();
+  if(paper.domain!==s.labs[paper.labId].domain){ctx.strokeStyle='#c1a0e7';ctx.lineWidth=1;ctx.beginPath();ctx.arc(n.x,n.y,n.r+3,0,6.283);ctx.stroke();}
+  if(selectedPaper[index]===paper.id){ctx.strokeStyle='#fff';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(n.x,n.y,n.r+5,0,6.283);ctx.stroke();if(show.labels){ctx.fillStyle='#fff';ctx.font='11px system-ui';ctx.textAlign='left';ctx.fillText('#'+paper.id,n.x+10,n.y-8);}}
+ }
+ canvas.dataset.mapView=view;canvas.dataset.visiblePapers=String(nodes.length);
 }
 function drawMap(time){
   if(compareMode&&worlds[1]){
@@ -601,9 +642,14 @@ function canvasEvents(index){
   canvas.addEventListener('pointerdown',e=>{
     if(index===1&&!worlds[1])return;
     chooseWorld(index);
+    if(view==='papers'){
+      const p=local(e),g=canvasGeometry(canvas);
+      const hit=livePaperNodes(nowWorld(),g).filter(n=>Math.hypot(n.x-p.x,n.y-p.y)<n.r+5).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
+      if(hit){selected[index]=hit.paper.labId;selectedPaper[index]=hit.paper.id;inspector();publishContext(true);return;}
+    }
     const p=local(e),id=nearest(nowWorld(),canvasGeometry(canvas),p.x,p.y);
     selected[index]=id<0?null:id;selectedPaper[index]=null;
-    if(id>=0){drag={index,id,start:p,moved:false};canvas.setPointerCapture(e.pointerId);}
+    if(id>=0){drag={index,id,start:p,startPosition:{x:nowWorld().labs[id].x,y:nowWorld().labs[id].y},moved:false,wasPlaying:playing,before:networkFacts(nowWorld(),id)};play(false);canvas.setPointerCapture(e.pointerId);}
     inspector();publishContext(true);
   });
   canvas.addEventListener('pointermove',e=>{
@@ -621,12 +667,14 @@ function canvasEvents(index){
     if(drag.moved){
       const l=worlds[index].labs[drag.id];
       E.intervention(worlds[index],'move',drag.id,{x:l.x,y:l.y});
-      $('intervention-status').textContent='Network connections recomputed.';
+      const after=networkFacts(worlds[index],drag.id);
+      $('intervention-status').textContent=l.name+': links '+drag.before.selectedLinks+' → '+after.selectedLinks+'; across fields '+drag.before.selectedCrossLinks+' → '+after.selectedCrossLinks+'. This changes future citation preferences, not existing evidence.';
+      mapLegend();
       emit('collaboration_changed',worlds[index],'network');
     }
-    drag=null;inspector();
+    const resume=drag.wasPlaying;drag=null;inspector();publishContext(true);if(resume)play(true);
   });
-  canvas.addEventListener('pointercancel',()=>drag=null);
+  canvas.addEventListener('pointercancel',()=>{const resume=drag?.wasPlaying;if(drag)Object.assign(worlds[drag.index].labs[drag.id],drag.startPosition);drag=null;if(resume)play(true);});
   canvas.addEventListener('keydown',e=>{
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
     e.preventDefault();chooseWorld(index);
@@ -655,6 +703,7 @@ function renderPolicies(){
     range.addEventListener('input',()=>{
       E.editPolicy(nowWorld(),key,range.value);
       head.querySelector('output').textContent=range.value+'/10';
+      $('policy-live-status').textContent=name+' is now '+range.value+'/10 in World '+(active?'B':'A')+'. '+(playing?'Watch future model days; the effect can take time to appear.':'The model is paused. Advance days or press Play to observe the effect.');
       publishContext(true);emit('policy_changed',nowWorld(),'intervene');comparison();renderMetricTrends();
       const spark=line.querySelector('svg');if(spark)spark.replaceWith(sparkline(series(nowWorld()).map(x=>x['policy_'+key]),name));
     });
@@ -740,7 +789,7 @@ function auditPopulation(){
     truthPriorOverride:prior==='original'?null:Number(prior)};
   // Explicitly labeled restart action. Sandbox intentionally disallows modal
   // browser confirm(), so do not depend on a blocked native dialog.
-  const seed=s.seed,policy={...s.policy};lastSnapshotMetrics=null;lastInsightDay=0;
+  const seed=s.seed,policy={...s.policy};
   worlds[0]=E.make(seed,policy,design);worlds[1]=null;
   selected[0]=null;selected[1]=null;selectedPaper[0]=null;selectedPaper[1]=null;
   eventSeen[0].clear();eventSeen[1].clear();
@@ -788,7 +837,10 @@ async function runSensitivity(){
 }
 function settings(on){
   drawerOpen=!!on;$('policy-drawer').hidden=!on;
-  if(on){renderPolicies();$('close-settings').focus();}else $('settings').focus();
+  document.querySelector('.model-and-policies').classList.toggle('policy-open',drawerOpen);
+  $('settings').setAttribute('aria-expanded',String(drawerOpen));
+  if(on){renderPolicies();$('close-settings').focus({preventScroll:true});if(innerWidth<=800)document.querySelector('.world-stage').scrollIntoView({block:'start'});}else $('settings').focus({preventScroll:true});
+  publishContext(true);drawChart();
 }
 function setView(name){
   view=name;
@@ -796,6 +848,7 @@ function setView(name){
     $('view-'+key).classList.toggle('active',name===key);
     $('view-'+key).setAttribute('aria-pressed',String(name===key));
   }
+  mapLegend();drawMap();publishContext(true);
 }
 /* Experiment recipes are transparent, authored model interventions, not
    generated science. The user explicitly chooses to advance both worlds. */
@@ -824,7 +877,6 @@ function runGuidedExperiment(id){
   if(!recipe||typeof G.experimentResult!=='function')return;
   play(false);
   const checkpoint=E.fork(nowWorld());
-  lastSnapshotMetrics=E.summary(checkpoint);
   // Both worlds start from exactly the same checkpoint. Only the stated
   // pre-registered model policy differs; no silent second intervention.
   const a=E.fork(checkpoint),b=E.fork(checkpoint);
@@ -891,7 +943,7 @@ function bind(){
   $('more-events').addEventListener('click',()=>{eventLimit+=80;feed();});
   $('toggle-data').addEventListener('click',()=>{const open=$('outcome-data').hidden;$('outcome-data').hidden=!open;$('toggle-data').setAttribute('aria-expanded',String(open));$('toggle-data').textContent=open?'Hide data table':'View data table';if(open)renderDataTable();});
   $('metric-select').addEventListener('change',e=>{plot=e.target.value;drawChart();renderMetricTrends();});
-  $('snapshot').addEventListener('click',()=>{publishContext(true);if(G.saveSnapshot)G.saveSnapshot({seed:nowWorld().seed});lastSnapshotMetrics=E.summary(nowWorld());$('snapshot-status').textContent='Snapshot captured. Pulsar can explain the measurements and changes.';emit('snapshot_saved',nowWorld());});
+  $('snapshot').addEventListener('click',()=>{publishContext(true);if(G.saveSnapshot)G.saveSnapshot({seed:nowWorld().seed});snapshotStates.set(nowWorld(),{metrics:E.summary(nowWorld()),day:nowWorld().day});$('snapshot-status').textContent='Snapshot captured. Pulsar can explain the measurements and changes.';emit('snapshot_saved',nowWorld());});
   $('atlas').addEventListener('click',()=>{if(G.openAtlas)G.openAtlas();else $('snapshot-status').textContent='Open this Lab through GraviQuest to explore the database scenario atlas.';});
   $('play').addEventListener('click',()=>play(!playing));
   $('advance').addEventListener('click',()=>advance(10));
@@ -917,7 +969,7 @@ function bind(){
   }));
   $('settings').addEventListener('click',()=>settings(true));
   $('close-settings').addEventListener('click',()=>settings(false));
-  $('drawer-close-area').addEventListener('click',()=>settings(false));
+  $('policy-advance').addEventListener('click',()=>advance(10));
   $('policy-reset').addEventListener('click',()=>{
     for(const [k,v] of Object.entries(E.DEFAULTS))E.editPolicy(nowWorld(),k,v);
     renderPolicies();comparison();emit('policy_changed',nowWorld(),'intervene');
