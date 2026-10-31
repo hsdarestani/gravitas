@@ -327,3 +327,5 @@ body[data-playing=false] .live-dot{background:#8ba3ad;box-shadow:none}
 @media(max-width:580px){.site-footer{grid-template-columns:repeat(3,minmax(0,1fr))}.footer-brand{grid-column:1/-1}.footer-brand p{max-width:40ch}.comparison-columns{grid-template-columns:1fr 55px 55px 50px;gap:6px;font-size:9px}}
 
 .policy-rationale summary{font-size:10px;color:var(--muted);cursor:pointer}.policy-rationale[open] summary{margin-bottom:8px}.policy-control{gap:7px}.policy-control .sparkline{height:18px}.policy-rationale .policy-evidence{font-size:10px;line-height:1.6}
+
+@media(max-width:580px){.world-stage:has(.canvases.split){height:780px}.canvases.split{min-height:350px}}

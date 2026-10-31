@@ -750,7 +750,7 @@ window.addEventListener('message',function(e){
     if(data.action==='sources')openKnowledge();
     if(data.action==='fullscreen'&&fullscreenButton)fullscreenButton.click();
     var destinations={'navigate:home':'/index.html','navigate:topics':'/topics.html','navigate:essays':'/magazine.html','navigate:learn':'/learn.html','navigate:community':'/community.html','navigate:about':'/about.html','navigate:youtube':'https://www.youtube.com/@GraviQuest','navigate:linkedin':'https://www.linkedin.com/company/graviquest/','navigate:instagram':'https://www.instagram.com/graviquest'};
-    if(destinations[data.action])location.assign(destinations[data.action]);return;
+    if(typeof data.action==='string'&&Object.prototype.hasOwnProperty.call(destinations,data.action))location.assign(destinations[data.action]);return;
   }
   if(active.slug==='science-universe'&&data.type==='lab:open-atlas'){openAtlas();return;}
   if(active.slug==='science-universe'&&data.type==='lab:save-snapshot'){saveSnapshot(data.seed);return;}

@@ -583,7 +583,8 @@ function livePaperNodes(s,g){
  const cacheKey=[s.day,s.stats.published,s.stats.retracted,g.w,g.h,fieldFilter].join(':');const cached=paperNodeCache.get(s);if(cached?.key===cacheKey)return cached.nodes;
  const layout=paperLayout(s,g),{papers,domains,left,right,top,lane,start,end}=layout;
  const cols=Math.max(1,Math.floor((right-left)/14)),rows=Math.max(1,Math.floor((lane-32)/13)),used=new Map();
- const nodes=papers.map(paper=>{
+ const counts=new Map(),fitting=[...papers].reverse().filter(p=>{const n=counts.get(p.domain)||0;counts.set(p.domain,n+1);return n<cols*rows;}).reverse();
+ const nodes=fitting.map(paper=>{
    const band=domains.indexOf(paper.domain),fraction=(paper.publishedOn-start)/(end-start),col=Math.max(0,Math.min(cols-1,Math.round(fraction*(cols-1))));
    let best=null,bestCost=Infinity;
    // Nearest free display slot keeps points separate. The horizontal guide reports exact dates on selection.
@@ -600,12 +601,13 @@ function livePaperNodes(s,g){
 function mapLegend(){
  const s=nowWorld(),m=E.summary(s),n=networkFacts(s),papers=view==='papers';
  $('claim-focusbar').hidden=!papers;
- if(papers){const visible=paperWindow(s),key=active+':'+visible.map(p=>p.id).join(',');if(key!==claimOptionsKey){claimOptionsKey=key;const select=$('claim-select');select.replaceChildren(make('option','','Choose a claim…'));select.firstChild.value='';for(const p of [...visible].reverse()){const option=make('option','','#'+p.id+' · '+domainNames[p.domain]+' · day '+p.publishedOn);option.value=p.id;select.append(option);}}$('claim-select').value=selectedPaper[active]===null?'':String(selectedPaper[active]);}
+ const visible=papers?livePaperNodes(s,{w:$(active?'network-b':'network-a').clientWidth,h:$(active?'network-b':'network-a').clientHeight}).map(n=>n.paper):[];
+ if(papers){const key=active+':'+visible.map(p=>p.id).join(',');if(key!==claimOptionsKey){claimOptionsKey=key;const select=$('claim-select');select.replaceChildren(make('option','','Choose a claim…'));select.firstChild.value='';for(const p of [...visible].reverse()){const option=make('option','','#'+p.id+' · '+domainNames[p.domain]+' · day '+p.publishedOn);option.value=p.id;select.append(option);}}$('claim-select').value=selectedPaper[active]===null?'':String(selectedPaper[active]);}
  text('stage-title',(compareMode?'World A / B · ':'')+(papers?'Knowledge, one claim at a time':'Teams and collaboration'));
  text('map-explanation',papers?'Small dots are published claims, arranged by research field and publication time. Select a claim to reveal its recorded citations.':'Circle size follows studies in progress. Select a lab to inspect it, or drag it to change its possible collaborators.');
  text('canvas-instruction',papers?'Select a claim → inspect its citations':'Size = active studies · Lines = possible collaborators');
  text('links-label',papers?'Selected citations':'Collaborations');text('flows-label',papers?'Recent activity':'Team & citations');
- text('map-counts',papers?paperWindow(s).length+' / '+m.healthyPapers+' live papers shown · '+n.retainedCitations+' retained citation records':s.labs.length+' laboratories · '+m.activeStudies+' active studies · '+n.links+' links, '+n.crossFieldLinks+' across fields');
+ text('map-counts',papers?visible.length+' / '+m.healthyPapers+' live papers shown · '+n.retainedCitations+' retained citation records':s.labs.length+' laboratories · '+m.activeStudies+' active studies · '+n.links+' links, '+n.crossFieldLinks+' across fields');
  text('map-key-summary',papers?'Color = repeat-test history · Rows = topic fields':'Field colors identify teams. Select a field to focus.');
  if(mapKeyView!==view){mapKeyView=view;const key=$('map-key-content');key.replaceChildren();
    const illustration=make('div','map-guide-illustration');
@@ -613,7 +615,7 @@ function mapLegend(){
    illustration.innerHTML=papers?'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: Biology and Climate paper lanes, with a citation arrow toward a selected paper"><path d="M90 48H440M90 112H440" stroke="#8bb5c5" stroke-opacity=".25"/><text x="8" y="52" fill="#65b6cf">Biology</text><text x="8" y="116" fill="#95aadf">Climate</text><circle cx="150" cy="48" r="6" fill="#e5c58f"/><circle cx="230" cy="48" r="7" fill="#a4d5bd"/><circle cx="350" cy="112" r="7" fill="#e4a080"/><circle cx="230" cy="48" r="13" fill="none" stroke="#fff"/><path d="M90 112Q130 25 215 48m-7-6 7 6-9 2" fill="none" stroke="#c1a0e7"/><text x="270" y="28" fill="#c4d5df">Select one claim</text><text x="225" y="143" fill="#a5b9c8">Earlier → later publication</text></svg>':'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: two laboratories, a collaboration line and small team-member marks"><path d="M130 75H330" stroke="#c1a0e7" stroke-width="2"/><circle cx="130" cy="75" r="21" fill="#0e3045" stroke="#65b6cf" stroke-width="2"/><circle cx="330" cy="75" r="13" fill="#0e3045" stroke="#bea0ef" stroke-width="2"/><circle cx="130" cy="75" r="4" fill="#65b6cf"/><circle cx="330" cy="75" r="3" fill="#bea0ef"/><circle cx="130" cy="43" r="3" fill="#e4c789"/><circle cx="104" cy="94" r="3" fill="#a5d4e7"/><circle cx="156" cy="94" r="3" fill="#a5d4e7"/><text x="75" y="127" fill="#c4d5df">More active studies</text><text x="285" y="127" fill="#c4d5df">Fewer studies</text><text x="177" y="55" fill="#c1a0e7">Possible partners</text></svg>';
    key.append(illustration,make('small','small-print','Schematic legend · not measurements from your run'));
    const items=papers?[
-     ['One dot, one claim','The newest 180 live papers are grouped by topic field. Horizontal position follows publication time, adjusted into free slots for legibility. Select a dot for its exact publication day, origin lab and repeat tests. Dot positions never change model outcomes.'],
+     ['One dot, one claim','Up to the newest 180 live papers are grouped by topic field; smaller maps keep the newest claims in each field as space allows. Horizontal position follows publication time, adjusted into free slots for legibility. Select a dot for its exact publication day, origin lab and repeat tests. Dot positions never change model outcomes.'],
      ['Read the evidence color','Gold: no completed repeat. Green: passed repeat(s), no failed repeat. Orange: at least one failed repeat. Size follows completed repeats. These are observations, not proof of truth.'],
      ['Follow one citation','Select a claim to show retained arrows from citing labs at the left to that paper. The origin-field color surrounds each dot; a violet outer ring means its topic differs from its lab’s specialty. Only 120 recent citation records are retained.'],
      ['Watch model time','A moving mark represents an actual citation from the last 8 model days. Its position shows age, not the physical speed of knowledge. Pausing model time freezes it.']
