@@ -63,6 +63,12 @@
   else startSizeObserver();
 
   window.GraviLab={
+    shellAction:function(action){if(['catalog','tour','fullscreen','sources','navigate:home','navigate:topics','navigate:essays','navigate:learn','navigate:community','navigate:youtube','navigate:linkedin','navigate:instagram','navigate:about'].includes(action))send('lab:shell-action',{action:action});},
+    companionLayout:function(payload){
+      if(location.pathname.indexOf('/lab-run/science-universe/')!==0)return;
+      const clean={};for(const key of ['left','top','width','height','dockTop','viewportWidth','viewportHeight']){const value=payload?.[key];if(!Number.isFinite(value)||Math.abs(value)>20000)return;clean[key]=value;}
+      send('lab:companion-layout',{layout:clean});
+    },
     note:function(payload){send('lab:note',{note:payload});},
     openAtlas:function(){send('lab:open-atlas');},
     saveSnapshot:function(payload){send('lab:save-snapshot',{seed:payload?.seed});},
@@ -97,7 +103,7 @@
   // Only the published Science Universe uses this walkthrough; other Labs unaffected.
   var tourTargets=Object.freeze({
     overview:'network-a',play:'play',hypotheses:'hypotheses',policy:'settings',
-    quality:'history-chart',network:'network-a',fork:'fork',
+    quality:'history-chart',network:'network-a',map:'map-help',fork:'fork',
     compare:'compare',limits:'methodology'
   });
   var tourTarget='', highlighted=null;

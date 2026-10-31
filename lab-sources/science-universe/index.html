@@ -9,12 +9,14 @@
 </head>
 <body>
   <div class="universe" id="universe-app">
+    <div class="workspace-nav"><button id="back-labs" class="text-btn" type="button">← Back to Labs</button><span>GRAVIQUEST / EXPERIMENT WORKSPACE</span></div>
     <header class="app-header">
       <div class="title-stack">
         <div class="kicker"><span class="pulse-dot" aria-hidden="true"></span> GRAVIQUEST / LAB 01 <span class="subtle">· SYNTHETIC RESEARCH ECOSYSTEM</span></div>
         <h1>Science <em>Universe</em></h1>
         <p class="description">Change a research policy. Follow the mechanism. Compare the evidence.</p>
       </div>
+      <div class="app-utility"><button id="guided-tour" class="btn" type="button">◎ Guided tour</button><button id="fullscreen" class="icon-btn" type="button" title="Fill the screen" aria-label="Toggle fullscreen">⛶</button></div>
       <div class="header-actions">
         <div class="session-chip"><span id="session-state" class="status-ring" aria-hidden="true"></span><span id="status-label">SIMULATION READY</span></div>
         <button class="btn primary" id="play" type="button"><span aria-hidden="true">▶</span> Play</button>
@@ -36,12 +38,6 @@
         <button type="button" class="pill" id="world-b" aria-pressed="false" disabled>World B</button>
       </div>
       <div class="mode-actions">
-        <button class="btn" type="button" id="snapshot">Save snapshot</button>
-        <button class="btn" type="button" id="atlas">Scenario atlas</button>
-        <button class="btn" type="button" id="fork">Create comparison</button>
-        <button class="btn" type="button" id="compare" disabled>Compare results</button>
-        <div class="separator" aria-hidden="true"></div>
-        <button class="btn" type="button" id="settings">⚙ Policies <span id="policy-count" class="btn-counter">12</span></button>
         <label class="speed-control">SPEED <select id="speed" aria-label="Simulation speed">
           <option value="1">1×</option><option value="3" selected>3×</option><option value="8">8×</option><option value="15">15×</option>
         </select></label>
@@ -51,7 +47,7 @@
       <section class="world-stage panel" aria-label="Research ecosystem map">
         <div class="stage-header">
           <div><span class="eyebrow">LIVE RESEARCH MODEL</span><h2 id="stage-title">The research network</h2></div>
-          <div class="stage-tools">
+          <div class="stage-tools"><button class="btn" type="button" id="settings" aria-expanded="false" aria-controls="policy-drawer">Policies <span id="policy-count" class="btn-counter">12</span></button>
             <div class="view-tabs" role="group" aria-label="Network layer">
               <button id="view-labs" class="tab active" type="button" aria-pressed="true">Laboratories</button>
               <button id="view-papers" class="tab" type="button" aria-pressed="false">Knowledge flow</button>
@@ -59,6 +55,7 @@
           </div>
         </div>
         <p class="map-explanation" id="map-explanation">Laboratories shows the teams doing research. Circle size follows studies in progress; lines are modeled collaboration opportunities.</p>
+        <div id="claim-focusbar" class="claim-focusbar" hidden><label>Inspect a claim <select id="claim-select" aria-label="Select a published claim"><option value="">Choose a claim…</option></select></label><span class="claim-color-key"><i class="dot gold"></i> Not repeated <i class="dot passed"></i> Passed <i class="dot failed"></i> Failed</span></div>
         <div class="canvases" id="canvases">
           <div class="canvas-col active" id="canvas-holder-a">
             <canvas id="network-a" role="img" aria-label="Interactive map of laboratories; select a node to inspect and intervene"></canvas>
@@ -75,11 +72,11 @@
         </div>
         <div class="stage-footer">
           <div class="legend" aria-label="Research domains">
-            <span><i class="dot bio"></i> Biology</span>
-            <span><i class="dot climate"></i> Climate</span>
-            <span><i class="dot physics"></i> Physics</span>
-            <span><i class="dot material"></i> Materials</span>
-            <span><i class="dot gold"></i> Published claim</span>
+            <button type="button" class="field-chip active" data-domain="all" aria-pressed="true">All fields</button>
+            <button type="button" class="field-chip" data-domain="0" aria-pressed="false"><i class="dot bio"></i> Biology</button>
+            <button type="button" class="field-chip" data-domain="1" aria-pressed="false"><i class="dot climate"></i> Climate</button>
+            <button type="button" class="field-chip" data-domain="2" aria-pressed="false"><i class="dot physics"></i> Physics</button>
+            <button type="button" class="field-chip" data-domain="3" aria-pressed="false"><i class="dot material"></i> Materials</button>
           </div>
           <div class="layer-chips" role="group" aria-label="Visual layers">
             <label><input id="layer-links" type="checkbox" checked> <span id="links-label">Collaborations</span></label>
@@ -88,27 +85,32 @@
           </div>
         </div>
         <p class="map-counts" id="map-counts" role="status"></p>
-        <details class="map-key"><summary>Read this map</summary><div id="map-key-content"></div></details>
+        <div class="map-key"><button id="map-help" class="text-btn" type="button">Visual guide ↗</button><span id="map-key-summary">Select a laboratory for its exact measurements.</span></div>
       </section>
-      <aside class="inspector panel" id="inspector" aria-live="polite">
+      <aside class="inspector panel" id="inspector" aria-label="Selected laboratory">
         <div class="inspector-start" id="inspector-start">
-          <div class="eyebrow">FIELD NOTES / LIVE INSPECTOR</div>
-          <div class="inspector-emblem" aria-hidden="true">◎</div>
-          <h2>Every dot is a research community.</h2>
-          <p>Choose a laboratory to inspect its agents, current projects, published claims and available interventions.</p>
+          <div class="eyebrow">FIELD NOTES</div><h2>A closer look</h2>
+          <p>Select a laboratory on the map. Its team, current work and resources appear here.</p>
           <div class="method-chip">28 labs · 4 fields · independent research agents</div>
+          <button id="inspector-map-help" class="text-btn" type="button">How to read the map ↗</button>
         </div>
         <div class="inspector-content" id="inspector-content" hidden>
           <div class="inspector-top"><span class="eyebrow" id="selected-domain">BIOLOGY</span><span class="tag" id="selected-world">WORLD A</span></div>
           <h2 id="selected-title">Laboratory</h2>
           <div class="inspector-kpis">
             <div><span>Research credits</span><strong id="selected-funds">–</strong></div>
-            <div><span>Agent team</span><strong id="selected-agents">–</strong></div>
+            <div><span>Team members</span><strong id="selected-agents">–</strong></div>
             <div><span>Methods quality</span><strong id="selected-methods">–</strong></div>
-            <div><span>Live tests</span><strong id="selected-active">–</strong></div>
-            <div><span>Collaboration links</span><strong id="selected-links">–</strong></div>
-            <div><span>Links to other fields</span><strong id="selected-cross-links">–</strong></div>
+            <div><span>Studies in progress</span><strong id="selected-active">–</strong></div>
           </div>
+          <p class="small-print" id="selected-summary"></p>
+          <button class="text-btn" id="inspector-more" type="button" aria-haspopup="dialog">See more · team, papers & actions ↗</button>
+        </div>
+      </aside>
+    </main>
+    <dialog id="inspector-dialog" class="method-dialog inspector-dialog" aria-labelledby="inspector-dialog-title">
+      <div class="modal-head"><div><span class="eyebrow">LABORATORY DETAILS</span><h2 id="inspector-dialog-title">Explore this laboratory</h2></div><button id="close-inspector" class="icon-btn" type="button" aria-label="Close laboratory details">×</button></div>
+      <div class="network-kpis"><span>Connections <strong id="selected-links">–</strong></span><span>Across fields <strong id="selected-cross-links">–</strong></span></div>
           <p class="small-print" id="selected-network"></p>
           <div class="inspector-section">
             <h3>Intervene in this laboratory</h3>
@@ -130,22 +132,27 @@
             <div class="paper-list" id="paper-list"></div>
             <section class="paper-selection" id="selected-paper" aria-label="Currently selected paper" hidden></section>
           </div>
-        </div>
-      </aside>
-    </main>
+    </dialog>
+    <section class="workspace-tools" aria-label="Experiment tools">
+      <div class="tools-heading"><span class="eyebrow">YOUR EXPERIMENT</span><p>Keep a result. Explore a scenario. Test a different decision.</p></div>
+      <div class="tool-cards">
+        <button id="snapshot" class="tool-card" type="button" title="Save the current world, day, settings and measurements. This records a result; it does not restore a running simulation."><span class="tool-icon" aria-hidden="true">▣</span><span><strong>Save snapshot</strong><small>Keep this moment’s measurements</small></span><span aria-hidden="true">↗</span></button>
+        <button id="atlas" class="tool-card" type="button" title="Browse model runs already executed with different settings. Coverage is sampled, not every possible scenario."><span class="tool-icon" aria-hidden="true">▦</span><span><strong>Scenario atlas</strong><small>Explore tested combinations of settings</small></span><span aria-hidden="true">↗</span></button>
+        <button id="fork" class="tool-card" type="button" title="Copy World A into World B at exactly the same moment. Then change one policy and compare their results."><span class="tool-icon" aria-hidden="true">⇉</span><span><strong>Create comparison</strong><small>Same starting point, one different decision</small></span><span aria-hidden="true">↗</span></button>
+      </div>
+    </section>
     <section class="lab-bottom">
       <div class="analysis panel">
         <div class="section-head">
-          <div><span class="eyebrow">OUTCOMES OVER TIME</span><h2>Knowledge is not the same as output.</h2></div>
+          <div><span class="eyebrow">OUTCOMES OVER TIME</span><h2>Follow the result.</h2><p class="small-print">Choose a measurement to explore its trend. Publication count alone does not establish reliability.</p></div>
           <div class="chart-switch" role="group" aria-label="Chart metric">
             <button type="button" class="tab active" data-plot="published" aria-pressed="true">Published</button>
             <button type="button" class="tab" data-plot="falsePublished" aria-pressed="false">False claims</button>
             <button type="button" class="tab" data-plot="reviewBacklog" aria-pressed="false">Backlog</button>
           </div>
         </div>
-        <div class="outcome-workspace"><div class="metric-trends" id="metric-trends" aria-label="Measurements with trends"></div><div class="outcome-chart"><label class="metric-picker">Show trend <select id="metric-select" aria-label="Outcome metric"></select></label><div class="plot-wrap"><canvas id="history-chart" role="img" aria-label="Time series of selected scientific output"></canvas></div>
+        <div class="outcome-workspace"><div class="metric-trends" id="metric-trends" aria-label="Measurements with trends"></div><div class="outcome-chart"><div class="chart-toolbar"><label class="metric-picker">Show trend <select id="metric-select" aria-label="Outcome metric"></select></label><button class="btn small" id="compare" type="button" disabled aria-controls="comparison" aria-expanded="false">Compare results</button><button class="btn small" type="button" id="toggle-data" aria-expanded="false" aria-controls="outcome-data">Data table</button></div><div class="plot-wrap"><canvas id="history-chart" role="img" aria-label="Time series of selected scientific output"></canvas></div>
         <p class="chart-caption" id="plot-caption">Cumulative publications. Publications are not necessarily true or independently replicated.</p></div></div>
-        <button class="btn small" type="button" id="toggle-data" aria-expanded="false" aria-controls="outcome-data">View data table</button>
         <div id="outcome-data" class="data-table-wrap" hidden></div>
       </div>
       <div class="activity panel">
@@ -153,7 +160,7 @@
           <div><span class="eyebrow">EVENT LOG</span><h2>What happened?</h2></div>
           <button class="text-btn" id="pause-feed" type="button">Latest first</button>
         </div>
-        <p id="event-retention" class="small-print"></p><div class="feed" id="feed" aria-live="off"><p class="empty">Start the simulation to observe discoveries and failures.</p></div><button class="text-btn" id="more-events" type="button">Show more events</button>
+        <p id="event-retention" class="small-print"></p><div class="feed" id="feed" aria-live="off"><p class="empty">Advance model time to see what changes.</p></div><button class="text-btn" id="more-events" type="button" aria-haspopup="dialog">See all events ↗</button>
       </div>
     </section>
     <section class="comparison panel" id="comparison" hidden>
@@ -162,7 +169,7 @@
         <button id="close-compare" class="btn small" type="button">Close comparison</button>
       </div>
       <p class="small-print">World B starts as an identical saved snapshot, including its random-generator state. No policies change automatically: vary just one policy in B, then advance both worlds. Comparisons describe this simulated scenario, not real-world causal estimates.</p>
-      <div class="comparison-grid" id="comparison-results"></div>
+      <div class="comparison-columns"><span>Measurement</span><strong>World A</strong><strong>World B</strong><span>Difference</span></div><div class="comparison-grid" id="comparison-results"></div>
       <div class="branch-explainer" id="branch-explainer">Choose the active world above to tune its policies independently.</div>
     </section>
     <aside class="policy-drawer" id="policy-drawer" role="region" aria-label="Simulation policy controls" hidden>
@@ -171,7 +178,7 @@
           <div><span class="eyebrow">RESEARCH SYSTEM DESIGN</span><h2>Test a policy</h2></div>
           <button class="icon-btn" id="close-settings" type="button" aria-label="Close settings">×</button>
         </div>
-        <p class="small-print">All twelve controls are deterministic model parameters. Change policies per universe to test hypotheses—not to predict the real scientific community.</p>
+        <p class="small-print">Change one setting. Watch the same map as future model days unfold.</p>
         <p class="policy-live-status" id="policy-live-status" role="status">Keep the map in view. A policy changes future model steps; advance days while paused to see its effects.</p>
         <div class="policy-controls" id="policy-controls"></div>
         <div class="drawer-footer"><span id="policy-world">EDITING WORLD A</span><button id="policy-advance" class="btn small" type="button">+10 model days</button><button id="policy-reset" class="btn small" type="button">Restore defaults</button></div>
@@ -179,7 +186,10 @@
     </aside>
     <output id="snapshot-status" class="small-print" role="status"></output>
     <section class="domain-results panel" id="domain-results" aria-label="Results by research field"></section>
-    <footer class="app-footer"><span>RESEARCH SIMULATION / SYNTHETIC DATA</span><span>NOT A FORECAST · NOT A SCIENTIFIC CONFIDENCE SCORE</span><button id="methodology" type="button" class="text-btn">Model assumptions ↗</button></footer>
+    <section class="science-reading"><div><span class="eyebrow">BEHIND THE MODEL</span><h2>Follow the science further.</h2><p>A synthetic teaching model. Its statistical rules and assumptions are explained in the sources.</p></div><div><button id="scientific-sources" class="btn" type="button">Scientific sources ↗</button><button id="methodology" type="button" class="btn">Model assumptions ↗</button></div></section>
+    <footer class="app-footer site-footer" aria-label="GraviQuest footer"><div class="footer-brand"><strong>GraviQuest</strong><p>A media project, a lab and a community for working scientists, students and the curious, in every field.</p></div><div><h3>Read</h3><button type="button" data-site-page="topics">Topics</button><button type="button" data-site-page="essays">Essays</button></div><div><h3>Do</h3><button type="button" data-site-page="labs">Labs</button><button type="button" data-site-page="learn">Learn</button><button type="button" data-site-page="community">Community</button></div><div><h3>Elsewhere</h3><button type="button" data-site-page="youtube">YouTube ↗</button><button type="button" data-site-page="linkedin">LinkedIn ↗</button><button type="button" data-site-page="instagram">Instagram ↗</button><button type="button" data-site-page="about">About</button></div><div class="footer-legal"><span>© 2026 GraviQuest</span><span>Curiosity brings people in. Capability keeps them here.</span><button type="button" data-site-page="home">Back to GraviQuest ↗</button></div></footer>
+    <dialog id="events-dialog" class="method-dialog" aria-labelledby="events-title"><div class="modal-head"><div><span class="eyebrow">RESEARCH HISTORY</span><h2 id="events-title">What happened?</h2></div><button id="close-events" class="icon-btn" type="button" aria-label="Close event history">×</button></div><p id="event-history-retention" class="small-print"></p><div id="event-history" class="event-history"></div><button id="load-events" class="btn small" type="button">Show more events</button></dialog>
+    <dialog id="map-dialog" class="method-dialog map-dialog" aria-labelledby="map-guide-title"><div class="modal-head"><div><span class="eyebrow">VISUAL GUIDE</span><h2 id="map-guide-title">Read the research map</h2></div><button id="close-map-help" class="icon-btn" type="button" aria-label="Close visual guide">×</button></div><div id="map-key-content"></div><button id="guide-knowledge" class="btn" type="button">Try the knowledge view</button></dialog>
     <dialog id="method-dialog" class="method-dialog">
       <div class="modal-head"><h2>Read the model before reading the result.</h2><button id="method-close" class="icon-btn" aria-label="Close model assumptions">×</button></div>
       <p><strong>Scientific statistical core, synthetic ecosystem.</strong> Each hypothesis has an assumed hidden truth and an effect size. The engine now samples Gaussian evidence using a known-variance, two-sided z test: <code>Z = √n · θ + ε</code>, with <code>ε ~ N(0,1)</code>, and tests <code>p ≤ α</code>. Independent replication draws fresh evidence. These are established statistical rules, not an ad hoc probability-of-success curve.</p>
