@@ -6,10 +6,23 @@ PROTECTED = re.compile(r'\[[a-z0-9-]+#[a-z0-9-]+\]|https?://[^\s)]+|`[^`]+`|\d+(
 LATIN_WORD = re.compile(r'[A-Za-z\u00c0-\u024f]{3,}')
 TECHNICAL_NAMES = {'pulsar', 'graviquest', 'science', 'universe', 'world', 'llm',
                    'ioannidis', 'simmons', 'smaldino', 'mcelreath', 'openai', 'cloudflare'}
+COMMON_INTRUSIONS = {'cuando': 'وقتی', 'yanlış': 'نادرست', '根据': 'بر اساس'}
 
 
 def answer_locale(question, page_locale):
-    return 'fa' if re.search(r'[\u0600-\u06ff]', question) else str(page_locale or 'en')[:32]
+    return 'fa' if re.search(r'[پچژگکی]', question) else str(page_locale or 'en')[:32]
+
+
+def normalize_persian_prose(text, question=''):
+    """Normalize observed connectives, never quoted code or evidence."""
+    parts = re.split('(' + PROTECTED.pattern + ')', text)
+    for i in range(0, len(parts), 2):
+        for foreign, persian in COMMON_INTRUSIONS.items():
+            if foreign.casefold() in question.casefold():
+                continue
+            pattern = re.escape(foreign) if foreign == '根据' else r'\b' + re.escape(foreign) + r'\b'
+            parts[i] = re.sub(pattern, persian, parts[i], flags=re.IGNORECASE)
+    return ''.join(parts)
 
 
 def needs_persian_edit(text):
