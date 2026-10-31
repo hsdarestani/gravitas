@@ -95,6 +95,26 @@ class LabScientificContextTests(TestCase):
         self.assertNotIn('If paper is null, plainly say no paper is selected', prompt)
         self.assertEqual(response.json()['observation'], {'world': 'B', 'day': 48})
 
+    @patch('core.lab_api.configured', return_value=True)
+    @patch('core.lab_api.run_text')
+    def test_persian_question_uses_its_language_and_copyedit_preserves_numbers_and_sources(self, run, configured):
+        def answer(**kwargs):
+            if kwargs.get('metadata', {}).get('phase') == 'language_edit':
+                return SimpleNamespace(provider='cloudflare', run_id='edit', text=kwargs['user'].replace('cuando', 'وقتی'))
+            self.assertEqual(kwargs['locale'], 'fa')
+            return SimpleNamespace(provider='cloudflare', run_id='initial', text=
+                'صف از 2 به 10 رسید cuando ورودی بیشتر از ظرفیت است. [model-guide#independent-replication]')
+        run.side_effect = answer
+        response = self.client.post('/api/labs/science-universe/coach/', data=json.dumps({
+            'event': 'ask', 'question': 'چرا صف بیشتر شد؟', 'locale': 'en'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        reply = response.json()['reply']
+        self.assertNotIn('cuando', reply)
+        self.assertIn('2 به 10', reply)
+        self.assertIn('[model-guide#independent-replication]', reply)
+        self.assertEqual(response.json()['citations'][0]['anchor'], 'independent-replication')
+        self.assertEqual(run.call_count, 2)
+
     def test_snapshots_are_idempotent_private_and_never_atlas_evidence(self):
         path = '/api/labs/science-universe/snapshots/'
         self.assertEqual(self.client.post(path, data='{}', content_type='application/json').status_code, 401)
@@ -134,6 +154,13 @@ class LabScientificContextTests(TestCase):
 
 
 class LabMechanismContextTests(TestCase):
+    def test_language_edit_cannot_drop_or_invent_measurements(self):
+        from core.lab_language import protect_evidence, restore_evidence
+        draft, tokens = protect_evidence('صف از 2 به 10 رسید. [model-guide#independent-replication]')
+        self.assertIsNotNone(restore_evidence(draft, tokens))
+        self.assertIsNone(restore_evidence(draft + ' 99', tokens))
+        self.assertIsNone(restore_evidence(draft.replace(next(iter(tokens)), ''), tokens))
+
     def test_open_methods_reduce_selective_analyses_and_facts_match_engine(self):
         from core.lab_model_context import model_facts, ENGINE_SHA
         engine = (Path(__file__).resolve().parents[2] / 'lab-sources/science-universe/engine.js').read_text()

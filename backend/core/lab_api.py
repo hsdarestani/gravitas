@@ -20,6 +20,7 @@ from .layer_models import ActivityEvent
 from .models import ContentItem, InteractiveLab, LabRevision
 from .platform_runtime_v3 import core_role, ensure_platform_workspaces
 from .pulsar import PulsarError, configured, run_text
+from .lab_language import answer_locale, needs_persian_edit, protect_evidence, restore_evidence
 
 SAFE_FILE = re.compile(r'^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+(?:\.[a-z0-9]+)$')
 SAFE_KEY = re.compile(r'^[a-z][a-z0-9_-]{0,63}$')
@@ -433,6 +434,7 @@ def public_lab_coach(request, slug):
     if not SAFE_KEY.fullmatch(key) or (section and not SAFE_KEY.fullmatch(section)):
         return JsonResponse({'ok': False, 'error': 'invalid_event'}, status=400)
     question = str(data.get('question') or '').strip()[:450]
+    reply_locale = answer_locale(question, data.get('locale'))
     if key == 'ask' and not question:
         return JsonResponse({'ok': False, 'error': 'question_required'}, status=400)
     # Visitor chat history is optional device-local context, never trusted evidence.
@@ -469,6 +471,8 @@ def public_lab_coach(request, slug):
         result = run_text(
             system=(
                 'You are Pulsar, the in-simulation educator for GraviQuest. Reply in the visitor language. '
+                + ('تمام توضیح را به فارسی روان بنویس. اصطلاح علمی را ساده توضیح بده و نام خاص و شناسهٔ منبع را حفظ کن. ' if reply_locale.startswith('fa') else '')
+                +
                 'For proactive events use 2–3 short conversational sentences: explain what this means, why it can happen in this model, and one useful next observation or action. Use at most 70 words. '
                 'For questions answer directly in up to 6 concise sentences; general scientific questions are welcome. '
                 'Use the question language when it differs from the page locale. '
@@ -538,12 +542,27 @@ def public_lab_coach(request, slug):
             }, ensure_ascii=False),
             max_tokens=400 if key == 'ask' else 200,
             surface='public', skill='public', operation='answer',
-            locale=str(data.get('locale') or 'en')[:32],
+            locale=reply_locale,
             metadata={'page': '/lab.html', 'lab_slug': slug},
         )
         if result.provider == 'fallback':
             raise PulsarError('fallback')
         reply = result.text[:(1800 if key == 'ask' else 900)]
+        if reply_locale.startswith('fa') and needs_persian_edit(reply):
+            # A compact copyedit avoids English source context leaking other
+            # languages into Persian. It cannot alter protected evidence.
+            draft, protected = protect_evidence(reply)
+            try:
+                edited = run_text(
+                    system='ویراستار فارسی هستی. فقط متن ویرایش‌شده را برگردان. همهٔ واژه‌های غیرضروری زبان‌های دیگر را به فارسی روان تبدیل کن. معنا و ادعاها را عوض نکن؛ هیچ نکته یا عددی اضافه نکن. نشانه‌های داخل ⟦ ⟧ را دقیقاً با همان شکل حفظ کن.',
+                    user=draft, max_tokens=400, surface='public', skill='public', operation='answer',
+                    locale='fa', metadata={'page': '/lab.html', 'lab_slug': slug, 'phase': 'language_edit'},
+                )
+                corrected = restore_evidence(edited.text, protected) if edited.provider != 'fallback' else None
+                if corrected and len(corrected) <= 1800:
+                    reply = corrected
+            except PulsarError:
+                pass
         cited = [c for c in allowed_citations if '[' + c['id'] + ']' in reply]
         reply = re.sub(r'\[([a-z0-9-]+#[a-z0-9-]+)\]', lambda m: m[0] if any(c['id'] == m[1] for c in allowed_citations) else '', reply)
         return JsonResponse({'ok': True, 'reply': reply, 'citations': cited,
