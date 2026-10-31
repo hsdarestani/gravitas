@@ -64,6 +64,10 @@ const server=http.createServer((req,res)=>{
     const aligned=await page.evaluate(()=>{const a=document.querySelector('.world-stage').getBoundingClientRect(),b=document.querySelector('.workspace-side').getBoundingClientRect();return {top:Math.abs(a.top-b.top),bottom:Math.abs(a.bottom-b.bottom),inspectorScroll:document.getElementById('inspector').scrollHeight-document.getElementById('inspector').clientHeight};});
     assert.ok(aligned.top<1&&aligned.bottom<1,'right panels and companion align with the map');
     assert.ok(aligned.inspectorScroll<2,'the summary has no internal scrollbar');
+    await page.setViewportSize({width:1280,height:720});
+    const compactSummary=await page.locator('#inspector').evaluate(el=>({overflow:el.scrollHeight-el.clientHeight,moreBottom:el.querySelector('#inspector-more').getBoundingClientRect().bottom,bottom:el.getBoundingClientRect().bottom}));
+    assert.ok(compactSummary.overflow<2&&compactSummary.moreBottom<compactSummary.bottom,'See more remains visible on short desktop windows');
+    await page.setViewportSize({width:1365,height:900});
     await page.locator('#inspector-more').click();
     await page.locator('#fund-lab').click();
     assert.match(await page.locator('#intervention-status').innerText(),/Intervention applied/);

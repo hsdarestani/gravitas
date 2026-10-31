@@ -329,3 +329,10 @@ body[data-playing=false] .live-dot{background:#8ba3ad;box-shadow:none}
 .policy-rationale summary{font-size:10px;color:var(--muted);cursor:pointer}.policy-rationale[open] summary{margin-bottom:8px}.policy-control{gap:7px}.policy-control .sparkline{height:18px}.policy-rationale .policy-evidence{font-size:10px;line-height:1.6}
 
 @media(max-width:580px){.world-stage:has(.canvases.split){height:780px}.canvases.split{min-height:350px}}
+/* Short desktop windows keep See more visible and show a shorter event preview. */
+@media(min-width:901px) and (max-height:820px){
+ .workspace-side,.model-and-policies.policy-open .workspace-side{grid-template-rows:minmax(0,1.1fr) minmax(0,.9fr) 68px}
+ .inspector,.activity{padding:14px}.inspector-content{gap:8px}.inspector-content h2{font-size:21px}
+ .inspector-kpis>div{padding:3px 0;gap:3px}.inspector-kpis strong{font-size:19px}.inspector-content>.small-print{font-size:10px;line-height:1.4}
+ .activity .feed-event:nth-child(n+3){display:none}
+}
