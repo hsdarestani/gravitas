@@ -126,7 +126,19 @@ Exploration diversity controls the probability of a candidate topic being sample
 
 ## Live graph semantics
 
-Laboratory node size encodes active studies or publications, depending on view. Orbiting marks represent actual simulated team members; their positions depend on model day and their produced idea count. Moving citation marks represent retained citation events and model days since citation. Paper nodes are real live model publications. Collaboration edges are synthetic assumptions, not measured scientific relationships. No visual research activity advances on wall-clock time while the model is paused.
+**Laboratories** shows actual laboratory nodes, sized by active studies with a display cap. Stationary small marks identify actual team members (gold AI roles, blue human roles); their placement is for readability, not a work-rate measure. Blue collaboration edges join the same field and violet edges cross fields. All collaboration edges use the same width: the old distance-based width was not an additional causal weight in citation selection. A grey laboratory has proposal generation reduced to 17% of its usual chance, not completely stopped.
+
+**Knowledge flow** shows up to the latest 180 live published claims as selectable dots, alongside faint laboratory anchors. Arrows are actual retained citation events from the citing laboratory to the cited paper, when that paper is visible; the engine retains at most 120 citation events. Gold dots have no completed repeat, green dots have a successful repeat and no failed repeat, and orange dots have a failed repeat. Dot radius follows completed repeats, not certainty of truth. Outer color identifies topic field; an extra violet ring marks a topic outside the origin laboratory's field. Paper placement around an origin lab is a display layout and does not influence the model.
+
+Moving gold marks encode the age of actual citations over the last eight model days. Their movement is not a measured speed of knowledge transmission. Selection rings indicate the user's selection. No visual research activity advances on wall-clock time while the model is paused. Artificial team-member orbiting has been removed.
+
+**Dragging a laboratory is a model intervention.** Normalized distance changes which collaboration edges exist: same-field neighbors link below distance .49; close pairs below .24 use a fixed pair affinity with a .74 threshold. Initial pair affinities preserve the original seeded baseline. Later movement reuses those affinities, draws deterministic affinities for newly encountered pairs, and consumes no experiment random numbers. Unmoved pairs are not rerolled, and returning a lab to its original position restores its original edges.
+
+Citation preference is proportional to `(1 + sqrt(existing citations + 1)) × (1.7 if linked else 1) × (1.8 if topic matches the citing lab's field else .65)`. The multiplier is an uncalibrated relative weight, not a probability. A different citation target can schedule a fresh repeat with probability `.012 × replication policy`. Moving a lab therefore can affect later citations and repeats; it does not directly change hidden truth or evidence already generated. The inspector reports links and cross-field links before and after a move.
+
+Interdisciplinary activity has distinct meanings: out-of-field research topics, cross-field collaboration edges, and cross-field citations. The actual out-of-field topic probability is `(diversity / 16) × 3/4`, because choosing among four fields can return the original field. Joint authorship or combined scientific methods are not modeled, and there is no validated interdisciplinary quality bonus.
+
+Policy controls are a nonmodal dock: they do not dim or intercept the map. Edits change future model steps; while paused, use `+10 model days` to observe an effect. Snapshot explanations refer to a dated interval in one world, and their baselines are stored separately for each world. A missing paper selection does not block general or event-driven teaching.
 
 ## Scenario atlas and coverage
 

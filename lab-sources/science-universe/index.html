@@ -58,6 +58,7 @@
             </div>
           </div>
         </div>
+        <p class="map-explanation" id="map-explanation">Laboratories shows the teams doing research. Circle size follows studies in progress; lines are modeled collaboration opportunities.</p>
         <div class="canvases" id="canvases">
           <div class="canvas-col active" id="canvas-holder-a">
             <canvas id="network-a" role="img" aria-label="Interactive map of laboratories; select a node to inspect and intervene"></canvas>
@@ -81,11 +82,13 @@
             <span><i class="dot gold"></i> Published claim</span>
           </div>
           <div class="layer-chips" role="group" aria-label="Visual layers">
-            <label><input id="layer-links" type="checkbox" checked> Collaborations</label>
-            <label><input id="layer-flows" type="checkbox" checked> Activity</label>
+            <label><input id="layer-links" type="checkbox" checked> <span id="links-label">Collaborations</span></label>
+            <label><input id="layer-flows" type="checkbox" checked> <span id="flows-label">People & citations</span></label>
             <label><input id="layer-labels" type="checkbox" checked> Labels</label>
           </div>
         </div>
+        <p class="map-counts" id="map-counts" role="status"></p>
+        <details class="map-key"><summary>Read this map</summary><div id="map-key-content"></div></details>
       </section>
       <aside class="inspector panel" id="inspector" aria-live="polite">
         <div class="inspector-start" id="inspector-start">
@@ -103,7 +106,10 @@
             <div><span>Agent team</span><strong id="selected-agents">–</strong></div>
             <div><span>Methods quality</span><strong id="selected-methods">–</strong></div>
             <div><span>Live tests</span><strong id="selected-active">–</strong></div>
+            <div><span>Collaboration links</span><strong id="selected-links">–</strong></div>
+            <div><span>Links to other fields</span><strong id="selected-cross-links">–</strong></div>
           </div>
+          <p class="small-print" id="selected-network"></p>
           <div class="inspector-section">
             <h3>Intervene in this laboratory</h3>
             <div class="inspector-buttons">
@@ -159,16 +165,16 @@
       <div class="comparison-grid" id="comparison-results"></div>
       <div class="branch-explainer" id="branch-explainer">Choose the active world above to tune its policies independently.</div>
     </section>
-    <aside class="policy-drawer" id="policy-drawer" role="dialog" aria-label="Simulation policy controls" aria-modal="false" hidden>
-      <div class="drawer-scrim" id="drawer-close-area"></div>
+    <aside class="policy-drawer" id="policy-drawer" role="region" aria-label="Simulation policy controls" hidden>
       <div class="drawer-panel">
         <div class="drawer-head">
-          <div><span class="eyebrow">RESEARCH SYSTEM DESIGN</span><h2>Rewrite the rules</h2></div>
+          <div><span class="eyebrow">RESEARCH SYSTEM DESIGN</span><h2>Test a policy</h2></div>
           <button class="icon-btn" id="close-settings" type="button" aria-label="Close settings">×</button>
         </div>
         <p class="small-print">All twelve controls are deterministic model parameters. Change policies per universe to test hypotheses—not to predict the real scientific community.</p>
+        <p class="policy-live-status" id="policy-live-status" role="status">Keep the map in view. A policy changes future model steps; advance days while paused to see its effects.</p>
         <div class="policy-controls" id="policy-controls"></div>
-        <div class="drawer-footer"><span id="policy-world">EDITING WORLD A</span><button id="policy-reset" class="btn small" type="button">Restore defaults</button></div>
+        <div class="drawer-footer"><span id="policy-world">EDITING WORLD A</span><button id="policy-advance" class="btn small" type="button">+10 model days</button><button id="policy-reset" class="btn small" type="button">Restore defaults</button></div>
       </div>
     </aside>
     <output id="snapshot-status" class="small-print" role="status"></output>

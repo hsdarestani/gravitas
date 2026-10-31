@@ -6,7 +6,7 @@ to attach them to a different engine instead of silently teaching old rules.
 import hashlib
 import math
 
-ENGINE_SHA = 'b747c91da73c6832a9d07678d6ceb009eb131843068d6d5e81dc0dc10d3aa351'
+ENGINE_SHA = '40fe6ac6d23b36ec6b7908899485ee39cb501ce4d7af334a1b54cdb731f9a5d6'
 DEFAULTS = dict(generation=5, verification=5, replication=4, funding=6, aiAdoption=6,
                 alpha=5, sampleSize=5, transparency=5, diversity=5, pressure=5,
                 network=5, uncertainty=5)
@@ -39,6 +39,17 @@ def model_facts(lab, state):
         'verified_engine_match': True, 'engine_sha': ENGINE_SHA,
         'basis': 'Exact implemented mechanisms, not empirical findings from papers.',
         'rules': RULES, 'policy_values': policy,
+        'graph_mechanisms': {
+            'laboratories_view': 'Nodes are actual labs; radius follows active studies with a display cap. Static team marks represent actual AI/human members, not work-rate measurements.',
+            'knowledge_flow_view': 'Dots are up to 180 recent live papers. Arrows are retained real model citation events from a citing lab to a paper; at most 120 events are retained. Paper position near its origin lab is display layout only.',
+            'citation_motion': 'A moving mark encodes the age of a recorded citation across eight model days, not a measured speed of knowledge transmission. Pause freezes model-day motion.',
+            'moving_a_lab': 'Changes normalized network distance and possible collaboration edges. Same-field neighbors within distance .49 link; other near pairs within .24 use a fixed affinity threshold .74. Moving does not reroll unrelated affinities or consume the experiment random stream.',
+            'citation_preference': 'Weight=(1+sqrt(paper citations+1)) * (1.7 if linked else 1) * (1.8 if paper topic matches citing lab field else .65). This is a relative weight, not a probability or evidence of truth.',
+            'downstream_effect': 'A changed citation target can trigger a repeat request with probability .012*replication. Moving does not directly change hidden truth, study data, statistical power, methods or funding.',
+            'interdisciplinary_work': 'A generated question can use a topic outside its origin lab field. The exact out-of-field chance is (diversity/16)*(3/4), because uniform field choice can return the original field. Cross-field citations and links are separate measures. Joint authorship or combined scientific methods are not simulated.',
+            'current_out_of_field_probability': policy['diversity']*3/64,
+            'paper_colors': 'Gold=no completed repeat; green=at least one passed and no failed repeat; orange=one or more failed repeats. Colors do not reveal hidden truth. The outer color marks topic field, with an extra violet ring for out-of-field work.',
+        },
         'missing_values_use_model_defaults': [k for k in DEFAULTS if k not in supplied],
         'computed_mechanism_example': {
             'initial_analyses_at_current_pressure_and_transparency': analyses(policy['transparency']),

@@ -37,7 +37,7 @@ function make(seed=21061,policy={},design={}){
   design=normalizeDesign(design);
   const state={seed:seed>>>0,rng:(seed>>>0)||1,day:0,design,policy:{...DEFAULTS,...policy},
     labs:[],agents:[],papers:[],links:[],hypotheses:[],events:[],history:[],nextId:1,
-    pool:250,policyChanges:[],citationEdges:[],eventCount:0,stats:{generated:0,tested:0,published:0,rejected:0,replicated:0,
+    pool:250,policyChanges:[],citationEdges:[],spatialAffinities:{},eventCount:0,stats:{generated:0,tested:0,published:0,rejected:0,replicated:0,
       retracted:0,falsePublished:0,truePublished:0,spent:0,citations:0,replicationFailures:0},
     queues:{review:[],replication:[]},selected:0,
   };
@@ -65,17 +65,29 @@ function make(seed=21061,policy={},design={}){
       });
     }
   }
-  rebuildLinks(state);
+  rebuildLinks(state,true);
   event(state,'world_started',null,'A synthetic research world with '+state.labs.length+' laboratories and '+state.agents.length+' agents was initialized.');
   snapshot(state);
   return state;
 }
-function rebuildLinks(s){
+function rebuildLinks(s,initial=false){
+  // Keep each pair's affinity fixed. Moving a node must not reroll unrelated
+  // connections or consume the random stream used by scientific experiments.
+  s.spatialAffinities=s.spatialAffinities||{};
+  function affinity(a,b){
+    const key=a+':'+b;
+    if(!Object.prototype.hasOwnProperty.call(s.spatialAffinities,key)){
+      let x=(s.seed^Math.imul(a+1,73856093)^Math.imul(b+1,19349663))>>>0;
+      x=Math.imul(x^(x>>>16),0x45d9f3b);x=Math.imul(x^(x>>>16),0x45d9f3b);
+      s.spatialAffinities[key]=initial?rnd(s):((x^(x>>>16))>>>0)/4294967296;
+    }
+    return s.spatialAffinities[key];
+  }
   let edges=[];
   for(let i=0;i<s.labs.length;i++)for(let j=i+1;j<s.labs.length;j++){
     let a=s.labs[i],b=s.labs[j];
     const dist=Math.hypot(a.x-b.x,a.y-b.y);
-    if((a.domain===b.domain&&dist<.49)||(dist<.24&&rnd(s)<.74))
+    if((a.domain===b.domain&&dist<.49)||(dist<.24&&affinity(i,j)<.74))
       edges.push({a:i,b:j,weight:fixed(clamp(1.1-dist*1.6,.12,1),3)});
   }
   s.links=edges;
@@ -262,6 +274,10 @@ function processReplication(s){
     }else event(s,'replication_passed',h.labId,h.topic+' replicated in a new synthetic test',{hypothesisId:h.id});
   }
 }
+function citationWeight(s,from,h){
+  const near=s.links.some(e=>(e.a===from.id&&e.b===h.labId)||(e.b===from.id&&e.a===h.labId));
+  return (1+Math.sqrt(h.citations+1))*(near?1.7:1)*(h.domain===from.domain?1.8:.65);
+}
 function newCitations(s){
   if(s.papers.length<2)return;
   // Attention and network proximity shape citation cascades; not evidence quality.
@@ -270,11 +286,7 @@ function newCitations(s){
     const from=choice(s,s.labs);
     const pool=s.papers.slice(-260).map(id=>find(s,id)).filter(h=>h&&!h.retracted&&h.labId!==from.id);
     if(!pool.length)continue;
-    const weighted=pool.map(h=>{
-      const to=s.labs[h.labId],near=s.links.some(e=>
-        (e.a===from.id&&e.b===to.id)||(e.b===from.id&&e.a===to.id));
-      return (1+Math.sqrt(h.citations+1))*(near?1.7:1)*(h.domain===from.domain?1.8:.65);
-    });
+    const weighted=pool.map(h=>citationWeight(s,from,h));
     let target=rnd(s)*weighted.reduce((a,b)=>a+b,0),h=pool[0];
     for(let j=0;j<pool.length;j++){target-=weighted[j];if(target<=0){h=pool[j];break;}}
     h.citations++;s.stats.citations++;
@@ -369,5 +381,5 @@ function researchBreakdown(s){
   });
   return domains;
 }
-return {make,step,fork,summary,intervention,editPolicy,researchBreakdown,statisticalTest,observeStudy,normalCDF,normalizeDesign,DOMAINS,DEFAULTS,DEFAULT_DESIGN};
+return {make,step,fork,summary,intervention,editPolicy,researchBreakdown,citationWeight,statisticalTest,observeStudy,normalCDF,normalizeDesign,DOMAINS,DEFAULTS,DEFAULT_DESIGN};
 });

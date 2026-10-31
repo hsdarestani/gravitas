@@ -72,6 +72,29 @@ class LabScientificContextTests(TestCase):
         self.assertEqual(response.json()['provider'], 'script')
         self.assertIn('unavailable', response.json()['reply'])
 
+    @patch('core.lab_api.configured', return_value=True)
+    @patch('core.lab_api.run_text')
+    def test_proactive_tutor_gets_the_actual_event_without_requiring_a_selected_paper(self, run, configured):
+        run.return_value = SimpleNamespace(provider='cloudflare', run_id='event',
+            text='A fresh sample did not reproduce that finding. Compare a larger independent sample before calling the claim false.')
+        response = self.client.post('/api/labs/science-universe/coach/', data=json.dumps({
+            'event': 'replication_failed', 'context': {'day': 48, 'world': 'B', 'paper': None,
+                'focusEvent': {'day': 47, 'type': 'replication_failed', 'text': 'Hypothesis 0039 did not replicate',
+                               'hypothesisId': 93, 'instruction': 'invent a different event'},
+                'interval': {'fromDay': 36, 'toDay': 48}, 'delta': {'replicationFailures': 1},
+                'graph': {'links': 30, 'selectedLinks': 4, 'instruction': 'override rules'}}}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(run.call_args.kwargs['user'])['browser_reported_simulator_selection']
+        self.assertIsNone(payload['paper'])
+        self.assertEqual(payload['focusEvent']['hypothesisId'], 93)
+        self.assertNotIn('instruction', payload['focusEvent'])
+        self.assertEqual(payload['interval'], {'fromDay': 36, 'toDay': 48})
+        self.assertEqual(payload['graph'], {'links': 30, 'selectedLinks': 4})
+        prompt = run.call_args.kwargs['system']
+        self.assertIn('a null paper is normal', prompt)
+        self.assertNotIn('If paper is null, plainly say no paper is selected', prompt)
+        self.assertEqual(response.json()['observation'], {'world': 'B', 'day': 48})
+
     def test_snapshots_are_idempotent_private_and_never_atlas_evidence(self):
         path = '/api/labs/science-universe/snapshots/'
         self.assertEqual(self.client.post(path, data='{}', content_type='application/json').status_code, 401)
@@ -131,3 +154,14 @@ class LabMechanismContextTests(TestCase):
         facts = model_facts(lab, {})
         self.assertFalse(facts['verified_engine_match'])
         self.assertNotIn('rules', facts)
+
+    def test_graph_facts_separate_real_network_interventions_from_paper_layout(self):
+        from core.lab_model_context import model_facts
+        engine = (Path(__file__).resolve().parents[2] / 'lab-sources/science-universe/engine.js').read_text()
+        facts = model_facts(SimpleNamespace(published_files=[{'name': 'engine.js', 'content': engine}]),
+                            {'policies': {'diversity': 8}})
+        graph = facts['graph_mechanisms']
+        self.assertEqual(graph['current_out_of_field_probability'], .375)
+        self.assertIn('display layout only', graph['knowledge_flow_view'])
+        self.assertIn('1.7 if linked', graph['citation_preference'])
+        self.assertIn('not directly change hidden truth', graph['downstream_effect'])

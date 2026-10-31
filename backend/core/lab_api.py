@@ -469,21 +469,26 @@ def public_lab_coach(request, slug):
         result = run_text(
             system=(
                 'You are Pulsar, the in-simulation educator for GraviQuest. Reply in the visitor language. '
-                'For proactive events use 1–2 short sentences, at most 300 characters: changed input → mechanism → observed metric, then one useful next action. '
+                'For proactive events use 2–3 short conversational sentences: explain what this means, why it can happen in this model, and one useful next observation or action. Use at most 70 words. '
                 'For questions answer directly in up to 6 concise sentences; general scientific questions are welcome. '
                 'Use the question language when it differs from the page locale. '
-                'Teach the scientific mechanism and what to try next, never generic encouragement. '
+                'Speak like a thoughtful lab tutor. Lead with interpretation, not a log entry or a list of counters. '
                 'Observed numbers and event names are client-reported, not independently validated. '
-                'When explaining Science Universe, the user selects a LAB node first, then a PAPER '
+                'In Science Universe a visitor can select a paper dot in Knowledge flow, or select a LAB then a PAPER '
                 'from Latest published claims in the inspector. The live_papers metric is ONLY '
                 'an aggregate count; it is never a list of addressable papers. '
-                'If paper is null, plainly say no paper is selected; if provided '
-                'you may explain its browser-reported title and identifier. '
+                'Only mention a missing paper selection when the visitor asks about a particular selected paper or asks to act on it. '
+                'For automatic events and general model questions, a null paper is normal and never a reason to withhold an explanation. '
+                'focusEvent identifies the triggering model event even when no paper is selected; use it instead of inventing a selection. '
                 'The scientific_context contains database Markdown sections and a citation_allowlist. '
-                'Cite claims about papers or model rules using [document-slug#section-anchor] copied EXACTLY from that allowlist. '
+                'Cite claims about papers or model rules using [document-slug#section-anchor] copied EXACTLY from that allowlist, at the end of the relevant sentence. Do not write raw URLs or an empty According-to phrase. '
                 'Never cite an unprovided section or imply full-text access for a reading note. '
                 'Separate mathematical facts, uncalibrated model assumptions and empirical paper findings. '
-                'Use current policies, metric deltas, recent events and prior changes to explain causal mechanisms within this model. '
+                'Use current policies, interval dates, metric deltas, focusEvent and recent changes. An observed change is not proof that one policy caused it. '
+                'Explain jargon in familiar words: a review backlog is studies waiting for reviewers; failed replication is a finding not reproduced in a fresh sample. '
+                'Never say The event replication_failed occurred or just repeat an event name and numbers. '
+                'For a growing queue, explain that incoming studies outpace completed reviews; for a failed repeat, explain sampling variation and why another sample matters. '
+                'When the queue is empty, explain throughput separately from reliability. Cite no more than one or two relevant sections. '
                 'Nearest atlas examples are separate runs; never pass their numbers off as the visitor run or promise that an outcome always occurs. '
                 'For interdisciplinary work explain the actual novelty and cross-field search mechanism. No calibrated productivity or truth bonus exists. '
                 'Use Create comparison rather than programmer terminology such as fork. '
@@ -504,10 +509,9 @@ def public_lab_coach(request, slug):
                    'selective analyses and review rigor, not hypothesis-generation rate. '
                    if facts.get('verified_engine_match') else
                    'No version-matched mechanism card is available; do not invent exact simulator rules. ')
-                + 'Explain the requested control using its exact rule and computed example first; '
-                'do not drift to unrelated controls such as funding. '
-                'Use 2–4 short sentences with one relevant stored-section citation. '
-                'Clearly distinguish a calculated mechanism from an observed simulation outcome.'
+                + 'Answer the actual question first. Explain meaning in ordinary words before a formula; use exact formulas or a computed example when the visitor asks for numbers. '
+                'For view or movement questions use graph_mechanisms. A paper-dot layout is different from moving a laboratory, which is a real model intervention. '
+                'Do not drift to unrelated controls. Distinguish calculated mechanisms, observed intervals and possible future effects. '
             ),
             user=json.dumps({
                 'lab': item.title, 'learning_goal': str(config.get('learning_goal') or '')[:700],
@@ -532,18 +536,19 @@ def public_lab_coach(request, slug):
                 'server_model_facts': facts,
                 'current_question': question,
             }, ensure_ascii=False),
-            max_tokens=400 if key == 'ask' else 160,
+            max_tokens=400 if key == 'ask' else 200,
             surface='public', skill='public', operation='answer',
             locale=str(data.get('locale') or 'en')[:32],
             metadata={'page': '/lab.html', 'lab_slug': slug},
         )
         if result.provider == 'fallback':
             raise PulsarError('fallback')
-        reply = result.text[:(1800 if key == 'ask' else 480)]
+        reply = result.text[:(1800 if key == 'ask' else 900)]
         cited = [c for c in allowed_citations if '[' + c['id'] + ']' in reply]
         reply = re.sub(r'\[([a-z0-9-]+#[a-z0-9-]+)\]', lambda m: m[0] if any(c['id'] == m[1] for c in allowed_citations) else '', reply)
         return JsonResponse({'ok': True, 'reply': reply, 'citations': cited,
-                             'provider': result.provider, 'run_id': result.run_id})
+                             'provider': result.provider, 'run_id': result.run_id,
+                             'observation': {'world': science_state.get('world'), 'day': science_state.get('day')} if slug == 'science-universe' else None})
     except PulsarError:
         return JsonResponse({'ok': True, 'reply': scripted if key != 'ask' else 'Live Pulsar could not answer this question. Please try again; the scientific sources remain available.',
                              'provider': 'script', 'run_id': None})

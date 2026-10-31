@@ -9,6 +9,7 @@ var protocol='graviquest.lab.v1', validKey=/^[a-z][a-z0-9_-]{0,63}$/;
 var iframe=null, active=null, shell=null, currentSection='', lastMetrics={}, metricHistory={};
 var lastCoachAt=0, scheduled=null, lastEventKey='', lastEventAt=0, aiBusy=false;
 var speaking=true, controller=null, session=0;
+var requestSequence=0;
 var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false;
 var notices=[],chatSequence=0,fullscreenButton=null;
 var tourActive=false, tourIndex=0, tourUI=null;
@@ -155,9 +156,9 @@ function messageText(m){
  // Source buttons carry the complete citation; keep long source URLs out of prose.
  text=text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,function(all,label,url){
   var cited=(m.citations||[]).find(function(c){return c.id===label||c.source_url===url;});
-  return cited?(cited.id===label?'':label):all;
+  return cited?(cited.id===label?'['+((m.citations||[]).indexOf(cited)+1)+']':label):all;
  });
- (m.citations||[]).forEach(function(c){if(c.id)text=text.split('['+c.id+']').join('');});
+ (m.citations||[]).forEach(function(c,i){if(c.id)text=text.split('['+c.id+']').join('['+(i+1)+']');});
  return text.replace(/  +/g,' ').trim();
 }
 function clearNotices(){
@@ -223,10 +224,11 @@ function addBubble(m){
  var stamp=date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
  var meta=node('small','lab-chat-meta',stamp+(m.role==='pulsar'?
      ' · '+(m.provider==='ai'?'Pulsar · live':'Guided note'):''));
+ if(m.title)row.append(node('strong','lab-chat-message-title',String(m.title).slice(0,100)));
  row.append(p);
- (m.citations||[]).forEach(function(c){
+ (m.citations||[]).forEach(function(c,i){
   if(!/^[a-z0-9-]+$/.test(c.document||'')||!/^[a-z0-9-]+$/.test(c.anchor||''))return;
-  row.append(btn(c.section||c.title,function(){openKnowledge(c.document,c.anchor);},'lab-source-ref'));
+  row.append(btn('['+(i+1)+'] '+(c.section||c.title),function(){openKnowledge(c.document,c.anchor);},'lab-source-ref'));
  });
  row.append(meta);chat.log.append(row);
  chat.log.scrollTop=chat.log.scrollHeight;
@@ -308,9 +310,9 @@ function mountPulsarChat(sidebar){
  });
  refreshChat();
 }
-function feedback(message,source,citations){
+function feedback(message,source,citations,title){
  if(!message)return;
- if(['science-universe','directory'].includes(active?.slug)){addChat('pulsar',message,source,citations);return;}
+ if(['science-universe','directory'].includes(active?.slug)){addChat('pulsar',message,source,citations,title);return;}
  if(!speaking||!shell)return;
  shell.line.textContent=String(message).slice(0,480);
  shell.source.textContent=source==='ai'?'Pulsar · live':'Pulsar · guided note';
@@ -393,8 +395,13 @@ function reportEvent(data){
    // No activity ticker, no per-hypothesis/slider message flood.
    var notable=['policy_changed','universe_forked','replication_failed',
      'paper_retracted','replication_requested','world_reset','method_improved','snapshot_saved','scenario_completed'];
-   if(!active.config.pulsar_enabled||!active.config.auto_coach||!speaking||
-      !notable.includes(ev)||chatBusy||Date.now()-lastCoachAt<18000)return;
+   if(!active.config.pulsar_enabled||!active.config.auto_coach||!speaking||!notable.includes(ev)||chatBusy)return;
+   if(ev==='policy_changed'){
+    clearTimeout(scheduled);
+    scheduled=setTimeout(function(){if(speaking&&!chatBusy)askPulsar('',ev,lesson?.hint||intro?.hint||'');},Math.max(850,18000-(Date.now()-lastCoachAt)));
+    return;
+   }
+   if(Date.now()-lastCoachAt<18000)return;
    if(ev===lastEventKey&&Date.now()-lastEventAt<18000)return;
    lastEventKey=ev;lastEventAt=Date.now();
    askPulsar('',ev,lesson?.hint||intro?.hint||'');
@@ -409,42 +416,47 @@ function reportEvent(data){
  scheduled=setTimeout(function(){if(Date.now()-lastCoachAt>=20000)askPulsar('',ev);},1500);
 }
 async function askPulsar(question,event,fallback){
- if(!active||aiBusy||!active.config.pulsar_enabled)return;
- var isChat=['science-universe','directory'].includes(active.slug);
  var q=String(question||'').trim();
+ if(!active||!active.config.pulsar_enabled||(aiBusy&&(!q||chatBusy)))return;
+ var isChat=['science-universe','directory'].includes(active.slug);
+ var observed=active.slug==='science-universe'&&scienceGuide?scienceGuide.context():null;
  var context=chatHistory.slice(-8).map(function(m){return {
    role:m.role,text:m.text.slice(0,210)
  };});
  if(isChat&&q)addChat('user',q);
- aiBusy=true;chatBusy=isChat;lastCoachAt=Date.now();
- if(isChat&&chat){chat.send.disabled=true;chat.status.textContent='Pulsar is thinking…';}
+ aiBusy=true;chatBusy=isChat&&!!q;lastCoachAt=Date.now();
+ if(isChat&&chat){chat.send.disabled=chatBusy;chat.status.textContent='Pulsar is thinking…';}
  if(controller)controller.abort();
  controller=new AbortController();
- var timeout=setTimeout(function(){controller?.abort();},45000);
+ var thisController=controller,request=++requestSequence;
+ var timeout=setTimeout(function(){thisController.abort();},45000);
  var which=session,labSlug=active.slug;
  if(!isChat&&shell?.source)shell.source.textContent='Pulsar · interpreting';
  try{
    var res=await fetch('/api/labs/'+encodeURIComponent(labSlug)+'/coach/',{
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
-       metrics:lastMetrics,history:context,context:active.slug==='science-universe'&&scienceGuide?scienceGuide.context():null,
+       metrics:lastMetrics,history:context,context:observed,
        locale:document.documentElement.lang||'en'}),
-     signal:controller.signal,credentials:'same-origin'
+     signal:thisController.signal,credentials:'same-origin'
    });
    if(!res.ok)throw Error('coaching_unavailable');
    var result=await res.json();
-   if(which!==session)return;
-   if(result.ok&&result.reply){feedback(result.reply,result.provider==='script'?'script':'ai',result.citations);}
+   if(which!==session||request!==requestSequence)return;
+   if(!q&&event==='policy_changed'&&observed&&JSON.stringify(observed.policies)!==JSON.stringify(scienceGuide?.context()?.policies))return;
+   var observation=result.observation||observed;
+   var title=observation&&Number.isFinite(observation.day)?'Pulsar · World '+observation.world+' · day '+observation.day:'';
+   if(result.ok&&result.reply){feedback(result.reply,result.provider==='script'?'script':'ai',result.citations,title);}
    else if(fallback)feedback(fallback,'script');
  }catch(err){
-   if(which!==session)return;
+   if(which!==session||request!==requestSequence)return;
    if(err.name==='AbortError'){if(isChat)feedback('Pulsar took too long to answer. Please try again.','script');return;}
    if(isChat)feedback(fallback||
      'The live model is unavailable. You can still check Model assumptions and the linked research sources.','script');
    else if(shell?.source)shell.source.textContent='Pulsar · guidance available';
  }finally{
    clearTimeout(timeout);
-   if(which===session){
+   if(which===session&&request===requestSequence){
      aiBusy=false;chatBusy=false;
      if(isChat&&chat){
        chat.send.disabled=false;
@@ -464,6 +476,7 @@ function runLab(lab){
   tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;chatOpen=false;
   if(scienceGuide)scienceGuide.reset();
   root.dataset.labSlug = lab.slug;
+  root.classList.remove('is-editing-policy');
   root.setAttribute('aria-live','off');
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
@@ -707,6 +720,7 @@ window.addEventListener('message',function(e){
     if(speaking&&data.note&&Date.now()-lastInsightAt>18000){showInsight(String(data.note.title||'Model snapshot'),String(data.note.text||''));lastInsightAt=Date.now();}return;
   }
   if(active.slug==='science-universe'&&data.type==='lab:context'){
+    root.classList.toggle('is-editing-policy',data.context?.policyEditing===true);
     if(scienceGuide)scienceGuide.context(data.context);
     return;
   }
