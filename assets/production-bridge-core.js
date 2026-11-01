@@ -291,6 +291,10 @@
         return;
       }
       setNote(form, 'Posting…');
+      // A form can offer positions (the community's open question); the one
+      // chosen travels at the head of the reasoning it belongs to.
+      var stance = form.querySelector('input[name="stance"]:checked');
+      if (stance) body = 'Position: ' + stance.value + '.\n\n' + body;
       job = apiPost('/api/community/comments/' + encodeURIComponent(commentKey) + '/', {
         body: body
       }).then(function () {

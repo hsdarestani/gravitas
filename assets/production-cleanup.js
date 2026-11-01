@@ -141,6 +141,7 @@
         author.textContent = item.author || 'Member';
         var body = document.createElement('p');
         body.textContent = item.body || '';
+        body.style.whiteSpace = 'pre-line';   // keeps the position on its own line
         var meta = document.createElement('small');
         meta.className = 'g-muted';
         try { meta.textContent = new Date(item.created_at).toLocaleDateString(); } catch (e) { meta.textContent = ''; }
@@ -208,6 +209,9 @@
       e.stopImmediatePropagation();
       var body = reasoning.value.trim();
       var button = form.querySelector('button[type="submit"]');
+      // The position is a choice on the form, not a field the backend knows,
+      // so it travels at the head of the reasoning it belongs to.
+      var stance = form.querySelector('input[name="stance"]:checked');
       if (!body) {
         if (note) note.textContent = 'Write two or three sentences before submitting.';
         reasoning.focus();
@@ -215,7 +219,7 @@
       }
       if (button) button.disabled = true;
       if (note) note.textContent = 'Submitting for moderation…';
-      apiPost('/api/community/comments/' + contentKey + '/', { body: body })
+      apiPost('/api/community/comments/' + contentKey + '/', { body: stance ? 'Position: ' + stance.value + '.\n\n' + body : body })
         .then(function () {
           form.reset();
           if (note) note.textContent = 'Submitted. Your reasoning will appear after moderation.';

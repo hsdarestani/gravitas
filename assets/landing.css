@@ -284,35 +284,18 @@
 .lp-short li .g-soon { flex: none; }
 @media (max-width: 900px) { .lp-comm { grid-template-columns: minmax(0, 1fr); } }
 
-/* ---- Lab and Learn ------------------------------------------------------
-   The Lab and Learn pages used to open on the same plain page head as the
-   Legal Notice. They are two of the four places the header sends a visitor,
-   so they now open the way the home and community pages do: the hero grid,
-   the starfield and the comet from hero.js, and a figure of their own in the
-   right column (lab-hero.js, learn-hero.js). Everything below the hero is
-   this file's chapters, so the three pages read as one site.
+/* ---- Section pages: Topics, Lab, Learn ---------------------------------
+   Each page the header links to opens the way the home and community pages
+   do, with the hero grid, the starfield and the comet from hero.js and a
+   figure of its own in the right column (topics-hero.js, lab-hero.js,
+   learn-hero.js), and under it the page's list and nothing else.
 
-   Neither figure scores anything, so the home orbit's trick of pulling the
-   caption up into the empty band under the canvas does not apply: their
-   lower band is not empty. */
-.lab-fig .lp-orbit__stage,
-.ln-fig .lp-orbit__stage { margin-bottom: 0; }
-@media (max-width: 860px) {
-  .lab-fig .lp-orbit__stage,
-  .ln-fig .lp-orbit__stage { margin-block: 0; }
-}
-.lab-fig .lp-orbit__cap,
-.ln-fig .lp-orbit__cap { margin-top: var(--g-space-2xs); }
-
-/* The published Labs come from the registry (lab-studio.js), which fills
-   #lab-experiences and unhides it. The chapter head above them exists only
-   while there is something under it, so an empty registry leaves no heading
-   over nothing. */
-.lab-open { padding-top: var(--g-section-y); }
-.lab-open .lp-chap__head { margin-bottom: var(--g-space-xl); }
-body:has(#lab-experiences[hidden]) .lab-open { display: none; }
-/* Once a Lab is open, the page is that Lab: the landing steps aside and
-   comes back with the catalog. */
+   The Lab's list comes from the registry (lab-studio.js). Its catalog was
+   written to sit under a page head, so it has no top padding of its own;
+   under a hero it needs the section's. */
+#lab-experiences .lab-catalog { padding-top: var(--g-section-y); }
+/* Once a Lab is open, the page is that Lab: the hero steps aside and comes
+   back with the catalog. */
 body:has(#lab-experiences[data-lab-slug]:not([data-lab-slug="directory"])) .lab-landing { display: none; }
 
 /* A path card shows what a path is, never a progress figure the site does
@@ -321,3 +304,29 @@ body:has(#lab-experiences[data-lab-slug]:not([data-lab-slug="directory"])) .lab-
   margin: auto 0 0; padding-top: var(--g-space-2xs);
   font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle);
 }
+
+/* ---- Community -------------------------------------------------------------
+   The open question's positions used to be a framed list that looked like
+   buttons and did nothing (the fake tally behind them was removed, see
+   site.js). They are a real choice now, one radio per position, so the
+   reasoning arrives saying which side it argues. */
+.cm-q { min-width: 0; }
+.cm-stance { border: 0; margin: 0 0 var(--g-space-md); padding: 0; display: grid; gap: .5rem; min-width: 0; }
+.cm-stance legend { padding: 0; margin-bottom: var(--g-space-xs); }
+.cm-stance__opt {
+  display: flex; align-items: center; gap: var(--g-space-sm);
+  border: 1px solid var(--g-border); border-radius: var(--g-radius-sm);
+  padding: var(--g-space-sm) var(--g-space-md);
+  font-size: var(--g-fs-small); color: var(--g-text-muted); cursor: pointer;
+  transition: border-color var(--g-dur-fast) var(--g-ease-orbit), background-color var(--g-dur-fast) var(--g-ease-orbit), color var(--g-dur-fast) var(--g-ease-orbit);
+}
+.cm-stance__opt:hover { border-color: var(--g-border-strong); color: var(--g-text); }
+.cm-stance__opt input { flex: none; margin: 0; accent-color: var(--g-accent); }
+.cm-stance__opt:has(input:checked) { border-color: var(--g-accent); background: var(--g-surface); color: var(--g-text); }
+.cm-stance__opt:has(input:focus-visible) { outline: 2px solid var(--g-focus); outline-offset: 2px; }
+.cm-q .g-textarea { min-height: 7rem; }
+
+/* Open Topic votes, listed only when the backend has some. */
+.cm-votes { margin-top: var(--g-space-2xl); }
+.cm-votes[hidden] { display: none; }
+.cm-votes h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-sm); }

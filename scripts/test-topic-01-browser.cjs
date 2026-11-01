@@ -177,7 +177,6 @@ async function smoke() {
   assert.equal(await idx.locator("main button").count(),0);
   assert.equal(await idx.locator("main iframe").count(),0);
   assert.ok(await idx.locator("#lab-experiences").isHidden());
-  assert.ok(await idx.locator(".lab-open").isHidden(),"no Open Now heading over an empty registry");
   assert.ok(await idx.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
   await idx.screenshot({path:path.join(shots,"ai-research-empty-desktop.png"),fullPage:true});
   await idx.setViewportSize({width:390,height:844});

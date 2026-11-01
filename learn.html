@@ -22,7 +22,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds9">
 <link rel="stylesheet" href="assets/hero.css?v=20261102-grid1">
-<link rel="stylesheet" href="assets/landing.css?v=20261102-lp7">
+<link rel="stylesheet" href="assets/landing.css?v=20261102-lp8">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -87,75 +87,14 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 
-<!-- 01 · The first path --------------------------------------------------------
-     The home page shows one Topic layer by layer; this shows the one open
-     path step by step, in the path page's own words, so a visitor sees what
-     "ordered" means before choosing to start. -->
-<section class="g-section lp-chap lp-gridded lp-gridded--left" id="first" aria-labelledby="ch-first">
+<!-- The paths -----------------------------------------------------------------
+     Under the hero is the list and nothing else, the same on every section
+     page. The cards used to carry progress bars, one at a hard-coded 42%, a
+     figure the site does not have; they now say only what each path is and
+     whether it is open. This must stay the page's first .g-grid--2:
+     public-integrations.js adds published courses to it. -->
+<section class="g-section" id="paths">
   <div class="g-container">
-    <header class="lp-chap__head rv">
-      <span class="lp-chap__n">01 &middot; The First Path</span>
-      <h2 id="ch-first">Eight Steps, in Order</h2>
-      <p class="g-lead">Each step builds on the one before it. Take them in order, or stop at the one you need.</p>
-    </header>
-    <div class="lp-topic">
-      <div class="lp-topic__intro rv">
-        <p class="lp-topic__k">Path 01 &middot; AI in Research &middot; Open now</p>
-        <h3 class="lp-topic__q">From what a model is doing, to using one on your own data</h3>
-        <p class="lp-topic__say">From what these models actually do, to using one on your own data without fooling yourself. No machine learning background assumed; some statistics helps.</p>
-        <p class="lp-topic__meta">8 steps &middot; ~6 hours</p>
-        <a class="g-btn g-btn--primary" href="path-ai-in-research.html">Start the Path</a>
-      </div>
-      <ol class="lp-layers rv" aria-label="The steps of this path">
-        <li class="lp-layer"><a href="path-ai-in-research.html">
-          <span class="lp-layer__n">01</span>
-          <div><h3>What a model is doing when it answers</h3><p>The mechanism, without the mysticism: prediction over a learned distribution, and what that rules out.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="path-ai-in-research.html">
-          <span class="lp-layer__n">02</span>
-          <div><h3>Where the productivity actually is</h3><p>Triage, code and drafting versus deciding what is worth asking. The second one has not moved.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="path-ai-in-research.html">
-          <span class="lp-layer__n">03</span>
-          <div><h3>Retrieval, and why citations get invented</h3><p>Why a fluent system produces plausible references, and what grounding does and does not fix.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="path-ai-in-research.html">
-          <span class="lp-layer__n">04</span>
-          <div><h3>Evaluating a claim you cannot inspect</h3><p>Held-out sets, ablations, and the questions to ask when the mechanism is unavailable.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="path-ai-in-research.html">
-          <span class="lp-layer__n">05</span>
-          <div><h3>Using a model on your own data</h3><p>A worked example end to end, including the two places it quietly goes wrong.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="path-ai-in-research.html">
-          <span class="lp-layer__n">06</span>
-          <div><h3>Reproducibility with a stochastic tool</h3><p>Seeds, versions and the parts of your pipeline that are now a moving target.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="path-ai-in-research.html">
-          <span class="lp-layer__n">07</span>
-          <div><h3>The ethics you will actually meet</h3><p>Authorship, disclosure, review, and what your funder already requires.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="path-ai-in-research.html">
-          <span class="lp-layer__n">08</span>
-          <div><h3>Where this breaks</h3><p>The open problems, honestly stated, including the ones we argued about on camera.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-      </ol>
-    </div>
-  </div>
-</section>
-
-<!-- 02 · Every path ---------------------------------------------------------
-     The cards used to carry progress bars, one of them at a hard-coded 42%,
-     which is a figure the site does not have. They now say only what each
-     path is and whether it is open. This must stay the page's first
-     .g-grid--2: public-integrations.js adds published courses to it. -->
-<section class="g-section g-section--deep lp-chap lp-gridded" id="paths" aria-labelledby="ch-paths">
-  <div class="g-container">
-    <header class="lp-chap__head rv">
-      <span class="lp-chap__n">02 &middot; Every Path</span>
-      <h2 id="ch-paths">One Open, More Being Built</h2>
-      <p class="g-lead">The planned paths are listed so you can see where this is going, not because they are ready.</p>
-    </header>
     <div class="g-grid g-grid--2 rv"><a class="path-card" href="path-ai-in-research.html">
       <p class="g-eyebrow g-eyebrow--bare">8 steps · ~6 hours</p><h3>AI in Research</h3><p>From what these models actually do, to using one on your own data without fooling yourself.</p>
       <p class="path-card__status">Open now</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
@@ -164,49 +103,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <p class="g-eyebrow g-eyebrow--bare">5 steps · ~3 hours</p><h3>Reading a Paper Properly</h3><p>Statistics, sampling and figures: how to find the weak joint quickly, in any journal.</p></a></div>
   </div>
 </section>
-
-<!-- 03 · How a path works ------------------------------------------------------
-     The closing callout here used to say progress is stored on your device
-     and that an account adds your place across devices. Nothing in the site
-     stores path progress, so neither is said any more; what is left is what
-     is true of a static path today. -->
-<section class="g-section lp-chap lp-gridded lp-gridded--left" id="how" aria-labelledby="ch-how">
-  <div class="g-container">
-    <header class="lp-chap__head rv">
-      <span class="lp-chap__n">03 &middot; How a Path Works</span>
-      <h2 id="ch-how">Free From the First Step</h2>
-      <p class="g-lead">A path asks for no account and no payment. Join when you want to argue with what you read.</p>
-    </header>
-    <div class="lp-comm">
-      <ol class="lp-do rv">
-        <li><span class="lp-layer__n">01</span><div><h3>Follow</h3><p>Take the steps in order. Each is labelled with what it is: a video, an essay, a notebook, a checklist.</p></div></li>
-        <li><span class="lp-layer__n">02</span><div><h3>Read Whole</h3><p>No paywall and no locked steps. Every step is open from the first one.</p></div></li>
-        <li><span class="lp-layer__n">03</span><div><h3>Talk It Through</h3><p>Bring what a step raised to the community, where every Topic keeps its own discussion.</p></div></li>
-      </ol>
-      <div class="lp-short rv">
-        <h3>Who Paths Are For</h3>
-        <p>Researchers, graduate students and anyone who has to judge someone else&rsquo;s use of evidence. None assume a particular field.</p>
-        <a class="g-btn g-btn--secondary g-btn--sm" href="topics.html">Prefer a Topic First?</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Join band ------------------------------------------------------------------ -->
-<section class="g-section lp-gridded"><div class="g-container">
-  <div class="join rv">
-    <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
-    <div class="join__in">
-      <p class="g-eyebrow" style="justify-content:center">Open to Every Field</p>
-      <h2 class="join__h">Learn with&nbsp;us.</h2>
-      <p class="join__lede">Start the first path now. Join when you want to argue with what you read.</p>
-      <div class="join__act">
-        <a class="g-btn g-btn--primary g-btn--lg" href="path-ai-in-research.html">Start the First Path</a>
-        <a class="g-btn g-btn--secondary g-btn--lg" href="community.html#join">Join Us</a>
-      </div>
-      <p class="join__fine">No field or degree required. No payment, no tiers.</p>
-    </div>
-  </div></div></section>
 
 </main>
 <footer class="g-footer">
@@ -230,10 +126,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261101-verbs1"></script>
-<script src="assets/hero.js?v=20261102-game2"></script>
+<script src="assets/hero.js?v=20261102-nogame1"></script>
 <script src="assets/learn-hero.js?v=20261102-1"></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
 <script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
-<script src="assets/public-integrations.js?v=20261022-essays" defer></script>
+<script src="assets/public-integrations.js?v=20261102-votes1" defer></script>
 </body>
 </html>

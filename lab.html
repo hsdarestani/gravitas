@@ -22,7 +22,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds9">
 <link rel="stylesheet" href="assets/hero.css?v=20261102-grid1">
-<link rel="stylesheet" href="assets/landing.css?v=20261102-lp7">
+<link rel="stylesheet" href="assets/landing.css?v=20261102-lp8">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/lab-studio.css?v=20261101-brand2">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
@@ -58,8 +58,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      This page was only its heading while the Lab was being defined, and it
      stays generic: the Lab is a GraviQuest space for every Topic, not a
      synonym for AI in Research, and nothing here names an experiment. The
-     published Labs come from the registry (lab-studio.js) and appear under
-     the hero; this page only says what a Lab is.
+     published Labs come from the registry (lab-studio.js) and are listed
+     under the hero.
 
      The figure is the home hero's grid, stars and comet (hero.js), and in
      place of the orbit a fan of runs from one start around one mass
@@ -77,7 +77,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <p class="g-lead lp-hero__lede">The Lab holds interactive models you can change and question. Each one is tied to the scientific sources behind it, and none of them belongs to a single Topic.</p>
         <div class="g-cluster g-mt-lg">
           <a class="g-btn g-btn--primary g-btn--lg" href="#labs">Open the Lab</a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="#how">How a Lab Works</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="topics.html">Browse the Topics</a>
         </div>
         <p class="lp-hero__fine">Runs in your browser. No field or degree required.</p>
       </div>
@@ -94,64 +94,13 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </section>
 
 <!-- The published Labs ----------------------------------------------------
-     The hero's first button lands here. #labs is an empty marker rather than
-     the chapter itself, because the chapter is hidden while the registry is
-     empty, and a link to a hidden element goes nowhere: with nothing
-     published it lands on How a Lab Works instead. -->
+     Under the hero is the list and nothing else, the same on every section
+     page. It comes from the registry (lab-studio.js), which fills
+     #lab-experiences and unhides it; with nothing published the page is the
+     hero alone. #labs is an empty marker for the hero's button, because a
+     link to a hidden element goes nowhere. -->
 <div id="labs"></div>
-<section class="lp-chap lab-open lab-landing" aria-labelledby="ch-open">
-  <div class="g-container">
-    <header class="lp-chap__head rv">
-      <span class="lp-chap__n">01 &middot; Open Now</span>
-      <h2 id="ch-open">Models You Can Run Today</h2>
-      <p class="g-lead">Each Lab opens with what it models, what you can change, and the sources it rests on.</p>
-    </header>
-  </div>
-</section>
 <div id="lab-experiences" hidden aria-live="polite"></div>
-
-<!-- How a Lab works -----------------------------------------------------------
-     Only what holds for every Lab, so nothing here has to be retracted when a
-     particular Lab is designed: you change a condition, the model runs, and
-     the model answers to its sources. How a Lab relates to the Topics is
-     stated the way it is decided: a Lab can serve a Topic, it is not one. -->
-<section class="g-section lp-chap lp-gridded lp-gridded--left lab-landing" id="how" aria-labelledby="ch-how">
-  <div class="g-container">
-    <header class="lp-chap__head rv">
-      <span class="lp-chap__n">02 &middot; How a Lab Works</span>
-      <h2 id="ch-how">A Model You Can Argue With</h2>
-      <p class="g-lead">A Topic shows you an argument. A Lab hands you the model under it, so you can push on it yourself.</p>
-    </header>
-    <div class="lp-comm">
-      <ol class="lp-do rv">
-        <li><span class="lp-layer__n">01</span><div><h3>Change</h3><p>Move one condition, a rate, a rule or a starting value, and keep everything else as it was.</p></div></li>
-        <li><span class="lp-layer__n">02</span><div><h3>Watch</h3><p>The model runs in your browser, so what follows appears while you change it, not after.</p></div></li>
-        <li><span class="lp-layer__n">03</span><div><h3>Question</h3><p>Each Lab is tied to the sources behind it, so you can check whether the model and the evidence agree.</p></div></li>
-      </ol>
-      <div class="lp-short rv">
-        <h3>Not Tied to One Topic</h3>
-        <p>The Lab belongs to GraviQuest, not to a single Topic. A Topic can open a Lab where its question needs a model you can change, and one Lab can serve more than one Topic.</p>
-        <a class="g-btn g-btn--secondary g-btn--sm" href="topics.html">Browse the Topics</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Join band ------------------------------------------------------------------ -->
-<section class="g-section lp-gridded lab-landing"><div class="g-container">
-  <div class="join rv">
-    <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
-    <div class="join__in">
-      <p class="g-eyebrow" style="justify-content:center">Open to Every Field</p>
-      <h2 class="join__h">Change it. Then question it.</h2>
-      <p class="join__lede">Tell us which question deserves a model, and argue with what the models show.</p>
-      <div class="join__act">
-        <a class="g-btn g-btn--primary g-btn--lg" href="community.html#join">Join Us</a>
-        <a class="g-btn g-btn--secondary g-btn--lg" href="account.html#in">Sign in</a>
-      </div>
-      <p class="join__fine">No field or degree required. No payment, no tiers.</p>
-    </div>
-  </div></div></section>
 
 </main>
 <footer class="g-footer">
@@ -175,7 +124,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261101-verbs1"></script>
-<script src="assets/hero.js?v=20261102-game2"></script>
+<script src="assets/hero.js?v=20261102-nogame1"></script>
 <script src="assets/lab-hero.js?v=20261102-1"></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
 <script src="assets/science-pulsar-guide.js?v=20261031-clarity1" defer></script>

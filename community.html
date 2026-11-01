@@ -22,6 +22,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds9">
 <link rel="stylesheet" href="assets/hero.css?v=20261102-grid1">
+<link rel="stylesheet" href="assets/landing.css?v=20261102-lp8">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -54,20 +55,18 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <!-- Community hero ------------------------------------------------------
      This page used to open on the same plain page head as Impressum. It is
      the thing the whole project is for, so it gets a hero of its own: the
-     home hero's grid, stars and comet (hero.js), and in place of the
+     home hero's grid, starfield and comet (hero.js), and in place of the
      two-body orbit a many-body disc (community-hero.js) whose members are
      threaded to whoever is near them. The pointer is one more mass. -->
 <section class="g-hero lp-hero cm-hero" id="top">
   <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
   <div class="g-starfield" aria-hidden="true"></div>
-  <div class="lp-stars" id="lp-stars" aria-hidden="true"></div>
-  <canvas class="lp-meteors" id="lp-meteors" aria-hidden="true"></canvas>
   <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
   <div class="g-container g-hero__inner" style="width:100%">
     <div class="lp-hero__grid">
       <div class="lp-hero__col">
         <p class="g-eyebrow">Community &middot; Open to Every Field</p>
-        <h1 class="g-display lp-hero__title">Good Questions Pull People <em>Together</em>.</h1>
+        <h1 class="g-display lp-hero__title">Good questions pull people <em>together</em>.</h1>
         <p class="g-lead lp-hero__lede">Argue the Topics, correct what we got wrong, and vote on what we take on next.</p>
         <div class="g-cluster g-mt-lg">
           <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="#join">
@@ -75,7 +74,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
             Join Us</a>
           <a class="g-btn g-btn--secondary g-btn--lg" href="#this-week">The Open Question</a>
         </div>
-        <p class="lp-hero__credit"><span>No field or degree required</span><span>No payment, no tiers</span></p>
+        <p class="lp-hero__fine">Free account. No field or degree required.</p>
       </div>
       <div class="lp-orbit cm-swarm">
         <div class="lp-orbit__stage">
@@ -88,51 +87,97 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </div>
   </div>
 </section>
-<!-- What members do ---------------------------------------------------
+<!-- 01 · The open question ---------------------------------------------------
+     The hero's second button lands here, so it comes first. It used to be a
+     split with three positions that looked like buttons and did nothing, a
+     form under them, and a lone "What Counts" note in a column of its own
+     beside a lot of empty page. Now it is the home page's Topic layout: the
+     question on the left, held in view, and on the right a form in which the
+     positions are a real choice. production-cleanup.js posts it (the bridge
+     is the fallback), puts the chosen position in front of the reasoning,
+     and lists the published replies under the form. -->
+<section class="g-section lp-chap lp-gridded lp-gridded--left" id="this-week" aria-labelledby="ch-q">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">01 &middot; The Open Question</span>
+      <h2 id="ch-q">Pick a Side, Then Say Why</h2>
+      <p class="g-lead">Picking a position takes a second. The reasoning is what gets read, so two sentences that commit to something beat a paragraph that hedges.</p>
+    </header>
+    <div class="lp-topic">
+      <div class="lp-topic__intro rv">
+        <p class="lp-topic__k">Thought experiment &middot; Open now</p>
+        <p class="lp-topic__q">A model predicts a material&rsquo;s behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?</p>
+        <p class="lp-topic__say">Everyone can read the replies. Posting needs a free account, and a moderator reads every reply before it appears.</p>
+      </div>
+      <form class="g-field cm-q rv" data-comment-form="thought-experiment">
+        <fieldset class="cm-stance">
+          <legend class="g-label">Your position</legend>
+          <label class="cm-stance__opt"><input type="radio" name="stance" value="Prediction is the test, explanation is a bonus"><span>Prediction is the test, explanation is a bonus</span></label>
+          <label class="cm-stance__opt"><input type="radio" name="stance" value="Without a mechanism it is engineering, not science"><span>Without a mechanism it is engineering, not science</span></label>
+          <label class="cm-stance__opt"><input type="radio" name="stance" value="It depends what the prediction is for"><span>It depends what the prediction is for</span></label>
+        </fieldset>
+        <label class="g-label" for="arg">Your reasoning</label>
+        <textarea class="g-textarea" id="arg" name="body" placeholder="Two or three sentences is plenty."></textarea>
+        <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Post Your Reasoning</button>
+          <span class="g-hint" data-form-note>Needs an account. A moderator reads every reply before it appears.</span></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- 02 · Take part --------------------------------------------------------------
      This page used to describe the community four times over: six roles, a
      list of nine ways to take part that restated them, an events list for
      study groups and panels that were not running yet, and the same six roles
      again as chips in the join band. What is left is what an account can do
-     today: comment, correct, and vote on the next Topic. -->
-<section class="g-section"><div class="g-container"><div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-      <p class="g-eyebrow">Take Part</p><h2>What Members Do</h2></div></div>
-  <div class="roles rv"><div class="role"><h4>Argue</h4><p>Comment, ask and push back on any Topic. Each one publishes the strongest objection it receives.</p></div><div class="role"><h4>Correct</h4><p>Bring evidence, and flag where a claim outruns its source.</p></div><div class="role"><h4>Decide</h4><p>Propose the next Topic and vote on what we take on.</p></div></div></div></section>
-
-<section class="g-section g-section--deep" id="this-week"><div class="g-container"><div class="split split--rows">
-    <div class="rv split__intro"><p class="g-eyebrow">Open Question</p>
-      <h2 style="font-size:var(--g-fs-h2);margin-bottom:var(--g-space-sm)">Thought Experiment</h2>
-      <p class="g-lead">A model predicts a material's behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?</p>
+     today, in the home page's numbered list, beside the planned Topics that
+     the deciding is about. Open Topic votes, when there are any, are listed
+     under it by public-integrations.js; until then that list stays hidden. -->
+<section class="g-section g-section--deep lp-chap lp-gridded" id="take-part" aria-labelledby="ch-do">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">02 &middot; Take Part</span>
+      <h2 id="ch-do">Three Things Members Do</h2>
+      <p class="g-lead">Each one changes what gets published.</p>
+    </header>
+    <div class="lp-comm">
+      <ol class="lp-do rv">
+        <li><span class="lp-layer__n">01</span><div><h3>Argue</h3><p>Comment, ask and push back on any Topic. The strongest objection is published beside our reading.</p></div></li>
+        <li><span class="lp-layer__n">02</span><div><h3>Correct</h3><p>Bring evidence, and flag where a claim outruns its source. Corrections are logged in public.</p></div></li>
+        <li><span class="lp-layer__n">03</span><div><h3>Decide</h3><p>Propose the next Topic and vote on what we take on.</p></div></li>
+      </ol>
+      <div class="lp-short rv">
+        <h3>On the Shortlist</h3>
+        <p>Planned Topics. Members decide which one comes next.</p>
+        <ol>
+          <li><span>What does peer review actually catch?</span><span class="g-soon">Planned</span></li>
+          <li><span>Who pays for science, and what does that buy?</span><span class="g-soon">Planned</span></li>
+          <li><span>Can we model a living cell?</span><span class="g-soon">Planned</span></li>
+          <li><span>Why do most findings shrink when someone repeats them?</span><span class="g-soon">Planned</span></li>
+        </ol>
+        <a class="g-btn g-btn--secondary g-btn--sm" href="topics.html">See Every Topic</a>
+      </div>
     </div>
-    <div class="rv split__body">
-      <ul class="stance" style="max-width:34rem">
-        <li class="stance__opt">Prediction is the test, explanation is a bonus</li>
-        <li class="stance__opt">Without a mechanism it is engineering, not science</li>
-        <li class="stance__opt">It depends what the prediction is for</li>
-      </ul>
-      <form class="g-field g-mt-md" data-comment-form="thought-experiment" style="max-width:34rem">
-        <label class="g-label" for="arg">Your reasoning</label>
-        <textarea class="g-textarea" id="arg" name="body" placeholder="Two or three sentences is plenty."></textarea>
-        <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Submit</button>
-          <span class="g-hint" data-form-note>Needs an account. A moderator reads every reply before it appears.</span></div>
-      </form>
+    <div class="cm-votes rv" data-community-votes hidden>
+      <h3>Open Votes</h3>
+      <ol class="lp-layers" data-community-polls aria-label="Open Topic votes"></ol>
     </div>
-    <aside class="aside">
-      <div class="callout"><h4>What Counts</h4>
-        <p>Picking a position takes a second. The reasoning is what gets read, so two sentences that commit to something beat a paragraph that hedges.</p></div>
-    </aside></div></div></section>
+  </div>
+</section>
 
-<section class="g-section" id="join"><div class="g-container"><div class="join rv">
+<!-- Join band ------------------------------------------------------------------ -->
+<section class="g-section lp-gridded lp-gridded--left" id="join"><div class="g-container"><div class="join rv">
     <div class="g-well" aria-hidden="true"></div>
     <div class="g-starfield" aria-hidden="true"></div>
     <div class="join__in">
       <p class="g-eyebrow" style="justify-content:center">Free Account</p>
       <h2 class="join__h">Join the argument.</h2>
-      <p class="join__lede">One account to comment, propose a Topic and vote.</p>
-
+      <p class="join__lede">One account to post your reasoning, propose a Topic and vote.</p>
       <div class="join__act">
-        <a class="g-btn g-btn--primary g-btn--lg" href="/signup">Create an account</a>
-        <a class="g-btn g-btn--secondary g-btn--lg" href="account.html#in">I already have one</a>
+        <a class="g-btn g-btn--primary g-btn--lg" href="/signup">Create an Account</a>
+        <a class="g-btn g-btn--secondary g-btn--lg" href="account.html#in">Sign in</a>
       </div>
+      <p class="join__fine">No field or degree required. No payment, no tiers.</p>
     </div></div></div></section>
 
 </main>
@@ -157,10 +202,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261101-verbs1"></script>
-<script src="assets/hero.js?v=20261002-fabric1"></script>
+<script src="assets/hero.js?v=20261102-nogame1"></script>
 <script src="assets/community-hero.js?v=20261010-1"></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
 <script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
-<script src="assets/public-integrations.js?v=20261022-essays" defer></script>
+<script src="assets/public-integrations.js?v=20261102-votes1" defer></script>
 </body>
 </html>

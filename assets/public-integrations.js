@@ -54,39 +54,40 @@
     // internal Core team included, and retitle the join band to match, so the
     // live page never showed what community.html said. The access model is
     // the workspace's business; the public page describes what members do.
-    var roleGrid = document.querySelector('.roles');
+    //
+    // Open Topic votes used to arrive as a section of their own, a grid of
+    // callouts styled unlike anything around them. The page now keeps a
+    // hidden list for them under Take Part, drawn as the home page's layer
+    // rows, and this fills it only when there is something to show.
+    var box = document.querySelector('[data-community-votes]');
+    var host = box && box.querySelector('[data-community-polls]');
+    if (!host) return;
 
     getJson('/api/community/polls/').then(function (data) {
       var polls = data.polls || [];
       if (!polls.length) return;
-      var anchor = roleGrid && roleGrid.closest('section');
-      var section = document.createElement('section');
-      section.className = 'g-section';
-      section.innerHTML =
-        '<div class="g-container"><div class="g-section-head"><p class="g-eyebrow">Topic votes</p>' +
-        '<h2>What the community is deciding</h2><p>Every published Topic vote appears here and links back to its context.</p></div>' +
-        '<div class="g-grid g-grid--2" data-community-polls></div></div>';
-      var host = section.querySelector('[data-community-polls]');
-      polls.forEach(function (poll) {
-        var card = document.createElement('a');
-        card.className = 'callout';
-        card.href = poll.url;
+      polls.forEach(function (poll, i) {
         var leading = (poll.options || []).slice().sort(function (a,b) { return Number(b.votes||0)-Number(a.votes||0); })[0];
-        card.innerHTML =
-          '<p class="g-eyebrow">' + esc(poll.question || 'Vote') + '</p>' +
-          '<h3>' + esc(poll.title) + '</h3>' +
-          '<p>' + esc(poll.explanation || poll.summary || '') + '</p>' +
-          '<p class="g-subtle">' + esc(String(poll.total_votes || 0) + ' votes' + (leading ? ' · ' + leading.label + ' currently leads' : '')) + '</p>';
-        host.appendChild(card);
+        var total = Number(poll.total_votes || 0);
+        var li = document.createElement('li');
+        li.className = 'lp-layer';
+        li.innerHTML =
+          '<a href="' + esc(poll.url) + '">' +
+            '<span class="lp-layer__n">' + String(i + 1).padStart(2, '0') + '</span>' +
+            '<div><h3>' + esc(poll.title) + '</h3>' +
+            '<p>' + esc([poll.question || 'Vote', total + (total === 1 ? ' vote' : ' votes'),
+              total && leading ? leading.label + ' leads' : ''].filter(Boolean).join(' · ')) + '</p></div>' +
+            '<svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' +
+          '</a>';
+        host.appendChild(li);
       });
-      if (anchor) anchor.insertAdjacentElement('afterend', section);
-      else document.getElementById('main').appendChild(section);
+      box.hidden = false;
     }).catch(function () {});
   }
 
   function lab() {
     // Do not inject the former CMS lab catalog or restore old experiments.
-    // The public Lab is intentionally header-only during scope discussion.
+    // The Lab lists only what its own registry publishes (lab-studio.js).
   }
 
   learn();

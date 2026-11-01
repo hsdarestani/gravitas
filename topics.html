@@ -21,6 +21,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds9">
+<link rel="stylesheet" href="assets/hero.css?v=20261102-grid1">
+<link rel="stylesheet" href="assets/landing.css?v=20261102-lp8">
 
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
@@ -51,10 +53,40 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </header>
 <main id="main">
-<section class="page-head"><div class="g-container">
-      <span class="g-ic-plate page-head__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg></span>
-      <p class="crumb"><a href="index.html">Home</a> / Topics</p><h1>Topics</h1><p class="g-lead">One question, worked all the way through: video, essay, sources, simulation, and the strongest case against our own conclusion. The subjects move across fields; the questions underneath them do not.</p>
-    </div></section><section class="g-section"><div class="g-container">
+<!-- Topics hero ----------------------------------------------------------------
+     The page used to open on the plain page head the Legal Notice uses. It
+     now opens like every section the header links to: the grid, stars and
+     comet from hero.js, and a figure of its own (topics-hero.js), the
+     brand's well with one ring per layer of a Topic and a reader spiralling
+     down through them. Under it is the list and nothing else. -->
+<section class="g-hero lp-hero tp-hero" id="top">
+  <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
+  <div class="g-starfield" aria-hidden="true"></div>
+  <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
+  <div class="g-container g-hero__inner" style="width:100%">
+    <div class="lp-hero__grid">
+      <div class="lp-hero__col">
+        <p class="g-eyebrow">Topics &middot; One Question at a Time</p>
+        <h1 class="g-display lp-hero__title">One question, all the way down.</h1>
+        <p class="g-lead lp-hero__lede">One question, worked all the way through: video, essay, sources, simulation, and the strongest case against our own conclusion. The subjects move across fields; the questions underneath them do not.</p>
+        <div class="g-cluster g-mt-lg">
+          <a class="g-btn g-btn--primary g-btn--lg" href="#all">Browse the Topics</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="topic-answer-that-looked-right.html">Start With Topic 01</a>
+        </div>
+        <p class="lp-hero__fine">Free and whole. No paywall, no locked second half.</p>
+      </div>
+      <div class="lp-orbit tp-fig">
+        <div class="lp-orbit__stage">
+          <canvas id="tp-well" role="img"
+            aria-label="Animated well of seven rings, one for each layer of a Topic, with a body spiralling down through them; moving the pointer near it, or dragging on it, makes the well lean towards the pointer"></canvas>
+          <div class="lp-orbit__hit" aria-hidden="true"></div>
+        </div>
+        <p class="lp-orbit__cap"><span id="tp-well-name">Layer 01 &middot; Video</span>: <span id="tp-well-sub">one question, all the way down</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="g-section" id="all"><div class="g-container">
     <div class="filters rv">
       <span class="filters__label">Filter</span>
       <button class="chip" data-filter="all" aria-pressed="true">All</button>
@@ -117,6 +149,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261101-verbs1"></script>
+<script src="assets/hero.js?v=20261102-nogame1"></script>
+<script src="assets/topics-hero.js?v=20261102-1"></script>
 <script src="assets/cms-live.js?v=20260918-topic1" defer></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
 <script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
