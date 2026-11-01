@@ -128,38 +128,11 @@
 
   function community() {
     if (location.pathname !== '/community.html') return;
-    var roles = [
-      ['Viewers (Public)', 'Read public Topics, Essays, Learning Paths and Labs without a member workspace.'],
-      ['Members', 'Save content, comment, vote and track personal Topic progress.'],
-      ['Learners', 'Members with Learning access: courses, assessments, certificates and learning progress.'],
-      ['Researchers', 'Members with Research access: research projects, evidence, journal and collaboration.'],
-      ['GraviQuest Team', 'Internal Core workspace for operating, production and administration.']
-    ];
-
+    // This used to replace the page's roles with the account access tiers,
+    // internal Core team included, and retitle the join band to match, so the
+    // live page never showed what community.html said. The access model is
+    // the workspace's business; the public page describes what members do.
     var roleGrid = document.querySelector('.roles');
-    if (roleGrid) {
-      roleGrid.innerHTML = '';
-      roles.forEach(function (role) {
-        var card = document.createElement('div');
-        card.className = 'role';
-        card.innerHTML = '<h4>' + esc(role[0]) + '</h4><p>' + esc(role[1]) + '</p>';
-        roleGrid.appendChild(card);
-      });
-      var head = roleGrid.closest('section') && roleGrid.closest('section').querySelector('.g-section-head');
-      if (head) {
-        var eyebrow = head.querySelector('.g-eyebrow'); if (eyebrow) eyebrow.textContent = 'Access model';
-        var h2 = head.querySelector('h2'); if (h2) h2.textContent = 'Five Ways to Belong';
-      }
-    }
-
-    var joinRoles = document.querySelector('.join__roles');
-    if (joinRoles) {
-      joinRoles.innerHTML = roles.map(function (role) {
-        return '<span role="listitem" class="join__role">' + esc(role[0]) + '</span>';
-      }).join('');
-    }
-    var joinTitle = document.querySelector('.join__h');
-    if (joinTitle) joinTitle.textContent = 'Start as a member.';
 
     getJson('/api/community/polls/').then(function (data) {
       var polls = data.polls || [];

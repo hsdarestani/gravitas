@@ -94,8 +94,8 @@
     },
     {
       k: 'video youtube channel watch episode programme show series',
-      a: 'Five strands: one long narrative a month, a weekly read on new work, monthly interviews, a fortnightly practical lab, and a monthly roundtable on questions with no one-line answer.',
-      l: [['What we make', 'index.html#make']]
+      a: 'Each Topic comes with a video next to the essay, and every video is also on the GraviQuest YouTube channel.',
+      l: [['Topics', 'topics.html']]
     },
     {
       k: 'suggest propose idea topic request vote next what should you cover',

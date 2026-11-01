@@ -122,15 +122,12 @@
         if (dh) dh.textContent = landing.discussion_title || 'The argument is already running';
         var ds = panels[3].querySelector('.trail__say');
         if (ds) ds.textContent = landing.discussion_text || 'Read the discussion or add your own reply after signing in.';
-        var dlinks = panels[3].querySelectorAll('.trail__act a');
-        if (dlinks[0]) dlinks[0].href = topicUrl(item, '#talk');
         var talk = panels[3].querySelector('.trail__talk');
         if (talk) {
           talk.innerHTML =
-            '<div class="callout"><p class="g-eyebrow">Discussion</p>' +
-            '<h4>No placeholder comments</h4>' +
-            '<p>Published comments load on the Topic page. Sign in there to comment, reply or like.</p>' +
-            '<p><a class="g-btn g-btn--secondary g-btn--sm" href="' + topicUrl(item, '#talk') + '">Open discussion</a></p></div>';
+            '<div class="callout"><h4>Add your reply</h4>' +
+            '<p>The thread lives on the Topic page. Sign in there to comment, reply or like.</p>' +
+            '<p><a class="g-btn g-btn--primary" href="' + topicUrl(item, '#talk') + '">Join the discussion</a></p></div>';
         }
       }
 
