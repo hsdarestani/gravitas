@@ -14,14 +14,15 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
 <title>Lab · GraviQuest</title>
-<meta name="description" content="GraviQuest Lab — a space for experiments connected to our research Topics.">
+<meta name="description" content="Interactive models you can change and question, each tied to the scientific sources behind it. The GraviQuest Lab is open to every Topic.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="mask-icon" href="assets/logos/Logo_White.svg" color="#003049">
 <meta name="theme-color" content="#00263a">
 <link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds9">
-
+<link rel="stylesheet" href="assets/hero.css?v=20261102-grid1">
+<link rel="stylesheet" href="assets/landing.css?v=20261102-lp7">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/lab-studio.css?v=20261101-brand2">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
@@ -52,14 +53,106 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </header>
 <main id="main">
-  <section class="page-head" aria-labelledby="lab-title">
-    <div class="g-container">
-      <span class="g-ic-plate page-head__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg></span>
-      <p class="crumb"><a href="index.html">Home</a> / Lab</p>
-      <h1 id="lab-title">Lab</h1>
+
+<!-- Lab hero ----------------------------------------------------------------
+     This page was only its heading while the Lab was being defined, and it
+     stays generic: the Lab is a GraviQuest space for every Topic, not a
+     synonym for AI in Research, and nothing here names an experiment. The
+     published Labs come from the registry (lab-studio.js) and appear under
+     the hero; this page only says what a Lab is.
+
+     The figure is the home hero's grid, stars and comet (hero.js), and in
+     place of the orbit a fan of runs from one start around one mass
+     (lab-hero.js). The pointer is a second mass, and the undisturbed fan
+     stays behind as a ghost: one condition changed, next to what it changed. -->
+<section class="g-hero lp-hero lab-hero lab-landing" id="top" aria-labelledby="lab-title">
+  <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
+  <div class="g-starfield" aria-hidden="true"></div>
+  <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
+  <div class="g-container g-hero__inner" style="width:100%">
+    <div class="lp-hero__grid">
+      <div class="lp-hero__col">
+        <p class="g-eyebrow">Lab &middot; Open to Every Topic</p>
+        <h1 class="g-display lp-hero__title" id="lab-title">Change the conditions. Watch what follows.</h1>
+        <p class="g-lead lp-hero__lede">The Lab holds interactive models you can change and question. Each one is tied to the scientific sources behind it, and none of them belongs to a single Topic.</p>
+        <div class="g-cluster g-mt-lg">
+          <a class="g-btn g-btn--primary g-btn--lg" href="#labs">Open the Lab</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="#how">How a Lab Works</a>
+        </div>
+        <p class="lp-hero__fine">Runs in your browser. No field or degree required.</p>
+      </div>
+      <div class="lp-orbit lab-fig">
+        <div class="lp-orbit__stage">
+          <canvas id="lab-fan" role="img"
+            aria-label="Animated fan of paths from one starting point bending around a central mass; moving the pointer near it, or dragging on it, adds a second mass and every path changes, with the undisturbed fan left behind as a faint outline"></canvas>
+          <div class="lp-orbit__hit" aria-hidden="true"></div>
+        </div>
+        <p class="lp-orbit__cap"><span id="lab-fan-name">Same start, same rules</span>: <span id="lab-fan-sub">every run lands the same way</span></p>
+      </div>
     </div>
-  </section>
-  <div id="lab-experiences" hidden aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- The published Labs ----------------------------------------------------
+     The hero's first button lands here. #labs is an empty marker rather than
+     the chapter itself, because the chapter is hidden while the registry is
+     empty, and a link to a hidden element goes nowhere: with nothing
+     published it lands on How a Lab Works instead. -->
+<div id="labs"></div>
+<section class="lp-chap lab-open lab-landing" aria-labelledby="ch-open">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">01 &middot; Open Now</span>
+      <h2 id="ch-open">Models You Can Run Today</h2>
+      <p class="g-lead">Each Lab opens with what it models, what you can change, and the sources it rests on.</p>
+    </header>
+  </div>
+</section>
+<div id="lab-experiences" hidden aria-live="polite"></div>
+
+<!-- How a Lab works -----------------------------------------------------------
+     Only what holds for every Lab, so nothing here has to be retracted when a
+     particular Lab is designed: you change a condition, the model runs, and
+     the model answers to its sources. How a Lab relates to the Topics is
+     stated the way it is decided: a Lab can serve a Topic, it is not one. -->
+<section class="g-section lp-chap lp-gridded lp-gridded--left lab-landing" id="how" aria-labelledby="ch-how">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">02 &middot; How a Lab Works</span>
+      <h2 id="ch-how">A Model You Can Argue With</h2>
+      <p class="g-lead">A Topic shows you an argument. A Lab hands you the model under it, so you can push on it yourself.</p>
+    </header>
+    <div class="lp-comm">
+      <ol class="lp-do rv">
+        <li><span class="lp-layer__n">01</span><div><h3>Change</h3><p>Move one condition, a rate, a rule or a starting value, and keep everything else as it was.</p></div></li>
+        <li><span class="lp-layer__n">02</span><div><h3>Watch</h3><p>The model runs in your browser, so what follows appears while you change it, not after.</p></div></li>
+        <li><span class="lp-layer__n">03</span><div><h3>Question</h3><p>Each Lab is tied to the sources behind it, so you can check whether the model and the evidence agree.</p></div></li>
+      </ol>
+      <div class="lp-short rv">
+        <h3>Not Tied to One Topic</h3>
+        <p>The Lab belongs to GraviQuest, not to a single Topic. A Topic can open a Lab where its question needs a model you can change, and one Lab can serve more than one Topic.</p>
+        <a class="g-btn g-btn--secondary g-btn--sm" href="topics.html">Browse the Topics</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Join band ------------------------------------------------------------------ -->
+<section class="g-section lp-gridded lab-landing"><div class="g-container">
+  <div class="join rv">
+    <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
+    <div class="join__in">
+      <p class="g-eyebrow" style="justify-content:center">Open to Every Field</p>
+      <h2 class="join__h">Change it. Then question it.</h2>
+      <p class="join__lede">Tell us which question deserves a model, and argue with what the models show.</p>
+      <div class="join__act">
+        <a class="g-btn g-btn--primary g-btn--lg" href="community.html#join">Join Us</a>
+        <a class="g-btn g-btn--secondary g-btn--lg" href="account.html#in">Sign in</a>
+      </div>
+      <p class="join__fine">No field or degree required. No payment, no tiers.</p>
+    </div>
+  </div></div></section>
+
 </main>
 <footer class="g-footer">
   <div class="g-container">
@@ -67,8 +160,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <div>
         <div style="width:9rem"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></div>
         <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
-          A media project, a lab and a community for working scientists, students and
-          the curious, in every field.</p>
+          A community working through the hard questions in science and AI, with a workspace to think them through.</p>
       </div>
       <div><h5 class="g-footer__heading">Explore</h5>
         <div class="g-stack g-stack--xs g-stack--ic"><a href="topics.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg><span>Topics</span></a><a href="lab.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg><span>Interactive Lab</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg><span>Learning Paths</span><span class="g-soon">Soon</span></span></div></div>
@@ -83,7 +175,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261101-verbs1"></script>
-<script src="assets/chat.js?v=20261102-noessays" defer></script>
+<script src="assets/hero.js?v=20261102-game2"></script>
+<script src="assets/lab-hero.js?v=20261102-1"></script>
+<script src="assets/chat.js?v=20261102-t01" defer></script>
 <script src="assets/science-pulsar-guide.js?v=20261031-clarity1" defer></script>
 <script src="assets/lab-studio.js?v=20261102-noessays" defer></script>
 <script src="assets/gravitas-icons.js?v=20261014-pulsar1" defer></script>

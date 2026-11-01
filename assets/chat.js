@@ -40,7 +40,17 @@
     {
       k: 'topic topics dossier long form deep dive series video essay layers what is a topic',
       a: 'A Topic is one question worked all the way through: the video that opens it, the essay that argues it, the sources at three levels of difficulty, a timeline, something interactive to break, and the strongest case against our own conclusion.',
-      l: [['Browse Topics', 'topics.html'], ['See a finished one', 'topic-computable-universe.html']]
+      l: [['Browse Topics', 'topics.html'], ['See a finished one', 'topic-answer-that-looked-right.html']]
+    },
+    {
+      k: 'first video answer looked right hulse taylor pulsar protein trust ai assistant check verify 9.8 molecular weight hallucination',
+      a: 'Topic 01 opens with our first video, The Answer That Looked Right: Professor Hulse, his student Taylor and an assistant called Pulsar test whether a correct answer proves anything. The Topic has the transcript, an essay at two depths, graded sources, a timeline from 1973 to 2024, and an exercise in deciding which answers to check.',
+      l: [['Open Topic 01', 'topic-answer-that-looked-right.html'], ['Try the exercise', 'topic-answer-that-looked-right.html#test']]
+    },
+    {
+      k: 'workspace notes library research knowledge projects my work save where do i keep',
+      a: 'An account opens a workspace: a Library of what you save from the site, research projects with private notes and per-project access, a Knowledge space for the sources you are learning from, and Pulsar beside you, answering with the pages it read.',
+      l: [['Join Us', 'community.html#join'], ['Sign in', 'account.html#in']]
     },
     {
       k: 'lab game simulation interactive play experiment tool sandbox try',
@@ -69,7 +79,7 @@
     },
     {
       k: 'about who what is gravitas team behind contact mission why',
-      a: 'GraviQuest is a media project, an interactive lab and a community, working on how science actually gets made, and on what AI is doing to research and teaching. The About page has the editorial rules, which are the interesting part.',
+      a: 'GraviQuest is a community working through the hard questions in science and AI, with a workspace to think them through: one question at a time, with graded sources and the strongest case against our own reading. The About page has the editorial rules, which are the interesting part.',
       l: [['About', 'about.html']]
     },
     {

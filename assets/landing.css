@@ -1,0 +1,392 @@
+/* ==========================================================================
+   GRAVIQUEST LANDING
+   The home page's own sections, below and beside the hero.
+
+   The page used to be a hero, a ticker of fields nobody had published in, a
+   four-panel rail that paged itself sideways, and a join band. Its trouble was
+   not the look. It promised a research community and a Lab that the visitor
+   could not find, and hid the one thing nobody else has, a question worked
+   all the way down with the case against it, behind a carousel.
+
+   So the page now argues in four numbered chapters, in the order a visitor
+   needs to be convinced: what a Topic is (show one), that the argument is
+   real (show both sides), that there is somewhere to work (show the
+   workspace), and what members do (say only what an account can do today).
+   The numbering, the hairlines and the single repeated call to action are
+   borrowed from product pages like Linear's, where the page reads as a
+   sequence of proofs rather than a stack of blocks. The palette, the type and
+   every component are the brand book's.
+
+   Everything is drawn from --g-* tokens, so the light theme needs no rules of
+   its own here.
+   ========================================================================== */
+
+/* ---- Hero additions ------------------------------------------------------ */
+
+/* The fine print under the hero buttons: what joining costs, said before the
+   click rather than discovered after it. */
+.lp-hero__fine {
+  margin: var(--g-space-sm) 0 0;
+  font-size: var(--g-fs-caption);
+  color: var(--g-text-subtle);
+}
+
+/* The game, read as the figure's own scale rather than a card laid over
+   it. The first version was a bordered, blurred panel: it competed with the
+   orbit it was scoring and sat half on the figure, half off it. Now it is one
+   meter and one line of text, centred under the caption, with no surface of
+   its own. Readouts are DM Mono because they are live simulation values,
+   which is one of the three places the brand allows it. */
+.lp-game {
+  width: min(100%, 24rem);
+  margin: var(--g-space-xs) auto 0;
+  text-align: center;
+}
+.lp-game[hidden] { display: none; }
+/* The canvas is square and the closed orbit is a flat ellipse in the middle
+   of it, so its lower band is empty sky until someone plays. The caption and
+   the readout move up into that band, which keeps the score on the first
+   screen of a laptop instead of just under it. On a phone the same band was
+   the gap between the buttons and the figure. */
+.lp-orbit__stage { margin-bottom: -12%; }
+@media (max-width: 860px) {
+  .lp-orbit { margin-top: 0; }
+  .lp-orbit__stage { margin-block: -8% -14%; }
+}
+.lp-game__meter {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) 3.2rem;
+  align-items: center; gap: var(--g-space-xs);
+}
+.lp-game__k {
+  font-size: var(--g-fs-eyebrow); font-weight: var(--g-w-medium);
+  letter-spacing: var(--g-track-eyebrow); text-transform: uppercase;
+  color: var(--g-text-muted);
+}
+.lp-game__meter b {
+  font-family: var(--g-font-mono); font-weight: var(--g-w-medium);
+  font-variant-numeric: tabular-nums; color: var(--g-text); text-align: right;
+}
+/* The track is the scale: 0 at the left, a whole orbit off at the right.
+   The tick is your best, so a returning visitor sees the mark to beat. */
+.lp-game__bar {
+  position: relative; height: 3px;
+  border-radius: var(--g-radius-pill);
+  background: var(--g-hairline);
+}
+.lp-game__bar span {
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: var(--g-accent);
+  transform: scaleX(0); transform-origin: left center;
+}
+.lp-game__bar i {
+  position: absolute; top: -4px; width: 1px; height: 11px;
+  background: var(--g-text); opacity: .7;
+}
+.lp-game__bar i[hidden] { display: none; }
+.lp-game__say {
+  margin: var(--g-space-xs) 0 0;
+  min-height: 2.8em;
+  font-size: var(--g-fs-small); line-height: var(--g-lh-snug);
+  color: var(--g-text-muted);
+  text-wrap: balance;
+}
+.lp-game[data-level="3"] .lp-game__say,
+.lp-game[data-level="4"] .lp-game__say { color: var(--g-text); }
+.lp-game__why {
+  display: inline-block; margin-top: var(--g-space-3xs);
+  font-size: var(--g-fs-caption); color: var(--g-text-subtle);
+  text-decoration-color: var(--g-border-strong);
+}
+.lp-game__why:hover { color: var(--g-text); }
+
+/* ---- Proof strip --------------------------------------------------------
+   Where the ticker of fields was. A young project has no member counts worth
+   printing and should not invent them, so the proof is the method: four
+   promises a reader can check on any Topic. */
+.lp-proof { border-block: 1px solid var(--g-hairline); background: var(--g-bg-deep); }
+.lp-proof__list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.lp-proof__list li {
+  padding: var(--g-space-md) var(--g-space-md) var(--g-space-md) 0;
+  font-size: var(--g-fs-small); color: var(--g-text-muted); line-height: var(--g-lh-snug);
+}
+.lp-proof__list li + li { padding-left: var(--g-space-md); border-left: 1px solid var(--g-hairline); }
+.lp-proof__list b { display: block; color: var(--g-text); font-weight: var(--g-w-semibold); }
+@media (max-width: 860px) {
+  .lp-proof__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lp-proof__list li:nth-child(3) { border-left: 0; padding-left: 0; }
+  .lp-proof__list li:nth-child(n + 3) { border-top: 1px solid var(--g-hairline); }
+}
+@media (max-width: 420px) {
+  .lp-proof__list { grid-template-columns: minmax(0, 1fr); }
+  .lp-proof__list li, .lp-proof__list li + li { padding-left: 0; border-left: 0; padding-block: var(--g-space-sm); }
+  .lp-proof__list li + li { border-top: 1px solid var(--g-hairline); }
+}
+
+/* ---- Chapters ------------------------------------------------------------ */
+.lp-chap { border-top: 1px solid var(--g-hairline); }
+.lp-chap__head { max-width: 46rem; margin-bottom: var(--g-space-2xl); }
+.lp-chap__n {
+  display: block; margin-bottom: var(--g-space-xs);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption);
+  letter-spacing: .08em; color: var(--g-accent);
+}
+.lp-chap__head h2 { margin: 0 0 var(--g-space-sm); text-wrap: balance; }
+.lp-chap__head .g-lead { margin: 0; }
+
+/* ---- 01 · The Topic ------------------------------------------------------ */
+.lp-topic { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: clamp(1.5rem, 5vw, 4.5rem); align-items: start; }
+.lp-topic__intro { position: sticky; top: calc(var(--g-space-3xl) + 1rem); }
+.lp-topic__k { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0 0 var(--g-space-2xs); }
+.lp-topic__q { font-size: var(--g-fs-h2); line-height: var(--g-lh-head); margin: 0 0 var(--g-space-sm); text-wrap: balance; }
+.lp-topic__say { color: var(--g-text-muted); margin: 0 0 var(--g-space-md); max-width: 34rem; }
+.lp-topic__meta { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0 0 var(--g-space-lg); }
+@media (max-width: 900px) {
+  .lp-topic { grid-template-columns: minmax(0, 1fr); }
+  .lp-topic__intro { position: static; }
+}
+
+/* The layers, as an ordered list a reader can scan in one pass. Each row is a
+   link into the Topic at that layer, so the anatomy is also the navigation. */
+.lp-layers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--g-hairline); }
+.lp-layer { border-bottom: 1px solid var(--g-hairline); }
+.lp-layer a {
+  display: grid; grid-template-columns: 2.75rem minmax(0, 1fr) auto; gap: var(--g-space-sm);
+  align-items: baseline;
+  padding: var(--g-space-md) var(--g-space-2xs);
+  color: inherit; text-decoration: none;
+  transition: background-color var(--g-dur) var(--g-ease-orbit);
+}
+.lp-layer a:hover { background: var(--g-surface); }
+.lp-layer a:focus-visible { outline: 2px solid var(--g-focus); outline-offset: -2px; }
+.lp-layer__n { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.lp-layer h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
+.lp-layer p { margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); }
+.lp-layer__go { width: 1.1rem; height: 1.1rem; color: var(--g-text-subtle);
+  transition: transform var(--g-dur) var(--g-ease-orbit), color var(--g-dur) var(--g-ease-orbit); }
+.lp-layer a:hover .lp-layer__go { transform: translateX(3px); color: var(--g-text); }
+
+/* The four pictures the Topic keeps returning to: the material, not a mood. */
+.lp-gal {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--g-space-sm);
+  margin: var(--g-space-2xl) 0 0;
+}
+.lp-gal figure { margin: 0; }
+.lp-gal img {
+  display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover;
+  border-radius: var(--g-radius); border: 1px solid var(--g-hairline);
+  background: var(--g-surface-sunken);
+}
+.lp-gal .is-contain img { object-fit: contain; padding: var(--g-space-sm); }
+.lp-gal .is-pixel img { image-rendering: pixelated; object-fit: contain; padding: var(--g-space-xs); }
+.lp-gal figcaption { padding-top: var(--g-space-xs); font-size: var(--g-fs-caption); color: var(--g-text-muted); line-height: var(--g-lh-snug); }
+.lp-gal figcaption b { display: block; color: var(--g-text); font-weight: var(--g-w-semibold); }
+.lp-gal__credit { margin: var(--g-space-sm) 0 0; font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.lp-gal__credit a { color: inherit; }
+@media (max-width: 760px) { .lp-gal { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Stills from a video are 16:9 frames with the story at their centre, so
+   they keep their own shape rather than the portrait crop the archive
+   pictures took, which cut the characters out of their own scenes. */
+.lp-gal--wide img { aspect-ratio: 16 / 9; }
+@media (max-width: 1020px) { .lp-gal--wide { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .lp-gal--wide { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- 02 · The argument ---------------------------------------------------- */
+.lp-argue .views { margin-bottom: var(--g-space-lg); }
+.lp-argue .view { background: var(--g-surface-sunken); padding: var(--g-space-lg); }
+.lp-argue .view p { font-size: var(--g-fs-body); color: var(--g-text); line-height: var(--g-lh-body); }
+.lp-argue__q { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--g-space-md); align-items: center; }
+.lp-argue__q h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
+@media (max-width: 640px) { .lp-argue__q { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- 03 · The workspace ---------------------------------------------------
+   The product shot, built in HTML rather than shipped as a screenshot: it
+   follows the theme, stays sharp at any density, and cannot drift from the
+   brand. It is labelled as an illustration because it is one. The content is
+   Topic 01's own material, not invented team data, and it carries no counts,
+   dates or progress of any kind.
+
+   One window, centred, with a title bar: it reads as an app open on
+   someone's desk. Narrower than the text column it looked timid beside the
+   chapter heading, and a version running off the right edge of the screen,
+   product-page style, was louder than this page wants. So: the simple
+   window, as wide as the text it sits under, with the page's own lines kept
+   to a reading measure inside it. The title bar's three dots are drawn in hairline, not
+   traffic-light colours: they say "window" without importing another
+   system's palette. */
+.lp-ws { position: relative; margin-top: var(--g-space-xl); }
+.lp-ws__frame {
+  position: relative;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-radius-lg);
+  background: var(--g-surface-sunken);
+  box-shadow: var(--g-glow-md), var(--g-shadow);
+  overflow: hidden;
+  font-size: var(--g-fs-small);
+}
+.lp-ws__label {
+  position: absolute; right: var(--g-space-sm); bottom: var(--g-space-sm); z-index: 2;
+}
+
+.lp-ws__bar {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  height: 2.4rem; padding-inline: var(--g-space-md);
+  border-bottom: 1px solid var(--g-hairline);
+  background: var(--g-bg-deep);
+}
+.lp-ws__dots { position: absolute; left: var(--g-space-md); display: flex; gap: .45rem; }
+.lp-ws__dots i { width: .65rem; height: .65rem; border-radius: 50%; border: 1px solid var(--g-border-strong); }
+.lp-ws__title { font-size: var(--g-fs-caption); color: var(--g-text-subtle); font-weight: var(--g-w-medium); }
+
+.lp-ws__body {
+  display: grid; grid-template-columns: 13rem minmax(0, 1fr) 20rem;
+  min-height: 27rem;
+}
+
+.lp-ws__rail { border-right: 1px solid var(--g-hairline); padding: var(--g-space-md) var(--g-space-sm); background: var(--g-bg-deep); }
+.lp-ws__rail .g-mark { display: block; height: 1.1rem; width: auto; margin: 0 var(--g-space-2xs) var(--g-space-md); color: var(--g-text); }
+.lp-ws__tabs { display: grid; gap: 2px; }
+.lp-ws__tabs button {
+  display: flex; align-items: center; gap: var(--g-space-2xs);
+  width: 100%; padding: .5rem var(--g-space-2xs);
+  border: 0; border-radius: var(--g-radius-sm);
+  background: transparent; color: var(--g-text-muted);
+  font: inherit; text-align: left; cursor: pointer;
+  transition: background-color var(--g-dur-fast) var(--g-ease-orbit), color var(--g-dur-fast) var(--g-ease-orbit);
+}
+.lp-ws__tabs button:hover { color: var(--g-text); background: color-mix(in srgb, var(--g-surface) 55%, transparent); }
+.lp-ws__tabs button[aria-selected="true"] { background: var(--g-surface); color: var(--g-text); }
+.lp-ws__frame button:focus-visible { outline: 2px solid var(--g-focus); outline-offset: -2px; }
+.lp-ws__rail .g-ic { width: 1rem; height: 1rem; flex: none; }
+
+/* Every view shares one grid cell, so the window takes the height of the
+   tallest and does not jump while the visitor clicks through it. */
+.lp-ws__page { display: grid; padding: var(--g-space-lg) var(--g-space-xl); min-width: 0; }
+.lp-ws__view {
+  grid-area: 1 / 1; min-width: 0; max-width: 40rem;
+  visibility: hidden; opacity: 0; transform: translateY(4px);
+  transition: opacity var(--g-dur) var(--g-ease-orbit), transform var(--g-dur) var(--g-ease-orbit), visibility 0s linear var(--g-dur);
+}
+.lp-ws__view.is-on {
+  visibility: visible; opacity: 1; transform: none;
+  transition: opacity var(--g-dur) var(--g-ease-orbit), transform var(--g-dur) var(--g-ease-orbit), visibility 0s;
+}
+.lp-ws__crumb { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0 0 var(--g-space-sm); }
+.lp-ws__page h3 { font-size: var(--g-fs-h3); margin: 0 0 var(--g-space-md); text-wrap: balance; }
+.lp-ws__page ul { margin: 0 0 var(--g-space-md); padding-left: 1.1rem; color: var(--g-text-muted); display: grid; gap: var(--g-space-2xs); font-family: var(--g-font-read); line-height: var(--g-lh-snug); }
+.lp-ws__src { display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); }
+.lp-ws__src button.g-tag { background: none; font-family: inherit; cursor: pointer; }
+.lp-ws__src button.g-tag:hover { color: var(--g-text); border-color: var(--g-border-strong); }
+
+/* Home and Library are lists of things, not prose, so they drop the bullets
+   and the reading face. On Home each row is a way into its space. */
+.lp-ws__page .lp-ws__rows { list-style: none; padding: 0; gap: 0; font-family: inherit; border-top: 1px solid var(--g-hairline); }
+.lp-ws__rows li { border-bottom: 1px solid var(--g-hairline); }
+.lp-ws__rows button, .lp-ws__rows div {
+  display: grid; gap: 2px; width: 100%;
+  padding: var(--g-space-xs) var(--g-space-2xs);
+  border: 0; background: none; color: inherit; font: inherit; text-align: left;
+}
+.lp-ws__rows button { cursor: pointer; transition: background-color var(--g-dur-fast) var(--g-ease-orbit); }
+.lp-ws__rows button:hover { background: var(--g-surface); }
+.lp-ws__rows b { color: var(--g-text); font-weight: var(--g-w-medium); }
+.lp-ws__rows span { font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+
+.lp-ws__pulsar { border-left: 1px solid var(--g-hairline); padding: var(--g-space-md) var(--g-space-md) calc(var(--g-space-md) + 1.75rem); display: flex; flex-direction: column; gap: var(--g-space-sm); background: var(--g-bg-deep); }
+.lp-ws__pulsar p { margin: 0; }
+.lp-ws__who { display: flex; align-items: center; gap: var(--g-space-2xs); font-weight: var(--g-w-semibold); }
+.lp-pulsar-mark {
+  display: inline-block; width: 1.1rem; height: 1.1rem; flex: none;
+  background-color: currentColor;
+  -webkit-mask: url("logos/Pulsar_White.svg") center / contain no-repeat;
+  mask: url("logos/Pulsar_White.svg") center / contain no-repeat;
+}
+.lp-ws__ask { align-self: flex-end; max-width: 90%; padding: .55rem .8rem; border-radius: var(--g-radius) var(--g-radius) var(--g-radius-sm) var(--g-radius); background: var(--g-surface); }
+.lp-ws__ans { color: var(--g-text-muted); line-height: var(--g-lh-snug); }
+.lp-ws__cite { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+
+/* Narrower, Pulsar steps out first: the rail is what makes the window a
+   window, and Pulsar has its own card just below. On a phone the rail lies
+   across the top as four tabs. */
+@media (max-width: 960px) {
+  .lp-ws__body { grid-template-columns: 10rem minmax(0, 1fr); }
+  .lp-ws__pulsar { display: none; }
+  .lp-ws__page { padding-bottom: calc(var(--g-space-lg) + 1.75rem); }
+}
+@media (max-width: 600px) {
+  .lp-ws__body { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .lp-ws__rail { border-right: 0; border-bottom: 1px solid var(--g-hairline); padding: var(--g-space-3xs); }
+  .lp-ws__rail .g-mark { display: none; }
+  .lp-ws__tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lp-ws__tabs button { flex-direction: column; gap: 2px; padding: .45rem 0; font-size: var(--g-fs-caption); text-align: center; }
+  .lp-ws__page { padding: var(--g-space-md) var(--g-space-md) calc(var(--g-space-md) + 1.75rem); }
+}
+
+/* What the workspace holds, one cell per space. */
+.lp-feats {
+  list-style: none; margin: var(--g-space-xl) 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--g-space-sm);
+}
+.lp-feats .g-card { height: 100%; }
+.lp-feats .g-ic { width: 1.35rem; height: 1.35rem; margin-bottom: var(--g-space-sm); color: var(--g-accent); }
+@media (max-width: 960px) { .lp-feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .lp-feats { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- 04 · Community ------------------------------------------------------- */
+.lp-comm { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(1.5rem, 5vw, 4.5rem); align-items: start; }
+.lp-do { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--g-hairline); }
+.lp-do li { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: var(--g-space-sm); padding: var(--g-space-md) 0; border-bottom: 1px solid var(--g-hairline); }
+.lp-do h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
+.lp-do p { margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); }
+
+.lp-short { border: 1px solid var(--g-hairline); border-radius: var(--g-radius-lg); padding: var(--g-space-lg); background: var(--g-surface-sunken); }
+.lp-short h3 { font-size: var(--g-fs-h4); margin: 0 0 var(--g-space-3xs); }
+.lp-short > p { margin: 0 0 var(--g-space-md); font-size: var(--g-fs-small); color: var(--g-text-muted); }
+.lp-short ol { list-style: none; margin: 0 0 var(--g-space-md); padding: 0; }
+.lp-short li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--g-space-sm); padding: var(--g-space-sm) 0; border-top: 1px solid var(--g-hairline); }
+.lp-short li span:first-child { font-weight: var(--g-w-medium); }
+.lp-short li .g-soon { flex: none; }
+@media (max-width: 900px) { .lp-comm { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Lab and Learn ------------------------------------------------------
+   The Lab and Learn pages used to open on the same plain page head as the
+   Legal Notice. They are two of the four places the header sends a visitor,
+   so they now open the way the home and community pages do: the hero grid,
+   the starfield and the comet from hero.js, and a figure of their own in the
+   right column (lab-hero.js, learn-hero.js). Everything below the hero is
+   this file's chapters, so the three pages read as one site.
+
+   Neither figure scores anything, so the home orbit's trick of pulling the
+   caption up into the empty band under the canvas does not apply: their
+   lower band is not empty. */
+.lab-fig .lp-orbit__stage,
+.ln-fig .lp-orbit__stage { margin-bottom: 0; }
+@media (max-width: 860px) {
+  .lab-fig .lp-orbit__stage,
+  .ln-fig .lp-orbit__stage { margin-block: 0; }
+}
+.lab-fig .lp-orbit__cap,
+.ln-fig .lp-orbit__cap { margin-top: var(--g-space-2xs); }
+
+/* The published Labs come from the registry (lab-studio.js), which fills
+   #lab-experiences and unhides it. The chapter head above them exists only
+   while there is something under it, so an empty registry leaves no heading
+   over nothing. */
+.lab-open { padding-top: var(--g-section-y); }
+.lab-open .lp-chap__head { margin-bottom: var(--g-space-xl); }
+body:has(#lab-experiences[hidden]) .lab-open { display: none; }
+/* Once a Lab is open, the page is that Lab: the landing steps aside and
+   comes back with the catalog. */
+body:has(#lab-experiences[data-lab-slug]:not([data-lab-slug="directory"])) .lab-landing { display: none; }
+
+/* A path card shows what a path is, never a progress figure the site does
+   not have. */
+.path-card .path-card__status {
+  margin: auto 0 0; padding-top: var(--g-space-2xs);
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle);
+}

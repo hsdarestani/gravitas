@@ -14,7 +14,14 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
 <title>GraviQuest · Science, AI and the gravity of underlying questions</title>
-<meta name="description" content="GraviQuest is a media project, interactive lab and community at the intersection of science, AI and society, for people who always have questions and look for their answers.">
+<meta name="description" content="GraviQuest is a community working through the hard questions in science and AI: one question at a time, with graded sources, the strongest case against our own reading, and a workspace to think in.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="GraviQuest">
+<meta property="og:url" content="https://graviquest.com/">
+<meta property="og:title" content="GraviQuest · Hard questions, worked through together">
+<meta property="og:description" content="One question about science or AI at a time, all the way down: video, essay at two depths, graded sources, something to break, and the case against our own answer.">
+<meta property="og:image" content="https://graviquest.com/assets/img/topic-01/og-home.jpg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://graviquest.com/">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="mask-icon" href="assets/logos/Logo_White.svg" color="#003049">
@@ -22,8 +29,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds9">
-<link rel="stylesheet" href="assets/hero.css?v=20261016-dm1">
-<link rel="stylesheet" href="assets/topic-rail.css?v=up-f706806e3a02-g1df6ff09-tr6">
+<link rel="stylesheet" href="assets/hero.css?v=20261102-grid1">
+<link rel="stylesheet" href="assets/landing.css?v=20261102-lp7">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -54,35 +61,40 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </header>
 <main id="main">
 
+<!-- Hero ------------------------------------------------------------------
+     One claim, one sentence of detail, one primary action. The headline used
+     to cycle through six verbs ("Research with us", "Read with us"…), which
+     is a good closing line and a poor opening one: the visitor has to wait
+     for the sentence they are meant to understand first. It is static now,
+     and the rotating line closes the page instead.
+
+     The orbit stays, and is now a game rather than an ornament. Kepler's
+     formula predicts the two bodies exactly; the pointer is a third mass the
+     formula does not know about, and the panel under the figure reads out how
+     far the real pair has drifted from the prediction. That gap is the
+     question of the Topic below it, so the toy and the content argue the same
+     thing. The scoring lives in hero.js.
+
+     The meteors and the scattered stars are gone. Five animated layers behind
+     a headline is the opposite of the brand's "the well whispers": the grid,
+     the starfield and the comet that draws the third mass are enough. -->
 <section class="g-hero lp-hero" id="top">
   <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
   <div class="g-starfield" aria-hidden="true"></div>
-  <div class="lp-stars" id="lp-stars" aria-hidden="true"></div>
-  <canvas class="lp-meteors" id="lp-meteors" aria-hidden="true"></canvas>
   <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
   <div class="g-container g-hero__inner" style="width:100%">
     <div class="lp-hero__grid">
-      <!-- The column is the container the headline is measured against, not the
-           viewport. See hero.css: sizing display type off vw when it wraps
-           inside a column is what produced one word per line. -->
       <div class="lp-hero__col">
         <p class="g-eyebrow">Science, AI and the Gravity of Questions</p>
-        <!-- The definition leads. "… with us" said what GraviQuest is better
-             than the old tagline did, so the tagline moved up to the eyebrow
-             and the headline cycles through the ways people take part, from
-             reading to research (site.js). The line appears once: the join
-             band at the foot used to repeat it word for word. -->
-        <h1 class="g-display lp-hero__title"><span class="join__verb" data-verbs="Research|Read|Learn|Explore|Question|Build">Research</span> with&nbsp;us.</h1>
-        <!-- The lede is split rather than shortened: the promise at lead size,
-             the detail a step down and out of the way. -->
-        <p class="g-lead lp-hero__lede">GraviQuest is a community that takes real research from a question to a published result.</p>
-        <p class="lp-hero__sub">Join at whatever depth suits you: read, learn, experiment, argue, build or research. Every layer feeds the same work.</p>
+        <h1 class="g-display lp-hero__title">Hard questions, worked through together.</h1>
+        <p class="g-lead lp-hero__lede">GraviQuest is a community for anyone who works with evidence. Each Topic takes one question about science or AI all the way down, and your workspace keeps the notes, the sources and Pulsar beside you.</p>
         <div class="g-cluster g-mt-lg">
-          <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="topics.html">
-            <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            Explore Topics</a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="lab.html">Lab</a>
+          <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="community.html#join">
+            <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg>
+            <span>Join Us</span></a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="#topic">Open the Topic</a>
         </div>
+        <p class="lp-hero__fine">Free account. No field or degree required.</p>
       </div>
       <div class="lp-orbit">
         <div class="lp-orbit__stage">
@@ -94,199 +106,301 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <div class="lp-orbit__hit" id="lp-orbit-hit" aria-hidden="true"></div>
         </div>
         <p class="lp-orbit__cap"><span id="lp-orbit-name">Two-body orbit</span>: <span id="lp-orbit-sub">closed, periodic, exactly solvable</span></p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Fields band ----------------------------------------------------------
-     The site had a physics problem: nothing in it said "only physics", but
-     every worked example came from one, and a visitor from immunology or
-     economics reads that in about four seconds. Naming the fields costs one
-     line and settles the question before the first scroll. -->
-<section class="fields" aria-label="Fields covered">
-  <div class="g-container fields__in">
-    <p class="fields__lab">Asked in</p>
-    <!-- A ticker needs a copy of its content to loop against: both tracks slide
-         left by exactly their own width, so at the end of a cycle copy 2 is
-         standing where copy 1 began and the restart is invisible. The third is
-         insurance for wide viewports, where two copies can be narrower than the
-         rail they run in and a gap would open. Only the first is read aloud. -->
-    <div class="fields__ticker">
-      <ul class="fields__list"><li>Modeling</li><li>Biotech</li><li>Simulation</li><li>Computation</li><li>Informatics</li><li>Genomics</li><li>Robotics</li><li>Data Science</li><li>Neurotech</li><li>Bioinformatics</li></ul>
-      <ul class="fields__list" aria-hidden="true"><li>Modeling</li><li>Biotech</li><li>Simulation</li><li>Computation</li><li>Informatics</li><li>Genomics</li><li>Robotics</li><li>Data Science</li><li>Neurotech</li><li>Bioinformatics</li></ul>
-      <ul class="fields__list" aria-hidden="true"><li>Modeling</li><li>Biotech</li><li>Simulation</li><li>Computation</li><li>Informatics</li><li>Genomics</li><li>Robotics</li><li>Data Science</li><li>Neurotech</li><li>Bioinformatics</li></ul>
-    </div>
-  </div>
-</section>
-
-<!-- The current Topic, read across ----------------------------------------
-     This slot used to be one card: a poster, a paragraph, two buttons. It
-     announced that a Topic existed and gave no evidence that anything stood
-     behind it, so the only way to find out was to leave the page.
-
-     It is now a four-panel horizontal pass through the Topic itself. With the
-     pointer over the rail a wheel gesture pages it sideways; with the pointer
-     anywhere else the page scrolls down as usual, and while nobody is pointing
-     at it the rail pages itself on a timer so the reader can see there is more
-     than one panel. It used to pin under the header and take the page's own
-     scrolling for four screens; it does not any more. Layout and behaviour are
-     in assets/topic-rail.css and assets/topic-rail.js; .video, .view and
-     .comment come from site.css so the rail looks like the rest of the site
-     rather than a widget dropped into it.
-
-     Without JavaScript, on a phone, or with prefers-reduced-motion, this is a
-     plain horizontal scroller with snap points and no timer. Nothing below
-     depends on the script running. -->
-<section class="g-section trail" id="current-topic" data-rail="native"><div class="g-container">
-  <div class="trail__track">
-    <div class="trail__stage">
-      <div class="lp-head rv"><div class="g-section-head" style="margin-bottom:0">
-        <p class="g-eyebrow">Start Here</p><h2>The Current Topic</h2></div>
-        <a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-      <div class="trail__bar">
-        <p class="trail__now"><b>Is the universe computable?</b> &middot; <span data-rail-label>The question</span></p>
-        <div class="trail__dots" role="group" aria-label="Jump within this topic">
-          <button class="trail__dot" type="button" aria-current="true" aria-label="The question"></button>
-          <button class="trail__dot" type="button" aria-current="false" aria-label="What it looks like"></button>
-          <button class="trail__dot" type="button" aria-current="false" aria-label="Two readings"></button>
-          <button class="trail__dot" type="button" aria-current="false" aria-label="The discussion"></button>
+        <!-- The game reads as the figure's own scale, not a card laid over it:
+             one meter from 0 to 100% with a tick where your best stands, and
+             one line that explains what is happening. No box, no blur. -->
+        <div class="lp-game" id="lp-game" data-level="0">
+          <div class="lp-game__meter">
+            <span class="lp-game__k">Break the formula</span>
+            <span class="lp-game__bar" aria-hidden="true"><span id="lp-err-bar"></span><i id="lp-err-best" hidden></i></span>
+            <b id="lp-err" aria-label="Formula error">0%</b>
+          </div>
+          <p class="lp-game__say" id="lp-game-say" aria-live="polite">Kepler&rsquo;s formula predicts these two exactly. Bring your pointer close: you are the third body.</p>
+          <a class="lp-game__why" href="topic-computable-universe.html">Why it matters: Is the universe computable?</a>
         </div>
-        <span class="trail__count g-nums" data-rail-count>01 / 04</span>
       </div>
-
-      <div class="trail__rail" tabindex="0" role="region" aria-label="Current topic, scrolled sideways">
-
-        <article class="trail__panel" data-rail-title="The question">
-          <div class="trail__side">
-            <p class="trail__n">01 &middot; THE QUESTION</p>
-            <h3>Is the universe computable?</h3>
-            <p class="trail__say">If the world runs on rules, something ought to be able to run them.
-              G&ouml;del, chaos and thermodynamics all disagree about how far that goes.</p>
-            <p class="trail__meta">18 min essay &middot; 4 min summary</p>
-            <div class="trail__act">
-              <a class="g-btn g-btn--primary" href="topic-computable-universe.html">Read the essay</a>
-              <a class="g-btn g-btn--secondary" href="game-hypothesis-machine.html">Play the Game</a>
-            </div>
-          </div>
-          <div class="trail__body">
-            <a class="video" href="topic-computable-universe.html" aria-label="Watch: Is the universe computable?">
-              <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
-            </a>
-          </div>
-        </article>
-
-        <article class="trail__panel" data-rail-title="What it looks like">
-          <div class="trail__side">
-            <p class="trail__n">02 &middot; THE PICTURES</p>
-            <h3>Four pictures it keeps returning to</h3>
-            <p class="trail__say">A proof, a trajectory, a machine made of four rules, and the room where
-              &ldquo;in principle&rdquo; first started costing electricity.</p>
-            <div class="trail__act">
-              <a class="g-btn g-btn--secondary g-btn--sm" href="topic-computable-universe.html#timeline">How the question developed</a>
-            </div>
-          </div>
-          <div class="trail__body">
-            <div class="trail__gal">
-              <figure class="trail__fig trail__fig--face">
-                <img src="assets/img/topic-04/turing.jpg" alt="Passport photograph of Alan Turing at sixteen" width="675" height="919" loading="lazy" decoding="async">
-                <figcaption><b>Turing, 1936</b><span>Defines what a machine can compute, and proves some questions it cannot settle.</span></figcaption>
-              </figure>
-              <figure class="trail__fig">
-                <img src="assets/img/topic-04/lorenz.svg" alt="A Lorenz attractor: one trajectory looping through two lobes" width="600" height="600" loading="lazy" decoding="async">
-                <figcaption><b>The attractor</b><span>Deterministic and still unpredictable. Integrated here from Lorenz&rsquo;s 1963 equations.</span></figcaption>
-              </figure>
-              <figure class="trail__fig trail__fig--pixel">
-                <img src="assets/img/topic-04/glider-gun.gif" alt="Gosper&rsquo;s glider gun in Conway&rsquo;s Game of Life, emitting gliders" width="250" height="180" loading="lazy" decoding="async">
-                <figcaption><b>A glider gun</b><span>Game of Life is Turing complete. A universe of four rules already computes.</span></figcaption>
-              </figure>
-              <figure class="trail__fig trail__fig--wide">
-                <img src="assets/img/topic-04/eniac.jpg" alt="Two operators working at the ENIAC computer" width="960" height="723" loading="lazy" decoding="async">
-                <figcaption><b>ENIAC, 1946</b><span>Where computability stopped being a proof and started being a power bill.</span></figcaption>
-              </figure>
-            </div>
-            <p class="trail__credit">Turing: public domain. Glider gun (Lucas Vieira) and ENIAC:
-              <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>, CC BY-SA 3.0.
-              The attractor is computed for this page.</p>
-          </div>
-        </article>
-
-        <article class="trail__panel" data-rail-title="Two readings">
-          <div class="trail__side">
-            <p class="trail__n">03 &middot; VIEWPOINTS</p>
-            <h3>Two readings, both defensible</h3>
-            <p class="trail__say">We publish the strongest case against our own reading. If the
-              counter-argument is weak here, that is our failure.</p>
-            <div class="trail__act">
-              <a class="g-btn g-btn--secondary g-btn--sm" href="topic-computable-universe.html#views">Where do you land?</a>
-            </div>
-          </div>
-          <div class="trail__body">
-            <div class="trail__views">
-              <div class="view view--for"><p class="view__tag">For computability</p>
-                <p>Every physical process we have examined turns out to be simulable given enough resources.
-                  &ldquo;Enough resources&rdquo; is an engineering complaint, not a metaphysical one.</p>
-                <cite>The position the video leans toward</cite></div>
-              <div class="view view--against"><p class="view__tag">Against</p>
-                <p>Undecidability is not a resource complaint: no amount of compute settles it. And treating
-                  the universe as executing a computation smuggles in a substrate and a clock no physics requires.</p>
-                <cite>The strongest objection we could find</cite></div>
-            </div>
-          </div>
-        </article>
-
-        <article class="trail__panel" data-rail-title="The discussion">
-          <div class="trail__side">
-            <p class="trail__n">04 &middot; DISCUSSION</p>
-            <h3>The argument is already running</h3>
-            <p class="trail__say">This week: if a model predicts a material&rsquo;s behaviour correctly but
-              no one can say why, has physics been done?</p>
-          </div>
-          <!-- One way into the thread. This panel used to offer three: a
-               "Read the thread" button, a "Join Us" button the join band
-               repeats a scroll later, and a callout whose own button went to
-               the same comments by a second URL. cms-home.js redraws this
-               callout with the same single link when the Topic is live. -->
-          <div class="trail__body trail__talk">
-            <div class="callout">
-              <h4>Add your reply</h4>
-              <p>The thread lives on the Topic page. Sign in there to comment, reply or like.</p>
-              <p><a class="g-btn g-btn--primary" href="topic-computable-universe.html#talk">Join the discussion</a></p>
-            </div>
-          </div>
-        </article>
-
-      </div>
-
-      <div class="trail__line" aria-hidden="true"><span></span></div>
-      <p class="trail__hint">Scroll over the rail to page sideways, or use the dots.</p>
     </div>
   </div>
-</div></section>
+</section>
 
-<!-- Join band -------------------------------------------------------------
-     This slot used to be a newsletter signup, and the community lived five
-     scrolls up as card 05 of six. That had the architecture backwards: the
-     mailing list is a way to keep in touch, the community is the thing being
-     built. So the loudest block on the page is now the door into it, and the
-     second button explains what members do before asking anyone to sign up.
-     The newsletter keeps its own page and its footer link.
+<!-- Proof strip -----------------------------------------------------------
+     Where the "Asked in" ticker was. It named Genomics, Robotics and
+     Neurotech when no Topic had been published in any of them, so a visitor
+     from those fields clicked and found nothing. A young project has no
+     member counts worth printing either, and must not invent them. What it
+     does have is a method, and these four promises can be checked on any
+     Topic. -->
+<section class="lp-proof" aria-label="How every Topic is made">
+  <div class="g-container">
+    <ul class="lp-proof__list">
+      <li><b>Sources, graded</b>Start here, go further, primary. Every citation resolves.</li>
+      <li><b>The case against us</b>Each Topic publishes the strongest objection to its own reading.</li>
+      <li><b>Corrections in public</b>Logged on the piece they belong to, never quietly edited away.</li>
+      <li><b>Free and whole</b>No paywall, no teaser depth, no locked second half.</li>
+    </ul>
+  </div>
+</section>
 
-     Two sections used to stand between the Topic and this band: six cards
-     repeating the header nav, two of them "Coming Soon", and a list of video
-     programmes with cadences nobody was keeping. Both are gone. The page now
-     says what GraviQuest is, shows one Topic, and asks. -->
-<section class="g-section g-section--deep lp-gridded lp-gridded--left"><div class="g-container">
+<!-- 01 · The Topic ----------------------------------------------------------
+     This was a four-panel rail that paged itself sideways on a timer and
+     took the wheel while the pointer was over it. It hid the best material
+     on the page behind three clicks most visitors never make. The same
+     material is now a list a reader takes in at one glance, and each layer
+     is a link into the Topic at that layer. -->
+<section class="g-section lp-chap lp-gridded lp-gridded--left" id="topic" aria-labelledby="ch-topic">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">01 &middot; The Topic</span>
+      <h2 id="ch-topic">One Question, All the Way Down</h2>
+      <p class="g-lead">A Topic is not a video and not an article. It is one question with every layer wrapped around it, so you stop at the depth that suits you and never hit a locked door.</p>
+    </header>
+    <div class="lp-topic">
+      <div class="lp-topic__intro rv">
+        <p class="lp-topic__k">Topic 01 &middot; AI in Research &middot; Open now</p>
+        <h3 class="lp-topic__q">Can you trust an answer that looks right?</h3>
+        <p class="lp-topic__say">An assistant reads a number off a dataset, and it is correct. Professor Hulse&rsquo;s reply is the whole Topic: &ldquo;That proves you can read a number.&rdquo;</p>
+        <p class="lp-topic__meta">5 min video &middot; essay at two depths &middot; 9 sources</p>
+        <a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html">Open the Topic</a>
+      </div>
+      <ol class="lp-layers rv" aria-label="The layers of this Topic">
+        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#video">
+          <span class="lp-layer__n">01</span>
+          <div><h3>Video</h3><p>The Answer That Looked Right: a professor, a student and an assistant called Pulsar, with the full transcript.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#essay">
+          <span class="lp-layer__n">02</span>
+          <div><h3>Essay</h3><p>Reading a number is not evidence. Overview or In depth: neither is a teaser, both are the whole case.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#sources">
+          <span class="lp-layer__n">03</span>
+          <div><h3>Sources</h3><p>From a beginner&rsquo;s guide to protein data to the AlphaFold and CASP papers, every link checked.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#timeline">
+          <span class="lp-layer__n">04</span>
+          <div><h3>Timeline</h3><p>From Anfinsen in 1973 to the 2024 Nobel Prize, and the citations that looked right in between.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#test">
+          <span class="lp-layer__n">05</span>
+          <div><h3>Try It</h3><p>Five answers that all look right. Decide which ones to check.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#views">
+          <span class="lp-layer__n">06</span>
+          <div><h3>Viewpoints</h3><p>Check everything, or check by risk? Our reading, and the strongest case against it.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#talk">
+          <span class="lp-layer__n">07</span>
+          <div><h3>Discussion</h3><p>This week&rsquo;s question and the replies, read by a moderator before they appear.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+      </ol>
+    </div>
+    <div class="lp-gal lp-gal--wide rv">
+      <figure>
+        <img src="assets/img/topic-01/promises.jpg" alt="A paper diagram: a new technology arrives, a big promise, and someone checks whether it was wrong, with stickers reading Breakthrough, Revolution and Game changer" width="1280" height="720" loading="lazy" decoding="async">
+        <figcaption><b>1:10 &middot; The promise</b>Every few years a new technology arrives. Someone still has to check it.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/img/topic-01/taylors-week.jpg" alt="Taylor at a desk in a lilac room, a chart on the wall and a week of ticked boxes" width="1280" height="720" loading="lazy" decoding="async">
+        <figcaption><b>1:40 &middot; Taylor&rsquo;s week</b>Fast, good at patterns, and using an AI assistant.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/img/topic-01/using-not-trusting.jpg" alt="Two paper labels, Using AI and Trusting it, joined by a not-equal sign" width="1280" height="720" loading="lazy" decoding="async">
+        <figcaption><b>2:07 &middot; The distinction</b>Using AI is not the same as trusting it.</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/img/topic-01/dataset-review.jpg" alt="A dataset table with flagged cells beside the counts 12 missing entries and 03 naming conflicts, marked for review" width="1280" height="720" loading="lazy" decoding="async">
+        <figcaption><b>4:10 &middot; The ordinary work</b>Twelve missing entries, three naming conflicts, marked for review.</figcaption>
+      </figure>
+    </div>
+    <p class="lp-gal__credit">Stills from The Answer That Looked Right, our first video.</p>
+  </div>
+</section>
+
+<!-- 02 · The argument -------------------------------------------------------
+     The one thing no other science channel does, given a section of its own
+     instead of panel three of a carousel. -->
+<section class="g-section g-section--deep lp-chap lp-argue lp-gridded" id="argument" aria-labelledby="ch-argue">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">02 &middot; The Argument</span>
+      <h2 id="ch-argue">Two Readings, Both Defensible</h2>
+      <p class="g-lead">We publish the strongest case against our own reading. If the counter-argument is weak, that is our failure, and you can say so.</p>
+    </header>
+    <div class="views rv">
+      <div class="view view--for"><p class="view__tag">For checking</p>
+        <p>An assistant changes how fast drafts arrive, not who answers for them. A number in a report is
+          the scientist&rsquo;s claim, whoever produced it.</p>
+        <cite>The position the video leans toward</cite></div>
+      <div class="view view--against"><p class="view__tag">Against</p>
+        <p>If the assistant is right more often than a tired researcher at the end of a long week, a rule
+          that its answers need checking is ritual, not rigour. Checks belong where errors are likely.</p>
+        <cite>The strongest objection we could find</cite></div>
+    </div>
+    <div class="callout lp-argue__q rv">
+      <div>
+        <h3>This Week&rsquo;s Question</h3>
+        <p>If an assistant has been right ninety-nine times in a row, what should make you check the hundredth?</p>
+      </div>
+      <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#talk">Join the Discussion</a>
+    </div>
+  </div>
+</section>
+
+<!-- 03 · The workspace ------------------------------------------------------
+     The page never said that an account opens a place to work, which is the
+     most concrete thing joining gets you. The frame below is drawn in HTML,
+     labelled as an illustration, and filled only with the public Topic's own
+     material: no team, no counts, no progress, nothing the backend would have
+     to vouch for. Core, the internal team workspace, is not shown, because a
+     visitor cannot open it. -->
+<section class="g-section lp-chap lp-gridded lp-gridded--left" id="workspace" aria-labelledby="ch-ws">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">03 &middot; The Workspace</span>
+      <h2 id="ch-ws">A Place to Do the Work</h2>
+      <p class="g-lead">Sign in and GraviQuest stops being something you read. What you save from the site, your research projects, the sources you are learning from, and an assistant that shows what it read before it answers.</p>
+    </header>
+    <!-- One window, centred, at a size that holds its own beside the text:
+         a title bar, the rail, the page and Pulsar, and nothing more. The rail
+         switches between the four spaces, and the rows on Home jump to the
+         space they name. Every view is Topic 01's own material, so there is
+         nothing here the backend would have to vouch for. The switching lives
+         in landing.js; without it the window simply stays on Research. -->
+    <div class="lp-ws rv">
+      <div class="lp-ws__frame" role="group" aria-label="Illustration of the workspace">
+        <div class="lp-ws__bar" aria-hidden="true">
+          <span class="lp-ws__dots"><i></i><i></i><i></i></span>
+          <span class="lp-ws__title">GraviQuest &middot; <span data-ws-title>Research</span></span>
+        </div>
+        <div class="lp-ws__body">
+          <div class="lp-ws__rail">
+            <span class="g-mark g-mark--logotype" aria-hidden="true"></span>
+            <div class="lp-ws__tabs" role="tablist" aria-label="Workspace spaces" aria-orientation="vertical">
+              <button type="button" role="tab" id="lp-ws-t-home" aria-controls="lp-ws-p-home" aria-selected="false" tabindex="-1" data-ws="home"><svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.241 -1.483) scale(0.980000)" stroke-width="1.735"><path d="M3 10.2 12 3l9 7.2"/><path d="M5.2 12v8.2a1 1 0 0 0 1 1h11.6a1 1 0 0 0 1-1V12"/><circle cx="12" cy="16.4" r="1.582" fill="currentColor" stroke="none"/></g></svg><span>Home</span></button>
+              <button type="button" role="tab" id="lp-ws-t-research" aria-controls="lp-ws-p-research" aria-selected="true" tabindex="0" data-ws="research"><svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.067 0.881) scale(0.951412)" stroke-width="1.787"><path d="M19.4 12.86C18.58 14.14 17.36 15.38 15.93 16.37C14.49 17.37 12.84 18.12 11.22 18.52C9.61 18.91 8.05 18.95 6.77 18.62C5.48 18.29 4.49 17.6 3.95 16.65C3.4 15.7 3.29 14.5 3.65 13.22C4 11.95 4.82 10.61 5.970 9.41C7.12 8.21 8.59 7.16 10.18 6.41C11.76 5.67 13.44 5.23 14.96 5.16"/><circle cx="20.05" cy="7.35" r="2.2"/><circle cx="12" cy="12" r="1.629" fill="currentColor" stroke="none"/></g></svg><span>Research</span></button>
+              <button type="button" role="tab" id="lp-ws-t-knowledge" aria-controls="lp-ws-p-knowledge" aria-selected="false" tabindex="-1" data-ws="knowledge"><svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-2.735 -0.185) scale(1.118773)" stroke-width="1.52"><path d="M11.69 8.51C12.91 8.16 14.46 8.51 15.51 9.61C16.56 10.71 17.03 12.54 16.46 14.23C15.9 15.91 14.29 17.38 12.27 17.72C10.26 18.07 7.93 17.24 6.51 15.43C5.09 13.62 4.66 10.88 5.67 8.53C6.68 6.17 9.12 4.31 11.93 4.04C14.74 3.77 17.82 5.13 19.56 7.68C21.3 10.230 21.61 13.88 20.1 16.87"/><circle cx="12" cy="12" r="1.385" fill="currentColor" stroke="none"/></g></svg><span>Knowledge</span></button>
+              <button type="button" role="tab" id="lp-ws-t-library" aria-controls="lp-ws-p-library" aria-selected="false" tabindex="-1" data-ws="library"><svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(1.926 1.225) scale(0.844738)" stroke-width="2.012"><rect x="2.4" y="3.2" width="6.8" height="17.6" rx="1.8"/><rect x="11" y="6.4" width="4" height="14.4" rx="1.4"/><path d="M16.40 19.82 20.07 20.80 23.59 7.66 19.92 6.68z"/><circle cx="5.8" cy="8.2" r="1.835" fill="currentColor" stroke="none"/></g></svg><span>Library</span></button>
+            </div>
+          </div>
+          <div class="lp-ws__page">
+            <div class="lp-ws__view" role="tabpanel" id="lp-ws-p-home" aria-labelledby="lp-ws-t-home">
+              <p class="lp-ws__crumb">Home</p>
+              <h3>Pick up where you left off</h3>
+              <ul class="lp-ws__rows">
+                <li><button type="button" data-ws-go="research"><b>Protein stability screen</b><span>Research &middot; Personal project</span></button></li>
+                <li><button type="button" data-ws-go="knowledge"><b>Reading notes: can you trust an answer that looks right?</b><span>Knowledge &middot; Notes</span></button></li>
+                <li><button type="button" data-ws-go="library"><b>Reading a number is not evidence</b><span>Library &middot; Topic 01</span></button></li>
+              </ul>
+            </div>
+            <div class="lp-ws__view is-on" role="tabpanel" id="lp-ws-p-research" aria-labelledby="lp-ws-t-research">
+              <p class="lp-ws__crumb">Research / Personal</p>
+              <h3>Protein stability screen</h3>
+              <ul>
+                <li>Six samples, uploaded yesterday: length, mass and melting point.</li>
+                <li>Ask Pulsar to answer only from these files, and it does.</li>
+                <li>Before ranking by stability, Pulsar marks which results need validating.</li>
+              </ul>
+              <div class="lp-ws__src"><span class="g-tag">Private</span><span class="g-tag">Files only</span></div>
+            </div>
+            <div class="lp-ws__view" role="tabpanel" id="lp-ws-p-knowledge" aria-labelledby="lp-ws-t-knowledge">
+              <p class="lp-ws__crumb">Knowledge / Notes</p>
+              <h3>Reading notes: can you trust an answer that looks right?</h3>
+              <ul>
+                <li>Walters &amp; Wilder 2023: many of the references ChatGPT wrote did not exist, and looked exactly like real ones.</li>
+                <li>AlphaFold scores every residue for confidence. A prediction that says where not to trust it.</li>
+                <li>My rule: check anything that compares, carries a unit, or cites something I did not give it.</li>
+              </ul>
+              <div class="lp-ws__src"><span class="g-tag">Walters &amp; Wilder 2023</span><span class="g-tag">Jumper et al. 2021</span><button type="button" class="g-tag" data-ws-go="library">Saved from Topic 01</button></div>
+            </div>
+            <div class="lp-ws__view" role="tabpanel" id="lp-ws-p-library" aria-labelledby="lp-ws-t-library">
+              <p class="lp-ws__crumb">Library / Saved</p>
+              <h3>Kept from the site</h3>
+              <ul class="lp-ws__rows">
+                <li><div><b>The Answer That Looked Right</b><span>Topic 01 &middot; Video and transcript</span></div></li>
+                <li><div><b>Reading a number is not evidence</b><span>Topic 01 &middot; Essay, in depth</span></div></li>
+                <li><div><b>Highly accurate protein structure prediction with AlphaFold</b><span>Jumper et al. 2021 &middot; Primary source</span></div></li>
+              </ul>
+            </div>
+          </div>
+          <div class="lp-ws__pulsar">
+            <p class="lp-ws__who"><span class="lp-pulsar-mark" aria-hidden="true"></span>Pulsar</p>
+            <p class="lp-ws__ask">What is the molecular weight of the protein in yesterday&rsquo;s dataset?</p>
+            <p class="lp-ws__ans">About 9.8 kDa. That shows I can read a value from your file. It is not evidence the value is right.</p>
+            <p class="lp-ws__cite">Read: Protein stability screen</p>
+          </div>
+        </div>
+        <span class="g-soon lp-ws__label">Illustration</span>
+      </div>
+    </div>
+    <ul class="lp-feats rv">
+      <li><div class="g-card">
+        <svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(1.926 1.225) scale(0.844738)" stroke-width="2.012"><rect x="2.4" y="3.2" width="6.8" height="17.6" rx="1.8"/><rect x="11" y="6.4" width="4" height="14.4" rx="1.4"/><path d="M16.40 19.82 20.07 20.80 23.59 7.66 19.92 6.68z"/><circle cx="5.8" cy="8.2" r="1.835" fill="currentColor" stroke="none"/></g></svg>
+        <h3 class="g-card__title">Library</h3>
+        <p class="g-card__body">What you keep from the public site, Topics, essays and sources, waits here to be read again and annotated.</p></div></li>
+      <li><div class="g-card">
+        <svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.067 0.881) scale(0.951412)" stroke-width="1.787"><path d="M19.4 12.86C18.58 14.14 17.36 15.38 15.93 16.37C14.49 17.37 12.84 18.12 11.22 18.52C9.61 18.91 8.05 18.95 6.77 18.62C5.48 18.29 4.49 17.6 3.95 16.65C3.4 15.7 3.29 14.5 3.65 13.22C4 11.950 4.82 10.61 5.97 9.41C7.12 8.21 8.59 7.16 10.18 6.41C11.76 5.67 13.44 5.23 14.96 5.16"/><circle cx="20.05" cy="7.35" r="2.2"/><circle cx="12" cy="12" r="1.629" fill="currentColor" stroke="none"/></g></svg>
+        <h3 class="g-card__title">Research Workspace</h3>
+        <p class="g-card__body">Projects, notes, data rooms and collaborators. Personal work stays private; project work follows each project&rsquo;s access.</p></div></li>
+      <li><div class="g-card">
+        <svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-2.735 -0.185) scale(1.118773)" stroke-width="1.52"><path d="M11.69 8.51C12.91 8.16 14.46 8.51 15.51 9.61C16.56 10.71 17.03 12.54 16.46 14.23C15.9 15.91 14.29 17.38 12.27 17.72C10.26 18.07 7.93 17.24 6.51 15.43C5.09 13.62 4.66 10.88 5.67 8.53C6.68 6.17 9.12 4.31 11.93 4.04C14.74 3.77 17.82 5.13 19.56 7.68C21.3 10.23 21.61 13.88 20.1 16.87"/><circle cx="12" cy="12" r="1.385" fill="currentColor" stroke="none"/></g></svg>
+        <h3 class="g-card__title">Knowledge Workspace</h3>
+        <p class="g-card__body">What you are reading, what you have written down, what you are rehearsing, and the skills it adds up to.</p></div></li>
+      <li><div class="g-card">
+        <svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M3.5 10.5A7 7 0 0 0 10.5 3.5M13.5 3.5A7 7 0 0 0 20.5 10.5M20.5 13.5A7 7 0 0 0 13.5 20.5M10.5 20.5A7 7 0 0 0 3.5 13.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>
+        <h3 class="g-card__title">Pulsar</h3>
+        <p class="g-card__body">Answers with the pages it read, so you can check it. When nothing matches, it says so instead of guessing.</p></div></li>
+    </ul>
+  </div>
+</section>
+
+<!-- 04 · The community -------------------------------------------------------
+     Only what an account does today. The planned Topics used to be dead
+     "Coming soon" cards on the Topics page; here they are the shortlist
+     members choose from, which is what they actually are. -->
+<section class="g-section g-section--deep lp-chap lp-gridded" id="community" aria-labelledby="ch-comm">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">04 &middot; The Community</span>
+      <h2 id="ch-comm">Pick the Next Question</h2>
+      <p class="g-lead">Members do three things, and each one changes what gets published.</p>
+    </header>
+    <div class="lp-comm">
+      <ol class="lp-do rv">
+        <li><span class="lp-layer__n">01</span><div><h3>Argue</h3><p>Comment, ask and push back on any Topic. The strongest objection is published beside our reading.</p></div></li>
+        <li><span class="lp-layer__n">02</span><div><h3>Correct</h3><p>Bring evidence, and flag where a claim outruns its source. Corrections are logged in public.</p></div></li>
+        <li><span class="lp-layer__n">03</span><div><h3>Decide</h3><p>Propose the next Topic and vote on what we take on.</p></div></li>
+      </ol>
+      <div class="lp-short rv">
+        <h3>On the Shortlist</h3>
+        <p>Planned Topics. Members decide which one comes next.</p>
+        <ol>
+          <li><span>What does peer review actually catch?</span><span class="g-soon">Planned</span></li>
+          <li><span>Who pays for science, and what does that buy?</span><span class="g-soon">Planned</span></li>
+          <li><span>Can we model a living cell?</span><span class="g-soon">Planned</span></li>
+          <li><span>Why do most findings shrink when someone repeats them?</span><span class="g-soon">Planned</span></li>
+        </ol>
+        <a class="g-btn g-btn--secondary g-btn--sm" href="community.html">See How It Works</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Join band ------------------------------------------------------------------
+     The rotating "… with us" line closes the page now. At the top it made the
+     visitor wait for the sentence they were meant to read first; here, after
+     four chapters, every verb in it has been shown, so the cycle is a recap
+     rather than a riddle. -->
+<section class="g-section lp-gridded lp-gridded--left"><div class="g-container">
   <div class="join rv">
     <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
     <div class="join__in">
       <p class="g-eyebrow" style="justify-content:center">Open to Every Field</p>
-      <h2 class="join__h">Pick the next question.</h2>
-      <p class="join__lede">Members propose Topics and vote on what we take on next.</p>
+      <h2 class="join__h"><span class="join__verb" data-verbs="Research|Read|Learn|Question|Build">Research</span> with&nbsp;us.</h2>
+      <p class="join__lede">One free account: the discussion, the shortlist and a workspace of your own.</p>
       <div class="join__act">
         <a class="g-btn g-btn--primary g-btn--lg" href="community.html#join">Join Us</a>
-        <a class="g-btn g-btn--secondary g-btn--lg" href="community.html">See How It Works</a>
+        <a class="g-btn g-btn--secondary g-btn--lg" href="account.html#in">Sign in</a>
       </div>
+      <p class="join__fine">No field or degree required. No payment, no tiers.</p>
     </div>
   </div></div></section>
 
@@ -297,8 +411,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <div>
         <div style="width:9rem"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></div>
         <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
-          A media project, a lab and a community for working scientists, students and
-          the curious, in every field.</p>
+          A community working through the hard questions in science and AI, with a workspace to think them through.</p>
       </div>
       <div><h5 class="g-footer__heading">Explore</h5>
         <div class="g-stack g-stack--xs g-stack--ic"><a href="topics.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg><span>Topics</span></a><a href="lab.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg><span>Interactive Lab</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg><span>Learning Paths</span><span class="g-soon">Soon</span></span></div></div>
@@ -313,10 +426,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261101-verbs1"></script>
-<script src="assets/hero.js?v=20261002-fabric1"></script>
-<script src="assets/cms-home.js?v=20260918-fix3" defer></script>
-<script src="assets/topic-rail.js?v=up-f706806e3a02-g1df6ff09-tr6" defer></script>
-<script src="assets/chat.js?v=20261102-noessays" defer></script>
+<script src="assets/hero.js?v=20261102-game2"></script>
+<script src="assets/landing.js?v=20261102-ws3" defer></script>
+<script src="assets/chat.js?v=20261102-t01" defer></script>
 <script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
 </body>
 </html>

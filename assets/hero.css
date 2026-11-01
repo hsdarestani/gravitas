@@ -446,11 +446,17 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
 /* ---- A trace of the hero grid ---------------------------------------------
    Below the hero the deep bands were flat fills, and the page read as plain
    the moment the grid stopped. Carrying the whole grid down would have argued
-   with the content, so two bands get a trace of it instead: the same 52px
+   with the content, so each band gets a trace of it instead: the same 52px
    cell, straight, faint, and fading out from one corner, so it reads as the
    texture of that band rather than as a background behind the whole page.
-   Static on purpose. The hero is where the grid moves. */
-.lp-gridded { overflow: hidden; }
+   On the landing every chapter carries it, the corner alternating left and
+   right down the page, so the grid follows the reader instead of stopping at
+   the hero. Static on purpose. The hero is where the grid moves.
+
+   clip, not hidden: hidden makes the band a scroll container, and a sticky
+   child inside it (the Topic intro column) then has nothing to stick to.
+   hidden stays first as the fallback for browsers without clip. */
+.lp-gridded { overflow: hidden; overflow: clip; }
 .lp-gridded::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   --_ink: rgb(var(--g-canvas-line) / 0.07);

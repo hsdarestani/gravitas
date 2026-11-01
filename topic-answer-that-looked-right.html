@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Theme, resolved before first paint. See assets/site.js for the toggle.
+   Dark is the default full stop, not "dark unless your OS says otherwise":
+   this is a night sky, and a visitor who has never touched the control should
+   see the same site every time rather than one that depends on a setting they
+   made for some other app. Only an explicit choice, stored here, overrides it. */
+(function(){try{var s=localStorage.getItem('gravitas:theme');
+document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
+}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
+</script>
+<title>Can you trust an answer that looks right? · GraviQuest Topic 01</title>
+<meta name="description" content="An AI assistant gives a correct number in the right format. Our first video, The Answer That Looked Right, asks what that proved, with an essay at two depths, graded sources, a timeline and an exercise.">
+<link rel="canonical" href="https://graviquest.com/topic-answer-that-looked-right.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="GraviQuest">
+<meta property="og:url" content="https://graviquest.com/topic-answer-that-looked-right.html">
+<meta property="og:title" content="Can you trust an answer that looks right? · GraviQuest Topic 01">
+<meta property="og:description" content="A professor, a student and an AI assistant called Pulsar. The assistant reads a number correctly. What did that prove?">
+<meta property="og:image" content="https://graviquest.com/assets/img/topic-01/og-topic.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="mask-icon" href="assets/logos/Logo_White.svg" color="#003049">
+<meta name="theme-color" content="#00263a">
+<link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
+<link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
+<link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds9">
+
+<link rel="stylesheet" href="assets/topic-answer.css?v=20261102-t1">
+<link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
+<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
+</head>
+<body class="is-overview">
+<a class="g-skip-link" href="#main">Skip to content</a>
+<header class="g-header">
+  <div class="g-container g-header__inner">
+    <a class="g-logo" href="index.html" aria-label="GraviQuest home"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></a>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" aria-current="page" href="topics.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg>Topics</a><a class="g-nav__link" href="lab.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg>Lab</a><a class="g-nav__link" href="learn.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg>Learn</a><a class="g-nav__link" href="community.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg>Community</a><span class="g-nav__sep" aria-hidden="true"></span><a class="g-nav__link gh-nav-signin" href="account.html#in"><svg class="g-ic g-nav__ic g-ic--signin" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg>Sign in</a><a class="g-btn g-btn--primary g-btn--sm g-btn--lead gh-nav-join" href="community.html#join"><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg><span>Join Us</span></a></nav>
+    <div class="gh-actions">
+      <a class="g-btn g-btn--ghost g-btn--sm g-btn--lead gh-signin" href="account.html#in"><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg><span>Sign in</span></a>
+      <!-- The header CTA is the site's single loudest control, and it used to
+           point at a mailing list. The community is the thing this project is
+           actually for, so it gets the slot. -->
+      <a class="g-btn g-btn--primary g-btn--sm g-btn--lead lp-header__cta" href="community.html#join" aria-label="Join the GraviQuest community">
+        <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg>
+        <span>Join Us</span>
+      </a>
+      <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch colour theme" title="Switch colour theme">
+        <svg class="ic-moon" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><!-- The crescent sits centred by bounding box but not by mass: its area centroid measures (9.97, 14.03) against a 12,12 viewBox centre, which is why it read as low and left inside a circular button. Shifted part of the way back: correcting the full 2.03 would push the upper tip out of the box, so this splits the difference between the two centres, which is what optical centring is. --><g transform="translate(1.476 -1.425)"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></g></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
+      </button>
+      <button class="lp-menu-btn" aria-label="Menu" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<main id="main">
+
+<!-- Topic 01 ---------------------------------------------------------------
+     The first video, built out as a Topic. The video is a five-minute story
+     about a protein scientist, a student and an assistant; the Topic is the
+     question the story turns on, at the moment Hulse says "That proves you
+     can read a number." Every layer below argues that line from a different
+     side. Static rather than CMS-driven, like Topic 03, so it renders whole
+     with the backend down; the comments are the one live part, and they come
+     from the comments route or not at all (assets/topic-answer.js). -->
+<section class="page-head"><div class="g-container">
+  <p class="crumb"><a href="index.html">Home</a> / <a href="topics.html">Topics</a> / 01</p>
+  <h1>Can you trust an answer that looks right?</h1>
+  <p class="g-lead">An AI assistant hands back a number in the right format, in a confident tone, and it is correct. Our first video starts there and asks what that actually proved.</p>
+  <div class="g-cluster g-mt-md">
+    <span class="g-tag">AI</span><span class="g-tag">Research practice</span><span class="g-tag">Life sciences</span>
+  </div>
+</div></section>
+
+<div class="topic-nav"><div class="g-container"><nav class="topic-nav__row" aria-label="In this topic">
+  <a href="#video">Video</a><a href="#essay">Essay</a><a href="#sources">Sources</a>
+  <a href="#timeline">Timeline</a><a href="#test">Try It</a>
+  <a href="#views">Viewpoints</a><a href="#talk">Discussion</a>
+</nav></div></div>
+
+<div class="g-container">
+
+<section class="layer" id="video">
+  <div class="layer__head"><span class="layer__n">01</span><h2>The Video</h2></div>
+  <div class="split">
+    <div>
+      <!-- No href until the video is public: a play button that goes nowhere
+           is a promise the page cannot keep. site.js finds the poster at
+           assets/thumbnails/topic-answer-that-looked-right.jpg. -->
+      <a class="video is-flat" aria-label="The Answer That Looked Right, video poster" aria-disabled="true">
+        <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
+      </a>
+    </div>
+    <div>
+      <h3 style="margin-top:0">The Answer That Looked Right</h3>
+      <p class="g-muted" style="font-size:var(--g-fs-small)">Professor Hulse has spent thirty years on proteins and has run out of afternoons. His student Taylor has been getting through the week with an AI assistant, and does not trust it. Then the three of them sit down and test it.</p>
+      <dl class="kv g-mt-md">
+        <dt>Runtime</dt><dd>5 min 34 s</dd>
+        <dt>Field</dt><dd>Protein science, and any lab that uses an assistant</dd>
+        <dt>Essay</dt><dd><a href="#essay">Reading a number is not evidence</a></dd>
+        <dt>Watch</dt><dd><span class="g-soon">Soon</span> on the <a href="https://www.youtube.com/@GraviQuest" target="_blank" rel="noopener">GraviQuest channel</a></dd>
+      </dl>
+      <ol class="ta-chapters" aria-label="Chapters">
+        <li><time>0:00</time><span>Thirty years of proteins</span></li>
+        <li><time>0:22</time><span>Everything urgent at once</span></li>
+        <li><time>0:53</time><span>The news, and the promises before it</span></li>
+        <li><time>1:37</time><span>Taylor&rsquo;s week</span></li>
+        <li><time>2:13</time><span>The meeting</span></li>
+        <li><time>2:44</time><span>Meet Pulsar</span></li>
+        <li><time>3:20</time><span>The 9.8</span></li>
+        <li><time>3:51</time><span>The work that eats a day</span></li>
+        <li><time>5:00</time><span>The desk</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <ul class="ta-cast" aria-label="Who is in it">
+    <li><img src="assets/img/topic-01/hulse.jpg" alt="Hulse, a round red paper character in rectangular glasses" width="480" height="480" loading="lazy" decoding="async">
+      <div><h3>Hulse</h3><p>Thirty years on proteins. Has heard every promise that a new technology will transform science, and checked most of them.</p></div></li>
+    <li><img src="assets/img/topic-01/taylor.jpg" alt="Taylor, a round sandy paper character" width="480" height="480" loading="lazy" decoding="async">
+      <div><h3>Taylor</h3><p>Fast, good at patterns, uses an AI assistant every day. &ldquo;I trust it enough to ask questions.&rdquo;</p></div></li>
+    <li><span class="ta-cast__mark" aria-hidden="true"><span></span></span>
+      <div><h3>Pulsar</h3><p>The assistant. Answers from the files it is given, and agrees that reading a number is not evidence of reliability.</p></div></li>
+  </ul>
+
+  <div class="ta-stills">
+    <figure><img src="assets/img/topic-01/dawn.jpg" alt="Hulse's office before dawn: the clock, the moon in the window and a pinboard of notes" width="1280" height="720" loading="lazy" decoding="async">
+      <figcaption><time>0:44</time>Everything important, urgent at the same time, before the sun is up.</figcaption></figure>
+    <figure><img src="assets/img/topic-01/promises.jpg" alt="A paper diagram: a new technology arrives, a big promise, and someone checks whether it was wrong, with stickers reading Breakthrough, Revolution and Game changer" width="1280" height="720" loading="lazy" decoding="async">
+      <figcaption><time>1:10</time>The promise, again. Hulse knows the third step: someone checks whether it was wrong.</figcaption></figure>
+    <figure><img src="assets/img/topic-01/taylors-week.jpg" alt="Taylor at a desk in a lilac room, a chart on the wall and a week of ticked boxes" width="1280" height="720" loading="lazy" decoding="async">
+      <figcaption><time>1:40</time>Taylor&rsquo;s much better week, and the second thought behind every useful answer.</figcaption></figure>
+    <figure><img src="assets/img/topic-01/using-not-trusting.jpg" alt="Two paper labels, Using AI and Trusting it, joined by a not-equal sign" width="1280" height="720" loading="lazy" decoding="async">
+      <figcaption><time>2:07</time>Using AI is not the same as trusting it. The distinction the whole video runs on.</figcaption></figure>
+    <figure><img src="assets/img/topic-01/dataset-review.jpg" alt="A dataset table with flagged cells beside the counts 12 missing entries and 03 naming conflicts, marked for review" width="1280" height="720" loading="lazy" decoding="async">
+      <figcaption><time>4:10</time>The ordinary work: Pulsar flags the gaps and leaves the decision to the people.</figcaption></figure>
+    <figure><img src="assets/img/topic-01/results-vs-interpretations.jpg" alt="Two paper columns headed Experimental results and Authors' interpretations" width="1280" height="720" loading="lazy" decoding="async">
+      <figcaption><time>4:22</time>Results kept apart from what the authors made of them.</figcaption></figure>
+  </div>
+
+  <details class="ta-transcript">
+    <summary>Read the transcript</summary>
+    <ol>
+      <li><time>0:02</time><b>Narrator</b><span>Professor Hulse had spent thirty years studying proteins.</span></li>
+      <li><time>0:06</time><b>Narrator</b><span>Tiny molecular machines inside living cells.</span></li>
+      <li><time>0:09</time><b>Narrator</b><span>Their shapes determine what they can do. And if you can predict those shapes, you may be able to design better medicines.</span></li>
+      <li><time>0:16</time><b>Narrator</b><span>It was fascinating work.</span></li>
+      <li><time>0:18</time><b>Narrator</b><span>Unfortunately, fascinating work does not usually care about your deadlines.</span></li>
+      <li><time>0:22</time><b>Narrator</b><span>Hulse had forty-seven unread research papers, three unfinished lectures, and a simulation that had been running since Tuesday.</span></li>
+      <li><time>0:29</time><b>Hulse</b><span>Come on&hellip;</span></li>
+      <li><time>0:30</time><b>Hulse</b><span>Yes!</span></li>
+      <li><time>0:33</time><b>Hulse</b><span>&hellip;No.</span></li>
+      <li><time>0:35</time><b>Narrator</b><span>The problem was not that Hulse disliked work.</span></li>
+      <li><time>0:37</time><b>Narrator</b><span>The problem was that everything important had become urgent at the same time.</span></li>
+      <li><time>0:53</time><b>News anchor</b><span>New artificial intelligence methods are helping researchers analyze biological data and predict protein structures at unprecedented speed&hellip;</span></li>
+      <li><time>1:01</time><b>Narrator</b><span>Hulse had heard promises like this before.</span></li>
+      <li><time>1:03</time><b>Narrator</b><span>Every few years, a new technology arrived promising to transform science.</span></li>
+      <li><time>1:08</time><b>Narrator</b><span>And every few years, Hulse discovered that the technology still needed someone to check whether it was wrong.</span></li>
+      <li><time>1:13</time><b>Narrator</b><span>But this time, the papers were different.</span></li>
+      <li><time>1:15</time><b>Narrator</b><span>AI was being used to recognize patterns in biological data, organize information, and explore possibilities that could take researchers years to investigate.</span></li>
+      <li><time>1:24</time><b>Narrator</b><span>Hulse looked at his watch.</span></li>
+      <li><time>1:26</time><b>Hulse</b><span>If it can save me an afternoon&hellip;</span></li>
+      <li><time>1:29</time><b>Narrator</b><span>For the first time, he began wondering whether AI could help him.</span></li>
+      <li><time>1:33</time><b>Narrator</b><span>Not replace the science.</span></li>
+      <li><time>1:34</time><b>Narrator</b><span>Just&hellip; help him get through the day.</span></li>
+      <li><time>1:37</time><b>Narrator</b><span>Meanwhile, Taylor was having a much better week.</span></li>
+      <li><time>1:39</time><b>Narrator</b><span>Taylor was one of those students who seemed to understand a problem before everyone else had finished explaining it.</span></li>
+      <li><time>1:44</time><b>Narrator</b><span>Brilliant. Fast. Very good at finding patterns.</span></li>
+      <li><time>1:48</time><b>Narrator</b><span>And, apparently, very good at getting things done.</span></li>
+      <li><time>1:53</time><b>Taylor</b><span>Okay. One more.</span></li>
+      <li><time>1:54</time><b>Narrator</b><span>But Taylor had a question.</span></li>
+      <li><time>1:56</time><b>Narrator</b><span>What would Professor Hulse think?</span></li>
+      <li><time>1:57</time><b>Narrator</b><span>Because Taylor was using an AI assistant.</span></li>
+      <li><time>2:00</time><b>Narrator</b><span>And every useful answer came with a second thought:</span></li>
+      <li><time>2:03</time><b>Narrator</b><span>Is this actually correct?</span></li>
+      <li><time>2:04</time><b>Narrator</b><span>Taylor knew that using AI was not the same as trusting it.</span></li>
+      <li><time>2:08</time><b>Narrator</b><span>And that distinction was becoming important.</span></li>
+      <li><time>2:13</time><b>Hulse</b><span>Taylor.</span></li>
+      <li><time>2:14</time><b>Taylor</b><span>Professor.</span></li>
+      <li><time>2:15</time><b>Hulse</b><span>You finished processing the dataset?</span></li>
+      <li><time>2:16</time><b>Taylor</b><span>Yes.</span></li>
+      <li><time>2:17</time><b>Hulse</b><span>The diagrams?</span></li>
+      <li><time>2:19</time><b>Taylor</b><span>Yeah.</span></li>
+      <li><time>2:19</time><b>Hulse</b><span>The literature summary?</span></li>
+      <li><time>2:21</time><b>Taylor</b><span>&hellip;Yaup.</span></li>
+      <li><time>2:24</time><b>Hulse</b><span>It is eleven in the morning.</span></li>
+      <li><time>2:26</time><b>Taylor</b><span>I know.</span></li>
+      <li><time>2:27</time><b>Hulse</b><span>How?</span></li>
+      <li><time>2:30</time><b>Taylor</b><span>I used an AI assistant.</span></li>
+      <li><time>2:33</time><b>Hulse</b><span>And you trust it?</span></li>
+      <li><time>2:34</time><b>Taylor</b><span>No.</span></li>
+      <li><time>2:35</time><b>Hulse</b><span>Good.</span></li>
+      <li><time>2:36</time><b>Taylor</b><span>I trust it enough to ask questions.</span></li>
+      <li><time>2:38</time><b>Narrator</b><span>That answer interested Hulse.</span></li>
+      <li><time>2:40</time><b>Hulse</b><span>Show me how it works.</span></li>
+      <li><time>2:44</time><b>Taylor</b><span>Hi, Pulsar.</span></li>
+      <li><time>2:45</time><b>Pulsar</b><span>Good morning, Taylor. What can I do for you today?</span></li>
+      <li><time>2:47</time><b>Taylor</b><span>Pulsar, meet Professor Hulse. Please explain to him how you can help us with our research studies.</span></li>
+      <li><time>2:52</time><b>Pulsar</b><span>Professor Hulse. I have access to the research notes, documents, and datasets you have uploaded. I can analyze them, modify, and produce outputs according to your instructions. I can also review the literature, summarize, and create automated research reports.</span></li>
+      <li><time>3:07</time><b>Hulse</b><span>Can you answer only based on the files I provide?</span></li>
+      <li><time>3:09</time><b>Pulsar</b><span>Yes, if you provide the files and explicitly ask me to only use them, I will restrict my answers to their contents. I won&rsquo;t use outside sources unless you give permission.</span></li>
+      <li><time>3:19</time><b>Hulse</b><span>Good. Then answer this.</span></li>
+      <li><time>3:20</time><b>Hulse</b><span>What is the molecular weight of the protein in yesterday&rsquo;s dataset?</span></li>
+      <li><time>3:24</time><b>Pulsar</b><span>The molecular weight is approximately 9.8.</span></li>
+      <li><time>3:27</time><b>Hulse</b><span>Correct.</span></li>
+      <li><time>3:28</time><b>Taylor</b><span>I told you.</span></li>
+      <li><time>3:30</time><b>Hulse</b><span>That proves you can read a number.</span></li>
+      <li><time>3:31</time><b>Pulsar</b><span>That is correct.</span></li>
+      <li><time>3:34</time><b>Hulse</b><span>You agree?</span></li>
+      <li><time>3:35</time><b>Pulsar</b><span>Reading a number is not sufficient evidence of scientific reliability.</span></li>
+      <li><time>3:40</time><b>Hulse</b><span>&hellip;Interesting.</span></li>
+      <li><time>3:42</time><b>Narrator</b><span>Hulse had expected a machine that sounded confident.</span></li>
+      <li><time>3:44</time><b>Narrator</b><span>Instead, he found one that sounded almost annoyingly reasonable.</span></li>
+      <li><time>3:48</time><b>Narrator</b><span>Which, in his experience, was a good sign.</span></li>
+      <li><time>3:51</time><b>Narrator</b><span>They started small.</span></li>
+      <li><time>3:52</time><b>Narrator</b><span>No revolutionary discoveries.</span></li>
+      <li><time>3:54</time><b>Narrator</b><span>No &ldquo;Pulsar, solve cancer.&rdquo;</span></li>
+      <li><time>3:56</time><b>Narrator</b><span>Just the ordinary work that quietly eats an entire researcher&rsquo;s day.</span></li>
+      <li><time>4:00</time><b>Taylor</b><span>Pulsar, identify missing values and inconsistent formatting.</span></li>
+      <li><time>4:04</time><b>Pulsar</b><span>I found twelve missing entries and three inconsistent naming conventions. I have marked them for review.</span></li>
+      <li><time>4:11</time><b>Hulse</b><span>Summarize these papers. Focus on methods, limitations, and experimental evidence.</span></li>
+      <li><time>4:15</time><b>Pulsar</b><span>I can organize the findings. I will also distinguish between experimental results and the authors&rsquo; interpretations.</span></li>
+      <li><time>4:22</time><b>Hulse</b><span>Organize these simulation results by predicted stability.</span></li>
+      <li><time>4:25</time><b>Pulsar</b><span>I can do that. I can also identify which results require further validation.</span></li>
+      <li><time>4:29</time><b>Hulse</b><span>Do it.</span></li>
+      <li><time>4:29</time><b>Hulse</b><span>I need a diagram explaining protein folding for first-year students.</span></li>
+      <li><time>4:33</time><b>Pulsar</b><span>Would you prefer a simplified molecular model or a step-by-step visual explanation?</span></li>
+      <li><time>4:37</time><b>Hulse</b><span>Step-by-step.</span></li>
+      <li><time>4:53</time><b>Hulse</b><span>That is&hellip; actually good.</span></li>
+      <li><time>4:55</time><b>Taylor</b><span>Actually?</span></li>
+      <li><time>4:56</time><b>Hulse</b><span>Very good.</span></li>
+      <li><time>5:00</time><b>Hulse</b><span>I can see my desk.</span></li>
+      <li><time>5:01</time><b>Narrator</b><span>The work had not disappeared.</span></li>
+      <li><time>5:03</time><b>Narrator</b><span>But the friction had.</span></li>
+      <li><time>5:04</time><b>Narrator</b><span>And that was enough to make the future look suddenly&hellip;</span></li>
+      <li><time>5:07</time><b>Narrator</b><span>Manageable.</span></li>
+      <li><time>5:08</time><b>Narrator</b><span>And finally, they returned to the research.</span></li>
+    </ol>
+  </details>
+</section>
+
+<section class="layer" id="essay">
+  <div class="layer__head"><span class="layer__n">02</span><h2>The Essay</h2></div>
+  <div class="depthbar">
+    <p class="depthbar__note">This essay reads two ways. Pick one.</p>
+    <div class="depth" role="group" aria-label="Reading depth">
+      <button type="button" data-depth="overview" aria-pressed="true">Overview</button>
+      <button type="button" data-depth="deep" aria-pressed="false">In depth</button>
+    </div>
+  </div>
+
+  <div class="split">
+    <article class="g-prose">
+      <h3>Reading a number is not evidence</h3>
+      <div data-level="overview">
+        <p>The dangerous answer from an AI assistant is not the obviously wrong one. It is the one that looks right: the expected format, a plausible number, a calm tone, and nothing on its surface to say whether anyone checked it.</p>
+        <p>In the video, Hulse asks Pulsar for the molecular weight of the protein in yesterday&rsquo;s dataset. The answer is 9.8, and it is correct. Then he says the line the whole story turns on: <em>that proves you can read a number.</em> Reading a value off a table is the easiest thing an assistant does and the least it can show you. The questions that matter in a lab, which result is most stable, which needs validating, what a paper actually demonstrated, are the ones where a fluent answer and a correct one can come apart.</p>
+        <p>Taylor&rsquo;s position is the useful one. Not trust, and not refusal: &ldquo;I trust it enough to ask questions.&rdquo; In practice that becomes a short rule about which answers to check. Anything that compares, anything that carries a unit, anything that draws a conclusion, and anything that points to a source outside the files you gave it.</p>
+        <p>The gain is real, and the video does not pretend otherwise. It ends with a researcher who can see his desk again. The work did not disappear. What moved is where the scientist&rsquo;s time goes: less of it producing first drafts, more of it deciding which of them to believe.</p>
+      </div>
+
+      <div data-level="deep">
+        <p>Two things are easy to confuse: an assistant that is often right, and an assistant whose rightness you can see. Only the second one saves you work, because only the second one tells you where to spend your checks.</p>
+
+        <h3>Fluency is not calibration</h3>
+        <p>A language model writes in the register of what it was trained on, and the scientific register carries authority on its own. Walters and Wilder asked ChatGPT for short literature reviews on 42 topics and checked all 636 references. 55% of the GPT-3.5 citations and 18% of the GPT-4 citations did not exist. Of the real ones, 43% and 24% carried substantive errors. The fabricated references were formatted like the real ones. Format is not evidence, and the better the formatting, the less it tells you.</p>
+
+        <h3>The model that says where not to trust it</h3>
+        <p>The most celebrated AI result in biology ships with the opposite habit. AlphaFold gives every residue of a predicted structure a confidence score, pLDDT, from 0 to 100, and the public database colours each structure by it. Above 90 is the highest-accuracy band; low scores mark the parts of a chain to treat with caution. The useful question to ask of any assistant is therefore not &ldquo;is it right?&rdquo; but &ldquo;does it tell me where it might be wrong?&rdquo; When Pulsar offers to flag which simulation results &ldquo;require further validation&rdquo;, that is the same habit, and it is worth more than the ranking it comes with.</p>
+
+        <h3>Why Hulse is the one at risk</h3>
+        <p>The research on automation bias predicts the opening of the video rather well. Parasuraman and Manzey&rsquo;s review found that complacency with automated aids appears under multiple-task load, when other work competes for attention, that it appears in experts as much as in novices, and that practice alone does not remove it. Automation bias produces errors of both kinds: missing a problem the aid did not flag, and following the aid when other evidence disagrees. A professor with forty-seven unread papers and a simulation running since Tuesday is the textbook case, not the exception.</p>
+
+        <h3>Build the blind test in</h3>
+        <p>Protein structure prediction became trustworthy as a field partly because of an institution, not an algorithm. Since 1994, CASP has judged predictions against experimental structures the predictors have not seen, which is why AlphaFold&rsquo;s 2020 result was believed rather than merely announced. A lab can run the same idea at its own scale: before relying on an assistant for a kind of question, ask it a handful whose answers you already know, and keep doing so. Hulse&rsquo;s molecular-weight question was a blind test with one item. It was the right instinct, and too small a sample.</p>
+      </div>
+    </article>
+
+    <aside class="aside">
+      <div class="callout">
+        <h4>The Short Answer</h4>
+        <p>Trust it the way you would trust a capable new colleague: enough to ask, never enough to skip the check on anything that compares, carries a unit, or cites something you did not give it.</p>
+      </div>
+      <div class="callout g-mt-md">
+        <h4>Try It Yourself</h4>
+        <p><a href="#test">The exercise below</a> gives you five answers that all look right. Decide which ones to check.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="layer" id="sources">
+  <div class="layer__head"><span class="layer__n">03</span><h2>Sources, at Three Levels</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:60ch;margin-bottom:var(--g-space-md)">
+    Pick the level you want to enter at, and move up when you feel like it. Every link resolves.</p>
+  <div class="levels">
+    <div class="level"><p class="level__tag">Start here</p><h4>No Background Needed</h4><ul>
+      <li><a href="https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/introduction" target="_blank" rel="noopener">PDB-101: a guide to understanding protein structure data</a></li>
+      <li><a href="https://www.ebi.ac.uk/training/online/courses/alphafold/inputs-and-outputs/evaluating-alphafolds-predicted-structures-using-confidence-scores/plddt-understanding-local-confidence/" target="_blank" rel="noopener">EMBL-EBI: what AlphaFold&rsquo;s confidence score means</a></li>
+      <li><a href="path-ai-in-research.html">Learning Path: AI in Research</a></li>
+    </ul></div>
+    <div class="level"><p class="level__tag">Go further</p><h4>Some Method Expected</h4><ul>
+      <li><a href="https://doi.org/10.1038/s41598-023-41032-5" target="_blank" rel="noopener">Walters &amp; Wilder, &ldquo;Fabrication and errors in the bibliographic citations generated by ChatGPT&rdquo;, Scientific Reports (2023)</a></li>
+      <li><a href="https://doi.org/10.1177/0018720810376055" target="_blank" rel="noopener">Parasuraman &amp; Manzey, &ldquo;Complacency and Bias in Human Use of Automation&rdquo;, Human Factors (2010)</a></li>
+      <li><a href="https://doi.org/10.1038/nature09304" target="_blank" rel="noopener">Cooper et al., &ldquo;Predicting protein structures with a multiplayer online game&rdquo;, Nature (2010)</a></li>
+    </ul></div>
+    <div class="level"><p class="level__tag">Primary</p><h4>The Papers Themselves</h4><ul>
+      <li><a href="https://doi.org/10.1126/science.181.4096.223" target="_blank" rel="noopener">Anfinsen, &ldquo;Principles that Govern the Folding of Protein Chains&rdquo;, Science (1973)</a></li>
+      <li><a href="https://doi.org/10.1038/s41586-021-03819-2" target="_blank" rel="noopener">Jumper et al., &ldquo;Highly accurate protein structure prediction with AlphaFold&rdquo;, Nature (2021)</a></li>
+      <li><a href="https://doi.org/10.1093/nar/gkab1061" target="_blank" rel="noopener">Varadi et al., &ldquo;AlphaFold Protein Structure Database&rdquo;, Nucleic Acids Research (2022)</a></li>
+      <li><a href="https://doi.org/10.1002/prot.26237" target="_blank" rel="noopener">Kryshtafovych et al., &ldquo;Critical assessment of methods of protein structure prediction, Round XIV&rdquo;, Proteins (2021)</a></li>
+    </ul></div>
+  </div>
+</section>
+
+<section class="layer" id="timeline">
+  <div class="layer__head"><span class="layer__n">04</span><h2>How the Question Developed</h2></div>
+  <div class="split">
+    <div class="tl">
+      <div class="tl__item"><span class="tl__yr">1973</span><h4>The sequence holds the shape</h4><p>Anfinsen sets out the principle that a protein&rsquo;s chain carries what it needs to fold. In principle, a shape can be predicted. In practice, not for decades.</p></div>
+      <div class="tl__item"><span class="tl__yr">1994</span><h4>CASP: predictions judged blind</h4><p>A community experiment begins scoring structure predictions against experimental structures nobody has seen yet. The field builds checking into its institutions.</p></div>
+      <div class="tl__item"><span class="tl__yr">2008</span><h4>Foldit</h4><p>A protein-folding game opens to the public. Its 2010 paper reports players matching or beating the leading algorithm on some puzzles: people and machines, checking each other.</p></div>
+      <div class="tl__item"><span class="tl__yr">2020</span><h4>AlphaFold at CASP14</h4><p>Predictions &ldquo;competitive with experimental structures in a majority of cases&rdquo;. The result is believed because it was tested blind.</p></div>
+      <div class="tl__item"><span class="tl__yr">2021</span><h4>A confidence score on every residue</h4><p>The AlphaFold database opens with pLDDT shown on each structure: a prediction that says where not to trust it.</p></div>
+      <div class="tl__item"><span class="tl__yr">2023</span><h4>Citations that look right</h4><p>A study of ChatGPT literature reviews finds 55% of GPT-3.5 references and 18% of GPT-4 references fabricated, formatted like real ones.</p></div>
+      <div class="tl__item"><span class="tl__yr">2024</span><h4>A Nobel Prize for the field</h4><p>The <a href="https://www.nobelprize.org/prizes/chemistry/2024/summary/" target="_blank" rel="noopener">Chemistry prize</a> goes to David Baker for computational protein design, and to Demis Hassabis and John Jumper for structure prediction.</p></div>
+    </div>
+    <figure style="margin:0">
+      <img src="assets/img/topic-01/shape-decides-function.jpg" alt="Paper cut-out frame from the video: Shape decides function, with a chain of amino acids" width="1280" height="720" loading="lazy" decoding="async" style="width:100%;height:auto;border-radius:var(--g-radius);border:1px solid var(--g-hairline)">
+      <figcaption class="g-subtle" style="font-size:var(--g-fs-caption);padding-top:var(--g-space-2xs)">From the video, 0:09. The reason the question matters: a protein&rsquo;s shape decides what it can do.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="layer" id="test">
+  <div class="layer__head"><span class="layer__n">05</span><h2>Try It: Check the Answer</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:62ch;margin-bottom:var(--g-space-md)">
+    An assistant answered five questions about the dataset below. All five look right. For each one, accept it or check it against the table.</p>
+  <div class="play" id="ta-test">
+    <div class="play__bar">
+      <span class="ta-tally"><span>Wrong answers accepted <b data-tally="missed">0</b></span><span>Checked <b data-tally="checked">0</b></span><span>Undecided <b data-tally="left">5</b></span></span>
+      <button class="g-btn g-btn--ghost g-btn--sm" type="button" data-reset>Start again</button>
+    </div>
+    <div class="play__body">
+      <div class="ta-data-wrap">
+        <table class="ta-data">
+          <caption>Yesterday&rsquo;s dataset. Invented for this exercise.</caption>
+          <thead><tr><th scope="col">Protein</th><th scope="col">Length (residues)</th><th scope="col">Mass (kDa)</th><th scope="col">Melting point (&deg;C)</th></tr></thead>
+          <tbody>
+            <tr data-row="A"><td>A</td><td>84</td><td>9.8</td><td>61</td></tr>
+            <tr data-row="B"><td>B</td><td>129</td><td>14.3</td><td>72</td></tr>
+            <tr data-row="C"><td>C</td><td>153</td><td>17.0</td><td>58</td></tr>
+            <tr data-row="D"><td>D</td><td>76</td><td>8.6</td><td>81</td></tr>
+            <tr data-row="E"><td>E</td><td>210</td><td>23.4</td><td>49</td></tr>
+            <tr data-row="F"><td>F</td><td>98</td><td>10.9</td><td>66</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ol class="ta-answers">
+        <li class="ta-answer" data-ok="true" data-row="A">
+          <p class="ta-answer__q">What is the molecular weight of protein A?</p>
+          <p class="ta-answer__a">About 9.8 kDa.</p>
+          <div class="ta-answer__act"><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="accept" aria-pressed="false">Accept</button><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="check" aria-pressed="false">Check</button></div>
+          <p class="ta-answer__v" hidden>Right. It read a value off row A, which is exactly what Hulse said it proves: that it can read a number.</p>
+        </li>
+        <li class="ta-answer" data-ok="false" data-row="D">
+          <p class="ta-answer__q">Which protein is the most heat-stable?</p>
+          <p class="ta-answer__a">Protein B, with the highest melting point at 72 &deg;C.</p>
+          <div class="ta-answer__act"><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="accept" aria-pressed="false">Accept</button><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="check" aria-pressed="false">Check</button></div>
+          <p class="ta-answer__v" hidden>Wrong. Protein D melts at 81 &deg;C. A comparison is a conclusion, and conclusions are where a fluent answer and a correct one part ways.</p>
+        </li>
+        <li class="ta-answer" data-ok="false" data-row="C">
+          <p class="ta-answer__q">How heavy is protein C?</p>
+          <p class="ta-answer__a">17.0 Da.</p>
+          <div class="ta-answer__act"><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="accept" aria-pressed="false">Accept</button><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="check" aria-pressed="false">Check</button></div>
+          <p class="ta-answer__v" hidden>Wrong by a factor of a thousand. The table says 17.0 kDa. The number was read correctly; the unit was not.</p>
+        </li>
+        <li class="ta-answer" data-ok="true" data-row="F">
+          <p class="ta-answer__q">How many residues does protein F have?</p>
+          <p class="ta-answer__a">98 residues.</p>
+          <div class="ta-answer__act"><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="accept" aria-pressed="false">Accept</button><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="check" aria-pressed="false">Check</button></div>
+          <p class="ta-answer__v" hidden>Right. Another value read straight off the table.</p>
+        </li>
+        <li class="ta-answer" data-ok="false" data-row="E">
+          <p class="ta-answer__q">Has anyone published on protein E&rsquo;s stability?</p>
+          <p class="ta-answer__a">Yes: Moreau and Lind (2019), Journal of Protein Stability, 12(3), 211&ndash;224.</p>
+          <div class="ta-answer__act"><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="accept" aria-pressed="false">Accept</button><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-act="check" aria-pressed="false">Check</button></div>
+          <p class="ta-answer__v" hidden>Made up, and formatted perfectly. Nothing in your files mentions it, and protein E itself is invented. A source from outside what you provided is always a check.</p>
+        </li>
+      </ol>
+    </div>
+    <p class="play__note ta-result" aria-live="polite"></p>
+  </div>
+</section>
+
+<section class="layer" id="views">
+  <div class="layer__head"><span class="layer__n">06</span><h2>Viewpoints</h2></div>
+  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:60ch;margin-bottom:var(--g-space-md)">
+    We publish the strongest case against our own reading. If the counter-argument is weak here, that is our failure, not the argument&rsquo;s.</p>
+  <div class="views">
+    <div class="view view--for"><p class="view__tag">For checking</p>
+      <p>An assistant changes how fast drafts arrive, not who answers for them. A number in a report is the scientist&rsquo;s claim, whoever produced it, and the scientist has to be able to say why it is right.</p>
+      <cite>The position the video leans toward</cite></div>
+    <div class="view view--against"><p class="view__tag">Against</p>
+      <p>If the assistant is right more often than a tired researcher at the end of a long week, a rule that its answers need checking is ritual, not rigour. Checks belong where errors are likely, and that includes the human ones.</p>
+      <cite>The strongest objection we could find</cite></div>
+  </div>
+  <div class="stance g-mt-lg" style="max-width:34rem">
+    <p class="g-eyebrow">Where do you land?</p>
+    <ul class="stance__list">
+      <li class="stance__opt">Check every answer that leaves the lab</li>
+      <li class="stance__opt">Check by risk, not by who produced it</li>
+      <li class="stance__opt">Trust a track record, and audit a sample</li>
+    </ul>
+    <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">Make your case in the discussion below.</p>
+  </div>
+</section>
+
+<section class="layer" id="talk">
+  <div class="layer__head"><span class="layer__n">07</span><h2>Discussion</h2></div>
+  <div class="split">
+    <div>
+      <div class="ta-comments" data-comments-for="answer-that-looked-right"></div>
+      <p class="ta-empty" data-comments-empty>Loading replies&hellip;</p>
+      <form class="g-field g-mt-md" data-comment-form="answer-that-looked-right">
+        <label class="g-label" for="c">Add to the discussion</label>
+        <textarea class="g-textarea" id="c" name="body" placeholder="Disagreement is more useful than agreement here."></textarea>
+        <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Post</button>
+          <span class="g-hint" data-form-note>Members can post. A moderator reads every reply before it appears.</span></div>
+      </form>
+    </div>
+    <aside class="aside">
+      <div class="callout"><h4>This Week&rsquo;s Question</h4>
+        <p>If an assistant has been right ninety-nine times in a row, what should make you check the hundredth?</p></div>
+      <div class="callout g-mt-md"><h4>Corrections</h4>
+        <p>None yet. Anything we get wrong is logged here, with what changed and when.</p></div>
+    </aside>
+  </div>
+
+  <div class="art__next">
+    <h3>Where This Goes Next</h3>
+    <div class="g-grid g-grid--2">
+      <a class="nextcard" href="topic-machine-hypothesis.html">
+        <span class="nextcard__k">Next Topic</span><strong>Can a machine form a hypothesis?</strong>
+        <span>From checking an answer to asking whether a machine can propose one.</span></a>
+      <a class="nextcard" href="path-ai-in-research.html">
+        <span class="nextcard__k">Learn</span><strong>AI in Research</strong>
+        <span>The structured path, from what these models do to using one on your own data.</span></a>
+    </div>
+  </div>
+</section>
+
+</div>
+
+</main>
+<footer class="g-footer">
+  <div class="g-container">
+    <div class="g-footer__grid">
+      <div>
+        <div style="width:9rem"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></div>
+        <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
+          A community working through the hard questions in science and AI, with a workspace to think them through.</p>
+      </div>
+      <div><h5 class="g-footer__heading">Explore</h5>
+        <div class="g-stack g-stack--xs g-stack--ic"><a href="topics.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg><span>Topics</span></a><a href="lab.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg><span>Interactive Lab</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg><span>Learning Paths</span><span class="g-soon">Soon</span></span></div></div>
+      <div><h5 class="g-footer__heading">Join in</h5>
+        <div class="g-stack g-stack--xs g-stack--ic"><a href="community.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg><span>Community</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg><span>Newsletter</span><span class="g-soon">Soon</span></span></div></div>
+      <div><h5 class="g-footer__heading">Follow</h5><ul class="lp-social"><li><a class="lp-social__link" href="https://www.youtube.com/@GraviQuest" target="_blank" rel="noopener" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="https://www.linkedin.com/company/graviquest/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="https://www.instagram.com/graviquest" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li></ul></div>
+    </div>
+    <div class="g-footer__legal">
+      <span class="g-footer__fine">&copy; 2026 GraviQuest<a href="about.html">About</a><a href="impressum.html">Legal Notice</a><a href="privacy.html">Privacy</a></span>
+      <span>Curiosity brings people in. Capability keeps them here.</span>
+    </div>
+  </div>
+</footer>
+<script src="assets/site.js?v=20261101-verbs1"></script>
+<script src="assets/topic-answer.js?v=20261102-t1" defer></script>
+<script src="assets/chat.js?v=20261102-t01" defer></script>
+<script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
+</body>
+</html>

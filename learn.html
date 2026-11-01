@@ -21,7 +21,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds9">
-
+<link rel="stylesheet" href="assets/hero.css?v=20261102-grid1">
+<link rel="stylesheet" href="assets/landing.css?v=20261102-lp7">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -51,29 +52,162 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </header>
 <main id="main">
-<section class="page-head"><div class="g-container">
-      <span class="g-ic-plate page-head__ic" aria-hidden="true"><svg class="g-ic g-ic--lg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg></span>
-      <p class="crumb"><a href="index.html">Home</a> / Learn</p><h1>Learning Paths</h1><p class="g-lead">The archive is searchable but not ordered. A path is the ordered version, and none of them assume a particular field, only that you work with evidence.</p>
-    </div></section><section class="g-section"><div class="g-container"><div class="g-grid g-grid--2 rv"><a class="path-card" href="path-ai-in-research.html">
+
+<!-- Learn hero --------------------------------------------------------------
+     This page used to open on the plain page head the Legal Notice uses. It
+     now opens the way the home and community pages do: the grid, stars and
+     comet from hero.js, and a figure of its own (learn-hero.js) that draws
+     the lede literally: a scattered archive with one numbered route through
+     it. The pointer is a mass that bends the route; the numbering holds. -->
+<section class="g-hero lp-hero ln-hero" id="top">
+  <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
+  <div class="g-starfield" aria-hidden="true"></div>
+  <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
+  <div class="g-container g-hero__inner" style="width:100%">
+    <div class="lp-hero__grid">
+      <div class="lp-hero__col">
+        <p class="g-eyebrow">Learn &middot; Learning Paths</p>
+        <h1 class="g-display lp-hero__title">The archive, in an order you can follow.</h1>
+        <p class="g-lead lp-hero__lede">The archive is searchable but not ordered. A path is the ordered version, and none of them assume a particular field, only that you work with evidence.</p>
+        <div class="g-cluster g-mt-lg">
+          <a class="g-btn g-btn--primary g-btn--lg" href="path-ai-in-research.html">Start the First Path</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="#paths">See Every Path</a>
+        </div>
+        <p class="lp-hero__fine">No account needed to follow a path. No field assumed.</p>
+      </div>
+      <div class="lp-orbit ln-fig">
+        <div class="lp-orbit__stage">
+          <canvas id="ln-path" role="img"
+            aria-label="Animated scatter of sources with one numbered route of eight steps threaded through them; moving the pointer near it, or dragging on it, adds a mass that bends the route while the order of the steps stays the same"></canvas>
+          <div class="lp-orbit__hit" aria-hidden="true"></div>
+        </div>
+        <p class="lp-orbit__cap"><span id="ln-path-name">Many sources, one order</span>: <span id="ln-path-sub">eight steps, start to finish</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 01 · The first path --------------------------------------------------------
+     The home page shows one Topic layer by layer; this shows the one open
+     path step by step, in the path page's own words, so a visitor sees what
+     "ordered" means before choosing to start. -->
+<section class="g-section lp-chap lp-gridded lp-gridded--left" id="first" aria-labelledby="ch-first">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">01 &middot; The First Path</span>
+      <h2 id="ch-first">Eight Steps, in Order</h2>
+      <p class="g-lead">Each step builds on the one before it. Take them in order, or stop at the one you need.</p>
+    </header>
+    <div class="lp-topic">
+      <div class="lp-topic__intro rv">
+        <p class="lp-topic__k">Path 01 &middot; AI in Research &middot; Open now</p>
+        <h3 class="lp-topic__q">From what a model is doing, to using one on your own data</h3>
+        <p class="lp-topic__say">From what these models actually do, to using one on your own data without fooling yourself. No machine learning background assumed; some statistics helps.</p>
+        <p class="lp-topic__meta">8 steps &middot; ~6 hours</p>
+        <a class="g-btn g-btn--primary" href="path-ai-in-research.html">Start the Path</a>
+      </div>
+      <ol class="lp-layers rv" aria-label="The steps of this path">
+        <li class="lp-layer"><a href="path-ai-in-research.html">
+          <span class="lp-layer__n">01</span>
+          <div><h3>What a model is doing when it answers</h3><p>The mechanism, without the mysticism: prediction over a learned distribution, and what that rules out.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="path-ai-in-research.html">
+          <span class="lp-layer__n">02</span>
+          <div><h3>Where the productivity actually is</h3><p>Triage, code and drafting versus deciding what is worth asking. The second one has not moved.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="path-ai-in-research.html">
+          <span class="lp-layer__n">03</span>
+          <div><h3>Retrieval, and why citations get invented</h3><p>Why a fluent system produces plausible references, and what grounding does and does not fix.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="path-ai-in-research.html">
+          <span class="lp-layer__n">04</span>
+          <div><h3>Evaluating a claim you cannot inspect</h3><p>Held-out sets, ablations, and the questions to ask when the mechanism is unavailable.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="path-ai-in-research.html">
+          <span class="lp-layer__n">05</span>
+          <div><h3>Using a model on your own data</h3><p>A worked example end to end, including the two places it quietly goes wrong.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="path-ai-in-research.html">
+          <span class="lp-layer__n">06</span>
+          <div><h3>Reproducibility with a stochastic tool</h3><p>Seeds, versions and the parts of your pipeline that are now a moving target.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="path-ai-in-research.html">
+          <span class="lp-layer__n">07</span>
+          <div><h3>The ethics you will actually meet</h3><p>Authorship, disclosure, review, and what your funder already requires.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        <li class="lp-layer"><a href="path-ai-in-research.html">
+          <span class="lp-layer__n">08</span>
+          <div><h3>Where this breaks</h3><p>The open problems, honestly stated, including the ones we argued about on camera.</p></div>
+          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- 02 · Every path ---------------------------------------------------------
+     The cards used to carry progress bars, one of them at a hard-coded 42%,
+     which is a figure the site does not have. They now say only what each
+     path is and whether it is open. This must stay the page's first
+     .g-grid--2: public-integrations.js adds published courses to it. -->
+<section class="g-section g-section--deep lp-chap lp-gridded" id="paths" aria-labelledby="ch-paths">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">02 &middot; Every Path</span>
+      <h2 id="ch-paths">One Open, More Being Built</h2>
+      <p class="g-lead">The planned paths are listed so you can see where this is going, not because they are ready.</p>
+    </header>
+    <div class="g-grid g-grid--2 rv"><a class="path-card" href="path-ai-in-research.html">
       <p class="g-eyebrow g-eyebrow--bare">8 steps · ~6 hours</p><h3>AI in Research</h3><p>From what these models actually do, to using one on your own data without fooling yourself.</p>
-      <div class="progress"><i style="width:42%"></i></div>
-      <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">
-        In progress: 42%</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <p class="g-eyebrow g-eyebrow--bare">10 steps · ~12 hours</p><h3>Computational Science</h3><p>Integrators, stability and error, and the moment any simulation, of a climate or a cell, stops describing the system.</p>
-      <div class="progress"><i style="width:0%"></i></div>
-      <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">
-        Not started</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <p class="g-eyebrow g-eyebrow--bare">6 steps · ~4 hours</p><h3>Philosophy of Science</h3><p>Explanation, evidence and demarcation: the arguments underneath every methods section.</p>
-      <div class="progress"><i style="width:0%"></i></div>
-      <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">
-        Not started</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <p class="g-eyebrow g-eyebrow--bare">5 steps · ~3 hours</p><h3>Reading a Paper Properly</h3><p>Statistics, sampling and figures: how to find the weak joint quickly, in any journal.</p>
-      <div class="progress"><i style="width:0%"></i></div>
-      <p class="g-subtle" style="font-size:var(--g-fs-caption);margin-top:var(--g-space-2xs)">
-        Not started</p></a></div>
-        <div class="callout g-mt-xl rv"><h4>Progress Is Stored on Your Device</h4>
-          <p>No account needed to follow a path. An account adds your notes, your place across
-            devices, and the study group for each path.</p></div></div></section>
+      <p class="path-card__status">Open now</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <p class="g-eyebrow g-eyebrow--bare">10 steps · ~12 hours</p><h3>Computational Science</h3><p>Integrators, stability and error, and the moment any simulation, of a climate or a cell, stops describing the system.</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <p class="g-eyebrow g-eyebrow--bare">6 steps · ~4 hours</p><h3>Philosophy of Science</h3><p>Explanation, evidence and demarcation: the arguments underneath every methods section.</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <p class="g-eyebrow g-eyebrow--bare">5 steps · ~3 hours</p><h3>Reading a Paper Properly</h3><p>Statistics, sampling and figures: how to find the weak joint quickly, in any journal.</p></a></div>
+  </div>
+</section>
+
+<!-- 03 · How a path works ------------------------------------------------------
+     The closing callout here used to say progress is stored on your device
+     and that an account adds your place across devices. Nothing in the site
+     stores path progress, so neither is said any more; what is left is what
+     is true of a static path today. -->
+<section class="g-section lp-chap lp-gridded lp-gridded--left" id="how" aria-labelledby="ch-how">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">03 &middot; How a Path Works</span>
+      <h2 id="ch-how">Free From the First Step</h2>
+      <p class="g-lead">A path asks for no account and no payment. Join when you want to argue with what you read.</p>
+    </header>
+    <div class="lp-comm">
+      <ol class="lp-do rv">
+        <li><span class="lp-layer__n">01</span><div><h3>Follow</h3><p>Take the steps in order. Each is labelled with what it is: a video, an essay, a notebook, a checklist.</p></div></li>
+        <li><span class="lp-layer__n">02</span><div><h3>Read Whole</h3><p>No paywall and no locked steps. Every step is open from the first one.</p></div></li>
+        <li><span class="lp-layer__n">03</span><div><h3>Talk It Through</h3><p>Bring what a step raised to the community, where every Topic keeps its own discussion.</p></div></li>
+      </ol>
+      <div class="lp-short rv">
+        <h3>Who Paths Are For</h3>
+        <p>Researchers, graduate students and anyone who has to judge someone else&rsquo;s use of evidence. None assume a particular field.</p>
+        <a class="g-btn g-btn--secondary g-btn--sm" href="topics.html">Prefer a Topic First?</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Join band ------------------------------------------------------------------ -->
+<section class="g-section lp-gridded"><div class="g-container">
+  <div class="join rv">
+    <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
+    <div class="join__in">
+      <p class="g-eyebrow" style="justify-content:center">Open to Every Field</p>
+      <h2 class="join__h">Learn with&nbsp;us.</h2>
+      <p class="join__lede">Start the first path now. Join when you want to argue with what you read.</p>
+      <div class="join__act">
+        <a class="g-btn g-btn--primary g-btn--lg" href="path-ai-in-research.html">Start the First Path</a>
+        <a class="g-btn g-btn--secondary g-btn--lg" href="community.html#join">Join Us</a>
+      </div>
+      <p class="join__fine">No field or degree required. No payment, no tiers.</p>
+    </div>
+  </div></div></section>
+
 </main>
 <footer class="g-footer">
   <div class="g-container">
@@ -81,8 +215,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <div>
         <div style="width:9rem"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></div>
         <p class="g-mt-sm g-subtle" style="font-size:var(--g-fs-caption);max-width:30ch">
-          A media project, a lab and a community for working scientists, students and
-          the curious, in every field.</p>
+          A community working through the hard questions in science and AI, with a workspace to think them through.</p>
       </div>
       <div><h5 class="g-footer__heading">Explore</h5>
         <div class="g-stack g-stack--xs g-stack--ic"><a href="topics.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg><span>Topics</span></a><a href="lab.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg><span>Interactive Lab</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg><span>Learning Paths</span><span class="g-soon">Soon</span></span></div></div>
@@ -97,7 +230,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261101-verbs1"></script>
-<script src="assets/chat.js?v=20261102-noessays" defer></script>
+<script src="assets/hero.js?v=20261102-game2"></script>
+<script src="assets/learn-hero.js?v=20261102-1"></script>
+<script src="assets/chat.js?v=20261102-t01" defer></script>
 <script src="assets/production-bridge.js?v=20260924-seen1" defer></script>
 <script src="assets/public-integrations.js?v=20261022-essays" defer></script>
 </body>
