@@ -9,8 +9,6 @@ dossiers.html                     Dossier index (filter + search)
 dossier-computable-universe.html  A full worked dossier — all seven layers
 dossier-machine-hypothesis.html   Dossier 03 — the roadmap's starting topic
 account.html                      Sign in / create an account
-magazine.html                     Article archive
-article-hypothesis-or-sentence.html  A full article — the Essays template
 lab.html                          Interactive lab
 game-hypothesis-machine.html      A game you can actually play
 learn.html                        The four learning paths
@@ -60,7 +58,10 @@ pages, and neither version is a teaser — both are the whole argument.
 
 ## Navigation
 
-Five items: **Dossiers · Essays · Lab · Learn · Community**
+Four items: **Topics · Lab · Learn · Community**
+
+There is no Essays section. An essay is layer 02 of a Topic and lives inside
+it, the same way a video opens a Topic rather than standing on its own.
 
 The roadmap lists six spaces, but Newsletter is an *action*, not a place, so it
 is a persistent CTA in the header and footer rather than a nav slot. There is

@@ -21,84 +21,6 @@
     return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
   }
 
-  function magazine() {
-    if (location.pathname !== '/magazine.html') return;
-    var list = document.querySelector('[data-filterable]');
-    if (!list) return;
-
-    var articleSlug = new URLSearchParams(location.search).get('article');
-    if (articleSlug) {
-      getJson('/api/content/' + encodeURIComponent(articleSlug) + '/').then(function (data) {
-        var item = data.item;
-        if (!item || item.kind !== 'article') throw new Error('not_article');
-        var main = document.getElementById('main');
-        main.innerHTML =
-          '<section class="page-head"><div class="g-container"><p class="crumb"><a href="magazine.html">Essays</a></p>' +
-          '<h1>' + esc(item.title) + '</h1><p class="g-lead">' + esc(item.summary || '') + '</p></div></section>' +
-          '<section class="g-section"><div class="g-container"><article class="g-prose" data-cms-article></article></div></section>';
-        var article = main.querySelector('[data-cms-article]');
-        article.innerHTML = item.body || '';
-        document.title = item.title + ' · GraviQuest';
-      }).catch(function () {
-        var main = document.getElementById('main');
-        main.innerHTML = '<section class="page-head"><div class="g-container"><h1>Article unavailable</h1><p class="g-lead">This article is not published or could not be loaded.</p></div></section>';
-      });
-      return;
-    }
-
-    Promise.all([
-      getJson('/api/content/?kind=article&limit=100').catch(function () { return {items: []}; }),
-      getJson('/api/content/?kind=topic&limit=100').catch(function () { return {items: []}; })
-    ]).then(function (rows) {
-      var articles = rows[0].items || [];
-      var topics = rows[1].items || [];
-      var dynamic = [];
-
-      articles.forEach(function (item) {
-        dynamic.push({
-          key: 'article:' + item.slug,
-          title: item.title,
-          summary: item.summary || '',
-          href: '/magazine.html?article=' + encodeURIComponent(item.slug),
-          type: 'Essay',
-          meta: dateLabel(item.published_at)
-        });
-      });
-
-      topics.forEach(function (item) {
-        var topic = item.topic_data || {};
-        var essay = topic.essay || {};
-        if (!essay.overview_html && !essay.indepth_html && !essay.body_html) return;
-        dynamic.push({
-          key: 'topic:' + item.slug,
-          title: item.title,
-          summary: item.summary || 'Essay from the Topic archive.',
-          href: '/topic.html?slug=' + encodeURIComponent(item.slug) + '#essay',
-          type: 'Topic essay',
-          meta: dateLabel(item.published_at)
-        });
-      });
-
-      var existing = new Set(Array.prototype.map.call(list.querySelectorAll('a.entry'), function (a) {
-        return (a.getAttribute('href') || '').replace(location.origin, '');
-      }));
-      dynamic.forEach(function (item) {
-        if (existing.has(item.href)) return;
-        var a = document.createElement('a');
-        a.className = 'entry';
-        a.href = item.href;
-        a.dataset.type = 'essay';
-        a.dataset.tags = 'essay';
-        a.innerHTML =
-          '<span class="entry__type">' + esc(item.type) + '</span><div>' +
-          '<h3>' + esc(item.title) + '</h3><p>' + esc(item.summary) + '</p>' +
-          '<div class="entry__meta"><span>' + esc(item.meta || 'GraviQuest') + '</span></div></div>';
-        list.prepend(a);
-      });
-      window.dispatchEvent(new Event('input'));
-    });
-  }
-
   function learn() {
     if (location.pathname !== '/learn.html') return;
     var grid = document.querySelector('.g-grid.g-grid--2');
@@ -167,7 +89,6 @@
     // The public Lab is intentionally header-only during scope discussion.
   }
 
-  magazine();
   learn();
   community();
   lab();

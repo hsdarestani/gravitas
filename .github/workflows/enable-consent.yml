@@ -41,13 +41,11 @@ jobs:
               /index.html '<link rel="canonical" href="https://graviquest.com/"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /about.html '<link rel="canonical" href="https://graviquest.com/about.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /dossiers.html '<link rel="canonical" href="https://graviquest.com/dossiers.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /magazine.html '<link rel="canonical" href="https://graviquest.com/magazine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /lab.html '<link rel="canonical" href="https://graviquest.com/lab.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /learn.html '<link rel="canonical" href="https://graviquest.com/learn.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /community.html '<link rel="canonical" href="https://graviquest.com/community.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /dossier-machine-hypothesis.html '<link rel="canonical" href="https://graviquest.com/dossier-machine-hypothesis.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /dossier-computable-universe.html '<link rel="canonical" href="https://graviquest.com/dossier-computable-universe.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /article-hypothesis-or-sentence.html '<link rel="canonical" href="https://graviquest.com/article-hypothesis-or-sentence.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /game-hypothesis-machine.html '<link rel="canonical" href="https://graviquest.com/game-hypothesis-machine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
           }
 
