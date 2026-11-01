@@ -71,7 +71,7 @@
   var S = 8;                       // stations on the path
   var SEG = 22;                    // curve samples between two stations
   var M = (S - 1) * SEG + 1;
-  var PULL = 0.075, PULL_MAX = 0.32, SOFT = 0.07;
+  var PULL = 0.06, PULL_MAX = 0.22, SOFT = 0.08;
   var R_NEAR = 1.1, R_FAR = 1.9;
   var TRIP = 9.5, REST = 2.2;      // seconds on the path, seconds lit at the end
 
@@ -133,7 +133,7 @@
     if (infl <= 0) return;
     var ex = mX - x, ey = mY - y, e2 = ex * ex + ey * ey;
     var e = Math.sqrt(e2) || 1, f = PULL * infl / (e2 + SOFT);
-    var len = Math.min(PULL_MAX * infl, f * e, e * 0.85);
+    var len = Math.min(PULL_MAX * infl, f * e, e * 0.55);
     DX = ex / e * len; DY = ey / e * len;
   }
 
@@ -220,7 +220,7 @@
     for (var t = 0; t < S; t++) {
       for (var q = 0; q < 2; q++) {
         var a = NEAR[t * 2 + q];
-        ctx.strokeStyle = 'rgba(' + INK.line + ',0.16)';
+        ctx.strokeStyle = 'rgba(' + INK.line + ',0.07)';
         ctx.beginPath();
         ctx.moveTo(cx + SX[t] * scale, cy + SY[t] * scale);
         ctx.lineTo(cx + AX[a] * scale, cy + AY[a] * scale);
@@ -230,15 +230,15 @@
 
     // The route ahead, faint and dashed; the route behind, solid.
     ctx.setLineDash([2, 5]);
-    ctx.strokeStyle = 'rgba(' + INK.line + ',0.26)';
+    ctx.strokeStyle = 'rgba(' + INK.line + ',0.34)';
     ctx.beginPath();
     ctx.moveTo(cx + CX[head] * scale, cy + CY[head] * scale);
     for (var m = head + 1; m < M; m++) ctx.lineTo(cx + CX[m] * scale, cy + CY[m] * scale);
     ctx.stroke();
     ctx.setLineDash([]);
     if (head > 0) {
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(' + INK.body[1] + ',' + (0.7 * fade).toFixed(3) + ')';
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(' + INK.body[1] + ',' + (0.85 * fade).toFixed(3) + ')';
       ctx.beginPath();
       ctx.moveTo(cx + CX[0] * scale, cy + CY[0] * scale);
       for (var n = 1; n <= head; n++) ctx.lineTo(cx + CX[n] * scale, cy + CY[n] * scale);
@@ -249,21 +249,27 @@
     // The archive.
     for (var i = 0; i < N; i++) {
       var s = 9 * AS[i];
-      ctx.globalAlpha = 0.7;
+      ctx.globalAlpha = 0.5;
       ctx.drawImage(sprites[AK[i]], cx + AX[i] * scale - s, cy + AY[i] * scale - s, s * 2, s * 2);
     }
     ctx.globalAlpha = 1;
 
-    // Stations: lit once the traveller has reached them.
+    // Stations: a ring until the traveller reaches them, then lit. The ring
+    // is what sets a step apart from the sources around it before the pulse
+    // gets there.
     ctx.font = '500 ' + Math.max(10, Math.round(scale * 0.075)) + 'px ' + MONO;
     ctx.textBaseline = 'middle';
     for (var k = 0; k < S; k++) {
       var lit = head >= k * SEG ? fade : 0;
       var r = 12 + 6 * lit;
       ctx.globalAlpha = 0.45 + 0.55 * lit;
-      ctx.drawImage(lit ? sprites[1] : sprites[0], cx + SX[k] * scale - r, cy + SY[k] * scale - r, r * 2, r * 2);
+      if (lit) ctx.drawImage(sprites[1], cx + SX[k] * scale - r, cy + SY[k] * scale - r, r * 2, r * 2);
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(' + INK.line + ',' + (0.42 + 0.5 * lit).toFixed(3) + ')';
+      ctx.strokeStyle = 'rgba(' + INK.body[1] + ',' + (0.6 + 0.4 * lit).toFixed(3) + ')';
+      ctx.lineWidth = 1.25;
+      ctx.beginPath(); ctx.arc(cx + SX[k] * scale, cy + SY[k] * scale, 5.5, 0, 6.28318); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = 'rgba(' + INK.line + ',' + (0.6 + 0.4 * lit).toFixed(3) + ')';
       ctx.fillText(LABELS[k], cx + SX[k] * scale + 10, cy + SY[k] * scale - 13);
       ctx.globalCompositeOperation = blend;
     }

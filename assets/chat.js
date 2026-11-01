@@ -54,7 +54,7 @@
     },
     {
       k: 'lab game simulation interactive play experiment tool sandbox try',
-      a: 'The GraviQuest Lab is a central place intended for experiments across research Topics. Its format is still being defined. The public page currently shows only the Lab heading; no interactive experiments are available yet.',
+      a: 'The GraviQuest Lab holds interactive models you can change and question, each tied to the scientific sources behind it. It is open to every Topic rather than part of one, and its format is still being defined. The public page explains what a Lab is and lists only the models that have been published.',
       l: [['Lab', 'lab.html']]
     },
     {

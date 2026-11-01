@@ -12,7 +12,7 @@ const route=path('backend/core/urls.py');
 const urls=path('backend/gravitas_backend/urls.py');
 const css=path('assets/lab-studio.css');
 const adminCss=path('assets/ws/ws-lab-studio.css');
-assert.match(lab,/<h1 id="lab-title">Lab<\/h1>/);
+assert.match(lab,/<h1[^>]*id="lab-title"/);
 assert.match(lab,/id="lab-experiences" hidden/);
 assert.ok(!lab.includes('ai-panel-')&&!lab.includes('ai-path-card')&&!lab.includes('<iframe'),'public Lab must be empty before release');
 assert.match(lab,/assets\/lab-studio\.js/);

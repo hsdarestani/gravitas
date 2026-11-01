@@ -165,17 +165,19 @@ async function smoke() {
   assert.ok(await v.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
   await v.screenshot({path:path.join(shots,"visualization-desktop.png"),fullPage:true});
 
-  // Only the generic Lab header is public while the Lab
-  // concept is being reconsidered. The three standalone historical
-  // simulations above remain regression-tested but are not listed here.
+  // The Lab is a generic landing: it says what a Lab is and lists only
+  // what the registry publishes, which this static server does not answer.
+  // The three standalone historical simulations above remain
+  // regression-tested but are not listed here.
   const idx=await context.newPage();
   const indexResponse=await idx.goto(ROOT+"/lab.html",{waitUntil:"networkidle"});
   assert.equal(indexResponse.status(),200);
-  assert.equal(await idx.locator("main h1").innerText(),"Lab");
-  assert.equal(await idx.locator("main section").count(),1);
-  assert.equal(await idx.locator(".ai-path-card,.ai-panel,.games > .game-card").count(),0);
+  assert.match(await idx.locator("main h1").innerText(),/^Change the conditions/);
+  assert.equal(await idx.locator(".ai-path-card,.ai-panel,.games > .game-card,.lab-catalog-card").count(),0);
   assert.equal(await idx.locator("main button").count(),0);
-  assert.equal(await idx.locator("main iframe,main canvas").count(),0);
+  assert.equal(await idx.locator("main iframe").count(),0);
+  assert.ok(await idx.locator("#lab-experiences").isHidden());
+  assert.ok(await idx.locator(".lab-open").isHidden(),"no Open Now heading over an empty registry");
   assert.ok(await idx.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
   await idx.screenshot({path:path.join(shots,"ai-research-empty-desktop.png"),fullPage:true});
   await idx.setViewportSize({width:390,height:844});
@@ -185,15 +187,14 @@ async function smoke() {
   const noJsPage=await noJs.newPage();
   await noJsPage.setViewportSize({width:390,height:844});
   assert.equal((await noJsPage.goto(ROOT+"/lab.html",{waitUntil:"load"})).status(),200);
-  assert.equal(await noJsPage.locator("main h1").innerText(),"Lab");
-  assert.equal(await noJsPage.locator("main section").count(),1);
+  assert.match(await noJsPage.locator("main h1").innerText(),/^Change the conditions/);
   await noJs.close();
   const nav = await q.locator('a.back').getAttribute("href");
   assert.equal(nav, "lab.html");
   await q.emulateMedia({ reducedMotion: "reduce" });
   assert.ok(await q.locator("h1").isVisible());
   await context.close();
-  console.log("Browser PASS: historical simulation regressions + branded header-only Lab page on desktop, mobile and no-JS.");
+  console.log("Browser PASS: historical simulation regressions + generic Lab landing on desktop, mobile and no-JS.");
 }
 smoke().catch(err => { failed = true; console.error(err.stack || err); }).finally(async () => {
   if (browser) await browser.close().catch(() => {});

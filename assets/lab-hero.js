@@ -147,6 +147,19 @@
   }
 
   // ---- Drawing -------------------------------------------------------------
+  // Runs leave the frame on every side, and a canvas cuts them at a hard
+  // straight edge. A radial mask, rebuilt only on resize, fades the figure out
+  // before it reaches the edge, the way the home orbit's trails fade.
+  var mask = document.createElement('canvas');
+  function buildMask() {
+    mask.width = Math.max(1, Math.round(W)); mask.height = Math.max(1, Math.round(H));
+    var g = mask.getContext('2d'), r = Math.min(W, H) / 2;
+    var grad = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(0.72, 'rgba(0,0,0,1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, mask.width, mask.height);
+  }
   function size() {
     var r = canvas.getBoundingClientRect();
     if (!r.width) return;
@@ -155,6 +168,7 @@
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     scale = Math.min(W, H) / SPAN;
+    buildMask();
     if (reduce || !running) render(t0);
   }
 
@@ -214,6 +228,8 @@
       var mr = 18 * infl;
       ctx.drawImage(sprites[2], cx + mX * scale - mr, cy + mY * scale - mr, mr * 2, mr * 2);
     }
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.drawImage(mask, 0, 0, W, H);
     ctx.globalCompositeOperation = 'source-over';
   }
 
