@@ -124,10 +124,19 @@ const server=http.createServer((req,res)=>{
     await page.getByRole('button',{name:'Tips on',exact:true}).click();
     await page.locator('.lab-chat-head').click();
     assert.equal(await page.locator('.lab-chat-body').isHidden(),true,'Pulsar starts as a launcher, without a sidebar');
-    assert.equal(await page.locator('body>.g-header').isHidden(),true,'the active Lab owns the viewport');
+    // The site header stays while a Lab runs; the simulator takes everything under it.
+    assert.equal(await page.locator('body>.g-header').isVisible(),true,'site navigation stays available in the Lab');
+    assert.equal(await page.locator('.g-footer').isHidden(),true,'the footer gives the Lab its space');
     const desktopFrame=await page.locator('.lab-frame').boundingBox();
+    const headerBottom=await page.locator('body>.g-header').evaluate(el=>el.getBoundingClientRect().bottom);
     assert.ok(desktopFrame.width>=1398,'simulator uses the full window width');
-    assert.ok(desktopFrame.height>=900&&desktopFrame.y<100,'simulator fills remaining window height');
+    assert.ok(Math.abs(desktopFrame.y-headerBottom)<2&&desktopFrame.y+desktopFrame.height>=999,'simulator fills the window under the header');
+    // The Lab follows the header's theme control.
+    assert.equal(await frame.locator('html').getAttribute('data-theme'),'dark');
+    await page.locator('.gh-actions .theme-toggle').click();
+    await frame.locator('html[data-theme="light"]').waitFor();
+    await page.locator('.gh-actions .theme-toggle').click();
+    await frame.locator('html[data-theme="dark"]').waitFor();
     // Each completed answer arrives while the panel is closed. No new AI request
     // is made when the visitor opens an existing notification.
     async function answerInBackground(text){
@@ -150,7 +159,7 @@ const server=http.createServer((req,res)=>{
     // Supply three distinct model notes from the actual sandboxed simulator,
     // not from the parent window, to exercise source validation and persistence.
     await page.clock.install();
-    const simPage=page.frame({url:/\/lab-run\/science-universe\/$/});
+    const simPage=page.frame({url:/\/lab-run\/science-universe\/(#theme=(dark|light))?$/});
     for(let i=1;i<=4;i++){
       await page.clock.fastForward(18100);
       await simPage.evaluate(i=>parent.postMessage({schema:'graviquest.lab.v1',type:'lab:note',note:{title:'Fixture snapshot',text:'Retained model snapshot '+i}},'*'),i);
@@ -191,7 +200,7 @@ const server=http.createServer((req,res)=>{
     assert.ok(Math.abs(companion.y-dock.y)<3,'Pulsar sits in its reserved dock');
     const initialHeight=await page.locator('.lab-frame').evaluate(x=>x.getBoundingClientRect().height);
     await frame.locator('#advance').click();
-    await page.frame({url:/\/lab-run\/science-universe\/$/}).waitForFunction(()=>document.getElementById('day').textContent==='010');
+    await page.frame({url:/\/lab-run\/science-universe\/(#theme=(dark|light))?$/}).waitForFunction(()=>document.getElementById('day').textContent==='010');
     assert.equal(await frame.locator('#day').innerText(),'010');
     const paused=await frame.locator('#network-a').evaluate(x=>x.toDataURL());
     await page.waitForTimeout(600);

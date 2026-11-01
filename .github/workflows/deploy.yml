@@ -507,6 +507,19 @@ jobs:
                   proxy_connect_timeout 5s;
                   proxy_read_timeout 30s;
               }
+
+              # A published Lab runs in an opaque-origin sandbox and browsers
+              # fetch web fonts in CORS mode, so without this header the Lab
+              # silently falls back to system type instead of DM Sans. The
+              # server-wide headers are repeated because add_header here stops
+              # nginx inheriting them.
+              location ^~ /assets/fonts/ {
+                  add_header Access-Control-Allow-Origin "*" always;
+                  add_header X-Content-Type-Options "nosniff" always;
+                  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                  add_header X-Frame-Options "SAMEORIGIN" always;
+                  try_files \$uri =404;
+              }
               location ^~ /admin/ {
                   proxy_pass http://127.0.0.1:8000;
                   proxy_set_header Host \$host;
@@ -584,6 +597,19 @@ jobs:
                   proxy_set_header X-Forwarded-Proto \$scheme;
                   proxy_connect_timeout 5s;
                   proxy_read_timeout 30s;
+              }
+
+              # A published Lab runs in an opaque-origin sandbox and browsers
+              # fetch web fonts in CORS mode, so without this header the Lab
+              # silently falls back to system type instead of DM Sans. The
+              # server-wide headers are repeated because add_header here stops
+              # nginx inheriting them.
+              location ^~ /assets/fonts/ {
+                  add_header Access-Control-Allow-Origin "*" always;
+                  add_header X-Content-Type-Options "nosniff" always;
+                  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                  add_header X-Frame-Options "SAMEORIGIN" always;
+                  try_files \$uri =404;
               }
               location ^~ /admin/ {
                   proxy_pass http://127.0.0.1:8000;

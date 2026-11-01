@@ -26,6 +26,7 @@ EXPECTED = {
         '5a2fdf34fe6c2597d505542db3b85aa967a20e47',
     ),
     'index.html': (
+        '89096637e4815d6a49418637b567536bbaa386a4',
         '5038d45dd17f0f7b98ffa6abed8610d91e661262',
         '365dcad3f06dd9dd00d7c6cdefaa3b98d30767e9',
         'c7d602c7b95ccbbd73719bb72e7fcf53bf1245df',
@@ -34,6 +35,7 @@ EXPECTED = {
         'bf9d933fc18d7f75fdbe6b4addc7a86b71f54d91',
     ),
     'app.js': (
+        'c1f5d73a0918e5507f54894126f10f42c1d22111',
         '29a285509bf24ea3d80454abecdf4213b0f76179',
         'ffd567910b76325be6df3af6138d6b18476e4af1',
         'b775404423e54f25c88bd6bed5952967b4b4a1ab',
@@ -42,6 +44,7 @@ EXPECTED = {
         '39582357f5ff293bffbc6bdf4b5ec84699884c7b',
     ),
     'styles.css': (
+        '304cad34e042a3c1ac11e284117fc24f70640799',
         'fc2cc1d89626d6b39abc1dc0b7956440f303aa78',
         'f416f2e88bd105790947f645c069f352c022a441',
         'd596fe5bc916293b065a43425f0318aed8e1b3d5',

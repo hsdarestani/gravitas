@@ -5,7 +5,21 @@ const E=window.ScienceUniverseEngine;
 if(!E)throw Error('Science Universe engine missing');
 const $=id=>document.getElementById(id);
 const make=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=String(text);return e;};
-const domainColors=['#65b6cf','#95aadf','#bea0ef','#d5ac6f'];
+// Canvas colours are the stylesheet's tokens (styles.css, --map-* and --domain-*),
+// read again whenever the host switches theme, so the map, the chart and the
+// panels around them never disagree. Literal colours here were the reason the
+// map stayed navy on a light page.
+const domainColors=['','','',''];
+const ink={};
+const FONT='"DM Sans",system-ui,sans-serif';
+function readInk(){
+  const css=getComputedStyle(document.documentElement),v=name=>css.getPropertyValue('--'+name).trim();
+  for(let i=0;i<4;i++)domainColors[i]=v('domain-'+i);
+  for(const key of ['map-bg','map-grid','map-lane-a','map-lane-b','map-node','map-node-locked','map-link','map-cross','map-cross-solid',
+    'map-flow','map-flow-line','map-flow-focus','map-label','map-label-strong','map-select','claim-open','claim-pass','claim-fail',
+    'agent-ai','agent-human','world-a','world-b','hairline','subtle','muted'])ink[key]=v(key);
+}
+readInk();
 const domainNames=E.DOMAINS;
 const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand:()=>{},onLayer:()=>{},onSection:()=>{},onExperiment:()=>{},context:()=>{},experimentResult:()=>{}};
 const worlds=[E.make(20261029),null],selected=[null,null],selectedPaper=[null,null],eventSeen=[new Set(),new Set()];
@@ -229,9 +243,12 @@ function publishContext(force=false){
       'compare_worlds','run_guided_scenario']
   });
 }
+const ICON='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">';
+const PLAY_ICON=ICON+'<path d="M8.2 5.6v12.8a.7.7 0 0 0 1.07.6l10.1-6.4a.7.7 0 0 0 0-1.2L9.27 5a.7.7 0 0 0-1.07.6z"/></svg>';
+const PAUSE_ICON=ICON+'<path d="M8.6 5.4v13.2M15.4 5.4v13.2"/></svg>';
 function play(on){
   playing=!!on;
-  $('play').textContent=playing?'Ⅱ Pause':'▶ Play';
+  $('play').innerHTML=(playing?PAUSE_ICON:PLAY_ICON)+'<span>'+(playing?'Pause':'Play')+'</span>';
   $('status-label').textContent=playing?'SIMULATION RUNNING':'SIMULATION PAUSED';
   $('session-state').classList.toggle('spinning',playing);
   document.body.dataset.playing=String(playing);
@@ -367,7 +384,7 @@ function renderDomainResults(){
  const host=$('domain-results');
  if(!host.children.length){host.append(make('h3','','Research across fields'),make('p','small-print','Compare live publications, false claims and citations by topic. Field labels do not imply a proven scientific advantage.'));
    const grid=make('div','domain-grid');for(const [i,name] of E.DOMAINS.entries()){
-     const card=make('div','domain-card');card.style.setProperty('--field-color',domainColors[i]);card.append(make('strong','',name),make('span','domain-value'));grid.append(card);
+     const card=make('div','domain-card');card.style.setProperty('--field-color','var(--domain-'+i+')');card.append(make('strong','',name),make('span','domain-value'));grid.append(card);
    }host.append(grid);
  }
  E.researchBreakdown(nowWorld()).forEach((d,i)=>text(host.querySelectorAll('.domain-value')[i],d.published+' live papers · '+d.falsePublished+' false · '+d.citations+' citations'));
@@ -413,7 +430,7 @@ function inspector(){
   $('selected-links').textContent=network.selectedLinks;
   $('selected-cross-links').textContent=network.selectedCrossLinks;
   text('inspector-dialog-title',l.name+' · World '+(active?'B':'A'));
-  text('inspector-more',selectedPaper[active]!==null?'See paper #'+selectedPaper[active]+' · details & actions ↗':'See more · team, papers & actions ↗');
+  text('inspector-more',selectedPaper[active]!==null?'See paper #'+selectedPaper[active]+' · details & actions':'See more · team, papers & actions');
   text('selected-summary',network.selectedLinks+' connections · '+network.selectedCrossLinks+' across fields'+(selectedPaper[active]!==null?' · Paper #'+selectedPaper[active]+' selected':''));
   $('selected-network').textContent='Drag this lab to change its possible partners. A linked partner has ×1.7 citation weight in this model; positions do not directly change statistical evidence or hidden truth.';
   $('freeze-lab').textContent=l.locked?'Resume proposals':'Slow proposals';
@@ -494,8 +511,8 @@ function drawChart(){
   const max=Math.max(1,...all.flat().map(x=>Number(x[plot])||0));
   const xmax=Math.max(1,...all.flat().map(x=>x.day||0));
   const left=39,top=13,cw=w-57,ch=h-43;
-  ctx.strokeStyle='rgba(144,185,210,.16)';ctx.fillStyle='#9db7c9';
-  ctx.font='10px system-ui';ctx.lineWidth=1;
+  ctx.strokeStyle=ink.hairline;ctx.fillStyle=ink.subtle;
+  ctx.font='11px '+FONT;ctx.lineWidth=1;
   for(let i=0;i<4;i++){
     const y=top+ch*i/3;
     ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(w-10,y);ctx.stroke();
@@ -504,7 +521,7 @@ function drawChart(){
   ctx.fillText('DAY 0',left,h-7);ctx.fillText('DAY '+xmax,Math.max(left,w-75),h-7);
   all.forEach((line,index)=>{
     if(line.length<1)return;
-    ctx.strokeStyle=index?'#e5bb84':'#7abed5';ctx.lineWidth=2;ctx.beginPath();
+    ctx.strokeStyle=index?ink['world-b']:ink['world-a'];ctx.lineWidth=2;ctx.beginPath();
     line.forEach((x,i)=>{
       const px=left+x.day/xmax*cw,py=top+ch-(Number(x[plot])||0)/max*ch;
       if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
@@ -612,7 +629,7 @@ function mapLegend(){
  if(mapKeyView!==view){mapKeyView=view;const key=$('map-key-content');key.replaceChildren();
    const illustration=make('div','map-guide-illustration');
    // Authored legend, explicitly schematic, never fabricated research data.
-   illustration.innerHTML=papers?'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: Biology and Climate paper lanes, with a citation arrow toward a selected paper"><path d="M90 48H440M90 112H440" stroke="#8bb5c5" stroke-opacity=".25"/><text x="8" y="52" fill="#65b6cf">Biology</text><text x="8" y="116" fill="#95aadf">Climate</text><circle cx="150" cy="48" r="6" fill="#e5c58f"/><circle cx="230" cy="48" r="7" fill="#a4d5bd"/><circle cx="350" cy="112" r="7" fill="#e4a080"/><circle cx="230" cy="48" r="13" fill="none" stroke="#fff"/><path d="M90 112Q130 25 215 48m-7-6 7 6-9 2" fill="none" stroke="#c1a0e7"/><text x="270" y="28" fill="#c4d5df">Select one claim</text><text x="225" y="143" fill="#a5b9c8">Earlier → later publication</text></svg>':'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: two laboratories, a collaboration line and small team-member marks"><path d="M130 75H330" stroke="#c1a0e7" stroke-width="2"/><circle cx="130" cy="75" r="21" fill="#0e3045" stroke="#65b6cf" stroke-width="2"/><circle cx="330" cy="75" r="13" fill="#0e3045" stroke="#bea0ef" stroke-width="2"/><circle cx="130" cy="75" r="4" fill="#65b6cf"/><circle cx="330" cy="75" r="3" fill="#bea0ef"/><circle cx="130" cy="43" r="3" fill="#e4c789"/><circle cx="104" cy="94" r="3" fill="#a5d4e7"/><circle cx="156" cy="94" r="3" fill="#a5d4e7"/><text x="75" y="127" fill="#c4d5df">More active studies</text><text x="285" y="127" fill="#c4d5df">Fewer studies</text><text x="177" y="55" fill="#c1a0e7">Possible partners</text></svg>';
+   illustration.innerHTML=papers?'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: Biology and Climate paper lanes, with a citation arrow toward a selected paper"><path d="M90 48H440M90 112H440" stroke="var(--subtle)" stroke-opacity=".25"/><text x="8" y="52" fill="var(--domain-0)">Biology</text><text x="8" y="116" fill="var(--domain-1)">Climate</text><circle cx="150" cy="48" r="6" fill="var(--claim-open)"/><circle cx="230" cy="48" r="7" fill="var(--claim-pass)"/><circle cx="350" cy="112" r="7" fill="var(--claim-fail)"/><circle cx="230" cy="48" r="13" fill="none" stroke="var(--map-select)"/><path d="M90 112Q130 25 215 48m-7-6 7 6-9 2" fill="none" stroke="var(--map-cross-solid)"/><text x="270" y="28" fill="var(--muted)">Select one claim</text><text x="225" y="143" fill="var(--subtle)">Earlier → later publication</text></svg>':'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: two laboratories, a collaboration line and small team-member marks"><path d="M130 75H330" stroke="var(--map-cross-solid)" stroke-width="2"/><circle cx="130" cy="75" r="21" fill="var(--map-node)" stroke="var(--domain-0)" stroke-width="2"/><circle cx="330" cy="75" r="13" fill="var(--map-node)" stroke="var(--domain-2)" stroke-width="2"/><circle cx="130" cy="75" r="4" fill="var(--domain-0)"/><circle cx="330" cy="75" r="3" fill="var(--domain-2)"/><circle cx="130" cy="43" r="3" fill="var(--agent-ai)"/><circle cx="104" cy="94" r="3" fill="var(--agent-human)"/><circle cx="156" cy="94" r="3" fill="var(--agent-human)"/><text x="75" y="127" fill="var(--muted)">More active studies</text><text x="285" y="127" fill="var(--muted)">Fewer studies</text><text x="177" y="55" fill="var(--map-cross-solid)">Possible partners</text></svg>';
    key.append(illustration,make('small','small-print','Schematic legend · not measurements from your run'));
    const items=papers?[
      ['One dot, one claim','Up to the newest 180 live papers are grouped by topic field; smaller maps keep the newest claims in each field as space allows. Horizontal position follows publication time, adjusted into free slots for legibility. Select a dot for its exact publication day, origin lab and repeat tests. Dot positions never change model outcomes.'],
@@ -639,61 +656,61 @@ function draw(canvas,s,index,t){
  if(!s)return;
  const g=canvasGeometry(canvas);if(!g)return;
  const {ctx,w,h}=g,papers=view==='papers',nodes=papers?livePaperNodes(s,g):[],byPaper=new Map(nodes.map(n=>[n.paper.id,n]));
- ctx.clearRect(0,0,w,h);ctx.fillStyle='#071e2e';ctx.fillRect(0,0,w,h);
- ctx.strokeStyle='rgba(125,165,194,.07)';ctx.lineWidth=.7;
+ ctx.clearRect(0,0,w,h);ctx.fillStyle=ink['map-bg'];ctx.fillRect(0,0,w,h);
+ ctx.strokeStyle=ink['map-grid'];ctx.lineWidth=.7;
  for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
  for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
  if(show.links&&!papers)for(const edge of s.links){
   if(fieldFilter!==null&&s.labs[edge.a].domain!==fieldFilter&&s.labs[edge.b].domain!==fieldFilter)continue;
   const a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
-  ctx.strokeStyle=s.labs[edge.a].domain!==s.labs[edge.b].domain?'rgba(193,160,231,.55)':'rgba(115,181,203,.32)';
+  ctx.strokeStyle=s.labs[edge.a].domain!==s.labs[edge.b].domain?ink['map-cross']:ink['map-link'];
   ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
  }
  if(papers){
   const layout=paperLayout(s,g),focus=byPaper.get(selectedPaper[index]),sources=(s.citationEdges||[]).filter(e=>focus&&e.paperId===focus.paper.id);
   layout.domains.forEach((domain,i)=>{
-   const y=layout.top+i*layout.lane;ctx.fillStyle=i%2?'rgba(154,190,213,.025)':'rgba(154,190,213,.055)';ctx.fillRect(0,y,w,layout.lane);
-   ctx.fillStyle=domainColors[domain];ctx.font='600 11px system-ui';ctx.textAlign='left';ctx.fillText(domainNames[domain],12,y+19);
+   const y=layout.top+i*layout.lane;ctx.fillStyle=i%2?ink['map-lane-a']:ink['map-lane-b'];ctx.fillRect(0,y,w,layout.lane);
+   ctx.fillStyle=domainColors[domain];ctx.font='600 11px '+FONT;ctx.textAlign='left';ctx.fillText(domainNames[domain],12,y+19);
   });
-  ctx.font='10px system-ui';ctx.fillStyle='#a5b9c8';ctx.textAlign='left';ctx.fillText('PUBLISHED CLAIMS',12,20);
+  ctx.font='11px '+FONT;ctx.fillStyle=ink.subtle;ctx.textAlign='left';ctx.fillText('PUBLISHED CLAIMS',12,20);
   ctx.fillText('Day '+layout.start,layout.left,h-12);ctx.textAlign='right';ctx.fillText('Day '+layout.end,layout.right,h-12);
-  if(!nodes.length){ctx.textAlign='center';ctx.fillStyle='#c4d5df';ctx.font='12px system-ui';ctx.fillText('Advance model time to see published claims here.',w/2,h/2);}
+  if(!nodes.length){ctx.textAlign='center';ctx.fillStyle=ink.muted;ctx.font='13px '+FONT;ctx.fillText('Advance model time to see published claims here.',w/2,h/2);}
   const fromLabs=[...new Set(sources.map(e=>e.from))];
   fromLabs.forEach((id,i)=>{
    const lab=s.labs[id],band=layout.domains.indexOf(lab.domain),other=fromLabs.filter(x=>s.labs[x].domain===lab.domain),j=other.indexOf(id);
    const y=band<0?layout.top+20+i*20:layout.top+band*layout.lane+34+(j+1)/(other.length+1)*(layout.lane-42),a={x:75,y};
-   if(show.links){ctx.fillStyle=domainColors[lab.domain];ctx.beginPath();ctx.arc(a.x,a.y,4,0,6.283);ctx.fill();if(show.labels){ctx.font='9px system-ui';ctx.textAlign='right';ctx.fillText(lab.name,a.x-8,a.y+3);}
-    drawArrow(ctx,a,focus,lab.domain===focus.paper.domain?'rgba(229,197,143,.6)':'rgba(193,160,231,.7)');}
-   if(show.flows)for(const event of sources.filter(e=>e.from===id&&s.day-e.day<=8)){const f=Math.min(1,Math.max(0,(s.day-event.day)/8));ctx.fillStyle='#e5c58f';ctx.beginPath();ctx.arc(a.x+(focus.x-a.x)*f,a.y+(focus.y-a.y)*f,2.5,0,6.283);ctx.fill();}
+   if(show.links){ctx.fillStyle=domainColors[lab.domain];ctx.beginPath();ctx.arc(a.x,a.y,4,0,6.283);ctx.fill();if(show.labels){ctx.font='10px '+FONT;ctx.textAlign='right';ctx.fillText(lab.name,a.x-8,a.y+3);}
+    drawArrow(ctx,a,focus,lab.domain===focus.paper.domain?ink['map-flow-focus']:ink['map-cross']);}
+   if(show.flows)for(const event of sources.filter(e=>e.from===id&&s.day-e.day<=8)){const f=Math.min(1,Math.max(0,(s.day-event.day)/8));ctx.fillStyle=ink['map-flow'];ctx.beginPath();ctx.arc(a.x+(focus.x-a.x)*f,a.y+(focus.y-a.y)*f,2.5,0,6.283);ctx.fill();}
   });
  }
  if(!papers&&show.flows)for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
   const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g),f=Math.min(1,Math.max(0,(s.day-flow.day)/8));
-  drawArrow(ctx,a,b,'rgba(229,197,143,.35)');ctx.fillStyle='#e5c58f';ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);ctx.fill();
+  drawArrow(ctx,a,b,ink['map-flow-line']);ctx.fillStyle=ink['map-flow'];ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);ctx.fill();
  }
  if(!papers)s.labs.forEach((l,i)=>{
   ctx.globalAlpha=fieldFilter===null||l.domain===fieldFilter?1:.18;
   const p=position(l,g),isSelected=selected[index]===i,r=papers?5:Math.min(18,7+Math.sqrt(l.active+1)*1.4);
-  if(isSelected){ctx.strokeStyle='#f4d7a3';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,r+8,0,6.283);ctx.stroke();}
-  ctx.fillStyle=l.locked?'#385365':'#0e3045';ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=papers?1:1.5;
+  if(isSelected){ctx.strokeStyle=ink['map-select'];ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,r+8,0,6.283);ctx.stroke();}
+  ctx.fillStyle=l.locked?ink['map-node-locked']:ink['map-node'];ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=papers?1:1.5;
   ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.283);ctx.fill();ctx.stroke();
   if(!papers){ctx.fillStyle=domainColors[l.domain];ctx.beginPath();ctx.arc(p.x,p.y,2.8,0,6.283);ctx.fill();}
   if(!papers&&show.flows){
    const agents=s.agents.filter(a=>a.labId===i);
    agents.forEach((a,j)=>{const ang=-Math.PI/2+j*2*Math.PI/agents.length,orbit=r+9;
-    ctx.fillStyle=a.role==='AI'?'#e4c789':'#a5d4e7';ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.9,0,6.283);ctx.fill();});
+    ctx.fillStyle=a.role==='AI'?ink['agent-ai']:ink['agent-human'];ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.9,0,6.283);ctx.fill();});
   }
   if(show.labels&&(isSelected||w>340||i%3===0)){
-   ctx.fillStyle=isSelected?'#fff8e9':'rgba(218,234,243,.7)';ctx.font=isSelected?'600 11px system-ui':'10px system-ui';ctx.textAlign='center';ctx.fillText(l.name,p.x,p.y-r-12);
+   ctx.fillStyle=isSelected?ink['map-label-strong']:ink['map-label'];ctx.font=isSelected?'600 11px '+FONT:'11px '+FONT;ctx.textAlign='center';ctx.fillText(l.name,p.x,p.y-r-12);
   }
  });
  ctx.globalAlpha=1;
  for(const n of nodes){
   const paper=n.paper,passed=(paper.replications||0)-(paper.failedReplications||0);
-  ctx.fillStyle=paper.failedReplications?'#e4a080':passed>0?'#a4d5bd':'#e5c58f';ctx.strokeStyle=domainColors[paper.domain];ctx.lineWidth=1.4;
+  ctx.fillStyle=paper.failedReplications?ink['claim-fail']:passed>0?ink['claim-pass']:ink['claim-open'];ctx.strokeStyle=domainColors[paper.domain];ctx.lineWidth=1.4;
   ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,6.283);ctx.fill();ctx.stroke();
-  if(paper.domain!==s.labs[paper.labId].domain){ctx.strokeStyle='#c1a0e7';ctx.lineWidth=1;ctx.beginPath();ctx.arc(n.x,n.y,n.r+3,0,6.283);ctx.stroke();}
-  if(selectedPaper[index]===paper.id){ctx.strokeStyle='#fff';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(n.x,n.y,n.r+5,0,6.283);ctx.stroke();if(show.labels){ctx.fillStyle='#fff';ctx.font='11px system-ui';ctx.textAlign='left';ctx.fillText('#'+paper.id,n.x+10,n.y-8);}}
+  if(paper.domain!==s.labs[paper.labId].domain){ctx.strokeStyle=ink['map-cross-solid'];ctx.lineWidth=1;ctx.beginPath();ctx.arc(n.x,n.y,n.r+3,0,6.283);ctx.stroke();}
+  if(selectedPaper[index]===paper.id){ctx.strokeStyle=ink['map-select'];ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(n.x,n.y,n.r+5,0,6.283);ctx.stroke();if(show.labels){ctx.fillStyle=ink['map-label-strong'];ctx.font='11px '+FONT;ctx.textAlign='left';ctx.fillText('#'+paper.id,n.x+10,n.y-8);}}
  }
  canvas.dataset.mapView=view;canvas.dataset.visiblePapers=String(nodes.length);
 }
@@ -1094,6 +1111,7 @@ function animation(now){
   raf=requestAnimationFrame(animation);
 }
 mountWorkspace();bind();render();bridge();
+if(G.onTheme)G.onTheme(()=>{readInk();drawChart();drawMap(nowWorld().day);});
 raf=requestAnimationFrame(animation);
 window.addEventListener('pagehide',()=>cancelAnimationFrame(raf),{once:true});
 })();

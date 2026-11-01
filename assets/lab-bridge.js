@@ -8,6 +8,18 @@
   var schema='graviquest.lab.v1';
   var controlListeners=[],commandListeners=[],layerListeners=[],sectionListeners=[],experimentListeners=[],didRegister=false;
   var validKey=/^[a-z][a-z0-9_-]{0,63}$/;
+  // The host page owns the theme. It names it in the frame URL (#theme=light)
+  // so the first paint is already right, and posts lab:theme when the reader
+  // flips the header control. The sandbox cannot read the site's storage, and
+  // following the operating system instead would put a dark Lab on a light
+  // page, which is the mismatch this replaced.
+  var themeListeners=[];
+  function applyTheme(theme){
+    if(theme!=='light'&&theme!=='dark')return false;
+    if(document.documentElement.getAttribute('data-theme')===theme)return false;
+    document.documentElement.setAttribute('data-theme',theme);return true;
+  }
+  applyTheme((/(?:^#|&)theme=(light|dark)(?:&|$)/.exec(location.hash)||[])[1]||'dark');
   function send(type,payload){
     if(window.parent===window)return;
     window.parent.postMessage(Object.assign({schema:schema,type:type},payload||{}),'*');
@@ -88,6 +100,8 @@
     onLayer:function(fn){if(typeof fn==='function')layerListeners.push(fn);},
     onSection:function(fn){if(typeof fn==='function')sectionListeners.push(fn);},
     onExperiment:function(fn){if(typeof fn==='function')experimentListeners.push(fn);},
+    onTheme:function(fn){if(typeof fn==='function')themeListeners.push(fn);},
+    theme:function(){return document.documentElement.getAttribute('data-theme')||'dark';},
     context:function(payload){
       if(location.pathname.indexOf('/lab-run/science-universe/')!==0)return;
       if(!payload||typeof payload!=='object'||Array.isArray(payload))return;
@@ -117,7 +131,7 @@
     if(!document.getElementById('gq-lab-tour-styles')){
       var style=document.createElement('style');
       style.id='gq-lab-tour-styles';
-      style.textContent='.gq-lab-tour-highlight{outline:3px solid #e8c78d!important;outline-offset:4px!important;box-shadow:0 0 0 6px rgba(232,199,141,.15)!important;}';
+      style.textContent='.gq-lab-tour-highlight{outline:2px solid var(--accent,#d4c9be)!important;outline-offset:4px!important;box-shadow:0 0 0 7px rgb(var(--tint,212 201 190) / .18)!important;}';
       document.head.append(style);
     }
     tourTarget=target;highlighted=chosen;
@@ -138,6 +152,10 @@
     if(e.source!==window.parent)return;
     var data=e.data;if(!data||data.schema!==schema)return;
     if(data.type==='lab:measure'){lastHeight=0;queueHeight();return;}
+    if(data.type==='lab:theme'){
+      if(applyTheme(data.theme))themeListeners.forEach(function(fn){try{fn(data.theme);}catch(_){}});
+      return;
+    }
     if(data.type==='lab:tutorial'){focusTourTarget(String(data.target||''));return;}
     if(data.type==='lab:control'&&validKey.test(String(data.key||''))&&
        typeof data.value==='number'&&Number.isFinite(data.value))

@@ -9,19 +9,19 @@
 </head>
 <body>
   <div class="universe" id="universe-app">
-    <div class="workspace-nav"><button id="back-labs" class="text-btn" type="button">← Back to Labs</button><span>GRAVIQUEST / EXPERIMENT WORKSPACE</span></div>
+    <nav class="workspace-nav" aria-label="Breadcrumb"><button id="back-labs" class="crumb-link" type="button">Lab</button><span aria-hidden="true">/</span><span aria-current="page">Science Universe</span></nav>
     <header class="app-header">
       <div class="title-stack">
-        <div class="kicker"><span class="pulse-dot" aria-hidden="true"></span> GRAVIQUEST / LAB 01 <span class="subtle">· SYNTHETIC RESEARCH ECOSYSTEM</span></div>
-        <h1>Science <em>Universe</em></h1>
+        <div class="kicker">Interactive model <span class="subtle">· Synthetic research ecosystem</span></div>
+        <h1>Science Universe</h1>
         <p class="description">Change a research policy. Follow the mechanism. Compare the evidence.</p>
       </div>
-      <div class="app-utility"><button id="guided-tour" class="btn" type="button">◎ Guided tour</button><button id="fullscreen" class="icon-btn" type="button" title="Fill the screen" aria-label="Toggle fullscreen">⛶</button></div>
+      <div class="app-utility"><button id="guided-tour" class="btn" type="button">Guided tour</button><button id="fullscreen" class="icon-btn" type="button" title="Fill the screen" aria-label="Toggle fullscreen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="1.7" d="M4 9V5.6A1.6 1.6 0 0 1 5.6 4H9M15 4h3.4A1.6 1.6 0 0 1 20 5.6V9M20 15v3.4a1.6 1.6 0 0 1-1.6 1.6H15M9 20H5.6A1.6 1.6 0 0 1 4 18.4V15"/></svg></button></div>
       <div class="header-actions">
         <div class="session-chip"><span id="session-state" class="status-ring" aria-hidden="true"></span><span id="status-label">SIMULATION READY</span></div>
-        <button class="btn primary" id="play" type="button"><span aria-hidden="true">▶</span> Play</button>
+        <button class="btn primary" id="play" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="1.7" d="M8.2 5.6v12.8a.7.7 0 0 0 1.07.6l10.1-6.4a.7.7 0 0 0 0-1.2L9.27 5a.7.7 0 0 0-1.07.6z"/></svg><span>Play</span></button>
         <button class="btn" id="advance" type="button" title="Advance ten simulated days">+10 days</button>
-        <button class="icon-btn" id="reset" type="button" title="Restart with the same seed" aria-label="Reset simulation">↺</button>
+        <button class="icon-btn" id="reset" type="button" title="Restart with the same seed" aria-label="Reset simulation"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-1.028 0.184) scale(1.038200)" stroke-width="1.637"><path d="M20.4 12a8.4 8.4 0 1 1-2.9-6.35"/><path d="M20.8 3.2v5.2h-5.2"/><circle cx="12" cy="12" r="1.493" fill="currentColor" stroke="none"/></g></svg></button>
       </div>
     </header>
     <div class="top-strip" aria-label="Simulation overview">
@@ -85,14 +85,14 @@
           </div>
         </div>
         <p class="map-counts" id="map-counts" role="status"></p>
-        <div class="map-key"><button id="map-help" class="text-btn" type="button">Visual guide ↗</button><span id="map-key-summary">Select a laboratory for its exact measurements.</span></div>
+        <div class="map-key"><button id="map-help" class="text-btn" type="button">Visual guide</button><span id="map-key-summary">Select a laboratory for its exact measurements.</span></div>
       </section>
       <aside class="inspector panel" id="inspector" aria-label="Selected laboratory">
         <div class="inspector-start" id="inspector-start">
           <div class="eyebrow">FIELD NOTES</div><h2>A closer look</h2>
           <p>Select a laboratory on the map. Its team, current work and resources appear here.</p>
           <div class="method-chip">28 labs · 4 fields · independent research agents</div>
-          <button id="inspector-map-help" class="text-btn" type="button">How to read the map ↗</button>
+          <button id="inspector-map-help" class="text-btn" type="button">How to read the map</button>
         </div>
         <div class="inspector-content" id="inspector-content" hidden>
           <div class="inspector-top"><span class="eyebrow" id="selected-domain">BIOLOGY</span><span class="tag" id="selected-world">WORLD A</span></div>
@@ -104,12 +104,12 @@
             <div><span>Studies in progress</span><strong id="selected-active">–</strong></div>
           </div>
           <p class="small-print" id="selected-summary"></p>
-          <button class="text-btn" id="inspector-more" type="button" aria-haspopup="dialog">See more · team, papers & actions ↗</button>
+          <button class="text-btn" id="inspector-more" type="button" aria-haspopup="dialog">See more · team, papers & actions</button>
         </div>
       </aside>
     </main>
     <dialog id="inspector-dialog" class="method-dialog inspector-dialog" aria-labelledby="inspector-dialog-title">
-      <div class="modal-head"><div><span class="eyebrow">LABORATORY DETAILS</span><h2 id="inspector-dialog-title">Explore this laboratory</h2></div><button id="close-inspector" class="icon-btn" type="button" aria-label="Close laboratory details">×</button></div>
+      <div class="modal-head"><div><span class="eyebrow">LABORATORY DETAILS</span><h2 id="inspector-dialog-title">Explore this laboratory</h2></div><button id="close-inspector" class="icon-btn" type="button" aria-label="Close laboratory details"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></div>
       <div class="network-kpis"><span>Connections <strong id="selected-links">–</strong></span><span>Across fields <strong id="selected-cross-links">–</strong></span></div>
           <p class="small-print" id="selected-network"></p>
           <div class="inspector-section">
@@ -136,9 +136,9 @@
     <section class="workspace-tools" aria-label="Experiment tools">
       <div class="tools-heading"><span class="eyebrow">YOUR EXPERIMENT</span><p>Keep a result. Explore a scenario. Test a different decision.</p></div>
       <div class="tool-cards">
-        <button id="snapshot" class="tool-card" type="button" title="Save the current world, day, settings and measurements. This records a result; it does not restore a running simulation."><span class="tool-icon" aria-hidden="true">▣</span><span><strong>Save snapshot</strong><small>Keep this moment’s measurements</small></span><span aria-hidden="true">↗</span></button>
-        <button id="atlas" class="tool-card" type="button" title="Browse model runs already executed with different settings. Coverage is sampled, not every possible scenario."><span class="tool-icon" aria-hidden="true">▦</span><span><strong>Scenario atlas</strong><small>Explore tested combinations of settings</small></span><span aria-hidden="true">↗</span></button>
-        <button id="fork" class="tool-card" type="button" title="Copy World A into World B at exactly the same moment. Then change one policy and compare their results."><span class="tool-icon" aria-hidden="true">⇉</span><span><strong>Create comparison</strong><small>Same starting point, one different decision</small></span><span aria-hidden="true">↗</span></button>
+        <button id="snapshot" class="tool-card" type="button" title="Save the current world, day, settings and measurements. This records a result; it does not restore a running simulation."><span class="tool-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-0.360 -0.360) scale(1.030000)" stroke-width="1.650"><path d="M8.6 4H6.6a2 2 0 0 0-2 2v13.4a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><rect x="8.6" y="2.4" width="6.8" height="3.4" rx="1.2"/><path d="M8.4 11h7.2"/><path d="M8.4 14.6h4.6"/><circle cx="15.4" cy="17.6" r="1.553" fill="currentColor" stroke="none"/></g></svg></span><span><strong>Save snapshot</strong><small>Keep this moment’s measurements</small></span><span aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></span></button>
+        <button id="atlas" class="tool-card" type="button" title="Browse model runs already executed with different settings. Coverage is sampled, not every possible scenario."><span class="tool-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.552 0.414) scale(0.972826)" stroke-width="1.747"><rect x="2.8" y="2.8" width="8" height="10.4" rx="2.2"/><rect x="13.2" y="2.8" width="8" height="6" rx="2.2"/><rect x="13.2" y="11.6" width="8" height="9.6" rx="2.2"/><rect x="2.8" y="15.6" width="8" height="5.6" rx="2.2"/><circle cx="6.8" cy="8" r="1.593" fill="currentColor" stroke="none"/></g></svg></span><span><strong>Scenario atlas</strong><small>Explore tested combinations of settings</small></span><span aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></span></button>
+        <button id="fork" class="tool-card" type="button" title="Copy World A into World B at exactly the same moment. Then change one policy and compare their results."><span class="tool-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-1.224 0.329) scale(0.972384)" stroke-width="1.748"><circle cx="18.4" cy="5.4" r="2.6"/><circle cx="18.4" cy="18.6" r="2.6"/><path d="M7.6 10.8 16 6.6"/><path d="M7.6 13.2 16 17.4"/><circle cx="5.6" cy="12" r="2.6" fill="currentColor" stroke="none"/></g></svg></span><span><strong>Create comparison</strong><small>Same starting point, one different decision</small></span><span aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></span></button>
       </div>
     </section>
     <section class="lab-bottom">
@@ -160,7 +160,7 @@
           <div><span class="eyebrow">EVENT LOG</span><h2>What happened?</h2></div>
           <button class="text-btn" id="pause-feed" type="button">Latest first</button>
         </div>
-        <p id="event-retention" class="small-print"></p><div class="feed" id="feed" aria-live="off"><p class="empty">Advance model time to see what changes.</p></div><button class="text-btn" id="more-events" type="button" aria-haspopup="dialog">See all events ↗</button>
+        <p id="event-retention" class="small-print"></p><div class="feed" id="feed" aria-live="off"><p class="empty">Advance model time to see what changes.</p></div><button class="text-btn" id="more-events" type="button" aria-haspopup="dialog">See all events</button>
       </div>
     </section>
     <section class="comparison panel" id="comparison" hidden>
@@ -176,7 +176,7 @@
       <div class="drawer-panel">
         <div class="drawer-head">
           <div><span class="eyebrow">RESEARCH SYSTEM DESIGN</span><h2>Test a policy</h2></div>
-          <button class="icon-btn" id="close-settings" type="button" aria-label="Close settings">×</button>
+          <button class="icon-btn" id="close-settings" type="button" aria-label="Close settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button>
         </div>
         <p class="small-print">Change one setting. Watch the same map as future model days unfold.</p>
         <p class="policy-live-status" id="policy-live-status" role="status">Keep the map in view. A policy changes future model steps; advance days while paused to see its effects.</p>
@@ -186,12 +186,11 @@
     </aside>
     <output id="snapshot-status" class="small-print" role="status"></output>
     <section class="domain-results panel" id="domain-results" aria-label="Results by research field"></section>
-    <section class="science-reading"><div><span class="eyebrow">BEHIND THE MODEL</span><h2>Follow the science further.</h2><p>A synthetic teaching model. Its statistical rules and assumptions are explained in the sources.</p></div><div><button id="scientific-sources" class="btn" type="button">Scientific sources ↗</button><button id="methodology" type="button" class="btn">Model assumptions ↗</button></div></section>
-    <footer class="app-footer site-footer" aria-label="GraviQuest footer"><div class="footer-brand"><strong>GraviQuest</strong><p>A media project, a lab and a community for working scientists, students and the curious, in every field.</p></div><div><h3>Read</h3><button type="button" data-site-page="topics">Topics</button><button type="button" data-site-page="essays">Essays</button></div><div><h3>Do</h3><button type="button" data-site-page="labs">Labs</button><button type="button" data-site-page="learn">Learn</button><button type="button" data-site-page="community">Community</button></div><div><h3>Elsewhere</h3><button type="button" data-site-page="youtube">YouTube ↗</button><button type="button" data-site-page="linkedin">LinkedIn ↗</button><button type="button" data-site-page="instagram">Instagram ↗</button><button type="button" data-site-page="about">About</button></div><div class="footer-legal"><span>© 2026 GraviQuest</span><span>Curiosity brings people in. Capability keeps them here.</span><button type="button" data-site-page="home">Back to GraviQuest ↗</button></div></footer>
-    <dialog id="events-dialog" class="method-dialog" aria-labelledby="events-title"><div class="modal-head"><div><span class="eyebrow">RESEARCH HISTORY</span><h2 id="events-title">What happened?</h2></div><button id="close-events" class="icon-btn" type="button" aria-label="Close event history">×</button></div><p id="event-history-retention" class="small-print"></p><div id="event-history" class="event-history"></div><button id="load-events" class="btn small" type="button">Show more events</button></dialog>
-    <dialog id="map-dialog" class="method-dialog map-dialog" aria-labelledby="map-guide-title"><div class="modal-head"><div><span class="eyebrow">VISUAL GUIDE</span><h2 id="map-guide-title">Read the research map</h2></div><button id="close-map-help" class="icon-btn" type="button" aria-label="Close visual guide">×</button></div><div id="map-key-content"></div><button id="guide-knowledge" class="btn" type="button">Try the knowledge view</button></dialog>
+    <section class="science-reading"><div><span class="eyebrow">BEHIND THE MODEL</span><h2>Follow the science further.</h2><p>A synthetic teaching model. Its statistical rules and assumptions are explained in the sources.</p></div><div><button id="scientific-sources" class="btn" type="button">Scientific sources</button><button id="methodology" type="button" class="btn">Model assumptions</button></div></section>
+    <dialog id="events-dialog" class="method-dialog" aria-labelledby="events-title"><div class="modal-head"><div><span class="eyebrow">RESEARCH HISTORY</span><h2 id="events-title">What happened?</h2></div><button id="close-events" class="icon-btn" type="button" aria-label="Close event history"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></div><p id="event-history-retention" class="small-print"></p><div id="event-history" class="event-history"></div><button id="load-events" class="btn small" type="button">Show more events</button></dialog>
+    <dialog id="map-dialog" class="method-dialog map-dialog" aria-labelledby="map-guide-title"><div class="modal-head"><div><span class="eyebrow">VISUAL GUIDE</span><h2 id="map-guide-title">Read the research map</h2></div><button id="close-map-help" class="icon-btn" type="button" aria-label="Close visual guide"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></div><div id="map-key-content"></div><button id="guide-knowledge" class="btn" type="button">Try the knowledge view</button></dialog>
     <dialog id="method-dialog" class="method-dialog">
-      <div class="modal-head"><h2>Read the model before reading the result.</h2><button id="method-close" class="icon-btn" aria-label="Close model assumptions">×</button></div>
+      <div class="modal-head"><h2>Read the model before reading the result.</h2><button id="method-close" class="icon-btn" aria-label="Close model assumptions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></div>
       <p><strong>Scientific statistical core, synthetic ecosystem.</strong> Each hypothesis has an assumed hidden truth and an effect size. The engine now samples Gaussian evidence using a known-variance, two-sided z test: <code>Z = √n · θ + ε</code>, with <code>ε ~ N(0,1)</code>, and tests <code>p ≤ α</code>. Independent replication draws fresh evidence. These are established statistical rules, not an ad hoc probability-of-success curve.</p>
       <p>Publication pressure can trigger additional uncorrected analyses as a <em>simplified demonstration</em> of selection bias. Review capacity, false-claim priors, per-discipline base rates, lab budgets, agent behavior, retraction thresholds and citation effects remain <strong>unvalidated model assumptions</strong> and must not be presented as measured facts.</p>
       <p><strong>Scientific foundations and provenance:</strong></p>

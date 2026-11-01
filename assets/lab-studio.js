@@ -135,6 +135,22 @@ function btn(label,onClick,cls){
   var b=node('button','g-btn g-btn--secondary g-btn--sm '+(cls||''),label);
   b.type='button';b.addEventListener('click',onClick);return b;
 }
+// Interface marks from the brand set (assets/gravitas-icons.js), inlined because
+// this script also runs on pages that do not load the icon module. Typographic
+// stand-ins (↗, ×) rendered at whatever weight the font supplied.
+var ICONS={
+  arrow:'<g transform="translate(-0.406 -0.406) scale(1.033855)" stroke-width="1.644"><path d="M3.4 12h17.2"/><path d="m14.2 5.6 6.4 6.4-6.4 6.4"/></g>',
+  close:'<g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g>',
+  chevronUp:'<g transform="rotate(-90 12 12) translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g>',
+  pulsar:'<g transform="translate(3.3 3.3) scale(0.174)" fill="currentColor" stroke="none"><path d="M0,50v-20.2c16.46,0,29.8-13.34,29.8-29.8h20.2c0,27.62-22.38,50-50,50Z"/><path d="M50,100h-20.2c0-16.46-13.34-29.8-29.8-29.8v-20.2c27.62,0,50,22.38,50,50Z"/><path d="M100,50c-27.62,0-50-22.38-50-50h20.2c0,16.46,13.34,29.8,29.8,29.8v20.2Z"/><path d="M70.2,100h-20.2c0-27.62,22.38-50,50-50v20.2c-16.46,0-29.8,13.34-29.8,29.8Z"/><circle cx="50" cy="50" r="10.1"/></g>'
+};
+function icon(name){
+  return '<svg class="g-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">'+ICONS[name]+'</svg>';
+}
+function siteTheme(){return document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';}
+// The Lab follows the header's theme control while it runs (lab-bridge.js).
+new MutationObserver(function(){tellIframe('lab:theme',{theme:siteTheme()});})
+  .observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 function numeric(data){
   var r={};
   if(!data||typeof data!=='object'||Array.isArray(data))return r;
@@ -209,7 +225,7 @@ function notifyPulsar(m){
  var preview=node('span','',text.length>170?text.slice(0,167)+'…':text);preview.dir='auto';
  read.append(node('strong','',title),preview,node('small','','Open conversation'));
  read.addEventListener('click',function(){openPulsarMessage(m);});
- var close=node('button','lab-notice-dismiss','×');close.type='button';
+ var close=node('button','lab-notice-dismiss');close.type='button';close.innerHTML=icon('close');
  close.setAttribute('aria-label','Dismiss Pulsar notification');
  var n={box:box,timer:null,removal:null,remaining:9000,deadline:0};
  function pause(){clearTimeout(n.timer);n.remaining=Math.max(0,n.deadline-Date.now());}
@@ -258,7 +274,7 @@ function refreshChat(){
  chat.body.hidden=!chatOpen;
  chat.toggle.setAttribute('aria-expanded',String(chatOpen));
  chat.toggle.setAttribute('aria-label',chatOpen?'Close Pulsar conversation':'Open Pulsar conversation'+(chatUnread?' · '+chatUnread+' unread':''));
- chat.arrow.textContent=chatOpen?'×':'↗';
+ chat.arrow.innerHTML=icon(chatOpen?'close':'chevronUp');
  chat.log.setAttribute('aria-live',chatOpen?'polite':'off');
  chat.badge.hidden=chatOpen||chatUnread===0;
  chat.badge.textContent=chatUnread>9?'9+':String(chatUnread);
@@ -271,14 +287,11 @@ function mountPulsarChat(sidebar){
  var box=node('section','lab-chat');
  var toggle=node('button','lab-chat-head');toggle.type='button';
  toggle.setAttribute('aria-controls','lab-chat-thread');
- var avatar=node('span','lab-chat-avatar');
- var mark=document.createElement('img');
- mark.src='/assets/pulsar-mark.svg';mark.alt='';mark.width=28;mark.height=28;
- avatar.append(mark);
+ var avatar=node('span','lab-chat-avatar');avatar.innerHTML=icon('pulsar');
  var name=node('span','lab-chat-name');
  name.append(node('strong','','Pulsar'),node('small','','Make sense of what you see'));
  var badge=node('span','lab-chat-badge');badge.hidden=true;
- var arrow=node('span','lab-chat-arrow','↗');arrow.setAttribute('aria-hidden','true');
+ var arrow=node('span','lab-chat-arrow');arrow.setAttribute('aria-hidden','true');
  toggle.append(avatar,name,badge,arrow);
  var body=node('div','lab-chat-body');body.id='lab-chat-thread';
  var log=node('div','lab-chat-log');
@@ -295,7 +308,7 @@ function mountPulsarChat(sidebar){
  input.type='text';input.required=true;input.maxLength=600;input.dir='auto';
  input.placeholder='Ask a question about the science…';
  input.setAttribute('aria-label','Message Pulsar');
- var send=node('button','lab-chat-send','↗');send.type='submit';
+ var send=node('button','lab-chat-send');send.type='submit';send.innerHTML=icon('arrow');
  send.setAttribute('aria-label','Send to Pulsar');
  form.append(input,send);
  var noticeStack=null;
@@ -534,7 +547,8 @@ function runLab(lab){
   var canvas=node('div','lab-frame-wrap');
   iframe=node('iframe','lab-frame');iframe.title=lab.title+' · simulation';
   iframe.sandbox='allow-scripts';iframe.referrerPolicy='no-referrer';
-  iframe.src=lab.run_url;
+  // The fragment never reaches the server; lab-bridge.js reads it before first paint.
+  iframe.src=lab.run_url+'#theme='+siteTheme();
   iframe.addEventListener('load',function(){adjustFrameForViewport();focusTour();});
   canvas.append(iframe);stageCol.append(canvas);
   var controls=null,metrics=null,chart=null;
@@ -609,48 +623,82 @@ function showCatalog(){
   session++;iframe=null;shell=null;aiBusy=false;
   active={slug:'directory',config:{pulsar_enabled:true,components:[]}};
   history.replaceState(null,'',location.pathname);
-  var catalog=node('section','lab-catalog');
-  var head=node('div','lab-catalog-head');
-  head.append(node('small','lab-card-kicker','LEARN BY CHANGING THE SYSTEM'),node('h2',null,'A question. An experiment. A clearer idea.'),node('p',null,'Choose what you want to understand. Each Lab connects an interactive model to its scientific foundations.'));
-  var layout=node('div','lab-discovery-layout'),cards=node('div','lab-catalog-grid');
+  // The page head already says Lab; a published catalog adds only its lead.
+  // Pulsar is the site-wide launcher here (chat.js), as on every other page.
+  var headInner=document.querySelector('.page-head .g-container');
+  if(headInner&&!headInner.querySelector('.lab-lead'))
+    headInner.append(node('p','g-lead lab-lead','Interactive models you can change and question. Each Lab is tied to the scientific sources behind it.'));
+  var catalog=node('section','g-section lab-catalog'),wrap=node('div','g-container'),cards=node('div','g-grid g-grid--2 lab-catalog-grid');
   labs.forEach(function(lab){
-    var card=node('button','lab-catalog-card');card.type='button';
+    var card=node('a','g-card g-card--interactive lab-catalog-card');
+    card.href='?lab='+encodeURIComponent(lab.slug);
     if(lab.slug==='science-universe'){
-      var img=node('img','lab-card-preview');img.src='/assets/thumbnails/science-universe-preview.webp';img.alt='Science Universe simulation: live research network, event log and outcome trends';img.width=720;img.height=480;card.append(img);
+      var media=node('span','lab-card-media');media.append.apply(media,scienceThumbs(''));card.append(media);
     }
-    var content=node('span','lab-card-body');
-    content.append(node('small','lab-card-kicker',lab.duration_text||'INTERACTIVE EXPERIMENT'),node('strong','lab-card-title',lab.title),node('span','lab-card-summary',lab.summary||'Explore the simulation and change its conditions.'));
+    var body=node('span','lab-card-body'),meta=node('span','lab-card-meta');
+    meta.append(node('span','g-eyebrow g-eyebrow--bare','Interactive model'));
+    if(lab.duration_text)meta.append(node('span','lab-card-time',lab.duration_text));
+    body.append(meta,node('h2','lab-card-title',lab.title),node('p','lab-card-summary',lab.summary||'Explore the simulation and change its conditions.'));
     if(lab.slug==='science-universe'){
-      var goals=node('span','lab-card-learning');
-      goals.append(node('strong','','Your question'),node('span','','Does faster research lead to more reliable knowledge?'),node('strong','','Your experiment'),node('span','','Change AI use, peer review or replication. Follow how the results change.'));
-      content.append(goals);
+      var question=node('p','lab-card-question');
+      question.append(node('span','','The question'),document.createTextNode('Does faster research lead to more reliable knowledge?'));
+      body.append(question);
     }
-    content.append(node('span','lab-card-open','Explore the science'));card.append(content);
-    card.addEventListener('click',function(){previewLab(lab);});cards.append(card);
+    var cta=node('span','lab-card-cta');cta.innerHTML='<span>Preview the Lab</span>'+icon('arrow');body.append(cta);
+    card.append(body);
+    card.addEventListener('click',function(e){
+      if(e.metaKey||e.ctrlKey||e.shiftKey||e.button!==0)return;
+      e.preventDefault();previewLab(lab);
+    });
+    cards.append(card);
   });
-  var companion=node('aside','lab-assistant lab-directory-assistant');layout.append(cards,companion);
-  catalog.append(head,layout);root.replaceChildren(catalog);root.hidden=false;
-  mountPulsarChat(companion);chatOpen=true;refreshChat();
+  wrap.append(cards);catalog.append(wrap);root.replaceChildren(catalog);root.hidden=false;
 }
-function modal(title){
- var dialog=node('dialog','lab-science-dialog'),header=node('div','lab-dialog-head');
- dialog.setAttribute('aria-label',title);header.append(node('h2','',title),btn('Close',function(){dialog.close();}));
- dialog.append(header);dialog.addEventListener('close',function(){dialog.remove();});document.body.append(dialog);dialog.showModal();return dialog;
+// One capture per theme; the stylesheet shows the one matching the header's
+// control, so flipping the theme never leaves a dark picture on a light card.
+function scienceThumbs(alt,cls){
+  return ['','-light'].map(function(suffix){
+    var img=node('img',(cls?cls+' ':'')+'lab-thumb lab-thumb--'+(suffix?'light':'dark'));
+    img.src='/assets/thumbnails/science-universe-preview'+suffix+'.webp?v=20261101-brand1';
+    img.alt=alt;img.width=1280;img.height=720;img.loading='lazy';img.decoding='async';
+    return img;
+  });
+}
+function modal(title,eyebrow){
+ var dialog=node('dialog','lab-dialog'),header=node('header','lab-dialog__head'),heading=node('div'),body=node('div','lab-dialog__body');
+ var titleId='lab-dialog-title-'+(++requestSequence);
+ if(eyebrow)heading.append(node('p','g-eyebrow g-eyebrow--bare',eyebrow));
+ var h=node('h2','',title);h.id=titleId;heading.append(h);
+ var close=node('button','lab-dialog__close');close.type='button';close.setAttribute('aria-label','Close');close.innerHTML=icon('close');
+ close.addEventListener('click',function(){dialog.close();});
+ header.append(heading,close);dialog.setAttribute('aria-labelledby',titleId);
+ dialog.append(header,body);dialog.labBody=body;
+ dialog.addEventListener('close',function(){dialog.remove();});
+ // A click on the backdrop lands on the dialog element itself.
+ dialog.addEventListener('click',function(e){if(e.target===dialog)dialog.close();});
+ // Focus the dialog itself: handing it to the first control drew a focus ring
+ // on a button the reader had not reached by keyboard.
+ dialog.tabIndex=-1;document.body.append(dialog);dialog.showModal();dialog.focus();return dialog;
 }
 function previewLab(lab){
- var dialog=modal(lab.title),body=node('div','lab-science-preview');
- if(lab.slug==='science-universe'){
-   var image=node('img','lab-preview-image');image.src='/assets/thumbnails/science-universe-preview.webp';image.alt='Actual Science Universe simulation';body.append(image);
- }
+ var dialog=modal(lab.title,['Interactive model',lab.duration_text].filter(Boolean).join(' · ')),body=node('div','lab-science-preview');
+ if(lab.slug==='science-universe')
+   body.append.apply(body,scienceThumbs('The Science Universe workspace: a map of research laboratories, field notes and an event log','lab-preview-image'));
  body.append(node('p','lab-preview-summary',lab.summary));
  var concepts=lab.slug==='science-universe'?[
-  ['The scientific idea','More ideas do not automatically produce more reliable discoveries. Statistical power, review queues, selective reporting and independent replication interact.'],
+  ['The idea','More ideas do not automatically produce more reliable discoveries. Statistical power, review queues, selective reporting and independent replication interact.'],
   ['What you can test','Start two worlds from the same checkpoint. Change one policy and compare the live model, event log and outcome trends.'],
-  ['How to read the result','A seeded synthetic teaching model. Papers support scientific mechanisms; the model’s numerical policies remain uncalibrated assumptions.']
+  ['How to read it','A seeded synthetic teaching model. Its mechanisms come from the literature; its numerical policies are uncalibrated assumptions.']
  ]:[['What you will explore',lab.description||lab.summary],['Learning goal',lab.config?.learning_goal||'Change a condition, observe the result and examine the explanation.']];
- for(var pair of concepts){var section=node('section','lab-preview-concept');section.append(node('h3','',pair[0]),node('p','',pair[1]));body.append(section);}
- var enter=btn('Enter simulation',function(){dialog.close();history.replaceState(null,'','?lab='+encodeURIComponent(lab.slug));runLab(lab);},'lab-enter');
- body.append(enter);dialog.append(body);enter.focus();
+ var facts=node('dl','lab-preview-facts');
+ for(var pair of concepts){var item=node('div');item.append(node('dt','',pair[0]),node('dd','',pair[1]));facts.append(item);}
+ body.append(facts);dialog.labBody.append(body);
+ var foot=node('footer','lab-dialog__foot');
+ foot.append(node('p','lab-dialog__note','Runs in your browser. A synthetic teaching model, not a forecast.'));
+ var enter=node('button','g-btn g-btn--primary lab-enter');enter.type='button';
+ enter.innerHTML='<span>Enter simulation</span>'+icon('arrow');
+ enter.addEventListener('click',function(){dialog.close();history.replaceState(null,'','?lab='+encodeURIComponent(lab.slug));runLab(lab);});
+ foot.append(enter);dialog.append(foot);
 }
 var lastInsightAt=0;
 function showInsight(title,text,citations){
@@ -659,7 +707,7 @@ function showInsight(title,text,citations){
 }
 async function openKnowledge(documentSlug,anchor){
  if(!active||active.slug!=='science-universe')return;
- var dialog=modal('Scientific sources'),content=node('div','lab-knowledge-reader','Loading sources…');dialog.append(content);
+ var dialog=modal('Scientific sources','Behind the model'),content=node('div','lab-knowledge-reader','Loading sources…');dialog.labBody.append(content);
  try{
   var res=await fetch('/api/labs/science-universe/knowledge/'+(documentSlug?encodeURIComponent(documentSlug)+'/':''),{credentials:'same-origin'});
   if(!res.ok)throw Error('Sources are unavailable');var data=await res.json();content.replaceChildren();
@@ -685,11 +733,11 @@ function scenarioLabel(family){
 }
 async function openAtlas(){
  if(!active||active.slug!=='science-universe')return;
- var dialog=modal('Scenario atlas'),content=node('div','lab-atlas','Loading executed model scenarios…');dialog.append(content);
+ var dialog=modal('Scenario atlas','Executed model runs'),content=node('div','lab-atlas','Loading executed model scenarios…');dialog.labBody.append(content);
  try{
   var res=await fetch('/api/labs/science-universe/scenarios/',{credentials:'same-origin'});if(!res.ok)throw Error('Scenario atlas unavailable');var data=await res.json();content.replaceChildren();
   content.append(node('p','',data.runs_for_current_engine+' executed runs for this engine. '+Number(data.policy_combinations).toLocaleString()+' possible policy combinations. Coverage is sampled.'),node('p','lab-note',data.limits+' A seed reproduces the same random draws when all settings and interventions match.'));
-  var form=node('div','lab-atlas-filter'),select=node('select');select.setAttribute('aria-label','Scenario family');
+  var form=node('div','lab-atlas-filter'),select=node('select','g-select');select.setAttribute('aria-label','Scenario family');
   [ ['','All sampled families'] ].concat((data.families||[]).map(function(f){return [f,scenarioLabel(f)];})).forEach(function(pair){var o=node('option','',pair[1]);o.value=pair[0];select.append(o);});
   var list=node('div','lab-atlas-runs'),more=btn('More scenarios',function(){load(false);});var offset=0;
   async function load(reset){if(reset){offset=0;list.replaceChildren();}more.disabled=true;

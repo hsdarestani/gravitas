@@ -18,7 +18,9 @@ test('same original research model now uses actual normal sampling',()=>{
  assert.match(index,/doi\.org\/10\.1177\/0956797611417632/);
 });
 test('Pulsar has exact brand mark, persistent message history, compact UI',()=>{
- assert.match(host,/\/assets\/pulsar-mark\.svg/);
+ // The brand set's Pulsar mark (assets/gravitas-icons.js), drawn in currentColor
+ // so it takes the theme's accent instead of a fixed gold.
+ assert.match(host,/pulsar:'<g transform="translate\(3\.3 3\.3\) scale\(0\.174\)" fill="currentColor"/);
  assert.match(host,/localStorage\.setItem\(CHAT_KEY/);
  assert.match(host,/role','log/);
  const cooldown=Number(host.match(/Date\.now\(\)-lastCoachAt<(\d+)/)?.[1]);
