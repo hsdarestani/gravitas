@@ -826,7 +826,7 @@ a.callout:hover { background: var(--g-surface); border-color: var(--g-border); b
 @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; } }
 
 /* ---- Footer social icons, uniform circular buttons, one visual weight ---- */
-/* The Elsewhere column needs a little more room than the others so all five
+/* The Follow column needs a little more room than the others so all five
    sit on a single row rather than wrapping 4+1. */
 .g-footer__grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr); }
 /* These must sit beside the rule above: it is unlayered, so it outranks the
