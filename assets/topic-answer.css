@@ -28,7 +28,11 @@
 .ta-cast { list-style: none; margin: var(--g-space-xl) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-sm); }
 .ta-cast li { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: var(--g-space-sm); align-items: center;
   border: 1px solid var(--g-hairline); border-radius: var(--g-radius); padding: var(--g-space-sm); }
-.ta-cast img, .ta-cast__mark { width: 4.5rem; height: 4.5rem; border-radius: 50%; object-fit: cover; display: block; }
+/* The characters are the film's own paper cut-outs, drawn by its code and
+   cut out whole, so they sit on the disc rather than being cropped into it
+   the way a photograph would be. */
+.ta-cast img, .ta-cast__mark { width: 4.5rem; height: 4.5rem; border-radius: 50%; display: block; }
+.ta-cast img { object-fit: contain; padding: .3rem; background: var(--g-surface-raised); }
 .ta-cast__mark { display: grid; place-items: center; background: var(--g-cosmos-blue); color: var(--g-white-tint); }
 .ta-cast__mark span {
   width: 2rem; height: 2rem; background-color: currentColor;

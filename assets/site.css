@@ -928,6 +928,47 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
     margin: 0 .1em 0 0;
   }
 }
+/* ---- the Topic essay's drop cap -----------------------------------------
+   A newspaper initial on the first paragraph of each reading of the essay,
+   Overview and In depth alike, since either can be the one a reader opens on.
+   Same two-line rule as the lede above, but in the essay's own face: the cap
+   is Literata, not DM Sans, so it reads as the first letter of the text rather
+   than a heading dropped into it.
+
+   Worked from Literata's real metrics (1000 upem, cap height 700, ascender
+   1177, descender -308) against the body line-height of 1.65:
+
+     half-leading = (1.65 - 1.485) / 2 = 0.0825em
+     baseline 1   = 0.0825 + 1.177     = 1.2595em   (from the line-1 top)
+     line 1 cap top = 1.2595 - 0.7     = 0.5595em
+     baseline 2   = 1.2595 + 1.65      = 2.9095em
+     cap height wanted = 2.9095 - 0.5595 = 2.35em
+     font-size = 2.35 / 0.7            = 3.357em
+     with line-height .7, the float's baseline sits 0.7845 of its own size
+     down, so margin-top = 2.9095 / 3.357 - 0.7845 = 0.082em
+
+   The float ends 2.63em down, inside line two, so exactly two lines wrap. */
+#essay [data-level] > p:first-child::first-letter {
+  float: left;
+  font-size: 3.357em;
+  line-height: .7;
+  /* The right margin is the same 0.4em of body text in both branches, said in
+     each branch's own em: here the letter's 3.357em, below the text's 1em.
+     At .08em of body text the T's crossbar all but touched the h. */
+  margin: .082em .12em 0 0;
+  font-weight: var(--g-w-semibold);
+  color: var(--g-text);
+}
+@supports (initial-letter: 2) or (-webkit-initial-letter: 2) {
+  #essay [data-level] > p:first-child::first-letter {
+    -webkit-initial-letter: 2;
+    initial-letter: 2;
+    float: none;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0 .4em 0 0;
+  }
+}
 .art__aside { border-left:2px solid var(--g-border-strong); background:var(--g-surface-sunken);
   border-radius:0 var(--g-radius) var(--g-radius) 0; padding:var(--g-space-md);
   font-size:.94rem; color:var(--g-text-muted); }

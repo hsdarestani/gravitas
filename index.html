@@ -68,12 +68,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      for the sentence they are meant to understand first. It is static now,
      and the rotating line closes the page instead.
 
-     The orbit stays, and is now a game rather than an ornament. Kepler's
-     formula predicts the two bodies exactly; the pointer is a third mass the
-     formula does not know about, and the panel under the figure reads out how
-     far the real pair has drifted from the prediction. That gap is the
-     question of the Topic below it, so the toy and the content argue the same
-     thing. The scoring lives in hero.js.
+     The orbit stays: the pointer is a third mass, and the caption says what
+     that does to a pair a formula could predict exactly. It once had a score
+     under it ("Break the formula"); that is gone, so the home hero is built
+     like every other hero on the site, figure and caption and nothing more.
 
      The meteors and the scattered stars are gone. Five animated layers behind
      a headline is the opposite of the brand's "the well whispers": the grid,
@@ -106,18 +104,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <div class="lp-orbit__hit" id="lp-orbit-hit" aria-hidden="true"></div>
         </div>
         <p class="lp-orbit__cap"><span id="lp-orbit-name">Two-body orbit</span>: <span id="lp-orbit-sub">closed, periodic, exactly solvable</span></p>
-        <!-- The game reads as the figure's own scale, not a card laid over it:
-             one meter from 0 to 100% with a tick where your best stands, and
-             one line that explains what is happening. No box, no blur. -->
-        <div class="lp-game" id="lp-game" data-level="0">
-          <div class="lp-game__meter">
-            <span class="lp-game__k">Break the formula</span>
-            <span class="lp-game__bar" aria-hidden="true"><span id="lp-err-bar"></span><i id="lp-err-best" hidden></i></span>
-            <b id="lp-err" aria-label="Formula error">0%</b>
-          </div>
-          <p class="lp-game__say" id="lp-game-say" aria-live="polite">Kepler&rsquo;s formula predicts these two exactly. Bring your pointer close: you are the third body.</p>
-          <a class="lp-game__why" href="topic-computable-universe.html">Why it matters: Is the universe computable?</a>
-        </div>
       </div>
     </div>
   </div>

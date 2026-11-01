@@ -719,104 +719,6 @@
 
       var reduceOrbit = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      // ---- The game: how far is the world from the formula? ------------------
-      // The orbit used to be something to admire. It is now something to beat.
-      // The reference pair is Kepler's closed form, advanced analytically; the
-      // drawn pair is what the integrator actually does once the pointer's mass
-      // is in the system. The distance between them, as a share of the orbit's
-      // size, is the error a formula makes when it predicts a system it no
-      // longer describes. Nothing is invented for the game: it is the gap the
-      // simulation was already computing, read out.
-      //
-      // The readout stops at 100%. The raw gap can grow past the orbit's own
-      // size, and the first version printed 107%, 400%, 999%+, which read as a
-      // broken meter rather than a broken formula. At 100% the prediction is off
-      // by a whole orbit and says nothing useful any more, so that is the goal,
-      // and reaching it is the win.
-      //
-      // The messages follow the peak of the current attempt, not the live
-      // value. The live value swings every few frames, and messages keyed to it
-      // flickered past before anyone could read them. Within an attempt a
-      // message can only move forward, each one stays up for at least
-      // SAY_HOLD, and when the attempt ends the recap stays until the next one
-      // begins. The best score is kept on this device only.
-      var gameEl = document.getElementById('lp-game');
-      var errEl = document.getElementById('lp-err');
-      var barEl = document.getElementById('lp-err-bar');
-      var bestMarkEl = document.getElementById('lp-err-best');
-      var sayEl = document.getElementById('lp-game-say');
-      var BEST_KEY = 'gq:orbit-best';
-      var SAY_HOLD = 1800;                 // ms a message stays before the next
-      var best = 0, savedBest = 0, errShown = 0, gameTick = 0;
-      var playing = false, quiet = 0, peak = 0, sayLv = -1, sayAt = 0;
-      try { best = savedBest = Math.min(+localStorage.getItem(BEST_KEY) || 0, 100); } catch (e) {}
-      var touchFirst = window.matchMedia('(pointer: coarse)').matches;
-      var SAY = [
-        touchFirst ? 'Kepler’s formula predicts these two exactly. Drag across them: your finger is the third body.'
-                   : 'Kepler’s formula predicts these two exactly. Bring your pointer close: you are the third body.',
-        'The formula still roughly holds. Push harder.',
-        'Drifting. The formula is losing track of them.',
-        'Formula broken. No closed-form solution follows three bodies.'
-      ];
-      function recap(p) {
-        return p >= 100
-          ? 'You broke it. Could anything have predicted that path? That is the question of Topic 04.'
-          : 'Your push put the formula ' + Math.round(p) + '% off. At 100% its prediction says nothing at all.';
-      }
-      function say(text, lv, now) {
-        if (sayEl && sayEl.textContent !== text) sayEl.textContent = text;
-        sayLv = lv; sayAt = now;
-        if (gameEl) gameEl.setAttribute('data-level', lv);
-      }
-      function paintGame() {
-        var shown = Math.min(errShown, 100);
-        if (errEl) errEl.textContent = Math.round(shown) + '%';
-        if (barEl) barEl.style.transform = 'scaleX(' + (shown / 100).toFixed(3) + ')';
-        if (bestMarkEl) {
-          bestMarkEl.style.left = best.toFixed(1) + '%';
-          bestMarkEl.hidden = best < 1;
-          bestMarkEl.title = 'Your best: ' + Math.round(best) + '%';
-        }
-      }
-      function scoreGame(dt, now) {
-        var a = X[0] - RX[0], b = Y[0] - RY[0], c = X[1] - RX[1], d = Y[1] - RY[1];
-        var err = Math.min(Math.sqrt((a * a + b * b + c * c + d * d) / 2) / SEMI * 100, 100);
-        errShown += (err - errShown) * 0.25;
-        if (err > best) best = err;
-
-        // An attempt starts when the pointer starts pulling and ends once it
-        // has let go and the pair has settled back onto the formula.
-        if (infl > 0.05) { playing = true; quiet = 0; if (errShown > peak) peak = errShown; }
-        else if (playing) {
-          quiet += dt;
-          if (quiet > 1.2 && errShown < 4) {
-            playing = false;
-            say(recap(peak), 4, now);
-            peak = 0;
-          }
-        }
-        if (playing) {
-          var lv = peak >= 99.5 ? 3 : peak >= 30 ? 2 : peak >= 5 ? 1 : sayLv === 4 ? 4 : 0;
-          if (lv > sayLv || (sayLv === 4 && lv > 0)) {
-            if (now - sayAt >= SAY_HOLD || sayLv === 0 || sayLv === 4) say(SAY[lv], lv, now);
-          }
-        }
-
-        // Numbers change every frame; repainting every fourth is still smooth.
-        if (++gameTick % 4) return;
-        paintGame();
-        if (best - savedBest > 1) {
-          savedBest = best;
-          try { localStorage.setItem(BEST_KEY, String(Math.round(best))); } catch (e) {}
-        }
-      }
-      if (gameEl) {
-        // With no motion there is nothing to perturb, so there is no game: a
-        // scoreboard that can never move is a broken control, not a quiet one.
-        if (reduceOrbit) gameEl.hidden = true;
-        else { say(SAY[0], 0, 0); paintGame(); }
-      }
-
       // Pointer → third mass. Distance does the gating, so the perturbation eases
       // in as you approach from anywhere in the hero; no enter/leave needed.
       // Read the box fresh each time. It was cached and only refreshed on scroll
@@ -893,7 +795,6 @@
         pushTrail(1, X[1], Y[1]);
 
         setCaption(infl > 0.16);
-        if (gameEl) scoreGame(dtReal, now);
         render();
         requestAnimationFrame(frame);
       }
