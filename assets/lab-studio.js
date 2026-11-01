@@ -19,6 +19,10 @@ function positionCompanion(){
  if(!widget||!frame)return;
  widget.classList.remove('is-docked');widget.style.cssText='';
  if(!g||g.viewportWidth<=900||g.width<250)return;
+ // Once the reader scrolls the dock out of view, Pulsar returns to the corner
+ // instead of pinning itself over whatever has scrolled under the header.
+ const dock=frame.top+g.dockTop;
+ if(dock<frame.top+12||dock>innerHeight-84)return;
  const left=Math.max(12,Math.min(innerWidth-g.width-12,frame.left+g.left));
  let top=chatOpen?Math.max(frame.top+12,frame.top+g.top):Math.max(frame.top+12,Math.min(innerHeight-84,frame.top+g.dockTop));
  const bottom=Math.min(innerHeight-12,frame.top+g.top+g.height),height=Math.max(250,bottom-top);
@@ -281,9 +285,17 @@ function refreshChat(){
  if(chatOpen){chatUnread=0;clearNotices();chat.log.scrollTop=chat.log.scrollHeight;}
  positionCompanion();
 }
+// Pulsar stays invisible until the simulator has said where its dock is.
+// Shown at once, it sat in the window's corner for the moment before the
+// frame loaded and then jumped into place.
+function revealCompanion(){
+ var widget=chat?.box.closest('.lab-pulsar-widget');
+ if(widget)widget.classList.remove('is-pending');
+}
 function mountPulsarChat(sidebar){
  CHAT_KEY='graviquest:pulsar:'+active.slug+':history:v2';
  sidebar.classList.add('lab-pulsar-widget');
+ if(active.slug==='science-universe')sidebar.classList.add('is-pending');
  var box=node('section','lab-chat');
  var toggle=node('button','lab-chat-head');toggle.type='button';
  toggle.setAttribute('aria-controls','lab-chat-thread');
@@ -516,7 +528,7 @@ function runLab(lab){
   tourActive=false;tourUI=null;chat=null;chatHistory=[];chatUnread=0;chatBusy=false;chatOpen=false;
   if(scienceGuide)scienceGuide.reset();
   root.dataset.labSlug = lab.slug;
-  root.classList.remove('is-editing-policy');
+  root.classList.remove('is-editing-policy','is-sim-modal');
   root.setAttribute('aria-live','off');
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
@@ -549,7 +561,13 @@ function runLab(lab){
   iframe.sandbox='allow-scripts';iframe.referrerPolicy='no-referrer';
   // The fragment never reaches the server; lab-bridge.js reads it before first paint.
   iframe.src=lab.run_url+'#theme='+siteTheme();
-  iframe.addEventListener('load',function(){adjustFrameForViewport();focusTour();});
+  canvas.classList.add('is-loading');
+  iframe.addEventListener('load',function(){
+    canvas.classList.remove('is-loading');adjustFrameForViewport();focusTour();
+    // The simulator reports its dock as soon as it lays out; this only covers
+    // a Lab that never does, so Pulsar cannot stay hidden.
+    var current=session;setTimeout(function(){if(current===session)revealCompanion();},1500);
+  });
   canvas.append(iframe);stageCol.append(canvas);
   var controls=null,metrics=null,chart=null;
   if(cfg.components.includes('controls'))controls=configPanel(stageCol,'Parameters');
@@ -790,7 +808,12 @@ window.addEventListener('message',function(e){
   }
   if(active.slug==='science-universe'&&data.type==='lab:companion-layout'){
     var g=data.layout;if(!g||typeof g!=='object'||!['left','top','width','height','dockTop','viewportWidth','viewportHeight'].every(function(k){return Number.isFinite(g[k])&&Math.abs(g[k])<=20000;})||g.width<=0||g.height<=0)return;
-    companionGeometry=g;positionCompanion();return;
+    companionGeometry=g;positionCompanion();revealCompanion();return;
+  }
+  if(active.slug==='science-universe'&&data.type==='lab:modal'){
+    root.classList.toggle('is-sim-modal',data.open===true);
+    if(data.open===true)clearNotices();
+    return;
   }
   if(active.slug==='science-universe'&&data.type==='lab:shell-action'){
     if(data.action==='catalog')showCatalog();

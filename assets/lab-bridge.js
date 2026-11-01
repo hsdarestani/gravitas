@@ -13,7 +13,7 @@
   // flips the header control. The sandbox cannot read the site's storage, and
   // following the operating system instead would put a dark Lab on a light
   // page, which is the mismatch this replaced.
-  var themeListeners=[];
+  var themeListeners=[],modalOpen=false;
   function applyTheme(theme){
     if(theme!=='light'&&theme!=='dark')return false;
     if(document.documentElement.getAttribute('data-theme')===theme)return false;
@@ -101,6 +101,7 @@
     onSection:function(fn){if(typeof fn==='function')sectionListeners.push(fn);},
     onExperiment:function(fn){if(typeof fn==='function')experimentListeners.push(fn);},
     onTheme:function(fn){if(typeof fn==='function')themeListeners.push(fn);},
+    modal:function(open){open=!!open;if(open===modalOpen)return;modalOpen=open;send('lab:modal',{open:open});},
     theme:function(){return document.documentElement.getAttribute('data-theme')||'dark';},
     context:function(payload){
       if(location.pathname.indexOf('/lab-run/science-universe/')!==0)return;

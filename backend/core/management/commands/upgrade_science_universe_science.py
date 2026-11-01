@@ -35,6 +35,7 @@ EXPECTED = {
         'bf9d933fc18d7f75fdbe6b4addc7a86b71f54d91',
     ),
     'app.js': (
+        'acce9e10746b7e41975b2768fb9c9a78d33fa01b',
         'c1f5d73a0918e5507f54894126f10f42c1d22111',
         '29a285509bf24ea3d80454abecdf4213b0f76179',
         'ffd567910b76325be6df3af6138d6b18476e4af1',
@@ -44,6 +45,7 @@ EXPECTED = {
         '39582357f5ff293bffbc6bdf4b5ec84699884c7b',
     ),
     'styles.css': (
+        'cdb4ff31fd508e36c0854653f366e5aae26e60e6',
         '304cad34e042a3c1ac11e284117fc24f70640799',
         'fc2cc1d89626d6b39abc1dc0b7956440f303aa78',
         'f416f2e88bd105790947f645c069f352c022a441',

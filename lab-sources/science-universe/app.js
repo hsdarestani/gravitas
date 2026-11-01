@@ -796,6 +796,9 @@ function renderPolicies(){
       publishContext(true);emit('policy_changed',nowWorld(),'intervene');comparison();renderMetricTrends();
       const spark=line.querySelector('svg');if(spark)spark.replaceWith(sparkline(series(nowWorld()).map(x=>x['policy_'+key]),name));
     });
+    // The filled part of the track is drawn from --fill (styles.css).
+    const fill=()=>range.style.setProperty('--fill',((range.value-1)/9*100)+'%');
+    fill();range.addEventListener('input',fill);
     line.append(head,make('p','',hint),range);
     const provenance=policyEvidence[key]||['Assumed simulation rule',null];
     const policyAudit=POLICY_RATIONALE[key];
@@ -1110,8 +1113,98 @@ function animation(now){
   drawMap(nowWorld().day);
   raf=requestAnimationFrame(animation);
 }
-mountWorkspace();bind();render();bridge();
+/* Dropdowns. The list a browser draws for <select> belongs to the operating
+   system (a white-on-blue strip on Windows) and CSS cannot reach it, so the
+   list is drawn here, as the workspace does in assets/ws/ws-select.js. The
+   sandbox cannot import that module, so this is the same behaviour in brief:
+   the native <select> stays the closed control and keeps its value; a click
+   or opening key opens our list instead, and choosing sets selectedIndex and
+   fires input and change, so every caller keeps working. Touch keeps the
+   phone's own picker. The list is a popover so it sits above open dialogs. */
+function installSelects(){
+  const OPEN=new Set(['Enter',' ','ArrowDown','ArrowUp']),popover=typeof HTMLElement.prototype.showPopover==='function';
+  const CHECK='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  let cur=null,pointer='mouse',seq=0;
+  const eligible=n=>n instanceof HTMLSelectElement&&!n.multiple&&!(n.size>1)&&!n.disabled;
+  function close(refocus){
+    if(!cur)return;const {select,pop}=cur;cur=null;
+    select.removeAttribute('aria-expanded');select.removeAttribute('aria-activedescendant');select.classList.remove('is-open');
+    if(popover){try{pop.hidePopover();}catch(_){}}pop.remove();
+    if(refocus)select.focus({preventScroll:true});
+  }
+  function highlight(i){
+    if(!cur||!cur.rows.length)return;
+    const next=Math.max(0,Math.min(cur.rows.length-1,i));cur.active=next;
+    cur.rows.forEach((r,j)=>r.classList.toggle('is-active',j===next));
+    cur.select.setAttribute('aria-activedescendant',cur.rows[next].id);cur.rows[next].scrollIntoView({block:'nearest'});
+  }
+  function choose(i){
+    if(!cur)return;const {select,rows}=cur,row=rows[i];close(true);if(!row)return;
+    const index=Number(row.dataset.index);if(select.selectedIndex===index)return;
+    select.selectedIndex=index;select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+  function place(){
+    const {select,pop}=cur,box=select.getBoundingClientRect(),vw=document.documentElement.clientWidth,vh=innerHeight;
+    pop.style.minWidth=Math.round(box.width)+'px';pop.style.maxWidth=Math.max(box.width,Math.min(360,vw-32))+'px';
+    const below=vh-box.bottom-12,above=box.top-12,up=below<180&&above>below;
+    pop.style.maxHeight=Math.min(320,Math.max(120,up?above:below))+'px';
+    const left=Math.max(8,Math.min(box.left,vw-pop.offsetWidth-8));
+    pop.style.left=Math.round(left)+'px';pop.style.top=Math.round(up?box.top-pop.offsetHeight-6:box.bottom+6)+'px';pop.classList.toggle('is-up',up);
+  }
+  function open(select){
+    close();
+    const id='select-pop-'+(++seq),pop=make('div','select-pop');pop.id=id;pop.setAttribute('role','listbox');
+    const name=select.getAttribute('aria-label')||select.labels?.[0]?.textContent?.trim();if(name)pop.setAttribute('aria-label',name);
+    if(popover)pop.popover='manual';
+    const rows=[];
+    for(const option of select.options){
+      if(option.hidden)continue;
+      const row=make('div','select-pop__option'),i=rows.length,selected=option.index===select.selectedIndex;
+      row.id=id+'-'+option.index;row.dataset.index=String(option.index);row.setAttribute('role','option');row.setAttribute('aria-selected',String(selected));
+      row.append(make('span','',option.textContent));if(selected)row.insertAdjacentHTML('beforeend',CHECK);
+      row.addEventListener('click',()=>choose(i));row.addEventListener('pointermove',()=>{if(cur&&cur.active!==i)highlight(i);});
+      rows.push(row);pop.append(row);
+    }
+    if(!rows.length)return;
+    pop.addEventListener('pointerdown',e=>e.preventDefault());
+    (popover?document.body:(select.closest('dialog')||document.body)).append(pop);if(popover)pop.showPopover();
+    cur={select,pop,rows,active:-1,typed:'',typedAt:0};
+    select.setAttribute('aria-expanded','true');select.setAttribute('aria-controls',id);select.classList.add('is-open');
+    place();highlight(Math.max(0,rows.findIndex(r=>r.getAttribute('aria-selected')==='true')));
+  }
+  document.addEventListener('pointerdown',e=>{pointer=e.pointerType||'mouse';if(cur&&!cur.pop.contains(e.target)&&e.target!==cur.select)close();},true);
+  document.addEventListener('mousedown',e=>{
+    const select=e.target instanceof Element&&e.target.closest('select');
+    if(!eligible(select)||pointer==='touch'||e.button!==0)return;
+    e.preventDefault();select.focus({preventScroll:true});
+    if(cur?.select===select)close();else open(select);
+  },true);
+  document.addEventListener('keydown',e=>{
+    const select=e.target;if(!eligible(select))return;const k=e.key;
+    if(cur?.select!==select){if(OPEN.has(k)||(e.altKey&&k==='ArrowDown')){e.preventDefault();open(select);}return;}
+    if(k==='ArrowDown'){e.preventDefault();highlight(cur.active+1);}
+    else if(k==='ArrowUp'){e.preventDefault();highlight(cur.active-1);}
+    else if(k==='Home'||k==='PageUp'){e.preventDefault();highlight(0);}
+    else if(k==='End'||k==='PageDown'){e.preventDefault();highlight(cur.rows.length-1);}
+    else if(k==='Enter'||k===' '){e.preventDefault();choose(cur.active);}
+    else if(k==='Escape'){e.preventDefault();e.stopPropagation();close(true);}
+    else if(k==='Tab')close();
+    else if(k.length===1&&/\S/.test(k)&&!e.ctrlKey&&!e.metaKey){
+      e.preventDefault();const now=Date.now();cur.typed=now-cur.typedAt>700?k.toLowerCase():cur.typed+k.toLowerCase();cur.typedAt=now;
+      for(let step=1;step<=cur.rows.length;step++){const i=(cur.active+step)%cur.rows.length;if(cur.rows[i].textContent.trim().toLowerCase().startsWith(cur.typed)){highlight(i);break;}}
+    }
+  },true);
+  document.addEventListener('focusout',e=>{if(cur&&e.target===cur.select)setTimeout(()=>{if(cur&&document.activeElement!==cur.select)close();});});
+  // A list pinned to a control that has moved is worse than no list.
+  document.addEventListener('scroll',e=>{if(cur&&!cur.pop.contains(e.target))close();},true);
+  addEventListener('resize',()=>close());
+}
+mountWorkspace();bind();render();bridge();installSelects();
 if(G.onTheme)G.onTheme(()=>{readInk();drawChart();drawMap(nowWorld().day);});
+// The host hides Pulsar while a dialog in here dims the workspace, so the
+// companion never floats undimmed over a modal backdrop.
+if(G.modal)new MutationObserver(()=>G.modal(!!document.querySelector('dialog[open]')))
+  .observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 raf=requestAnimationFrame(animation);
 window.addEventListener('pagehide',()=>cancelAnimationFrame(raf),{once:true});
 })();
