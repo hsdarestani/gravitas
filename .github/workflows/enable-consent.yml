@@ -70,7 +70,7 @@ jobs:
           set -euo pipefail
           sleep 2
           curl -4 -fsSL https://graviquest.com/assets/consent.js | grep -q 'gravitas:consent:v1'
-          curl -4 -fsSL https://graviquest.com/assets/production-cleanup.js | grep -q '312K'
+          curl -4 -fsSL https://graviquest.com/assets/production-cleanup.js | grep -q '418K'
           curl -4 -fsSL https://graviquest.com/assets/cms-live.js | grep -q '/api/content/'
           curl -4 -fsSL https://graviquest.com/assets/cms-links.js | grep -q '/content/'
           curl -4 -fsSL https://graviquest.com/assets/cms-public.css | grep -q 'g-cms-grid'
