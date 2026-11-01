@@ -202,11 +202,13 @@
      "Research with us", then Build, Question, Translate... The HTML carries
      the first verb as plain text, so no script and reduced motion both leave
      a complete sentence. The rotation pauses while
-     the band is off screen or the tab is hidden: nobody is reading it then. */
-  var verb = document.querySelector('.join__verb[data-verbs]');
-  if (verb && !reduce && 'IntersectionObserver' in window) {
+     the band is off screen or the tab is hidden: nobody is reading it then.
+     The landing hero carries the same line, so every rotating verb on the
+     page runs on its own, each with its own timer and observer. */
+  if (!reduce && 'IntersectionObserver' in window)
+  [].forEach.call(document.querySelectorAll('.join__verb[data-verbs]'), function (verb) {
     var verbs = verb.getAttribute('data-verbs').split('|');
-    var heading = verb.closest('h2');
+    var heading = verb.closest('h1, h2');
     if (heading) heading.setAttribute('aria-label',
       verbs.slice(0, -1).map(function (v, i) { return i ? v.toLowerCase() : v; }).join(', ') +
       ' or ' + verbs[verbs.length - 1].toLowerCase() + ' with us');
@@ -257,7 +259,7 @@
       visible = es[0].isIntersecting; run();
     }).observe(verb);
     document.addEventListener('visibilitychange', run);
-  }
+  });
 
   /* ---- archive filtering ------------------------------------------------
      Type chips plus free text, combined. The count is announced so the result
