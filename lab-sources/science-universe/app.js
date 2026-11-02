@@ -985,7 +985,11 @@ function settings(on,returnFocus=true){
   document.querySelector('.model-and-policies').classList.toggle('policy-open',drawerOpen);
   $('inspector').inert=drawerOpen;document.querySelector('.activity').inert=drawerOpen;
   $('settings').setAttribute('aria-expanded',String(drawerOpen));
-  if(on){renderPolicies();$('close-settings').focus({preventScroll:true});if(innerWidth<=800)document.querySelector('.world-stage').scrollIntoView({block:'start'});}else if(returnFocus)$('settings').focus({preventScroll:true});
+  if(on){
+    renderPolicies();$('close-settings').focus({preventScroll:true});
+    // Keep the actual map above the compact policy dock on narrow screens.
+    if(innerWidth<=1120)$('canvases').scrollIntoView({block:'start',behavior:'instant'});
+  }else if(returnFocus)$('settings').focus({preventScroll:true});
   publishContext(true);drawChart();
 }
 function setView(name){

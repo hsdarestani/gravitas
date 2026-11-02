@@ -255,7 +255,7 @@ function mountPulsarChat(sidebar){
    });
  }catch(_){chatHistory=[];}
  chatHistory.forEach(addBubble);
- if(!chatHistory.length){
+ if(!chatHistory.length&&active.slug!=='science-universe'){
    addChat('pulsar',active.slug==='directory'?'Tell me what you want to understand. I can help you choose an available Lab and explain what you will learn.':'What would you like to understand? Choose a lab, change one policy, or ask me about the science. We can follow what changes and work through why.','guide');
  }
  if(scienceGuide&&active.slug==='science-universe')scienceGuide.mount(body,form,function(recipe){
@@ -538,9 +538,9 @@ function runLab(lab){
     tell:tellIframe,ask:askPulsar,session:()=>session,history:()=>chatHistory,openAtlas:openAtlas,
     atlasOpen:()=>!!focusWorkspace?.querySelector('.lab-atlas'),closeAtlas:()=>focusWorkspace?.close(),
     openChat:()=>{chatOpen=true;sidebar.dataset.mode='chat';refreshChat();},
-    restoreGuest:()=>{chatHistoryReady=true;try{const stored=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');const merged=new Map([...stored,...chatHistory].filter(m=>m&&typeof m.id==='string'&&typeof m.text==='string'&&m.text.length<=1800&&['user','pulsar'].includes(m.role)).map(m=>[m.id,m]));chatHistory=[...merged.values()].slice(-70);chat.log.replaceChildren();chatHistory.forEach(addBubble);}catch(_){}},
+    restoreGuest:()=>{chatHistoryReady=true;try{const stored=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');const merged=new Map([...stored,...chatHistory].filter(m=>m&&typeof m.id==='string'&&typeof m.text==='string'&&m.text.length<=1800&&['user','pulsar'].includes(m.role)).map(m=>[m.id,m]));chatHistory=[...merged.values()].slice(-70);chat.log.replaceChildren();chatHistory.forEach(addBubble);if(!chatHistory.length)addChat('pulsar','What would you like to understand? We can compare a change, follow the result and work through why.','guide');saveChat();}catch(_){}},
     restore:(messages,owner,preserveFresh)=>{chatHistoryReady=true;const fresh=preserveFresh?chatHistory.filter(m=>m.at>=chatMountAt&&(m.role==='user'||m.provider==='ai')):[];CHAT_KEY='graviquest:pulsar:science-universe:history:v3:'+owner;
-      const merged=new Map([...messages,...fresh].map(m=>[m.id,m]));chatHistory=[...merged.values()].slice(-70);chat.log.replaceChildren();chatHistory.forEach(addBubble);saveChat();}
+      const merged=new Map([...messages,...fresh].map(m=>[m.id,m]));chatHistory=[...merged.values()].slice(-70);chat.log.replaceChildren();chatHistory.forEach(addBubble);if(!chatHistory.length)addChat('pulsar','What would you like to understand? We can compare a change, follow the result and work through why.','guide');saveChat();}
   });
   if(steps&&cfg.sections?.length){
     currentSection=cfg.sections[0].id;renderSteps();
