@@ -395,6 +395,7 @@ async function askPulsar(question,event,fallback){
  if(active.slug==='science-universe'&&learning&&!learning.mayAsk())return;
  var isChat=['science-universe','directory'].includes(active.slug);
  var observed=active.slug==='science-universe'&&scienceGuide?scienceGuide.context():null;
+ var atlasSelection=active.slug==='science-universe'&&learning?learning.atlasContext():null;
  var context=chatHistory.slice(-8).map(function(m){return {
    role:m.role,text:m.text.slice(0,210)
  };});
@@ -412,7 +413,7 @@ async function askPulsar(question,event,fallback){
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
        metrics:lastMetrics,history:context,context:observed,
-       locale:document.documentElement.lang||'en',atlas_comparison:learning?.atlasContext()}),
+       locale:document.documentElement.lang||'en',atlas_comparison:atlasSelection}),
      signal:thisController.signal,credentials:'same-origin'
    });
    var result=await res.json();
@@ -422,7 +423,8 @@ async function askPulsar(question,event,fallback){
    if(which!==session||request!==requestSequence)return;
    if(!q&&event==='policy_changed'&&observed&&JSON.stringify(observed.policies)!==JSON.stringify(scienceGuide?.context()?.policies))return;
    var observation=result.observation||observed;
-   var title=observation&&Number.isFinite(observation.day)?'Pulsar · World '+observation.world+' · day '+observation.day:'';
+   var title=atlasSelection?'Pulsar · Scenario atlas · A '+atlasSelection.low+' / B '+atlasSelection.high:
+     observation&&Number.isFinite(observation.day)?'Pulsar · World '+observation.world+' · day '+observation.day:'';
    if(result.ok&&result.reply){feedback(result.reply,result.provider==='script'?'script':'ai',result.citations,title);}
    else if(fallback)feedback(fallback,'script');
  }catch(err){
