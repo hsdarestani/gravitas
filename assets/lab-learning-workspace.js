@@ -61,13 +61,13 @@ async function refreshAccess(){
   if(next.authenticated&&(!wasReady||authOwner!==next.owner_id)){
    authOwner=next.owner_id;canSync=!wasGuest;
    if(canSync){const r=await fetch('/api/labs/science-universe/conversation/',{credentials:'same-origin',cache:'no-store'});if(r.ok&&epoch===config.session()){const data=await r.json();config.restore(data.messages||[],authOwner,!wasReady);}}
-  }else if(!next.authenticated){authOwner=null;canSync=false;if(!wasReady)config.restoreGuest();}
+  }else if(!next.authenticated){const wasAccount=authOwner!==null;authOwner=null;canSync=false;clearTimeout(syncTimer);if(!wasReady||wasAccount)config.restoreGuest(!wasReady);}
   renderAccess();
  }catch(_){}finally{loading=false;}
 }
 async function csrf(){let token=(document.cookie.match(/(?:^|; )(?:csrftoken|gravitas_staging_csrftoken)=([^;]*)/)||[])[1]||'';if(!token){await fetch('/api/auth/csrf/',{credentials:'same-origin'});token=(document.cookie.match(/(?:^|; )(?:csrftoken|gravitas_staging_csrftoken)=([^;]*)/)||[])[1]||'';}return decodeURIComponent(token);}
 function sync(messages){
- if(!access?.authenticated||!canSync)return;clearTimeout(syncTimer);const epoch=config.session(),owner=authOwner,copy=messages.slice(-70);
+ if(!access?.authenticated||!canSync)return;clearTimeout(syncTimer);notice.dataset.saved='pending';const epoch=config.session(),owner=authOwner,copy=messages.slice(-70);
  syncTimer=setTimeout(async()=>{try{const token=await csrf();if(epoch!==config.session()||owner!==authOwner||loading)return;const r=await fetch('/api/labs/science-universe/conversation/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':token},body:JSON.stringify({messages:copy})});if(!r.ok)throw Error();notice.dataset.saved='true';}catch(_){notice.dataset.saved='false';}},450);
 }
 function updateAccess(value){if(value&&Number.isInteger(value.remaining)){access={...access,...value};renderAccess();}}

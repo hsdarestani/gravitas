@@ -414,7 +414,7 @@ function summary(){
   const s=nowWorld(),m=E.summary(s);
   for(const [id,value] of Object.entries({
     day:String(m.day).padStart(3,'0'),agents:human(s.agents.length),
-    hypotheses:human(m.generated),published:human(m.healthyPapers),
+    hypotheses:human(m.generated),published:human(m.published),
     replications:human(m.replicated),backlog:human(m.reviewBacklog)
   }))$(id).textContent=value;
 }

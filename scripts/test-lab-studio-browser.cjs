@@ -194,6 +194,14 @@ const server=http.createServer((req,res)=>{
     await page.locator('.lab-frame').waitFor();
     assert.equal(await page.locator('.lab-science-preview').count(),0,'refresh stays in the Lab');
     await page.locator('.lab-chat-bubble').filter({hasText:'Fixture learning question 25'}).waitFor();
+    await page.getByRole('textbox',{name:'Message Pulsar'}).fill('Account-only learning question');
+    await page.getByRole('button',{name:'Send to Pulsar'}).click();
+    await page.waitForFunction(()=>document.querySelector('.lab-access-strip').dataset.saved==='true');
+    assert.ok(savedConversation.some(m=>m.text==='Account-only learning question'));
+    signedIn=false;
+    await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+    await page.waitForFunction(()=>document.querySelector('.lab-access-strip').textContent.includes('25 guest questions are complete'));
+    assert.equal(await page.locator('.lab-chat-bubble').filter({hasText:'Account-only learning question'}).count(),0,'signing out restores guest history without exposing account-only messages');
     await page.setViewportSize({width:390,height:844});
     await page.getByRole('button',{name:'Ask Pulsar',exact:true}).click();
     const mobileMap=await page.locator('.lab-frame').boundingBox(),mobileCompanion=await page.locator('.lab-pulsar-widget').boundingBox();
