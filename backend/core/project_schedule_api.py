@@ -74,7 +74,7 @@ def project_task_schedules(request, project_id):
         data = json.loads(request.body or '{}')
     except (ValueError, UnicodeDecodeError):
         return _error('invalid_payload')
-    if not isinstance(data, dict) or set(data) != {'task_id', 'start_date', 'end_date', 'estimated_minutes'}:
+    if not isinstance(data, dict) or set(data) - {'expected_updated_at'} != {'task_id', 'start_date', 'end_date', 'estimated_minutes'}:
         return _error('invalid_schedule_fields')
     try:
         task_id, minutes = int(data['task_id']), int(data['estimated_minutes'])
@@ -96,6 +96,9 @@ def project_task_schedules(request, project_id):
             return _error('duplicate_task_schedule_requires_review', 409)
         if notes and not can_edit(request.user, notes[0]):
             return _error('schedule_edit_required', 403)
+        revision = notes[0].updated_at.isoformat() if notes else None
+        if 'expected_updated_at' in data and data['expected_updated_at'] != revision:
+            return _error('schedule_changed_elsewhere', 409)
         note = notes[0] if notes else KnowledgeResource(
             workspace=project.workspace, project=project, owner=request.user,
             kind=KnowledgeResource.Kind.NOTE,
@@ -103,6 +106,7 @@ def project_task_schedules(request, project_id):
             description='Canonical human-editable Markdown project task schedule.',
             metadata={'pm_type': 'task_schedule_v1', 'task_id': task.pk},
         )
+        previous = note.body
         note.body = (f'# Schedule for task #{task.pk}\n\n{HEADER}\n{DIVIDER}\n'
                      f'| {start.isoformat()} | {end.isoformat()} | {minutes} |\n')
         note.save()
@@ -110,4 +114,8 @@ def project_task_schedules(request, project_id):
             policy_for(note, create=True, created_by=request.user,
                        default_visibility=INHERIT_VISIBILITY)
         plan = _parse(note)
+        from .layer_models import ActivityEvent
+        ActivityEvent.objects.create(layer='core', action='task.schedule_changed', actor=request.user,
+            object_type='operating_task', object_id=str(task.pk), detail={'source': 'human',
+                'changes': {'schedule': {'from': previous, 'to': note.body}}})
     return JsonResponse({'ok': True, 'task_id': task_id, **plan})

@@ -1,6 +1,8 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.utils import timezone
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 from .models import (
     Collection,
@@ -23,6 +25,54 @@ from .platform_models import (
 ROLE_RANK = {'view': 10, 'comment': 20, 'edit': 30, 'manage': 40}
 INHERIT_VISIBILITY = 'inherit'
 VALID_VISIBILITIES = set(ObjectPolicy.Visibility.values) | {INHERIT_VISIBILITY}
+_access_batch = ContextVar('platform_access_batch', default=None)
+
+
+@contextmanager
+def access_batch(user, objects):
+    """Evaluate the unchanged policy rules from one request-local bulk read.
+
+    Analytics can inspect thousands of tasks. Repeating the policy inheritance
+    SQL walk for every metric is both slow and a tempting reason to skip ACLs.
+    Only preloaded keys use this snapshot; other objects take the normal path.
+    The snapshot is discarded before a mutation or another request.
+    """
+    objects = list(objects)
+    all_objects = {}
+    pending = objects[:]
+    while pending:
+        obj = pending.pop()
+        if obj is None or (obj.__class__, obj.pk) in all_objects:
+            continue
+        all_objects[obj.__class__, obj.pk] = obj
+        parent = _parent_object(obj)
+        if parent is not None:
+            pending.append(parent)
+        workspace = _workspace(obj)
+        if workspace is not None and workspace is not obj:
+            pending.append(workspace)
+    values = list(all_objects.values())
+    types = ContentType.objects.get_for_models(*(set(type(obj) for obj in values)), for_concrete_models=False) if values else {}
+    keys = {(types[type(obj)].pk, obj.pk) for obj in values}
+    ctids = {key[0] for key in keys}
+    ids = {key[1] for key in keys}
+    policies = {(ct, pk): None for ct, pk in keys}
+    grants = dict(policies)
+    for row in ObjectPolicy.objects.filter(content_type_id__in=ctids, object_id__in=ids):
+        policies[row.content_type_id, row.object_id] = row
+    for row in AccessGrant.objects.filter(user=user, content_type_id__in=ctids, object_id__in=ids).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())):
+        grants[row.content_type_id, row.object_id] = row.role
+    workspaces = {obj.pk for obj in values if isinstance(obj, Workspace)}
+    projects = {obj.pk for obj in values if isinstance(obj, ResearchProject)}
+    data = {'user': user.pk, 'policies': policies, 'grants': grants,
+            'members': {pk: None for pk in workspaces}, 'projects': {pk: None for pk in projects}}
+    data['members'].update(WorkspaceMembership.objects.filter(user=user, workspace_id__in=workspaces).values_list('workspace_id', 'role'))
+    data['projects'].update(ProjectMembership.objects.filter(user=user, project_id__in=projects).values_list('project_id', 'role'))
+    token = _access_batch.set(data)
+    try:
+        yield
+    finally:
+        _access_batch.reset(token)
 
 TARGET_MODELS = {
     'workspace': Workspace,
@@ -100,6 +150,10 @@ def _workspace_role(user, workspace):
         return None
     if workspace.kind == Workspace.Kind.PERSONAL and workspace.owner_id == user.pk:
         return 'manage'
+    batch = _access_batch.get()
+    if batch and batch['user'] == user.pk and workspace.pk in batch['members']:
+        role = batch['members'][workspace.pk]
+        return ('manage' if role in {'owner', 'admin'} else 'edit') if role else None
     membership = WorkspaceMembership.objects.filter(workspace=workspace, user=user).first()
     if not membership:
         return None
@@ -111,6 +165,9 @@ def _workspace_admin_role(user, workspace):
         return None
     if workspace.kind == Workspace.Kind.PERSONAL and workspace.owner_id == user.pk:
         return 'manage'
+    batch = _access_batch.get()
+    if batch and batch['user'] == user.pk and workspace.pk in batch['members']:
+        return 'manage' if batch['members'][workspace.pk] in {'owner', 'admin'} else None
     membership = WorkspaceMembership.objects.filter(workspace=workspace, user=user).first()
     return 'manage' if membership and membership.role in {'owner', 'admin'} else None
 
@@ -120,6 +177,9 @@ def _project_role(user, project):
         return None
     if project.owner_id == user.pk:
         return 'manage'
+    batch = _access_batch.get()
+    if batch and batch['user'] == user.pk and project.pk in batch['projects']:
+        return {'owner': 'manage', 'editor': 'edit', 'viewer': 'view'}.get(batch['projects'][project.pk])
     membership = ProjectMembership.objects.filter(project=project, user=user).first()
     if membership:
         return {'owner': 'manage', 'editor': 'edit', 'viewer': 'view'}.get(membership.role, 'view')
@@ -147,6 +207,10 @@ def _administrative_role(user, obj):
 def direct_grant(user, obj):
     if not user or not getattr(user, 'is_authenticated', False):
         return None
+    batch = _access_batch.get()
+    key = (content_type_for(obj).pk, obj.pk)
+    if batch and batch['user'] == user.pk and key in batch['grants']:
+        return batch['grants'][key]
     now = timezone.now()
     grant = AccessGrant.objects.filter(
         content_type=content_type_for(obj),
@@ -158,6 +222,9 @@ def direct_grant(user, obj):
 
 def policy_for(obj, *, create=False, created_by=None, default_visibility=None):
     ct = content_type_for(obj)
+    batch = _access_batch.get()
+    if not create and batch and (ct.pk, obj.pk) in batch['policies']:
+        return batch['policies'][ct.pk, obj.pk]
     policy = ObjectPolicy.objects.filter(content_type=ct, object_id=obj.pk).first()
     if policy or not create:
         return policy

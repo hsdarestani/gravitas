@@ -1,3 +1,4 @@
+import { mountExecution } from './ws-execution.js?v=20261016-task1&patch=20261102execution1';
 /* Shared task chronology for Core and project command centers. Actual work,
  * planned ranges and deadlines have different meanings and different marks.
  * Missing history stays visible; a due date never masquerades as completion.
@@ -91,50 +92,10 @@ function styles() {
   `;
   document.head.append(sheet);
 }
-export function renderTaskTimeline(host, tasks, { plans = new Map(), openTask = () => {}, editPlan = null, now = Date.now() } = {}) {
-  styles();
-  const model = timelineModel(tasks, plans, now);
-  const legend = node('p', 'task-timeline__legend', '● Created   ━ Actual work   ● Completed   ◆ Due date   ┄ Planned work   ≈ Estimated dates');
-  const chart = node('div', 'task-timeline'); chart.tabIndex = 0; chart.setAttribute('aria-label', 'Task timeline; scroll horizontally to explore dates');
-  const header = node('div', 'task-timeline__row'); header.append(node('strong', 'task-timeline__label', 'Task · actual dates'));
-  const axis = node('div', 'task-timeline__track task-timeline__axis');
-  for (let index = 0; index <= 5; index++) {
-    const tick = node('time', 'task-timeline__tick', format(new Date(model.origin + (model.extent - model.origin) * index / 5).toISOString()));
-    tick.style.left = index * 20 + '%'; axis.append(tick);
-  }
-  header.append(axis); chart.append(header);
-  const mark = (track, value, cls, label) => {
-    if (value === null) return;
-    const dot = node('span', 'task-timeline__mark ' + cls); dot.style.left = model.position(value) + '%';
-    dot.title = label; dot.setAttribute('aria-label', label); track.append(dot);
-  };
-  const bar = (track, start, end, cls, label) => {
-    if (start === null || end === null || end < start) return;
-    const line = node('span', 'task-timeline__bar ' + cls); line.style.left = model.position(start) + '%';
-    line.style.width = Math.max(.4, model.position(end) - model.position(start)) + '%';
-    line.title = label; line.setAttribute('aria-label', label); track.append(line);
-  };
-  for (const row of model.rows) {
-    const task = row.task, item = node('div', 'task-timeline__row'), label = node('div', 'task-timeline__label');
-    const open = node('button', '', '#' + task.id + ' · ' + task.title); open.type = 'button'; open.onclick = () => openTask(task);
-    label.append(open, node('small', '', (typeof task.owner === 'object' ? task.owner?.name : task.owner || '') + ' · ' + String(task.status).replaceAll('_', ' ')),
-      node('small', '', fields.map(([key, name]) => name + ': ' + taskDateLabel(task, key)).join(' · ') + ' · Due: ' + taskDateLabel(task, 'due_date')));
-    if (editPlan && task.can_edit) { const plan = node('button', '', plans.has(Number(task.id)) ? 'Edit plan' : 'Plan'); plan.type = 'button'; plan.onclick = () => editPlan(task); label.append(plan); }
-    const track = node('div', 'task-timeline__track');
-    if (now >= model.origin && now <= model.extent) { const today = node('span', 'task-timeline__today'); today.style.left = model.position(now) + '%'; today.title = 'Today'; track.append(today); }
-    bar(track, row.plannedStart, row.plannedEnd === null ? null : row.plannedEnd + DAY, 'task-timeline__bar--plan', 'Planned work');
-    const inferred = ['inferred', 'earliest_known'].includes(task.date_provenance?.started_at?.confidence);
-    bar(track, row.start, row.activeEnd, 'task-timeline__bar--' + task.status + (inferred ? ' task-timeline__bar--inferred' : ''),
-      (inferred ? 'Estimated / earliest known work: ' : 'Active: ') + taskDateLabel(task, 'started_at', true) + ' → ' + (task.completed_at ? taskDateLabel(task, 'completed_at', true) : row.activeEnd ? 'ongoing' : 'completion not recorded'));
-    mark(track, row.created, '', 'Created: ' + taskDateLabel(task, 'created_at', true));
-    mark(track, row.end, 'task-timeline__mark--done', 'Completed: ' + taskDateLabel(task, 'completed_at', true));
-    mark(track, row.due, 'task-timeline__mark--due', 'Due: ' + taskDateLabel(task, 'due_date'));
-    if (row.start === null) track.append(node('span', 'task-timeline__unknown', 'Active date not recorded'));
-    item.append(label, track); chart.append(item);
-  }
-  if (!tasks.length) chart.append(node('p', 'task-timeline__label', 'No tasks match these filters.'));
-  host.append(legend, chart);
+export function renderTaskTimeline(host, tasks, options = {}) {
+  return mountExecution(host, tasks, options);
 }
+
 function localInput(value) {
   const ms = dateMillis(value); if (ms === null) return '';
   const date = new Date(ms); return new Date(ms - date.getTimezoneOffset() * 60000).toISOString().slice(0, 19);

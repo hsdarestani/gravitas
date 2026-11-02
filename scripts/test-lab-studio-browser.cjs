@@ -134,8 +134,12 @@ const server=http.createServer((req,res)=>{
     await page.setViewportSize({width:1440,height:1000});
     await page.goto(url+'?lab=science-universe',{waitUntil:'networkidle'});
     await page.getByRole('button',{name:'Enter simulation',exact:true}).click();
-    const frame=page.frameLocator('.lab-frame'),simPage=page.frame({url:/\/lab-run\/science-universe\//});
+    const frame=page.frameLocator('.lab-frame');
     await frame.locator('.metric-trend').first().waitFor();
+    // The iframe element can exist before its navigation has committed.
+    // Resolve the concrete Frame only after its content is actually ready.
+    const simPage=page.frame({url:/\/lab-run\/science-universe\//});
+    assert.ok(simPage,'Science Universe frame has completed navigation');
     await page.getByRole('button',{name:'Build my first comparison',exact:true}).waitFor();
     const mapHost=await page.locator('.lab-frame').boundingBox(),companion=await page.locator('.lab-pulsar-widget').boundingBox();
     assert.ok(mapHost.x+mapHost.width<=companion.x+1,'Pulsar has its own desktop column');

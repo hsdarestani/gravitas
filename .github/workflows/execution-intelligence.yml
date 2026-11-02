@@ -1,0 +1,66 @@
+name: Execution Intelligence Acceptance
+on:
+  pull_request:
+    paths: ['assets/ws/**', 'backend/core/**', 'backend/gravitas_backend/settings.py', 'scripts/reliability/**', 'scripts/test-execution-gantt.mjs', '.github/workflows/execution-intelligence.yml']
+  push:
+    branches: [main]
+    paths: ['assets/ws/ws-execution*', 'backend/core/execution*', '.github/workflows/execution-intelligence.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: backend
+      DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://127.0.0.1:4173
+      E2E_FIXTURE: /tmp/execution-fixture.json
+      E2E_ARTIFACTS: /tmp/execution-artifacts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -q -r backend/requirements.txt
+      - name: Lifecycle, scope, date and sync regressions
+        run: |
+          python -m django test core.test_execution_intelligence core.test_task_dates core.test_research_task_api core.test_core_task_board core.test_nextcloud_deck_canonical core.test_nextcloud_deck_access --noinput
+          python -m django makemigrations --check --dry-run
+          node scripts/test-task-timeline.mjs
+          node scripts/test-execution-gantt.mjs
+          for file in assets/ws/*.js; do node --input-type=module --check < "$file"; done
+      - name: Prepare isolated acceptance database
+        run: |
+          python -m django migrate --noinput
+          python scripts/reliability/seed-browser.py
+          python scripts/reliability/seed-execution.py
+      - name: Install temporary browser harness
+        run: |
+          mkdir -p "$RUNNER_TEMP/execution-browser" "$E2E_ARTIFACTS"
+          npm install --prefix "$RUNNER_TEMP/execution-browser" --no-audit --no-fund playwright@1.55.0
+          "$RUNNER_TEMP/execution-browser/node_modules/.bin/playwright" install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/execution-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Start real application
+        run: |
+          python -m django runserver 127.0.0.1:8000 --noreload >/tmp/execution-backend.log 2>&1 &
+          node scripts/preview-server.mjs --api http://127.0.0.1:8000 >/tmp/execution-frontend.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/api/health/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Desktop and mobile acceptance with server persistence
+        run: node scripts/reliability/execution-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: execution-intelligence-${{ github.run_id }}
+          path: |
+            /tmp/execution-artifacts
+            /tmp/execution-backend.log
+            /tmp/execution-frontend.log

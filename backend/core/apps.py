@@ -11,6 +11,7 @@ class CoreConfig(AppConfig):
         from . import work_report_models  # noqa: F401
         from . import canonical_models  # noqa: F401
         from . import operating_models  # noqa: F401
+        from . import execution_models  # noqa: F401
         from . import platform_models  # noqa: F401
         from . import layer_models  # noqa: F401
         from . import lms_models  # noqa: F401

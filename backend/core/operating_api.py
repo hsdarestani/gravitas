@@ -590,9 +590,10 @@ def milestones(request):
 
 
 @require_http_methods(['PATCH', 'DELETE'])
+@transaction.atomic
 def milestone_detail(request, milestone_id):
     if (auth := _auth(request)): return auth
-    obj = OperatingMilestone.objects.select_related(
+    obj = OperatingMilestone.objects.select_for_update(of=('self',)).select_related(
         'workspace', 'initiative__key_result__objective', 'owner'
     ).filter(pk=milestone_id, workspace__in=_accessible_workspaces(request.user)).first()
     if not obj: return _error('milestone_not_found', 404)
@@ -601,6 +602,8 @@ def milestone_detail(request, milestone_id):
         if obj.tasks.exists(): return _error('milestone_not_empty', 409)
         obj.delete(); return JsonResponse({'ok': True})
     p = _body(request)
+    if 'expected_updated_at' in p and p['expected_updated_at'] != obj.updated_at.isoformat():
+        return _error('milestone_changed_elsewhere', 409)
     for field in ['title', 'definition_of_done', 'health', 'status']:
         if field in p: setattr(obj, field, p[field])
     if 'due_date' in p: obj.due_date = _date(p['due_date'])

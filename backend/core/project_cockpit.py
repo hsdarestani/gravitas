@@ -53,6 +53,7 @@ def _task_json(item, user):
         'due_date': item.due_date.isoformat() if item.due_date else None,
         'definition_of_done': item.definition_of_done,
         'blocked_reason': item.blocked_reason,
+        'execution_weight': item.execution_weight,
         'dependency_id': item.dependency_id,
         'parent_id': item.parent_id,
         'source_metadata': item.source_metadata,

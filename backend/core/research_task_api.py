@@ -231,11 +231,22 @@ def project_task_detail(request, project_id, task_id):
         return _error('task_changed_elsewhere', 409, task=_task_json(task, request.user))
     allowed = {'title', 'description', 'definition_of_done', 'status', 'priority',
                'blocked_reason', 'due_date', 'owner_id', 'dependency_id', 'parent_id',
-               'created_at', 'started_at', 'completed_at'}
+               'created_at', 'started_at', 'completed_at', 'milestone_id', 'execution_weight'}
     if not payload or set(payload) - allowed:
         return _error('invalid_task_fields')
     # Task canonical schema v2 now serializes owner, dependency and hierarchy.
     updates = {}
+    if 'execution_weight' in payload:
+        value = payload['execution_weight']
+        if value is not None and (type(value) is not int or not 1 <= value <= 100000):
+            return _error('invalid_execution_weight')
+        updates['execution_weight'] = value
+    if 'milestone_id' in payload:
+        value = payload['milestone_id']
+        milestone = OperatingMilestone.objects.filter(pk=value, project=project).first() if value else None
+        if value and (milestone is None or not can_view(request.user, milestone)):
+            return _error('invalid_milestone')
+        updates['milestone'] = milestone
     for field in ('title', 'description', 'definition_of_done', 'blocked_reason'):
         if field in payload:
             value = str(payload[field] or '').strip()
