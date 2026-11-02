@@ -124,15 +124,13 @@
     savedTool.className = 'g-nav__tool g-nav__saved';
     savedTool.hidden = true;  // until production-bridge mounts the drawer trigger
     savedTool.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.75h12a1.25 1.25 0 0 1 1.25 1.25v15.25L12 15.9l-7.25 4.35V5A1.25 1.25 0 0 1 6 3.75Z"/></svg><span>Saved</span><b></b>';
-    // Each pair goes in absent-first (Saved before Theme, Join before Sign in)
-    // so the survivor can widen with a sibling selector; CSS restores the
-    // reading order.
+    // Saved goes in before Theme so that, while it is absent, Theme can widen
+    // with a sibling selector; CSS restores the reading order. Workspace, the
+    // one account control, takes the last row.
     foot.appendChild(savedTool);
     if (themeTool) foot.appendChild(themeTool);
-    ['.gh-nav-join', '.gh-nav-signin'].forEach(function (sel) {
-      var el = nav.querySelector(sel);
-      if (el) foot.appendChild(el);
-    });
+    var workspace = nav.querySelector('.gh-nav-join');
+    if (workspace) foot.appendChild(workspace);
     var sep = nav.querySelector('.g-nav__sep');
     if (sep) sep.remove();
     nav.appendChild(foot);

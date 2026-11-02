@@ -66,18 +66,15 @@
    is recomputed from that width instead of from 1em. */
 .lp-header__cta .g-btn__icon { width: 1rem; height: 1rem; }
 .lp-header__cta.g-btn--lead { --_shift: calc((1rem + 0.5rem) / 4); }
-/* Same for Sign in beside it, so both marks in the header row render at one
-   weight, which was the point. The dropdown's Join Us is deliberately not in
-   this rule: it is not a header control, it is the last row of a menu, and it
-   is sized to that column instead, below. */
-.gh-signin .g-btn__icon { width: 1rem; height: 1rem; }
-.gh-signin.g-btn--lead { --_shift: calc((1rem + 0.5rem) / 4); }
+/* The menu's Workspace is deliberately not in this rule: it is not a header
+   control, it is the last row of a menu, and it is sized to that column
+   instead, below. */
 .lp-menu-btn { display: none; }
 .g-header__inner { position: relative; }
 .lp-header__actions { display: flex; align-items: center; gap: var(--g-space-2xs); flex: none; flex-wrap: nowrap; }
 
 /* In the phone menu only. On desktop these sit in the header itself. */
-.gh-nav-signin, .gh-nav-join, .g-nav__sep, .g-nav__foot { display: none; }
+.gh-nav-join, .g-nav__sep, .g-nav__foot { display: none; }
 /* Likewise the nav marks: shipped in the markup on every page, revealed by the
    menu's own media query below. */
 .g-nav__ic { display: none; }
@@ -87,8 +84,8 @@
    outlined circles, four different treatments side by side. Now the sections
    sit together in one faint capsule, with the current page as a filled pill
    inside it. Saved and theme lose their rings and become plain marks, and a
-   hairline separates them from the account pair. The only filled object left
-   is Join Us, which is the one control that should be loud. Height and
+   hairline separates them from the account control. The only filled object
+   left is Workspace, which is the one control that should be loud. Height and
    --g-header-h do not change. */
 @media (min-width: 905px) {
   .g-header .g-nav {
@@ -107,31 +104,24 @@
   .gh-actions .rl-trigger { border-color: transparent; background: transparent; color: var(--g-text-muted); }
   .gh-actions .theme-toggle:hover,
   .gh-actions .rl-trigger:hover { border-color: transparent; background: rgb(var(--g-tint) / 0.1); color: var(--g-text); }
-  /* Tools first, then the account pair: order instead of DOM moves, because
-     production-bridge mounts the saved trigger beside the theme toggle. */
+  /* Tools first, then the account control: order instead of DOM moves,
+     because production-bridge mounts the saved trigger beside the theme
+     toggle. */
   .gh-actions .rl-trigger { order: 1; }
   .gh-actions .theme-toggle { order: 2; }
-  .gh-actions .gh-signin { order: 3; position: relative; margin-left: var(--g-space-xs); }
-  .gh-actions .gh-signin::before {
+  .gh-actions .lp-header__cta { order: 3; position: relative; margin-left: var(--g-space-xs); }
+  .gh-actions .lp-header__cta::before {
     content: ''; position: absolute; left: calc(var(--g-space-xs) * -1 - 1px); top: 25%; bottom: 25%;
     width: 1px; background: var(--g-hairline);
   }
-  .gh-actions .lp-header__cta { order: 4; }
 }
 /* The capsule's padding costs about 120px over the old underlined row, and
    the row was measured to just fit at 905px. Between there and where the full
-   row fits again, the pills tighten and Sign in keeps only its mark. The label
-   stays in the accessibility tree, and the mark is the same glyph the phone
-   menu uses for it. */
+   row fits again, the pills tighten. Sign in used to give up its label here
+   too; it has left the row, which is the room Workspace's longer label took. */
 @media (min-width: 905px) and (max-width: 1080px) {
   .g-header__inner { gap: var(--g-space-sm); }
   .g-header .g-nav__link { padding-inline: 0.6rem; }
-  .gh-actions .gh-signin { width: var(--gh-control); padding: 0; justify-content: center; }
-  .gh-actions .gh-signin .g-btn__icon { margin: 0; }
-  .gh-actions .gh-signin span {
-    position: absolute; width: 1px; height: 1px; overflow: hidden;
-    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
-  }
 }
 
 @media (max-width: 904px) {
@@ -140,7 +130,6 @@
      outlined circles reads as a toolbar, not as a header; everything they did
      is in the sheet now (site.js moves or proxies it there). */
   .gh-actions .lp-header__cta,
-  .gh-actions .gh-signin,
   .gh-actions .theme-toggle,
   .gh-actions .rl-trigger { display: none; }
 
@@ -240,35 +229,28 @@
     line-height: 1; text-decoration: none; white-space: nowrap;
     border-radius: var(--g-radius-pill);
   }
-  /* Sign in is still a .g-nav__link and Join a .g-btn, and both rules outrank
-     the one above; pulled back to the foot's pill here, one height for all. */
-  .g-nav .g-nav__foot > .g-nav__link,
+  /* Workspace is a .g-btn, whose rules outrank the one above; pulled back to
+     the foot's pill here, one height for all. */
   .g-nav .g-nav__foot > .g-btn {
     height: 3rem; min-height: 3rem;
     font-size: var(--g-fs-body); font-weight: var(--g-w-medium); letter-spacing: 0;
     border-radius: var(--g-radius-pill); animation: none;
   }
-  .g-nav .g-nav__foot > .g-nav__link { padding: 0 var(--g-space-sm); border: 1px solid var(--g-border); }
   .g-nav__foot svg { width: 1.125rem; height: 1.125rem; flex: none; display: block; }
-  .g-nav__tool,
-  .g-nav__foot .gh-nav-signin {
+  .g-nav__tool {
     border: 1px solid var(--g-border); background: transparent; color: var(--g-text);
     cursor: pointer;
   }
-  .g-nav__tool:hover,
-  .g-nav__foot .gh-nav-signin:hover { background: rgb(var(--g-tint) / 0.08); color: var(--g-text); }
+  .g-nav__tool:hover { background: rgb(var(--g-tint) / 0.08); color: var(--g-text); }
   /* Reading order is set here, not by the DOM. site.js puts Saved before
-     Theme and Join before Sign in, so that when the first of a pair is absent
-     the second can take the whole row with a plain sibling selector: Saved
-     until production-bridge mounts its trigger, Join once a member is
-     signed in. */
+     Theme, so that while Saved is absent (until production-bridge mounts its
+     trigger) Theme can take the whole row with a plain sibling selector.
+     Workspace is the account row on its own, always full width. */
   .g-nav__foot .theme-toggle { order: 1; }
   .g-nav__saved { order: 2; }
-  .g-nav__foot .gh-nav-signin { order: 3; }
-  .g-nav__foot .gh-nav-join { order: 4; }
+  .g-nav__foot .gh-nav-join { order: 3; grid-column: 1 / -1; }
   .g-nav__foot > [hidden] { display: none; }
-  .g-nav__saved[hidden] + .theme-toggle,
-  .g-nav__foot .gh-nav-join.is-hidden + .gh-nav-signin { grid-column: 1 / -1; }
+  .g-nav__saved[hidden] + .theme-toggle { grid-column: 1 / -1; }
   /* The theme proxy is a .theme-toggle, so it picks up the header circle's
      fixed size and muted colour; undone here, keeping the moon/sun swap. */
   .g-nav__foot .theme-toggle { width: 100%; height: auto; color: var(--g-text); }

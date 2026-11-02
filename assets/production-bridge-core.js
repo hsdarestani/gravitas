@@ -82,70 +82,26 @@
     return 'Something went wrong. Please try again.';
   }
 
-  /* The label lives in one of three shapes depending on which header slot the
-     link sits in: an explicit [data-auth-label], a bare <span> next to the icon
-     (.gh-signin), or a loose text node after the icon (.gh-nav-signin). The
-     previous version only knew about the text node and *appended* otherwise,
-     which is why a signed-in visitor read "Sign inWorkspace" in the header:
-     the <span> kept saying "Sign in" and "Workspace" was added after it. Write
-     to whichever holder exists, then clear the others so the label can never be
-     duplicated, however many times this runs. */
-  function setLinkLabel(link, label) {
-    if (!link) return;
-
-    var holder = link.querySelector('[data-auth-label]');
-    if (!holder) {
-      var spans = link.children;
-      for (var s = 0; s < spans.length; s++) {
-        if (spans[s].tagName === 'SPAN' && spans[s].getAttribute('aria-hidden') !== 'true') {
-          holder = spans[s];
-          break;
-        }
-      }
-    }
-
-    var nodes = link.childNodes, text = null;
-    for (var i = nodes.length - 1; i >= 0; i--) {
-      if (nodes[i].nodeType === 3 && nodes[i].nodeValue.trim()) { text = nodes[i]; break; }
-    }
-
-    if (holder) {
-      holder.textContent = label;
-      // Drop any stray text node, including one a previous run appended.
-      for (var j = nodes.length - 1; j >= 0; j--) {
-        if (nodes[j].nodeType === 3 && nodes[j].nodeValue.trim()) link.removeChild(nodes[j]);
-      }
-    } else if (text) {
-      text.nodeValue = label;
-    } else {
-      link.appendChild(document.createTextNode(label));
-    }
-
-    if (link.hasAttribute('aria-label')) link.setAttribute('aria-label', label);
-    if (link.hasAttribute('title')) link.setAttribute('title', label);
-  }
-
-  function setJoinVisibility(visible) {
-    /* "Join Us" is an acquisition CTA for visitors who do not have an
-       account yet. Once Django confirms a session it competes with the real
-       next action (Workspace) and makes a signed-in member look signed out.
-       Keep this scoped to the two header CTA shapes only; the Community page
-       content can still explain membership without losing its structure. */
-    [].forEach.call(document.querySelectorAll('.gh-nav-join, .lp-header__cta'), function (join) {
-      join.hidden = !visible;
-      join.classList.toggle('is-hidden', !visible);
-      join.setAttribute('aria-hidden', String(!visible));
-      if (!visible) join.setAttribute('tabindex', '-1');
-      else join.removeAttribute('tabindex');
+  /* The header has one account control, Workspace, in the row and again as
+     the last row of the phone menu. It used to be a pair, Sign in and Join Us,
+     and signing in rewrote one into the other: Sign in became Workspace and
+     Join Us was hidden, which took a label swap, a hide, and a helper that
+     had to find the label in three different markup shapes after an earlier
+     version printed "Sign inWorkspace". Now only the destination changes.
+     Signed out it is the create-account tab, which offers Sign in beside it
+     for a member whose session has ended; signed in it is the workspace. The
+     static href is the signed-out one, so a page whose session answer never
+     arrives still sends the click somewhere that works, and a member who
+     clicks before it arrives is moved on by the account page below. */
+  function setWorkspaceLink(signedIn) {
+    [].forEach.call(document.querySelectorAll('[data-workspace-link]'), function (link) {
+      link.href = signedIn ? '/workspace' : '/signup';
+      link.setAttribute('aria-label', signedIn ? 'Open your workspace' : 'Create your free workspace');
     });
   }
 
   function markAccount(email) {
-    [].forEach.call(document.querySelectorAll('.gh-signin, .gh-nav-signin'), function (signIn) {
-      setLinkLabel(signIn, 'Workspace');
-      signIn.href = '/workspace';
-    });
-    setJoinVisibility(false);
+    setWorkspaceLink(true);
     var note = document.querySelector('.auth__note[data-form-note]');
     if (note && email) note.textContent = 'Signed in as ' + email + '.';
   }
@@ -184,13 +140,33 @@
       });
   });
 
+  /* Signing up does not open a session: the account waits for its email to be
+     confirmed, and the confirmation link lands on the sign-in tab. Usually in
+     another tab, from a mail client, so the address typed at sign-up is kept
+     in this browser until that sign-in, and the form arrives filled with it.
+     Sign-in then goes to the workspace, which closes the loop the header's
+     Workspace button opened. */
+  var PENDING_EMAIL = 'gq-pending-signup-email';
+
   var authStatus = document.getElementById('auth-status');
   if (authStatus) {
     if (params.get('email_verified') === '1') {
       authStatus.hidden = false;
-      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3><p>Your email is verified. You can sign in now.</p>';
+      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3><p>Your email is verified. Sign in to open your workspace.</p>';
       if (history.replaceState) history.replaceState({}, '', '/login');
       window.setTimeout(function () { location.hash = 'in'; }, 0);
+      var pending = '';
+      try { pending = localStorage.getItem(PENDING_EMAIL) || ''; } catch (err) {}
+      var signInForm = document.getElementById('p-in');
+      var emailField = signInForm && signInForm.elements.email;
+      if (pending && emailField && !emailField.value) {
+        emailField.value = pending;
+        // The tab switch focuses the first field, which is now the one already
+        // filled; move on to the password once it has run.
+        window.setTimeout(function () {
+          if (signInForm.elements.password) signInForm.elements.password.focus();
+        }, 60);
+      }
     } else if (params.get('email_verified') === '0') {
       authStatus.hidden = false;
       authStatus.innerHTML = '<h3 style="margin-top:0">Confirmation link expired</h3><p>Sign in with Google or resend the verification email from your pending account screen.</p>';
@@ -231,6 +207,7 @@
         newsletter: !!(form.elements.news && form.elements.news.checked)
       }).then(function (data) {
         var email = data.user && data.user.email || (form.elements.email && form.elements.email.value || '').trim();
+        try { localStorage.setItem(PENDING_EMAIL, email); } catch (err) {}
         form.innerHTML =
           '<div class="callout auth__verification">' +
             '<h2 style="margin-top:0">Check your inbox</h2>' +
@@ -251,6 +228,7 @@
         password: form.elements.password && form.elements.password.value || '',
         keep: !!(form.elements.keep && form.elements.keep.checked)
       }).then(function (data) {
+        try { localStorage.removeItem(PENDING_EMAIL); } catch (err) {}
         markAccount(data.user && data.user.email);
         setNote(form, 'Signed in. Opening your workspace…');
         return adoptReaderLibrary().then(function (adopted) {
@@ -349,11 +327,20 @@
   }).then(function (data) {
     if (data && data.authenticated) {
       markAccount(data.user && data.user.email);
+      // A member on the create-account tab has nothing to do there, and is
+      // usually one who pressed Workspace before this answer re-pointed it.
+      // Sent on to the workspace, as a sign-in would be. The reset and
+      // sign-in tabs are left alone: those are reached on purpose.
+      var signupPanel = document.getElementById('p-up');
+      var onSignup = signupPanel && !signupPanel.hidden && !resetUid && !params.get('email_verified');
       // Any page load is a chance to finish a handover that failed earlier, and
       // for a reader who signed in on another tab it is the only chance.
-      adoptReaderLibrary().then(function () {
-        libPaint();
-      }).catch(function () {});
+      adoptReaderLibrary().then(function (adopted) {
+        if (onSignup) location.replace(adopted ? '/workspace/kms/library' : '/workspace');
+        else libPaint();
+      }).catch(function () {
+        if (onSignup) location.replace('/workspace');
+      });
     } else {
       readerSignedOut();
     }
@@ -377,7 +364,7 @@
 
   if (params.get('email_verified') === '1') {
     var ev1 = document.querySelector('[data-form-note]');
-    if (ev1) ev1.textContent = 'Email confirmed. Your GraviQuest account is verified.';
+    if (ev1) ev1.textContent = 'Email confirmed. Sign in to open your workspace.';
   } else if (params.get('email_verified') === '0') {
     var ev0 = document.querySelector('[data-form-note]');
     if (ev0) ev0.textContent = 'That account confirmation link is invalid or has expired.';
@@ -1322,7 +1309,7 @@
      authenticated-as-nobody answer drops the mirror and falls back to whatever
      guest pile this browser has of its own. */
   function readerSignedOut() {
-    setJoinVisibility(true);
+    setWorkspaceLink(false);
     libAuthed = false;
     libAuthKnown = true;
     var mirror = false;
