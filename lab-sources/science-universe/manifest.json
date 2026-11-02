@@ -1,8 +1,8 @@
 {
   "slug": "science-universe",
-  "title": "Science Universe — The Discovery Engine",
+  "title": "Science Ecosystem",
   "summary": "Explore an evolving research ecosystem. Change funding, AI adoption, peer review and replication; intervene in individual laboratories and compare parallel worlds.",
-  "description": "Science Universe is one interactive, seeded agent-based teaching system for evaluating assumptions about AI-assisted research. Its known-variance Z testing is mathematically grounded; its population, domain priors, research incentives, review probabilities, citation weights, funding and policy mappings are explicitly uncalibrated model choices. Original Lab design rationales and alternatives are inspectable in the Model assumptions decision register. Population and prior sensitivity experiments are available. Independent scientific review is required for empirical claims.",
+  "description": "Science Ecosystem is one interactive, seeded agent-based teaching system for evaluating assumptions about AI-assisted research. Its known-variance Z testing is mathematically grounded; its population, community priors, research incentives, review probabilities, citation weights, funding and policy mappings are explicitly uncalibrated model choices. Original Lab design rationales and alternatives are inspectable in the Model assumptions decision register. Population and prior sensitivity experiments are available. Independent scientific review is required for empirical claims.",
   "duration_text": "15–25 min",
   "topic_slug": "",
   "config": {

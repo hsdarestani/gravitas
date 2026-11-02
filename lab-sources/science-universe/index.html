@@ -4,23 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark light">
-  <title>Science Universe · GraviQuest Lab</title>
+  <title>Science Ecosystem · GraviQuest Lab</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="universe" id="universe-app">
-    <nav class="workspace-nav" aria-label="Breadcrumb"><button id="back-labs" class="crumb-link" type="button">Lab</button><span aria-hidden="true">/</span><span aria-current="page">Science Universe</span></nav>
+    <nav class="workspace-nav" aria-label="Breadcrumb"><button id="back-labs" class="crumb-link" type="button">Lab</button><span aria-hidden="true">/</span><span aria-current="page">Science Ecosystem</span></nav>
     <header class="app-header">
       <div class="title-stack">
         <div class="kicker">Interactive model <span class="subtle">· Synthetic research ecosystem</span></div>
-        <h1>Science Universe</h1>
+        <h1>Science Ecosystem</h1>
         <p class="description">Change a research policy. Follow the mechanism. Compare the evidence.</p>
       </div>
       <div class="app-utility"><button id="guided-tour" class="btn" type="button">Guided tour</button><button id="fullscreen" class="icon-btn" type="button" title="Fill the screen" aria-label="Toggle fullscreen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="1.7" d="M4 9V5.6A1.6 1.6 0 0 1 5.6 4H9M15 4h3.4A1.6 1.6 0 0 1 20 5.6V9M20 15v3.4a1.6 1.6 0 0 1-1.6 1.6H15M9 20H5.6A1.6 1.6 0 0 1 4 18.4V15"/></svg></button></div>
       <div class="header-actions">
         <div class="session-chip"><span id="session-state" class="status-ring" aria-hidden="true"></span><span id="status-label">SIMULATION READY</span></div>
         <button class="btn primary" id="play" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="1.7" d="M8.2 5.6v12.8a.7.7 0 0 0 1.07.6l10.1-6.4a.7.7 0 0 0 0-1.2L9.27 5a.7.7 0 0 0-1.07.6z"/></svg><span>Play</span></button>
-        <button class="btn" id="advance" type="button" title="Advance ten simulated days">+10 days</button>
+        <button class="btn" id="advance" type="button" title="Advance one model day in both worlds">Step 1 day</button>
         <button class="icon-btn" id="reset" type="button" title="Restart with the same seed" aria-label="Reset simulation"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-1.028 0.184) scale(1.038200)" stroke-width="1.637"><path d="M20.4 12a8.4 8.4 0 1 1-2.9-6.35"/><path d="M20.8 3.2v5.2h-5.2"/><circle cx="12" cy="12" r="1.493" fill="currentColor" stroke="none"/></g></svg></button>
       </div>
     </header>
@@ -39,23 +39,28 @@
       </div>
       <div class="mode-actions">
         <label class="speed-control">SPEED <select id="speed" aria-label="Simulation speed">
-          <option value="1">1×</option><option value="3" selected>3×</option><option value="8">8×</option><option value="15">15×</option>
+          <option value="0.5">½ day / second</option><option value="1" selected>1 day / second</option><option value="2">2 days / second</option><option value="4">4 days / second</option>
         </select></label>
       </div>
     </nav>
+    <section id="comparison-setup" class="comparison-setup" aria-labelledby="setup-title">
+      <div><span class="eyebrow">START WITH A COMPARISON</span><h2 id="setup-title">One change. Two possible paths.</h2><p>World A keeps the baseline. Choose one different setting for World B; both advance over the same model days.</p></div>
+      <div class="comparison-setup-controls"><label>Test this setting<select id="setup-policy" aria-label="Comparison parameter"></select></label><span id="setup-baseline" class="setup-baseline">A · 5/10</span><label>World B<input id="setup-value" type="range" min="1" max="10" value="8" aria-label="World B starting setting"><output id="setup-output">8/10</output></label><button id="start-comparison" class="btn primary" type="button">Create my comparison</button></div><p id="setup-status" class="small-print" role="status">You can inspect the model freely. Create the comparison before advancing time or changing its rules.</p>
+    </section>
     <main class="world-layout">
       <section class="world-stage panel" aria-label="Research ecosystem map">
         <div class="stage-header">
           <div><span class="eyebrow">LIVE RESEARCH MODEL</span><h2 id="stage-title">The research network</h2></div>
           <div class="stage-tools"><button class="btn" type="button" id="settings" aria-expanded="false" aria-controls="policy-drawer">Policies <span id="policy-count" class="btn-counter">12</span></button>
             <div class="view-tabs" role="group" aria-label="Network layer">
-              <button id="view-labs" class="tab active" type="button" aria-pressed="true">Laboratories</button>
+              <button id="view-labs" class="tab active" type="button" aria-pressed="true">Research teams</button>
               <button id="view-papers" class="tab" type="button" aria-pressed="false">Knowledge flow</button>
             </div>
           </div>
         </div>
         <p class="map-explanation" id="map-explanation">Laboratories shows the teams doing research. Circle size follows studies in progress; lines are modeled collaboration opportunities.</p>
         <div id="claim-focusbar" class="claim-focusbar" hidden><label>Inspect a claim <select id="claim-select" aria-label="Select a published claim"><option value="">Choose a claim…</option></select></label><span class="claim-color-key"><i class="dot gold"></i> Not repeated <i class="dot passed"></i> Passed <i class="dot failed"></i> Failed</span></div>
+        <div class="model-pipeline" id="model-pipeline" aria-label="Research process measurements"></div>
         <div class="canvases" id="canvases">
           <div class="canvas-col active" id="canvas-holder-a">
             <canvas id="network-a" role="img" aria-label="Interactive map of laboratories; select a node to inspect and intervene"></canvas>
@@ -71,15 +76,15 @@
           </div>
         </div>
         <div class="stage-footer">
-          <div class="legend" aria-label="Research domains">
-            <button type="button" class="field-chip active" data-domain="all" aria-pressed="true">All fields</button>
-            <button type="button" class="field-chip" data-domain="0" aria-pressed="false"><i class="dot bio"></i> Biology</button>
-            <button type="button" class="field-chip" data-domain="1" aria-pressed="false"><i class="dot climate"></i> Climate</button>
-            <button type="button" class="field-chip" data-domain="2" aria-pressed="false"><i class="dot physics"></i> Physics</button>
-            <button type="button" class="field-chip" data-domain="3" aria-pressed="false"><i class="dot material"></i> Materials</button>
+          <div class="legend" aria-label="Research communities">
+            <button type="button" class="field-chip active" data-domain="all" aria-pressed="true">All communities</button>
+            <button type="button" class="field-chip" data-domain="0" aria-pressed="false"><i class="dot bio"></i> Community 01</button>
+            <button type="button" class="field-chip" data-domain="1" aria-pressed="false"><i class="dot climate"></i> Community 02</button>
+            <button type="button" class="field-chip" data-domain="2" aria-pressed="false"><i class="dot physics"></i> Community 03</button>
+            <button type="button" class="field-chip" data-domain="3" aria-pressed="false"><i class="dot material"></i> Community 04</button>
           </div>
           <div class="layer-chips" role="group" aria-label="Visual layers">
-            <label><input id="layer-links" type="checkbox" checked> <span id="links-label">Collaborations</span></label>
+            <label><input id="layer-links" type="checkbox" checked> <span id="links-label">Connections</span></label>
             <label><input id="layer-flows" type="checkbox" checked> <span id="flows-label">People & citations</span></label>
             <label><input id="layer-labels" type="checkbox" checked> Labels</label>
           </div>
@@ -91,7 +96,7 @@
         <div class="inspector-start" id="inspector-start">
           <div class="eyebrow">FIELD NOTES</div><h2>A closer look</h2>
           <p>Select a laboratory on the map. Its team, current work and resources appear here.</p>
-          <div class="method-chip">28 labs · 4 fields · independent research agents</div>
+          <div class="method-chip">28 teams · 4 communities · independent research agents</div>
           <button id="inspector-map-help" class="text-btn" type="button">How to read the map</button>
         </div>
         <div class="inspector-content" id="inspector-content" hidden>
@@ -138,7 +143,7 @@
       <div class="tool-cards">
         <button id="snapshot" class="tool-card" type="button" title="Save the current world, day, settings and measurements. This records a result; it does not restore a running simulation."><span class="tool-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-0.360 -0.360) scale(1.030000)" stroke-width="1.650"><path d="M8.6 4H6.6a2 2 0 0 0-2 2v13.4a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><rect x="8.6" y="2.4" width="6.8" height="3.4" rx="1.2"/><path d="M8.4 11h7.2"/><path d="M8.4 14.6h4.6"/><circle cx="15.4" cy="17.6" r="1.553" fill="currentColor" stroke="none"/></g></svg></span><span><strong>Save snapshot</strong><small>Keep this moment’s measurements</small></span><span aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></span></button>
         <button id="atlas" class="tool-card" type="button" title="Browse model runs already executed with different settings. Coverage is sampled, not every possible scenario."><span class="tool-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.552 0.414) scale(0.972826)" stroke-width="1.747"><rect x="2.8" y="2.8" width="8" height="10.4" rx="2.2"/><rect x="13.2" y="2.8" width="8" height="6" rx="2.2"/><rect x="13.2" y="11.6" width="8" height="9.6" rx="2.2"/><rect x="2.8" y="15.6" width="8" height="5.6" rx="2.2"/><circle cx="6.8" cy="8" r="1.593" fill="currentColor" stroke="none"/></g></svg></span><span><strong>Scenario atlas</strong><small>Explore tested combinations of settings</small></span><span aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></span></button>
-        <button id="fork" class="tool-card" type="button" title="Copy World A into World B at exactly the same moment. Then change one policy and compare their results."><span class="tool-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-1.224 0.329) scale(0.972384)" stroke-width="1.748"><circle cx="18.4" cy="5.4" r="2.6"/><circle cx="18.4" cy="18.6" r="2.6"/><path d="M7.6 10.8 16 6.6"/><path d="M7.6 13.2 16 17.4"/><circle cx="5.6" cy="12" r="2.6" fill="currentColor" stroke="none"/></g></svg></span><span><strong>Create comparison</strong><small>Same starting point, one different decision</small></span><span aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></span></button>
+        <button id="fork" class="tool-card" type="button" title="Copy World A into World B at exactly the same moment. Then change one policy and compare their results."><span class="tool-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-1.224 0.329) scale(0.972384)" stroke-width="1.748"><circle cx="18.4" cy="5.4" r="2.6"/><circle cx="18.4" cy="18.6" r="2.6"/><path d="M7.6 10.8 16 6.6"/><path d="M7.6 13.2 16 17.4"/><circle cx="5.6" cy="12" r="2.6" fill="currentColor" stroke="none"/></g></svg></span><span><strong>New comparison</strong><small>Same starting point, one different decision</small></span><span aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></span></button>
       </div>
     </section>
     <section class="lab-bottom">

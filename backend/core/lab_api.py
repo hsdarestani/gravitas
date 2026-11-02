@@ -449,6 +449,15 @@ def public_lab_coach(request, slug):
     science_state = clean_context(data.get('context')) if slug == 'science-universe' else {}
     knowledge, allowed_citations = scientific_context(item, question, key, science_state) if slug == 'science-universe' else ({}, [])
     facts = model_facts(item, science_state) if slug == 'science-universe' else {}
+    if slug == 'science-universe' and isinstance(data.get('atlas_comparison'), dict):
+        from .lab_knowledge_models import LabScenario
+        requested = data['atlas_comparison'].get('signatures', [])
+        signatures = [v for v in requested[:12] if isinstance(v, str) and re.fullmatch(r'[a-f0-9]{64}', v)] if isinstance(requested, list) else []
+        if signatures:
+            knowledge['selected_atlas_runs'] = list(LabScenario.objects.filter(lab=item,
+                engine_sha=knowledge.get('atlas', {}).get('engine_sha', ''), signature__in=signatures).values(
+                    'signature', 'parameters', 'design', 'seed', 'days', 'result'))
+            knowledge['atlas_reading_rule'] = 'These are server-stored executed model runs, separate from the current browser run. Compare only runs with a matched seed, design, days and all other policies equal.'
     metrics = data.get('metrics') if isinstance(data.get('metrics'), dict) else {}
     metrics = {k: round(v, 4) for k, v in list(metrics.items())[:32]
                if isinstance(k, str) and SAFE_KEY.fullmatch(k) and
@@ -467,6 +476,13 @@ def public_lab_coach(request, slug):
     if not configured():
         return JsonResponse({'ok': True, 'reply': ('Live Pulsar is unavailable. Open the scientific sources or try again.' if key == 'ask' else scripted or 'Observe how the output changes.'),
                              'provider': 'script', 'run_id': None})
+    reservation = None
+    if slug == 'science-universe':
+        from .lab_learning import reserve_coaching, finish_coaching
+        reservation, exhausted = reserve_coaching(request, item, bool(question))
+        if exhausted:
+            return JsonResponse({'ok': False, 'error': 'trial_exhausted', 'access': exhausted,
+                'reason': 'Sign in to continue Pulsar and save your conversations and snapshots. The simulation remains open.'}, status=401)
     try:
         result = run_text(
             system=(
@@ -478,7 +494,7 @@ def public_lab_coach(request, slug):
                 'Use the question language when it differs from the page locale. '
                 'Speak like a thoughtful lab tutor. Lead with interpretation, not a log entry or a list of counters. '
                 'Observed numbers and event names are client-reported, not independently validated. '
-                'In Science Universe a visitor can select a paper dot in Knowledge flow, or select a LAB then a PAPER '
+                'In Science Ecosystem (legacy slug science-universe), the colored clusters are abstract research communities named Community 01–04, not Biology/Climate/Physics/Materials. Existing internal field IDs preserve reproducible assumptions; do not infer real disciplines. Lead all hands-on learning with a matched A/B comparison. Use the current guided lesson and atlas comparison when supplied. A visitor can select a paper dot in Knowledge flow, or select a LAB then a PAPER '
                 'from Latest published claims in the inspector. The live_papers metric is ONLY '
                 'an aggregate count; it is never a list of addressable papers. '
                 'Only mention a missing paper selection when the visitor asks about a particular selected paper or asks to act on it. '
@@ -567,9 +583,12 @@ def public_lab_coach(request, slug):
                 pass
         cited = [c for c in allowed_citations if '[' + c['id'] + ']' in reply]
         reply = re.sub(r'\[([a-z0-9-]+#[a-z0-9-]+)\]', lambda m: m[0] if any(c['id'] == m[1] for c in allowed_citations) else '', reply)
-        return JsonResponse({'ok': True, 'reply': reply, 'citations': cited,
+        access = finish_coaching(reservation, True) if reservation else None
+        return JsonResponse({'ok': True, 'reply': reply, 'citations': cited, 'access': access,
                              'provider': result.provider, 'run_id': result.run_id,
                              'observation': {'world': science_state.get('world'), 'day': science_state.get('day')} if slug == 'science-universe' else None})
     except PulsarError:
+        if reservation:
+            finish_coaching(reservation, False)
         return JsonResponse({'ok': True, 'reply': scripted if key != 'ask' else 'Live Pulsar could not answer this question. Please try again; the scientific sources remain available.',
                              'provider': 'script', 'run_id': None})

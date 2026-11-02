@@ -56,3 +56,22 @@ class LabRunSnapshot(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=['lab', 'owner', 'signature'], name='lab_snapshot_owner_signature')]
         ordering = ['-created_at']
+
+
+class LabCoachTrial(models.Model):
+    lab = models.ForeignKey('core.InteractiveLab', on_delete=models.CASCADE)
+    signature = models.CharField(max_length=64, unique=True)
+    used = models.PositiveIntegerField(default=0)
+    reservations = models.JSONField(default=list)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class LabConversation(models.Model):
+    lab = models.ForeignKey('core.InteractiveLab', on_delete=models.CASCADE)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    messages = models.JSONField(default=list)
+    provenance = models.CharField(max_length=30, default='browser_reported')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['lab', 'owner'], name='lab_conversation_owner')]

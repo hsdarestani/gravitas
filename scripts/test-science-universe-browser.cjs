@@ -33,6 +33,10 @@ const server=http.createServer((req,res)=>{
     const agents=Number((await page.locator('#agents').innerText()).replaceAll(',',''));
     assert.ok(agents>=100,'research world needs 100+ agents');
     await page.locator('#advance').click();
+    assert.equal(await page.locator('#day').innerText(),'000','time waits for a controlled comparison');
+    await page.locator('#start-comparison').click();
+    await page.locator('#world-a').click();
+    for(let i=0;i<10;i++)await page.locator('#advance').click();
     const day=await page.locator('#day').innerText();
     assert.equal(day,'010');
     const generated=Number((await page.locator('#hypotheses').innerText()).replaceAll(',',''));
@@ -89,7 +93,7 @@ const server=http.createServer((req,res)=>{
     await page.locator('#policy-advance').click();
     assert.equal(await page.locator('#day').innerText(),'020','model continues while the policy panel is open');
     await page.locator('#close-settings').click();
-    await page.locator('#fork').click();
+    await page.locator('#world-b').click();
     await page.locator('#comparison').waitFor({state:'visible'});
     await page.locator('#network-b').waitFor({state:'visible'});
     assert.equal(await page.locator('.comparison-row').count(),6);
@@ -105,9 +109,9 @@ const server=http.createServer((req,res)=>{
     await page.locator('#toggle-data').click();
     assert.ok(await page.locator('#outcome-data tbody tr').count()>0);
     await page.locator('#toggle-data').click();
-    const still=await page.locator('#network-a').evaluate(x=>x.toDataURL());
+    const still=await page.locator('#network-b').evaluate(x=>x.toDataURL());
     await page.waitForTimeout(500);
-    assert.equal(await page.locator('#network-a').evaluate(x=>x.toDataURL()),still,'paused model has no independent visual animation');
+    assert.equal(await page.locator('#network-b').evaluate(x=>x.toDataURL()),still,'paused model has no independent visual animation');
     await page.locator('#play').click();
     const selectedText=await page.evaluate(()=>{const node=document.getElementById('map-explanation');const range=document.createRange();range.selectNodeContents(node);getSelection().removeAllRanges();getSelection().addRange(range);return String(getSelection());});
     await page.waitForTimeout(1200);
@@ -128,7 +132,7 @@ const server=http.createServer((req,res)=>{
     await page.setViewportSize({width:390,height:844});
     await page.locator('#settings').click();
     const mobilePolicy=await page.evaluate(()=>{
-      const r=document.getElementById('network-a').getBoundingClientRect(),p=document.querySelector('.drawer-panel').getBoundingClientRect();
+      const r=document.getElementById('network-b').getBoundingClientRect(),p=document.querySelector('.drawer-panel').getBoundingClientRect();
       return {visibleMap:Math.max(0,Math.min(r.bottom,p.top)-Math.max(r.top,0)),panelWidth:p.width};
     });
     assert.ok(mobilePolicy.visibleMap>150,'mobile policies leave part of the live map visible');
