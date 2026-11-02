@@ -87,6 +87,7 @@ class LabLearningTests(TestCase):
         self.assertIn('COUNT does not establish', run.call_args.kwargs['system'])
         self.assertLess(len(run.call_args.kwargs['user']), 18000, 'atlas questions receive focused evidence rather than duplicate full guides and earlier assistant prose')
         self.assertNotIn('browser_reported_chat_history', payload)
+        self.assertNotIn('policy_values', payload['server_model_facts'], 'the browser run must not substitute its policy values for the stored atlas comparison')
         self.assertIn('opposite signs', payload['required_uncertainty'])
         from core.lab_learning import selected_atlas_summary
         rows = [p[side] for p in data['pairs'] for side in ('a', 'b')]

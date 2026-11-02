@@ -504,7 +504,10 @@ def public_lab_coach(request, slug):
     if selected_atlas:
         focused_atlas = {
             'server_selected_atlas_comparison': selected_atlas,
-            'server_model_facts': facts,
+            'server_model_facts': {
+                **{k: facts[k] for k in ('verified_engine_match', 'engine_sha', 'basis', 'rules') if k in facts},
+                'graph_mechanisms': {k: v for k, v in facts.get('graph_mechanisms', {}).items() if isinstance(v, str)},
+            },
             'source_sections': [{**s, 'text': s['text'][:1400]} for s in knowledge.get('sections', [])[:2]],
             'current_question': question,
         }
