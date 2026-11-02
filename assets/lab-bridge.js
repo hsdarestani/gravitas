@@ -6,7 +6,7 @@
 (function(){
   'use strict';
   var schema='graviquest.lab.v1';
-  var controlListeners=[],commandListeners=[],layerListeners=[],sectionListeners=[],experimentListeners=[],didRegister=false;
+  var controlListeners=[],commandListeners=[],layerListeners=[],sectionListeners=[],experimentListeners=[],lessonListeners=[],comparisonListeners=[],didRegister=false;
   var validKey=/^[a-z][a-z0-9_-]{0,63}$/;
   // The host page owns the theme. It names it in the frame URL (#theme=light)
   // so the first paint is already right, and posts lab:theme when the reader
@@ -81,6 +81,9 @@
       const clean={};for(const key of ['left','top','width','height','dockTop','viewportWidth','viewportHeight']){const value=payload?.[key];if(!Number.isFinite(value)||Math.abs(value)>20000)return;clean[key]=value;}
       send('lab:companion-layout',{layout:clean});
     },
+    lessonState:function(payload){send('lab:lesson-state',{lesson:payload});},
+    onLesson:function(fn){if(typeof fn==='function')lessonListeners.push(fn);},
+    onComparison:function(fn){if(typeof fn==='function')comparisonListeners.push(fn);},
     note:function(payload){send('lab:note',{note:payload});},
     openAtlas:function(){send('lab:open-atlas');},
     saveSnapshot:function(payload){send('lab:save-snapshot',{seed:payload?.seed});},
@@ -163,6 +166,8 @@
       controlListeners.forEach(function(fn){try{fn({key:data.key,value:data.value});}catch(_){}});
     if(data.type==='lab:command'&&['play','pause','reset','replay'].includes(data.command))
       commandListeners.forEach(function(fn){try{fn(data.command);}catch(_){}});
+    if(data.type==='lab:lesson'&&location.pathname.indexOf('/lab-run/science-universe/')===0&&['start','focus','observe','skip'].includes(data.action))lessonListeners.forEach(function(fn){try{fn({action:data.action,policy:String(data.policy||'')});}catch(_){}});
+    if(data.type==='lab:comparison'&&location.pathname.indexOf('/lab-run/science-universe/')===0)comparisonListeners.forEach(function(fn){try{fn(data);}catch(_){}});
     if(data.type==='lab:experiment'&&
        location.pathname.indexOf('/lab-run/science-universe/')===0&&
        ['review_bottleneck','selective_reporting','replication_capacity'].includes(data.id))

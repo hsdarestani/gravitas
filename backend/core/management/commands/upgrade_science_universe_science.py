@@ -26,6 +26,7 @@ EXPECTED = {
         '5a2fdf34fe6c2597d505542db3b85aa967a20e47',
     ),
     'index.html': (
+        'd91fbaeee14f21237436243ca54449d0cc41c409',
         '89096637e4815d6a49418637b567536bbaa386a4',
         '5038d45dd17f0f7b98ffa6abed8610d91e661262',
         '365dcad3f06dd9dd00d7c6cdefaa3b98d30767e9',
@@ -35,6 +36,7 @@ EXPECTED = {
         'bf9d933fc18d7f75fdbe6b4addc7a86b71f54d91',
     ),
     'app.js': (
+        '1a9c9660dd90059808bf7065f2bca9d25515ae4a',
         'acce9e10746b7e41975b2768fb9c9a78d33fa01b',
         'c1f5d73a0918e5507f54894126f10f42c1d22111',
         '29a285509bf24ea3d80454abecdf4213b0f76179',
@@ -45,6 +47,7 @@ EXPECTED = {
         '39582357f5ff293bffbc6bdf4b5ec84699884c7b',
     ),
     'styles.css': (
+        '70f556635f4927634cc17e3a8119b1ad47f1d261',
         'cdb4ff31fd508e36c0854653f366e5aae26e60e6',
         '304cad34e042a3c1ac11e284117fc24f70640799',
         'fc2cc1d89626d6b39abc1dc0b7956440f303aa78',
@@ -153,7 +156,8 @@ class Command(BaseCommand):
             lab.published_files = updated_published
             lab.version = next_version
             lab.published_version = next_version
-            lab.save(update_fields=['files','published_files','version','published_version','updated_at'])
+            lab.title = 'Science Ecosystem'
+            lab.save(update_fields=['files','published_files','version','published_version','title','updated_at'])
             if preserved_draft:
                 self.stdout.write(self.style.WARNING(
                     'The public Lab is updated; author draft remains different. '

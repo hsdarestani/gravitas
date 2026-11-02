@@ -6,6 +6,11 @@ on:
       - 'workspace.html'
       - 'assets/lab-bridge.js'
       - 'assets/lab-studio.js'
+      - 'assets/lab-learning-workspace.js'
+      - 'backend/core/lab_learning.py'
+      - 'backend/core/test_lab_learning.py'
+      - 'backend/core/migrations/0088*'
+      - 'scripts/lab-atlas-preview.cjs'
       - 'assets/lab-studio.css'
       - 'assets/ws/ws-lab-studio.js'
       - 'assets/ws/ws-lab-studio.css'
@@ -44,11 +49,12 @@ jobs:
         run: |
           node --check assets/lab-bridge.js
           node --check assets/lab-studio.js
+          node --check assets/lab-learning-workspace.js
           node --input-type=module --check < assets/ws/ws-lab-studio.js
           node --input-type=module --check < assets/ws/ws-admin.js
           node --input-type=module --check < assets/ws/ws-platform.js
           node scripts/test-lab-studio.cjs
-          node --test tests/science-evidence.test.cjs tests/science-evidence-integration.test.cjs tests/science-universe-original.test.cjs tests/science-pulsar-scenarios.test.cjs
+          node --test tests/science-evidence.test.cjs tests/science-evidence-integration.test.cjs tests/science-universe-original.test.cjs tests/science-pulsar-scenarios.test.cjs tests/lab-learning-atlas.test.cjs
           python3 ops/test_release_scope.py
       - name: Verify Lab Studio interaction and CSP in Chrome
         env:
@@ -80,4 +86,4 @@ jobs:
           PY="$RUNNER_TEMP/lab-test/bin/python"
           "$PY" -m django check
           "$PY" -m django makemigrations --check --dry-run
-          "$PY" -m django test core.test_lab_studio core.test_lab_knowledge core.test_science_universe_upgrade
+          "$PY" -m django test core.test_lab_studio core.test_lab_learning core.test_lab_knowledge core.test_science_universe_upgrade

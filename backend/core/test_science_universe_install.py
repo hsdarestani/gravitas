@@ -58,7 +58,7 @@ class ScienceUniverseInstallTests(TestCase):
         base = f'/api/platform/admin/labs/{lab.pk}/preview/'
         html = self.client.get(base)
         self.assertEqual(html.status_code, 200, html.content[:200])
-        self.assertIn(b'Science Universe', html.content)
+        self.assertIn(b'Science Ecosystem', html.content)
         self.assertIn(b'/assets/lab-bridge.js', html.content)
         self.assertIn("sandbox allow-scripts", html["Content-Security-Policy"])
         self.assertIn("connect-src 'none'", html["Content-Security-Policy"])

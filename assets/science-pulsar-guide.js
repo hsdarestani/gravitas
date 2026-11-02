@@ -22,6 +22,9 @@
     replications:Number.isInteger(raw.replications)?Math.max(0,raw.replications):0,
     seed:Number.isInteger(raw.seed)?raw.seed:null,playing:raw.playing===true,hasFork:raw.hasFork===true,
     policies:{},metrics:{},delta:{},design:{},graph:{},interval:{},focusEvent:null,policyEditing:raw.policyEditing===true,events:[],changes:[],lab:null,paper:null};
+  c.comparison=null;c.lesson=null;
+  if(raw.comparison&&typeof raw.comparison==='object'){c.comparison={a:{},b:{}};for(const side of ['a','b'])for(const [key,value] of Object.entries(raw.comparison[side]||{}).slice(0,40))if(typeof value==='number'&&Number.isFinite(value))c.comparison[side][key]=value;}
+  if(raw.lesson&&typeof raw.lesson.policy==='string')c.lesson={policy:raw.lesson.policy.slice(0,30),observed:raw.lesson.observed===true};
   for(var key of ['policies','metrics','delta','design','graph','interval']){
    var values=raw[key]&&typeof raw[key]==='object'?raw[key]:{};
    Object.keys(values).slice(0,40).forEach(function(k){var v=values[k];if(typeof v==='number'&&Number.isFinite(v))c[key][k]=v;});

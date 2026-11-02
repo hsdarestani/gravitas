@@ -253,7 +253,12 @@ from core.views import (
     password_reset_request,
 )
 
+from .lab_learning import lab_access, lab_conversation, lab_scenario_comparison
+
 urlpatterns = [
+    path('labs/<slug:slug>/access/', lab_access),
+    path('labs/<slug:slug>/conversation/', lab_conversation),
+    path('labs/<slug:slug>/scenarios/compare/', lab_scenario_comparison),
     path('platform/projects/<int:project_id>/structure/', project_files),
     path('platform/projects/<int:project_id>/file-content/', project_file_content),
     path('platform/projects/<int:project_id>/file-revisions/', project_file_revisions),
