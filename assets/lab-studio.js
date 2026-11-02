@@ -103,6 +103,22 @@ function saveChat(){
 }
 function messageText(m){
  var text=m.text;
+ // Translate leaked telemetry identifiers into the terms a visitor sees in the Lab.
+ var fa=/[پچژگکی]/.test(text),terms={
+   server_model_facts:fa?'قواعد مدل':'the model’s rules',
+   falsePublished:fa?'ادعاهای غلط':'false claims',
+   falseDiscoveryRate:fa?'سهم ادعاهای غلط':'the share of false claims',
+   reviewBacklog:fa?'صف داوری':'the review queue',
+   replicationBacklog:fa?'صف تکرارهای مستقل':'the queue for independent repeats',
+   healthyPapers:fa?'مقاله‌های باقی‌مانده در انتشار':'papers still published'
+ };
+ text=text.split(/(`[^`]+`|https?:\/\/[^\s)]+)/).map(function(part,i){
+   return i%2?part:part.replace(/\b(server_model_facts|falsePublished|falseDiscoveryRate|reviewBacklog|replicationBacklog|healthyPapers)\b/g,function(key){return terms[key];});
+ }).join('');
+ if(!fa)text=text.replace(/The concrete A\/B contrast is between /g,'Here we compare ')
+   .replace(/The plausible mechanism from the model’s rules is that /g,'In this model, ')
+   .replace(/The uncertainty or trade-off to watch is that /g,'The trade-off is that ')
+   .replace(/One next check is to examine the delta values for /g,'Next, compare the differences in ');
  // Source buttons carry the complete citation; keep long source URLs out of prose.
  text=text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,function(all,label,url){
   var cited=(m.citations||[]).find(function(c){return c.id===label||c.source_url===url;});
