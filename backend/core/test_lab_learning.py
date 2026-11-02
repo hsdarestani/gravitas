@@ -67,6 +67,31 @@ class LabLearningTests(TestCase):
 
     @patch('core.lab_api.configured', return_value=True)
     @patch('core.lab_api.run_text')
+    def test_atlas_tutor_gets_verified_aggregates_and_mixed_seed_spread(self, run, configured):
+        run.return_value = SimpleNamespace(provider='cloudflare', run_id='atlas', text='Compare publication counts and the range across the three matched seeds.')
+        data = self.client.get('/api/labs/science-universe/scenarios/compare/?low=3&high=9').json()
+        selection = {'policy': 'verification', 'low': 3, 'high': 9,
+                     'signatures': [p[side]['signature'] for p in data['pairs'] for side in ('a', 'b')],
+                     'metrics': {'falsePublished': {'delta': 999}}}
+        response = self.client.post('/api/labs/science-universe/coach/', json.dumps({
+            'event': 'ask', 'question': 'Does more checking always increase false claims?',
+            'atlas_comparison': selection}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        summary = json.loads(run.call_args.kwargs['user'])['server_selected_atlas_comparison']
+        self.assertEqual(summary['matched_seeds'], 3)
+        self.assertEqual(summary['metrics'], data['metrics'])
+        self.assertEqual(summary['metrics']['falsePublished']['seed_direction'], 'mixed')
+        self.assertEqual(summary['metrics']['falsePublished']['delta_min'], -5)
+        self.assertEqual(summary['metrics']['falsePublished']['delta_max'], 4)
+        self.assertIn('COUNT does not establish', run.call_args.kwargs['system'])
+        from core.lab_learning import selected_atlas_summary
+        rows = [p[side] for p in data['pairs'] for side in ('a', 'b')]
+        self.assertIsNone(selected_atlas_summary(rows[:-1], selection))
+        rows[0]['days'] += 1
+        self.assertIsNone(selected_atlas_summary(rows, selection))
+
+    @patch('core.lab_api.configured', return_value=True)
+    @patch('core.lab_api.run_text')
     def test_twenty_five_guest_questions_then_account_gate_without_closing_lab(self, run, configured):
         run.return_value = SimpleNamespace(provider='cloudflare', run_id='trial', text='Compare both worlds over the same model days.')
         for index in range(25):

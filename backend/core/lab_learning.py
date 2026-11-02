@@ -19,6 +19,43 @@ MEASURES = ('published', 'healthyPapers', 'falsePublished', 'falseDiscoveryRate'
             'retracted', 'reviewBacklog', 'replicationBacklog', 'generated', 'tested', 'citations')
 
 
+def paired_metrics(pairs):
+    metrics = {}
+    for metric in MEASURES:
+        if not all(type(p[side]['result'].get(metric)) in (int, float) for p in pairs for side in ('a', 'b')):
+            continue
+        a, b = [p['a']['result'][metric] for p in pairs], [p['b']['result'][metric] for p in pairs]
+        delta = [y-x for x, y in zip(a, b)]
+        metrics[metric] = {'a': mean(a), 'b': mean(b), 'delta': mean(delta),
+                           'delta_min': min(delta), 'delta_max': max(delta),
+                           'seed_direction': 'mixed' if min(delta) < 0 < max(delta) else 'same_or_zero'}
+    return metrics
+
+
+def selected_atlas_summary(rows, selection):
+    """Summarize verified rows only when they form one complete, controlled comparison."""
+    policy, low, high = (selection.get(k) for k in ('policy', 'low', 'high'))
+    if (not rows or policy not in POLICY_KEYS or type(low) is not int or type(high) is not int
+            or not 1 <= low <= 10 or not 1 <= high <= 10 or low == high):
+        return None
+    reference = rows[0]
+    fixed = {k: v for k, v in reference['parameters'].items() if k != policy}
+    grouped = defaultdict(dict)
+    for row in rows:
+        if (row['days'] != reference['days'] or row['design'] != reference['design']
+                or {k: v for k, v in row['parameters'].items() if k != policy} != fixed
+                or row['parameters'].get(policy) not in (low, high)):
+            return None
+        grouped[row['seed']][row['parameters'][policy]] = row
+    if any(low not in group or high not in group for group in grouped.values()):
+        return None
+    pairs = [{'a': group[low], 'b': group[high]} for group in grouped.values()]
+    return {'policy': policy, 'a_setting': low, 'b_setting': high,
+            'days': reference['days'], 'matched_seeds': len(pairs),
+            'metrics': paired_metrics(pairs), 'provenance': 'server_verified_stored_model_runs',
+            'reading_rule': 'Counts are not probabilities. Mixed seed differences do not establish a consistent increase. Seed spread is descriptive, not a confidence interval; these are synthetic outcomes, not empirical findings.'}
+
+
 def trial_row(request, lab):
     token = request.session.get('lab_guest_trial')
     if not token:
@@ -165,14 +202,7 @@ def lab_scenario_comparison(request, slug):
              if low in values and high in values]
     if not pairs:
         return JsonResponse({'ok': False, 'error': 'comparison_not_available'}, status=404)
-    metrics = {}
-    for metric in MEASURES:
-        if not all(type(p[side]['result'].get(metric)) in (int, float) for p in pairs for side in ('a', 'b')):
-            continue
-        a, b = [p['a']['result'][metric] for p in pairs], [p['b']['result'][metric] for p in pairs]
-        delta = [y-x for x, y in zip(a, b)]
-        metrics[metric] = {'a': mean(a), 'b': mean(b), 'delta': mean(delta),
-                           'delta_min': min(delta), 'delta_max': max(delta)}
+    metrics = paired_metrics(pairs)
     # Emit aligned means only at model days available in every matched run.
     trajectories = [{int(t['day']): t for t in p[side]['trajectory']} for p in pairs for side in ('a', 'b')]
     days = sorted(set.intersection(*(set(t) for t in trajectories))) if trajectories else []
