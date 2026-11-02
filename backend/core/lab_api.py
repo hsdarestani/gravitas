@@ -449,6 +449,7 @@ def public_lab_coach(request, slug):
     science_state = clean_context(data.get('context')) if slug == 'science-universe' else {}
     knowledge, allowed_citations = scientific_context(item, question, key, science_state) if slug == 'science-universe' else ({}, [])
     facts = model_facts(item, science_state) if slug == 'science-universe' else {}
+    selected_atlas = None
     if slug == 'science-universe' and isinstance(data.get('atlas_comparison'), dict):
         from .lab_knowledge_models import LabScenario
         requested = data['atlas_comparison'].get('signatures', [])
@@ -457,6 +458,8 @@ def public_lab_coach(request, slug):
             knowledge['selected_atlas_runs'] = list(LabScenario.objects.filter(lab=item,
                 engine_sha=knowledge.get('atlas', {}).get('engine_sha', ''), signature__in=signatures).values(
                     'signature', 'parameters', 'design', 'seed', 'days', 'result'))
+            from .lab_learning import selected_atlas_summary
+            selected_atlas = selected_atlas_summary(knowledge['selected_atlas_runs'], data['atlas_comparison'])
             knowledge['atlas_reading_rule'] = 'These are server-stored executed model runs, separate from the current browser run. Compare only runs with a matched seed, design, days and all other policies equal.'
     metrics = data.get('metrics') if isinstance(data.get('metrics'), dict) else {}
     metrics = {k: round(v, 4) for k, v in list(metrics.items())[:32]
@@ -493,6 +496,10 @@ def public_lab_coach(request, slug):
                 'For questions answer directly in up to 6 concise sentences; general scientific questions are welcome. '
                 'Use the question language when it differs from the page locale. '
                 'Speak like a thoughtful lab tutor. Lead with interpretation, not a log entry or a list of counters. '
+                'Do not repeat the same point in different words. '
+                'When explaining an atlas selection, server_selected_atlas_comparison is the authoritative summary, separate from the browser run. '
+                'Start with one concrete A/B numerical contrast and the number of matched seeds. Then explain the trade-off, a plausible mechanism from server_model_facts, and one useful next check in at most four short sentences. '
+                'An increased false-claim COUNT does not establish a higher false-claim PROBABILITY or RATE. If seed differences have mixed signs, explicitly say the small mean difference is inconclusive; never say the policy consistently increases it. '
                 'Observed numbers and event names are client-reported, not independently validated. '
                 'In Science Ecosystem (legacy slug science-universe), the colored clusters are abstract research communities named Community 01–04, not Biology/Climate/Physics/Materials. Existing internal field IDs preserve reproducible assumptions; do not infer real disciplines. Lead all hands-on learning with a matched A/B comparison. Use the current guided lesson and atlas comparison when supplied. A visitor can select a paper dot in Knowledge flow, or select a LAB then a PAPER '
                 'from Latest published claims in the inspector. The live_papers metric is ONLY '
@@ -534,6 +541,7 @@ def public_lab_coach(request, slug):
                 'Do not drift to unrelated controls. Distinguish calculated mechanisms, observed intervals and possible future effects. '
             ),
             user=json.dumps({
+                'server_selected_atlas_comparison': selected_atlas,
                 'lab': item.title, 'learning_goal': str(config.get('learning_goal') or '')[:700],
                 'section': section, 'event': key, 'metrics': metrics, 'question': question,
                 'scientific_context': knowledge,
