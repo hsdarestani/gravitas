@@ -77,13 +77,17 @@ class LabLearningTests(TestCase):
             'event': 'ask', 'question': 'Does more checking always increase false claims?',
             'atlas_comparison': selection}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
-        summary = json.loads(run.call_args.kwargs['user'])['server_selected_atlas_comparison']
+        payload = json.loads(run.call_args.kwargs['user'])
+        summary = payload['server_selected_atlas_comparison']
         self.assertEqual(summary['matched_seeds'], 3)
         self.assertEqual(summary['metrics'], data['metrics'])
         self.assertEqual(summary['metrics']['falsePublished']['seed_direction'], 'mixed')
         self.assertEqual(summary['metrics']['falsePublished']['delta_min'], -5)
         self.assertEqual(summary['metrics']['falsePublished']['delta_max'], 4)
         self.assertIn('COUNT does not establish', run.call_args.kwargs['system'])
+        self.assertLess(len(run.call_args.kwargs['user']), 18000, 'atlas questions receive focused evidence rather than duplicate full guides and earlier assistant prose')
+        self.assertNotIn('browser_reported_chat_history', payload)
+        self.assertIn('opposite signs', payload['required_uncertainty'])
         from core.lab_learning import selected_atlas_summary
         rows = [p[side] for p in data['pairs'] for side in ('a', 'b')]
         self.assertIsNone(selected_atlas_summary(rows[:-1], selection))
