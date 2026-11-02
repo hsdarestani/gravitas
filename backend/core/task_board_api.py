@@ -29,6 +29,7 @@ from .platform_runtime_v3 import _canonical_workspace, core_access
 from .task_notifications import enqueue_task_event, enqueue_task_mentions
 from .workspace_api import _can_manage_workspace
 from .task_dates import apply_date_patch, can_edit_dates, dates_json
+from .platform_access import access_batch, can_view, can_edit
 from .operating_models import (
     Initiative,
     OperatingCycle,
@@ -105,6 +106,8 @@ def _task_for(request, task_id, *, counts=True, lock=False):
         .filter(pk=task_id, workspace=workspace)
         .first()
     )
+    if task and not can_view(request.user, task):
+        task = None
     if task and counts:
         # Four reverse-relation JOINs previously multiplied comments, files
         # and checklist rows before DISTINCT aggregates. Indexed count queries
@@ -159,6 +162,7 @@ def _task_json(task):
         'due_date': task.due_date.isoformat() if task.due_date else None,
         'definition_of_done': task.definition_of_done,
         'blocked_reason': task.blocked_reason,
+        'execution_weight': task.execution_weight,
         'board_order': task.board_order,
         'initiative_id': task.initiative_id,
         'initiative_title': task.initiative.title if task.initiative_id else '',
@@ -499,10 +503,13 @@ def task_board(request):
     # A task opened from Projects, a notification, or the dock only needs
     # dependency names; loading the entire rich board delayed every popup.
     if request.GET.get('mode') == 'dependencies':
+        candidates = list(OperatingTask.objects.filter(workspace=workspace).exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
+                          .select_related('workspace', 'project__workspace').order_by('title', 'pk'))
+        with access_batch(request.user, candidates):
+            dependencies = [{'id': task.pk, 'title': task.title} for task in candidates if can_view(request.user, task)]
         return JsonResponse({
             'ok': True,
-            'tasks': list(OperatingTask.objects.filter(workspace=workspace).exclude(pk__in=OperatingTaskConsolidation.objects.values('source_id'))
-                          .order_by('title', 'pk').values('id', 'title')),
+            'tasks': dependencies,
         })
 
     tasks = list(
@@ -513,6 +520,8 @@ def task_board(request):
         )
         .order_by('status', 'board_order', 'priority', 'due_date', 'id')
     )
+    with access_batch(request.user, tasks):
+        tasks = [task for task in tasks if can_view(request.user, task)]
     # Four DISTINCT counts across three joined collections multiply each
     # task's rows (comments × attachments × checklist items). Aggregate each
     # collection independently, then attach counts to the already loaded tasks.
@@ -665,6 +674,9 @@ def task_board_detail(request, task_id):
     if not task:
         return _error('task_not_found', 404)
 
+    if request.method == 'PATCH' and not can_edit(request.user, task):
+        return _error('permission_denied', 403)
+
     if request.method in ('PATCH', 'DELETE') and canonical_id(task.pk) != task.pk:
         return _error('task_consolidated_read_only', 409, canonical_task_id=canonical_id(task.pk))
 
@@ -765,6 +777,11 @@ def task_board_detail(request, task_id):
     if expected is not None and expected != task.updated_at.isoformat():
         return _error('task_changed_elsewhere', 409, task=_task_json(task))
     before = _task_json(task)
+    if 'execution_weight' in payload:
+        value = payload['execution_weight']
+        if value is not None and (type(value) is not int or not 1 <= value <= 100000):
+            return _error('invalid_execution_weight')
+        task.execution_weight = value
 
     if 'parent_id' in payload:
         from .platform_access import can_view

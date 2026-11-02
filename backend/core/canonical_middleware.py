@@ -85,6 +85,8 @@ def _committed_task_snapshot_read(request):
     path = request.path
     return bool(
         re.fullmatch(r'/api/operating/task-board/\d+/', path)
+        or re.fullmatch(r'/api/operating/execution/(?:settings/)?', path)
+        or re.fullmatch(r'/api/platform/projects/\d+/execution/', path)
         or re.fullmatch(
             r'/api/operating/tasks/\d+/(?:history|comments|attachments|checklist|external-links)/'
             r'(?:\d+/(?:download/)?)?', path,
@@ -151,6 +153,18 @@ def deferred_task_patch(request, view_func, view_args, view_kwargs):
     import time
 
     task_id = view_kwargs.get('task_id')
+    # Acquire the graph lock before any task row lock. Opposing concurrent
+    # edges must not both validate against the old graph, or deadlock while
+    # each editor holds its own task and waits for the other's FK lock.
+    try:
+        graph_payload = json.loads(request.body or b'{}')
+    except (ValueError, UnicodeDecodeError):
+        graph_payload = {}
+    if isinstance(graph_payload, dict) and graph_payload.get('dependency_id'):
+        from .models import Workspace
+        workspace_id = OperatingTask.objects.filter(pk=task_id).values_list('workspace_id', flat=True).first()
+        if workspace_id:
+            Workspace.objects.select_for_update().get(pk=workspace_id)
     task = OperatingTask.objects.select_for_update().filter(pk=task_id).only('id', 'project_id').first()
     if task is None:
         return None

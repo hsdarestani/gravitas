@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -152,6 +152,22 @@ class OperatingMilestone(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        previous = type(self).objects.filter(pk=self.pk).values('title', 'due_date', 'status', 'owner_id').first() if self.pk else None
+        result = super().save(*args, **kwargs)
+        from .execution_history import _context, scalar
+        from .layer_models import ActivityEvent
+        fields = ('title', 'due_date', 'status', 'owner_id')
+        changes = {key: {'from': scalar(previous[key]) if previous else None, 'to': scalar(getattr(self, key))}
+                   for key in fields if previous is None or previous[key] != getattr(self, key)}
+        if changes:
+            actor, source = _context.get()
+            ActivityEvent.objects.create(layer='core', action='milestone.lifecycle', actor_id=actor,
+                object_type='operating_milestone', object_id=str(self.pk), detail={
+                    'workspace_id': self.workspace_id, 'changes': changes, 'source': source})
+        return result
+
     class Meta:
         ordering = ['due_date', 'id']
 
@@ -242,6 +258,7 @@ class OperatingTask(models.Model):
     source_key = models.CharField(max_length=240, unique=True, null=True, blank=True)
     source_metadata = models.JSONField(default=dict, blank=True)
     blocked_reason = models.TextField(blank=True)
+    execution_weight = models.PositiveIntegerField(blank=True, null=True)
     started_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     date_provenance = models.JSONField(default=dict, blank=True)
@@ -264,20 +281,41 @@ class OperatingTask(models.Model):
             cursor = cursor.parent
         if self.pk and self.subtasks.exclude(workspace_id=self.workspace_id, project_id=self.project_id).exists():
             raise ValidationError({'project': 'Move the complete task family together.'})
+        # Dependencies are finish-to-start. Read the edges once rather than
+        # walking a long chain with one query per predecessor.
+        if self.dependency_id:
+            edges = dict(type(self).objects.filter(workspace_id=self.workspace_id).values_list('pk', 'dependency_id'))
+            seen = {self.pk} if self.pk else set()
+            cursor = self.dependency_id
+            while cursor is not None:
+                if cursor in seen:
+                    raise ValidationError({'dependency': 'Task dependencies cannot contain a cycle.'})
+                if cursor not in edges:
+                    raise ValidationError({'dependency': 'Dependencies must share a workspace.'})
+                seen.add(cursor)
+                cursor = edges[cursor]
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
-        self.clean()
         previous = None
         if self.pk:
+            from .execution_history import TRACKED
             previous = type(self).objects.using(kwargs.get('using') or self._state.db).filter(pk=self.pk).values(
-                'source_key', 'status', 'due_date', 'completed_at').first()
+                'source_key', *TRACKED).first()
             if previous and previous['source_key'] and previous['source_key'] != self.source_key:
                 raise ValidationError({'source_key': 'A source binding is immutable.'})
+        if self.dependency_id and (previous is None or previous['dependency_id'] != self.dependency_id):
+            # Serialize competing edge additions before the final cycle check.
+            from .models import Workspace
+            Workspace.objects.select_for_update().get(pk=self.workspace_id)
+        self.clean()
         from .task_dates import track_dates
         fields = track_dates(self, previous, kwargs.get('update_fields'))
         if kwargs.get('update_fields') is not None:
             kwargs['update_fields'] = set(kwargs['update_fields']) | fields
         result = super().save(*args, **kwargs)
+        from .execution_history import record_task_save
+        record_task_save(self, previous, kwargs.get('update_fields'), kwargs.get('using') or self._state.db)
         self._explicit_date_fields = set()
         return result
 

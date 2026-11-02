@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-const source = await readFile(new URL('../assets/ws/ws-task-timeline.js', import.meta.url), 'utf8');
+let source = await readFile(new URL('../assets/ws/ws-task-timeline.js', import.meta.url), 'utf8');
+source = source.replace(/^import .*mountExecution.*;\n/m, 'const mountExecution = () => {};\n');
 const { timelineModel, dateMillis, taskDateLabel, taskDateFields } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const now = Date.parse('2026-10-30T12:00:00Z');
 const tasks = [

@@ -89,13 +89,14 @@ def project_milestones(request, project_id):
 
 
 @require_http_methods(['PATCH', 'DELETE'])
+@transaction.atomic
 def project_milestone_detail(request, project_id, milestone_id):
     if not request.user.is_authenticated:
         return _error('authentication_required', 401)
     project = _project(request, project_id, 'edit')
     if not project:
         return _error('permission_denied', 403)
-    item = OperatingMilestone.objects.select_related('owner', 'initiative', 'cycle').filter(
+    item = OperatingMilestone.objects.select_for_update(of=('self',)).select_related('owner', 'initiative', 'cycle').filter(
         pk=milestone_id,
         project=project,
     ).first()
@@ -122,6 +123,8 @@ def project_milestone_detail(request, project_id, milestone_id):
     data = _payload(request)
     if data is None:
         return _error('invalid_json')
+    if 'expected_updated_at' in data and data['expected_updated_at'] != item.updated_at.isoformat():
+        return _error('milestone_changed_elsewhere', 409)
     changed = []
     if 'title' in data:
         title = str(data.get('title') or '').strip()[:220]

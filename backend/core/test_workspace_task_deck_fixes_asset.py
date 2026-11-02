@@ -19,7 +19,9 @@ class WorkspaceTaskDeckContractTests(SimpleTestCase):
     def test_core_tasks_insert_the_deck_row_themselves(self):
         views = self.read('assets/ws/ws-views.js')
         self.assertIn("import { deckPanel } from './ws-deck-sync.js?v=20261016-task1", views)
-        self.assertIn('if (host.isConnected) head.after(deckPanel(', views)
+        self.assertIn('if (host.isConnected) {', views)
+        self.assertIn('head.after(deckDetails)', views)
+        self.assertIn('deckPanel({ go, onPulled:', views)
 
     def test_deck_row_syncs_both_ways(self):
         js = self.read('assets/ws/ws-deck-sync.js')

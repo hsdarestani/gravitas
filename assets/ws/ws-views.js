@@ -12,7 +12,7 @@ import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1
 import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
-import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261030minutes1';
+import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261102execution1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -194,14 +194,19 @@ export function openCoreTask(taskId, { go, onTaskChange } = {}) {
 }
 
 export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = null }) {
-  const doc = docShell(host, 'Tasks & Execution', 'Manager-defined execution. Create tasks manually from existing Key Results and optional Milestones.');
+  const doc = docShell(host, 'Tasks & Execution', 'Track progress, identify bottlenecks, and understand milestone delivery.');
   // ws.css styles this board's compact tiles through this attribute.
   doc.dataset.coreTasksNative = 'true';
   const head = doc.querySelector(':scope > .ws-doc__head');
   head.classList.add('task-board__head');
   // The Deck row belongs to the board on screen, not to the copy openCoreTask
   // draws off-screen to reuse the task dialog.
-  if (host.isConnected) head.after(deckPanel({ go, onPulled: () => renderCoreTasks(host, { go, openTaskId, onTaskChange }) }));
+  let deckDetails = null;
+  if (host.isConnected) {
+    deckDetails = el('details', 'task-board__sync-details');
+    deckDetails.append(el('summary', null, 'Nextcloud Deck · synchronization'), deckPanel({ go, onPulled: () => renderCoreTasks(host, { go, openTaskId, onTaskChange }) }));
+    head.after(deckDetails);
+  }
   const holder = el('div');
   doc.append(holder);
   skeleton(8, holder);
@@ -2285,7 +2290,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     // The board opens on the reader's own work as cards; owner stays null
     // until the member list arrives, so a reader who is not a member of this
     // workspace falls back to everyone rather than to an empty board.
-    let filters = { q: '', owner: null, priority: '', sort: 'manual', view: 'board' };
+    const requestedView = new URLSearchParams(location.search).get('ei_view');
+    let filters = { q: '', owner: null, priority: '', sort: 'manual', view: ['timeline', 'analysis'].includes(requestedView) ? requestedView : 'board' };
+    const executionState = {};
     let deepLinkedTaskOpened = false;
     let applyLocalMutation = null;
     // Deep-link cards are independent of the full, potentially large board.
@@ -2316,12 +2323,13 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       holder.innerHTML = '';
 
       const openTasks = data.tasks.filter((task) => !['done', 'archived'].includes(task.status)).length;
-      holder.append(stats([
+      const boardStats = stats([
         ['Open tasks', openTasks],
         ['Backlog', data.tasks.filter((task) => task.status === 'draft').length],
         ['Blocked', data.tasks.filter((task) => task.status === 'blocked').length],
         ['Done', data.tasks.filter((task) => task.status === 'done').length],
-      ]));
+      ]);
+      holder.append(boardStats);
 
       if (!data.tasks.length) {
         const note = el('div', 'v-note');
@@ -2353,7 +2361,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       viewFilter.setAttribute('role', 'group');
       viewFilter.setAttribute('aria-label', 'Task view');
       viewFilter.value = filters.view || 'board';
-      for (const [value, text] of [['tree', 'Tree'], ['board', 'Board'], ['week', 'Week'], ['timeline', 'Timeline'], ['graph', 'Graph']]) {
+      for (const [value, text] of [['tree', 'Tree'], ['board', 'Board'], ['week', 'Week'], ['timeline', 'Timeline'], ['graph', 'Graph'], ['analysis', 'Bottleneck Analysis']]) {
         const option = el('button', 'task-view-switch__option', text);
         option.type = 'button';
         option.dataset.view = value;
@@ -2361,6 +2369,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         option.addEventListener('click', () => {
           if (viewFilter.value === value) return;
           viewFilter.value = value;
+          const url = new URL(location.href);
+          if (['timeline', 'analysis'].includes(value)) url.searchParams.set('ei_view', value); else url.searchParams.delete('ei_view');
+          history.replaceState(history.state, '', url.pathname + url.search + url.hash);
           for (const other of viewFilter.children) other.setAttribute('aria-pressed', String(other.dataset.view === value));
           viewFilter.dispatchEvent(new Event('change'));
         });
@@ -2423,14 +2434,20 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           sort: sortFilter.value,
           view: viewFilter.value,
         };
+        const intelligenceView = ['timeline', 'analysis'].includes(filters.view);
+        boardStats.style.display = intelligenceView ? 'none' : '';
+        for (const control of [search, ownerFilter, priorityFilter, sortFilter, count]) control.style.display = intelligenceView ? 'none' : '';
+        if (deckDetails) deckDetails.open = !intelligenceView;
         const q = filters.q.toLowerCase();
         const visible = data.tasks.filter((task) => {
+          if (intelligenceView) return true;
           if (filters.owner && String(task.owner?.id) !== filters.owner) return false;
           if (filters.priority && task.priority !== filters.priority) return false;
           if (q && !taskSearchText(task).includes(q)) return false;
           return true;
         });
         count.textContent = `${visible.length} of ${data.tasks.length}`;
+        board._execution?.destroy();
         board.innerHTML = '';
         holder.querySelector('.task-board-view-note')?.remove();
         board.className = filters.view === 'board'
@@ -2451,8 +2468,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           syncTopScroll();
           return;
         }
-        if (filters.view === 'timeline') {
-          renderTaskTimeline(board, visible, { openTask: task => openCard(task.id) });
+        if (['timeline', 'analysis'].includes(filters.view)) {
+          renderTaskTimeline(board, visible, { openTask: task => openCard(task.id), mode: filters.view, state: executionState });
           window.requestAnimationFrame(syncTopScroll);
           return;
         }

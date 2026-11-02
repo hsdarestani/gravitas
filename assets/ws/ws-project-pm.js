@@ -3,7 +3,7 @@
  * These views do not persist a competing task representation. */
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';
-import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261030minutes1';
+import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261102execution1';
 
 const node = (tag, cls = '', content = '') => {
   const n = document.createElement(tag);
@@ -64,6 +64,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   let tasks = [...(cockpit.tasks || [])];
   let timeSummary = null;
   let scheduleMap = null;
+  const executionState = {};
   const members = cockpit.members || [];
   const current = { view: 'board', text: '', status: '', owner: '', priority: '', onlyOverdue: false };
   const today = dayKey(new Date());
@@ -235,7 +236,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
 
   function paint({ preserveFilters = false, preserveBody = false } = {}) {
     stat.replaceChildren();
-    if (!preserveBody) body.replaceChildren();
+    if (!preserveBody) { body._execution?.destroy(); body.replaceChildren(); }
     if (!preserveFilters) filters.replaceChildren();
     const n = filtered();
     [
@@ -246,8 +247,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       ['Completed', n.filter(done).length],
       ['Time logged', timeSummary ? (timeSummary.total_minutes/60).toFixed(1)+'h' : '—']
     ].forEach(([k,v])=>{const c=node('div','pm-stat');c.append(node('strong','',String(v)),node('small','',k));stat.append(c);});
-    if (!views.children.length) ['board','list','timeline','week','team','work logs','matrix','review'].forEach(mode=>{
-      const b=btn(mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint({ preserveFilters: true });});
+    if (!views.children.length) ['board','list','timeline','analysis','week','team','work logs','matrix','review'].forEach(mode=>{
+      const b=btn(mode === 'analysis' ? 'Bottleneck Analysis' : mode[0].toUpperCase()+mode.slice(1),()=>{current.view=mode;paint({ preserveFilters: true });});
       b.dataset.mode=mode; views.append(b);
     });
     for (const button of views.children) button.setAttribute('aria-pressed', String(current.view === button.dataset.mode));
@@ -277,8 +278,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       });body.append(cols);
     }else if(current.view==='list'){
       const list=node('div','pm-list');n.forEach(t=>{const line=node('div','pm-task');line.append(node('span','',t.title+' · '+format(t)),btn('Details',()=>openEditor(t)));list.append(line);});body.append(list);
-    }else if(current.view==='timeline'){
-      renderTaskTimeline(body, n, { plans: scheduleMap || new Map(), openTask: openEditor, editPlan: editSchedule });
+    }else if(['timeline','analysis'].includes(current.view)){
+      renderTaskTimeline(body, n, { openTask: openEditor, editPlan: editSchedule, projectId, mode: current.view, state: executionState });
     }else if(current.view==='week'){
       body.append(node('p','pm-note','Next seven days: tasks active within an explicitly planned date range, plus unscheduled tasks due that day. These are date assignments, not hourly reservations.'));
       const days=node('div','pm-planner');

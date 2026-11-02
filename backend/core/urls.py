@@ -33,6 +33,7 @@ from core.research_calendar_api import research_calendar
 from core.member_api import member_dashboard
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
+from core.execution_api import execution_dashboard, execution_settings, execution_schedule
 from core.task_board_api import (
     task_attachment_delete,
     task_attachment_download,
@@ -480,6 +481,10 @@ urlpatterns = [
     path('operating/work-packages/<int:work_package_id>/', require_core(work_package_detail)),
     path('operating/tasks/', require_core(tasks)),
     path('operating/task-board/', require_core(task_board)),
+    path('operating/execution/', require_core(execution_dashboard)),
+    path('operating/execution/settings/', require_core(execution_settings)),
+    path('operating/execution/schedules/', require_core(execution_schedule)),
+    path('platform/projects/<int:project_id>/execution/', require_research_or_core(execution_dashboard)),
     path('operating/task-board/move/', require_core(task_board_move)),
     path('operating/task-board/<int:task_id>/', require_core(task_board_detail)),
     path('operating/tasks/<int:task_id>/checklist/', require_core(task_checklist)),

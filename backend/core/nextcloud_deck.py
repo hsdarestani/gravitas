@@ -356,7 +356,9 @@ def _pull_card(task, current):
             elif locked.completed_at is not None:
                 locked.completed_at = None
                 update_fields.append('completed_at')
-        locked.save(update_fields=[*dict.fromkeys(update_fields), 'updated_at'])
+        from .execution_history import execution_source
+        with execution_source('nextcloud'):
+            locked.save(update_fields=[*dict.fromkeys(update_fields), 'updated_at'])
     return 'pulled'
 
 
