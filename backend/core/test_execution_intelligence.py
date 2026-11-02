@@ -51,6 +51,7 @@ class ExecutionMetricTests(SimpleTestCase):
         self.assertEqual(result['blocked_seconds'], 5 * DAY)
         self.assertEqual(result['lead_seconds'], 17 * DAY)
         self.assertEqual(result['cycle_seconds'], 15 * DAY)
+        self.assertEqual(result['time_to_first_action_seconds'], 2 * DAY)
         self.assertEqual(result['segments'][-1]['end'], at(18).isoformat())
 
     def test_missing_history_never_becomes_active_labor_acceptance_c(self):

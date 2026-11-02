@@ -162,7 +162,16 @@ def task_metrics(task, raw_events, now, config, work_entries=None, plan=None):
                 work += max(0, (b - max(a, end or a)).total_seconds())
                 end = max(end or b, b)
     first_active = min([at for at, _, status, _ in transitions if status in ACTIVE] + ([started] if precise_start and started <= now else []), default=None)
-    first_action = min(human, default=None)
+    # Creating/queuing a task is human activity, but is not its first work
+    # action. An explicitly active creation can establish both at once.
+    def is_work_action(event):
+        change = event['changes'].get('status')
+        change = change if isinstance(change, dict) else {}
+        if change.get('to') in ACTIVE:
+            return True
+        initial_status = event['action'] == 'task.lifecycle' and change.get('from') is None and change.get('to')
+        return event['action'] not in ('task.created', 'task_created') and not event['detail'].get('initial_observation') and not initial_status
+    first_action = min((e['at'] for e in events if e['human'] and is_work_action(e)), default=None)
     lifecycle_known = bool(transitions)
     finished = bool(not open_task and completed and not completion_estimated)
     return {
@@ -278,6 +287,8 @@ def annotate_graph(tasks, milestones, now, zone='UTC'):
                       'priority': {'p0': 10, 'p1': 7, 'p2': 3, 'p3': 0}.get(task['priority'], 0)}
         a['bottleneck_components'] = {key: round(value, 1) for key, value in components.items()}
         a['bottleneck_score'] = round(sum(components.values()), 1) if task['status'] not in TERMINAL else 0
+        if task['status'] in TERMINAL:
+            a['bottleneck_components'] = {key: 0 for key in components}
         a['diagnostics'] = []
         if a['stalled']:
             a['diagnostics'].append(f"No recorded human activity for {a['inactivity_business_days']} business days.")
