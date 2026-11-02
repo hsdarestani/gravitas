@@ -164,7 +164,13 @@ chart, the ruler remained within one pixel of the scroll container edge, and
 task identities remained within one pixel of the left edge while scrolling
 horizontally. Only 20–28 task rows were mounted at a time.
 
-Final test totals, pull request, commit and deployment outcome are recorded in
-the delivery report after CI. Production Nextcloud service credentials are not
+Local validation passed all 1,095 backend tests (three existing skips). The
+Execution Intelligence Acceptance CI passed at both 1440×1100 and 390×844 with
+1,005 tasks, exact lifecycle durations, weighted milestone drill-down, server
+persistence, and zero document overflow. The existing Workspace Reliability
+desktop/mobile browser suite and PostgreSQL concurrency suite also passed.
+
+Pull request: https://github.com/hsdarestani/gravitas/pull/319. Final commit and
+deployment outcome are recorded in the delivery report. Production Nextcloud service credentials are not
 present in the local environment; local sync regressions use the repository's
 existing integration fixtures. No fixture data is intended for production.

@@ -7,6 +7,7 @@ import { renderExecutionGantt, element as el, button, hierarchyRows } from './ws
 const DAY = 86400;
 export function duration(value) {
   if (value == null) return 'Not recorded';
+  if (value === 0) return '0 min';
   if (value < 60) return '<1 min';
   if (value < 3600) return Math.round(value / 60) + ' min';
   if (value < DAY) return (value / 3600).toFixed(1) + ' h';
