@@ -15,8 +15,8 @@ function start(lab){
   for(const k of ['value','from','day','days','step','seed','low','high','laboratory'])if(typeof raw[k]==='number'&&Number.isFinite(raw[k])&&Math.abs(raw[k])<=1e12)out[k]=raw[k];
   if(['A','B'].includes(raw.world))out.world=raw.world;return out;
  }
- function record(kind,data){if(ended||!allowed||!KINDS.has(kind))return;queue.push({id:uuid(),kind,data:clean(data)});if(queue.length>100)queue.shift();if(queue.length>=20)flush();}
- function debounced(kind,data){if(!allowed||ended)return;const key=kind+':'+(data?.parameter||'');clearTimeout(pending.get(key)?.timer);pending.set(key,{kind,data,timer:setTimeout(()=>{pending.delete(key);record(kind,data);flush();},700)});}
+ function record(kind,data){if(ended||!allowed||!KINDS.has(kind))return;if(kind!=='opened'&&kind!=='closed')input();queue.push({id:uuid(),kind,data:clean(data)});if(queue.length>100)queue.shift();if(queue.length>=20)flush();}
+ function debounced(kind,data){if(!allowed||ended)return;input();const key=kind+':'+(data?.parameter||'');clearTimeout(pending.get(key)?.timer);pending.set(key,{kind,data,timer:setTimeout(()=>{pending.delete(key);record(kind,data);flush();},700)});}
  function drain(){for(const [key,item] of pending){clearTimeout(item.timer);queue.push({id:uuid(),kind:item.kind,data:clean(item.data)});pending.delete(key);}}
  async function flush(){sample();drain();if(busy||!allowed)return;const batch=queue.splice(0,30),visit=id;if(!batch.length&&!wasActive&&!ended)return;busy=true;
   try{const response=await fetch(url,{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({visit,active_seconds:Math.floor(active),events:batch})});
