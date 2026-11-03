@@ -21,32 +21,54 @@ function button(label,action,cls=''){const n=el('button','g-btn g-btn--secondary
 function number(v){return Number(v).toLocaleString('en-US',{maximumFractionDigits:1});}
 let host=null,guide=null,guideIndex=-1,lessonState=null,atlas=null,atlasSequence=0,access=null,canSync=false,syncTimer=null,loading=false;
 let config=null,authOwner=null,accessReady=false,notice=null,saveRequested=false;
-let lessonPolicies=POLICIES,guideDays=20;
+let lessonPolicies=POLICIES,guideDays=20,firstComplete=false;
 const GUIDE_KEY='graviquest:science-ecosystem:guide:v2';
 function guideSeen(){try{return localStorage.getItem(GUIDE_KEY)==='done';}catch(_){return false;}}
-function startGuide(){guideIndex=-1;guide.hidden=false;renderGuide();config.openChat();host.dataset.mode='guide';}
-function skipGuide(){if(!guide.hidden&&guideIndex<lessonPolicies.length)config.track?.('guide_skipped',{step:Math.max(0,guideIndex+1)});guide.hidden=true;host.dataset.mode='chat';try{localStorage.setItem(GUIDE_KEY,'done');}catch(_){}config.tell('lab:lesson',{action:'skip'});}
+function prepare(){if(guide&&!guide.hidden&&guideIndex<0)config.tell('lab:lesson',{action:'welcome'});}
+function startGuide(){guideIndex=-1;firstComplete=false;guide.hidden=false;renderGuide();prepare();config.openChat();host.dataset.mode='guide';}
+function rememberGuide(){try{localStorage.setItem(GUIDE_KEY,'done');}catch(_){}}
+function skipGuide(){if(!guide.hidden&&!firstComplete&&guideIndex<lessonPolicies.length)config.track?.('guide_skipped',{step:Math.max(0,guideIndex+1)});guide.hidden=true;host.dataset.mode='chat';rememberGuide();config.tell('lab:lesson',{action:'skip'});config.refreshReplies?.();}
+function beginComparison(){config.track?.('guide_started');guideIndex=0;showPolicy();renderGuide();}
+function nextControl(){guideIndex++;showPolicy();renderGuide();}
 function showPolicy(){config.closeAtlas();const p=lessonPolicies[guideIndex];if(p){config.track?.('guide_step',{step:guideIndex+1,parameter:p[0]});config.tell('lab:lesson',{action:'start',policy:p[0]});}}
 function renderGuide(){
- if(!guide)return;guide.replaceChildren();
+ if(!guide)return;guide.replaceChildren();queueMicrotask(()=>config?.refreshReplies?.());
  const head=el('div','learning-guide-head');head.append(el('span','g-eyebrow','PULSAR · YOUR FIRST EXPERIMENT'),button('Skip guide',skipGuide,'learning-skip'));guide.append(head);
- if(guideIndex<0){guide.append(el('h3','','Learn by comparing'),el('p','','Keep World A as a baseline. Change one setting in World B, then watch both worlds over the same model days.'),el('p','learning-guide-note','Each guided control starts again at the same checkpoint so earlier changes do not confuse the comparison.'),button('Build my first comparison',()=>{config.track?.('guide_started');guideIndex=0;showPolicy();renderGuide();},'learning-primary'));return;}
+ if(guideIndex<0){guide.append(el('h3','','Let’s try one change together'),el('p','','I’m Pulsar. We’ll keep World A as a baseline, change one setting in World B, and compare the result. Choose how you’d like to begin — typing is optional.'),button('Build my first comparison',beginComparison,'learning-primary'),button('Show a stored comparison',()=>{skipGuide();config.openAtlas();}),button('Explore on my own',skipGuide));return;}
  if(guideIndex>=POLICIES.length){guide.append(el('h3','','You have tested all 12 controls'),el('p','','Keep exploring your comparison, or use the atlas to inspect paired runs across several seeds.'),button('Explore scenario atlas',()=>{skipGuide();config.openAtlas();}),button('Finish guide',skipGuide));return;}
- const [key,title,question,watch]=lessonPolicies[guideIndex],step=el('div','learning-step');step.append(el('span','','CONTROL '+(guideIndex+1)+' / '+POLICIES.length),el('progress'));step.lastChild.max=POLICIES.length;step.lastChild.value=guideIndex+1;guide.append(step,el('h3','',title),el('p','',question),el('p','learning-watch',watch));
+ const [key,title,question,watch]=lessonPolicies[guideIndex],step=el('div','learning-step');step.append(el('span','',guideIndex===0?(firstComplete?'FIRST COMPARISON COMPLETE':'YOUR FIRST COMPARISON'):'OPTIONAL · CONTROL '+(guideIndex+1)+' / '+POLICIES.length),el('progress'));step.lastChild.max=2;step.lastChild.value=lessonState?.observed?2:1;guide.append(step,el('h3','',title),el('p','',question),el('p','learning-watch',watch));
  const current=lessonState?.policy===key?lessonState:null;
  const status=el('p','learning-guide-status',current?.observed?'Result ready · '+current.days+' matched model days. Compare A and B below.':current?.changed?'Change recorded in B. Advance both worlds to observe the result.':'Change the highlighted slider in World B. A stays at its baseline.');status.setAttribute('role','status');guide.append(status);
  if(current?.observed){const results=el('dl','learning-mini-results');for(const metric of ['published','falsePublished','reviewBacklog']){const row=el('div');row.append(el('dt','',METRICS[metric]),el('dd','','A '+number(current.a[metric])+' · B '+number(current.b[metric])));results.append(row);}guide.append(results);}
  const actions=el('div','learning-guide-actions');actions.append(button('Show control',()=>{config.closeAtlas();config.tell('lab:lesson',{action:'focus',policy:key});}),button('Test both · '+guideDays+' days',()=>{config.track?.('guide_test',{parameter:key,step:guideIndex+1,days:guideDays});config.tell('lab:lesson',{action:'observe',policy:key,days:guideDays});},'learning-observe'));
- actions.lastChild.disabled=!current?.changed||current?.observed;actions.append(button(guideIndex===POLICIES.length-1?'Complete guide':'Next control',()=>{guideIndex++;if(guideIndex===POLICIES.length)config.track?.('guide_completed');showPolicy();renderGuide();}));actions.lastChild.disabled=!current?.observed;guide.append(actions);
+ actions.lastChild.disabled=!current?.changed||current?.observed;
+ if(current?.observed){actions.replaceChildren(button('Finish first experiment',skipGuide,'learning-primary'),button('Explain this comparison',()=>{config.openChat();config.ask('Explain the current matched A/B result simply. What changed, and what cannot be concluded?','ask');}),button(guideIndex===POLICIES.length-1?'See all controls completed':guideIndex===0?'Explore other controls':'Next control',nextControl));}
+ guide.append(actions);
 }
 function updateLesson(raw){
  if(!raw||!POLICIES.some(p=>p[0]===raw.policy)||!Number.isFinite(raw.days))return;
  const clean={policy:raw.policy,changed:raw.changed===true,observed:raw.observed===true,days:raw.days,a:{},b:{}};
  for(const side of ['a','b'])for(const m of Object.keys(METRICS))if(Number.isFinite(raw[side]?.[m]))clean[side][m]=raw[side][m];
- lessonState=clean;if(!guide.hidden)renderGuide();
+ lessonState=clean;
+ if(!guide.hidden&&clean.policy===lessonPolicies[guideIndex]?.[0]&&clean.observed&&!firstComplete){firstComplete=true;rememberGuide();config.track?.('guide_completed');}
+ if(!guide.hidden)renderGuide();
+}
+function replyActions(fa=false){
+ const label=(en,faText)=>fa?faText:en;
+ if(!guide||guide.hidden||guideIndex<0||guideIndex>=lessonPolicies.length)return null;
+ const p=lessonPolicies[guideIndex],observed=lessonState?.policy===p[0]&&lessonState.observed;
+ return observed?[
+  {label:label('Explain A vs B','تفاوت A و B را توضیح بده'),ai:true,action:()=>config.ask(fa?'نتیجهٔ مقایسهٔ فعلی A و B را ساده توضیح بده. چه چیزی تغییر کرد و چه محدودیت‌هایی دارد؟':'Explain the current matched A/B result simply. What changed, and what cannot be concluded?','ask')},
+  {label:label('Finish this experiment','این آزمایش را تمام کنیم'),action:skipGuide}
+ ]:[
+  {label:label('Explain this setting','این تنظیم را توضیح بده'),ai:true,action:()=>config.ask((fa?'این تنظیم در مدل چه کاری انجام می‌دهد؟ ':'What does this setting do in the model? ')+p[1],'ask')},
+  {label:label('Show the control','تنظیم را نشان بده'),action:()=>config.tell('lab:lesson',{action:'focus',policy:p[0]})},
+  {label:label('Explore on my own','خودم بررسی می‌کنم'),action:skipGuide}
+ ];
 }
 function accountLink(label,mode='in'){const link=el('a','g-btn g-btn--secondary g-btn--sm',label);link.href='/account.html?next='+encodeURIComponent('/lab.html?lab=science-universe')+'#'+mode;link.target='_blank';link.rel='noopener';return link;}
 function renderAccess(){
+ config.refreshReplies?.();
  if(!notice||!access)return;notice.replaceChildren();notice.classList.toggle('is-exhausted',!access.authenticated&&access.remaining===0);
  if(config.pulsarEnabled===false){notice.append(el('span','','AI explanations are disabled for this Lab. The guide, simulation and scientific sources remain available.'));if(saveRequested&&!access.authenticated)notice.append(accountLink('Save to my account','up'));return;}
  if(access.authenticated){notice.append(el('span','','Signed in · conversation and snapshots can stay with your account.'));
@@ -103,12 +125,12 @@ function mountAtlas(content){
  load();
 }
 function mount(options){
- config=options;access=null;accessReady=false;saveRequested=false;authOwner=null;canSync=false;atlas=null;clearTimeout(syncTimer);
+ config=options;access=null;accessReady=false;saveRequested=false;authOwner=null;canSync=false;atlas=null;firstComplete=false;clearTimeout(syncTimer);
  const settings=options.settings||{};guideDays=Number.isInteger(settings.lesson_days)&&settings.lesson_days>=1&&settings.lesson_days<=120?settings.lesson_days:20;lessonPolicies=POLICIES.map(p=>{const custom=settings.lessons?.[p[0]]||{};return [p[0],custom.title||p[1],custom.question||p[2],custom.watch||p[3]];});
  const auto= settings.auto_start_guide!==false&&!guideSeen();host=options.assistant;host.dataset.mode=auto?'guide':'chat';const tabs=el('div','learning-mobile-tabs');tabs.append(button('Pulsar guide',()=>{host.dataset.mode='guide';if(guide.hidden)startGuide();}),button('Ask Pulsar',()=>{host.dataset.mode='chat';config.openChat();}));host.prepend(tabs);guide=el('section','lab-learning-guide');guide.hidden=!auto;guideIndex=-1;lessonState=null;tabs.after(guide);renderGuide();
  notice=el('section','lab-access-strip');notice.setAttribute('aria-label','Pulsar guest access');options.body.insertBefore(notice,options.form);
- refreshAccess();return {startGuide};
+ refreshAccess();return {startGuide,welcome:auto};
 }
 window.addEventListener('focus',()=>{if(config&&root.document.querySelector('#lab-experiences[data-lab-slug="science-universe"]'))refreshAccess();});
-root.GraviLabLearning={POLICIES,METRICS,mount,startGuide,updateLesson,mountAtlas,atlasContext,updateAccess,mayAsk,sync,refreshAccess,requestSave:()=>{saveRequested=true;renderAccess();config.openChat();},access:()=>access};
+root.GraviLabLearning={POLICIES,METRICS,mount,startGuide,prepare,updateLesson,mountAtlas,atlasContext,updateAccess,mayAsk,sync,refreshAccess,replyActions,requestSave:()=>{saveRequested=true;renderAccess();config.openChat();},access:()=>access};
 })(window);

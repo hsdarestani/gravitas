@@ -12,7 +12,7 @@ var lastCoachAt=0, scheduled=null, lastEventKey='', lastEventAt=0, aiBusy=false;
 var speaking=true, controller=null, session=0;
 var requestSequence=0;
 var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false,chatMountAt=0,chatHistoryReady=true;
-var usage=null;
+var usage=null,welcomeCleanup=null,lastQuestion='',replyFailed=false;
 var notices=[],chatSequence=0,fullscreenButton=null,companionGeometry=null;
 function enteredLab(slug){try{return sessionStorage.getItem('graviquest:lab:entered:'+slug)==='yes';}catch(_){return false;}}
 function positionCompanion(){
@@ -178,6 +178,7 @@ function addChat(role,text,provider,citations,title){
  chatHistory.push(m);chatHistory=chatHistory.slice(-70);saveChat();
  if(chat){
    addBubble(m);
+   renderReplies();
    if(!chatOpen&&m.role==='pulsar'){chatUnread++;refreshChat();notifyPulsar(m);}
  }
 }
@@ -222,6 +223,26 @@ function revealCompanion(){
  var widget=chat?.box.closest('.lab-pulsar-widget');
  if(widget)widget.classList.remove('is-pending');
 }
+function renderReplies(){
+ if(!chat?.starters||active?.slug!=='science-universe')return;
+ const hadFocus=chat.starters.contains(document.activeElement),focusedLabel=hadFocus?document.activeElement.textContent:'';
+ const latest=chatHistory.findLast(m=>m.role==='user')?.text||chatHistory.at(-1)?.text||'',fa=/[\u0600-\u06ff]/.test(latest);
+ const label=(en,persian)=>fa?persian:en;
+ const canAsk=active.config.pulsar_enabled!==false&&!(learning?.access()?.remaining===0&&!learning.access()?.authenticated);
+ let actions=learning?.replyActions(fa);
+ if(!actions)actions=replyFailed&&lastQuestion?[
+  {label:label('Try that question again','دوباره تلاش کن'),ai:true,action:()=>askPulsar(lastQuestion,'ask')},
+  {label:label('Read the scientific sources','منابع علمی را ببینم'),action:()=>openKnowledge()}
+ ]:[
+  {label:label(chatHistory.some(m=>m.provider==='ai')?'Explain more simply':'Explain this result',chatHistory.some(m=>m.provider==='ai')?'ساده‌تر توضیح بده':'این نتیجه را توضیح بده'),ai:true,action:()=>askPulsar(fa?'نتیجهٔ فعلی را ساده توضیح بده. چه چیزی تغییر کرد و چرا؟':'Explain the current result more simply: what changed, and why?','ask')},
+  {label:label('Suggest an experiment','یک آزمایش پیشنهاد بده'),ai:true,action:()=>askPulsar(fa?'یک تغییر برای آزمایش بعدی در این مدل پیشنهاد بده و بگو چه نتیجه‌ای را مقایسه کنم.':'Suggest one policy change for my next controlled experiment, and which outcome to compare.','ask')},
+  {label:label('Compare stored runs','مقایسه‌های ذخیره‌شده'),action:openAtlas}
+ ];
+ if(!canAsk)actions=[{label:label('Guide a comparison','یک مقایسه را راهنمایی کن'),action:()=>learning?.startGuide()},{label:label('Compare stored runs','مقایسه‌های ذخیره‌شده'),action:openAtlas}];
+ chat.starters.replaceChildren();chat.starters.dir=fa?'rtl':'ltr';
+ for(const action of actions){const b=btn(action.label,()=>{if(!chatBusy||!action.ai)action.action();});b.disabled=!!(action.ai&&chatBusy);chat.starters.append(b);}
+ if(hadFocus){const buttons=Array.from(chat.starters.querySelectorAll('button:not(:disabled)'));(buttons.find(b=>b.textContent===focusedLabel)||buttons[0])?.focus({preventScroll:true});}
+}
 function mountPulsarChat(sidebar){
  CHAT_KEY='graviquest:pulsar:'+active.slug+':history:v3:guest';
  sidebar.classList.add('lab-pulsar-widget');
@@ -241,14 +262,12 @@ function mountPulsarChat(sidebar){
  log.setAttribute('aria-live','polite');
  var observation=node('div','lab-chat-observation','Your scientific companion');
  var starters=node('div','lab-chat-starters');
- if(active.slug==='science-universe'){
-  [['Explain this result','Explain the current result in plain language: what changed, why might it have changed, and what should I watch next?'],['Suggest an experiment','Help me choose one policy change for a useful controlled experiment in this Lab.']].forEach(function(pair){starters.append(btn(pair[0],function(){askPulsar(pair[1],'ask');}));});
- }
+ starters.setAttribute('role','group');starters.setAttribute('aria-label','Suggested replies');
  var status=node('div','lab-chat-status','Conversation saved on this device');
  var form=document.createElement('form');form.className='lab-chat-compose';
  var input=node('input','lab-chat-input');
  input.type='text';input.required=true;input.maxLength=600;input.dir='auto';
- input.placeholder='Ask a question about the science…';
+ input.placeholder='Or type your own question…';
  input.setAttribute('aria-label','Message Pulsar');
  var send=node('button','lab-chat-send');send.type='submit';send.innerHTML=icon('arrow');
  send.setAttribute('aria-label','Send to Pulsar');
@@ -261,10 +280,10 @@ function mountPulsarChat(sidebar){
  }
  var tools=node('div','lab-chat-tools');
  if(active.slug==='science-universe'){var tips=btn('Tips on',function(){speaking=!speaking;tips.textContent=speaking?'Tips on':'Tips off';tips.setAttribute('aria-pressed',String(speaking));if(!speaking)clearNotices();},'lab-tips-toggle');tips.setAttribute('aria-pressed','true');tools.append(observation,tips);}
- body.append(tools,starters,log,status,form);box.append(toggle,body);sidebar.append(box);
+ body.append(tools,log,starters,status,form);box.append(toggle,body);sidebar.append(box);
  if(window.GraviLabUsage)body.insertBefore(window.GraviLabUsage.privacyControl(document.createDocumentFragment()),form);
- if(active.config.pulsar_enabled===false){input.disabled=true;send.disabled=true;input.placeholder='AI explanations are disabled for this Lab';starters.hidden=true;tools.hidden=true;}
- chat={box,body,log,status,input,send,toggle,badge,arrow,observation,notices:noticeStack};
+ if(active.config.pulsar_enabled===false){input.disabled=true;send.disabled=true;input.placeholder='AI explanations are disabled for this Lab';tools.hidden=true;}
+ chat={box,body,log,status,input,send,toggle,badge,arrow,observation,starters,notices:noticeStack};
  chatOpen=true;
  try{
    var old=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
@@ -292,6 +311,7 @@ function mountPulsarChat(sidebar){
    askPulsar(q,'ask');
  });
  refreshChat();
+ renderReplies();
 }
 function feedback(message,source,citations,title){
  if(!message)return;
@@ -403,8 +423,9 @@ async function askPulsar(question,event,fallback){
    role:m.role,text:m.text.slice(0,210)
  };});
  if(isChat&&q)addChat('user',q);
+ if(q){lastQuestion=q;replyFailed=false;}
  aiBusy=true;chatBusy=isChat&&!!q;lastCoachAt=Date.now();
- if(isChat&&chat){chat.send.disabled=chatBusy;chat.status.textContent='Pulsar is thinking…';}
+ if(isChat&&chat){chat.send.disabled=chatBusy;chat.status.textContent='Pulsar is thinking…';renderReplies();}
  if(controller)controller.abort();
  controller=new AbortController();
  var thisController=controller,request=++requestSequence;
@@ -420,6 +441,7 @@ async function askPulsar(question,event,fallback){
      signal:thisController.signal,credentials:'same-origin'
    });
    var result=await res.json();
+   if(which!==session||request!==requestSequence)return;
    if(result.access&&learning)learning.updateAccess(result.access);
    if(result.error==='trial_exhausted')return;
    if(!res.ok)throw Error('coaching_unavailable');
@@ -432,6 +454,7 @@ async function askPulsar(question,event,fallback){
    else if(fallback)feedback(fallback,'script');
  }catch(err){
    if(which!==session||request!==requestSequence)return;
+   replyFailed=!!q;
    if(err.name==='AbortError'){if(isChat)feedback('Pulsar took too long to answer. Please try again.','script');return;}
    if(isChat)feedback(fallback||
      'The live model is unavailable. You can still check Model assumptions and the linked research sources.','script');
@@ -443,6 +466,7 @@ async function askPulsar(question,event,fallback){
      if(isChat&&chat){
        chat.send.disabled=false;
        chat.status.textContent='Saved on this device · simulation outcomes are synthetic';
+       renderReplies();
      }
    }
  }
@@ -454,6 +478,7 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
+  welcomeCleanup?.();welcomeCleanup=null;lastQuestion='';replyFailed=false;
   if(usage)usage.stop();usage=window.GraviLabUsage?window.GraviLabUsage.start(lab):null;
   if(focusWorkspace)focusWorkspace.close();focusWorkspace=null;root.classList.remove('is-reading-lab');
   clearNotices();lastInsightAt=0;companionGeometry=null;chatMountAt=Date.now();chatHistoryReady=lab.slug!=='science-universe';
@@ -558,7 +583,7 @@ function runLab(lab){
   if(lab.slug!=='science-universe'&&window.GraviLabUsage)window.GraviLabUsage.privacyControl(sidebar);
   grid.append(stageCol,sidebar);main.append(grid);root.replaceChildren(main);root.hidden=false;
   shell={line:speech,source:source,steps:steps,metrics:metrics,chart:chart,layers:shellLayerContainer,controls:controls,stage:stageCol,canvas:canvas};
-  if(lab.slug==='science-universe'&&learning)learning.mount({assistant:sidebar,body:chat.body,form:chat.body.querySelector('form'),settings:cfg.learning_workspace,pulsarEnabled:cfg.pulsar_enabled!==false,track:(kind,data)=>usage?.record(kind,data),
+  if(lab.slug==='science-universe'&&learning){const mounted=learning.mount({assistant:sidebar,body:chat.body,form:chat.body.querySelector('form'),settings:cfg.learning_workspace,pulsarEnabled:cfg.pulsar_enabled!==false,track:(kind,data)=>usage?.record(kind,data),refreshReplies:renderReplies,
     tell:tellIframe,ask:askPulsar,session:()=>session,history:()=>chatHistory,openAtlas:openAtlas,
     atlasOpen:()=>!!focusWorkspace?.querySelector('.lab-atlas'),closeAtlas:()=>focusWorkspace?.close(),
     openChat:()=>{chatOpen=true;sidebar.dataset.mode='chat';refreshChat();},
@@ -566,6 +591,10 @@ function runLab(lab){
     restore:(messages,owner,preserveFresh)=>{chatHistoryReady=true;const fresh=preserveFresh?chatHistory.filter(m=>m.at>=chatMountAt&&(m.role==='user'||m.provider==='ai')):[];CHAT_KEY='graviquest:pulsar:science-universe:history:v3:'+owner;
       const merged=new Map([...messages,...fresh].map(m=>[m.id,m]));chatHistory=[...merged.values()].slice(-70);chat.log.replaceChildren();chatHistory.forEach(addBubble);if(!chatHistory.length)addChat('pulsar','What would you like to understand? We can compare a change, follow the result and work through why.','guide');saveChat();}
   });
+   if(mounted.welcome&&window.GraviLabWelcome&&!window.GraviLabWelcome.seen()){
+    const epoch=session;welcomeCleanup=window.GraviLabWelcome.play({avatar:sidebar.querySelector('.lab-chat-avatar'),onFinish:()=>{if(epoch!==session)return;sidebar.querySelector('.learning-primary')?.focus({preventScroll:true});}});
+   }
+  }
   if(steps&&cfg.sections?.length){
     currentSection=cfg.sections[0].id;renderSteps();
     feedback(cfg.sections[0].hint,'script');
@@ -575,6 +604,7 @@ function runLab(lab){
 }
 var shellLayerContainer=null;
 function showCatalog(){
+  welcomeCleanup?.();welcomeCleanup=null;
   if(usage)usage.stop();usage=null;
   if(focusWorkspace)focusWorkspace.close();focusWorkspace=null;root.classList.remove('is-reading-lab');
   if(tourActive)tellIframe('lab:tutorial',{target:'off'});
@@ -773,6 +803,7 @@ window.addEventListener('message',function(e){
   }
   if(data.type==='lab:event')reportEvent(data);
   if(data.type==='lab:ready'){
+    if(active.slug==='science-universe')learning?.prepare();
     if(data.section&&validKey.test(data.section)){currentSection=data.section;renderSteps();}
     if(shell?.layers&&Array.isArray(data.layers)){
       shell.layers.replaceChildren();

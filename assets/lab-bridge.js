@@ -167,7 +167,7 @@
       controlListeners.forEach(function(fn){try{fn({key:data.key,value:data.value});}catch(_){}});
     if(data.type==='lab:command'&&['play','pause','reset','replay'].includes(data.command))
       commandListeners.forEach(function(fn){try{fn(data.command);}catch(_){}});
-    if(data.type==='lab:lesson'&&location.pathname.indexOf('/lab-run/science-universe/')===0&&['start','focus','observe','skip'].includes(data.action))lessonListeners.forEach(function(fn){try{fn({action:data.action,policy:String(data.policy||''),days:Number(data.days)});}catch(_){}});
+    if(data.type==='lab:lesson'&&location.pathname.indexOf('/lab-run/science-universe/')===0&&['welcome','start','focus','observe','skip'].includes(data.action))lessonListeners.forEach(function(fn){try{fn({action:data.action,policy:String(data.policy||''),days:Number(data.days)});}catch(_){}});
     if(data.type==='lab:comparison'&&location.pathname.indexOf('/lab-run/science-universe/')===0)comparisonListeners.forEach(function(fn){try{fn(data);}catch(_){}});
     if(data.type==='lab:experiment'&&
        location.pathname.indexOf('/lab-run/science-universe/')===0&&
