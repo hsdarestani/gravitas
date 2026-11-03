@@ -2,7 +2,7 @@
    Never executes draft source inside the admin document. */
 import * as K from './ws-admin-kit.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
-import {renderLabUsage} from './ws-lab-analytics.js?v=20261102-admin1';
+import {renderLabUsage} from './ws-lab-analytics.js?v=20261016-task1&patch=20261102labusage1';
 
 const { el } = K;
 const COMPONENTS = [
