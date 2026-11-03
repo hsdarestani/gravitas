@@ -14,6 +14,8 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.cache import never_cache
+from .lab_learning_settings import learning_settings
 
 from .layer_access import record_activity
 from .layer_models import ActivityEvent
@@ -130,7 +132,7 @@ def _clean_config(value):
             'hint': str(raw.get('hint') or '')[:300],
             'concept': str(raw.get('concept') or '')[:400],
         })
-    return {
+    result = {
         'components': list(dict.fromkeys(components)),
         'sections': clean_sections,
         'guidance': clean_guidance,
@@ -138,6 +140,9 @@ def _clean_config(value):
         'pulsar_enabled': value.get('pulsar_enabled', True) is True,
         'auto_coach': value.get('auto_coach', True) is True,
     }
+    if 'learning_workspace' in value:
+        result['learning_workspace'] = learning_settings(value['learning_workspace'])
+    return result
 
 
 def _valid_topic(slug):
@@ -170,11 +175,30 @@ def _json(item, include_files=False):
         data['config'] = item.config if isinstance(item.config, dict) else {}
     else:
         data['config'] = item.published_config if isinstance(item.published_config, dict) else {}
+    data['config'] = dict(data['config'])
+    if item.slug == 'science-universe':
+        data['config']['learning_workspace'] = learning_settings(data['config'].get('learning_workspace'))
+    if include_files:
+        data['sync'] = {
+            'source_matches': item.files == item.published_files,
+            'settings_match': item.config == item.published_config,
+            'unpublished_changes': item.files != item.published_files or item.config != item.published_config,
+            'workspace_release': '20261102-admin-usage1',
+            'guided_controls': 12 if item.slug == 'science-universe' else 0,
+            'source_documents': item.knowledge_documents.filter(is_published=True).count(),
+            'stored_scenarios': item.scenario_atlas.filter(engine_sha=hashlib.sha256(next((f.get('content','') for f in item.published_files if f.get('name')=='engine.js'),'').encode()).hexdigest()).count(),
+            'usage_tracking': True,
+        }
     return data
 
 
+@never_cache
 @require_http_methods(['GET'])
 def public_labs(request):
+    # Establish one anonymous session before the companion and usage endpoints
+    # run in parallel; otherwise their first Set-Cookie responses can race.
+    from .lab_usage import analytics_allowed, visitor_key
+    if analytics_allowed(request): visitor_key(request)
     qs = InteractiveLab.objects.filter(
         studio_enabled=True, status=InteractiveLab.Status.PUBLISHED, published_version__gt=0
     ).order_by('-updated_at')
@@ -441,6 +465,10 @@ def public_lab_coach(request, slug):
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     config = item.published_config if isinstance(item.published_config, dict) else {}
+    def usage_event(kind, detail=None):
+        if not directory:
+            from .lab_usage import record_server_action
+            record_server_action(request, item, data.get('usage_visit'), kind, detail)
     if not config.get('pulsar_enabled', True):
         return JsonResponse({'ok': False, 'error': 'coaching_disabled'}, status=403)
     key = str(data.get('event') or 'ask')[:64]
@@ -490,7 +518,10 @@ def public_lab_coach(request, slug):
                   (not g.get('section') or g['section'] == section)), None)
     scripted = (guide or {}).get('hint') or next(
         (s.get('hint') for s in config.get('sections', []) if s.get('id') == section), '')
+    if question:
+        usage_event('pulsar_question')
     if not configured():
+        if question: usage_event('pulsar_failed', {'error': 'unavailable'})
         return JsonResponse({'ok': True, 'reply': ('Live Pulsar is unavailable. Open the scientific sources or try again.' if key == 'ask' else scripted or 'Observe how the output changes.'),
                              'provider': 'script', 'run_id': None})
     reservation = None
@@ -498,6 +529,7 @@ def public_lab_coach(request, slug):
         from .lab_learning import reserve_coaching, finish_coaching
         reservation, exhausted = reserve_coaching(request, item, bool(question))
         if exhausted:
+            usage_event('trial_exhausted')
             return JsonResponse({'ok': False, 'error': 'trial_exhausted', 'access': exhausted,
                 'reason': 'Sign in to continue Pulsar and save your conversations and snapshots. The simulation remains open.'}, status=401)
     focused_atlas = None
@@ -623,10 +655,12 @@ def public_lab_coach(request, slug):
         cited = [c for c in allowed_citations if '[' + c['id'] + ']' in reply]
         reply = re.sub(r'\[([a-z0-9-]+#[a-z0-9-]+)\]', lambda m: m[0] if any(c['id'] == m[1] for c in allowed_citations) else '', reply)
         access = finish_coaching(reservation, True) if reservation else None
+        if question: usage_event('pulsar_answered', {'provider': result.provider})
         return JsonResponse({'ok': True, 'reply': reply, 'citations': cited, 'access': access,
                              'provider': result.provider, 'run_id': result.run_id,
                              'observation': {'world': science_state.get('world'), 'day': science_state.get('day')} if slug == 'science-universe' else None})
     except PulsarError:
+        if question: usage_event('pulsar_failed', {'error': 'unavailable'})
         if reservation:
             finish_coaching(reservation, False)
         return JsonResponse({'ok': True, 'reply': scripted if key != 'ask' else 'Live Pulsar could not answer this question. Please try again; the scientific sources remain available.',

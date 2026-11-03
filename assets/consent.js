@@ -6,6 +6,7 @@
   var KEY = 'gravitas:consent:v1';
   var VERSION = 1;
   var OPTIONAL_ANALYTICS_AVAILABLE = window.GRAVITAS_OPTIONAL_ANALYTICS === true;
+  var INLINE_CHOICES = window.GRAVITAS_CONSENT_INLINE === true;
 
   function read() {
     try {
@@ -17,7 +18,7 @@
   }
 
   function ensureManageButton() {
-    if (!OPTIONAL_ANALYTICS_AVAILABLE || document.getElementById('gravitas-privacy-manage')) return;
+    if (!OPTIONAL_ANALYTICS_AVAILABLE || INLINE_CHOICES || document.getElementById('gravitas-privacy-manage')) return;
     var button = document.createElement('button');
     button.id = 'gravitas-privacy-manage';
     button.type = 'button';
@@ -33,9 +34,11 @@
       version: VERSION,
       necessary: true,
       analytics: OPTIONAL_ANALYTICS_AVAILABLE && !!analytics,
+      labUsage: INLINE_CHOICES && !!analytics,
       decidedAt: new Date().toISOString()
     };
     try { localStorage.setItem(KEY, JSON.stringify(value)); } catch (e) {}
+    if (INLINE_CHOICES) document.cookie='gq_lab_analytics='+(value.analytics&&value.labUsage?'1':'0')+'; Path=/; Max-Age=15552000; SameSite=Lax'+(location.protocol==='https:'?'; Secure':'');
     window.dispatchEvent(new CustomEvent('gravitas:consent', { detail: value }));
     ensureManageButton();
     return value;
@@ -77,7 +80,7 @@
     analyticsAllowed: function () {
       if (!OPTIONAL_ANALYTICS_AVAILABLE) return false;
       var value = read();
-      return !!(value && value.analytics);
+      return !!(value && value.analytics && (!INLINE_CHOICES || value.labUsage));
     },
     necessaryOnly: function () { write(false); removeBanner(); },
     allowAnalytics: function () { if (OPTIONAL_ANALYTICS_AVAILABLE) write(true); removeBanner(); },
@@ -90,6 +93,9 @@
 
   function boot() {
     if (!OPTIONAL_ANALYTICS_AVAILABLE) return;
+    var saved=read();
+    if(INLINE_CHOICES&&saved)document.cookie='gq_lab_analytics='+(saved.analytics&&saved.labUsage?'1':'0')+'; Path=/; Max-Age=15552000; SameSite=Lax'+(location.protocol==='https:'?'; Secure':'');
+    if (INLINE_CHOICES) return;
     if (!read()) show();
     else ensureManageButton();
   }

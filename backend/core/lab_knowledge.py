@@ -276,6 +276,8 @@ def lab_snapshots(request, slug):
         if not cache.add(f'gq:lab:snapshot:{request.user.pk}:{lab.pk}', 1, 5):
             return JsonResponse({'ok': False, 'error': 'rate_limited'}, status=429)
         snap = LabRunSnapshot.objects.create(lab=lab, owner=request.user, signature=signature, payload=payload)
+        from .lab_usage import record_server_action
+        record_server_action(request, lab, data.get('usage_visit'), 'snapshot_saved', {'day': payload.get('day'), 'world': payload.get('world')})
         return JsonResponse({'ok': True, 'id': snap.pk, 'created': True, 'provenance': snap.provenance}, status=201)
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)

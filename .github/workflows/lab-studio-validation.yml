@@ -7,6 +7,16 @@ on:
       - 'assets/lab-bridge.js'
       - 'assets/lab-studio.js'
       - 'assets/lab-learning-workspace.js'
+      - 'assets/lab-usage.js'
+      - 'assets/consent.js'
+      - 'assets/ws/ws-lab-analytics.js'
+      - 'backend/core/lab_usage*.py'
+      - 'backend/core/lab_learning_settings.py'
+      - 'backend/core/test_lab_usage.py'
+      - 'backend/core/data/lab-learning-defaults.json'
+      - 'backend/core/migrations/0090*'
+      - 'scripts/lab-admin-fixture.cjs'
+      - 'scripts/test-lab-admin-browser.cjs'
       - 'backend/core/lab_learning.py'
       - 'backend/core/test_lab_learning.py'
       - 'backend/core/migrations/0088*'
@@ -50,6 +60,9 @@ jobs:
           node --check assets/lab-bridge.js
           node --check assets/lab-studio.js
           node --check assets/lab-learning-workspace.js
+          node --check assets/lab-usage.js
+          node --check assets/consent.js
+          node --input-type=module --check < assets/ws/ws-lab-analytics.js
           node --input-type=module --check < assets/ws/ws-lab-studio.js
           node --input-type=module --check < assets/ws/ws-admin.js
           node --input-type=module --check < assets/ws/ws-platform.js
@@ -63,11 +76,12 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/gq-lab-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
           node scripts/test-lab-studio-browser.cjs
+          node scripts/test-lab-admin-browser.cjs
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: lab-workspace-browser-failure
-          path: qa-artifacts/lab-workspace-failure.png
+          path: qa-artifacts/lab-*.png
           if-no-files-found: ignore
   backend:
     runs-on: ubuntu-latest
@@ -86,4 +100,34 @@ jobs:
           PY="$RUNNER_TEMP/lab-test/bin/python"
           "$PY" -m django check
           "$PY" -m django makemigrations --check --dry-run
-          "$PY" -m django test core.test_lab_studio core.test_lab_learning core.test_lab_knowledge core.test_science_universe_upgrade
+          "$PY" -m django test core.test_lab_studio core.test_lab_learning core.test_lab_usage core.test_lab_knowledge core.test_science_universe_upgrade
+  postgres-analytics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gravitas_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: lab-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install backend dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lab-pg-test"
+          "$RUNNER_TEMP/lab-pg-test/bin/pip" install -q -r backend/requirements.txt
+      - name: Verify actual PostgreSQL analytics and JSON counts
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.postgres_test_settings
+          TEST_POSTGRES_PASSWORD: lab-test-only
+        run: |
+          "$RUNNER_TEMP/lab-pg-test/bin/python" -m django test core.test_lab_usage --noinput

@@ -351,3 +351,5 @@ body:has(#lab-experiences[data-lab-slug="science-universe"]) :is(.page-head,.g-f
 #lab-experiences.learning-split .lab-chat-tools{padding-top:7px;padding-bottom:0}
 #lab-experiences.learning-split .lab-chat-starters{padding-top:6px;padding-bottom:6px}
 @media(max-width:900px){#lab-experiences.learning-split .lab-learning-guide{max-height:none}#lab-experiences.learning-split .lab-chat-head{min-height:38px;height:38px;padding:4px 12px}#lab-experiences.learning-split .lab-access-strip.is-exhausted small{display:block}}
+.lab-usage-choice{display:flex;gap:7px;align-items:center;padding:5px 14px;color:var(--g-text-muted);font-size:10px;line-height:1.4;flex:none;cursor:pointer}.lab-usage-choice input{accent-color:var(--g-accent);margin:0}
+.lab-chat-tools[hidden],.lab-chat-starters[hidden]{display:none!important}

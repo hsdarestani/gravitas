@@ -1,0 +1,67 @@
+{
+  "guest_question_limit": 25,
+  "auto_start_guide": true,
+  "lesson_days": 20,
+  "lessons": {
+    "verification": {
+      "title": "Peer review capacity",
+      "question": "How many studies can reviewers check?",
+      "watch": "Watch the review queue and publications. An empty queue does not establish reliability."
+    },
+    "generation": {
+      "title": "Idea generation",
+      "question": "What happens when ideas arrive faster?",
+      "watch": "Compare the review queue with the number of studies tested."
+    },
+    "replication": {
+      "title": "Independent repeats",
+      "question": "What changes when more findings can be tested again?",
+      "watch": "Watch repeat tests, failed repeats and withdrawals together."
+    },
+    "funding": {
+      "title": "Research funding",
+      "question": "Does more funding remove the bottleneck?",
+      "watch": "Compare active studies and publications; another stage may limit throughput."
+    },
+    "aiAdoption": {
+      "title": "AI-assisted generation",
+      "question": "Can faster idea production outpace checking?",
+      "watch": "Compare generated ideas, review queues and model-known false claims."
+    },
+    "sampleSize": {
+      "title": "Sample size",
+      "question": "What does a larger sample change?",
+      "watch": "Follow tested studies and false claims; resource costs can also change."
+    },
+    "alpha": {
+      "title": "Statistical threshold",
+      "question": "What happens when a positive result becomes easier to declare?",
+      "watch": "Compare publications with model-known false claims."
+    },
+    "transparency": {
+      "title": "Open methods",
+      "question": "Can a predeclared analysis reduce selective reporting?",
+      "watch": "Compare false claims and publication counts, keeping the other settings equal."
+    },
+    "pressure": {
+      "title": "Publication pressure",
+      "question": "What if positive results receive more reward?",
+      "watch": "Compare output and false claims; more papers is not necessarily better knowledge."
+    },
+    "diversity": {
+      "title": "Search across communities",
+      "question": "What happens when teams explore outside their own community?",
+      "watch": "Watch cross-community studies and live claims. There is no built-in proven quality bonus."
+    },
+    "network": {
+      "title": "Knowledge diffusion",
+      "question": "Does more attention bring more checking?",
+      "watch": "Compare citations and independent repeats. Attention is not evidence of truth."
+    },
+    "uncertainty": {
+      "title": "AI caution",
+      "question": "What changes when uncertain agents hold back?",
+      "watch": "Compare ideas, tested studies and false claims; useful ideas may also be missed."
+    }
+  }
+}
