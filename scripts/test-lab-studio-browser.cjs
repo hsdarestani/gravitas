@@ -180,6 +180,7 @@ const server=http.createServer((req,res)=>{
     await page.getByRole('group',{name:'Suggested replies'}).getByRole('button',{name:'Explain this result',exact:true}).click();
     await page.locator('.lab-chat-bubble').filter({hasText:'Fixture answer 1:'}).waitFor();
     assert.ok((await page.getByRole('group',{name:'Suggested replies'}).getByRole('button').count())>=2,'a completed answer always leaves prepared follow-ups');
+    assert.equal(await page.evaluate(()=>!!document.activeElement.closest('.lab-chat-starters')),true,'keyboard focus stays with prepared replies after an answer');
     // The explicit atlas action sends stored run signatures to the server, where they are resolved again.
     await page.getByRole('button',{name:'Ask Pulsar about these results',exact:true}).click();
     await page.locator('.lab-chat-bubble').filter({hasText:'Fixture answer 2:'}).waitFor();
@@ -235,6 +236,7 @@ const server=http.createServer((req,res)=>{
     guestQuestions=0;
     const fresh=await browser.newContext({viewport:{width:390,height:844}});page=await fresh.newPage();page.on('pageerror',err=>runtimeErrors.push(err.message));
     await page.goto(url+'?lab=science-universe',{waitUntil:'networkidle'});await page.getByRole('button',{name:'Enter simulation',exact:true}).click();
+    assert.equal(await page.locator('.lab-chat-avatar').isVisible(),true,'the mobile guide keeps a visible destination for the Pulsar mark');
     await page.getByRole('button',{name:'Skip introduction',exact:true}).click();assert.equal(await page.locator('.lab-pulsar-welcome').count(),0,'skip immediately releases the modal');
     await page.getByRole('button',{name:'Explore on my own',exact:true}).click();
     const replies=page.getByRole('group',{name:'Suggested replies'});assert.equal(await replies.isVisible(),true);

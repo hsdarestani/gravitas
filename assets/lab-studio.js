@@ -225,6 +225,7 @@ function revealCompanion(){
 }
 function renderReplies(){
  if(!chat?.starters||active?.slug!=='science-universe')return;
+ const hadFocus=chat.starters.contains(document.activeElement),focusedLabel=hadFocus?document.activeElement.textContent:'';
  const latest=chatHistory.findLast(m=>m.role==='user')?.text||chatHistory.at(-1)?.text||'',fa=/[\u0600-\u06ff]/.test(latest);
  const label=(en,persian)=>fa?persian:en;
  const canAsk=active.config.pulsar_enabled!==false&&!(learning?.access()?.remaining===0&&!learning.access()?.authenticated);
@@ -240,6 +241,7 @@ function renderReplies(){
  if(!canAsk)actions=[{label:label('Guide a comparison','یک مقایسه را راهنمایی کن'),action:()=>learning?.startGuide()},{label:label('Compare stored runs','مقایسه‌های ذخیره‌شده'),action:openAtlas}];
  chat.starters.replaceChildren();chat.starters.dir=fa?'rtl':'ltr';
  for(const action of actions){const b=btn(action.label,()=>{if(!chatBusy||!action.ai)action.action();});b.disabled=!!(action.ai&&chatBusy);chat.starters.append(b);}
+ if(hadFocus){const buttons=Array.from(chat.starters.querySelectorAll('button:not(:disabled)'));(buttons.find(b=>b.textContent===focusedLabel)||buttons[0])?.focus({preventScroll:true});}
 }
 function mountPulsarChat(sidebar){
  CHAT_KEY='graviquest:pulsar:'+active.slug+':history:v3:guest';
