@@ -36,7 +36,7 @@ const server=http.createServer((req,res)=>{
   await page.getByRole('button',{name:'Scientific context',exact:true}).click();await page.waitForFunction(()=>Array.from(document.querySelectorAll('.ls-tabpane:not([hidden]) select option')).length===5);
   await page.getByRole('button',{name:'Usage analytics',exact:true}).click();await page.getByText('QA Researcher',{exact:true}).waitFor();
   const patches=fixture.patches;
-  await page.getByRole('combobox',{name:'Visitor type',exact:true}).selectOption('guests');await page.getByRole('button',{name:'Apply filters',exact:true}).click();await page.getByText('Guest aaaaaaaaaaaa',{exact:true}).waitFor();
+  await page.getByRole('combobox',{name:'Visitor type',exact:true}).selectOption('guests');await page.getByRole('button',{name:'Apply filters',exact:true}).click();await page.getByText('QA Researcher',{exact:true}).waitFor({state:'hidden'});await page.getByText('Guest aaaaaaaaaaaa',{exact:true}).waitFor();
   assert.equal(await page.getByText('QA Researcher',{exact:true}).count(),0);assert.equal(fixture.patches,patches,'analytics filtering never submits the Lab draft form');
   await page.getByRole('combobox',{name:'Visitor type',exact:true}).selectOption('all');await page.getByRole('button',{name:'Apply filters',exact:true}).click();await page.getByText('QA Researcher',{exact:true}).waitFor();
   await page.getByRole('button',{name:'View activity',exact:true}).first().click();await page.getByRole('button',{name:'View events',exact:true}).click();
