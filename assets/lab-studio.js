@@ -12,6 +12,7 @@ var lastCoachAt=0, scheduled=null, lastEventKey='', lastEventAt=0, aiBusy=false;
 var speaking=true, controller=null, session=0;
 var requestSequence=0;
 var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false,chatMountAt=0,chatHistoryReady=true;
+var usage=null;
 var notices=[],chatSequence=0,fullscreenButton=null,companionGeometry=null;
 function enteredLab(slug){try{return sessionStorage.getItem('graviquest:lab:entered:'+slug)==='yes';}catch(_){return false;}}
 function positionCompanion(){
@@ -261,6 +262,8 @@ function mountPulsarChat(sidebar){
  var tools=node('div','lab-chat-tools');
  if(active.slug==='science-universe'){var tips=btn('Tips on',function(){speaking=!speaking;tips.textContent=speaking?'Tips on':'Tips off';tips.setAttribute('aria-pressed',String(speaking));if(!speaking)clearNotices();},'lab-tips-toggle');tips.setAttribute('aria-pressed','true');tools.append(observation,tips);}
  body.append(tools,starters,log,status,form);box.append(toggle,body);sidebar.append(box);
+ if(window.GraviLabUsage)body.insertBefore(window.GraviLabUsage.privacyControl(document.createDocumentFragment()),form);
+ if(active.config.pulsar_enabled===false){input.disabled=true;send.disabled=true;input.placeholder='AI explanations are disabled for this Lab';starters.hidden=true;tools.hidden=true;}
  chat={box,body,log,status,input,send,toggle,badge,arrow,observation,notices:noticeStack};
  chatOpen=true;
  try{
@@ -413,7 +416,7 @@ async function askPulsar(question,event,fallback){
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
        metrics:lastMetrics,history:context,context:observed,
-       locale:document.documentElement.lang||'en',atlas_comparison:atlasSelection}),
+       locale:document.documentElement.lang||'en',atlas_comparison:atlasSelection,usage_visit:usage?.visit()}),
      signal:thisController.signal,credentials:'same-origin'
    });
    var result=await res.json();
@@ -451,6 +454,7 @@ function configPanel(container,title){
 }
 function runLab(lab){
   if(!lab||!lab.ready)return;
+  if(usage)usage.stop();usage=window.GraviLabUsage?window.GraviLabUsage.start(lab):null;
   if(focusWorkspace)focusWorkspace.close();focusWorkspace=null;root.classList.remove('is-reading-lab');
   clearNotices();lastInsightAt=0;companionGeometry=null;chatMountAt=Date.now();chatHistoryReady=lab.slug!=='science-universe';
   try{sessionStorage.setItem('graviquest:lab:entered:'+lab.slug,'yes');}catch(_){}
@@ -462,7 +466,7 @@ function runLab(lab){
   if(controller)controller.abort();if(scheduled)clearTimeout(scheduled);
   session++;active=lab;lastCoachAt=0;lastEventKey='';lastEventAt=0;currentSection='';
   metricHistory={};lastMetrics={};speaking=true;aiBusy=false;
-  if(lab.slug==='science-universe')lab={...lab,title:'Science Ecosystem'};active=lab;
+  active=lab;
   var cfg=lab.config||{};
   cfg.components=Array.isArray(cfg.components)?cfg.components:['stage','controls','metrics'];
   var main=node('div','lab-runtime');
@@ -505,6 +509,7 @@ function runLab(lab){
     var timeline=configPanel(stageCol,'Timeline');
     ['play','pause','reset','replay'].forEach(function(command){
       timeline.append(btn(command[0].toUpperCase()+command.slice(1),function(){
+        usage?.record(command==='replay'?'reset':command);
         tellIframe('lab:command',{command:command});
       },'lab-command'));
     });
@@ -550,9 +555,10 @@ function runLab(lab){
     if(cfg.pulsar_enabled!==false)sidebar.append(title,intro,source,speech,steps,controlsBar);
     else sidebar.append(title,node('p','lab-note','Guidance is not enabled for this Lab.'));
   }
+  if(lab.slug!=='science-universe'&&window.GraviLabUsage)window.GraviLabUsage.privacyControl(sidebar);
   grid.append(stageCol,sidebar);main.append(grid);root.replaceChildren(main);root.hidden=false;
   shell={line:speech,source:source,steps:steps,metrics:metrics,chart:chart,layers:shellLayerContainer,controls:controls,stage:stageCol,canvas:canvas};
-  if(lab.slug==='science-universe'&&learning)learning.mount({assistant:sidebar,body:chat.body,form:chat.body.querySelector('form'),
+  if(lab.slug==='science-universe'&&learning)learning.mount({assistant:sidebar,body:chat.body,form:chat.body.querySelector('form'),settings:cfg.learning_workspace,pulsarEnabled:cfg.pulsar_enabled!==false,track:(kind,data)=>usage?.record(kind,data),
     tell:tellIframe,ask:askPulsar,session:()=>session,history:()=>chatHistory,openAtlas:openAtlas,
     atlasOpen:()=>!!focusWorkspace?.querySelector('.lab-atlas'),closeAtlas:()=>focusWorkspace?.close(),
     openChat:()=>{chatOpen=true;sidebar.dataset.mode='chat';refreshChat();},
@@ -569,6 +575,7 @@ function runLab(lab){
 }
 var shellLayerContainer=null;
 function showCatalog(){
+  if(usage)usage.stop();usage=null;
   if(focusWorkspace)focusWorkspace.close();focusWorkspace=null;root.classList.remove('is-reading-lab');
   if(tourActive)tellIframe('lab:tutorial',{target:'off'});
   clearNotices();fullscreenButton=null;
@@ -663,11 +670,12 @@ function previewLab(lab){
 }
 var lastInsightAt=0;
 function showInsight(title,text,citations){
- if(!active||active.slug!=='science-universe'||!speaking)return;
+ if(!active||active.slug!=='science-universe'||!speaking||active.config.auto_coach===false)return;
  addChat('pulsar',text,'guide',citations,title.slice(0,90));
 }
 async function openKnowledge(documentSlug,anchor){
  if(!active||active.slug!=='science-universe')return;
+ usage?.record('sources_opened');
  var dialog=modal('Scientific sources','Behind the model'),content=node('div','lab-knowledge-reader','Loading sources…');dialog.labBody.append(content);
  try{
   var res=await fetch('/api/labs/science-universe/knowledge/'+(documentSlug?encodeURIComponent(documentSlug)+'/':''),{credentials:'same-origin'});
@@ -676,6 +684,7 @@ async function openKnowledge(documentSlug,anchor){
    (data.documents||[]).forEach(function(doc){var section=node('section','lab-source-card');section.append(node('h3','',doc.title),node('p','',doc.kind==='reading_note'?'Original reading note; full paper at the source.':'Stored Markdown · '+doc.sections.length+' sections'),btn('Read sections',function(){dialog.close();openKnowledge(doc.slug);}));content.append(section);});return;
   }
   var doc=data.document;
+  usage?.record('source_read',{document:documentSlug});
   content.append(node('p','lab-note',doc.license));
   var download=node('a','lab-download','Download Markdown');download.href='/api/labs/science-universe/knowledge/'+encodeURIComponent(doc.slug)+'/?format=md';content.append(download);
   if(doc.source_url?.startsWith('https://')){var original=node('a','lab-download','Original source');original.href=doc.source_url;original.target='_blank';original.rel='noopener noreferrer';content.append(original);}
@@ -694,17 +703,19 @@ function scenarioLabel(family){
 }
 function openAtlas(){
  if(!active||active.slug!=='science-universe')return;
+ usage?.record('atlas_opened');
  var dialog=modal('Scenario atlas','Compare one decision'),content=node('div','lab-atlas');dialog.labBody.append(content);
  if(learning)learning.mountAtlas(content);
 }
 async function saveSnapshot(seed){
+ usage?.record('snapshot_requested');
  var state=scienceGuide?.context();if(!state)return;
  try{var saved=JSON.parse(localStorage.getItem('graviquest:lab:snapshots:v1')||'[]');saved.push({at:Date.now(),seed:seed,context:state});localStorage.setItem('graviquest:lab:snapshots:v1',JSON.stringify(saved.slice(-30)));}catch(_){}
  addChat('pulsar','Day '+state.day+' · '+state.world+' snapshot: '+(state.metrics.published||0)+' published; '+(state.metrics.falsePublished||0)+' false live claims; '+(state.metrics.reviewBacklog||0)+' awaiting review; '+(state.metrics.replicated||0)+' independent repeats.','guide');
  if(learning&&!learning.access()?.authenticated){learning.requestSave();chatOpen=true;refreshChat();return;}
  function csrfCookie(){return (document.cookie.match(/(?:^|; )(?:csrftoken|gravitas_staging_csrftoken)=([^;]*)/)||[])[1]||'';}
  var csrf=csrfCookie();if(!csrf){try{await fetch('/api/auth/csrf/',{credentials:'same-origin'});csrf=csrfCookie();}catch(_){}}
- try{var r=await fetch('/api/labs/science-universe/snapshots/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':decodeURIComponent(csrf)},body:JSON.stringify({seed:seed,context:state})});
+ try{var r=await fetch('/api/labs/science-universe/snapshots/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':decodeURIComponent(csrf)},body:JSON.stringify({seed:seed,context:state,usage_visit:usage?.visit()})});
   if(r.status===401){addChat('pulsar','Snapshot captured on this device. Sign in to save it to your account.','guide');return;}
   if(!r.ok)throw Error('Snapshot could not be saved to your account.');var result=await r.json();addChat('pulsar','Snapshot #'+result.id+' saved. These are browser-reported model measurements. Ask me what changed or why.','guide');
  }catch(e){addChat('pulsar',e.message,'guide');}
@@ -712,6 +723,7 @@ async function saveSnapshot(seed){
 window.addEventListener('message',function(e){
   if(!active||!iframe||e.source!==iframe.contentWindow||e.origin!=='null')return;
   var data=e.data;if(!data||data.schema!==protocol||typeof data.type!=='string')return;
+  if(data.type==='lab:usage'&&usage&&data.usage){if(data.usage.kind==='parameter_changed')usage.debounced(data.usage.kind,data.usage.data);else usage.record(data.usage.kind,data.usage.data);return;}
   if(data.type==='lab:resize'){
     if(active.slug==='science-universe')return;
     if(!mobileLabFrame())return;
@@ -786,6 +798,7 @@ window.addEventListener('message',function(e){
         slider.max=String(max);slider.step=String(step>0?step:1);
         slider.value=String(Number(ctrl.value)||min);
         slider.addEventListener('input',function(){
+          usage?.debounced('parameter_changed',{parameter:ctrl.key,value:Number(slider.value)});
           number.value=slider.value;number.textContent=slider.value;
           tellIframe('lab:control',{key:ctrl.key,value:Number(slider.value)});
         });
@@ -799,7 +812,6 @@ fetch('/api/labs/',{credentials:'same-origin',cache:'no-store'})
   .then(function(res){if(!res.ok)throw Error('registry unavailable');return res.json();})
   .then(function(payload){
     labs=(Array.isArray(payload.labs)?payload.labs:[]).filter(function(l){return l.ready;});
-    labs=labs.map(l=>l.slug==='science-universe'?{...l,title:'Science Ecosystem'}:l);
     if(!labs.length)return; // Intentionally EMPTY until first explicit publication.
     var slug=new URLSearchParams(location.search).get('lab');
     var requested=labs.find(function(l){return l.slug===slug;});

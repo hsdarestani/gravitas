@@ -197,6 +197,7 @@ const POLICY_RATIONALE={
 };
 const human=n=>Math.round(n).toLocaleString('en-US');
 const nowWorld=()=>worlds[active];
+function trackUsage(kind,data={}){if(G.usage)G.usage(kind,{world:active?'B':'A',day:nowWorld().day,...data});}
 const runningWorlds=()=>worlds[1]?worlds:[nowWorld()];
 let lesson=null,lessonCheckpoint=null;
 function ensureComparison(){if(worlds[1])return true;$('comparison-setup').hidden=false;$('setup-status').textContent='First create World B, then advance both worlds together.';$('comparison-setup').scrollIntoView({block:'start'});return false;}
@@ -252,7 +253,9 @@ const PLAY_ICON=ICON+'<path d="M8.2 5.6v12.8a.7.7 0 0 0 1.07.6l10.1-6.4a.7.7 0 0
 const PAUSE_ICON=ICON+'<path d="M8.6 5.4v13.2M15.4 5.4v13.2"/></svg>';
 function play(on){
   if(on&&!ensureComparison())return;
+  const wasPlaying=playing;
   playing=!!on;
+  if(wasPlaying!==playing)trackUsage(playing?'play':'pause');
   $('play').innerHTML=(playing?PAUSE_ICON:PLAY_ICON)+'<span>'+(playing?'Pause':'Play')+'</span>';
   $('status-label').textContent=playing?'SIMULATION RUNNING':'SIMULATION PAUSED';
   $('session-state').classList.toggle('spinning',playing);
@@ -261,7 +264,7 @@ function play(on){
 }
 function reset(){
  for(let i=0;i<2;i++)if(worlds[i]){const s=worlds[i];worlds[i]=E.make(s.seed,{...s.policy},{...s.design});selected[i]=null;selectedPaper[i]=null;eventSeen[i].clear();}
- play(false);render();emit('world_reset',nowWorld(),'observe');
+ play(false);render();emit('world_reset',nowWorld(),'observe');trackUsage('reset');
 }
 function arrangeCanvases(){
   $('canvas-holder-a').hidden=active===1;
@@ -303,10 +306,12 @@ function fork(){
   compare(true);chooseWorld(1);
   $('branch-explainer').textContent='World B is an identical checkpoint. Change ONE policy in B to test a single assumed mechanism; repeat with different seeds before interpreting the result.';
   emit('universe_forked',worlds[1],'compare');
+  trackUsage('comparison_created');
 }
 function advance(n){
   if(!ensureComparison())return;
   for(const s of runningWorlds())E.step(s,n);
+  trackUsage('step',{days:n});
   if(lesson)reportLesson(true);
   render();interesting();snapshotInsight();
 }
@@ -577,7 +582,7 @@ function reportLesson(observed=false){
  const changed=Object.keys(E.DEFAULTS).filter(k=>worlds[0].policy[k]!==worlds[1].policy[k]);
  if(G.lessonState)G.lessonState({policy:lesson.policy,changed:changed.length===1&&changed[0]===lesson.policy,observed:lesson.observed,days:worlds[0].day-lesson.startDay,a:E.summary(worlds[0]),b:E.summary(worlds[1])});
 }
-function startLesson({action,policy}){
+function startLesson({action,policy,days}){
  if(action==='skip'){lesson=null;return;}
  if(!Object.hasOwn(E.DEFAULTS,policy))return;
  if(action==='start'||action==='focus')document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
@@ -589,7 +594,7 @@ function startLesson({action,policy}){
  }
  if(action==='observe'){
   const differences=Object.keys(E.DEFAULTS).filter(k=>worlds[1]&&worlds[0].policy[k]!==worlds[1].policy[k]);
-  if(lesson?.policy===policy&&differences.length===1&&differences[0]===policy){advance(20);settings(false,false);}return;
+  if(lesson?.policy===policy&&differences.length===1&&differences[0]===policy){advance(Number.isInteger(days)&&days>=1&&days<=120?days:20);settings(false,false);}return;
  }
  if(action==='start'||action==='focus'){chooseWorld(1);settings(true,false);const range=document.querySelector('[data-policy="'+policy+'"]');document.querySelectorAll('.lesson-highlight').forEach(e=>e.classList.remove('lesson-highlight'));range.closest('.policy-control').classList.add('lesson-highlight');range.scrollIntoView({block:'center'});range.focus({preventScroll:true});}
 }
@@ -597,7 +602,7 @@ function runAtlasComparison(data){
  if(!Object.hasOwn(E.DEFAULTS,data.policy)||!Number.isInteger(data.low)||!Number.isInteger(data.high)||data.low<1||data.low>10||data.high<1||data.high>10||data.low===data.high||!Number.isInteger(data.seed)||data.seed<0||data.seed>4294967295||!Number.isInteger(data.days)||data.days<1||data.days>120)return;
  const parameters={};for(const key of Object.keys(E.DEFAULTS)){const v=data.parameters?.[key];if(!Number.isInteger(v)||v<1||v>10)return;parameters[key]=v;}
  play(false);lesson=null;worlds[0]=E.make(data.seed,{...parameters,[data.policy]:data.low},E.normalizeDesign(data.design||{}));worlds[1]=E.make(data.seed,{...parameters,[data.policy]:data.high},E.normalizeDesign(data.design||{}));
- selected.fill(null);selectedPaper.fill(null);$('world-b').disabled=false;$('compare').disabled=false;$('comparison-setup').hidden=true;compare(true);chooseWorld(1);advance(data.days);
+ selected.fill(null);selectedPaper.fill(null);$('world-b').disabled=false;$('compare').disabled=false;$('comparison-setup').hidden=true;compare(true);chooseWorld(1);advance(data.days);trackUsage('atlas_replayed',{parameter:data.policy,low:data.low,high:data.high,days:data.days,seed:data.seed});
  $('branch-explainer').textContent='Reproduced stored comparison · seed '+data.seed+' · '+data.days+' model days · '+policyDescriptions[data.policy][0]+': '+data.low+' in A, '+data.high+' in B. Other settings and initial design equal.';document.querySelector('.analysis').scrollIntoView({block:'start'});
 }
 function interesting(){
@@ -803,6 +808,7 @@ function canvasEvents(index){
     if(drag.moved){
       const l=worlds[index].labs[drag.id];
       E.intervention(worlds[index],'move',drag.id,{x:l.x,y:l.y});
+      trackUsage('laboratory_moved',{laboratory:drag.id+1});
       const after=networkFacts(worlds[index],drag.id);
       $('intervention-status').textContent=l.name+': links '+drag.before.selectedLinks+' → '+after.selectedLinks+'; across communities '+drag.before.selectedCrossLinks+' → '+after.selectedCrossLinks+'. This changes future citation preferences, not existing evidence.';
       mapLegend();
@@ -842,6 +848,7 @@ function renderPolicies(){
       if(lesson&&active!==1){range.value=nowWorld().policy[key];return;}
       if(lesson?.observed){worlds[0]=E.fork(lessonCheckpoint);worlds[1]=E.fork(lessonCheckpoint);lesson.observed=false;lesson.startDay=worlds[0].day;render();}
       E.editPolicy(nowWorld(),key,range.value);
+      trackUsage('parameter_changed',{parameter:key,value:Number(range.value)});
       head.querySelector('output').textContent=range.value+'/10';
       $('policy-live-status').textContent=name+' is now '+range.value+'/10 in World '+(active?'B':'A')+'. '+(playing?'Watch future model days; the effect can take time to appear.':'The model is paused. Advance days or press Play to observe the effect.');
       publishContext(true);emit('policy_changed',nowWorld(),'intervene');comparison();renderMetricTrends();
@@ -993,6 +1000,7 @@ function settings(on,returnFocus=true){
   publishContext(true);drawChart();
 }
 function setView(name){
+  if(view!==name)trackUsage('view_changed',{view:name});
   view=name;
   for(const key of ['labs','papers']){
     $('view-'+key).classList.toggle('active',name===key);

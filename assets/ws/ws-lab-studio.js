@@ -2,6 +2,7 @@
    Never executes draft source inside the admin document. */
 import * as K from './ws-admin-kit.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
+import {renderLabUsage} from './ws-lab-analytics.js?v=20261016-task1&patch=20261102labusage1';
 
 const { el } = K;
 const COMPONENTS = [
@@ -41,6 +42,7 @@ function tabs(names) {
   const choose=(key)=>{
     for(const [k,p] of panels){p.hidden=k!==key;}
     for(const b of nav.children)b.dataset.selected=String(b.dataset.key===key);
+    panels.get(key)?.dispatchEvent(new CustomEvent('ls:tab'));
   };
   return {nav,panels,choose};
 }
@@ -53,7 +55,7 @@ export async function renderLabStudio(host) {
   const root=K.page(host,{
     title:'Lab Studio',
     meta:'Design the experience here. The public Lab shows only what you explicitly publish.',
-    actions:[K.anchor('Open Lab', '/lab.html')],
+    actions:[K.anchor('Open Lab', '/lab.html'),K.button('All Lab usage',()=>openUsage(),{tiny:true})],
   });
   const layout=el('div','ls-layout');
   const catalog=panel('Your Labs','Each Lab has its own code, interface, teaching path and release.');
@@ -62,6 +64,8 @@ export async function renderLabStudio(host) {
   editor.box.classList.add('ls-editor');
   layout.append(catalog.box,editor.box);
   root.append(layout);
+  const usagePage=el('section','ls-usage-global');usagePage.hidden=true;root.append(usagePage);
+  function openUsage(){layout.hidden=true;usagePage.hidden=false;usagePage.replaceChildren();usagePage.append(K.button('Back to Lab Studio',()=>{usagePage.hidden=true;layout.hidden=false;},{tiny:true}));const body=el('div');usagePage.append(body);renderLabUsage(body,{labs});}
   let selected=labs[0]||null;
   const listing=el('div','ls-list');
   const add=K.button('New Lab',()=>{selected=null;drawList();drawEditor(null);},{solid:true,tiny:true});
@@ -82,13 +86,13 @@ export async function renderLabStudio(host) {
       listing.append(b);
     }
   }
-  async function refresh(id){
+  async function refresh(id,notice=''){
     labs=(await P.adminLabs()).labs||[];
     selected=labs.find(x=>x.id===id)||labs[0]||null;
-    drawList();drawEditor(selected);
+    drawList();drawEditor(selected,notice);
   }
 
-  function drawEditor(lab){
+  function drawEditor(lab,notice=''){
     editor.body.replaceChildren();
     const form=el('form','ls-form');
     const title=K.input(lab?.title||'','text','Name the experience');
@@ -109,9 +113,15 @@ export async function renderLabStudio(host) {
       switches.set(key,entry.input);
       cmpbox.append(entry.wrap);
     }
-    const pulsar=K.toggle(config.pulsar_enabled!==false,'Pulsar teaching companion','Short contextual guidance beside the simulator.');
+    const pulsar=K.toggle(config.pulsar_enabled!==false,'AI explanations and Q&A','Pulsar answers and automatic AI commentary. Static guided experiments remain available.');
     const auto=K.toggle(config.auto_coach!==false,'Automatic commentary','Explain meaningful changes after the simulation settles.');
     const options=K.switches([pulsar,auto]);
+    const workspace=config.learning_workspace||{},special=lab?.slug==='science-universe';
+    const guestLimit=K.input(String(workspace.guest_question_limit||25),'number');guestLimit.min='1';guestLimit.max='1000';guestLimit.step='1';
+    const lessonDays=K.input(String(workspace.lesson_days||20),'number');lessonDays.min='1';lessonDays.max='120';lessonDays.step='1';
+    const guideAuto=K.toggle(workspace.auto_start_guide!==false,'Offer the guide on the first visit','Visitors can skip it. The Guided tour button can reopen it later.');
+    const lessonEditors=new Map(),guided=el('div','ls-guided-editor');
+    if(special){for(const [key,lesson] of Object.entries(workspace.lessons||{})){const entry=el('details','ls-guided-control');entry.append(el('summary',null,lesson.title));const title=K.input(lesson.title,'text'),question=K.textarea(lesson.question,2),watch=K.textarea(lesson.watch,2);entry.append(K.field('Guide heading',title),K.field('Question to explore',question),K.field('What to watch',watch));guided.append(entry);lessonEditors.set(key,{title,question,watch});}}
 
     const sectionsHost=el('div','ls-editor-items');
     function makeSection(values={}){
@@ -181,23 +191,25 @@ export async function renderLabStudio(host) {
 
     const tabsUI=tabs([
       ['setup','Setup'],['components','Components'],['learning','Pulsar & lessons'],['code','Code'],
-      ['sources','Scientific context'],['preview','Preview'],['history','History'],
+      ['sources','Scientific context'],['preview','Preview'],['history','History'],['usage','Usage analytics'],
     ]);
     const setup=tabsUI.panels.get('setup');
     setup.append(
-      K.fields([K.field('Lab title',title),K.field('Slug (fixed after creation)',slug),
+      K.fields([K.field('Lab title',title,'Shown in the catalog and workspace. Custom simulator headings can also be edited in Code.'),K.field('Slug (fixed after creation)',slug),
         K.field('Related Topic slug',topic,'Optional; must match a published Topic.'),K.field('Estimated duration',duration)]),
       K.field('Summary',summary),K.field('Research / learning goal',goal)
     );
     tabsUI.panels.get('components').append(
       el('p','ls-note','Choose which shell components the viewer displays. Code emits events and metrics; the Lab shell renders controls and guidance.'),cmpbox);
     const learning=tabsUI.panels.get('learning');
-    learning.append(options,K.heading('Learning journey'),sectionsHost,addSection,
+    learning.append(options);
+    if(special)learning.append(K.heading('Guided comparison and guest access'),K.fields([K.field('Guest questions before an account is needed',guestLimit,'Only successful live answers consume this allowance. The simulation and atlas stay public.'),K.field('Model days per guided test',lessonDays,'Both worlds advance by the same number of days; each lesson starts at the same checkpoint.')]),guideAuto.wrap,guided,el('p','ls-note','These settings and all 12 guide texts are part of the Lab draft. Save and publish to apply them to the public workspace.'));
+    learning.append(K.heading('Section introductions'),sectionsHost,addSection,
       K.heading('Event-based coaching'),guideHost,addGuide,
       el('p','ls-note','Simulator code calls GraviLab.emit(event, metrics, section). Pulsar receives meaningful state changes, not raw source code.'));
 
     const sources=tabsUI.panels.get('sources');
-    sources.append(el('p','ls-note','Versioned Markdown in the database grounds Pulsar. Sections become exact citations. Sources support concepts, not uncalibrated model coefficients.'));
+    sources.append(el('p','ls-note','Versioned Markdown in the database grounds Pulsar. Sections become exact citations. Published source edits apply when saved here, independently of the Lab code draft. Sources support concepts, not uncalibrated model coefficients.'));
     if(lab){
       let documents=[];
       const list=K.select([],null),docSlug=K.input('','text','paper-name-year'),docTitle=K.input('','text','Source title');
@@ -222,6 +234,7 @@ export async function renderLabStudio(host) {
         }catch(e){K.setStatus(sourceStatus,e.message,'bad');}
       },{solid:true,tiny:true});
       sources.append(load,K.fields([K.field('Stored source',list),K.field('Source ID',docSlug),K.field('Title',docTitle),K.field('Original source',sourceUrl),K.field('License / provenance',license)]),published.wrap,K.field('Markdown with section headings',markdown),saveSource,sourceStatus);
+      sources.addEventListener('ls:tab',()=>loadDocs().catch(e=>K.setStatus(sourceStatus,e.message,'bad')),{once:true});
     }else sources.append(K.empty('Create the Lab before adding scientific sources.'));
 
     const code=tabsUI.panels.get('code');
@@ -256,20 +269,24 @@ export async function renderLabStudio(host) {
       },{tiny:true});
       const restore=K.button('Restore to draft',async()=>{
         if(!versions.value||!window.confirm('Restore this version as a NEW draft? Live version remains unchanged.'))return;
-        try{await P.adminRestoreLab(lab.id,lab.version,Number(versions.value));await refresh(lab.id);}
+        try{await P.adminRestoreLab(lab.id,lab.version,Number(versions.value));await refresh(lab.id,'Revision restored as a new draft. Publish when it is ready.');}
         catch(e){K.setStatus(status,e.message,'bad');}
       },{tiny:true});
       history.append(K.fields([K.field('Saved revisions',versions)]),K.cardActions([load,restore]));
+      history.addEventListener('ls:tab',()=>load.click(),{once:true});
     }else history.append(K.empty('Revision history begins after you create this Lab.'));
 
-    const status=K.status();
+    const usage=tabsUI.panels.get('usage');
+    if(lab){let analytics=null;usage.addEventListener('ls:tab',()=>{if(!analytics)analytics=renderLabUsage(usage,{labs,labId:lab.id});else analytics.refresh();});}
+    else usage.append(K.empty('Create this Lab before viewing its usage.'));
+    const status=K.status();if(notice)K.setStatus(status,notice,'ok');
     const save=K.button(lab?'Save draft':'Create draft',null,{solid:true,type:'submit'});
     const publish=lab?K.button(lab.ready?'Publish new version':'Publish',async()=>{
       if(!window.confirm('Publish this saved draft to the public Lab?'))return;
       try{
         const response=await P.adminPublishLab(lab.id,lab.version);
         K.setStatus(status,'Published version '+response.lab.published_version,'ok');
-        await refresh(lab.id);
+        await refresh(lab.id,'Published v'+response.lab.published_version+'. The public Lab now uses these saved settings.');
       }catch(e){K.setStatus(status,e.message,'bad');}
     }):null;
     const unpublish=lab?.ready?K.button('Unpublish',async()=>{
@@ -279,13 +296,14 @@ export async function renderLabStudio(host) {
     },{danger:true}):null;
     const live=lab?.ready?K.anchor('View live',labUrl(lab.slug),{tiny:true}):null;
     const remove=lab?K.button('Delete Lab',async()=>{
-      if(!window.confirm('Permanently delete this Lab and its revision history?'))return;
+      if(!window.confirm('Permanently delete this Lab, its revisions and recorded usage history?'))return;
       try{await P.adminDeleteLab(lab.id);await refresh(null);}
       catch(e){K.setStatus(status,e.message,'bad');}
     },{danger:true,tiny:true}):null;
     const pubhead=el('div','ls-release');
     pubhead.append(K.badge(lab?.ready?'Published v'+lab.published_version:'Not published',lab?.ready?'ok':'warn'),
       el('span',null,lab?'Editing v'+lab.version:'New draft'));
+    if(lab?.sync){const sync=el('div','ls-sync');sync.append(K.badge(lab.sync.source_matches?'Source matches live':'Source has draft changes',lab.sync.source_matches?'ok':'warn'),K.badge(lab.sync.settings_match?'Settings match live':'Settings have draft changes',lab.sync.settings_match?'ok':'warn'),el('p','ls-note',(lab.sync.guided_controls?lab.sync.guided_controls+' guided controls · ':'')+lab.sync.source_documents+' scientific sources · '+lab.sync.stored_scenarios.toLocaleString('en-US')+' stored model runs · opt-in usage analytics connected'));pubhead.append(sync);}
     form.append(pubhead,tabsUI.nav,...tabsUI.panels.values(),
       K.foot([save,publish,unpublish,live,remove],status));
     form.addEventListener('submit',async(evt)=>{
@@ -293,21 +311,23 @@ export async function renderLabStudio(host) {
       const files=[...codeFiles.entries()].filter(([name,area])=>name==='index.html'||value(area)).map(([name,area])=>({
         name,content:area.value,
       }));
-      const config={
+      const nextConfig={
         learning_goal:value(goal),
         components:[...switches.entries()].filter(([,node])=>node.checked).map(([key])=>key),
         pulsar_enabled:pulsar.input.checked,auto_coach:auto.input.checked,
         sections:[...sectionsHost.children].map(row=>row.read()),
         guidance:[...guideHost.children].map(row=>row.read()),
       };
+      if(special)nextConfig.learning_workspace={guest_question_limit:Number(value(guestLimit)),lesson_days:Number(value(lessonDays)),auto_start_guide:guideAuto.input.checked,lessons:Object.fromEntries([...lessonEditors].map(([key,fields])=>[key,{title:value(fields.title),question:value(fields.question),watch:value(fields.watch)}]))};
+      else if(config.learning_workspace)nextConfig.learning_workspace=config.learning_workspace;
       const payload={title:value(title),slug:value(slug),summary:value(summary),
-        duration_text:value(duration),topic_slug:value(topic),config,files};
+        duration_text:value(duration),topic_slug:value(topic),config:nextConfig,files};
       if(lab)payload.version=lab.version;
       save.disabled=true;
       K.setStatus(status,'Saving draft…');
       try{
         const result=lab?await P.adminUpdateLab(lab.id,payload):await P.adminCreateLab(payload);
-        await refresh(result.lab.id);
+        await refresh(result.lab.id,'Draft v'+result.lab.version+' saved. The live version changes only after publication.');
       }catch(e){K.setStatus(status,e.message||'Could not save draft.','bad');save.disabled=false;}
     });
     editor.body.append(form);

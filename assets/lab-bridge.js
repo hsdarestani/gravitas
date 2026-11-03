@@ -75,6 +75,7 @@
   else startSizeObserver();
 
   window.GraviLab={
+    usage:function(kind,data){if(validKey.test(String(kind||'')))send('lab:usage',{usage:{kind:kind,data:data||{}}});},
     shellAction:function(action){if(['catalog','tour','fullscreen','sources','navigate:home','navigate:topics','navigate:essays','navigate:learn','navigate:community','navigate:youtube','navigate:linkedin','navigate:instagram','navigate:about'].includes(action))send('lab:shell-action',{action:action});},
     companionLayout:function(payload){
       if(location.pathname.indexOf('/lab-run/science-universe/')!==0)return;
@@ -166,7 +167,7 @@
       controlListeners.forEach(function(fn){try{fn({key:data.key,value:data.value});}catch(_){}});
     if(data.type==='lab:command'&&['play','pause','reset','replay'].includes(data.command))
       commandListeners.forEach(function(fn){try{fn(data.command);}catch(_){}});
-    if(data.type==='lab:lesson'&&location.pathname.indexOf('/lab-run/science-universe/')===0&&['start','focus','observe','skip'].includes(data.action))lessonListeners.forEach(function(fn){try{fn({action:data.action,policy:String(data.policy||'')});}catch(_){}});
+    if(data.type==='lab:lesson'&&location.pathname.indexOf('/lab-run/science-universe/')===0&&['start','focus','observe','skip'].includes(data.action))lessonListeners.forEach(function(fn){try{fn({action:data.action,policy:String(data.policy||''),days:Number(data.days)});}catch(_){}});
     if(data.type==='lab:comparison'&&location.pathname.indexOf('/lab-run/science-universe/')===0)comparisonListeners.forEach(function(fn){try{fn(data);}catch(_){}});
     if(data.type==='lab:experiment'&&
        location.pathname.indexOf('/lab-run/science-universe/')===0&&

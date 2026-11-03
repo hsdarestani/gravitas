@@ -13,6 +13,7 @@ from django.views.decorators.http import require_http_methods
 
 from .lab_knowledge import POLICY_KEYS, atlas_context, published_lab
 from .lab_knowledge_models import LabCoachTrial, LabConversation, LabKnowledgeDocument
+from .lab_learning_settings import published_learning_settings
 
 TRIAL_LIMIT = 25
 MEASURES = ('published', 'healthyPapers', 'falsePublished', 'falseDiscoveryRate', 'replicated',
@@ -65,11 +66,12 @@ def trial_row(request, lab):
     return LabCoachTrial.objects.get_or_create(lab=lab, signature=signature)[0]
 
 
-def trial_json(row=None, authenticated=False):
+def trial_json(row=None, authenticated=False, lab=None):
+    limit = published_learning_settings(lab or row.lab)['guest_question_limit'] if lab is not None or row is not None else TRIAL_LIMIT
     pending = len([x for x in (row.reservations if row else []) if time.time()-x['at'] < 180])
     used = row.used if row else 0
-    return {'authenticated': authenticated, 'limit': TRIAL_LIMIT, 'used': used,
-            'remaining': None if authenticated else max(0, TRIAL_LIMIT-used-pending),
+    return {'authenticated': authenticated, 'limit': limit, 'used': used,
+            'remaining': None if authenticated else max(0, limit-used-pending),
             'simulation_open': True, 'account_saves_history': True}
 
 
@@ -80,7 +82,7 @@ def reserve_coaching(request, lab, charge):
     with transaction.atomic():
         row = LabCoachTrial.objects.select_for_update().get(pk=row.pk)
         row.reservations = [x for x in row.reservations if time.time()-x['at'] < 180]
-        if row.used+len(row.reservations) >= TRIAL_LIMIT:
+        if row.used+len(row.reservations) >= published_learning_settings(lab)['guest_question_limit']:
             return None, trial_json(row)
         token = uuid.uuid4().hex if charge else None
         if token:
@@ -110,7 +112,7 @@ def lab_access(request, slug):
     if not lab:
         return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
     signed_in = request.user.is_authenticated
-    return JsonResponse({'ok': True, **trial_json(None if signed_in else trial_row(request, lab), signed_in),
+    return JsonResponse({'ok': True, **trial_json(None if signed_in else trial_row(request, lab), signed_in, lab),
                          'owner_id': request.user.pk if signed_in else None})
 
 

@@ -3,6 +3,7 @@
    It never uses production records, credentials or a simulated LLM response. */
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib');
 const root=path.resolve(__dirname,'..'),source=path.join(root,'lab-sources/science-universe');
+const adminFixture=require('./lab-admin-fixture.cjs')(root);
 const manifest=JSON.parse(fs.readFileSync(path.join(source,'manifest.json')));
 const atlas=JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(root,'backend/core/data/lab-scenario-atlas.json.gz'))));
 const knowledgeRoot=path.join(root,'backend/core/data/lab-knowledge');
@@ -18,6 +19,7 @@ const portArg=process.argv.indexOf('--port'),port=portArg>=0?Number(process.argv
 function json(res,value,status=200){res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));}
 http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost'),p=url.pathname;
+ if(adminFixture.handle(req,res,url))return;
  if(p==='/api/labs/science-universe/access/')return json(res,{ok:true,authenticated:false,limit:25,used:0,remaining:25,simulation_open:true});
  if(p==='/api/labs/science-universe/scenarios/compare/'){const data=require('./lab-atlas-preview.cjs').compareStored(atlas.runs,url.searchParams.get('policy')||'verification',Number(url.searchParams.get('low')||3),Number(url.searchParams.get('high')||9));return json(res,data||{error:'comparison_not_available'},data?200:404);}
  if(p==='/api/labs/')return json(res,{ok:true,labs:[lab]});

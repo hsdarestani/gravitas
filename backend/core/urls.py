@@ -255,9 +255,11 @@ from core.views import (
 )
 
 from .lab_learning import lab_access, lab_conversation, lab_scenario_comparison
+from .lab_usage import lab_usage, admin_lab_usage, admin_usage_visits, admin_usage_visit, admin_usage_saved
 
 urlpatterns = [
     path('labs/<slug:slug>/access/', lab_access),
+    path('labs/<slug:slug>/usage/', lab_usage),
     path('labs/<slug:slug>/conversation/', lab_conversation),
     path('labs/<slug:slug>/scenarios/compare/', lab_scenario_comparison),
     path('platform/projects/<int:project_id>/structure/', project_files),
@@ -337,6 +339,10 @@ urlpatterns = [
     path('platform/admin/tickets/', admin_tickets),
     path('platform/admin/tickets/<int:ticket_id>/', admin_ticket_detail),
     path('platform/admin/labs/', admin_labs),
+    path('platform/admin/labs/usage/', admin_lab_usage),
+    path('platform/admin/labs/usage/saved/', admin_usage_saved),
+    path('platform/admin/labs/usage/visits/', admin_usage_visits),
+    path('platform/admin/labs/usage/visits/<uuid:visit_id>/', admin_usage_visit),
     path('platform/admin/labs/<int:lab_id>/knowledge/', admin_knowledge),
     path('platform/admin/labs/<int:lab_id>/knowledge/<slug:document>/', admin_knowledge),
     path('platform/admin/labs/<int:lab_id>/', admin_lab_detail),
