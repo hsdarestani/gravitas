@@ -373,14 +373,15 @@ body:has(#lab-experiences[data-lab-slug="science-universe"]) :is(.page-head,.g-f
 @keyframes lab-pulsar-arrive{from{opacity:0;transform:scale(.65) rotate(-65deg)}to{opacity:1;transform:scale(1) rotate(0)}}
 @keyframes lab-pulsar-ring{from{opacity:0;transform:scale(.65)}35%{opacity:1}to{opacity:.5;transform:scale(1)}}
 #lab-experiences.learning-split .lab-chat-starters{border-top:1px solid var(--g-hairline);padding:10px 14px;gap:6px}
+#lab-experiences.learning-split .lab-pulsar-widget{gap:0}
 #lab-experiences.learning-split .lab-chat-starters .g-btn{border-style:solid;color:var(--g-text);min-height:34px;text-align:start;line-height:1.4}
 #lab-experiences.learning-split .lab-chat-starters .g-btn:disabled{opacity:.5;cursor:wait}
 .lab-learning-guide>.g-btn{margin:4px 5px 4px 0;white-space:normal}
 .lab-learning-guide:not([hidden])~.lab-chat .lab-chat-scenarios{display:none}
 @media(max-width:900px){
  #lab-experiences.learning-split .lab-runtime-grid{grid-template-rows:minmax(160px,1fr) minmax(260px,43dvh)}
- #lab-experiences.learning-split .lab-chat-starters{display:flex;flex-wrap:nowrap;overflow-x:auto;padding:6px 10px;scrollbar-width:thin}
- #lab-experiences.learning-split .lab-chat-starters .g-btn{flex:none;font-size:11px;min-height:32px;padding:6px 9px;white-space:nowrap}
+ #lab-experiences.learning-split .lab-chat-starters{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));padding:6px 10px}
+ #lab-experiences.learning-split .lab-chat-starters .g-btn{min-width:0;font-size:11px;min-height:40px;padding:6px 9px;white-space:normal}
  #lab-experiences.learning-split .lab-chat-log{min-height:45px}
  #lab-experiences.learning-split [data-mode="guide"] .lab-chat{display:flex;flex:none;order:-1}
  #lab-experiences.learning-split [data-mode="guide"] .lab-chat-body{display:none}
