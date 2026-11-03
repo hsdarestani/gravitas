@@ -122,3 +122,14 @@ body.ed :is(a,button,input):focus-visible{outline:2px solid var(--g-focus);outli
 @media(max-width:520px){.ed-nav__cta{display:none}.ed-brand img{height:1.4rem;max-width:none}.ed-brand__divider,.ed-brand__product{display:none}.ed-nav{gap:.35rem}.ed-lang a{min-width:31px;padding:7px 6px}.ed-theme-toggle{width:2.35rem;height:2.35rem}.ed-hero .ed-container{padding-top:8rem}.ed-h1{font-size:clamp(2.7rem,10vw,var(--g-fs-display))}.ed-h2{font-size:var(--g-fs-h1)}.ed-process__step{border-color:var(--g-hairline)}}
 @media(prefers-reduced-motion:reduce){.ed-hide-at-start{opacity:1;transform:none}.ed-net-point,.ed-net-path,.ed-meter>i{transition:none}.ed-btn:hover,.ed-theme-toggle:hover{transform:none}}
 @media print{.ed-top,.ed-progress,.ed-rail,.ed-footer{display:none!important}.ed-container{width:100%}.ed-slide{break-after:page}.ed-hero__art{opacity:.4}}
+
+
+/* Pulsar × Simulation pitch elements. All presentation UI inherits Brand Book tokens. */
+.ed-pairlockup{display:inline-flex;align-items:center;flex-wrap:wrap;gap:clamp(.5rem,1.5vw,1.25rem);margin:0 0 var(--g-space-xl);font-family:var(--g-font);font-size:clamp(1rem,1.6vw,1.4rem);font-weight:var(--g-w-semibold);letter-spacing:.025em;color:var(--g-text);line-height:1.2}
+.ed-pairlockup span{border-bottom:1px solid var(--g-border-strong);padding-bottom:.3em}
+.ed-pairlockup b{font:var(--g-w-light) 1.6em/1 var(--g-font);color:var(--g-accent)}
+.ed-pulsar-caption{font:var(--g-w-medium) .7rem/1.4 var(--g-font-mono);letter-spacing:.13em;text-transform:uppercase;color:var(--g-text-muted);margin-top:var(--g-space-lg)}
+.ed-pulsar-caption::before{content:"";display:inline-block;width:1.5rem;height:1px;vertical-align:middle;background:var(--g-accent);margin-inline-end:.7rem}
+.ed-scope-note{border-inline-start:2px solid var(--g-border-strong);padding:.75rem 0 .75rem var(--g-space-md);margin:var(--g-space-lg) 0 0;max-width:68ch;font-size:var(--g-fs-caption);line-height:var(--g-lh-body);color:var(--g-text-subtle)}
+.ed-offer__note--pitch{max-width:51ch;margin:var(--g-space-lg) 0 0;font-size:var(--g-fs-small);line-height:var(--g-lh-body);color:var(--g-text-muted)}
+@media(max-width:520px){.ed-pairlockup{gap:.55rem;font-size:.9rem;margin-bottom:var(--g-space-lg)}}
