@@ -7,6 +7,7 @@ on:
       - 'assets/lab-bridge.js'
       - 'assets/lab-studio.js'
       - 'assets/lab-learning-workspace.js'
+      - 'assets/lab-pulsar-welcome.js'
       - 'assets/lab-usage.js'
       - 'assets/consent.js'
       - 'assets/ws/ws-lab-analytics.js'
@@ -60,6 +61,7 @@ jobs:
           node --check assets/lab-bridge.js
           node --check assets/lab-studio.js
           node --check assets/lab-learning-workspace.js
+          node --check assets/lab-pulsar-welcome.js
           node --check assets/lab-usage.js
           node --check assets/consent.js
           node --input-type=module --check < assets/ws/ws-lab-analytics.js

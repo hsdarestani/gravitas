@@ -583,7 +583,8 @@ function reportLesson(observed=false){
  if(G.lessonState)G.lessonState({policy:lesson.policy,changed:changed.length===1&&changed[0]===lesson.policy,observed:lesson.observed,days:worlds[0].day-lesson.startDay,a:E.summary(worlds[0]),b:E.summary(worlds[1])});
 }
 function startLesson({action,policy,days}){
- if(action==='skip'){lesson=null;return;}
+ if(action==='welcome'){$('comparison-setup').hidden=true;return;}
+ if(action==='skip'){lesson=null;$('comparison-setup').hidden=!!worlds[1];document.querySelectorAll('.lesson-highlight').forEach(e=>e.classList.remove('lesson-highlight'));return;}
  if(!Object.hasOwn(E.DEFAULTS,policy))return;
  if(action==='start'||action==='focus')document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
  if(action==='start'){

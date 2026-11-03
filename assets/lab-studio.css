@@ -353,3 +353,37 @@ body:has(#lab-experiences[data-lab-slug="science-universe"]) :is(.page-head,.g-f
 @media(max-width:900px){#lab-experiences.learning-split .lab-learning-guide{max-height:none}#lab-experiences.learning-split .lab-chat-head{min-height:38px;height:38px;padding:4px 12px}#lab-experiences.learning-split .lab-access-strip.is-exhausted small{display:block}}
 .lab-usage-choice{display:flex;gap:7px;align-items:center;padding:5px 14px;color:var(--g-text-muted);font-size:10px;line-height:1.4;flex:none;cursor:pointer}.lab-usage-choice input{accent-color:var(--g-accent);margin:0}
 .lab-chat-tools[hidden],.lab-chat-starters[hidden]{display:none!important}
+
+/* The introduction owns focus briefly; the simulator stays visible as context. */
+.lab-pulsar-welcome{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:24px;border:0;background:transparent;color:var(--g-text);overflow:hidden}
+.lab-pulsar-welcome[open]{display:grid;place-items:center}
+.lab-pulsar-welcome::backdrop{background:color-mix(in srgb,var(--g-bg) 90%,transparent);backdrop-filter:blur(7px)}
+.lab-welcome-card{width:min(100%,420px);text-align:center;display:grid;justify-items:center;gap:18px}
+.lab-welcome-card .g-eyebrow{margin:14px 0 0;color:var(--g-text-muted);font-size:10px;letter-spacing:.15em}
+.lab-welcome-card h2{margin:0;font-size:clamp(30px,5vw,44px);line-height:1.15;letter-spacing:-.04em;font-weight:var(--g-w-medium)}
+.lab-welcome-card>p:not(.g-eyebrow){margin:0;max-width:340px;color:var(--g-text-muted);font-size:15px;line-height:1.8}
+.lab-welcome-card>button{margin-top:8px}
+.lab-welcome-mark{position:relative;display:grid;place-items:center;width:96px;height:96px;flex:none;color:var(--g-accent);transform-origin:center;animation:lab-pulsar-arrive 1.1s cubic-bezier(.2,.7,.2,1) both}
+.lab-welcome-mark .g-ic{width:84px;height:84px;display:block}
+.lab-welcome-mark::before,.lab-welcome-mark::after{content:"";position:absolute;inset:-20px;border:1px solid var(--g-hairline);border-radius:50%;pointer-events:none;animation:lab-pulsar-ring 1.3s ease-out both}
+.lab-welcome-mark::after{inset:-42px;animation-delay:.12s;border-color:color-mix(in srgb,var(--g-accent) 12%,transparent)}
+.is-docking .lab-welcome-card>*:not(.lab-welcome-mark){opacity:0;transition:opacity .18s ease}
+.is-docking .lab-welcome-mark{animation:none}
+.is-docking .lab-welcome-mark::before,.is-docking .lab-welcome-mark::after{opacity:0;animation:none}
+@keyframes lab-pulsar-arrive{from{opacity:0;transform:scale(.65) rotate(-65deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes lab-pulsar-ring{from{opacity:0;transform:scale(.65)}35%{opacity:1}to{opacity:.5;transform:scale(1)}}
+#lab-experiences.learning-split .lab-chat-starters{border-top:1px solid var(--g-hairline);padding:10px 14px;gap:6px}
+#lab-experiences.learning-split .lab-chat-starters .g-btn{border-style:solid;color:var(--g-text);min-height:34px;text-align:start;line-height:1.4}
+#lab-experiences.learning-split .lab-chat-starters .g-btn:disabled{opacity:.5;cursor:wait}
+.lab-learning-guide>.g-btn{margin:4px 5px 4px 0;white-space:normal}
+.lab-learning-guide:not([hidden])~.lab-chat .lab-chat-scenarios{display:none}
+@media(max-width:900px){
+ #lab-experiences.learning-split .lab-runtime-grid{grid-template-rows:minmax(160px,1fr) minmax(260px,43dvh)}
+ #lab-experiences.learning-split .lab-chat-starters{display:flex;flex-wrap:nowrap;overflow-x:auto;padding:6px 10px;scrollbar-width:thin}
+ #lab-experiences.learning-split .lab-chat-starters .g-btn{flex:none;font-size:11px;min-height:32px;padding:6px 9px;white-space:nowrap}
+ #lab-experiences.learning-split .lab-chat-log{min-height:45px}
+}
+@media(prefers-reduced-motion:reduce){
+ .lab-welcome-mark,.lab-welcome-mark::before,.lab-welcome-mark::after{animation:none}
+ .is-docking .lab-welcome-card>*{transition:none}
+}

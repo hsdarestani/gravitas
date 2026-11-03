@@ -46,6 +46,7 @@ EXPECTED = {
         '79d1033aabb9db04bb708f091ee96da66e0f4c67',
         '39582357f5ff293bffbc6bdf4b5ec84699884c7b',
         'e0a07c1432bdfa362da296b0a92a760b41a381ff',
+        '95278896f9c111774c051e9193c76ee7b1d1e8a3',
     ),
     'styles.css': (
         '70f556635f4927634cc17e3a8119b1ad47f1d261',
