@@ -29,7 +29,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds10">
-<link rel="stylesheet" href="assets/hero.css?v=20261102-grid1">
+<link rel="stylesheet" href="assets/hero.css?v=20261105-stars1">
 <link rel="stylesheet" href="assets/landing.css?v=20261105-lp9">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
@@ -75,12 +75,16 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      under it ("Break the formula"); that is gone, so the home hero is built
      like every other hero on the site, figure and caption and nothing more.
 
-     The meteors and the scattered stars are gone. Five animated layers behind
-     a headline is the opposite of the brand's "the well whispers": the grid,
-     the starfield and the comet that draws the third mass are enough. -->
+     The scattered stars and the rare meteors were dropped on 2026-11-02 as
+     too many animated layers behind a headline, and brought back on
+     2026-11-05 at the owner's request: the hero read as empty without them.
+     hero.js and hero.css never lost the code, so only the two elements below
+     return. Both stay off on light and under reduced motion. -->
 <section class="g-hero lp-hero" id="top">
   <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
   <div class="g-starfield" aria-hidden="true"></div>
+  <div class="lp-stars" id="lp-stars" aria-hidden="true"></div>
+  <canvas class="lp-meteors" id="lp-meteors" aria-hidden="true"></canvas>
   <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
   <div class="g-container g-hero__inner" style="width:100%">
     <div class="lp-hero__grid">
@@ -416,7 +420,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261102-ws1"></script>
-<script src="assets/hero.js?v=20261102-nogame1"></script>
+<script src="assets/hero.js?v=20261105-stars1"></script>
 <script src="assets/landing.js?v=20261102-ws3" defer></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
 <script src="assets/production-bridge.js?v=20261102-ws1" defer></script>

@@ -69,6 +69,41 @@
     starBox.appendChild(frag);
   }
 
+  // ---- A trace of the stars in the gridded bands ---------------------------
+  // The bands below each hero carry a faint, static trace of its grid
+  // (.lp-gridded in hero.css), and with the grid alone they read as graph
+  // paper rather than as the same sky. So each band also gets a trace of the
+  // hero's stars: far fewer, far dimmer, no glow and no twinkle, masked to the
+  // same fading corner as its grid. Static on purpose, like the grid: the hero
+  // is where things move. Density follows the band's area so a tall band is
+  // not sparser than a short one; positions are percentages, so a resize
+  // stretches the sky instead of needing a redraw. Off on light with the hero
+  // stars (site.css hides every .lp-stars there).
+  var bands = document.querySelectorAll('.lp-gridded');
+  for (var b = 0; b < bands.length; b++) {
+    var band = bands[b];
+    if (band.querySelector(':scope > .lp-stars--band')) continue;
+    var box = document.createElement('div');
+    box.className = 'lp-stars lp-stars--band';
+    box.setAttribute('aria-hidden', 'true');
+    var area = band.offsetWidth * band.offsetHeight;
+    var n = Math.max(18, Math.min(70, Math.round(area / 15000)));
+    var bfrag = document.createDocumentFragment();
+    for (var k = 0; k < n; k++) {
+      var t = document.createElement('span');
+      t.className = 'lp-star';
+      var bs = Math.random() < 0.9 ? (Math.random() * 0.9 + 0.5) : (Math.random() * 0.8 + 1.4);
+      t.style.left = (Math.random() * 100) + '%';
+      t.style.top = (Math.random() * 100) + '%';
+      t.style.width = bs.toFixed(2) + 'px';
+      t.style.height = bs.toFixed(2) + 'px';
+      t.style.opacity = (Math.random() * 0.25 + 0.15).toFixed(2);
+      bfrag.appendChild(t);
+    }
+    box.appendChild(bfrag);
+    band.insertBefore(box, band.firstChild);
+  }
+
   // ---- Touch: the hero is a play surface, not a block of quotable text ------
   // Press-and-drag over the hero was starting a text selection, magnifier,
   // handles, the lot, which stole the gesture from the gravity interaction.

@@ -469,5 +469,13 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
           mask-image: radial-gradient(60% 85% at var(--_at, 100% 0%), #000, transparent 100%);
 }
 .lp-gridded--left::before { --_at: 0% 0%; }
+/* The hero's stars, traced the same way (hero.js scatters them): sparse, dim,
+   static, and masked to the corner the band's grid fades from. */
+.lp-stars--band {
+  z-index: 0;
+  -webkit-mask-image: radial-gradient(70% 95% at var(--_at, 100% 0%), #000, transparent 100%);
+          mask-image: radial-gradient(70% 95% at var(--_at, 100% 0%), #000, transparent 100%);
+}
+.lp-gridded--left > .lp-stars--band { --_at: 0% 0%; }
 .lp-gridded > .g-container { position: relative; z-index: 1; }
 :root[data-theme="light"] .lp-gridded::before { --_ink: rgb(var(--g-canvas-line) / 0.08); }
