@@ -144,7 +144,7 @@
        halo, and the pencil's dot, solid and unstroked, sits on two of them,
        so the formula left it 0.85 under the 19.6 cap. Measuring the ink gives
        the same answer as the formula for the other three. */
-    graded: "<g transform=\"translate(-0.835 -2.630) scale(0.994444)\" stroke-width=\"1.709\"><path d=\"M3 20.6V15.6H9V10.6H15V5.6H21V20.6Z\"/><circle cx=\"6\" cy=\"18.1\" r=\"1.559\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    graded: "<g transform=\"translate(-0.835 -2.630) scale(0.994444)\" stroke-width=\"1.709\"><path d=\"M3 20.6V15.6H9V10.6H15V5.6H21V20.6Z\"/><circle cx=\"6\" cy=\"12.9\" r=\"1.559\" fill=\"currentColor\" stroke=\"none\"/></g>",
     balance: "<g transform=\"translate(1.673 1.590) scale(0.860577)\" stroke-width=\"1.975\"><path d=\"M12 7.6V20.4\"/><path d=\"M8 20.4h8\"/><path d=\"M4.4 7.6h15.2\"/><path d=\"M4.4 7.6v4.4\"/><path d=\"M19.6 7.6v4.4\"/><path d=\"M1.6 12h5.6a2.8 2.8 0 0 1-5.6 0z\"/><path d=\"M16.8 12h5.6a2.8 2.8 0 0 1-5.6 0z\"/><circle cx=\"12\" cy=\"4.2\" r=\"1.801\" fill=\"currentColor\" stroke=\"none\"/></g>",
     correction: "<g transform=\"translate(-0.885 -4.025) scale(1.204570)\" stroke-width=\"1.409\"><path d=\"M5.4 18.6 9.29 17.68 17.77 9.2 14.8 6.23 6.32 14.71Z\"/><path d=\"M6.32 14.71 9.29 17.68\"/><path d=\"M12.82 8.21 15.79 11.18\"/><circle cx=\"3.5\" cy=\"20.5\" r=\"1.285\" fill=\"currentColor\" stroke=\"none\"/></g>",
     unlocked: "<g transform=\"translate(0.883 -0.533) scale(0.942619)\" stroke-width=\"1.803\"><rect x=\"3.6\" y=\"10.2\" width=\"16.8\" height=\"11.2\" rx=\"3\"/><path d=\"M7.4 10.2V7a4.6 4.6 0 0 1 8.92-1.57\"/><circle cx=\"12\" cy=\"15.8\" r=\"1.644\" fill=\"currentColor\" stroke=\"none\"/></g>",
