@@ -46,7 +46,19 @@
 }
 .lp-proof__list li + li { padding-left: var(--g-space-md); border-left: 1px solid var(--g-hairline); }
 .lp-proof__list b { display: block; color: var(--g-text); font-weight: var(--g-w-semibold); }
-@media (max-width: 860px) {
+/* One method mark per promise (graded, balance, correction, unlocked in
+   gravitas-icons.js), beside its text at 2rem and never on a plate: the plate
+   is reserved for the section marks, and these are claims about how a Topic
+   is made, not ways into the site. At the 1.25rem interface size, stacked over
+   the label, they read as specks above a paragraph; at 2rem in their own
+   column they head the promise the way a numeral heads a list item. Accent
+   colour, so the mark leads to the label rather than competing with it. */
+.lp-proof__list li:has(.lp-proof__ic) { display: flex; align-items: flex-start; gap: var(--g-space-xs); }
+.lp-proof__list li:has(.lp-proof__ic) > span { min-width: 0; }
+.lp-proof__ic { width: 2rem; height: 2rem; color: var(--g-accent); }
+/* Two columns from 1024px down, not 860px: with a 2rem mark in each cell,
+   four columns at tablet width leave about 13 characters a line. */
+@media (max-width: 1024px) {
   .lp-proof__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lp-proof__list li:nth-child(3) { border-left: 0; padding-left: 0; }
   .lp-proof__list li:nth-child(n + 3) { border-top: 1px solid var(--g-hairline); }
