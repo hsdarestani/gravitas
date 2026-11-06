@@ -87,10 +87,8 @@ def topic_rows_from_db(items):
     rows = []
     for item in items:
         title = clean_text(getattr(item, 'title', ''), 220)
-        slug = clean_text(getattr(item, 'slug', ''), 150)
-        href = public_href('/topic-' + slug + '.html')
-        # DB slugs can differ from static public filenames. Never invent links.
-        rows.append({'title': title, 'status': 'open', 'href': href if slug.startswith('topic-') else ''})
+        # CMS slugs are not guaranteed to equal public page filenames.
+        rows.append({'title': title, 'status': 'open', 'href': ''})
     return [row for row in rows if row['title']]
 
 
@@ -119,6 +117,8 @@ def _is_current_topic_question(q):
 
 def _topic_links(rows, limit=2):
     links = [{'label': 'Browse Topics', 'href': '/topics.html'}]
+    if limit <= 0:
+        return links
     for row in rows:
         if row['status'] == 'open' and row.get('href'):
             links.append({'label': row['title'][:65], 'href': row['href']})
