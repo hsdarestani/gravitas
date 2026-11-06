@@ -47,15 +47,39 @@ def public_page(value):
     return '/'
 
 
+def public_navigation_href(value):
+    """Validate a same-origin public navigation destination or page anchor."""
+    href = clean_text(value, 180)
+    if '..' in href or '?' in href or href.startswith('//'):
+        return ''
+    if re.fullmatch(r'#[a-zA-Z0-9_-]{1,90}', href):
+        return href
+    if not re.fullmatch(
+        r'/?[a-z0-9_-]+(?:/[a-z0-9_-]+)*(?:\.html)?(?:#[a-zA-Z0-9_-]+)?',
+        href,
+    ):
+        return ''
+    return '/' + href.lstrip('/')
+
+
 def page_observation(raw):
     """A brief, untrusted observation of the currently rendered public page."""
     raw = raw if isinstance(raw, dict) else {}
     featured = clean_text(raw.get('featured_topic'), 220)
     featured_href = public_href(raw.get('featured_href'))
+    actions = []
+    for action in (raw.get('actions') if isinstance(raw.get('actions'), list) else [])[:18]:
+        if not isinstance(action, dict):
+            continue
+        label = clean_text(action.get('label'), 100)
+        href = public_navigation_href(action.get('href'))
+        if label:
+            actions.append({'label': label, 'href': href})
     return {
         'heading': clean_text(raw.get('heading'), 180),
         'featured_topic': featured if featured_href else '',
         'featured_href': featured_href if featured else '',
+        'actions': actions,
     }
 
 
@@ -178,6 +202,14 @@ def short_public_answer(message, *, page='/', observation=None, catalog=None, db
     if q in ('what is a topic', 'what are topics'):
         return ('A GraviQuest Topic explores one question using video, an essay, sources and interactive material.',
                 [{'label': 'Browse Topics', 'href': '/topics.html'}])
+
+    # Answer a named on-page action without guessing where its button leads.
+    if any(word in q for word in ('button', 'click', 'where', 'find', 'open')):
+        for action in observation['actions']:
+            label = action['label']
+            if len(label) >= 5 and label.casefold() in q and action['href']:
+                return ('Use “' + label + '” on this page.',
+                        [{'label': label, 'href': action['href']}])
 
     for questions, answer, href, label in PUBLIC_FAQ:
         if q in questions:
