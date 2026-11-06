@@ -536,11 +536,67 @@
     return { reply: FALLBACK, links: pairs([['Topics', 'topics.html'], ['Community', 'community.html']]) };
   }
 
+  /* Pulsar needs to know the headings and Topic cards a visitor actually
+     sees. During the CMS migration the static public pages can be ahead of
+     the DB, so read the same-origin Topics index instead of guessing from
+     the backend's published ContentItems. No private DOM or user data. */
+  var publicTopicsPromise = null;
+
+  function readPublicTopicCards(doc) {
+    return Array.prototype.slice.call(doc.querySelectorAll('#all a.entry'), 0, 40)
+      .map(function (card) {
+        var title = card.querySelector('h3');
+        var planned = card.classList.contains('is-soon') ||
+          card.getAttribute('aria-disabled') === 'true';
+        return {
+          title: title ? title.textContent.trim().slice(0, 220) : '',
+          status: planned ? 'planned' : 'open',
+          href: planned ? '' : (card.getAttribute('href') || '')
+        };
+      })
+      .filter(function (row) { return Boolean(row.title); });
+  }
+
+  function publicTopicCards() {
+    if (publicTopicsPromise) return publicTopicsPromise;
+    if (/\\/topics\\.html$/.test(location.pathname)) {
+      return Promise.resolve(readPublicTopicCards(document));
+    }
+    publicTopicsPromise = fetch('/topics.html', { cache: 'no-store' })
+      .then(function (response) {
+        if (!response.ok) throw new Error('topics-unavailable');
+        return response.text();
+      })
+      .then(function (html) {
+        return readPublicTopicCards(new DOMParser().parseFromString(html, 'text/html'));
+      })
+      .catch(function () { return []; });
+    return publicTopicsPromise;
+  }
+
+  function publicPageContext() {
+    var main = document.querySelector('main');
+    var home = /^(\\/|\\/index\\.html)$/.test(location.pathname);
+    var heading = main && main.querySelector('h1');
+    var featured = home && main && main.querySelector('.lp-topic__q');
+    var featuredLink = home && main && main.querySelector('.lp-topic__intro a[href^="topic-"]');
+    return {
+      heading: heading ? heading.textContent.trim().slice(0, 180) : '',
+      featured_topic: featured ? featured.textContent.trim().slice(0, 220) : '',
+      featured_href: featuredLink ? (featuredLink.getAttribute('href') || '') : ''
+    };
+  }
+
   function remoteAnswer(q, history) {
-    return fetch(CFG.endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: q, history: history, page: location.pathname })
+    return publicTopicCards().then(function (catalog) {
+      return fetch(CFG.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: q, history: history, page: location.pathname,
+          page_context: publicPageContext(), topic_catalog: catalog
+        })
+      });
     }).then(function (r) {
       if (!r.ok) throw new Error(r.status);
       return r.json();
