@@ -587,7 +587,7 @@
     var featuredLink = home && main && main.querySelector('.lp-topic__intro a[href^="topic-"]');
     var actions = main ? Array.prototype.slice.call(main.querySelectorAll('a[href], button'), 0, 45)
       .map(function (node) {
-        var label = (node.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 100);
+        var label = (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 100);
         return { label: label, href: node.getAttribute('href') || '' };
       })
       .filter(function (row) { return row.label; })
