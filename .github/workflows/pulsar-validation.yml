@@ -5,6 +5,9 @@ on:
     paths:
       - 'backend/core/pulsar.py'
       - 'backend/core/pulsar_api.py'
+      - 'backend/core/pulsar_public_context.py'
+      - 'backend/core/test_public_pulsar_api.py'
+      - 'assets/chat.js'
       - 'backend/core/pulsar_profile_api.py'
       - 'backend/core/pulsar_memory_api.py'
       - 'backend/core/pulsar_agent_api.py'
@@ -42,6 +45,9 @@ on:
     paths:
       - 'backend/core/pulsar.py'
       - 'backend/core/pulsar_api.py'
+      - 'backend/core/pulsar_public_context.py'
+      - 'backend/core/test_public_pulsar_api.py'
+      - 'assets/chat.js'
       - 'backend/core/pulsar_profile_api.py'
       - 'backend/core/pulsar_runtime/**'
       - 'backend/core/assistant_api.py'
@@ -89,6 +95,9 @@ jobs:
           "$PY" -m django evaluate_pulsar_v1 --provider deterministic
           "$PY" -m django verify_pulsar_week1
 
+      - name: Public chat JavaScript syntax
+        run: node --check assets/chat.js
+
       - name: Pulsar unit and regression tests
         shell: bash
         run: |
@@ -98,6 +107,7 @@ jobs:
           PY="$RUNNER_TEMP/gravitas-pulsar-tests/bin/python"
           "$PY" -m django test \
             core.test_pulsar_runtime \
+            core.test_public_pulsar_api \
             core.test_pulsar_context_profile \
             core.test_pulsar_memory \
             core.test_pulsar_evalset \
