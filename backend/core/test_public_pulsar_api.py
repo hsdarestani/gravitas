@@ -65,11 +65,15 @@ class PublicPulsarContextTests(TestCase):
 
 class PublicPulsarApiTests(TestCase):
     def setUp(self):
-        ContentItem.objects.create(
-            kind=ContentItem.Kind.TOPIC,
-            status=ContentItem.Status.PUBLISHED,
+        # Migration 0020 seeds this slug; update it instead of creating
+        # a second row with the same unique slug.
+        ContentItem.objects.update_or_create(
             slug='computable-universe',
-            title='Is the universe computable?',
+            defaults={
+                'kind': ContentItem.Kind.TOPIC,
+                'status': ContentItem.Status.PUBLISHED,
+                'title': 'Is the universe computable?',
+            },
         )
         ContentItem.objects.create(
             kind=ContentItem.Kind.ARTICLE,
