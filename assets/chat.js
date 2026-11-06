@@ -575,15 +575,28 @@
   }
 
   function publicPageContext() {
+    // The public endpoint must not receive workspace or account DOM content.
+    var path = location.pathname;
+    var publicPath = path === '/' || (path.lastIndexOf('/') === 0 && path.endsWith('.html'));
+    if (!publicPath) return { heading: '', featured_topic: '', featured_href: '', actions: [] };
+
     var main = document.querySelector('main');
-    var home = location.pathname === '/' || location.pathname === '/index.html';
+    var home = path === '/' || path === '/index.html';
     var heading = main && main.querySelector('h1');
     var featured = home && main && main.querySelector('.lp-topic__q');
     var featuredLink = home && main && main.querySelector('.lp-topic__intro a[href^="topic-"]');
+    var actions = main ? Array.prototype.slice.call(main.querySelectorAll('a[href], button'), 0, 45)
+      .map(function (node) {
+        var label = (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+        return { label: label, href: node.getAttribute('href') || '' };
+      })
+      .filter(function (row) { return row.label; })
+      .slice(0, 18) : [];
     return {
       heading: heading ? heading.textContent.trim().slice(0, 180) : '',
       featured_topic: featured ? featured.textContent.trim().slice(0, 220) : '',
-      featured_href: featuredLink ? (featuredLink.getAttribute('href') || '') : ''
+      featured_href: featuredLink ? (featuredLink.getAttribute('href') || '') : '',
+      actions: actions
     };
   }
 
