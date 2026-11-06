@@ -45,6 +45,26 @@ class PublicPulsarContextTests(TestCase):
             '',
         )
 
+    def test_public_page_buttons_are_safe_and_direct(self):
+        observation = page_observation({
+            'actions': [
+                {'label': 'Open the Topic', 'href': 'topic-answer-that-looked-right.html'},
+                {'label': 'Unsafe external link', 'href': 'https://example.org'},
+                {'label': 'Unsafe script', 'href': 'javascript:alert(1)'},
+            ],
+        })
+        self.assertEqual(
+            observation['actions'][0]['href'], '/topic-answer-that-looked-right.html',
+        )
+        self.assertEqual(observation['actions'][1]['href'], '')
+        self.assertEqual(observation['actions'][2]['href'], '')
+        reply, links = short_public_answer(
+            'Where is the Open the Topic button?',
+            observation=observation,
+        )
+        self.assertIn('Open the Topic', reply)
+        self.assertEqual(links[0]['href'], '/topic-answer-that-looked-right.html')
+
     def test_faq_distinguishes_topic_definition_from_current_topic(self):
         answer, links = short_public_answer(
             'What is a topic?', catalog=CATALOG,
@@ -143,12 +163,16 @@ class PublicPulsarApiTests(TestCase):
             'How does this simulation work?',
             page_context={'heading': 'Hard questions',
                           'featured_topic': 'Can you trust an answer that looks right?',
-                          'featured_href': 'topic-answer-that-looked-right.html'},
+                          'featured_href': 'topic-answer-that-looked-right.html',
+                          'actions': [{'label': 'Open the Topic',
+                                       'href': 'topic-answer-that-looked-right.html'}]},
         )
         self.assertEqual(response.status_code, 200, response.content)
         kwargs = model.call_args.kwargs
         self.assertIn('Can a machine form a hypothesis?', kwargs['user'])
         self.assertIn('Hard questions', kwargs['user'])
+        self.assertIn('Visible main-page actions:', kwargs['user'])
+        self.assertIn('Open the Topic', kwargs['user'])
         self.assertIn('Treat page observations', kwargs['system'])
         self.assertIn('An article is not necessarily a Topic', kwargs['system'])
         self.assertEqual(kwargs['surface'], 'public')
