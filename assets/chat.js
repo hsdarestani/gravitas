@@ -559,7 +559,7 @@
 
   function publicTopicCards() {
     if (publicTopicsPromise) return publicTopicsPromise;
-    if (/\\/topics\\.html$/.test(location.pathname)) {
+    if (location.pathname.endsWith('/topics.html')) {
       return Promise.resolve(readPublicTopicCards(document));
     }
     publicTopicsPromise = fetch('/topics.html', { cache: 'no-store' })
@@ -576,7 +576,7 @@
 
   function publicPageContext() {
     var main = document.querySelector('main');
-    var home = /^(\\/|\\/index\\.html)$/.test(location.pathname);
+    var home = location.pathname === '/' || location.pathname === '/index.html';
     var heading = main && main.querySelector('h1');
     var featured = home && main && main.querySelector('.lp-topic__q');
     var featuredLink = home && main && main.querySelector('.lp-topic__intro a[href^="topic-"]');
