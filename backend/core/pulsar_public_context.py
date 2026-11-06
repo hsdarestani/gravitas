@@ -55,7 +55,7 @@ def public_navigation_href(value):
     if re.fullmatch(r'#[a-zA-Z0-9_-]{1,90}', href):
         return href
     if not re.fullmatch(
-        r'/?[a-z0-9_-]+(?:/[a-z0-9_-]+)*(?:\\.html)?(?:#[a-zA-Z0-9_-]+)?',
+        r'/?[a-z0-9_-]+(?:/[a-z0-9_-]+)*(?:\.html)?(?:#[a-zA-Z0-9_-]+)?',
         href,
     ):
         return ''
