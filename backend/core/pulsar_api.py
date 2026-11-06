@@ -77,11 +77,16 @@ def public_pulsar_ask(request):
         + (f' ({row["href"]})' if row['href'] else '')
         for row in catalog
     ) or '(Not supplied; do not claim the DB contains every visible topic.)'
+    action_context = '; '.join(
+        f'{action["label"]} ({action["href"] or "button, no URL"})'
+        for action in observation['actions']
+    )
     page_context = (
         f'Page path: {page}\n'
         f'Page heading: {observation["heading"] or "(not supplied)"}\n'
         f'Homepage featured Topic: {observation["featured_topic"] or "(not supplied)"}\n'
-        f'Featured Topic link: {observation["featured_href"] or "(not supplied)"}'
+        f'Featured Topic link: {observation["featured_href"] or "(not supplied)"}\n'
+        f'Visible main-page actions: {action_context or "(not supplied)"}'
     )
     history = data.get('history') if isinstance(data.get('history'), list) else []
     recent = []
@@ -103,6 +108,8 @@ def public_pulsar_ask(request):
                     'uncertainty, repeat apologies, or ask users for page information '
                     'already given in the context. If you do not know, say so once in '
                     'one short sentence and point to the correct existing public page. '
+                    'When describing a button or link, use its supplied visible label '
+                    'and safe public URL; never guess a missing destination. '
                     'Never invent a topic, article, button or link. The public topic '
                     'cards in the supplied website listing are the best evidence of '
                     'what the visitor currently sees, even if the CMS database is '
