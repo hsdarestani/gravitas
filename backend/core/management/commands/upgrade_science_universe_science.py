@@ -58,6 +58,11 @@ EXPECTED = {
         'd4f36c09c559ed29fd30b20a192dd36562f8569b',
         '4e64baa30b107d8f85fcb97bf01dcf49a6a88087',
         '1dbc4ba0183045d34bfb23ef5458b1cffd451e57',
+        # The live revision before the Sky accent (as of 89101c09), and the
+        # first Sky revision (a016eb15). Leaving the live one out made the
+        # deploy read our own previous release as an author edit and stop.
+        '63a6327c1527013a5cd794adad2bd3ceace0d2a5',
+        'ff4eb8585fe46867acde9783c615c04d3c1bb8ab',
     ),
 }
 NAMES = tuple(EXPECTED)
