@@ -894,8 +894,8 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
   margin: .15em .1em 0 0;
   font-weight: var(--g-w-bold);
   /* Not the accent. On dark, Sisal against White Tint body copy is a hairline
-     of difference and reads as emphasis; on light the same token is bronze,
-     and two lines tall it stops being an initial and becomes a brown blob at
+     of difference and reads as emphasis; on light the same token is a deep
+     blue, and two lines tall it stops being an initial and becomes a blot at
      the top of the article. Weight and scale already do all the work an
      initial needs. */
   color: var(--g-text);
@@ -1083,7 +1083,7 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 .join__h { font-size: clamp(2.2rem, 1.4rem + 3.2vw, 4rem); line-height: 1.0;
   letter-spacing: var(--g-track-display); margin: 0 0 var(--g-space-2xs); text-wrap: balance;
   font-weight: var(--g-w-bold); }
-.join__lede { color: var(--g-accent); font-size: clamp(1.1rem, 1rem + .7vw, 1.6rem);
+.join__lede { color: var(--g-text); font-size: clamp(1.1rem, 1rem + .7vw, 1.6rem);
   font-weight: var(--g-w-light); letter-spacing: -.02em;
   margin: 0 auto var(--g-space-xl); }
 /* The rotating verb. It used to say "argue", which reads as a fight to anyone

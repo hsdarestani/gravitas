@@ -15,7 +15,7 @@ assert.match(html, /<header class="g-header">/, 'shared navigation must remain')
 assert.match(html, /<main id="main">/, 'main landmark missing');
 assert.match(html, /<title>Lab · GraviQuest<\/title>/, 'generic page title missing');
 assert.doesNotMatch(html, /<h1[^>]*>AI in Research<\/h1>/, 'Topic should not become Lab title');
-assert.match(html, /<h1[^>]*id="lab-title"[^>]*>Change the conditions\. Watch what follows\.<\/h1>/, 'generic Lab title missing');
+assert.match(html, /<h1[^>]*id="lab-title"[^>]*>Change the <em>conditions<\/em>\. Watch what follows\.<\/h1>/, 'generic Lab title missing');
 assert.match(html, /<p class="g-eyebrow">Lab &middot; Open to Every Topic<\/p>/, 'Lab must name itself, not a Topic');
 assert.match(html, /class="g-hero lp-hero lab-hero/, 'must use the brand hero shared with the home and community pages');
 assert.match(html, /assets\/hero\.css/, 'brand hero styles missing');

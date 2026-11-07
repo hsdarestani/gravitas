@@ -202,10 +202,14 @@
        Space-separated channels so any rule can pick its own alpha. */
     --g-tint: 212 201 190;
 
-    /* The accent: Sisal on dark. On light Sisal is invisible, so the light
-       theme substitutes the same warmth at ink weight rather than dropping
-       the accent or borrowing a fifth hue. */
-    --g-accent: var(--g-sisal);
+    /* The accent: Sky, Cosmos Blue's own hue lifted to 75% lightness. It is
+       not a fifth colour, it is the ramp carried up past the surfaces, the way
+       the cosmos steps carry it down. Sisal used to hold this job and could
+       not: at 1.42:1 against White Tint it was a slightly dimmer white, and it
+       was also --g-text-muted, so "look here" and "read this later" were the
+       same colour. Sisal keeps what it is good at, secondary text and lines.
+       8.6:1 on the ground, 6.7:1 on a hovered card. */
+    --g-accent: #7fb6dc;
 
     /* Sticky chrome (header, topic sub-nav), a translucent slab of the page
        background rather than a fixed colour. */
@@ -228,7 +232,7 @@
        three hero simulations pull these at paint time and repaint on change. */
     --g-canvas-line: 241 239 236;
     --g-canvas-body-a: 241 239 236;
-    --g-canvas-body-b: 212 201 190;
+    --g-canvas-body-b: 127 182 220;
     --g-canvas-body-c: 111 169 206;
     --g-canvas-core: 255 255 255;
 
@@ -265,7 +269,7 @@
      the light theme is not "the same page with the lights on", the star
      field, meteors and deep-space gradients switch off entirely rather than
      rendering as grey noise on paper. What survives is the structure: Cosmos
-     Blue as ink, White Tint as ground, Sisal darkened to bronze as accent.  */
+     Blue as ink, White Tint as ground, Sky deepened to ink weight as accent.  */
   :root[data-theme="light"] {
     /* v2: the ground is White Tint itself, the brand paper, and cards are a
        warm off-white rather than pure #fff, which glared against it. */
@@ -288,7 +292,11 @@
     --g-text-inverse:      var(--g-white-tint);
 
     --g-tint:              0 48 73;
-    --g-accent:            #735b3d;  /* v2: was #7b6242, 4.44:1 on bg-deep; now 4.95 */
+    /* Deep Sky: the accent's hue taken down until it carries text on paper.
+       Was bronze (#735b3d), which read as a third colour that the dark theme
+       did not have; now both themes share one accent hue. 6.0:1 on the
+       ground, 5.4:1 on bg-deep. */
+    --g-accent:            #005f8f;
     --g-chrome:            241 239 236;
     --g-chrome-a:          0.82;
 
@@ -323,7 +331,7 @@
 
     --g-canvas-line:   0 48 73;
     --g-canvas-body-a: 0 34 54;
-    --g-canvas-body-b: 123 98 66;
+    --g-canvas-body-b: 0 95 143;
     --g-canvas-body-c: 0 106 158;
     --g-canvas-core:   0 20 32;
 
@@ -368,7 +376,7 @@
     /* The theme hooks apply here too, or an inverted panel keeps painting its
        overlays and its accent in the dark theme's ink. */
     --g-tint: 0 48 73;
-    --g-accent: #7b6242;
+    --g-accent: #005f8f;
     --g-solid-bg: var(--g-cosmos-600);
     --g-solid-fg: var(--g-white-tint);
     --g-solid-bg-hover: var(--g-cosmos-400);
@@ -541,7 +549,7 @@
     text-wrap: balance;
     margin: 0 0 var(--g-space-md);
   }
-  /* Emphasis inside a headline: weight and warmth, never a new colour. */
+  /* Emphasis inside a headline: the accent, never a colour of its own. */
   .g-display em, .g-headline-key {
     font-style: normal; color: var(--g-accent); font-weight: inherit;
   }

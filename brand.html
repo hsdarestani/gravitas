@@ -88,8 +88,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </nav>
 
     <div class="bk-meta">
-      <span><b>Version</b> 3.0</span>
-      <span><b>Updated</b> October 2026</span>
+      <span><b>Version</b> 4.3</span>
+      <span><b>Updated</b> November 2026</span>
       <span><b>Source of truth</b> assets/gravitas.css</span>
       <span><b>Status</b> living document</span>
     </div>
@@ -794,8 +794,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <section class="bk-sec" id="colour">
   <span class="bk-sec__n">06</span>
   <h2>Colour</h2>
-  <p class="g-lead">Four fixed colours, one derived ramp, three signals. Depth comes from
-    gradient, glow and space imagery, never from a new hue. Click any value to copy it.</p>
+  <p class="g-lead">Four fixed colours, one derived ramp, one accent drawn from that ramp, three
+    signals. Depth comes from gradient, glow and space imagery, never from a new hue. Click any
+    value to copy it.</p>
 
   <h3>The Four Primitives</h3>
   <div class="bk-swatches">
@@ -820,7 +821,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <span class="bk-sw__body">
         <span class="bk-sw__name">Sisal</span>
         <span class="bk-sw__vals"><span><b>HEX</b>#d4c9be</span><span><b>RGB</b>212 201 190</span><span><b>CMYK</b>0 5 10 17</span></span>
-        <span class="bk-sw__use">The accent. Secondary text, hairlines, eyebrows, list markers. The one warm note.</span>
+        <span class="bk-sw__use">The warm neutral. Secondary text, hairlines, the solid control on dark. The one warm note, never the accent.</span>
       </span>
     </button>
     <button type="button" class="bk-sw" data-copy="#030303">
@@ -832,36 +833,61 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       </span>
     </button>
   </div>
-  <h4>Usage Proportions</h4>
-  <div class="bk-usage" role="img" aria-label="Usage on a dark surface: about 70% Cosmos Blue, 20% White Tint, 8% Sisal, 2% Royal Black and signals">
-    <span style="--w:70;background:#003049;color:#f1efec">Cosmos Blue <b>70%</b></span>
-    <span style="--w:20;background:#f1efec;color:#003049">White Tint <b>20%</b></span>
-    <span style="--w:8;background:#d4c9be;color:#003049"><b>8%</b></span>
-    <span style="--w:2;background:#030303"></span>
-  </div>
-  <p class="bk-usage__cap">Rough balance on a dark surface: about 70% Cosmos Blue or the ramp,
-    20% White Tint, 8% Sisal, 2% true black, gradient extremes and signals. CMYK values are a
-    straight conversion from screen; proof them before anything goes to press.</p>
-
-  <h3>The Derived Accent</h3>
-  <p>Sisal is the accent, and on a light ground it fails: at 1.4:1 against White Tint it is
-    decoration pretending to be text. Rather than borrow a fifth hue, the light theme keeps the
-    same warmth and takes it to ink weight. Bronze is Sisal with the value pulled down until it
-    passes on paper, which is why it belongs in the palette as a derived value and not as a brand
-    colour: nothing is ever specified as bronze, it is what
-    <code>--g-accent</code> resolves to when the theme is light.</p>
-  <div class="bk-swatches bk-swatches--single">
-    <button type="button" class="bk-sw" data-copy="#7b6242">
-      <span class="bk-sw__chip" style="background:#7b6242"></span>
+  <h3>The Accent: Sky</h3>
+  <p>Sisal used to be the accent, and it could not do the job. Against White Tint it is 1.42:1,
+    so on dark a highlight in Sisal read as a slightly dimmer white, and it was also the colour of
+    secondary text, which made "look here" and "read this later" the same thing. On light it had
+    to be darkened to a bronze that the dark theme never showed, so the two themes did not have
+    the same palette.</p>
+  <p>The accent is now Sky: Cosmos Blue's own hue carried up the ramp past the surfaces, the way
+    the ramp carries it down. It is not a fifth colour. On light it is taken back down to ink
+    weight as Deep Sky, which in CMYK is Cosmos Blue with less black. Both themes now read as the
+    same three parts: a ground, a structure, and one accent in the same hue. Nothing is specified
+    as Sky directly: it is what <code>--g-accent</code> resolves to.</p>
+  <div class="bk-swatches">
+    <button type="button" class="bk-sw" data-copy="#7fb6dc">
+      <span class="bk-sw__chip" style="background:#7fb6dc"></span>
       <span class="bk-sw__body">
-        <span class="bk-sw__name">Bronze</span>
-        <span class="bk-sw__vals"><span><b>HEX</b>#7b6242</span><span><b>RGB</b>123 98 66</span><span><b>CMYK</b>0 20 46 52</span></span>
-        <span class="bk-sw__use">The light theme's <code>--g-accent</code>. Eyebrows, list markers,
-          rules, the accent underline on links, emphasis inside a headline. 5.9:1 on the light
-          ground, so it can carry text. Never used on dark, where Sisal already does this job.</span>
+        <span class="bk-sw__name">Sky</span>
+        <span class="bk-sw__vals"><span><b>HEX</b>#7fb6dc</span><span><b>RGB</b>127 182 220</span><span><b>CMYK</b>42 17 0 14</span></span>
+        <span class="bk-sw__use">The dark theme's <code>--g-accent</code>. Eyebrows, list markers,
+          feature icons, rules, emphasis inside a headline. 8.6:1 on the ground.</span>
+      </span>
+    </button>
+    <button type="button" class="bk-sw" data-copy="#005f8f">
+      <span class="bk-sw__chip" style="background:#005f8f"></span>
+      <span class="bk-sw__body">
+        <span class="bk-sw__name">Deep Sky</span>
+        <span class="bk-sw__vals"><span><b>HEX</b>#005f8f</span><span><b>RGB</b>0 95 143</span><span><b>CMYK</b>100 34 0 44</span></span>
+        <span class="bk-sw__use">The light theme's <code>--g-accent</code>, in the same roles. 6.0:1
+          on the light ground, 5.4:1 on the footer, so it can carry text.</span>
       </span>
     </button>
   </div>
+
+  <h3>60 · 30 · 10</h3>
+  <p>Every screen is balanced the same way in both themes: about 60% ground, 30% structure, and
+    never more than 10% accent. The accent works because it is rare; once it covers more than a
+    tenth of a screen it stops pointing at anything.</p>
+  <h4>Dark</h4>
+  <div class="bk-usage" role="img" aria-label="Dark theme: 60% Cosmos ground, 30% White Tint and Sisal, 10% Sky">
+    <span style="--w:60;background:#003049;color:#f1efec">Cosmos <b>60%</b></span>
+    <span style="--w:30;background:#f1efec;color:#003049">White Tint · Sisal <b>30%</b></span>
+    <span style="--w:10;background:#7fb6dc;color:#01121c"><b>10%</b></span>
+  </div>
+  <h4>Light</h4>
+  <div class="bk-usage" role="img" aria-label="Light theme: 60% White Tint ground, 30% Cosmos, 10% Deep Sky">
+    <span style="--w:60;background:#f1efec;color:#003049">White Tint <b>60%</b></span>
+    <span style="--w:30;background:#003049;color:#f1efec">Cosmos <b>30%</b></span>
+    <span style="--w:10;background:#005f8f;color:#f1efec"><b>10%</b></span>
+  </div>
+  <p class="bk-usage__cap">60: the ground and its surfaces (the Cosmos ramp on dark, White Tint and
+    its off-whites on light). 30: the structure, meaning raised surfaces that visibly step off the
+    ground (cards, bands, header, footer) together with type, lines and solid controls. A card one
+    ramp step from the page does not count: if the two cannot be told apart, the screen has no 30.
+    10: Sky, at most. Royal Black, gradient
+    extremes and the signals sit outside the split. CMYK values are a straight conversion from
+    screen; proof them before anything goes to press.</p>
 
   <h3>The Cosmos Ramp</h3>
   <p>Four colours cannot carry an interface. Cards, hovers, insets and menus all need to differ
@@ -898,18 +924,18 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     <table class="bk-table">
       <thead><tr><th>Token</th><th>Role</th><th>Dark</th><th>Light</th></tr></thead>
       <tbody>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-bg)">--g-bg</button></td><td>Page ground</td><td>cosmos-700</td><td>#f5f3ef</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-bg-deep)">--g-bg-deep</button></td><td>Deeper bands, footer</td><td>cosmos-900</td><td>#eae5dd</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-surface)">--g-surface</button></td><td>Base surface</td><td>cosmos-600</td><td>#ffffff</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-surface-raised)">--g-surface-raised</button></td><td>Cards, menus</td><td>cosmos-500</td><td>#ffffff</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-surface-hover)">--g-surface-hover</button></td><td>Hovered surface</td><td>cosmos-400</td><td>#fbfaf7</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-surface-sunken)">--g-surface-sunken</button></td><td>Code, inputs, insets</td><td>cosmos-800</td><td>#eeebe4</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-bg)">--g-bg</button></td><td>Page ground</td><td>#00141f</td><td>White Tint</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-bg-deep)">--g-bg-deep</button></td><td>Deeper bands, footer</td><td>#000b11</td><td>#e7e2db</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-surface)">--g-surface</button></td><td>Base surface</td><td>#011b29</td><td>#fbfaf8</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-surface-raised)">--g-surface-raised</button></td><td>Cards, menus</td><td>#022232</td><td>#fdfcfa</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-surface-hover)">--g-surface-hover</button></td><td>Hovered surface</td><td>#052c40</td><td>#ffffff</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-surface-sunken)">--g-surface-sunken</button></td><td>Code, inputs, insets</td><td>#00101a</td><td>#e9e5df</td></tr>
         <tr><td><button type="button" class="bk-tok" data-copy="var(--g-text)">--g-text</button></td><td>Primary ink</td><td>#f1efec</td><td>#002236</td></tr>
         <tr><td><button type="button" class="bk-tok" data-copy="var(--g-text-muted)">--g-text-muted</button></td><td>Secondary ink</td><td>Sisal</td><td>#3c5464</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-text-subtle)">--g-text-subtle</button></td><td>Metadata, captions</td><td>tint at 62%</td><td>#5d7280</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-accent)">--g-accent</button></td><td>The accent</td><td>Sisal</td><td>#7b6242</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-hairline)">--g-hairline</button></td><td>Quiet divider</td><td>tint at 16%</td><td>ink at 13%</td></tr>
-        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-border)">--g-border</button></td><td>Control border</td><td>tint at 30%</td><td>ink at 24%</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-text-subtle)">--g-text-subtle</button></td><td>Metadata, captions</td><td>#849397</td><td>#4f6370</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-accent)">--g-accent</button></td><td>The accent</td><td>Sky #7fb6dc</td><td>Deep Sky #005f8f</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-hairline)">--g-hairline</button></td><td>Quiet divider</td><td>tint at 16%</td><td>warm ink at 20%</td></tr>
+        <tr><td><button type="button" class="bk-tok" data-copy="var(--g-border)">--g-border</button></td><td>Control border</td><td>tint at 30%</td><td>warm ink at 32%</td></tr>
         <tr><td><button type="button" class="bk-tok" data-copy="var(--g-border-strong)">--g-border-strong</button></td><td>Emphasised border</td><td>tint at 55%</td><td>ink at 46%</td></tr>
         <tr><td><button type="button" class="bk-tok" data-copy="var(--g-focus)">--g-focus</button></td><td>Focus ring</td><td>White Tint</td><td>Cosmos Blue</td></tr>
       </tbody>
@@ -946,9 +972,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <thead><tr><th>Channel</th><th>Dark</th><th>Light</th><th>Why it has to flip</th></tr></thead>
       <tbody>
         <tr><td><code>--g-tint</code></td><td>212 201 190</td><td>0 48 73</td><td>Ink for every translucent overlay, wash and track.</td></tr>
-        <tr><td><code>--g-accent</code></td><td>Sisal</td><td>#7b6242</td><td>Sisal is unreadable on white, so the same warmth is used at ink weight rather than borrowing a fifth hue.</td></tr>
-        <tr><td><code>--g-chrome</code>, <code>--g-chrome-a</code></td><td>0 38 58 at .72</td><td>245 243 239 at .82</td><td>The sticky header is a translucent slab of the page, not a fixed colour.</td></tr>
-        <tr><td><code>--g-solid-bg</code>, <code>--g-solid-fg</code></td><td>White Tint on Cosmos</td><td>Cosmos on White Tint</td><td>Primary buttons, pressed chips, selected tabs.</td></tr>
+        <tr><td><code>--g-accent</code></td><td>Sky #7fb6dc</td><td>Deep Sky #005f8f</td><td>One hue in both themes, light on dark and at ink weight on paper, so it passes 4.5:1 on either ground.</td></tr>
+        <tr><td><code>--g-chrome</code>, <code>--g-chrome-a</code></td><td>0 38 58 at .72</td><td>241 239 236 at .82</td><td>The sticky header is a translucent slab of the page, not a fixed colour.</td></tr>
+        <tr><td><code>--g-solid-bg</code>, <code>--g-solid-fg</code></td><td>Sisal, Cosmos 900 type</td><td>Cosmos, White Tint type</td><td>Primary buttons, pressed chips, selected tabs.</td></tr>
         <tr><td><code>--g-canvas-*</code></td><td>light inks</td><td>dark inks</td><td>A canvas cannot inherit a CSS colour, so it reads these at paint time.</td></tr>
         <tr><td>Elevation</td><td>emitted glow</td><td>cast shadow</td><td>On paper a glow is a pale smudge around every card.</td></tr>
       </tbody>
@@ -968,6 +994,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <tr><td>Sisal</td><td>Cosmos Blue</td><td>8.5:1</td><td>AAA</td></tr>
         <tr><td>Cosmos Blue</td><td>White Tint</td><td>12.0:1</td><td>AAA</td></tr>
         <tr><td>Royal Black</td><td>White Tint</td><td>19:1</td><td>AAA</td></tr>
+        <tr><td>Sky</td><td>Dark ground #00141f</td><td>8.6:1</td><td>AAA</td></tr>
+        <tr><td>Sky</td><td>Cosmos Blue</td><td>6.3:1</td><td>AA</td></tr>
+        <tr><td>Deep Sky</td><td>White Tint</td><td>6.0:1</td><td>AA</td></tr>
+        <tr><td>Sky</td><td>White Tint</td><td>1.9:1</td><td>Never: Sky is for dark grounds</td></tr>
         <tr><td>Sisal</td><td>White Tint</td><td>1.4:1</td><td>Decorative only, never text</td></tr>
       </tbody>
     </table>
@@ -985,9 +1015,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       </tbody>
     </table>
   </div>
-  <p>Emphasis inside a headline is the accent token and weight, never a new colour. Two things opt
-    out on purpose: the article drop cap, where the accent is a hairline of difference on dark and
-    a brown blob on light, and body links, which take ink with an accent underline.</p>
+  <p>Emphasis inside a headline is the accent token: one or two words, never a whole line, as in
+    "Science, AI and the <em>Gravity</em> of <em>Questions</em>". Two things opt out on purpose:
+    the article drop cap, which two lines tall becomes a blot of colour rather than an initial, and
+    body links, which take ink with an accent underline.</p>
 </section>
 
 <!-- ================================================================== 07 -->
@@ -2152,6 +2183,13 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <p class="g-lead">This document changes when the product does. Corrections are logged, not
     quietly applied.</p>
   <div class="bk-log">
+    <div class="bk-log__row">
+      <div class="bk-log__when">4.3 &middot; Nov 2026</div>
+      <div class="bk-log__what">The accent moves from Sisal to Sky, Cosmos Blue's own hue: Sky on
+        dark, Deep Sky on light, one hue in both themes. Sisal stays as the warm neutral for
+        secondary text and lines, Bronze is retired, and the 70 · 20 · 8 balance becomes 60 · 30 · 10
+        for both themes. Corrects the semantic token table, which still listed the v1 light values.</div>
+    </div>
     <div class="bk-log__row">
       <div class="bk-log__when">4.2 &middot; Nov 2026</div>
       <div class="bk-log__what">Four method marks join the icons, one for each promise on the home page's
