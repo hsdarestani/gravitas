@@ -75,11 +75,13 @@
      sunken surface instead (#eeebe4, the index and dock), where the same
      colour falls to 4.22:1 and misses AA for text this small. #556977 is
      the same hue at 4.80:1 on sunken and 5.16:1 on the ground, so it clears
-     the bar on both. Scoped here rather than corrected in gravitas.css,
-     because the public site's pairing is fine and does not need changing. */
+     the bar on both. Since the 60 · 30 · 10 surfaces (Nov 2026) cards carry
+     Sisal (#e6dfd6), where #556977 fell to 4.33:1; #46596a, the public value
+     too now, is 4.95:1 there. Kept as its own line so the history above
+     still explains why the workspace once differed. */
   :root[data-theme="light"] .ws {
-    --g-text-subtle: #556977;
-    --g-ic-dim: #556977;
+    --g-text-subtle: #46596a;
+    --g-ic-dim: #46596a;
   }
 
   /* Dark theme, the same correction and the same cause. The public token was

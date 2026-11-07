@@ -294,8 +294,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     toast.style.cssText = [
       'position:fixed', 'right:18px', 'bottom:22px', 'z-index:10010',
       'max-width:360px', 'padding:12px 16px', 'border-radius:12px',
-      'background:var(--surface, #0a2331)', 'color:var(--text, #f1f8fc)',
-      'box-shadow:0 6px 28px #0008', 'border:1px solid #608097',
+      'background:var(--g-surface-raised)', 'color:var(--g-text)',
+      'box-shadow:var(--g-shadow)', 'border:1px solid var(--g-border)',
     ].join(';');
     document.body.append(toast);
     return {

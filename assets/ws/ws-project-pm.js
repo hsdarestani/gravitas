@@ -46,7 +46,7 @@ const css = `
 .pm-gantt{display:grid;gap:8px;overflow-x:auto}
 .pm-gantt-row{display:grid;grid-template-columns:minmax(180px,260px) minmax(280px,1fr);gap:12px;align-items:center;padding:8px;border:1px solid var(--fl-border,#445);border-radius:8px}
 .pm-gantt-track{position:relative;height:26px;border-radius:6px;background:var(--fl-border,#394149)}
-.pm-gantt-bar{position:absolute;top:3px;bottom:3px;border-radius:6px;background:var(--fl-accent,#7f93db)}
+.pm-gantt-bar{position:absolute;top:3px;bottom:3px;border-radius:6px;background:var(--fl-accent,var(--g-accent))}
 .pm-gantt-date{font-size:12px;opacity:.78}
 .pm-schedule-editor{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border:1px solid var(--fl-border,#445);border-radius:9px;margin:10px 0}
 `;

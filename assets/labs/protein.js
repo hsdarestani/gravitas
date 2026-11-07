@@ -13,19 +13,19 @@
     const path=data.points.map(p=>(p===data.points[0]?"M":"L")+x(p.t).toFixed(2)+" "+y(p.folded).toFixed(2)).join(" ");
     let grid="";
     for(let val=0;val<=1.001;val+=0.25) {
-      grid+='<line x1="'+left+'" y1="'+y(val)+'" x2="'+(left+w)+'" y2="'+y(val)+'" stroke="#284753" stroke-width="1"/>';
-      grid+='<text x="42" y="'+(y(val)+5)+'" fill="#bdd1d9" font-size="13" text-anchor="end">'+Math.round(val*100)+'%</text>';
+      grid+='<line x1="'+left+'" y1="'+y(val)+'" x2="'+(left+w)+'" y2="'+y(val)+'" stroke="#013a58" stroke-width="1"/>';
+      grid+='<text x="42" y="'+(y(val)+5)+'" fill="#d4c9be" font-size="13" text-anchor="end">'+Math.round(val*100)+'%</text>';
     }
-    for(let temp=20;temp<=90;temp+=10)grid+='<text x="'+x(temp)+'" y="247" fill="#bdd1d9" font-size="13" text-anchor="middle">'+temp+'</text>';
-    const obs=data.practice.map(p=>'<circle cx="'+x(p.t)+'" cy="'+y(p.folded)+'" r="5" fill="#dfc689" stroke="#071420" stroke-width="2"/>').join("");
+    for(let temp=20;temp<=90;temp+=10)grid+='<text x="'+x(temp)+'" y="247" fill="#d4c9be" font-size="13" text-anchor="middle">'+temp+'</text>';
+    const obs=data.practice.map(p=>'<circle cx="'+x(p.t)+'" cy="'+y(p.folded)+'" r="5" fill="#c9a86c" stroke="#00141f" stroke-width="2"/>').join("");
     const cursorX=x(data.temperature);
     $("plot").innerHTML='<title id="chart-name">Simulated folded fraction from 20 to 90 degrees Celsius</title>'+
-      '<rect x="'+x(50)+'" y="'+top+'" width="'+(x(90)-x(50))+'" height="'+h+'" fill="#dfbd7f" opacity=".07"/>'+
-      grid+'<path d="'+path+'" fill="none" stroke="#77ded8" stroke-width="3" stroke-linejoin="round"/>'+obs+
-      '<line x1="'+x(50)+'" y1="'+top+'" x2="'+x(50)+'" y2="'+bottom+'" stroke="#d5bb82" stroke-dasharray="5 5"/>'+
-      '<line x1="'+cursorX+'" y1="'+top+'" x2="'+cursorX+'" y2="'+bottom+'" stroke="#ffffff" stroke-dasharray="2 7" opacity=".6"/>'+
-      '<circle cx="'+cursorX+'" cy="'+y(data.folded)+'" r="7" fill="#e3fcf8" stroke="#26717b" stroke-width="3"/>'+
-      '<text x="654" y="267" fill="#bdd1d9" font-size="12" text-anchor="end">Temperature (°C)</text>';
+      '<rect x="'+x(50)+'" y="'+top+'" width="'+(x(90)-x(50))+'" height="'+h+'" fill="#c9a86c" opacity=".07"/>'+
+      grid+'<path d="'+path+'" fill="none" stroke="#7fb6dc" stroke-width="3" stroke-linejoin="round"/>'+obs+
+      '<line x1="'+x(50)+'" y1="'+top+'" x2="'+x(50)+'" y2="'+bottom+'" stroke="#c9a86c" stroke-dasharray="5 5"/>'+
+      '<line x1="'+cursorX+'" y1="'+top+'" x2="'+cursorX+'" y2="'+bottom+'" stroke="#f1efec" stroke-dasharray="2 7" opacity=".6"/>'+
+      '<circle cx="'+cursorX+'" cy="'+y(data.folded)+'" r="7" fill="#f1efec" stroke="#7fb6dc" stroke-width="3"/>'+
+      '<text x="654" y="267" fill="#d4c9be" font-size="12" text-anchor="end">Temperature (°C)</text>';
   }
   function render() {
     result=E.protein(state());
@@ -36,7 +36,7 @@
     $("fraction").textContent=Math.round(result.folded*100)+"%";
     $("unfolded").textContent=Math.round((1-result.folded)*100)+"%";
     $("boundary").textContent=result.temperature>50?"Model only":"Within practice range";
-    $("boundary").style.color=result.temperature>50?"#e1c58a":"#8fdfd8";
+    $("boundary").style.color=result.temperature>50?"#c9a86c":"#7fb6dc";
     $("interpretation").textContent=result.temperature>50
       ? "No practice observations exist above 50 °C. This value is a model prediction, not an experimental finding. The next scientific step is to measure this range."
       : "The gold markers are synthetic training data at 20, 30, 40 and 50 °C, generated for the fixed 10-minute baseline. The cyan curve represents your current model settings.";
@@ -50,9 +50,9 @@
     const cw=canvas.clientWidth||600,ch=canvas.clientHeight||305;
     if(canvas.width!==Math.round(cw*dpr)||canvas.height!==Math.round(ch*dpr)){canvas.width=Math.round(cw*dpr);canvas.height=Math.round(ch*dpr);}
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.fillStyle="#0a202b";ctx.fillRect(0,0,cw,ch);
+    ctx.fillStyle="#00263a";ctx.fillRect(0,0,cw,ch);
     const light=ctx.createRadialGradient(cw*.51,ch*.46,0,cw*.51,ch*.46,Math.max(cw,ch)*.65);
-    light.addColorStop(0,"#20515a");light.addColorStop(1,"#0a202b");ctx.fillStyle=light;ctx.fillRect(0,0,cw,ch);
+    light.addColorStop(0,"#1c6288");light.addColorStop(1,"#00263a");ctx.fillStyle=light;ctx.fillRect(0,0,cw,ch);
     const f=result?result.folded:1, reduced=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const spin=yaw+(reduced?0:ts*.00014);
     const points=[];
@@ -67,8 +67,8 @@
       points.push({x:cw/2+X*depth*scale,y:ch/2+yy*depth*scale,z:Z,size:Math.max(2,4*depth*scale)});
     }
     ctx.lineWidth=Math.max(2,3*Math.min(cw/500,1.2));
-    for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];ctx.strokeStyle="rgba(111,221,218,"+(0.47+0.30*(1-(a.z+150)/300))+")";ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
-    points.sort((a,b)=>b.z-a.z).forEach(p=>{ctx.fillStyle=p.z<0?"#98eee5":"#4c9da7";ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,2*Math.PI);ctx.fill();});
+    for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];ctx.strokeStyle="rgba(127,182,220,"+(0.47+0.30*(1-(a.z+150)/300))+")";ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+    points.sort((a,b)=>b.z-a.z).forEach(p=>{ctx.fillStyle=p.z<0?"#a9cfe8":"#7fb6dc";ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,2*Math.PI);ctx.fill();});
   }
   sliders.forEach(id=>$(id).addEventListener("input",render));
   canvas.addEventListener("pointerdown",e=>{pointerX=e.clientX;canvas.setPointerCapture(e.pointerId);});

@@ -51,17 +51,17 @@
     const deg=Number(degree.value), coeff=fit(deg);
     current={degree:deg,coefficients:coeff,observations:measured,model_predictions:[60,70].map(t=>({temperature:t,folded:estimate(coeff,t)}))};
     let svg='<title id="viz-title">Observed values and model fits, with unmeasured region marked</title>';
-    svg+='<rect x="'+fx(50)+'" y="12" width="'+(fx(70)-fx(50))+'" height="215" fill="#d9bf83" opacity=".07"/>';
+    svg+='<rect x="'+fx(50)+'" y="12" width="'+(fx(70)-fx(50))+'" height="215" fill="#c9a86c" opacity=".07"/>';
     for(let rate=-.25;rate<=1.30;rate+=.25){
-      svg+='<line x1="60" y1="'+fy(rate)+'" x2="654" y2="'+fy(rate)+'" stroke="#254657"/>'+
-        '<text x="48" y="'+(fy(rate)+4)+'" fill="#b8d1d7" text-anchor="end" font-size="13">'+pct(rate)+'%</text>';
+      svg+='<line x1="60" y1="'+fy(rate)+'" x2="654" y2="'+fy(rate)+'" stroke="#013a58"/>'+
+        '<text x="48" y="'+(fy(rate)+4)+'" fill="#d4c9be" text-anchor="end" font-size="13">'+pct(rate)+'%</text>';
     }
-    for(let t=20;t<=70;t+=10)svg+='<text x="'+fx(t)+'" y="249" fill="#b8d1d7" text-anchor="middle" font-size="13">'+t+'</text>';
-    svg+='<line x1="'+fx(50)+'" y1="12" x2="'+fx(50)+'" y2="228" stroke="#d9bf83" stroke-width="1.4" stroke-dasharray="4 5"/>';
+    for(let t=20;t<=70;t+=10)svg+='<text x="'+fx(t)+'" y="249" fill="#d4c9be" text-anchor="middle" font-size="13">'+t+'</text>';
+    svg+='<line x1="'+fx(50)+'" y1="12" x2="'+fx(50)+'" y2="228" stroke="#c9a86c" stroke-width="1.4" stroke-dasharray="4 5"/>';
     for(const p of measured){
       const x=fx(p.temperature),y=fy(p.folded);
-      svg+='<line x1="'+x+'" y1="'+fy(p.folded-p.uncertainty)+'" x2="'+x+'" y2="'+fy(p.folded+p.uncertainty)+'" stroke="#d9bf83" stroke-width="2"/>';
-      svg+='<circle cx="'+x+'" cy="'+y+'" r="5.4" fill="#efd49b"/>';
+      svg+='<line x1="'+x+'" y1="'+fy(p.folded-p.uncertainty)+'" x2="'+x+'" y2="'+fy(p.folded+p.uncertainty)+'" stroke="#c9a86c" stroke-width="2"/>';
+      svg+='<circle cx="'+x+'" cy="'+y+'" r="5.4" fill="#c9a86c"/>';
     }
     const drawSegment=(from,to,stroke,dash)=>{
       let d="";
@@ -74,9 +74,9 @@
         (dash?'stroke-dasharray="7 7" ':'')+'clip-path="url(#viz-clip)"/>';
     };
     svg+='<defs><clipPath id="viz-clip"><rect x="60" y="12" width="594" height="215"/></clipPath></defs>';
-    svg+=drawSegment(20,50,"#75ded6",false);
-    if(show.checked)svg+=drawSegment(50,70,"#e3c891",true);
-    svg+='<text x="653" y="273" fill="#b8d1d7" text-anchor="end" font-size="12">Temperature (°C)</text>';
+    svg+=drawSegment(20,50,"#7fb6dc",false);
+    if(show.checked)svg+=drawSegment(50,70,"#c9a86c",true);
+    svg+='<text x="653" y="273" fill="#d4c9be" text-anchor="end" font-size="12">Temperature (°C)</text>';
     root.innerHTML=svg;
     $("modelLabel").textContent=deg===1?"Linear fit":"Quadratic fit";
     $("pred60").textContent=show.checked?pct(estimate(coeff,60))+"%":"Hidden";
@@ -103,7 +103,7 @@
     clone.setAttribute("height","280");
     // Explicit inline SVG background to make downloaded charts self-contained.
     const bg=document.createElementNS("http://www.w3.org/2000/svg","rect");
-    bg.setAttribute("x","0");bg.setAttribute("y","0");bg.setAttribute("width","682");bg.setAttribute("height","280");bg.setAttribute("fill","#0a202b");
+    bg.setAttribute("x","0");bg.setAttribute("y","0");bg.setAttribute("width","682");bg.setAttribute("height","280");bg.setAttribute("fill","#00263a");
     clone.insertBefore(bg,clone.firstChild);
     const xml=new XMLSerializer().serializeToString(clone);
     const url=URL.createObjectURL(new Blob([xml],{type:"image/svg+xml"})),a=document.createElement("a");

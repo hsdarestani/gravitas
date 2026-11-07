@@ -48,10 +48,10 @@
        without a glow. Same hue throughout; the ramp above is unchanged and
        Cosmos Blue itself is kept for the one featured object on a screen. */
     --g-bg:                #00141f;
-    --g-bg-deep:           #000b11;
-    --g-surface:           #011b29;
-    --g-surface-raised:    #022232;
-    --g-surface-hover:     #052c40;
+    --g-bg-deep:           #00263a;   /* the 30: bands and footer step off the ground */
+    --g-surface:           #00263a;
+    --g-surface-raised:    #003049;   /* cards are Cosmos Blue itself */
+    --g-surface-hover:     #013a58;
     --g-surface-sunken:    #00101a;
 
     --g-text:              var(--g-white-tint);
@@ -74,11 +74,11 @@
        Every other surface is darker, so the flattened value reads at or above
        the contrast the alpha version measured there, and no crossing anywhere
        in the system can brighten again. */
-    --g-text-subtle:       #849397;
+    --g-text-subtle:       #9aa8ac;
 
     /* Still the named channel for a dimmed icon, so no rule has to change, and
        now simply that same opaque colour: there is nothing left to flatten. */
-    --g-ic-dim:            #849397;
+    --g-ic-dim:            #9aa8ac;
     --g-ic-dim-a:          1;
     --g-text-inverse:      var(--g-cosmos-600);
 
@@ -274,20 +274,20 @@
     /* v2: the ground is White Tint itself, the brand paper, and cards are a
        warm off-white rather than pure #fff, which glared against it. */
     --g-bg:                #f1efec;
-    --g-bg-deep:           #e7e2db;
-    --g-surface:           #fbfaf8;
-    --g-surface-raised:    #fdfcfa;
-    --g-surface-hover:     #ffffff;
-    --g-surface-sunken:    #e9e5df;
+    --g-bg-deep:           #ddd4ca;   /* the 30: bands and footer carry Sisal */
+    --g-surface:           #ebe5de;
+    --g-surface-raised:    #e6dfd6;   /* cards carry Sisal */
+    --g-surface-hover:     #ece6de;
+    --g-surface-sunken:    #f7f5f2;
 
     --g-text:              #002236;
     --g-text-muted:        #3c5464;
     /* v2: #5d7280 cleared 4.5:1 on the old #f5f3ef ground but fell to 4.37
        on White Tint and 3.90 on bg-deep (the footer). #4f6370 is the same hue
        at 5.46 on the ground and 4.86 on bg-deep. */
-    --g-text-subtle:       #4f6370;
+    --g-text-subtle:       #46596a;
     /* Opaque already, so nothing to flatten: the icon takes it at full alpha. */
-    --g-ic-dim:            #4f6370;
+    --g-ic-dim:            #46596a;
     --g-ic-dim-a:          1;
     --g-text-inverse:      var(--g-white-tint);
 
