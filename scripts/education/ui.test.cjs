@@ -38,6 +38,19 @@ test('free-form request includes current and frozen states, history and locale; 
   assert.equal(requests[0].url,'/api/pulsar/ask/');assert.equal(requests[0].body.locale,'de');assert.match(requests[0].body.message,/"angle":40/);assert.match(requests[0].body.message,/"comparison":/);assert.match(requests[0].body.message,/"mass":8/);assert.ok(requests[0].body.message.length<=4000);assert.match(d.getElementById('el-chat-log').textContent,/LIVE-KI/);assert.equal(d.querySelectorAll('#el-chat-log img').length,0);
   d.getElementById('el-message').value='Und die Normalkraft?';click(w,'#el-send');await flush();assert.equal(requests[1].body.history.length,2);dom.window.close();
 });
+test('at-rest context states the friction regime and shows an independent numerical reference',async()=>{
+  const requests=[];const dom=setup('en','physics',async(url,options)=>{requests.push(JSON.parse(options.body));return {ok:true,json:async()=>({ok:true,provider:'cloudflare',reply:'A generated explanation'})};}),w=dom.window,d=w.document;
+  d.getElementById('el-message').value='Why is friction below its static maximum?';click(w,'#el-send');await flush();
+  assert.match(requests[0].message,/"motion":"AT_REST"/);assert.match(requests[0].message,/"frictionRegime":"STATIC_BALANCING"/);assert.match(requests[0].message,/does NOT imply kinetic friction/);
+  const log=d.getElementById('el-chat-log').textContent;assert.match(log,/MODEL REFERENCE · AT SEND TIME/);assert.match(log,/At rest · static friction 6.71 N · a = 0.00/);dom.window.close();
+});
+test('maximum question plus A/B snapshot stays inside the existing API message limit',async()=>{
+  for(const lang of ['en','de']){const dom=setup(lang),w=dom.window,d=w.document;let sent;
+    w.fetch=async(url,options)=>{sent=JSON.parse(options.body);return {ok:true,json:async()=>({ok:true,provider:'fallback',reply:'fixture'})};};
+    for(const[id,c]of Object.entries(w.GQEducationCatalog)){change(w,'#el-discipline',id);change(w,'#el-lesson',c.lessons.length-1);click(w,'#el-choices button');click(w,'#el-test');d.getElementById('el-message').value='x'.repeat(1000);click(w,'#el-send');await flush();assert.ok(sent.message.length<=4000);assert.ok(sent.message.endsWith(lang==='de'?'Gleitreibung.':'maximum.'),id+' context was truncated');}
+    dom.window.close();
+  }
+});
 test('fallback and failed service responses never masquerade as live AI and remain retryable',async()=>{
   for(const reply of [{ok:true,json:async()=>({ok:true,provider:'fallback',reply:'Unavailable'})},{ok:false,status:503},{ok:true,json:async()=>({ok:true,reply:''})}]){const dom=setup('en','physics',async()=>reply),w=dom.window,d=w.document;d.getElementById('el-message').value='My question';click(w,'#el-send');await flush();const log=d.getElementById('el-chat-log').textContent;assert.ok(!log.includes('PULSAR · LIVE AI'));assert.equal(d.getElementById('el-send').disabled,false);assert.equal(d.getElementById('el-message').value,'My question');dom.window.close();}
 });

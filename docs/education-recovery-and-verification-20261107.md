@@ -74,7 +74,7 @@ The code is an independent implementation of the stated equations and update rul
 ## Verification
 
 - `npm ci --prefix scripts/education --no-audit --no-fund`
-- `npm test --prefix scripts/education`: 18 passing tests, covering analytic references, conservation, extrema, determinism, thresholds, all 12 scenarios in both languages, old cart regression, API payloads/history/locale, safe text rendering, fallback/failure/cancel states, deep links and frozen evidence.
+- `npm test --prefix scripts/education`: 20 passing tests, covering analytic references, conservation, extrema, determinism, thresholds, all 12 scenarios in both languages, old cart regression, API payloads/history/locale, safe text rendering, fallback/failure/cancel states, deep links and frozen evidence.
 - Existing four simulation suites: 27 passing tests.
 - Existing Django `core.test_public_pulsar_api`: 11 passing tests.
 - New path-scoped GitHub Actions validation repeats the model/UI checks and existing simulation regressions on PRs and main.
@@ -82,7 +82,13 @@ The code is an independent implementation of the stated equations and update rul
 - Real animation reached 12.00 m at 2.73 s with v=8.79 m/s for θ=35°, m=2 kg, g=9.81 m/s², μₛ=.45, μₖ=.30; rewind restored the initial state. Light/dark controls also checked.
 - Live pre-release API probe returned `cloudflare-workers-ai`, run `a628c522b9bf425eb414519c51fa3aca`, correctly distinguishing static friction 6.71 N from its 8.30 N maximum. This is one observed response, not a comprehensive assessment of answer quality.
 
-Production deployment and browser acceptance are recorded in the PR/release evidence after merge. Local tests with mocked responses do not count as live API verification.
+The initial release [PR #331](https://github.com/hsdarestani/gravitas/pull/331) passed all PR CI and deployed as `25c3e285f0bb5ad5e62dea8c7e8da3dfe8149ce9` in [production run 42403043870](https://github.com/hsdarestani/gravitas/actions/runs/42403043870). The full readiness suite ran 1,122 tests successfully (2 skipped). The production model, catalog, studio JS/CSS, original cart JS and original shared Education CSS matched repository bytes. Both pages served HTTP 200. Chrome confirmed all nine English production demos loaded with computed readings.
+
+Post-deploy acceptance exposed an actual live-answer error: a generated explanation inferred kinetic friction and motion from a force below the static maximum, despite a=0. This was not a numerical-model error. The follow-up explicitly supplies categorical motion state, friction regime and its balancing rule, repeats a human-readable reference at the end of the request and displays independently computed reference values beside each answer. The reply remains labeled live AI; the reference remains separately labeled model data. This reduces ambiguity and makes checking possible; it does not certify arbitrary generated answers.
+
+The updated full request was tested against the existing live production endpoint in both languages. Run `bee2b3ec487346a0a982a27e61e32913` correctly described static balancing and zero acceleration in English; run `35a6d8a7bad2405d818627586e47f09e` correctly described the same state in German. Regression checks now assert the categorical regime, independent visible reference and complete request bounds for every demo with the maximum question length and a frozen A/B comparison. No backend or model-provider settings were changed.
+
+Local tests with mocked responses do not count as live API verification. Follow-up deployment acceptance is recorded with its PR.
 
 ## Test routes
 
