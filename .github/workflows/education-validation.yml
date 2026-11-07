@@ -1,0 +1,31 @@
+name: Education models and bilingual learning studio
+on:
+  pull_request:
+    paths:
+      - 'education*.html'
+      - 'assets/education*'
+      - 'scripts/education/**'
+      - '.github/workflows/education-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'education*.html'
+      - 'assets/education*'
+      - 'scripts/education/**'
+      - '.github/workflows/education-validation.yml'
+permissions:
+  contents: read
+jobs:
+  education:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: scripts/education/package-lock.json
+      - run: npm ci --prefix scripts/education --no-audit --no-fund
+      - run: npm test --prefix scripts/education
+      - run: node --test tests/science-evidence.test.cjs tests/science-evidence-integration.test.cjs tests/science-universe-original.test.cjs tests/science-pulsar-scenarios.test.cjs
