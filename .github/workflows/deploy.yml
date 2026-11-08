@@ -856,6 +856,21 @@ jobs:
           sudo systemctl start gravitas-task-notifications.service || true
           REMOTE
 
+      - name: Synchronize public page content for Pulsar
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            sudo -u gravitas bash -s -- "$BACKEND_PATH" "$DEPLOY_PATH" <<'REMOTE'
+          set -euo pipefail
+          set -a
+          . /etc/gravitas/backend.env
+          set +a
+          export PYTHONPATH="$1" DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          "$1/.venv/bin/django-admin" sync_public_pages --source "$2"
+          REMOTE
+
       - name: Install native conditional ACL bridge
         if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true'
         shell: bash

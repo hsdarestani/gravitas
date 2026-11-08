@@ -323,3 +323,6 @@ GRAVITAS_DAILY_REPORT_TIMEZONE = os.environ.get('GRAVITAS_DAILY_REPORT_TIMEZONE'
 GRAVITAS_DAILY_REPORT_HOUR = int(os.environ.get('GRAVITAS_DAILY_REPORT_HOUR', '18'))
 # Release gate: live DAV/ACL and cross-file recovery acceptance are still pending.
 GRAVITAS_CANONICAL_ADOPTION_ENABLED = os.environ.get('GRAVITAS_CANONICAL_ADOPTION_ENABLED', 'false').lower() == 'true'
+
+# Production Research Workspace project for the first public Topic.
+TOPIC_01_RESEARCH_PROJECT_ID = int(os.environ.get('TOPIC_01_RESEARCH_PROJECT_ID', '213'))
