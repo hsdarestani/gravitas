@@ -43,6 +43,9 @@ try {
     await page.locator('.topic-list .topic-list-item').first().waitFor({timeout:60000});
     await page.locator('.gq-community-poll .poll').waitFor({timeout:30000});
     await page.evaluate(()=>document.fonts.ready);
+    // S3 images finish independently of the document and web fonts. Decode
+    // the actual brand asset before measuring its rendered dimensions.
+    await page.locator('img#site-logo').evaluate(img=>img.decode());
     const measurements=await page.evaluate(()=>({
       viewport:innerWidth, width:document.documentElement.scrollWidth,
       heading:document.querySelector('.gq-forum-heading h1')?.textContent,

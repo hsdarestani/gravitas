@@ -132,6 +132,11 @@ def snippets():
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header Cookie "";
+        # User files share the apex hostname. Force an opaque sandbox for
+        # document navigations so uploaded active content cannot use site auth.
+        add_header Content-Security-Policy "sandbox; default-src 'none'; style-src 'unsafe-inline'" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy no-referrer always;
         proxy_request_buffering off;
         proxy_buffering off;
         proxy_read_timeout 120s;
@@ -286,7 +291,11 @@ def verify():
                 assert hashlib.sha256(response.read()).digest()==hashlib.sha256(body).digest()
         print('Verifying public-to-private object ACL changes.',flush=True)
         client.put_object(Bucket=BUCKETS[0],Key=prefix+'public',Body=body,ACL='public-read')
-        assert anonymous.get_object(Bucket=BUCKETS[0],Key=prefix+'public')['Body'].read()==body
+        public_response=anonymous.get_object(Bucket=BUCKETS[0],Key=prefix+'public')
+        assert public_response['Body'].read()==body
+        public_headers=public_response['ResponseMetadata']['HTTPHeaders']
+        assert public_headers.get('content-security-policy', '').startswith('sandbox;'), 'Uploaded documents must have an opaque sandbox'
+        assert public_headers.get('x-content-type-options')=='nosniff', 'Uploaded content must not bypass MIME checks'
         client.put_object_acl(Bucket=BUCKETS[0],Key=prefix+'public',ACL='private')
         denied(lambda:anonymous.get_object(Bucket=BUCKETS[0],Key=prefix+'public'),'Changing public object to private must remove anonymous access')
         # Exercise IAM on loopback: the public nginx endpoint exposes only our
