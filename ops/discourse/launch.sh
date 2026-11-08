@@ -41,6 +41,7 @@ NGINX
   # Reuse the existing Let's Encrypt account; never accept new terms silently.
   certbot certonly --webroot -w /var/www/gravitas-forum-acme -d forum.graviquest.com --non-interactive --keep-until-expiring
 fi
+test -f /etc/nginx/snippets/graviquest-storage.conf || install -m 644 /dev/null /etc/nginx/snippets/graviquest-storage.conf
 cat > "$VHOST" <<'NGINX'
 # Managed GraviQuest Discourse
 server {
@@ -59,6 +60,7 @@ server {
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     client_max_body_size 16m;
+    include /etc/nginx/snippets/graviquest-storage.conf;
     location / {
         proxy_pass http://127.0.0.1:18880;
         proxy_http_version 1.1;

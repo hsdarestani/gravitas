@@ -180,7 +180,7 @@ def png_bytes(rgb)
   "\x89PNG\r\n\x1a\n".b + chunk.call("IHDR", [1,1,8,6,0,0,0].pack("NNCCCCC")) +
     chunk.call("IDAT", Zlib::Deflate.deflate([0,*rgb,255].pack("C*"))) + chunk.call("IEND", "".b)
 end
-image.write(png_bytes([10,20,30])); image.flush
+image.write(png_bytes([token[0,2],token[2,2],token[4,2]].map { |value| value.to_i(16) })); image.flush
 upload_file = Rack::Test::UploadedFile.new(image.path, "image/png")
 member_session.post "/uploads.json", params: {type:"composer",file:upload_file}, headers:csrf_headers(member_session)
 assert!(member_session.response.status == 200, "member can attach an actual image")
@@ -225,7 +225,7 @@ assert!(Notification.exists?(user_id:admin.id,topic_id:post.topic_id), "native m
 private_upload_verified = false
 if SiteSetting.enable_s3_uploads && SiteSetting.secure_uploads
   private_image = Tempfile.new(["graviquest-private-acceptance", ".png"])
-  private_image.binmode; private_image.write(png_bytes([40,50,60])); private_image.flush
+  private_image.binmode; private_image.write(png_bytes([token[0,2].to_i(16),token[2,2].to_i(16),token[4,2].to_i(16) ^ 255])); private_image.flush
   research_session.post "/uploads.json", params:{type:"composer",file:Rack::Test::UploadedFile.new(private_image.path,"image/png")}, headers:csrf_headers(research_session)
   assert!(research_session.response.status == 200, "researcher can upload a private attachment")
   private_upload = JSON.parse(research_session.response.body)
@@ -236,7 +236,7 @@ if SiteSetting.enable_s3_uploads && SiteSetting.secure_uploads
     sleep 1
   end
   assert!(Upload.find(private_upload.fetch("id")).secure?, "private attachment is marked secure")
-  object_uri = URI.parse(private_upload.fetch("url"))
+  object_uri = URI.parse(Discourse.store.cdn_url(private_upload.fetch("url")))
   object_uri.scheme ||= "https" if object_uri.host
   assert!(object_uri.scheme == "https" && object_uri.host.present?, "private upload uses verified HTTPS object storage")
   object_uri.query = nil

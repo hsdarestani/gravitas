@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Install a new, resource-limited loopback-only service. No nginx changes,
-# existing container restarts, database migrations, or user changes here.
+# Install isolated, resource-limited forum services. Local S3, when explicitly
+# requested, gets its own TLS bucket routes. Existing app containers and Django
+# users/databases are not restarted or changed here.
 set -Eeuo pipefail
 test "$(id -u)" = 0
 SOURCE="$(realpath "$1")"
@@ -10,9 +11,11 @@ command -v docker >/dev/null
 systemctl is-active --quiet docker
 python3 - <<'PY'
 from pathlib import Path
-import shutil
+import shutil, subprocess
 memory = {k: int(v.split()[0]) for k,v in (line.split(':',1) for line in Path('/proc/meminfo').read_text().splitlines()) if v.strip().endswith('kB')}
-assert memory['MemAvailable'] >= 4500*1024, 'Less than 4.5 GiB available; shared host left unchanged.'
+running = subprocess.run(['docker','inspect','-f','{{.State.Running}}','graviquest'],capture_output=True,text=True).stdout.strip() == 'true'
+minimum = 2500 if running else 4500
+assert memory['MemAvailable'] >= minimum*1024, 'Insufficient free memory for this installation; existing apps left unchanged.'
 assert shutil.disk_usage('/var').free >= 25*1024**3, 'Less than 25 GiB free; shared host left unchanged.'
 PY
 install -d -m 750 /etc/gravitas
@@ -21,6 +24,9 @@ set -a
 set +a
 export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
 /opt/gravitas-backend/.venv/bin/python "$SOURCE/ops/discourse/prepare_environment.py"
+if [ "${GQ_INSTALL_LOCAL_S3:-0}" = 1 ] || [ -f /etc/graviquest-objectstore/credentials.json ]; then
+  bash "$SOURCE/ops/discourse/storage.sh" "$SOURCE"
+fi
 if [ ! -d /var/discourse ]; then
   git clone https://github.com/discourse/discourse_docker.git /var/discourse
 fi
@@ -33,6 +39,7 @@ cp /etc/gravitas/forum.json "$INTEGRATION/environment.json"
 python3 "$SOURCE/ops/discourse/assemble_theme.py" "$SOURCE" "$INTEGRATION/theme"
 cp -R "$SOURCE/assets/logos" "$INTEGRATION/"
 cp "$SOURCE/ops/discourse/bootstrap.rb" "$SOURCE/ops/discourse/verify_native.rb" "$INTEGRATION/"
+cp "$SOURCE/ops/discourse/storage-plugin.rb" "$INTEGRATION/"
 # Read the published CMS content in the existing runtime; no schema writes.
 set -a
 . /etc/gravitas/backend.env
@@ -57,6 +64,13 @@ if ! docker inspect graviquest >/dev/null 2>&1; then
 else
   test "$(docker inspect -f '{{.State.Running}}' graviquest)" = true
 fi
+if [ -f /etc/graviquest-objectstore/credentials.json ]; then
+  PREVIOUS_PLUGIN="$(docker exec graviquest sha256sum /var/www/discourse/plugins/graviquest-local-object-storage/plugin.rb 2>/dev/null | cut -d' ' -f1 || true)"
+  CURRENT_PLUGIN="$(sha256sum "$SOURCE/ops/discourse/storage-plugin.rb" | cut -d' ' -f1)"
+  docker exec -u root graviquest mkdir -p /var/www/discourse/plugins/graviquest-local-object-storage
+  docker cp "$SOURCE/ops/discourse/storage-plugin.rb" graviquest:/var/www/discourse/plugins/graviquest-local-object-storage/plugin.rb
+  if [ "$PREVIOUS_PLUGIN" != "$CURRENT_PLUGIN" ]; then docker restart graviquest >/dev/null; fi
+fi
 ready=false
 for attempt in $(seq 1 60); do
   if curl -fsS --max-time 5 -H 'Host: forum.graviquest.com' -H 'X-Forwarded-Proto: https' http://127.0.0.1:18880/srv/status >/dev/null; then ready=true; break; fi
@@ -68,7 +82,7 @@ docker exec -e GQ_CLEANUP_INTERRUPTED_ACCEPTANCE=1 -u discourse -w /var/www/disc
 docker exec -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/verify_native.rb
 # The system wrapper invokes sudo and is intended for root. Run the official
 # CLI directly as its service account, matching the wrapper's production env.
-if ! docker exec -e RAILS_ENV=production -u discourse -w /var/www/discourse graviquest bundle exec ruby script/discourse backup > /var/log/graviquest-discourse-backup.log 2>&1; then
+if ! docker exec -e RAILS_ENV=production -u discourse -w /var/www/discourse graviquest bundle exec ruby script/discourse backup --s3-uploads > /var/log/graviquest-discourse-backup.log 2>&1; then
   python3 - <<'PY'
 import json, re
 from pathlib import Path

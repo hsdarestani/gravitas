@@ -26,7 +26,7 @@ def configuration(env):
                    'DISCOURSE_DISCOURSE_CONNECT_SECRET':env['GRAVITAS_DISCOURSE_CONNECT_SECRET'],
                    'DISCOURSE_DISCOURSE_CONNECT_URL':'https://graviquest.com/api/forum/sso/',
                    'DISCOURSE_ENABLE_DISCOURSE_CONNECT':'true'})
-    return {
+    result = {
         'templates':['templates/postgres.template.yml','templates/redis.template.yml',
                      'templates/web.template.yml','templates/web.ratelimited.template.yml'],
         'expose':['127.0.0.1:18880:80'],
@@ -37,6 +37,12 @@ def configuration(env):
         'volumes':[{'volume':{'host':'/var/discourse/shared/graviquest','guest':'/shared'}},
                    {'volume':{'host':'/var/discourse/shared/graviquest/log/var-log','guest':'/var/log'}}],
     }
+    if env.get('GRAVITAS_LOCAL_S3'):
+        result['hooks'] = {'after_code':[{'exec':{'cmd':[
+            'mkdir -p /var/www/discourse/plugins/graviquest-local-object-storage',
+            'cp /shared/graviquest-integration/storage-plugin.rb /var/www/discourse/plugins/graviquest-local-object-storage/plugin.rb',
+        ]}}]}
+    return result
 
 
 if __name__ == '__main__':

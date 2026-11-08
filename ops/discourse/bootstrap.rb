@@ -46,6 +46,10 @@ s3_fields = {
 if s3_fields.values.all? { |key| settings_file[key].present? }
   s3_fields.each { |setting, key| SiteSetting.public_send("#{setting}=", settings_file.fetch(key)) }
   SiteSetting.s3_endpoint = settings_file["DISCOURSE_S3_ENDPOINT"] if settings_file["DISCOURSE_S3_ENDPOINT"].present?
+  if settings_file["DISCOURSE_S3_CDN_URL"].present?
+    SiteSetting.s3_cdn_url = settings_file.fetch("DISCOURSE_S3_CDN_URL")
+    SiteSetting.s3_use_cdn_url_for_all_uploads = true
+  end
   SiteSetting.enable_s3_uploads = true
   SiteSetting.secure_uploads = true
 end
