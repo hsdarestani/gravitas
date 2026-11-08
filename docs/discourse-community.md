@@ -189,6 +189,18 @@ The later concurrent Topic 01/Pulsar deployment
 Pulsar changes are preserved. Deployment now retains an existing administrator
 instead of trying to recreate it when a credential-export file is absent.
 
+Public password login passed for member, moderator and researcher. The account
+forms now use POST and keep submit controls disabled until the real handler is
+ready. The verified Google callback resumes the signed, server-held Forum
+request with the existing account; its regression test rejects external next
+URLs. The merged Forum/essay code passed 1,162 core tests with three skips.
+
+The production queue must be acquired by eligible jobs only. A workflow-level
+lease in selected operational acceptance was cancelling queued deployments even
+when its guarded native job would be skipped. Its unchanged opt-in condition
+now precedes a job-level lease. This does not authorize or run a native
+acceptance checkpoint on ordinary releases.
+
 [Public acceptance run 42533631566](https://github.com/hsdarestani/gravitas/actions/runs/42533631566),
 source `c3a35e06d356039731ff118a7ffe14af51fe0e71`, passed real HTTPS without
 TLS bypasses, request mocks or browser administrator keys:

@@ -8,15 +8,16 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: gravitas-production
-  cancel-in-progress: false
-
 jobs:
   accept-selected-project:
     # This is a destructive/offline one-off checkpoint, never run on routine deploys.
     # Explicitly opt in with [run-selected-acceptance] in the triggering commit.
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.repository == 'hsdarestani/gravitas' && contains(github.event.workflow_run.head_commit.message, '[run-selected-acceptance]')
+    # A skipped workflow must not replace a queued production deployment.
+    # Only an explicitly eligible native acceptance job acquires this lease.
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
