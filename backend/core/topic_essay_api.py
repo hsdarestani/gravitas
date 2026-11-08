@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
-from markdown_it import MarkdownIt
+from lxml import html as lxml_html
 
 from . import cloud, nextcloud_bridge
 from .canonical_api import _project, body, clean_path
@@ -17,10 +17,10 @@ from .canonical_projects import acl_object, decode, object_for
 from .models import ResearchProject, TopicEssayPublication
 from .platform_access import can_edit, can_manage, downloads_allowed
 from .topic_essay_sources import SOURCE_FILES, SOURCE_PATHS, is_topic_essay_source
+from .topic_essay_render import render_essay
 
 TOPIC_01_PAGE = '/topic-answer-that-looked-right.html'
 MAX_SOURCE_BYTES = 1024 * 1024
-MARKDOWN = MarkdownIt('commonmark', {'html': False, 'maxNesting': 20}).enable(['table', 'strikethrough'])
 
 
 def published_essays():
@@ -34,22 +34,17 @@ def public_essay_label(item, fallback):
 
 
 def _public_essay(item):
-    source = item.markdown
-    env = {}
-    tokens = MARKDOWN.parse(source, env)
-    title = ''
-    if tokens and tokens[0].type == 'heading_open' and tokens[0].tag == 'h1':
-        title = ''.join(child.content for child in tokens[1].children or []
-                        if child.type in {'text', 'code_inline'}).strip()
-        if title:
-            tokens = tokens[3:]
-    for token in tokens:
-        if token.type in {'heading_open', 'heading_close'}:
-            token.tag = f'h{min(6, int(token.tag[1]) + 2)}'
+    title, body_html = render_essay(item.markdown, f'essay-{item.depth}')
     label = public_essay_label(item, '')
     if label and not title:
         title = SOURCE_FILES[item.depth][2]
-    return {'title': title, 'label': label, 'html': MARKDOWN.renderer.render(tokens, MARKDOWN.options, env)}
+    return {'title': title, 'label': label, 'html': body_html}
+
+
+def public_essay_context(item):
+    essay = _public_essay(item)
+    fragment = lxml_html.fragment_fromstring(essay['html'], create_parent=True)
+    return f'{essay["title"]}\n{fragment.text_content()}'
 
 
 @never_cache

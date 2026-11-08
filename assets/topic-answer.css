@@ -92,3 +92,39 @@
 /* The essay's two-depth switch and the transcript both need the page's
    anchor offset, since the topic nav is sticky. */
 .layer { scroll-margin-top: 7rem; }
+
+/* Essay components drawn from the editorial Markdown format. */
+.ta-essay-quote, .ta-essay-detail, .ta-essay-box, .ta-essay-figure {
+  margin: var(--g-space-lg) 0;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--g-radius);
+  background: var(--g-surface-sunken);
+  overflow-wrap: anywhere;
+}
+.ta-essay-quote { border-inline-start: 3px solid var(--g-accent); }
+.ta-essay-quote blockquote { margin: 0; padding: 0; border: 0; font-size: var(--g-fs-lead); }
+.ta-essay-quote figcaption, .ta-essay-figure figcaption {
+  margin-top: var(--g-space-xs);
+  color: var(--g-text-muted);
+  font-size: var(--g-fs-caption);
+}
+.ta-essay-detail summary { cursor: pointer; font-weight: var(--g-w-semibold); }
+.ta-essay-detail summary:focus-visible { outline: 2px solid var(--g-focus); }
+.ta-essay-detail[open] summary { margin-bottom: var(--g-space-sm); }
+.ta-essay-box h5, .ta-essay-figure h5 { margin: 0 0 var(--g-space-sm); }
+.ta-essay-figure table { width: 100%; border-collapse: collapse; font-size: var(--g-fs-small); }
+.ta-essay-figure th, .ta-essay-figure td {
+  padding: var(--g-space-xs);
+  text-align: start;
+  vertical-align: top;
+  border-bottom: 1px solid var(--g-hairline);
+}
+.ta-essay-figure .ta-essay-chart { list-style: none; margin: 0; padding: 0; }
+.ta-essay-chart li { margin: var(--g-space-sm) 0; }
+.ta-essay-chart li div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--g-space-2xs) var(--g-space-xs); }
+.ta-essay-chart meter { display: block; width: 100%; height: .7rem; margin-top: var(--g-space-2xs); }
+.ta-essay-chart meter::-webkit-meter-optimum-value { background: var(--g-accent); }
+.ta-essay-chart meter::-moz-meter-bar { background: var(--g-accent); }
+.ta-essay-ref { scroll-margin-top: 8rem; }
+.ta-essay-credit { margin: var(--g-space-xs) 0 0; color: var(--g-text-muted); font-size: var(--g-fs-caption); }
