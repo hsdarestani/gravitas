@@ -47,5 +47,5 @@ input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px 
 /* Keep native account cards and brand controls within their measured boxes. */
 .gq-room-links a,.gq-workspace,.gq-site-nav{box-sizing:border-box}
 .topic-list .topic-excerpt{display:none}
-.d-header img#site-logo{max-width:10.5rem;max-height:28px;width:auto;height:auto}
+.d-header img#site-logo{max-width:10.5rem;height:28px;width:auto;object-fit:contain}
 .gq-header-links{margin-inline-end:.75rem}

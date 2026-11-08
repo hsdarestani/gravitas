@@ -43,11 +43,13 @@ try {
       font:getComputedStyle(document.body).fontFamily,
       topicRows:document.querySelectorAll('.topic-list .topic-list-item').length,
       themeFonts:[...document.fonts].filter(f=>f.family.includes('DM Sans')).map(f=>f.status),
+      logo:(()=>{const img=document.querySelector('img#site-logo');return img?{width:img.getBoundingClientRect().width,height:img.getBoundingClientRect().height,loaded:img.complete&&img.naturalWidth>0}:null;})(),
     }));
     assert.equal(measurements.heading,'The Forum');
     assert(measurements.width<=measurements.viewport+1,'No horizontal page overflow');
     assert(measurements.font.includes('DM Sans'),'Existing brand typography loaded');
     assert(measurements.themeFonts.includes('loaded'),'Bundled brand font file actually loaded');
+    assert(measurements.logo?.loaded && measurements.logo.width>=100 && measurements.logo.height>=20,'Brand logo is visible at its intended size');
     assert(measurements.topicRows>0,'Real public discussions rendered');
     assert.deepEqual(errors,[],'Native theme has no uncaught runtime errors');
     await page.screenshot({path:`${out}/forum-${viewport.width}.png`,fullPage:true});
