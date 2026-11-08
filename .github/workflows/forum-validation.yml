@@ -73,7 +73,7 @@ jobs:
       - name: Install pinned browser acceptance dependency
         run: |
           npm install --prefix "$RUNNER_TEMP/forum-browser" --no-audit --no-fund playwright@1.65.0
-          "$RUNNER_TEMP/forum-browser/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/forum-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
           echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/forum-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - name: Verify native branded UI on desktop and mobile through SSH
         env:

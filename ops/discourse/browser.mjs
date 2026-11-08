@@ -2,16 +2,23 @@
 // their HTTPS origin and the production CSP; no TLS/CSRF/security setting changes.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-const {chromium, request, devices} = await import(process.env.PLAYWRIGHT_MODULE);
+const {chromium, webkit, request, devices} = await import(process.env.PLAYWRIGHT_MODULE);
 const out = process.env.GQ_BROWSER_OUTPUT || '/tmp/graviquest-forum-browser';
 await fs.mkdir(out, {recursive:true});
 const bridge = process.env.GQ_DISCOURSE_BRIDGE || 'http://127.0.0.1:18881';
 const api = await request.newContext();
-const browser = await chromium.launch({headless:true});
+const projects=[
+  {engine:chromium,name:'desktop-chromium',tag:'1440',viewport:{width:1440,height:1100}},
+  {engine:chromium,name:'android-chrome',tag:'390',device:'Pixel 7',viewport:{width:390,height:844}},
+  {engine:webkit,name:'ios-webkit',tag:'390-webkit',device:'iPhone 13',viewport:{width:390,height:844}},
+];
 try {
-  for (const viewport of [{width:1440,height:1100},{width:390,height:844}]) {
-    const mobile = viewport.width < 760 ? devices['Pixel 7'] : {};
-    assert(mobile, 'Pinned Playwright provides the Android device descriptor');
+  for (const project of projects) {
+    const browser=await project.engine.launch({headless:true});
+    try {
+    const viewport=project.viewport;
+    const mobile=project.device ? devices[project.device] : {};
+    assert(mobile, 'Pinned Playwright provides the mobile device descriptor');
     const context = await browser.newContext({...mobile, viewport, deviceScaleFactor:1});
     const errors = [];
     await context.route('https://forum.graviquest.com/**', async route => {
@@ -52,25 +59,26 @@ try {
     assert(measurements.logo?.loaded && measurements.logo.width>=100 && measurements.logo.height>=20,'Brand logo is visible at its intended size');
     assert(measurements.topicRows>0,'Real public discussions rendered');
     assert.deepEqual(errors,[],'Native theme has no uncaught runtime errors');
-    await page.screenshot({path:`${out}/forum-${viewport.width}.png`,fullPage:true});
-    console.log(JSON.stringify({viewport:viewport.width,...measurements,nativePollRendered:true,uncaughtErrors:errors.length}));
+    await page.screenshot({path:`${out}/forum-${project.tag}.png`,fullPage:true});
+    console.log(JSON.stringify({engine:project.name,viewport:viewport.width,...measurements,nativePollRendered:true,uncaughtErrors:errors.length}));
     // Small diagnostic thumbnail is safe: anonymous public UI only, no sessions,
     // private discussions, email addresses or secrets in screenshots/logs.
     const thumbnail=await page.screenshot({type:'jpeg',quality:35,fullPage:false,scale:'css'});
-    console.log(`GQ_PUBLIC_SCREENSHOT_${viewport.width}:`+thumbnail.toString('base64'));
+    console.log(`GQ_PUBLIC_SCREENSHOT_${project.tag}:`+thumbnail.toString('base64'));
     const topic=page.locator('.topic-list a.title').first();
     await topic.click();
     await page.locator('.topic-post').first().waitFor({timeout:30000});
     assert(new URL(page.url()).pathname.startsWith('/t/'),'Discussion opens real native permalink');
-    await page.screenshot({path:`${out}/topic-${viewport.width}.png`,fullPage:false});
+    await page.screenshot({path:`${out}/topic-${project.tag}.png`,fullPage:false});
     } catch (error) {
       const overflow=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:innerWidth,elements:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1&&getComputedStyle(e).position!=='fixed').slice(0,12).map(e=>({tag:e.tagName,classes:e.className,width:Math.round(e.getBoundingClientRect().width)}))}));
       console.log('Native UI diagnostic: '+JSON.stringify({errors, url:page.url(), overflow, text:(await page.locator('body').innerText()).slice(0,3000)}));
-      await page.screenshot({path:`${out}/failure-${viewport.width}.png`,fullPage:true});
+      await page.screenshot({path:`${out}/failure-${project.tag}.png`,fullPage:true});
       const failure=await page.screenshot({type:'jpeg',quality:35,fullPage:false});
-      console.log(`GQ_PUBLIC_FAILURE_${viewport.width}:`+failure.toString('base64'));
+      console.log(`GQ_PUBLIC_FAILURE_${project.tag}:`+failure.toString('base64'));
       throw error;
     }
     await context.close();
+    } finally { await browser.close(); }
   }
-} finally { await browser.close(); await api.dispose(); }
+} finally { await api.dispose(); }
