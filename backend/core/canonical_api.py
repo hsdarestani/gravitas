@@ -15,6 +15,7 @@ from .canonical_journal import journal_transaction
 from .canonical_projects import CanonicalConflict, ROOT, active, adopt_project, acl_object, apply, cache, dav_read, dav_write, decode, object_for, refresh_project, merge_content
 from .models import ResearchProject
 from .models import KnowledgeResource
+from .topic_essay_sources import is_topic_essay_source
 from .platform_access import can_view, can_edit, can_manage, downloads_allowed
 
 
@@ -153,7 +154,8 @@ def project_file_content(request, project_id):
             if not downloads_allowed(project):
                 raise PermissionError('downloads_restricted')
             if request.method == 'PUT' or request.GET.get('edit') == '1':
-                if managed_path(path) or PurePosixPath(path).suffix.lower() not in {'.md', '.txt', '.json', '.csv'}:
+                if (managed_path(path) and not is_topic_essay_source(project, path)
+                        or PurePosixPath(path).suffix.lower() not in {'.md', '.txt', '.json', '.csv'}):
                     raise ValueError('file_not_text_editable')
                 full = cloud.project_mountpoint(project) + '/' + path
                 response = cloud._request('GET', cloud._dav_url(identity, full), auth=cloud._auth(identity), expected={200, 404})

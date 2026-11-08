@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .models import ContentItem, PublicPageSnapshot
-from .topic_essay_api import TOPIC_01_PAGE, published_essays
+from .topic_essay_api import TOPIC_01_PAGE, public_essay_label, published_essays
 from .pulsar import PLATFORM_CONTEXT, PulsarError, configured, run_text
 from .pulsar_public_context import (
     clean_text,
@@ -75,6 +75,7 @@ def _essay_context(page, message, snapshot):
     blocks = []
     for depth, label in (('overview', 'Overview'), ('deep', 'In depth')):
         if depth in essays:
+            label = public_essay_label(essays[depth], label)
             text = essays[depth].markdown
         else:
             text = '\n'.join(legacy.get(depth, []))
