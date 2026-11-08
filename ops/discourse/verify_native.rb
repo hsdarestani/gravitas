@@ -73,9 +73,12 @@ def cleanup_acceptance(state)
     topic = Topic.with_deleted.find_by(id: id)
     next unless topic
     assert!(topic.title.include?(token), "cleanup topic belongs to the recorded run")
-    TopicDestroyer.new(Discourse.system_user, topic).destroy
+    first_post = topic.ordered_posts.with_deleted.first
+    assert!(first_post, "recorded acceptance topic has its first post")
+    PostDestroyer.new(Discourse.system_user, first_post, context:"GraviQuest recorded acceptance cleanup").destroy
   end
   state.fetch("user_ids").each do |id|
+    next unless User.exists?(id)
     record = SingleSignOnRecord.find_by(user_id: id, external_id: "graviquest-acceptance:#{token}:#{state.fetch('roles').fetch(id.to_s)}")
     assert!(record, "cleanup is limited to recorded acceptance identities")
     user = record.user
