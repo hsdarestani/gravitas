@@ -247,12 +247,12 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </section>
 
 <section class="layer" id="essay">
-  <div class="layer__head"><span class="layer__n">02</span><h2>The Essay</h2></div>
+  <div class="layer__head"><span class="layer__n">02</span><h2 data-topic-essay-intro="The Essays">The Essay</h2></div>
   <div class="depthbar">
-    <p class="depthbar__note">This essay reads two ways. Pick one.</p>
-    <div class="depth" role="group" aria-label="Reading depth">
-      <button type="button" data-depth="overview" aria-pressed="true">Overview</button>
-      <button type="button" data-depth="deep" aria-pressed="false">In depth</button>
+    <p class="depthbar__note" data-topic-essay-intro="Choose an essay to read.">This essay reads two ways. Pick one.</p>
+    <div class="depth" role="group" aria-label="Essay selection">
+      <button type="button" data-depth="overview" data-topic-essay-choice="overview" aria-pressed="true">Overview</button>
+      <button type="button" data-depth="deep" data-topic-essay-choice="deep" aria-pressed="false">In depth</button>
     </div>
   </div>
 
@@ -484,7 +484,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261108-forum1"></script>
-<script src="assets/topic-01-essay.js?v=20261109-essay1" defer></script>
+<script src="assets/topic-01-essay.js?v=20261109-essay2" defer></script>
 <script src="assets/topic-answer.js?v=20261102-t1" defer></script>
 <script src="assets/chat.js?v=20261109-essay1" defer></script>
 <script src="assets/production-bridge.js?v=20261108-forum1" defer></script>

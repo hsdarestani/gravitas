@@ -12,6 +12,12 @@
       return response.json();
     })
     .then(({ essays }) => {
+      const standalone = essays.overview?.label && essays.deep?.label;
+      if (standalone) {
+        document.querySelectorAll('[data-topic-essay-intro]').forEach(node => {
+          node.textContent = node.dataset.topicEssayIntro;
+        });
+      }
       for (const depth of ['overview', 'deep']) {
         const essay = essays[depth];
         if (!essay) continue;
@@ -19,6 +25,12 @@
         const content = document.createElement('template');
         content.innerHTML = essay.html;
         const title = essay.title || (depth === 'overview' ? 'Overview' : 'In depth');
+        if (essay.label) {
+          document.querySelectorAll(`[data-topic-essay-choice="${depth}"]`).forEach(node => {
+            node.textContent = essay.label;
+            node.title = title;
+          });
+        }
         if (depth === 'overview' && excerpt) {
           const text = content.content.querySelector('p')?.textContent?.trim() || '';
           excerpt.textContent = text.length > 360 ? text.slice(0, 357).trimEnd() + '…' : text;

@@ -3,9 +3,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
 
+from .cloud import CloudError
+from .topic_essay_sources import SOURCE_PATHS
 from .models import ProjectMembership, PublicPageSnapshot, ResearchProject, TopicEssayPublication, Workspace
 
 
@@ -88,6 +90,45 @@ class TopicEssayPublicationTests(TestCase):
         self.client.force_login(viewer)
         self.assertEqual(self.publish().status_code, 403)
         self.assertEqual(self.client.get(PUBLIC_URL).json()['essays'], {})
+
+    @patch('core.topic_essay_api.cloud.admin_download')
+    def test_initial_import_is_atomic_and_idempotent(self, download):
+        remote = MagicMock()
+        remote.__enter__.return_value = remote
+        remote.headers = {'ETag': '"edition-1"'}
+        remote.iter_content.return_value = [b'A full essay with its own title.']
+        download.side_effect = [remote, CloudError('unavailable')]
+        with self.assertRaises(CommandError):
+            call_command('publish_topic_01_essays')
+        self.assertFalse(TopicEssayPublication.objects.exists())
+
+        download.side_effect = None
+        download.return_value = remote
+        call_command('publish_topic_01_essays')
+        essays = self.client.get(PUBLIC_URL).json()['essays']
+        self.assertEqual(essays['overview']['label'], 'Essay 1')
+        self.assertEqual(essays['deep']['label'], 'Essay 2')
+        self.assertNotEqual(essays['overview']['title'], essays['deep']['title'])
+        self.assertCountEqual(TopicEssayPublication.objects.values_list('source_path', flat=True), SOURCE_PATHS.values())
+
+        download.reset_mock()
+        call_command('publish_topic_01_essays')
+        download.assert_not_called()
+
+    @patch('core.topic_essay_api.cloud._auth', return_value=('editor', 'unused'))
+    @patch('core.topic_essay_api.nextcloud_bridge.ensure_user', return_value=SimpleNamespace(username='editor'))
+    @patch('core.topic_essay_api.cloud._request')
+    def test_managed_folder_opens_only_the_two_selected_ordinary_files(self, dav, identity, _auth):
+        self.client.force_login(self.editor)
+        endpoint = f'/api/platform/projects/{PROJECT_ID}/file-content/'
+        path = SOURCE_PATHS['deep']
+        dav.return_value = SimpleNamespace(status_code=200, content=b'# Essay', headers={'ETag': '"nextcloud-v1"'})
+        opened = self.client.get(endpoint, {'path': path, 'edit': '1'})
+        self.assertEqual(opened.status_code, 200, opened.content)
+        self.assertEqual(opened.json()['etag'], '"nextcloud-v1"')
+        self.assertEqual(opened.json()['content'], '# Essay')
+        self.assertEqual(self.client.get(endpoint, {'path': path.rsplit('/', 1)[0] + '/other.md', 'edit': '1'}).status_code, 400)
+        self.assertEqual(list(self.client.get(EDITOR_URL, {'path': path}).json()['slots']), ['deep'])
 
     @patch('core.pulsar_api.run_text', return_value=SimpleNamespace(text='Grounded answer', provider='test', run_id='one'))
     @patch('core.pulsar_api.configured', return_value=True)

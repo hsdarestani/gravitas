@@ -16,6 +16,7 @@ from .canonical_models import CanonicalFile
 from .canonical_projects import acl_object, decode, object_for
 from .models import ResearchProject, TopicEssayPublication
 from .platform_access import can_edit, can_manage, downloads_allowed
+from .topic_essay_sources import SOURCE_FILES, SOURCE_PATHS, is_topic_essay_source
 
 TOPIC_01_PAGE = '/topic-answer-that-looked-right.html'
 MAX_SOURCE_BYTES = 1024 * 1024
@@ -24,6 +25,12 @@ MARKDOWN = MarkdownIt('commonmark', {'html': False, 'maxNesting': 20}).enable(['
 
 def published_essays():
     return {item.depth: item for item in TopicEssayPublication.objects.all()}
+
+
+def public_essay_label(item, fallback):
+    if item.source_path == SOURCE_PATHS.get(item.depth):
+        return SOURCE_FILES[item.depth][1]
+    return fallback
 
 
 def _public_essay(item):
@@ -39,7 +46,10 @@ def _public_essay(item):
     for token in tokens:
         if token.type in {'heading_open', 'heading_close'}:
             token.tag = f'h{min(6, int(token.tag[1]) + 2)}'
-    return {'title': title, 'html': MARKDOWN.renderer.render(tokens, MARKDOWN.options, env)}
+    label = public_essay_label(item, '')
+    if label and not title:
+        title = SOURCE_FILES[item.depth][2]
+    return {'title': title, 'label': label, 'html': MARKDOWN.renderer.render(tokens, MARKDOWN.options, env)}
 
 
 @never_cache
@@ -48,6 +58,15 @@ def public_topic_essays(request):
     return JsonResponse({'ok': True, 'essays': {
         depth: _public_essay(item) for depth, item in published_essays().items()
     }})
+
+
+def read_essay_markdown(response):
+    raw = bytearray()
+    for chunk in response.iter_content(chunk_size=65536):
+        raw.extend(chunk)
+        if len(raw) > MAX_SOURCE_BYTES:
+            raise ValueError('essay_file_too_large')
+    return raw.decode('utf-8-sig')
 
 
 def _source_markdown(project, user, path, expected_etag):
@@ -70,12 +89,7 @@ def _source_markdown(project, user, path, expected_etag):
             raise PermissionError('essay_file_access_required')
         if response.status_code != 200 or response.headers.get('ETag') != expected_etag:
             return None
-        raw = bytearray()
-        for chunk in response.iter_content(chunk_size=65536):
-            raw.extend(chunk)
-            if len(raw) > MAX_SOURCE_BYTES:
-                raise ValueError('essay_file_too_large')
-    markdown = raw.decode('utf-8-sig')
+        markdown = read_essay_markdown(response)
     if obj:
         markdown = decode(obj, markdown)['body']
     if not markdown.strip() or '\x00' in markdown:
@@ -90,12 +104,13 @@ def _state(project, user, path):
         'can_bind': can_manage(user, project),
         'slots': {
             depth: {
-                'label': label,
+                'label': SOURCE_FILES[depth][1] if is_topic_essay_source(project, path) else label,
                 'linked': bool(depth in items and (items[depth].project_id, items[depth].source_path) == (project.pk, path)),
                 'occupied': depth in items,
                 'version': items[depth].published_at.isoformat() if depth in items else '',
             }
             for depth, label in TopicEssayPublication.Depth.choices
+            if not is_topic_essay_source(project, path) or SOURCE_PATHS[depth] == path
         },
     }
 
@@ -115,6 +130,7 @@ def project_topic_essays(request, project_id):
         etag = data.get('etag')
         version = data.get('version')
         if (depth not in TopicEssayPublication.Depth.values
+                or (is_topic_essay_source(project, path) and path != SOURCE_PATHS[depth])
                 or len(path) > 800 or path == 'project.md' or '//' in path
                 or PurePosixPath(path).suffix.lower() != '.md'
                 or not isinstance(etag, str) or not 0 < len(etag) <= 255
