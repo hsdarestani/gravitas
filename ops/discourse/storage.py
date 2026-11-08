@@ -3,13 +3,14 @@
 SeaweedFS runs as a separate, constrained system account. Only two bucket paths
 are exposed over verified HTTPS; filer/master/admin endpoints stay on loopback.
 Discourse's supported CDN URL and AWS SDK path-style configuration let both apps
-share the forum hostname without rewriting signed S3 request paths.
+reuse GraviQuest's existing HTTPS hostname without rewriting signed S3 paths.
 """
 import hashlib
 import json
 import os
 from pathlib import Path
 import pwd
+import re
 import secrets
 import socket
 import subprocess
@@ -24,7 +25,7 @@ BASE = Path('/etc/graviquest-objectstore')
 FORUM_CONFIG = Path('/etc/gravitas/forum.json')
 NGINX = Path('/etc/nginx')
 DATA = Path('/var/lib/graviquest-objectstore')
-ENDPOINT = 'https://forum.graviquest.com'
+ENDPOINT = 'https://graviquest.com'
 BUCKETS = ('graviquest-uploads', 'graviquest-backups')
 SERVICE = 'graviquest-objectstore'
 PORTS = (18890, 18893, 18894, 18895, 28890, 28893, 28894, 28895)
@@ -53,6 +54,8 @@ def setup():
     if path.exists():
         cfg=state()
         assert cfg['managed_by']=='graviquest-objectstore', 'Unrecognized storage installation'
+        cfg.update(endpoint=ENDPOINT, version=VERSION)
+        write(path,json.dumps(cfg,indent=2))
     else:
         assert not forum.get('DISCOURSE_S3_ACCESS_KEY_ID'), 'Existing S3 credentials must not be replaced'
         for port in PORTS:
@@ -191,6 +194,38 @@ server {
         raise RuntimeError('New storage virtual host rejected; previous nginx configuration restored') from None
 
 
+def nginx_main():
+    """Add only two isolated bucket routes to the existing, verified TLS host.
+
+    Forum DNS currently points elsewhere. Reuse the working apex certificate
+    without changing any existing API, Workspace, Lab or static route.
+    """
+    path=NGINX/'sites-available/gravitas'
+    snippet=NGINX/'snippets/graviquest-storage.conf'
+    old=path.read_text()
+    old_snippet=snippet.read_text() if snippet.exists() else None
+    assert old_snippet is None or not old_snippet.strip() or old_snippet.startswith('# Managed GraviQuest S3'), 'Unmanaged storage routing must not be overwritten'
+    anchor=r'(?m)^([ \t]*)ssl_certificate /etc/letsencrypt/live/graviquest.com/fullchain.pem;$'
+    assert len(re.findall(anchor,old))==1, 'Expected the existing GraviQuest TLS certificate exactly once'
+    include='include /etc/nginx/snippets/graviquest-storage*.conf;'
+    assert not any(re.search(r'location\s+(?:=\s+|\^~\s+)?/'+bucket+r'(?:/|\s|\{)',old) for bucket in BUCKETS), 'Existing bucket paths must not be replaced'
+    if include not in old:
+        updated=re.sub(anchor,lambda match:match.group(1)+include+'\n'+match.group(0),old)
+    else:
+        updated=old
+    snippets()
+    write(path,updated,0o644)
+    try:
+        command(['nginx','-t']); command(['systemctl','reload','nginx'])
+    except subprocess.CalledProcessError:
+        write(path,old,0o644)
+        if old_snippet is None: snippet.unlink(missing_ok=True)
+        else: write(snippet,old_snippet,0o644)
+        command(['nginx','-t']); command(['systemctl','reload','nginx'])
+        raise RuntimeError('Storage routes rejected; previous GraviQuest nginx configuration restored') from None
+    print('Added only the two S3 bucket paths to existing GraviQuest HTTPS; all existing routes preserved.')
+
+
 def sdk(endpoint, role='forum', unsigned=False):
     import boto3
     from botocore import UNSIGNED
@@ -277,7 +312,7 @@ if __name__=='__main__':
     assert os.geteuid()==0, 'Run as root through the authorized deployment workflow'
     mode=sys.argv[1]
     try:
-        {'setup':setup,'http':lambda:nginx(False),'https':lambda:nginx(True),
+        {'setup':setup,'http':lambda:nginx(False),'https':lambda:nginx(True),'main-https':nginx_main,
          'provision':provision,'verify':verify,'connect':connect}[mode]()
     except Exception as exc:
         if isinstance(exc,(AssertionError,RuntimeError)):

@@ -30,15 +30,16 @@ fi
 PYTHON=/opt/graviquest-objectstore/venv/bin/python
 "$PYTHON" /opt/graviquest-objectstore/storage.py setup
 "$PYTHON" /opt/graviquest-objectstore/storage.py provision
-install -d -m 755 /var/www/gravitas-forum-acme/.well-known/acme-challenge
-if [ ! -f /etc/letsencrypt/live/forum.graviquest.com/fullchain.pem ]; then
-  "$PYTHON" /opt/graviquest-objectstore/storage.py http
-  certbot certonly --webroot -w /var/www/gravitas-forum-acme -d forum.graviquest.com --non-interactive --keep-until-expiring
-fi
-"$PYTHON" /opt/graviquest-objectstore/storage.py https
+# Reuse the existing, valid apex TLS certificate. Forum A/AAAA currently point
+# to a different host, so this installation must not depend on new DNS or ACME.
+curl -fsS --max-time 15 https://graviquest.com/api/health/ >/dev/null
+"$PYTHON" /opt/graviquest-objectstore/storage.py main-https
 "$PYTHON" /opt/graviquest-objectstore/storage.py verify
 "$PYTHON" /opt/graviquest-objectstore/storage.py connect
 systemctl is-active --quiet graviquest-objectstore
 # Existing shared backend and containers are inspected, not restarted.
 curl -fsS --max-time 10 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ >/dev/null
+curl -fsS --max-time 15 https://graviquest.com/api/health/ >/dev/null
+curl -fsS --max-time 15 https://graviquest.com/forum.html >/dev/null
+curl -fsS --max-time 15 https://graviquest.com/ >/dev/null
 echo 'Private self-hosted S3 installed and verified; existing GraviQuest backend remains healthy.'

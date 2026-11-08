@@ -13,6 +13,36 @@ def storage():
 
 
 class StorageIsolationTests(unittest.TestCase):
+    def main_site(self,app,folder):
+        app.NGINX=Path(folder)
+        (app.NGINX/'sites-available').mkdir();(app.NGINX/'snippets').mkdir()
+        site=app.NGINX/'sites-available/gravitas'
+        site.write_text('server {\n    listen 443 ssl;\n    server_name graviquest.com;\n    ssl_certificate /etc/letsencrypt/live/graviquest.com/fullchain.pem;\n    location ^~ /api/ { proxy_pass http://127.0.0.1:8000; }\n    location / { try_files $uri $uri/ /index.html; }\n}\n')
+        return site
+
+    def test_existing_main_routes_survive_storage_insertion_and_repeat(self):
+        app=storage()
+        with tempfile.TemporaryDirectory() as folder:
+            site=self.main_site(app,folder);old=site.read_text()
+            with patch.object(app,'command'):
+                app.nginx_main();app.nginx_main()
+            include='    include /etc/nginx/snippets/graviquest-storage*.conf;\n'
+            self.assertEqual(site.read_text().replace(include,''),old)
+            self.assertEqual(site.read_text().count(include),1)
+            snippet=(app.NGINX/'snippets/graviquest-storage.conf').read_text()
+            self.assertIn('location = /graviquest-uploads {',snippet)
+            self.assertIn('location ^~ /graviquest-uploads/ {',snippet)
+            self.assertNotIn('location / {',snippet)
+
+    def test_rejected_main_tls_routes_restore_all_original_bytes(self):
+        app=storage()
+        with tempfile.TemporaryDirectory() as folder:
+            site=self.main_site(app,folder);old=site.read_text()
+            with patch.object(app,'command',side_effect=[subprocess.CalledProcessError(1,['nginx','-t']),None,None]):
+                with self.assertRaises(RuntimeError):app.nginx_main()
+            self.assertEqual(site.read_text(),old)
+            self.assertFalse((app.NGINX/'snippets/graviquest-storage.conf').exists())
+
     def test_s3_connection_preserves_existing_sso_and_mail_credentials(self):
         app=storage()
         with tempfile.TemporaryDirectory() as folder:
@@ -24,7 +54,7 @@ class StorageIsolationTests(unittest.TestCase):
             app.connect()
             actual=json.loads(app.FORUM_CONFIG.read_text())
             self.assertEqual({key:actual[key] for key in existing},existing)
-            self.assertEqual(actual['DISCOURSE_S3_ENDPOINT'],'https://forum.graviquest.com')
+            self.assertEqual(actual['DISCOURSE_S3_ENDPOINT'],'https://graviquest.com')
             self.assertEqual(app.FORUM_CONFIG.stat().st_mode&0o777,0o600)
 
     def test_invalid_nginx_change_restores_previous_forum_and_storage_routes(self):
