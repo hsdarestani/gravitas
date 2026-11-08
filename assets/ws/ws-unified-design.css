@@ -1088,21 +1088,34 @@ html .au-modal {
   color: var(--g-accent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--g-accent) 50%, transparent);
 }
-/* The body on the orbit: a 6px dot drawn at the top of a ring-sized layer,
-   which is then rotated to sit on the upper right of the ring. */
+/* The body on the orbit: a real 6px circle, centred in the slot, turned and
+   pushed out by the ring's radius so its centre sits on the hairline. It was
+   a radial gradient at the top edge of a ring-sized layer, which clipped the
+   dot's upper half against that edge and its rounded corners and left an
+   oval sliver. --orbit-r is half the slot less half the 1px ring. */
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series] :is(.ws-node__icon, .fl-index-link__icon) {
+  --orbit-r: 13.5px;
+}
+#ws-index-body :is(.ws-node[data-hinted] > .ws-node__row, .fl-index-link[data-hinted]) :is(.ws-node__icon, .fl-index-link__icon) {
+  --orbit-r: 15.5px;
+}
 #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] :is(.ws-node__icon, .fl-index-link__icon)::after {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 0.5px, var(--g-accent) 3px, transparent 3.5px);
-  transform: rotate(45deg);
+  background: var(--g-accent);
+  transform: rotate(45deg) translateY(calc(-1 * var(--orbit-r)));
   animation: ws-index-orbit .6s var(--g-ease-orbit);
   pointer-events: none;
 }
 @keyframes ws-index-orbit {
-  from { transform: rotate(-45deg); }
-  to   { transform: rotate(45deg); }
+  from { transform: rotate(-45deg) translateY(calc(-1 * var(--orbit-r))); }
+  to   { transform: rotate(45deg) translateY(calc(-1 * var(--orbit-r))); }
 }
 @media (prefers-reduced-motion: reduce) {
   #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] :is(.ws-node__icon, .fl-index-link__icon)::after {
