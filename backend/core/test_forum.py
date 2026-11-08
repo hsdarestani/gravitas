@@ -199,6 +199,20 @@ class ForumPublicDataTests(TestCase):
             self.assertEqual(self.client.get('/api/forum/feed/?' + query).status_code, 400)
 
     @patch('core.forum.requests.get')
+    def test_native_nested_subcategories_are_readable_but_private_parent_stays_closed(self, get):
+        child={'id':2,'name':'Public child','slug':'public-child'}
+        private={'id':9,'name':'Private','slug':'private','read_restricted':True,
+                 'subcategory_list':[{'id':10,'name':'Private child','slug':'private-child'}]}
+        categories={'category_list':{'categories':[
+            {**self.categories['category_list']['categories'][0],'subcategory_list':[child]},private]}}
+        get.side_effect=[upstream(categories),upstream({'topic_list':{'topics':[
+            {**self.topic,'category_id':2},{**self.topic,'id':6,'category_id':10}]}})]
+        data=self.client.get('/api/forum/feed/?category=2').json()
+        self.assertEqual([t['id'] for t in data['topics']],[5])
+        self.assertEqual([c['id'] for c in data['categories']],[1,2])
+        self.assertEqual(data['categories'][1]['parent_category_id'],1)
+
+    @patch('core.forum.requests.get')
     def test_table_metadata_is_native_and_unknown_counts_are_not_invented(self, get):
         topic = {**self.topic, 'views':12, 'posters':[{'user_id':10}, {'user_id':11}]}
         get.side_effect = [upstream(self.categories), upstream({'users':[

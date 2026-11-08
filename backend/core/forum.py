@@ -77,11 +77,26 @@ def _get(path, params=None):
 
 
 def _public_categories():
-    key = 'graviquest:forum:categories:' + forum_url()
+    key = 'graviquest:forum:categories:v2:' + forum_url()
     categories = cache.get(key)
     if categories is None:
         data = _get('/categories.json', {'include_subcategories': 'true'})
-        categories = data.get('category_list', {}).get('categories', [])
+        categories, seen = [], set()
+        pending = [(c, None) for c in reversed(data.get('category_list', {}).get('categories', []))]
+        # The maintained API embeds children in subcategory_list. Accept both
+        # nested and flat responses, inheriting the private parent boundary.
+        while pending:
+            category, parent = pending.pop()
+            if category.get('read_restricted') or category['id'] in seen:
+                continue
+            seen.add(category['id'])
+            if len(seen) > 1000:
+                raise ForumUnavailable()
+            category = {**category}
+            if parent is not None:
+                category.setdefault('parent_category_id', parent)
+            categories.append(category)
+            pending.extend((c, category['id']) for c in reversed(category.get('subcategory_list', [])))
         cache.set(key, categories, 30)
     return [c for c in categories if not c.get('read_restricted')]
 
