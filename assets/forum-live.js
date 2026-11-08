@@ -98,7 +98,7 @@
     var more = document.querySelector('[data-forum-more]'), search = document.querySelector('[data-forum-search]'), counter = document.querySelector('[data-forum-count]');
     var layout = host.dataset.forumLayout;
     var page = 0, category = 0, sort = 'latest', controller, requestId = 0, categories, failedPage = false, roomSignature = '';
-    var args = new URLSearchParams(location.search), roomAliases = {open:'open-question', t1:'ai-in-research', t01:'ai-in-research', t4:'computable-universe', t04:'computable-universe', fix:'corrections', next:'propose-a-topic', lab:'lab-results', hi:'introductions'};
+    var args = new URLSearchParams(location.search), roomAliases = {open:'open-question', t1:'ai-in-research', t01:'ai-in-research', t3:'discovery', t03:'discovery', t4:'computable-universe', t04:'computable-universe', fix:'corrections', next:'propose-a-topic', lab:'lab-results', hi:'introductions'};
     var requestedRoom = roomAliases[args.get('room')] || args.get('room');
     function drawRooms() {
       var signature = JSON.stringify(categories);
@@ -129,6 +129,11 @@
         .then(function (data) {
           if (id !== requestId) return;
           categories = data.categories || [];
+          var order = ['open-question','ai-in-research','discovery','computable-universe','corrections','propose-a-topic','lab-results','introductions'];
+          categories.sort(function (a,b) {
+            var ai = order.indexOf(a.slug), bi = order.indexOf(b.slug);
+            return (ai < 0 ? order.length : ai) - (bi < 0 ? order.length : bi);
+          });
           if (requestedRoom) {
             var match = categories.find(function (c) { return c.slug === requestedRoom; });
             requestedRoom = null;

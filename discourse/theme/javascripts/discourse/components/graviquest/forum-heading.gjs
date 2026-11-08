@@ -7,7 +7,7 @@ export default class GraviQuestForumHeading extends Component {
   get allCurrent() { return this.args.outletArgs?.category ? undefined : "page"; }
   get rooms() {
     const slugs = ["open-question", "ai-in-research", "discovery", "computable-universe", "corrections", "propose-a-topic", "lab-results", "introductions", "research-discussions", "peer-review"];
-    return this.site.categories.filter((c) => slugs.includes(c.slug)).map((c) => ({
+    return slugs.map((slug) => this.site.categories.find((c) => c.slug === slug)).filter(Boolean).map((c) => ({
       id:c.id, name:c.name, url:c.url,
       current:c.id === this.args.outletArgs?.category?.id ? "page" : undefined,
     }));
