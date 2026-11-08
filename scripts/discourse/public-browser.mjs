@@ -112,7 +112,9 @@ try{
     const text=editor?.querySelector('textarea.d-editor-input')?.value||'';
     return /!\[[^\]]*\]\((?:upload:\/\/|https?:|\/secure)/.test(text)||[...editor.querySelectorAll('.ProseMirror img')].some(img=>/(?:secure-media-uploads|\/original\/|upload:\/\/)/.test(img.getAttribute('data-original-src')||img.src));
   },undefined,{timeout:60000});
-  const pending=member.page.waitForResponse(response=>new URL(response.url()).pathname==='/posts.json'&&response.request().method()==='POST');
+  // Discourse's browser client posts to /posts; its external JSON API also
+  // accepts /posts.json. Observe the actual native composer submission.
+  const pending=member.page.waitForResponse(response=>/^\/posts(?:\.json)?$/.test(new URL(response.url()).pathname)&&response.request().method()==='POST');
   await member.page.locator('#reply-control button.create').click();
   const created=await json(await pending,'Native composer submit');assert.equal(created.action,'enqueued');
   const topicId=await approve(moderator,created.pending_post.id);result.topic_id=topicId;
