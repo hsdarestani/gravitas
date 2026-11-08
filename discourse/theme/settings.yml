@@ -1,0 +1,5 @@
+next_topic_poll_id:
+  type: integer
+  default: 0
+  min: 0
+  description: "Native Discourse topic containing the current community poll. Zero hides it."

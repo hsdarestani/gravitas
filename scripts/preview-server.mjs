@@ -65,6 +65,7 @@ async function stat(p) {
 async function resolveFile(pathname) {
   const redirects = { '/account.html': '/login', '/workspace.html': '/workspace' };
   if (redirects[pathname]) return { redirect: redirects[pathname] };
+  if (pathname === '/community') return { file: path.join(ROOT, 'community.html') };
   if (pathname === '/login' || pathname === '/signup') return { file: path.join(ROOT, 'account.html') };
   if (pathname === '/workspace' || pathname.startsWith('/workspace/')) {
     /* nginx serves workspace.html for every /workspace/* path, which means a

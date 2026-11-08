@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path
+from core import forum
 
 from core.ai_mindmap import generate_mindmap_ai
 from core.annotation_api import annotation_detail, annotations
@@ -82,6 +83,14 @@ from core.sharing_consistency_api import sharing_v5
 from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
 urlpatterns = [
+    path('api/forum/config/', forum.forum_config),
+    path('api/forum/feed/', forum.forum_feed),
+    path('api/forum/discussions/<slug:content_key>/', forum.forum_discussion),
+    path('api/forum/sso/', forum.forum_sso),
+    path('api/forum/resume/', forum.forum_resume),
+    path('api/forum/avatar/<str:token>/', forum.forum_avatar),
+    path('api/forum/logout/', forum.forum_logout),
+    path('api/forum/signed-out/', forum.forum_logout_landing),
     path('admin/', admin.site.urls),
     path('api/oidc/.well-known/openid-configuration', oidc_discovery),
     path('api/oidc/authorize/', oidc_authorize),

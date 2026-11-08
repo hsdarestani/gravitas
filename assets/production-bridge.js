@@ -80,7 +80,7 @@
   };
 
   var core = document.createElement('script');
-  core.src = '/assets/production-bridge-core.js?v=20261102-ws1';
+  core.src = '/assets/production-bridge-core.js?v=20261108-forum1';
   core.async = false;
   core.onerror = function () {
     console.error('Gravitas production bridge failed to load.');

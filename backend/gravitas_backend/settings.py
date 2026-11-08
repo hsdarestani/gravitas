@@ -13,6 +13,11 @@ def _csv_env(name, default):
 
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'change-me-in-production')
+# Optional, isolated Discourse integration. Blank means unavailable, never demo.
+GRAVITAS_FORUM_URL = os.environ.get('GRAVITAS_FORUM_URL', '').rstrip('/')
+GRAVITAS_DISCOURSE_CONNECT_SECRET = os.environ.get('GRAVITAS_DISCOURSE_CONNECT_SECRET', '')
+GRAVITAS_DISCOURSE_API_KEY = os.environ.get('GRAVITAS_DISCOURSE_API_KEY', '')
+GRAVITAS_DISCOURSE_API_USERNAME = os.environ.get('GRAVITAS_DISCOURSE_API_USERNAME', 'system')
 DEBUG = os.environ.get('DJANGO_DEBUG', '0') == '1'
 ALLOWED_HOSTS = _csv_env(
     'DJANGO_ALLOWED_HOSTS',

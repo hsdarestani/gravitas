@@ -1,0 +1,6 @@
+@media(min-width:1200px){
+ body:not(.admin-interface) .list-container{position:relative;padding-right:19rem;box-sizing:border-box}
+ .gq-community-sidebar{position:absolute;right:0;top:0;width:17rem}
+ .topic-list .posters,.topic-list .views{display:none}
+}
+@media(max-width:1199px){.gq-community-sidebar{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:1.5rem}.gq-site-nav{gap:0}.gq-site-nav a{padding-inline:.5rem;font-size:.78rem}}

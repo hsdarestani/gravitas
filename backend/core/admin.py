@@ -1,4 +1,12 @@
 from django.contrib import admin
+from .forum_models import ForumDiscussion
+
+
+@admin.register(ForumDiscussion)
+class ForumDiscussionAdmin(admin.ModelAdmin):
+    list_display = ('content_key', 'discourse_topic_id', 'is_public', 'content_version')
+    search_fields = ('content_key', 'content__title')
+    readonly_fields = ('created_at',)
 
 from .models import (
     Collection,

@@ -462,7 +462,8 @@
         return response.ok ? response.json() : null;
       }).then(function (data) {
         if (data && data.authenticated) {
-          location.replace('/workspace');
+          location.replace(/(?:^|;\s*)gq_forum_continue=1(?:;|$)/.test(document.cookie)
+            ? '/api/forum/resume/' : '/workspace');
           return true;
         }
         return false;

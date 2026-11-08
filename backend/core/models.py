@@ -924,3 +924,4 @@ class PulsarResourceEmbedding(models.Model):
 # Lab records are imported here so Django's normal model discovery includes them.
 from .lab_knowledge_models import LabKnowledgeDocument, LabScenario, LabRunSnapshot, LabCoachTrial, LabConversation  # noqa: E402,F401
 from .lab_usage_models import LabUsageVisit, LabUsageEvent  # noqa: E402,F401
+from .forum_models import ForumDiscussion, ForumLogout  # noqa: E402,F401
